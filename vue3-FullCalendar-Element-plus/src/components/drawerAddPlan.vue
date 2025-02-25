@@ -30,7 +30,6 @@
             range-separator="至"
             start-placeholder="开始日期"
             end-placeholder="结束日期"
-            :default-time="['00:00:00', '23:59:59']"
           ></el-date-picker>
         </el-form-item>
         <el-form-item label="描述" prop="description">
@@ -51,6 +50,7 @@
 
 <script setup lang="ts">
 import { ref, reactive } from "vue";
+import axios from "axios";
 
 const props = defineProps(["drawerVisile"]);
 const emits = defineEmits(["update:drawerVisile"]);
@@ -60,7 +60,7 @@ const form = reactive({
   title: "",
   executor: "",
   job: "",
-  time: [],
+  time: [new Date(), new Date()],
   description: "",
 });
 
@@ -78,8 +78,30 @@ const handleClose = () => {
 const handleSubmit = () => {
   formRef.value.validate((valid: boolean) => {
     if (valid) {
-      console.log("提交成功", form);
-      handleClose();
+      // 检查并格式化日期
+      if (form.time.length === 2 && form.time[0] instanceof Date && form.time[1] instanceof Date) {
+        const startTime = form.time[0].toISOString();
+        const endTime = form.time[1].toISOString();
+
+        // 发送POST请求到后端
+        axios.post('/api/calendar-events/', {
+          title: form.title,
+          executor: form.executor,
+          job: form.job,
+          start_time: startTime,
+          end_time: endTime,
+          description: form.description,
+        })
+        .then((response: any) => {
+          console.log("提交成功", response.data);
+          handleClose();
+        })
+        .catch((error: any) => {
+          console.log("提交失败", error);
+        });
+      } else {
+        console.log("无效的日期");
+      }
     } else {
       console.log("提交失败");
       return false;
