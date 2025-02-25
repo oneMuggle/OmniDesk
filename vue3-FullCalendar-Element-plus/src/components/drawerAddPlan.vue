@@ -78,19 +78,26 @@ const handleClose = () => {
 const handleSubmit = () => {
   formRef.value.validate((valid: boolean) => {
     if (valid) {
+      // 获取 JWT Token
+      const token = localStorage.getItem('token');
+
       // 检查并格式化日期
       if (form.time.length === 2 && form.time[0] instanceof Date && form.time[1] instanceof Date) {
         const startTime = form.time[0].toISOString();
         const endTime = form.time[1].toISOString();
 
         // 发送POST请求到后端
-        axios.post('/api/calendar-events/', {
+        axios.post('/api/events/', {
           title: form.title,
           executor: form.executor,
           job: form.job,
           start_time: startTime,
           end_time: endTime,
           description: form.description,
+        }, {
+          headers: {
+            'Authorization': `Bearer ${token}`
+          }
         })
         .then((response: any) => {
           console.log("提交成功", response.data);
