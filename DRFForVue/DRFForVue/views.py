@@ -1,12 +1,10 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.generics import CreateAPIView
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer
 
-class CalendarEventViewSet(viewsets.ModelViewSet):
+from rest_framework.permissions import IsAuthenticated
+
+class CalendarEventCreateView(CreateAPIView):
+    permission_classes = [IsAuthenticated]
     queryset = CalendarEvent.objects.all()
     serializer_class = CalendarEventSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return self.queryset.filter(user=self.request.user)

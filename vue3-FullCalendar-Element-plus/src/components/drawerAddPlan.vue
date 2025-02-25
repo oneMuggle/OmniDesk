@@ -80,6 +80,8 @@ const handleSubmit = () => {
     if (valid) {
       // 获取 JWT Token
       const token = localStorage.getItem('token');
+      // 增强token有效性检查
+      const isValidToken = token && /^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_.+/=]*$/.test(token);
 
       // 检查并格式化日期
       if (form.time.length === 2 && form.time[0] instanceof Date && form.time[1] instanceof Date) {
@@ -87,18 +89,15 @@ const handleSubmit = () => {
         const endTime = form.time[1].toISOString();
 
         // 发送POST请求到后端
-        axios.post('/api/events/', {
+        const headers = isValidToken ? { Authorization: `Bearer ${token}` } : {};
+        axios.post('http://localhost:8000/api/events/', {
           title: form.title,
           executor: form.executor,
           job: form.job,
           start_time: startTime,
           end_time: endTime,
           description: form.description,
-        }, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        })
+        }, { headers })
         .then((response: any) => {
           console.log("提交成功", response.data);
           handleClose();
