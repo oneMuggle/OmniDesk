@@ -1,55 +1,31 @@
 <template>
-  <el-header>
-    <div class="nav-container">
-      <div class="nav-left">
-        <el-button type="text" @click="goHome">Home</el-button>
-      </div>
-      <div class="nav-right">
-        <el-button v-if="!isAuthenticated" type="primary" @click="goLogin">Login</el-button>
-        <el-button v-else type="danger" @click="logout">Logout</el-button>
-      </div>
-    </div>
-  </el-header>
+  <el-menu
+    mode="horizontal"
+    :default-active="route.path"
+    router
+    background-color="#545c64"
+    text-color="#fff"
+    active-text-color="#ffd04b"
+  >
+    <el-menu-item index="/">Home</el-menu-item>
+    <el-menu-item index="/main">Main</el-menu-item>
+    <el-menu-item index="/calendar">Calendar</el-menu-item>
+    <el-menu-item index="/login" style="float: right">Login</el-menu-item>
+  </el-menu>
 </template>
 
-<script setup>
-import { useRouter } from 'vue-router'
-import { useAuthStore } from '../stores/auth'
-
-const router = useRouter()
-const authStore = useAuthStore()
-
-const isAuthenticated = computed(() => !!authStore.accessToken)
-
-const goHome = () => {
-  router.push('/')
-}
-
-const goLogin = () => {
-  router.push('/login')
-}
-
-const logout = () => {
-  authStore.logout()
-  router.push('/login')
-}
+<script setup lang="ts">
+import { useRoute } from 'vue-router'
+const route = useRoute()
 </script>
 
+
 <style scoped>
-.nav-container {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0 20px;
-}
-
-.nav-left {
-  display: flex;
-  align-items: center;
-}
-
-.nav-right {
-  display: flex;
-  align-items: center;
+.el-menu {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
 }
 </style>

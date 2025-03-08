@@ -1,0 +1,50 @@
+.calendar-page {
+  padding: 20px;
+  background: linear-gradient(135deg, var(--bg-color) 0%, #ffffff 100%);
+  min-height: 100vh;
+}
+
+.calendar-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  background: white;
+  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  height: calc(100vh - 100px);
+  display: flex;
+  flex-direction: column;
+}
+
+.fc {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  color: var(--text-color);
+  height: 100%;
+}
+
+.fc-view-harness {
+  flex: 1;
+  min-height: 500px;
+  height: 100% !important;
+  contain: content;
+}
+
+.fc-header-toolbar {
+  margin-bottom: 1.5em;
+  padding: 0.5em;
+  background: var(--bg-color);
+  border-radius: 8px;
+}
+
+/* 保留原有事件样式... */
+
+/* 性能优化 */
+.fc-daygrid-day-frame,
+.fc-event {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+/* 删除所有重复的 will-change 声明 */
+
+/* 保留其他媒体查询和暗黑模式样式... */

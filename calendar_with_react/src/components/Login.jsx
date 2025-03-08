@@ -1,0 +1,73 @@
+import React, { useState, useContext } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import './Login.css';
+
+const Login = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!username || !password) {
+      setError('请输入用户名和密码');
+      return;
+    }
+    
+    try {
+      setIsLoading(true);
+      setError('');
+      
+      // 模拟API调用
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      if (username === 'admin' && password === 'admin123') {
+        login({ username });
+        navigate('/');
+      } else {
+        throw new Error('无效的凭证');
+      }
+    } catch (err) {
+      setError(err.message || '登录失败，请重试');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  return (
+    <div className="login-container">
+      <form onSubmit={handleSubmit}>
+        <h2>登录</h2>
+        {error && <div className="error-message">{error}</div>}
+        <div className="form-group">
+          <label>用户名</label>
+          <input
+            type="text"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            required
+          />
+        </div>
+        <div className="form-group">
+          <label>密码</label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+          />
+        </div>
+        <button type="submit" disabled={isLoading}>
+          {isLoading ? '登录中...' : '登录'}
+        </button>
+      </form>
+    </div>
+  );
+};
+
+export default Login;
