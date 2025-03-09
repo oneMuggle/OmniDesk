@@ -11,7 +11,7 @@
   padding: 20px;
   border-radius: 12px;
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  height: calc(100vh - 100px);
+  min-height: 90vh;
   display: flex;
   flex-direction: column;
 }
@@ -24,9 +24,9 @@
 
 .fc-view-harness {
   flex: 1;
-  min-height: 500px;
-  height: 100% !important;
+  min-height: 600px;
   contain: content;
+  overflow: visible !important;
 }
 
 .fc-header-toolbar {
