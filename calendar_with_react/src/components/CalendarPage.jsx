@@ -5,6 +5,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import { Tooltip } from 'react-tooltip';
+import { Modal, Input, Button } from 'antd';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
@@ -12,6 +13,9 @@ const CalendarPage = () => {
     { title: 'Meeting', start: new Date() }
   ]);
   const [darkMode, setDarkMode] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(null);
+  const [modalType, setModalType] = useState('new'); // 'view' | 'edit' | 'new'
+  const [currentEvent, setCurrentEvent] = useState(null);
 
   useEffect(() => {
     document.body.classList.toggle('dark-mode', darkMode);
@@ -22,14 +26,39 @@ const CalendarPage = () => {
   };
 
   const handleDateClick = (arg) => {
-    const title = prompt('请输入事件标题：');
-    if (title) {
-      setEvents([...events, {
-        title: title,
-        start: arg.date,
+    const clickedDate = arg.date;
+    const existingEvent = events.find(event => 
+      new Date(event.start).toDateString() === clickedDate.toDateString()
+    );
+
+    setSelectedDate(clickedDate);
+    if (existingEvent) {
+      setCurrentEvent(existingEvent);
+      setModalType('view');
+    } else {
+      setCurrentEvent({
+        title: '',
+        start: clickedDate,
         allDay: arg.allDay
-      }]);
+      });
+      setModalType('new');
     }
+  };
+
+  const handleEventSubmit = (newEvent) => {
+    if (modalType === 'new') {
+      setEvents([...events, newEvent]);
+    } else {
+      setEvents(events.map(event => 
+        event.start === currentEvent.start ? newEvent : event
+      ));
+    }
+    setCurrentEvent(null);
+  };
+
+  const handleDeleteEvent = () => {
+    setEvents(events.filter(event => event.start !== currentEvent.start));
+    setCurrentEvent(null);
   };
 
   return (
@@ -69,6 +98,42 @@ const CalendarPage = () => {
           firstDay={1}
         />
       </div>
+
+      <Modal
+        title={modalType === 'view' ? '查看事件' : modalType === 'edit' ? '编辑事件' : '新建事件'}
+        open={!!currentEvent}
+        onCancel={() => setCurrentEvent(null)}
+        footer={[
+          modalType === 'view' && (
+            <Button key="edit" type="primary" onClick={() => setModalType('edit')}>
+              编辑
+            </Button>
+          ),
+          modalType === 'edit' && (
+            <Button key="delete" danger onClick={handleDeleteEvent}>
+              删除
+            </Button>
+          ),
+          <Button 
+            key="submit" 
+            type="primary" 
+            onClick={() => handleEventSubmit(currentEvent)}
+            disabled={modalType === 'view'}
+          >
+            {modalType === 'view' ? '关闭' : '保存'}
+          </Button>
+        ]}
+      >
+        <Input
+          placeholder="事件标题"
+          value={currentEvent?.title || ''}
+          onChange={(e) => setCurrentEvent({...currentEvent, title: e.target.value})}
+          disabled={modalType === 'view'}
+          style={{ marginBottom: 16 }}
+        />
+        <p>日期：{currentEvent?.start.toLocaleDateString()}</p>
+        {modalType !== 'new' && <p>创建时间：{currentEvent?.start.toLocaleString()}</p>}
+      </Modal>
     </div>
   );
 };
