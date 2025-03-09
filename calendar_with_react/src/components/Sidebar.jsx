@@ -1,4 +1,4 @@
-import React, { useContext, useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -62,7 +62,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
                 <Link
                   to={item.to}
                   className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
-                  onClick={isMobileMenuOpen ? toggleMobileMenu : null}
+                  onClick={() => isMobileMenuOpen && toggleMobileMenu()}
                   title={isCollapsed ? item.text : ''}
                 >
                   <div className="menu-item-content">

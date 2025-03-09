@@ -1,45 +1,24 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
-import Home from '../components/HelloWorld';
 import CalendarPage from '../components/CalendarPage';
-import Login from '../components/Login';
-import ProtectedRoute from '../components/ProtectedRoute';
+import SettingsPage from '../components/SettingsPage';
+import EventsPage from '../components/EventsPage'; 
+import NotificationsPage from '../components/NotificationsPage';
+import ProfilePage from '../components/ProfilePage';
 
 const router = createBrowserRouter([
   {
-    path: '/',
+    path: "/",
     element: <App />,
     children: [
-      {
-        path: '/',
-        element: <Home />
-      },
-      {
-        path: '/login',
-        element: <Login />
-      },
-      {
-        path: '/calendar',
-        element: <ProtectedRoute><CalendarPage /></ProtectedRoute>
-      },
-      {
-        path: '/settings',
-        element: <ProtectedRoute><div>设置页面</div></ProtectedRoute>
-      },
-      {
-        path: '/events',
-        element: <ProtectedRoute><div>事件页面</div></ProtectedRoute>
-      },
-      {
-        path: '/notifications',
-        element: <ProtectedRoute><div>通知页面</div></ProtectedRoute>
-      },
-      {
-        path: '/profile',
-        element: <ProtectedRoute><div>个人资料页面</div></ProtectedRoute>
-      }
+      { index: true, element: <Navigate to="calendar" replace /> },
+      { path: "calendar", element: <CalendarPage /> },
+      { path: "settings", element: <SettingsPage /> },
+      { path: "events", element: <EventsPage /> },
+      { path: "notifications", element: <NotificationsPage /> },
+      { path: "profile", element: <ProfilePage /> }
     ]
-  }
-]);
+  },
+], { basename: "/" });
 
 export default router;
