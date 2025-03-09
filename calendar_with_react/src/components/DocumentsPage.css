@@ -1,0 +1,45 @@
+.documents-container {
+  padding: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.upload-section {
+  margin-bottom: 24px;
+}
+
+.upload-section .ant-upload.ant-upload-drag {
+  background-color: #fafafa;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.preview-section {
+  border: 1px solid #f0f0f0;
+  border-radius: 8px;
+  padding: 24px;
+}
+
+.content-preview {
+  max-height: 600px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fff;
+  border-radius: 4px;
+}
+
+.content-preview img {
+  max-width: 100%;
+  height: auto;
+}
+
+.content-preview table {
+  border-collapse: collapse;
+  margin: 12px 0;
+}
+
+.content-preview td, 
+.content-preview th {
+  border: 1px solid #ddd;
+  padding: 8px;
+}
