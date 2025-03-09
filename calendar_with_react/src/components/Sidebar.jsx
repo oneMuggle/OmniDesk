@@ -1,4 +1,4 @@
-import React, { useState, useContext } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -11,7 +11,8 @@ import {
   faUser,
   faSignOutAlt,
   faTasks,
-  faChevronLeft
+  faChevronLeft,
+  faSignInAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -56,7 +57,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/settings", icon: faCog, text: "设置" },
               { to: "/events", icon: faTasks, text: "事件" },
               { to: "/notifications", icon: faBell, text: "通知" },
-              { to: "/profile", icon: faUser, text: "个人资料" }
+              { to: "/profile", icon: faUser, text: "个人资料" },
+              { to: "/login", icon: faSignInAlt, text: "登录" }
             ].map((item, index) => (
               <li key={index}>
                 <Link

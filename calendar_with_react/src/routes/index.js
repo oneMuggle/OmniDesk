@@ -5,6 +5,7 @@ import SettingsPage from '../components/SettingsPage';
 import EventsPage from '../components/EventsPage'; 
 import NotificationsPage from '../components/NotificationsPage';
 import ProfilePage from '../components/ProfilePage';
+import Login from '../components/Login';
 
 const router = createBrowserRouter([
   {
@@ -16,7 +17,8 @@ const router = createBrowserRouter([
       { path: "settings", element: <SettingsPage /> },
       { path: "events", element: <EventsPage /> },
       { path: "notifications", element: <NotificationsPage /> },
-      { path: "profile", element: <ProfilePage /> }
+      { path: "profile", element: <ProfilePage /> },
+      { path: "login", element: <Login /> }
     ]
   },
 ], { basename: "/" });
