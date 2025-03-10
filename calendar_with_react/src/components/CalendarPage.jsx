@@ -91,7 +91,21 @@ const CalendarPage = () => {
             day: '日视图'
           }}
           events={events}
-          dateClick={handleDateClick}
+          dateClick={(arg) => {
+            setCurrentEvent({
+              title: '',
+              start: arg.date,
+              allDay: arg.allDay
+            });
+            setModalType('new');
+          }}
+          eventClick={(clickInfo) => {
+            setCurrentEvent({
+              ...clickInfo.event.toPlainObject(),
+              start: new Date(clickInfo.event.start)
+            });
+            setModalType('view');
+          }}
           editable={true}
           selectable={true}
           height="auto"
