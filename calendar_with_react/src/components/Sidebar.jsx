@@ -63,19 +63,17 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/documents", icon: faFileWord, text: "文档管理" }
             ].map((item, index) => (
               <li key={index}>
-                <a
-                  href={item.to}
+                <Link
+                  to={item.to}
                   className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
                   onClick={() => isMobileMenuOpen && toggleMobileMenu()}
                   title={isCollapsed ? item.text : ''}
-                  target="_blank"
-                  rel="noopener noreferrer"
                 >
                   <div className="menu-item-content">
                     <FontAwesomeIcon icon={item.icon} className="icon" />
                     {!isCollapsed && <span>{item.text}</span>}
                   </div>
-                </a>
+                </Link>
               </li>
             ))}
             <li>
