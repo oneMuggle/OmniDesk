@@ -1,13 +1,28 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Slider from 'react-slick';
 import './AnnouncementsPage.css';
 
 const AnnouncementsPage = () => {
-  const announcements = [
-    { id: 1, content: '系统维护通知：3月15日 2:00-4:00' },
-    { id: 2, content: '新版功能说明会将于3月20日举行' },
-    { id: 3, content: '用户隐私政策更新公告' }
-  ];
+  const [announcements, setAnnouncements] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      try {
+        const response = await fetch('/api/announcements');
+        if (!response.ok) throw new Error('获取公告失败');
+        const data = await response.json();
+        setAnnouncements(data);
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
 
   const settings = {
     dots: true,
@@ -22,13 +37,21 @@ const AnnouncementsPage = () => {
   return (
     <div className="announcements-container">
       <h2>系统公告</h2>
-      <Slider {...settings}>
-        {announcements.map((item) => (
-          <div key={item.id} className="announcement-slide">
-            <div className="announcement-content">{item.content}</div>
-          </div>
-        ))}
-      </Slider>
+      {loading ? (
+        <div className="loading-indicator">加载中...</div>
+      ) : error ? (
+        <div className="error-message">⚠️ {error}</div>
+      ) : announcements.length > 0 ? (
+        <Slider {...settings}>
+          {announcements.map((item) => (
+            <div key={item.id} className="announcement-slide">
+              <div className="announcement-content">{item.content}</div>
+            </div>
+          ))}
+        </Slider>
+      ) : (
+        <div className="no-announcements">暂无系统公告</div>
+      )}
     </div>
   );
 };
