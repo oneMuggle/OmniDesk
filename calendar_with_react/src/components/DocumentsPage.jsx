@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Upload, Button, message } from 'antd';
 import mammoth from 'mammoth';
 import { InboxOutlined } from '@ant-design/icons';
+import ChatInterface from './ChatInterface';
 import './DocumentsPage.css';
 
 const { Dragger } = Upload;
@@ -40,6 +41,7 @@ const DocumentsPage = () => {
 
   return (
     <div className="documents-container">
+      <ChatInterface />
       <div className="upload-section">
         <Dragger
           name="file"
