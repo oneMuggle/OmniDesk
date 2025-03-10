@@ -13,7 +13,8 @@ import {
   faTasks,
   faChevronLeft,
   faSignInAlt,
-  faFileWord
+  faFileWord,
+  faBullhorn
 } from '@fortawesome/free-solid-svg-icons';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -60,7 +61,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/notifications", icon: faBell, text: "通知" },
               { to: "/profile", icon: faUser, text: "个人资料" },
               { to: "/login", icon: faSignInAlt, text: "登录" },
-              { to: "/documents", icon: faFileWord, text: "文档管理" }
+              { to: "/documents", icon: faFileWord, text: "文档管理" },
+              { to: "/announcements", icon: faBullhorn, text: "公告栏" }
             ].map((item, index) => (
               <li key={index}>
                 <Link

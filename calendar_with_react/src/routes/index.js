@@ -7,6 +7,7 @@ import NotificationsPage from '../components/NotificationsPage';
 import ProfilePage from '../components/ProfilePage';
 import Login from '../components/Login';
 import DocumentsPage from '../components/DocumentsPage';
+import AnnouncementsPage from '../components/AnnouncementsPage';
 
 const router = createBrowserRouter([
   {
@@ -20,7 +21,8 @@ const router = createBrowserRouter([
       { path: "notifications", element: <NotificationsPage /> },
       { path: "profile", element: <ProfilePage /> },
       { path: "login", element: <Login /> },
-      { path: "documents", element: <DocumentsPage /> }
+      { path: "documents", element: <DocumentsPage /> },
+      { path: "announcements", element: <AnnouncementsPage /> }
     ]
   },
 ], { basename: "/" });

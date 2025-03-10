@@ -1,0 +1,94 @@
+.announcements-container {
+  padding: 20px;
+  max-width: 800px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.announcements-container h2 {
+  width: 100%;
+  text-align: center;
+  margin-bottom: 20px;
+  position: relative;
+  z-index: 1;
+}
+
+/* 添加轮播容器定位 */
+.slick-list {
+  width: 100%;
+  overflow: visible;
+}
+
+.slick-track {
+  display: flex !important;
+}
+
+.slick-slide {
+  padding: 0 15px;
+  height: auto;
+  display: flex !important;
+  justify-content: center;
+  align-items: center;
+}
+
+.announcements-container h2 {
+  color: #2c3e50;
+  text-align: center;
+  margin-bottom: 30px;
+}
+
+.announcement-slide {
+  background: #fff;
+  border-radius: 12px;
+  padding: 25px;
+  margin: 15px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+  transition: transform 0.3s ease;
+  border: 1px solid #e0e0e0;
+}
+
+.announcement-slide:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.announcement-content {
+  font-size: 18px;
+  color: #2c3e50;
+  line-height: 1.8;
+  text-align: center;
+  padding: 25px;
+  max-width: 700px;
+  margin: 0 auto;
+  position: relative;
+  background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 8px;
+}
+
+/* 覆盖默认slick样式 */
+.slick-prev:before,
+.slick-next:before {
+  color: #2980b9 !important;
+  font-size: 28px;
+}
+
+.slick-prev {
+  left: -35px;
+}
+
+.slick-next {
+  right: -35px;
+}
+
+.slick-dots li button:before {
+  font-size: 14px !important;
+  color: #3498db !important;
+}
+
+.slick-dots li.slick-active button:before {
+  color: #2980b9 !important;
+}
