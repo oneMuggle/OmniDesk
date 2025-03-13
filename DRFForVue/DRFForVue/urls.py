@@ -1,10 +1,9 @@
 from django.contrib import admin
-from django.urls import path
-from .views import CalendarEventCreateView, UserRegistrationView, UserLoginView
+from django.urls import path, include
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('api/events/', CalendarEventCreateView.as_view(), name='create-event'),
-    path('api/register/', UserRegistrationView.as_view(), name='register'),
-    path('api/login/', UserLoginView.as_view(), name='login'),
+    path('api/auth/', include('users.urls')),
+    path('api/events/', include('events.urls')),
+    path('api/auth/', include('rest_framework.urls')),  # 添加DRF的登录视图
 ]
