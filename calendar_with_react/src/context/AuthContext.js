@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
+import { ApiProvider } from './ApiProvider.jsx';
 
-const AuthContext = createContext();
+export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -29,9 +30,18 @@ export function AuthProvider({ children }) {
     // 清除存储的token
   };
 
+  const value = {
+    user,
+    login,
+    logout,
+    register
+  };
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, register }}>
-      {children}
+    <AuthContext.Provider value={value}>
+      <ApiProvider>
+        {children}
+      </ApiProvider>
     </AuthContext.Provider>
   );
 }

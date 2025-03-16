@@ -1,59 +1,59 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useContext } from 'react';
+import { useApi } from '../context/ApiProvider';
+import { setApiProvider } from '../api/deepseek';
 
-const SettingsPage = () => {
-  const [apiKey, setApiKey] = useState('');
-  const [baseUrl, setBaseUrl] = useState('https://api.deepseek.com/v1');
-
-  useEffect(() => {
-    // 从localStorage加载保存的配置
-    const savedConfig = localStorage.getItem('deepseekConfig');
-    if (savedConfig) {
-      const { apiKey: savedKey, baseUrl: savedUrl } = JSON.parse(savedConfig);
-      setApiKey(savedKey);
-      setBaseUrl(savedUrl);
-    }
-  }, []);
+function SettingsPage() {
+  const { apiConfig, setApiConfig } = useApi();
+  const [formData, setFormData] = useState(apiConfig);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    localStorage.setItem('deepseekConfig', JSON.stringify({ apiKey, baseUrl }));
-    alert('配置已保存');
+    setApiConfig(formData);
+    setApiProvider(formData); // 更新API客户端配置
+  };
+
+  const handleChange = (e) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
   };
 
   return (
-    <div className="page-container">
-      <h2>系统设置</h2>
-      <div className="settings-content">
-        <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label>API Key:</label>
-            <input
-              type="password"
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-              placeholder="请输入Deepseek API密钥"
-              required
-            />
-          </div>
-          <div className="form-group">
-            <label>API 地址:</label>
-            <input
-              type="url"
-              value={baseUrl}
-              onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="请输入API基础地址"
-              required
-            />
-          </div>
-          <button type="submit" className="save-button">保存配置</button>
-        </form>
-        
-        <div className="security-note">
-          <p>安全提示：您的API密钥将加密存储在本地浏览器中</p>
+    <div className="settings-container">
+      <h2>API 配置</h2>
+      <form onSubmit={handleSubmit}>
+        <div className="form-group">
+          <label>API 密钥:</label>
+          <input
+            type="password"
+            name="apiKey"
+            value={formData.apiKey}
+            onChange={handleChange}
+          />
         </div>
-      </div>
+        <div className="form-group">
+          <label>API 端点:</label>
+          <input
+            type="url"
+            name="apiEndpoint"
+            value={formData.apiEndpoint}
+            onChange={handleChange}
+          />
+        </div>
+        <div className="form-group">
+          <label>模型名称:</label>
+          <input
+            type="text"
+            name="model"
+            value={formData.model}
+            onChange={handleChange}
+          />
+        </div>
+        <button type="submit">保存配置</button>
+      </form>
     </div>
   );
-};
+}
 
 export default SettingsPage;

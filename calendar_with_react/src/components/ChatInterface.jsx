@@ -1,8 +1,10 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Spin, FloatButton, Popover } from 'antd';
 import { CommentOutlined, SendOutlined, CloseOutlined } from '@ant-design/icons';
-import { deepseekClient } from '../api/deepseek';
+import { createClient } from '../api/deepseek';
 import './ChatInterface.css';
+
+const deepseekClient = createClient();
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
