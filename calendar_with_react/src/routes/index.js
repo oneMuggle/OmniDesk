@@ -2,6 +2,7 @@ import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
+import DeepSeekChatPage from '../components/DeepSeekChatPage';
 import EventsPage from '../components/EventsPage'; 
 import NotificationsPage from '../components/NotificationsPage';
 import ProfilePage from '../components/ProfilePage';
@@ -22,7 +23,8 @@ const router = createBrowserRouter([
       { path: "profile", element: <ProfilePage /> },
       { path: "login", element: <Login /> },
       { path: "documents", element: <DocumentsPage /> },
-      { path: "announcements", element: <AnnouncementsPage /> }
+      { path: "announcements", element: <AnnouncementsPage /> },
+      { path: "deepseek-chat", element: <DeepSeekChatPage /> }
     ]
   },
 ], { basename: "/" });

@@ -6,13 +6,20 @@ let currentConfig = {
   model: 'deepseek-chat'
 };
 
+// 新增上下文管理函数
+let conversationHistory = [];
+
 export const setApiProvider = (config) => {
   currentConfig = { ...currentConfig, ...config };
 };
 
 export const getApiConfig = () => currentConfig;
 
-export const createClient = () => {
+export const clearConversationHistory = () => {
+  conversationHistory = [];
+};
+
+export const createClient = (withContext = false) => {
   // 验证配置完整性
   if (!currentConfig.apiEndpoint || !currentConfig.apiKey) {
     throw new Error('Deepseek API配置不完整，请检查API终结点和密钥');
@@ -41,7 +48,17 @@ export const createClient = () => {
             throw new Error(`API请求失败: ${response.status} ${response.statusText}`);
           }
           
-          return params.stream ? response.body : response.json();
+          const result = params.stream ? response.body : response.data;
+          
+          if (withContext) {
+            conversationHistory.push(...params.messages);
+            conversationHistory.push(result.choices[0].message);
+            // 保持最近10轮对话上下文
+            if (conversationHistory.length > 20) {
+              conversationHistory = conversationHistory.slice(-20);
+            }
+          }
+          return result;
         }
       }
     }

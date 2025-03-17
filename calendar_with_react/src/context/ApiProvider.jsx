@@ -5,6 +5,7 @@ import { getModels } from '../api/ollama';
 export const ApiContext = createContext();
 
 export function ApiProvider({ children }) {
+  const [conversationHistory, setConversationHistory] = useState([]);
   const [apiType, setApiType] = useState(() => {
     const savedType = localStorage.getItem('apiType');
     return savedType || 'deepseek';
