@@ -5,6 +5,7 @@ import { setApiProvider } from '../api/deepseek';
 function SettingsPage() {
   const { apiConfig, setApiConfig } = useApi();
   const [formData, setFormData] = useState(apiConfig);
+  const [apiType, setApiType] = useState(apiConfig.apiType || 'deepseek');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -24,16 +25,34 @@ function SettingsPage() {
       <h2>API 配置</h2>
       <form onSubmit={handleSubmit}>
         <div className="form-group">
-          <label>API 密钥:</label>
-          <input
-            type="password"
-            name="apiKey"
-            value={formData.apiKey}
-            onChange={handleChange}
-          />
+          <label>API 提供商:</label>
+          <select
+            name="apiType"
+            value={apiType}
+            onChange={(e) => {
+              setApiType(e.target.value);
+              handleChange(e);
+            }}
+          >
+            <option value="deepseek">DeepSeek</option>
+            <option value="ollama">Ollama</option>
+          </select>
         </div>
+
+        {apiType === 'deepseek' && (
+          <div className="form-group">
+            <label>API 密钥:</label>
+            <input
+              type="password"
+              name="apiKey"
+              value={formData.apiKey || ''}
+              onChange={handleChange}
+            />
+          </div>
+        )}
+
         <div className="form-group">
-          <label>API 端点:</label>
+          <label>{apiType === 'ollama' ? '服务器地址' : 'API 端点'}:</label>
           <input
             type="url"
             name="apiEndpoint"
@@ -41,15 +60,17 @@ function SettingsPage() {
             onChange={handleChange}
           />
         </div>
-        <div className="form-group">
-          <label>模型名称:</label>
-          <input
-            type="text"
-            name="model"
-            value={formData.model}
-            onChange={handleChange}
-          />
-        </div>
+        {apiType === 'deepseek' && (
+          <div className="form-group">
+            <label>模型名称:</label>
+            <input
+              type="text"
+              name="model"
+              value={formData.model}
+              onChange={handleChange}
+            />
+          </div>
+        )}
         <button type="submit">保存配置</button>
       </form>
     </div>

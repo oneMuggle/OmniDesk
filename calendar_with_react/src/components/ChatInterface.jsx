@@ -1,7 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button, Input, Spin, FloatButton, Popover } from 'antd';
 import { CommentOutlined, SendOutlined, CloseOutlined } from '@ant-design/icons';
+import { useApi } from '../context/ApiProvider';
 import { createClient } from '../api/deepseek';
+import { chatCompletion as ollamaChat } from '../api/ollama';
 import './ChatInterface.css';
 
 const deepseekClient = createClient();
@@ -21,6 +23,8 @@ const ChatInterface = () => {
     scrollToBottom();
   }, [messages]);
 
+  const { apiType, apiConfig } = useApi();
+
   const handleSend = async () => {
     if (!inputText.trim()) return;
 
@@ -30,19 +34,20 @@ const ChatInterface = () => {
     setLoading(true);
 
     try {
-      const completion = await deepseekClient.chat.completions.create({
-        model: 'deepseek-chat',
+      const apiHandler = apiType === 'ollama' ? ollamaChat : createClient(apiConfig).chat.completions;
+      
+      const response = await apiHandler.create({
+        model: apiConfig.model,
         messages: [
           { role: 'system', content: '你是一个专业的文档助手，帮助用户分析和修改文档内容' },
           ...messages,
           newMessage
-        ],
-        stream: false,
+        ]
       });
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: completion.choices[0].message.content }
+        { role: 'assistant', content: response.content }
       ]);
     } catch (error) {
       setMessages(prev => [
