@@ -44,7 +44,7 @@ const DeepSeekChatPage = () => {
   return (
     <div className="deepseek-chat-container">
       <div className="chat-messages">
-        {messages.map((msg, index) => (
+        {(messages || []).map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>
             <div className="message-content">
               {msg.content}
