@@ -28,6 +28,16 @@ export const chatCompletion = async (config, messages) => {
   }
 };
 
+export const getModels = async () => {
+  try {
+    const response = await ollamaClient.get('/v1/models');
+    return response.data.data.map(model => model.id.replace(/^models\//, ''));
+  } catch (error) {
+    console.error('获取模型列表失败:', error);
+    throw new Error(`无法获取模型列表: ${error.message}`);
+  }
+};
+
 export const setApiProvider = (config) => {
   ollamaClient.defaults.baseURL = config.apiEndpoint;
 };

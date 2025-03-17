@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import axios from 'axios';
+import { getModels } from '../api/ollama';
 
 export const ApiContext = createContext();
 
@@ -54,7 +55,8 @@ export function ApiProvider({ children }) {
     },
     setApiConfig: (newConfig) => {
       setApiConfig(prev => ({ ...prev, ...newConfig }));
-    }
+    },
+    getModels
   };
 
   return (

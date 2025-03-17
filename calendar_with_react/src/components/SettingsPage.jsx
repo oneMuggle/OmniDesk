@@ -1,11 +1,34 @@
-import React, { useState, useContext } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
 import { setApiProvider } from '../api/deepseek';
 
 function SettingsPage() {
-  const { apiConfig, setApiConfig } = useApi();
+  const { apiConfig, setApiConfig, getModels } = useApi();
   const [formData, setFormData] = useState(apiConfig);
   const [apiType, setApiType] = useState(apiConfig.apiType || 'deepseek');
+  const [models, setModels] = useState([]);
+  const [isLoadingModels, setIsLoadingModels] = useState(false);
+  const [modelError, setModelError] = useState('');
+
+  useEffect(() => {
+    const fetchModels = async () => {
+      if (apiType === 'ollama') {
+        setIsLoadingModels(true);
+        setModelError('');
+        try {
+          const modelList = await getModels();
+          setModels(modelList);
+        } catch (error) {
+          setModelError('无法加载模型列表，请检查服务器连接');
+          console.error(error);
+        } finally {
+          setIsLoadingModels(false);
+        }
+      }
+    };
+
+    fetchModels();
+  }, [apiType, getModels]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -60,7 +83,7 @@ function SettingsPage() {
             onChange={handleChange}
           />
         </div>
-        {apiType === 'deepseek' && (
+        {apiType === 'deepseek' ? (
           <div className="form-group">
             <label>模型名称:</label>
             <input
@@ -69,6 +92,28 @@ function SettingsPage() {
               value={formData.model}
               onChange={handleChange}
             />
+          </div>
+        ) : (
+          <div className="form-group">
+            <label>选择模型:</label>
+            {isLoadingModels ? (
+              <div>正在加载可用模型...</div>
+            ) : modelError ? (
+              <div className="error-message">{modelError}</div>
+            ) : (
+              <select
+                name="model"
+                value={formData.model}
+                onChange={handleChange}
+                disabled={models.length === 0}
+              >
+                {models.map(model => (
+                  <option key={model} value={model}>
+                    {model}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
         <button type="submit">保存配置</button>
