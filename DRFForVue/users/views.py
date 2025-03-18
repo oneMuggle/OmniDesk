@@ -1,28 +1,32 @@
 from rest_framework import generics, permissions, status
 from rest_framework.response import Response
-from .models import CustomUser
-from .serializers import CustomUserSerializer, CustomTokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
+from .models import CustomUser
+from .serializers import (
+    UserRegisterSerializer,
+    UserDetailSerializer,
+    CustomTokenObtainPairSerializer
+)
 
-class UserRegistrationView(generics.CreateAPIView):
-    serializer_class = CustomUserSerializer
+class RegisterView(generics.CreateAPIView):
+    serializer_class = UserRegisterSerializer
     permission_classes = [permissions.AllowAny]
 
-    def create(self, request, *args, **kwargs):
+    def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
         return Response({
-            'user': CustomUserSerializer(user).data,
-            'message': 'User created successfully'
+            "user": UserDetailSerializer(user, context=self.get_serializer_context()).data,
+            "message": "User created successfully"
         }, status=status.HTTP_201_CREATED)
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
-
-class UserProfileView(generics.RetrieveAPIView):
-    serializer_class = CustomUserSerializer
+class UserDetailView(generics.RetrieveAPIView):
+    serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_object(self):
         return self.request.user
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer

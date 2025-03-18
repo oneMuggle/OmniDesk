@@ -34,17 +34,15 @@ const Login = () => {
 
       if (isRegistering) {
         const result = await register(username, password);
-        if (result.error) throw new Error(result.error);
+        if (!result.success) throw new Error(result.error);
+        // 注册成功后自动登录
+        const loginResult = await login(username, password);
+        if (!loginResult.success) throw new Error(loginResult.error);
         navigate('/');
       } else {
-        // 模拟API调用
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        if (username === 'admin' && password === 'admin123') {
-          login({ username });
-          navigate('/');
-        } else {
-          throw new Error('无效的凭证');
-        }
+        const result = await login(username, password);
+        if (!result.success) throw new Error(result.error);
+        navigate('/');
       }
     } catch (err) {
       setError(err.message || '登录失败，请重试');
