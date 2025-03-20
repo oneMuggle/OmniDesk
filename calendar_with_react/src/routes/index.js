@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import App from '../App';
+import { AuthProvider } from '../context/AuthContext';
+import { ApiProvider } from '../context/ApiProvider';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
 import DeepSeekChatPage from '../components/DeepSeekChatPage';
@@ -11,9 +13,15 @@ import DocumentsPage from '../components/DocumentsPage';
 import AnnouncementsPage from '../components/AnnouncementsPage';
 
 const router = createBrowserRouter([
-  {
+{
     path: "/",
-    element: <App />,
+    element: (
+      <AuthProvider>
+        <ApiProvider>
+          <App />
+        </ApiProvider>
+      </AuthProvider>
+    ),
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
       { path: "calendar", element: <CalendarPage /> },
