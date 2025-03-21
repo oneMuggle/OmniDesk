@@ -1,0 +1,21 @@
+# 忽略开发环境和缓存文件
+.env
+*.pyc
+__pycache__/
+*.sqlite3
+.ipynb_checkpoints
+.DS_Store
+.venv
+.env/
+venv/
+
+# 忽略静态文件
+staticfiles/
+media/
+
+# 忽略测试和构建文件
+.coverage
+htmlcov/
+dist/
+build/
+*.egg-info/

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event
+from .models import Event, DocumentTemplate
 
 class EventSerializer(serializers.ModelSerializer):
     created_by = serializers.StringRelatedField()
@@ -8,3 +8,9 @@ class EventSerializer(serializers.ModelSerializer):
         model = Event
         fields = '__all__'
         read_only_fields = ('created_by', 'created_at')
+
+class DocumentTemplateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DocumentTemplate
+        fields = '__all__'
+        read_only_fields = ('created_at',)
