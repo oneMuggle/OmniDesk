@@ -73,6 +73,19 @@
   align-items: center;
 }
 
+
+/* 点标记水平布局 */
+.slick-dots {
+  display: flex !important;
+  justify-content: center;
+  gap: 8px;
+  bottom: -30px;
+}
+
+.slick-dots li {
+  margin: 0;
+}
+
 .announcement-meta {
   margin-top: 1.2rem;
   padding-top: 1rem;
@@ -154,6 +167,32 @@
 
   .announcement-author {
     flex: 0 1 auto;
+  }
+
+  .carousel-controls {
+    position: absolute;
+    bottom: -50px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+  }
+
+  .slick-prev,
+  .slick-next {
+    position: relative;
+    top: auto;
+    left: auto;
+    right: auto;
+    bottom: auto;
+    transform: none;
+  }
+
+  .slick-dots {
+    position: relative;
+    bottom: auto;
+    gap: 12px;
   }
 }
 
