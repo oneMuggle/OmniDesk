@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
 import { setApiProvider } from '../api/deepseek';
+import axios from 'axios';
 
 function SettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
@@ -9,6 +10,38 @@ function SettingsPage() {
   const [models, setModels] = useState([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelError, setModelError] = useState('');
+  const [responsiblePersons, setResponsiblePersons] = useState([]);
+  const [newPerson, setNewPerson] = useState({ 
+    name: '', 
+    position: '', 
+    contact: '', 
+    event: '' 
+  });
+
+  // 负责人管理逻辑
+  const handleAddPerson = () => {
+    if (newPerson.name && newPerson.position) {
+      setResponsiblePersons([...responsiblePersons, { ...newPerson, id: Date.now() }]);
+      setNewPerson({ name: '', position: '', contact: '', event: '' });
+    }
+  };
+
+  const handleRemovePerson = (id) => {
+    setResponsiblePersons(responsiblePersons.filter(person => person.id !== id));
+  };
+
+  const handleSaveResponsibles = async () => {
+    try {
+      await axios.post('/api/events/responsible_persons/', {
+        responsibles: responsiblePersons.map(({id, ...rest}) => rest)
+      });
+      setResponsiblePersons([]);
+      alert('保存成功');
+    } catch (error) {
+      console.error('保存失败:', error);
+      alert('保存失败');
+    }
+  };
 
   useEffect(() => {
     const fetchModels = async () => {
@@ -118,8 +151,64 @@ function SettingsPage() {
         )}
         <button type="submit">保存配置</button>
       </form>
+
+      <div className="settings-section">
+        <h3>负责人管理</h3>
+        <div className="responsible-form">
+          <input 
+            type="text"
+            placeholder="姓名"
+            name="name"
+            value={newPerson.name || ''}
+            onChange={(e) => setNewPerson({...newPerson, name: e.target.value})}
+          />
+          <input
+            type="text"
+            placeholder="职位"
+            name="position"
+            value={newPerson.position || ''}
+            onChange={(e) => setNewPerson({...newPerson, position: e.target.value})}
+          />
+          <input
+            type="text"
+            placeholder="联系方式"
+            name="contact"
+            value={newPerson.contact || ''}
+            onChange={(e) => setNewPerson({...newPerson, contact: e.target.value})}
+          />
+          <button type="button" onClick={handleAddPerson}>添加负责人</button>
+          <input
+            type="number"
+            placeholder="关联事件ID"
+            name="event"
+            value={newPerson.event || ''}
+            onChange={(e) => setNewPerson({...newPerson, event: e.target.value})}
+          />
+        </div>
+        
+        <div className="responsible-list">
+          {responsiblePersons.map((person) => (
+            <div key={person.id} className="responsible-item">
+              <span>{person.name}</span>
+              <span>{person.position}</span>
+              <span>{person.contact}</span>
+              <span>事件ID: {person.event}</span>
+              <button type="button" onClick={() => handleRemovePerson(person.id)}>删除</button>
+            </div>
+          ))}
+        </div>
+
+        <button 
+          type="button" 
+          className="save-button"
+          onClick={handleSaveResponsibles}
+        >
+          保存到服务器
+        </button>
+      </div>
     </div>
   );
 }
+
 
 export default SettingsPage;

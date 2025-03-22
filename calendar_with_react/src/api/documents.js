@@ -15,5 +15,11 @@ export const documentAPI = {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`
     }
+  }),
+  
+  saveResponsibles: (responsibles) => axios.post(`${API_URL}/responsibles/`, responsibles, {
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
   })
 };

@@ -32,3 +32,26 @@ class DocumentTemplate(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.user.email}"
+
+class ResponsiblePerson(models.Model):
+    EVENT_TYPES = [
+        ('train', '列车调度'),
+        ('experiment', '试验项目'),
+        ('maintenance', '设备维护')
+    ]
+    
+    name = models.CharField(max_length=100, verbose_name='姓名')
+    position = models.CharField(max_length=100, verbose_name='职位')
+    contact = models.CharField(max_length=100, verbose_name='联系方式')
+    event_type = models.CharField(max_length=20, choices=EVENT_TYPES, verbose_name='事件类型', default='train')
+    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='responsibles', null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.get_event_type_display()}) - {self.position}"
+
+    class Meta:
+        verbose_name = '负责人'
+        verbose_name_plural = '负责人管理'
+        ordering = ['-updated_at']
