@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Select } from 'antd';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -9,10 +10,25 @@ import { Modal, Input, Button } from 'antd';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
-  const [events, setEvents] = useState([
+  // 不同类型日历的事件数据
+  const [defaultEvents, setDefaultEvents] = useState([
     { title: 'Meeting', start: new Date() }
   ]);
+  const [workEvents, setWorkEvents] = useState([
+    { title: '项目会议', start: new Date(), type: 'work' }
+  ]);
+  const [holidayEvents, setHolidayEvents] = useState([
+    { title: '公共假期', start: new Date(), type: 'holiday' }
+  ]);
   const [darkMode, setDarkMode] = useState(false);
+  const [calendarType, setCalendarType] = useState('default'); // 新增日历类型状态
+  
+  // 日历类型选项
+  const calendarOptions = [
+    { value: 'default', label: '默认日历' },
+    { value: 'work', label: '工作日程' },
+    { value: 'holiday', label: '节假日历' },
+  ];
   const [selectedDate, setSelectedDate] = useState(null);
   const [modalType, setModalType] = useState('new'); // 'view' | 'edit' | 'new'
   const [currentEvent, setCurrentEvent] = useState(null);
@@ -27,7 +43,10 @@ const CalendarPage = () => {
 
   const handleDateClick = (arg) => {
     const clickedDate = arg.date;
-    const existingEvent = events.find(event => 
+    const currentEvents = calendarType === 'work' ? workEvents : 
+                         calendarType === 'holiday' ? holidayEvents : 
+                         defaultEvents;
+    const existingEvent = currentEvents.find(event => 
       new Date(event.start).toDateString() === clickedDate.toDateString()
     );
 
@@ -46,25 +65,63 @@ const CalendarPage = () => {
   };
 
   const handleEventSubmit = (newEvent) => {
-    if (modalType === 'new') {
-      setEvents([...events, newEvent]);
-    } else {
-      setEvents(events.map(event => 
-        event.start === currentEvent.start ? newEvent : event
-      ));
+    const eventWithType = { ...newEvent, type: calendarType };
+    switch(calendarType) {
+      case 'work':
+        if (modalType === 'new') {
+          setWorkEvents([...workEvents, eventWithType]);
+        } else {
+          setWorkEvents(workEvents.map(event => 
+            event.start === currentEvent.start ? eventWithType : event
+          ));
+        }
+        break;
+      case 'holiday':
+        if (modalType === 'new') {
+          setHolidayEvents([...holidayEvents, eventWithType]);
+        } else {
+          setHolidayEvents(holidayEvents.map(event => 
+            event.start === currentEvent.start ? eventWithType : event
+          ));
+        }
+        break;
+      default:
+        if (modalType === 'new') {
+          setDefaultEvents([...defaultEvents, eventWithType]);
+        } else {
+          setDefaultEvents(defaultEvents.map(event => 
+            event.start === currentEvent.start ? eventWithType : event
+          ));
+        }
     }
     setCurrentEvent(null);
   };
 
   const handleDeleteEvent = () => {
-    setEvents(events.filter(event => event.start !== currentEvent.start));
+    switch(calendarType) {
+      case 'work':
+        setWorkEvents(workEvents.filter(event => event.start !== currentEvent.start));
+        break;
+      case 'holiday':
+        setHolidayEvents(holidayEvents.filter(event => event.start !== currentEvent.start));
+        break;
+      default:
+        setDefaultEvents(defaultEvents.filter(event => event.start !== currentEvent.start));
+    }
     setCurrentEvent(null);
   };
 
   return (
     <div className="calendar-page">
       <div className="calendar-container">
-        <button 
+        <div className="calendar-controls">
+          <Select
+            defaultValue="default"
+            style={{ width: 200, marginRight: 16 }}
+            onChange={(value) => setCalendarType(value)}
+            options={calendarOptions}
+          />
+          <button 
           className="theme-toggle"
           onClick={toggleDarkMode}
           data-tooltip-id="theme-tooltip"
@@ -72,6 +129,7 @@ const CalendarPage = () => {
         >
           {darkMode ? '🌙' : '☀️'}
         </button>
+        </div>
         
         <Tooltip id="theme-tooltip" />
         
@@ -90,7 +148,11 @@ const CalendarPage = () => {
             week: '周视图',
             day: '日视图'
           }}
-          events={events}
+          events={
+            calendarType === 'work' ? workEvents : 
+            calendarType === 'holiday' ? holidayEvents : 
+            defaultEvents
+          }
           dateClick={(arg) => {
             setCurrentEvent({
               title: '',

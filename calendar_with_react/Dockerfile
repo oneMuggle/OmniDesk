@@ -14,9 +14,17 @@ RUN chown -R appuser:appgroup /app
 FROM nginx:alpine
 COPY --from=builder /app/build /usr/share/nginx/html
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-RUN chown -R appuser:appgroup /usr/share/nginx/html
+RUN mkdir -p /var/cache/nginx /var/log/nginx
+RUN rm -rf /var/run && mkdir -p /var/run/nginx
+RUN chown -R appuser:appgroup \
+    /usr/share/nginx/html \
+    /var/cache/nginx \
+    /var/log/nginx \
+    /var/run/nginx
+RUN chmod -R 755 /var/run/nginx
+
 USER appuser
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD curl --fail http://localhost:80 || exit 1
 CMD ["nginx", "-g", "daemon off;"]
