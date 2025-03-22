@@ -6,7 +6,11 @@ class EventSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = Event
-        fields = '__all__'
+        fields = [
+            'id', 'title', 'description', 'start_time', 'end_time',
+            'experiment_info', 'responsible_person', 'train_count',
+            'created_by', 'created_at'
+        ]
         read_only_fields = ('created_by', 'created_at')
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):

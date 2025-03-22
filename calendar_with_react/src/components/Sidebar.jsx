@@ -59,7 +59,6 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/calendar", icon: faCalendarAlt, text: "日历" },
               { to: "/settings", icon: faCog, text: "设置" },
               { to: "/events", icon: faTasks, text: "事件" },
-              { to: "/notifications", icon: faBell, text: "通知" },
               { to: "/profile", icon: faUser, text: "个人资料" },
               { to: "/login", icon: faSignInAlt, text: "登录" },
               { to: "/documents", icon: faFileWord, text: "文档管理" },

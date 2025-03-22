@@ -6,7 +6,6 @@ import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
 import DeepSeekChatPage from '../components/DeepSeekChatPage';
 import EventsPage from '../components/EventsPage'; 
-import NotificationsPage from '../components/NotificationsPage';
 import ProfilePage from '../components/ProfilePage';
 import Login from '../components/Login';
 import DocumentsPage from '../components/DocumentsPage';
@@ -27,7 +26,6 @@ const router = createBrowserRouter([
       { path: "calendar", element: <CalendarPage /> },
       { path: "settings", element: <SettingsPage /> },
       { path: "events", element: <EventsPage /> },
-      { path: "notifications", element: <NotificationsPage /> },
       { path: "profile", element: <ProfilePage /> },
       { path: "login", element: <Login /> },
       { path: "documents", element: <DocumentsPage /> },
