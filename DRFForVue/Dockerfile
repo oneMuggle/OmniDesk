@@ -11,8 +11,8 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
-RUN pip install --upgrade pip --user --no-cache-dir \
-    && pip install -r requirements.txt --user
+RUN pip install --upgrade pip --no-cache-dir \
+    && pip install --target /usr/local/lib/python3.9/site-packages -r requirements.txt
 
 # 运行阶段
 FROM python:3.9-slim-buster
@@ -21,10 +21,10 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 COPY --chown=appuser:appuser . .
-COPY --from=builder /root/.local /usr/local
+COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
-ENV PATH="/usr/local/bin:/root/.local/bin:${PATH}"
-ENV PYTHONPATH=/app
+ENV PATH="/usr/local/bin:${PATH}"
+ENV PYTHONPATH=/app:/usr/local/lib/python3.9/site-packages
 
 # 安装运行时依赖
 RUN apt-get update \

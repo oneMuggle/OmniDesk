@@ -47,4 +47,63 @@
 
 /* 删除所有重复的 will-change 声明 */
 
+/* 响应式布局 */
+@media (max-width: 768px) {
+  .calendar-container {
+    padding: 15px;
+    margin: 0 10px;
+  }
+  
+  .calendar-controls {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .fc-header-toolbar {
+    flex-direction: column;
+    gap: 10px;
+  }
+  
+  .fc-toolbar-title {
+    font-size: 1.2rem;
+  }
+  
+  .fc-button-group {
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  
+  .fc .fc-toolbar-chunk:last-child {
+    order: -1;
+  }
+}
+
+@media (max-width: 480px) {
+  .calendar-page {
+    padding: 10px;
+  }
+  
+  .fc-header-toolbar {
+    padding: 0.3em;
+  }
+  
+  .fc .fc-toolbar {
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .fc-toolbar-chunk {
+    width: 100%;
+    justify-content: center;
+  }
+  
+  .fc-daygrid-day-frame {
+    padding: 2px;
+  }
+  
+  .ant-modal {
+    max-width: 95vw;
+  }
+}
+
 /* 保留其他媒体查询和暗黑模式样式... */
