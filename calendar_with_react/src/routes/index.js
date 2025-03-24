@@ -27,11 +27,20 @@ const router = createBrowserRouter([
       { path: "settings", element: <SettingsPage /> },
       { path: "events", element: <EventsPage /> },
       { path: "profile", element: <ProfilePage /> },
-      { path: "login", element: <Login /> },
       { path: "documents", element: <DocumentsPage /> },
       { path: "announcements", element: <AnnouncementsPage /> },
       { path: "deepseek-chat", element: <DeepSeekChatPage /> }
     ]
+  },
+  {
+    path: "/login",
+    element: (
+      <AuthProvider>
+        <ApiProvider>
+          <Login />
+        </ApiProvider>
+      </AuthProvider>
+    )
   },
 ], { basename: "/" });
 
