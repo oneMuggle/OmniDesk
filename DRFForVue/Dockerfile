@@ -20,6 +20,7 @@ FROM python:3.9-slim-buster
 RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
+RUN mkdir -p /var/lib/django && chown appuser:appuser /var/lib/django
 COPY --chown=appuser:appuser . .
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
@@ -28,7 +29,7 @@ ENV PYTHONPATH=/app:/usr/local/lib/python3.9/site-packages
 
 # 安装运行时依赖
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpq5 \
+    && apt-get install -y --no-install-recommends libpq5 postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
 USER appuser

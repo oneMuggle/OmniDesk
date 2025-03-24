@@ -2,6 +2,7 @@
   "name": "calendar_with_react",
   "version": "0.1.0",
   "private": true,
+  "proxy": "http://localhost:8000",
   "dependencies": {
     "@fortawesome/fontawesome-svg-core": "^6.7.2",
     "@fortawesome/free-solid-svg-icons": "^6.7.2",
@@ -34,7 +35,6 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "proxy": "http://localhost:3001",
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject"

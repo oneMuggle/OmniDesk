@@ -15,11 +15,16 @@ services:
 
   backend:
     build: ./DRFForVue
-    command: gunicorn DRFForVue.wsgi:application --bind 0.0.0.0:8000
+    command: bash -c "python manage.py migrate && gunicorn DRFForVue.wsgi:application --bind 0.0.0.0:8000"
     ports:
       - "8000:8000"
     environment:
-      - DATABASE_URL=postgres://postgres:postgres@db:5432/postgres
+      - ENVIRONMENT=production
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - DB_HOST=db
+      - DB_PORT=5432
       - SECRET_KEY=!@#django-insecure-9g_8=0q^fz$3k&9m6v%_wx@7t6r4b5y_u*8h7=+!k
     depends_on:
       db:
