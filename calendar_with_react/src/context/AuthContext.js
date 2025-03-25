@@ -45,9 +45,13 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (username, password) => {
+  const register = async (username, password, email = '') => {
     try {
-      await apiClient.post('/auth/register/', { username, password });
+      await apiClient.post('/auth/register/', { 
+        username,
+        password,
+        email
+      });
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data || '注册失败' };

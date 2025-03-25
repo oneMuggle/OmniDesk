@@ -23,7 +23,7 @@ const Login = () => {
       }
     }
 
-    if (!username || !password) {
+    if (isRegistering ? (!username || !password || !confirmPassword) : (!username || !password)) {
       setError(isRegistering ? '请填写所有字段' : '请输入用户名和密码');
       return;
     }
@@ -33,7 +33,7 @@ const Login = () => {
       setError('');
 
       if (isRegistering) {
-        const result = await register(username, password);
+        const result = await register({ username, password });
         if (!result.success) throw new Error(result.error);
         // 注册成功后自动登录
         const loginResult = await login(username, password);
@@ -62,6 +62,7 @@ const Login = () => {
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
+            placeholder="用户名"
             required
           />
         </div>

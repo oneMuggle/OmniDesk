@@ -5,25 +5,34 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 CustomUser = get_user_model()
 
 class UserRegisterSerializer(serializers.ModelSerializer):
-    password = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    password = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        error_messages={'blank': '密码不能为空'}
+    )
     
     class Meta:
         model = CustomUser
-        fields = ('email', 'username', 'password')
-        extra_kwargs = {'password': {'write_only': True}}
+        fields = ('username', 'password')
 
     def create(self, validated_data):
-        user = CustomUser.objects.create_user(
-            email=validated_data['email'],
-            username=validated_data['username'],
-            password=validated_data['password']
-        )
-        return user
+        try:
+            return CustomUser.objects.create_user(
+                username=validated_data['username'],
+                password=validated_data['password']
+            )
+        except Exception as e:
+            # 捕获并记录详细的数据库错误
+            from django.db import IntegrityError
+            if isinstance(e, IntegrityError):
+                raise serializers.ValidationError({"email": "该邮箱已被注册"})
+            raise e
 
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'date_joined')
+        fields = ('id', 'username', 'date_joined')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
