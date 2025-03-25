@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import api from '../api/deepseek';
+import { createClient } from '../api/deepseek';
 import { Select } from 'antd';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -11,6 +11,7 @@ import { Modal, Input, Button, DatePicker } from 'antd';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
+  const [apiClient] = useState(() => createClient(true)); // 使用上下文管理
   // 不同类型日历的事件数据
   const [defaultEvents, setDefaultEvents] = useState([
     { title: 'Meeting', start: new Date() }
@@ -67,14 +68,19 @@ const CalendarPage = () => {
 
   const handleEventSubmit = async (newEvent) => {
     try {
-      const response = await api.post('/events/', {
-        title: newEvent.title,
-        start_time: newEvent.start,
-        end_time: newEvent.end_time,
-        description: newEvent.description,
-        experiment_info: newEvent.experiment_info,
-        responsible_person: newEvent.responsible_person,
-        train_count: newEvent.train_count || 0
+      const response = await apiClient.chat.completions.create({
+        messages: [{
+          role: "user",
+          content: JSON.stringify({
+            title: newEvent.title,
+            start_time: newEvent.start,
+            end_time: newEvent.end_time,
+            description: newEvent.description,
+            experiment_info: newEvent.experiment_info,
+            responsible_person: newEvent.responsible_person,
+            train_count: newEvent.train_count || 0
+          })
+        }]
       });
 
         if (response.status === 201) {
