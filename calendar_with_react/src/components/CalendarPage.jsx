@@ -76,7 +76,7 @@ const CalendarPage = () => {
         train_count: newEvent.train_count
       };
 
-      const response = await axios.post('/api/events/', eventData, {
+      const response = await axios.post('/events/', eventData, {
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('token')}`

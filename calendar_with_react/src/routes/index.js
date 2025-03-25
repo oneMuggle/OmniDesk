@@ -1,4 +1,5 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import ProtectedRoute from '../components/ProtectedRoute';
 import App from '../App';
 import { AuthProvider } from '../context/AuthContext';
 import { ApiProvider } from '../context/ApiProvider';
@@ -23,13 +24,13 @@ const router = createBrowserRouter([
     ),
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
-      { path: "calendar", element: <CalendarPage /> },
-      { path: "settings", element: <SettingsPage /> },
-      { path: "events", element: <EventsPage /> },
-      { path: "profile", element: <ProfilePage /> },
-      { path: "documents", element: <DocumentsPage /> },
-      { path: "announcements", element: <AnnouncementsPage /> },
-      { path: "deepseek-chat", element: <DeepSeekChatPage /> }
+      { path: "calendar", element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
+      { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
+      { path: "events", element: <ProtectedRoute><EventsPage /></ProtectedRoute> },
+      { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
+      { path: "documents", element: <ProtectedRoute><DocumentsPage /></ProtectedRoute> },
+      { path: "announcements", element: <ProtectedRoute><AnnouncementsPage /></ProtectedRoute> },
+      { path: "deepseek-chat", element: <ProtectedRoute><DeepSeekChatPage /></ProtectedRoute> }
     ]
   },
   {

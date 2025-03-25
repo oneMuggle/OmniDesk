@@ -3,6 +3,10 @@ import { ApiProvider } from './ApiProvider.jsx';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL
+});
+
 export const AuthContext = createContext();
 
 export function AuthProvider({ children }) {
@@ -13,26 +17,26 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     const token = localStorage.getItem('access');
     if (token) {
-      axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // 获取用户信息
-      axios.get('/api/users/me/')
+      apiClient.get('/users/me/')
         .then(res => setUser(res.data))
         .catch(() => {
           localStorage.removeItem('access');
           localStorage.removeItem('refresh');
-          delete axios.defaults.headers.common['Authorization'];
+          delete apiClient.defaults.headers.common['Authorization'];
         });
     }
   }, []);
 
   const login = async (username, password) => {
     try {
-      const res = await axios.post('/api/auth/token/', { username, password });
+      const res = await apiClient.post('/auth/token/', { username, password });
       localStorage.setItem('access', res.data.access);
       localStorage.setItem('refresh', res.data.refresh);
-      axios.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
-      const userRes = await axios.get('/api/users/me/');
+      const userRes = await apiClient.get('/users/me/');
       setUser(userRes.data);
       navigate('/');
       return { success: true };
@@ -43,7 +47,7 @@ export function AuthProvider({ children }) {
 
   const register = async (username, password) => {
     try {
-      await axios.post('/api/auth/register/', { username, password });
+      await apiClient.post('/auth/register/', { username, password });
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data || '注册失败' };
@@ -53,7 +57,7 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('access');
     localStorage.removeItem('refresh');
-    delete axios.defaults.headers.common['Authorization'];
+    delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     navigate('/login');
   };

@@ -25,7 +25,7 @@ SECRET_KEY = 'django-insecure-y-9g2sq2wu#aj0^szzgiao2)6&%v&ywp$m$f#dir&7c6x^rp$s
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 
@@ -44,9 +44,9 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
-    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
@@ -104,7 +104,6 @@ else:
 # 安全配置
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
-ALLOWED_HOSTS = ['*'] if os.getenv('ENVIRONMENT') == 'production' else ['localhost', '127.0.0.1']
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -157,18 +156,20 @@ SIMPLE_JWT = {
 }
 
 # CORS configuration
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8000",
-    "http://127.0.0.1:8000"
+    "http://127.0.0.1:3000"
 ]
 
 CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOW_ALL_ORIGINS = True  # 临时允许所有源
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+]
 CORS_ALLOW_METHODS = [
     'DELETE',
-    'GET', 
+    'GET',
     'OPTIONS',
     'PATCH',
     'POST',

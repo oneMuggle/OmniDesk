@@ -32,7 +32,7 @@ function SettingsPage() {
 
   const handleSaveResponsibles = async () => {
     try {
-      await axios.post('/api/events/responsible_persons/', {
+      await axios.post('/events/responsible_persons/', {
         responsibles: responsiblePersons.map(({id, ...rest}) => rest)
       });
       setResponsiblePersons([]);
