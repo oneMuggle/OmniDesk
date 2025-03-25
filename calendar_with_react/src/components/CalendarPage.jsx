@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import api from '../api/deepseek';
 import { Select } from 'antd';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -67,35 +67,35 @@ const CalendarPage = () => {
 
   const handleEventSubmit = async (newEvent) => {
     try {
-      const eventData = {
-        ...newEvent,
-        start_time: newEvent.start.toISOString(),
-        end_time: newEvent.end_time.toISOString(),
+      const response = await api.post('/events/', {
+        title: newEvent.title,
+        start_time: newEvent.start,
+        end_time: newEvent.end_time,
+        description: newEvent.description,
         experiment_info: newEvent.experiment_info,
         responsible_person: newEvent.responsible_person,
-        train_count: newEvent.train_count
-      };
-
-      const response = await axios.post('/events/', eventData, {
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+        train_count: newEvent.train_count || 0
       });
 
-      if (response.status === 201) {
-        const eventWithType = { ...newEvent, type: calendarType };
-        switch(calendarType) {
-          case 'work':
-            setWorkEvents(prev => [...prev, eventWithType]);
-            break;
-          case 'holiday':
-            setHolidayEvents(prev => [...prev, eventWithType]);
-            break;
-          default:
-            setDefaultEvents(prev => [...prev, eventWithType]);
+        if (response.status === 201) {
+          const createdEvent = {
+            ...response.data,
+            start: new Date(response.data.start_time),
+            end: new Date(response.data.end_time),
+            type: calendarType
+          };
+          
+          switch(calendarType) {
+            case 'work':
+              setWorkEvents(prev => [...prev, createdEvent]);
+              break;
+            case 'holiday':
+              setHolidayEvents(prev => [...prev, createdEvent]);
+              break;
+            default:
+              setDefaultEvents(prev => [...prev, createdEvent]);
+          }
         }
-      }
     } catch (error) {
       console.error('保存事件失败:', error);
       alert('保存事件失败，请检查网络连接或联系管理员');
