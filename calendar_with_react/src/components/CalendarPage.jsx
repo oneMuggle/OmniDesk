@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createClient } from '../api/deepseek';
+import { calendarApi } from '../api/calendar';
 import { Select } from 'antd';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -36,7 +37,22 @@ const CalendarPage = () => {
   const [currentEvent, setCurrentEvent] = useState(null);
 
   useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const response = await calendarApi.fetchCalendarEvents();
+        const events = response.data.map(event => ({
+          ...event,
+          start: new Date(event.start_time),
+          end: new Date(event.end_time)
+        }));
+        setDefaultEvents(events);
+      } catch (error) {
+        console.error('加载日历事件失败:', error);
+      }
+    };
+    
     document.body.classList.toggle('dark-mode', darkMode);
+    fetchEvents();
   }, [darkMode]);
 
   const toggleDarkMode = () => {
@@ -68,22 +84,24 @@ const CalendarPage = () => {
 
   const handleEventSubmit = async (newEvent) => {
     try {
-      const response = await apiClient.chat.completions.create({
-        messages: [{
-          role: "user",
-          content: JSON.stringify({
-            title: newEvent.title,
-            start_time: newEvent.start,
-            end_time: newEvent.end_time,
-            description: newEvent.description,
-            experiment_info: newEvent.experiment_info,
-            responsible_person: newEvent.responsible_person,
-            train_count: newEvent.train_count || 0
-          })
-        }]
-      });
+      const payload = {
+        title: newEvent.title,
+        description: newEvent.description,
+        experiment_info: newEvent.experiment_info,
+        responsible_person: newEvent.responsible_person,
+        train_count: newEvent.train_count || 0,
+        start_time: newEvent.start.toISOString(),
+        end_time: newEvent.end_time.toISOString()
+      };
 
-        if (response.status === 201) {
+      let response;
+      if (newEvent.id) {
+        response = await calendarApi.updateCalendarEvent(newEvent.id, payload);
+      } else {
+        response = await calendarApi.createCalendarEvent(payload);
+      }
+
+        if (response.status === 200 || response.status === 201) {
           const createdEvent = {
             ...response.data,
             start: new Date(response.data.start_time),
@@ -109,16 +127,22 @@ const CalendarPage = () => {
     setCurrentEvent(null);
   };
 
-  const handleDeleteEvent = () => {
-    switch(calendarType) {
-      case 'work':
-        setWorkEvents(workEvents.filter(event => event.start !== currentEvent.start));
-        break;
-      case 'holiday':
-        setHolidayEvents(holidayEvents.filter(event => event.start !== currentEvent.start));
-        break;
-      default:
-        setDefaultEvents(defaultEvents.filter(event => event.start !== currentEvent.start));
+  const handleDeleteEvent = async () => {
+    try {
+      await calendarApi.deleteCalendarEvent(currentEvent.id);
+      switch(calendarType) {
+        case 'work':
+          setWorkEvents(prev => prev.filter(event => event.id !== currentEvent.id));
+          break;
+        case 'holiday':
+          setHolidayEvents(prev => prev.filter(event => event.id !== currentEvent.id));
+          break;
+        default:
+          setDefaultEvents(prev => prev.filter(event => event.id !== currentEvent.id));
+      }
+    } catch (error) {
+      console.error('删除事件失败:', error);
+      alert('删除事件失败，请检查网络连接或联系管理员');
     }
     setCurrentEvent(null);
   };
