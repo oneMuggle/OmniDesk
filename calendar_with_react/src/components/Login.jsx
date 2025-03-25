@@ -33,7 +33,11 @@ const Login = () => {
       setError('');
 
       if (isRegistering) {
-        const result = await register({ username, password });
+        const result = await register(
+          username.trim(),
+          password.trim(),
+          confirmPassword.trim()
+        );
         if (!result.success) throw new Error(result.error);
         // 注册成功后自动登录
         const loginResult = await login(username, password);

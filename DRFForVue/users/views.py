@@ -14,7 +14,7 @@ class RegisterView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            serializer = self.get_serializer(data=request.data)
+            serializer = self.get_erializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
             return Response({
@@ -22,11 +22,12 @@ class RegisterView(generics.CreateAPIView):
                 "message": "User created successfully"
             }, status=status.HTTP_201_CREATED)
         except exceptions.APIException as e:
-            # 处理DRF预定义的异常（如ValidationError）
+            error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else 'validation_error'
             return Response({
                 "success": False,
-                "error": e.detail,
-                "message": "注册验证失败"
+                "error": error_key,
+                "message": "注册验证失败",
+                "validation_errors": e.detail
             }, status=e.status_code)
         except Exception as e:
             import traceback

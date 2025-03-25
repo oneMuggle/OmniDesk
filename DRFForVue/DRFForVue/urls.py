@@ -7,6 +7,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Authentication endpoints
     path('api/auth/', include('users.urls')),  # 包含所有用户认证路由
+    path('api/auth/register/', RegisterView.as_view(), name='user-register'),  # 添加注册路由
     
     # User endpoints
     path('api/users/me/', UserDetailView.as_view(), name='user-detail'),
