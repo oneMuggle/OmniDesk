@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
 import { setApiProvider } from '../api/deepseek';
-import axios from 'axios';
+import { saveResponsiblePersons } from '../api/responsiblePersons';
 
 function SettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
@@ -32,14 +32,12 @@ function SettingsPage() {
 
   const handleSaveResponsibles = async () => {
     try {
-      await axios.post('/events/responsible_persons/', {
-        responsibles: responsiblePersons.map(({id, ...rest}) => rest)
-      });
+      await saveResponsiblePersons(responsiblePersons);
       setResponsiblePersons([]);
       alert('保存成功');
     } catch (error) {
       console.error('保存失败:', error);
-      alert('保存失败');
+      alert(error.message);
     }
   };
 
