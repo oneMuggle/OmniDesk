@@ -20,9 +20,16 @@ export const clearConversationHistory = () => {
 };
 
 export const createClient = (withContext = false) => {
-  // 验证配置完整性
+  // 验证配置完整性（改为可选配置）
   if (!currentConfig.apiEndpoint || !currentConfig.apiKey) {
-    throw new Error('Deepseek API配置不完整，请检查API终结点和密钥');
+    console.warn('Deepseek API配置不完整，相关功能将被禁用');
+    return { 
+      chat: { 
+        completions: { 
+          create: async () => ({ choices: [{ message: { content: "Deepseek API未配置" } }] })
+        } 
+      } 
+    };
   }
 
   const client = axios.create({
