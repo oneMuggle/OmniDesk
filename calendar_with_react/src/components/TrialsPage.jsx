@@ -22,21 +22,28 @@ const TrialsPage = () => {
   const queryClient = useQueryClient();
 
   // 获取数据
-  const { data: trials } = useQuery('trials', getTrials);
-  const { data: equipments } = useQuery('equipments', getEquipmentList);
-  const { data: responsiblePersons } = useQuery('responsiblePersons', getResponsiblePersons);
+  const { data: trials } = useQuery({ 
+    queryKey: ['trials'],
+    queryFn: getTrials
+  });
+  const { data: equipments } = useQuery({ 
+    queryKey: ['equipments'],
+    queryFn: getEquipmentList
+  });
+  const { data: responsiblePersons } = useQuery({ 
+    queryKey: ['responsiblePersons'],
+    queryFn: getResponsiblePersons
+  });
 
   // 表单提交处理
-  const handleSubmit = useMutation(
-    values => currentRecord ? updateTrial(currentRecord.id, values) : createTrial(values),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('trials');
-        setIsModalVisible(false);
-        form.resetFields();
-      },
-    }
-  );
+  const handleSubmit = useMutation({
+    mutationFn: (values) => currentRecord ? updateTrial(currentRecord.id, values) : createTrial(values),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trials'] });
+      setIsModalVisible(false);
+      form.resetFields();
+    },
+  });
 
   // 文件上传配置
   const uploadProps = {

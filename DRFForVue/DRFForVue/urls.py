@@ -14,4 +14,7 @@ urlpatterns = [
     
     # Events API
     path('events/', include('events.urls')),
+    
+    # Personnel API
+    path('api/personnel/', include('users.urls')),  # 添加人员管理路由
 ]

@@ -87,6 +87,11 @@ class UserDetailSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'username', 'date_joined')
 
+class PersonnelSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'username', 'email', 'name', 'is_active', 'is_staff', 'date_joined')
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod
     def get_token(cls, user):

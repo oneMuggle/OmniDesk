@@ -12,23 +12,19 @@ import Login from '../components/Login';
 import DocumentsPage from '../components/DocumentsPage';
 import AnnouncementsPage from '../components/AnnouncementsPage';
 import TrialsPage from '../components/TrialsPage';
+import PersonnelPage from '../components/PersonnelPage';
 
 const router = createBrowserRouter([
 {
     path: "/",
-    element: (
-      <AuthProvider>
-        <ApiProvider>
-          <App />
-        </ApiProvider>
-      </AuthProvider>
-    ),
+    element: <App />,
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
       { path: "calendar", element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
       { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
       { path: "events", element: <ProtectedRoute><EventsPage /></ProtectedRoute> },
       { path: "trials", element: <ProtectedRoute><TrialsPage /></ProtectedRoute> },
+      { path: "personnel", element: <ProtectedRoute><PersonnelPage /></ProtectedRoute> },
       { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
       { path: "documents", element: <ProtectedRoute><DocumentsPage /></ProtectedRoute> },
       { path: "announcements", element: <ProtectedRoute><AnnouncementsPage /></ProtectedRoute> },
@@ -37,13 +33,7 @@ const router = createBrowserRouter([
   },
   {
     path: "/login",
-    element: (
-      <AuthProvider>
-        <ApiProvider>
-          <Login />
-        </ApiProvider>
-      </AuthProvider>
-    )
+    element: <Login />
   },
 ], { basename: "/" });
 

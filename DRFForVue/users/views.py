@@ -5,7 +5,8 @@ from .models import CustomUser
 from .serializers import (
     UserRegisterSerializer,
     UserDetailSerializer,
-    CustomTokenObtainPairSerializer
+    CustomTokenObtainPairSerializer,
+    PersonnelSerializer
 )
 
 class RegisterView(generics.CreateAPIView):
@@ -14,7 +15,7 @@ class RegisterView(generics.CreateAPIView):
 
     def post(self, request, *args, **kwargs):
         try:
-            serializer = self.get_erializer(data=request.data)
+            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
             return Response({
@@ -49,3 +50,14 @@ class UserDetailView(generics.RetrieveAPIView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+
+class PersonnelListCreateView(generics.ListCreateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = PersonnelSerializer
+    permission_classes = [permissions.IsAdminUser]
+
+class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = PersonnelSerializer
+    permission_classes = [permissions.IsAdminUser]
+    lookup_field = 'id'

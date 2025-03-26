@@ -2,11 +2,16 @@ from django.urls import path
 from .views import (
     RegisterView,
     CustomTokenObtainPairView,
-    UserDetailView
+    UserDetailView,
+    PersonnelListCreateView,
+    PersonnelRetrieveUpdateDestroyView
 )
 
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('profile/', UserDetailView.as_view(), name='user-profile'),
+    # 人员管理接口
+    path('', PersonnelListCreateView.as_view(), name='personnel-list'),
+    path('<int:id>/', PersonnelRetrieveUpdateDestroyView.as_view(), name='personnel-detail'),
 ]
