@@ -5,7 +5,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 CustomUser = get_user_model()
 
-class UserRegisterSerializer(serializers.ModelSerializer):
+class UserRegistrationSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         required=True,
         min_length=4,
@@ -87,6 +87,10 @@ class UserRegisterSerializer(serializers.ModelSerializer):
             if isinstance(e, IntegrityError):
                 raise serializers.ValidationError({"email": "该邮箱已被注册"})
             raise e
+
+class UserLoginSerializer(serializers.Serializer):
+    username = serializers.CharField()
+    password = serializers.CharField()
 
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:

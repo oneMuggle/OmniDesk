@@ -146,11 +146,33 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # Internationalization
-LANGUAGE_CODE = 'en-us'
-TIME_ZONE = 'UTC'
-USE_I18N = True
+LANGUAGE_CODE = 'zh-hans'
+TIME_ZONE = 'Asia/Shanghai'
+USE_I18N = False  # 禁用国际化
 USE_L10N = True
 USE_TZ = True
+
+# 日志配置优化
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+        },
+    },
+    'loggers': {
+        'django.utils.autoreload': {
+            'handlers': ['console'],
+            'level': 'WARNING',  # 提升日志级别到WARNING
+            'propagate': False,
+        },
+        'django': {
+            'handlers': ['console'],
+            'level': 'INFO',  # 降低全局日志级别
+        },
+    },
+}
 
 # Static files
 STATIC_URL = '/static/'

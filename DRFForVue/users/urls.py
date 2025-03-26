@@ -1,14 +1,16 @@
 from django.urls import path
 from .views import (
-    RegisterView,
-    CustomTokenObtainPairView,
+    UserRegistrationView,
+    UserLoginView,
     UserDetailView,
+    CustomTokenObtainPairView,
     PersonnelListCreateView,
     PersonnelRetrieveUpdateDestroyView
 )
 
 urlpatterns = [
-    path('register/', RegisterView.as_view(), name='register'),
+    path('registration/', UserRegistrationView.as_view(), name='registration'),
+    path('login/', UserLoginView.as_view(), name='login'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('profile/', UserDetailView.as_view(), name='user-profile'),
     # 人员管理接口

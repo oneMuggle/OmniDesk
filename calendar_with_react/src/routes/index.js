@@ -9,6 +9,7 @@ import DeepSeekChatPage from '../components/DeepSeekChatPage';
 import EventsPage from '../components/EventsPage'; 
 import ProfilePage from '../components/ProfilePage';
 import Login from '../components/Login';
+import Register from '../components/Register';
 import DocumentsPage from '../components/DocumentsPage';
 import AnnouncementsPage from '../components/AnnouncementsPage';
 import TrialsPage from '../components/TrialsPage';
@@ -34,6 +35,10 @@ const router = createBrowserRouter([
   {
     path: "/login",
     element: <Login />
+  },
+  {
+    path: "/register",
+    element: <Register />
   },
 ], { basename: "/" });
 

@@ -59,7 +59,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     try {
-      const res = await apiClient.post('/auth/token/', { username, password });
+      const res = await apiClient.post('/api/auth/login/', { username, password });
       localStorage.setItem('access', res.data.access);
       localStorage.setItem('refresh', res.data.refresh);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
@@ -73,13 +73,11 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (username, password, email = '') => {
+  const register = async (username, password) => {
     try {
-      const res = await apiClient.post('/auth/register/', {
+      const res = await apiClient.post('/api/auth/registration/', {
         username,
-        password,
-        password_confirmation: password,  // 添加确认密码字段
-        email
+        password
       });
 
       if (res.status === 201) {
@@ -89,14 +87,26 @@ export function AuthProvider({ children }) {
           message: '注册成功，请登录'
         };
       }
+      
       return {
         success: false,
         errors: res.data || { non_field_errors: ['注册失败'] }
       };
     } catch (err) {
-      return { 
+      console.error('注册请求详情:', {
+        requestData: { username, password },
+        responseStatus: err.response?.status,
+        responseData: err.response?.data
+      });
+      return {
         success: false,
-        errors: err.response?.data || { non_field_errors: ['服务器错误'] }
+        errors: {
+          non_field_errors: [
+            err.response?.data?.detail 
+            || err.message 
+            || '未知错误'
+          ]
+        }
       };
     }
   };
@@ -113,7 +123,7 @@ export function AuthProvider({ children }) {
     user,
     login: async (username, password) => {
       try {
-        const res = await apiClient.post('/auth/token/', { username, password });
+        const res = await apiClient.post('/api/auth/login/', { username, password });
         localStorage.setItem('access', res.data.access);
         localStorage.setItem('refresh', res.data.refresh);
         apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
@@ -134,13 +144,11 @@ export function AuthProvider({ children }) {
       setUser(null);
       navigate('/login');
     },
-    register: async (username, password, email = '') => {
+    register: async (username, password) => {
       try {
-        const res = await apiClient.post('/auth/register/', { 
+        const res = await apiClient.post('/api/auth/registration/', { 
           username,
-          password,
-          password_confirmation: password,
-          email
+          password
         });
 
         if (res.status === 201) {
@@ -171,6 +179,20 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
+
+
+
+  // 增强请求拦截器
+  apiClient.interceptors.request.use(config => {
+    console.log('请求配置详情:', {
+      url: config.url,
+      method: config.method,
+      data: config.data,
+      headers: config.headers
+    });
+    return config;
+  });
+  
 
 export function useAuth() {
   return useContext(AuthContext);
