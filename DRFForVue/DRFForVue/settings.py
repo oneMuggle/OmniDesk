@@ -73,8 +73,10 @@ MIDDLEWARE = [
 ]
 
 # 添加CSRF和Session认证
-CSRF_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SAMESITE = 'None'
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SAMESITE = 'None'
+SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
 
@@ -204,10 +206,14 @@ SIMPLE_JWT = {
 }
 
 # CORS configuration
-CORS_ALLOW_ALL_ORIGINS = False
+CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000"
+]
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://localhost(:\d+)?$",
+    r"^https?://127\.0\.0\.1(:\d+)?$",
 ]
 
 CORS_ALLOW_CREDENTIALS = True
@@ -218,11 +224,14 @@ CSRF_TRUSTED_ORIGINS = [
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
+    'HEAD',
     'OPTIONS',
     'PATCH',
     'POST',
     'PUT',
 ]
+
+CORS_EXPOSE_HEADERS = ['Content-Type', 'Authorization']
 CORS_ALLOW_HEADERS = [
     'accept',
     'accept-encoding',
@@ -233,5 +242,6 @@ CORS_ALLOW_HEADERS = [
     'user-agent',
     'x-csrftoken',
     'x-requested-with',
+    'access-control-allow-origin',
 ]
 AUTH_USER_MODEL = 'users.CustomUser'
