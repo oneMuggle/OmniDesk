@@ -24,11 +24,17 @@ class UserRegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
-        min_length=6,
+        min_length=8,
         style={'input_type': 'password'},
+        validators=[
+            RegexValidator(
+                regex=r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$',
+                message='密码必须包含至少8个字符，且包含字母和数字'
+            )
+        ],
         error_messages={
             'blank': '密码不能为空',
-            'min_length': '密码至少需要6个字符'
+            'min_length': '密码至少需要8个字符'
         }
     )
     password_confirmation = serializers.CharField(

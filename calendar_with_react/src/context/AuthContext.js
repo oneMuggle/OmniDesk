@@ -4,10 +4,38 @@ import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 
 const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  headers: {
+    'Content-Type': 'application/json',
+    'X-Requested-With': 'XMLHttpRequest'
+  },
+  withCredentials: false
 });
 
-export const AuthContext = createContext();
+// 添加请求拦截器
+apiClient.interceptors.request.use(config => {
+  console.log('发起请求:', config.method.toUpperCase(), config.url);
+  return config;
+});
+
+// 添加响应拦截器
+apiClient.interceptors.response.use(
+  response => {
+    console.log('收到响应:', response.status, response.data);
+    return response;
+  },
+  error => {
+    console.error('请求错误:', error.message);
+    return Promise.reject(error);
+  }
+);
+
+export const AuthContext = createContext({
+  user: null,
+  login: () => Promise.resolve({ success: false }),
+  logout: () => {},
+  register: () => Promise.resolve({ success: false })
+});
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -47,14 +75,29 @@ export function AuthProvider({ children }) {
 
   const register = async (username, password, email = '') => {
     try {
-      await apiClient.post('/auth/register/', { 
+      const res = await apiClient.post('/auth/register/', {
         username,
         password,
+        password_confirmation: password,  // 添加确认密码字段
         email
       });
-      return { success: true };
+
+      if (res.status === 201) {
+        return { 
+          success: true,
+          data: res.data,
+          message: '注册成功，请登录'
+        };
+      }
+      return {
+        success: false,
+        errors: res.data || { non_field_errors: ['注册失败'] }
+      };
     } catch (err) {
-      return { success: false, error: err.response?.data || '注册失败' };
+      return { 
+        success: false,
+        errors: err.response?.data || { non_field_errors: ['服务器错误'] }
+      };
     }
   };
 
@@ -68,9 +111,56 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
-    login,
-    logout,
-    register
+    login: async (username, password) => {
+      try {
+        const res = await apiClient.post('/auth/token/', { username, password });
+        localStorage.setItem('access', res.data.access);
+        localStorage.setItem('refresh', res.data.refresh);
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
+        
+        const userRes = await apiClient.get('/users/me/');
+        setUser(userRes.data);
+        navigate('/');
+        return { success: true };
+      } catch (err) {
+        console.error('Login failed:', err);
+        return { success: false, error: err.response?.data?.detail || '登录失败' };
+      }
+    },
+    logout: () => {
+      localStorage.removeItem('access');
+      localStorage.removeItem('refresh');
+      delete apiClient.defaults.headers.common['Authorization'];
+      setUser(null);
+      navigate('/login');
+    },
+    register: async (username, password, email = '') => {
+      try {
+        const res = await apiClient.post('/auth/register/', { 
+          username,
+          password,
+          password_confirmation: password,
+          email
+        });
+
+        if (res.status === 201) {
+          return { 
+            success: true,
+            data: res.data,
+            message: '注册成功，请登录'
+          };
+        }
+        return {
+          success: false,
+          errors: res.data || { non_field_errors: ['注册失败'] }
+        };
+      } catch (err) {
+        return { 
+          success: false,
+          errors: err.response?.data || { non_field_errors: ['服务器错误'] }
+        };
+      }
+    }
   };
 
   return (

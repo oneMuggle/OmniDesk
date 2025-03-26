@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, exceptions
+from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import CustomUser
@@ -18,9 +19,11 @@ class RegisterView(generics.CreateAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
+            
             return Response({
-                "user": UserDetailSerializer(user, context=self.get_serializer_context()).data,
-                "message": "User created successfully"
+                "success": True,
+                "message": "注册成功，请登录",
+                "username": user.username
             }, status=status.HTTP_201_CREATED)
         except exceptions.APIException as e:
             error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else 'validation_error'
@@ -54,10 +57,12 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class PersonnelListCreateView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
-    permission_classes = [permissions.IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
-    permission_classes = [permissions.IsAdminUser]
+    authentication_classes = [JWTAuthentication]
+    permission_classes = [permissions.IsAuthenticated]
     lookup_field = 'id'

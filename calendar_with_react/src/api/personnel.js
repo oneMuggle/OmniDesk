@@ -1,10 +1,38 @@
 import axios from 'axios';
 
-const API_URL = process.env.REACT_APP_API_BASE_URL + '/api/personnel/';
+// 配置axios实例
+const apiClient = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'
+});
+
+// 添加请求拦截器
+apiClient.interceptors.request.use(config => {
+  // 确保正确处理认证令牌
+  try {
+    const authTokens = localStorage.getItem('authTokens');
+    if (authTokens) {
+      const { access } = JSON.parse(authTokens);
+      if (access) {
+        config.headers.Authorization = `Bearer ${access}`;
+        console.log('Using JWT token:', access.substring(0, 20) + '...');
+        return config;
+      }
+    }
+  } catch (error) {
+    console.error('Error parsing authTokens:', error);
+  }
+  
+  console.warn('No valid JWT token available');
+  // 触发重新认证流程
+  if (!window.location.pathname.includes('/login')) {
+    window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+  }
+  return config;
+});
 
 export const getPersonnel = async () => {
   try {
-    const response = await axios.get(API_URL);
+    const response = await apiClient.get('/api/personnel/');
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -13,7 +41,7 @@ export const getPersonnel = async () => {
 
 export const createPerson = async (data) => {
   try {
-    const response = await axios.post(API_URL, data);
+    const response = await apiClient.post('/api/personnel/', data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -22,7 +50,7 @@ export const createPerson = async (data) => {
 
 export const updatePerson = async (id, data) => {
   try {
-    const response = await axios.put(`${API_URL}${id}/`, data);
+    const response = await apiClient.put(`/api/personnel/${id}/`, data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -31,7 +59,7 @@ export const updatePerson = async (id, data) => {
 
 export const deletePerson = async (id) => {
   try {
-    const response = await axios.delete(`${API_URL}${id}/`);
+    const response = await apiClient.delete(`/api/personnel/${id}/`);
     return response.data;
   } catch (error) {
     throw error.response.data;
