@@ -1,7 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { ApiProvider } from './ApiProvider.jsx';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
 
 const apiClient = axios.create({
   baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
@@ -39,7 +38,6 @@ export const AuthContext = createContext({
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const navigate = useNavigate();
 
   // 初始化时检查本地存储的token
   useEffect(() => {
@@ -66,7 +64,7 @@ export function AuthProvider({ children }) {
       
       const userRes = await apiClient.get('/users/me/');
       setUser(userRes.data);
-      navigate('/');
+      window.location.href = '/';
       return { success: true };
     } catch (err) {
       return { success: false, error: err.response?.data?.detail || '登录失败' };
@@ -116,7 +114,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('refresh');
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
-    navigate('/login');
+    window.location.href = '/login';
   };
 
   const value = {
@@ -130,7 +128,7 @@ export function AuthProvider({ children }) {
         
         const userRes = await apiClient.get('/users/me/');
         setUser(userRes.data);
-        navigate('/');
+        window.location.href = '/';
         return { success: true };
       } catch (err) {
         console.error('Login failed:', err);
@@ -142,7 +140,7 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('refresh');
       delete apiClient.defaults.headers.common['Authorization'];
       setUser(null);
-      navigate('/login');
+      window.location.href = '/login';
     },
     register: async (username, password) => {
       try {
@@ -182,17 +180,6 @@ export function AuthProvider({ children }) {
 
 
 
-  // 增强请求拦截器
-  apiClient.interceptors.request.use(config => {
-    console.log('请求配置详情:', {
-      url: config.url,
-      method: config.method,
-      data: config.data,
-      headers: config.headers
-    });
-    return config;
-  });
-  
 
 export function useAuth() {
   return useContext(AuthContext);

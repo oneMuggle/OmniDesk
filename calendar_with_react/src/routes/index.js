@@ -1,8 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import App from '../App';
-import { AuthProvider } from '../context/AuthContext';
-import { ApiProvider } from '../context/ApiProvider';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
 import DeepSeekChatPage from '../components/DeepSeekChatPage';
