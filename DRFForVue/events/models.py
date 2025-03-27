@@ -8,6 +8,14 @@ def template_upload_path(instance, filename):
     return f"templates/{instance.user.id}/{uuid.uuid4()}{os.path.splitext(filename)[1]}"
 
 class Personnel(models.Model):
+    user = models.ForeignKey(
+        CustomUser,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='personnel_records',
+        help_text='关联创建用户'
+    )
     name = models.CharField(max_length=100, default='', help_text='请输入人员姓名')
     phone = models.CharField(max_length=20, default='', help_text='请输入联系电话')
     department = models.CharField(max_length=100, blank=True)

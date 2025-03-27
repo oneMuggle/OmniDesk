@@ -7,8 +7,11 @@ class EventSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class PersonnelSerializer(serializers.ModelSerializer):
-    user = serializers.HiddenField(default=serializers.CurrentUserDefault())
-    
+    user = serializers.PrimaryKeyRelatedField(
+        read_only=True,
+        default=serializers.CurrentUserDefault()
+    )
+
     class Meta:
         model = Personnel
         fields = ['id', 'user', 'name', 'phone', 'department', 'position', 'created_at', 'updated_at']
