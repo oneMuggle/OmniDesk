@@ -8,14 +8,15 @@ def template_upload_path(instance, filename):
     return f"templates/{instance.user.id}/{uuid.uuid4()}{os.path.splitext(filename)[1]}"
 
 class Personnel(models.Model):
-    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
-    department = models.CharField(max_length=100)
+    name = models.CharField(max_length=100, default='', help_text='请输入人员姓名')
+    phone = models.CharField(max_length=20, default='', help_text='请输入联系电话')
+    department = models.CharField(max_length=100, blank=True)
     position = models.CharField(max_length=100)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.user.name} - {self.position}"
+        return f"{self.name} - {self.position}"
 
 class Event(models.Model):
     title = models.CharField(max_length=200)

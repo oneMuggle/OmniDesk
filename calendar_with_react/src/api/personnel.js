@@ -35,7 +35,7 @@ apiClient.interceptors.request.use(config => {
 
 export const getPersonnel = async () => {
   try {
-    const response = await apiClient.get('/personnel/');
+    const response = await apiClient.get('/events/personnel/');
     return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     throw error.response.data;
@@ -44,7 +44,7 @@ export const getPersonnel = async () => {
 
 export const createPerson = async (data) => {
   try {
-    const response = await apiClient.post('/personnel/', data);
+    const response = await apiClient.post('/events/personnel/', data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -53,7 +53,7 @@ export const createPerson = async (data) => {
 
 export const updatePerson = async (id, data) => {
   try {
-    const response = await apiClient.put(`/personnel/${id}/`, data);
+    const response = await apiClient.put(`/events/personnel/${id}/`, data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -62,7 +62,7 @@ export const updatePerson = async (id, data) => {
 
 export const deletePerson = async (id) => {
   try {
-    const response = await apiClient.delete(`/personnel/${id}/`);
+    const response = await apiClient.delete(`/events/personnel/${id}/`);
     return response.data;
   } catch (error) {
     throw error.response.data;
