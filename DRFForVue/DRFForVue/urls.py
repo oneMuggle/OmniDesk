@@ -8,10 +8,10 @@ urlpatterns = [
     # Authentication endpoints
     # Authentication & User endpoints
     path('api/', include([
-        path('auth/', include('users.auth_urls')),
-        path('users/', include('users.user_urls')),
+        path('users/', include('users.urls')),  # 用户个人资料路由
+        path('auth/', include('users.auth_urls')),  # 认证路由
     ])),
     
     # Events API
-    path('events/', include('events.urls')),
+    path('api/events/', include('events.urls')),
 ]

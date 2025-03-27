@@ -62,7 +62,7 @@ export function AuthProvider({ children }) {
       localStorage.setItem('refresh', res.data.refresh);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
-      const userRes = await apiClient.get('/users/me/');
+      const userRes = await apiClient.get('/api/users/me/');
       setUser(userRes.data);
       window.location.href = '/';
       return { success: true };

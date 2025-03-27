@@ -1,3 +1,6 @@
 from django.urls import path
+from .views import CurrentUserView
 
-urlpatterns = []  # 清空原有路由配置
+urlpatterns = [
+    path('me/', CurrentUserView.as_view(), name='current-user'),  # 完整路径将是 /api/users/me/
+]
