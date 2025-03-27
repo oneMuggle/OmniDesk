@@ -7,7 +7,10 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Authentication endpoints
     # Authentication & User endpoints
-    path('api/auth/', include('users.urls')), 
+    path('api/', include([
+        path('auth/', include('users.auth_urls')),
+        path('users/', include('users.user_urls'))
+    ])),
     
     # Events API
     path('events/', include('events.urls')),
