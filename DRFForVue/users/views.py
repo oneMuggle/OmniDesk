@@ -53,18 +53,20 @@ class UserDetailView(generics.RetrieveAPIView):
         return self.request.user
 
 class UserLoginView(TokenObtainPairView):
-    serializer_class = UserLoginSerializer
+    serializer_class = CustomTokenObtainPairSerializer
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-            user = serializer.validated_data['user']
+            user = serializer.user
+            token = serializer.validated_data
             return Response({
                 "success": True,
                 "user": UserDetailSerializer(user).data,
-                "access": serializer.validated_data['access'],
-                "refresh": serializer.validated_data['refresh']
+                "access": token['access'],
+                "refresh": token['refresh'],
+                "redirect_to": "/home"
             })
         except exceptions.ValidationError as e:
             return Response({
