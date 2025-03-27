@@ -16,6 +16,9 @@ apiClient.interceptors.request.use(config => {
         config.headers.Authorization = `Bearer ${access}`;
         console.log('Using JWT token:', access.substring(0, 20) + '...');
         return config;
+      } else {
+        console.error('Access token missing in authTokens');
+        localStorage.removeItem('authTokens');
       }
     }
   } catch (error) {

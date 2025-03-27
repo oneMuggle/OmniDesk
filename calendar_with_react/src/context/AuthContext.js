@@ -41,25 +41,35 @@ export function AuthProvider({ children }) {
 
   // 初始化时检查本地存储的token
   useEffect(() => {
-    const token = localStorage.getItem('access');
-    if (token) {
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-      // 获取用户信息
-      apiClient.get('/api/users/me/')
-        .then(res => setUser(res.data))
-        .catch(() => {
-          localStorage.removeItem('access');
-          localStorage.removeItem('refresh');
-          delete apiClient.defaults.headers.common['Authorization'];
-        });
+    const storedTokens = localStorage.getItem('authTokens');
+    if (storedTokens) {
+      try {
+        const { access } = JSON.parse(storedTokens);
+        if (access) {
+          apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+          // 获取用户信息
+          apiClient.get('/api/users/me/')
+            .then(res => setUser(res.data))
+            .catch(() => {
+              localStorage.removeItem('authTokens');
+              delete apiClient.defaults.headers.common['Authorization'];
+            });
+        }
+      } catch (error) {
+        console.error('Error parsing authTokens:', error);
+        localStorage.removeItem('authTokens');
+      }
     }
   }, []);
 
   const login = async (username, password) => {
     try {
       const res = await apiClient.post('/api/auth/login/', { username, password });
-      localStorage.setItem('access', res.data.access);
-      localStorage.setItem('refresh', res.data.refresh);
+      const authTokens = {
+        access: res.data.access,
+        refresh: res.data.refresh
+      };
+      localStorage.setItem('authTokens', JSON.stringify(authTokens));
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/api/users/me/');
@@ -99,8 +109,7 @@ export function AuthProvider({ children }) {
   };
 
   const logout = () => {
-    localStorage.removeItem('access');
-    localStorage.removeItem('refresh');
+    localStorage.removeItem('authTokens');
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     window.location.href = '/login';
