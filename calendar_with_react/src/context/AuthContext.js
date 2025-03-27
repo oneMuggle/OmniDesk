@@ -45,7 +45,7 @@ export function AuthProvider({ children }) {
     if (token) {
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
       // 获取用户信息
-      apiClient.get('/users/me/')
+      apiClient.get('/api/users/me/')
         .then(res => setUser(res.data))
         .catch(() => {
           localStorage.removeItem('access');
@@ -67,13 +67,14 @@ export function AuthProvider({ children }) {
       window.location.href = '/';
       return { success: true };
     } catch (err) {
+      console.error('Login failed:', err);
       return { success: false, error: err.response?.data?.detail || '登录失败' };
     }
   };
 
   const register = async (username, password) => {
     try {
-      const res = await apiClient.post('/api/auth/registration/', {
+      const res = await apiClient.post('/api/auth/registration/', { 
         username,
         password
       });
@@ -85,26 +86,14 @@ export function AuthProvider({ children }) {
           message: '注册成功，请登录'
         };
       }
-      
       return {
         success: false,
         errors: res.data || { non_field_errors: ['注册失败'] }
       };
     } catch (err) {
-      console.error('注册请求详情:', {
-        requestData: { username, password },
-        responseStatus: err.response?.status,
-        responseData: err.response?.data
-      });
-      return {
+      return { 
         success: false,
-        errors: {
-          non_field_errors: [
-            err.response?.data?.detail 
-            || err.message 
-            || '未知错误'
-          ]
-        }
+        errors: err.response?.data || { non_field_errors: ['服务器错误'] }
       };
     }
   };
@@ -119,54 +108,9 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
-    login: async (username, password) => {
-      try {
-        const res = await apiClient.post('/api/auth/login/', { username, password });
-        localStorage.setItem('access', res.data.access);
-        localStorage.setItem('refresh', res.data.refresh);
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
-        
-        const userRes = await apiClient.get('/users/me/');
-        setUser(userRes.data);
-        window.location.href = '/';
-        return { success: true };
-      } catch (err) {
-        console.error('Login failed:', err);
-        return { success: false, error: err.response?.data?.detail || '登录失败' };
-      }
-    },
-    logout: () => {
-      localStorage.removeItem('access');
-      localStorage.removeItem('refresh');
-      delete apiClient.defaults.headers.common['Authorization'];
-      setUser(null);
-      window.location.href = '/login';
-    },
-    register: async (username, password) => {
-      try {
-        const res = await apiClient.post('/api/auth/registration/', { 
-          username,
-          password
-        });
-
-        if (res.status === 201) {
-          return { 
-            success: true,
-            data: res.data,
-            message: '注册成功，请登录'
-          };
-        }
-        return {
-          success: false,
-          errors: res.data || { non_field_errors: ['注册失败'] }
-        };
-      } catch (err) {
-        return { 
-          success: false,
-          errors: err.response?.data || { non_field_errors: ['服务器错误'] }
-        };
-      }
-    }
+    login,
+    logout,
+    register
   };
 
   return (
