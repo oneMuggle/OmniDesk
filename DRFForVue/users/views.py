@@ -59,7 +59,7 @@ class UserLoginView(TokenObtainPairView):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
-            user = serializer.user
+            user = serializer.validated_data['user']
             return Response({
                 "success": True,
                 "user": UserDetailSerializer(user).data,

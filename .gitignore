@@ -9865,3 +9865,5 @@ node_modules/vue-axios/dist/vue-axios.common.min.js
 node_modules/vue-axios/dist/vue-axios.esm.min.js
 vue3-FullCalendar-Element-plus.zip
 DRFForVue/DRFForVue/__pycache__/settings.cpython-310.pyc
+DRFForVue/db.sqlite3
+DRFForVue/db.sqlite3
