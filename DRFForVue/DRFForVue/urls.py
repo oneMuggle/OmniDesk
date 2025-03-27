@@ -9,7 +9,7 @@ urlpatterns = [
     # Authentication & User endpoints
     path('api/', include([
         path('auth/', include('users.auth_urls')),
-        path('users/', include('users.user_urls'))
+        path('users/', include('users.user_urls')),
     ])),
     
     # Events API

@@ -1,9 +1,6 @@
 from django.urls import path
-from rest_framework.permissions import IsAuthenticated
-from .views import UserDetailView
+from .views import CurrentUserView
 
 urlpatterns = [
-    path('me/', UserDetailView.as_view(
-        permission_classes=[IsAuthenticated]
-    ), name='user-me'),
+    path('me/', CurrentUserView.as_view(), name='user-me'),
 ]

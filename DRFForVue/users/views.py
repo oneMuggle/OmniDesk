@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, exceptions
+from rest_framework.views import APIView
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -46,6 +47,13 @@ class UserRegistrationView(generics.CreateAPIView):
             return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
 
 class UserDetailView(generics.RetrieveAPIView):
+    serializer_class = UserDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get_object(self):
+        return self.request.user
+
+class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     
