@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 配置axios实例
 export const apiClient = axios.create({
-  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/events/'
+  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/'
 });
 
 // 添加请求拦截器
@@ -36,7 +36,7 @@ apiClient.interceptors.request.use(config => {
 export const getPersonnel = async () => {
   try {
     const response = await apiClient.get('/personnel/');
-    return response.data;
+    return Array.isArray(response.data) ? response.data : [];
   } catch (error) {
     throw error.response.data;
   }

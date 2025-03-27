@@ -61,9 +61,10 @@ const PersonnelPage = () => {
   const fetchData = async () => {
     try {
       const result = await getPersonnel();
-      setData(result);
+      setData(Array.isArray(result) ? result : []);
     } catch (error) {
       message.error('获取人员数据失败');
+      setData([]); // 确保数据状态为数组
     }
   };
 
@@ -127,7 +128,7 @@ const PersonnelPage = () => {
 
       <Table 
         columns={columns} 
-        dataSource={data} 
+        dataSource={data || []} 
         rowKey="id"
         bordered
         pagination={{ pageSize: 8 }}
