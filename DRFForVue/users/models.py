@@ -2,7 +2,8 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class CustomUser(AbstractUser):
-    # 仅保留核心字段
+    # 显式定义email字段覆盖默认设置
+    email = models.EmailField(blank=True, null=True, help_text='可选字段，允许为空')
     phone = models.CharField(max_length=20, blank=True, null=True)
     
     # 使用用户名作为唯一标识

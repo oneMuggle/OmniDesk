@@ -24,27 +24,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     password = serializers.CharField(
         write_only=True,
         required=True,
-        min_length=8,
-        style={'input_type': 'password'},
-        validators=[
-            RegexValidator(
-                regex=r'^(?=.*[A-Za-z])(?=.*\d)[A-Za-z\d]{8,}$',
-                message='密码必须包含至少8个字符，且包含字母和数字'
-            )
-        ],
-        error_messages={
-            'blank': '密码不能为空',
-            'min_length': '密码至少需要8个字符'
-        }
-    )
-    password_confirmation = serializers.CharField(
-        write_only=True,
-        required=True,
-        min_length=6,
         style={'input_type': 'password'},
         error_messages={
-            'blank': '请确认密码',
-            'min_length': '确认密码至少需要6个字符'
+            'blank': '密码不能为空'
         }
     )
     email = serializers.EmailField(
@@ -57,7 +39,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ('username', 'password', 'password_confirmation', 'email')
+        fields = ('username', 'password', 'email')
 
     def validate_username(self, value):
         value = value.strip()
@@ -66,31 +48,35 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        if data['password'] != data['password_confirmation']:
-            raise serializers.ValidationError({
-                "password": ["两次输入的密码不一致"],
-                "password_confirmation": ["两次输入的密码不一致"],
-                "non_field_errors": ["密码和确认密码不匹配"]
-            })
         return data
 
     def create(self, validated_data):
-        try:
-            return CustomUser.objects.create_user(
-                username=validated_data['username'],
-                password=validated_data['password'],
-                email=validated_data.get('email', '')
-            )
-        except Exception as e:
-            # 捕获并记录详细的数据库错误
-            from django.db import IntegrityError
-            if isinstance(e, IntegrityError):
-                raise serializers.ValidationError({"email": "该邮箱已被注册"})
-            raise e
+        return CustomUser.objects.create_user(
+            username=validated_data['username'],
+            password=validated_data['password'],
+            email=validated_data.get('email', '')
+        )
+
+from django.contrib.auth import authenticate
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
-    password = serializers.CharField()
+    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+
+    def validate(self, data):
+        user = authenticate(
+            username=data.get('username'),
+            password=data.get('password')
+        )
+        
+        if not user:
+            raise serializers.ValidationError("用户名或密码不正确")
+            
+        if not user.is_active:
+            raise serializers.ValidationError("用户账户已被禁用")
+            
+        data['user'] = user
+        return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
