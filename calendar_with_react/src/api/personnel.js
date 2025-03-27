@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 配置axios实例
 export const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000'
+  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/events/'
 });
 
 // 添加请求拦截器
@@ -35,7 +35,7 @@ apiClient.interceptors.request.use(config => {
 
 export const getPersonnel = async () => {
   try {
-    const response = await apiClient.get('/api/personnel/');
+    const response = await apiClient.get('/personnel/');
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -44,7 +44,7 @@ export const getPersonnel = async () => {
 
 export const createPerson = async (data) => {
   try {
-    const response = await apiClient.post('/api/personnel/', data);
+    const response = await apiClient.post('/personnel/', data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -53,7 +53,7 @@ export const createPerson = async (data) => {
 
 export const updatePerson = async (id, data) => {
   try {
-    const response = await apiClient.put(`/api/personnel/${id}/`, data);
+    const response = await apiClient.put(`/personnel/${id}/`, data);
     return response.data;
   } catch (error) {
     throw error.response.data;
@@ -62,7 +62,7 @@ export const updatePerson = async (id, data) => {
 
 export const deletePerson = async (id) => {
   try {
-    const response = await apiClient.delete(`/api/personnel/${id}/`);
+    const response = await apiClient.delete(`/personnel/${id}/`);
     return response.data;
   } catch (error) {
     throw error.response.data;
