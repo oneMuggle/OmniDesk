@@ -1,10 +1,21 @@
 from django.db import models
+from django.conf import settings
 from users.models import CustomUser
 import os
 import uuid
 
 def template_upload_path(instance, filename):
     return f"templates/{instance.user.id}/{uuid.uuid4()}{os.path.splitext(filename)[1]}"
+
+class Personnel(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    department = models.CharField(max_length=100)
+    position = models.CharField(max_length=100)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user.name} - {self.position}"
 
 class Event(models.Model):
     title = models.CharField(max_length=200)

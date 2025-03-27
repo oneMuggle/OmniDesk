@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
-from .models import Event, DocumentTemplate, ResponsiblePerson
-from .serializers import EventSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer
+from .models import Event, DocumentTemplate, ResponsiblePerson, Personnel
+from .serializers import EventSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer, PersonnelSerializer
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
@@ -12,6 +12,14 @@ class EventViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
+
+class PersonnelViewSet(viewsets.ModelViewSet):
+    queryset = Personnel.objects.all()
+    serializer_class = PersonnelSerializer
+    permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
@@ -31,7 +39,6 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
-        # 支持批量创建
         if isinstance(request.data, list):
             serializer = self.get_serializer(data=request.data, many=True)
             serializer.is_valid(raise_exception=True)
