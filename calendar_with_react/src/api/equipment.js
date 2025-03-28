@@ -2,17 +2,15 @@ import axios from 'axios';
 
 const API_URL = process.env.REACT_APP_API_URL;
 
-const getAuthHeaders = () => {
-    return {
-        headers: {
-            Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
-        },
-    };
-};
+const getAuthHeaders = () => ({
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+  }
+});
 
-export const fetchEquipment = async () => {
+export const fetchEquipment = async (params) => {
     try {
-        const response = await axios.get(`${API_URL}/equipment/`, getAuthHeaders());
+        const response = await axios.get(`${API_URL}/equipment/`, { params, ...getAuthHeaders() });
         return response.data;
     } catch (error) {
         console.error('获取设备列表失败:', error);

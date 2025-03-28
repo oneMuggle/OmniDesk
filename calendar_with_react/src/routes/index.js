@@ -25,6 +25,11 @@ const router = createBrowserRouter([
       { path: "events", element: <ProtectedRoute><EventsPage /></ProtectedRoute> },
       { path: "trials", element: <ProtectedRoute><TrialsPage /></ProtectedRoute> },
       { path: "personnel", element: <ProtectedRoute><PersonnelPage /></ProtectedRoute> },
+      { 
+        path: "equipment", 
+        element: <ProtectedRoute><EquipmentPage /></ProtectedRoute>,
+        role: ['user', 'admin']
+      },
       { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
       { path: "documents", element: <ProtectedRoute><DocumentsPage /></ProtectedRoute> },
       { path: "announcements", element: <ProtectedRoute><AnnouncementsPage /></ProtectedRoute> },

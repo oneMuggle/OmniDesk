@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Event, Personnel, DocumentTemplate, ResponsiblePerson
+from .models import Event, Personnel, DocumentTemplate, ResponsiblePerson, Equipment
 
 class EventSerializer(serializers.ModelSerializer):
     class Meta:

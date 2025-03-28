@@ -2,8 +2,8 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
-from .models import Event, DocumentTemplate, ResponsiblePerson, Personnel
-from .serializers import EventSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer, PersonnelSerializer
+from .models import Event, DocumentTemplate, ResponsiblePerson, Personnel, Equipment
+from .serializers import EventSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer, PersonnelSerializer, EquipmentSerializer
 
 class EventViewSet(viewsets.ModelViewSet):
     queryset = Event.objects.all()
@@ -17,6 +17,13 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
     permission_classes = [IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """自动关联当前用户"""
+        if not self.request.user.is_staff:
+            serializer.save(user=self.request.user)
+        else:
+            serializer.save()
 
 class PersonnelViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all().order_by('id')
