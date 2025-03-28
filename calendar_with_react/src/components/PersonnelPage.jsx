@@ -58,14 +58,38 @@ const PersonnelPage = () => {
     fetchData();
   }, []);
 
-  const fetchData = async () => {
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
+
+  const fetchData = async (params = {}) => {
     try {
-      const result = await getPersonnel();
-      setData(Array.isArray(result) ? result : []);
+      const { page = pagination.current, pageSize = pagination.pageSize } = params;
+      const { data, pagination: apiPagination } = await getPersonnel({ 
+        page,
+        page_size: pageSize 
+      });
+      
+      setData(data);
+      setPagination({
+        ...pagination,
+        total: apiPagination.total,
+        current: apiPagination.current,
+        pageSize: apiPagination.pageSize,
+      });
     } catch (error) {
       message.error('获取人员数据失败');
-      setData([]); // 确保数据状态为数组
+      setData([]);
     }
+  };
+
+  const handleTableChange = (newPagination) => {
+    fetchData({
+      page: newPagination.current,
+      pageSize: newPagination.pageSize,
+    });
   };
 
   const showCreateModal = () => {
@@ -131,7 +155,13 @@ const PersonnelPage = () => {
         dataSource={data || []} 
         rowKey="id"
         bordered
-        pagination={{ pageSize: 8 }}
+        pagination={{
+          ...pagination,
+          showSizeChanger: true,
+          pageSizeOptions: ['10', '20', '50'],
+          showTotal: (total) => `共 ${total} 条`,
+        }}
+        onChange={handleTableChange}
       />
 
       <Modal

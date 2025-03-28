@@ -33,11 +33,32 @@ apiClient.interceptors.request.use(config => {
   return config;
 });
 
-export const getPersonnel = async () => {
+export const getPersonnel = async (params = {}) => {
   try {
-    const response = await apiClient.get('/events/personnel/');
-    return Array.isArray(response.data) ? response.data : [];
+    const response = await apiClient.get('/events/personnel/', {
+      params: {
+        page: params.page,
+        page_size: params.pageSize
+      }
+    });
+    
+    return {
+      data: response.data.results || [],
+      pagination: {
+        current: response.data.current_page || 1,
+        total: response.data.count || 0,
+        pageSize: response.data.page_size || 10
+      }
+    };
   } catch (error) {
+    if (!error.response) {
+      throw { message: '网络连接异常，请检查网络后重试' };
+    }
+    if (error.response.status === 401) {
+      // 触发重新认证流程
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
     throw error.response.data;
   }
 };
@@ -47,24 +68,36 @@ export const createPerson = async (data) => {
     const response = await apiClient.post('/events/personnel/', data);
     return response.data;
   } catch (error) {
-    throw error.response.data;
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response?.data || { message: '创建人员信息失败' };
   }
 };
 
 export const updatePerson = async (id, data) => {
   try {
-    const response = await apiClient.put(`/events/personnel/${id}/`, data);
+    const response = await apiClient.patch(`/events/personnel/${id}/`, data);
     return response.data;
   } catch (error) {
-    throw error.response.data;
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response?.data || { message: '更新人员信息失败' };
   }
 };
 
 export const deletePerson = async (id) => {
   try {
-    const response = await apiClient.delete(`/events/personnel/${id}/`);
-    return response.data;
+    await apiClient.delete(`/events/personnel/${id}/`);
+    return { success: true };
   } catch (error) {
-    throw error.response.data;
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response?.data || { message: '删除人员信息失败' };
   }
 };
