@@ -80,20 +80,23 @@ class ResponsiblePerson(models.Model):
         ordering = ['-updated_at']
 
 class Equipment(models.Model):
-    name = models.CharField(max_length=100)
-    description = models.TextField()
+    name = models.CharField(max_length=100, verbose_name='设备名称')
+    description = models.TextField(verbose_name='设备简介')
     user = models.ForeignKey(
-        CustomUser, 
+        CustomUser,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='equipment_records'
+        related_name='equipment_records',
+        verbose_name='创建用户'
     )
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')
 
     def __str__(self):
         return self.name
 
     class Meta:
+        verbose_name = '试验设备'
+        verbose_name_plural = '试验设备管理'
         ordering = ['-created_at']

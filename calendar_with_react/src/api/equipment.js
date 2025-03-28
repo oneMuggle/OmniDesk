@@ -1,48 +1,69 @@
-import axios from 'axios';
+import { apiClient } from './personnel';
 
-const API_URL = process.env.REACT_APP_API_URL;
-
-const getAuthHeaders = () => ({
-  headers: {
-    Authorization: `Bearer ${localStorage.getItem('accessToken')}`,
+export const getEquipment = async (params = {}) => {
+  try {
+    const response = await apiClient.get('/events/equipment/', {
+      params: {
+        page: params.page,
+        page_size: params.pageSize
+      }
+    });
+    
+    return {
+      data: response.data.results || [],
+      pagination: {
+        current: response.data.current_page || 1,
+        total: response.data.count || 0,
+        pageSize: response.data.page_size || 10
+      }
+    };
+  } catch (error) {
+    if (!error.response) {
+      throw { message: '网络连接异常，请检查网络后重试' };
+    }
+    if (error.response.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response.data;
   }
-});
-
-export const fetchEquipment = async (params) => {
-    try {
-        const response = await axios.get(`${API_URL}/equipment/`, { params, ...getAuthHeaders() });
-        return response.data;
-    } catch (error) {
-        console.error('获取设备列表失败:', error);
-        throw error;
-    }
 };
 
-export const createEquipment = async (equipmentData) => {
-    try {
-        const response = await axios.post(`${API_URL}/equipment/`, equipmentData, getAuthHeaders());
-        return response.data;
-    } catch (error) {
-        console.error('创建设备失败:', error);
-        throw error;
+export const createEquipment = async (data) => {
+  try {
+    const response = await apiClient.post('/events/equipment/', data);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
     }
+    throw error.response?.data || { message: '创建设备信息失败' };
+  }
 };
 
-export const updateEquipment = async (id, equipmentData) => {
-    try {
-        const response = await axios.put(`${API_URL}/equipment/${id}/`, equipmentData, getAuthHeaders());
-        return response.data;
-    } catch (error) {
-        console.error('更新设备失败:', error);
-        throw error;
+export const updateEquipment = async (id, data) => {
+  try {
+    const response = await apiClient.patch(`/events/equipment/${id}/`, data);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
     }
+    throw error.response?.data || { message: '更新设备信息失败' };
+  }
 };
 
 export const deleteEquipment = async (id) => {
-    try {
-        await axios.delete(`${API_URL}/equipment/${id}/`, getAuthHeaders());
-    } catch (error) {
-        console.error('删除设备失败:', error);
-        throw error;
+  try {
+    await apiClient.delete(`/events/equipment/${id}/`);
+    return { success: true };
+  } catch (error) {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
     }
+    throw error.response?.data || { message: '删除设备信息失败' };
+  }
 };
