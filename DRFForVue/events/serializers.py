@@ -1,9 +1,9 @@
 from rest_framework import serializers
-from .models import Event, Personnel, DocumentTemplate, ResponsiblePerson, Equipment
+from .models import Experiment, Personnel, DocumentTemplate, ResponsiblePerson, Equipment
 
-class EventSerializer(serializers.ModelSerializer):
+class ExperimentSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Event
+        model = Experiment
         fields = '__all__'
 
 class PersonnelSerializer(serializers.ModelSerializer):
@@ -41,7 +41,7 @@ class TrialSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Event  # 假设Event模型对应试验
+        model = Experiment  # 对应试验模型
         fields = '__all__'
         extra_kwargs = {
             'responsible_persons': {'required': False, 'allow_empty': True}

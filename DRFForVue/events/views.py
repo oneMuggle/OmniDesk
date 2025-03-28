@@ -2,12 +2,12 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.parsers import MultiPartParser
-from .models import Event, DocumentTemplate, ResponsiblePerson, Personnel, Equipment
-from .serializers import EventSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer, PersonnelSerializer, EquipmentSerializer
+from .models import Experiment, DocumentTemplate, ResponsiblePerson, Personnel, Equipment
+from .serializers import ExperimentSerializer, DocumentTemplateSerializer, ResponsiblePersonSerializer, PersonnelSerializer, EquipmentSerializer
 
-class EventViewSet(viewsets.ModelViewSet):
-    queryset = Event.objects.all()
-    serializer_class = EventSerializer
+class ExperimentViewSet(viewsets.ModelViewSet):
+    queryset = Experiment.objects.all()
+    serializer_class = ExperimentSerializer
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):

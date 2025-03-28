@@ -29,15 +29,23 @@ class Personnel(models.Model):
     class Meta:
         ordering = ['-created_at']
 
-class Event(models.Model):
+class ExperimentResponsible(models.Model):
+    experiment = models.ForeignKey('Experiment', on_delete=models.CASCADE)
+    responsible = models.ForeignKey('ResponsiblePerson', on_delete=models.CASCADE)
+    role = models.CharField(max_length=100, default='负责人')
+
+    class Meta:
+        db_table = 'experiment_responsible'
+
+class Experiment(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField(blank=True, null=True)
     start_time = models.DateTimeField()
     end_time = models.DateTimeField()
     experiment_info = models.TextField(verbose_name='试验信息', blank=True)
-    responsible_person = models.CharField(max_length=100, verbose_name='负责人', blank=True)
+    responsible_persons = models.ManyToManyField('ResponsiblePerson', through=ExperimentResponsible, blank=True)
     train_count = models.PositiveIntegerField(verbose_name='车次数量', default=0)
-    created_by = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    created_by = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -67,7 +75,7 @@ class ResponsiblePerson(models.Model):
     position = models.CharField(max_length=100, verbose_name='职位')
     contact = models.CharField(max_length=100, verbose_name='联系方式')
     event_type = models.CharField(max_length=20, choices=EVENT_TYPES, verbose_name='事件类型', default='train')
-    event = models.ForeignKey(Event, on_delete=models.CASCADE, related_name='responsibles', null=True, blank=True)
+    event = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='responsibles', null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
