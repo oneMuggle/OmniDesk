@@ -11,6 +11,7 @@ import Register from '../components/Register';
 import DocumentsPage from '../components/DocumentsPage';
 import AnnouncementsPage from '../components/AnnouncementsPage';
 import TrialsPage from '../components/TrialsPage';
+import EquipmentPage from '../components/EquipmentPage';
 import PersonnelPage from '../components/PersonnelPage';
 
 const router = createBrowserRouter([

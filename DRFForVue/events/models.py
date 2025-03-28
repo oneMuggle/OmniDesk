@@ -78,3 +78,22 @@ class ResponsiblePerson(models.Model):
         verbose_name = '负责人'
         verbose_name_plural = '负责人管理'
         ordering = ['-updated_at']
+
+class Equipment(models.Model):
+    name = models.CharField(max_length=100)
+    description = models.TextField()
+    user = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='equipment_records'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['-created_at']

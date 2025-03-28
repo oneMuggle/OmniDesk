@@ -13,6 +13,11 @@ class EventViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(created_by=self.request.user)
 
+class EquipmentViewSet(viewsets.ModelViewSet):
+    queryset = Equipment.objects.all()
+    serializer_class = EquipmentSerializer
+    permission_classes = [IsAuthenticated]
+
 class PersonnelViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all().order_by('id')
     serializer_class = PersonnelSerializer

@@ -29,3 +29,13 @@ class ResponsiblePersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResponsiblePerson
         fields = '__all__'
+
+class EquipmentSerializer(serializers.ModelSerializer):
+    user = serializers.HiddenField(
+        default=serializers.CurrentUserDefault(),
+        required=False
+    )
+    
+    class Meta:
+        model = Equipment
+        fields = '__all__'
