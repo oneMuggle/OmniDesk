@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/experiments/',
+  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/events/',
   headers: {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${localStorage.getItem('access_token') || ''}`
@@ -21,5 +21,5 @@ export const updateTrial = (id, data) => api.put(`/experiments/${id}/`, {
   responsible_persons: data.responsible_persons?.join(',')
 });
 export const deleteTrial = (id) => api.delete(`/experiments/${id}/`);
-export const getEquipmentList = () => api.get('/experiments/equipment/');
-export const getResponsiblePersons = () => api.get('/experiments/personnel/');
+export const getEquipmentList = () => api.get('/equipment/');
+export const getResponsiblePersons = () => api.get('/personnel/');

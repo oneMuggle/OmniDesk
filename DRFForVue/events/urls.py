@@ -5,7 +5,7 @@ router = DefaultRouter()
 router.register(r'experiments', ExperimentViewSet, basename='experiment')
 router.register(r'templates', DocumentTemplateViewSet, basename='template')
 router.register(r'responsible_persons', ResponsiblePersonViewSet, basename='responsible-person')
-router.register(r'experiments/personnel', PersonnelViewSet, basename='experiment-personnel')
-router.register(r'experiments/equipment', EquipmentViewSet, basename='experiment-equipment')
+router.register(r'personnel', PersonnelViewSet, basename='experiment-personnel')
+router.register(r'equipment', EquipmentViewSet, basename='experiment-equipment')
 
 urlpatterns = router.urls
