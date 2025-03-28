@@ -7,16 +7,15 @@ class EventSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class PersonnelSerializer(serializers.ModelSerializer):
-    user = serializers.PrimaryKeyRelatedField(
-        read_only=True,
+    user = serializers.HiddenField(
         default=serializers.CurrentUserDefault()
     )
 
     class Meta:
         model = Personnel
-        fields = ['id', 'user', 'name', 'phone', 'department', 'position', 'created_at', 'updated_at']
-        read_only_fields = ['user']
+        fields = '__all__'
         extra_kwargs = {
+            'user': {'required': False},
             'department': {'required': False},
             'phone': {'required': True}
         }
