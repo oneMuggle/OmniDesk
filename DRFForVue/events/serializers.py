@@ -29,6 +29,23 @@ class ResponsiblePersonSerializer(serializers.ModelSerializer):
     class Meta:
         model = ResponsiblePerson
         fields = '__all__'
+        extra_kwargs = {
+            'trials': {'required': False, 'allow_empty': True}
+        }
+
+class TrialSerializer(serializers.ModelSerializer):
+    responsible_persons = serializers.PrimaryKeyRelatedField(
+        many=True,
+        queryset=ResponsiblePerson.objects.all(),
+        required=False
+    )
+
+    class Meta:
+        model = Event  # 假设Event模型对应试验
+        fields = '__all__'
+        extra_kwargs = {
+            'responsible_persons': {'required': False, 'allow_empty': True}
+        }
 
 class EquipmentSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(

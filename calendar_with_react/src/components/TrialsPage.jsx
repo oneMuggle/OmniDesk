@@ -87,7 +87,7 @@ const TrialsPage = () => {
         <Column title="试验名称" dataIndex="name" key="name" />
         <Column 
           title="试验设备" 
-          render={(_, record) => record.equipment.name}
+          render={(_, record) => record.equipments.map(e => e.name).join(', ')}
         />
         <Column title="委托单位" dataIndex="client" />
         <Column 
@@ -126,6 +126,8 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
+            equipments: currentRecord.equipments?.map(e => e.id),
+            responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
             due_date: dayjs(currentRecord.due_date)
           } : {}}
           onFinish={handleSubmit.mutate}
@@ -141,12 +143,21 @@ const TrialsPage = () => {
 
           <Form.Item
             label="试验设备"
-            name="equipment"
+            name="equipments"
             rules={[{ required: true, message: '请选择试验设备' }]}
           >
-            <Select>
+            <Select 
+              mode="multiple"
+              placeholder="请选择试验设备"
+              optionFilterProp="children"
+              showSearch
+            >
               {equipments?.map(equipment => (
-                <Option key={equipment.id} value={equipment.id}>
+                <Option 
+                  key={equipment.id} 
+                  value={equipment.id}
+                  title={`设备编号：${equipment.serial_number}`}
+                >
                   {equipment.name} ({equipment.model_number})
                 </Option>
               ))}
@@ -163,13 +174,25 @@ const TrialsPage = () => {
 
           <Form.Item
             label="负责人"
-            name="responsible_person"
+            name="responsible_persons"
             rules={[{ required: true, message: '请选择负责人' }]}
           >
-            <Select>
+            <Select 
+              mode="multiple"
+              placeholder="请选择负责人"
+              optionFilterProp="children"
+              showSearch
+              filterOption={(input, option) =>
+                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              }
+            >
               {responsiblePersons?.map(person => (
-                <Option key={person.id} value={person.id}>
-                  {person.name} ({person.department})
+                <Option 
+                  key={person.id} 
+                  value={person.id}
+                  title={`联系方式：${person.phone}`}
+                >
+                  {person.name} - {person.department} ({person.position})
                 </Option>
               ))}
             </Select>
