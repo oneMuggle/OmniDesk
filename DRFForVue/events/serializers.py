@@ -8,16 +8,16 @@ class EventSerializer(serializers.ModelSerializer):
 
 class PersonnelSerializer(serializers.ModelSerializer):
     user = serializers.HiddenField(
-        default=serializers.CurrentUserDefault()
+        default=serializers.CurrentUserDefault(),
+        required=False
     )
 
     class Meta:
         model = Personnel
         fields = '__all__'
         extra_kwargs = {
-            'user': {'required': False},
             'department': {'required': False},
-            'phone': {'required': True}
+            'phone': {'required': False}
         }
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):

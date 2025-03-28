@@ -25,6 +25,9 @@ class Personnel(models.Model):
 
     def __str__(self):
         return f"{self.name} - {self.position}"
+    
+    class Meta:
+        ordering = ['-created_at']
 
 class Event(models.Model):
     title = models.CharField(max_length=200)

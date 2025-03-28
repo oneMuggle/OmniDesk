@@ -14,7 +14,7 @@ class EventViewSet(viewsets.ModelViewSet):
         serializer.save(created_by=self.request.user)
 
 class PersonnelViewSet(viewsets.ModelViewSet):
-    queryset = Personnel.objects.all()
+    queryset = Personnel.objects.all().order_by('id')
     serializer_class = PersonnelSerializer
     permission_classes = [IsAuthenticated]
 
