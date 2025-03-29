@@ -83,10 +83,14 @@ class UserDetailSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'username', 'date_joined')
 
-class PersonnelSerializer(serializers.ModelSerializer):
+class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ('id', 'username', 'email', 'name', 'is_active', 'is_staff', 'date_joined')
+
+class PersonnelSerializer(UserSerializer):
+    """兼容原有人员管理接口"""
+    pass
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     @classmethod

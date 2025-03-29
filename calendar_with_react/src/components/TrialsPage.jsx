@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
-  getTrials, createTrial, updateTrial, deleteTrial,
-  getEquipmentList, getResponsiblePersons 
+  fetchTrials, createTrial, updateTrial, deleteTrial,
+  getEquipmentList, getResponsiblePersons,
+  getEquipmentOptions, getPersonnelOptions // 保持向后兼容
 } from '../api/trials';
 import {
   Table, Button, Modal, Form, Input, DatePicker, Select, Upload, message
@@ -24,15 +25,16 @@ const TrialsPage = () => {
   // 获取数据
   const { data: trials } = useQuery({ 
     queryKey: ['trials'],
-    queryFn: getTrials
+    queryFn: fetchTrials,
+    select: response => Array.isArray(response.data) ? response.data : []
   });
   const { data: equipments } = useQuery({ 
     queryKey: ['equipments'],
-    queryFn: getEquipmentList
+    queryFn: getEquipmentOptions
   });
   const { data: responsiblePersons } = useQuery({ 
     queryKey: ['responsiblePersons'],
-    queryFn: getResponsiblePersons
+    queryFn: getPersonnelOptions
   });
 
   // 表单提交处理
@@ -87,7 +89,7 @@ const TrialsPage = () => {
         <Column title="试验名称" dataIndex="name" key="name" />
         <Column 
           title="试验设备" 
-          render={(_, record) => record.equipments.map(e => e.name).join(', ')}
+          render={(_, record) => (record.related_equipment || []).map(e => e.name).join(', ')}
         />
         <Column title="委托单位" dataIndex="client" />
         <Column 
@@ -107,7 +109,7 @@ const TrialsPage = () => {
               <Button 
                 type="link" 
                 danger
-                onClick={() => deleteTrial(record.id)}
+              onClick={() => deleteTrial(record.id)}
               >
                 删除
               </Button>
@@ -126,7 +128,7 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-            equipments: currentRecord.equipments?.map(e => e.id),
+            related_equipment: currentRecord.related_equipment?.map(e => e.id),
             responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
             due_date: dayjs(currentRecord.due_date)
           } : {}}
@@ -143,7 +145,7 @@ const TrialsPage = () => {
 
           <Form.Item
             label="试验设备"
-            name="equipments"
+          name="related_equipment"
             rules={[{ required: true, message: '请选择试验设备' }]}
           >
             <Select 
