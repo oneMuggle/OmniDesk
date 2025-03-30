@@ -1,40 +1,39 @@
-import React, { useState, useEffect } from 'react';
-import { createClient } from '../api/deepseek';
+import React, { useState, useEffect, useMemo } from 'react';
 import { calendarApi } from '../api/calendar';
-import { Select } from 'antd';
+import { getTrials } from '../api/trials';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import { Tooltip } from 'react-tooltip';
-import { Modal, Input, Button, DatePicker } from 'antd';
+import { Modal, Button, DatePicker, Form, Select, Descriptions, Badge, Space } from 'antd';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
-  const [apiClient] = useState(() => createClient(true)); // 使用上下文管理
   // 不同类型日历的事件数据
   const [defaultEvents, setDefaultEvents] = useState([
     { title: 'Meeting', start: new Date() }
   ]);
-  const [workEvents, setWorkEvents] = useState([
-    { title: '项目会议', start: new Date(), type: 'work' }
-  ]);
-  const [holidayEvents, setHolidayEvents] = useState([
-    { title: '公共假期', start: new Date(), type: 'holiday' }
-  ]);
   const [darkMode, setDarkMode] = useState(false);
-  const [calendarType, setCalendarType] = useState('default'); // 新增日历类型状态
+  const [calendarType, setCalendarType] = useState('trial'); // 初始设为试验日历
   
   // 日历类型选项
   const calendarOptions = [
-    { value: 'default', label: '默认日历' },
-    { value: 'work', label: '工作日程' },
-    { value: 'holiday', label: '节假日历' },
+    { value: 'trial', label: '试验日历' },
+    { value: 'schedule', label: '排班日历' },
   ];
-  const [selectedDate, setSelectedDate] = useState(null);
   const [modalType, setModalType] = useState('new'); // 'view' | 'edit' | 'new'
   const [currentEvent, setCurrentEvent] = useState(null);
+  const [selectedTrial, setSelectedTrial] = useState(null);
+  
+  const statusColors = {
+    '进行中': 'processing',
+    '已计划': 'success',
+    '已取消': 'error',
+    '已完成': 'default'
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -59,29 +58,6 @@ const CalendarPage = () => {
     setDarkMode(!darkMode);
   };
 
-  const handleDateClick = (arg) => {
-    const clickedDate = arg.date;
-    const currentEvents = calendarType === 'work' ? workEvents : 
-                         calendarType === 'holiday' ? holidayEvents : 
-                         defaultEvents;
-    const existingEvent = currentEvents.find(event => 
-      new Date(event.start).toDateString() === clickedDate.toDateString()
-    );
-
-    setSelectedDate(clickedDate);
-    if (existingEvent) {
-      setCurrentEvent(existingEvent);
-      setModalType('view');
-    } else {
-      setCurrentEvent({
-        title: '',
-        start: clickedDate,
-        allDay: arg.allDay
-      });
-      setModalType('new');
-    }
-  };
-
   const handleEventSubmit = async (newEvent) => {
     try {
       const payload = {
@@ -90,8 +66,11 @@ const CalendarPage = () => {
         experiment_info: newEvent.experiment_info,
         responsible_person: newEvent.responsible_person,
         train_count: newEvent.train_count || 0,
-        start_time: newEvent.start.toISOString(),
-        end_time: newEvent.end_time.toISOString()
+        trial_id: selectedTrial?.id,
+        time_slots: newEvent.time_slots?.map(slot => ({
+          start_time: slot.start.toISOString(),
+          end_time: slot.end.toISOString()
+        }))
       };
 
       let response;
@@ -109,16 +88,11 @@ const CalendarPage = () => {
             type: calendarType
           };
           
-          switch(calendarType) {
-            case 'work':
-              setWorkEvents(prev => [...prev, createdEvent]);
-              break;
-            case 'holiday':
-              setHolidayEvents(prev => [...prev, createdEvent]);
-              break;
-            default:
-              setDefaultEvents(prev => [...prev, createdEvent]);
-          }
+          // 统一保存到defaultEvents并根据类型过滤
+          setDefaultEvents(prev => [...prev, {
+            ...createdEvent,
+            type: calendarType === 'trial' ? 'TRIAL' : 'SCHEDULE'
+          }]);
         }
     } catch (error) {
       console.error('保存事件失败:', error);
@@ -127,24 +101,14 @@ const CalendarPage = () => {
     setCurrentEvent(null);
   };
 
-  const handleDeleteEvent = async () => {
+  const handleTrialSelect = async (trialId) => {
     try {
-      await calendarApi.deleteCalendarEvent(currentEvent.id);
-      switch(calendarType) {
-        case 'work':
-          setWorkEvents(prev => prev.filter(event => event.id !== currentEvent.id));
-          break;
-        case 'holiday':
-          setHolidayEvents(prev => prev.filter(event => event.id !== currentEvent.id));
-          break;
-        default:
-          setDefaultEvents(prev => prev.filter(event => event.id !== currentEvent.id));
-      }
+      const { data } = await getTrials({ id: trialId });
+      setSelectedTrial(data);
     } catch (error) {
-      console.error('删除事件失败:', error);
-      alert('删除事件失败，请检查网络连接或联系管理员');
+      console.error('获取试验详情失败:', error);
+      alert('无法加载试验详情');
     }
-    setCurrentEvent(null);
   };
 
   return (
@@ -152,7 +116,7 @@ const CalendarPage = () => {
       <div className="calendar-container">
         <div className="calendar-controls">
           <Select
-            defaultValue="default"
+            defaultValue="trial"
             style={{ width: 200, marginRight: 16 }}
             onChange={(value) => setCalendarType(value)}
             options={calendarOptions}
@@ -184,17 +148,21 @@ const CalendarPage = () => {
             week: '周视图',
             day: '日视图'
           }}
-          events={
-            calendarType === 'work' ? workEvents : 
-            calendarType === 'holiday' ? holidayEvents : 
-            defaultEvents
-          }
+          events={useMemo(() => {
+            return defaultEvents.filter(event => 
+              calendarType === 'trial' ? 
+              event.type === 'TRIAL' : 
+              event.type === 'SCHEDULE'
+            );
+          }, [calendarType, defaultEvents])}
           dateClick={(arg) => {
-            setCurrentEvent({
+            const newEvent = {
               title: '',
               start: arg.date,
-              allDay: arg.allDay
-            });
+              allDay: arg.allDay,
+              type: calendarType === 'trial' ? 'TRIAL' : 'SCHEDULE'
+            };
+            setCurrentEvent(newEvent);
             setModalType('new');
           }}
           eventClick={(clickInfo) => {
@@ -212,20 +180,10 @@ const CalendarPage = () => {
       </div>
 
       <Modal
-        title={modalType === 'view' ? '查看事件' : modalType === 'edit' ? '编辑事件' : '新建事件'}
+        title={modalType === 'view' ? '查看试验排班' : '新建试验排班'}
         open={!!currentEvent}
         onCancel={() => setCurrentEvent(null)}
         footer={[
-          modalType === 'view' && (
-            <Button key="edit" type="primary" onClick={() => setModalType('edit')}>
-              编辑
-            </Button>
-          ),
-          modalType === 'edit' && (
-            <Button key="delete" danger onClick={handleDeleteEvent}>
-              删除
-            </Button>
-          ),
           <Button 
             key="submit" 
             type="primary" 
@@ -237,64 +195,73 @@ const CalendarPage = () => {
         ]}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Input
-            placeholder="事件标题"
-            value={currentEvent?.title || ''}
-            onChange={(e) => setCurrentEvent({...currentEvent, title: e.target.value})}
-            disabled={modalType === 'view'}
-          />
+          <Form layout="vertical">
+            <Form.Item label="试验项目" required>
+              <Select
+                showSearch
+                placeholder="搜索试验项目"
+                options={[]}
+                loading={false}
+                filterOption={(input, option) =>
+                  option.label.toLowerCase().includes(input.toLowerCase())
+                }
+                onChange={(value) => handleTrialSelect(value)}
+              />
+            </Form.Item>
 
-          <Input.TextArea
-            placeholder="事件描述"
-            value={currentEvent?.description || ''}
-            onChange={(e) => setCurrentEvent({...currentEvent, description: e.target.value})}
-            disabled={modalType === 'view'}
-            rows={3}
-          />
+            {selectedTrial && (
+              <Descriptions bordered size="small" column={1}>
+                <Descriptions.Item label="试验编号">{selectedTrial.code}</Descriptions.Item>
+                <Descriptions.Item label="负责人">{selectedTrial.manager}</Descriptions.Item>
+                <Descriptions.Item label="当前阶段">{selectedTrial.phase}</Descriptions.Item>
+                <Descriptions.Item label="状态">
+                  <Badge status={statusColors[selectedTrial.status]} text={selectedTrial.status} />
+                </Descriptions.Item>
+              </Descriptions>
+            )}
 
-          <Input.TextArea
-            placeholder="试验信息"
-            value={currentEvent?.experiment_info || ''}
-            onChange={(e) => setCurrentEvent({...currentEvent, experiment_info: e.target.value})}
-            disabled={modalType === 'view'}
-            rows={3}
-          />
-
-          <Input
-            placeholder="负责人"
-            value={currentEvent?.responsible_person || ''}
-            onChange={(e) => setCurrentEvent({...currentEvent, responsible_person: e.target.value})}
-            disabled={modalType === 'view'}
-          />
-
-          <Input
-            type="number"
-            placeholder="车次数量"
-            value={currentEvent?.train_count || 0}
-            onChange={(e) => setCurrentEvent({...currentEvent, train_count: parseInt(e.target.value) || 0})}
-            disabled={modalType === 'view'}
-            min={0}
-          />
-
-          <DatePicker
-            showTime
-            format="YYYY-MM-DD HH:mm"
-            placeholder="开始时间"
-            value={currentEvent?.start_time}
-            onChange={(date) => setCurrentEvent({...currentEvent, start_time: date})}
-            disabled={modalType === 'view'}
-          />
-
-          <DatePicker
-            showTime
-            format="YYYY-MM-DD HH:mm"
-            placeholder="结束时间"
-            value={currentEvent?.end_time}
-            onChange={(date) => setCurrentEvent({...currentEvent, end_time: date})}
-            disabled={modalType === 'view'}
-          />
-
-          <p>创建时间：{currentEvent?.start.toLocaleString()}</p>
+            <Form.List name="time_slots">
+              {(fields, { add, remove }) => (
+                <>
+                  {fields.map(({ key, name, ...restField }) => (
+                    <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'start']}
+                        label="开始时间"
+                        rules={[{ required: true, message: '请选择开始时间' }]}
+                      >
+                        <DatePicker showTime format="YYYY-MM-DD HH:mm" />
+                      </Form.Item>
+                      <Form.Item
+                        {...restField}
+                        name={[name, 'end']}
+                        label="结束时间"
+                        rules={[
+                          { required: true, message: '请选择结束时间' },
+                          ({ getFieldValue }) => ({
+                            validator(_, value) {
+                              const start = getFieldValue(['time_slots', name, 'start']);
+                              if (start && value && value.isBefore(start)) {
+                                return Promise.reject(new Error('结束时间不能早于开始时间'));
+                              }
+                              return Promise.resolve();
+                            },
+                          }),
+                        ]}
+                      >
+                        <DatePicker showTime format="YYYY-MM-DD HH:mm" />
+                      </Form.Item>
+                      <MinusCircleOutlined onClick={() => remove(name)} />
+                    </Space>
+                  ))}
+                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                    添加时间段
+                  </Button>
+                </>
+              )}
+            </Form.List>
+          </Form>
         </div>
       </Modal>
     </div>
