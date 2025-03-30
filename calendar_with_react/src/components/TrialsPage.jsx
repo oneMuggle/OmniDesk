@@ -88,7 +88,7 @@ const TrialsPage = () => {
         rowKey="id"
         pagination={{ pageSize: 8 }}
       >
-        <Column title="试验名称" dataIndex="name" key="name" />
+        <Column title="试验名称" dataIndex="title" key="title" />
         <Column 
           title="试验设备" 
           render={(_, record) => (record.related_equipment || []).map(e => e.name).join(', ')}
@@ -99,8 +99,12 @@ const TrialsPage = () => {
           render={(_, record) => (record.responsible_persons || []).map(p => p.name).join(', ')}
         />
         <Column 
-          title="预计完成时间" 
-          render={(_, record) => dayjs(record.due_date).format('YYYY-MM-DD')}
+          title="开始时间" 
+          render={(_, record) => dayjs(record.start_date).format('YYYY-MM-DD HH:mm')}
+        />
+        <Column 
+          title="结束时间" 
+          render={(_, record) => dayjs(record.end_date).format('YYYY-MM-DD HH:mm')}
         />
         <Column
           title="操作"
@@ -143,10 +147,18 @@ const TrialsPage = () => {
         >
           <Form.Item
             label="试验名称"
-            name="name"
+            name="title"
             rules={[{ required: true, message: '请输入试验名称' }]}
           >
             <Input />
+          </Form.Item>
+
+          <Form.Item
+            label="试验描述"
+            name="description"
+            rules={[{ required: true, message: '请输入试验描述' }]}
+          >
+            <TextArea rows={2} />
           </Form.Item>
 
           <Form.Item
@@ -207,11 +219,19 @@ const TrialsPage = () => {
           </Form.Item>
 
           <Form.Item
-            label="预计完成时间"
-            name="due_date"
-            rules={[{ required: true, message: '请选择完成时间' }]}
+            label="开始时间"
+            name="start_date"
+            rules={[{ required: true, message: '请选择开始时间' }]}
           >
-            <DatePicker format="YYYY-MM-DD" />
+            <DatePicker showTime format="YYYY-MM-DD HH:mm" />
+          </Form.Item>
+
+          <Form.Item
+            label="结束时间"
+            name="end_date"
+            rules={[{ required: true, message: '请选择结束时间' }]}
+          >
+            <DatePicker showTime format="YYYY-MM-DD HH:mm" />
           </Form.Item>
 
           <Form.Item label="备注" name="remarks">

@@ -35,25 +35,34 @@ class TrialSerializer(serializers.ModelSerializer):
     responsible_persons = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Personnel.objects.all(),
-        required=False
+        required=True
     )
-    equipments = serializers.PrimaryKeyRelatedField(
+    related_equipment = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Equipment.objects.all(),
-        required=False
+        required=True,
+        source='equipments'
     )
 
     class Meta:
         model = Trial
-        fields = '__all__'
+        fields = [
+            'id', 'title', 'description', 
+            'start_date', 'end_date', 'client',
+            'related_equipment', 'responsible_persons',
+            'status'
+        ]
         extra_kwargs = {
-            'start_time': {'required': True},
-            'end_time': {'required': True},
+            'title': {'required': True},
+            'description': {'required': True},
+            'start_date': {'required': True},
+            'end_date': {'required': True},
+            'client': {'required': True},
             'status': {'default': 'planned'}
         }
 
     def validate(self, data):
-        """时间验证（参照设备管理的时间校验逻辑）"""
-        if data['start_time'] > data['end_time']:
+        """时间验证"""
+        if data['start_date'] > data['end_date']:
             raise serializers.ValidationError("试验结束时间不能早于开始时间")
         return data
