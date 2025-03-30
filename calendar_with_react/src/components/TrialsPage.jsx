@@ -5,7 +5,8 @@ import {
   getEquipmentOptions, getPersonnelOptions // 保持向后兼容
 } from '../api/trials';
 import {
-  Table, Button, Modal, Form, Input, DatePicker, Select, Upload, message, Popconfirm, Tag
+  Table, Button, Modal, Form, Input, DatePicker, Select, Upload, message, Popconfirm, Tag,
+  Spin, Alert, Empty
 } from 'antd';
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -22,20 +23,28 @@ const TrialsPage = () => {
   const queryClient = useQueryClient();
 
   // 获取数据
-  const { data: trials } = useQuery({ 
+  const { data: trials = [], isLoading, error } = useQuery({ 
     queryKey: ['trials'],
     queryFn: fetchTrials,
-    select: response => response.data?.results || []
+    select: (data) => data?.results || [],
+    useErrorBoundary: true,
+    retry: false,
+    onError: (error) => {
+      console.error('API Request Error:', error);
+    },
+    onSuccess: (data) => {
+      console.log('Processed trials data:', data);
+    }
   });
   const { data: equipments } = useQuery({ 
     queryKey: ['equipments'],
     queryFn: getEquipmentOptions,
-    select: response => response.data?.results || []
+    select: response => response.results || [] // 修正数据访问路径
   });
   const { data: responsiblePersons } = useQuery({ 
     queryKey: ['responsiblePersons'],
     queryFn: getPersonnelOptions,
-    select: response => response.data?.results || []
+    select: response => response.results || [] // 统一数据访问路径
   });
 
   // 表单提交处理
@@ -62,8 +71,18 @@ const TrialsPage = () => {
     },
   };
 
+  if (isLoading) return <div style={{ padding: 20 }}><Spin tip="加载试验数据中..." /></div>;
+  if (error) return <div style={{ padding: 20 }}><Alert 
+    message="数据加载错误"
+    description={`错误详情：${error.message}`}
+    type="error"
+    showIcon
+  /></div>;
+
   return (
     <div className="trials-container">
+      {console.log('Trials Data Structure:', trials)}
+      {console.log('API Response Sample:', trials?.[0])}
       <div className="header-section">
         <Button 
           type="primary" 
@@ -83,23 +102,29 @@ const TrialsPage = () => {
       </div>
 
       <Table 
-        dataSource={trials} 
+        dataSource={trials ?? []} 
         rowKey="id"
         pagination={{ pageSize: 8 }}
+        locale={{
+          emptyText: <Empty 
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={trials ? "暂无试验数据" : "数据加载失败"}
+          />
+        }}
       >
         <Column title="试验名称" dataIndex="title" key="title" />
         <Column 
           title="试验设备" 
-          render={(_, record) => (record.related_equipment || []).map(e => e?.name || '未知设备').join(', ') || '无'}
+          render={(_, record) => (record.related_equipment || []).map(e => e?.name || '未知设备').join(', ') || '暂无设备'}
         />
-        <Column title="委托单位" dataIndex="client" />
+        <Column title="委托单位" dataIndex="client" key="client" />
         <Column 
           title="负责人"
           render={(_, record) => (record.responsible_persons || []).map(p => (
-            <a href={`mailto:${p?.email}`} key={p.id}>
+            <a href={`tel:${p?.phone}`} key={p.id}>
               {p?.name || '未知人员'}
             </a>
-          )).reduce((prev, curr) => [prev, ', ', curr]) || '无'}
+          )).reduce((prev, curr) => [prev, ' ', curr], []) || '无'}
         />
         <Column
           title="状态"
