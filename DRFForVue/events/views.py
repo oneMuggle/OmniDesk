@@ -30,7 +30,10 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     filterset_fields = ['name', 'department', 'phone']
 
 class TrialViewSet(viewsets.ModelViewSet):
-    queryset = Trial.objects.all().prefetch_related('equipments', 'responsible_persons')
+    queryset = Trial.objects.prefetch_related(
+        'equipments',
+        'responsible_persons'
+    ).all()
     serializer_class = TrialSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]

@@ -32,15 +32,21 @@ class DocumentTemplateSerializer(serializers.ModelSerializer):
         }
 
 class TrialSerializer(serializers.ModelSerializer):
-    responsible_persons = serializers.PrimaryKeyRelatedField(
+    responsible_persons = PersonnelSerializer(many=True, read_only=True)
+    related_equipment = EquipmentSerializer(many=True, read_only=True, source='equipments')
+    
+    responsible_person_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Personnel.objects.all(),
-        required=True
+        required=True,
+        write_only=True,
+        source='responsible_persons'
     )
-    related_equipment = serializers.PrimaryKeyRelatedField(
+    equipment_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Equipment.objects.all(),
         required=True,
+        write_only=True,
         source='equipments'
     )
 
@@ -50,7 +56,7 @@ class TrialSerializer(serializers.ModelSerializer):
             'id', 'title', 'description', 
             'start_date', 'end_date', 'client',
             'related_equipment', 'responsible_persons',
-            'status'
+            'status', 'responsible_person_ids', 'equipment_ids'
         ]
         extra_kwargs = {
             'title': {'required': True},
