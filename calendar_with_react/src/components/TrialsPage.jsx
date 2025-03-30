@@ -31,12 +31,12 @@ const TrialsPage = () => {
   const { data: equipments } = useQuery({ 
     queryKey: ['equipments'],
     queryFn: getEquipmentOptions,
-    select: response => Array.isArray(response.results) ? response.results : []
+    select: response => response.data?.results || []
   });
   const { data: responsiblePersons } = useQuery({ 
     queryKey: ['responsiblePersons'],
     queryFn: getPersonnelOptions,
-    select: response => Array.isArray(response.results) ? response.results : []
+    select: response => response.data?.results || []
   });
 
   // 表单提交处理
@@ -94,6 +94,10 @@ const TrialsPage = () => {
           render={(_, record) => (record.related_equipment || []).map(e => e.name).join(', ')}
         />
         <Column title="委托单位" dataIndex="client" />
+        <Column 
+          title="负责人"
+          render={(_, record) => (record.responsible_persons || []).map(p => p.name).join(', ')}
+        />
         <Column 
           title="预计完成时间" 
           render={(_, record) => dayjs(record.due_date).format('YYYY-MM-DD')}
@@ -162,7 +166,7 @@ const TrialsPage = () => {
                   value={equipment.id}
                   title={`设备编号：${equipment.serial_number}`}
                 >
-                  {equipment.name} ({equipment.model})
+                  {equipment.name} ({equipment.description})
                 </Option>
               ))}
             </Select>
