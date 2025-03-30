@@ -1,0 +1,25 @@
+Channels:
+ - defaults
+ - msys2
+ - conda-forge
+ - https://mirrors.tuna.tsinghua.edu.cn/anaconda/pkgs/free
+Platform: win-64
+Collecting package metadata (repodata.json): ...working... done
+Solving environment: ...working... done
+
+## Package Plan ##
+
+  environment location: D:\programmingSoftware\Anaconda3\envs\DRFForVue
+
+  added / updated specs:
+    - djangorestframework
+
+
+The following packages will be UPDATED:
+
+  djangorestframewo~                            3.11.1-py_0 --> 3.15.2-pyhd8ed1ab_1 
+
+
+Proceed ([y]/n)? 终止批处理操作吗(Y/N)? 
+终止批处理操作吗(Y/N)? 
+Failed to run 'conda reactivate'.

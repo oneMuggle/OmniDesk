@@ -23,18 +23,20 @@ const TrialsPage = () => {
   const queryClient = useQueryClient();
 
   // 获取数据
-  const { data: trials } = useQuery({ 
+  const { data: trials, isLoading, error } = useQuery({ 
     queryKey: ['trials'],
     queryFn: fetchTrials,
-    select: response => Array.isArray(response.data) ? response.data : []
+    select: response => response.data?.results || []
   });
   const { data: equipments } = useQuery({ 
     queryKey: ['equipments'],
-    queryFn: getEquipmentOptions
+    queryFn: getEquipmentOptions,
+    select: response => Array.isArray(response.results) ? response.results : []
   });
   const { data: responsiblePersons } = useQuery({ 
     queryKey: ['responsiblePersons'],
-    queryFn: getPersonnelOptions
+    queryFn: getPersonnelOptions,
+    select: response => Array.isArray(response.results) ? response.results : []
   });
 
   // 表单提交处理
@@ -75,7 +77,7 @@ const TrialsPage = () => {
         </Button>
         <Button 
           icon={<DownloadOutlined />}
-          onClick={() => window.open('/api/export-experiments/?format=xlsx')}
+          onClick={() => window.open('/api/export-trials/?format=xlsx')}
         >
           导出Excel
         </Button>
@@ -160,7 +162,7 @@ const TrialsPage = () => {
                   value={equipment.id}
                   title={`设备编号：${equipment.serial_number}`}
                 >
-                  {equipment.name} ({equipment.model_number})
+                  {equipment.name} ({equipment.model})
                 </Option>
               ))}
             </Select>
@@ -194,7 +196,7 @@ const TrialsPage = () => {
                   value={person.id}
                   title={`联系方式：${person.phone}`}
                 >
-                  {person.name} - {person.department} ({person.position})
+                  {person.name} - {person.department}
                 </Option>
               ))}
             </Select>

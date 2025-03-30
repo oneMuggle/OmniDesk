@@ -22,8 +22,8 @@ const PersonnelPage = () => {
     },
     {
       title: '职位',
-      dataIndex: 'position',
-      key: 'position',
+      dataIndex: 'department',
+      key: 'department',
     },
     {
       title: '联系电话',
@@ -182,7 +182,7 @@ const PersonnelPage = () => {
 
           <Form.Item
             label="职位"
-            name="position"
+            name="department"
             rules={[{ required: true, message: '请输入职位' }]}
           >
             <Input placeholder="请输入职位" />

@@ -1,23 +1,35 @@
 from django.db import models
 from users.models import CustomUser
 
-class Experiment(models.Model):
+class Trial(models.Model):
     title = models.CharField(max_length=200)
     description = models.TextField()
     start_date = models.DateTimeField()
     end_date = models.DateTimeField()
+    equipments = models.ManyToManyField('Equipment', blank=True)
     responsible_persons = models.ManyToManyField(CustomUser)
+    status = models.CharField(max_length=20, choices=[
+        ('planned', '计划中'),
+        ('in_progress', '进行中'),
+        ('completed', '已完成'),
+        ('cancelled', '已取消')
+    ], default='planned')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+            ordering = ['id']  # 设置默认排序字段
 
     def __str__(self):
         return self.title
 
 class Personnel(models.Model):
     name = models.CharField(max_length=100)
-    role = models.CharField(max_length=50)
-    email = models.EmailField()
-    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE, related_name='personnels')
+    department = models.CharField(max_length=50)
+    phone = models.CharField(max_length=15, blank=True, null=True)
+
+    class Meta:
+        ordering = ['id']  # 设置默认排序字段
 
     def __str__(self):
         return f"{self.name} ({self.role})"
@@ -25,10 +37,13 @@ class Personnel(models.Model):
 class Equipment(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    experiment = models.ForeignKey(Experiment, on_delete=models.CASCADE)
     
+    class Meta:
+            ordering = ['id']  # 设置默认排序字段
+
     def __str__(self):
         return self.name
+    
 
 class DocumentTemplate(models.Model):
     EXPERIMENT_TYPES = [

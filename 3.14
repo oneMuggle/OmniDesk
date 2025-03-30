@@ -1,0 +1,7 @@
+Looking in indexes: https://pypi.org/simple, https://pypi.ngc.nvidia.com
+Requirement already satisfied: djangorestframework in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (3.11.1)
+Requirement already satisfied: django>=1.11 in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (from djangorestframework) (4.2.11)
+Requirement already satisfied: asgiref<4,>=3.6.0 in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (from django>=1.11->djangorestframework) (3.8.1)
+Requirement already satisfied: sqlparse>=0.3.1 in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (from django>=1.11->djangorestframework) (0.5.2)
+Requirement already satisfied: tzdata in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (from django>=1.11->djangorestframework) (2025.2)
+Requirement already satisfied: typing-extensions>=4 in d:\programmingsoftware\anaconda3\envs\drfforvue\lib\site-packages (from asgiref<4,>=3.6.0->django>=1.11->djangorestframework) (4.12.2)

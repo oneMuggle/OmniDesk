@@ -1,14 +1,14 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
-from .models import Experiment, Personnel, Equipment, DocumentTemplate
-from .serializers import ExperimentSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer
+from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions, IsAuthenticatedOrReadOnly
+from .models import Trial, Personnel, Equipment, DocumentTemplate
+from .serializers import TrialSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer
 from users.permissions import IsOwnerOrReadOnly
 from django_filters.rest_framework import DjangoFilterBackend
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
     serializer_class = DocumentTemplateSerializer
-    permission_classes = [IsAuthenticated, DjangoModelPermissions]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'experiment_type', 'created_at']
 
@@ -18,33 +18,33 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
-    permission_classes = [IsAuthenticated, DjangoModelPermissions]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'category', 'status']
+    filterset_fields = ['name']
 
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()
     serializer_class = PersonnelSerializer
-    permission_classes = [IsAuthenticated, DjangoModelPermissions]
+    permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'department', 'position']
+    filterset_fields = ['name', 'department', 'phone']
 
-class ExperimentViewSet(viewsets.ModelViewSet):
-    queryset = Experiment.objects.all().prefetch_related('equipments', 'responsible_persons')
-    serializer_class = ExperimentSerializer
+class TrialViewSet(viewsets.ModelViewSet):
+    queryset = Trial.objects.all().prefetch_related('equipments', 'responsible_persons')
+    serializer_class = TrialSerializer
     permission_classes = [IsAuthenticated, DjangoModelPermissions]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         'status',
-        'equipments__name',
-        'responsible_persons__name',
-        'start_time',
-        'end_time'
+        'equipments',
+        'responsible_persons',
+        'start_date',
+        'end_date'
     ]
 
     def get_queryset(self):
         """查询集配置（参照设备管理视图）"""
-        return super().get_queryset().order_by('-start_time')
+        return super().get_queryset().order_by('-start_date')
 
     def perform_create(self, serializer):
         """创建时处理多对多关系（与人员管理逻辑一致）"""

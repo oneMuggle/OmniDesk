@@ -13,16 +13,16 @@ function SettingsPage() {
   const [responsiblePersons, setResponsiblePersons] = useState([]);
   const [newPerson, setNewPerson] = useState({ 
     name: '', 
-    position: '', 
+    department: '', 
     contact: '', 
     event: '' 
   });
 
   // 负责人管理逻辑
   const handleAddPerson = () => {
-    if (newPerson.name && newPerson.position) {
+    if (newPerson.name && newPerson.department) {
       setResponsiblePersons([...responsiblePersons, { ...newPerson, id: Date.now() }]);
-      setNewPerson({ name: '', position: '', contact: '', event: '' });
+      setNewPerson({ name: '', department: '', contact: '', event: '' });
     }
   };
 
@@ -163,9 +163,9 @@ function SettingsPage() {
           <input
             type="text"
             placeholder="职位"
-            name="position"
-            value={newPerson.position || ''}
-            onChange={(e) => setNewPerson({...newPerson, position: e.target.value})}
+            name="department"
+            value={newPerson.department || ''}
+            onChange={(e) => setNewPerson({...newPerson, department: e.target.value})}
           />
           <input
             type="text"
@@ -188,7 +188,7 @@ function SettingsPage() {
           {responsiblePersons.map((person) => (
             <div key={person.id} className="responsible-item">
               <span>{person.name}</span>
-              <span>{person.position}</span>
+              <span>{person.department}</span>
               <span>{person.contact}</span>
               <span>事件ID: {person.event}</span>
               <button type="button" onClick={() => handleRemovePerson(person.id)}>删除</button>

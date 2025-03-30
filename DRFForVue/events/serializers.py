@@ -1,7 +1,7 @@
 from rest_framework import serializers
-from .models import Experiment
+from .models import Trial
 from users.models import CustomUser
-from .models import Experiment, Equipment, Personnel, DocumentTemplate
+from .models import Trial, Equipment, Personnel, DocumentTemplate
 from users.serializers import UserSerializer
 
 class PersonnelSerializer(serializers.ModelSerializer):
@@ -31,7 +31,7 @@ class DocumentTemplateSerializer(serializers.ModelSerializer):
             'owner': {'read_only': True}
         }
 
-class ExperimentSerializer(serializers.ModelSerializer):
+class TrialSerializer(serializers.ModelSerializer):
     responsible_persons = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=Personnel.objects.all(),
@@ -44,7 +44,7 @@ class ExperimentSerializer(serializers.ModelSerializer):
     )
 
     class Meta:
-        model = Experiment
+        model = Trial
         fields = '__all__'
         extra_kwargs = {
             'start_time': {'required': True},

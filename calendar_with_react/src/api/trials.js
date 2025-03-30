@@ -26,10 +26,10 @@ api.interceptors.request.use(config => {
   return config;
 });
 
-// 试验管理API（与后端experiments端点保持一致）
+// 试验管理API（与后端trials端点保持一致）
 // 获取试验列表（与后端接口保持一致）
 export const getTrials = (params) => {
-  return api.get('/experiments/', { params })
+  return api.get('/trials/', { params })
     .then(handleResponse)
     .catch(handleError);
 };
@@ -38,19 +38,19 @@ export const getTrials = (params) => {
 export const fetchTrials = getTrials;
 
 export const createTrial = (data) => {
-  return api.post('/experiments/', data)
+  return api.post('/trials/', data)
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const updateTrial = (id, data) => {
-  return api.patch(`/experiments/${id}/`, data)
+  return api.patch(`/trials/${id}/`, data)
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const deleteTrial = (id) => {
-  return api.delete(`/experiments/${id}/`)
+  return api.delete(`/trials/${id}/`)
     .then(handleResponse)
     .catch(handleError);
 };
