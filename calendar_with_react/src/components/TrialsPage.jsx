@@ -151,8 +151,8 @@ const TrialsPage = () => {
           render={(_, record) => {
             try {
               // 直接解析ISO8601格式并转换时区（UTC+8）
-              const date = dayjs(record.start_date).utcOffset(480); // 480分钟 = 8小时
-              return date.isValid() ? date.format('YYYY-MM-DD HH:mm') : '无效日期';
+              const date = dayjs(record.start_date);
+              return date.isValid() ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
               return '无效日期';
             }
@@ -163,8 +163,8 @@ const TrialsPage = () => {
           render={(_, record) => {
             try {
               // 直接解析ISO8601格式并转换时区（UTC+8）
-              const date = dayjs(record.end_date).utcOffset(480); // 480分钟 = 8小时
-              return date.isValid() ? date.format('YYYY-MM-DD HH:mm') : '无效日期';
+              const date = dayjs(record.end_date);
+              return date.isValid() ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
               return '无效日期';
             }
@@ -298,7 +298,7 @@ const TrialsPage = () => {
             name="start_date"
             rules={[{ required: true, message: '请选择开始时间' }]}
           >
-            <DatePicker showTime format="YYYY-MM-DD HH:mm" />
+            <DatePicker format="YYYY-MM-DD" />
           </Form.Item>
 
           <Form.Item
@@ -306,7 +306,7 @@ const TrialsPage = () => {
             name="end_date"
             rules={[{ required: true, message: '请选择结束时间' }]}
           >
-            <DatePicker showTime format="YYYY-MM-DD HH:mm" />
+            <DatePicker format="YYYY-MM-DD" />
           </Form.Item>
 
           <Form.Item label="备注" name="remarks">
