@@ -30,7 +30,7 @@ export const chatCompletion = async (config, messages) => {
 
 export const getModels = async () => {
   try {
-    const response = await ollamaClient.get('/v1/models');
+    const response = await ollamaClient.get('/tags');
     return response.data.data.map(model => model.id.replace(/^models\//, ''));
   } catch (error) {
     console.error('获取模型列表失败:', error);

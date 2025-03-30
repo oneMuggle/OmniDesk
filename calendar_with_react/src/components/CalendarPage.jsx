@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { calendarApi } from '../api/calendar';
 import { getTrials } from '../api/trials';
 import FullCalendar from '@fullcalendar/react';
@@ -12,6 +14,16 @@ import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import './CalendarPage.css';
 
 const CalendarPage = () => {
+  const { 
+    data: trials = [], 
+    isLoading: isTrialsLoading 
+  } = useQuery({
+    queryKey: ['trials'],
+    queryFn: () => getTrials().then(res => res.data || []),
+    gcTime: 600000,
+    staleTime: 300000
+  });
+
   // 不同类型日历的事件数据
   const [defaultEvents, setDefaultEvents] = useState([
     { title: 'Meeting', start: new Date() }
@@ -200,12 +212,19 @@ const CalendarPage = () => {
               <Select
                 showSearch
                 placeholder="搜索试验项目"
-                options={[]}
-                loading={false}
+                options={trials.map(trial => ({
+                  value: trial.id,
+                  label: `${trial.code} - ${trial.title}`,
+                  trial: trial
+                }))}
+                loading={isTrialsLoading}
                 filterOption={(input, option) =>
                   option.label.toLowerCase().includes(input.toLowerCase())
                 }
-                onChange={(value) => handleTrialSelect(value)}
+                onChange={(value, option) => {
+                  handleTrialSelect(value);
+                  setSelectedTrial(option.trial);
+                }}
               />
             </Form.Item>
 
@@ -268,4 +287,13 @@ const CalendarPage = () => {
   );
 };
 
-export default CalendarPage;
+const queryClient = new QueryClient();
+
+export default function CalendarWrapper() {
+  return (
+    <QueryClientProvider client={queryClient}>
+      <CalendarPage />
+      <ReactQueryDevtools initialIsOpen={false} position="bottom-right" />
+    </QueryClientProvider>
+  );
+}
