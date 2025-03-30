@@ -1,8 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useQuery, QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { 
+  useQuery, 
+  QueryClient, 
+  QueryClientProvider 
+} from '@tanstack/react-query';
 import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
-import { calendarApi } from '../api/calendar';
-import { getTrials } from '../api/trials';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -11,7 +13,37 @@ import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 import { Tooltip } from 'react-tooltip';
 import { Modal, Button, DatePicker, Form, Select, Descriptions, Badge, Space } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { calendarApi } from '../api/calendar';
+import { getTrials } from '../api/trials';
 import './CalendarPage.css';
+
+// 状态配置对象
+const trialStatusConfig = {
+  planned: {
+    color: '#1890ff',
+    text: '已计划',
+    icon: '🗓️',
+    badgeStyle: { backgroundColor: '#1890ff' }
+  },
+  in_progress: {
+    color: '#52c41a', 
+    text: '进行中',
+    icon: '🔄',
+    badgeStyle: { backgroundColor: '#52c41a' }
+  },
+  completed: {
+    color: '#888',
+    text: '已完成', 
+    icon: '✅',
+    badgeStyle: { backgroundColor: '#888' }
+  },
+  cancelled: {
+    color: '#ff4d4f',
+    text: '已取消',
+    icon: '❌',
+    badgeStyle: { backgroundColor: '#ff4d4f' }
+  }
+};
 
 const CalendarPage = () => {
   const { 
@@ -19,7 +51,7 @@ const CalendarPage = () => {
     isLoading: isTrialsLoading 
   } = useQuery({
     queryKey: ['trials'],
-    queryFn: () => getTrials().then(res => res.data || []),
+    queryFn: () => getTrials().then(res => res.data?.results || []), 
     gcTime: 600000,
     staleTime: 300000
   });
@@ -40,12 +72,13 @@ const CalendarPage = () => {
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedTrial, setSelectedTrial] = useState(null);
   
-  const statusColors = {
-    '进行中': 'processing',
-    '已计划': 'success',
-    '已取消': 'error',
-    '已完成': 'default'
-  };
+  const getStatusConfig = (status) => 
+    trialStatusConfig[status] || {
+      color: '#d3d3d3',
+      text: '未知状态',
+      icon: '❓',
+      badgeStyle: { backgroundColor: '#d3d3d3' }
+    };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -161,12 +194,32 @@ const CalendarPage = () => {
             day: '日视图'
           }}
           events={useMemo(() => {
-            return defaultEvents.filter(event => 
+            // 转换试验数据为日历事件
+            const trialEvents = trials.map(trial => ({
+              id: `trial-${trial.id}`,
+              title: trial.title,
+              start: new Date(trial.start_date),
+              end: new Date(trial.end_date),
+              extendedProps: {
+                type: 'TRIAL',
+                status: trial.status,
+                client: trial.client,
+                equipment: trial.related_equipment,
+                persons: trial.responsible_persons,
+                description: trial.description
+              },
+              color: getStatusConfig(trial.status).color,
+              allDay: true,
+              editable: false
+            }));
+
+            // 合并已有事件和试验事件
+            return [...defaultEvents, ...trialEvents].filter(event => 
               calendarType === 'trial' ? 
-              event.type === 'TRIAL' : 
-              event.type === 'SCHEDULE'
+              event.extendedProps?.type === 'TRIAL' : 
+              event.extendedProps?.type === 'SCHEDULE'
             );
-          }, [calendarType, defaultEvents])}
+          }, [calendarType, defaultEvents, trials])}
           dateClick={(arg) => {
             const newEvent = {
               title: '',
@@ -178,11 +231,26 @@ const CalendarPage = () => {
             setModalType('new');
           }}
           eventClick={(clickInfo) => {
-            setCurrentEvent({
-              ...clickInfo.event.toPlainObject(),
-              start: new Date(clickInfo.event.start)
-            });
-            setModalType('view');
+            const eventObj = clickInfo.event.toPlainObject();
+            if (eventObj.extendedProps?.type === 'TRIAL') {
+              setCurrentEvent({
+                ...eventObj,
+                start: new Date(eventObj.start),
+                end: new Date(eventObj.end),
+                extendedProps: {
+                  ...eventObj.extendedProps,
+                  statusConfig: getStatusConfig(eventObj.extendedProps.status)
+                }
+              });
+              setModalType('view');
+            } else {
+              setCurrentEvent({
+                ...eventObj,
+                start: new Date(eventObj.start),
+                end: new Date(eventObj.end)
+              });
+              setModalType('view');
+            }
           }}
           editable={true}
           selectable={true}
@@ -234,7 +302,10 @@ const CalendarPage = () => {
                 <Descriptions.Item label="负责人">{selectedTrial.manager}</Descriptions.Item>
                 <Descriptions.Item label="当前阶段">{selectedTrial.phase}</Descriptions.Item>
                 <Descriptions.Item label="状态">
-                  <Badge status={statusColors[selectedTrial.status]} text={selectedTrial.status} />
+                  <Badge 
+                    status={getStatusConfig(selectedTrial.status).badgeStyle.backgroundColor} 
+                    text={selectedTrial.status}
+                  />
                 </Descriptions.Item>
               </Descriptions>
             )}
