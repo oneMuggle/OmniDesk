@@ -43,6 +43,7 @@ class DocumentTemplateSerializer(serializers.ModelSerializer):
 
 class TrialSerializer(serializers.ModelSerializer):
     responsible_persons = PersonnelSerializer(many=True, read_only=True)
+    equipments = EquipmentSerializer(many=True, read_only=True)
     related_equipment = EquipmentSerializer(many=True, read_only=True, source='equipments')
     time_slots = TimeSlotSerializer(many=True, required=False)
     
@@ -58,7 +59,7 @@ class TrialSerializer(serializers.ModelSerializer):
         queryset=Equipment.objects.all(),
         required=True,
         write_only=True,
-        source='equipments'
+        source='related_equipment'
     )
 
     class Meta:
@@ -66,7 +67,7 @@ class TrialSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'description', 
             'start_date', 'end_date', 'client',
-            'related_equipment', 'responsible_persons', 'time_slots',
+            'related_equipment', 'responsible_persons','equipments', 'time_slots',
             'status', 'responsible_person_ids', 'equipment_ids'
         ]
         extra_kwargs = {

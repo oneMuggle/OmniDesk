@@ -40,7 +40,7 @@ export const fetchTrials = getTrials;
 export const createTrial = (data) => {
   return api.post('/trials/', {
     ...data,
-    equipment: data.related_equipment // 将前端字段名映射到后端API字段
+    equipments: data.related_equipment // 将前端字段名映射到后端API字段
   })
     .then(handleResponse)
     .catch(handleError);

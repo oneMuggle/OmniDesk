@@ -42,7 +42,7 @@ class Trial(models.Model):
     description = models.TextField()
     start_date = models.DateTimeField(verbose_name="预期开始时间")
     end_date = models.DateTimeField(verbose_name="预期结束时间")
-    equipments = models.ManyToManyField('Equipment', blank=True)
+    equipments = models.ManyToManyField(Equipment, blank=True)
     responsible_persons = models.ManyToManyField(Personnel)
     status = models.CharField(max_length=20, choices=[
         ('planned', '计划中'),
