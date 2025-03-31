@@ -51,7 +51,7 @@ const CalendarPage = () => {
     isLoading: isTrialsLoading 
   } = useQuery({
     queryKey: ['trials'],
-    queryFn: () => getTrials().then(res => res.data?.results || []), 
+    queryFn: () => getTrials().then(res => res.results || []), 
     gcTime: 600000,
     staleTime: 300000
   });
@@ -105,17 +105,23 @@ const CalendarPage = () => {
 
   const handleEventSubmit = async (newEvent) => {
     try {
+      if (!selectedTrial) {
+        alert('请先选择试验项目');
+        return;
+      }
+
       const payload = {
-        title: newEvent.title,
-        description: newEvent.description,
-        experiment_info: newEvent.experiment_info,
-        responsible_person: newEvent.responsible_person,
-        train_count: newEvent.train_count || 0,
-        trial_id: selectedTrial?.id,
+        title: selectedTrial.title,
+        description: selectedTrial.description,
+        client: selectedTrial.client,
+        trial_id: selectedTrial.id,
         time_slots: newEvent.time_slots?.map(slot => ({
           start_time: slot.start.toISOString(),
           end_time: slot.end.toISOString()
-        }))
+        })),
+        status: selectedTrial.status,
+        related_equipment: selectedTrial.related_equipment.map(e => e.id),
+        responsible_persons: selectedTrial.responsible_persons.map(p => p.id)
       };
 
       let response;
@@ -280,36 +286,74 @@ const CalendarPage = () => {
               <Select
                 showSearch
                 placeholder="搜索试验项目"
+                filterOption={(input, option) =>
+                  `${option.label} ${option.value}`.toLowerCase().includes(input.toLowerCase())
+                }
                 options={trials.map(trial => ({
                   value: trial.id,
-                  label: `${trial.code} - ${trial.title}`,
-                  trial: trial
+                  label: `${trial.title} (${trial.client})`,
+                  trialData: trial
                 }))}
+                optionFilterProp="label"
+                onSearch={value => {
+                  // 触发API搜索
+                  getTrials({ search: value });
+                }}
                 loading={isTrialsLoading}
-                filterOption={(input, option) =>
-                  option.label.toLowerCase().includes(input.toLowerCase())
-                }
                 onChange={(value, option) => {
-                  handleTrialSelect(value);
-                  setSelectedTrial(option.trial);
+                  if (!option) {
+                    setSelectedTrial(null);
+                    return;
+                  }
+                  setSelectedTrial(option.trialData);
                 }}
               />
             </Form.Item>
 
             {selectedTrial && (
-              <Descriptions bordered size="small" column={1}>
-                <Descriptions.Item label="试验编号">{selectedTrial.code}</Descriptions.Item>
-                <Descriptions.Item label="负责人">{selectedTrial.manager}</Descriptions.Item>
-                <Descriptions.Item label="当前阶段">{selectedTrial.phase}</Descriptions.Item>
-                <Descriptions.Item label="状态">
-                  <Badge 
-                    status={getStatusConfig(selectedTrial.status).badgeStyle.backgroundColor} 
-                    text={selectedTrial.status}
-                  />
-                </Descriptions.Item>
-              </Descriptions>
-            )}
+              <>
+                <Descriptions bordered size="small" column={1}>
+                  <Descriptions.Item label="客户单位">{selectedTrial.client}</Descriptions.Item>
+                  <Descriptions.Item label="试验描述">{selectedTrial.description}</Descriptions.Item>
+                  <Descriptions.Item label="状态">
+                    <Badge 
+                      status={getStatusConfig(selectedTrial.status).badgeStyle.backgroundColor}
+                      text={trialStatusConfig[selectedTrial.status]?.text || '未知状态'}
+                    />
+                  </Descriptions.Item>
+                </Descriptions>
 
+                {selectedTrial?.related_equipment?.length > 0 && (
+                  <Descriptions 
+                    title="相关设备" 
+                    bordered 
+                    size="small" 
+                    column={1}
+                    style={{ marginTop: 16 }}
+                  >
+                    {selectedTrial.related_equipment.map((equip, index) => (
+                      <Descriptions.Item 
+                        key={equip.id} 
+                        label={`设备 ${index + 1}`}
+                      >
+                        <div>
+                          <div>名称：{equip.name}</div>
+                          <div>描述：{equip.description || '暂无描述'}</div>
+                        </div>
+                      </Descriptions.Item>
+                    ))}
+                  </Descriptions>
+                )}
+
+                {selectedTrial?.related_equipment?.length === 0 && (
+                  <div style={{ marginTop: 16, color: '#999' }}>
+                    暂无相关设备信息
+                  </div>
+                )}
+              </>
+            )}
+          </Form>
+          <Form layout="vertical">
             <Form.List name="time_slots">
               {(fields, { add, remove }) => (
                 <>
@@ -356,7 +400,7 @@ const CalendarPage = () => {
       </Modal>
     </div>
   );
-};
+}
 
 const queryClient = new QueryClient();
 
