@@ -61,12 +61,23 @@ const TrialsPage = () => {
 
   // 表单提交处理
   const handleSubmit = useMutation({
-    mutationFn: (values) => currentRecord ? updateTrial(currentRecord.id, values) : createTrial(values),
+    mutationFn: (values) => {
+      const processedValues = {
+        ...values,
+        start_date: values.start_date.format('YYYY-MM-DD'),
+        end_date: values.end_date.format('YYYY-MM-DD')
+      };
+      return currentRecord ? updateTrial(currentRecord.id, processedValues) : createTrial(processedValues);
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trials'] });
       setIsModalVisible(false);
       form.resetFields();
+      message.success('操作成功');
     },
+    onError: (error) => {
+      message.error(`操作失败: ${error.response?.data?.message || error.message}`);
+    }
   });
 
   // 文件上传配置
@@ -198,7 +209,15 @@ const TrialsPage = () => {
               </Button>
               <Popconfirm
                 title="确认删除该试验？"
-                onConfirm={() => deleteTrial(record.id)}
+                onConfirm={async () => {
+                  try {
+                    await deleteTrial(record.id);
+                    queryClient.invalidateQueries({ queryKey: ['trials'] });
+                    message.success('删除成功');
+                  } catch (error) {
+                    message.error(`删除失败: ${error.response?.data?.message || error.message}`);
+                  }
+                }}
                 okText="确定"
                 cancelText="取消"
               >
@@ -225,10 +244,10 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-            // 映射后端返回的equipment字段到前端表单的related_equipment字段
-            related_equipment: currentRecord.related_equipment?.results?.map(e => e.id),
-            responsible_persons: currentRecord.responsible_persons?.results?.map(p => p.id),
-            due_date: dayjs(currentRecord.due_date)
+            related_equipment: currentRecord.related_equipment?.map(e => e.id),
+            responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
+            start_date: dayjs(currentRecord.start_date),
+            end_date: dayjs(currentRecord.end_date)
           } : {}}
           onFinish={handleSubmit.mutate}
           layout="vertical"
