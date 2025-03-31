@@ -10,6 +10,8 @@ class TimeSlotSerializer(serializers.ModelSerializer):
         fields = ['id', 'start_time', 'end_time']
 
 class PersonnelSerializer(serializers.ModelSerializer):
+    department = serializers.CharField(allow_blank=True, required=False)
+    
     class Meta:
         model = Personnel
         fields = '__all__'
@@ -19,6 +21,9 @@ class PersonnelSerializer(serializers.ModelSerializer):
         }
 
 class EquipmentSerializer(serializers.ModelSerializer):
+    name = serializers.CharField()
+    description = serializers.CharField(allow_blank=True, required=False)
+    
     class Meta:
         model = Equipment
         fields = '__all__'

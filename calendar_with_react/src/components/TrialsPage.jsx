@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   fetchTrials, createTrial, updateTrial, deleteTrial,
@@ -38,14 +38,26 @@ const TrialsPage = () => {
   });
   const { data: equipments } = useQuery({ 
     queryKey: ['equipments'],
-    queryFn: getEquipmentOptions,
-    select: response => response.results || [] // 修正数据访问路径
+    queryFn: () => getEquipmentOptions({ page: 1, pageSize: 100 }),
+    select: response => response?.results || []
   });
   const { data: responsiblePersons } = useQuery({ 
     queryKey: ['responsiblePersons'],
-    queryFn: getPersonnelOptions,
-    select: response => response.results || [] // 统一数据访问路径
+    queryFn: () => getPersonnelOptions({ page: 1, pageSize: 100 }),
+    select: response => response?.results || [],
+    onError: (error) => console.error('[MCP_ERROR] 人员选项加载失败:', error),
+    onSuccess: (data) => console.log('[MCP_DEBUG] 人员选项加载完成:', data)
   });
+
+  // 调试设备数据加载状态
+  useEffect(() => {
+    console.log('[MCP_DEBUG] 当前设备选项数据:', equipments);
+  }, [equipments]);
+
+  // 调试人员数据加载状态  
+  useEffect(() => {
+    console.log('[MCP_DEBUG] 当前人员选项数据:', responsiblePersons);
+  }, [responsiblePersons]);
 
   // 表单提交处理
   const handleSubmit = useMutation({
@@ -213,8 +225,9 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-            related_equipment: currentRecord.related_equipment?.map(e => e.id),
-            responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
+            // 映射后端返回的equipment字段到前端表单的related_equipment字段
+            related_equipment: currentRecord.related_equipment?.results?.map(e => e.id),
+            responsible_persons: currentRecord.responsible_persons?.results?.map(p => p.id),
             due_date: dayjs(currentRecord.due_date)
           } : {}}
           onFinish={handleSubmit.mutate}
@@ -253,7 +266,7 @@ const TrialsPage = () => {
                   value={equipment.id}
                   title={`设备编号：${equipment.serial_number}`}
                 >
-                  {equipment.name} ({equipment.description})
+                  {`${equipment.name}${equipment.description ? ` (${equipment.description})` : ''}`}
                 </Option>
               ))}
             </Select>
@@ -287,7 +300,7 @@ const TrialsPage = () => {
                   value={person.id}
                   title={`联系方式：${person.phone}`}
                 >
-                  {person.name} - {person.department}
+                  {`${person.name}${person.department ? ` - ${person.department}` : ''}`}
                 </Option>
               ))}
             </Select>
