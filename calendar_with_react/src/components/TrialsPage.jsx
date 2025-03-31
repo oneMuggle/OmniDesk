@@ -62,11 +62,17 @@ const TrialsPage = () => {
   // 表单提交处理
   const handleSubmit = useMutation({
     mutationFn: (values) => {
-      const processedValues = {
-        ...values,
-        start_date: values.start_date.format('YYYY-MM-DD'),
-        end_date: values.end_date.format('YYYY-MM-DD')
-      };
+    const processedValues = {
+      ...values,
+      // 字段映射
+      responsible_person_ids: values.responsible_persons,
+      equipment_ids: values.equipment_ids,
+      start_date: values.start_date.format('YYYY-MM-DD'),
+      end_date: values.end_date.format('YYYY-MM-DD'),
+      // 保留原始字段用于调试
+      _legacy_responsible_persons: values.responsible_persons,
+      _legacy_related_equipment: values.related_equipment
+    };
       return currentRecord ? updateTrial(currentRecord.id, processedValues) : createTrial(processedValues);
     },
     onSuccess: () => {
@@ -244,7 +250,7 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-            related_equipment: currentRecord.related_equipment?.map(e => e.id),
+          equipment_ids: currentRecord.related_equipment?.map(e => e.id),
             responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
             start_date: dayjs(currentRecord.start_date),
             end_date: dayjs(currentRecord.end_date)
@@ -270,7 +276,7 @@ const TrialsPage = () => {
 
           <Form.Item
             label="试验设备"
-          name="related_equipment"
+          name="equipment_ids"
             rules={[{ required: true, message: '请选择试验设备' }]}
           >
             <Select 
