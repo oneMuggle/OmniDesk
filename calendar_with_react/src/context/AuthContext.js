@@ -8,7 +8,9 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest'
   },
-  withCredentials: false
+  withCredentials: true,
+  xsrfCookieName: 'csrftoken',
+  xsrfHeaderName: 'X-CSRFToken'
 });
 
 // 添加请求拦截器

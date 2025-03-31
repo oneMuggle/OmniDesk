@@ -55,7 +55,7 @@ class TrialViewSet(viewsets.ModelViewSet):
         
         # 批量处理关联关系更新
         relations = {
-            'equipments': self.request.data.get('equipments', []),
+            'equipments': self.request.data.get('equipment_ids', []),
             'responsible_persons': self.request.data.get('responsible_persons', [])
         }
         

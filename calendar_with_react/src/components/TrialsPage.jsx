@@ -64,13 +64,11 @@ const TrialsPage = () => {
     mutationFn: (values) => {
     const processedValues = {
       ...values,
-      // 字段映射
       responsible_person_ids: values.responsible_persons,
       equipment_ids: values.equipment_ids,
-      start_date: values.start_date.format('YYYY-MM-DD'),
-      end_date: values.end_date.format('YYYY-MM-DD'),
-      // 保留原始字段用于调试
-      _legacy_responsible_persons: values.responsible_persons,
+      start_date: dayjs(values.start_date).toISOString(),
+      end_date: dayjs(values.end_date).toISOString(),
+      status: values.status || 'planned', // 添加默认状态
       _legacy_related_equipment: values.related_equipment
     };
       return currentRecord ? updateTrial(currentRecord.id, processedValues) : createTrial(processedValues);
@@ -144,7 +142,7 @@ const TrialsPage = () => {
         <Column title="试验名称" dataIndex="title" key="title" />
         <Column 
           title="试验设备" 
-          render={(_, record) => (record.related_equipment || []).map(e => e?.name || '未知设备').join(', ') || '暂无设备'}
+          render={(_, record) => (record.equipments || []).map(e => e?.name || '未知设备').join(', ') || '暂无设备'}
         />
         <Column title="委托单位" dataIndex="client" key="client" />
         <Column 
@@ -250,7 +248,7 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-          equipment_ids: currentRecord.related_equipment?.map(e => e.id),
+          equipment_ids: currentRecord.equipments?.map(e => e.id),
             responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
             start_date: dayjs(currentRecord.start_date),
             end_date: dayjs(currentRecord.end_date)
@@ -303,6 +301,20 @@ const TrialsPage = () => {
             rules={[{ required: true, message: '请输入委托单位' }]}
           >
             <Input />
+          </Form.Item>
+
+          <Form.Item
+            label="状态"
+            name="status"
+            initialValue="planned"
+            rules={[{ required: true }]}
+          >
+            <Select>
+              <Option value="planned">计划中</Option>
+              <Option value="in_progress">进行中</Option>
+              <Option value="completed">已完成</Option>
+              <Option value="cancelled">已取消</Option>
+            </Select>
           </Form.Item>
 
           <Form.Item

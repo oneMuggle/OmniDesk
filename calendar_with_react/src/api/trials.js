@@ -40,7 +40,7 @@ export const fetchTrials = getTrials;
 export const createTrial = (data) => {
   return api.post('/trials/', {
     ...data,
-    equipments: data.related_equipment // 将前端字段名映射到后端API字段
+    equipments: data.equipment_ids // 修正字段映射
   })
     .then(handleResponse)
     .catch(handleError);
@@ -49,7 +49,7 @@ export const createTrial = (data) => {
 export const updateTrial = (id, data) => {
   return api.patch(`/trials/${id}/`, {
     ...data,
-    equipment: data.related_equipment // 保持字段映射一致性
+    equipments: data.equipment_ids // 修正字段映射并保持一致性
   })
     .then(handleResponse)
     .catch(handleError);
