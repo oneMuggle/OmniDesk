@@ -124,7 +124,7 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+        'NAME': '/data/db.sqlite3',
         }
     }
 
@@ -159,20 +159,23 @@ USE_TZ = True
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+    },
     'handlers': {
         'console': {
             'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
         },
     },
     'loggers': {
-        'django.utils.autoreload': {
-            'handlers': ['console'],
-            'level': 'WARNING',  # 提升日志级别到WARNING
-            'propagate': False,
-        },
         'django': {
             'handlers': ['console'],
-            'level': 'INFO',  # 降低全局日志级别
+            'level': 'DEBUG',
+            'propagate': True,
         },
     },
 }

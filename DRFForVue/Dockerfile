@@ -1,14 +1,13 @@
 # 构建阶段
 FROM python:3.9-slim-buster AS builder
 
-WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PATH="/root/.local/bin:$PATH"
-
 RUN apt-get update \
     && apt-get install -y --no-install-recommends gcc python3-dev libpq-dev \
     && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
 RUN pip install --upgrade pip --no-cache-dir \
@@ -24,8 +23,13 @@ RUN mkdir -p /var/lib/django && chown appuser:appuser /var/lib/django
 COPY --chown=appuser:appuser . .
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
-ENV PATH="/usr/local/bin:${PATH}"
-ENV PYTHONPATH=/app:/usr/local/lib/python3.9/site-packages
+# 创建数据目录并设置权限
+RUN mkdir -p /data && \
+    chown appuser:appuser /data && \
+    chmod 755 /data
+
+ENV PATH="/home/appuser/.local/bin:${PATH}"
+ENV PYTHONPATH=/app:/home/appuser/.local/lib/python3.9/site-packages
 
 # 安装运行时依赖
 RUN apt-get update \
@@ -36,4 +40,7 @@ USER appuser
 
 EXPOSE 8000
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000"]
+# 使用已存在的appuser用户
+USER appuser
+
+CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--verbosity", "3"]
