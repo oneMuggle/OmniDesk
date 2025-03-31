@@ -24,12 +24,24 @@ class Equipment(models.Model):
         return self.name
 
 
+class TimeSlot(models.Model):
+    trial = models.ForeignKey('Trial', on_delete=models.CASCADE, related_name='time_slots')
+    start_time = models.DateTimeField(verbose_name="实际开始时间")
+    end_time = models.DateTimeField(verbose_name="实际结束时间")
+    
+    class Meta:
+        ordering = ['start_time']
+        verbose_name = '试验时间段'
+
+    def __str__(self):
+        return f"{self.start_time.strftime('%Y-%m-%d %H:%M')} - {self.end_time.strftime('%Y-%m-%d %H:%M')}"
+
 class Trial(models.Model):
     title = models.CharField(max_length=200)
     client = models.CharField(max_length=200)
     description = models.TextField()
-    start_date = models.DateTimeField()
-    end_date = models.DateTimeField()
+    start_date = models.DateTimeField(verbose_name="预期开始时间")
+    end_date = models.DateTimeField(verbose_name="预期结束时间")
     equipments = models.ManyToManyField('Equipment', blank=True)
     responsible_persons = models.ManyToManyField(Personnel)
     status = models.CharField(max_length=20, choices=[

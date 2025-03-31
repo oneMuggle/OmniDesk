@@ -200,24 +200,27 @@ const CalendarPage = () => {
             day: '日视图'
           }}
           events={useMemo(() => {
-            // 转换试验数据为日历事件
-            const trialEvents = trials.map(trial => ({
-              id: `trial-${trial.id}`,
-              title: trial.title,
-              start: new Date(trial.start_date),
-              end: new Date(trial.end_date),
-              extendedProps: {
-                type: 'TRIAL',
-                status: trial.status,
-                client: trial.client,
-                equipment: trial.related_equipment,
-                persons: trial.responsible_persons,
-                description: trial.description
-              },
-              color: getStatusConfig(trial.status).color,
-              allDay: true,
-              editable: false
-            }));
+            // 转换试验数据为日历事件（使用实际时间段）
+            const trialEvents = trials.flatMap(trial => 
+              (trial.time_slots || []).map((slot, index) => ({
+                id: `trial-${trial.id}-${index}`,
+                title: trial.title,
+                start: new Date(slot.start_time),
+                end: new Date(slot.end_time),
+                extendedProps: {
+                  type: 'TRIAL',
+                  status: trial.status,
+                  client: trial.client,
+                  equipment: trial.related_equipment,
+                  persons: trial.responsible_persons,
+                  description: trial.description,
+                  trialId: trial.id
+                },
+                color: getStatusConfig(trial.status).color,
+                allDay: false,
+                editable: false
+              }))
+            );
 
             // 合并已有事件和试验事件
             return [...defaultEvents, ...trialEvents].filter(event => 
