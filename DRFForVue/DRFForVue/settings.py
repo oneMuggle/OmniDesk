@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'users',
     'events',
+    'documents.apps.DocumentsConfig',
 ]
 
 MIDDLEWARE = [
