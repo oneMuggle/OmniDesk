@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import JSONField
 from users.models import CustomUser
 
 
@@ -72,7 +73,7 @@ class DocumentTemplate(models.Model):
     experiment_type = models.CharField(max_length=20, choices=EXPERIMENT_TYPES)
     template_file = models.FileField(upload_to='templates/')
     created_at = models.DateTimeField(auto_now_add=True)
-    owner = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE)
+    owner = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='event_templates')
     
     def __str__(self):
         return f"{self.name} ({self.get_experiment_type_display()})"

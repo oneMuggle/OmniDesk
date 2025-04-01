@@ -1,5 +1,5 @@
 from django.db import models
-from django.contrib.postgres.fields import JSONField
+from django.db.models import JSONField
 from users.models import CustomUser
 
 class DocumentTemplate(models.Model):
@@ -16,7 +16,7 @@ class DocumentTemplate(models.Model):
     variables = JSONField(default=dict, verbose_name="模板变量")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="所属用户")
+    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="所属用户", related_name='document_templates')
 
     class Meta:
         verbose_name = "文档模板"

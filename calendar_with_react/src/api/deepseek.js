@@ -19,6 +19,50 @@ export const clearConversationHistory = () => {
   conversationHistory = [];
 };
 
+export const generateDocument = async (templateId, variables) => {
+  try {
+    const response = await axios.post('/api/documents/generated/', {
+      template: templateId,
+      variables_used: variables,
+      content: "" // 内容由后端生成
+    });
+
+    // 返回包含生成文档完整信息的对象
+    return {
+      ...response.data,
+      content: response.data.content.replace(/{{\s*([^}]+)\s*}}/g, (match, p1) => variables[p1.trim()] || match)
+    };
+    
+  } catch (error) {
+    console.error('文档生成失败:', error);
+    throw new Error(`文档生成失败: ${error.response?.data?.detail || error.message}`);
+  }
+};
+
+export const uploadTemplate = async (formData) => {
+  try {
+    const response = await axios.post('/api/documents/templates/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return response.data;
+  } catch (error) {
+    console.error('模板上传失败:', error);
+    throw new Error(`模板上传失败: ${error.response?.data?.detail || error.message}`);
+  }
+};
+
+export const getDocumentTemplates = async () => {
+  try {
+    const response = await axios.get('/api/documents/templates/');
+    return response.data;
+  } catch (error) {
+    console.error('获取模板失败:', error);
+    throw new Error(`获取模板失败: ${error.response?.data?.detail || error.message}`);
+  }
+};
+
 export const createClient = (withContext = false) => {
   // 验证配置完整性（改为可选配置）
   if (!currentConfig.apiEndpoint || !currentConfig.apiKey) {

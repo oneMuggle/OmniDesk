@@ -4,7 +4,11 @@ import { Upload, Button, message, Form, Table } from 'antd';
 import { InboxOutlined, FileAddOutlined } from '@ant-design/icons';
 import mammoth from 'mammoth';
 import Docxtemplater from 'docxtemplater';
-import { documentAPI } from '../api/documents';
+import { 
+  getDocumentTemplates, 
+  generateDocument as generateDeepseekDoc,
+  uploadTemplate 
+} from '../api/deepseek';
 import ChatInterface from './ChatInterface';
 import './DocumentsPage.css';
 
@@ -21,8 +25,8 @@ const DocumentsPage = () => {
   useEffect(() => {
     const loadTemplates = async () => {
       try {
-        const response = await documentAPI.getTemplates();
-        setTemplates(response.data);
+        const templates = await getDocumentTemplates();
+        setTemplates(templates);
       } catch (error) {
         message.error('加载模板失败');
       }
@@ -35,7 +39,7 @@ const DocumentsPage = () => {
     try {
       const formData = new FormData();
       formData.append('template', file);
-      await documentAPI.uploadTemplate(formData);
+      await uploadTemplate(formData);
       message.success('模板上传成功');
     } catch (error) {
       message.error('上传失败');
@@ -45,15 +49,15 @@ const DocumentsPage = () => {
   // 生成文档
   const generateDocument = async (values) => {
     try {
-      const response = await documentAPI.generateDocument(
+      const { content } = await generateDeepseekDoc(
         selectedTemplate.id,
         values
       );
-      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
+      const blob = new Blob([content], { type: 'text/markdown' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedTemplate.name}_generated.docx`;
+      a.download = `${selectedTemplate.name}_generated.md`;
       a.click();
     } catch (error) {
       message.error('文档生成失败');
