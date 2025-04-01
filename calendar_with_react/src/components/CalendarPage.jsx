@@ -132,18 +132,14 @@ const CalendarPage = () => {
       }
 
         if (response.status === 200 || response.status === 201) {
-          const createdEvent = {
-            ...response.data,
-            start: new Date(response.data.start_time),
-            end: new Date(response.data.end_time),
-            type: calendarType
-          };
-          
-          // 统一保存到defaultEvents并根据类型过滤
-          setDefaultEvents(prev => [...prev, {
-            ...createdEvent,
-            type: calendarType === 'trial' ? 'TRIAL' : 'SCHEDULE'
-          }]);
+        const newEvent = {
+          ...response.data,
+          id: response.data.id,
+          start: new Date(response.data.start_time),
+          end: new Date(response.data.end_time),
+          type: calendarType === 'trial' ? 'TRIAL' : 'SCHEDULE'
+        };
+        setDefaultEvents(prev => [...prev, newEvent]);
         }
     } catch (error) {
       console.error('保存事件失败:', error);
