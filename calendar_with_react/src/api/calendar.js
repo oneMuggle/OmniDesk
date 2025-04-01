@@ -10,15 +10,29 @@ const calendarClient = axios.create({
 });
 
 export const calendarApi = {
-  // 获取日历事件
+  // 获取试验日历事件
+  fetchTrialEvents: async () => {
+    try {
+      const response = await calendarClient.get('/events/trails/');
+      return response.data.map(trial => ({
+        id: trial.id,
+        title: trial.title,
+        start: new Date(trial.start_date),
+        end: new Date(trial.end_date),
+        extendedProps: {
+          equipment: trial.equipment,
+          personnel: trial.responsible_persons
+        }
+      }));
+    } catch (error) {
+      console.error('Failed to fetch trial events:', error);
+      return [];
+    }
+  },
+
+  // 保留原有事件接口（可选）
   fetchCalendarEvents: () => calendarClient.get('/events/'),
-  
-  // 创建新事件
   createCalendarEvent: (eventData) => calendarClient.post('/events/', eventData),
-  
-  // 更新事件
   updateCalendarEvent: (id, eventData) => calendarClient.put(`/events/${id}/`, eventData),
-  
-  // 删除事件
   deleteCalendarEvent: (id) => calendarClient.delete(`/events/${id}/`)
 };

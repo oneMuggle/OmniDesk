@@ -83,15 +83,20 @@ const CalendarPage = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await calendarApi.fetchCalendarEvents();
-        const events = response.data.map(event => ({
-          ...event,
-          start: new Date(event.start_time),
-          end: new Date(event.end_time)
+        const response = await calendarApi.fetchTrialEvents();
+        const events = response.data.map(trial => ({
+          title: trial.trial_name,
+          start: new Date(trial.start_date),
+          end: new Date(trial.end_date),
+          extendedProps: {
+            status: trial.status,
+            responsible: trial.responsible_persons,
+            trialId: trial.id
+          }
         }));
         setDefaultEvents(events);
       } catch (error) {
-        console.error('加载日历事件失败:', error);
+        console.error('加载试验日历失败:', error);
       }
     };
     
@@ -110,19 +115,34 @@ const CalendarPage = () => {
         return;
       }
 
-      const payload = {
-        title: selectedTrial.title,
-        description: selectedTrial.description,
-        client: selectedTrial.client,
-        trial_id: selectedTrial.id,
-        time_slots: newEvent.time_slots?.map(slot => ({
-          start_time: slot.start.toISOString(),
-          end_time: slot.end.toISOString()
-        })),
-        status: selectedTrial.status,
-        related_equipment: selectedTrial.related_equipment.map(e => e.id),
-        responsible_persons: selectedTrial.responsible_persons.map(p => p.id)
-      };
+      // 确保time_slots存在且为数组，添加防御性检查
+      const timeSlots = (Array.isArray(newEvent.time_slots) ? newEvent.time_slots : [])
+        .filter(slot => slot?.start && slot?.end) // 过滤无效时间段
+        .map(slot => ({
+          start: new Date(slot.start),
+          end: new Date(slot.end)
+        }));
+
+  // 添加防御性检查并记录调试信息
+  console.log('Selected trial data:', {
+    equipment: selectedTrial?.related_equipment,
+    persons: selectedTrial?.responsible_persons,
+    timeSlots: timeSlots
+  });
+
+  const payload = {
+    title: selectedTrial.title,
+    description: selectedTrial.description,
+    client: selectedTrial.client,
+    trial_id: selectedTrial.id,
+    time_slots: timeSlots.map(({ start, end }) => ({
+      start_time: start.toISOString(),
+      end_time: end.toISOString()
+    })),
+    status: selectedTrial.status,
+    related_equipment: selectedTrial.related_equipment?.map?.(e => e.id) || [],
+    responsible_persons: selectedTrial.responsible_persons?.map?.(p => p.id) || []
+  };
 
       let response;
       if (newEvent.id) {
@@ -151,7 +171,17 @@ const CalendarPage = () => {
   const handleTrialSelect = async (trialId) => {
     try {
       const { data } = await getTrials({ id: trialId });
-      setSelectedTrial(data);
+      // 添加调试日志验证数据结构
+      console.log('Trial API response:', {
+        equipment: data?.related_equipment,
+        persons: data?.responsible_persons,
+        time_slots: data?.time_slots
+      });
+      setSelectedTrial({
+        ...data,
+        related_equipment: data.related_equipment || [],
+        responsible_persons: data.responsible_persons || []
+      });
     } catch (error) {
       console.error('获取试验详情失败:', error);
       alert('无法加载试验详情');
@@ -201,14 +231,14 @@ const CalendarPage = () => {
               (trial.time_slots || []).map((slot, index) => ({
                 id: `trial-${trial.id}-${index}`,
                 title: trial.title,
-                start: new Date(slot.start_time),
-                end: new Date(slot.end_time),
+                start: new Date(trial.start_date),
+                end: new Date(trial.end_date),
                 extendedProps: {
                   type: 'TRIAL',
                   status: trial.status,
                   client: trial.client,
-                  equipment: trial.related_equipment,
-                  persons: trial.responsible_persons,
+                  equipment: trial.equipment,
+                  personnel: trial.responsible_persons,
                   description: trial.description,
                   trialId: trial.id
                 },
@@ -269,10 +299,21 @@ const CalendarPage = () => {
         open={!!currentEvent}
         onCancel={() => setCurrentEvent(null)}
         footer={[
-          <Button 
-            key="submit" 
-            type="primary" 
-            onClick={() => handleEventSubmit(currentEvent)}
+          <Button
+            key="submit"
+            type="primary"
+              onClick={() => {
+              // 确保提交时包含有效的time_slots数组并转换日期对象
+              const formData = {
+                ...currentEvent,
+                time_slots: (currentEvent.time_slots || []).map(slot => ({
+                  start: slot.start instanceof Date ? slot.start : new Date(slot.start),
+                  end: slot.end instanceof Date ? slot.end : new Date(slot.end)
+                }))
+              };
+              console.log('Submitting event data:', formData);
+              handleEventSubmit(formData);
+            }}
             disabled={modalType === 'view'}
           >
             {modalType === 'view' ? '关闭' : '保存'}
