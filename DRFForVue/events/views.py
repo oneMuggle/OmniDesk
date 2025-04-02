@@ -1,12 +1,14 @@
 from rest_framework import viewsets, generics
+from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils import timezone
+from django.db import transaction
 from datetime import timedelta
 from .models import Trial
 from .models import Trial, Personnel, Equipment, DocumentTemplate
-from .serializers import TrialSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer
+from .serializers import TrialSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer, TimeSlotSerializer
 from users.permissions import IsOwnerOrReadOnly
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -37,7 +39,8 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
 class TrialViewSet(viewsets.ModelViewSet):
     queryset = Trial.objects.prefetch_related(
         'equipments',
-        'responsible_persons'
+        'responsible_persons',
+        'time_slots'
     ).all()
     serializer_class = TrialSerializer
     permission_classes = [IsAuthenticatedOrReadOnly]
@@ -47,7 +50,14 @@ class TrialViewSet(viewsets.ModelViewSet):
         'equipments',
         'responsible_persons',
         'start_date',
-        'end_date'
+        'end_date',
+        'time_slots__start_time',
+        'time_slots__end_time'
+    ]
+    ordering_fields = [
+        'start_date',
+        'end_date',
+        'time_slots__start_time'
     ]
 
     def get_queryset(self):
@@ -55,15 +65,69 @@ class TrialViewSet(viewsets.ModelViewSet):
         return super().get_queryset().order_by('-start_date')
 
     def perform_create(self, serializer):
-        """创建时处理多对多关系（与人员管理逻辑一致）"""
-        instance = serializer.save()
+        """原子化创建试验及其时间段"""
+        time_slots = self.request.data.get('time_slots', [])
         
-        # 批量处理关联关系更新
-        relations = {
-            'equipments': self.request.data.get('equipment_ids', []),
-            'responsible_persons': self.request.data.get('responsible_persons', [])
-        }
+        with transaction.atomic():
+            # 创建试验基础信息
+            instance = serializer.save()
+            
+            # 处理关联关系
+            instance.equipments.set(self.request.data.get('equipment_ids', []))
+            instance.responsible_persons.set(self.request.data.get('responsible_person_ids', []))
+            
+            # 直接创建时间段（已通过外键关联）
+            if time_slots:
+                TimeSlot.objects.bulk_create([
+                    TimeSlot(
+                        trial=instance,
+                        start_time=slot['start_time'],
+                        end_time=slot['end_time'],
+                        description=slot.get('description', '')
+                    ) for slot in time_slots
+                ])
+
+    def perform_update(self, serializer):
+        """原子化更新试验及其时间段"""
+        time_slots = self.request.data.get('time_slots', [])
+        instance = self.get_object()
         
-        for field_name, ids in relations.items():
-            if isinstance(ids, list):
-                getattr(instance, field_name).set(ids)
+        with transaction.atomic():
+            # 先更新试验基本信息
+            super().perform_update(serializer)
+            
+            # 清空原有时间段
+            instance.time_slots.all().delete()
+            
+            # 创建新时间段
+            if time_slots:
+                TimeSlot.objects.bulk_create([
+                    TimeSlot(
+                        trial=instance,
+                        start_time=slot['start_time'],
+                        end_time=slot['end_time'],
+                        description=slot.get('description', '')
+                    ) for slot in time_slots
+                ])
+
+    @action(detail=True, methods=['patch'], url_path='update-time-slots')
+    def update_time_slots(self, request, pk=None):
+        """原子化更新时间槽"""
+        trial = self.get_object()
+        time_slots = request.data
+        
+        with transaction.atomic():
+            # 删除原有时间段
+            trial.time_slots.all().delete()
+            
+            # 创建新时间段
+            TimeSlot.objects.bulk_create([
+                TimeSlot(
+                    trial=trial,
+                    start_time=slot['start_time'],
+                    end_time=slot['end_time'],
+                    description=slot.get('description', '')
+                ) for slot in time_slots
+            ])
+        
+        return Response(status=204)
