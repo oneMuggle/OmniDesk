@@ -16,14 +16,7 @@ export const getTrials = (params) => {
 export const fetchTrials = getTrials;
 
 export const createTrial = (data) => {
-  return api.post('/api/events/trials/', {
-    ...data,
-    equipment_ids: data.equipment_ids
-  }, {
-    headers: {
-      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-    }
-  })
+  return api.post('/api/events/trials/', data)
     .then(handleResponse)
     .catch(handleError);
 };

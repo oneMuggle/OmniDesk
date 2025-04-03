@@ -25,8 +25,40 @@ apiClient.interceptors.response.use(
     console.log('收到响应:', response.status, response.data);
     return response;
   },
-  error => {
-    console.error('请求错误:', error.message);
+  async error => {
+    const originalRequest = error.config;
+    
+    // 处理401错误且不是刷新token请求
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+      
+      try {
+        // 使用refresh token获取新的access token
+        const storedTokens = JSON.parse(localStorage.getItem('authTokens'));
+        const response = await apiClient.post('/api/auth/token/refresh/', {
+          refresh: storedTokens?.refresh
+        });
+        
+        const newAccessToken = response.data.access;
+        localStorage.setItem('authTokens', JSON.stringify({
+          ...storedTokens,
+          access: newAccessToken
+        }));
+        
+        // 更新默认headers
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
+        // 重试原始请求
+        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
+        return apiClient(originalRequest);
+      } catch (refreshError) {
+        console.error('Token刷新失败:', refreshError);
+        localStorage.removeItem('authTokens');
+        delete apiClient.defaults.headers.common['Authorization'];
+        window.location.href = '/login';
+        return Promise.reject(refreshError);
+      }
+    }
+    
     return Promise.reject(error);
   }
 );
