@@ -1,35 +1,13 @@
-import axios from 'axios';
+import { apiClient } from '../context/AuthContext';
 import { handleResponse, handleError } from './responseHandler';
 
-// 保持与personnel/equipment管理一致的axios配置
-const api = axios.create({
-  baseURL: (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000') + '/api/events/',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-// 统一认证拦截器
-api.interceptors.request.use(config => {
-  try {
-    const authTokens = localStorage.getItem('authTokens');
-    if (authTokens) {
-      const tokens = JSON.parse(authTokens);
-      if (tokens?.access) {
-        config.headers.Authorization = `Bearer ${tokens.access}`;
-      }
-    }
-  } catch (error) {
-    console.error('Token解析错误:', error);
-    localStorage.removeItem('authTokens');
-  }
-  return config;
-});
+// 使用统一的apiClient实例
+const api = apiClient;
 
 // 试验管理API（与后端trials端点保持一致）
 // 获取试验列表（与后端接口保持一致）
 export const getTrials = (params) => {
-  return api.get('/trials/', { params })
+  return api.get('/api/events/trials/', { params })
     .then(handleResponse)
     .catch(handleError);
 };
@@ -38,25 +16,25 @@ export const getTrials = (params) => {
 export const fetchTrials = getTrials;
 
 export const createTrial = (data) => {
-  return api.post('/trials/', {
+  return api.post('/api/events/trials/', {
     ...data,
-    equipments: data.equipment_ids // 修正字段映射
+    equipment_ids: data.equipment_ids // 保持字段名称一致性
   })
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const updateTrial = (id, data) => {
-  return api.patch(`/trials/${id}/`, {
+  return api.patch(`/api/events/trials/${id}/`, {
     ...data,
-    equipments: data.equipment_ids // 修正字段映射并保持一致性
+    equipment_ids: data.equipment_ids // 保持字段名称一致性
   })
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const deleteTrial = (id) => {
-  return api.delete(`/trials/${id}/`)
+  return api.delete(`/api/events/trials/${id}/`)
     .then(handleResponse)
     .catch(handleError);
 };
@@ -65,7 +43,7 @@ export const deleteTrial = (id) => {
 // 设备列表接口（保持命名一致性）
 export const getEquipmentOptions = async (params) => {
   console.log('[MCP_DEBUG] 正在请求设备选项数据...');
-  const response = await api.get('/equipments/', { params })
+  const response = await api.get('/api/events/equipments/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
       throw err;
@@ -84,7 +62,7 @@ export const getEquipmentOptions = async (params) => {
 
 export const getPersonnelOptions = async (params) => {
   console.log('[MCP_DEBUG] 正在请求人员选项数据...');
-  const response = await api.get('/personnel/', { params })
+  const response = await api.get('/api/events/personnel/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;
