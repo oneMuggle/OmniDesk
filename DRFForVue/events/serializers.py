@@ -69,7 +69,6 @@ class TrialSerializer(serializers.ModelSerializer):
         many=True,
         required=False,
         allow_empty=True,
-        source='time_slots',
         help_text="时间段列表（可为空或多个），格式：[{'start_time': '2023-01-01T09:00', 'end_time': '2023-01-01T12:00', 'description': ''}, ...]"
     )
     
@@ -114,26 +113,26 @@ class TrialSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """时间验证"""
-        time_periods = data.get('time_periods', [])
+        time_slots = data.get('time_slots', [])
         
         # 自动计算主时间范围
-        if time_periods:
-            start_dates = [period['start_time'] for period in time_periods]
-            end_dates = [period['end_time'] for period in time_periods]
+        if time_slots:
+            start_dates = [slot['start_time'] for slot in time_slots]
+            end_dates = [slot['end_time'] for slot in time_slots]
             data['start_date'] = min(start_dates)
             data['end_date'] = max(end_dates)
 
         # 时间段数量限制
-        if len(time_periods) > 50:
+        if len(time_slots) > 50:
             raise serializers.ValidationError("单个试验最多允许50个时间段")
 
         return data
 
     def create(self, validated_data):
-        time_periods = validated_data.pop('time_periods', [])
+        time_slots = validated_data.pop('time_slots', [])
         with transaction.atomic():
             trial = super().create(validated_data)
-            for period in time_periods:
+            for slot in time_slots:
                 TimeSlot.objects.create(
                     trial=trial,
                     start_time=period['start_time'],
@@ -143,13 +142,13 @@ class TrialSerializer(serializers.ModelSerializer):
         return trial
 
     def update(self, instance, validated_data):
-        time_periods = validated_data.pop('time_periods', [])
+        time_slots = validated_data.pop('time_slots', [])
         with transaction.atomic():
             instance = super().update(instance, validated_data)
             # 通过外键删除原有时间段
-            instance.time_periods.all().delete()
+            instance.time_slots.all().delete()
             # 创建新时间段
-            for period in time_periods:
+            for slot in time_slots:
                 TimeSlot.objects.create(
                     trial=instance,
                     start_time=period['start_time'],

@@ -48,9 +48,14 @@ export function AuthProvider({ children }) {
       try {
         const { access } = JSON.parse(storedTokens);
         if (access) {
+          // 统一设置认证头格式
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
           // 获取用户信息
-          apiClient.get('/api/users/me/')
+          apiClient.get('/api/users/me/', {
+            headers: {
+              'Authorization': `Bearer ${access}`
+            }
+          })
             .then(res => setUser(res.data))
             .catch(() => {
               localStorage.removeItem('authTokens');

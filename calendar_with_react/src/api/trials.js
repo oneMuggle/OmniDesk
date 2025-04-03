@@ -18,7 +18,11 @@ export const fetchTrials = getTrials;
 export const createTrial = (data) => {
   return api.post('/api/events/trials/', {
     ...data,
-    equipment_ids: data.equipment_ids // 保持字段名称一致性
+    equipment_ids: data.equipment_ids
+  }, {
+    headers: {
+      'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+    }
   })
     .then(handleResponse)
     .catch(handleError);
