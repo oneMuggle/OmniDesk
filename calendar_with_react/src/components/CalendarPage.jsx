@@ -306,13 +306,17 @@ const CalendarPage = () => {
               // 确保提交时包含有效的time_slots数组并转换日期对象
               // 严格处理时间数据转换
               // 新增前端验证逻辑
-              if (!currentEvent.time_slots || currentEvent.time_slots.length === 0) {
+              // 从表单获取最新数据
+              const formValues = document.querySelector('.ant-modal-content').querySelector('form').getFieldsValue();
+              
+              if (!formValues.time_slots || formValues.time_slots.length === 0) {
                 alert('请至少添加一个有效时间段');
                 return;
               }
 
               const formData = {
                 ...currentEvent,
+                ...formValues,
                 time_slots: (currentEvent.time_slots || []).map((slot, index) => {
                   try {
                     // 严格时间格式校验
