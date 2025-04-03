@@ -71,6 +71,7 @@ const CalendarPage = () => {
   const [modalType, setModalType] = useState('new'); // 'view' | 'edit' | 'new'
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedTrial, setSelectedTrial] = useState(null);
+  const [form] = Form.useForm();
   
   const getStatusConfig = (status) => 
     trialStatusConfig[status] || {
@@ -307,7 +308,7 @@ const CalendarPage = () => {
               // 严格处理时间数据转换
               // 新增前端验证逻辑
               // 从表单获取最新数据
-              const formValues = document.querySelector('.ant-modal-content').querySelector('form').getFieldsValue();
+              const formValues = form.getFieldsValue();
               
               if (!formValues.time_slots || formValues.time_slots.length === 0) {
                 alert('请至少添加一个有效时间段');
@@ -376,7 +377,7 @@ const CalendarPage = () => {
         ]}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Form layout="vertical">
+          <Form layout="vertical" form={form}>
             <Form.Item label="试验项目" required>
               <Select
                 showSearch
