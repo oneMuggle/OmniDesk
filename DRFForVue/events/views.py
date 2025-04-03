@@ -66,7 +66,7 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         """原子化创建试验及其时间段"""
-        time_slots = self.request.data.get('time_slots', [])
+        time_periods = self.request.data.get('time_periods', [])
         
         with transaction.atomic():
             # 创建试验基础信息
@@ -77,19 +77,20 @@ class TrialViewSet(viewsets.ModelViewSet):
             instance.responsible_persons.set(self.request.data.get('responsible_person_ids', []))
             
             # 直接创建时间段（已通过外键关联）
-            if time_slots:
+            if time_periods:
                 TimeSlot.objects.bulk_create([
                     TimeSlot(
                         trial=instance,
-                        start_time=slot['start_time'],
-                        end_time=slot['end_time'],
-                        description=slot.get('description', '')
-                    ) for slot in time_slots
+                        start_time=period['start_time'],
+                        end_time=period['end_time'],
+                        description=period.get('description', '')
+                    ) for period in time_periods
                 ])
+                instance.update_time_range()  # 显式调用时间范围更新
 
     def perform_update(self, serializer):
         """原子化更新试验及其时间段"""
-        time_slots = self.request.data.get('time_slots', [])
+        time_periods = self.request.data.get('time_periods', [])
         instance = self.get_object()
         
         with transaction.atomic():
@@ -100,21 +101,21 @@ class TrialViewSet(viewsets.ModelViewSet):
             instance.time_slots.all().delete()
             
             # 创建新时间段
-            if time_slots:
+            if time_periods:
                 TimeSlot.objects.bulk_create([
                     TimeSlot(
                         trial=instance,
-                        start_time=slot['start_time'],
-                        end_time=slot['end_time'],
-                        description=slot.get('description', '')
-                    ) for slot in time_slots
+                        start_time=period['start_time'],
+                        end_time=period['end_time'],
+                        description=period.get('description', '')
+                    ) for period in time_periods
                 ])
 
     @action(detail=True, methods=['patch'], url_path='update-time-slots')
     def update_time_slots(self, request, pk=None):
-        """原子化更新时间槽"""
+        """原子化更新时间段"""
         trial = self.get_object()
-        time_slots = request.data
+        time_periods = request.data
         
         with transaction.atomic():
             # 删除原有时间段
@@ -124,10 +125,11 @@ class TrialViewSet(viewsets.ModelViewSet):
             TimeSlot.objects.bulk_create([
                 TimeSlot(
                     trial=trial,
-                    start_time=slot['start_time'],
-                    end_time=slot['end_time'],
-                    description=slot.get('description', '')
-                ) for slot in time_slots
+                    start_time=period['start_time'],
+                    end_time=period['end_time'],
+                    description=period.get('description', '')
+                ) for period in time_periods
             ])
+            trial.update_time_range()  # 显式调用时间范围更新
         
         return Response(status=204)

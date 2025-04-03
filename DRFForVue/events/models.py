@@ -27,9 +27,9 @@ class Equipment(models.Model):
 
 
 class TimeSlot(models.Model):
-    trial = models.ForeignKey('Trial', 
-        on_delete=models.CASCADE, 
-        related_name='time_periods',  # 修改related_name避免冲突
+    trial = models.ForeignKey('Trial',
+        on_delete=models.CASCADE,
+        related_name='time_slots',
         verbose_name='关联试验')
     start_time = models.DateTimeField(verbose_name="开始时间")
     end_time = models.DateTimeField(verbose_name="结束时间")
@@ -79,27 +79,32 @@ class Trial(models.Model):
         default='planned',
         verbose_name="试验状态"
     )
-    time_slots = models.ManyToManyField(
-        'TimeSlot',
-        related_name='trials',
-        blank=True,
-        verbose_name="时间段明细",
-        help_text="试验具体时间段安排"
-    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     def save(self, *args, **kwargs):
         """自动从时间段计算主时间范围"""
+        # 先保存基础信息生成ID
+        super().save(*args, **kwargs)  
+        
+        # 单独调用更新逻辑，避免关联关系问题
+        self.update_time_range()
+
+    def update_time_range(self):
+        """安全地更新时间范围（在实例保存后调用）"""
         if self.time_slots.exists():
             self.start_date = self.time_slots.earliest('start_time').start_time
             self.end_date = self.time_slots.latest('end_time').end_time
-        super().save(*args, **kwargs)
+            # 使用update避免递归保存
+            self.__class__.objects.filter(pk=self.pk).update(
+                start_date=self.start_date,
+                end_date=self.end_date
+            )
 
     @property
-    def time_periods(self):
-        """获取排序后的时间段"""
-        return self.time_slots.order_by('start_time').values_list('start_time', 'end_time')
+    def time_slots(self):
+        """获取关联的时间段"""
+        return self.timeslot_set.all().order_by('start_time')
 
     class Meta:
             ordering = ['id']  # 设置默认排序字段

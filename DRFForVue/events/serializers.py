@@ -7,10 +7,19 @@ from users.serializers import UserSerializer
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     trial_id = serializers.IntegerField(source='trial.id', read_only=True)
+    trial = serializers.PrimaryKeyRelatedField(
+        queryset=Trial.objects.all(),
+        write_only=True,
+        required=False
+    )
     
     class Meta:
         model = TimeSlot
-        fields = ['id', 'trial_id', 'start_time', 'end_time', 'description']
+        fields = ['id', 'trial_id', 'trial', 'start_time', 'end_time', 'description']
+        extra_kwargs = {
+            'trial': {'write_only': True},
+            'description': {'required': False, 'allow_blank': True}
+        }
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True}
         }
@@ -60,6 +69,7 @@ class TrialSerializer(serializers.ModelSerializer):
         many=True,
         required=False,
         allow_empty=True,
+        source='time_slots',
         help_text="时间段列表（可为空或多个），格式：[{'start_time': '2023-01-01T09:00', 'end_time': '2023-01-01T12:00', 'description': ''}, ...]"
     )
     
@@ -99,52 +109,51 @@ class TrialSerializer(serializers.ModelSerializer):
                 'help_text': '主结束时间（自动从时间段计算）'
             },
             'description': {'required': True, 'help_text': '试验描述'},
-            'time_slots': {'required': False, 'help_text': '时间段明细'}
+            'time_periods': {'required': False, 'help_text': '时间段明细'}
         }
 
     def validate(self, data):
         """时间验证"""
-        time_slots = data.get('time_slots', [])
+        time_periods = data.get('time_periods', [])
         
         # 自动计算主时间范围
-        if time_slots:
-            start_dates = [slot['start_time'] for slot in time_slots]
-            end_dates = [slot['end_time'] for slot in time_slots]
+        if time_periods:
+            start_dates = [period['start_time'] for period in time_periods]
+            end_dates = [period['end_time'] for period in time_periods]
             data['start_date'] = min(start_dates)
             data['end_date'] = max(end_dates)
 
         # 时间段数量限制
-        if len(time_slots) > 50:
+        if len(time_periods) > 50:
             raise serializers.ValidationError("单个试验最多允许50个时间段")
 
         return data
 
     def create(self, validated_data):
-        time_slots = validated_data.pop('time_slots', [])
+        time_periods = validated_data.pop('time_periods', [])
         with transaction.atomic():
             trial = super().create(validated_data)
-            for slot in time_slots:
-                # 创建TimeSlot并自动关联到当前试验
+            for period in time_periods:
                 TimeSlot.objects.create(
                     trial=trial,
-                    start_time=slot['start_time'],
-                    end_time=slot['end_time'],
-                    description=slot.get('description', '')
+                    start_time=period['start_time'],
+                    end_time=period['end_time'],
+                    description=period.get('description', '')
                 )
         return trial
 
     def update(self, instance, validated_data):
-        time_slots = validated_data.pop('time_slots', [])
+        time_periods = validated_data.pop('time_periods', [])
         with transaction.atomic():
             instance = super().update(instance, validated_data)
-            # 删除原有时间段
-            instance.time_slots.all().delete()
+            # 通过外键删除原有时间段
+            instance.time_periods.all().delete()
             # 创建新时间段
-            for slot in time_slots:
+            for period in time_periods:
                 TimeSlot.objects.create(
                     trial=instance,
-                    start_time=slot['start_time'],
-                    end_time=slot['end_time'],
-                    description=slot.get('description', '')
+                    start_time=period['start_time'],
+                    end_time=period['end_time'],
+                    description=period.get('description', '')
                 )
         return instance
