@@ -304,14 +304,65 @@ const CalendarPage = () => {
             type="primary"
               onClick={() => {
               // 确保提交时包含有效的time_slots数组并转换日期对象
+              // 严格处理时间数据转换
+              // 新增前端验证逻辑
+              if (!currentEvent.time_slots || currentEvent.time_slots.length === 0) {
+                alert('请至少添加一个有效时间段');
+                return;
+              }
+
               const formData = {
                 ...currentEvent,
-                time_slots: (currentEvent.time_slots || []).map(slot => ({
-                  start: slot.start instanceof Date ? slot.start : new Date(slot.start),
-                  end: slot.end instanceof Date ? slot.end : new Date(slot.end)
-                }))
+                time_slots: (currentEvent.time_slots || []).map((slot, index) => {
+                  try {
+                    // 严格时间格式校验
+                    if (!slot.start || !slot.end) {
+                      throw new Error(`时间段 ${index + 1} 缺少开始或结束时间`);
+                    }
+
+                    // 日期转换与验证
+                    const start = new Date(slot.start);
+                    const end = new Date(slot.end);
+                    
+                    if (isNaN(start.getTime())) {
+                      throw new Error(`开始时间格式无效：${slot.start}`);
+                    }
+                    if (isNaN(end.getTime())) {
+                      throw new Error(`结束时间格式无效：${slot.end}`);
+                    }
+                    if (end <= start) {
+                      throw new Error(`结束时间必须晚于开始时间（时间段 ${index + 1}）`);
+                    }
+
+                    return { 
+                      start, 
+                      end,
+                      ...(slot.id && { id: slot.id })
+                    };
+                  } catch (error) {
+                    console.error('时间验证失败:', {
+                      input: slot,
+                      error: error.message
+                    });
+                    alert(`时间验证错误：${error.message}`);
+                    throw error;
+                  }
+                }).filter(slot => {
+                  const isValid = slot.end > slot.start;
+                  if (!isValid) {
+                    console.error('无效时间段被过滤:', slot);
+                  }
+                  return isValid;
+                })
               };
-              console.log('Submitting event data:', formData);
+              console.log('验证后的表单数据:', {
+                ...formData,
+                time_slots: formData.time_slots.map(slot => ({
+                  start: slot.start.toISOString(),
+                  end: slot.end.toISOString(),
+                  duration: slot.end - slot.start
+                }))
+              });
               handleEventSubmit(formData);
             }}
             disabled={modalType === 'view'}
