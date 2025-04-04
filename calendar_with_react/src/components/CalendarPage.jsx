@@ -144,7 +144,7 @@ const CalendarPage = () => {
     related_equipment: selectedTrial.related_equipment?.map?.(e => e.id) || [],
     responsible_persons: selectedTrial.responsible_persons?.map?.(p => p.id) || []
   };
-
+      console.error('Event payload:', payload);
       let response;
       if (newEvent.id) {
         response = await calendarApi.updateCalendarEvent(newEvent.id, payload);
@@ -304,21 +304,73 @@ const CalendarPage = () => {
             key="submit"
             type="primary"
               onClick={() => {
-              // 确保提交时包含有效的time_slots数组并转换日期对象
-              // 严格处理时间数据转换
-              // 新增前端验证逻辑
-              // 从表单获取最新数据
-              const formValues = form.getFieldsValue();
+              // 增强的时间段验证逻辑
+              const formValues = form.getFieldsValue(true);
+              console.log('原始表单数据:', formValues);
               
-              if (!formValues.time_slots || formValues.time_slots.length === 0) {
-                alert('请至少添加一个有效时间段');
+              // 验证time_slots数据结构
+              const timeSlots = formValues.time_slots || [];
+              if (!Array.isArray(timeSlots)) {
+                console.error('time_slots字段不是数组:', formValues);
+                alert('表单数据异常: 时间段数据格式不正确');
+                return;
+              }
+              
+              // 检查每个时间段的有效性
+              const invalidSlots = [];
+              const validSlots = timeSlots.map((slot, index) => {
+                if (!slot?.start || !slot?.end) {
+                  invalidSlots.push(`时间段 ${index + 1}: 缺少开始或结束时间`);
+                  return null;
+                }
+                
+                try {
+                  const start = slot.start.valueOf();
+                  const end = slot.end.valueOf();
+                  
+                  if (isNaN(start) || isNaN(end)) {
+                    invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
+                    return null;
+                  }
+                  
+                  if (end <= start) {
+                    invalidSlots.push(`时间段 ${index + 1}: 结束时间必须晚于开始时间`);
+                    return null;
+                  }
+                  
+                  return {
+                    start: new Date(start),
+                    end: new Date(end),
+                    ...(slot.id && { id: slot.id })
+                  };
+                } catch (error) {
+                  invalidSlots.push(`时间段 ${index + 1}: ${error.message}`);
+                  return null;
+                }
+              }).filter(Boolean);
+              
+              // 如果有无效时间段，显示详细错误
+              if (invalidSlots.length > 0 || validSlots.length === 0) {
+                const errorMessage = [
+                  '请修正以下问题:',
+                  ...invalidSlots,
+                  validSlots.length === 0 ? '至少需要一个有效时间段' : ''
+                ].join('\n');
+                
+                console.error('时间段验证失败:', {
+                  formValues,
+                  invalidSlots,
+                  validSlots
+                });
+                
+                alert(errorMessage);
                 return;
               }
 
               const formData = {
                 ...currentEvent,
                 ...formValues,
-                time_slots: (currentEvent.time_slots || []).map((slot, index) => {
+                time_slots: formValues.time_slots.map((slot, index) => {
                   try {
                     // 严格时间格式校验
                     if (!slot.start || !slot.end) {
@@ -377,8 +429,12 @@ const CalendarPage = () => {
         ]}
       >
         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          <Form layout="vertical" form={form}>
-            <Form.Item label="试验项目" required>
+          <Form 
+            layout="vertical" 
+            form={form}
+            initialValues={{ time_slots: [] }}
+          >
+            <Form.Item label="试验项目" required name="trial">
               <Select
                 showSearch
                 placeholder="搜索试验项目"
@@ -448,8 +504,6 @@ const CalendarPage = () => {
                 )}
               </>
             )}
-          </Form>
-          <Form layout="vertical">
             <Form.List name="time_slots">
               {(fields, { add, remove }) => (
                 <>

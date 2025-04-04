@@ -79,6 +79,7 @@ export const calendarApi = {
   // 创建通用日历事件
   createCalendarEvent: async (eventData) => {
     try {
+      console.error('[API Request] createCalendarEvent:', eventData);
       console.log('[API Request] createCalendarEvent payload:', JSON.stringify({
         ...eventData,
         time_slots: eventData.time_slots?.map(s => ({ 
@@ -87,47 +88,52 @@ export const calendarApi = {
         }))
       }, null, 2));
       
-      // 添加防御性检查并规范化时间格式
-      // 增强日期校验逻辑
+      // 统一时间格式处理函数
       const normalizeDate = (date) => {
         if (!date) return null;
         // 处理moment对象
         if (date._isAMomentObject) {
           return date.isValid() ? date.toISOString() : null;
         }
+        // 处理字符串或Date对象
         const d = date instanceof Date ? date : new Date(date);
-        return isNaN(d) ? null : d.toISOString();
+        return isNaN(d.getTime()) ? null : d.toISOString();
       };
 
-      // 获取并规范化时间
-      const startISO = normalizeDate(eventData.start);
-      const endISO = normalizeDate(eventData.end);
-      
-      // 增强校验规则
-      if (!startISO || !endISO) {
-        throw new Error('事件必须包含有效的开始和结束时间');
-      }
-      
-      const startDate = new Date(startISO);
-      const endDate = new Date(endISO);
-      
-      if (startDate >= endDate) {
-        throw new Error('结束时间必须晚于开始时间');
-      }
-      
-      if (endDate - startDate < 30*60*1000) { // 30分钟
-        throw new Error('事件持续时间至少需要30分钟');
+      // 验证并规范化时间段
+      if (!eventData.time_slots || eventData.time_slots.length === 0) {
+        throw new Error('必须提供至少一个有效时间段');
       }
 
+      const validatedSlots = eventData.time_slots.map(slot => {
+        const startISO = normalizeDate(slot.start_time || slot.start);
+        const endISO = normalizeDate(slot.end_time || slot.end);
+        
+        if (!startISO || !endISO) {
+          throw new Error(`无效的时间段参数: ${JSON.stringify(slot)}`);
+        }
+
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+        
+        if (startDate >= endDate) {
+          throw new Error(`结束时间(${endISO})必须晚于开始时间(${startISO})`);
+        }
+        
+        if (endDate - startDate < 30*60*1000) {
+          throw new Error(`每个时间段至少需要30分钟，当前为${(endDate - startDate)/60000}分钟`);
+        }
+
+        return {
+          start_time: startISO,
+          end_time: endISO
+        };
+      });
+      
       const response = await apiClient.post('/events/', {
         title: eventData.title,
-        start_time: startISO,
-        end_time: endISO,
-        // 规范化时间段数据
-        time_slots: (eventData.time_slots || []).map(slot => ({
-          start_time: normalizeDate(slot.start),
-          end_time: normalizeDate(slot.end)
-        })).filter(slot => slot.start_time && slot.end_time),
+        // 使用已验证的时间段
+        time_slots: validatedSlots,
         description: eventData.description || '',
         status: eventData.status || 'planned',
         related_equipment: eventData.related_equipment || [],
