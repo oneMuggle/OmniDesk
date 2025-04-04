@@ -6,11 +6,37 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
-from .models import Trial
+from .models import Trial, TimeSlot
 from .models import Trial, Personnel, Equipment, DocumentTemplate
 from .serializers import TrialSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer, TimeSlotSerializer
 from users.permissions import IsOwnerOrReadOnly
 from django_filters.rest_framework import DjangoFilterBackend
+
+class TimeSlotViewSet(viewsets.ModelViewSet):
+    queryset = TimeSlot.objects.all()
+    serializer_class = TimeSlotSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['trial', 'start_time', 'end_time']
+
+    def perform_create(self, serializer):
+        """创建时间段并自动更新关联试验的时间范围"""
+        with transaction.atomic():
+            instance = serializer.save()
+            instance.trial.update_time_range()
+
+    def perform_update(self, serializer):
+        """更新时间段并自动更新关联试验的时间范围"""
+        with transaction.atomic():
+            instance = serializer.save()
+            instance.trial.update_time_range()
+
+    def perform_destroy(self, instance):
+        """删除时间段并自动更新关联试验的时间范围"""
+        with transaction.atomic():
+            trial = instance.trial
+            instance.delete()
+            trial.update_time_range()
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()

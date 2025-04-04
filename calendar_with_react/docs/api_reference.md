@@ -92,6 +92,76 @@
   }
   ```
 
+## 时间段管理 API
+
+### 获取试验时间段
+- **端点**: `GET /api/events/time-slots/`
+- **权限**: 需要认证
+- **查询参数**:
+  - `trial`: 试验ID (必填)
+- **响应**:
+  ```json
+  [
+    {
+      "id": 1,
+      "start_time": "2023-01-01T09:00:00",
+      "end_time": "2023-01-01T10:00:00",
+      "description": "时间段描述",
+      "trial": 1
+    }
+  ]
+  ```
+
+### 创建时间段
+- **端点**: `POST /api/events/time-slots/`
+- **权限**: 需要认证
+- **请求体**:
+  ```json
+  {
+    "trial": 1,
+    "start_time": "2023-01-01T09:00:00",
+    "end_time": "2023-01-01T10:00:00",
+    "description": "时间段描述"
+  }
+  ```
+- **成功响应**:
+  ```json
+  {
+    "id": 1,
+    "start_time": "2023-01-01T09:00:00",
+    "end_time": "2023-01-01T10:00:00",
+    "description": "时间段描述",
+    "trial": 1
+  }
+  ```
+
+### 更新时间段
+- **端点**: `PATCH /api/events/time-slots/{id}/`
+- **权限**: 需要认证
+- **请求体**:
+  ```json
+  {
+    "start_time": "2023-01-01T10:00:00",
+    "end_time": "2023-01-01T11:00:00",
+    "description": "更新后的描述"
+  }
+  ```
+- **成功响应**:
+  ```json
+  {
+    "id": 1,
+    "start_time": "2023-01-01T10:00:00",
+    "end_time": "2023-01-01T11:00:00",
+    "description": "更新后的描述",
+    "trial": 1
+  }
+  ```
+
+### 删除时间段
+- **端点**: `DELETE /api/events/time-slots/{id}/`
+- **权限**: 需要认证
+- **成功响应**: HTTP 204 No Content
+
 ## 文档管理 API
 
 ### 上传文档模板
