@@ -7,7 +7,7 @@ export const calendarApi = {
     try {
       // 自动携带认证令牌
       
-      const response = await apiClient.get('/events/trials/');
+      const response = await apiClient.get('/api/events/trials/');
       return response.data.flatMap(trial => {
         // 将时间段转换为日历事件
         const timeSlots = trial.time_slots?.map(slot => ({
@@ -47,7 +47,7 @@ export const calendarApi = {
   // 创建试验
   createTrial: async (trialData) => {
     try {
-      const response = await apiClient.post('/events/trials/', {
+      const response = await apiClient.post('/api/events/trials/', {
         ...trialData,
         equipment_ids: trialData.equipmentIds || [],
         responsible_person_ids: trialData.responsiblePersonIds || [],
@@ -130,7 +130,7 @@ export const calendarApi = {
         };
       });
       
-      const response = await apiClient.post('/events/', {
+      const response = await apiClient.post('/api/events/trials/', {
         title: eventData.title,
         // 使用已验证的时间段
         time_slots: validatedSlots,
@@ -154,7 +154,7 @@ export const calendarApi = {
   // 更新试验
   updateTrial: async (trialId, trialData) => {
     try {
-      const response = await apiClient.patch(`/events/trials/${trialId}/`, {
+      const response = await apiClient.patch(`/api/events/trials/${trialId}/`, {
         ...trialData,
         equipment_ids: trialData.equipmentIds,
         responsible_person_ids: trialData.responsiblePersonIds,
@@ -178,7 +178,7 @@ export const calendarApi = {
   },
 
   // 其他保留接口
-  fetchCalendarEvents: () => apiClient.get('/events/'),
-  updateCalendarEvent: (id, eventData) => apiClient.put(`/events/${id}/`, eventData),
-  deleteCalendarEvent: (id) => apiClient.delete(`/events/${id}/`)
+  fetchCalendarEvents: () => apiClient.get('/api/events/trials/'),
+  updateCalendarEvent: (id, eventData) => apiClient.put(`/api/events/trials/${id}/`, eventData),
+  deleteCalendarEvent: (id) => apiClient.delete(`/api/events/trials/${id}/`)
 };
