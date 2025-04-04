@@ -178,18 +178,29 @@ export const calendarApi = {
   },
 
   // 时间段相关接口
-  fetchTimeSlotsByTrial: async (trialId) => {
+  // 时间段管理API
+  fetchTimeSlotsByTrial: async (trialId, params = {}) => {
     try {
-      const response = await apiClient.get(`/api/events/time-slots/?trial=${trialId}`);
+      const response = await apiClient.get('/api/events/time-slots/', {
+        params: {
+          trial: trialId,
+          ...params
+        }
+      });
       return response.data.map(slot => ({
         id: slot.id,
         start: new Date(slot.start_time),
         end: new Date(slot.end_time),
         description: slot.description,
-        trialId: slot.trial
+        trialId: slot.trial,
+        trialTitle: slot.trial_title
       }));
     } catch (error) {
-      handleError(error);
+      handleError({
+        ...error,
+        message: `获取时间段失败: ${error.message}`,
+        details: { trialId }
+      });
       throw error;
     }
   },
@@ -198,13 +209,30 @@ export const calendarApi = {
     try {
       const response = await apiClient.post('/api/events/time-slots/', {
         trial: trialId,
-        start_time: slotData.start,
-        end_time: slotData.end,
+        start_time: slotData.start?.toISOString(),
+        end_time: slotData.end?.toISOString(),
         description: slotData.description || ''
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Source': 'calendar-view'
+        }
       });
-      return response.data;
+      return {
+        ...response.data,
+        start: new Date(response.data.start_time),
+        end: new Date(response.data.end_time)
+      };
     } catch (error) {
-      handleError(error);
+      handleError({
+        ...error,
+        message: `创建时间段失败: ${error.message}`,
+        details: {
+          trialId,
+          start: slotData.start,
+          end: slotData.end
+        }
+      });
       throw error;
     }
   },
@@ -212,22 +240,105 @@ export const calendarApi = {
   updateTimeSlot: async (slotId, slotData) => {
     try {
       const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
-        start_time: slotData.start,
-        end_time: slotData.end,
+        start_time: slotData.start?.toISOString(),
+        end_time: slotData.end?.toISOString(),
         description: slotData.description || ''
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Source': 'calendar-view'
+        }
       });
-      return response.data;
+      return {
+        ...response.data,
+        start: new Date(response.data.start_time),
+        end: new Date(response.data.end_time)
+      };
     } catch (error) {
-      handleError(error);
+      handleError({
+        ...error,
+        message: `更新时间段失败: ${error.message}`,
+        details: {
+          slotId,
+          start: slotData.start,
+          end: slotData.end
+        }
+      });
       throw error;
     }
   },
 
   deleteTimeSlot: async (slotId) => {
     try {
-      await apiClient.delete(`/api/events/time-slots/${slotId}/`);
+      await apiClient.delete(`/api/events/time-slots/${slotId}/`, {
+        headers: {
+          'X-Request-Source': 'calendar-view'
+        }
+      });
+      return { success: true, id: slotId };
     } catch (error) {
-      handleError(error);
+      handleError({
+        ...error,
+        message: `删除时间段失败: ${error.message}`,
+        details: { slotId }
+      });
+      throw error;
+    }
+  },
+
+  // 批量创建时间段
+  bulkCreateTimeSlots: async (trialId, slotsData) => {
+    try {
+      const validatedSlots = slotsData.map(slot => {
+        const startISO = slot.start?.toISOString();
+        const endISO = slot.end?.toISOString();
+        
+        if (!startISO || !endISO) {
+          throw new Error(`无效的时间段参数: ${JSON.stringify(slot)}`);
+        }
+
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+        
+        if (startDate >= endDate) {
+          throw new Error(`结束时间必须晚于开始时间`);
+        }
+        
+        if (endDate - startDate < 30*60*1000) {
+          throw new Error(`每个时间段至少需要30分钟`);
+        }
+
+        return {
+          start_time: startISO,
+          end_time: endISO,
+          description: slot.description || ''
+        };
+      });
+
+      const response = await apiClient.post('/api/events/time-slots/bulk/', {
+        trial_id: trialId,
+        time_slots: validatedSlots
+      }, {
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Request-Source': 'calendar-view'
+        }
+      });
+      
+      return response.data.map(slot => ({
+        ...slot,
+        start: new Date(slot.start_time),
+        end: new Date(slot.end_time)
+      }));
+    } catch (error) {
+      handleError({
+        ...error,
+        message: `批量创建时间段失败: ${error.message}`,
+        details: {
+          trialId,
+          slotsCount: slotsData.length
+        }
+      });
       throw error;
     }
   },

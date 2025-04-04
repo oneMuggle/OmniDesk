@@ -147,9 +147,9 @@ const CalendarPage = () => {
       console.error('Event payload:', payload);
       let response;
       if (newEvent.id) {
-        response = await calendarApi.updateCalendarEvent(newEvent.id, payload);
+        response = await calendarApi.updateTimeSlot(newEvent.id, payload);
       } else {
-        response = await calendarApi.createCalendarEvent(payload);
+        response = await calendarApi.createTimeSlot(payload);
       }
 
         if (response.status === 200 || response.status === 201) {
