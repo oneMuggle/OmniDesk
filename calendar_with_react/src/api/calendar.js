@@ -91,13 +91,24 @@ export const calendarApi = {
       // 统一时间格式处理函数
       const normalizeDate = (date) => {
         if (!date) return null;
+        
+        // 处理Date对象
+        if (date instanceof Date) {
+          return isNaN(date.getTime()) ? null : date.toISOString();
+        }
+        
         // 处理moment对象
         if (date._isAMomentObject) {
-          return date.isValid() ? date.toISOString() : null;
+          return date.isValid?.() ? date.toISOString() : null;
         }
-        // 处理字符串或Date对象
-        const d = date instanceof Date ? date : new Date(date);
-        return isNaN(d.getTime()) ? null : d.toISOString();
+        
+        // 处理字符串或其他格式
+        try {
+          const d = new Date(date);
+          return isNaN(d.getTime()) ? null : d.toISOString();
+        } catch {
+          return null;
+        }
       };
 
       // 验证并规范化时间段
