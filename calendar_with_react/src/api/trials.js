@@ -36,6 +36,20 @@ export const deleteTrial = (id) => {
     .catch(handleError);
 };
 
+export const getTrialById = async (id) => {
+  console.log('[MCP_DEBUG] 正在请求试验详情数据...');
+  console.log('[MCP_DEBUG] 试验ID:', id);
+  try {
+    const response = await api.get(`/api/events/trials/${id}/`);
+    return { 
+      data: handleResponse(response) 
+    };
+  } catch (error) {
+    console.error('[MCP_ERROR] 获取试验详情失败:', error);
+    throw handleError(error);
+  }
+};
+
 // 获取关联资源（与设备/人员管理一致）
 // 设备列表接口（保持命名一致性）
 export const getEquipmentOptions = async (params) => {

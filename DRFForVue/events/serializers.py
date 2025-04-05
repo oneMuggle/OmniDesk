@@ -6,20 +6,15 @@ from .models import Trial, Equipment, Personnel, DocumentTemplate
 from users.serializers import UserSerializer
 
 class TimeSlotSerializer(serializers.ModelSerializer):
-    trial_id = serializers.IntegerField(source='trial.id', read_only=True)
-    trial = serializers.PrimaryKeyRelatedField(
+    trial_id = serializers.PrimaryKeyRelatedField(
         queryset=Trial.objects.all(),
-        write_only=True,
-        required=False
+        source='trial',
+        required=True
     )
     
     class Meta:
         model = TimeSlot
-        fields = ['id', 'trial_id', 'trial', 'start_time', 'end_time', 'description']
-        extra_kwargs = {
-            'trial': {'write_only': True},
-            'description': {'required': False, 'allow_blank': True}
-        }
+        fields = ['id', 'trial_id', 'start_time', 'end_time', 'description']
         extra_kwargs = {
             'description': {'required': False, 'allow_blank': True}
         }
@@ -135,9 +130,9 @@ class TrialSerializer(serializers.ModelSerializer):
             for slot in time_slots:
                 TimeSlot.objects.create(
                     trial=trial,
-                    start_time=period['start_time'],
-                    end_time=period['end_time'],
-                    description=period.get('description', '')
+                    start_time=slot['start_time'],
+                    end_time=slot['end_time'],
+                    description=slot.get('description', '')
                 )
         return trial
 
@@ -151,8 +146,8 @@ class TrialSerializer(serializers.ModelSerializer):
             for slot in time_slots:
                 TimeSlot.objects.create(
                     trial=instance,
-                    start_time=period['start_time'],
-                    end_time=period['end_time'],
-                    description=period.get('description', '')
+                    start_time=slot['start_time'],
+                    end_time=slot['end_time'],
+                    description=slot.get('description', '')
                 )
         return instance

@@ -6,6 +6,7 @@ import './Login.css';
 const Login = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -23,7 +24,7 @@ const Login = () => {
       setIsLoading(true);
       setError('');
 
-      const result = await login(username.trim(), password.trim());
+      const result = await login(username.trim(), password.trim(), rememberMe);
       if (!result.success) throw new Error(result.error);
       navigate(result.redirectTo || '/home');
     } catch (err) {
@@ -56,6 +57,17 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
           />
+        </div>
+
+        <div className="form-group remember-me">
+          <label>
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(e) => setRememberMe(e.target.checked)}
+            />
+            记住我
+          </label>
         </div>
         
         <button type="submit" disabled={isLoading}>

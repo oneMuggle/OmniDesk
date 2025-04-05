@@ -73,6 +73,38 @@
   - `start_date`: 按开始日期排序
   - `time_slots__start_time`: 按时间段排序
 
+### 获取单个试验
+- **端点**: `GET /api/events/trials/{id}/`
+- **权限**: 需要认证
+- **响应**:
+  ```json
+  {
+    "id": 1,
+    "name": "试验名称",
+    "description": "试验描述",
+    "status": "planned",
+    "equipments": [
+      {
+        "id": 1,
+        "name": "设备名称"
+      }
+    ],
+    "responsible_persons": [
+      {
+        "id": 1,
+        "name": "负责人姓名"
+      }
+    ],
+    "time_slots": [
+      {
+        "id": 1,
+        "start_time": "2023-01-01T09:00:00Z",
+        "end_time": "2023-01-01T10:00:00Z"
+      }
+    ]
+  }
+  ```
+
 ### 创建试验
 - **端点**: `POST /api/events/trials/`
 - **权限**: 需要认证

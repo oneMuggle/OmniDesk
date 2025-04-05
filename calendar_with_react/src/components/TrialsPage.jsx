@@ -248,11 +248,14 @@ const TrialsPage = () => {
           form={form}
           initialValues={currentRecord ? {
             ...currentRecord,
-          equipment_ids: currentRecord.equipments?.map(e => e.id),
+            equipment_ids: currentRecord.equipments?.map(e => e.id),
             responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
-            start_date: dayjs(currentRecord.start_date),
-            end_date: dayjs(currentRecord.end_date)
-          } : {}}
+            start_date: currentRecord.start_date ? dayjs(currentRecord.start_date) : dayjs(),
+            end_date: currentRecord.end_date ? dayjs(currentRecord.end_date) : dayjs().add(1, 'day')
+          } : {
+            start_date: dayjs(),
+            end_date: dayjs().add(1, 'day')
+          }}
           onFinish={handleSubmit.mutate}
           layout="vertical"
         >

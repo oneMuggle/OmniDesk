@@ -65,6 +65,7 @@ apiClient.interceptors.response.use(
 
 export const AuthContext = createContext({
   user: null,
+  isAuthenticated: false,
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
   register: () => Promise.resolve({ success: false })
@@ -75,7 +76,7 @@ export function AuthProvider({ children }) {
 
   // 初始化时检查本地存储的token
   useEffect(() => {
-    const storedTokens = localStorage.getItem('authTokens');
+    const storedTokens = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens');
     if (storedTokens) {
       try {
         const { access } = JSON.parse(storedTokens);
@@ -101,14 +102,24 @@ export function AuthProvider({ children }) {
     }
   }, []);
 
-  const login = async (username, password) => {
+  const login = async (username, password, rememberMe = false) => {
     try {
-      const res = await apiClient.post('/api/auth/login/', { username, password });
+      const res = await apiClient.post('/api/auth/login/', { 
+        username, 
+        password,
+        remember_me: rememberMe 
+      });
       const authTokens = {
         access: res.data.access,
         refresh: res.data.refresh
       };
-      localStorage.setItem('authTokens', JSON.stringify(authTokens));
+      
+      if (rememberMe) {
+        localStorage.setItem('authTokens', JSON.stringify(authTokens));
+      } else {
+        sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
+      }
+      
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/api/users/me/');
@@ -149,6 +160,7 @@ export function AuthProvider({ children }) {
 
   const logout = () => {
     localStorage.removeItem('authTokens');
+    sessionStorage.removeItem('authTokens');
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     window.location.href = '/login';
@@ -156,6 +168,7 @@ export function AuthProvider({ children }) {
 
   const value = {
     user,
+    isAuthenticated: !!user,
     login,
     logout,
     register

@@ -205,12 +205,13 @@ export const calendarApi = {
     }
   },
 
-  createTimeSlot: async (trialId, slotData) => {
+  createTimeSlot: async (slotData) => {
     try {
+      console.error('[API Request] createTimeSlot:', slotData);
       const response = await apiClient.post('/api/events/time-slots/', {
-        trial: trialId,
-        start_time: slotData.start?.toISOString(),
-        end_time: slotData.end?.toISOString(),
+        trial_id: slotData.trial,
+        start_time: slotData.start_time?.toISOString(),
+        end_time: slotData.end_time?.toISOString(),
         description: slotData.description || ''
       }, {
         headers: {
@@ -228,9 +229,9 @@ export const calendarApi = {
         ...error,
         message: `创建时间段失败: ${error.message}`,
         details: {
-          trialId,
-          start: slotData.start,
-          end: slotData.end
+          trialId:slotData.trialId,
+          start: slotData.start_time,
+          end: slotData.end_time
         }
       });
       throw error;
