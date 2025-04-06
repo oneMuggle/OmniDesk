@@ -95,7 +95,8 @@ class TrialSerializer(serializers.ModelSerializer):
             'id', 'title', 'client', 'status',
             'start_date', 'end_date', 'description',
             'equipments', 'responsible_persons', 'time_slots',
-            'responsible_person_ids', 'equipment_ids'
+            'responsible_person_ids', 'equipment_ids',
+            'time_slots_data'
         ]
         extra_kwargs = {
             'title': {'required': True, 'help_text': '试验名称'},
