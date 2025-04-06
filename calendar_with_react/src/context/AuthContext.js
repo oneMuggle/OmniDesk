@@ -73,6 +73,7 @@ export const AuthContext = createContext({
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
+  const [isInitializing, setIsInitializing] = useState(true);
 
   // 初始化时检查本地存储的token
   useEffect(() => {
@@ -89,16 +90,25 @@ export function AuthProvider({ children }) {
               'Authorization': `Bearer ${access}`
             }
           })
-            .then(res => setUser(res.data))
+            .then(res => {
+              setUser(res.data);
+              setIsInitializing(false);
+            })
             .catch(() => {
               localStorage.removeItem('authTokens');
               delete apiClient.defaults.headers.common['Authorization'];
+              setIsInitializing(false);
             });
+        } else {
+          setIsInitializing(false);
         }
       } catch (error) {
         console.error('Error parsing authTokens:', error);
         localStorage.removeItem('authTokens');
+        setIsInitializing(false);
       }
+    } else {
+      setIsInitializing(false);
     }
   }, []);
 
@@ -171,6 +181,7 @@ export function AuthProvider({ children }) {
   const value = {
     user,
     isAuthenticated: !!user,
+    isInitializing,
     login,
     logout,
     register
