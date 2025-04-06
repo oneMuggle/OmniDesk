@@ -1,27 +1,27 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 // 1. 日期解析 - 处理多种输入类型
 export const parseDate = (input) => {
   if (!input) return null;
   
   // 处理moment对象
-  if (moment.isMoment(input)) {
+  if (dayjs.isDayjs(input)) {
     return input.isValid() ? input : null;
   }
   
   // 处理Date对象
   if (input instanceof Date) {
-    return isNaN(input.getTime()) ? null : moment(input);
+    return isNaN(input.getTime()) ? null : dayjs(input);
   }
   
   // 处理时间戳
   if (typeof input === 'number') {
-    const date = moment.unix(input);
+    const date = dayjs.unix(input);
     return date.isValid() ? date : null;
   }
   
   // 处理字符串
-  const date = moment(input);
+  const date = dayjs(input);
   return date.isValid() ? date : null;
 };
 

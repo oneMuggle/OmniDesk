@@ -1,11 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   useQuery,
-  QueryClient,
-  QueryClientProvider,
   useQueryClient
 } from '@tanstack/react-query';
-import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
@@ -188,25 +185,6 @@ const CalendarPage = () => {
     setCurrentEvent(null);
   };
 
-  const handleTrialSelect = async (trialId) => {
-    try {
-      const { data } = await getTrials({ id: trialId });
-      // 添加调试日志验证数据结构
-      console.log('Trial API response:', {
-        equipment: data?.related_equipment,
-        persons: data?.responsible_persons,
-        time_slots: data?.time_slots
-      });
-      setSelectedTrial({
-        ...data,
-        related_equipment: data.related_equipment || [],
-        responsible_persons: data.responsible_persons || []
-      });
-    } catch (error) {
-      console.error('获取试验详情失败:', error);
-      alert('无法加载试验详情');
-    }
-  };
 
   return (
     <div className="calendar-page">
@@ -314,6 +292,15 @@ const CalendarPage = () => {
                     timeSlots: data.time_slots
                   }
                 });
+                form.setFieldsValue({
+                  trial: eventObj.extendedProps.trialId,
+                  time_slots: data.time_slots?.map(slot => ({
+                    start: fromServerFormat(slot.start_time)?.toDate(),
+                    end: fromServerFormat(slot.end_time)?.toDate(),
+                    description: slot.description,
+                    id: slot.id
+                  })) || []
+                });
               } else {
                 // 获取排班详情
                 const response = await calendarApi.fetchTimeSlotsByTrial(eventObj.extendedProps?.trialId);
@@ -359,6 +346,7 @@ const CalendarPage = () => {
                 onClick={() => {
                   setModalType('edit');
                   form.setFieldsValue({
+                    trial: currentEvent.extendedProps.trialId,
                     time_slots: currentEvent.extendedProps.timeSlots?.map(slot => ({
                       start: fromServerFormat(slot.start_time)?.toDate(),
                       end: fromServerFormat(slot.end_time)?.toDate(),
@@ -440,13 +428,18 @@ const CalendarPage = () => {
                     const start = fromServerFormat(slot.start);
                     const end = fromServerFormat(slot.end);
 
-                    if (!start || !end || !start.isValid() || !end.isValid()) {
+                    if (!start || !end) {
                       invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
                       return null;
                     }
 
                     const startDate = start.toDate();
                     const endDate = end.toDate();
+
+                    if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+                      invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
+                      return null;
+                    }
 
                     if (endDate <= startDate) {
                       invalidSlots.push(`时间段 ${index + 1}: 结束时间必须晚于开始时间`);
@@ -588,6 +581,7 @@ const CalendarPage = () => {
                           name={[name, 'start']}
                           label="开始时间"
                           rules={[{ required: true, message: '请选择开始时间' }]}
+                          getValueProps={(value) => ({ value: value ? fromServerFormat(value) : null })}
                         >
                           <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
                         </Form.Item>
@@ -596,6 +590,7 @@ const CalendarPage = () => {
                           name={[name, 'end']}
                           label="结束时间"
                           rules={[{ required: true, message: '请选择结束时间' }]}
+                          getValueProps={(value) => ({ value: value ? fromServerFormat(value) : null })}
                         >
                           <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
                         </Form.Item>
