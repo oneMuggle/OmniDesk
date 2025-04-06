@@ -124,8 +124,10 @@ export function AuthProvider({ children }) {
       
       const userRes = await apiClient.get('/api/users/me/');
       setUser(userRes.data);
-      window.location.href = '/';
-      return { success: true };
+        return { 
+          success: true,
+          redirectTo: '/calendar' 
+        };
     } catch (err) {
       console.error('Login failed:', err);
       return { success: false, error: err.response?.data?.detail || '登录失败' };

@@ -26,7 +26,7 @@ const Login = () => {
 
       const result = await login(username.trim(), password.trim(), rememberMe);
       if (!result.success) throw new Error(result.error);
-      navigate(result.redirectTo || '/home');
+    navigate(result.redirectTo || '/calendar');
     } catch (err) {
       setError(err.message || '登录失败，请重试');
     } finally {
