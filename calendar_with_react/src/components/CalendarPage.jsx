@@ -123,6 +123,13 @@ const CalendarPage = () => {
         return;
       }
 
+      // 获取选中的试验项目数据
+      const selectedTrialData = trials.find(t => t.id === trialId);
+      if (!selectedTrialData) {
+        alert('无效的试验项目');
+        return;
+      }
+
       // 确保time_slots存在且为数组，添加防御性检查
       const timeSlots = (Array.isArray(newEvent.time_slots) ? newEvent.time_slots : [])
         .filter(slot => slot?.start && slot?.end) // 过滤无效时间段
@@ -138,7 +145,7 @@ const CalendarPage = () => {
       let response;
       if (timeSlots.length > 1) {
         // 批量创建时间段
-        response = await calendarApi.bulkCreateTimeSlots(selectedTrial.id, timeSlots);
+        response = await calendarApi.bulkCreateTimeSlots(trialId, timeSlots);
       } else if (newEvent.id) {
         // 更新单个时间段
         const slotId = extractSlotId(newEvent.id);
@@ -146,7 +153,7 @@ const CalendarPage = () => {
           throw new Error('无效的时间段ID格式');
         }
         response = await calendarApi.updateTimeSlot(slotId, {
-          trial: selectedTrial.id,
+          trial: trialId,
           start_time: toServerFormat(timeSlots[0].start),
           end_time: toServerFormat(timeSlots[0].end),
           description: timeSlots[0].description
@@ -157,7 +164,7 @@ const CalendarPage = () => {
         console.error('end_time:', toServerFormat(timeSlots[0].end));
         // 创建单个时间段
         response = await calendarApi.createTimeSlot({
-          trial: selectedTrial.id,
+          trial: trialId,
           start_time: toServerFormat(timeSlots[0].start),
           end_time: toServerFormat(timeSlots[0].end),
           description: timeSlots[0].description
@@ -168,21 +175,21 @@ const CalendarPage = () => {
       const eventsToAdd = Array.isArray(response) ?
         response.map(slot => ({
           id: `slot_${slot.id}`,
-          title: selectedTrial.title,
+          title: selectedTrialData.title,
           start: fromServerFormat(slot.start_time)?.toDate(),
           end: fromServerFormat(slot.end_time)?.toDate(),
           extendedProps: {
-            trialId: selectedTrial.id,
+            trialId: trialId,
             description: slot.description
           }
         })) :
         [{
           id: `slot_${response.id}`,
-          title: selectedTrial.title,
+          title: selectedTrialData.title,
           start: fromServerFormat(response.start_time)?.toDate(),
           end: fromServerFormat(response.end_time)?.toDate(),
           extendedProps: {
-            trialId: selectedTrial.id,
+            trialId: trialId,
             description: response.description
           }
         }];
