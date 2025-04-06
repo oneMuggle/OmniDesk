@@ -109,9 +109,16 @@ const CalendarPage = () => {
     setDarkMode(!darkMode);
   };
 
+  const extractSlotId = (compositeId) => {
+    // 从'trial-1-0'中提取'1' (trialId)
+    const match = compositeId.match(/trial-(\d+)-\d+/);
+    return match ? parseInt(match[1]) : null;
+  };
+
   const handleEventSubmit = async (newEvent) => {
     try {
-      if (!selectedTrial) {
+      const trialId = form.getFieldValue('trial');
+      if (!trialId) {
         alert('请先选择试验项目');
         return;
       }
@@ -134,7 +141,11 @@ const CalendarPage = () => {
         response = await calendarApi.bulkCreateTimeSlots(selectedTrial.id, timeSlots);
       } else if (newEvent.id) {
         // 更新单个时间段
-        response = await calendarApi.updateTimeSlot(newEvent.id, {
+        const slotId = extractSlotId(newEvent.id);
+        if (!slotId) {
+          throw new Error('无效的时间段ID格式');
+        }
+        response = await calendarApi.updateTimeSlot(slotId, {
           trial: selectedTrial.id,
           start_time: toServerFormat(timeSlots[0].start),
           end_time: toServerFormat(timeSlots[0].end),
@@ -372,9 +383,13 @@ const CalendarPage = () => {
                     onOk: async () => {
                       try {
                         if (currentEvent.extendedProps?.type === 'TRIAL') {
-                          await calendarApi.deleteCalendarEvent(currentEvent.extendedProps.trialId);
-                        } else {
-                          await calendarApi.deleteTimeSlot(currentEvent.id.replace('slot_', ''));
+                  await calendarApi.deleteCalendarEvent(currentEvent.extendedProps.trialId);
+                } else {
+                  const slotId = extractSlotId(currentEvent.id);
+                  if (!slotId) {
+                    throw new Error('无效的时间段ID格式');
+                  }
+                  await calendarApi.deleteTimeSlot(slotId);
                         }
                         setDefaultEvents(prev =>
                           prev.filter(e => e.id !== currentEvent.id)
@@ -401,6 +416,16 @@ const CalendarPage = () => {
               onClick={() => {
                 if (modalType === 'view') {
                   setCurrentEvent(null);
+                  return;
+                }
+
+                // 检查试验项目是否已选择
+                const trialId = form.getFieldValue('trial');
+                if (!trialId) {
+                  Modal.error({
+                    title: '验证失败',
+                    content: '请先选择试验项目',
+                  });
                   return;
                 }
 
@@ -471,7 +496,10 @@ const CalendarPage = () => {
                     validSlots
                   });
 
-                  alert(errorMessage);
+                  Modal.error({
+                    title: '验证失败',
+                    content: errorMessage,
+                  });
                   return;
                 }
 

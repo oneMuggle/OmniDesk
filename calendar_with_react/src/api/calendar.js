@@ -252,8 +252,8 @@ export const calendarApi = {
   updateTimeSlot: async (slotId, slotData) => {
     try {
       const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
-        start_time: slotData.start?.toISOString(),
-        end_time: slotData.end?.toISOString(),
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
         description: slotData.description || ''
       }, {
         headers: {
