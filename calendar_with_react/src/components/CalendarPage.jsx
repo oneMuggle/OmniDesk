@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import moment from 'moment';
 import {
   useQuery,
   useQueryClient
@@ -635,7 +636,47 @@ const CalendarPage = () => {
                           rules={[{ required: true, message: '请选择开始时间' }]}
                           getValueProps={(value) => ({ value: value ? fromServerFormat(value) : null })}
                         >
-                          <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
+                          <DatePicker 
+                            showTime 
+                            format="YYYY-MM-DD HH:mm:ss"
+                            renderExtraFooter={() => (
+                              <div style={{ padding: '8px', textAlign: 'center' }}>
+                                <Button 
+                                  size="small" 
+                                  onClick={() => {
+                                    const current = form.getFieldValue(['time_slots', name, 'start']);
+                                    form.setFieldsValue({
+                                      ['time_slots']: form.getFieldValue('time_slots').map((slot, i) => 
+                                        i === name ? {
+                                          ...slot,
+                                          start: moment(current).subtract(1, 'month').toDate()
+                                        } : slot
+                                      )
+                                    });
+                                  }}
+                                >
+                                  上个月
+                                </Button>
+                                <Button 
+                                  size="small" 
+                                  onClick={() => {
+                                    const current = form.getFieldValue(['time_slots', name, 'start']);
+                                    form.setFieldsValue({
+                                      ['time_slots']: form.getFieldValue('time_slots').map((slot, i) => 
+                                        i === name ? {
+                                          ...slot,
+                                          start: moment(current).add(1, 'month').toDate()
+                                        } : slot
+                                      )
+                                    });
+                                  }}
+                                  style={{ marginLeft: '8px' }}
+                                >
+                                  下个月
+                                </Button>
+                              </div>
+                            )}
+                          />
                         </Form.Item>
                         <Form.Item
                           {...restField}
@@ -644,7 +685,47 @@ const CalendarPage = () => {
                           rules={[{ required: true, message: '请选择结束时间' }]}
                           getValueProps={(value) => ({ value: value ? fromServerFormat(value) : null })}
                         >
-                          <DatePicker showTime format="YYYY-MM-DD HH:mm:ss" />
+                          <DatePicker 
+                            showTime 
+                            format="YYYY-MM-DD HH:mm:ss"
+                            renderExtraFooter={() => (
+                              <div style={{ padding: '8px', textAlign: 'center' }}>
+                                <Button 
+                                  size="small" 
+                                  onClick={() => {
+                                    const current = form.getFieldValue(['time_slots', name, 'end']);
+                                    form.setFieldsValue({
+                                      ['time_slots']: form.getFieldValue('time_slots').map((slot, i) => 
+                                        i === name ? {
+                                          ...slot,
+                                          end: moment(current).subtract(1, 'month').toDate()
+                                        } : slot
+                                      )
+                                    });
+                                  }}
+                                >
+                                  上个月
+                                </Button>
+                                <Button 
+                                  size="small" 
+                                  onClick={() => {
+                                    const current = form.getFieldValue(['time_slots', name, 'end']);
+                                    form.setFieldsValue({
+                                      ['time_slots']: form.getFieldValue('time_slots').map((slot, i) => 
+                                        i === name ? {
+                                          ...slot,
+                                          end: moment(current).add(1, 'month').toDate()
+                                        } : slot
+                                      )
+                                    });
+                                  }}
+                                  style={{ marginLeft: '8px' }}
+                                >
+                                  下个月
+                                </Button>
+                              </div>
+                            )}
+                          />
                         </Form.Item>
                         <Form.Item
                           {...restField}
