@@ -64,7 +64,14 @@ class TrialSerializer(serializers.ModelSerializer):
         many=True,
         required=False,
         allow_empty=True,
-        help_text="时间段列表（可为空或多个），格式：[{'start_time': '2023-01-01T09:00', 'end_time': '2023-01-01T12:00', 'description': ''}, ...]"
+        read_only=True,
+        help_text="时间段列表（只读）"
+    )
+    time_slots_data = serializers.ListField(
+        child=serializers.DictField(),
+        write_only=True,
+        required=False,
+        help_text="时间段数据（写入用），格式：[{'start_time': '2023-01-01T09:00', 'end_time': '2023-01-01T12:00', 'description': ''}, ...]"
     )
     
     responsible_person_ids = serializers.PrimaryKeyRelatedField(
@@ -137,17 +144,38 @@ class TrialSerializer(serializers.ModelSerializer):
         return trial
 
     def update(self, instance, validated_data):
-        time_slots = validated_data.pop('time_slots', [])
+        time_slots_data = validated_data.pop('time_slots_data', None)
         with transaction.atomic():
             instance = super().update(instance, validated_data)
-            # 通过外键删除原有时间段
-            instance.time_slots.all().delete()
-            # 创建新时间段
-            for slot in time_slots:
-                TimeSlot.objects.create(
-                    trial=instance,
-                    start_time=slot['start_time'],
-                    end_time=slot['end_time'],
-                    description=slot.get('description', '')
-                )
+            
+            if time_slots_data is not None:
+                # 获取现有time_slots的ID集合
+                existing_ids = set(instance.time_slots.values_list('id', flat=True))
+                updated_ids = set()
+                
+                # 处理每个时间段
+                for slot_data in time_slots_data:
+                    slot_id = slot_data.get('id')
+                    if slot_id and instance.time_slots.filter(id=slot_id).exists():
+                        # 更新现有时间段
+                        slot = instance.time_slots.get(id=slot_id)
+                        slot.start_time = slot_data['start_time']
+                        slot.end_time = slot_data['end_time']
+                        slot.description = slot_data.get('description', '')
+                        slot.save()
+                        updated_ids.add(slot_id)
+                    else:
+                        # 创建新时间段
+                        TimeSlot.objects.create(
+                            trial=instance,
+                            start_time=slot_data['start_time'],
+                            end_time=slot_data['end_time'],
+                            description=slot_data.get('description', '')
+                        )
+                
+                # 删除未更新的时间段
+                to_delete_ids = existing_ids - updated_ids
+                if to_delete_ids:
+                    instance.time_slots.filter(id__in=to_delete_ids).delete()
+                    
         return instance
