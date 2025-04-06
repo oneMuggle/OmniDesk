@@ -27,9 +27,24 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """更新时间段并自动更新关联试验的时间范围"""
-        with transaction.atomic():
-            instance = serializer.save()
-            instance.trial.update_time_range()
+        try:
+            with transaction.atomic():
+                print(f"Starting update for time slot {serializer.instance.id}")  # 调试日志
+                # 保存时间段
+                instance = serializer.save(update_fields=['start_time', 'end_time', 'description'])
+                print(f"Updated time slot: {instance.start_time} to {instance.end_time}")  # 调试日志
+                
+                # 显式更新关联试验的时间范围
+                trial = instance.trial
+                print(f"Updating time range for trial {trial.id}")  # 调试日志
+                trial.update_time_range()
+                print(f"Finished updating trial {trial.id} time range")  # 调试日志
+                
+                # 确保数据已提交到数据库
+                transaction.on_commit(lambda: None)
+        except Exception as e:
+            print(f"Error updating time slot: {str(e)}")
+            raise
 
     def perform_destroy(self, instance):
         """删除时间段并自动更新关联试验的时间范围"""

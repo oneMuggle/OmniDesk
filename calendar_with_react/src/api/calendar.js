@@ -221,8 +221,8 @@ export const calendarApi = {
       console.error('[API Request] createTimeSlot:', slotData);
       const response = await apiClient.post('/api/events/time-slots/', {
         trial_id: slotData.trial,
-        start_time: slotData.start_time?.toISOString(),
-        end_time: slotData.end_time?.toISOString(),
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
         description: slotData.description || ''
       }, {
         headers: {
@@ -254,7 +254,8 @@ export const calendarApi = {
       const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
         start_time: slotData.start_time,
         end_time: slotData.end_time,
-        description: slotData.description || ''
+        description: slotData.description || '',
+        trial: slotData.trial
       }, {
         headers: {
           'Content-Type': 'application/json',

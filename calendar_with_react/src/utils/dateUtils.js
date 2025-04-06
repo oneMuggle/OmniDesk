@@ -39,7 +39,7 @@ export const isValidDate = (date) => {
 // 4. 转换为后端格式 (ISO 8601)
 export const toServerFormat = (date) => {
   const parsed = parseDate(date);
-  return parsed ? parsed.toISOString() : null;
+  return parsed ? parsed.format('YYYY-MM-DDTHH:mm:ss') + '+08:00' : null;
 };
 
 // 5. 从后端格式解析

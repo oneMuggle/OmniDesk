@@ -194,8 +194,25 @@ const CalendarPage = () => {
           }
         }];
 
-      setDefaultEvents(prev => [...prev, ...eventsToAdd]);
+      // 更新本地状态
+      if (newEvent.id) {
+        // 更新现有事件
+        setDefaultEvents(prev => 
+          prev.map(event => 
+            event.id === newEvent.id ? 
+              eventsToAdd[0] : 
+              event
+          )
+        );
+      } else {
+        // 添加新事件
+        setDefaultEvents(prev => [...prev, ...eventsToAdd]);
+      }
+      
+      // 重新获取数据
       queryClient.invalidateQueries(['trials']);
+      const freshTrials = await getTrials();
+      setSelectedTrial(freshTrials.results.find(t => t.id === trialId));
     } catch (error) {
       console.error('保存时间段失败:', error);
       alert(`保存时间段失败: ${error.message}`);
@@ -230,7 +247,7 @@ const CalendarPage = () => {
           plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
           headerToolbar={{
-            left: 'prev,next today',
+            left: 'prevYear,prev,next,nextYear today',
             center: 'title',
             right: 'dayGridMonth,timeGridWeek,timeGridDay'
           }}

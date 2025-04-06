@@ -92,19 +92,25 @@ class Trial(models.Model):
 
     def update_time_range(self):
         """安全地更新时间范围（在实例保存后调用）"""
-        if self.time_slots.exists():
-            self.start_date = self.time_slots.earliest('start_time').start_time
-            self.end_date = self.time_slots.latest('end_time').end_time
+        print(f"Updating time range for trial {self.pk}")  # 调试日志
+        time_slots = self.get_time_slots()
+        if time_slots.exists():
+            earliest = time_slots.earliest('start_time')
+            latest = time_slots.latest('end_time')
+            print(f"Earliest slot: {earliest.start_time}, Latest slot: {latest.end_time}")  # 调试日志
+            
+            self.start_date = earliest.start_time
+            self.end_date = latest.end_time
             # 使用update避免递归保存
-            self.__class__.objects.filter(pk=self.pk).update(
+            updated = self.__class__.objects.filter(pk=self.pk).update(
                 start_date=self.start_date,
                 end_date=self.end_date
             )
+            print(f"Updated {updated} trial record")  # 调试日志
 
-    @property
-    def time_slots(self):
+    def get_time_slots(self):
         """获取关联的时间段"""
-        return self.timeslot_set.all().order_by('start_time')
+        return TimeSlot.objects.filter(trial=self).order_by('start_time')
 
     class Meta:
             ordering = ['id']  # 设置默认排序字段
