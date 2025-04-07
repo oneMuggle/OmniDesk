@@ -387,10 +387,11 @@ const EventModal = ({
                       onClick={async (e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        
                         const slot = form.getFieldValue(['time_slots', name]);
                         console.log('Slot to delete:', slot);
-                        console.log('Modal object:', Modal); // 调试日志1
-                        console.log('Modal.confirm exists:', typeof Modal.confirm); // 调试日志2
+                        console.log('Modal object:', Modal);
+                        console.log('Modal.confirm exists:', typeof Modal.confirm === 'function');
 
                         if (!slot?.start || !slot?.end) {
                           Modal.error({
@@ -401,15 +402,16 @@ const EventModal = ({
                         }
 
                         try {
-                          console.log('Before Modal.confirm'); // 调试日志3
+                          console.log('Before Modal.confirm');
                           Modal.confirm({
                             title: '确认删除',
                             content: `确定要删除时间段 ${moment(slot.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot.end).format('YYYY-MM-DD HH:mm')} 吗？`,
                             okText: '删除',
                             cancelText: '取消',
                             okButtonProps: { danger: true },
-                            onOk: async () => {
+                            async onOk() {
                               try {
+                                console.log('User confirmed deletion');
                                 if (slot?.id) {
                                   await calendarApi.deleteTimeSlot(slot.id);
                                   queryClient.invalidateQueries(['trials']);
@@ -419,13 +421,34 @@ const EventModal = ({
                                 }
                                 remove(name);
                               } catch (error) {
-                                console.error('删除操作出错:', error);
-                                throw error; // 让Modal.confirm显示错误
+                                console.error('删除操作出错:', {
+                                  error,
+                                  message: error.message,
+                                  stack: error.stack,
+                                  slotData: slot
+                                });
+                                Modal.error({
+                                  title: '删除失败',
+                                  content: error.message || '删除时间段时出错',
+                                });
+                                throw error; // 重新抛出错误以阻止对话框关闭
                               }
+                            },
+                            onCancel: () => {
+                              console.log('User cancelled deletion');
                             }
                           });
+                          console.log('After Modal.confirm');
                         } catch (error) {
-                          console.error('Modal.confirm调用失败:', error);
+                          console.error('确认对话框出错:', {
+                            error,
+                            message: error.message,
+                            stack: error.stack
+                          });
+                          Modal.error({
+                            title: '对话框错误',
+                            content: '无法显示确认对话框',
+                          });
                         }
                       }}
                     />
