@@ -1,5 +1,7 @@
 import React from 'react';
-import { Modal, Button, Form, Select, Descriptions, Badge, Space, Input } from 'antd';
+import { Modal, Button, Form, Select, DatePicker, Badge, Space, Input } from 'antd';
+import { calendarApi } from '../../../api/calendar';
+import { getTrials } from '../../../api/trials';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import TrialDetails from './TrialDetails';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
@@ -17,7 +19,10 @@ const EventModal = ({
   handleEventSubmit,
   setCurrentEvent,
   setIsEditing,
-  setModifiedSlots
+  setModifiedSlots,
+  queryClient,
+  setDefaultEvents,
+  setSelectedTrial
 }) => {
   return (
     <Modal
