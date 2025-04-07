@@ -392,6 +392,8 @@ const EventModal = ({
                         console.log('Slot to delete:', slot);
                         console.log('Modal object:', Modal);
                         console.log('Modal.confirm exists:', typeof Modal.confirm === 'function');
+                        console.log('Antd version:', Modal.version);
+                        console.log('Modal prototype methods:', Object.getOwnPropertyNames(Modal.__proto__));
 
                         if (!slot?.start || !slot?.end) {
                           Modal.error({
@@ -401,15 +403,19 @@ const EventModal = ({
                           return;
                         }
 
-                        try {
-                          console.log('Before Modal.confirm');
-                          Modal.confirm({
-                            title: '确认删除',
-                            content: `确定要删除时间段 ${moment(slot.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot.end).format('YYYY-MM-DD HH:mm')} 吗？`,
-                            okText: '删除',
-                            cancelText: '取消',
-                            okButtonProps: { danger: true },
-                            async onOk() {
+                          try {
+                            console.log('Before Modal.confirm');
+                            console.log('Document body:', document.body);
+                            console.log('Modal container:', document.querySelector('.ant-modal-root'));
+                            const confirmResult = Modal.confirm({
+                              title: '确认删除',
+                              content: `确定要删除时间段 ${moment(slot.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot.end).format('YYYY-MM-DD HH:mm')} 吗？`,
+                              okText: '删除',
+                              cancelText: '取消',
+                              okButtonProps: { danger: true },
+                              maskClosable: true,
+                              zIndex: 1051,
+                              async onOk() {
                               try {
                                 console.log('User confirmed deletion');
                                 if (slot?.id) {
