@@ -363,6 +363,7 @@ const CalendarPage = () => {
           setCurrentEvent={setCurrentEvent}
           setIsEditing={setIsEditing}
           setModifiedSlots={setModifiedSlots}
+          setSelectedTrial={setSelectedTrial}
         />
       )}
     </div>
