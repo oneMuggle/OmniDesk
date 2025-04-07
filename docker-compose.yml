@@ -19,7 +19,7 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - ENVIRONMENT=production
+      - DJANGO_ENV=production
       - POSTGRES_DB=postgres
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres

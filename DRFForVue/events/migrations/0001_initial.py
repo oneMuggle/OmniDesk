@@ -90,6 +90,6 @@ class Migration(migrations.Migration):
         ),
         migrations.AddConstraint(
             model_name='timeslot',
-            constraint=models.CheckConstraint(condition=models.Q(('start_time__lt', models.F('end_time'))), name='prevent_time_slot_overlap'),
+            constraint=models.CheckConstraint(check=models.Q(('start_time__lt', models.F('end_time'))), name='prevent_time_slot_overlap'),
         ),
     ]

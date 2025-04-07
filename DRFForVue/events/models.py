@@ -48,6 +48,19 @@ class TimeSlot(models.Model):
     def __str__(self):
         return f"{self.start_time.strftime('%Y-%m-%d %H:%M')} - {self.end_time.strftime('%Y-%m-%d %H:%M')}"
 
+    def save(self, *args, **kwargs):
+        """保存时触发关联试验的时间范围更新"""
+        super().save(*args, **kwargs)
+        if self.trial:
+            self.trial.update_time_range(changed_slots=[self])
+
+    def delete(self, *args, **kwargs):
+        """删除时触发关联试验的时间范围更新"""
+        trial = self.trial
+        super().delete(*args, **kwargs)
+        if trial:
+            trial.update_time_range()
+
 
 class Trial(models.Model):
     STATUS_CHOICES = [
@@ -90,23 +103,31 @@ class Trial(models.Model):
         # 单独调用更新逻辑，避免关联关系问题
         self.update_time_range()
 
-    def update_time_range(self):
-        """安全地更新时间范围（在实例保存后调用）"""
-        print(f"Updating time range for trial {self.pk}")  # 调试日志
+    def update_time_range(self, changed_slots=None):
+        """优化后的时间范围计算方法"""
+        if not hasattr(self, '_time_range_dirty'):
+            self._time_range_dirty = False
+            
+        # 如果有传入变更的时间段，只处理这些时间段
+        if changed_slots:
+            self._time_range_dirty = True
+            return
+            
+        # 如果没有脏标记且没有传入变更，则跳过计算
+        if not self._time_range_dirty:
+            return
+            
         time_slots = self.get_time_slots()
         if time_slots.exists():
             earliest = time_slots.earliest('start_time')
             latest = time_slots.latest('end_time')
-            print(f"Earliest slot: {earliest.start_time}, Latest slot: {latest.end_time}")  # 调试日志
             
-            self.start_date = earliest.start_time
-            self.end_date = latest.end_time
             # 使用update避免递归保存
-            updated = self.__class__.objects.filter(pk=self.pk).update(
-                start_date=self.start_date,
-                end_date=self.end_date
+            self.__class__.objects.filter(pk=self.pk).update(
+                start_date=earliest.start_time,
+                end_date=latest.end_time
             )
-            print(f"Updated {updated} trial record")  # 调试日志
+            self._time_range_dirty = False
 
     def get_time_slots(self):
         """获取关联的时间段"""
