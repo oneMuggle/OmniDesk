@@ -163,7 +163,7 @@ class TrialViewSet(viewsets.ModelViewSet):
             trial.time_slots.all().delete()
             
             # 创建新时间段
-            TimeSlot.objects.bulk_create([
+            new_slots = TimeSlot.objects.bulk_create([
                 TimeSlot(
                     trial=trial,
                     start_time=period['start_time'],
@@ -173,4 +173,6 @@ class TrialViewSet(viewsets.ModelViewSet):
             ])
             trial.update_time_range()  # 显式调用时间范围更新
         
-        return Response(status=204)
+        # 返回新创建的时间段数据
+        serializer = TimeSlotSerializer(new_slots, many=True)
+        return Response(serializer.data, status=201)

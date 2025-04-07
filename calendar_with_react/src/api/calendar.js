@@ -255,7 +255,7 @@ export const calendarApi = {
         start_time: slotData.start_time,
         end_time: slotData.end_time,
         description: slotData.description || '',
-        trial: slotData.trial
+        trial_id: slotData.trial
       }, {
         headers: {
           'Content-Type': 'application/json',
@@ -328,15 +328,16 @@ export const calendarApi = {
         };
       });
 
-      const response = await apiClient.post('/api/events/time-slots/bulk/', {
-        trial_id: trialId,
-        time_slots: validatedSlots
-      }, {
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Request-Source': 'calendar-view'
+      const response = await apiClient.post(
+        `/api/events/trials/${trialId}/update-time-slots/`,
+        validatedSlots,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-Source': 'calendar-view'
+          }
         }
-      });
+      );
       
       return response.data.map(slot => ({
         ...slot,
@@ -346,11 +347,7 @@ export const calendarApi = {
     } catch (error) {
       handleError({
         ...error,
-        message: `批量创建时间段失败: ${error.message}`,
-        details: {
-          trialId,
-          slotsCount: slotsData.length
-        }
+        message: `批量创建时间段失败: ${error.message}`
       });
       throw error;
     }
