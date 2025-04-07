@@ -768,45 +768,50 @@ const CalendarPage = () => {
                         </Form.Item>
                         <MinusCircleOutlined 
                           style={{ fontSize: '16px', color: '#ff4d4f' }}
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             const slot = form.getFieldValue(['time_slots', name]);
                             console.log('Slot to delete:', slot);
-                            
-                            // 添加window.confirm作为额外确认
-                            if (!window.confirm(`确定要删除时间段 ${slot.start} 到 ${slot.end} 吗？`)) {
+                            console.log('Modal object:', Modal); // 调试日志1
+                            console.log('Modal.confirm exists:', typeof Modal.confirm); // 调试日志2
+
+                            if (!slot?.start || !slot?.end) {
+                              Modal.error({
+                                title: '无效时间段',
+                                content: '无法删除无效的时间段',
+                              });
                               return;
                             }
 
-                            Modal.confirm({
-                              title: '确认删除',
-                              content: '确定要删除这个时间段吗？',
-                              okText: '删除',
-                              cancelText: '取消',
-                              okButtonProps: { danger: true },
-                              onOk: async () => {
-                                try {
-                                  if (slot?.id) {
-                                    await calendarApi.deleteTimeSlot(slot.id);
-                                    queryClient.invalidateQueries(['trials']);
-                                    setDefaultEvents(prev => 
-                                      prev.filter(e => 
-                                        e.id !== `slot_${slot.id}`
-                                      )
-                                    );
+                            try {
+                              console.log('Before Modal.confirm'); // 调试日志3
+                              Modal.confirm({
+                                title: '确认删除',
+                                content: `确定要删除时间段 ${moment(slot.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot.end).format('YYYY-MM-DD HH:mm')} 吗？`,
+                                okText: '删除',
+                                cancelText: '取消',
+                                okButtonProps: { danger: true },
+                                onOk: async () => {
+                                  try {
+                                    if (slot?.id) {
+                                      await calendarApi.deleteTimeSlot(slot.id);
+                                      queryClient.invalidateQueries(['trials']);
+                                      setDefaultEvents(prev => 
+                                        prev.filter(e => e.id !== `slot_${slot.id}`)
+                                      );
+                                    }
+                                    remove(name);
+                                  } catch (error) {
+                                    console.error('删除操作出错:', error);
+                                    throw error; // 让Modal.confirm显示错误
                                   }
-                                  remove(name);
-                                } catch (error) {
-                                  console.error('删除失败:', error);
-                                  Modal.error({
-                                    title: '删除失败',
-                                    content: error.message,
-                                  });
                                 }
-                              }
-                            });
-                          }} 
+                              });
+                            } catch (error) {
+                              console.error('Modal.confirm调用失败:', error);
+                            }
+                          }}
                         />
                       </Space>
                     ))}
