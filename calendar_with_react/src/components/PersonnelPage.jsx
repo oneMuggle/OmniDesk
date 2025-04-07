@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, message } from 'antd';
 import { 
   getPersonnel, 
@@ -56,7 +56,7 @@ const PersonnelPage = () => {
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [fetchData]);
 
   const [pagination, setPagination] = useState({
     current: 1,
@@ -64,7 +64,7 @@ const PersonnelPage = () => {
     total: 0,
   });
 
-  const fetchData = async (params = {}) => {
+  const fetchData = useCallback(async (params = {}) => {
     try {
       const { page = pagination.current, pageSize = pagination.pageSize } = params;
       const { data, pagination: apiPagination } = await getPersonnel({ 
@@ -83,7 +83,7 @@ const PersonnelPage = () => {
       message.error('获取人员数据失败');
       setData([]);
     }
-  };
+  }, [pagination]);
 
   const handleTableChange = (newPagination) => {
     fetchData({
@@ -125,6 +125,9 @@ const PersonnelPage = () => {
     Modal.confirm({
       title: '确认删除',
       content: '确定要删除该人员信息吗？',
+      okText: '确认',
+      cancelText: '取消',
+      centered: true,
       onOk: async () => {
         try {
           await deletePerson(id);
