@@ -73,6 +73,8 @@ const CalendarPage = () => {
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedTrial, setSelectedTrial] = useState(null);
   const [form] = Form.useForm();
+  const [isEditing, setIsEditing] = useState(false);
+  const [modifiedSlots, setModifiedSlots] = useState([]);
 
   const getStatusConfig = (status) =>
     trialStatusConfig[status] || {
@@ -374,13 +376,13 @@ const CalendarPage = () => {
           open={!!currentEvent}
           onCancel={() => setCurrentEvent(null)}
           width={800}
-          footer={[
-            ...(modalType === 'view' ? [
+          footer={
+            modalType === 'view' && !isEditing ? [
               <Button
-                key="edit"
+                key="add"
                 type="primary"
                 onClick={() => {
-                  setModalType('edit');
+                  setIsEditing(true);
                   form.setFieldsValue({
                     trial: currentEvent.extendedProps.trialId,
                     time_slots: currentEvent.extendedProps.timeSlots?.map(slot => ({
@@ -392,15 +394,26 @@ const CalendarPage = () => {
                   });
                 }}
               >
-                编辑
+                添加时间段
               </Button>,
-            ] : []),
-            <Button
-              key="submit"
-              type="primary"
-              onClick={() => {
-                if (modalType === 'view') {
+              <Button
+                key="close"
+                type="default"
+                onClick={() => setCurrentEvent(null)}
+              >
+                关闭
+              </Button>
+            ] : [
+              <Button
+                key="save"
+                type="primary"
+                onClick={async () => {
+                if (modalType === 'view' && !isEditing) {
                   setCurrentEvent(null);
+                  return;
+                }
+                if (isEditing) {
+                  setIsEditing(false);
                   return;
                 }
 
@@ -493,15 +506,64 @@ const CalendarPage = () => {
                   ...formValues,
                   time_slots: validSlots
                 };
-                console.log('验证后的表单数据:', {
-                  ...formData,
-                  time_slots: formData.time_slots.map(slot => ({
+                
+                try {
+                  // 检查是否有重复时间段
+                  const slotTimes = formData.time_slots.map(slot => ({
                     start: toServerFormat(slot.start),
-                    end: toServerFormat(slot.end),
-                    duration: slot.end - slot.start
-                  }))
-                });
-                handleEventSubmit(formData);
+                    end: toServerFormat(slot.end)
+                  }));
+                  
+                  const hasDuplicates = slotTimes.some((slot, index) => 
+                    slotTimes.slice(index + 1).some(other => 
+                      slot.start === other.start && slot.end === other.end
+                    )
+                  );
+                  
+                  if (hasDuplicates) {
+                    Modal.error({
+                      title: '验证失败',
+                      content: '存在重复的时间段，请检查',
+                    });
+                    return;
+                  }
+
+                  // 如果是编辑模式且有修改过的时间段
+                  if (isEditing && modifiedSlots.length > 0) {
+                    // 只收集修改过的时间段
+                    const modifiedTimeSlots = formData.time_slots
+                      .filter(slot => slot.id && modifiedSlots.includes(slot.id))
+                      .map(slot => ({
+                        id: slot.id,
+                        start: toServerFormat(slot.start),
+                        end: toServerFormat(slot.end),
+                        description: slot.description
+                      }));
+                    
+                    if (modifiedTimeSlots.length > 0) {
+                      // 批量更新修改过的时间段
+                      await calendarApi.bulkUpdateTimeSlots(modifiedTimeSlots);
+                      queryClient.invalidateQueries(['trials']);
+                      setModifiedSlots([]);
+                    }
+                  }
+                  
+                  console.log('验证后的表单数据:', {
+                    ...formData,
+                    time_slots: formData.time_slots.map(slot => ({
+                      start: toServerFormat(slot.start),
+                      end: toServerFormat(slot.end),
+                      duration: slot.end - slot.start
+                    }))
+                  });
+                  await handleEventSubmit(formData);
+                } catch (error) {
+                  console.error('保存时间段失败:', error);
+                  Modal.error({
+                    title: '保存失败',
+                    content: error.message,
+                  });
+                }
               }}
             >
               {modalType === 'view' ? '关闭' : '保存'}
@@ -588,7 +650,17 @@ const CalendarPage = () => {
                 {(fields, { add, remove }) => (
                   <>
                     {fields.map(({ key, name, ...restField }) => (
-                      <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                      <Space 
+                        key={key} 
+                        style={{ display: 'flex', marginBottom: 8 }} 
+                        align="baseline"
+                        onBlur={() => {
+                          const slot = form.getFieldValue(['time_slots', name]);
+                          if (slot?.id && !modifiedSlots.includes(slot.id)) {
+                            setModifiedSlots([...modifiedSlots, slot.id]);
+                          }
+                        }}
+                      >
                         <Form.Item
                           {...restField}
                           name={[name, 'start']}
@@ -694,30 +766,48 @@ const CalendarPage = () => {
                         >
                           <Input.TextArea rows={1} />
                         </Form.Item>
-                        <MinusCircleOutlined onClick={() => {
-                          Modal.confirm({
-                            title: '确认删除',
-                            content: '确定要删除这个时间段吗？',
-                            okText: '删除',
-                            cancelText: '取消',
-                            onOk: async () => {
-                              try {
-                                const slotId = form.getFieldValue(['time_slots', name, 'id']);
-                                if (slotId) {
-                                  await calendarApi.deleteTimeSlot(slotId);
-                                  queryClient.invalidateQueries(['trials']);
-                                }
-                                remove(name);
-                              } catch (error) {
-                                console.error('删除失败:', error);
-                                Modal.error({
-                                  title: '删除失败',
-                                  content: error.message,
-                                });
-                              }
+                        <MinusCircleOutlined 
+                          style={{ fontSize: '16px', color: '#ff4d4f' }}
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            const slot = form.getFieldValue(['time_slots', name]);
+                            console.log('Slot to delete:', slot);
+                            
+                            // 添加window.confirm作为额外确认
+                            if (!window.confirm(`确定要删除时间段 ${slot.start} 到 ${slot.end} 吗？`)) {
+                              return;
                             }
-                          });
-                        }} />
+
+                            Modal.confirm({
+                              title: '确认删除',
+                              content: '确定要删除这个时间段吗？',
+                              okText: '删除',
+                              cancelText: '取消',
+                              okButtonProps: { danger: true },
+                              onOk: async () => {
+                                try {
+                                  if (slot?.id) {
+                                    await calendarApi.deleteTimeSlot(slot.id);
+                                    queryClient.invalidateQueries(['trials']);
+                                    setDefaultEvents(prev => 
+                                      prev.filter(e => 
+                                        e.id !== `slot_${slot.id}`
+                                      )
+                                    );
+                                  }
+                                  remove(name);
+                                } catch (error) {
+                                  console.error('删除失败:', error);
+                                  Modal.error({
+                                    title: '删除失败',
+                                    content: error.message,
+                                  });
+                                }
+                              }
+                            });
+                          }} 
+                        />
                       </Space>
                     ))}
                     <Form.Item>
