@@ -394,46 +394,6 @@ const CalendarPage = () => {
               >
                 编辑
               </Button>,
-              <Button
-                key="delete"
-                danger
-                onClick={async () => {
-                  Modal.confirm({
-                    title: '确认删除',
-                    content: currentEvent.extendedProps?.type === 'TRIAL' ?
-                      '确定要删除这个试验及其所有排班吗？' :
-                      '确定要删除这个排班吗？',
-                    okText: '确认',
-                    cancelText: '取消',
-                    onOk: async () => {
-                      try {
-                        if (currentEvent.extendedProps?.type === 'TRIAL') {
-                  await calendarApi.deleteCalendarEvent(currentEvent.extendedProps.trialId);
-                } else {
-                  const slotId = extractSlotId(currentEvent.id);
-                  if (!slotId) {
-                    throw new Error('无效的时间段ID格式');
-                  }
-                  await calendarApi.deleteTimeSlot(slotId);
-                        }
-                        setDefaultEvents(prev =>
-                          prev.filter(e => e.id !== currentEvent.id)
-                        );
-                        setCurrentEvent(null);
-                        queryClient.invalidateQueries(['trials']);
-                      } catch (error) {
-                        console.error('删除失败:', error);
-                        Modal.error({
-                          title: '删除失败',
-                          content: error.message,
-                        });
-                      }
-                    }
-                  });
-                }}
-              >
-                删除
-              </Button>
             ] : []),
             <Button
               key="submit"
@@ -734,7 +694,30 @@ const CalendarPage = () => {
                         >
                           <Input.TextArea rows={1} />
                         </Form.Item>
-                        <MinusCircleOutlined onClick={() => remove(name)} />
+                        <MinusCircleOutlined onClick={() => {
+                          Modal.confirm({
+                            title: '确认删除',
+                            content: '确定要删除这个时间段吗？',
+                            okText: '删除',
+                            cancelText: '取消',
+                            onOk: async () => {
+                              try {
+                                const slotId = form.getFieldValue(['time_slots', name, 'id']);
+                                if (slotId) {
+                                  await calendarApi.deleteTimeSlot(slotId);
+                                  queryClient.invalidateQueries(['trials']);
+                                }
+                                remove(name);
+                              } catch (error) {
+                                console.error('删除失败:', error);
+                                Modal.error({
+                                  title: '删除失败',
+                                  content: error.message,
+                                });
+                              }
+                            }
+                          });
+                        }} />
                       </Space>
                     ))}
                     <Form.Item>
