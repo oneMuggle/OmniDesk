@@ -31,7 +31,7 @@ export const chatCompletion = async (config, messages) => {
 export const getModels = async () => {
   try {
     const response = await ollamaClient.get('/tags');
-    return response.data.data.map(model => model.id.replace(/^models\//, ''));
+    return response.data.models.map(model => model.name);
   } catch (error) {
     console.error('获取模型列表失败:', error);
     throw new Error(`无法获取模型列表: ${error.message}`);
