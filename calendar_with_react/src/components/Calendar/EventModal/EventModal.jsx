@@ -36,24 +36,6 @@ const EventModal = ({
       footer={
         modalType === 'view' && !isEditing ? [
           <Button
-            key="add"
-            type="primary"
-            onClick={() => {
-              setIsEditing(true);
-              form.setFieldsValue({
-                trial: currentEvent.extendedProps.trialId,
-                time_slots: currentEvent.extendedProps.timeSlots?.map(slot => ({
-                  start: fromServerFormat(slot.start_time)?.toDate(),
-                  end: fromServerFormat(slot.end_time)?.toDate(),
-                  description: slot.description,
-                  id: slot.id
-                })) || []
-              });
-            }}
-          >
-            添加时间段
-          </Button>,
-          <Button
             key="close"
             type="default"
             onClick={() => setCurrentEvent(null)}
