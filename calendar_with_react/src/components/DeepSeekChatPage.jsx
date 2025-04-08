@@ -1,7 +1,24 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { chatCompletion } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
+import ThinkContent from './ThinkContent';
 import './DeepSeekChatPage.css';
+
+const parseThinkContent = (content) => {
+  if (!content) return { mainContent: '', thinkContent: '' };
+  
+  const thinkStart = content.indexOf('<thinking>');
+  const thinkEnd = content.indexOf('</thinking>');
+  
+  if (thinkStart === -1 || thinkEnd === -1) {
+    return { mainContent: content, thinkContent: '' };
+  }
+
+  const thinkContent = content.slice(thinkStart + 10, thinkEnd).trim();
+  const mainContent = (content.slice(0, thinkStart) + content.slice(thinkEnd + 11)).trim();
+  
+  return { mainContent, thinkContent };
+};
 
 const DeepSeekChatPage = () => {
   const { conversationHistory, setConversationHistory } = useContext(ApiContext);
@@ -61,7 +78,8 @@ const DeepSeekChatPage = () => {
         {(messages || []).map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>
             <div className="message-content">
-              {msg.content}
+              {parseThinkContent(msg.content).mainContent}
+              <ThinkContent content={parseThinkContent(msg.content).thinkContent} />
             </div>
           </div>
         ))}

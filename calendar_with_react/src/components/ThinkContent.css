@@ -1,0 +1,45 @@
+.think-container {
+  margin-top: 16px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #d9e7ff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.think-header {
+  padding: 8px 12px;
+  background-color: #f0f7ff;
+  color: #1890ff;
+  font-weight: 500;
+  border-bottom: 1px solid #d9e7ff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.think-content {
+  padding: 12px;
+  background-color: #fafafa;
+  font-size: 0.85em;
+  color: #444;
+  font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
+  line-height: 1.5;
+}
+
+.think-content p {
+  margin: 4px 0;
+  white-space: pre-wrap;
+}
+
+.code-line {
+  color: #d63384;
+  padding-left: 12px;
+  position: relative;
+}
+
+.code-line::before {
+  content: ">";
+  position: absolute;
+  left: 0;
+  color: #999;
+}
