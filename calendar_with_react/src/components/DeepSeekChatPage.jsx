@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { createClient } from '../api/deepseek';
+import { chatCompletion } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
 import './DeepSeekChatPage.css';
 
 const DeepSeekChatPage = () => {
   const { conversationHistory, setConversationHistory } = useContext(ApiContext);
   const [inputMessage, setInputMessage] = useState('');
-  const [messages, setMessages] = useState([]);
+  const [messages, setMessages] = useState(() => {
+    return Array.isArray(conversationHistory) ? conversationHistory : [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -19,23 +21,35 @@ const DeepSeekChatPage = () => {
 
     try {
       setIsLoading(true);
-      const client = createClient(true);
       const newMessage = { role: 'user', content: inputMessage };
+      const context = conversationHistory.length > 0 
+        ? conversationHistory[conversationHistory.length - 1].context 
+        : null;
       
-      const response = await client.chat.completions.create({
-        messages: [...conversationHistory, newMessage],
-        temperature: 0.7
-      });
+      const response = await chatCompletion(
+        {
+          model: process.env.REACT_APP_OLLAMA_MODEL || 'deepseek-r1:1.5b',
+          context: context
+        },
+        [...conversationHistory, newMessage]
+      );
 
-      const aiMessage = response.choices[0].message;
+      const aiMessage = {
+        role: response.role,
+        content: response.content,
+        context: response.context
+      };
       setConversationHistory([...conversationHistory, newMessage, aiMessage]);
       setInputMessage('');
     } catch (error) {
       console.error('API Error:', error);
-      setMessages(prev => [...prev, { 
-        role: 'system', 
-        content: '抱歉，请求失败，请稍后再试' 
-      }]);
+      setMessages(prev => {
+        const current = Array.isArray(prev) ? prev : [];
+        return [...current, { 
+          role: 'system', 
+          content: '抱歉，请求失败，请稍后再试' 
+        }];
+      });
     } finally {
       setIsLoading(false);
     }

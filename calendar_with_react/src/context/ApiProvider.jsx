@@ -40,6 +40,8 @@ export function ApiProvider({ children }) {
   const value = {
     apiType,
     apiConfig,
+    conversationHistory,
+    setConversationHistory,
     setApiType: (type) => {
       setApiType(type);
       setApiConfig(prev => ({
