@@ -9,14 +9,20 @@ const ollamaClient = axios.create({
 
 export const chatCompletion = async (config, messages) => {
   try {
+    // 将消息历史转换为Ollama格式
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+    
     const response = await ollamaClient.post('/generate', {
       model: config.model,
-      prompt: messages[messages.length - 1].content,
-      stream: false
+      prompt: prompt,
+      stream: false,
+      context: config.context || null
     });
     
     return {
+      role: 'assistant',
       content: response.data.response,
+      context: response.data.context,
       usage: {
         prompt_tokens: 0,
         completion_tokens: 0

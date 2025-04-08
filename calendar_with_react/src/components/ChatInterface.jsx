@@ -79,11 +79,9 @@ const ChatInterface = () => {
     setLoading(true);
 
     try {
-      const apiHandler = apiType === 'ollama' ? ollamaChat : createClient(apiConfig).chat.completions;
-      
-      const response = await apiHandler.create({
-        model: apiConfig.model,
-        messages: [
+      let response;
+      if (apiType === 'ollama') {
+        response = await ollamaChat(apiConfig, [
           { 
             role: 'system', 
             content: `你是一个专业的文档助手，请根据用户提供的文档内容进行分析和修改：
@@ -92,12 +90,31 @@ ${newMessage.files?.join('\n\n') || ''}
           },
           ...messages,
           newMessage
-        ]
-      });
+        ]);
+      } else {
+        const client = createClient(apiConfig);
+        response = await client.chat.completions.create({
+          messages: [
+            { 
+              role: 'system', 
+              content: `你是一个专业的文档助手，请根据用户提供的文档内容进行分析和修改：
+${newMessage.files?.join('\n\n') || ''}
+用户需求：${newMessage.content}`
+            },
+            ...messages,
+            newMessage
+          ]
+        });
+        response = response.choices[0].message;
+      }
 
       setMessages(prev => [
         ...prev,
-        { role: 'assistant', content: response.content }
+        { 
+          role: 'assistant', 
+          content: response.content,
+          ...(response.context && { context: response.context })
+        }
       ]);
     } catch (error) {
       setMessages(prev => [
