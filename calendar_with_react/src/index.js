@@ -18,7 +18,7 @@ root.render(
   <React.StrictMode>
     <ConfigProvider
       modal={{
-        getContainer: () => document.getElementById('root'),
+        getContainer: () => document.getElementById('modal-root'),
         zIndexBase: 1000
       }}
     >

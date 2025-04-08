@@ -1,5 +1,7 @@
 import React from 'react';
-import { Modal, Button, Form, Select, DatePicker, Badge, Space, Input } from 'antd';
+import { Button, Form, Select, DatePicker, Badge, Space, Input } from 'antd';
+import Modal from 'antd/es/modal';
+import ConfirmModal from '../ConfirmModal';
 import { calendarApi } from '../../../api/calendar';
 import { getTrials } from '../../../api/trials';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
@@ -382,82 +384,51 @@ const EventModal = ({
                     >
                       <Input.TextArea rows={1} />
                     </Form.Item>
-                    <MinusCircleOutlined 
-                      style={{ fontSize: '16px', color: '#ff4d4f' }}
-                      onClick={async (e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        
-                        const slot = form.getFieldValue(['time_slots', name]);
-                        console.log('Slot to delete:', slot);
-                        console.log('Modal object:', Modal);
-                        console.log('Modal.confirm exists:', typeof Modal.confirm === 'function');
-                        console.log('Antd version:', Modal.version);
-                        console.log('Modal prototype methods:', Object.getOwnPropertyNames(Modal.__proto__));
-
-                        if (!slot?.start || !slot?.end) {
-                          Modal.error({
-                            title: '无效时间段',
-                            content: '无法删除无效的时间段',
-                          });
-                          return;
-                        }
-
-                          try {
-                            console.log('Before Modal.confirm');
-                            console.log('Document body:', document.body);
-                            console.log('Modal container:', document.querySelector('.ant-modal-root'));
-                            const confirmResult = Modal.confirm({
-                              title: '确认删除',
-                              content: `确定要删除时间段 ${moment(slot.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot.end).format('YYYY-MM-DD HH:mm')} 吗？`,
-                              okText: '删除',
-                              cancelText: '取消',
-                              okButtonProps: { danger: true },
-                              maskClosable: true,
-                              zIndex: 1051,
-                              async onOk() {
-                              try {
-                                console.log('User confirmed deletion');
-                                if (slot?.id) {
-                                  await calendarApi.deleteTimeSlot(slot.id);
-                                  queryClient.invalidateQueries(['trials']);
-                                  setDefaultEvents(prev => 
-                                    prev.filter(e => e.id !== `slot_${slot.id}`)
-                                  );
-                                }
-                                remove(name);
-                              } catch (error) {
-                                console.error('删除操作出错:', {
-                                  error,
-                                  message: error.message,
-                                  stack: error.stack,
-                                  slotData: slot
-                                });
-                                Modal.error({
-                                  title: '删除失败',
-                                  content: error.message || '删除时间段时出错',
-                                });
-                                throw error; // 重新抛出错误以阻止对话框关闭
+                    {(() => {
+                      const slot = form.getFieldValue(['time_slots', name]);
+                      return (
+                        <ConfirmModal
+                          title="确认删除"
+                          content={`确定要删除时间段 ${moment(slot?.start).format('YYYY-MM-DD HH:mm')} 到 ${moment(slot?.end).format('YYYY-MM-DD HH:mm')} 吗？`}
+                          okText="删除"
+                          cancelText="取消"
+                          danger={true}
+                          onOk={async () => {
+                            try {
+                              if (slot?.id) {
+                                await calendarApi.deleteTimeSlot(slot.id);
+                                queryClient.invalidateQueries(['trials']);
+                                setDefaultEvents(prev => 
+                                  prev.filter(e => e.id !== `slot_${slot.id}`)
+                                );
                               }
-                            },
-                            onCancel: () => {
-                              console.log('User cancelled deletion');
+                              remove(name);
+                            } catch (error) {
+                              console.error('删除操作出错:', error);
+                              Modal.error({
+                                title: '删除失败',
+                                content: error.message || '删除时间段时出错',
+                              });
+                              throw error;
                             }
-                          });
-                          console.log('After Modal.confirm');
-                        } catch (error) {
-                          console.error('确认对话框出错:', {
-                            error,
-                            message: error.message,
-                            stack: error.stack
-                          });
-                          Modal.error({
-                            title: '对话框错误',
-                            content: '无法显示确认对话框',
-                          });
-                        }
-                      }}
-                    />
+                          }}
+                        >
+                          <MinusCircleOutlined 
+                            style={{ fontSize: '16px', color: '#ff4d4f' }}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              if (!slot?.start || !slot?.end) {
+                                Modal.error({
+                                  title: '无效时间段',
+                                  content: '无法删除无效的时间段',
+                                });
+                              }
+                            }}
+                          />
+                        </ConfirmModal>
+                      );
+                    })()}
                   </Space>
                 ))}
                 <Form.Item>
