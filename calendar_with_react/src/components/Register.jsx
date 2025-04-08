@@ -36,7 +36,10 @@ const Register = () => {
                 throw new Error(errorMessage);
             }
             console.log('register方法返回结果:', result); // 添加调试日志
-            // ...保持原有逻辑
+            // 注册成功后跳转到登录页面并传递用户名
+            navigate('/login', { 
+                state: { registeredUsername: username.trim() }
+            });
         } catch (err) {
             console.error('注册过程中捕获异常:', err); // 添加详细错误日志
             setError(err.message);
