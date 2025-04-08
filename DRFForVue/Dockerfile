@@ -11,7 +11,10 @@ ENV PYTHONUNBUFFERED=1
 
 COPY requirements.txt .
 RUN pip install --upgrade pip --no-cache-dir \
-    && pip install --target /usr/local/lib/python3.9/site-packages -r requirements.txt
+    && pip install --target /usr/local/lib/python3.9/site-packages -r requirements.txt \
+    && pip install gunicorn \
+    && which gunicorn \
+    && gunicorn --version
 
 # 运行阶段
 FROM python:3.9-slim-buster
@@ -28,8 +31,8 @@ RUN mkdir -p /data && \
     chown appuser:appuser /data && \
     chmod 755 /data
 
-ENV PATH="/home/appuser/.local/bin:${PATH}"
-ENV PYTHONPATH=/app:/home/appuser/.local/lib/python3.9/site-packages
+ENV PATH="/usr/local/bin:/usr/local/lib/python3.9/site-packages/bin:${PATH}"
+ENV PYTHONPATH=/app:/usr/local/lib/python3.9/site-packages:/home/appuser/.local/lib/python3.9/site-packages
 
 # 安装运行时依赖
 RUN apt-get update \

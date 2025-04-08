@@ -87,6 +87,13 @@ const EventModal = ({
       footer={
         modalType === 'view' && !isEditing ? [
           <Button
+            key="edit"
+            type="primary"
+            onClick={() => setIsEditing(true)}
+          >
+            编辑
+          </Button>,
+          <Button
             key="close"
             type="default"
             onClick={() => setCurrentEvent(null)}
@@ -342,6 +349,7 @@ const EventModal = ({
                       <DatePicker 
                         showTime 
                         format="YYYY-MM-DD HH:mm:ss"
+                        disabled={!isEditing}
                         renderExtraFooter={() => (
                           <div style={{ padding: '8px', textAlign: 'center' }}>
                             <Button 
@@ -391,6 +399,7 @@ const EventModal = ({
                       <DatePicker 
                         showTime 
                         format="YYYY-MM-DD HH:mm:ss"
+                        disabled={!isEditing}
                         renderExtraFooter={() => (
                           <div style={{ padding: '8px', textAlign: 'center' }}>
                             <Button 
@@ -435,7 +444,7 @@ const EventModal = ({
                       name={[name, 'description']}
                       label="描述"
                     >
-                      <Input.TextArea rows={1} />
+                      <Input.TextArea rows={1} disabled={!isEditing} />
                     </Form.Item>
                     {(() => {
                       const slot = form.getFieldValue(['time_slots', name]);
@@ -468,28 +477,32 @@ const EventModal = ({
                             }
                           }}
                         >
-                          <MinusCircleOutlined 
-                            style={{ fontSize: '16px', color: '#ff4d4f' }}
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              if (!slot?.start || !slot?.end) {
-                                Modal.error({
-                                  title: '无效时间段',
-                                  content: '无法删除无效的时间段',
-                                });
-                              }
-                            }}
-                          />
+                          {isEditing && (
+                            <MinusCircleOutlined 
+                              style={{ fontSize: '16px', color: '#ff4d4f' }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                if (!slot?.start || !slot?.end) {
+                                  Modal.error({
+                                    title: '无效时间段',
+                                    content: '无法删除无效的时间段',
+                                  });
+                                }
+                              }}
+                            />
+                          )}
                         </ConfirmModal>
                       );
                     })()}
                   </Space>
                 ))}
                 <Form.Item>
-                  <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                    添加时间段
-                  </Button>
+                  {isEditing && (
+                    <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                      添加时间段
+                    </Button>
+                  )}
                 </Form.Item>
               </>
             )}
