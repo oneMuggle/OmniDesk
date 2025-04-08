@@ -1,5 +1,6 @@
 import React from 'react';
 import { Button, Form, Select, DatePicker, Badge, Space, Input } from 'antd';
+import { useQueryClient } from '@tanstack/react-query';
 import Modal from 'antd/es/modal';
 import ConfirmModal from '../ConfirmModal';
 import { calendarApi } from '../../../api/calendar';
@@ -22,10 +23,10 @@ const EventModal = ({
   setCurrentEvent,
   setIsEditing,
   setModifiedSlots,
-  queryClient,
-  setDefaultEvents,
+  setDefaultEvents = () => console.warn('setDefaultEvents not implemented'),
   setSelectedTrial
 }) => {
+  const queryClient = useQueryClient();
   return (
     <Modal
       title={modalType === 'view' ? '查看试验排班' : '新建试验排班'}
@@ -398,9 +399,11 @@ const EventModal = ({
                               if (slot?.id) {
                                 await calendarApi.deleteTimeSlot(slot.id);
                                 queryClient.invalidateQueries(['trials']);
-                                setDefaultEvents(prev => 
-                                  prev.filter(e => e.id !== `slot_${slot.id}`)
-                                );
+                                if (typeof setDefaultEvents === 'function') {
+                                  setDefaultEvents(prev => 
+                                    prev.filter(e => e.id !== `slot_${slot.id}`)
+                                  );
+                                }
                               }
                               remove(name);
                             } catch (error) {

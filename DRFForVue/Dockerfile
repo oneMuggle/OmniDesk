@@ -43,4 +43,4 @@ EXPOSE 8000
 # 使用已存在的appuser用户
 USER appuser
 
-CMD ["python", "manage.py", "runserver", "0.0.0.0:8000", "--verbosity", "3"]
+CMD ["gunicorn", "DRFForVue.wsgi:application", "--bind", "0.0.0.0:8000"]
