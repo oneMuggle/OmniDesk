@@ -62,27 +62,30 @@ const PersonnelPage = () => {
 
   const fetchData = useCallback(async (params = {}) => {
     try {
-      const { page = pagination.current, pageSize = pagination.pageSize } = params;
+      const { page = 1, pageSize = 10 } = params;
       const { data, pagination: apiPagination } = await getPersonnel({ 
         page,
         page_size: pageSize 
       });
       
       setData(data);
-      setPagination({
-        ...pagination,
+      setPagination(prev => ({
+        ...prev,
         total: apiPagination.total,
         current: apiPagination.current,
         pageSize: apiPagination.pageSize,
-      });
+      }));
     } catch (error) {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, [pagination]);
+  }, []);
 
   useEffect(() => {
-    fetchData();
+    fetchData({
+      page: pagination.current,
+      pageSize: pagination.pageSize
+    });
   }, [fetchData]);
 
   const handleTableChange = (newPagination) => {

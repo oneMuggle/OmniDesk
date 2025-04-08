@@ -53,7 +53,7 @@ const CalendarPage = () => {
     isLoading: isTrialsLoading
   } = useQuery({
     queryKey: ['trials'],
-    queryFn: () => getTrials().then(res => res.results || []),
+    queryFn: () => getTrials().then(res => Array.isArray(res?.results) ? res.results : []),
     gcTime: 600000,
     staleTime: 300000
   });
@@ -251,8 +251,8 @@ const CalendarPage = () => {
           }}
           events={useMemo(() => {
             // 转换试验数据为日历事件（使用实际时间段）
-            const trialEvents = trials.flatMap(trial =>
-              (trial.time_slots || []).map((slot, index) => ({
+            const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
+              (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
                 id: `trial-${trial.id}-${index}`,
                 title: trial.title,
                 start: fromServerFormat(trial.start_date)?.toDate(),
