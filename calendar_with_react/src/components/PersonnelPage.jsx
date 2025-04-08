@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Modal, Form, Input, message } from 'antd';
+import { Table, Button, Form, Input,Modal, message } from 'antd';
+import ConfirmModal from './Calendar/ConfirmModal';
 import { 
   getPersonnel, 
   createPerson, 
@@ -13,6 +14,11 @@ const PersonnelPage = () => {
   const [data, setData] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [pagination, setPagination] = useState({
+    current: 1,
+    pageSize: 10,
+    total: 0,
+  });
 
   const columns = [
     {
@@ -54,16 +60,6 @@ const PersonnelPage = () => {
     },
   ];
 
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  const [pagination, setPagination] = useState({
-    current: 1,
-    pageSize: 10,
-    total: 0,
-  });
-
   const fetchData = useCallback(async (params = {}) => {
     try {
       const { page = pagination.current, pageSize = pagination.pageSize } = params;
@@ -84,6 +80,10 @@ const PersonnelPage = () => {
       setData([]);
     }
   }, [pagination]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleTableChange = (newPagination) => {
     fetchData({
@@ -122,13 +122,13 @@ const PersonnelPage = () => {
   };
 
   const handleDelete = async (id) => {
-    Modal.confirm({
+    ConfirmModal({
       title: '确认删除',
       content: '确定要删除该人员信息吗？',
       okText: '确认',
       cancelText: '取消',
-      centered: true,
-      onOk: async () => {
+      type: 'danger',
+      onConfirm: async () => {
         try {
           await deletePerson(id);
           message.success('删除成功');
