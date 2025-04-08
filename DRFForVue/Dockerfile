@@ -12,9 +12,7 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --upgrade pip --no-cache-dir \
     && pip install --target /usr/local/lib/python3.9/site-packages -r requirements.txt \
-    && pip install gunicorn \
-    && which gunicorn \
-    && gunicorn --version
+    && pip install waitress
 
 # 运行阶段
 FROM python:3.9-slim-buster
@@ -46,4 +44,4 @@ EXPOSE 8000
 # 使用已存在的appuser用户
 USER appuser
 
-CMD ["gunicorn", "DRFForVue.wsgi:application", "--bind", "0.0.0.0:8000"]
+CMD ["waitress-serve", "--port=8000", "DRFForVue.wsgi:application"]
