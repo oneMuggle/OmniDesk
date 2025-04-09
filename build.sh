@@ -22,8 +22,6 @@ docker build -t $DOCKER_USER/calendar-backend:$VERSION ./DRFForVue
 
 echo "Build and push completed for version $VERSION"
 
-sleep 10000
-
 echo 按任意键继续
 read -n 1
 echo 继续运行

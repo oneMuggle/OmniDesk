@@ -4,10 +4,11 @@ services:
   frontend:
     image: ${DOCKER_USER}/calendar-frontend:${FRONTEND_VERSION}
     ports:
-      - "3002:8080"
+      - "3000:3000"
     environment:
       - NODE_ENV=production
       - DEBUG=False
+      - REACT_APP_API_BASE_URL=http://backend:8000
     depends_on:
       - backend
     networks:
