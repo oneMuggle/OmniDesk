@@ -2,11 +2,10 @@ version: '3.8'
 
 services:
   frontend:
-    build: ./calendar_with_react
+    image: ${DOCKER_USER}/calendar-frontend:${FRONTEND_VERSION}
     ports:
-      - "3000:8080"
+      - "3002:8080"
     environment:
-      - REACT_APP_API_BASE_URL=http://backend:8000
       - NODE_ENV=production
       - DEBUG=False
     depends_on:
@@ -15,8 +14,8 @@ services:
       - app-network
 
   backend:
-    build: ./DRFForVue
-    command: bash -c "python manage.py migrate && waitress-serve --port=8000 DRFForVue.wsgi:application"
+    image: ${DOCKER_USER}/calendar-backend:${BACKEND_VERSION}
+    command: bash -c "python manage.py migrate && python -m waitress --port=8000 DRFForVue.wsgi:application"
     ports:
       - "8000:8000"
     environment:
@@ -27,6 +26,7 @@ services:
       - DB_HOST=db
       - DB_PORT=5432
       - SECRET_KEY=!@#django-insecure-9g_8=0q^fz$3k&9m6v%_wx@7t6r4b5y_u*8h7=+!k
+      - DJANGO_SETTINGS_MODULE=DRFForVue.settings
     depends_on:
       db:
         condition: service_healthy
