@@ -3,7 +3,7 @@ import { ApiProvider } from './ApiProvider.jsx';
 import axios from 'axios';
 
 export const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://backend:8000',
   headers: {
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest'

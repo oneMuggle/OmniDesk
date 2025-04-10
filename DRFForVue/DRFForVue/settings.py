@@ -224,6 +224,7 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://frontend:8080",
     "http://frontend:3000",
+    "http://backend:8000",
 ]
 CORS_ALLOWED_ORIGIN_REGEXES = [
     r"^https?://localhost(:\d+)?$",
@@ -237,7 +238,8 @@ CSRF_TRUSTED_ORIGINS = [
     "http://frontend:8080",
     "http://frontend:3000",
     "http://localhost:3001",
-    "http://localhost:3002"
+    "http://localhost:3002",
+    "http://backend:8000"
 ]
 SESSION_COOKIE_SAMESITE = 'None'
 SESSION_COOKIE_SECURE = True
