@@ -193,26 +193,104 @@ export const calendarApi = {
   fetchTimeSlotsByTrial: async (trialId, params = {}) => {
     try {
       const response = await apiClient.get('/api/events/time-slots/', {
-        params: {
-          trial: trialId,
-          ...params
-        }
+        params: { trial: trialId, ...params }
       });
-      return response.data.map(slot => ({
-        id: slot.id,
-        start: new Date(slot.start_time),
-        end: new Date(slot.end_time),
-        description: slot.description,
-        trialId: slot.trial,
-        trialTitle: slot.trial_title
-      }));
+      
+      // 验证响应数据格式
+      if (!response.data) {
+        console.warn('API返回空数据:', { trialId, response });
+        return [];
+      }
+      
+      // 处理数组或对象格式的响应
+      let slotsData;
+      if (Array.isArray(response.data)) {
+        slotsData = response.data;
+      } else if (response.data && typeof response.data === 'object') {
+        slotsData = response.data.results || response.data.items || [];
+      } else {
+        console.error('无法解析时间段数据:', { 
+          trialId,
+          responseData: response.data
+        });
+        return [];
+      }
+      
+      // 确保最终是数组
+      if (!Array.isArray(slotsData)) {
+        console.error('最终数据不是数组:', { 
+          trialId,
+          slotsData
+        });
+        return [];
+      }
+
+      // 确保数据有map方法
+      if (typeof slotsData.map !== 'function') {
+        console.error('响应数据没有map方法:', {
+          trialId,
+          slotsDataType: typeof slotsData,
+          slotsData
+        });
+        return [];
+      }
+
+      // 转换数据格式
+      try {
+        return slotsData.map(slot => {
+          if (!slot || !slot.start_time || !slot.end_time) {
+            console.warn('跳过无效时间段数据:', slot);
+            return null;
+          }
+          
+          try {
+            return {
+              id: slot.id,
+              start: new Date(slot.start_time),
+              end: new Date(slot.end_time),
+              description: slot.description || '',
+              trialId: slot.trial || trialId,
+              trialTitle: slot.trial_title || ''
+            };
+          } catch (error) {
+            console.error('处理单个时间段失败:', {
+              error,
+              slotData: slot
+            });
+            return null;
+          }
+        }).filter(Boolean);
+      } catch (error) {
+        console.error('映射时间段数据失败:', {
+          error,
+          slotsData
+        });
+        return [];
+      }
     } catch (error) {
+      const errorDetails = {
+        trialId,
+        apiUrl: '/api/events/time-slots/',
+        params: { trial: trialId, ...params },
+        response: error.response?.data,
+        error: error.message,
+        stack: error.stack
+      };
+      console.error('获取时间段API调用失败:', errorDetails);
+      
       handleError({
         ...error,
-        message: `获取时间段失败: ${error.message}`,
-        details: { trialId }
+        message: `获取时间段失败: ${error.response?.data?.message || error.message}`,
+        details: {
+          ...errorDetails,
+          // 添加更多调试信息
+          requestConfig: error.config,
+          isAxiosError: error.isAxiosError
+        }
       });
-      throw error;
+      
+      // 返回空数组确保前端不会崩溃
+      return [];
     }
   },
 

@@ -42,7 +42,7 @@ class TimeSlot(models.Model):
             models.CheckConstraint(
                 name='prevent_time_slot_overlap',
                 check=models.Q(start_time__lt=models.F('end_time'))
-            ),
+            )
         ]
 
     def __str__(self):
@@ -108,24 +108,28 @@ class Trial(models.Model):
         if not hasattr(self, '_time_range_dirty'):
             self._time_range_dirty = False
             
-        # 如果有传入变更的时间段，只处理这些时间段
+        # 如果有传入变更的时间段，只设置脏标记
         if changed_slots:
             self._time_range_dirty = True
             return
             
-        # 如果没有脏标记且没有传入变更，则跳过计算
+        # 如果没有脏标记则跳过计算
         if not self._time_range_dirty:
             return
             
-        time_slots = self.get_time_slots()
+        time_slots = self.time_slots.all()
         if time_slots.exists():
-            earliest = time_slots.earliest('start_time')
-            latest = time_slots.latest('end_time')
+            # 使用数据库聚合查询优化性能
+            from django.db.models import Min, Max
+            time_range = time_slots.aggregate(
+                min_start=Min('start_time'),
+                max_end=Max('end_time')
+            )
             
             # 使用update避免递归保存
             self.__class__.objects.filter(pk=self.pk).update(
-                start_date=earliest.start_time,
-                end_date=latest.end_time
+                start_date=time_range['min_start'],
+                end_date=time_range['max_end']
             )
             self._time_range_dirty = False
 
@@ -138,7 +142,6 @@ class Trial(models.Model):
 
     def __str__(self):
         return self.title
-
 
 
 class DocumentTemplate(models.Model):

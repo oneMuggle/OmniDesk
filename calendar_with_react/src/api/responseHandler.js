@@ -8,13 +8,35 @@ export const handleResponse = (response) => {
 };
 
 export const handleError = (error) => {
-  console.error('API call failed:', error);
-  if (error.response) {
-    console.error('Response data:', error.response.data);
-    console.error('Response status:', error.response.status);
-    console.error('Response headers:', error.response.headers);
-  } else if (error.request) {
-    console.error('No response received:', error.request);
+  console.error('API call failed:', {
+    message: error.message,
+    stack: error.stack,
+    config: error.config,
+    response: error.response ? {
+      status: error.response.status,
+      statusText: error.response.statusText,
+      data: error.response.data,
+      headers: error.response.headers
+    } : null,
+    request: error.request,
+    isAxiosError: error.isAxiosError,
+    details: error.details
+  });
+
+  // 确保错误对象有必要的属性
+  const enhancedError = new Error(error.message || 'API请求失败');
+  enhancedError.name = error.name || 'ApiError';
+  enhancedError.stack = error.stack;
+  enhancedError.response = error.response;
+  enhancedError.config = error.config;
+  enhancedError.details = error.details || {};
+
+  // 特殊处理 map is not a function 错误
+  if (error.message && error.message.includes('map is not a function')) {
+    enhancedError.message = `数据处理失败: ${error.message}`;
+    enhancedError.details.dataType = typeof error.response?.data;
+    enhancedError.details.originalData = error.response?.data;
   }
-  throw error;
+
+  throw enhancedError;
 };
