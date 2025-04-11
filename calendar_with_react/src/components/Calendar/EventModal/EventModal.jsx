@@ -175,7 +175,8 @@ const EventModal = ({
     const formData = {
       ...currentEvent,
       ...formValues,
-      time_slots: validSlots
+      time_slots: validSlots,
+      version: currentEvent?.version || 0  // 添加version字段
     };
     
     try {
@@ -203,7 +204,10 @@ const EventModal = ({
       if (isEditing && modifiedSlots.length > 0) {
         // 只收集修改过的时间段
         const modifiedTimeSlots = formData.time_slots
-          .filter(slot => slot.id && modifiedSlots.includes(slot.id))
+          .filter(slot => slot.id && 
+            modifiedSlots.includes(slot.id) && 
+            // 确保不尝试更新已删除的时间段
+            currentEvent.time_slots?.some(s => s.id === slot.id))
           .map(slot => ({
             id: slot.id,
             start: toServerFormat(slot.start),
@@ -237,6 +241,7 @@ const EventModal = ({
       });
     }
   };
+
   return (
     <Modal
       title={modalType === 'view' ? '查看试验排班' : '新建试验排班'}
@@ -527,6 +532,8 @@ const EventModal = ({
                               if (slot?.id) {
                                 await calendarApi.deleteTimeSlot(slot.id);
                                 queryClient.invalidateQueries(['trials']);
+                                // 从modifiedSlots中移除已删除的时间段ID
+                                setModifiedSlots(prev => prev.filter(id => id !== slot.id));
                                 if (typeof setDefaultEvents === 'function') {
                                   setDefaultEvents(prev => 
                                     prev.filter(e => e.id !== `slot_${slot.id}`)

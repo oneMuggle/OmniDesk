@@ -71,6 +71,7 @@ class Trial(models.Model):
     ]
 
     title = models.CharField(max_length=200, verbose_name="试验名称")
+    version = models.IntegerField(default=0, verbose_name="版本号")
     client = models.CharField(max_length=200, verbose_name="客户单位") 
     description = models.TextField(verbose_name="试验描述")
     start_date = models.DateTimeField(verbose_name="主开始时间", null=True, blank=True)

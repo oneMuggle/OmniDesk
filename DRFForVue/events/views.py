@@ -135,8 +135,16 @@ class TrialViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         
         with transaction.atomic():
-            # 先更新试验基本信息
-            super().perform_update(serializer)
+            # 乐观锁检查
+            current_version = instance.version
+            if 'version' in self.request.data:
+                if self.request.data['version'] != current_version:
+                    raise serializers.ValidationError(
+                        {'version': '数据已被其他用户修改，请刷新后重试'}
+                    )
+            
+            # 先更新试验基本信息并增加版本号
+            serializer.save(version=current_version + 1)
             
             # 清空原有时间段
             instance.time_slots.all().delete()
