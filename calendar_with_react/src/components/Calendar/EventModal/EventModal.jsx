@@ -269,8 +269,11 @@ const EventModal = ({
       open={!!currentEvent}
       onCancel={() => {
         setIsEditing(false);
-        // 不再调用setCurrentEvent(null)以保持模态框打开
+        setCurrentEvent(null);
+        form.resetFields(); // 清空表单数据
+        setSelectedTrial(null); // 清空选中的试验
       }}
+      closable={true}
       width={800}
       footer={
         modalType === 'view' ? (
@@ -291,7 +294,7 @@ const EventModal = ({
               onClick={() => {
                 setIsEditing(false);
                 form.resetFields();
-                // 不再调用setCurrentEvent(null)以保持模态框打开
+                setCurrentEvent(null); // 关闭模态框
               }}
             >
               取消
@@ -322,6 +325,14 @@ const EventModal = ({
             {autoSaveStatus === 'saved' && '已保存'}
             {autoSaveStatus === 'error' && '保存失败'}
             {!autoSaveStatus && '保存'}
+          </Button>,
+          <Button
+            key="close"
+            type="default"
+            onClick={() => setCurrentEvent(null)}
+            style={{ marginLeft: 8 }}
+          >
+            关闭
           </Button>
         ]
       }
@@ -363,6 +374,7 @@ const EventModal = ({
                   if (!slots || slots.length === 0) {
                     console.warn('获取到空时间段数组', { trialId: value });
                     form.setFieldsValue({ time_slots: [] });
+                    setIsEditing(true); // 自动进入编辑模式
                     return;
                   }
                   
@@ -408,6 +420,7 @@ const EventModal = ({
             <TrialDetails selectedTrial={selectedTrial} />
           )}
 
+          {/* 时间段表单 - 始终显示 */}
           <Form.List name="time_slots">
             {(fields, { add, remove }) => (
               <>
