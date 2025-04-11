@@ -200,24 +200,40 @@ const EventModal = ({
         return;
       }
 
-      // 如果是编辑模式且有修改过的时间段
-      if (isEditing && modifiedSlots.length > 0) {
-        // 只收集修改过的时间段
-        const modifiedTimeSlots = formData.time_slots
-          .filter(slot => slot.id && 
-            modifiedSlots.includes(slot.id) && 
-            // 确保不尝试更新已删除的时间段
-            currentEvent.time_slots?.some(s => s.id === slot.id))
-          .map(slot => ({
-            id: slot.id,
-            start: toServerFormat(slot.start),
-            end: toServerFormat(slot.end),
-            description: slot.description
-          }));
+        // 如果是编辑模式且有修改过的时间段
+        if (isEditing && modifiedSlots.length > 0) {
+          // 获取当前表单中的所有时间段ID
+          const currentSlotIds = form.getFieldValue('time_slots')
+            ?.map(s => s?.id)
+            .filter(Boolean) || [];
+            
+          // 严格过滤modifiedSlots，只保留仍然存在于表单中的ID
+          const validModifiedSlots = modifiedSlots.filter(id => 
+            currentSlotIds.includes(id)
+          );
+            
+          // 只收集修改过且仍然存在的时间段
+          const modifiedTimeSlots = formData.time_slots
+            .filter(slot => 
+              slot.id && 
+              validModifiedSlots.includes(slot.id))
+            .map(slot => ({
+              id: slot.id,
+              start: toServerFormat(slot.start),
+              end: toServerFormat(slot.end),
+              description: slot.description
+            }));
+
+          // 清除已删除的时间段ID
+          setModifiedSlots(validModifiedSlots);
         
         if (modifiedTimeSlots.length > 0) {
-          // 批量更新修改过的时间段
-          await calendarApi.bulkUpdateTimeSlots(modifiedTimeSlots);
+          // 逐个更新修改过的时间段
+          await Promise.all(
+            modifiedTimeSlots.map(slot => 
+              calendarApi.updateTimeSlot(slot.id, slot)
+            )
+          );
           queryClient.invalidateQueries(['trials']);
           setModifiedSlots([]);
         }
@@ -530,14 +546,25 @@ const EventModal = ({
                           onOk={async () => {
                             try {
                               if (slot?.id) {
-                                await calendarApi.deleteTimeSlot(slot.id);
-                                queryClient.invalidateQueries(['trials']);
-                                // 从modifiedSlots中移除已删除的时间段ID
-                                setModifiedSlots(prev => prev.filter(id => id !== slot.id));
-                                if (typeof setDefaultEvents === 'function') {
-                                  setDefaultEvents(prev => 
-                                    prev.filter(e => e.id !== `slot_${slot.id}`)
-                                  );
+                                const result = await calendarApi.deleteTimeSlot(slot.id);
+                                if (result.success === false) {
+                                  // 404错误已处理，直接移除本地数据
+                                  queryClient.invalidateQueries(['trials']);
+                                  setModifiedSlots(prev => prev.filter(id => id !== slot.id));
+                                  if (typeof setDefaultEvents === 'function') {
+                                    setDefaultEvents(prev => 
+                                      prev.filter(e => e.id !== `slot_${slot.id}`)
+                                    );
+                                  }
+                                } else {
+                                  // 正常删除成功
+                                  queryClient.invalidateQueries(['trials']);
+                                  setModifiedSlots(prev => prev.filter(id => id !== slot.id));
+                                  if (typeof setDefaultEvents === 'function') {
+                                    setDefaultEvents(prev => 
+                                      prev.filter(e => e.id !== `slot_${slot.id}`)
+                                    );
+                                  }
                                 }
                               }
                               remove(name);

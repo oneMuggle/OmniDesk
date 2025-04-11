@@ -368,10 +368,87 @@ export const calendarApi = {
       });
       return { success: true, id: slotId };
     } catch (error) {
+      // 特殊处理404错误 - 时间段可能已被删除
+      if (error.response?.status === 404) {
+        console.warn(`时间段 ${slotId} 可能已被删除`, error);
+        return { success: false, id: slotId, message: '时间段不存在或已被删除' };
+      }
       handleError({
         ...error,
         message: `删除时间段失败: ${error.message}`,
         details: { slotId }
+      });
+      throw error;
+    }
+  },
+
+  // 批量更新时间段
+  bulkUpdateTimeSlots: async (slotsData) => {
+    try {
+      const validatedSlots = slotsData.map(slot => {
+        if (!slot.id) {
+          throw new Error('缺少时间段ID');
+        }
+        
+        const startISO = slot.start?.toISOString();
+        const endISO = slot.end?.toISOString();
+        
+        if (!startISO || !endISO) {
+          throw new Error(`无效的时间段参数: ${JSON.stringify(slot)}`);
+        }
+
+        const startDate = new Date(startISO);
+        const endDate = new Date(endISO);
+        
+        if (startDate >= endDate) {
+          throw new Error(`结束时间必须晚于开始时间`);
+        }
+        
+        if (endDate - startDate < 30*60*1000) {
+          throw new Error(`每个时间段至少需要30分钟`);
+        }
+
+        return {
+          id: slot.id,
+          start_time: startISO,
+          end_time: endISO,
+          description: slot.description || ''
+        };
+      });
+
+      const response = await apiClient.patch(
+        '/api/events/time-slots/bulk-update/',
+        validatedSlots,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-Source': 'calendar-view'
+          }
+        }
+      );
+      
+      return response.data.map(slot => ({
+        ...slot,
+        start: new Date(slot.start_time),
+        end: new Date(slot.end_time)
+      }));
+    } catch (error) {
+      // 特殊处理404错误 - 时间段可能已被删除
+      if (error.response?.status === 404) {
+        const notFoundSlots = slotsData.filter(slot => 
+          error.response.data?.not_found?.includes(slot.id)
+        );
+        console.warn('部分时间段不存在:', notFoundSlots);
+        return {
+          success: false,
+          notFound: notFoundSlots,
+          message: '部分时间段不存在或已被删除'
+        };
+      }
+      
+      handleError({
+        ...error,
+        message: `批量更新时间段失败: ${error.message}`
       });
       throw error;
     }
