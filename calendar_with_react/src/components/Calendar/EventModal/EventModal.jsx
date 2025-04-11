@@ -30,13 +30,34 @@ const EventModal = ({
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
   const [autoSaveTimer, setAutoSaveTimer] = useState(null);
 
-  // 自动设置关联试验
+  // 自动设置关联试验并获取时间段
   useEffect(() => {
     if (currentEvent?.trialId) {
       const trial = trials.find(t => t.id === currentEvent.trialId);
       if (trial) {
         form.setFieldsValue({ trial: trial.id });
         setSelectedTrial(trial);
+        
+        // 获取该试验的时间段
+        calendarApi.fetchTimeSlotsByTrial(trial.id)
+          .then(slots => {
+            form.setFieldsValue({
+              time_slots: slots.map(slot => ({
+                id: slot.id,
+                start: slot.start,
+                end: slot.end,
+                description: slot.description
+              }))
+            });
+          })
+          .catch(error => {
+            console.error('获取时间段失败:', {
+              error: error.toString(),
+              response: error.response?.data,
+              trialId: trial.id
+            });
+            form.setFieldsValue({ time_slots: [] });
+          });
       }
     }
   }, [currentEvent, trials]);
@@ -231,8 +252,8 @@ const EventModal = ({
               key="save"
               type="primary"
               onClick={handleManualSave}
+              loading={autoSaveStatus === 'saving'}
             >
-              {autoSaveStatus === 'saving' && '保存中...'}
               {autoSaveStatus === 'saved' && '已保存'}
               {autoSaveStatus === 'error' && '保存失败'}
               {!autoSaveStatus && '保存'}
@@ -269,8 +290,8 @@ const EventModal = ({
             key="save"
             type="primary"
             onClick={handleManualSave}
+            loading={autoSaveStatus === 'saving'}
           >
-            {autoSaveStatus === 'saving' && '保存中...'}
             {autoSaveStatus === 'saved' && '已保存'}
             {autoSaveStatus === 'error' && '保存失败'}
             {!autoSaveStatus && '保存'}
@@ -302,12 +323,32 @@ const EventModal = ({
                 getTrials({ search: value });
               }}
               loading={isTrialsLoading}
-              onChange={(value, option) => {
+              onChange={async (value, option) => {
                 if (!option) {
                   setSelectedTrial(null);
+                  form.setFieldsValue({ time_slots: [] });
                   return;
                 }
                 setSelectedTrial(option.trialData);
+                
+                try {
+                  const slots = await calendarApi.fetchTimeSlotsByTrial(value);
+                  form.setFieldsValue({ 
+                    time_slots: slots.map(slot => ({
+                      id: slot.id,
+                      start: slot.start,
+                      end: slot.end,
+                      description: slot.description
+                    }))
+                  });
+                } catch (error) {
+                  console.error('获取时间段失败:', {
+                    error: error.toString(),
+                    response: error.response?.data,
+                    trialId: value
+                  });
+                  form.setFieldsValue({ time_slots: [] });
+                }
               }}
             />
           </Form.Item>
