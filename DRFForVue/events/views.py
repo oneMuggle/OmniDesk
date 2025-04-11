@@ -152,7 +152,7 @@ class TrialViewSet(viewsets.ModelViewSet):
                     ) for period in time_periods
                 ])
 
-    @action(detail=True, methods=['patch'], url_path='update-time-slots')
+    @action(detail=True, methods=['post', 'patch'], url_path='update-time-slots')
     def update_time_slots(self, request, pk=None):
         """原子化更新时间段"""
         trial = self.get_object()
