@@ -30,6 +30,17 @@ const EventModal = ({
   const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
   const [autoSaveTimer, setAutoSaveTimer] = useState(null);
 
+  // 自动设置关联试验
+  useEffect(() => {
+    if (currentEvent?.trialId) {
+      const trial = trials.find(t => t.id === currentEvent.trialId);
+      if (trial) {
+        form.setFieldsValue({ trial: trial.id });
+        setSelectedTrial(trial);
+      }
+    }
+  }, [currentEvent, trials]);
+
   // 自动保存逻辑
   useEffect(() => {
     return () => {
@@ -55,16 +66,6 @@ const EventModal = ({
   };
 
   const handleManualSave = async () => {
-    // 原有的保存逻辑移动到这里
-    if (modalType === 'view' && !isEditing) {
-      setCurrentEvent(null);
-      return;
-    }
-    if (isEditing) {
-      setIsEditing(false);
-      return;
-    }
-
     // 检查试验项目是否已选择
     const trialId = form.getFieldValue('trial');
     if (!trialId) {
@@ -75,204 +76,207 @@ const EventModal = ({
       return;
     }
 
-    // 原有的验证和保存逻辑...
-    // ...保持原有代码不变...
+    // 增强的时间段验证逻辑
+    const formValues = form.getFieldsValue(true);
+    console.log('原始表单数据:', formValues);
+
+    // 验证time_slots数据结构
+    const timeSlots = formValues.time_slots || [];
+    if (!Array.isArray(timeSlots)) {
+      console.error('time_slots字段不是数组:', formValues);
+      alert('表单数据异常: 时间段数据格式不正确');
+      return;
+    }
+
+    // 检查每个时间段的有效性
+    const invalidSlots = [];
+    const validSlots = timeSlots.map((slot, index) => {
+      if (!slot?.start || !slot?.end) {
+        invalidSlots.push(`时间段 ${index + 1}: 缺少开始或结束时间`);
+        return null;
+      }
+
+      try {
+        const start = fromServerFormat(slot.start);
+        const end = fromServerFormat(slot.end);
+
+        if (!start || !end) {
+          invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
+          return null;
+        }
+
+        const startDate = start.toDate();
+        const endDate = end.toDate();
+
+        if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+          invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
+          return null;
+        }
+
+        if (endDate <= startDate) {
+          invalidSlots.push(`时间段 ${index + 1}: 结束时间必须晚于开始时间`);
+          return null;
+        }
+
+        return {
+          start,
+          end,
+          ...(slot.id && { id: slot.id })
+        };
+      } catch (error) {
+        invalidSlots.push(`时间段 ${index + 1}: ${error.message}`);
+        return null;
+      }
+    }).filter(Boolean);
+
+    // 如果有无效时间段，显示详细错误
+    if (invalidSlots.length > 0 || validSlots.length === 0) {
+      const errorMessage = [
+        '请修正以下问题:',
+        ...invalidSlots,
+        validSlots.length === 0 ? '至少需要一个有效时间段' : ''
+      ].join('\n');
+
+      console.error('时间段验证失败:', {
+        formValues,
+        invalidSlots,
+        validSlots
+      });
+
+      Modal.error({
+        title: '验证失败',
+        content: errorMessage,
+      });
+      return;
+    }
+
+    const formData = {
+      ...currentEvent,
+      ...formValues,
+      time_slots: validSlots
+    };
+    
+    try {
+      // 检查是否有重复时间段
+      const slotTimes = formData.time_slots.map(slot => ({
+        start: toServerFormat(slot.start),
+        end: toServerFormat(slot.end)
+      }));
+      
+      const hasDuplicates = slotTimes.some((slot, index) => 
+        slotTimes.slice(index + 1).some(other => 
+          slot.start === other.start && slot.end === other.end
+        )
+      );
+      
+      if (hasDuplicates) {
+        Modal.error({
+          title: '验证失败',
+          content: '存在重复的时间段，请检查',
+        });
+        return;
+      }
+
+      // 如果是编辑模式且有修改过的时间段
+      if (isEditing && modifiedSlots.length > 0) {
+        // 只收集修改过的时间段
+        const modifiedTimeSlots = formData.time_slots
+          .filter(slot => slot.id && modifiedSlots.includes(slot.id))
+          .map(slot => ({
+            id: slot.id,
+            start: toServerFormat(slot.start),
+            end: toServerFormat(slot.end),
+            description: slot.description
+          }));
+        
+        if (modifiedTimeSlots.length > 0) {
+          // 批量更新修改过的时间段
+          await calendarApi.bulkUpdateTimeSlots(modifiedTimeSlots);
+          queryClient.invalidateQueries(['trials']);
+          setModifiedSlots([]);
+        }
+      }
+      
+      console.log('验证后的表单数据:', {
+        ...formData,
+        time_slots: formData.time_slots.map(slot => ({
+          start: toServerFormat(slot.start),
+          end: toServerFormat(slot.end),
+          duration: slot.end - slot.start
+        }))
+      });
+      await handleEventSubmit(formData);
+      setIsEditing(false);
+    } catch (error) {
+      console.error('保存时间段失败:', error);
+      Modal.error({
+        title: '保存失败',
+        content: error.message,
+      });
+    }
   };
   return (
     <Modal
       title={modalType === 'view' ? '查看试验排班' : '新建试验排班'}
       open={!!currentEvent}
-      onCancel={() => setCurrentEvent(null)}
+      onCancel={() => {
+        setIsEditing(false);
+        // 不再调用setCurrentEvent(null)以保持模态框打开
+      }}
       width={800}
       footer={
-        modalType === 'view' && !isEditing ? [
-          <Button
-            key="edit"
-            type="primary"
-            onClick={() => setIsEditing(true)}
-          >
-            编辑
-          </Button>,
-          <Button
-            key="close"
-            type="default"
-            onClick={() => setCurrentEvent(null)}
-          >
-            关闭
-          </Button>
-        ] : [
+        modalType === 'view' ? (
+          isEditing ? [
+            <Button
+              key="save"
+              type="primary"
+              onClick={handleManualSave}
+            >
+              {autoSaveStatus === 'saving' && '保存中...'}
+              {autoSaveStatus === 'saved' && '已保存'}
+              {autoSaveStatus === 'error' && '保存失败'}
+              {!autoSaveStatus && '保存'}
+            </Button>,
+            <Button
+              key="cancel"
+              type="default"
+              onClick={() => {
+                setIsEditing(false);
+                form.resetFields();
+                // 不再调用setCurrentEvent(null)以保持模态框打开
+              }}
+            >
+              取消
+            </Button>
+          ] : [
+            <Button
+              key="edit"
+              type="primary"
+              onClick={() => setIsEditing(true)}
+            >
+              编辑
+            </Button>,
+            <Button
+              key="close"
+              type="default"
+              onClick={() => setCurrentEvent(null)}
+            >
+              关闭
+            </Button>
+          ]
+        ) : [
           <Button
             key="save"
             type="primary"
-            onClick={async () => {
-              if (modalType === 'view' && !isEditing) {
-                setCurrentEvent(null);
-                return;
-              }
-              if (isEditing) {
-                setIsEditing(false);
-                return;
-              }
-
-              // 检查试验项目是否已选择
-              const trialId = form.getFieldValue('trial');
-              if (!trialId) {
-                Modal.error({
-                  title: '验证失败',
-                  content: '请先选择试验项目',
-                });
-                return;
-              }
-
-              // 增强的时间段验证逻辑
-              const formValues = form.getFieldsValue(true);
-              console.log('原始表单数据:', formValues);
-
-              // 验证time_slots数据结构
-              const timeSlots = formValues.time_slots || [];
-              if (!Array.isArray(timeSlots)) {
-                console.error('time_slots字段不是数组:', formValues);
-                alert('表单数据异常: 时间段数据格式不正确');
-                return;
-              }
-
-              // 检查每个时间段的有效性
-              const invalidSlots = [];
-              const validSlots = timeSlots.map((slot, index) => {
-                if (!slot?.start || !slot?.end) {
-                  invalidSlots.push(`时间段 ${index + 1}: 缺少开始或结束时间`);
-                  return null;
-                }
-
-                try {
-                  const start = fromServerFormat(slot.start);
-                  const end = fromServerFormat(slot.end);
-
-                  if (!start || !end) {
-                    invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
-                    return null;
-                  }
-
-                  const startDate = start.toDate();
-                  const endDate = end.toDate();
-
-                  if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-                    invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
-                    return null;
-                  }
-
-                  if (endDate <= startDate) {
-                    invalidSlots.push(`时间段 ${index + 1}: 结束时间必须晚于开始时间`);
-                    return null;
-                  }
-
-                  return {
-                    start,
-                    end,
-                    ...(slot.id && { id: slot.id })
-                  };
-                } catch (error) {
-                  invalidSlots.push(`时间段 ${index + 1}: ${error.message}`);
-                  return null;
-                }
-              }).filter(Boolean);
-
-              // 如果有无效时间段，显示详细错误
-              if (invalidSlots.length > 0 || validSlots.length === 0) {
-                const errorMessage = [
-                  '请修正以下问题:',
-                  ...invalidSlots,
-                  validSlots.length === 0 ? '至少需要一个有效时间段' : ''
-                ].join('\n');
-
-                console.error('时间段验证失败:', {
-                  formValues,
-                  invalidSlots,
-                  validSlots
-                });
-
-                Modal.error({
-                  title: '验证失败',
-                  content: errorMessage,
-                });
-                return;
-              }
-
-              const formData = {
-                ...currentEvent,
-                ...formValues,
-                time_slots: validSlots
-              };
-              
-              try {
-                // 检查是否有重复时间段
-                const slotTimes = formData.time_slots.map(slot => ({
-                  start: toServerFormat(slot.start),
-                  end: toServerFormat(slot.end)
-                }));
-                
-                const hasDuplicates = slotTimes.some((slot, index) => 
-                  slotTimes.slice(index + 1).some(other => 
-                    slot.start === other.start && slot.end === other.end
-                  )
-                );
-                
-                if (hasDuplicates) {
-                  Modal.error({
-                    title: '验证失败',
-                    content: '存在重复的时间段，请检查',
-                  });
-                  return;
-                }
-
-                // 如果是编辑模式且有修改过的时间段
-                if (isEditing && modifiedSlots.length > 0) {
-                  // 只收集修改过的时间段
-                  const modifiedTimeSlots = formData.time_slots
-                    .filter(slot => slot.id && modifiedSlots.includes(slot.id))
-                    .map(slot => ({
-                      id: slot.id,
-                      start: toServerFormat(slot.start),
-                      end: toServerFormat(slot.end),
-                      description: slot.description
-                    }));
-                  
-                  if (modifiedTimeSlots.length > 0) {
-                    // 批量更新修改过的时间段
-                    await calendarApi.bulkUpdateTimeSlots(modifiedTimeSlots);
-                    queryClient.invalidateQueries(['trials']);
-                    setModifiedSlots([]);
-                  }
-                }
-                
-                console.log('验证后的表单数据:', {
-                  ...formData,
-                  time_slots: formData.time_slots.map(slot => ({
-                    start: toServerFormat(slot.start),
-                    end: toServerFormat(slot.end),
-                    duration: slot.end - slot.start
-                  }))
-                });
-                await handleEventSubmit(formData);
-              } catch (error) {
-                console.error('保存时间段失败:', error);
-                Modal.error({
-                  title: '保存失败',
-                  content: error.message,
-                });
-              }
-            }}
+            onClick={handleManualSave}
           >
-            {modalType === 'view' ? '关闭' : (
-              <>
-                {autoSaveStatus === 'saving' && '保存中...'}
-                {autoSaveStatus === 'saved' && '已保存'}
-                {autoSaveStatus === 'error' && '保存失败'}
-                {!autoSaveStatus && '保存'}
-              </>
-            )}
+            {autoSaveStatus === 'saving' && '保存中...'}
+            {autoSaveStatus === 'saved' && '已保存'}
+            {autoSaveStatus === 'error' && '保存失败'}
+            {!autoSaveStatus && '保存'}
           </Button>
-        ]}
+        ]
+      }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
         <Form
