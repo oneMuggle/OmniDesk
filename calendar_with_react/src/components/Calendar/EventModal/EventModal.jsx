@@ -477,7 +477,7 @@ const EventModal = ({
                             }
                           }}
                         >
-                          {isEditing && (
+                          {isEditing ? (
                             <MinusCircleOutlined 
                               style={{ fontSize: '16px', color: '#ff4d4f' }}
                               onClick={(e) => {
@@ -491,7 +491,7 @@ const EventModal = ({
                                 }
                               }}
                             />
-                          )}
+                          ) : <span />}
                         </ConfirmModal>
                       );
                     })()}
