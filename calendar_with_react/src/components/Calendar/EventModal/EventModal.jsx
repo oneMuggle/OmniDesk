@@ -27,8 +27,6 @@ const EventModal = ({
   setSelectedTrial
 }) => {
   const queryClient = useQueryClient();
-  const [autoSaveStatus, setAutoSaveStatus] = useState(null); // null, 'saving', 'saved', 'error'
-  const [autoSaveTimer, setAutoSaveTimer] = useState(null);
 
   // 自动设置关联试验并获取时间段
   useEffect(() => {
@@ -88,30 +86,6 @@ const EventModal = ({
       }
     }
   }, [currentEvent, trials]);
-
-  // 自动保存逻辑
-  useEffect(() => {
-    return () => {
-      if (autoSaveTimer) {
-        clearTimeout(autoSaveTimer);
-      }
-    };
-  }, [autoSaveTimer]);
-
-  const handleAutoSave = async () => {
-    if (!isEditing) return;
-    
-    setAutoSaveStatus('saving');
-    try {
-      // 复用现有的保存逻辑
-      await handleManualSave();
-      setAutoSaveStatus('saved');
-      setTimeout(() => setAutoSaveStatus(null), 2000);
-    } catch (error) {
-      setAutoSaveStatus('error');
-      console.error('自动保存失败:', error);
-    }
-  };
 
   const handleManualSave = async () => {
     // 检查试验项目是否已选择
@@ -282,11 +256,9 @@ const EventModal = ({
               key="save"
               type="primary"
               onClick={handleManualSave}
-              loading={autoSaveStatus === 'saving'}
+              loading={false}
             >
-              {autoSaveStatus === 'saved' && '已保存'}
-              {autoSaveStatus === 'error' && '保存失败'}
-              {!autoSaveStatus && '保存'}
+              保存
             </Button>,
             <Button
               key="cancel"
@@ -320,11 +292,9 @@ const EventModal = ({
             key="save"
             type="primary"
             onClick={handleManualSave}
-            loading={autoSaveStatus === 'saving'}
+            loading={false}
           >
-            {autoSaveStatus === 'saved' && '已保存'}
-            {autoSaveStatus === 'error' && '保存失败'}
-            {!autoSaveStatus && '保存'}
+            保存
           </Button>,
           <Button
             key="close"
@@ -434,18 +404,6 @@ const EventModal = ({
                       if (slot?.id && !modifiedSlots.includes(slot.id)) {
                         setModifiedSlots([...modifiedSlots, slot.id]);
                       }
-                      // 触发自动保存
-                      if (autoSaveTimer) {
-                        clearTimeout(autoSaveTimer);
-                      }
-                      setAutoSaveTimer(setTimeout(handleAutoSave, 5000));
-                    }}
-                    onChange={() => {
-                      // 表单变更时重置自动保存计时器
-                      if (autoSaveTimer) {
-                        clearTimeout(autoSaveTimer);
-                      }
-                      setAutoSaveTimer(setTimeout(handleAutoSave, 5000));
                     }}
                   >
                     <Form.Item
