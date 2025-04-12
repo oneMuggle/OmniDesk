@@ -1,5 +1,5 @@
 import React from 'react';
-import { Form, Select, Spin } from 'antd';
+import { Form, Select, Spin, Modal } from 'antd';
 import { getTrials } from '../../../api/trials';
 
 const TrialSelector = ({ 
@@ -7,8 +7,7 @@ const TrialSelector = ({
   isTrialsLoading, 
   form, 
   onTrialSelect,
-  calendarApi,
-  Modal
+  calendarApi
 }) => {
   return (
     <Form.Item label="试验项目" required name="trial">

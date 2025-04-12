@@ -1,0 +1,150 @@
+.event-modal {
+  width: 100% !important;
+  max-width: 800px !important;
+}
+
+.event-modal .ant-modal {
+  padding: 0;
+  top: 20px;
+}
+
+.event-modal .ant-modal-content {
+  position: relative;
+  padding: 0;
+  border-radius: 8px;
+}
+
+.event-modal .ant-modal-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid #f0f0f0;
+  border-radius: 8px 8px 0 0;
+}
+
+.event-modal .ant-modal-body {
+  padding: 24px;
+  max-height: calc(100vh - 200px);
+  overflow-y: auto;
+}
+
+.event-modal .ant-modal-footer {
+  padding: 16px 24px;
+  border-top: 1px solid #f0f0f0;
+  border-radius: 0 0 8px 8px;
+}
+
+/* 表单布局 */
+.event-modal .ant-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* 详情表格样式 */
+.event-modal .detail-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 24px;
+}
+
+.event-modal .detail-table td {
+  padding: 12px 8px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.event-modal .detail-table td:first-child {
+  width: 100px;
+  color: rgba(0, 0, 0, 0.85);
+  font-weight: normal;
+  background: #fafafa;
+}
+
+/* 时间段区域 */
+.event-modal .time-slot-section {
+  margin-top: 24px;
+}
+
+.event-modal .time-slot-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.event-modal .time-slot-form .ant-form-item {
+  margin: 0;
+  padding: 8px 0;
+  display: flex;
+  align-items: center;
+}
+
+.event-modal .time-slot-form .ant-picker {
+  flex: 1;
+}
+
+.event-modal .time-slot-form .dynamic-delete-button {
+  margin-left: 8px;
+  color: #ff4d4f;
+  font-size: 16px;
+  cursor: pointer;
+  transition: all 0.3s;
+}
+
+.event-modal .time-slot-form .dynamic-delete-button:hover {
+  color: #ff7875;
+}
+
+/* 添加按钮 */
+.event-modal .ant-btn-dashed {
+  width: 100%;
+  margin-top: 16px;
+}
+
+/* 滚动条样式 */
+.event-modal .ant-modal-body::-webkit-scrollbar {
+  width: 6px;
+}
+
+.event-modal .ant-modal-body::-webkit-scrollbar-thumb {
+  background: #ccc;
+  border-radius: 3px;
+}
+
+.event-modal .ant-modal-body::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+/* 确保内容不重叠 */
+.event-modal .ant-form-item-control-input {
+  min-height: 32px;
+}
+
+/* 输入框样式 */
+.event-modal .ant-input,
+.event-modal .ant-picker {
+  width: 100%;
+  border-radius: 4px;
+}
+
+/* 标签样式 */
+.event-modal .ant-tag {
+  margin: 0 8px 8px 0;
+}
+
+/* 按钮样式 */
+.event-modal .ant-btn {
+  border-radius: 4px;
+  height: 32px;
+  padding: 4px 16px;
+}
+
+/* 确保模态框在小屏幕上也能正常显示 */
+@media screen and (max-height: 768px) {
+  .event-modal .ant-modal-body {
+    max-height: calc(100vh - 180px);
+  }
+}
+
+@media screen and (max-height: 576px) {
+  .event-modal .ant-modal-body {
+    max-height: calc(100vh - 160px);
+  }
+} 

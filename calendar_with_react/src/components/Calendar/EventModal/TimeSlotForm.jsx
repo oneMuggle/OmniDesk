@@ -1,7 +1,8 @@
-import React from 'react';
-import { Button, Form, Input, Space, TimePicker, Modal } from 'antd';
+import React, { useEffect } from 'react';
+import { Button, Form, Input, Space, DatePicker, Modal } from 'antd';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
+import dayjs from 'dayjs';
 
 const TimeSlotForm = ({
   form,
@@ -11,9 +12,40 @@ const TimeSlotForm = ({
   setDefaultEvents,
   queryClient,
   calendarApi,
-
 }) => {
+  useEffect(() => {
+    console.log('Component props:', {
+      isEditing,
+      modifiedSlots,
+      setModifiedSlots,
+      setDefaultEvents,
+      queryClient,
+      calendarApi
+    });
+    console.log('Form initial values:', form.getFieldsValue());
+    console.log('Time slots field:', form.getFieldValue('time_slots'));
+    
+    // Initialize timeRange fields for existing time slots
+    const timeSlots = form.getFieldValue('time_slots') || [];
+    if (timeSlots.length > 0) {
+      const updatedTimeSlots = timeSlots.map(slot => {
+        if (slot?.start && slot?.end) {
+          const startTime = dayjs(slot.start);
+          const endTime = dayjs(slot.end);
+          return {
+            ...slot,
+            timeRange: [startTime, endTime]
+          };
+        }
+        return slot;
+      });
+      form.setFieldsValue({ time_slots: updatedTimeSlots });
+    }
+  }, [form, isEditing, modifiedSlots, setModifiedSlots, setDefaultEvents, queryClient, calendarApi]);
+
   const handleTimeSlotChange = (index, field, value) => {
+    console.log('Time slot changed - index:', index, 'field:', field, 'value:', value);
+    console.log('Before update:', form.getFieldValue('time_slots'));
     const timeSlots = form.getFieldValue('time_slots') || [];
     const newSlots = [...timeSlots];
     
@@ -21,7 +53,8 @@ const TimeSlotForm = ({
       newSlots[index] = {
         ...newSlots[index],
         start: value?.[0] ? toServerFormat(value[0]) : null,
-        end: value?.[1] ? toServerFormat(value[1]) : null
+        end: value?.[1] ? toServerFormat(value[1]) : null,
+        timeRange: value
       };
     } else {
       newSlots[index] = {
@@ -31,6 +64,7 @@ const TimeSlotForm = ({
     }
 
     form.setFieldsValue({ time_slots: newSlots });
+    console.log('After update:', newSlots);
     
     if (newSlots[index]?.id && !modifiedSlots.includes(newSlots[index].id)) {
       setModifiedSlots([...modifiedSlots, newSlots[index].id]);
@@ -40,110 +74,138 @@ const TimeSlotForm = ({
   return (
     <Form.Item label="时间段" required>
       <Form.List name="time_slots">
-        {(fields, { add, remove }) => (
-          <>
-            {fields.map(({ key, name, ...restField }) => {
-              const slot = form.getFieldValue(['time_slots', name]);
-              const startTime = slot?.start ? fromServerFormat(slot.start) : null;
-              const endTime = slot?.end ? fromServerFormat(slot.end) : null;
+        {(fields, { add, remove }) => {
+          console.log('Form.List fields:', fields);
+          return (
+            <>
+              {fields.map(({ key, name, ...restField }) => {
+                const slot = form.getFieldValue(['time_slots', name]);
+                console.log('Current slot data:', slot);
+                
+                const startTime = slot?.start ? dayjs(slot.start) : null;
+                const endTime = slot?.end ? dayjs(slot.end) : null;
+                const timeRange = slot?.timeRange || [startTime, endTime];
+                
+                console.log('Raw slot data:', slot);
+                console.log('Dayjs converted:', { startTime, endTime });
+                console.log('Processed times:', {
+                  startTime: startTime?.format('YYYY-MM-DD HH:mm:ss'),
+                  endTime: endTime?.format('YYYY-MM-DD HH:mm:ss'),
+                  startTimeIsValid: startTime?.isValid(),
+                  endTimeIsValid: endTime?.isValid()
+                });
 
-              return (
-                <Space
-                  key={key}
-                  style={{ display: 'flex', marginBottom: 8 }}
-                  align="baseline"
-                >
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'timeRange']}
-                    rules={[
-                      {
-                        required: true,
-                        message: '请选择时间段',
-                        validator: (_, value) => {
-                          if (!value || !value[0] || !value[1]) {
-                            return Promise.reject('请选择完整时间段');
-                          }
-                          return Promise.resolve();
-                        }
-                      }
-                    ]}
+                return (
+                  <Space
+                    key={key}
+                    style={{ display: 'flex', marginBottom: 8 }}
+                    align="baseline"
                   >
-                    <TimePicker.RangePicker
-                      format="HH:mm"
-                      minuteStep={15}
-                      disabled={!isEditing}
-                      value={[startTime, endTime]}
-                      onChange={(value) => 
-                        handleTimeSlotChange(name, 'timeRange', value)
-                      }
-                    />
-                  </Form.Item>
-
-                  <Form.Item
-                    {...restField}
-                    name={[name, 'description']}
-                  >
-                    <Input
-                      placeholder="描述(可选)"
-                      disabled={!isEditing}
-                      onChange={(e) => 
-                        handleTimeSlotChange(name, 'description', e.target.value)
-                      }
-                    />
-                  </Form.Item>
-
-                  {isEditing && (
-                    <MinusCircleOutlined
-                      onClick={() => {
-                        if (slot?.id) {
-                          Modal.confirm({
-                            title: '确认删除',
-                            content: '确定要删除这个时间段吗？',
-                            onOk: async () => {
-                              try {
-                                await calendarApi.deleteTimeSlot(slot.id);
-                                queryClient.invalidateQueries(['trials']);
-                                remove(name);
-                              } catch (error) {
-                                console.error('删除时间段失败:', error);
-                                Modal.error({
-                                  title: '删除失败',
-                                  content: error.message,
-                                });
-                              }
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'timeRange']}
+                      initialValue={timeRange}
+                      rules={[
+                        {
+                          required: true,
+                          message: '请选择时间段',
+                          validator: (_, value) => {
+                            if (!value || !value[0] || !value[1]) {
+                              return Promise.reject('请选择完整时间段');
                             }
-                          });
-                        } else {
-                          remove(name);
+                            return Promise.resolve();
+                          }
                         }
-                      }}
-                    />
-                  )}
-                </Space>
-              );
-            })}
+                      ]}
+                    >
+                      <DatePicker.RangePicker
+                        showTime={{ 
+                          format: 'HH:mm',
+                          defaultValue: [dayjs('00:00', 'HH:mm'), dayjs('23:59', 'HH:mm')]
+                        }}
+                        format="YYYY-MM-DD HH:mm"
+                        minuteStep={15}
+                        disabled={!isEditing}
+                        onChange={(value) => {
+                          console.log('DatePicker onChange value:', value);
+                          handleTimeSlotChange(name, 'timeRange', value);
+                        }}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            console.log('DatePicker current value:', [startTime, endTime]);
+                          }
+                        }}
+                        style={{ width: '100%' }}
+                        placeholder={['开始时间', '结束时间']}
+                        allowClear={false}
+                      />
+                    </Form.Item>
 
-            {isEditing && (
-              <Form.Item>
-                <Button
-                  type="dashed"
-                  onClick={() => {
-                    add({
-                      start: null,
-                      end: null,
-                      description: ''
-                    });
-                  }}
-                  block
-                  icon={<PlusOutlined />}
-                >
-                  添加时间段
-                </Button>
-              </Form.Item>
-            )}
-          </>
-        )}
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'description']}
+                    >
+                      <Input
+                        placeholder="描述(可选)"
+                        disabled={!isEditing}
+                        onChange={(e) => 
+                          handleTimeSlotChange(name, 'description', e.target.value)
+                        }
+                      />
+                    </Form.Item>
+
+                    {isEditing && (
+                      <MinusCircleOutlined
+                        onClick={() => {
+                          if (slot?.id) {
+                            Modal.confirm({
+                              title: '确认删除',
+                              content: '确定要删除这个时间段吗？',
+                              onOk: async () => {
+                                try {
+                                  await calendarApi.deleteTimeSlot(slot.id);
+                                  queryClient.invalidateQueries(['trials']);
+                                  remove(name);
+                                } catch (error) {
+                                  console.error('删除时间段失败:', error);
+                                  Modal.error({
+                                    title: '删除失败',
+                                    content: error.message,
+                                  });
+                                }
+                              }
+                            });
+                          } else {
+                            remove(name);
+                          }
+                        }}
+                      />
+                    )}
+                  </Space>
+                );
+              })}
+
+              {isEditing && (
+                <Form.Item>
+                  <Button
+                    type="dashed"
+                    onClick={() => {
+                      add({
+                        start: null,
+                        end: null,
+                        description: ''
+                      });
+                    }}
+                    block
+                    icon={<PlusOutlined />}
+                  >
+                    添加时间段
+                  </Button>
+                </Form.Item>
+              )}
+            </>
+          );
+        }}
       </Form.List>
     </Form.Item>
   );

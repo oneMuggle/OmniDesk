@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { calendarApi } from '../../../api/calendar';
 import { getTrials } from '../../../api/trials';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
-import Modal from 'antd/es/modal';
+import { Modal } from 'antd';
 import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
 import EventModalActions from './EventModalActions';

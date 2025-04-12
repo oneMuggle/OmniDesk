@@ -209,6 +209,7 @@ const EventModal = ({
           isTrialsLoading={isTrialsLoading}
           form={form}
           onTrialSelect={setSelectedTrial}
+          calendarApi={calendarApi}
         />
 
         {selectedTrial && <TrialDetails selectedTrial={selectedTrial} />}
