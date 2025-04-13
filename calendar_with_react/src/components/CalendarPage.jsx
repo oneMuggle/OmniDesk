@@ -114,9 +114,43 @@ const CalendarPage = () => {
   };
 
   const extractSlotId = (compositeId) => {
-    // 从'trial-1-0'中提取'1' (trialId)
-    const match = compositeId.match(/trial-(\d+)-\d+/);
-    return match ? parseInt(match[1]) : null;
+    console.log('[DEBUG] 正在解析ID:', compositeId);
+    
+    // 处理 'trial-1-0' 格式 (提取 slotId)
+    if (typeof compositeId === 'string' && compositeId.startsWith('trial-')) {
+      const match = compositeId.match(/trial-(\d+)-(\d+)/);
+      if (match) {
+        const trialId = parseInt(match[1]);
+        const slotIndex = parseInt(match[2]);
+        console.log('[DEBUG] 从 trial-id 格式提取出 trialId:', trialId, 'slotIndex:', slotIndex);
+        return { trialId, slotIndex };
+      }
+      return null;
+    }
+    
+    // 处理 'slot_1' 格式 (提取 slotId)
+    if (typeof compositeId === 'string' && compositeId.startsWith('slot_')) {
+      const id = parseInt(compositeId.replace('slot_', ''));
+      console.log('[DEBUG] 从 slot_id 格式提取出:', id);
+      return { slotId: id };
+    }
+    
+    // 处理 '1-0' 格式 (提取 trialId 和 slotIndex)
+    if (typeof compositeId === 'string' && /^\d+-\d+$/.test(compositeId)) {
+      const [trialId, slotIndex] = compositeId.split('-').map(Number);
+      console.log('[DEBUG] 从 1-0 格式提取出 trialId:', trialId, 'slotIndex:', slotIndex);
+      return { trialId, slotIndex };
+    }
+    
+    // 处理直接数字ID
+    if (!isNaN(parseInt(compositeId))) {
+      const id = parseInt(compositeId);
+      console.log('[DEBUG] 直接解析数字ID:', id);
+      return { slotId: id };
+    }
+    
+    console.error('[ERROR] 无法解析ID:', compositeId);
+    throw new Error(`无效的时间段ID格式: ${compositeId}`);
   };
 
   const handleEventSubmit = async (newEvent) => {
@@ -147,32 +181,49 @@ const CalendarPage = () => {
       console.log('Time slots data:', timeSlots);
 
       let response;
-      if (timeSlots.length > 1) {
-        // 批量创建时间段
-        response = await calendarApi.bulkCreateTimeSlots(trialId, timeSlots);
-      } else if (newEvent.id) {
-        // 更新单个时间段
-        const slotId = extractSlotId(newEvent.id);
-        if (!slotId) {
+      if (newEvent.id && timeSlots.length > 0) {
+        // 统一使用批量更新接口
+        const slotInfo = extractSlotId(newEvent.id);
+        if (!slotInfo) {
+          console.error('[DEBUG] 无法从ID提取有效的slot信息:', newEvent.id);
           throw new Error('无效的时间段ID格式');
         }
-        response = await calendarApi.updateTimeSlot(slotId, {
-          trial: trialId,
-          start_time: toServerFormat(timeSlots[0].start),
-          end_time: toServerFormat(timeSlots[0].end),
+        
+        console.log('[DEBUG] 解析出的slot信息:', slotInfo);
+        
+        // 构造批量更新数据
+        const updateData = [{
+          id: slotInfo.slotId || `${slotInfo.trialId}-${slotInfo.slotIndex}`,
+          start: timeSlots[0].start,
+          end: timeSlots[0].end,
           description: timeSlots[0].description
-        });
+        }];
+        
+        console.log('[DEBUG] 准备批量更新时间段数据:', updateData);
+        response = await calendarApi.bulkUpdateTimeSlots(updateData);
+      } else if (timeSlots.length > 0) {
+        // 创建时间段
+        if (timeSlots.length > 1) {
+          console.log('[DEBUG] 批量创建多个时间段:', timeSlots.length);
+          response = await calendarApi.bulkCreateTimeSlots(trialId, timeSlots);
+        } else {
+          console.log('[DEBUG] 创建单个新时间段');
+          console.log('时间段:', timeSlots);
+          console.log('start_time:', toServerFormat(timeSlots[0].start));
+          console.log('end_time:', toServerFormat(timeSlots[0].end));
+          
+          response = await calendarApi.createTimeSlot({
+            trial: trialId,
+            start_time: toServerFormat(timeSlots[0].start),
+            end_time: toServerFormat(timeSlots[0].end),
+            description: timeSlots[0].description
+          });
+        }
       } else {
-        console.error('时间段:', timeSlots);
-        console.error('start_time:', toServerFormat(timeSlots[0].start));
-        console.error('end_time:', toServerFormat(timeSlots[0].end));
-        // 创建单个时间段
-        response = await calendarApi.createTimeSlot({
-          trial: trialId,
-          start_time: toServerFormat(timeSlots[0].start),
-          end_time: toServerFormat(timeSlots[0].end),
-          description: timeSlots[0].description
-        });
+        // 没有时间段要更新
+        console.log('[DEBUG] 没有时间段需要更新');
+        // 这里可以添加提示或其他处理逻辑
+        response = { success: true };
       }
 
       // 处理响应

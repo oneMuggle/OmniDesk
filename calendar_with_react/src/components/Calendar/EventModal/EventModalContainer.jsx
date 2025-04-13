@@ -141,9 +141,9 @@ const EventModalContainer = ({
     
     try {
       if (isEditing && modifiedSlots.length > 0) {
-        const currentSlotIds = form.getFieldValue('time_slots')
-          ?.map(s => s?.id)
-          .filter(Boolean) || [];
+        const currentSlotIds = validSlots
+          .filter(slot => slot.id)
+          .map(slot => slot.id);
           
         const validModifiedSlots = modifiedSlots.filter(id => 
           currentSlotIds.includes(id)
@@ -171,9 +171,12 @@ const EventModalContainer = ({
           queryClient.invalidateQueries(['trials']);
           setModifiedSlots([]);
         }
+        
+        await handleEventSubmit(formData);
+      } else {
+        await handleEventSubmit(formData);
       }
       
-      await handleEventSubmit(formData);
       setIsEditing(false);
     } catch (error) {
       console.error('保存时间段失败:', error);

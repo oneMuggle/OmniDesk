@@ -36,13 +36,55 @@ const TimeSlotForm = ({
 
     try {
       if (slotToDelete.id) {
-        console.log('删除已有时间段，ID:', slotToDelete.id);
+        console.log('[DEBUG] 删除时间段，原始ID:', slotToDelete.id);
+        
+        // 验证ID格式
+        const idStr = String(slotToDelete.id);
+        const isValidId = idStr.startsWith('slot_') || idStr.startsWith('trial-') || !isNaN(idStr);
+        if (!isValidId) {
+          throw new Error(`无效的时间段ID格式: ${slotToDelete.id}`);
+        }
+
+        // 调试日志 - 删除前检查表单状态
+        const beforeSlots = form.getFieldValue('time_slots') || [];
+        console.log('[DEBUG] 删除前时间段:', 
+          beforeSlots.map(s => ({ 
+            id: s.id, 
+            start: s.start, 
+            end: s.end,
+            type: typeof s.id
+          }))
+        );
+        console.log('[DEBUG] 删除前 modifiedSlots:', modifiedSlots);
+        
+        // 删除时间段
         await calendarApi.deleteTimeSlot(slotToDelete.id);
+        
+        // 从被修改的时间段列表中删除当前时间段
+        if (modifiedSlots.some(s => s.id === slotToDelete.id)) {
+          const newModifiedSlots = modifiedSlots.filter(s => s.id !== slotToDelete.id);
+          console.log('[DEBUG] 从 modifiedSlots 中移除 ID:', slotToDelete.id);
+          console.log('[DEBUG] 新的 modifiedSlots:', newModifiedSlots);
+          setModifiedSlots(newModifiedSlots);
+        }
+        
         queryClient.invalidateQueries(['trials']);
+        console.log('[DEBUG] 删除成功，ID:', slotToDelete.id);
       } else {
         console.log('删除新添加的时间段');
       }
+      
+      // 调用删除函数
       removeFunction(indexToDelete);
+      
+      // 删除后检查表单状态
+      setTimeout(() => {
+        const afterSlots = form.getFieldValue('time_slots') || [];
+        console.log('[DEBUG] 删除后时间段:', 
+          afterSlots.map(s => ({ id: s.id, start: s.start, end: s.end }))
+        );
+      }, 0);
+      
       setDeleteConfirmVisible(false);
     } catch (error) {
       console.error('删除时间段失败:', error);

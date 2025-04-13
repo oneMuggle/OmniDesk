@@ -329,7 +329,18 @@ export const calendarApi = {
 
   updateTimeSlot: async (slotId, slotData) => {
     try {
-      const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
+      // 转换ID格式
+      let finalSlotId = slotId;
+      if (typeof slotId === 'string' && slotId.startsWith('slot_')) {
+        finalSlotId = `${slotData.trial_id || slotData.trial}-${slotId.replace('slot_', '')}`;
+      }
+
+      console.log(`[API] 开始更新时间段 ID: ${finalSlotId}`, {
+        提交数据: slotData,
+        请求URL: `/api/events/time-slots/${slotId}/`
+      });
+      
+      const response = await apiClient.patch(`/api/events/time-slots/${finalSlotId}/`, {
         start_time: slotData.start_time,
         end_time: slotData.end_time,
         description: slotData.description || '',
@@ -340,12 +351,23 @@ export const calendarApi = {
           'X-Request-Source': 'calendar-view'
         }
       });
+      
+      console.log(`[API] 时间段更新成功 ID: ${slotId}`, {
+        响应数据: response.data
+      });
+      
       return {
         ...response.data,
         start: new Date(response.data.start_time),
         end: new Date(response.data.end_time)
       };
     } catch (error) {
+      console.error(`[API] 时间段更新失败 ID: ${slotId}`, {
+        错误: error,
+        状态码: error.response?.status,
+        响应数据: error.response?.data
+      });
+      
       handleError({
         ...error,
         message: `更新时间段失败: ${error.message}`,
@@ -377,6 +399,60 @@ export const calendarApi = {
         ...error,
         message: `删除时间段失败: ${error.message}`,
         details: { slotId }
+      });
+      throw error;
+    }
+  },
+
+  // 通过trialId和slotIndex更新时间段
+  updateTimeSlotByIndex: async (trialId, slotIndex, slotData) => {
+    try {
+      console.log(`[API] 开始通过索引更新时间段 trialId: ${trialId}, slotIndex: ${slotIndex}`, {
+        提交数据: slotData,
+        请求URL: `/api/events/trials/${trialId}/update-time-slot/${slotIndex}/`
+      });
+      
+      const response = await apiClient.patch(
+        `/api/events/trials/${trialId}/update-time-slot/${slotIndex}/`,
+        {
+          start_time: slotData.start_time,
+          end_time: slotData.end_time,
+          description: slotData.description || '',
+          trial_id: slotData.trial
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Request-Source': 'calendar-view'
+          }
+        }
+      );
+      
+      console.log(`[API] 通过索引更新时间段成功 trialId: ${trialId}, slotIndex: ${slotIndex}`, {
+        响应数据: response.data
+      });
+      
+      return {
+        ...response.data,
+        start: new Date(response.data.start_time),
+        end: new Date(response.data.end_time)
+      };
+    } catch (error) {
+      console.error(`[API] 通过索引更新时间段失败 trialId: ${trialId}, slotIndex: ${slotIndex}`, {
+        错误: error,
+        状态码: error.response?.status,
+        响应数据: error.response?.data
+      });
+      
+      handleError({
+        ...error,
+        message: `通过索引更新时间段失败: ${error.message}`,
+        details: {
+          trialId,
+          slotIndex,
+          start: slotData.start_time,
+          end: slotData.end_time
+        }
       });
       throw error;
     }

@@ -125,8 +125,18 @@ const EventModal = ({
 
       // 更新修改过的时间段
       if (isEditing && modifiedSlots.length > 0) {
+        // 获取当前表单中所有时间段的ID列表
+        const currentSlotIds = validSlots
+          .filter(slot => slot.id)
+          .map(slot => slot.id);
+        
+        // 过滤掉已删除的时间段ID
+        const validModifiedSlots = modifiedSlots.filter(id => 
+          currentSlotIds.includes(id)
+        );
+          
         const modifiedTimeSlots = validSlots
-          .filter(slot => slot.id && modifiedSlots.includes(slot.id))
+          .filter(slot => slot.id && validModifiedSlots.includes(slot.id))
           .map(slot => ({
             id: slot.id,
             start: toServerFormat(slot.start),
@@ -134,18 +144,27 @@ const EventModal = ({
             description: slot.description
           }));
 
+        // 更新修改的时间段列表
+        setModifiedSlots(validModifiedSlots);
+      
         if (modifiedTimeSlots.length > 0) {
           await Promise.all(
-            modifiedTimeSlots.map(slot => 
-              calendarApi.updateTimeSlot(slot.id, slot)
-            )
+            modifiedTimeSlots.map(slot => {
+              // 直接使用slot.id作为API参数
+              return calendarApi.updateTimeSlot(slot.id, slot);
+            })
           );
           queryClient.invalidateQueries(['trials']);
           setModifiedSlots([]);
         }
+        
+        // 更新事件数据
+        await handleEventSubmit(formData);
+      } else {
+        // 没有修改过的时间段，直接提交
+        await handleEventSubmit(formData);
       }
-
-      await handleEventSubmit(formData);
+      
       setIsEditing(false);
     } catch (error) {
       console.error('保存失败:', error);
