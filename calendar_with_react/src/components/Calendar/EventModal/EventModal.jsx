@@ -4,7 +4,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
 import TrialDetails from './TrialDetails';
-import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
+import { fromServerFormat, toServerFormat, formatDate } from '../../../utils/dateUtils';
 
 const EventModal = ({
   currentEvent,
@@ -114,16 +114,22 @@ const EventModal = ({
         version: currentEvent?.version || 0
       };
 
-      // 检查重复时间段
-      const hasDuplicates = validSlots.some((slot, index) => 
-        validSlots.slice(index + 1).some(other => 
-          toServerFormat(slot.start) === toServerFormat(other.start) && 
-          toServerFormat(slot.end) === toServerFormat(other.end)
-        )
-      );
-      
-      if (hasDuplicates) {
-        throw new Error('存在重复的时间段');
+      // 检查时间段重叠
+      for (let i = 0; i < validSlots.length; i++) {
+        const slot1 = validSlots[i];
+        const start1 = fromServerFormat(slot1.start_time || slot1.start);
+        const end1 = fromServerFormat(slot1.end_time || slot1.end);
+        
+        for (let j = i + 1; j < validSlots.length; j++) {
+          const slot2 = validSlots[j];
+          const start2 = fromServerFormat(slot2.start_time || slot2.start);
+          const end2 = fromServerFormat(slot2.end_time || slot2.end);
+          
+          // 检查时间段是否重叠
+          if (!(end1.isBefore(start2) || start2.isBefore(end1))) {
+            throw new Error(`时间段重叠: ${formatDate(start1, 'YYYY-MM-DD HH:mm')}至${formatDate(end1, 'YYYY-MM-DD HH:mm')} 与 ${formatDate(start2, 'YYYY-MM-DD HH:mm')}至${formatDate(end2, 'YYYY-MM-DD HH:mm')}`);
+          }
+        }
       }
 
       // 更新修改过的时间段
