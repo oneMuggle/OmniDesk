@@ -132,47 +132,72 @@ const EventModal = ({
         }
       }
 
-      // 更新修改过的时间段
-      if (isEditing && modifiedSlots.length > 0) {
+      // 处理时间段更新
+      if (isEditing) {
+        console.log('[DEBUG] 处理时间段更新', {
+          validSlots,
+          modifiedSlots
+        });
+
         // 获取当前表单中所有时间段的ID列表
         const currentSlotIds = validSlots
           .filter(slot => slot.id)
           .map(slot => slot.id);
         
-        // 过滤掉已删除的时间段ID
-        const validModifiedSlots = modifiedSlots.filter(id => 
-          currentSlotIds.includes(id)
-        );
-          
-        const modifiedTimeSlots = validSlots
-          .filter(slot => slot.id && validModifiedSlots.includes(slot.id))
+        // 处理新增的时间段 (没有ID的)
+        const newTimeSlots = validSlots
+          .filter(slot => !slot.id)
           .map(slot => ({
-            id: slot.id,
-          start_time: toServerFormat(slot.start_time || slot.start),
-          end_time: toServerFormat(slot.end_time || slot.end),
+            start: toServerFormat(slot.start_time || slot.start),
+            end: toServerFormat(slot.end_time || slot.end),
             description: slot.description
           }));
 
-        // 更新修改的时间段列表
-        setModifiedSlots(validModifiedSlots);
-      
+        // 处理修改的时间段 (有ID的)
+        const modifiedTimeSlots = modifiedSlots.length > 0 
+          ? validSlots
+              .filter(slot => slot.id && modifiedSlots.includes(slot.id))
+              .map(slot => ({
+                id: slot.id,
+                start_time: toServerFormat(slot.start_time || slot.start),
+                end_time: toServerFormat(slot.end_time || slot.end),
+                description: slot.description
+              }))
+          : [];
+
+        console.log('[DEBUG] 时间段更新详情', {
+          newTimeSlots,
+          modifiedTimeSlots
+        });
+
+        // 创建新时间段
+        if (newTimeSlots.length > 0) {
+          console.log('[DEBUG] 创建新时间段', newTimeSlots);
+          await calendarApi.bulkCreateTimeSlots(formData.trial, newTimeSlots);
+        } else {
+          console.log('[DEBUG] 没有新时间段需要创建');
+        }
+        
+        // 更新修改的时间段
         if (modifiedTimeSlots.length > 0) {
+          console.log('[DEBUG] 更新修改的时间段', modifiedTimeSlots);
           await Promise.all(
             modifiedTimeSlots.map(slot => {
-              // 直接使用slot.id作为API参数
               return calendarApi.updateTimeSlot(slot.id, slot);
             })
           );
+        } else {
+          console.log('[DEBUG] 没有时间段需要更新');
+        }
+        
+        if (newTimeSlots.length > 0 || modifiedTimeSlots.length > 0) {
           queryClient.invalidateQueries(['trials']);
           setModifiedSlots([]);
         }
-        
-        // 更新事件数据
-        await handleEventSubmit(formData);
-      } else {
-        // 没有修改过的时间段，直接提交
-        await handleEventSubmit(formData);
       }
+      
+      // 更新事件数据
+      await handleEventSubmit(formData);
       
       setIsEditing(false);
     } catch (error) {

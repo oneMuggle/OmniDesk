@@ -158,8 +158,18 @@ const TimeSlotForm = ({
     form.setFieldsValue({ time_slots: newSlots });
     console.log('After update:', newSlots);
     
-    if (newSlots[index]?.id && !modifiedSlots.includes(newSlots[index].id)) {
-      setModifiedSlots([...modifiedSlots, newSlots[index].id]);
+    // 对于已有时间段(id不为null)，标记为修改
+    if (newSlots[index]?.id) {
+      const slotId = newSlots[index].id;
+      console.log('[DEBUG] 检查时间段更新:', {
+        slotId,
+        modifiedSlots
+      });
+      
+      if (!modifiedSlots.includes(slotId)) {
+        setModifiedSlots([...modifiedSlots, slotId]);
+        console.log('[DEBUG] 添加到modifiedSlots:', slotId);
+      }
     }
   };
 
@@ -168,25 +178,25 @@ const TimeSlotForm = ({
       <Form.Item label="时间段" required>
         <Form.List name="time_slots">
           {(fields, { add, remove }) => {
-            console.log('Form.List fields:', fields);
+            // console.log('Form.List fields:', fields);
             return (
               <>
                 {fields.map(({ key, name, ...restField }) => {
                   const slot = form.getFieldValue(['time_slots', name]);
-                  console.log('Current slot data:', slot);
+                  // console.log('Current slot data:', slot);
                   
                   const startTime = slot?.start ? dayjs(slot.start) : null;
                   const endTime = slot?.end ? dayjs(slot.end) : null;
                   const timeRange = slot?.timeRange || [startTime, endTime];
                   
-                  console.log('Raw slot data:', slot);
-                  console.log('Dayjs converted:', { startTime, endTime });
-                  console.log('Processed times:', {
-                    startTime: startTime?.format('YYYY-MM-DD HH:mm:ss'),
-                    endTime: endTime?.format('YYYY-MM-DD HH:mm:ss'),
-                    startTimeIsValid: startTime?.isValid(),
-                    endTimeIsValid: endTime?.isValid()
-                  });
+                  // console.log('Raw slot data:', slot);
+                  // console.log('Dayjs converted:', { startTime, endTime });
+                  // console.log('Processed times:', {
+                  //   startTime: startTime?.format('YYYY-MM-DD HH:mm:ss'),
+                  //   endTime: endTime?.format('YYYY-MM-DD HH:mm:ss'),
+                  //   startTimeIsValid: startTime?.isValid(),
+                  //   endTimeIsValid: endTime?.isValid()
+                  // });
 
                   return (
                     <Space
@@ -265,6 +275,7 @@ const TimeSlotForm = ({
                       type="dashed"
                       onClick={() => {
                         add({
+                          id: null,
                           start: null,
                           end: null,
                           description: ''

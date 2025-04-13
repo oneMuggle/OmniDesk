@@ -19,6 +19,34 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['trial', 'start_time', 'end_time']
 
+    @action(detail=False, methods=['post'], url_path='bulk-create')
+    def bulk_create(self, request):
+        """批量创建时间段"""
+        trial_id = request.data.get('trial')
+        time_slots = request.data.get('time_slots', [])
+        
+        if not trial_id:
+            return Response({'error': 'trial is required'}, status=400)
+        
+        try:
+            trial = Trial.objects.get(pk=trial_id)
+        except Trial.DoesNotExist:
+            return Response({'error': 'trial not found'}, status=404)
+
+        with transaction.atomic():
+            new_slots = TimeSlot.objects.bulk_create([
+                TimeSlot(
+                    trial=trial,
+                    start_time=slot['start_time'],
+                    end_time=slot['end_time'],
+                    description=slot.get('description', '')
+                ) for slot in time_slots
+            ])
+            trial.update_time_range()
+
+        serializer = TimeSlotSerializer(new_slots, many=True)
+        return Response(serializer.data, status=201)
+
     def perform_create(self, serializer):
         """创建时间段并自动更新关联试验的时间范围"""
         with transaction.atomic():

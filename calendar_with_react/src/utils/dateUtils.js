@@ -1,4 +1,7 @@
 import dayjs from 'dayjs';
+import utc from 'dayjs-plugin-utc';
+
+dayjs.extend(utc);
 
 // 1. 日期解析 - 处理多种输入类型
 export const parseDate = (input) => {
@@ -36,15 +39,15 @@ export const isValidDate = (date) => {
   return !!parseDate(date);
 };
 
-// 4. 转换为后端格式 (ISO 8601)
+// 4. 转换为后端格式 (ISO 8601 with timezone)
 export const toServerFormat = (date) => {
   const parsed = parseDate(date);
-  return parsed ? parsed.format('YYYY-MM-DDTHH:mm:ss') + '+08:00' : null;
+  return parsed ? parsed.utc().format() : null; // 使用ISO8601 UTC格式
 };
 
-// 5. 从后端格式解析
+// 5. 从后端格式解析 (支持带时区)
 export const fromServerFormat = (dateString) => {
-  return parseDate(dateString);
+  return dayjs(dateString).utc().local(); // 从UTC转换到本地时间(不再使用时区功能)
 };
 
 // 6. 日期比较

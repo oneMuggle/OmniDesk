@@ -541,9 +541,14 @@ export const calendarApi = {
   // 批量创建时间段
   bulkCreateTimeSlots: async (trialId, slotsData) => {
     try {
+      console.log('[API] 批量创建时间段请求数据:', {
+        trialId,
+        slotsData
+      });
+
       const validatedSlots = slotsData.map(slot => {
-        const startISO = slot.start?.toISOString();
-        const endISO = slot.end?.toISOString();
+        const startISO = slot.start;
+        const endISO = slot.end;
         
         if (!startISO || !endISO) {
           throw new Error(`无效的时间段参数: ${JSON.stringify(slot)}`);
@@ -568,8 +573,11 @@ export const calendarApi = {
       });
 
       const response = await apiClient.post(
-        `/api/events/trials/${trialId}/update-time-slots/`,
-        validatedSlots,
+        '/api/events/time-slots/bulk-create/',
+        {
+          trial: trialId,
+          time_slots: validatedSlots
+        },
         {
           headers: {
             'Content-Type': 'application/json',
@@ -577,12 +585,27 @@ export const calendarApi = {
           }
         }
       );
-      
-      return response.data.map(slot => ({
-        ...slot,
-        start: new Date(slot.start_time),
-        end: new Date(slot.end_time)
-      }));
+
+      // 验证响应数据
+      if (!response.data || !Array.isArray(response.data)) {
+        console.error('API返回无效数据:', response.data);
+        throw new Error('API返回无效的时间段数据');
+      }
+
+      const createdSlots = response.data.map(slot => {
+        if (!slot.id || !slot.start_time || !slot.end_time) {
+          console.error('无效的时间段数据:', slot);
+          throw new Error('API返回的时间段数据不完整');
+        }
+        return {
+          ...slot,
+          start: new Date(slot.start_time),
+          end: new Date(slot.end_time)
+        };
+      });
+
+      console.log('[API] 批量创建时间段成功:', createdSlots);
+      return createdSlots;
     } catch (error) {
       handleError({
         ...error,
