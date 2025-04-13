@@ -144,6 +144,8 @@ const TimeSlotForm = ({
         ...newSlots[index],
         start: value?.[0] ? toServerFormat(value[0]) : null,
         end: value?.[1] ? toServerFormat(value[1]) : null,
+        start_time: value?.[0] ? toServerFormat(value[0]) : null,
+        end_time: value?.[1] ? toServerFormat(value[1]) : null,
         timeRange: value
       };
     } else {

@@ -56,8 +56,8 @@ const EventModal = ({
             form.setFieldsValue({
               time_slots: validSlots.map(slot => ({
                 id: slot.id,
-                start: slot.start,
-                end: slot.end,
+                start_time: slot.start_time || slot.start,
+                end_time: slot.end_time || slot.end,
                 description: slot.description || ''
               }))
             });
@@ -81,20 +81,23 @@ const EventModal = ({
       
       // 验证时间段
       const validSlots = timeSlots.map(slot => {
-        if (!slot?.start || !slot?.end) {
+        const startTime = slot.start_time || slot.start;
+        const endTime = slot.end_time || slot.end;
+        
+        if (!startTime || !endTime) {
           throw new Error('所有时间段必须包含开始和结束时间');
         }
         
-        const start = fromServerFormat(slot.start);
-        const end = fromServerFormat(slot.end);
+        const start = fromServerFormat(startTime);
+        const end = fromServerFormat(endTime);
         
         if (!start || !end || end <= start) {
           throw new Error('时间段无效: 结束时间必须晚于开始时间');
         }
         
         return {
-          start,
-          end,
+          start_time: toServerFormat(start),
+          end_time: toServerFormat(end),
           ...(slot.id && { id: slot.id }),
           description: slot.description || ''
         };
@@ -139,8 +142,8 @@ const EventModal = ({
           .filter(slot => slot.id && validModifiedSlots.includes(slot.id))
           .map(slot => ({
             id: slot.id,
-            start: toServerFormat(slot.start),
-            end: toServerFormat(slot.end),
+          start_time: toServerFormat(slot.start_time || slot.start),
+          end_time: toServerFormat(slot.end_time || slot.end),
             description: slot.description
           }));
 
