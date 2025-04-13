@@ -328,6 +328,11 @@ export const calendarApi = {
   },
 
   updateTimeSlot: async (slotId, slotData) => {
+    // 验证必填字段
+    if (!slotData.start_time || !slotData.end_time) {
+      throw new Error('必须提供start_time和end_time字段');
+    }
+
     try {
       // 转换ID格式
       let finalSlotId = slotId;
@@ -344,7 +349,10 @@ export const calendarApi = {
         start_time: slotData.start_time,
         end_time: slotData.end_time,
         description: slotData.description || '',
-        trial_id: slotData.trial
+        trial_id: slotData.trial,
+        // 确保发送所有必填字段
+        start: slotData.start_time,
+        end: slotData.end_time
       }, {
         headers: {
           'Content-Type': 'application/json',
