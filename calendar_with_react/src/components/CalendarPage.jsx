@@ -381,15 +381,15 @@ const CalendarPage = () => {
               // 转换排班数据为日历事件
               return schedules.map(schedule => ({
                 id: schedule.id,
-                title: `${schedule.staff}`,
+                title: `${schedule.staff} (${schedule.leader})`,
                 start: schedule.date,
                 allDay: true,
                 extendedProps: {
                   type: 'SCHEDULE',
                   staff: schedule.staff,
                   leader: schedule.leader,
-                  staffPhone: schedule.staffPhone,
-                  leaderPhone: schedule.leaderPhone
+                  staffPhone: personnel.find(p => p.id === schedule.staff)?.phone || '无',
+                  leaderPhone: personnel.find(p => p.id === schedule.leader)?.phone || '无'
                 },
                 color: '#4CAF50',
                 display: 'background',
@@ -483,9 +483,10 @@ const CalendarPage = () => {
           firstDay={1}
           eventDrop={async (info) => {
             if (calendarType === 'schedule') {
-              const { event } = info;
+              const { event, oldEvent } = info;
               const scheduleId = event.id;
               const newDate = event.startStr;
+              const oldDate = oldEvent.startStr;
               
               try {
                 const loading = Modal.info({
@@ -494,13 +495,22 @@ const CalendarPage = () => {
                   maskClosable: false
                 });
                 
-                await calendarApi.updateScheduleDate(scheduleId, newDate);
+                // 检查目标日期是否已有排班
+                const targetSchedule = schedules.find(s => s.date === newDate);
+                if (targetSchedule) {
+                  // 交换两个排班的日期
+                  await calendarApi.swapScheduleDates(scheduleId, targetSchedule.id);
+                } else {
+                  // 仅更新当前排班的日期
+                  await calendarApi.updateScheduleDate(scheduleId, newDate);
+                }
+                
                 await queryClient.invalidateQueries(['schedules']);
                 
                 loading.update({
                   type: 'success',
                   title: '更新成功',
-                  content: '排班日期已更新',
+                  content: targetSchedule ? '排班日期已交换' : '排班日期已更新',
                   okButtonProps: { type: 'primary' }
                 });
               } catch (error) {
@@ -512,6 +522,16 @@ const CalendarPage = () => {
                 });
               }
             }
+          }}
+          eventDragStop={(info) => {
+            // 添加拖拽结束时的视觉反馈
+            info.el.style.opacity = '1';
+            info.el.style.boxShadow = 'none';
+          }}
+          eventDragStart={(info) => {
+            // 添加拖拽开始时的视觉反馈
+            info.el.style.opacity = '0.8';
+            info.el.style.boxShadow = '0 0 10px rgba(0,0,0,0.3)';
           }}
         />
       </div>

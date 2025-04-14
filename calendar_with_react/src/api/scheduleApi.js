@@ -5,42 +5,24 @@ export const scheduleApi = {
   getSchedules: async () => {
     try {
       const response = await apiClient.get('/api/events/schedules/');
-      return response.data;
+      return response.data.map(schedule => ({
+        id: schedule.id,
+        date: schedule.date,
+        staff: schedule.staff,
+        leader: schedule.leader
+      }));
     } catch (error) {
       handleError(error);
       throw error;
     }
   },
 
-  fetchSchedules: async () => {
-    try {
-      const response = await apiClient.get('/api/events/schedules/');
-      return response.data.map(schedule => ({
-        id: schedule.id,
-        title: schedule.title,
-        start: new Date(schedule.start_time),
-        end: new Date(schedule.end_time),
-        extendedProps: {
-          description: schedule.description,
-          personnel: schedule.responsible_persons,
-          equipment: schedule.equipments
-        }
-      }));
-    } catch (error) {
-      console.error('Failed to fetch schedules:', error);
-      return [];
-    }
-  },
-
   createSchedule: async (scheduleData) => {
     try {
       const response = await apiClient.post('/api/events/schedules/', {
-        title: scheduleData.title,
-        start_time: scheduleData.start,
-        end_time: scheduleData.end,
-        description: scheduleData.description || '',
-        equipment_ids: scheduleData.equipmentIds || [],
-        responsible_person_ids: scheduleData.responsiblePersonIds || []
+        date: scheduleData.date,
+        staff: scheduleData.staff,
+        leader: scheduleData.leader
       });
       return response.data;
     } catch (error) {
@@ -52,12 +34,9 @@ export const scheduleApi = {
   updateSchedule: async (scheduleId, scheduleData) => {
     try {
       const response = await apiClient.patch(`/api/events/schedules/${scheduleId}/`, {
-        title: scheduleData.title,
-        start_time: scheduleData.start,
-        end_time: scheduleData.end,
-        description: scheduleData.description || '',
-        equipment_ids: scheduleData.equipmentIds || [],
-        responsible_person_ids: scheduleData.responsiblePersonIds || []
+        date: scheduleData.date,
+        staff: scheduleData.staff,
+        leader: scheduleData.leader
       });
       return response.data;
     } catch (error) {

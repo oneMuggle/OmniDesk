@@ -24,9 +24,7 @@ const ScheduleModal = ({
       form.setFieldsValue({
         date: scheduleData.date,
         staff: scheduleData.staff,
-        leader: scheduleData.leader,
-        staffPhone: scheduleData.staffPhone,
-        leaderPhone: scheduleData.leaderPhone
+        leader: scheduleData.leader
       });
     } else {
       form.resetFields();
@@ -43,14 +41,17 @@ const ScheduleModal = ({
         date,
         staff: values.staff,
         leader: values.leader,
-        staffPhone: values.staffPhone,
-        leaderPhone: values.leaderPhone
       };
 
       if (isEditing) {
         await calendarApi.updateSchedule(scheduleData.id, schedule);
         message.success('排班更新成功');
       } else {
+        // 检查日期是否已存在排班
+        const existing = await calendarApi.checkScheduleDate(date);
+        if (existing) {
+          throw new Error('该日期已有排班，请选择其他日期');
+        }
         await calendarApi.createSchedule(schedule);
         message.success('排班创建成功');
       }
@@ -125,13 +126,13 @@ const ScheduleModal = ({
           <div className="info-item">
             <label className="info-label">值班人员:</label>
             <span className="info-value">
-              {getPersonName(scheduleData?.staff)} ({scheduleData?.staffPhone})
+              {getPersonName(scheduleData?.staff)} ({personnelList.find(p => p.id === scheduleData?.staff)?.phone || '无电话'})
             </span>
           </div>
           <div className="info-item">
             <label className="info-label">值班领导:</label>
             <span className="info-value">
-              {getPersonName(scheduleData?.leader)} ({scheduleData?.leaderPhone})
+              {getPersonName(scheduleData?.leader)} ({personnelList.find(p => p.id === scheduleData?.leader)?.phone || '无电话'})
             </span>
           </div>
         </div>
@@ -170,14 +171,6 @@ const ScheduleModal = ({
           </Form.Item>
 
           <Form.Item
-            name="staffPhone"
-            label="值班人员电话"
-            rules={[{ required: true, message: '请输入值班人员电话' }]}
-          >
-            <Input placeholder="输入值班人员电话" />
-          </Form.Item>
-
-          <Form.Item
             name="leader"
             label="值班领导"
             rules={[
@@ -201,13 +194,6 @@ const ScheduleModal = ({
             </Select>
           </Form.Item>
 
-          <Form.Item
-            name="leaderPhone"
-            label="值班领导电话"
-            rules={[{ required: true, message: '请输入值班领导电话' }]}
-          >
-            <Input placeholder="输入值班领导电话" />
-          </Form.Item>
         </Form>
       )}
     </Modal>

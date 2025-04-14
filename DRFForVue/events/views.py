@@ -168,6 +168,39 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             )
         serializer.save()
 
+    @action(detail=False, methods=['post'], url_path='swap-dates')
+    def swap_dates(self, request):
+        """交换两个排班的日期"""
+        schedule_id_1 = request.data.get('schedule_id_1')
+        schedule_id_2 = request.data.get('schedule_id_2')
+        
+        if not schedule_id_1 or not schedule_id_2:
+            return Response({'error': 'schedule_id_1 and schedule_id_2 are required'}, status=400)
+        
+        try:
+            with transaction.atomic():
+                schedule1 = Schedule.objects.get(pk=schedule_id_1)
+                schedule2 = Schedule.objects.get(pk=schedule_id_2)
+                
+                # 交换日期
+                temp_date = schedule1.duty_date
+                schedule1.duty_date = schedule2.duty_date
+                schedule2.duty_date = temp_date
+                
+                # 保存并验证
+                schedule1.save()
+                schedule2.save()
+                
+                return Response({
+                    'status': 'success',
+                    'schedule1': ScheduleSerializer(schedule1).data,
+                    'schedule2': ScheduleSerializer(schedule2).data
+                })
+        except Schedule.DoesNotExist:
+            return Response({'error': 'One or both schedules not found'}, status=404)
+        except Exception as e:
+            return Response({'error': str(e)}, status=400)
+
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()
     serializer_class = PersonnelSerializer
