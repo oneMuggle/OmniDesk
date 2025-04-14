@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useAuth } from '../context/AuthContext';
 import moment from 'moment';
 import CalendarControls from './Calendar/CalendarControls';
 import EventModal from './Calendar/EventModal/EventModal';
@@ -66,6 +67,7 @@ const trialStatusConfig = {
 };
 
 const CalendarPage = () => {
+  const { isGuest } = useAuth();
   const queryClient = useQueryClient();
   const {
     data: trials = [],
@@ -422,8 +424,10 @@ const CalendarPage = () => {
               });
             }
           }}
-          editable={true}
-          selectable={true}
+          editable={!isGuest}
+          selectable={!isGuest}
+          eventStartEditable={!isGuest}
+          eventDurationEditable={!isGuest}
           height="auto"
           firstDay={1}
         />

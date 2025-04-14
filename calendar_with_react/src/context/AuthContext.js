@@ -66,14 +66,17 @@ apiClient.interceptors.response.use(
 export const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
+  isGuest: false,
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
-  register: () => Promise.resolve({ success: false })
+  register: () => Promise.resolve({ success: false }),
+  loginAsGuest: () => {}
 });
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [isGuest, setIsGuest] = useState(false);
 
   // 初始化时检查本地存储的token
   useEffect(() => {
@@ -93,6 +96,7 @@ export function AuthProvider({ children }) {
             .then(res => {
               setUser(res.data);
               setIsInitializing(false);
+              setIsGuest(false);
             })
             .catch(() => {
               localStorage.removeItem('authTokens');
@@ -134,10 +138,11 @@ export function AuthProvider({ children }) {
       
       const userRes = await apiClient.get('/api/users/me/');
       setUser(userRes.data);
-        return { 
-          success: true,
-          redirectTo: '/calendar' 
-        };
+      setIsGuest(false);
+      return { 
+        success: true,
+        redirectTo: '/calendar' 
+      };
     } catch (err) {
       console.error('Login failed:', err);
       return { success: false, error: err.response?.data?.detail || '登录失败' };
@@ -175,16 +180,35 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem('authTokens');
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
+    setIsGuest(false);
     window.location.href = '/login';
+  };
+
+  const loginAsGuest = async () => {
+    try {
+      localStorage.removeItem('authTokens');
+      sessionStorage.removeItem('authTokens');
+      delete apiClient.defaults.headers.common['Authorization'];
+      setUser(null);
+      setIsGuest(true);
+      // 添加微小延迟确保状态更新
+      await new Promise(resolve => setTimeout(resolve, 50));
+      return { success: true };
+    } catch (error) {
+      console.error('Guest login failed:', error);
+      return { success: false, error: '游客登录失败' };
+    }
   };
 
   const value = {
     user,
     isAuthenticated: !!user,
+    isGuest,
     isInitializing,
     login,
     logout,
-    register
+    register,
+    loginAsGuest
   };
 
   return (
@@ -195,9 +219,6 @@ export function AuthProvider({ children }) {
     </AuthContext.Provider>
   );
 }
-
-
-
 
 export function useAuth() {
   return useContext(AuthContext);

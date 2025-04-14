@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
+import GuestRoute from '../components/GuestRoute';
 import App from '../App';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
@@ -20,7 +21,7 @@ const router = createBrowserRouter([
     element: <App />,
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
-      { path: "calendar", element: <ProtectedRoute><CalendarPage /></ProtectedRoute> },
+      { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
       { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
       { path: "events", element: <ProtectedRoute><EventsPage /></ProtectedRoute> },
       { path: "trials", element: <ProtectedRoute><TrialsPage /></ProtectedRoute> },

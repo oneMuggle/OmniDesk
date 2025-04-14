@@ -6,7 +6,7 @@ import TimeSlotForm from './TimeSlotForm';
 import TrialDetails from './TrialDetails';
 import { fromServerFormat, toServerFormat, formatDate } from '../../../utils/dateUtils';
 
-const EventModal = ({
+const EventModal = ({ isGuest: propsIsGuest = false,
   currentEvent,
   modalType,
   form,
@@ -224,7 +224,7 @@ const EventModal = ({
       footer={
         modalType === 'view' ? (
           isEditing ? [
-            <Button key="save" type="primary" onClick={handleManualSave}>
+            <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
               保存
             </Button>,
             <Button key="cancel" onClick={() => {
@@ -235,15 +235,17 @@ const EventModal = ({
               取消
             </Button>
           ] : [
-            <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
-              编辑
-            </Button>,
+            !propsIsGuest && (
+              <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
+                编辑
+              </Button>
+            ),
             <Button key="close" onClick={() => setCurrentEvent(null)}>
               关闭
             </Button>
-          ]
+          ].filter(Boolean)
         ) : [
-          <Button key="save" type="primary" onClick={handleManualSave}>
+          <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
             保存
           </Button>,
           <Button key="close" onClick={() => setCurrentEvent(null)}>
@@ -270,12 +272,12 @@ const EventModal = ({
         <TimeSlotForm
           form={form}
           isEditing={isEditing}
+          isGuest={propsIsGuest}
           modifiedSlots={modifiedSlots}
           setModifiedSlots={setModifiedSlots}
           setDefaultEvents={setDefaultEvents}
           queryClient={queryClient}
           calendarApi={calendarApi}
-
         />
       </Form>
     </Modal>

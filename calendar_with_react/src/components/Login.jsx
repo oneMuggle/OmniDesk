@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { useNavigate, Link, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { Button } from 'antd';
 import './Login.css';
 
 const Login = () => {
@@ -8,7 +9,7 @@ const Login = () => {
   const [username, setUsername] = useState(location.state?.registeredUsername || '');
   const [password, setPassword] = useState('');
   const [rememberMe, setRememberMe] = useState(false);
-  const { login } = useAuth();
+  const { login, loginAsGuest } = useAuth();
   const navigate = useNavigate();
 
   const [isLoading, setIsLoading] = useState(false);
@@ -71,9 +72,14 @@ const Login = () => {
           </label>
         </div>
         
-        <button type="submit" disabled={isLoading}>
+        <Button 
+          type="primary" 
+          htmlType="submit" 
+          loading={isLoading}
+          block
+        >
           {isLoading ? '登录中...' : '登录'}
-        </button>
+        </Button>
         
         <p className="toggle-mode">
           没有账号？
@@ -81,6 +87,29 @@ const Login = () => {
             立即注册
           </Link>
         </p>
+        <Button 
+          type="default"
+          onClick={async () => {
+            try {
+              setIsLoading(true);
+              setError('');
+              const result = await loginAsGuest();
+              if (result.success) {
+                navigate('/calendar');
+              } else {
+                setError(result.error || '游客登录失败');
+              }
+            } catch (err) {
+              setError('游客登录失败，请重试');
+            } finally {
+              setIsLoading(false);
+            }
+          }}
+          loading={isLoading}
+          style={{ marginTop: '16px', width: '100%' }}
+        >
+          {isLoading ? '正在进入...' : '以游客身份访问'}
+        </Button>
       </form>
     </div>
   );

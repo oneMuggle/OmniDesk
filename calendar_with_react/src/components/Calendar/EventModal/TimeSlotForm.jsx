@@ -7,6 +7,7 @@ import dayjs from 'dayjs';
 const TimeSlotForm = ({
   form,
   isEditing,
+  isGuest = false,
   modifiedSlots,
   setModifiedSlots,
   setDefaultEvents,
@@ -228,7 +229,7 @@ const TimeSlotForm = ({
                           }}
                           format="YYYY-MM-DD HH:mm"
                           minuteStep={15}
-                          disabled={!isEditing}
+                          disabled={!isEditing || isGuest}
                           onChange={(value) => {
                             console.log('DatePicker onChange value:', value);
                             handleTimeSlotChange(name, 'timeRange', value);
@@ -250,14 +251,14 @@ const TimeSlotForm = ({
                       >
                         <Input
                           placeholder="描述(可选)"
-                          disabled={!isEditing}
+                          disabled={!isEditing || isGuest}
                           onChange={(e) => 
                             handleTimeSlotChange(name, 'description', e.target.value)
                           }
                         />
                       </Form.Item>
 
-                      {isEditing && (
+                      {isEditing && !isGuest && (
                         <MinusCircleOutlined
                           onClick={() => {
                             console.log('删除按钮被点击');
@@ -269,7 +270,7 @@ const TimeSlotForm = ({
                   );
                 })}
 
-                {isEditing && (
+                {isEditing && !isGuest && (
                   <Form.Item>
                     <Button
                       type="dashed"

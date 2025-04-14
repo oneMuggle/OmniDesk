@@ -2,11 +2,19 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children }) => {
-  const { isAuthenticated, isInitializing } = useAuth();
+const ProtectedRoute = ({ children, allowGuest = false, requireAuth = false }) => {
+  const { isAuthenticated, isInitializing, isGuest } = useAuth();
 
   if (isInitializing) {
     return <div>Loading...</div>;
+  }
+
+  if (requireAuth && !isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (allowGuest && (isAuthenticated || isGuest)) {
+    return React.cloneElement(children, { isGuest });
   }
 
   return isAuthenticated ? children : <Navigate to="/login" replace />;
