@@ -11,6 +11,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
+import tippy from 'tippy.js';
+import 'tippy.js/dist/tippy.css';
 import { Tooltip } from 'react-tooltip';
 import { Modal, Button, DatePicker, Form } from 'antd';
 import { fromServerFormat, toServerFormat } from '../utils/dateUtils';
@@ -18,28 +20,45 @@ import { calendarApi } from '../api/calendar';
 import { getTrials, getTrialById } from '../api/trials';
 import './CalendarPage.css';
 
+// 基于trialId生成HSL颜色 (改进版)
+const getTrialColor = (trialId) => {
+  // djb2哈希算法
+  let hash = 5381;
+  for (let i = 0; i < String(trialId).length; i++) {
+    hash = (hash * 33) ^ String(trialId).charCodeAt(i);
+  }
+  
+  // 使用黄金角度分布色相 (137.5°)
+  const hue = (hash * 137.5) % 360;
+  // 使用正常饱和度和亮度
+  const saturation = 85; // 正常饱和度
+  const lightness = 55; // 正常亮度
+  
+  return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+};
+
 // 状态配置对象
 const trialStatusConfig = {
   planned: {
-    color: '#1890ff',
-    text: '已计划',
+    color: '#1890ff', // 蓝色
+    text: '已计划', 
     icon: '🗓️',
     badgeStyle: { backgroundColor: '#1890ff' }
   },
   in_progress: {
-    color: '#52c41a',
+    color: '#52c41a', // 绿色
     text: '进行中',
     icon: '🔄',
     badgeStyle: { backgroundColor: '#52c41a' }
   },
   completed: {
-    color: '#888',
+    color: '#888', // 灰色
     text: '已完成',
     icon: '✅',
     badgeStyle: { backgroundColor: '#888' }
   },
   cancelled: {
-    color: '#ff4d4f',
+    color: '#ff4d4f', // 红色
     text: '已取消',
     icon: '❌',
     badgeStyle: { backgroundColor: '#ff4d4f' }
@@ -305,7 +324,7 @@ const CalendarPage = () => {
             const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
               (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
                 id: `trial-${trial.id}-${index}`,
-                title: trial.title,
+                title: `${trial.title} (ID: ${trial.id})`,
                 start: fromServerFormat(trial.start_date)?.toDate(),
                 end: fromServerFormat(trial.end_date)?.toDate(),
                 extendedProps: {
@@ -317,9 +336,19 @@ const CalendarPage = () => {
                   description: trial.description,
                   trialId: trial.id
                 },
-                color: getStatusConfig(trial.status).color,
+                color: getTrialColor(trial.id),
+                borderColor: getStatusConfig(trial.status).color,
                 allDay: false,
-                editable: false
+                editable: false,
+                tooltip: {
+                  title: `${trial.title}`,
+                  description: `
+                    状态: ${getStatusConfig(trial.status).text}
+                    负责人: ${trial.responsible_persons?.join(', ') || '无'}
+                    设备: ${trial.equipment || '无'}
+                    描述: ${trial.description || '无'}
+                  `
+                }
               }))
             );
 

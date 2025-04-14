@@ -37,6 +37,7 @@
     "react-slick": "^0.30.3",
     "react-tooltip": "^5.28.0",
     "slick-carousel": "^1.8.1",
+    "tippy.js": "^6.3.7",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
