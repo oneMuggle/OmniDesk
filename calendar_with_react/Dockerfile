@@ -13,6 +13,7 @@ RUN chown -R appuser:appgroup /app
 
 # 生产阶段
 FROM nginx:alpine
+COPY --from=builder /app/package.json /app/package.json
 COPY --from=builder /app/build /usr/share/nginx/html
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 RUN mkdir -p /var/cache/nginx /var/log/nginx

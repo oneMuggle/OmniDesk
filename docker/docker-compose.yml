@@ -4,11 +4,13 @@ services:
   frontend:
     image: ${DOCKER_USER}/calendar-frontend:${FRONTEND_VERSION}
     ports:
-      - "80:80"
+      - "3000:80"
     environment:
       - NODE_ENV=production
     depends_on:
       - backend
+    volumes:
+      - ./volumes/uploads:/app/uploads
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:80"]
       interval: 30s
@@ -22,6 +24,9 @@ services:
     command: bash -c "python manage.py migrate && python -m waitress --port=8000 DRFForVue.wsgi:application"
     ports:
       - "8000:8000"
+    volumes:
+      - ./volumes/uploads:/app/uploads
+      - ./volumes/data:/app/data
     environment:
       - DJANGO_ENV=production
       - POSTGRES_DB=postgres
