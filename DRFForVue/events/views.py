@@ -6,9 +6,15 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
-from .models import Trial, TimeSlot
-from .models import Trial, Personnel, Equipment, DocumentTemplate
-from .serializers import TrialSerializer, PersonnelSerializer, EquipmentSerializer, DocumentTemplateSerializer, TimeSlotSerializer
+from .models import Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule
+from .serializers import (
+    TrialSerializer, 
+    PersonnelSerializer, 
+    EquipmentSerializer, 
+    DocumentTemplateSerializer, 
+    TimeSlotSerializer,
+    ScheduleSerializer
+)
 from users.permissions import IsOwnerOrReadOnly
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -97,6 +103,70 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticatedOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name']
+
+class ScheduleViewSet(viewsets.ModelViewSet):
+    queryset = Schedule.objects.select_related('duty_person', 'duty_leader').all()
+    serializer_class = ScheduleSerializer
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['duty_date', 'duty_person', 'duty_leader']
+    ordering_fields = ['duty_date']
+
+    @action(detail=False, methods=['get'], url_path='by-date-range')
+    def by_date_range(self, request):
+        """按日期范围查询排班"""
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        
+        if not start_date or not end_date:
+            return Response({'error': 'start_date and end_date are required'}, status=400)
+            
+        queryset = self.queryset.filter(
+            duty_date__gte=start_date,
+            duty_date__lte=end_date
+        ).order_by('duty_date')
+        
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    @action(detail=False, methods=['post'], url_path='bulk-update')
+    def bulk_update(self, request):
+        """批量更新排班"""
+        schedules_data = request.data.get('schedules', [])
+        
+        with transaction.atomic():
+            # 先删除原有排班
+            if request.data.get('clear_existing', False):
+                Schedule.objects.all().delete()
+            
+            # 创建新排班
+            new_schedules = []
+            for schedule_data in schedules_data:
+                serializer = self.get_serializer(data=schedule_data)
+                serializer.is_valid(raise_exception=True)
+                new_schedules.append(Schedule(**serializer.validated_data))
+            
+            Schedule.objects.bulk_create(new_schedules)
+        
+        return Response({'status': 'success'}, status=201)
+
+    def perform_create(self, serializer):
+        """创建排班时检查日期是否已存在"""
+        duty_date = serializer.validated_data.get('duty_date')
+        if Schedule.objects.filter(duty_date=duty_date).exists():
+            raise serializers.ValidationError(
+                {'duty_date': '该日期已有排班'}
+            )
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """更新排班时检查日期是否冲突"""
+        duty_date = serializer.validated_data.get('duty_date')
+        if Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).exists():
+            raise serializers.ValidationError(
+                {'duty_date': '该日期已有排班'}
+            )
+        serializer.save()
 
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()

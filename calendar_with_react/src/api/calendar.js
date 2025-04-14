@@ -615,6 +615,112 @@ export const calendarApi = {
     }
   },
 
+  // 获取人员列表
+  getPersonnel: async () => {
+    try {
+      const response = await apiClient.get('/api/personnel/');
+      return response.data.map(person => ({
+        id: person.id,
+        name: person.name,
+        phone: person.phone,
+        role: person.role
+      }));
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
+  // 排班日历API
+  getSchedules: async () => {
+    try {
+      const response = await apiClient.get('/api/events/schedules/');
+      return response.data.map(schedule => ({
+        id: schedule.id,
+        date: new Date(schedule.date),
+        staff: schedule.staff,
+        leader: schedule.leader,
+        staffPhone: schedule.staff_phone,
+        leaderPhone: schedule.leader_phone
+      }));
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
+  fetchSchedules: async () => {
+    try {
+      const response = await apiClient.get('/api/events/schedules/');
+      return response.data.map(schedule => ({
+        id: schedule.id,
+        date: new Date(schedule.date),
+        staff: schedule.staff,
+        leader: schedule.leader,
+        staffPhone: schedule.staff_phone,
+        leaderPhone: schedule.leader_phone
+      }));
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
+  createSchedule: async (scheduleData) => {
+    try {
+      const response = await apiClient.post('/api/events/schedules/', {
+        date: scheduleData.date.toISOString().split('T')[0],
+        staff: scheduleData.staff,
+        leader: scheduleData.leader,
+        staff_phone: scheduleData.staffPhone,
+        leader_phone: scheduleData.leaderPhone
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  updateSchedule: async (id, scheduleData) => {
+    try {
+      const response = await apiClient.patch(`/api/events/schedules/${id}/`, {
+        date: scheduleData.date?.toISOString().split('T')[0],
+        staff: scheduleData.staff,
+        leader: scheduleData.leader,
+        staff_phone: scheduleData.staffPhone,
+        leader_phone: scheduleData.leaderPhone
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  deleteSchedule: async (id) => {
+    try {
+      await apiClient.delete(`/api/events/schedules/${id}/`);
+      return { success: true, id };
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  swapScheduleDates: async (schedule1Id, schedule2Id) => {
+    try {
+      const response = await apiClient.post('/api/events/schedules/swap/', {
+        schedule1_id: schedule1Id,
+        schedule2_id: schedule2Id
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
   // 其他保留接口
   fetchCalendarEvents: () => apiClient.get('/api/events/trials/'),
   updateCalendarEvent: (id, eventData) => apiClient.put(`/api/events/trials/${id}/`, eventData),

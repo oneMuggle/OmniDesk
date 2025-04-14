@@ -160,3 +160,31 @@ class DocumentTemplate(models.Model):
     
     def __str__(self):
         return f"{self.name} ({self.get_experiment_type_display()})"
+
+class Schedule(models.Model):
+    duty_date = models.DateField(unique=True, verbose_name="值班日期")
+    duty_person = models.ForeignKey(
+        Personnel, 
+        on_delete=models.PROTECT, 
+        related_name='duty_schedules',
+        verbose_name="值班人员"
+    )
+    duty_leader = models.ForeignKey(
+        Personnel, 
+        on_delete=models.PROTECT, 
+        related_name='leader_schedules',
+        verbose_name="值班领导"
+    )
+    
+    class Meta:
+        verbose_name = '排班表'
+        verbose_name_plural = '排班管理'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['duty_date'], 
+                name='unique_duty_date'
+            )
+        ]
+    
+    def __str__(self):
+        return f"{self.duty_date}: {self.duty_person.name} (值班), {self.duty_leader.name} (领导)"

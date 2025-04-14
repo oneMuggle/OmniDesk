@@ -79,10 +79,32 @@ const CalendarPage = () => {
     staleTime: 300000
   });
 
+  const {
+    data: schedules = [],
+    isLoading: isSchedulesLoading
+  } = useQuery({
+    queryKey: ['schedules'],
+    queryFn: () => calendarApi.getSchedules(),
+    gcTime: 600000,
+    staleTime: 300000
+  });
+
+  const {
+    data: personnel = [],
+    isLoading: isPersonnelLoading
+  } = useQuery({
+    queryKey: ['personnel'],
+    queryFn: () => calendarApi.getPersonnel(),
+    gcTime: 600000,
+    staleTime: 300000
+  });
+
+  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [currentSchedule, setCurrentSchedule] = useState(null);
+  const [scheduleModalMode, setScheduleModalMode] = useState('edit'); // 'view' | 'edit'
+
   // 不同类型日历的事件数据
-  const [defaultEvents, setDefaultEvents] = useState([
-    { title: 'Meeting', start: new Date() }
-  ]);
+  const [defaultEvents, setDefaultEvents] = useState([]);
   const [darkMode, setDarkMode] = useState(false);
   const [calendarType, setCalendarType] = useState('trial'); // 初始设为试验日历
 
@@ -322,59 +344,95 @@ const CalendarPage = () => {
             day: '日视图'
           }}
           events={useMemo(() => {
-            // 转换试验数据为日历事件（使用实际时间段）
-            const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
-              (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
-                id: `trial-${trial.id}-${index}`,
-                title: `${trial.title} (ID: ${trial.id})`,
-                start: fromServerFormat(trial.start_date)?.toDate(),
-                end: fromServerFormat(trial.end_date)?.toDate(),
+            if (calendarType === 'trial') {
+              // 转换试验数据为日历事件（使用实际时间段）
+              const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
+                (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
+                  id: `trial-${trial.id}-${index}`,
+                  title: `${trial.title} (ID: ${trial.id})`,
+                  start: fromServerFormat(trial.start_date)?.toDate(),
+                  end: fromServerFormat(trial.end_date)?.toDate(),
+                  extendedProps: {
+                    type: 'TRIAL',
+                    status: trial.status,
+                    client: trial.client,
+                    equipment: trial.equipment,
+                    personnel: trial.responsible_persons,
+                    description: trial.description,
+                    trialId: trial.id
+                  },
+                  color: getTrialColor(trial.id),
+                  borderColor: getStatusConfig(trial.status).color,
+                  allDay: false,
+                  editable: false,
+                  tooltip: {
+                    title: `${trial.title}`,
+                    description: `
+                      状态: ${getStatusConfig(trial.status).text}
+                      负责人: ${trial.responsible_persons?.join(', ') || '无'}
+                      设备: ${trial.equipment || '无'}
+                      描述: ${trial.description || '无'}
+                    `
+                  }
+                }))
+              );
+              return [...defaultEvents, ...trialEvents];
+            } else {
+              // 转换排班数据为日历事件
+              return schedules.map(schedule => ({
+                id: schedule.id,
+                title: `${schedule.staff}`,
+                start: schedule.date,
+                allDay: true,
                 extendedProps: {
-                  type: 'TRIAL',
-                  status: trial.status,
-                  client: trial.client,
-                  equipment: trial.equipment,
-                  personnel: trial.responsible_persons,
-                  description: trial.description,
-                  trialId: trial.id
+                  type: 'SCHEDULE',
+                  staff: schedule.staff,
+                  leader: schedule.leader,
+                  staffPhone: schedule.staffPhone,
+                  leaderPhone: schedule.leaderPhone
                 },
-                color: getTrialColor(trial.id),
-                borderColor: getStatusConfig(trial.status).color,
-                allDay: false,
-                editable: false,
+                color: '#4CAF50',
+                display: 'background',
+                textColor: '#ffffff',
+                editable: !isGuest,
                 tooltip: {
-                  title: `${trial.title}`,
+                  title: `${schedule.staff} 值班`,
                   description: `
-                    状态: ${getStatusConfig(trial.status).text}
-                    负责人: ${trial.responsible_persons?.join(', ') || '无'}
-                    设备: ${trial.equipment || '无'}
-                    描述: ${trial.description || '无'}
-                  `
+                    日期: ${schedule.date}
+                    值班人: ${schedule.staff} (${schedule.staffPhone})
+                    值班领导: ${schedule.leader} (${schedule.leaderPhone})
+                  `,
+                  backgroundColor: '#4CAF50'
                 }
-              }))
-            );
-
-            // 合并已有事件和试验事件
-            return [...defaultEvents, ...trialEvents].filter(event =>
-              calendarType === 'trial' ?
-                event.extendedProps?.type === 'TRIAL' :
-                event.extendedProps?.type === 'SCHEDULE'
-            );
+              }));
+            }
           }, [calendarType, defaultEvents, trials])}
           dateClick={(arg) => {
-            const newEvent = {
-              title: '',
-              start: arg.date,
-              allDay: arg.allDay,
-              type: calendarType === 'trial' ? 'TRIAL' : 'SCHEDULE'
-            };
-            setCurrentEvent(newEvent);
-            setModalType('new');
+            if (calendarType === 'trial') {
+              const newEvent = {
+                title: '',
+                start: arg.date,
+                allDay: arg.allDay,
+                type: 'TRIAL'
+              };
+              setCurrentEvent(newEvent);
+              setModalType('new');
+            } else {
+              setCurrentSchedule({
+                date: arg.dateStr,
+                staff: null,
+                leader: null,
+                staffPhone: '',
+                leaderPhone: ''
+              });
+              setScheduleModalMode('edit');
+              setScheduleModalVisible(true);
+            }
           }}
           eventClick={async (clickInfo) => {
             const eventObj = clickInfo.event.toPlainObject();
             try {
-              if (eventObj.extendedProps?.type === 'TRIAL') {
+              if (calendarType === 'trial') {
                 // 获取试验详情
                 const { data } = await getTrialById(eventObj.extendedProps.trialId);
                 setCurrentEvent({
@@ -400,20 +458,13 @@ const CalendarPage = () => {
                     id: slot.id
                   })) || []
                 });
-              } else {
-                // 获取排班详情
-                const response = await calendarApi.fetchTimeSlotsByTrial(eventObj.extendedProps?.trialId);
-                const slotDetails = response.find(slot => slot.id === eventObj.id.replace('slot_', ''));
-                setCurrentEvent({
-                  ...eventObj,
-                  start: fromServerFormat(eventObj.start)?.toDate(),
-                  end: fromServerFormat(eventObj.end)?.toDate(),
-                  extendedProps: {
-                    ...eventObj.extendedProps,
-                    description: slotDetails?.description,
-                    trialTitle: slotDetails?.trialTitle
-                  }
-                });
+              } else if (calendarType === 'schedule') {
+                const schedule = schedules.find(s => s.id === eventObj.id);
+                if (schedule) {
+                  setCurrentSchedule(schedule);
+                  setScheduleModalMode('view');
+                  setScheduleModalVisible(true);
+                }
               }
               setModalType('view');
             } catch (error) {
@@ -430,6 +481,38 @@ const CalendarPage = () => {
           eventDurationEditable={!isGuest}
           height="auto"
           firstDay={1}
+          eventDrop={async (info) => {
+            if (calendarType === 'schedule') {
+              const { event } = info;
+              const scheduleId = event.id;
+              const newDate = event.startStr;
+              
+              try {
+                const loading = Modal.info({
+                  title: '正在更新排班',
+                  content: '请稍候...',
+                  maskClosable: false
+                });
+                
+                await calendarApi.updateScheduleDate(scheduleId, newDate);
+                await queryClient.invalidateQueries(['schedules']);
+                
+                loading.update({
+                  type: 'success',
+                  title: '更新成功',
+                  content: '排班日期已更新',
+                  okButtonProps: { type: 'primary' }
+                });
+              } catch (error) {
+                console.error('更新排班日期失败:', error);
+                info.revert();
+                Modal.error({
+                  title: '更新失败',
+                  content: `无法更新排班日期: ${error.message}`,
+                });
+              }
+            }
+          }}
         />
       </div>
 
@@ -451,6 +534,16 @@ const CalendarPage = () => {
           calendarApi={calendarApi}
         />
       )}
+
+      <ScheduleModal
+        visible={scheduleModalVisible}
+        onCancel={() => setScheduleModalVisible(false)}
+        scheduleData={currentSchedule}
+        mode={scheduleModalMode}
+        personnelList={personnel}
+        onSave={() => queryClient.invalidateQueries(['schedules'])}
+        onDelete={() => queryClient.invalidateQueries(['schedules'])}
+      />
     </div>
   );
 };

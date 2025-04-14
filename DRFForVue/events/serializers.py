@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot
+from .models import Trial, TimeSlot, Schedule
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
 from users.serializers import UserSerializer
@@ -180,3 +180,47 @@ class TrialSerializer(serializers.ModelSerializer):
                     instance.time_slots.filter(id__in=to_delete_ids).delete()
                     
         return instance
+
+class ScheduleSerializer(serializers.ModelSerializer):
+    duty_person = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        required=True,
+        help_text="值班人员ID"
+    )
+    duty_leader = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        required=True,
+        help_text="值班领导ID"
+    )
+    duty_date = serializers.DateField(
+        required=True,
+        help_text="值班日期，格式：YYYY-MM-DD"
+    )
+
+    class Meta:
+        model = Schedule
+        fields = ['id', 'duty_person', 'duty_leader', 'duty_date']
+        extra_kwargs = {
+            'duty_date': {'required': True}
+        }
+
+    def validate(self, data):
+        """验证排班数据"""
+        duty_date = data.get('duty_date')
+        duty_person = data.get('duty_person')
+        duty_leader = data.get('duty_leader')
+
+        # 检查值班日期是否已存在
+        if Schedule.objects.filter(duty_date=duty_date).exists():
+            if not self.instance or self.instance.duty_date != duty_date:
+                raise serializers.ValidationError({
+                    'duty_date': '该日期已有排班记录'
+                })
+
+        # 检查值班人和值班领导是否为同一人
+        if duty_person and duty_leader and duty_person.id == duty_leader.id:
+            raise serializers.ValidationError({
+                'duty_leader': '值班人和值班领导不能为同一人'
+            })
+
+        return data
