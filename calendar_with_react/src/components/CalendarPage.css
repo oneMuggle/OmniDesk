@@ -36,7 +36,53 @@
   border-radius: 8px;
 }
 
-/* 保留原有事件样式... */
+/* 排班事件样式 */
+.fc-event-schedule {
+  border-radius: 4px;
+  border: 1px solid white;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: all 0.2s ease;
+}
+
+.fc-event-schedule:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+}
+
+.fc-event-schedule-staff {
+  background: linear-gradient(45deg, rgba(66, 165, 245, 0.8), rgba(21, 101, 192, 0.8));
+}
+
+.fc-event-schedule-leader {
+  background: linear-gradient(45deg, rgba(255, 152, 0, 0.8), rgba(239, 108, 0, 0.8));
+}
+
+.fc-event-schedule-badge {
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 12px;
+  color: #333;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  border: 1px solid #eee;
+}
+
+.fc-event-schedule-leader .fc-event-schedule-badge::after {
+  content: '★';
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  font-size: 10px;
+  color: gold;
+}
 
 /* 性能优化 */
 .fc-daygrid-day-frame,

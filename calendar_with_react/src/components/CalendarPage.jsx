@@ -142,9 +142,21 @@ const CalendarPage = () => {
                     staffPhone: staffPerson?.phone || '无',
                     leaderPhone: leaderPerson?.phone || '无'
                   },
-                  color: '#4CAF50',
-                  display: 'background',
+                  color: '',
+                  display: 'block',
                   textColor: '#ffffff',
+                  classNames: [
+                    'fc-event-schedule',
+                    leaderPerson?.is_leader ? 'fc-event-schedule-leader' : 'fc-event-schedule-staff'
+                  ],
+                  content: `
+                    <div class="fc-event-main-frame">
+                      <div class="fc-event-title-container">
+                        <div class="fc-event-title fc-sticky">${staffPerson?.name || schedule.staff}</div>
+                      </div>
+                      <div class="fc-event-schedule-badge">${staffPerson?.name?.charAt(0) || '?'}</div>
+                    </div>
+                  `,
                   editable: !isGuest,
                   tooltip: {
                     title: `${staffPerson?.name || schedule.staff} 值班`,
