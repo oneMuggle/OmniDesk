@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './ScheduleModal.css';
 import { Modal, Form, Input, Button, Select, message } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
 import { calendarApi } from '../../api/calendar';
@@ -20,6 +21,8 @@ const ScheduleModal = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    if (!form) return;
+    
     if (scheduleData) {
       form.setFieldsValue({
         date: scheduleData.date,
@@ -29,12 +32,26 @@ const ScheduleModal = ({
     } else {
       form.resetFields();
     }
-  }, [scheduleData, form]);
+  }, [scheduleData]);
 
   const handleSubmit = async () => {
     try {
+      console.log('[DEBUG] 保存按钮被点击');
       setLoading(true);
-      const values = await form.validateFields();
+      
+      // 更详细的表单验证
+      let values;
+      try {
+        values = await form.validateFields();
+        console.log('[DEBUG] 表单验证通过，字段值:', values);
+      } catch (validationError) {
+        console.error('[DEBUG] 表单验证失败:', validationError);
+        const errorFields = validationError.errorFields || [];
+        const errorMessages = errorFields.map(field => field.errors.join(', ')).join('; ');
+        message.error(`表单验证失败: ${errorMessages}`);
+        return;
+      }
+      
       const date = values.date || scheduleData.date;
       
       const schedule = {
@@ -42,24 +59,41 @@ const ScheduleModal = ({
         staff: values.staff,
         leader: values.leader,
       };
+      console.log('[DEBUG] 准备提交的排班数据:', schedule);
+      
+      // 添加API调用前检查
+      console.log('[DEBUG] 准备调用API:', 
+        isEditing ? 'updateSchedule' : 'createSchedule');
 
-      if (isEditing) {
-        await calendarApi.updateSchedule(scheduleData.id, schedule);
-        message.success('排班更新成功');
-      } else {
-        // 检查日期是否已存在排班
-        const existing = await calendarApi.checkScheduleDate(date);
-        if (existing) {
-          throw new Error('该日期已有排班，请选择其他日期');
+      try {
+        if (isEditing) {
+          console.log('[DEBUG] 调用updateSchedule API');
+          const response = await calendarApi.updateSchedule(scheduleData.id, schedule);
+          console.log('[DEBUG] API响应:', response);
+          message.success('排班更新成功');
+        } else {
+          // 检查日期是否已存在排班
+          console.log('[DEBUG] 检查排班日期是否存在');
+          const existing = await calendarApi.checkScheduleDate(date);
+          if (existing) {
+            message.error('该日期已有排班，请选择其他日期');
+            return;
+          }
+          console.log('[DEBUG] 调用createSchedule API');
+          const response = await calendarApi.createSchedule(schedule);
+          console.log('[DEBUG] API响应:', response);
+          message.success('排班创建成功');
         }
-        await calendarApi.createSchedule(schedule);
-        message.success('排班创建成功');
-      }
 
-      queryClient.invalidateQueries(['schedules']);
-      onSave();
-      onCancel();
+        queryClient.invalidateQueries(['schedules']);
+        onSave();
+        onCancel();
+      } catch (apiError) {
+        console.error('[DEBUG] API调用失败:', apiError);
+        message.error(`API调用失败: ${apiError.message}`);
+      }
     } catch (error) {
+      console.error('[DEBUG] 保存过程中发生错误:', error);
       message.error(`操作失败: ${error.message}`);
     } finally {
       setLoading(false);
@@ -85,6 +119,11 @@ const ScheduleModal = ({
     const person = personnelList.find(p => p.id === id);
     return person ? person.name : '未知人员';
   };
+
+  // 确保表单实例在 mode 切换时正确处理
+  if (mode === 'view' && form) {
+    form.resetFields();
+  }
 
   return (
     <Modal
@@ -118,22 +157,37 @@ const ScheduleModal = ({
       ]}
     >
       {mode === 'view' ? (
-        <div className="schedule-view">
-          <div className="info-item">
-            <label className="info-label">日期:</label>
-            <span className="info-value">{scheduleData?.date}</span>
-          </div>
-          <div className="info-item">
-            <label className="info-label">值班人员:</label>
-            <span className="info-value">
-              {getPersonName(scheduleData?.staff)} ({personnelList.find(p => p.id === scheduleData?.staff)?.phone || '无电话'})
-            </span>
-          </div>
-          <div className="info-item">
-            <label className="info-label">值班领导:</label>
-            <span className="info-value">
-              {getPersonName(scheduleData?.leader)} ({personnelList.find(p => p.id === scheduleData?.leader)?.phone || '无电话'})
-            </span>
+          <div className="schedule-modal">
+            <div className="schedule-modal__card">
+              <div className="schedule-modal__title">
+              {scheduleData?.date}
+            </div>
+            
+            <div className="schedule-modal__grid">
+              <div className="schedule-modal__person-card">
+                <div className="schedule-modal__person-title">
+                  <span className="schedule-modal__status-dot schedule-modal__status-dot--staff"></span>
+                  <span style={{ fontWeight: '600', color: '#262626' }}>值班人员</span>
+                </div>
+                <div className="schedule-modal__person-name">{getPersonName(scheduleData?.staff)}</div>
+                <div className="schedule-modal__phone-info">
+                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <span>{personnelList.find(p => p.id === scheduleData?.staff)?.phone || '无电话'}</span>
+                </div>
+              </div>
+
+              <div className="schedule-modal__person-card">
+                <div className="schedule-modal__person-title">
+                  <span className="schedule-modal__status-dot schedule-modal__status-dot--leader"></span>
+                  <span style={{ fontWeight: '600', color: '#262626' }}>值班领导</span>
+                </div>
+                <div className="schedule-modal__person-name">{getPersonName(scheduleData?.leader)}</div>
+                <div className="schedule-modal__phone-info">
+                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <span>{personnelList.find(p => p.id === scheduleData?.leader)?.phone || '无电话'}</span>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       ) : (

@@ -29,9 +29,9 @@ export const scheduleApi = {
 
       return results.map(schedule => ({
         id: schedule.id,
-        date: schedule.date,
-        staff: schedule.staff,
-        leader: schedule.leader
+        date: schedule.duty_date,  // 修正字段映射
+        staff: schedule.duty_person,  // 修正字段映射
+        leader: schedule.duty_leader  // 修正字段映射
       }));
     } catch (error) {
       console.error('获取排班数据失败:', error);
@@ -42,13 +42,16 @@ export const scheduleApi = {
 
   createSchedule: async (scheduleData) => {
     try {
+      console.log('创建排班请求数据:', scheduleData);
       const response = await apiClient.post('/api/events/schedules/', {
-        date: scheduleData.date,
-        staff: scheduleData.staff,
-        leader: scheduleData.leader
+        duty_date: scheduleData.date,
+        duty_person: scheduleData.staff,
+        duty_leader: scheduleData.leader
       });
+      console.log('创建排班响应:', response.data);
       return response.data;
     } catch (error) {
+      console.error('创建排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }
@@ -56,13 +59,16 @@ export const scheduleApi = {
 
   updateSchedule: async (scheduleId, scheduleData) => {
     try {
+      console.log('更新排班请求数据:', {scheduleId, ...scheduleData});
       const response = await apiClient.patch(`/api/events/schedules/${scheduleId}/`, {
-        date: scheduleData.date,
-        staff: scheduleData.staff,
-        leader: scheduleData.leader
+        duty_date: scheduleData.date,
+        duty_person: scheduleData.staff,
+        duty_leader: scheduleData.leader
       });
+      console.log('更新排班响应:', response.data);
       return response.data;
     } catch (error) {
+      console.error('更新排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }

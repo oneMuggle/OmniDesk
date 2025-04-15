@@ -52,6 +52,10 @@ const CalendarPage = () => {
     queryClient
   } = useCalendarData();
 
+  console.log('当前日历类型:', calendarType);
+  console.log('排班数据:', schedules);
+  console.log('人员数据:', personnel);
+
   // 使用事件服务
   const { handleEventSubmit } = useEventService(queryClient);
 
@@ -120,32 +124,39 @@ const CalendarPage = () => {
               );
               return [...defaultEvents, ...trialEvents];
             } else {
-              return schedules.map(schedule => ({
-                id: schedule.id,
-                title: `${schedule.staff} (${schedule.leader})`,
-                start: schedule.date,
-                allDay: true,
-                extendedProps: {
-                  type: 'SCHEDULE',
-                  staff: schedule.staff,
-                  leader: schedule.leader,
-                  staffPhone: personnel.find(p => p.id === schedule.staff)?.phone || '无',
-                  leaderPhone: personnel.find(p => p.id === schedule.leader)?.phone || '无'
-                },
-                color: '#4CAF50',
-                display: 'background',
-                textColor: '#ffffff',
-                editable: !isGuest,
-                tooltip: {
-                  title: `${schedule.staff} 值班`,
-                  description: `
-                    日期: ${schedule.date}
-                    值班人: ${schedule.staff} (${schedule.staffPhone})
-                    值班领导: ${schedule.leader} (${schedule.leaderPhone})
-                  `,
-                  backgroundColor: '#4CAF50'
-                }
-              }));
+              return schedules.map(schedule => {
+                const staffPerson = personnel.find(p => p.id === schedule.staff);
+                const leaderPerson = personnel.find(p => p.id === schedule.leader);
+                console.log('staffPerson:', staffPerson);
+                console.log('leaderPerson:', leaderPerson);
+                console.log('schedule:', schedule);
+                return {
+                  id: schedule.id,
+                  title: `${staffPerson?.name || schedule.staff} (${leaderPerson?.name || schedule.leader})`,
+                  start: schedule.date,
+                  allDay: true,
+                  extendedProps: {
+                    type: 'SCHEDULE',
+                    staff: schedule.staff,
+                    leader: schedule.leader,
+                    staffPhone: staffPerson?.phone || '无',
+                    leaderPhone: leaderPerson?.phone || '无'
+                  },
+                  color: '#4CAF50',
+                  display: 'background',
+                  textColor: '#ffffff',
+                  editable: !isGuest,
+                  tooltip: {
+                    title: `${staffPerson?.name || schedule.staff} 值班`,
+                    description: `
+                      日期: ${schedule.duty_date}
+                      值班人: ${staffPerson?.name || schedule.staff} (${staffPerson?.phone || '无'})
+                      值班领导: ${leaderPerson?.name || schedule.leader} (${leaderPerson?.phone || '无'})
+                    `,
+                    backgroundColor: '#4CAF50'
+                  }
+                };
+              });
             }
           }, [calendarType, defaultEvents, trials])}
           dateClick={(arg) => {
