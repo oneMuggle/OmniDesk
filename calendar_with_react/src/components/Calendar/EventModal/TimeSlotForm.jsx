@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useImperativeHandle, forwardRef } from 'react';
 import { Button, Form, Input, Space, DatePicker, Modal } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
@@ -14,6 +14,15 @@ const TimeSlotForm = ({
   queryClient,
   calendarApi,
 }) => {
+  const [innerForm] = Form.useForm();
+
+  // 同步父表单和内部表单
+  useEffect(() => {
+    if (form) {
+      innerForm.setFieldsValue(form.getFieldsValue(true));
+    }
+  }, [form, innerForm]);
+
   // 用于确认删除对话框的状态
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
   const [slotToDelete, setSlotToDelete] = useState(null);

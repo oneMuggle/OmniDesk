@@ -2,18 +2,41 @@ import { apiClient } from '../context/AuthContext';
 import { handleError } from './responseHandler';
 
 export const scheduleApi = {
+  checkScheduleDate: async (date) => {
+    try {
+      const response = await apiClient.get('/api/events/schedules/', {
+        params: { duty_date: date }
+      });
+      return (response.data.results || []).length > 0;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
   getSchedules: async () => {
     try {
       const response = await apiClient.get('/api/events/schedules/');
-      return response.data.map(schedule => ({
+      
+      if (!response?.data) {
+        console.error('无效的API响应格式: 缺少data字段', response);
+        return [];
+      }
+
+      const results = Array.isArray(response.data.results) 
+        ? response.data.results 
+        : [];
+
+      return results.map(schedule => ({
         id: schedule.id,
         date: schedule.date,
         staff: schedule.staff,
         leader: schedule.leader
       }));
     } catch (error) {
+      console.error('获取排班数据失败:', error);
       handleError(error);
-      throw error;
+      return [];
     }
   },
 

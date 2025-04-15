@@ -177,6 +177,7 @@ class Schedule(models.Model):
     )
     
     class Meta:
+        ordering = ['duty_date']
         verbose_name = '排班表'
         verbose_name_plural = '排班管理'
         constraints = [

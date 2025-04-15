@@ -4,7 +4,7 @@ import { handleError } from './responseHandler';
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {
     try {
-      const response = await apiClient.get(`/api/events/trials/${trialId}/time-slots/`);
+      const response = await apiClient.get(`/api/events/time-slots/?trial=${trialId}`);
       return response.data.map(slot => ({
         id: slot.id,
         start: new Date(slot.start_time),

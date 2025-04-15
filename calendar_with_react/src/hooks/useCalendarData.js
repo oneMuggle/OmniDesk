@@ -21,7 +21,15 @@ export const useCalendarData = () => {
 
   const { data: schedules = [], isLoading: isSchedulesLoading } = useQuery({
     queryKey: ['schedules'],
-    queryFn: () => calendarApi.getSchedules(),
+    queryFn: async () => {
+      try {
+        const response = await calendarApi.getSchedules();
+        return Array.isArray(response) ? response : [];
+      } catch (error) {
+        console.error('获取排班数据失败:', error);
+        return [];
+      }
+    },
     gcTime: 600000,
     staleTime: 300000
   });
@@ -36,15 +44,19 @@ export const useCalendarData = () => {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const response = await calendarApi.fetchTimeSlotsByTrial();
-        const events = response.data.map(trial => ({
-          title: trial.trial_name,
-          start: fromServerFormat(trial.start_date)?.toDate(),
-          end: fromServerFormat(trial.end_date)?.toDate(),
+        if (!selectedTrial) {
+          console.warn('未选择试验，跳过加载时间槽');
+          return;
+        }
+        
+        const response = await calendarApi.fetchTimeSlotsByTrial(selectedTrial.id);
+        const events = response.map(slot => ({
+          id: slot.id,
+          title: slot.description || '时间槽',
+          start: new Date(slot.start),
+          end: new Date(slot.end),
           extendedProps: {
-            status: trial.status,
-            responsible: trial.responsible_persons,
-            trialId: trial.id
+            trialId: slot.trialId
           }
         }));
         setDefaultEvents(events);
@@ -55,7 +67,7 @@ export const useCalendarData = () => {
 
     document.body.classList.toggle('dark-mode', darkMode);
     fetchEvents();
-  }, [darkMode]);
+  }, [darkMode, selectedTrial]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
