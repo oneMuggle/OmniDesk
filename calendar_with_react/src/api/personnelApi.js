@@ -37,7 +37,7 @@ const transformPersonnelData = (data) => {
 export const personnelApi = {
   getPersonnel: async () => {
     try {
-      const response = await apiClient.get('/api/events/personnel/');
+      const response = await apiClient.get('/events/personnel/');
       return transformPersonnelData(response.data);
     } catch (error) {
       // 增强错误信息

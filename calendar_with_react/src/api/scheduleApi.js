@@ -16,7 +16,7 @@ export const scheduleApi = {
 
   getSchedules: async () => {
     try {
-      const response = await apiClient.get('/api/events/schedules/');
+      const response = await apiClient.get('/events/schedules/');
       
       if (!response?.data) {
         console.error('无效的API响应格式: 缺少data字段', response);
@@ -43,7 +43,7 @@ export const scheduleApi = {
   createSchedule: async (scheduleData) => {
     try {
       console.log('创建排班请求数据:', scheduleData);
-      const response = await apiClient.post('/api/events/schedules/', {
+      const response = await apiClient.post('/events/schedules/', {
         duty_date: scheduleData.date,
         duty_person: scheduleData.staff,
         duty_leader: scheduleData.leader
@@ -60,7 +60,7 @@ export const scheduleApi = {
   updateSchedule: async (scheduleId, scheduleData) => {
     try {
       console.log('更新排班请求数据:', {scheduleId, ...scheduleData});
-      const response = await apiClient.patch(`/api/events/schedules/${scheduleId}/`, {
+      const response = await apiClient.patch(`/events/schedules/${scheduleId}/`, {
         duty_date: scheduleData.date,
         duty_person: scheduleData.staff,
         duty_leader: scheduleData.leader
@@ -76,7 +76,7 @@ export const scheduleApi = {
 
   deleteSchedule: async (scheduleId) => {
     try {
-      await apiClient.delete(`/api/events/schedules/${scheduleId}/`);
+      await apiClient.delete(`/events/schedules/${scheduleId}/`);
     } catch (error) {
       handleError(error);
       throw error;
@@ -85,7 +85,7 @@ export const scheduleApi = {
 
   swapScheduleDates: async (scheduleId1, scheduleId2) => {
     try {
-      const response = await apiClient.post('/api/events/schedules/swap-dates/', {
+      const response = await apiClient.post('/events/schedules/swap-dates/', {
         schedule_id_1: scheduleId1,
         schedule_id_2: scheduleId2
       });

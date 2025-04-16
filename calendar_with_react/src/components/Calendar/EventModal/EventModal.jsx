@@ -255,7 +255,9 @@ const EventModal = ({ isGuest: propsIsGuest = false,
 
   return (
     <Modal
-      title={modalType === 'view' ? '查看试验排班' : '新建试验排班'}
+      title={modalType === 'view' ? 
+        (currentEvent?.extendedProps?.scheduleDetails ? '查看人员排班' : '查看试验排班') 
+        : '新建试验排班'}
       open={!!currentEvent}
       onCancel={() => {
         setIsEditing(false);
@@ -311,7 +313,33 @@ const EventModal = ({ isGuest: propsIsGuest = false,
           calendarApi={calendarApi}
         />
 
-        {selectedTrial && (
+        {currentEvent?.extendedProps?.scheduleDetails ? (
+          <div style={{ marginBottom: 24 }}>
+            <h3>排班详情</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+              <div>
+                <h4>负责人信息</h4>
+                <p>姓名: {currentEvent.extendedProps.scheduleDetails.leader.name}</p>
+                <p>联系方式: {currentEvent.extendedProps.scheduleDetails.leader.contact}</p>
+              </div>
+              <div>
+                <h4>工作人员信息</h4>
+                <p>姓名: {currentEvent.extendedProps.scheduleDetails.staff.name}</p>
+                <p>联系方式: {currentEvent.extendedProps.scheduleDetails.staff.contact}</p>
+              </div>
+              <div>
+                <h4>排班信息</h4>
+                <p>日期: {formatDate(currentEvent.start, 'YYYY-MM-DD')}</p>
+                <p>时间: {currentEvent.extendedProps.scheduleDetails.time}</p>
+              </div>
+              <div>
+                <h4>职位信息</h4>
+                <p>职位: {currentEvent.extendedProps.scheduleDetails.position}</p>
+                <p>部门: {currentEvent.extendedProps.scheduleDetails.department}</p>
+              </div>
+            </div>
+          </div>
+        ) : selectedTrial && (
           <>
             <div style={{ display: 'none' }} data-testid="selected-trial-data">
               {JSON.stringify(selectedTrial)}

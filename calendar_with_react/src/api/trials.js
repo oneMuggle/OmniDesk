@@ -7,7 +7,7 @@ const api = apiClient;
 // 试验管理API（与后端trials端点保持一致）
 // 获取试验列表（与后端接口保持一致）
 export const getTrials = (params) => {
-  return api.get('/api/events/trials/', { params })
+  return api.get('/events/trials/', { params })
     .then(handleResponse)
     .catch(handleError);
 };
@@ -16,13 +16,13 @@ export const getTrials = (params) => {
 export const fetchTrials = getTrials;
 
 export const createTrial = (data) => {
-  return api.post('/api/events/trials/', data)
+  return api.post('/events/trials/', data)
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const updateTrial = (id, data) => {
-  return api.patch(`/api/events/trials/${id}/`, {
+  return api.patch(`/events/trials/${id}/`, {
     ...data,
     equipment_ids: data.equipment_ids // 保持字段名称一致性
   })
@@ -31,7 +31,7 @@ export const updateTrial = (id, data) => {
 };
 
 export const deleteTrial = (id) => {
-  return api.delete(`/api/events/trials/${id}/`)
+  return api.delete(`/events/trials/${id}/`)
     .then(handleResponse)
     .catch(handleError);
 };
@@ -40,7 +40,7 @@ export const getTrialById = async (id) => {
   console.log('[MCP_DEBUG] 正在请求试验详情数据...');
   console.log('[MCP_DEBUG] 试验ID:', id);
   try {
-    const response = await api.get(`/api/events/trials/${id}/`);
+    const response = await api.get(`/events/trials/${id}/`);
     return { 
       data: handleResponse(response) 
     };

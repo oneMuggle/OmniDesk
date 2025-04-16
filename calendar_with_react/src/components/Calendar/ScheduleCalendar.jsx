@@ -33,7 +33,23 @@ const ScheduleCalendar = ({
         personnelId: schedule.personnel_id,
         position: schedule.position,
         department: schedule.department,
-        scheduleId: schedule.id
+        scheduleId: schedule.id,
+        scheduleDetails: {
+          leader: {
+            id: schedule.leader,
+            name: getNameById(schedule.leader),
+            contact: personnel.find(p => p.id === schedule.leader)?.contact || '无'
+          },
+          staff: {
+            id: schedule.staff,
+            name: getNameById(schedule.staff),
+            contact: personnel.find(p => p.id === schedule.staff)?.contact || '无'
+          },
+          position: schedule.position,
+          department: schedule.department,
+          date: schedule.date,
+          time: `${schedule.start_time} - ${schedule.end_time}`
+        }
       },
       color: '#4CAF50',
       allDay: false,

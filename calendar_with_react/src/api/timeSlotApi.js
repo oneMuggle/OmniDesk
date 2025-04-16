@@ -23,7 +23,7 @@ export const timeSlotApi = {
 
   createTimeSlot: async (trialId, slotData) => {
     try {
-      const response = await apiClient.post(`/api/events/trials/${trialId}/time-slots/`, {
+      const response = await apiClient.post(`/events/trials/${trialId}/time-slots/`, {
         start_time: slotData.start,
         end_time: slotData.end,
         description: slotData.description || ''

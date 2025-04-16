@@ -3,7 +3,7 @@ import { ApiProvider } from './ApiProvider.jsx';
 import axios from 'axios';
 
 export const apiClient = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  baseURL: process.env.NODE_ENV === 'production' ? '/api' : (process.env.REACT_APP_API_BASE_URL ? `${process.env.REACT_APP_API_BASE_URL}/api` : 'http://localhost:8000/api'),
   headers: {
     'Content-Type': 'application/json',
     'X-Requested-With': 'XMLHttpRequest'
@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
       try {
         // 使用refresh token获取新的access token
         const storedTokens = JSON.parse(localStorage.getItem('authTokens'));
-        const response = await apiClient.post('/api/auth/token/refresh/', {
+      const response = await apiClient.post('/auth/token/refresh/', {
           refresh: storedTokens?.refresh
         });
         
@@ -88,7 +88,7 @@ export function AuthProvider({ children }) {
           // 统一设置认证头格式
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
           // 获取用户信息
-          apiClient.get('/api/users/me/', {
+          apiClient.get('/users/me/', {
             headers: {
               'Authorization': `Bearer ${access}`
             }
@@ -118,7 +118,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password, rememberMe = false) => {
     try {
-      const res = await apiClient.post('/api/auth/login/', { 
+      const res = await apiClient.post('/auth/login/', { 
         username, 
         password,
         remember_me: rememberMe 
@@ -136,7 +136,7 @@ export function AuthProvider({ children }) {
       
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
-      const userRes = await apiClient.get('/api/users/me/');
+      const userRes = await apiClient.get('/users/me/');
       setUser(userRes.data);
       setIsGuest(false);
       return { 
@@ -151,7 +151,7 @@ export function AuthProvider({ children }) {
 
   const register = async (username, password) => {
     try {
-      const res = await apiClient.post('/api/auth/registration/', { 
+      const res = await apiClient.post('/auth/registration/', { 
         username,
         password
       });

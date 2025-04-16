@@ -193,6 +193,16 @@ const CalendarPage = () => {
                 setCurrentSchedule(schedule);
                 setScheduleModalMode('view');
                 setScheduleModalVisible(true);
+                
+                // 同时设置currentEvent以显示EventModal
+                setCurrentEvent({
+                  ...eventObj,
+                  extendedProps: {
+                    ...eventObj.extendedProps,
+                    scheduleDetails: schedule
+                  }
+                });
+                setModalType('view');
               }
             }}
             onEventDrop={handleEventDrop}
