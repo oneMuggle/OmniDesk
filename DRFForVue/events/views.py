@@ -2,6 +2,7 @@ from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
+from users.permissions import has_module_permission
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
@@ -21,7 +22,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [IsAuthenticated, has_module_permission('manage_calendar')()]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['trial', 'start_time', 'end_time']
 
@@ -90,7 +91,7 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
     serializer_class = DocumentTemplateSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [has_module_permission('manage_documents')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'experiment_type', 'created_at']
 
@@ -100,14 +101,14 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 class EquipmentViewSet(viewsets.ModelViewSet):
     queryset = Equipment.objects.all()
     serializer_class = EquipmentSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [has_module_permission('manage_equipment')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name']
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.select_related('duty_person', 'duty_leader').all()
     serializer_class = ScheduleSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [has_module_permission('manage_schedule')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['duty_date', 'duty_person', 'duty_leader']
     ordering_fields = ['duty_date']
@@ -204,7 +205,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()
     serializer_class = PersonnelSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [has_module_permission('manage_personnel')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'department', 'phone']
 
@@ -215,7 +216,7 @@ class TrialViewSet(viewsets.ModelViewSet):
         'time_slots'
     ).all()
     serializer_class = TrialSerializer
-    permission_classes = [IsAuthenticatedOrReadOnly]
+    permission_classes = [has_module_permission('manage_trials')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = [
         'status',

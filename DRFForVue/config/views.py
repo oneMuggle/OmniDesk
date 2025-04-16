@@ -1,20 +1,25 @@
 from rest_framework import viewsets
-from rest_framework.permissions import IsAdminUser
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from users.permissions import IsAdmin, IsAdminOrManager, HasSpecificPermission
 from .models import Config
 from .serializers import ConfigSerializer
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
     serializer_class = ConfigSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminOrManager]
     lookup_field = 'key'
 
-class ConfigView(APIView):
-    """
-    API endpoint for getting/setting OLLAMA endpoint configuration
-    """
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'destroy']:
+            return [IsAdmin()]
+        return super().get_permissions()
+
+class SystemConfigView(APIView):
+    """系统配置API"""
+    permission_classes = [HasSpecificPermission('users.manage_settings')]
+    
     def get(self, request, format=None):
         try:
             config = Config.objects.get(key='OLLAMA_ENDPOINT')
@@ -28,3 +33,7 @@ class ConfigView(APIView):
             defaults={'value': request.data.get('OLLAMA_ENDPOINT', '')}
         )
         return Response({'status': 'success'})
+
+class UserConfigView(APIView):
+    """用户配置API"""
+    permission_classes = [IsAdminOrManager]

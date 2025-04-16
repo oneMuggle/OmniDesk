@@ -4,6 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate
+from .permissions import IsAdmin, IsManager, has_module_permission
 
 class LoginView(APIView):
     def post(self, request):
@@ -106,11 +107,11 @@ class PersonnelListCreateView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     authentication_classes = [JWTAuthentication]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdmin]
     lookup_field = 'id'

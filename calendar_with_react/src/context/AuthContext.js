@@ -35,7 +35,7 @@ apiClient.interceptors.response.use(
       try {
         // 使用refresh token获取新的access token
         const storedTokens = JSON.parse(localStorage.getItem('authTokens'));
-      const response = await apiClient.post('/auth/token/refresh/', {
+        const response = await apiClient.post('/auth/token/refresh/', {
           refresh: storedTokens?.refresh
         });
         
@@ -59,6 +59,16 @@ apiClient.interceptors.response.use(
       }
     }
     
+    // 处理403权限错误
+    if (error.response?.status === 403) {
+      const missingPermissions = error.response?.data?.missing_permissions || [];
+      return Promise.reject({
+        ...error,
+        isPermissionError: true,
+        missingPermissions
+      });
+    }
+    
     return Promise.reject(error);
   }
 );
@@ -67,6 +77,8 @@ export const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   isGuest: false,
+  permissions: {},
+  hasPermission: (permission) => false,
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
   register: () => Promise.resolve({ success: false }),
@@ -77,6 +89,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
+  const [permissions, setPermissions] = useState({});
 
   // 初始化时检查本地存储的token
   useEffect(() => {
@@ -95,6 +108,7 @@ export function AuthProvider({ children }) {
           })
             .then(res => {
               setUser(res.data);
+              setPermissions(res.data.permissions || {});
               setIsInitializing(false);
               setIsGuest(false);
             })
@@ -138,6 +152,7 @@ export function AuthProvider({ children }) {
       
       const userRes = await apiClient.get('/users/me/');
       setUser(userRes.data);
+      setPermissions(userRes.data.permissions || {});
       setIsGuest(false);
       return { 
         success: true,
@@ -200,11 +215,18 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const hasPermission = (permission) => {
+    if (!permissions || !permissions.permissions) return false;
+    return permissions.permissions.includes(permission);
+  };
+
   const value = {
     user,
     isAuthenticated: !!user,
     isGuest,
     isInitializing,
+    permissions,
+    hasPermission,
     login,
     logout,
     register,

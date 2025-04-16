@@ -1,6 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import GuestRoute from '../components/GuestRoute';
+import UnauthorizedPage from '../components/UnauthorizedPage';
 import App from '../App';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
@@ -23,20 +24,46 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
       { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
-      { path: "settings", element: <ProtectedRoute><SettingsPage /></ProtectedRoute> },
-      { path: "events", element: <ProtectedRoute><EventsPage /></ProtectedRoute> },
-      { path: "trials", element: <ProtectedRoute><TrialsPage /></ProtectedRoute> },
-      { path: "personnel", element: <ProtectedRoute><PersonnelPage /></ProtectedRoute> },
+      { 
+        path: "settings", 
+        element: <ProtectedRoute requiredPermissions={['manage_settings']}><SettingsPage /></ProtectedRoute> 
+      },
+      { 
+        path: "events", 
+        element: <ProtectedRoute requiredPermissions={['manage_schedule']}><EventsPage /></ProtectedRoute> 
+      },
+      { 
+        path: "trials", 
+        element: <ProtectedRoute requiredPermissions={['manage_trials']}><TrialsPage /></ProtectedRoute> 
+      },
+      { 
+        path: "personnel", 
+        element: <ProtectedRoute requiredPermissions={['manage_personnel']}><PersonnelPage /></ProtectedRoute> 
+      },
       { 
         path: "equipment", 
-        element: <ProtectedRoute><EquipmentPage /></ProtectedRoute>,
-        role: ['user', 'admin']
+        element: <ProtectedRoute requiredPermissions={['manage_equipment']}><EquipmentPage /></ProtectedRoute>
       },
-      { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
-      { path: "documents", element: <ProtectedRoute><DocumentsPage /></ProtectedRoute> },
-      { path: "announcements", element: <ProtectedRoute><AnnouncementsPage /></ProtectedRoute> },
-      { path: "deepseek-chat", element: <ProtectedRoute><DeepSeekChatPage /></ProtectedRoute> },
-      { path: "file-analysis", element: <ProtectedRoute><FileAnalysisPage /></ProtectedRoute> }
+      { 
+        path: "profile", 
+        element: <ProtectedRoute><ProfilePage /></ProtectedRoute> 
+      },
+      { 
+        path: "documents", 
+        element: <ProtectedRoute requiredPermissions={['manage_documents']}><DocumentsPage /></ProtectedRoute> 
+      },
+      { 
+        path: "announcements", 
+        element: <ProtectedRoute requiredPermissions={['manage_announcements']}><AnnouncementsPage /></ProtectedRoute> 
+      },
+      { 
+        path: "deepseek-chat", 
+        element: <ProtectedRoute requiredPermissions={['use_ai_chat']}><DeepSeekChatPage /></ProtectedRoute> 
+      },
+      { 
+        path: "file-analysis", 
+        element: <ProtectedRoute requiredPermissions={['analyze_files']}><FileAnalysisPage /></ProtectedRoute> 
+      }
     ]
   },
   {
@@ -46,6 +73,10 @@ const router = createBrowserRouter([
   {
     path: "/register",
     element: <Register />
+  },
+  {
+    path: "/unauthorized",
+    element: <UnauthorizedPage />
   },
 ], { basename: "/" });
 

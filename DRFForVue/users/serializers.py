@@ -81,9 +81,17 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
+    permissions = serializers.SerializerMethodField()
+
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'date_joined')
+        fields = ('id', 'username', 'date_joined', 'permissions')
+
+    def get_permissions(self, obj):
+        return {
+            'role': obj.role,
+            'permissions': list(obj.get_all_permissions())
+        }
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -109,10 +117,15 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data['refresh'] = str(refresh)
         data['access'] = str(refresh.access_token)
         data['username'] = self.user.username
+        data['permissions'] = {
+            'role': self.user.role,
+            'permissions': list(self.user.get_all_permissions())
+        }
         return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         token['username'] = user.username
+        token['role'] = user.role
         return token
