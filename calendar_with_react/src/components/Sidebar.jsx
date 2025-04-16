@@ -23,7 +23,7 @@ import {
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isAuthenticated, logout } = useAuth();
+  const { isAuthenticated, logout, hasPermission, isGuest } = useAuth();
   const location = useLocation();
 
   return (
@@ -58,19 +58,23 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         <nav className="sidebar-menu">
           <ul>
             {[
-              { to: "/", icon: faHome, text: "首页" },
-              { to: "/calendar", icon: faCalendarAlt, text: "日历" },
-              { to: "/settings", icon: faCog, text: "设置" },
-              { to: "/events", icon: faTasks, text: "事件" },
-              { to: "/profile", icon: faUser, text: "个人资料" },
-              { to: "/documents", icon: faFileWord, text: "文档管理" },
-              { to: "/trials", icon: faFlask, text: "试验管理" },
-              { to: "/equipment", icon: faFlask, text: "设备管理" },
-              { to: "/personnel", icon: faUsers, text: "人员管理" },
-              { to: "/announcements", icon: faBullhorn, text: "公告栏" },
-              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天" },
-              { to: "/file-analysis", icon: faFileAlt, text: "文件分析" }
-            ].map((item, index) => (
+              { to: "/", icon: faHome, text: "首页", permission: null },
+              { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null },
+              { to: "/settings", icon: faCog, text: "设置", permission: "manage_settings" },
+              { to: "/events", icon: faTasks, text: "事件", permission: "manage_schedule" },
+              { to: "/profile", icon: faUser, text: "个人资料", permission: "view_profile" },
+              { to: "/documents", icon: faFileWord, text: "文档管理", permission: "manage_documents" },
+              { to: "/trials", icon: faFlask, text: "试验管理", permission: "manage_trials" },
+              { to: "/equipment", icon: faFlask, text: "设备管理", permission: "manage_equipment" },
+              { to: "/personnel", icon: faUsers, text: "人员管理", permission: "manage_personnel" },
+              { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "manage_announcements" },
+              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: "use_ai_chat" },
+              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: "analyze_files" }
+            ].filter(item => 
+              item.permission === null || 
+              (isAuthenticated && hasPermission(item.permission)) || 
+              isGuest
+            ).map((item, index) => (
               <li key={index}>
                 <Link
                   to={item.to}
