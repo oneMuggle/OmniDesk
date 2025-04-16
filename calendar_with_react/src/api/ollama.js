@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // 创建并导出api实例
 export const api = axios.create({
-  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
+  baseURL: `${process.env.REACT_APP_API_BASE_URL}/api` || 'http://localhost:8000/api',
   headers: {
     'Content-Type': 'application/json'
   }

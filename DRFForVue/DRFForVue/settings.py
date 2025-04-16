@@ -154,7 +154,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 LANGUAGE_CODE = 'zh-hans'
 TIME_ZONE = 'Asia/Shanghai'
-USE_I18N = False  # 禁用国际化
+USE_I18N = True  # 禁用国际化
 USE_L10N = True
 USE_TZ = True
 

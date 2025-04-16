@@ -220,6 +220,26 @@ export function AuthProvider({ children }) {
     return permissions.permissions.includes(permission);
   };
 
+  // 权限轮询检查
+  useEffect(() => {
+    if (!user) return;
+    
+    const interval = setInterval(async () => {
+      try {
+        const res = await apiClient.get('/users/me/');
+        const newPermissions = res.data.permissions || {};
+        if (JSON.stringify(permissions) !== JSON.stringify(newPermissions)) {
+          setPermissions(newPermissions);
+          console.log('权限已更新:', newPermissions);
+        }
+      } catch (error) {
+        console.error('权限轮询失败:', error);
+      }
+    }, 5 * 60 * 1000); // 5分钟
+
+    return () => clearInterval(interval);
+  }, [user, permissions]);
+
   const value = {
     user,
     isAuthenticated: !!user,
