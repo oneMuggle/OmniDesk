@@ -14,6 +14,7 @@ import AnnouncementsPage from '../components/AnnouncementsPage';
 import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
 import EquipmentPage from '../components/EquipmentPage';
+import FileAnalysisPage from '../components/FileAnalysisPage';
 
 const router = createBrowserRouter([
 {
@@ -34,7 +35,8 @@ const router = createBrowserRouter([
       { path: "profile", element: <ProtectedRoute><ProfilePage /></ProtectedRoute> },
       { path: "documents", element: <ProtectedRoute><DocumentsPage /></ProtectedRoute> },
       { path: "announcements", element: <ProtectedRoute><AnnouncementsPage /></ProtectedRoute> },
-      { path: "deepseek-chat", element: <ProtectedRoute><DeepSeekChatPage /></ProtectedRoute> }
+      { path: "deepseek-chat", element: <ProtectedRoute><DeepSeekChatPage /></ProtectedRoute> },
+      { path: "file-analysis", element: <ProtectedRoute><FileAnalysisPage /></ProtectedRoute> }
     ]
   },
   {

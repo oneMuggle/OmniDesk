@@ -17,7 +17,8 @@ import {
   faBullhorn,
   faCommentDots,
   faFlask,
-  faUsers
+  faUsers,
+  faFileAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -67,7 +68,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/equipment", icon: faFlask, text: "设备管理" },
               { to: "/personnel", icon: faUsers, text: "人员管理" },
               { to: "/announcements", icon: faBullhorn, text: "公告栏" },
-              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天" }
+              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天" },
+              { to: "/file-analysis", icon: faFileAlt, text: "文件分析" }
             ].map((item, index) => (
               <li key={index}>
                 <Link
