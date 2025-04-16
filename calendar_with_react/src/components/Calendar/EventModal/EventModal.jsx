@@ -27,7 +27,51 @@ const EventModal = ({ isGuest: propsIsGuest = false,
 
   // 自动设置关联试验并获取时间段
   useEffect(() => {
-    if (currentEvent?.trialId) {
+    if (currentEvent?.extendedProps?.trialDetails) {
+      // 如果事件中已经包含试验详情，直接使用
+      const trial = currentEvent.extendedProps.trialDetails;
+      form.setFieldsValue({ trial: trial.id });
+      setSelectedTrial(trial);
+      
+      calendarApi.fetchTimeSlotsByTrial(trial.id)
+        .then(slots => {
+          if (!slots || slots.length === 0) {
+            console.warn('获取到空时间段数组', { trialId: trial.id });
+            form.setFieldsValue({ time_slots: [] });
+            return;
+          }
+          
+          const validSlots = slots.filter(slot => 
+            slot.id && slot.start && slot.end
+          );
+          
+          if (validSlots.length !== slots.length) {
+            console.warn('过滤掉无效时间段', {
+              trialId: trial.id,
+              total: slots.length,
+              valid: validSlots.length
+            });
+          }
+          
+          form.setFieldsValue({
+            time_slots: validSlots.map(slot => ({
+              id: slot.id,
+              start_time: slot.start_time || slot.start,
+              end_time: slot.end_time || slot.end,
+              description: slot.description || ''
+            }))
+          });
+        })
+        .catch(error => {
+          console.error('获取时间段失败:', error);
+          Modal.warning({
+            title: '获取时间段失败',
+            content: `无法获取试验 ${trial.title} 的时间段数据`,
+          });
+          form.setFieldsValue({ time_slots: [] });
+        });
+    } else if (currentEvent?.trialId) {
+      // 如果只有trialId，则从trials数组中查找
       const trial = trials.find(t => t.id === currentEvent.trialId);
       if (trial) {
         form.setFieldsValue({ trial: trial.id });
@@ -64,7 +108,7 @@ const EventModal = ({ isGuest: propsIsGuest = false,
           })
           .catch(error => {
             console.error('获取时间段失败:', error);
-        Modal.warning({
+            Modal.warning({
               title: '获取时间段失败',
               content: `无法获取试验 ${trial.title} 的时间段数据`,
             });
@@ -267,7 +311,14 @@ const EventModal = ({ isGuest: propsIsGuest = false,
           calendarApi={calendarApi}
         />
 
-        {selectedTrial && <TrialDetails selectedTrial={selectedTrial} />}
+        {selectedTrial && (
+          <>
+            <div style={{ display: 'none' }} data-testid="selected-trial-data">
+              {JSON.stringify(selectedTrial)}
+            </div>
+            <TrialDetails selectedTrial={selectedTrial} />
+          </>
+        )}
 
         <TimeSlotForm
           form={form}

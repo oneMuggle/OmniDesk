@@ -5,12 +5,15 @@ export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {
     try {
       const response = await apiClient.get(`/api/events/time-slots/?trial=${trialId}`);
-      return response.data.map(slot => ({
+      // 确保从results字段获取数据，并处理可能的undefined情况
+      const slots = response.data?.results || [];
+      
+      return slots.map(slot => ({
         id: slot.id,
         start: new Date(slot.start_time),
         end: new Date(slot.end_time),
-        description: slot.description,
-        trialId: slot.trial
+        description: slot.description || '',
+        trialId: slot.trial_id  // 注意API返回的是trial_id字段
       }));
     } catch (error) {
       handleError(error);

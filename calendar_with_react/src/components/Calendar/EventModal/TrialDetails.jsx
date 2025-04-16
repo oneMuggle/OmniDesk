@@ -43,38 +43,54 @@ const TrialDetails = ({ selectedTrial }) => {
 
   return (
     <Descriptions 
-      title="试验详情" 
+      title="试验排班详情"
       bordered 
       column={1}
       size="small"
       style={{ marginBottom: '16px' }}
     >
-      <Descriptions.Item label="试验名称">{selectedTrial.title}</Descriptions.Item>
+      <Descriptions.Item label="试验名称">
+        <strong>{selectedTrial.title}</strong>
+      </Descriptions.Item>
       <Descriptions.Item label="客户">{selectedTrial.client}</Descriptions.Item>
       <Descriptions.Item label="状态">
         <Badge 
-          color={status.color} 
-          text={status.text}
+          color={status.color}
+          text={<>
+            {status.icon} {status.text}
+          </>}
+          style={{ fontWeight: 'bold' }}
         />
       </Descriptions.Item>
-      <Descriptions.Item label="开始日期">{selectedTrial.start_date}</Descriptions.Item>
-      <Descriptions.Item label="结束日期">{selectedTrial.end_date}</Descriptions.Item>
+      <Descriptions.Item label="版本">v{selectedTrial.version || '1.0'}</Descriptions.Item>
+      <Descriptions.Item label="排班周期">
+        {selectedTrial.start_date} 至 {selectedTrial.end_date}
+      </Descriptions.Item>
+      <Descriptions.Item label="排班统计">
+        {selectedTrial.time_slots?.length || 0} 个时间段
+      </Descriptions.Item>
       <Descriptions.Item label="负责人">
-        {selectedTrial.responsible_persons?.map(person => (
-          <Tag key={person.id} color="blue">
-            {person.name}
-          </Tag>
-        ))}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {selectedTrial.responsible_persons?.map(person => (
+            <Tag key={person.id} color="blue" style={{ margin: 0 }}>
+              {person.name} ({person.role || '成员'})
+            </Tag>
+          ))}
+        </div>
       </Descriptions.Item>
       <Descriptions.Item label="设备">
-        {selectedTrial.equipment?.map(item => (
-          <Tag key={item.id} color="green">
-            {item.name}
-          </Tag>
-        ))}
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+          {selectedTrial.equipment?.map(item => (
+            <Tag key={item.id} color="green" style={{ margin: 0 }}>
+              {item.name} ({item.type || '设备'})
+            </Tag>
+          ))}
+        </div>
       </Descriptions.Item>
-      <Descriptions.Item label="描述">
-        {selectedTrial.description || '无描述'}
+      <Descriptions.Item label="试验描述">
+        <div style={{ whiteSpace: 'pre-wrap' }}>
+          {selectedTrial.description || '暂无详细描述'}
+        </div>
       </Descriptions.Item>
     </Descriptions>
   );
