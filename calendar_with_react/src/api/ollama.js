@@ -1,11 +1,31 @@
 import axios from 'axios';
 
-const ollamaClient = axios.create({
-  baseURL: process.env.REACT_APP_OLLAMA_ENDPOINT || 'http://localhost:11434/api',
+// 创建并导出api实例
+export const api = axios.create({
+  baseURL: process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000',
   headers: {
     'Content-Type': 'application/json'
   }
 });
+
+const ollamaClient = axios.create({
+  baseURL: 'http://localhost:11434/api', // 默认值，会被配置覆盖
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// 初始化时从后端获取配置
+(async function initOllamaConfig() {
+  try {
+    const response = await api.get('/config/');
+    if (response.data.OLLAMA_ENDPOINT) {
+      ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
+    }
+  } catch (error) {
+    console.log('使用默认OLLAMA配置');
+  }
+})();
 
 export const chatCompletion = async (config, messages) => {
   try {

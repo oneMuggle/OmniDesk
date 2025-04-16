@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     'users',
     'events',
     'documents.apps.DocumentsConfig',
+    'config',
 ]
 
 MIDDLEWARE = [

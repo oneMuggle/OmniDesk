@@ -2,11 +2,26 @@ import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
 import { setApiProvider } from '../api/deepseek';
 import { saveResponsiblePersons } from '../api/responsiblePersons';
+import { api } from '../api/ollama';
 
 function SettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
   const [formData, setFormData] = useState(apiConfig);
   const [apiType, setApiType] = useState(apiConfig.apiType || 'deepseek');
+  const [ollamaEndpoint, setOllamaEndpoint] = useState('');
+
+  useEffect(() => {
+    // 获取当前的OLLAMA端点配置
+    const fetchOllamaConfig = async () => {
+      try {
+        const response = await api.get('/config/');
+        setOllamaEndpoint(response.data.OLLAMA_ENDPOINT || '');
+      } catch (error) {
+        console.error('获取OLLAMA配置失败:', error);
+      }
+    };
+    fetchOllamaConfig();
+  }, []);
   const [models, setModels] = useState([]);
   const [isLoadingModels, setIsLoadingModels] = useState(false);
   const [modelError, setModelError] = useState('');
@@ -149,6 +164,37 @@ function SettingsPage() {
         )}
         <button type="submit">保存配置</button>
       </form>
+
+      {apiType === 'ollama' && (
+        <div className="settings-section">
+          <h3>OLLAMA 服务器配置</h3>
+          <div className="form-group">
+            <label>当前端点:</label>
+            <input 
+              type="text" 
+              value={ollamaEndpoint}
+              readOnly
+            />
+          </div>
+          <button 
+            type="button"
+            onClick={async () => {
+              try {
+                await api.post('/config/', {
+                  OLLAMA_ENDPOINT: formData.apiEndpoint
+                });
+                setOllamaEndpoint(formData.apiEndpoint);
+                alert('OLLAMA端点配置已保存');
+              } catch (error) {
+                console.error('保存OLLAMA配置失败:', error);
+                alert('保存失败: ' + error.message);
+              }
+            }}
+          >
+            保存OLLAMA端点
+          </button>
+        </div>
+      )}
 
       <div className="settings-section">
         <h3>负责人管理</h3>
