@@ -22,7 +22,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer
-    permission_classes = [IsAuthenticated, has_module_permission('manage_calendar')()]
+    permission_classes = [IsAuthenticated, has_module_permission('manage_calendar')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['trial', 'start_time', 'end_time']
 

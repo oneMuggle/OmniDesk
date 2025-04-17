@@ -24,18 +24,18 @@ class TimeSlot(models.Model):
 
 ## 后端API (DRFForVue/events/views.py)
 - 提供以下端点：
-  - `GET /api/events/time-slots/` - 获取时间段列表
-  - `POST /api/events/time-slots/` - 创建单个时间段
-  - `PATCH /api/events/time-slots/{id}/` - 更新单个时间段
-  - `DELETE /api/events/time-slots/{id}/` - 删除单个时间段
-  - `POST /api/events/trials/{trial_id}/update-time-slots/` - 批量创建/更新时间段
+  - `GET /events/time-slots/` - 获取时间段列表
+  - `POST /events/time-slots/` - 创建单个时间段
+  - `PATCH /events/time-slots/{id}/` - 更新单个时间段
+  - `DELETE /events/time-slots/{id}/` - 删除单个时间段
+  - `POST /events/trials/{trial_id}/update-time-slots/` - 批量创建/更新时间段
 
 ## 前端API调用 (calendar_with_react/src/api/calendar.js)
 ```javascript
 export const calendarApi = {
   // 获取试验的时间段
   fetchTimeSlotsByTrial: async (trialId, params = {}) => {
-    const response = await apiClient.get('/api/events/time-slots/', {
+    const response = await apiClient.get('/events/time-slots/', {
       params: { trial: trialId, ...params }
     });
     return response.data;
@@ -43,7 +43,7 @@ export const calendarApi = {
 
   // 创建单个时间段
   createTimeSlot: async (slotData) => {
-    const response = await apiClient.post('/api/events/time-slots/', {
+    const response = await apiClient.post('/events/time-slots/', {
       trial_id: slotData.trial,
       start_time: slotData.start_time,
       end_time: slotData.end_time,
@@ -54,7 +54,7 @@ export const calendarApi = {
 
   // 更新单个时间段
   updateTimeSlot: async (slotId, slotData) => {
-    const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
+    const response = await apiClient.patch(`/events/time-slots/${slotId}/`, {
       start_time: slotData.start_time,
       end_time: slotData.end_time,
       description: slotData.description || '',
@@ -65,14 +65,14 @@ export const calendarApi = {
 
   // 删除时间段
   deleteTimeSlot: async (slotId) => {
-    await apiClient.delete(`/api/events/time-slots/${slotId}/`);
+    await apiClient.delete(`/events/time-slots/${slotId}/`);
     return { success: true, id: slotId };
   },
 
   // 批量创建时间段
   bulkCreateTimeSlots: async (trialId, slotsData) => {
     const response = await apiClient.post(
-      `/api/events/trials/${trialId}/update-time-slots/`,
+      `/events/trials/${trialId}/update-time-slots/`,
       slotsData
     );
     return response.data;
@@ -118,28 +118,28 @@ sequenceDiagram
     participant DB as 数据库
     
     UI->>API: 获取时间段列表(fetchTimeSlotsByTrial)
-    API->>Backend: GET /api/events/time-slots/
+    API->>Backend: GET /events/time-slots/
     Backend->>DB: 查询TimeSlot
     DB-->>Backend: 返回数据
     Backend-->>API: 返回响应
     API-->>UI: 返回格式化数据
     
     UI->>API: 创建时间段(createTimeSlot/bulkCreateTimeSlots)
-    API->>Backend: POST /api/events/time-slots/ 或 POST /api/events/trials/{id}/update-time-slots/
+    API->>Backend: POST /events/time-slots/ 或 POST /events/trials/{id}/update-time-slots/
     Backend->>DB: 创建记录
     DB-->>Backend: 返回创建结果
     Backend-->>API: 返回响应
     API-->>UI: 返回结果并更新状态
     
     UI->>API: 更新时间段(updateTimeSlot)
-    API->>Backend: PATCH /api/events/time-slots/{id}/
+    API->>Backend: PATCH /events/time-slots/{id}/
     Backend->>DB: 更新记录
     DB-->>Backend: 返回更新结果
     Backend-->>API: 返回响应
     API-->>UI: 返回结果并更新状态
     
     UI->>API: 删除时间段(deleteTimeSlot)
-    API->>Backend: DELETE /api/events/time-slots/{id}/
+    API->>Backend: DELETE /events/time-slots/{id}/
     Backend->>DB: 删除记录
     DB-->>Backend: 返回删除结果
     Backend-->>API: 返回响应

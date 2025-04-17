@@ -4,7 +4,7 @@ import { handleError } from './responseHandler';
 export const scheduleApi = {
   checkScheduleDate: async (date) => {
     try {
-      const response = await apiClient.get('/api/events/schedules/', {
+      const response = await apiClient.get('/events/schedules/', {
         params: { duty_date: date }
       });
       return (response.data.results || []).length > 0;

@@ -4,7 +4,7 @@ import { handleError } from './responseHandler';
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {
     try {
-      const response = await apiClient.get(`/api/events/time-slots/?trial=${trialId}`);
+      const response = await apiClient.get(`/events/time-slots/?trial=${trialId}`);
       // 确保从results字段获取数据，并处理可能的undefined情况
       const slots = response.data?.results || [];
       
@@ -37,7 +37,7 @@ export const timeSlotApi = {
 
   updateTimeSlot: async (slotId, slotData) => {
     try {
-      const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
+      const response = await apiClient.patch(`/events/time-slots/${slotId}/`, {
         start_time: slotData.start,
         end_time: slotData.end,
         description: slotData.description || ''
@@ -51,7 +51,7 @@ export const timeSlotApi = {
 
   deleteTimeSlot: async (slotId) => {
     try {
-      await apiClient.delete(`/api/events/time-slots/${slotId}/`);
+      await apiClient.delete(`/events/time-slots/${slotId}/`);
     } catch (error) {
       handleError(error);
       throw error;
@@ -60,7 +60,7 @@ export const timeSlotApi = {
 
   updateTimeSlotByIndex: async (trialId, slotIndex, slotData) => {
     try {
-      const response = await apiClient.patch(`/api/events/trials/${trialId}/time-slots/${slotIndex}/`, {
+      const response = await apiClient.patch(`/events/trials/${trialId}/time-slots/${slotIndex}/`, {
         start_time: slotData.start,
         end_time: slotData.end,
         description: slotData.description || ''
@@ -74,7 +74,7 @@ export const timeSlotApi = {
 
   bulkUpdateTimeSlots: async (trialId, slots) => {
     try {
-      const response = await apiClient.put(`/api/events/trials/${trialId}/time-slots/bulk/`, {
+      const response = await apiClient.put(`/events/trials/${trialId}/time-slots/bulk/`, {
         time_slots: slots.map(slot => ({
           id: slot.id,
           start_time: slot.start,
@@ -91,7 +91,7 @@ export const timeSlotApi = {
 
   bulkCreateTimeSlots: async (trialId, slots) => {
     try {
-      const response = await apiClient.post(`/api/events/trials/${trialId}/time-slots/bulk/`, {
+      const response = await apiClient.post(`/events/trials/${trialId}/time-slots/bulk/`, {
         time_slots: slots.map(slot => ({
           start_time: slot.start,
           end_time: slot.end,

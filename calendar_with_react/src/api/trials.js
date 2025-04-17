@@ -54,7 +54,7 @@ export const getTrialById = async (id) => {
 // 设备列表接口（保持命名一致性）
 export const getEquipmentOptions = async (params) => {
   console.log('[MCP_DEBUG] 正在请求设备选项数据...');
-  const response = await api.get('/api/events/equipments/', { params })
+  const response = await api.get('/events/equipments/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
       throw err;
@@ -73,7 +73,7 @@ export const getEquipmentOptions = async (params) => {
 
 export const getPersonnelOptions = async (params) => {
   console.log('[MCP_DEBUG] 正在请求人员选项数据...');
-  const response = await api.get('/api/events/personnel/', { params })
+  const response = await api.get('/events/personnel/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;

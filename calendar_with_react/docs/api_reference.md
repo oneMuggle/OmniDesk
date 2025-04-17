@@ -62,7 +62,7 @@
 ## 试验管理 API
 
 ### 获取试验列表
-- **端点**: `GET /api/events/trials/`
+- **端点**: `GET /events/trials/`
 - **权限**: 需要认证
 - **过滤参数**:
   - `status`: 试验状态
@@ -74,7 +74,7 @@
   - `time_slots__start_time`: 按时间段排序
 
 ### 获取单个试验
-- **端点**: `GET /api/events/trials/{id}/`
+- **端点**: `GET /events/trials/{id}/`
 - **权限**: 需要认证
 - **响应**:
   ```json
@@ -106,7 +106,7 @@
   ```
 
 ### 创建试验
-- **端点**: `POST /api/events/trials/`
+- **端点**: `POST /events/trials/`
 - **权限**: 需要认证
 - **请求体**:
   ```json
@@ -127,7 +127,7 @@
 ## 时间段管理 API
 
 ### 获取时间段
-- **端点**: `GET /api/events/time-slots/`
+- **端点**: `GET /events/time-slots/`
 - **权限**: 需要认证
 - **查询参数**:
   - `trial`: 关联试验ID (可选)
@@ -148,7 +148,7 @@
   ```
 
 ### 创建时间段
-- **端点**: `POST /api/events/time-slots/`
+- **端点**: `POST /events/time-slots/`
 - **权限**: 需要认证
 - **请求头**:
   - `X-Request-Source`: calendar-view (可选)
@@ -177,7 +177,7 @@
   ```
 
 ### 更新时间段
-- **端点**: `PATCH /api/events/time-slots/{id}/`
+- **端点**: `PATCH /events/time-slots/{id}/`
 - **权限**: 需要认证
 - **请求头**:
   - `X-Request-Source`: calendar-view (可选)
@@ -204,7 +204,7 @@
   ```
 
 ### 删除时间段
-- **端点**: `DELETE /api/events/time-slots/{id}/`
+- **端点**: `DELETE /events/time-slots/{id}/`
 - **权限**: 需要认证
 - **请求头**:
   - `X-Request-Source`: calendar-view (可选)
@@ -214,7 +214,7 @@
   - 403: 无删除权限
 
 ### 批量创建时间段
-- **端点**: `POST /api/events/time-slots/bulk/`
+- **端点**: `POST /events/time-slots/bulk/`
 - **权限**: 需要认证
 - **请求头**:
   - `X-Request-Source`: calendar-view (可选)

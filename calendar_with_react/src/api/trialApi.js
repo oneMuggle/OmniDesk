@@ -96,8 +96,8 @@ export const trialApi = {
   },
 
   fetchCalendarEvents: () => apiClient.get('/events/trials/'),
-  updateCalendarEvent: (id, eventData) => apiClient.put(`/api/events/trials/${id}/`, eventData),
-  deleteCalendarEvent: (id) => apiClient.delete(`/api/events/trials/${id}/`),
+  updateCalendarEvent: (id, eventData) => apiClient.put(`/events/trials/${id}/`, eventData),
+  deleteCalendarEvent: (id) => apiClient.delete(`/events/trials/${id}/`),
   
   getTrialDetails: async (trialId) => {
     try {
