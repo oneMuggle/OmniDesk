@@ -26,23 +26,23 @@ const router = createBrowserRouter([
       { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
       { 
         path: "settings", 
-        element: <ProtectedRoute requiredPermissions={['manage_settings']}><SettingsPage /></ProtectedRoute> 
+        element: <ProtectedRoute requiredPermissions={['users.manage_settings']}><SettingsPage /></ProtectedRoute> 
       },
       { 
         path: "events", 
-        element: <ProtectedRoute requiredPermissions={['manage_schedule']}><EventsPage /></ProtectedRoute> 
+        element: <ProtectedRoute requiredPermissions={['events.view_schedule', 'events.add_schedule', 'events.change_schedule', 'events.delete_schedule']}><EventsPage /></ProtectedRoute> 
       },
       { 
         path: "trials", 
-        element: <ProtectedRoute requiredPermissions={['manage_trials']}><TrialsPage /></ProtectedRoute> 
+        element: <ProtectedRoute requiredPermissions={['events.view_trial', 'events.add_trial', 'events.change_trial', 'events.delete_trial']}><TrialsPage /></ProtectedRoute> 
       },
       { 
         path: "personnel", 
-        element: <ProtectedRoute requiredPermissions={['manage_personnel']}><PersonnelPage /></ProtectedRoute> 
+        element: <ProtectedRoute requiredPermissions={['events.view_personnel', 'events.add_personnel', 'events.change_personnel', 'events.delete_personnel']}><PersonnelPage /></ProtectedRoute> 
       },
       { 
         path: "equipment", 
-        element: <ProtectedRoute requiredPermissions={['manage_equipment']}><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute requiredPermissions={['events.view_equipment', 'events.add_equipment', 'events.change_equipment', 'events.delete_equipment']}><EquipmentPage /></ProtectedRoute>
       },
       { 
         path: "profile", 
@@ -50,7 +50,7 @@ const router = createBrowserRouter([
       },
       { 
         path: "documents", 
-        element: <ProtectedRoute requiredPermissions={['manage_documents']}><DocumentsPage /></ProtectedRoute> 
+        element: <ProtectedRoute requiredPermissions={['users.manage_documents']}><DocumentsPage /></ProtectedRoute> 
       },
       { 
         path: "announcements", 
