@@ -60,8 +60,8 @@ const TimeSlotForm = ({
         console.log('[DEBUG] 删除前时间段:', 
           beforeSlots.map(s => ({ 
             id: s.id, 
-            start: s.start, 
-            end: s.end,
+            start_time: s.start_time, 
+            end_time: s.end_time,
             type: typeof s.id
           }))
         );
@@ -91,7 +91,7 @@ const TimeSlotForm = ({
       setTimeout(() => {
         const afterSlots = form.getFieldValue('time_slots') || [];
         console.log('[DEBUG] 删除后时间段:', 
-          afterSlots.map(s => ({ id: s.id, start: s.start, end: s.end }))
+          afterSlots.map(s => ({ id: s.id, start_time: s.start_time, end_time: s.end_time }))
         );
       }, 0);
       
@@ -113,35 +113,68 @@ const TimeSlotForm = ({
     setRemoveFunction(null);
   };
 
+  // 监听time_slots字段变化并初始化timeRange
   useEffect(() => {
-    console.log('Component props:', {
-      isEditing,
-      modifiedSlots,
-      setModifiedSlots,
-      setDefaultEvents,
-      queryClient,
-      calendarApi
-    });
-    console.log('Form initial values:', form.getFieldsValue());
-    console.log('Time slots field:', form.getFieldValue('time_slots'));
+    const initializeTimeSlots = () => {
+      const timeSlots = form.getFieldValue('time_slots') || [];
+      console.log('Initializing time slots:', timeSlots);
+      
+      if (timeSlots.length > 0) {
+        const updatedTimeSlots = timeSlots.map(slot => {
+          try {
+            if (slot?.start_time && slot?.end_time) {
+              const startTime = typeof slot.start_time === 'string' 
+                ? fromServerFormat(slot.start_time) 
+                : slot.start_time;
+              const endTime = typeof slot.end_time === 'string' 
+                ? fromServerFormat(slot.end_time) 
+                : slot.end_time;
+              
+              console.log('Processing slot:', {
+                id: slot.id,
+                originalStart: slot.start_time,
+                originalEnd: slot.end_time,
+                convertedStart: startTime?.format(),
+                convertedEnd: endTime?.format()
+              });
+              
+              return {
+                ...slot,
+                timeRange: [startTime, endTime]
+              };
+            }
+            return slot;
+          } catch (error) {
+            console.error('Error processing time slot:', error);
+            return slot;
+          }
+        });
+        
+        console.log('Updated time slots with timeRange:', updatedTimeSlots);
+        form.setFieldsValue({ time_slots: updatedTimeSlots });
+      }
+    };
+
+    // 初始加载时执行
+    initializeTimeSlots();
     
-    // Initialize timeRange fields for existing time slots
-    const timeSlots = form.getFieldValue('time_slots') || [];
-    if (timeSlots.length > 0) {
-      const updatedTimeSlots = timeSlots.map(slot => {
-        if (slot?.start && slot?.end) {
-          const startTime = dayjs(slot.start);
-          const endTime = dayjs(slot.end);
-          return {
-            ...slot,
-            timeRange: [startTime, endTime]
-          };
+    // 安全地监听time_slots字段变化
+    let unsubscribe = () => {};
+    if (form && typeof form.onFieldsChange === 'function') {
+      unsubscribe = form.onFieldsChange((changedFields) => {
+        if (changedFields.some(field => field.name.includes('time_slots'))) {
+          initializeTimeSlots();
         }
-        return slot;
       });
-      form.setFieldsValue({ time_slots: updatedTimeSlots });
+    } else if (form && typeof form.watch === 'function') {
+      // 兼容其他表单库的watch方法
+      unsubscribe = form.watch('time_slots', initializeTimeSlots);
+    } else {
+      console.warn('Form instance does not support field change listening');
     }
-  }, [form, isEditing, modifiedSlots, setModifiedSlots, setDefaultEvents, queryClient, calendarApi]);
+    
+    return unsubscribe;
+  }, [form]);
 
   const handleTimeSlotChange = (index, field, value) => {
     console.log('Time slot changed - index:', index, 'field:', field, 'value:', value);
@@ -152,8 +185,6 @@ const TimeSlotForm = ({
     if (field === 'timeRange') {
       newSlots[index] = {
         ...newSlots[index],
-        start: value?.[0] ? toServerFormat(value[0]) : null,
-        end: value?.[1] ? toServerFormat(value[1]) : null,
         start_time: value?.[0] ? toServerFormat(value[0]) : null,
         end_time: value?.[1] ? toServerFormat(value[1]) : null,
         timeRange: value
@@ -195,9 +226,17 @@ const TimeSlotForm = ({
                   const slot = form.getFieldValue(['time_slots', name]);
                   // console.log('Current slot data:', slot);
                   
-                  const startTime = slot?.start ? dayjs(slot.start) : null;
-                  const endTime = slot?.end ? dayjs(slot.end) : null;
+                  const startTime = slot?.start_time ? (typeof slot.start_time === 'string' ? fromServerFormat(slot.start_time) : slot.start_time) : null;
+                  const endTime = slot?.end_time ? (typeof slot.end_time === 'string' ? fromServerFormat(slot.end_time) : slot.end_time) : null;
                   const timeRange = slot?.timeRange || [startTime, endTime];
+                  
+                  console.log('Time slot display values:', {
+                    rawStart: slot?.start_time,
+                    rawEnd: slot?.end_time,
+                    startTime: startTime?.format(),
+                    endTime: endTime?.format(),
+                    timeRange: timeRange?.map(t => t?.format())
+                  });
                   
                   // console.log('Raw slot data:', slot);
                   // console.log('Dayjs converted:', { startTime, endTime });
@@ -241,7 +280,11 @@ const TimeSlotForm = ({
                           disabled={!isEditing || isGuest}
                           onChange={(value) => {
                             console.log('DatePicker onChange value:', value);
-                            handleTimeSlotChange(name, 'timeRange', value);
+                            const formattedValue = [
+                              value?.[0] ? toServerFormat(value[0]) : null,
+                              value?.[1] ? toServerFormat(value[1]) : null
+                            ];
+                            handleTimeSlotChange(name, 'timeRange', formattedValue);
                           }}
                           onOpenChange={(open) => {
                             if (open) {
@@ -286,8 +329,8 @@ const TimeSlotForm = ({
                       onClick={() => {
                         add({
                           id: null,
-                          start: null,
-                          end: null,
+                          start_time: null,
+                          end_time: null,
                           description: ''
                         });
                       }}

@@ -18,8 +18,10 @@ class ConfigViewSet(viewsets.ModelViewSet):
 
 class SystemConfigView(APIView):
     """系统配置API"""
-    permission_classes = [HasSpecificPermission('users.manage_settings')]
     
+    def get_permissions(self):
+        return [HasSpecificPermission('users.manage_settings')]
+        
     def get(self, request, format=None):
         try:
             config = Config.objects.get(key='OLLAMA_ENDPOINT')

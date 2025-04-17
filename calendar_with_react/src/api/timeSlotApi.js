@@ -1,20 +1,36 @@
 import { apiClient } from '../context/AuthContext';
 import { handleError } from './responseHandler';
+import { fromServerFormat } from '../utils/dateUtils';
 
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {
     try {
       const response = await apiClient.get(`/events/time-slots/?trial=${trialId}`);
-      // 确保从results字段获取数据，并处理可能的undefined情况
-      const slots = response.data?.results || [];
       
-      return slots.map(slot => ({
-        id: slot.id,
-        start: new Date(slot.start_time),
-        end: new Date(slot.end_time),
-        description: slot.description || '',
-        trialId: slot.trial_id  // 注意API返回的是trial_id字段
-      }));
+      // 处理分页响应和非分页响应
+      const slots = Array.isArray(response.data)
+        ? response.data  // 非分页响应
+        : response.data?.results || [];  // 分页响应
+      
+      if (!Array.isArray(slots)) {
+        console.error('无效的时间段数据格式:', response.data);
+        return [];
+      }
+
+      return slots.map(slot => {
+        if (!slot || !slot.start_time || !slot.end_time) {
+          console.warn('无效的时间段数据:', slot);
+          return null;
+        }
+        
+        return {
+          id: slot.id,
+          start: fromServerFormat(slot.start_time),
+          end: fromServerFormat(slot.end_time),
+          description: slot.description || '',
+          trialId: slot.trial_id
+        };
+      }).filter(Boolean);  // 过滤掉无效项
     } catch (error) {
       handleError(error);
       throw error;
