@@ -42,7 +42,7 @@ export const isValidDate = (date) => {
 // 4. 转换为后端格式 (ISO 8601 with timezone)
 export const toServerFormat = (date) => {
   const parsed = parseDate(date);
-  return parsed ? parsed.utc().format() : null; // 使用ISO8601 UTC格式
+  return parsed ? parsed.format() : null; // 使用本地时间格式
 };
 
 // 5. 从后端格式解析 (支持带时区和数组输入)

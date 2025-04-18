@@ -113,37 +113,30 @@ const TimeSlotForm = ({
       console.log('Initializing time slots:', timeSlots);
       
       if (timeSlots.length > 0) {
-        const updatedTimeSlots = timeSlots.map(slot => {
-          try {
-            // 处理数组格式的时间范围
-            if (Array.isArray(slot?.timeRange)) {
-              const processedTimeRange = slot.timeRange.map(time => {
-                if (!time) return null;
-                if (typeof time === 'string') return fromServerFormat(time);
-                if (dayjs.isDayjs(time)) return time;
-                return null;
-              });
-              
-              return {
-                ...slot,
-                timeRange: processedTimeRange,
-                start_time: processedTimeRange[0] ? toServerFormat(processedTimeRange[0]) : null,
-                end_time: processedTimeRange[1] ? toServerFormat(processedTimeRange[1]) : null
-              };
-            }
-            
-            // 处理单独的开始/结束时间
-            if (slot?.start_time || slot?.end_time) {
-              const startTime = slot.start_time 
-                ? (typeof slot.start_time === 'string' 
-                  ? fromServerFormat(slot.start_time) 
-                  : slot.start_time)
-                : null;
-              const endTime = slot.end_time 
-                ? (typeof slot.end_time === 'string' 
-                  ? fromServerFormat(slot.end_time) 
-                  : slot.end_time)
-                : null;
+            const updatedTimeSlots = timeSlots.map(slot => {
+              try {
+                // 处理数组格式的时间范围
+                if (Array.isArray(slot?.timeRange)) {
+                  return {
+                    ...slot,
+                    timeRange: slot.timeRange,
+                    start_time: slot.start_time,
+                    end_time: slot.end_time
+                  };
+                }
+                
+                // 处理单独的开始/结束时间
+                if (slot?.start_time || slot?.end_time) {
+                  const startTime = slot.start_time 
+                    ? (typeof slot.start_time === 'string' 
+                      ? dayjs(slot.start_time) 
+                      : slot.start_time)
+                    : null;
+                  const endTime = slot.end_time 
+                    ? (typeof slot.end_time === 'string' 
+                      ? dayjs(slot.end_time) 
+                      : slot.end_time)
+                    : null;
               
               console.log('Processing slot:', {
                 id: slot.id,
@@ -343,27 +336,7 @@ const TimeSlotForm = ({
                           format="YYYY-MM-DD HH:mm"
                           minuteStep={15}
                           disabled={!isEditing || isGuest}
-                          value={(() => {
-                            if (!Array.isArray(timeRange)) return [null, null];
-                            
-                            return timeRange.map(t => {
-                              if (!t) return null;
-                              if (dayjs.isDayjs(t)) return t;
-                              if (typeof t === 'string') {
-                                try {
-                                  // 优先尝试解析ISO 8601格式
-                                  if (t.includes('T') && t.includes('+')) {
-                                    return dayjs(t);
-                                  }
-                                  return fromServerFormat(t);
-                                } catch (e) {
-                                  console.error('时间格式转换失败:', t, e);
-                                  return null;
-                                }
-                              }
-                              return null;
-                            });
-                          })()}
+                          value={timeRange}
                           onChange={(value) => {
                             console.log('DatePicker onChange value:', value);
                             handleTimeSlotChange(name, 'timeRange', value);

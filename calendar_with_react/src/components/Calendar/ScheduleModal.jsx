@@ -21,7 +21,7 @@ const ScheduleModal = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (!form) return;
+    if (mode !== 'edit') return;
     
     if (scheduleData) {
       form.setFieldsValue({
@@ -32,7 +32,7 @@ const ScheduleModal = ({
     } else {
       form.resetFields();
     }
-  }, [scheduleData]);
+  }, [scheduleData, mode]);
 
   const handleSubmit = async () => {
     try {
@@ -120,10 +120,6 @@ const ScheduleModal = ({
     return person ? person.name : '未知人员';
   };
 
-  // 确保表单实例在 mode 切换时正确处理
-  if (mode === 'view' && form) {
-    form.resetFields();
-  }
 
   return (
     <Modal
@@ -157,9 +153,9 @@ const ScheduleModal = ({
       ]}
     >
       {mode === 'view' ? (
-          <div className="schedule-modal">
-            <div className="schedule-modal__card">
-              <div className="schedule-modal__title">
+        <div className="schedule-modal">
+          <div className="schedule-modal__card">
+            <div className="schedule-modal__title">
               {scheduleData?.date}
             </div>
             
@@ -247,7 +243,6 @@ const ScheduleModal = ({
               ))}
             </Select>
           </Form.Item>
-
         </Form>
       )}
     </Modal>

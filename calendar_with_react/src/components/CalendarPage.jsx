@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Form } from 'antd';
 import { calendarApi } from '../api/calendar';
+import { formatDate } from '../utils/dateUtils';
 import { trialApi } from '../api/trialApi';
 import { getStatusConfig } from '../utils/calendarUtils';
 import { useAuth } from '../context/AuthContext';
@@ -190,16 +191,24 @@ const CalendarPage = () => {
               const eventObj = clickInfo.event.toPlainObject();
               const schedule = schedules.find(s => s.id === eventObj.id);
               if (schedule) {
-                setCurrentSchedule(schedule);
-                setScheduleModalMode('view');
-                setScheduleModalVisible(true);
-                
-                // 同时设置currentEvent以显示EventModal
                 setCurrentEvent({
                   ...eventObj,
                   extendedProps: {
                     ...eventObj.extendedProps,
-                    scheduleDetails: schedule
+                    scheduleDetails: {
+                      ...schedule,
+                      leader: {
+                        name: schedule.leader || '未指定',
+                        contact: schedule.leaderPhone || '无'
+                      },
+                      staff: {
+                        name: schedule.staff || '未指定',
+                        contact: schedule.staffPhone || '无'
+                      },
+                      time: formatDate(eventObj.start, 'HH:mm') + ' - ' + formatDate(eventObj.end, 'HH:mm'),
+                      position: '排班人员',
+                      department: '工作部门'
+                    }
                   }
                 });
                 setModalType('view');
