@@ -19,7 +19,7 @@ const CalendarPage = () => {
   const [form] = Form.useForm();
   const { isGuest } = useAuth();
   const [modalType, setModalType] = useState('new');
-  const [scheduleModalVisible, setScheduleModalVisible] = useState(false);
+  const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [scheduleModalMode, setScheduleModalMode] = useState('edit');
   const [isEditing, setIsEditing] = useState(false);
@@ -79,7 +79,7 @@ const CalendarPage = () => {
       leaderPhone: ''
     });
     setScheduleModalMode('edit');
-    setScheduleModalVisible(true);
+    setScheduleModalOpen(true);
   };
 
   // 处理事件拖放
@@ -188,8 +188,12 @@ const CalendarPage = () => {
             isGuest={isGuest}
             onScheduleDateClick={handleScheduleDateClick}
             onScheduleEventClick={(clickInfo) => {
+              console.log('Schedule event clicked:', clickInfo);
               const eventObj = clickInfo.event.toPlainObject();
-              const schedule = schedules.find(s => s.id === eventObj.id);
+              console.log('Event object:', eventObj);
+              const scheduleId = parseInt(eventObj.id.replace('schedule-', ''));
+              const schedule = schedules.find(s => s.id === scheduleId);
+              console.log('Found schedule:', schedule);
               if (schedule) {
                 setCurrentEvent({
                   ...eventObj,
@@ -212,6 +216,18 @@ const CalendarPage = () => {
                   }
                 });
                 setModalType('view');
+                
+                // 设置排班模态框
+                setCurrentSchedule({
+                  id: schedule.id,
+                  date: schedule.date,
+                  staff: schedule.staff,
+                  leader: schedule.leader,
+                  staffPhone: schedule.staffPhone,
+                  leaderPhone: schedule.leaderPhone
+                });
+                setScheduleModalMode('view');
+                setScheduleModalOpen(true);
               }
             }}
             onEventDrop={handleEventDrop}
@@ -248,8 +264,8 @@ const CalendarPage = () => {
       )}
 
       <ScheduleModal
-        visible={scheduleModalVisible}
-        onCancel={() => setScheduleModalVisible(false)}
+        open={scheduleModalOpen}
+        onCancel={() => setScheduleModalOpen(false)}
         scheduleData={currentSchedule}
         mode={scheduleModalMode}
         personnelList={personnel}

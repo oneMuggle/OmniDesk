@@ -7,7 +7,7 @@ import { calendarApi } from '../../api/calendar';
 const { Option } = Select;
 
 const ScheduleModal = ({
-  visible,
+  open,
   onCancel,
   scheduleData,
   isEditing,
@@ -35,6 +35,8 @@ const ScheduleModal = ({
   }, [scheduleData, mode]);
 
   const handleSubmit = async () => {
+    if (mode !== 'edit') return;
+    
     try {
       console.log('[DEBUG] 保存按钮被点击');
       setLoading(true);
@@ -124,7 +126,7 @@ const ScheduleModal = ({
   return (
     <Modal
       title={mode === 'view' ? '排班详情' : (isEditing ? '编辑排班' : '新建排班')}
-      visible={visible}
+      open={open}
       onCancel={onCancel}
       footer={mode === 'view' ? [
         <Button key="edit" type="primary" onClick={() => onSave('edit')}>
