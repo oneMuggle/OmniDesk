@@ -6,7 +6,15 @@ import { calendarApi } from '../../api/calendar';
 
 const { Option } = Select;
 
-const ScheduleModal = ({
+/**
+ * 人员排班模态框组件 - 专门用于展示和编辑人员排班信息
+ * 功能：
+ * 1. 展示值班日期（精确到天）
+ * 2. 展示值班人员和值班领导信息
+ * 3. 展示联系电话
+ * 4. 编辑功能允许修改值班日期、值班人员和值班领导
+ */
+const PersonnelScheduleModal = ({
   open,
   onCancel,
   scheduleData,
@@ -251,4 +259,4 @@ const ScheduleModal = ({
   );
 };
 
-export default ScheduleModal;
+export default PersonnelScheduleModal;

@@ -10,7 +10,7 @@ import { useCalendarData } from '../hooks/useCalendarData';
 import { useEventService } from '../services/eventService';
 import CalendarControls from './Calendar/CalendarControls';
 import EventModal from './Calendar/EventModal/EventModal';
-import ScheduleModal from './Calendar/ScheduleModal';
+import PersonnelScheduleModal from './Calendar/ScheduleModal';
 import TrialCalendar from './Calendar/TrialCalendar';
 import ScheduleCalendar from './Calendar/ScheduleCalendar';
 import './CalendarPage.css';
@@ -190,33 +190,9 @@ const CalendarPage = () => {
             onScheduleEventClick={(clickInfo) => {
               console.log('Schedule event clicked:', clickInfo);
               const eventObj = clickInfo.event.toPlainObject();
-              console.log('Event object:', eventObj);
               const scheduleId = parseInt(eventObj.id.replace('schedule-', ''));
               const schedule = schedules.find(s => s.id === scheduleId);
-              console.log('Found schedule:', schedule);
               if (schedule) {
-                setCurrentEvent({
-                  ...eventObj,
-                  extendedProps: {
-                    ...eventObj.extendedProps,
-                    scheduleDetails: {
-                      ...schedule,
-                      leader: {
-                        name: schedule.leader || '未指定',
-                        contact: schedule.leaderPhone || '无'
-                      },
-                      staff: {
-                        name: schedule.staff || '未指定',
-                        contact: schedule.staffPhone || '无'
-                      },
-                      time: formatDate(eventObj.start, 'HH:mm') + ' - ' + formatDate(eventObj.end, 'HH:mm'),
-                      position: '排班人员',
-                      department: '工作部门'
-                    }
-                  }
-                });
-                setModalType('view');
-                
                 // 设置排班模态框
                 setCurrentSchedule({
                   id: schedule.id,
@@ -263,13 +239,18 @@ const CalendarPage = () => {
           />
       )}
 
-      <ScheduleModal
+      <PersonnelScheduleModal
         open={scheduleModalOpen}
         onCancel={() => setScheduleModalOpen(false)}
         scheduleData={currentSchedule}
         mode={scheduleModalMode}
         personnelList={personnel}
-        onSave={() => queryClient.invalidateQueries(['schedules'])}
+        onSave={(mode) => {
+          if (mode === 'edit') {
+            setScheduleModalMode('edit');
+          }
+          queryClient.invalidateQueries(['schedules']);
+        }}
         onDelete={() => queryClient.invalidateQueries(['schedules'])}
       />
     </div>
