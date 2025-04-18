@@ -129,23 +129,24 @@ const EventModal = ({ isGuest: propsIsGuest = false,
       
       // 验证时间段
       const validSlots = timeSlots.map(slot => {
-        const startTime = slot.start_time || slot.start;
-        const endTime = slot.end_time || slot.end;
+        console.log('处理时间段', slot);
+        // 优先处理timeRange数组
+        const [start, end] = slot.timeRange || [slot.start_time || slot.start, slot.end_time || slot.end];
         
-        if (!startTime || !endTime) {
+        if (!start || !end) {
           throw new Error('所有时间段必须包含开始和结束时间');
         }
         
-        const start = fromServerFormat(startTime);
-        const end = fromServerFormat(endTime);
+        const startTime = toServerFormat(start);
+        const endTime = toServerFormat(end);
         
-        if (!start || !end || end <= start) {
+        if (!startTime || !endTime || endTime <= startTime) {
           throw new Error('时间段无效: 结束时间必须晚于开始时间');
         }
         
         return {
-          start_time: toServerFormat(start),
-          end_time: toServerFormat(end),
+          start_time: startTime,
+          end_time: endTime,
           ...(slot.id && { id: slot.id }),
           description: slot.description || ''
         };

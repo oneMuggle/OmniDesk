@@ -40,8 +40,8 @@ export const timeSlotApi = {
   createTimeSlot: async (trialId, slotData) => {
     try {
       const response = await apiClient.post(`/events/trials/${trialId}/time-slots/`, {
-        start_time: slotData.start,
-        end_time: slotData.end,
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
         description: slotData.description || ''
       });
       return response.data;
@@ -53,9 +53,10 @@ export const timeSlotApi = {
 
   updateTimeSlot: async (slotId, slotData) => {
     try {
+      console.log('更新时间段请求数据:', slotData);
       const response = await apiClient.patch(`/events/time-slots/${slotId}/`, {
-        start_time: slotData.start,
-        end_time: slotData.end,
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
         description: slotData.description || ''
       });
       return response.data;
@@ -77,8 +78,8 @@ export const timeSlotApi = {
   updateTimeSlotByIndex: async (trialId, slotIndex, slotData) => {
     try {
       const response = await apiClient.patch(`/events/trials/${trialId}/time-slots/${slotIndex}/`, {
-        start_time: slotData.start,
-        end_time: slotData.end,
+        start_time: slotData.start_time,
+        end_time: slotData.end_time,
         description: slotData.description || ''
       });
       return response.data;
@@ -93,8 +94,8 @@ export const timeSlotApi = {
       const response = await apiClient.put(`/events/trials/${trialId}/time-slots/bulk/`, {
         time_slots: slots.map(slot => ({
           id: slot.id,
-          start_time: slot.start,
-          end_time: slot.end,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
           description: slot.description || ''
         }))
       });
@@ -109,8 +110,8 @@ export const timeSlotApi = {
     try {
       const response = await apiClient.post(`/events/trials/${trialId}/time-slots/bulk/`, {
         time_slots: slots.map(slot => ({
-          start_time: slot.start,
-          end_time: slot.end,
+          start_time: slot.start_time,
+          end_time: slot.end_time,
           description: slot.description || ''
         }))
       });

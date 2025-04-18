@@ -8,22 +8,34 @@ export const useEventService = (queryClient) => {
       const slotId = currentEvent?.id ? extractSlotId(currentEvent.id) : null;
       const isUpdate = !!slotId;
 
-      const payload = {
-        trial_id: selectedTrial?.id,
-        start_time: values.startTime.format('YYYY-MM-DD HH:mm:ss'),
-        end_time: values.endTime.format('YYYY-MM-DD HH:mm:ss'),
-        description: values.description,
-        responsible_persons: values.responsiblePersons
-      };
-
-      let response;
-      if (isUpdate) {
-        response = await calendarApi.updateTimeSlot(slotId, payload);
-        message.success('时间段更新成功');
-      } else {
-        response = await calendarApi.createTimeSlot(payload);
-        message.success('时间段创建成功');
+      // 验证 time_slots 数组
+      if (!values.time_slots || values.time_slots.length === 0) {
+        throw new Error('至少需要一个有效时间段');
       }
+
+      // 处理多个时间段
+      const responses = await Promise.all(
+        values.time_slots.map(async (slot) => {
+          if (!slot.start_time || !slot.end_time) {
+            throw new Error('所有时间段必须包含开始和结束时间');
+          }
+
+          const payload = {
+            trial_id: selectedTrial?.id,
+            start_time: slot.start_time,
+            end_time: slot.end_time,
+            description: values.description,
+            responsible_persons: values.responsiblePersons
+          };
+
+          return slot.id 
+            ? calendarApi.updateTimeSlot(slot.id, payload)
+            : calendarApi.createTimeSlot(payload);
+        })
+      );
+
+      message.success(`成功处理${responses.length}个时间段`);
+      const response = responses[0]; // 返回第一个结果保持兼容
 
       queryClient.invalidateQueries(['schedules']);
       return response.data;
