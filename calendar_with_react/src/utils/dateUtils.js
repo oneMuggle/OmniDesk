@@ -45,9 +45,29 @@ export const toServerFormat = (date) => {
   return parsed ? parsed.utc().format() : null; // 使用ISO8601 UTC格式
 };
 
-// 5. 从后端格式解析 (支持带时区)
-export const fromServerFormat = (dateString) => {
-  return dayjs(dateString).utc().local(); // 从UTC转换到本地时间(不再使用时区功能)
+// 5. 从后端格式解析 (支持带时区和数组输入)
+export const fromServerFormat = (dateInput) => {
+  if (!dateInput) return null;
+  
+  // 处理数组输入
+  if (Array.isArray(dateInput)) {
+    return dateInput.map(d => {
+      try {
+        return dayjs(d).utc().local();
+      } catch (e) {
+        console.error('Invalid date format in array:', d);
+        return null;
+      }
+    });
+  }
+  
+  // 处理单个日期输入
+  try {
+    return dayjs(dateInput).utc().local();
+  } catch (e) {
+    console.error('Invalid date format:', dateInput);
+    return null;
+  }
 };
 
 // 6. 日期比较

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, Space, DatePicker, Modal } from 'antd';
 import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
@@ -14,14 +14,7 @@ const TimeSlotForm = ({
   queryClient,
   calendarApi,
 }) => {
-  const [innerForm] = Form.useForm();
-
-  // 同步父表单和内部表单
-  useEffect(() => {
-    if (form) {
-      innerForm.setFieldsValue(form.getFieldsValue(true));
-    }
-  }, [form, innerForm]);
+  // 直接使用父组件传入的form prop
 
   // 用于确认删除对话框的状态
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -122,13 +115,35 @@ const TimeSlotForm = ({
       if (timeSlots.length > 0) {
         const updatedTimeSlots = timeSlots.map(slot => {
           try {
-            if (slot?.start_time && slot?.end_time) {
-              const startTime = typeof slot.start_time === 'string' 
-                ? fromServerFormat(slot.start_time) 
-                : slot.start_time;
-              const endTime = typeof slot.end_time === 'string' 
-                ? fromServerFormat(slot.end_time) 
-                : slot.end_time;
+            // 处理数组格式的时间范围
+            if (Array.isArray(slot?.timeRange)) {
+              const processedTimeRange = slot.timeRange.map(time => {
+                if (!time) return null;
+                if (typeof time === 'string') return fromServerFormat(time);
+                if (dayjs.isDayjs(time)) return time;
+                return null;
+              });
+              
+              return {
+                ...slot,
+                timeRange: processedTimeRange,
+                start_time: processedTimeRange[0] ? toServerFormat(processedTimeRange[0]) : null,
+                end_time: processedTimeRange[1] ? toServerFormat(processedTimeRange[1]) : null
+              };
+            }
+            
+            // 处理单独的开始/结束时间
+            if (slot?.start_time || slot?.end_time) {
+              const startTime = slot.start_time 
+                ? (typeof slot.start_time === 'string' 
+                  ? fromServerFormat(slot.start_time) 
+                  : slot.start_time)
+                : null;
+              const endTime = slot.end_time 
+                ? (typeof slot.end_time === 'string' 
+                  ? fromServerFormat(slot.end_time) 
+                  : slot.end_time)
+                : null;
               
               console.log('Processing slot:', {
                 id: slot.id,
@@ -257,12 +272,62 @@ const TimeSlotForm = ({
                         {...restField}
                         name={[name, 'timeRange']}
                         initialValue={timeRange}
+                        valuePropName="value"
+                          getValueProps={(value) => {
+                            console.log('Time slot value props:', value);
+                            if (!value) return { value: [null, null] };
+                            
+                            // 处理数组格式的时间范围
+                            if (Array.isArray(value)) {
+                              return {
+                                value: value.map(item => {
+                                  if (!item) return null;
+                                  if (dayjs.isDayjs(item)) return item;
+                                  if (typeof item === 'string') {
+                                    try {
+                                      // 优先尝试解析ISO 8601格式
+                                      if (item.includes('T')) {
+                                        return dayjs(item);
+                                      }
+                                      // 否则尝试使用fromServerFormat
+                                      return fromServerFormat(item);
+                                    } catch (e) {
+                                      console.error('时间格式转换失败:', item, e);
+                                      return null;
+                                    }
+                                  }
+                                  return null;
+                                })
+                              };
+                            }
+                            
+                            // 处理对象格式(含start_time/end_time)
+                            if (value.start_time || value.end_time) {
+                              return {
+                                value: [
+                                  value.start_time ? 
+                                    (typeof value.start_time === 'string' ? 
+                                      dayjs(value.start_time) : 
+                                      value.start_time) : 
+                                    null,
+                                  value.end_time ? 
+                                    (typeof value.end_time === 'string' ? 
+                                      dayjs(value.end_time) : 
+                                      value.end_time) : 
+                                    null
+                                ]
+                              };
+                            }
+                            
+                            return { value: [null, null] };
+                          }}
                         rules={[
                           {
                             required: true,
                             message: '请选择时间段',
                             validator: (_, value) => {
-                              if (!value || !value[0] || !value[1]) {
+                              if (!value || !value[0] || !value[1] || 
+                                  !value[0].isValid() || !value[1].isValid()) {
                                 return Promise.reject('请选择完整时间段');
                               }
                               return Promise.resolve();
@@ -278,22 +343,40 @@ const TimeSlotForm = ({
                           format="YYYY-MM-DD HH:mm"
                           minuteStep={15}
                           disabled={!isEditing || isGuest}
+                          value={(() => {
+                            if (!Array.isArray(timeRange)) return [null, null];
+                            
+                            return timeRange.map(t => {
+                              if (!t) return null;
+                              if (dayjs.isDayjs(t)) return t;
+                              if (typeof t === 'string') {
+                                try {
+                                  // 优先尝试解析ISO 8601格式
+                                  if (t.includes('T') && t.includes('+')) {
+                                    return dayjs(t);
+                                  }
+                                  return fromServerFormat(t);
+                                } catch (e) {
+                                  console.error('时间格式转换失败:', t, e);
+                                  return null;
+                                }
+                              }
+                              return null;
+                            });
+                          })()}
                           onChange={(value) => {
                             console.log('DatePicker onChange value:', value);
-                            const formattedValue = [
-                              value?.[0] ? toServerFormat(value[0]) : null,
-                              value?.[1] ? toServerFormat(value[1]) : null
-                            ];
-                            handleTimeSlotChange(name, 'timeRange', formattedValue);
+                            handleTimeSlotChange(name, 'timeRange', value);
                           }}
                           onOpenChange={(open) => {
                             if (open) {
-                              console.log('DatePicker current value:', [startTime, endTime]);
+                              console.log('DatePicker current value:', timeRange);
                             }
                           }}
                           style={{ width: '100%' }}
                           placeholder={['开始时间', '结束时间']}
                           allowClear={false}
+                          allowEmpty={[true, true]}
                         />
                       </Form.Item>
 

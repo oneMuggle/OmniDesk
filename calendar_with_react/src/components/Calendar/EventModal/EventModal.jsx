@@ -56,8 +56,10 @@ const EventModal = ({ isGuest: propsIsGuest = false,
           form.setFieldsValue({
             time_slots: validSlots.map(slot => ({
               id: slot.id,
-              start_time: slot.start_time || slot.start,
-              end_time: slot.end_time || slot.end,
+              timeRange: [
+                slot.start_time ? fromServerFormat(slot.start_time) : slot.start,
+                slot.end_time ? fromServerFormat(slot.end_time) : slot.end
+              ],
               description: slot.description || ''
             }))
           });
@@ -100,8 +102,10 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             form.setFieldsValue({
               time_slots: validSlots.map(slot => ({
                 id: slot.id,
-                start_time: slot.start_time || slot.start,
-                end_time: slot.end_time || slot.end,
+                timeRange: [
+                  slot.start_time ? fromServerFormat(slot.start_time) : slot.start,
+                  slot.end_time ? fromServerFormat(slot.end_time) : slot.end
+                ],
                 description: slot.description || ''
               }))
             });
