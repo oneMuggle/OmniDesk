@@ -24,6 +24,10 @@ RUN mkdir -p /var/lib/django && chown appuser:appuser /var/lib/django
 COPY --chown=appuser:appuser . .
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
+# 收集静态文件
+RUN python manage.py collectstatic --noinput
+RUN mkdir -p /app/staticfiles && chown appuser:appuser /app/staticfiles
+
 # 创建数据目录并设置权限
 RUN mkdir -p /data && \
     chown appuser:appuser /data && \
