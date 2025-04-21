@@ -1,4 +1,4 @@
-import { apiClient } from './personnel';
+import { apiClient } from '../context/AuthContext';
 
 export const getEquipment = async (params = {}) => {
   try {
