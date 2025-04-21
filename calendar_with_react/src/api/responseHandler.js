@@ -38,5 +38,10 @@ export const handleError = (error) => {
     enhancedError.details.originalData = error.response?.data;
   }
 
+  // 处理排班日期已存在的错误
+  if (error.response?.data?.duty_date) {
+    enhancedError.message = error.response.data.duty_date.join(', ');
+  }
+
   throw enhancedError;
 };

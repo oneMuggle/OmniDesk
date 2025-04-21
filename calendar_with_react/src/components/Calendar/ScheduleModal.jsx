@@ -49,6 +49,22 @@ const PersonnelScheduleModal = ({
       setLoading(true);
       const values = await form.validateFields();
       
+      // 检查是否有实际修改
+      if (isEditing) {
+        const originalValues = {
+          date: scheduleData.date,
+          staff: scheduleData.staff,
+          leader: scheduleData.leader
+        };
+        
+        if (values.date === originalValues.date &&
+            values.staff === originalValues.staff &&
+            values.leader === originalValues.leader) {
+          message.info('没有修改内容');
+          return;
+        }
+      }
+      
       const schedule = {
         date: values.date || scheduleData.date,
         staff: values.staff,
@@ -67,7 +83,11 @@ const PersonnelScheduleModal = ({
       onCancel();
     } catch (error) {
       console.error('[DEBUG] 保存过程中发生错误:', error);
-      message.error('操作失败，请检查网络连接后重试');
+      if (error.response?.data?.duty_date) {
+        message.error(error.response.data.duty_date.join(', '));
+      } else {
+        message.error('操作失败，请检查网络连接后重试');
+      }
     } finally {
       setLoading(false);
     }
