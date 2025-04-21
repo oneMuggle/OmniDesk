@@ -74,6 +74,26 @@ export const scheduleApi = {
     }
   },
 
+  upsertSchedule: async (scheduleData) => {
+    try {
+      const { id, ...data } = scheduleData;
+      const endpoint = id ? `/events/schedules/${id}/` : '/events/schedules/';
+      const method = id ? 'patch' : 'post';
+      
+      const response = await apiClient[method](endpoint, {
+        duty_date: data.date,
+        duty_person: data.staff,
+        duty_leader: data.leader
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('保存排班失败:', error.response?.data || error.message);
+      handleError(error);
+      throw error;
+    }
+  },
+
   deleteSchedule: async (scheduleId) => {
     try {
       await apiClient.delete(`/events/schedules/${scheduleId}/`);

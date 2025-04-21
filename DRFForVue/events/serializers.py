@@ -201,7 +201,8 @@ class ScheduleSerializer(serializers.ModelSerializer):
         model = Schedule
         fields = ['id', 'duty_person', 'duty_leader', 'duty_date']
         extra_kwargs = {
-            'duty_date': {'required': True}
+            'duty_date': {'required': True},
+            'id': {'read_only': False, 'required': False}
         }
 
     def validate(self, data):
@@ -209,13 +210,13 @@ class ScheduleSerializer(serializers.ModelSerializer):
         duty_date = data.get('duty_date')
         duty_person = data.get('duty_person')
         duty_leader = data.get('duty_leader')
+        instance_id = self.instance.id if self.instance else None
 
         # 检查值班日期是否已存在
-        if Schedule.objects.filter(duty_date=duty_date).exists():
-            if not self.instance or self.instance.duty_date != duty_date:
-                raise serializers.ValidationError({
-                    'duty_date': '该日期已有排班记录'
-                })
+        if Schedule.objects.filter(duty_date=duty_date).exclude(id=instance_id).exists():
+            raise serializers.ValidationError({
+                'duty_date': '该日期已有排班记录'
+            })
 
         # 检查值班人和值班领导是否为同一人
         if duty_person and duty_leader and duty_person.id == duty_leader.id:

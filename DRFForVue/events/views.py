@@ -106,8 +106,22 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['name']
 
 class ScheduleViewSet(viewsets.ModelViewSet):
-    queryset = Schedule.objects.select_related('duty_person', 'duty_leader').all()
+    queryset = Schedule.objects.all()
     serializer_class = ScheduleSerializer
+
+    @action(detail=False, methods=['post'])
+    def upsert(self, request):
+        """创建或更新排班记录"""
+        data = request.data
+        if 'id' in data and data['id']:
+            instance = self.get_object()
+            serializer = self.get_serializer(instance, data=data, partial=True)
+        else:
+            serializer = self.get_serializer(data=data)
+        
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data, status=status.HTTP_200_OK)
     permission_classes = [has_module_permission('manage_schedule')]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['duty_date', 'duty_person', 'duty_leader']

@@ -30,6 +30,7 @@ export const calendarApi = {
   deleteSchedule: scheduleApi.deleteSchedule,
   swapScheduleDates: scheduleApi.swapScheduleDates,
   checkScheduleDate: scheduleApi.checkScheduleDate,
+  upsertSchedule: scheduleApi.upsertSchedule,
 
   // 人员相关API - 使用personnelApi模块
   getPersonnel: personnelApi.getPersonnel,

@@ -46,65 +46,28 @@ const PersonnelScheduleModal = ({
     if (mode !== 'edit') return;
     
     try {
-      console.log('[DEBUG] 保存按钮被点击');
       setLoading(true);
-      
-      // 更详细的表单验证
-      let values;
-      try {
-        values = await form.validateFields();
-        console.log('[DEBUG] 表单验证通过，字段值:', values);
-      } catch (validationError) {
-        console.error('[DEBUG] 表单验证失败:', validationError);
-        const errorFields = validationError.errorFields || [];
-        const errorMessages = errorFields.map(field => field.errors.join(', ')).join('; ');
-        message.error(`表单验证失败: ${errorMessages}`);
-        return;
-      }
-      
-      const date = values.date || scheduleData.date;
+      const values = await form.validateFields();
       
       const schedule = {
-        date,
+        date: values.date || scheduleData.date,
         staff: values.staff,
         leader: values.leader,
       };
-      console.log('[DEBUG] 准备提交的排班数据:', schedule);
+
+      // 使用新的upsert API
+      const response = await calendarApi.upsertSchedule({
+        id: isEditing ? scheduleData.id : undefined,
+        ...schedule
+      });
       
-      // 添加API调用前检查
-      console.log('[DEBUG] 准备调用API:', 
-        isEditing ? 'updateSchedule' : 'createSchedule');
-
-      try {
-        if (isEditing) {
-          console.log('[DEBUG] 调用updateSchedule API');
-          const response = await calendarApi.updateSchedule(scheduleData.id, schedule);
-          console.log('[DEBUG] API响应:', response);
-          message.success('排班更新成功');
-        } else {
-          // 检查日期是否已存在排班
-          console.log('[DEBUG] 检查排班日期是否存在');
-          const existing = await calendarApi.checkScheduleDate(date);
-          if (existing) {
-            message.error('该日期已有排班，请选择其他日期');
-            return;
-          }
-          console.log('[DEBUG] 调用createSchedule API');
-          const response = await calendarApi.createSchedule(schedule);
-          console.log('[DEBUG] API响应:', response);
-          message.success('排班创建成功');
-        }
-
-        queryClient.invalidateQueries(['schedules']);
-        onSave();
-        onCancel();
-      } catch (apiError) {
-        console.error('[DEBUG] API调用失败:', apiError);
-        message.error(`API调用失败: ${apiError.message}`);
-      }
+      message.success(isEditing ? '排班更新成功' : '排班创建成功');
+      queryClient.invalidateQueries(['schedules']);
+      onSave();
+      onCancel();
     } catch (error) {
       console.error('[DEBUG] 保存过程中发生错误:', error);
-      message.error(`操作失败: ${error.message}`);
+      message.error('操作失败，请检查网络连接后重试');
     } finally {
       setLoading(false);
     }
