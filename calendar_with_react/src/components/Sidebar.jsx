@@ -60,16 +60,16 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
             {[
               { to: "/", icon: faHome, text: "首页", permission: null },
               { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null },
-              { to: "/settings", icon: faCog, text: "设置", permission: "manage_settings" },
+              { to: "/settings", icon: faCog, text: "设置", permission: null },
               { to: "/events", icon: faTasks, text: "事件", permission: "manage_schedule" },
               { to: "/profile", icon: faUser, text: "个人资料", permission: null },
-              { to: "/documents", icon: faFileWord, text: "文档管理", permission: "manage_documents" },
+              { to: "/documents", icon: faFileWord, text: "文档管理", permission: null },
               { to: "/trials", icon: faFlask, text: "试验管理", permission: null },
               { to: "/equipment", icon: faFlask, text: "设备管理", permission: "manage_equipment" },
               { to: "/personnel", icon: faUsers, text: "人员管理", permission: "manage_personnel" },
               { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "manage_announcements" },
-              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: "use_ai_chat" },
-              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: "analyze_files" }
+              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
+              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null }
             ].filter(item => 
               item.permission === null || 
               (isAuthenticated && hasPermission(item.permission)) || 

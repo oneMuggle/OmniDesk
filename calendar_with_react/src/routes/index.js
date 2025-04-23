@@ -50,19 +50,19 @@ const router = createBrowserRouter([
       },
       { 
         path: "documents", 
-        element: <ProtectedRoute requiredPermissions={['users.manage_documents']}><DocumentsPage /></ProtectedRoute> 
+        element: <DocumentsPage /> 
       },
       { 
         path: "announcements", 
-        element: <ProtectedRoute requiredPermissions={['manage_announcements']}><AnnouncementsPage /></ProtectedRoute> 
+        element: <ProtectedRoute ><AnnouncementsPage /></ProtectedRoute> 
       },
       { 
         path: "deepseek-chat", 
-        element: <ProtectedRoute requiredPermissions={['use_ai_chat']}><DeepSeekChatPage /></ProtectedRoute> 
+        element: <DeepSeekChatPage /> 
       },
       { 
         path: "file-analysis", 
-        element: <ProtectedRoute requiredPermissions={['analyze_files']}><FileAnalysisPage /></ProtectedRoute> 
+        element: <FileAnalysisPage /> 
       }
     ]
   },

@@ -26,6 +26,52 @@ export const PERMISSION_MAPPING = {
       'events.delete_event'
     ],
     backend: 'manage_calendar'
+  },
+  // 日程管理权限组
+  schedule: {
+    frontend: [
+      'events.view_schedule',
+      'events.add_schedule',
+      'events.change_schedule',
+      'events.delete_schedule'
+    ],
+    backend: 'manage_schedule',
+    partial: {
+      'events.view_schedule': 'view_schedule',
+      'events.add_schedule': 'add_schedule',
+      'events.change_schedule': 'change_schedule',
+      'events.delete_schedule': 'delete_schedule'
+    }
+  },
+  // 文档管理权限组
+  documents: {
+    frontend: ['events.view_documents', 'events.manage_documents'],
+    backend: 'manage_documents'
+  },
+  // 设备管理权限组
+  equipment: {
+    frontend: ['events.view_equipment', 'events.manage_equipment'],
+    backend: 'manage_equipment'
+  },
+  // 人员管理权限组
+  personnel: {
+    frontend: ['events.view_personnel', 'events.manage_personnel'],
+    backend: 'manage_personnel'
+  },
+  // 公告管理权限组
+  announcements: {
+    frontend: ['events.view_announcements', 'events.manage_announcements'],
+    backend: 'manage_announcements'
+  },
+  // AI聊天权限组
+  ai_chat: {
+    frontend: ['events.use_ai_chat'],
+    backend: 'use_ai_chat'
+  },
+  // 文件分析权限组
+  file_analysis: {
+    frontend: ['events.analyze_files'],
+    backend: 'analyze_files'
   }
 };
 
@@ -42,6 +88,10 @@ export const ENV_PERMISSIONS = {
 
 // 权限组定义
 export const PERMISSION_GROUPS = {
+  BASIC_USER: {
+    name: '基础用户',
+    permissions: ['use_ai_chat', 'analyze_files', 'view_documents']
+  },
   ADMIN: {
     name: '管理员',
     permissions: ['manage_personnel', 'manage_calendar', 'system_settings']
