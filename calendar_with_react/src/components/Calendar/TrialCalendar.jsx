@@ -17,7 +17,7 @@ const TrialCalendar = ({
     const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
       (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
         id: `trial-${trial.id}-${index}`,
-        title: `${trial.title} (ID: ${trial.id})`,
+        title: `${trial.title}`,
         start: fromServerFormat(trial.start_date)?.toDate(),
         end: fromServerFormat(trial.end_date)?.toDate(),
         extendedProps: {

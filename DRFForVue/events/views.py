@@ -168,19 +168,32 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """创建排班时检查日期是否已存在"""
         duty_date = serializer.validated_data.get('duty_date')
+        override = self.request.data.get('override', False)
+        
         if Schedule.objects.filter(duty_date=duty_date).exists():
-            raise serializers.ValidationError(
-                {'duty_date': '该日期已有排班'}
-            )
+            if override:
+                # 覆盖模式 - 删除原有排班
+                Schedule.objects.filter(duty_date=duty_date).delete()
+            else:
+                raise serializers.ValidationError(
+                    {'duty_date': '该日期已有排班'}
+                )
         serializer.save()
 
     def perform_update(self, serializer):
         """更新排班时检查日期是否冲突"""
         duty_date = serializer.validated_data.get('duty_date')
-        if Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).exists():
-            raise serializers.ValidationError(
-                {'duty_date': '该日期已有排班'}
-            )
+        override = self.request.data.get('override', False)
+        
+        conflicting_schedules = Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk)
+        if conflicting_schedules.exists():
+            if override:
+                # 覆盖模式 - 删除冲突的排班
+                conflicting_schedules.delete()
+            else:
+                raise serializers.ValidationError(
+                    {'duty_date': '该日期已有排班'}
+                )
         serializer.save()
 
     @action(detail=False, methods=['post'], url_path='swap-dates')

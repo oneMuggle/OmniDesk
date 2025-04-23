@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { checkPermission } from '../config/permissionConfig';
 import { ApiProvider } from './ApiProvider.jsx';
 import axios from 'axios';
 
@@ -216,8 +217,30 @@ export function AuthProvider({ children }) {
   };
 
   const hasPermission = (permission) => {
-    if (!permissions || !permissions.permissions) return false;
-    return permissions.permissions.includes(permission);
+    if (!permissions) {
+      console.log('权限检查失败: 无权限数据', { permissions, permission });
+      return false;
+    }
+    
+    // 处理多种权限数据格式
+    let permissionsList = [];
+    if (Array.isArray(permissions)) {
+      permissionsList = permissions;
+    } else if (permissions.permissions && Array.isArray(permissions.permissions)) {
+      permissionsList = permissions.permissions;
+    } else if (permissions.role === 'superuser') {
+      return true; // 超级用户拥有所有权限
+    }
+    
+    // 使用新的权限检查逻辑
+    const hasPerm = checkPermission(permissionsList, permission);
+    if (!hasPerm) {
+      console.warn('权限检查失败:', { 
+        permission,
+        allPermissions: permissionsList 
+      });
+    }
+    return hasPerm;
   };
 
   // 权限轮询检查

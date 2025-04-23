@@ -42,6 +42,20 @@ const PersonnelScheduleModal = ({
     }
   }, [scheduleData, mode]);
 
+  const [conflictModalVisible, setConflictModalVisible] = useState(false);
+  const [conflictInfo, setConflictInfo] = useState(null);
+  const [pendingSchedule, setPendingSchedule] = useState(null);
+
+  const checkScheduleConflict = async (date) => {
+    try {
+      const response = await calendarApi.checkScheduleDate(date);
+      return response;
+    } catch (error) {
+      console.error('检查排班冲突失败:', error);
+      return false;
+    }
+  };
+
   const handleSubmit = async () => {
     if (mode !== 'edit') return;
     
@@ -71,6 +85,18 @@ const PersonnelScheduleModal = ({
         leader: values.leader,
       };
 
+      // 检查排班冲突
+      const hasConflict = await checkScheduleConflict(schedule.date);
+      if (hasConflict && !isEditing) {
+        setConflictInfo({
+          date: schedule.date,
+          message: `该日期(${schedule.date})已有排班记录`
+        });
+        setPendingSchedule(schedule);
+        setConflictModalVisible(true);
+        return;
+      }
+
       // 使用新的upsert API
       const response = await calendarApi.upsertSchedule({
         id: isEditing ? scheduleData.id : undefined,
@@ -84,12 +110,41 @@ const PersonnelScheduleModal = ({
     } catch (error) {
       console.error('[DEBUG] 保存过程中发生错误:', error);
       if (error.response?.data?.duty_date) {
-        message.error(error.response.data.duty_date.join(', '));
+        message.error(`排班冲突: ${error.response.data.duty_date.join(', ')}`);
       } else {
-        message.error('操作失败，请检查网络连接后重试');
+        message.error('操作失败: ' + (error.message || '请检查网络连接后重试'));
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleConflictConfirm = async (override) => {
+    try {
+      setLoading(true);
+      
+      // 确保日期格式正确
+      const formattedSchedule = {
+        ...pendingSchedule,
+        date: typeof pendingSchedule.date === 'string' ? 
+              pendingSchedule.date : 
+              pendingSchedule.date[0], // 如果意外是数组，取第一个元素
+        override // 告诉后端是否覆盖
+      };
+      
+      console.log('[DEBUG] 发送的排班数据:', formattedSchedule);
+      
+      const response = await calendarApi.upsertSchedule(formattedSchedule);
+      
+      message.success('排班创建成功');
+      queryClient.invalidateQueries(['schedules']);
+      onSave();
+      onCancel();
+    } catch (error) {
+      message.error('操作失败: ' + (error.message || '请检查网络连接后重试'));
+    } finally {
+      setLoading(false);
+      setConflictModalVisible(false);
     }
   };
 
@@ -115,6 +170,7 @@ const PersonnelScheduleModal = ({
 
 
   return (
+    <>
     <Modal
       title={mode === 'view' ? '排班详情' : (isEditing ? '编辑排班' : '新建排班')}
       open={open}
@@ -239,6 +295,33 @@ const PersonnelScheduleModal = ({
         </Form>
       )}
     </Modal>
+
+    <Modal
+      title="排班冲突"
+      open={conflictModalVisible}
+      onCancel={() => setConflictModalVisible(false)}
+      footer={[
+        <Button key="cancel" onClick={() => setConflictModalVisible(false)}>
+          取消
+        </Button>,
+        <Button 
+          key="override" 
+          type="primary" 
+          danger
+          onClick={() => handleConflictConfirm(true)}
+          loading={loading}
+        >
+          覆盖排班
+        </Button>
+      ]}
+    >
+      <div style={{ padding: '20px' }}>
+        <p>{conflictInfo?.message}</p>
+        <p>您想要如何处理这个冲突？</p>
+        <p>选择"覆盖排班"将替换现有的排班记录。</p>
+      </div>
+    </Modal>
+  </>
   );
 };
 

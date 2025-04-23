@@ -1,6 +1,7 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
+import { checkPermission } from '../config/permissionConfig';
 
 const ProtectedRoute = ({ 
   children, 
@@ -26,10 +27,14 @@ const ProtectedRoute = ({
     return <Navigate to="/login" replace />;
   }
 
-  // 检查权限
+  // 使用AuthContext提供的hasPermission方法
   const hasAllPermissions = requiredPermissions.every(perm => hasPermission(perm));
   if (!hasAllPermissions) {
     const missingPermissions = requiredPermissions.filter(perm => !hasPermission(perm));
+    console.warn('权限检查失败', {
+      requestedPermissions: requiredPermissions,
+      missingPermissions
+    });
     return (
       <Navigate 
         to="/unauthorized" 

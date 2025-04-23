@@ -196,13 +196,19 @@ class ScheduleSerializer(serializers.ModelSerializer):
         required=True,
         help_text="值班日期，格式：YYYY-MM-DD"
     )
+    override = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="是否覆盖已有排班"
+    )
 
     class Meta:
         model = Schedule
-        fields = ['id', 'duty_person', 'duty_leader', 'duty_date']
+        fields = ['id', 'duty_person', 'duty_leader', 'duty_date', 'override']
         extra_kwargs = {
             'duty_date': {'required': True},
-            'id': {'read_only': False, 'required': False}
+            'id': {'read_only': False, 'required': False},
+            'override': {'required': False, 'default': False}
         }
 
     def validate(self, data):
@@ -211,12 +217,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
         duty_person = data.get('duty_person')
         duty_leader = data.get('duty_leader')
         instance_id = self.instance.id if self.instance else None
-
-        # 检查值班日期是否已存在
-        if Schedule.objects.filter(duty_date=duty_date).exclude(id=instance_id).exists():
-            raise serializers.ValidationError({
-                'duty_date': '该日期已有排班记录'
-            })
+        override = data.get('override', False)
 
         # 检查值班人和值班领导是否为同一人
         if duty_person and duty_leader and duty_person.id == duty_leader.id:
@@ -224,4 +225,30 @@ class ScheduleSerializer(serializers.ModelSerializer):
                 'duty_leader': '值班人和值班领导不能为同一人'
             })
 
+        # 检查值班日期是否已存在（除非是覆盖操作）
+        if not override and Schedule.objects.filter(duty_date=duty_date).exclude(id=instance_id).exists():
+            raise serializers.ValidationError({
+                'duty_date': '该日期已有排班记录'
+            })
+
         return data
+
+    @transaction.atomic
+    def create(self, validated_data):
+        override = validated_data.pop('override', False)
+        duty_date = validated_data['duty_date']
+        
+        if override:
+            Schedule.objects.filter(duty_date=duty_date).delete()
+        
+        return super().create(validated_data)
+
+    @transaction.atomic
+    def update(self, instance, validated_data):
+        override = validated_data.pop('override', False)
+        duty_date = validated_data.get('duty_date', instance.duty_date)
+        
+        if override and duty_date != instance.duty_date:
+            Schedule.objects.filter(duty_date=duty_date).delete()
+        
+        return super().update(instance, validated_data)

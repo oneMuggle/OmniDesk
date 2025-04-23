@@ -76,14 +76,15 @@ export const scheduleApi = {
 
   upsertSchedule: async (scheduleData) => {
     try {
-      const { id, ...data } = scheduleData;
+      const { id, override, ...data } = scheduleData;
       const endpoint = id ? `/events/schedules/${id}/` : '/events/schedules/';
       const method = id ? 'patch' : 'post';
       
       const response = await apiClient[method](endpoint, {
         duty_date: data.date,
         duty_person: data.staff,
-        duty_leader: data.leader
+        duty_leader: data.leader,
+        override: override || false
       });
       
       return response.data;
