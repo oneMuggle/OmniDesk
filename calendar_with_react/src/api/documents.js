@@ -21,5 +21,12 @@ export const documentAPI = {
     headers: {
       Authorization: `Bearer ${localStorage.getItem('token')}`
     }
+  }),
+  
+  analyzeFile: (formData) => axios.post(`${API_URL}/templates/analyze`, formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+      Authorization: `Bearer ${localStorage.getItem('token')}`
+    }
   })
 };

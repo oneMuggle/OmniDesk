@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileAlt, faUpload } from '@fortawesome/free-solid-svg-icons';
+import { documentAPI } from '../api/documents';
 
 function FileAnalysisPage() {
   const { isAuthenticated } = useAuth();
@@ -12,21 +13,28 @@ function FileAnalysisPage() {
     setFile(e.target.files[0]);
   };
 
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState(null);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!file) return;
     
-    // TODO: 实现文件上传和解析逻辑
-    console.log('上传文件:', file.name);
+    setIsLoading(true);
+    setError(null);
     
-    // 模拟解析结果
-    setAnalysisResult({
-      fileName: file.name,
-      people: [
-        { name: '张三', origin: '北京', age: 30 },
-        { name: '李四', origin: '上海', age: 25 }
-      ]
-    });
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      
+      const response = await documentAPI.analyzeFile(formData);
+      setAnalysisResult(response.data);
+    } catch (err) {
+      setError('文件分析失败，请重试');
+      console.error('分析错误:', err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (

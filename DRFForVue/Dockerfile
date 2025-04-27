@@ -25,8 +25,8 @@ COPY --chown=appuser:appuser . .
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
 # 收集静态文件
-RUN python manage.py collectstatic --noinput
-RUN mkdir -p /app/staticfiles && chown appuser:appuser /app/staticfiles
+RUN mkdir -p /usr/share/nginx/html/static && chown appuser:appuser /usr/share/nginx/html/static
+RUN python manage.py collectstatic --noinput --clear --settings=DRFForVue.settings
 
 # 创建数据目录并设置权限
 RUN mkdir -p /data && \

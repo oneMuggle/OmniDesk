@@ -33,6 +33,26 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
+    @action(detail=False, methods=['post'], url_path='analyze')
+    def analyze_file(self, request):
+        file_obj = request.FILES.get('file')
+        if not file_obj:
+            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            # TODO: 实现实际的文件解析逻辑
+            # 这里模拟解析结果
+            result = {
+                'fileName': file_obj.name,
+                'people': [
+                    {'name': '张三', 'origin': '北京', 'age': 30},
+                    {'name': '李四', 'origin': '上海', 'age': 25}
+                ]
+            }
+            return Response(result, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.all()
     serializer_class = GeneratedDocumentSerializer
