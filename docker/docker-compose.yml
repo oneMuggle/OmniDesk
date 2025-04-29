@@ -22,13 +22,13 @@ services:
   backend:
     image: ${DOCKER_USER}/calendar-backend:${BACKEND_VERSION}
     user: root
-    command: bash -c "python manage.py migrate && python manage.py collectstatic --noinput && python -m waitress --port=8000 DRFForVue.wsgi:application"
+    command: bash -c "python manage.py migrate && python /app/init_superuser.py && python -m waitress --port=8000 DRFForVue.wsgi:application"
     ports:
       - "8000:8000"
     volumes:
       - ./volumes/uploads:/app/uploads
       - ./volumes/data:/app/data
-      - ./calendar_with_react/public/static:/app/static
+      - ./volumes/static:/app/staticfiles
     environment:
       - DJANGO_ENV=production
       - POSTGRES_DB=postgres
@@ -38,6 +38,9 @@ services:
       - DB_PORT=5432
       - SECRET_KEY=!@#django-insecure-9g_8=0q^fz$3k&9m6v%_wx@7t6r4b5y_u*8h7=+!k
       - DJANGO_SETTINGS_MODULE=DRFForVue.settings
+      - SUPERUSER_NAME=admin
+      - SUPERUSER_EMAIL=admin@example.com
+      - SUPERUSER_PASSWORD=ChangeMe123!
     depends_on:
       db:
         condition: service_healthy
@@ -65,7 +68,7 @@ services:
     ports:
       - "80:80"
     volumes:
-      - ./calendar_with_react/public/static:/app/static
+      - ./volumes/static:/app/staticfiles
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - backend

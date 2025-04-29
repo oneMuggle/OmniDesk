@@ -12,7 +12,7 @@ ENV PYTHONUNBUFFERED=1
 COPY requirements.txt .
 RUN pip install --upgrade pip --no-cache-dir \
     && pip install --target /usr/local/lib/python3.9/site-packages -r requirements.txt \
-    && pip install waitress
+    && pip install waitress whitenoise
 
 # 运行阶段
 FROM python:3.9-slim-buster
@@ -21,6 +21,7 @@ RUN groupadd -r appuser && useradd -r -g appuser appuser
 
 WORKDIR /app
 RUN mkdir -p /var/lib/django && chown appuser:appuser /var/lib/django
+COPY --chown=appuser:appuser init_superuser.py .
 COPY --chown=appuser:appuser . .
 COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python3.9/site-packages
 
