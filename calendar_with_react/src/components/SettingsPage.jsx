@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
 import { setApiProvider } from '../api/deepseek';
 import { saveResponsiblePersons } from '../api/responsiblePersons';
-import { api } from '../api/ollama';
+import { getConfig, setConfig } from '../api/ollama';
 
 function SettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
@@ -14,8 +14,8 @@ function SettingsPage() {
     // 获取当前的OLLAMA端点配置
     const fetchOllamaConfig = async () => {
       try {
-        const response = await api.get('/config/');
-        setOllamaEndpoint(response.data.OLLAMA_ENDPOINT || '');
+        const config = await getConfig();
+        setOllamaEndpoint(config.OLLAMA_ENDPOINT || '');
       } catch (error) {
         console.error('获取OLLAMA配置失败:', error);
       }
@@ -180,7 +180,7 @@ function SettingsPage() {
             type="button"
             onClick={async () => {
               try {
-                await api.post('/config/', {
+                await setConfig({
                   OLLAMA_ENDPOINT: formData.apiEndpoint
                 });
                 setOllamaEndpoint(formData.apiEndpoint);

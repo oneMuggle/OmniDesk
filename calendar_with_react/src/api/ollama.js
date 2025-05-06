@@ -1,24 +1,11 @@
-import axios from 'axios';
+import apiClient from './apiClient';
 
-// 创建并导出api实例
-export const api = axios.create({
-  baseURL: `${process.env.REACT_APP_API_BASE_URL}/api` || 'http://localhost:8000/api',
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
-
-const ollamaClient = axios.create({
-  baseURL: 'http://localhost:11434/api', // 默认值，会被配置覆盖
-  headers: {
-    'Content-Type': 'application/json'
-  }
-});
+const ollamaClient = apiClient;
 
 // 初始化时从后端获取配置
 (async function initOllamaConfig() {
   try {
-    const response = await api.get('/config/');
+    const response = await apiClient.get('/config/');
     if (response.data.OLLAMA_ENDPOINT) {
       ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
     }
@@ -65,5 +52,31 @@ export const getModels = async () => {
 };
 
 export const setApiProvider = (config) => {
-  ollamaClient.defaults.baseURL = config.apiEndpoint;
+  apiClient.defaults.baseURL = config.apiEndpoint;
+};
+
+export const getConfig = async () => {
+  try {
+    const response = await apiClient.get('/config/');
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response?.data || { message: '获取OLLAMA配置失败' };
+  }
+};
+
+export const setConfig = async (config) => {
+  try {
+    const response = await apiClient.post('/config/', config);
+    return response.data;
+  } catch (error) {
+    if (error.response?.status === 401) {
+      window.location.href = '/login?redirect=' + encodeURIComponent(window.location.pathname);
+      return;
+    }
+    throw error.response?.data || { message: '保存OLLAMA配置失败' };
+  }
 };

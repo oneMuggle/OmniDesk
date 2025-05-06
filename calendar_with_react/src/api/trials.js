@@ -1,4 +1,4 @@
-import { apiClient } from '../context/AuthContext';
+import apiClient from './apiClient';
 import { handleResponse, handleError } from './responseHandler';
 
 // 使用统一的apiClient实例

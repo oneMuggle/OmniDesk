@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import axios from 'axios';
 import { getModels } from '../api/ollama';
 
 export const ApiContext = createContext();

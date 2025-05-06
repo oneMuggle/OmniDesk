@@ -1,78 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { checkPermission } from '../config/permissionConfig';
-import { ApiProvider } from './ApiProvider.jsx';
-import axios from 'axios';
-
-export const apiClient = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' ? '/api' : (process.env.REACT_APP_API_BASE_URL ? `${process.env.REACT_APP_API_BASE_URL}/api` : 'http://localhost:8000/api'),
-  headers: {
-    'Content-Type': 'application/json',
-    'X-Requested-With': 'XMLHttpRequest'
-  },
-  withCredentials: true,
-  xsrfCookieName: 'csrftoken',
-  xsrfHeaderName: 'X-CSRFToken'
-});
-
-// 添加请求拦截器
-apiClient.interceptors.request.use(config => {
-  console.log('发起请求:', config.method.toUpperCase(), config.url);
-  return config;
-});
-
-// 添加响应拦截器
-apiClient.interceptors.response.use(
-  response => {
-    console.log('收到响应:', response.status, response.data);
-    return response;
-  },
-  async error => {
-    const originalRequest = error.config;
-    
-    // 处理401错误且不是刷新token请求
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      
-      try {
-        // 使用refresh token获取新的access token
-        const storedTokens = JSON.parse(localStorage.getItem('authTokens'));
-        const response = await apiClient.post('/auth/token/refresh/', {
-          refresh: storedTokens?.refresh
-        });
-        
-        const newAccessToken = response.data.access;
-        localStorage.setItem('authTokens', JSON.stringify({
-          ...storedTokens,
-          access: newAccessToken
-        }));
-        
-        // 更新默认headers
-        apiClient.defaults.headers.common['Authorization'] = `Bearer ${newAccessToken}`;
-        // 重试原始请求
-        originalRequest.headers['Authorization'] = `Bearer ${newAccessToken}`;
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        console.error('Token刷新失败:', refreshError);
-        localStorage.removeItem('authTokens');
-        delete apiClient.defaults.headers.common['Authorization'];
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
-      }
-    }
-    
-    // 处理403权限错误
-    if (error.response?.status === 403) {
-      const missingPermissions = error.response?.data?.missing_permissions || [];
-      return Promise.reject({
-        ...error,
-        isPermissionError: true,
-        missingPermissions
-      });
-    }
-    
-    return Promise.reject(error);
-  }
-);
+import apiClient from '../api/apiClient';
 
 export const AuthContext = createContext({
   user: null,
@@ -155,6 +83,13 @@ export function AuthProvider({ children }) {
       setUser(userRes.data);
       setPermissions(userRes.data.permissions || {});
       setIsGuest(false);
+      
+      console.log('Login successful - auth state updated:', {
+        user: userRes.data,
+        isAuthenticated: true,
+        isGuest: false
+      });
+      
       return { 
         success: true,
         redirectTo: '/calendar' 
@@ -278,9 +213,7 @@ export function AuthProvider({ children }) {
 
   return (
     <AuthContext.Provider value={value}>
-      <ApiProvider>
-        {children}
-      </ApiProvider>
+      {children}
     </AuthContext.Provider>
   );
 }

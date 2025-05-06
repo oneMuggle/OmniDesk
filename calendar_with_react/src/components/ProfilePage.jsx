@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { apiClient } from '../context/AuthContext';
+import apiClient from '../api/apiClient';
 import { useAuth } from '../context/AuthContext';
 import './ProfilePage.css';
 

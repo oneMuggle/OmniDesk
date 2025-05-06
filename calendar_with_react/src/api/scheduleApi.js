@@ -1,4 +1,4 @@
-import { apiClient } from '../context/AuthContext';
+import apiClient from './apiClient';
 import { handleError } from './responseHandler';
 
 export const scheduleApi = {

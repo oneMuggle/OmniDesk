@@ -1,4 +1,4 @@
-import { apiClient } from '../context/AuthContext';
+import apiClient from './apiClient';
 import { handleError } from './responseHandler';
 
 // 辅助函数：验证和转换人员数据

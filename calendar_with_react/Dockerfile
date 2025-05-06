@@ -5,7 +5,6 @@ COPY package*.json ./
 RUN npm ci --silent --omit=dev
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --chown=appuser:appgroup . .
-COPY --chown=appuser:appgroup .env.production .env
 ENV NODE_ENV=production
 RUN npm run build
 RUN npm cache clean --force

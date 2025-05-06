@@ -11,6 +11,14 @@ const ProtectedRoute = ({
 }) => {
   const { isAuthenticated, isInitializing, isGuest, hasPermission } = useAuth();
 
+  console.log('ProtectedRoute state:', {
+    isAuthenticated,
+    isInitializing, 
+    isGuest,
+    requireAuth,
+    allowGuest
+  });
+
   if (isInitializing) {
     return <div>Loading...</div>;
   }
