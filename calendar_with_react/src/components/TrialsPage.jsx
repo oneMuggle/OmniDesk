@@ -26,7 +26,11 @@ const TrialsPage = () => {
   const { data: trials = [], isLoading, error } = useQuery({ 
     queryKey: ['trials'],
     queryFn: fetchTrials,
-    select: (data) => data?.results || [],
+    select: (data) => {
+      if (Array.isArray(data)) return data;
+      if (data?.results && Array.isArray(data.results)) return data.results;
+      return [];
+    },
     useErrorBoundary: true,
     retry: false,
     onError: (error) => {

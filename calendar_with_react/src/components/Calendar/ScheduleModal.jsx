@@ -29,7 +29,7 @@ const PersonnelScheduleModal = ({
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (mode !== 'edit') return;
+    if (mode !== 'edit' || !form) return;
     
     if (scheduleData) {
       form.setFieldsValue({
@@ -40,7 +40,7 @@ const PersonnelScheduleModal = ({
     } else {
       form.resetFields();
     }
-  }, [scheduleData, mode]);
+  }, [scheduleData, mode, form]);
 
   const [conflictModalVisible, setConflictModalVisible] = useState(false);
   const [conflictInfo, setConflictInfo] = useState(null);

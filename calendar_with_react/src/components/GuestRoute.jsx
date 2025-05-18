@@ -1,14 +1,15 @@
 import React from 'react';
-import { useAuth } from '../context/AuthContext';
+import ProtectedRoute from './ProtectedRoute';
 
-const GuestRoute = ({ children }) => {
-  const { isInitializing } = useAuth();
-
-  if (isInitializing) {
-    return <div>Loading...</div>;
-  }
-
-  return React.cloneElement(children, { isGuest: true });
+const GuestRoute = ({ children, ...props }) => {
+  return (
+    <ProtectedRoute 
+      {...props}
+      allowGuest={true}
+    >
+      {React.cloneElement(children, { isGuest: true })}
+    </ProtectedRoute>
+  );
 };
 
 export default GuestRoute;

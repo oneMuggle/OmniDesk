@@ -60,8 +60,8 @@ export const PERMISSION_MAPPING = {
   },
   // 公告管理权限组
   announcements: {
-    frontend: ['events.view_announcements', 'events.manage_announcements'],
-    backend: 'manage_announcements'
+    frontend: ['events.view_announcements', 'users.manage_announcements'],
+    backend: 'users.manage_announcements'
   },
   // AI聊天权限组
   ai_chat: {
