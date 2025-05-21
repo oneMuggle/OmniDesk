@@ -8,7 +8,7 @@ from rest_framework import status
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
     serializer_class = DocumentTemplateSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
     parser_classes = [parsers.MultiPartParser]  # 添加文件上传支持
 
     def get_queryset(self):
@@ -56,7 +56,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.all()
     serializer_class = GeneratedDocumentSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = []
     pagination_class = None  # 禁用分页
 
     def get_queryset(self):

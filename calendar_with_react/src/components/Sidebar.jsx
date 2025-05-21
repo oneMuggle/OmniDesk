@@ -23,7 +23,7 @@ import {
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isAuthenticated, logout, hasPermission, isGuest } = useAuth();
+  const { isAuthenticated, logout, isGuest } = useAuth();
   const location = useLocation();
 
   return (
@@ -71,9 +71,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
               { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null }
             ].filter(item => 
-              item.permission === null || 
-              (isAuthenticated && hasPermission(item.permission)) || 
-              isGuest
+              item.permission === null || isGuest
             ).map((item, index) => (
               <li key={index}>
                 <Link

@@ -5,10 +5,9 @@ from rest_framework import status
 from django.contrib.auth import authenticate
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer, UserRegistrationSerializer, UserLoginSerializer
-from rest_framework.permissions import IsAuthenticated
 
 class CalendarEventCreateView(CreateAPIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = []
     queryset = CalendarEvent.objects.all()
     serializer_class = CalendarEventSerializer
 

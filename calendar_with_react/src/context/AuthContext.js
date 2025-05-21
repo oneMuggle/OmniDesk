@@ -1,13 +1,11 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { checkPermission } from '../config/permissionConfig';
+
 import apiClient from '../api/apiClient';
 
 export const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   isGuest: false,
-  permissions: {},
-  hasPermission: (permission) => false,
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
   register: () => Promise.resolve({ success: false }),
@@ -18,7 +16,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
-  const [permissions, setPermissions] = useState({});
+  
 
   // 初始化时检查本地存储的token
   useEffect(() => {
@@ -37,7 +35,7 @@ export function AuthProvider({ children }) {
           })
             .then(res => {
               setUser(res.data);
-              setPermissions(res.data.permissions || {});
+              
               setIsInitializing(false);
               setIsGuest(false);
             })
@@ -81,7 +79,6 @@ export function AuthProvider({ children }) {
       
       const userRes = await apiClient.get('/users/me/');
       setUser(userRes.data);
-      setPermissions(userRes.data.permissions || {});
       setIsGuest(false);
       
       console.log('Login successful - auth state updated:', {
@@ -151,61 +148,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const hasPermission = (permission) => {
-    if (!permissions) {
-      console.log('权限检查失败: 无权限数据', { permissions, permission });
-      return false;
-    }
-    
-    // 处理多种权限数据格式
-    let permissionsList = [];
-    if (Array.isArray(permissions)) {
-      permissionsList = permissions;
-    } else if (permissions.permissions && Array.isArray(permissions.permissions)) {
-      permissionsList = permissions.permissions;
-    } else if (permissions.role === 'superuser') {
-      return true; // 超级用户拥有所有权限
-    }
-    
-    // 使用新的权限检查逻辑
-    const hasPerm = checkPermission(permissionsList, permission);
-    if (!hasPerm) {
-      console.warn('权限检查失败:', { 
-        permission,
-        allPermissions: permissionsList 
-      });
-    }
-    return hasPerm;
-  };
 
-  // 权限轮询检查
-  useEffect(() => {
-    if (!user) return;
-    
-    const interval = setInterval(async () => {
-      try {
-        const res = await apiClient.get('/users/me/');
-        const newPermissions = res.data.permissions || {};
-        if (JSON.stringify(permissions) !== JSON.stringify(newPermissions)) {
-          setPermissions(newPermissions);
-          console.log('权限已更新:', newPermissions);
-        }
-      } catch (error) {
-        console.error('权限轮询失败:', error);
-      }
-    }, 5 * 60 * 1000); // 5分钟
-
-    return () => clearInterval(interval);
-  }, [user, permissions]);
+  
 
   const value = {
     user,
     isAuthenticated: !!user,
     isGuest,
     isInitializing,
-    permissions,
-    hasPermission,
-    login,
+        login,
     logout,
     register,
     loginAsGuest

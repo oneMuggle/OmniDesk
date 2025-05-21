@@ -26,23 +26,23 @@ const router = createBrowserRouter([
       { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
       { 
         path: "settings", 
-        element: <ProtectedRoute requiredPermissions={['users.manage_settings']}><SettingsPage /></ProtectedRoute> 
+        element: <ProtectedRoute><SettingsPage /></ProtectedRoute> 
       },
       { 
         path: "events", 
-        element: <ProtectedRoute requiredPermissions={['events.view_schedule', 'events.add_schedule', 'events.change_schedule', 'events.delete_schedule']}><EventsPage /></ProtectedRoute> 
+        element: <ProtectedRoute ><EventsPage /></ProtectedRoute> 
       },
       { 
         path: "trials", 
-        element: <ProtectedRoute requiredPermissions={['events.view_trial', 'events.add_trial', 'events.change_trial', 'events.delete_trial']}><TrialsPage /></ProtectedRoute> 
+        element: <ProtectedRoute ><TrialsPage /></ProtectedRoute> 
       },
       { 
         path: "personnel", 
-        element: <ProtectedRoute requiredPermissions={['events.view_personnel', 'events.add_personnel', 'events.change_personnel', 'events.delete_personnel']}><PersonnelPage /></ProtectedRoute> 
+        element: <ProtectedRoute ><PersonnelPage /></ProtectedRoute> 
       },
       { 
         path: "equipment", 
-        element: <ProtectedRoute requiredPermissions={['events.view_equipment', 'events.add_equipment', 'events.change_equipment', 'events.delete_equipment']}><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute ><EquipmentPage /></ProtectedRoute>
       },
       { 
         path: "profile", 

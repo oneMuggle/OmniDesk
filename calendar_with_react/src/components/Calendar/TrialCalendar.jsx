@@ -18,8 +18,8 @@ const TrialCalendar = ({
       (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
         id: `trial-${trial.id}-${index}`,
         title: `${trial.title}`,
-        start: fromServerFormat(time_slot.start_time)?.toDate(),
-        end: fromServerFormat(time_slot.end_time)?.toDate(),
+        start: fromServerFormat(slot.start_time)?.toDate(),
+        end: fromServerFormat(slot.end_time)?.toDate(),
         extendedProps: {
           type: 'TRIAL',
           status: trial.status,

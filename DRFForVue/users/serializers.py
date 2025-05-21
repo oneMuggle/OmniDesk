@@ -81,17 +81,9 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    permissions = serializers.SerializerMethodField()
-
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'date_joined', 'permissions')
-
-    def get_permissions(self, obj):
-        return {
-            'role': obj.role,
-            'permissions': list(obj.get_all_permissions())
-        }
+        fields = ('id', 'username', 'date_joined')
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -105,27 +97,12 @@ class PersonnelSerializer(UserSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        refresh = self.get_token(self.user)
-        
-        # 根据remember_me设置不同的过期时间
-        remember_me = attrs.get('remember_me', False)
-        if remember_me:
-            refresh.set_exp(lifetime=timedelta(days=30))  # 30天有效期
-        else:
-            refresh.set_exp(lifetime=timedelta(hours=12))  # 12小时有效期
-            
-        data['refresh'] = str(refresh)
-        data['access'] = str(refresh.access_token)
-        data['username'] = self.user.username
-        data['permissions'] = {
-            'role': self.user.role,
-            'permissions': list(self.user.get_all_permissions())
-        }
+        data['permissions'] = list(self.user.get_all_permissions())
         return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         token['username'] = user.username
-        token['role'] = user.role
+        return token
         return token

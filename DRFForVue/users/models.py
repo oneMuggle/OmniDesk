@@ -26,41 +26,18 @@ class CustomUser(AbstractUser):
         related_name="custom_user_groups",
         related_query_name="user",
     )
-    user_permissions = models.ManyToManyField(
-        'auth.Permission',
-        verbose_name='user permissions',
-        blank=True,
-        help_text='Specific permissions for this user.',
-        related_name="custom_user_permissions",
-        related_query_name="user",
-    )
+    
     
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
-        permissions = [
-            ('manage_users', '可以管理用户'),
-            ('manage_calendar', '可以管理日历'),
-            ('manage_documents', '可以管理文档'),
-            ('manage_equipment', '可以管理设备'),
-            ('manage_settings', '可以管理系统设置'),
-            ('manage_schedule', '可以管理日程'),
-            ('manage_trials', '可以管理试验'),
-            ('manage_personnel', '可以管理人员'),
-            ('manage_announcements', '可以管理公告'),
-            ('use_ai_chat', '可以使用AI聊天'),
-            ('analyze_files', '可以分析文件'),
-        ]
+        permissions = []
 
     def __str__(self):
         return self.username
 
     def has_perm(self, perm, obj=None):
-        if self.is_superuser:
-            return True
-        return super().has_perm(perm, obj)
+        return True
 
     def has_module_perms(self, app_label):
-        if self.is_superuser:
-            return True
-        return super().has_module_perms(app_label)
+        return True

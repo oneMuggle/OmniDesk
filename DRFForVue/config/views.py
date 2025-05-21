@@ -1,26 +1,26 @@
 from rest_framework import viewsets
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from users.permissions import IsAdmin, IsAdminOrManager, HasSpecificPermission
+
 from .models import Config
 from .serializers import ConfigSerializer
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
     serializer_class = ConfigSerializer
-    permission_classes = [IsAdminOrManager]
+    permission_classes = []
     lookup_field = 'key'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'destroy']:
-            return [IsAdmin()]
+            return []
         return super().get_permissions()
 
 class SystemConfigView(APIView):
     """系统配置API"""
     
     def get_permissions(self):
-        return [HasSpecificPermission('users.manage_settings')]
+        return []
         
     def get(self, request, format=None):
         try:
@@ -38,4 +38,4 @@ class SystemConfigView(APIView):
 
 class UserConfigView(APIView):
     """用户配置API"""
-    permission_classes = [IsAdminOrManager]
+    permission_classes = []
