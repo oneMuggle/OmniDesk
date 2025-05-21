@@ -22,6 +22,7 @@ const BaseCalendar = ({
     <FullCalendar
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
       initialView="dayGridMonth"
+      initialDate="2025-04-01"
       headerToolbar={{
         left: 'prevYear,prev,next,nextYear today',
         center: 'title',

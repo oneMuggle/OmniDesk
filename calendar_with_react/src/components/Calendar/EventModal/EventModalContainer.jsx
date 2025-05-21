@@ -211,7 +211,7 @@ const EventModalContainer = ({
       }
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <Form layout="vertical" form={form} initialValues={{ time_slots: [] }}>
+        <form layout="vertical" form={form} initialValues={{ time_slots: [] }}>
           <TrialSelector
             trials={trials}
             isTrialsLoading={isTrialsLoading}
@@ -238,7 +238,7 @@ const EventModalContainer = ({
             calendarApi={calendarApi}
             Modal={Modal}
           />
-        </Form>
+        </form>
       </div>
     </Modal>
   );

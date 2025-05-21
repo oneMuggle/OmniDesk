@@ -42,32 +42,67 @@ export const useCalendarData = () => {
   });
 
   useEffect(() => {
-    const fetchEvents = async () => {
+    const fetchAllEvents = async () => {
       try {
-        if (!selectedTrial) {
-          console.warn('未选择试验，跳过加载时间槽');
-          return;
-        }
+        if (trials.length === 0) return;
         
-        const response = await calendarApi.fetchTimeSlotsByTrial(selectedTrial.id);
-        const events = response.map(slot => ({
-          id: slot.id,
-          title: slot.description || '时间槽',
-          start: new Date(slot.start),
-          end: new Date(slot.end),
-          extendedProps: {
-            trialId: slot.trialId
-          }
-        }));
+        // 批量获取所有试验的时间槽
+        console.log('开始获取试验数据，试验数量:', trials.length);
+        const allSlots = await Promise.all(
+          trials.map(trial => {
+            console.log(`获取试验 ${trial.id} 的时间槽`);
+            return calendarApi.fetchTimeSlotsByTrial(trial.id)
+              .then(slots => {
+                console.log(`试验 ${trial.id} 获取到 ${slots.length} 个时间槽`);
+                return slots.map(slot => ({
+                  ...slot,
+                  trialTitle: trial.title,
+                  trialStatus: trial.status
+                }));
+              })
+              .catch(error => {
+                console.error(`获取试验 ${trial.id} 时间槽失败:`, error);
+                return [];
+              });
+          })
+        );
+        
+        const flattenedSlots = allSlots.flat();
+        console.log('扁平化后的时间槽数据:', flattenedSlots);
+        
+        const events = flattenedSlots.map(slot => {
+          const start = new Date(slot.start_time || slot.start);
+          const end = new Date(slot.end_time || slot.end);
+          console.log(`处理时间槽 ${slot.id}:`, {
+            start: start.toString(),
+            end: end.toString(),
+            isValid: !isNaN(start.getTime()) && !isNaN(end.getTime())
+          });
+          
+          return {
+            id: slot.id,
+            title: slot.trialTitle || '试验时间槽',
+            start: start,
+            end: end,
+            extendedProps: {
+              trialId: slot.trial,
+              status: slot.trialStatus,
+              description: slot.description
+            }
+          };
+        });
+        
+        console.log('生成的事件对象:', events);
+        
         setDefaultEvents(events);
       } catch (error) {
-        console.error('加载试验日历失败:', error);
+        console.error('加载时间槽失败:', error);
       }
     };
 
     document.body.classList.toggle('dark-mode', darkMode);
-    fetchEvents();
-  }, [darkMode, selectedTrial]);
+    fetchAllEvents();
+  }, [darkMode, trials]);
 
   const toggleDarkMode = () => {
     setDarkMode(!darkMode);
