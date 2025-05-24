@@ -16,7 +16,7 @@ const TrialCalendar = ({
   const events = useMemo(() => {
     const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
       (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
-        id: `trial-${trial.id}-${index}`,
+        id: slot.id || `trial-${trial.id}-${index}`,
         title: `${trial.title}`,
         start: fromServerFormat(slot.start_time)?.toDate(),
         end: fromServerFormat(slot.end_time)?.toDate(),
@@ -44,7 +44,16 @@ const TrialCalendar = ({
         }
       }))
     );
-    return [...defaultEvents, ...trialEvents];
+    // 合并并去重，优先保留trialEvents中的数据
+    const mergedEvents = [...trialEvents, ...defaultEvents];
+    const uniqueEvents = mergedEvents.filter(
+      (event, index, self) => index === self.findIndex(
+        e => e.id === event.id && 
+             e.start.getTime() === event.start.getTime() &&
+             e.end.getTime() === event.end.getTime()
+      )
+    );
+    return uniqueEvents;
   }, [trials, defaultEvents]);
 
   return (

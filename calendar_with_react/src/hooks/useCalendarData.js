@@ -70,26 +70,37 @@ export const useCalendarData = () => {
         const flattenedSlots = allSlots.flat();
         console.log('扁平化后的时间槽数据:', flattenedSlots);
         
-        const events = flattenedSlots.map(slot => {
-          const start = new Date(slot.start_time || slot.start);
-          const end = new Date(slot.end_time || slot.end);
-          console.log(`处理时间槽 ${slot.id}:`, {
-            start: start.toString(),
-            end: end.toString(),
-            isValid: !isNaN(start.getTime()) && !isNaN(end.getTime())
-          });
-          
-          return {
-            id: slot.id,
-            title: slot.trialTitle || '试验时间槽',
-            start: start,
-            end: end,
-            extendedProps: {
-              trialId: slot.trial,
-              status: slot.trialStatus,
-              description: slot.description
+        const events = flattenedSlots.flatMap(slot => {
+          try {
+            const start = fromServerFormat(slot.start_time || slot.start)?.toDate();
+            const end = fromServerFormat(slot.end_time || slot.end)?.toDate();
+            
+            if (!start || !end || isNaN(start.getTime()) || isNaN(end.getTime())) {
+              console.error(`无效的时间槽数据 ${slot.id}:`, slot);
+              return [];
             }
-          };
+
+            console.log(`处理时间槽 ${slot.id}:`, {
+              start: start.toString(),
+              end: end.toString(),
+              isValid: true
+            });
+            
+            return [{
+              id: slot.id,
+              title: slot.trialTitle || '试验时间槽',
+              start: start,
+              end: end,
+              extendedProps: {
+                trialId: slot.trial,
+                status: slot.trialStatus,
+                description: slot.description
+              }
+            }];
+          } catch (error) {
+            console.error(`处理时间槽 ${slot.id} 失败:`, error);
+            return [];
+          }
         });
         
         console.log('生成的事件对象:', events);
