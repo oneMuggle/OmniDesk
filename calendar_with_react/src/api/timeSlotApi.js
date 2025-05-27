@@ -7,30 +7,30 @@ export const timeSlotApi = {
     try {
       const response = await apiClient.get(`/events/time-slots/?trial=${trialId}`);
       
-      // 处理分页响应和非分页响应
       const slots = Array.isArray(response.data)
-        ? response.data  // 非分页响应
-        : response.data?.results || [];  // 分页响应
-      
+        ? response.data
+        : response.data?.results || [];
+
       if (!Array.isArray(slots)) {
-        console.error('无效的时间段数据格式:', response.data);
+        console.error('Invalid time slot data format:', response.data);
         return [];
       }
 
       return slots.map(slot => {
         if (!slot || !slot.start_time || !slot.end_time) {
-          console.warn('无效的时间段数据:', slot);
+          console.warn('Invalid time slot data:', slot);
           return null;
         }
         
         return {
           id: slot.id,
-          start: fromServerFormat(slot.start_time),
-          end: fromServerFormat(slot.end_time),
+          // Convert server ISO strings to Date objects directly
+          start: new Date(slot.start_time),
+          end: new Date(slot.end_time),
           description: slot.description || '',
           trialId: slot.trial_id
         };
-      }).filter(Boolean);  // 过滤掉无效项
+      }).filter(Boolean);
     } catch (error) {
       handleError(error);
       throw error;
