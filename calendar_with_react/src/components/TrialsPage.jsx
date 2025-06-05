@@ -11,6 +11,7 @@ import {
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import './TrialsPage.css';
+import { isValidDate } from '../utils/dateUtils';
 
 const { Column } = Table;
 const { TextArea } = Input;
@@ -183,7 +184,7 @@ const TrialsPage = () => {
             try {
               // 直接解析ISO8601格式并转换时区（UTC+8）
               const date = dayjs(record.start_date);
-              return date.isValid() ? date.format('YYYY-MM-DD') : '无效日期';
+              return isValidDate(date) ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
               return '无效日期';
             }
@@ -195,7 +196,7 @@ const TrialsPage = () => {
             try {
               // 直接解析ISO8601格式并转换时区（UTC+8）
               const date = dayjs(record.end_date);
-              return date.isValid() ? date.format('YYYY-MM-DD') : '无效日期';
+              return isValidDate(date) ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
               return '无效日期';
             }

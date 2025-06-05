@@ -3,29 +3,31 @@ import utc from 'dayjs-plugin-utc';
 
 dayjs.extend(utc);
 
+// 确保所有日期都是 dayjs 实例
+const ensureDayjs = (date) => {
+  if (!date) return dayjs(); // 处理 null/undefined
+  
+  if (typeof date === 'string' || date instanceof Date) {
+    return dayjs(date);
+  }
+  
+  // 已经是 dayjs 实例
+  if (date && typeof date.isValid === 'function') {
+    return date;
+  }
+  
+  // 其他情况尝试转换
+  return dayjs(date);
+};
+
 // 1. 日期解析 - 处理多种输入类型
 export const parseDate = (input) => {
-  if (!input) return null;
-  
-  // 处理moment对象
-  if (dayjs.isDayjs(input)) {
-    return input.isValid() ? input : null;
-  }
-  
-  // 处理Date对象
-  if (input instanceof Date) {
-    return isNaN(input.getTime()) ? null : dayjs(input);
-  }
-  
-  // 处理时间戳
-  if (typeof input === 'number') {
-    const date = dayjs.unix(input);
-    return date.isValid() ? date : null;
-  }
-  
-  // 处理字符串
-  const date = dayjs(input);
-  return date.isValid() ? date : null;
+  try {
+    const parsed = ensureDayjs(input);
+    return isValidDate(parsed) ? parsed : null;
+  } catch {
+    return null;
+ }
 };
 
 // 2. 日期格式化
@@ -36,7 +38,12 @@ export const formatDate = (date, format = 'YYYY-MM-DD') => {
 
 // 3. 日期验证
 export const isValidDate = (date) => {
-  return !!parseDate(date);
+  try {
+    const parsed = ensureDayjs(date);
+    return parsed && typeof parsed.isValid === 'function' && parsed.isValid();
+  } catch {
+    return false;
+  }
 };
 
 // 4. 转换为后端格式 (ISO 8601 with timezone)
@@ -81,4 +88,12 @@ export const isBefore = (date, compareDate) => {
 export const addDays = (date, days) => {
   const parsed = parseDate(date);
   return parsed ? parsed.add(days, 'days') : null;
+};
+
+export const validateEndDate = (date) => {
+  return isValidDate(date) ? date : null;
+};
+
+export const validateStartDate = (date) => {
+  return isValidDate(date) ? date : null;
 };

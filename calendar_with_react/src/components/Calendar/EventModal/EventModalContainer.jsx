@@ -3,9 +3,10 @@ import { useQueryClient } from '@tanstack/react-query';
 import { calendarApi } from '../../../api/calendar';
 import { getTrials } from '../../../api/trials';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
-import { Modal } from 'antd';
+import { Modal, Button } from 'antd';
 import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
+import TrialDetails from './TrialDetails';
 import EventModalActions from './EventModalActions';
 
 const EventModalContainer = ({
@@ -196,22 +197,30 @@ const EventModalContainer = ({
       }}
       closable={true}
       width={800}
-      footer={
-        <EventModalActions
-          modalType={modalType}
-          isEditing={isEditing}
-          onSave={handleManualSave}
-          onCancel={() => {
+      footer={[
+        !isEditing ? (
+          <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
+            编辑
+          </Button>
+        ) : (
+          <Button key="save" type="primary" onClick={handleManualSave}>
+            保存
+          </Button>
+        ),
+        <Button 
+          key="cancel" 
+          onClick={() => {
             setIsEditing(false);
             form.resetFields();
             setCurrentEvent(null);
           }}
-          onEdit={() => setIsEditing(true)}
-        />
-      }
+        >
+          {isEditing ? '取消' : '关闭'}
+        </Button>
+      ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <form layout="vertical" form={form} initialValues={{ time_slots: [] }}>
+        <form layout="vertical" form={form} initialValues={{ time_slots: [{ id: 'new_slot', start: null, end: null, description: '' }] }}>
           <TrialSelector
             trials={trials}
             isTrialsLoading={isTrialsLoading}

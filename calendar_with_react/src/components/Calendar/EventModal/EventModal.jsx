@@ -260,9 +260,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
 
   return (
     <Modal
-      title={modalType === 'view' ? 
-        (currentEvent?.extendedProps?.scheduleDetails ? '查看人员排班' : '查看试验排班') 
-        : '新建试验排班'}
+      className="event-modal"
+      title={`${currentEvent ? '编辑排班' : '新建排班'} - ${isEditing ? '编辑模式' : '查看模式'}`}
       open={!!currentEvent}
       onCancel={() => {
         setIsEditing(false);
@@ -274,7 +273,16 @@ const EventModal = ({ isGuest: propsIsGuest = false,
       width={800}
       footer={
         modalType === 'view' ? (
-          isEditing ? [
+          !isEditing ? [
+            !propsIsGuest && (
+              <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
+                编辑
+              </Button>
+            ),
+            <Button key="close" onClick={() => setCurrentEvent(null)}>
+              关闭
+            </Button>
+          ].filter(Boolean) : [
             <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
               保存
             </Button>,
@@ -285,16 +293,7 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             }}>
               取消
             </Button>
-          ] : [
-            !propsIsGuest && (
-              <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
-                编辑
-              </Button>
-            ),
-            <Button key="close" onClick={() => setCurrentEvent(null)}>
-              关闭
-            </Button>
-          ].filter(Boolean)
+          ]
         ) : [
           <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
             保存
