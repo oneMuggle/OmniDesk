@@ -1,16 +1,23 @@
+import axios from 'axios';
 import apiClient from './apiClient';
 
-const ollamaClient = apiClient;
+// 创建独立的Ollama客户端
+const ollamaClient = axios.create({
+  baseURL: process.env.REACT_APP_OLLAMA_ENDPOINT || 'http://localhost:11434/api',
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
 
-// 初始化时从后端获取配置
+// 初始化配置
 (async function initOllamaConfig() {
   try {
-    const response = await apiClient.get('/config/');
+    const response = await axios.get('/config/');
     if (response.data.OLLAMA_ENDPOINT) {
       ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
     }
   } catch (error) {
-    console.log('使用默认OLLAMA配置');
+    console.log('使用环境变量中的OLLAMA配置');
   }
 })();
 
@@ -52,7 +59,7 @@ export const getModels = async () => {
 };
 
 export const setApiProvider = (config) => {
-  apiClient.defaults.baseURL = config.apiEndpoint;
+  ollamaClient.defaults.baseURL = config.apiEndpoint;
 };
 
 export const getConfig = async () => {
