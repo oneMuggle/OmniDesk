@@ -1,64 +1,18 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import PropTypes from 'prop-types';
 import './styles/TrialCalendar.css';
-import { fromServerFormat } from '../../utils/dateUtils';
-import { getStatusConfig, getTrialColor } from '../../utils/calendarUtils';
 import BaseCalendar from './BaseCalendar';
 
 const TrialCalendar = ({
-  trials,
-  defaultEvents,
+  trialEvents = [],
   isGuest,
   onTrialDateClick,
   onTrialEventClick,
   onTrialSelect = () => {}
 }) => {
-  const events = useMemo(() => {
-    const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
-      (Array.isArray(trial?.time_slots) ? trial.time_slots : []).map((slot, index) => ({
-        id: slot.id || `trial-${trial.id}-${index}`,
-        title: `${trial.title}`,
-        start: fromServerFormat(slot.start_time)?.toDate(),
-        end: fromServerFormat(slot.end_time)?.toDate(),
-        extendedProps: {
-          type: 'TRIAL',
-          status: trial.status,
-          client: trial.client,
-          equipment: trial.equipment,
-          personnel: trial.responsible_persons,
-          description: trial.description,
-          trialId: trial.id
-        },
-        color: getTrialColor(trial.id),
-        borderColor: getStatusConfig(trial.status).color,
-        allDay: false,
-        editable: false,
-        tooltip: {
-          title: `${trial.title}`,
-          description: `
-            状态: ${getStatusConfig(trial.status).text}
-            负责人: ${trial.responsible_persons?.join(', ') || '无'}
-            设备: ${trial.equipment || '无'}
-            描述: ${trial.description || '无'}
-          `
-        }
-      }))
-    );
-    // 合并并去重，优先保留trialEvents中的数据
-    const mergedEvents = [...trialEvents, ...defaultEvents];
-    const uniqueEvents = mergedEvents.filter(
-      (event, index, self) => index === self.findIndex(
-        e => e.id === event.id && 
-             e.start.getTime() === event.start.getTime() &&
-             e.end.getTime() === event.end.getTime()
-      )
-    );
-    return uniqueEvents;
-  }, [trials, defaultEvents]);
-
   return (
     <BaseCalendar
-      events={events}
+      events={trialEvents}
       onDateClick={onTrialDateClick}
       onEventClick={onTrialEventClick}
       editable={!isGuest}
@@ -69,8 +23,13 @@ const TrialCalendar = ({
 };
 
 TrialCalendar.propTypes = {
-  trials: PropTypes.array,
-  defaultEvents: PropTypes.array,
+  trialEvents: PropTypes.arrayOf(
+    PropTypes.shape({
+      extendedProps: PropTypes.shape({
+        type: PropTypes.oneOf(['TRIAL'])
+      })
+    })
+  ),
   isGuest: PropTypes.bool,
   onTrialDateClick: PropTypes.func,
   onTrialEventClick: PropTypes.func,

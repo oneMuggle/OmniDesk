@@ -5,6 +5,7 @@ import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
 import TrialDetails from './TrialDetails';
 import { fromServerFormat, toServerFormat, formatDate } from '../../../utils/dateUtils';
+import dayjs from 'dayjs';
 
 const EventModal = ({ isGuest: propsIsGuest = false,
   currentEvent,
@@ -53,16 +54,18 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             });
           }
           
-          form.setFieldsValue({
-            time_slots: validSlots.map(slot => ({
+          const mappedTimeSlots = validSlots.map(slot => {
+            const startValue = slot.start_time ? fromServerFormat(slot.start_time) : (slot.start ? dayjs(slot.start) : null);
+            const endValue = slot.end_time ? fromServerFormat(slot.end_time) : (slot.end ? dayjs(slot.end) : null);
+            console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start: ${startValue ? startValue.format() : 'null'}, End: ${endValue ? endValue.format() : 'null'}`);
+            console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start Type: ${typeof startValue}, End Type: ${typeof endValue}`);
+            return {
               id: slot.id,
-              timeRange: [
-                slot.start_time ? fromServerFormat(slot.start_time) : slot.start,
-                slot.end_time ? fromServerFormat(slot.end_time) : slot.end
-              ],
+              timeRange: [startValue, endValue],
               description: slot.description || ''
-            }))
+            };
           });
+          form.setFieldsValue({ time_slots: mappedTimeSlots });
         })
         .catch(error => {
           console.error('获取时间段失败:', error);
@@ -99,16 +102,17 @@ const EventModal = ({ isGuest: propsIsGuest = false,
               });
             }
             
-            form.setFieldsValue({
-              time_slots: validSlots.map(slot => ({
+            const mappedTimeSlots = validSlots.map(slot => {
+              const startValue = slot.start_time ? fromServerFormat(slot.start_time) : (slot.start ? dayjs(slot.start) : null);
+              const endValue = slot.end_time ? fromServerFormat(slot.end_time) : (slot.end ? dayjs(slot.end) : null);
+              console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start: ${startValue}, End: ${endValue}`);
+              return {
                 id: slot.id,
-                timeRange: [
-                  slot.start_time ? fromServerFormat(slot.start_time) : slot.start,
-                  slot.end_time ? fromServerFormat(slot.end_time) : slot.end
-                ],
+                timeRange: [startValue, endValue],
                 description: slot.description || ''
-              }))
+              };
             });
+            form.setFieldsValue({ time_slots: mappedTimeSlots });
           })
           .catch(error => {
             console.error('获取时间段失败:', error);

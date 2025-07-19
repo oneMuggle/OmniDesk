@@ -1,85 +1,54 @@
-import React, { useMemo } from 'react';
-import './styles/ScheduleCalendar.css';
-import { fromServerFormat } from '../../utils/dateUtils';
+import React from 'react';
+import PropTypes from 'prop-types';
 import BaseCalendar from './BaseCalendar';
+import { fromServerFormat } from '../../utils/dateUtils';
 
 const ScheduleCalendar = ({
-  personnel = [],
   schedules,
-  defaultEvents,
   isGuest,
-  onScheduleDateClick,
-  onScheduleEventClick,
-  onEventDrop,
-  onEventDragStart,
-  onEventDragStop,
-  select = () => {}
+  onDateClick,
+  onEventClick,
+  onScheduleSelect = () => {}
 }) => {
-  const events = useMemo(() => {
-    console.log('ScheduleCalendar events', schedules, defaultEvents);
-    console.log('ScheduleCalendar personnel events', personnel);
-    const getNameById = (id) => {
-      const person = personnel.find(p => p.id === id);
-      return person ? person.name : `未知(${id})`;
-    };
-
-    const scheduleEvents = (Array.isArray(schedules) ? schedules : []).map(schedule => ({
-      id: `schedule-${schedule.id}`,
-      title: `${getNameById(schedule.staff)} (${getNameById(schedule.leader)})`,
-      start: fromServerFormat(schedule.date)?.toDate(),
-      end: fromServerFormat(schedule.date)?.toDate(),
-      extendedProps: {
+  console.log('ScheduleCalendar接收到的排班数据:', schedules); // 添加调试日志
+  
+  const events = React.useMemo(() => {
+    return (Array.isArray(schedules) ? schedules : [])
+      .map(schedule => ({
         type: 'SCHEDULE',
-        personnelId: schedule.personnel_id,
-        position: schedule.position,
-        department: schedule.department,
-        scheduleId: schedule.id,
-        scheduleDetails: {
-          leader: {
-            id: schedule.leader,
-            name: getNameById(schedule.leader),
-            contact: personnel.find(p => p.id === schedule.leader)?.contact || '无'
-          },
-          staff: {
-            id: schedule.staff,
-            name: getNameById(schedule.staff),
-            contact: personnel.find(p => p.id === schedule.staff)?.contact || '无'
-          },
-          position: schedule.position,
-          department: schedule.department,
-          date: schedule.date,
-          time: `${schedule.start_time} - ${schedule.end_time}`
-        }
-      },
-      color: '#4CAF50',
-      allDay: false,
-      editable: !isGuest,
-      tooltip: {
-        title: `${getNameById(schedule.staff)}`,
-        description: `
-          职位: ${schedule.position}
-          部门: ${schedule.department}
-          时间: ${schedule.start_time} - ${schedule.end_time}
-          人员ID: ${schedule.staff}
-        `
-      }
-    }));
-    return [...defaultEvents, ...scheduleEvents];
-  }, [schedules, defaultEvents]);
+        id: schedule.id,
+        title: schedule.title,
+        start: fromServerFormat(schedule.start_time)?.toDate(),
+        end: fromServerFormat(schedule.end_time)?.toDate(),
+        extendedProps: {
+          type: 'SCHEDULE',
+          status: schedule.status,
+          personnel: schedule.personnel,
+          description: schedule.description
+        },
+        allDay: false,
+        editable: !isGuest
+      }));
+  }, [schedules, isGuest]);
 
   return (
     <BaseCalendar
       events={events}
-      onDateClick={onScheduleDateClick}
-      onEventClick={onScheduleEventClick}
+      onDateClick={onDateClick}
+      onEventClick={onEventClick}
       editable={!isGuest}
       selectable={!isGuest}
-      onEventDrop={onEventDrop}
-      onEventDragStart={onEventDragStart}
-      onEventDragStop={onEventDragStop}
-      select={select}
+      select={onScheduleSelect}
     />
   );
+};
+
+ScheduleCalendar.propTypes = {
+  schedules: PropTypes.array,
+  isGuest: PropTypes.bool,
+  onDateClick: PropTypes.func,
+  onEventClick: PropTypes.func,
+  onScheduleSelect: PropTypes.func
 };
 
 export default ScheduleCalendar;

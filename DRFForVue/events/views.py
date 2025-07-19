@@ -235,11 +235,7 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     filterset_fields = ['name', 'department', 'phone']
 
 class TrialViewSet(viewsets.ModelViewSet):
-    queryset = Trial.objects.prefetch_related(
-        'equipments',
-        'responsible_persons',
-        'time_slots'
-    ).all()
+    queryset = Trial.objects.all()
     serializer_class = TrialSerializer
     permission_classes = []
     filter_backends = [DjangoFilterBackend]
@@ -260,7 +256,12 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """查询集配置（参照设备管理视图）"""
-        return super().get_queryset().order_by('-start_date')
+        queryset = super().get_queryset().prefetch_related(
+            'equipments',
+            'responsible_persons',
+            'time_slots'
+        )
+        return queryset.order_by('-start_date')
 
     def perform_create(self, serializer):
         """原子化创建试验及其时间段"""

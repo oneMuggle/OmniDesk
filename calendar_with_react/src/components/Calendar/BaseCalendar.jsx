@@ -18,6 +18,7 @@ const BaseCalendar = ({
   onEventDragStart,
   onEventDragStop
 }) => {
+  console.log('BaseCalendar received events:', events); // Add this line
   return (
     <FullCalendar
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}

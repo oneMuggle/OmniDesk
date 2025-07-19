@@ -17,6 +17,7 @@ export const scheduleApi = {
   getSchedules: async () => {
     try {
       const response = await apiClient.get('/events/schedules/');
+      console.log('API原始响应数据:', response.data); // 添加调试日志
       
       if (!response?.data) {
         console.error('无效的API响应格式: 缺少data字段', response);
@@ -26,12 +27,14 @@ export const scheduleApi = {
       const results = Array.isArray(response.data.results) 
         ? response.data.results 
         : [];
+      console.log('转换前排班数据:', results); // 添加调试日志
 
       return results.map(schedule => ({
         id: schedule.id,
-        date: schedule.duty_date,  // 修正字段映射
-        staff: schedule.duty_person,  // 修正字段映射
-        leader: schedule.duty_leader  // 修正字段映射
+        date: schedule.duty_date,
+        staff: schedule.duty_person,
+        leader: schedule.duty_leader,
+        type: 'SCHEDULE'  // 确保所有排班数据都有正确的类型
       }));
     } catch (error) {
       console.error('获取排班数据失败:', error);

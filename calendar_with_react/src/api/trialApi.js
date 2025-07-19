@@ -5,37 +5,12 @@ export const trialApi = {
   fetchTrialEvents: async () => {
     try {
       const response = await apiClient.get('/events/trials/');
-      return response.data.flatMap(trial => {
-        const timeSlots = trial.time_slots?.map(slot => ({
-          id: `slot_${slot.id}`,
-          title: trial.title,
-          start: new Date(slot.start_time),
-          end: new Date(slot.end_time),
-          extendedProps: {
-            trialId: trial.id,
-            description: slot.description,
-            equipment: trial.equipments,
-            personnel: trial.responsible_persons
-          }
-        })) || [];
-        
-        const startDates = timeSlots.map(p => p.start);
-        const endDates = timeSlots.map(p => p.end);
-        
-        return [{
-          id: trial.id,
-          title: trial.title,
-          start: new Date(Math.min(...startDates)),
-          end: new Date(Math.max(...endDates)),
-          extendedProps: {
-            isMainEvent: true,
-            timeSlots: timeSlots
-          }
-        }, ...timeSlots];
-      });
+      // 确保返回的是包含试验事件的数组
+      return response.data.results || [];
     } catch (error) {
       console.error('Failed to fetch trial events:', error);
-      return [];
+      handleError(error);
+      throw error;
     }
   },
 

@@ -150,35 +150,39 @@ class TrialSerializer(serializers.ModelSerializer):
             instance = super().update(instance, validated_data)
             
             if time_slots_data is not None:
-                # 获取现有time_slots的ID集合
-                existing_ids = set(instance.time_slots.values_list('id', flat=True))
-                updated_ids = set()
+                # 收集所有传入的时间段ID
+                incoming_slot_ids = {slot.get('id') for slot in time_slots_data if slot.get('id')}
                 
-                # 处理每个时间段
+                # 删除不再存在于传入数据中的时间段
+                instance.time_slots.exclude(id__in=incoming_slot_ids).delete()
+                
+                # 更新或创建时间段
                 for slot_data in time_slots_data:
                     slot_id = slot_data.get('id')
-                    if slot_id and instance.time_slots.filter(id=slot_id).exists():
-                        # 更新现有时间段
-                        slot = instance.time_slots.get(id=slot_id)
-                        slot.start_time = slot_data['start_time']
-                        slot.end_time = slot_data['end_time']
-                        slot.description = slot_data.get('description', '')
-                        slot.save()
-                        updated_ids.add(slot_id)
+                    if slot_id:
+                        try:
+                            # 尝试获取并更新现有时间段
+                            slot = instance.time_slots.get(id=slot_id)
+                            slot.start_time = slot_data['start_time']
+                            slot.end_time = slot_data['end_time']
+                            slot.description = slot_data.get('description', '')
+                            slot.save()
+                        except TimeSlot.DoesNotExist:
+                            # 如果前端提供了ID但后端不存在，则创建新的（这不应该发生，但作为安全措施）
+                            TimeSlot.objects.create(
+                                trial=instance,
+                                start_time=slot_data['start_time'],
+                                end_time=slot_data['end_time'],
+                                description=slot_data.get('description', '')
+                            )
                     else:
-                        # 创建新时间段
+                        # 创建新的时间段（没有ID的）
                         TimeSlot.objects.create(
                             trial=instance,
                             start_time=slot_data['start_time'],
                             end_time=slot_data['end_time'],
                             description=slot_data.get('description', '')
                         )
-                
-                # 删除未更新的时间段
-                to_delete_ids = existing_ids - updated_ids
-                if to_delete_ids:
-                    instance.time_slots.filter(id__in=to_delete_ids).delete()
-                    
         return instance
 
 class ScheduleSerializer(serializers.ModelSerializer):

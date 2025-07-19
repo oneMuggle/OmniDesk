@@ -60,7 +60,7 @@ export const fromServerFormat = (dateInput) => {
   if (Array.isArray(dateInput)) {
     return dateInput.map(d => {
       try {
-        return dayjs(d).utc().local();
+        return dayjs(d); // 直接解析，不进行utc().local()转换
       } catch (e) {
         console.error('Invalid date format in array:', d);
         return null;
@@ -70,7 +70,7 @@ export const fromServerFormat = (dateInput) => {
   
   // 处理单个日期输入
   try {
-    return dayjs(dateInput).utc().local();
+    return dayjs(dateInput); // 直接解析，不进行utc().local()转换
   } catch (e) {
     console.error('Invalid date format:', dateInput);
     return null;

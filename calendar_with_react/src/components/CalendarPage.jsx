@@ -6,9 +6,10 @@ import { trialApi } from '../api/trialApi';
 import { getStatusConfig } from '../utils/calendarUtils';
 import { useAuth } from '../context/AuthContext';
 import { fromServerFormat } from '../utils/dateUtils';
-import { useCalendarData } from '../hooks/useCalendarData';
-import { useEventService } from '../services/eventService';
+import { useTrialCalendarData } from '../hooks/useTrialCalendarData';
+import { useScheduleCalendarData } from '../hooks/useScheduleCalendarData';
 import CalendarControls from './Calendar/CalendarControls';
+import { useCalendarEventDrop } from '../hooks/useCalendarEventDrop';
 import EventModal from './Calendar/EventModal/EventModal';
 import PersonnelScheduleModal from './Calendar/ScheduleModal';
 import TrialCalendar from './Calendar/TrialCalendar';
@@ -25,24 +26,55 @@ const CalendarPage = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [modifiedSlots, setModifiedSlots] = useState([]);
   const [selectedTrial, setSelectedTrial] = useState(null);
+  const [calendarType, setCalendarType] = useState('trial');
+  const [currentEvent, setCurrentEvent] = useState(null);
+  const [darkMode, setDarkMode] = useState(false);
 
-  // 使用自定义hook获取数据
+  // 使用独立的数据hooks
   const {
     trials,
+    trialEvents,
+    queryClient: trialQueryClient
+  } = useTrialCalendarData();
+
+  const {
     schedules,
     personnel,
-    defaultEvents,
-    darkMode,
-    toggleDarkMode,
-    calendarType,
-    setCalendarType,
-    currentEvent,
-    setCurrentEvent,
-    queryClient
-  } = useCalendarData();
+    queryClient: scheduleQueryClient
+  } = useScheduleCalendarData();
 
-  // 使用事件服务
-  const { handleEventSubmit } = useEventService(queryClient);
+  const toggleDarkMode = () => {
+    setDarkMode(!darkMode);
+  };
+
+  // 处理事件提交
+  const handleEventSubmit = async (values, isNewEvent) => {
+    try {
+      if (calendarType === 'trial') {
+        // 试验事件处理
+        if (isNewEvent) {
+          await calendarApi.createTrialEvent(values);
+        } else {
+          await calendarApi.updateTrialEvent(currentEvent.id, values);
+        }
+        trialQueryClient.invalidateQueries(['trials']);
+      } else {
+        // 排班事件处理 (如果需要)
+        // 目前排班事件没有独立的创建/更新流程，而是通过拖放或模态框处理
+      }
+      setCurrentEvent(null); // 关闭模态框
+      Modal.success({
+        title: '操作成功',
+        content: `事件已${isNewEvent ? '创建' : '更新'}！`,
+      });
+    } catch (error) {
+      console.error('事件提交失败:', error);
+      Modal.error({
+        title: '操作失败',
+        content: `提交事件时发生错误: ${error.message}`,
+      });
+    }
+  };
 
   // 处理试验日历选择
   const handleTrialSelect = (selectInfo) => {
@@ -82,53 +114,15 @@ const CalendarPage = () => {
     setScheduleModalOpen(true);
   };
 
-  // 处理事件拖放
-  const handleEventDrop = async (info) => {
-    if (calendarType === 'schedule') {
-      const { event, oldEvent } = info;
-      const scheduleId = event.id;
-      const newDate = event.startStr;
-      const oldDate = oldEvent.startStr;
-      
-      try {
-        const loading = Modal.info({
-          title: '正在更新排班',
-          content: '请稍候...',
-          maskClosable: false
-        });
-        
-        const targetSchedule = schedules.find(s => s.date === newDate);
-        if (targetSchedule) {
-          await calendarApi.swapScheduleDates(scheduleId, targetSchedule.id);
-        } else {
-          await calendarApi.updateScheduleDate(scheduleId, newDate);
-        }
-        
-        await queryClient.invalidateQueries(['schedules']);
-        
-        loading.update({
-          type: 'success',
-          title: '更新成功',
-          content: targetSchedule ? '排班日期已交换' : '排班日期已更新',
-          okButtonProps: { type: 'primary' }
-        });
-      } catch (error) {
-        console.error('更新排班日期失败:', error);
-        info.revert();
-        Modal.error({
-          title: '更新失败',
-          content: `无法更新排班日期: ${error.message}`,
-        });
-      }
-    }
-  };
+  const { handleEventDrop } = useCalendarEventDrop(calendarType, schedules, scheduleQueryClient);
 
   return (
     <div className="calendar-page">
       <div className="calendar-container">
         <CalendarControls 
           darkMode={darkMode}
-          setDarkMode={toggleDarkMode}
+          setDarkMode={setDarkMode}
+          toggleDarkMode={toggleDarkMode}
           calendarType={calendarType}
           setCalendarType={setCalendarType}
         />
@@ -136,40 +130,31 @@ const CalendarPage = () => {
         {calendarType === 'trial' ? (
           <TrialCalendar
             trials={trials}
-            defaultEvents={defaultEvents}
+            trialEvents={trialEvents}
             isGuest={isGuest}
             onTrialDateClick={handleTrialDateClick}
             onTrialSelect={handleTrialSelect}
             onTrialEventClick={async (clickInfo) => {
               const eventObj = clickInfo.event.toPlainObject();
               const trialId = eventObj.extendedProps?.trialId;
-              
+
               try {
+                let trialDetails = null;
                 if (trialId) {
-                  const trialDetails = await trialApi.getTrialDetails(trialId);
+                  trialDetails = await trialApi.getTrialDetails(trialId);
                   setSelectedTrial(trialDetails);
-                  
-                  setCurrentEvent({
-                    ...eventObj,
-                    start: fromServerFormat(eventObj.start)?.toDate(),
-                    end: fromServerFormat(eventObj.end)?.toDate(),
-                    extendedProps: {
-                      ...eventObj.extendedProps,
-                      statusConfig: getStatusConfig(eventObj.extendedProps.status),
-                      trialDetails: trialDetails // 添加试验详情到事件对象
-                    }
-                  });
-                } else {
-                  setCurrentEvent({
-                    ...eventObj,
-                    start: fromServerFormat(eventObj.start)?.toDate(),
-                    end: fromServerFormat(eventObj.end)?.toDate(),
-                    extendedProps: {
-                      ...eventObj.extendedProps,
-                      statusConfig: getStatusConfig(eventObj.extendedProps.status)
-                    }
-                  });
                 }
+
+                setCurrentEvent({
+                  ...eventObj,
+                  start: fromServerFormat(eventObj.start),
+                  end: fromServerFormat(eventObj.end),
+                  extendedProps: {
+                    ...eventObj.extendedProps,
+                    statusConfig: getStatusConfig(eventObj.extendedProps.status),
+                    trialDetails: trialDetails
+                  }
+                });
                 setModalType('view');
               } catch (error) {
                 console.error('获取试验详情失败:', error);
@@ -184,16 +169,13 @@ const CalendarPage = () => {
           <ScheduleCalendar
             personnel={personnel}
             schedules={schedules}
-            defaultEvents={defaultEvents}
             isGuest={isGuest}
             onScheduleDateClick={handleScheduleDateClick}
             onScheduleEventClick={(clickInfo) => {
-              console.log('Schedule event clicked:', clickInfo);
               const eventObj = clickInfo.event.toPlainObject();
               const scheduleId = parseInt(eventObj.id.replace('schedule-', ''));
               const schedule = schedules.find(s => s.id === scheduleId);
               if (schedule) {
-                // 设置排班模态框
                 setCurrentSchedule({
                   id: schedule.id,
                   date: schedule.date,
@@ -215,28 +197,27 @@ const CalendarPage = () => {
               info.el.style.opacity = '1';
               info.el.style.boxShadow = 'none';
             }}
-            select={() => {}}
           />
         )}
       </div>
 
       {currentEvent && (
-          <EventModal
-            form={form}
-            currentEvent={currentEvent}
-            modalType={modalType}
-            trials={trials}
-            isGuest={isGuest}
-            isEditing={isEditing}
-            modifiedSlots={modifiedSlots}
-            selectedTrial={selectedTrial}
-            handleEventSubmit={handleEventSubmit}
-            setCurrentEvent={setCurrentEvent}
-            setIsEditing={setIsEditing}
-            setModifiedSlots={setModifiedSlots}
-            setSelectedTrial={setSelectedTrial}
-            calendarApi={calendarApi}
-          />
+        <EventModal
+          form={form}
+          currentEvent={currentEvent}
+          modalType={modalType}
+          trials={trials}
+          isGuest={isGuest}
+          isEditing={isEditing}
+          modifiedSlots={modifiedSlots}
+          selectedTrial={selectedTrial}
+          handleEventSubmit={handleEventSubmit}
+          setCurrentEvent={setCurrentEvent}
+          setIsEditing={setIsEditing}
+          setModifiedSlots={setModifiedSlots}
+          setSelectedTrial={setSelectedTrial}
+          calendarApi={calendarApi} // Add this line
+        />
       )}
 
       <PersonnelScheduleModal
@@ -249,9 +230,9 @@ const CalendarPage = () => {
           if (mode === 'edit') {
             setScheduleModalMode('edit');
           }
-          queryClient.invalidateQueries(['schedules']);
+          scheduleQueryClient.invalidateQueries(['schedules']);
         }}
-        onDelete={() => queryClient.invalidateQueries(['schedules'])}
+        onDelete={() => scheduleQueryClient.invalidateQueries(['schedules'])}
       />
     </div>
   );

@@ -121,9 +121,11 @@ const TimeSlotForm = ({
               try {
                 // 处理数组格式的时间范围
                 if (Array.isArray(slot?.timeRange)) {
+                  // 确保 timeRange 数组中的元素是 dayjs 对象
+                  const newTimeRange = slot.timeRange.map(date => date ? dayjs(date) : null);
                   return {
                     ...slot,
-                    timeRange: slot.timeRange,
+                    timeRange: newTimeRange,
                     start_time: slot.start_time,
                     end_time: slot.end_time
                   };
@@ -131,15 +133,15 @@ const TimeSlotForm = ({
                 
                 // 处理单独的开始/结束时间
                 if (slot?.start_time || slot?.end_time) {
-                  const startTime = slot.start_time 
-                    ? (typeof slot.start_time === 'string' 
-                      ? dayjs(slot.start_time) 
-                      : slot.start_time)
+                  const startTime = slot.start_time
+                    ? (typeof slot.start_time === 'string'
+                      ? fromServerFormat(slot.start_time)
+                      : dayjs(slot.start_time)) // 确保是 dayjs 对象
                     : null;
-                  const endTime = slot.end_time 
-                    ? (typeof slot.end_time === 'string' 
-                      ? dayjs(slot.end_time) 
-                      : slot.end_time)
+                  const endTime = slot.end_time
+                    ? (typeof slot.end_time === 'string'
+                      ? dayjs(slot.end_time)
+                      : dayjs(slot.end_time)) // 确保是 dayjs 对象
                     : null;
               
               console.log('Processing slot:', {
@@ -197,8 +199,13 @@ const TimeSlotForm = ({
     if (field === 'timeRange') {
       // 验证日期范围
       const [start, end] = value || [null, null];
-      const isValidStart = start ? dayjs(start).isValid() : false;
-      const isValidEnd = end ? dayjs(end).isValid() : false;
+      
+      // 确保 start 和 end 是 dayjs 对象或 null
+      const dayjsStart = start ? (dayjs.isDayjs(start) ? start : dayjs(start)) : null;
+      const dayjsEnd = end ? (dayjs.isDayjs(end) ? end : dayjs(end)) : null;
+
+      const isValidStart = dayjsStart ? dayjsStart.isValid() : false;
+      const isValidEnd = dayjsEnd ? dayjsEnd.isValid() : false;
       
       if (value && (!isValidStart || !isValidEnd)) {
         console.error('Invalid date range:', { start, end });
@@ -244,11 +251,16 @@ const TimeSlotForm = ({
             <>
               {fields.map(({ key, name, ...restField }) => {
                 const slot = form.getFieldValue(['time_slots', name]);
-                // console.log('Current slot data:', slot);
+                console.log(`TimeSlotForm - Slot ${name} data:`, slot); // Add this line
                 
-                const startTime = slot?.start_time ? (typeof slot.start_time === 'string' ? fromServerFormat(slot.start_time) : slot.start_time) : null;
-                const endTime = slot?.end_time ? (typeof slot.end_time === 'string' ? fromServerFormat(slot.end_time) : slot.end_time) : null;
-                const timeRange = slot?.timeRange || [startTime, endTime];
+                const startTime = slot?.start_time ? dayjs(slot.start_time) : null;
+                const endTime = slot?.end_time ? dayjs(slot.end_time) : null;
+                
+                const validStartTime = startTime && dayjs.isDayjs(startTime) && startTime.isValid() ? startTime : null;
+                const validEndTime = endTime && dayjs.isDayjs(endTime) && endTime.isValid() ? endTime : null;
+
+                const timeRange = slot?.timeRange || [validStartTime, validEndTime];
+                console.log(`TimeSlotForm - Slot ${name} timeRange:`, timeRange, `(Start valid: ${validStartTime?.isValid()}, End valid: ${validEndTime?.isValid()})`); // Add this line
                 
                 return (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
