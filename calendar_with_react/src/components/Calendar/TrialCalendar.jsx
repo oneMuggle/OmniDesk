@@ -1,23 +1,22 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './styles/TrialCalendar.css';
 import BaseCalendar from './BaseCalendar';
 
 const TrialCalendar = ({
   trialEvents = [],
   isGuest,
-  onTrialDateClick,
-  onTrialEventClick,
-  onTrialSelect = () => {}
+  onDateClick,
+  onEventClick,
+  select = () => {}
 }) => {
   return (
     <BaseCalendar
       events={trialEvents}
-      onDateClick={onTrialDateClick}
-      onEventClick={onTrialEventClick}
+      onDateClick={onDateClick}
+      onEventClick={onEventClick}
       editable={!isGuest}
       selectable={!isGuest}
-      select={onTrialSelect}
+      select={select}
     />
   );
 };
@@ -31,9 +30,9 @@ TrialCalendar.propTypes = {
     })
   ),
   isGuest: PropTypes.bool,
-  onTrialDateClick: PropTypes.func,
-  onTrialEventClick: PropTypes.func,
-  onTrialSelect: PropTypes.func
+  onDateClick: PropTypes.func,
+  onEventClick: PropTypes.func,
+  select: PropTypes.func
 };
 
 export default TrialCalendar;

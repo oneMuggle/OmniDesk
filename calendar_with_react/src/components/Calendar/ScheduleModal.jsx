@@ -176,9 +176,6 @@ const PersonnelScheduleModal = ({
       open={open}
       onCancel={onCancel}
       footer={mode === 'view' ? [
-        <Button key="delete" danger onClick={handleDelete} loading={loading}>
-          删除
-        </Button>,
         <Button key="edit" type="primary" onClick={() => onSave('edit')}>
           编辑
         </Button>,
@@ -194,9 +191,9 @@ const PersonnelScheduleModal = ({
         <Button key="cancel" onClick={onCancel}>
           取消
         </Button>,
-        <Button 
-          key="submit" 
-          type="primary" 
+        <Button
+          key="submit"
+          type="primary"
           onClick={handleSubmit}
           loading={loading}
         >

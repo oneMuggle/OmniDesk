@@ -1,43 +1,43 @@
 import { Modal } from 'antd';
 import { calendarApi } from '../api/calendar';
 
-export const useCalendarEventDrop = (calendarType, schedules, scheduleQueryClient) => {
+export const useCalendarEventDrop = (updateEventApi, queryClient, onDropSuccess, onDropError) => {
   const handleEventDrop = async (info) => {
-    if (calendarType === 'schedule') {
-      const { event, oldEvent } = info;
-      const scheduleId = event.id;
-      const newDate = event.startStr;
-      const oldDate = oldEvent.startStr;
-      
-      try {
-        const loading = Modal.info({
-          title: '正在更新排班',
-          content: '请稍候...',
-          maskClosable: false
-        });
-        
-        const targetSchedule = schedules.find(s => s.date === newDate);
-        if (targetSchedule) {
-          await calendarApi.swapScheduleDates(scheduleId, targetSchedule.id);
-        } else {
-          await calendarApi.updateScheduleDate(scheduleId, newDate);
-        }
-        
-        await scheduleQueryClient.invalidateQueries(['schedules']);
-        
-        loading.update({
-          type: 'success',
-          title: '更新成功',
-          content: targetSchedule ? '排班日期已交换' : '排班日期已更新',
-          okButtonProps: { type: 'primary' }
-        });
-      } catch (error) {
-        console.error('更新排班日期失败:', error);
-        info.revert();
-        Modal.error({
-          title: '更新失败',
-          content: `无法更新排班日期: ${error.message}`,
-        });
+    const { event, oldEvent } = info;
+    const eventId = event.id;
+    const newStart = event.startStr;
+    const oldStart = oldEvent.startStr;
+
+    try {
+      const loading = Modal.info({
+        title: '正在更新事件',
+        content: '请稍候...',
+        maskClosable: false
+      });
+
+      // 调用传入的API更新事件
+      await updateEventApi(eventId, newStart, oldStart);
+
+      await queryClient.invalidateQueries(); // 使相关查询失效
+
+      loading.update({
+        type: 'success',
+        title: '更新成功',
+        content: '事件日期已更新',
+        okButtonProps: { type: 'primary' }
+      });
+      if (onDropSuccess) {
+        onDropSuccess();
+      }
+    } catch (error) {
+      console.error('更新事件日期失败:', error);
+      info.revert(); // 回滚事件到原位置
+      Modal.error({
+        title: '更新失败',
+        content: `无法更新事件日期: ${error.message}`,
+      });
+      if (onDropError) {
+        onDropError(error);
       }
     }
   };

@@ -9,7 +9,6 @@ import dayjs from 'dayjs';
 
 const EventModal = ({ isGuest: propsIsGuest = false,
   currentEvent,
-  modalType,
   form,
   trials,
   isTrialsLoading,
@@ -265,7 +264,7 @@ const EventModal = ({ isGuest: propsIsGuest = false,
   return (
     <Modal
       className="event-modal"
-      title={`${currentEvent ? '编辑排班' : '新建排班'} - ${isEditing ? '编辑模式' : '查看模式'}`}
+      title={currentEvent ? (isEditing ? '编辑排班 - 编辑模式' : '编辑排班 - 查看模式') : '新建排班'}
       open={!!currentEvent}
       onCancel={() => {
         setIsEditing(false);
@@ -276,34 +275,25 @@ const EventModal = ({ isGuest: propsIsGuest = false,
       closable={true}
       width={800}
       footer={
-        modalType === 'view' ? (
-          !isEditing ? [
-            !propsIsGuest && (
-              <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
-                编辑
-              </Button>
-            ),
-            <Button key="close" onClick={() => setCurrentEvent(null)}>
-              关闭
+        !isEditing ? [ // 当 isEditing 为 false 时
+          !propsIsGuest && (
+            <Button key="edit" type="primary" onClick={() => setIsEditing(true)}>
+              编辑
             </Button>
-          ].filter(Boolean) : [
-            <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
-              保存
-            </Button>,
-            <Button key="cancel" onClick={() => {
-              setIsEditing(false);
-              form.resetFields();
-              setCurrentEvent(null);
-            }}>
-              取消
-            </Button>
-          ]
-        ) : [
+          ),
+          <Button key="close" onClick={() => setCurrentEvent(null)}>
+            关闭
+          </Button>
+        ].filter(Boolean) : [ // 当 isEditing 为 true 时
           <Button key="save" type="primary" onClick={handleManualSave} disabled={propsIsGuest}>
             保存
           </Button>,
-          <Button key="close" onClick={() => setCurrentEvent(null)}>
-            关闭
+          <Button key="cancel" onClick={() => {
+            setIsEditing(false);
+            form.resetFields();
+            setCurrentEvent(null);
+          }}>
+            取消
           </Button>
         ]
       }
