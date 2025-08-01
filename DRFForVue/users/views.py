@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, exceptions
+from .permissions import IsAdminOrManager
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -31,7 +32,7 @@ from .serializers import (
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
-    permission_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -65,20 +66,21 @@ class UserRegistrationView(generics.CreateAPIView):
 
 class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
         return self.request.user
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
         return self.request.user
 
 class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -102,16 +104,17 @@ class UserLoginView(TokenObtainPairView):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]
 
 class PersonnelListCreateView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     
-    permission_classes = []
+    permission_classes = [IsAdminOrManager]
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     
-    permission_classes = []
+    permission_classes = [IsAdminOrManager]
     lookup_field = 'id'
