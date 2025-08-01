@@ -31,13 +31,33 @@ class CustomUser(AbstractUser):
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'
-        permissions = []
+        pass
 
     def __str__(self):
         return self.username
 
     def has_perm(self, perm, obj=None):
-        return True
+        # 管理员拥有所有权限
+        if self.is_superuser or self.role == 'admin':
+            return True
+        
+        # 经理的特定权限
+        if self.role == 'manager':
+            manager_perms = [
+                'events.manage_schedule',
+                'events.manage_equipment',
+                'events.manage_personnel',
+                'events.manage_announcements'
+            ]
+            if perm in manager_perms:
+                return True
+        
+        # 默认情况下，依赖于Django的内置权限系统
+        return super().has_perm(perm, obj)
 
     def has_module_perms(self, app_label):
-        return True
+        # 管理员拥有所有模块权限
+        if self.is_superuser or self.role == 'admin':
+            return True
+        # 其他角色暂不使用Django内置权限系统
+        return False

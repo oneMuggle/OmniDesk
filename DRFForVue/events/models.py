@@ -9,6 +9,9 @@ class Personnel(models.Model):
 
     class Meta:
         ordering = ['id']
+        permissions = [
+            ("manage_personnel", "Can manage personnel"),
+        ]
 
     def __str__(self):
         return f"{self.name} ({self.department})"
@@ -21,6 +24,9 @@ class Equipment(models.Model):
         ordering = ['id']  # 设置默认排序字段
         verbose_name = '试验'
         verbose_name_plural = '试验管理'
+        permissions = [
+            ("manage_equipment", "Can manage equipment"),
+        ]
 
     def __str__(self):
         return self.name
@@ -180,6 +186,10 @@ class Schedule(models.Model):
         ordering = ['duty_date']
         verbose_name = '排班表'
         verbose_name_plural = '排班管理'
+        permissions = [
+            ("manage_schedule", "Can manage schedule"),
+            ("manage_announcements", "Can manage announcements"),
+        ]
         constraints = [
             models.UniqueConstraint(
                 fields=['duty_date'], 

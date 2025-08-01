@@ -25,37 +25,37 @@ const router = createBrowserRouter([
     children: [
       { index: true, element: <Navigate to="calendar" replace /> },
       { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
-      { 
-        path: "settings", 
-        element: <ProtectedRoute><SettingsPage /></ProtectedRoute> 
+      {
+        path: "settings",
+        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
       },
-      { 
-        path: "events", 
-        element: <ProtectedRoute ><EventsPage /></ProtectedRoute> 
+      {
+        path: "events",
+        element: <ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>
       },
-      { 
-        path: "trials", 
-        element: <ProtectedRoute ><TrialsPage /></ProtectedRoute> 
+      {
+        path: "trials",
+        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
       },
-      { 
-        path: "personnel", 
-        element: <ProtectedRoute ><PersonnelPage /></ProtectedRoute> 
+      {
+        path: "personnel",
+        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
       },
-      { 
-        path: "equipment", 
-        element: <ProtectedRoute ><EquipmentPage /></ProtectedRoute>
+      {
+        path: "equipment",
+        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
       },
-      { 
-        path: "profile", 
-        element: <ProtectedRoute><ProfilePage /></ProtectedRoute> 
+      {
+        path: "profile",
+        element: <ProtectedRoute><ProfilePage /></ProtectedRoute>
       },
-      { 
-        path: "documents", 
-        element: <DocumentsPage /> 
+      {
+        path: "documents",
+        element: <DocumentsPage />
       },
-      { 
-        path: "announcements", 
-        element: <ProtectedRoute ><AnnouncementsPage /></ProtectedRoute> 
+      {
+        path: "announcements",
+        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementsPage /></ProtectedRoute>
       },
       { 
         path: "deepseek-chat", 

@@ -1,4 +1,5 @@
 from rest_framework import generics, permissions, status, exceptions
+from .permissions import IsAdminOrManager
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
@@ -31,7 +32,7 @@ from .serializers import (
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
-    permission_classes = []
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -65,34 +66,56 @@ class UserRegistrationView(generics.CreateAPIView):
 
 class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
         return self.request.user
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     
     def get_object(self):
         return self.request.user
 
 class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    permission_classes = [permissions.AllowAny]
 
     def post(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         try:
             serializer.is_valid(raise_exception=True)
             user = serializer.user
+            print(f"User role in UserLoginView: {user.role}") # <-- 新增日志
             token = serializer.validated_data
-            return Response({
+            
+            permissions = []
+            if user.role == 'admin' or user.is_superuser:
+                permissions = [
+                    'events.manage_schedule',
+                    'events.manage_equipment',
+                    'events.manage_personnel',
+                    'events.manage_announcements'
+                ]
+            elif user.role == 'manager':
+                permissions = [
+                    'events.manage_schedule',
+                    'events.manage_equipment',
+                    'events.manage_personnel',
+                    'events.manage_announcements'
+                ]
+            
+            response_data = {
                 "success": True,
                 "user": UserDetailSerializer(user).data,
                 "access": token['access'],
                 "refresh": token['refresh'],
-                "redirect_to": "/home"
-            })
+                "redirect_to": "/home",
+                "permissions": permissions
+            }
+            print(f"Login Response Data: {response_data}") # <-- 新增日志
+            return Response(response_data)
         except exceptions.ValidationError as e:
             return Response({
                 "success": False,
@@ -100,18 +123,15 @@ class UserLoginView(TokenObtainPairView):
                 "message": "用户名或密码错误"
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
-
 class PersonnelListCreateView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     
-    permission_classes = []
+    permission_classes = [IsAdminOrManager]
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
     
-    permission_classes = []
+    permission_classes = [IsAdminOrManager]
     lookup_field = 'id'

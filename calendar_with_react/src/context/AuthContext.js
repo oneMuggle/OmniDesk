@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-
+import { jwtDecode } from 'jwt-decode';
 import apiClient from '../api/apiClient';
 
 export const AuthContext = createContext({
   user: null,
   isAuthenticated: false,
   isGuest: false,
+  hasPermission: () => false,
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
   register: () => Promise.resolve({ success: false }),
@@ -17,25 +18,21 @@ export function AuthProvider({ children }) {
   const [isInitializing, setIsInitializing] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
   
-
-  // 初始化时检查本地存储的token
   useEffect(() => {
     const storedTokens = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens');
     if (storedTokens) {
       try {
         const { access } = JSON.parse(storedTokens);
         if (access) {
-          // 统一设置认证头格式
+          const decodedToken = jwtDecode(access);
+          const storedPermissions = JSON.parse(localStorage.getItem('userPermissions') || sessionStorage.getItem('userPermissions') || '[]');
+          const permissions = storedPermissions || [];
+
           apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-          // 获取用户信息
-          apiClient.get('/users/me/', {
-            headers: {
-              'Authorization': `Bearer ${access}`
-            }
-          })
+          apiClient.get('/users/me/')
             .then(res => {
-              setUser(res.data);
-              
+              const userDataWithPermissions = { ...res.data, permissions };
+              setUser(userDataWithPermissions);
               setIsInitializing(false);
               setIsGuest(false);
             })
@@ -59,10 +56,10 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password, rememberMe = false) => {
     try {
-      const res = await apiClient.post('/auth/login/', { 
-        username, 
+      const res = await apiClient.post('/auth/login/', {
+        username,
         password,
-        remember_me: rememberMe 
+        remember_me: rememberMe
       });
       const authTokens = {
         access: res.data.access,
@@ -71,18 +68,23 @@ export function AuthProvider({ children }) {
       
       if (rememberMe) {
         localStorage.setItem('authTokens', JSON.stringify(authTokens));
+        localStorage.setItem('userPermissions', JSON.stringify(res.data.permissions || []));
       } else {
         sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
+        sessionStorage.setItem('userPermissions', JSON.stringify(res.data.permissions || []));
       }
       
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/users/me/');
-      setUser(userRes.data);
+      const permissions = res.data.permissions || []; // 从登录API的原始响应中获取权限
+      const userData = { ...userRes.data, permissions };
+
+      setUser(userData);
       setIsGuest(false);
       
       console.log('Login successful - auth state updated:', {
-        user: userRes.data,
+        user: userData,
         isAuthenticated: true,
         isGuest: false
       });
@@ -148,18 +150,23 @@ export function AuthProvider({ children }) {
     }
   };
 
-
-  
+  const hasPermission = (permission) => {
+    if (!user || !user.permissions) {
+      return false;
+    }
+    return user.permissions.includes(permission);
+  };
 
   const value = {
     user,
     isAuthenticated: !!user,
     isGuest,
     isInitializing,
-        login,
+    login,
     logout,
     register,
-    loginAsGuest
+    loginAsGuest,
+    hasPermission
   };
 
   return (
