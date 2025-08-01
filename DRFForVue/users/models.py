@@ -40,8 +40,20 @@ class CustomUser(AbstractUser):
         # 管理员拥有所有权限
         if self.is_superuser or self.role == 'admin':
             return True
-        # 其他角色暂不使用Django内置权限系统
-        return False
+        
+        # 经理的特定权限
+        if self.role == 'manager':
+            manager_perms = [
+                'events.manage_schedule',
+                'events.manage_equipment',
+                'events.manage_personnel',
+                'events.manage_announcements'
+            ]
+            if perm in manager_perms:
+                return True
+        
+        # 默认情况下，依赖于Django的内置权限系统
+        return super().has_perm(perm, obj)
 
     def has_module_perms(self, app_label):
         # 管理员拥有所有模块权限

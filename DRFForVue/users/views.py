@@ -87,24 +87,41 @@ class UserLoginView(TokenObtainPairView):
         try:
             serializer.is_valid(raise_exception=True)
             user = serializer.user
+            print(f"User role in UserLoginView: {user.role}") # <-- 新增日志
             token = serializer.validated_data
-            return Response({
+            
+            permissions = []
+            if user.role == 'admin' or user.is_superuser:
+                permissions = [
+                    'events.manage_schedule',
+                    'events.manage_equipment',
+                    'events.manage_personnel',
+                    'events.manage_announcements'
+                ]
+            elif user.role == 'manager':
+                permissions = [
+                    'events.manage_schedule',
+                    'events.manage_equipment',
+                    'events.manage_personnel',
+                    'events.manage_announcements'
+                ]
+            
+            response_data = {
                 "success": True,
                 "user": UserDetailSerializer(user).data,
                 "access": token['access'],
                 "refresh": token['refresh'],
-                "redirect_to": "/home"
-            })
+                "redirect_to": "/home",
+                "permissions": permissions
+            }
+            print(f"Login Response Data: {response_data}") # <-- 新增日志
+            return Response(response_data)
         except exceptions.ValidationError as e:
             return Response({
                 "success": False,
                 "error": "invalid_credentials",
                 "message": "用户名或密码错误"
             }, status=status.HTTP_401_UNAUTHORIZED)
-
-class CustomTokenObtainPairView(TokenObtainPairView):
-    serializer_class = CustomTokenObtainPairSerializer
-    permission_classes = [permissions.AllowAny]
 
 class PersonnelListCreateView(generics.ListCreateAPIView):
     queryset = CustomUser.objects.all()

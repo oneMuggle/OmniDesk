@@ -96,9 +96,27 @@ class PersonnelSerializer(UserSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-        data = super().validate(attrs)
-        data['permissions'] = list(self.user.get_all_permissions())
-        return data
+       data = super().validate(attrs)
+       
+       permissions = []
+       if self.user.role == 'admin' or self.user.is_superuser:
+           # 对于管理员，可以返回所有权限的特殊标记，或具体列表
+           permissions = [
+               'events.manage_schedule',
+               'events.manage_equipment',
+               'events.manage_personnel',
+               'events.manage_announcements'
+           ]
+       elif self.user.role == 'manager':
+           permissions = [
+               'events.manage_schedule',
+               'events.manage_equipment',
+               'events.manage_personnel',
+               'events.manage_announcements'
+           ]
+       
+       data['permissions'] = permissions
+       return data
 
     @classmethod
     def get_token(cls, user):

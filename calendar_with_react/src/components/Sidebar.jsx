@@ -23,7 +23,7 @@ import {
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isAuthenticated, logout, isGuest } = useAuth();
+  const { isAuthenticated, logout, isGuest, hasPermission } = useAuth();
   const location = useLocation();
 
   return (
@@ -61,18 +61,18 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/", icon: faHome, text: "首页", permission: null },
               { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null },
               { to: "/settings", icon: faCog, text: "设置", permission: null },
-              { to: "/events", icon: faTasks, text: "事件", permission: "manage_schedule" },
+              { to: "/events", icon: faTasks, text: "事件", permission: "events.manage_schedule" },
               { to: "/profile", icon: faUser, text: "个人资料", permission: null },
               { to: "/documents", icon: faFileWord, text: "文档管理", permission: null },
               { to: "/trials", icon: faFlask, text: "试验管理", permission: null },
-              { to: "/equipment", icon: faFlask, text: "设备管理", permission: "manage_equipment" },
-              { to: "/personnel", icon: faUsers, text: "人员管理", permission: "manage_personnel" },
-              { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "manage_announcements" },
+              { to: "/equipment", icon: faFlask, text: "设备管理", permission: "events.manage_equipment" },
+              { to: "/personnel", icon: faUsers, text: "人员管理", permission: "events.manage_personnel" },
+              { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
               { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
               { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
               { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null }
-            ].filter(item => 
-              item.permission === null || isGuest
+            ].filter(item =>
+              item.permission === null || hasPermission(item.permission)
             ).map((item, index) => (
               <li key={index}>
                 <Link
