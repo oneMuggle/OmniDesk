@@ -16,6 +16,7 @@ import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
 import EquipmentPage from '../components/EquipmentPage';
 import FileAnalysisPage from '../components/FileAnalysisPage';
+import DocsPage from '../components/DocsPage';
 
 const router = createBrowserRouter([
 {
@@ -63,6 +64,10 @@ const router = createBrowserRouter([
       { 
         path: "file-analysis", 
         element: <FileAnalysisPage /> 
+      },
+      { 
+        path: "docs/cdepsio6", 
+        element: <DocsPage /> 
       }
     ]
   },

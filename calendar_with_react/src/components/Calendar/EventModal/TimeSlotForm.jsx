@@ -110,54 +110,62 @@ const TimeSlotForm = ({
   useEffect(() => {
     const initializeTimeSlots = () => {
   const timeSlots = form.getFieldValue('time_slots') || [];
-  // 新建模式时自动添加空时间段
-  if (timeSlots.length === 0) {
-    form.setFieldsValue({ time_slots: [{ id: 'new_slot', start_time: null, end_time: null, description: '' }] });
-  }
-      console.log('Initializing time slots:', timeSlots);
-      
-      if (timeSlots.length > 0) {
-            const updatedTimeSlots = timeSlots.map(slot => {
-              try {
-                // 处理数组格式的时间范围
-                if (Array.isArray(slot?.timeRange)) {
-                  // 确保 timeRange 数组中的元素是 dayjs 对象
-                  const newTimeRange = slot.timeRange.map(date => date ? dayjs(date) : null);
-                  return {
-                    ...slot,
-                    timeRange: newTimeRange,
-                    start_time: slot.start_time,
-                    end_time: slot.end_time
-                  };
-                }
-                
-                // 处理单独的开始/结束时间
-                if (slot?.start_time || slot?.end_time) {
-                  const startTime = slot.start_time
-                    ? (typeof slot.start_time === 'string'
-                      ? fromServerFormat(slot.start_time)
-                      : dayjs(slot.start_time)) // 确保是 dayjs 对象
-                    : null;
-                  const endTime = slot.end_time
-                    ? (typeof slot.end_time === 'string'
-                      ? dayjs(slot.end_time)
-                      : dayjs(slot.end_time)) // 确保是 dayjs 对象
-                    : null;
+  console.log('[DEBUG] TimeSlotForm (useEffect) - timeSlots from form:', JSON.stringify(timeSlots, (key, value) => {
+    if (value && typeof value === 'object' && typeof value.isValid === 'function' && value.isValid()) {
+      return value.format(); // Convert dayjs objects to string for logging
+    }
+    return value;
+  }, 2));
+// 新建模式时自动添加空时间段
+if (timeSlots.length === 0) {
+  form.setFieldsValue({ time_slots: [{ id: 'new_slot', start_time: null, end_time: null, description: '' }] });
+}
+    if (timeSlots.length > 0) {
+          const updatedTimeSlots = timeSlots.map(slot => {
+            console.log('[DEBUG] TimeSlotForm (Initializing) - Processing slot:', slot);
+            try {
+              // 强制将 timeRange 中的元素转换为 dayjs 对象
+              if (Array.isArray(slot?.timeRange)) {
+                return {
+                  ...slot,
+                  timeRange: slot.timeRange.map(date => date ? dayjs(date) : null)
+                };
+              }
+
+              // 处理单独的开始/结束时间，并转换为 dayjs 对象
+              const startTime = slot?.start_time
+                ? (typeof slot.start_time === 'string' ? fromServerFormat(slot.start_time) : dayjs(slot.start_time))
+                : null;
+              const endTime = slot?.end_time
+                ? (typeof slot.end_time === 'string' ? fromServerFormat(slot.end_time) : dayjs(slot.end_time))
+                : null;
               
-              console.log('Processing slot:', {
-                id: slot.id,
-                originalStart: slot.start_time,
-                originalEnd: slot.end_time,
-                convertedStart: startTime?.format(),
-                convertedEnd: endTime?.format()
-              });
-              
-              return {
-                ...slot,
-                timeRange: [startTime, endTime]
-              };
-            }
-            return slot;
+              // 如果 start 和 end 字段存在，也尝试转换为 dayjs 对象 (兼容旧数据)
+              const legacyStartTime = slot?.start
+                ? (typeof slot.start === 'string' ? fromServerFormat(slot.start) : dayjs(slot.start))
+                : null;
+              const legacyEndTime = slot?.end
+                ? (typeof slot.end === 'string' ? fromServerFormat(slot.end) : dayjs(slot.end))
+                : null;
+
+              const finalStartTime = startTime || legacyStartTime;
+              const finalEndTime = endTime || legacyEndTime;
+
+              if (finalStartTime || finalEndTime) {
+                console.log('[DEBUG] TimeSlotForm (Initializing) - Converted slot:', {
+                  id: slot.id,
+                  convertedStart: finalStartTime?.format(),
+                  convertedEnd: finalEndTime?.format()
+                });
+
+                return {
+                  ...slot,
+                  timeRange: [finalStartTime, finalEndTime],
+                  start_time: finalStartTime ? toServerFormat(finalStartTime) : null,
+                  end_time: finalEndTime ? toServerFormat(finalEndTime) : null
+                };
+              }
+              return slot;
           } catch (error) {
             console.error('Error processing time slot:', error);
             return slot;
@@ -251,7 +259,7 @@ const TimeSlotForm = ({
             <>
               {fields.map(({ key, name, ...restField }) => {
                 const slot = form.getFieldValue(['time_slots', name]);
-                console.log(`TimeSlotForm - Slot ${name} data:`, slot); // Add this line
+                console.log(`[DEBUG] TimeSlotForm (Render) - Slot ${name} data:`, slot);
                 
                 const startTime = slot?.start_time ? dayjs(slot.start_time) : null;
                 const endTime = slot?.end_time ? dayjs(slot.end_time) : null;
@@ -260,7 +268,12 @@ const TimeSlotForm = ({
                 const validEndTime = endTime && dayjs.isDayjs(endTime) && endTime.isValid() ? endTime : null;
 
                 const timeRange = slot?.timeRange || [validStartTime, validEndTime];
-                console.log(`TimeSlotForm - Slot ${name} timeRange:`, timeRange, `(Start valid: ${validStartTime?.isValid()}, End valid: ${validEndTime?.isValid()})`); // Add this line
+                console.log(`[DEBUG] TimeSlotForm (Render) - Slot ${name} timeRange:`, JSON.stringify(timeRange, (key, value) => {
+                  if (value && typeof value === 'object' && typeof value.isValid === 'function' && value.isValid()) {
+                    return value.format(); // Convert dayjs objects to string for logging
+                  }
+                  return value;
+                }, 2), `(Start valid: ${timeRange[0]?.isValid()}, End valid: ${timeRange[1]?.isValid()})`);
                 
                 return (
                   <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
@@ -273,7 +286,7 @@ const TimeSlotForm = ({
                         showTime={{ format: 'HH:mm' }}
                         format="YYYY-MM-DD HH:mm"
                         onChange={(value) => handleTimeSlotChange(name, 'timeRange', value)}
-                        value={timeRange}
+                        value={timeRange.map(d => d ? dayjs(d) : null)}
                         disabled={!isEditing}
                       />
                     </Form.Item>

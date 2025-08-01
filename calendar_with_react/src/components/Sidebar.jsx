@@ -69,7 +69,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/personnel", icon: faUsers, text: "人员管理", permission: "manage_personnel" },
               { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "manage_announcements" },
               { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
-              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null }
+              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+              { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null }
             ].filter(item => 
               item.permission === null || isGuest
             ).map((item, index) => (

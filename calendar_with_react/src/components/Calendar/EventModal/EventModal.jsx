@@ -27,6 +27,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
 
   // 自动设置关联试验并获取时间段
   useEffect(() => {
+    console.log('[DEBUG] EventModal - useEffect triggered. currentEvent.id:', currentEvent?.id, 'selectedTrial.id:', selectedTrial?.id);
+
     if (currentEvent?.extendedProps?.trialDetails) {
       // 如果事件中已经包含试验详情，直接使用
       const trial = currentEvent.extendedProps.trialDetails;
@@ -41,12 +43,13 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             return;
           }
           
-          const validSlots = slots.filter(slot => 
-            slot.id && slot.start && slot.end
+          console.log('[DEBUG] EventModal - 原始时间段数据:', slots);
+          const validSlots = slots.filter(slot =>
+            slot.id && (slot.start || slot.start_time) && (slot.end || slot.end_time)
           );
           
           if (validSlots.length !== slots.length) {
-            console.warn('过滤掉无效时间段', {
+            console.warn('EventModal - 过滤掉无效时间段', {
               trialId: trial.id,
               total: slots.length,
               valid: validSlots.length
@@ -56,14 +59,23 @@ const EventModal = ({ isGuest: propsIsGuest = false,
           const mappedTimeSlots = validSlots.map(slot => {
             const startValue = slot.start_time ? fromServerFormat(slot.start_time) : (slot.start ? dayjs(slot.start) : null);
             const endValue = slot.end_time ? fromServerFormat(slot.end_time) : (slot.end ? dayjs(slot.end) : null);
-            console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start: ${startValue ? startValue.format() : 'null'}, End: ${endValue ? endValue.format() : 'null'}`);
-            console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start Type: ${typeof startValue}, End Type: ${typeof endValue}`);
+            
+            console.log(`[DEBUG] EventModal (Mapping) - Slot ID: ${slot.id}, original start: ${slot.start}, original end: ${slot.end}, original start_time: ${slot.start_time}, original end_time: ${slot.end_time}`);
+            console.log(`[DEBUG] EventModal (Mapping) - Slot ID: ${slot.id}, mapped timeRange Start: ${startValue?.format() || 'null'}, End: ${endValue?.format() || 'null'}`);
+            console.log(`[DEBUG] EventModal (Mapping) - Slot ID: ${slot.id}, timeRange Start valid: ${startValue?.isValid()}, End valid: ${endValue?.isValid()}`);
+            
             return {
               id: slot.id,
               timeRange: [startValue, endValue],
               description: slot.description || ''
             };
           });
+          console.log('[DEBUG] EventModal (Before setFieldsValue) - mappedTimeSlots:', JSON.stringify(mappedTimeSlots, (key, value) => {
+            if (value && typeof value === 'object' && typeof value.isValid === 'function' && value.isValid()) {
+              return value.format(); // Convert dayjs objects to string for logging
+            }
+            return value;
+          }, 2));
           form.setFieldsValue({ time_slots: mappedTimeSlots });
         })
         .catch(error => {
@@ -89,12 +101,12 @@ const EventModal = ({ isGuest: propsIsGuest = false,
               return;
             }
             
-            const validSlots = slots.filter(slot => 
-              slot.id && slot.start && slot.end
+            const validSlots = slots.filter(slot =>
+              slot.id && (slot.start || slot.start_time) && (slot.end || slot.end_time)
             );
             
             if (validSlots.length !== slots.length) {
-              console.warn('过滤掉无效时间段', {
+              console.warn('EventModal - 过滤掉无效时间段 (trialId分支)', {
                 trialId: trial.id,
                 total: slots.length,
                 valid: validSlots.length
@@ -104,7 +116,7 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             const mappedTimeSlots = validSlots.map(slot => {
               const startValue = slot.start_time ? fromServerFormat(slot.start_time) : (slot.start ? dayjs(slot.start) : null);
               const endValue = slot.end_time ? fromServerFormat(slot.end_time) : (slot.end ? dayjs(slot.end) : null);
-              console.log(`EventModal - Slot ID: ${slot.id}, timeRange Start: ${startValue}, End: ${endValue}`);
+              
               return {
                 id: slot.id,
                 timeRange: [startValue, endValue],

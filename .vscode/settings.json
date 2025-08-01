@@ -1,4 +1,5 @@
 {
     "commentTranslate.hover.enabled": false,
-    "Codegeex.CommitMessageStyle": "ConventionalCommits"
+    "Codegeex.CommitMessageStyle": "ConventionalCommits",
+    "commentTranslate.source": "Copilot"
 }

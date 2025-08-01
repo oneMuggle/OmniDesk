@@ -28,56 +28,58 @@ const EventModalContainer = ({
   const queryClient = useQueryClient();
   const [localSelectedTrial, setLocalSelectedTrial] = useState(selectedTrial);
 
+  const fetchAndSetTimeSlots = async (trial) => {
+    if (!trial || !trial.id) {
+      form.setFieldsValue({ time_slots: [] });
+      return;
+    }
+
+    try {
+      const slots = await calendarApi.fetchTimeSlotsByTrial(trial.id);
+      if (!slots || slots.length === 0) {
+        console.warn('获取到空时间段数组', { trialId: trial.id });
+        form.setFieldsValue({ time_slots: [] });
+        return;
+      }
+
+      const validSlots = slots.filter(slot => slot.id && slot.start && slot.end);
+      if (validSlots.length !== slots.length) {
+        console.warn('过滤掉无效时间段', {
+          trialId: trial.id,
+          total: slots.length,
+          valid: validSlots.length,
+          invalid: slots.filter(slot => !slot.id || !slot.start || !slot.end)
+        });
+      }
+
+      form.setFieldsValue({
+        time_slots: validSlots.map(slot => ({
+          id: slot.id,
+          start: slot.start,
+          end: slot.end,
+          description: slot.description || ''
+        }))
+      });
+    } catch (error) {
+      console.error('获取时间段失败:', error);
+      Modal.warning({
+        title: '获取时间段失败',
+        content: `无法获取试验 ${trial.title} 的时间段数据`,
+      });
+      form.setFieldsValue({ time_slots: [] });
+    }
+  };
+
   useEffect(() => {
     if (currentEvent?.trialId) {
       const trial = trials.find(t => t.id === currentEvent.trialId);
       if (trial) {
         form.setFieldsValue({ trial: trial.id });
         setLocalSelectedTrial(trial);
-        
-        calendarApi.fetchTimeSlotsByTrial(trial.id)
-          .then(slots => {
-            if (!slots || slots.length === 0) {
-              console.warn('获取到空时间段数组', { trialId: trial.id });
-              form.setFieldsValue({ time_slots: [] });
-              return;
-            }
-            
-            const validSlots = slots.filter(slot => 
-              slot.id && slot.start && slot.end
-            );
-            
-            if (validSlots.length !== slots.length) {
-              console.warn('过滤掉无效时间段', {
-                trialId: trial.id,
-                total: slots.length,
-                valid: validSlots.length,
-                invalid: slots.filter(slot => 
-                  !slot.id || !slot.start || !slot.end
-                )
-              });
-            }
-            
-            form.setFieldsValue({
-              time_slots: validSlots.map(slot => ({
-                id: slot.id,
-                start: slot.start,
-                end: slot.end,
-                description: slot.description || ''
-              }))
-            });
-          })
-          .catch(error => {
-            console.error('获取时间段失败:', error);
-            Modal.warning({
-              title: '获取时间段失败',
-              content: `无法获取试验 ${trial.title} 的时间段数据`,
-            });
-            form.setFieldsValue({ time_slots: [] });
-          });
+        fetchAndSetTimeSlots(trial);
       }
     }
-  }, [currentEvent, trials]);
+  }, [currentEvent, trials, form]);
 
   const handleManualSave = async () => {
     const trialId = form.getFieldValue('trial');
@@ -230,6 +232,7 @@ const EventModalContainer = ({
             onTrialSelect={(trial) => {
               setLocalSelectedTrial(trial);
               setSelectedTrial(trial);
+              fetchAndSetTimeSlots(trial);
             }}
           />
 
