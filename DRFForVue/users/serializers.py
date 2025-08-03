@@ -88,7 +88,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'name', 'is_active', 'is_staff', 'date_joined')
+        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined')
 
 class PersonnelSerializer(UserSerializer):
     """兼容原有人员管理接口"""
@@ -105,15 +105,25 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                'events.manage_schedule',
                'events.manage_equipment',
                'events.manage_personnel',
-               'events.manage_announcements'
+               'events.manage_announcements',
+               'documents.view_book',  # Add permission to view books
+               'documents.add_book',   # Add permission to add books
+               'documents.change_book', # Add permission to change books
+               'documents.delete_book' # Add permission to delete books
            ]
+           print(f"Admin permissions: {permissions}") # 新增日志
        elif self.user.role == 'manager':
            permissions = [
                'events.manage_schedule',
                'events.manage_equipment',
                'events.manage_personnel',
-               'events.manage_announcements'
+               'events.manage_announcements',
+               'documents.view_book',  # Add permission to view books
+               'documents.add_book',   # Add permission to add books
+               'documents.change_book', # Add permission to change books
+               'documents.delete_book' # Add permission to delete books
            ]
+           print(f"Manager permissions: {permissions}") # 新增日志
        
        data['permissions'] = permissions
        return data

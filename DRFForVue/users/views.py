@@ -90,29 +90,13 @@ class UserLoginView(TokenObtainPairView):
             print(f"User role in UserLoginView: {user.role}") # <-- 新增日志
             token = serializer.validated_data
             
-            permissions = []
-            if user.role == 'admin' or user.is_superuser:
-                permissions = [
-                    'events.manage_schedule',
-                    'events.manage_equipment',
-                    'events.manage_personnel',
-                    'events.manage_announcements'
-                ]
-            elif user.role == 'manager':
-                permissions = [
-                    'events.manage_schedule',
-                    'events.manage_equipment',
-                    'events.manage_personnel',
-                    'events.manage_announcements'
-                ]
-            
             response_data = {
                 "success": True,
                 "user": UserDetailSerializer(user).data,
                 "access": token['access'],
                 "refresh": token['refresh'],
                 "redirect_to": "/home",
-                "permissions": permissions
+                "permissions": token['permissions'] # Get permissions from the token
             }
             print(f"Login Response Data: {response_data}") # <-- 新增日志
             return Response(response_data)

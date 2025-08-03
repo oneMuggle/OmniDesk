@@ -18,9 +18,7 @@ class ConfigViewSet(viewsets.ModelViewSet):
 
 class SystemConfigView(APIView):
     """系统配置API"""
-    
-    def get_permissions(self):
-        return []
+    permission_classes = []
         
     def get(self, request, format=None):
         try:

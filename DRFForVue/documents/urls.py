@@ -5,8 +5,10 @@ from . import views
 router = DefaultRouter()
 router.register(r'templates', views.DocumentTemplateViewSet, basename='document-template')
 router.register(r'generated', views.GeneratedDocumentViewSet, basename='generated-document')
+router.register(r'books', views.BookViewSet, basename='book')
+router.register(r'chapters', views.ChapterViewSet, basename='chapter')
 
 urlpatterns = [
     path('', include(router.urls)),
-    path('<int:template_id>/generate/', views.GeneratedDocumentViewSet.as_view({'post': 'create'}), name='generate-document'),
+    path('import_book/', views.BookImportView.as_view(), name='import-book'),
 ]

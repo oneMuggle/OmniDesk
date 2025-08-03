@@ -18,7 +18,8 @@ import {
   faCommentDots,
   faFlask,
   faUsers,
-  faFileAlt
+  faFileAlt,
+  faBook // 新增图标
 } from '@fortawesome/free-solid-svg-icons';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -70,6 +71,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
               { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
               { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+              { to: "/library", icon: faBook, text: "书库", permission: null },
+              { to: "/book-management", icon: faBook, text: "书籍管理", permission: ["admin", "manager"] }, // 新增书籍管理链接
               { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null }
             ].filter(item =>
               item.permission === null || hasPermission(item.permission)

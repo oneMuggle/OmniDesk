@@ -17,6 +17,12 @@ import PersonnelPage from '../components/PersonnelPage';
 import EquipmentPage from '../components/EquipmentPage';
 import FileAnalysisPage from '../components/FileAnalysisPage';
 import DocsPage from '../components/DocsPage';
+import BookPage from '../components/BookPage';
+import BookReaderPage from '../components/BookReaderPage';
+import LibraryPage from '../components/LibraryPage';
+import BookImportPage from '../components/BookImportPage';
+import BookManagementPage from '../components/BookManagementPage';
+import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
 
 const router = createBrowserRouter([
 {
@@ -54,22 +60,42 @@ const router = createBrowserRouter([
         element: <DocumentsPage />
       },
       {
+        path: "library", // 新增书库路由
+        element: <LibraryPage />
+      },
+      {
+        path: "books/:bookId", // 动态书籍详情路由
+        element: <BookPage />
+      },
+      {
         path: "announcements",
         element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementsPage /></ProtectedRoute>
       },
-      { 
-        path: "deepseek-chat", 
-        element: <DeepSeekChatPage /> 
+      {
+        path: "deepseek-chat",
+        element: <DeepSeekChatPage />
       },
-      { 
-        path: "file-analysis", 
-        element: <FileAnalysisPage /> 
+      {
+        path: "book-management", // 新增书籍管理路由
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute> // 管理员和经理可以访问
       },
-      { 
-        path: "docs/cdepsio6", 
-        element: <DocsPage /> 
+      {
+        path: "file-analysis",
+        element: <FileAnalysisPage />
+      },
+      {
+        path: "docs/cdepsio6",
+        element: <DocsPage />
+      },
+      {
+        path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
+        element: <ProtectedRoute roles={['admin']}><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
       }
     ]
+  },
+  {
+    path: "/read-book/:bookId", // 新增独立书籍阅读路由
+    element: <BookReaderPage />
   },
   {
     path: "/login",

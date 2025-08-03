@@ -23,3 +23,42 @@ class GeneratedDocumentSerializer(serializers.ModelSerializer):
 
     def get_content_preview(self, obj):
         return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
+
+from .models import Book, Chapter, Comment, Annotation, Tag
+
+class TagSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Tag
+        fields = '__all__'
+
+class CommentSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Comment
+        fields = ('id', 'user', 'content', 'created_at')
+        read_only_fields = ('created_at',)
+
+class AnnotationSerializer(serializers.ModelSerializer):
+    user = UserSerializer(read_only=True)
+
+    class Meta:
+        model = Annotation
+        fields = ('id', 'user', 'selected_text', 'note', 'created_at')
+        read_only_fields = ('created_at',)
+
+class ChapterSerializer(serializers.ModelSerializer):
+    comments = CommentSerializer(many=True, read_only=True)
+    annotations = AnnotationSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Chapter
+        fields = ('id', 'title', 'content_html', 'order', 'comments', 'annotations', 'image_metadata', 'heading_structure')
+
+class BookSerializer(serializers.ModelSerializer):
+    chapters = ChapterSerializer(many=True, read_only=True)
+    tags = TagSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Book
+        fields = ('id', 'title', 'author', 'description', 'cover_image', 'publication_date', 'tags', 'chapters')
