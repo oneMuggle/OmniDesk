@@ -66,7 +66,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
             
             return {
               id: slot.id,
-              timeRange: [startValue, endValue],
+              dateRange: [startValue, endValue], // 日期部分
+              timeOnlyRange: [startValue, endValue], // 时间部分
               description: slot.description || ''
             };
           });
@@ -119,7 +120,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
               
               return {
                 id: slot.id,
-                timeRange: [startValue, endValue],
+                dateRange: [startValue, endValue], // 日期部分
+                timeOnlyRange: [startValue, endValue], // 时间部分
                 description: slot.description || ''
               };
             });
@@ -145,23 +147,23 @@ const EventModal = ({ isGuest: propsIsGuest = false,
       // 验证时间段
       const validSlots = timeSlots.map(slot => {
         console.log('处理时间段', slot);
-        // 优先处理timeRange数组
-        const [start, end] = slot.timeRange || [slot.start_time || slot.start, slot.end_time || slot.end];
-        
-        if (!start || !end) {
-          throw new Error('所有时间段必须包含开始和结束时间');
+        const [startDate, endDate] = slot.dateRange || [null, null];
+        const [startTimeOnly, endTimeOnly] = slot.timeOnlyRange || [null, null];
+
+        if (!startDate || !endDate || !startTimeOnly || !endTimeOnly) {
+          throw new Error('所有时间段必须包含日期和时间');
         }
-        
-        const startTime = toServerFormat(start);
-        const endTime = toServerFormat(end);
-        
-        if (!startTime || !endTime || endTime <= startTime) {
+
+        const startDateTime = dayjs(startDate).hour(dayjs(startTimeOnly).hour()).minute(dayjs(startTimeOnly).minute());
+        const endDateTime = dayjs(endDate).hour(dayjs(endTimeOnly).hour()).minute(dayjs(endTimeOnly).minute());
+
+        if (!startDateTime.isValid() || !endDateTime.isValid() || endDateTime.isBefore(startDateTime)) {
           throw new Error('时间段无效: 结束时间必须晚于开始时间');
         }
-        
+
         return {
-          start_time: startTime,
-          end_time: endTime,
+          start_time: toServerFormat(startDateTime),
+          end_time: toServerFormat(endDateTime),
           ...(slot.id && { id: slot.id }),
           description: slot.description || ''
         };
@@ -181,16 +183,16 @@ const EventModal = ({ isGuest: propsIsGuest = false,
       // 检查时间段重叠
       for (let i = 0; i < validSlots.length; i++) {
         const slot1 = validSlots[i];
-        const start1 = fromServerFormat(slot1.start_time || slot1.start);
-        const end1 = fromServerFormat(slot1.end_time || slot1.end);
+        const start1 = fromServerFormat(slot1.start_time);
+        const end1 = fromServerFormat(slot1.end_time);
         
         for (let j = i + 1; j < validSlots.length; j++) {
           const slot2 = validSlots[j];
-          const start2 = fromServerFormat(slot2.start_time || slot2.start);
-          const end2 = fromServerFormat(slot2.end_time || slot2.end);
+          const start2 = fromServerFormat(slot2.start_time);
+          const end2 = fromServerFormat(slot2.end_time);
           
           // 检查时间段是否重叠
-          if (!(end1.isBefore(start2) || start2.isBefore(end1))) {
+          if (!(end1.isSameOrBefore(start2) || start2.isSameOrBefore(end1))) { // 使用 isSameOrBefore 避免边界问题
             throw new Error(`时间段重叠: ${formatDate(start1, 'YYYY-MM-DD HH:mm')}至${formatDate(end1, 'YYYY-MM-DD HH:mm')} 与 ${formatDate(start2, 'YYYY-MM-DD HH:mm')}至${formatDate(end2, 'YYYY-MM-DD HH:mm')}`);
           }
         }
@@ -212,8 +214,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
         const newTimeSlots = validSlots
           .filter(slot => !slot.id)
           .map(slot => ({
-            start: toServerFormat(slot.start_time || slot.start),
-            end: toServerFormat(slot.end_time || slot.end),
+            start: toServerFormat(dayjs(slot.dateRange[0]).hour(dayjs(slot.timeOnlyRange[0]).hour()).minute(dayjs(slot.timeOnlyRange[0]).minute())),
+            end: toServerFormat(dayjs(slot.dateRange[1]).hour(dayjs(slot.timeOnlyRange[1]).hour()).minute(dayjs(slot.timeOnlyRange[1]).minute())),
             description: slot.description
           }));
 
@@ -223,8 +225,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
               .filter(slot => slot.id && modifiedSlots.includes(slot.id))
               .map(slot => ({
                 id: slot.id,
-                start_time: toServerFormat(slot.start_time || slot.start),
-                end_time: toServerFormat(slot.end_time || slot.end),
+                start_time: toServerFormat(dayjs(slot.dateRange[0]).hour(dayjs(slot.timeOnlyRange[0]).hour()).minute(dayjs(slot.timeOnlyRange[0]).minute())),
+                end_time: toServerFormat(dayjs(slot.dateRange[1]).hour(dayjs(slot.timeOnlyRange[1]).hour()).minute(dayjs(slot.timeOnlyRange[1]).minute())),
                 description: slot.description
               }))
           : [];
@@ -285,7 +287,8 @@ const EventModal = ({ isGuest: propsIsGuest = false,
         setSelectedTrial(null);
       }}
       closable={true}
-      width={800}
+      width={1200}
+      bodyStyle={{ overflow: 'visible' }}
       footer={
         !isEditing ? [ // 当 isEditing 为 false 时
           !propsIsGuest && (

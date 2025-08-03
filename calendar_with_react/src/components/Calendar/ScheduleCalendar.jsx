@@ -8,28 +8,42 @@ const ScheduleCalendar = ({
   isGuest,
   onDateClick,
   onEventClick,
-  onScheduleSelect = () => {}
+  onScheduleSelect = () => {},
+  personnel // 接收 personnel prop
 }) => {
-  console.log('ScheduleCalendar接收到的排班数据:', schedules); // 添加调试日志
-  
+  // console.log('ScheduleCalendar接收到的排班数据:', schedules); // 添加调试日志
+  // console.log('ScheduleCalendar接收到的人员数据:', personnel); // 添加调试日志
+
   const events = React.useMemo(() => {
-    return (Array.isArray(schedules) ? schedules : [])
-      .map(schedule => ({
+    if (!Array.isArray(schedules) || !Array.isArray(personnel)) {
+      return [];
+    }
+    
+    return schedules.map(schedule => {
+      const dutyPerson = personnel.find(p => p.id === schedule.duty_person);
+      const dutyLeader = personnel.find(p => p.id === schedule.duty_leader);
+
+      const title = `${dutyPerson ? dutyPerson.name : '未知'} (值班) / ${dutyLeader ? dutyLeader.name : '未知'} (领导)`;
+
+      return {
         type: 'SCHEDULE',
-        id: schedule.id,
-        title: schedule.title,
-        start: fromServerFormat(schedule.start_time)?.toDate(),
-        end: fromServerFormat(schedule.end_time)?.toDate(),
+        id: `schedule-${schedule.id}`, // 为排班事件添加前缀以避免与试验事件ID冲突
+        title: title,
+        start: fromServerFormat(schedule.duty_date)?.toDate(), // 确保日期格式正确
+        allDay: true, // 排班通常是全天事件
         extendedProps: {
           type: 'SCHEDULE',
-          status: schedule.status,
-          personnel: schedule.personnel,
-          description: schedule.description
+          duty_person_id: schedule.duty_person,
+          duty_leader_id: schedule.duty_leader,
+          duty_person_name: dutyPerson ? dutyPerson.name : '未知',
+          duty_leader_name: dutyLeader ? dutyLeader.name : '未知',
+          duty_person_phone: dutyPerson ? dutyPerson.phone : '',
+          duty_leader_phone: dutyLeader ? dutyLeader.phone : '',
         },
-        allDay: false,
-        editable: !isGuest
-      }));
-  }, [schedules, isGuest]);
+        editable: !isGuest // 如果是访客，则不可编辑
+      };
+    });
+  }, [schedules, personnel, isGuest]);
 
   return (
     <BaseCalendar

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Button, Form, Input, Space, DatePicker, Modal } from 'antd';
+import CustomTimeRangePicker from './CustomTimeRangePicker';
 import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
 import dayjs from 'dayjs';
@@ -121,61 +122,28 @@ if (timeSlots.length === 0) {
   form.setFieldsValue({ time_slots: [{ id: 'new_slot', start_time: null, end_time: null, description: '' }] });
 }
     if (timeSlots.length > 0) {
-          const updatedTimeSlots = timeSlots.map(slot => {
-            console.log('[DEBUG] TimeSlotForm (Initializing) - Processing slot:', slot);
-            try {
-              // 强制将 timeRange 中的元素转换为 dayjs 对象
-              if (Array.isArray(slot?.timeRange)) {
-                return {
-                  ...slot,
-                  timeRange: slot.timeRange.map(date => date ? dayjs(date) : null)
-                };
-              }
+      const updatedTimeSlots = timeSlots.map(slot => {
+        console.log('[DEBUG] TimeSlotForm (Initializing) - Processing slot:', slot);
+        try {
+          const startDayjs = slot?.start_time ? dayjs(slot.start_time) : (slot?.start ? dayjs(slot.start) : null);
+          const endDayjs = slot?.end_time ? dayjs(slot.end_time) : (slot?.end ? dayjs(slot.end) : null);
 
-              // 处理单独的开始/结束时间，并转换为 dayjs 对象
-              const startTime = slot?.start_time
-                ? (typeof slot.start_time === 'string' ? fromServerFormat(slot.start_time) : dayjs(slot.start_time))
-                : null;
-              const endTime = slot?.end_time
-                ? (typeof slot.end_time === 'string' ? fromServerFormat(slot.end_time) : dayjs(slot.end_time))
-                : null;
-              
-              // 如果 start 和 end 字段存在，也尝试转换为 dayjs 对象 (兼容旧数据)
-              const legacyStartTime = slot?.start
-                ? (typeof slot.start === 'string' ? fromServerFormat(slot.start) : dayjs(slot.start))
-                : null;
-              const legacyEndTime = slot?.end
-                ? (typeof slot.end === 'string' ? fromServerFormat(slot.end) : dayjs(slot.end))
-                : null;
-
-              const finalStartTime = startTime || legacyStartTime;
-              const finalEndTime = endTime || legacyEndTime;
-
-              if (finalStartTime || finalEndTime) {
-                console.log('[DEBUG] TimeSlotForm (Initializing) - Converted slot:', {
-                  id: slot.id,
-                  convertedStart: finalStartTime?.format(),
-                  convertedEnd: finalEndTime?.format()
-                });
-
-                return {
-                  ...slot,
-                  timeRange: [finalStartTime, finalEndTime],
-                  start_time: finalStartTime ? toServerFormat(finalStartTime) : null,
-                  end_time: finalEndTime ? toServerFormat(finalEndTime) : null
-                };
-              }
-              return slot;
-          } catch (error) {
-            console.error('Error processing time slot:', error);
-            return slot;
-          }
-        });
-        
-        console.log('Updated time slots with timeRange:', updatedTimeSlots);
-        form.setFieldsValue({ time_slots: updatedTimeSlots });
-      }
-    };
+          return {
+            ...slot,
+            dateRange: [startDayjs, endDayjs], // 日期部分
+            timeOnlyRange: [startDayjs, endDayjs], // 时间部分
+            start_time: startDayjs ? startDayjs.format('YYYY-MM-DD HH:mm') : null,
+            end_time: endDayjs ? endDayjs.format('YYYY-MM-DD HH:mm') : null,
+          };
+        } catch (error) {
+          console.error('Error processing time slot:', error);
+          return slot;
+        }
+      });
+      console.log('Updated time slots for separate pickers:', updatedTimeSlots);
+      form.setFieldsValue({ time_slots: updatedTimeSlots });
+    }
+  };
 
     // 初始加载时执行
     initializeTimeSlots();
@@ -198,58 +166,53 @@ if (timeSlots.length === 0) {
     return unsubscribe;
   }, [form]);
 
-  const handleTimeSlotChange = (index, field, value) => {
-    console.log('Time slot changed - index:', index, 'field:', field, 'value:', value);
-    console.log('Before update:', form.getFieldValue('time_slots'));
-    const timeSlots = form.getFieldValue('time_slots') || [];
-    const newSlots = [...timeSlots];
-    
-    if (field === 'timeRange') {
-      // 验证日期范围
-      const [start, end] = value || [null, null];
-      
-      // 确保 start 和 end 是 dayjs 对象或 null
-      const dayjsStart = start ? (dayjs.isDayjs(start) ? start : dayjs(start)) : null;
-      const dayjsEnd = end ? (dayjs.isDayjs(end) ? end : dayjs(end)) : null;
+const handleTimeSlotChange = (index, field, value) => {
+  console.log('Time slot changed - index:', index, 'field:', field, 'value:', value);
+  const timeSlots = form.getFieldValue('time_slots') || [];
+  const currentSlot = { ...timeSlots[index] };
 
-      const isValidStart = dayjsStart ? dayjsStart.isValid() : false;
-      const isValidEnd = dayjsEnd ? dayjsEnd.isValid() : false;
-      
-      if (value && (!isValidStart || !isValidEnd)) {
-        console.error('Invalid date range:', { start, end });
-        return;
-      }
+  if (field === 'dateRange') {
+    const [startDate, endDate] = value || [null, null];
+    currentSlot.dateRange = [startDate, endDate]; // 更新 dateRange
 
-      newSlots[index] = {
-        ...newSlots[index],
-        start_time: isValidStart ? toServerFormat(start) : null,
-        end_time: isValidEnd ? toServerFormat(end) : null,
-        timeRange: value
-      };
-    } else {
-      newSlots[index] = {
-        ...newSlots[index],
-        [field]: value
-      };
+    // 更新 start_time 和 end_time 的日期部分
+    currentSlot.start_time = startDate ? dayjs(startDate).format('YYYY-MM-DD') + ' ' + (dayjs(currentSlot.start_time).format('HH:mm') || '00:00') : null;
+    currentSlot.end_time = endDate ? dayjs(endDate).format('YYYY-MM-DD') + ' ' + (dayjs(currentSlot.end_time).format('HH:mm') || '00:00') : null;
+
+  } else if (field === 'timeOnlyRange') {
+    const [startTime, endTime] = value || [null, null];
+    currentSlot.timeOnlyRange = [startTime, endTime]; // 更新 timeOnlyRange
+
+    // 更新 start_time 和 end_time 的时间部分
+    currentSlot.start_time = startTime ? (dayjs(currentSlot.start_time).format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD')) + ' ' + dayjs(startTime).format('HH:mm') : null;
+    currentSlot.end_time = endTime ? (dayjs(currentSlot.end_time).format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD')) + ' ' + dayjs(endTime).format('HH:mm') : null;
+  } else {
+    currentSlot[field] = value;
+  }
+
+  // 确保 start_time 和 end_time 始终是 dayjs 对象，以便后续处理
+  currentSlot.start_time = currentSlot.start_time ? dayjs(currentSlot.start_time) : null;
+  currentSlot.end_time = currentSlot.end_time ? dayjs(currentSlot.end_time) : null;
+
+  const newSlots = [...timeSlots];
+  newSlots[index] = currentSlot;
+  form.setFieldsValue({ time_slots: newSlots });
+  console.log('After update:', newSlots);
+
+  // 对于已有时间段(id不为null)，标记为修改
+  if (currentSlot.id) {
+    const slotId = currentSlot.id;
+    console.log('[DEBUG] 检查时间段更新:', {
+      slotId,
+      modifiedSlots
+    });
+
+    if (!modifiedSlots.includes(slotId)) {
+      setModifiedSlots([...modifiedSlots, slotId]);
+      console.log('[DEBUG] 添加到modifiedSlots:', slotId);
     }
-
-    form.setFieldsValue({ time_slots: newSlots });
-    console.log('After update:', newSlots);
-    
-    // 对于已有时间段(id不为null)，标记为修改
-    if (newSlots[index]?.id) {
-      const slotId = newSlots[index].id;
-      console.log('[DEBUG] 检查时间段更新:', {
-        slotId,
-        modifiedSlots
-      });
-      
-      if (!modifiedSlots.includes(slotId)) {
-        setModifiedSlots([...modifiedSlots, slotId]);
-        console.log('[DEBUG] 添加到modifiedSlots:', slotId);
-      }
-    }
-  };
+  }
+};
 
   return (
     <>
@@ -276,7 +239,7 @@ if (timeSlots.length === 0) {
                 }, 2), `(Start valid: ${timeRange[0]?.isValid()}, End valid: ${timeRange[1]?.isValid()})`);
                 
                 return (
-                  <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                  <div key={key} style={{ display: 'flex', marginBottom: 8, gap: 8, alignItems: 'baseline' }}>
                     <Form.Item
                       {...restField}
                       name={[name, 'timeRange']}
@@ -284,10 +247,22 @@ if (timeSlots.length === 0) {
                     >
                       <DatePicker.RangePicker
                         showTime={{ format: 'HH:mm' }}
-                        format="YYYY-MM-DD HH:mm"
-                        onChange={(value) => handleTimeSlotChange(name, 'timeRange', value)}
+                        format="YYYY-MM-DD"
+                        onChange={(value) => handleTimeSlotChange(name, 'dateRange', value)}
                         value={timeRange.map(d => d ? dayjs(d) : null)}
                         disabled={!isEditing}
+                      />
+                    </Form.Item>
+                    <Form.Item
+                      {...restField}
+                      name={[name, 'timeOnlyRange']}
+                      rules={[{ required: true, message: '请选择时间' }]}
+                    >
+                      <CustomTimeRangePicker
+                        onChange={(value) => handleTimeSlotChange(name, 'timeOnlyRange', value)}
+                        value={timeRange.map(d => d ? dayjs(d) : null)}
+                        disabled={!isEditing}
+                        getPopupContainer={() => document.body}
                       />
                     </Form.Item>
 
@@ -313,7 +288,7 @@ if (timeSlots.length === 0) {
                         }}
                       />
                     )}
-                  </Space>
+                  </div>
                 );
               })}
               

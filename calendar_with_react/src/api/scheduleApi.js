@@ -31,10 +31,10 @@ export const scheduleApi = {
 
       return results.map(schedule => ({
         id: schedule.id,
-        date: schedule.duty_date,
-        staff: schedule.duty_person,
-        leader: schedule.duty_leader,
-        type: 'SCHEDULE'  // 确保所有排班数据都有正确的类型
+        duty_date: schedule.duty_date,
+        duty_person: schedule.duty_person,
+        duty_leader: schedule.duty_leader,
+        type: 'SCHEDULE'
       }));
     } catch (error) {
       console.error('获取排班数据失败:', error);
@@ -117,6 +117,17 @@ export const scheduleApi = {
     } catch (error) {
       handleError(error);
       throw error;
+    }
+  },
+
+  getPersonnel: async () => {
+    try {
+      const response = await apiClient.get('/events/personnel/');
+      return response.data.results || [];
+    } catch (error) {
+      console.error('获取人员数据失败:', error);
+      handleError(error);
+      return [];
     }
   }
 };
