@@ -34,7 +34,7 @@ const Login = () => {
       await new Promise(resolve => setTimeout(resolve, 100));
       
       console.log('Redirecting after login...');
-      navigate(result.redirectTo || '/calendar');
+      navigate(result.redirectTo || '/');
     } catch (err) {
       setError(err.message || '登录失败，请重试');
     } finally {
@@ -101,7 +101,7 @@ const Login = () => {
               setError('');
               const result = await loginAsGuest();
               if (result.success) {
-                navigate('/calendar');
+                navigate('/');
               } else {
                 setError(result.error || '游客登录失败');
               }

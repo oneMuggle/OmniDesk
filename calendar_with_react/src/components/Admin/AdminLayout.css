@@ -1,0 +1,173 @@
+/* AdminLayout.css */
+
+.admin-layout {
+  display: flex;
+  height: 100vh; /* Full viewport height */
+  overflow: hidden; /* Prevent body scroll */
+}
+
+.admin-sidebar {
+  width: 250px; /* Default width */
+  background-color: #333;
+  color: white;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  transition: width 0.3s ease;
+  flex-shrink: 0; /* Prevent shrinking */
+}
+
+.admin-sidebar.collapsed {
+  width: 80px; /* Collapsed width */
+}
+
+.admin-sidebar-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 30px;
+}
+
+.admin-sidebar-header h2 {
+  margin: 0;
+  font-size: 1.5em;
+  white-space: nowrap; /* Prevent text wrapping */
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-sidebar.collapsed .admin-sidebar-header h2 {
+  display: none; /* Hide text when collapsed */
+}
+
+.collapse-toggle {
+  background: none;
+  border: none;
+  color: white;
+  font-size: 1.2em;
+  cursor: pointer;
+  padding: 5px;
+  transition: transform 0.3s ease;
+}
+
+.collapse-toggle .collapse-icon {
+  transform: rotate(0deg);
+}
+
+.collapse-toggle .collapse-icon.rotate {
+  transform: rotate(180deg);
+}
+
+.admin-sidebar-menu ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.admin-sidebar-menu li {
+  margin-bottom: 10px;
+}
+
+.admin-sidebar-menu .menu-item {
+  display: flex;
+  align-items: center;
+  padding: 10px 15px;
+  color: white;
+  text-decoration: none;
+  border-radius: 5px;
+  transition: background-color 0.2s ease;
+}
+
+.admin-sidebar-menu .menu-item:hover {
+  background-color: #555;
+}
+
+.admin-sidebar-menu .menu-item.active {
+  background-color: #007bff; /* Active item background */
+}
+
+.admin-sidebar-menu .icon {
+  margin-right: 15px;
+  font-size: 1.2em;
+}
+
+.admin-sidebar.collapsed .admin-sidebar-menu .icon {
+  margin-right: 0;
+  width: 100%; /* Center icon when collapsed */
+  text-align: center;
+}
+
+.admin-sidebar-menu .menu-item span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-sidebar.collapsed .admin-sidebar-menu .menu-item span {
+  display: none; /* Hide text when collapsed */
+}
+
+.admin-content {
+  flex-grow: 1; /* Take remaining space */
+  padding: 20px;
+  overflow-y: auto; /* Enable scrolling for content */
+  background-color: #f4f7f6;
+  color: #333;
+}
+
+/* Responsive adjustments for smaller screens */
+@media (max-width: 768px) {
+  .admin-sidebar {
+    position: fixed;
+    left: -250px; /* Hide by default */
+    height: 100%;
+    z-index: 1000;
+  }
+
+  .admin-sidebar.active {
+    left: 0; /* Show when active */
+  }
+
+  .admin-sidebar.collapsed {
+    width: 0; /* Fully collapse on mobile */
+    padding: 0;
+  }
+
+  .admin-sidebar-header h2,
+  .admin-sidebar-menu .menu-item span {
+    display: block; /* Show text on mobile */
+  }
+
+  .admin-sidebar.collapsed .admin-sidebar-header h2,
+  .admin-sidebar.collapsed .admin-sidebar-menu .menu-item span {
+    display: none; /* Hide text when collapsed */
+  }
+
+  .admin-content {
+    margin-left: 0; /* No margin when sidebar is hidden */
+  }
+
+  /* Submenu styles */
+  .submenu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    background-color: #444; /* Slightly darker background for submenus */
+    overflow: hidden; /* Ensures smooth collapse/expand */
+    transition: max-height 0.3s ease-out;
+  }
+
+  .submenu li .menu-item {
+    padding-left: 30px; /* Indent submenu items */
+    font-size: 0.9em;
+  }
+
+  .submenu-arrow {
+    margin-left: auto; /* Push arrow to the right */
+    transition: transform 0.3s ease;
+  }
+
+  .submenu-arrow.expanded {
+    transform: rotate(180deg);
+  }
+}

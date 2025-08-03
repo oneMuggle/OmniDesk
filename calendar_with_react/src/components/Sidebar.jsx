@@ -19,13 +19,15 @@ import {
   faFlask,
   faUsers,
   faFileAlt,
-  faBook // 新增图标
+  faBook, // 新增图标
+  faChevronDown // 新增图标
 } from '@fortawesome/free-solid-svg-icons';
-
-const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  const { isAuthenticated, logout, isGuest, hasPermission } = useAuth();
-  const location = useLocation();
+ 
+ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
+   const [isCollapsed, setIsCollapsed] = useState(false);
+   const [showCalendarSubMenu, setShowCalendarSubMenu] = useState(false); // 新增日历子菜单状态
+   const { user, isAuthenticated, logout, isGuest, hasPermission } = useAuth();
+   const location = useLocation();
 
   return (
     <>
@@ -60,23 +62,27 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
           <ul>
             {[
               { to: "/", icon: faHome, text: "首页", permission: null },
-              { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null },
-              { to: "/settings", icon: faCog, text: "设置", permission: null },
+              // { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null }, // 移除一级日历链接
               { to: "/events", icon: faTasks, text: "事件", permission: "events.manage_schedule" },
               { to: "/profile", icon: faUser, text: "个人资料", permission: null },
-              { to: "/documents", icon: faFileWord, text: "文档管理", permission: null },
-              { to: "/trials", icon: faFlask, text: "试验管理", permission: null },
-              { to: "/equipment", icon: faFlask, text: "设备管理", permission: "events.manage_equipment" },
-              { to: "/personnel", icon: faUsers, text: "人员管理", permission: "events.manage_personnel" },
               { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
               { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
               { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
               { to: "/library", icon: faBook, text: "书库", permission: null },
-              { to: "/book-management", icon: faBook, text: "书籍管理", permission: ["admin", "manager"] }, // 新增书籍管理链接
-              { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null }
-            ].filter(item =>
-              item.permission === null || hasPermission(item.permission)
-            ).map((item, index) => (
+              { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
+              { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] } // 新增管理中心链接
+            ].filter(item => {
+              if (item.to === "/admin") {
+                return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
+              }
+              if (item.permission === null) {
+                return true;
+              }
+              if (Array.isArray(item.permission)) {
+                return item.permission.some(p => hasPermission(p));
+              }
+              return hasPermission(item.permission);
+            }).map((item, index) => (
               <li key={index}>
                 <Link
                   to={item.to}
@@ -91,8 +97,54 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
                 </Link>
               </li>
             ))}
+            {/* 新增日历一级菜单和二级子菜单 */}
             <li>
-              <button 
+              <div
+                className={`menu-item ${location.pathname.startsWith('/trial-calendar') || location.pathname.startsWith('/shift-calendar') ? 'active' : ''}`}
+                onClick={() => setShowCalendarSubMenu(!showCalendarSubMenu)}
+                title={isCollapsed ? "日历" : ''}
+              >
+                <div className="menu-item-content">
+                  <FontAwesomeIcon icon={faCalendarAlt} className="icon" />
+                  {!isCollapsed && (
+                    <>
+                      <span>日历</span>
+                      <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${showCalendarSubMenu ? 'expanded' : ''}`} />
+                    </>
+                  )}
+                </div>
+              </div>
+              {showCalendarSubMenu && (
+                <ul className="submenu">
+                  <li>
+                    <Link
+                      to="/trial-calendar"
+                      className={`menu-item ${location.pathname === '/trial-calendar' ? 'active' : ''}`}
+                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+                      title={isCollapsed ? "试验日历" : ''}
+                    >
+                      <div className="menu-item-content">
+                        {!isCollapsed && <span>试验日历</span>}
+                      </div>
+                    </Link>
+                  </li>
+                  <li>
+                    <Link
+                      to="/shift-calendar"
+                      className={`menu-item ${location.pathname === '/shift-calendar' ? 'active' : ''}`}
+                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+                      title={isCollapsed ? "排班日历" : ''}
+                    >
+                      <div className="menu-item-content">
+                        {!isCollapsed && <span>排班日历</span>}
+                      </div>
+                    </Link>
+                  </li>
+                </ul>
+              )}
+            </li>
+            <li>
+              <button
                 className="menu-item"
                 onClick={() => {
                   logout();

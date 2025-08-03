@@ -12,7 +12,7 @@ const ollamaClient = axios.create({
 // 初始化配置
 (async function initOllamaConfig() {
   try {
-    const response = await axios.get('/config/');
+    const response = await axios.get('/api/config/');
     if (response.data.OLLAMA_ENDPOINT) {
       ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
     }
@@ -64,7 +64,7 @@ export const setApiProvider = (config) => {
 
 export const getConfig = async () => {
   try {
-    const response = await apiClient.get('/config/');
+    const response = await apiClient.get('/api/config/');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -77,7 +77,7 @@ export const getConfig = async () => {
 
 export const setConfig = async (config) => {
   try {
-    const response = await apiClient.post('/config/', config);
+    const response = await apiClient.post('/api/config/', config);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {

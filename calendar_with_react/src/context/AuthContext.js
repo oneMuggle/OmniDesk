@@ -91,7 +91,7 @@ export function AuthProvider({ children }) {
       
       return { 
         success: true,
-        redirectTo: '/calendar' 
+        redirectTo: '/'
       };
     } catch (err) {
       console.error('Login failed:', err);
@@ -131,7 +131,7 @@ export function AuthProvider({ children }) {
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setIsGuest(false);
-    window.location.href = '/login';
+    window.location.href = '/';
   };
 
   const loginAsGuest = async () => {

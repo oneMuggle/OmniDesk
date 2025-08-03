@@ -6,14 +6,13 @@ import App from '../App';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
 import DeepSeekChatPage from '../components/DeepSeekChatPage';
-import EventsPage from '../components/EventsPage'; 
+import EventsPage from '../components/EventsPage';
+import AdminLayout from '../components/Admin/AdminLayout';
 import ProfilePage from '../components/ProfilePage';
 import Login from '../components/Login';
 import Register from '../components/Register';
 import DocumentsPage from '../components/DocumentsPage';
 import AnnouncementsPage from '../components/AnnouncementsPage';
-import TrialsPage from '../components/TrialsPage';
-import PersonnelPage from '../components/PersonnelPage';
 import EquipmentPage from '../components/EquipmentPage';
 import FileAnalysisPage from '../components/FileAnalysisPage';
 import DocsPage from '../components/DocsPage';
@@ -21,31 +20,33 @@ import BookPage from '../components/BookPage';
 import BookReaderPage from '../components/BookReaderPage';
 import LibraryPage from '../components/LibraryPage';
 import BookImportPage from '../components/BookImportPage';
-import BookManagementPage from '../components/BookManagementPage';
 import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
+import TrialsPage from '../components/TrialsPage';
+import PersonnelPage from '../components/PersonnelPage';
+import BookManagementPage from '../components/BookManagementPage';
+import TrialCalendarPage from '../components/TrialCalendarPage';
+import ShiftCalendarPage from '../components/ShiftCalendarPage';
+import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
 
 const router = createBrowserRouter([
 {
     path: "/",
     element: <App />,
     children: [
-      { index: true, element: <Navigate to="calendar" replace /> },
-      { path: "calendar", element: <GuestRoute><CalendarPage /></GuestRoute> },
       {
-        path: "settings",
-        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
+        index: true,
+        element: (
+          <ProtectedRoute> {/* 使用 ProtectedRoute 判断登录状态 */}
+            <WelcomePage />
+          </ProtectedRoute>
+        ),
       },
+      { path: "calendar", element: <GuestRoute><TrialCalendarPage /></GuestRoute> },
+      { path: "trial-calendar", element: <GuestRoute><TrialCalendarPage /></GuestRoute> },
+      { path: "shift-calendar", element: <GuestRoute><ShiftCalendarPage /></GuestRoute> },
       {
         path: "events",
         element: <ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>
-      },
-      {
-        path: "trials",
-        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel",
-        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
       },
       {
         path: "equipment",
@@ -54,10 +55,6 @@ const router = createBrowserRouter([
       {
         path: "profile",
         element: <ProtectedRoute><ProfilePage /></ProtectedRoute>
-      },
-      {
-        path: "documents",
-        element: <DocumentsPage />
       },
       {
         path: "library", // 新增书库路由
@@ -76,10 +73,6 @@ const router = createBrowserRouter([
         element: <DeepSeekChatPage />
       },
       {
-        path: "book-management", // 新增书籍管理路由
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute> // 管理员和经理可以访问
-      },
-      {
         path: "file-analysis",
         element: <FileAnalysisPage />
       },
@@ -90,6 +83,37 @@ const router = createBrowserRouter([
       {
         path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
         element: <ProtectedRoute roles={['admin']}><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
+      },
+    ]
+  },
+  {
+    path: "/admin",
+    element: <ProtectedRoute roles={['admin', 'manager']}><AdminLayout /></ProtectedRoute>,
+    children: [
+      { index: true, element: <Navigate to="trials" replace /> },
+      {
+        path: "trials",
+        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel",
+        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
+      },
+      {
+        path: "book-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "documents",
+        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
+      },
+      {
+        path: "equipment",
+        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
+      },
+      {
+        path: "settings",
+        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
       }
     ]
   },
