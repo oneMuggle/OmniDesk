@@ -1,5 +1,4 @@
 import { Modal } from 'antd';
-import { calendarApi } from '../api/calendar';
 
 export const useCalendarEventDrop = (updateEventApi, queryClient, onDropSuccess, onDropError) => {
   const handleEventDrop = async (info) => {

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Form, Modal } from 'antd';
+import { Form } from 'antd';
 import { useAuth } from '../../context/AuthContext';
 import { useScheduleCalendarData } from '../../hooks/useScheduleCalendarData';
 import { useCalendarEventDrop } from '../../hooks/useCalendarEventDrop';
@@ -8,7 +8,6 @@ import ScheduleCalendar from './ScheduleCalendar';
 import { calendarApi } from '../../api/calendar'; // Import calendarApi
 
 const ScheduleCalendarContainer = () => {
-  const [form] = Form.useForm();
   const { isGuest } = useAuth();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);

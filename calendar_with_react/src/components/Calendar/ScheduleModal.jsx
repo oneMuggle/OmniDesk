@@ -98,7 +98,7 @@ const PersonnelScheduleModal = ({
       }
 
       // 使用新的upsert API
-      const response = await calendarApi.upsertSchedule({
+      await calendarApi.upsertSchedule({
         id: isEditing ? scheduleData.id : undefined,
         ...schedule
       });
@@ -134,7 +134,7 @@ const PersonnelScheduleModal = ({
       
       console.log('[DEBUG] 发送的排班数据:', formattedSchedule);
       
-      const response = await calendarApi.upsertSchedule(formattedSchedule);
+      await calendarApi.upsertSchedule(formattedSchedule);
       
       message.success('排班创建成功');
       queryClient.invalidateQueries(['schedules']);
