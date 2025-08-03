@@ -57,17 +57,16 @@ const ScheduleCalendarContainer = () => {
         isGuest={isGuest}
         onDateClick={handleScheduleDateClick}
         onEventClick={(clickInfo) => {
-          const eventObj = clickInfo.event.toPlainObject();
-          const scheduleId = parseInt(eventObj.id.replace('schedule-', ''));
-          const schedule = schedules.find(s => s.id === scheduleId);
-          if (schedule) {
+          const { event } = clickInfo;
+          const { extendedProps } = event;
+          if (extendedProps && extendedProps.scheduleDetails) {
             setCurrentSchedule({
-              id: schedule.id,
-              date: schedule.date,
-              staff: schedule.staff,
-              leader: schedule.leader,
-              staffPhone: schedule.staffPhone,
-              leaderPhone: schedule.leaderPhone
+              id: parseInt(event.id.replace('schedule-', '')),
+              date: event.startStr,
+              staff: extendedProps.duty_person_id,
+              leader: extendedProps.duty_leader_id,
+              staffPhone: extendedProps.scheduleDetails.staff.contact,
+              leaderPhone: extendedProps.scheduleDetails.leader.contact
             });
             setScheduleModalMode('view');
             setScheduleModalOpen(true);

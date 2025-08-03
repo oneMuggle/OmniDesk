@@ -35,10 +35,13 @@ const ScheduleCalendar = ({
           type: 'SCHEDULE',
           duty_person_id: schedule.duty_person,
           duty_leader_id: schedule.duty_leader,
-          duty_person_name: dutyPerson ? dutyPerson.name : '未知',
-          duty_leader_name: dutyLeader ? dutyLeader.name : '未知',
-          duty_person_phone: dutyPerson ? dutyPerson.phone : '',
-          duty_leader_phone: dutyLeader ? dutyLeader.phone : '',
+          scheduleDetails: {
+            leader: dutyLeader ? { name: dutyLeader.name, contact: dutyLeader.phone } : { name: '未知', contact: '' },
+            staff: dutyPerson ? { name: dutyPerson.name, contact: dutyPerson.phone } : { name: '未知', contact: '' },
+            position: 'N/A',
+            department: 'N/A',
+            time: '全天'
+          }
         },
         editable: !isGuest // 如果是访客，则不可编辑
       };
