@@ -1,60 +1,26 @@
 import React, { useState, useEffect } from 'react';
 import Slider from 'react-slick';
+import apiClient from '../api/apiClient'; // 修正导入路径
 import './AnnouncementsPage.css';
 
 const AnnouncementsPage = () => {
   const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [expanded, setExpanded] = useState({});
+
+  const toggleExpand = (id) => {
+    setExpanded(prev => ({ ...prev, [id]: !prev[id] }));
+  };
 
   useEffect(() => {
     const fetchAnnouncements = async () => {
       try {
-        const response = await fetch('/api/announcements', {
-          headers: {
-            'Accept': 'application/json'
-          }
-        });
-        
-        if (!response.ok) {
-        const errorText = await response.text();
-          throw new Error(`请求失败 (${response.status}): ${errorText}`);
-        }
-
-        const contentType = response.headers.get('content-type');
-        if (!contentType || !contentType.includes('application/json')) {
-          throw new Error('无效的响应格式');
-        }
-
-        const data = await response.json();
-        setAnnouncements(data);
-      } catch (err) {
-        // 示例公告数据
-        const sampleData = [
-          {
-            id: 1,
-            title: "系统维护通知",
-            content: "将于2025年3月15日凌晨2:00-4:00进行系统维护升级，期间服务将不可用。",
-            date: "2025-03-13",
-            author: "系统管理员"
-          },
-          {
-            id: 2,
-            title: "新版本发布公告",
-            content: "V2.1.0版本已发布！新增日历导出功能和公告分类筛选功能。",
-            date: "2025-03-12",
-            author: "产品团队"
-          },
-          {
-            id: 3, 
-            title: "清明节假期安排",
-            content: "4月4日-6日放假期间客服服务时间调整为9:00-18:00。",
-            date: "2025-03-10",
-            author: "行政部"
-          }
-        ];
-        setAnnouncements(sampleData);
-        setError(null);  // 清除错误状态以显示示例公告
+        // 使用 apiClient 发起请求
+        const response = await apiClient.get('/events/announcements/');
+        setAnnouncements(response.data.results); // 提取 results 字段
+      } catch (e) {
+        setError(e.message);
       } finally {
         setLoading(false);
       }
@@ -89,10 +55,22 @@ const AnnouncementsPage = () => {
               <div key={item.id} className="announcement-slide">
                 <h3 className="announcement-title">{item.title}</h3>
                 <div className="announcement-content">
-                  <p>{item.content}</p>
+                  <div
+                    className="announcement-html-content"
+                    dangerouslySetInnerHTML={{
+                      __html: expanded[item.id] || item.content.length <= 150
+                        ? item.content
+                        : `${item.content.replace(/<[^>]+>/g, '').substring(0, 100)}...`
+                    }}
+                  />
+                  {item.content.replace(/<[^>]+>/g, '').length > 100 && (
+                    <button onClick={() => toggleExpand(item.id)} className="expand-btn">
+                      {expanded[item.id] ? '收起' : '查看更多'}
+                    </button>
+                  )}
                   <div className="announcement-meta">
-                    <span className="announcement-date">{item.date}</span>
-                    <span className="announcement-author">发布人：{item.author}</span>
+                    <span className="announcement-date">{new Date(item.created_at).toLocaleDateString()}</span>
+                    <span className="announcement-author">发布人：{item.author ? item.author.username : '匿名'}</span>
                   </div>
                 </div>
               </div>

@@ -199,3 +199,33 @@ class Schedule(models.Model):
     
     def __str__(self):
         return f"{self.duty_date}: {self.duty_person.name} (值班), {self.duty_leader.name} (领导)"
+
+class Announcement(models.Model):
+    title = models.CharField(max_length=200, verbose_name="公告标题")
+    content = models.TextField(verbose_name="公告内容")
+    author = models.ForeignKey(
+        CustomUser, 
+        on_delete=models.SET_NULL, 
+        null=True,
+        related_name='announcements',
+        verbose_name="发布者"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = '公告'
+        verbose_name_plural = '公告管理'
+        permissions = [
+            ("manage_announcements", "Can manage announcements"),
+        ]
+
+    def __str__(self):
+        return self.title
+class UploadedImage(models.Model):
+    image = models.ImageField(upload_to='announcement_images/')
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.image.name

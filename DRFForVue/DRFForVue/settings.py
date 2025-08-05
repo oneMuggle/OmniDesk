@@ -230,21 +230,16 @@ SIMPLE_JWT = {
 }
 
 # CORS configuration
-CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
     "http://127.0.0.1:3000",
-    "http://frontend:8080",
-    "http://frontend:3000",
-    "http://backend:8000",
 ]
-CORS_ALLOWED_ORIGIN_REGEXES = [
-    r"^https?://localhost(:\d+)?$",
-    r"^https?://127\.0\.0\.1(:\d+)?$",
-    r"^https?://frontend(:\d+)?$",
-]
+# CORS_ALLOWED_ORIGIN_REGEXES = [
+#     r"^https?://localhost(:\d+)?$",
+#     r"^https?://127\.0\.0\.1(:\d+)?$",
+#     r"^https?://frontend(:\d+)?$",
+# ]
 CORS_ALLOW_CREDENTIALS = True
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",

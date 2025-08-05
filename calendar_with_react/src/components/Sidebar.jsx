@@ -31,7 +31,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 
   const menuItems = [
     { to: "/", icon: faHome, text: "首页", permission: null },
-    { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
+    { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: null },
     {
       type: 'submenu',
       text: '日历',

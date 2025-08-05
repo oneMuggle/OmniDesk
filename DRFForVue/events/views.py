@@ -1,3 +1,7 @@
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
@@ -7,14 +11,18 @@ from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
 from datetime import timedelta
-from .models import Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule
+from .models import (
+    Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage
+)
 from .serializers import (
-    TrialSerializer, 
-    PersonnelSerializer, 
-    EquipmentSerializer, 
-    DocumentTemplateSerializer, 
+    TrialSerializer,
+    PersonnelSerializer,
+    EquipmentSerializer,
+    DocumentTemplateSerializer,
     TimeSlotSerializer,
-    ScheduleSerializer
+    ScheduleSerializer,
+    AnnouncementSerializer,
+    UploadedImageSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -343,3 +351,24 @@ class TrialViewSet(viewsets.ModelViewSet):
         # 返回新创建的时间段数据
         serializer = TimeSlotSerializer(new_slots, many=True)
         return Response(serializer.data, status=201)
+
+class AnnouncementViewSet(viewsets.ModelViewSet):
+    queryset = Announcement.objects.all().order_by('-created_at')
+    serializer_class = AnnouncementSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+
+    def perform_create(self, serializer):
+        serializer.save(author=self.request.user)
+
+class ImageUploadView(APIView):
+    parser_classes = (MultiPartParser, FormParser)
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, *args, **kwargs):
+        serializer = UploadedImageSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            image_url = request.build_absolute_uri(serializer.instance.image.url)
+            return Response({'url': image_url}, status=status.HTTP_201_CREATED)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

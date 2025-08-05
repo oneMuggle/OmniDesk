@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
 from users.serializers import UserSerializer
@@ -256,3 +256,23 @@ class ScheduleSerializer(serializers.ModelSerializer):
             Schedule.objects.filter(duty_date=duty_date).delete()
         
         return super().update(instance, validated_data)
+
+class AnnouncementSerializer(serializers.ModelSerializer):
+    author = UserSerializer(read_only=True)
+    author_id = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+        write_only=True,
+        source='author',
+        required=False
+    )
+
+    class Meta:
+        model = Announcement
+        fields = ['id', 'title', 'content', 'author', 'author_id', 'created_at', 'updated_at']
+        extra_kwargs = {
+            'author': {'read_only': True}
+        }
+class UploadedImageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = UploadedImage
+        fields = ['id', 'image', 'uploaded_at']

@@ -2,3 +2,5 @@ calendar_with_react/node_modules
 DRFForVue/db.sqlite3
 
 /data
+__pycache__/
+*.pyc

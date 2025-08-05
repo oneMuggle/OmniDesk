@@ -27,6 +27,8 @@ import BookManagementPage from '../components/BookManagementPage';
 import TrialCalendarPage from '../components/TrialCalendarPage';
 import ShiftCalendarPage from '../components/ShiftCalendarPage';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
+import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
+import AnnouncementForm from '../components/AnnouncementForm';
 
 const router = createBrowserRouter([
 {
@@ -114,6 +116,18 @@ const router = createBrowserRouter([
       {
         path: "settings",
         element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
+      },
+      {
+        path: "announcements",
+        element: <ProtectedRoute roles={['admin', 'manager']}><ManageAnnouncementsPage /></ProtectedRoute>
+      },
+      {
+        path: "announcements/new",
+        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+      },
+      {
+        path: "announcements/edit/:id",
+        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
       }
     ]
   },

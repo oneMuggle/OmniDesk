@@ -12,7 +12,8 @@ import {
   faFileWord,
   faBars,
   faSignOutAlt,
-  faHome
+  faHome,
+  faBullhorn
 } from '@fortawesome/free-solid-svg-icons';
 import ProtectedRoute from '../ProtectedRoute';
 
@@ -35,7 +36,8 @@ const AdminLayout = () => {
     { to: "/admin/book-management", icon: faBook, text: "书籍管理", permission: ['admin', 'manager'] },
     { to: "/admin/documents", icon: faFileWord, text: "文档管理", permission: ['admin', 'manager'] },
     { to: "/admin/equipment", icon: faFlask, text: "设备管理", permission: ['admin', 'manager'] },
-    { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] } // 假设设置也放在这里，且需要admin/manager权限
+    { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] }, // 假设设置也放在这里，且需要admin/manager权限
+    { to: "/admin/announcements", icon: faBullhorn, text: "公告管理", permission: ['admin', 'manager'] }
   ];
 
   return (
