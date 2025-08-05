@@ -23,11 +23,112 @@ import {
   faChevronDown // 新增图标
 } from '@fortawesome/free-solid-svg-icons';
  
- const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
-   const [isCollapsed, setIsCollapsed] = useState(false);
-   const [showCalendarSubMenu, setShowCalendarSubMenu] = useState(false); // 新增日历子菜单状态
-   const { user, isAuthenticated, logout, isGuest, hasPermission } = useAuth();
-   const location = useLocation();
+const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [showCalendarSubMenu, setShowCalendarSubMenu] = useState(false);
+  const { user, isAuthenticated, logout, hasPermission } = useAuth();
+  const location = useLocation();
+
+  const menuItems = [
+    { to: "/", icon: faHome, text: "首页", permission: null },
+    { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
+    {
+      type: 'submenu',
+      text: '日历',
+      icon: faCalendarAlt,
+      permission: null,
+      subItems: [
+        { to: "/trial-calendar", text: "试验日历", permission: null },
+        { to: "/shift-calendar", text: "排班日历", permission: null },
+      ]
+    },
+    { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
+    { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
+    { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+    { to: "/library", icon: faBook, text: "书库", permission: null },
+    { to: "/profile", icon: faUser, text: "个人资料", permission: null },
+    { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
+    { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }
+  ];
+
+  const renderMenuItem = (item, index) => {
+    if (item.type === 'button') {
+      if (item.permission === 'authenticated' && !isAuthenticated) return null;
+      return (
+        <li key={index}>
+          <button
+            className="menu-item"
+            onClick={() => {
+              item.action();
+              if (isMobileMenuOpen) toggleMobileMenu();
+            }}
+            title={isCollapsed ? item.text : ''}
+          >
+            <div className="menu-item-content">
+              <FontAwesomeIcon icon={item.icon} className="icon" />
+              {!isCollapsed && <span>{item.text}</span>}
+            </div>
+          </button>
+        </li>
+      );
+    }
+
+    if (item.type === 'submenu') {
+      const isActive = item.subItems.some(sub => location.pathname === sub.to);
+      return (
+        <li key={index}>
+          <div
+            className={`menu-item ${isActive ? 'active' : ''}`}
+            onClick={() => setShowCalendarSubMenu(!showCalendarSubMenu)}
+            title={isCollapsed ? item.text : ''}
+          >
+            <div className="menu-item-content">
+              <FontAwesomeIcon icon={item.icon} className="icon" />
+              {!isCollapsed && (
+                <>
+                  <span>{item.text}</span>
+                  <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${showCalendarSubMenu ? 'expanded' : ''}`} />
+                </>
+              )}
+            </div>
+          </div>
+          {showCalendarSubMenu && !isCollapsed && (
+            <ul className="submenu">
+              {item.subItems.map((subItem, subIndex) => (
+                <li key={subIndex}>
+                  <Link
+                    to={subItem.to}
+                    className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                    onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+                  >
+                    <div className="menu-item-content">
+                      <span>{subItem.text}</span>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </li>
+      );
+    }
+
+    return (
+      <li key={index}>
+        <Link
+          to={item.to}
+          className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+          onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+          title={isCollapsed ? item.text : ''}
+        >
+          <div className="menu-item-content">
+            <FontAwesomeIcon icon={item.icon} className="icon" />
+            {!isCollapsed && <span>{item.text}</span>}
+          </div>
+        </Link>
+      </li>
+    );
+  };
 
   return (
     <>
@@ -50,7 +151,7 @@ import {
             </button>
           )}
           {!isMobileMenuOpen && (
-            <button 
+            <button
               className="collapse-toggle"
               onClick={() => setIsCollapsed(!isCollapsed)}
             >
@@ -60,101 +161,17 @@ import {
         </div>
         <nav className="sidebar-menu">
           <ul>
-            {[
-              { to: "/", icon: faHome, text: "首页", permission: null },
-              // { to: "/calendar", icon: faCalendarAlt, text: "日历", permission: null }, // 移除一级日历链接
-              { to: "/events", icon: faTasks, text: "事件", permission: "events.manage_schedule" },
-              { to: "/profile", icon: faUser, text: "个人资料", permission: null },
-              { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: "events.manage_announcements" },
-              { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
-              { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
-              { to: "/library", icon: faBook, text: "书库", permission: null },
-              { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
-              { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] } // 新增管理中心链接
-            ].filter(item => {
+            {menuItems.filter(item => {
+              if (item.permission === null) return true;
+              if (item.permission === 'authenticated') return isAuthenticated;
               if (item.to === "/admin") {
                 return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
-              }
-              if (item.permission === null) {
-                return true;
               }
               if (Array.isArray(item.permission)) {
                 return item.permission.some(p => hasPermission(p));
               }
               return hasPermission(item.permission);
-            }).map((item, index) => (
-              <li key={index}>
-                <Link
-                  to={item.to}
-                  className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
-                  onClick={() => isMobileMenuOpen && toggleMobileMenu()}
-                  title={isCollapsed ? item.text : ''}
-                >
-                  <div className="menu-item-content">
-                    <FontAwesomeIcon icon={item.icon} className="icon" />
-                    {!isCollapsed && <span>{item.text}</span>}
-                  </div>
-                </Link>
-              </li>
-            ))}
-            {/* 新增日历一级菜单和二级子菜单 */}
-            <li>
-              <div
-                className={`menu-item ${location.pathname.startsWith('/trial-calendar') || location.pathname.startsWith('/shift-calendar') ? 'active' : ''}`}
-                onClick={() => setShowCalendarSubMenu(!showCalendarSubMenu)}
-                title={isCollapsed ? "日历" : ''}
-              >
-                <div className="menu-item-content">
-                  <FontAwesomeIcon icon={faCalendarAlt} className="icon" />
-                  {!isCollapsed && (
-                    <>
-                      <span>日历</span>
-                      <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${showCalendarSubMenu ? 'expanded' : ''}`} />
-                    </>
-                  )}
-                </div>
-              </div>
-              {showCalendarSubMenu && (
-                <ul className="submenu">
-                  <li>
-                    <Link
-                      to="/trial-calendar"
-                      className={`menu-item ${location.pathname === '/trial-calendar' ? 'active' : ''}`}
-                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
-                      title={isCollapsed ? "试验日历" : ''}
-                    >
-                      <div className="menu-item-content">
-                        {!isCollapsed && <span>试验日历</span>}
-                      </div>
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      to="/shift-calendar"
-                      className={`menu-item ${location.pathname === '/shift-calendar' ? 'active' : ''}`}
-                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
-                      title={isCollapsed ? "排班日历" : ''}
-                    >
-                      <div className="menu-item-content">
-                        {!isCollapsed && <span>排班日历</span>}
-                      </div>
-                    </Link>
-                  </li>
-                </ul>
-              )}
-            </li>
-            <li>
-              <button
-                className="menu-item"
-                onClick={() => {
-                  logout();
-                  if (isMobileMenuOpen) toggleMobileMenu();
-                }}
-              >
-                <FontAwesomeIcon icon={faSignOutAlt} className="icon" />
-                退出登录
-              </button>
-            </li>
+            }).map(renderMenuItem)}
           </ul>
         </nav>
       </div>
