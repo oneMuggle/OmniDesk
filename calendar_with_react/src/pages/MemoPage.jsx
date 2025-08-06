@@ -20,12 +20,29 @@ const MemoPage = () => {
 
   // 使用 useMemo 优化派生状态的计算
   const memosForSelectedDate = useMemo(() => {
-    return (memos || []).filter(memo =>
-      memo.reminder_time && moment(memo.reminder_time).isSame(selectedDate, 'day')
-    );
+    return (memos || []).filter(memo => {
+      if (!memo.reminder_time) {
+        console.log(`Memo ID: ${memo.id} - reminder_time is null, skipping.`);
+        return false;
+      }
+      const reminderDateString = moment(memo.reminder_time).format('YYYY-MM-DD');
+      const selectedDateString = selectedDate.format('YYYY-MM-DD');
+      const isSameDay = reminderDateString === selectedDateString;
+      console.log(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Selected Date: ${selectedDate.format()}, Is Same Day: ${isSameDay}`);
+      return isSameDay;
+    });
   }, [memos, selectedDate]);
 
   useEffect(() => {
+    console.log("Selected Date (MemoPage):", selectedDate.format());
+    console.log("Memos Data (MemoPage):", memos);
+    if (memos && memos.length > 0) {
+      memos.forEach(memo => {
+        console.log(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Type: ${typeof memo.reminder_time}`);
+      });
+    }
+    console.log("Memos For Selected Date (MemoPage) Length:", memosForSelectedDate.length);
+
     if (Notification.permission === 'granted') {
       (memos || []).forEach(memo => {
         if (memo.reminder_time && !memo.is_completed) {
@@ -42,12 +59,11 @@ const MemoPage = () => {
     } else if (Notification.permission !== 'denied') {
       Notification.requestPermission();
     }
-  }, [memos]);
+  }, [memos, selectedDate, memosForSelectedDate]);
 
   const handleSelectDate = (date) => {
-    if (moment.isMoment(date)) {
-      setSelectedDate(date);
-    }
+    setSelectedDate(date);
+    console.log("handleSelectDate called. New selectedDate:", date.format());
   };
 
   const handleAddMemo = () => {
@@ -125,6 +141,8 @@ const MemoPage = () => {
                   onEdit={handleEditMemo}
                   onDelete={handleDeleteMemo}
                   onToggleComplete={handleToggleComplete}
+                  showActions={false}
+                  showReminderTime={false}
                 />
               </Card>
             </Space>

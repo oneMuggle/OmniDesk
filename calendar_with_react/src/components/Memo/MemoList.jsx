@@ -3,7 +3,7 @@ import { List, Card, Button, Checkbox, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import moment from 'moment';
 
-const MemoList = ({ memos, onEdit, onDelete, onToggleComplete }) => {
+const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = true, showReminderTime = true }) => {
   const sortedMemos = [...memos].sort((a, b) => {
     if (a.is_completed === b.is_completed) {
       return moment(a.reminder_time).valueOf() - moment(b.reminder_time).valueOf();
@@ -19,7 +19,7 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete }) => {
         <List.Item>
           <Card
             title={memo.title}
-            actions={[
+            actions={showActions ? [
               <Checkbox
                 checked={memo.is_completed}
                 onChange={() => onToggleComplete(memo.id, !memo.is_completed)}
@@ -35,10 +35,10 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete }) => {
               >
                 <DeleteOutlined key="delete" />
               </Popconfirm>,
-            ]}
+            ] : []}
           >
             <p>{memo.content}</p>
-            {memo.reminder_time && (
+            {showReminderTime && memo.reminder_time && (
               <p>提醒时间: {moment(memo.reminder_time).format('YYYY-MM-DD HH:mm')}</p>
             )}
           </Card>
