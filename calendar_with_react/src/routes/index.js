@@ -27,6 +27,7 @@ import BookManagementPage from '../components/BookManagementPage';
 import TrialCalendarPage from '../components/TrialCalendarPage';
 import ShiftCalendarPage from '../components/ShiftCalendarPage';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
+import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
 
@@ -85,6 +86,10 @@ const router = createBrowserRouter([
       {
         path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
         element: <ProtectedRoute roles={['admin']}><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
+      },
+      {
+        path: "memos", // 新增备忘录路由
+        element: <ProtectedRoute><MemoPage /></ProtectedRoute>
       },
     ]
   },

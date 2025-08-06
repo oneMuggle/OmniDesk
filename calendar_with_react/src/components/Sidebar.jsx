@@ -20,7 +20,8 @@ import {
   faUsers,
   faFileAlt,
   faBook, // 新增图标
-  faChevronDown // 新增图标
+  faChevronDown, // 新增图标
+  faClipboardList // 新增备忘录图标
 } from '@fortawesome/free-solid-svg-icons';
  
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -46,6 +47,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
     { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
     { to: "/library", icon: faBook, text: "书库", permission: null },
+    { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
     { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }

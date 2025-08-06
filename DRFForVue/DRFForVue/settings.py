@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'events',
     'documents.apps.DocumentsConfig',
     'config',
+    'memos.apps.MemosConfig',
 ]
 
 MIDDLEWARE = [
