@@ -30,6 +30,8 @@ import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
+import DifyAppList from '../components/DifyApps/DifyAppList';
+import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
 
 const router = createBrowserRouter([
 {
@@ -92,6 +94,14 @@ const router = createBrowserRouter([
         element: <ProtectedRoute><MemoPage /></ProtectedRoute>
       },
     ]
+  },
+  {
+    path: "/dify-apps",
+    element: <ProtectedRoute><DifyAppList /></ProtectedRoute>
+  },
+  {
+    path: "/dify-apps/:appId",
+    element: <ProtectedRoute><DifyAppViewer /></ProtectedRoute>
   },
   {
     path: "/admin",

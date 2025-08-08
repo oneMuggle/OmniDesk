@@ -21,7 +21,8 @@ import {
   faFileAlt,
   faBook, // 新增图标
   faChevronDown, // 新增图标
-  faClipboardList // 新增备忘录图标
+  faClipboardList, // 新增备忘录图标
+  faRobot // 新增 Dify 应用图标
 } from '@fortawesome/free-solid-svg-icons';
  
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -48,6 +49,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
     { to: "/library", icon: faBook, text: "书库", permission: null },
     { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
+    { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
     { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }
