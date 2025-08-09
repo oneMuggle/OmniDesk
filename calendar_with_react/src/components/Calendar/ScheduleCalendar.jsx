@@ -43,7 +43,7 @@ const ScheduleCalendar = ({
             time: '全天'
           }
         },
-        editable: !isGuest // 如果是访客，则不可编辑
+        editable: false // 排班在主页面不可编辑
       };
     });
   }, [schedules, personnel, isGuest]);
@@ -53,8 +53,8 @@ const ScheduleCalendar = ({
       events={events}
       onDateClick={onDateClick}
       onEventClick={onEventClick}
-      editable={!isGuest}
-      selectable={!isGuest}
+      editable={false} // 排班在主页面不可编辑
+      selectable={false} // 排班在主页面不可选择
       select={onScheduleSelect}
     />
   );
