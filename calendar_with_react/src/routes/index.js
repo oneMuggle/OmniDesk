@@ -32,6 +32,7 @@ import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
 import DifyAppList from '../components/DifyApps/DifyAppList';
 import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
+import DifyAppManagementPage from '../components/DifyApps/DifyAppManagementPage';
 import ScheduleManagementPage from '../pages/ScheduleManagementPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 
@@ -95,15 +96,70 @@ const router = createBrowserRouter([
         path: "memos", // 新增备忘录路由
         element: <ProtectedRoute><MemoPage /></ProtectedRoute>
       },
+      {
+        path: "dify-apps",
+        element: <ProtectedRoute><DifyAppList /></ProtectedRoute>
+      },
+      {
+        path: "dify-apps/:appId",
+        element: <ProtectedRoute><DifyAppViewer /></ProtectedRoute>
+      },
     ]
   },
   {
-    path: "/dify-apps",
-    element: <ProtectedRoute><DifyAppList /></ProtectedRoute>
-  },
-  {
-    path: "/dify-apps/:appId",
-    element: <ProtectedRoute><DifyAppViewer /></ProtectedRoute>
+    path: "/admin",
+    element: <ProtectedRoute roles={['admin', 'manager']}><AdminLayout /></ProtectedRoute>,
+    children: [
+      { index: true, element: <Navigate to="trials" replace /> },
+      {
+        path: "trials",
+        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel",
+        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
+      },
+      {
+        path: "schedules",
+        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "book-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "documents",
+        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
+      },
+      {
+        path: "equipment",
+        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
+      },
+      {
+        path: "settings",
+        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
+      },
+      {
+        path: "announcements",
+        element: <ProtectedRoute roles={['admin', 'manager']}><ManageAnnouncementsPage /></ProtectedRoute>
+      },
+      {
+        path: "announcements/new",
+        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+      },
+      {
+        path: "announcements/edit/:id",
+        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+      },
+      {
+        path: "dify-app-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><DifyAppManagementPage /></ProtectedRoute>
+      }
+    ]
   },
   {
     path: "/admin",

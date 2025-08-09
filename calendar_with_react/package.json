@@ -72,5 +72,6 @@
   "devDependencies": {
     "@babel/plugin-transform-modules-commonjs": "^7.23.3",
     "babel-jest": "^29.7.0"
-  }
+  },
+  "proxy": "http://localhost:8000"
 }

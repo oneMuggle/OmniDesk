@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import apiClient from '../../api/apiClient';
 import './DifyApps.css'; // 稍后创建此CSS文件
 
 const DifyAppList = () => {
@@ -13,8 +13,8 @@ const DifyAppList = () => {
         const fetchDifyApps = async () => {
             try {
                 // 假设后端API地址为 /api/dify-apps/
-                const response = await axios.get('/api/dify-apps/');
-                setDifyApps(response.data);
+                const response = await apiClient.get('/dify-apps/');
+                setDifyApps(response.data.results || []);
             } catch (err) {
                 setError('Failed to fetch Dify applications.');
                 console.error('Error fetching Dify apps:', err);
