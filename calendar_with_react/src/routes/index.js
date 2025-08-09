@@ -32,6 +32,8 @@ import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
 import DifyAppList from '../components/DifyApps/DifyAppList';
 import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
+import ScheduleManagementPage from '../pages/ScheduleManagementPage';
+import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 
 const router = createBrowserRouter([
 {
@@ -115,6 +117,14 @@ const router = createBrowserRouter([
       {
         path: "personnel",
         element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
+      },
+      {
+        path: "schedules",
+        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "book-management",

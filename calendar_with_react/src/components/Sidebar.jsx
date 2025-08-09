@@ -56,8 +56,18 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   ];
 
   const renderMenuItem = (item, index) => {
-    if (item.type === 'button') {
+    // 权限检查
+    // 移除对 /admin/schedules 和 /admin/personnel 的特殊处理，这些路由的权限将由 AdminLayout 内部处理
+    if (item.permission !== null) {
       if (item.permission === 'authenticated' && !isAuthenticated) return null;
+      if (Array.isArray(item.permission)) {
+        if (!isAuthenticated || !item.permission.some(p => user?.role === p)) return null;
+      } else if (!isAuthenticated || user?.role !== item.permission) {
+        if (!hasPermission(item.permission)) return null;
+      }
+    }
+
+    if (item.type === 'button') {
       return (
         <li key={index}>
           <button
@@ -166,11 +176,14 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         <nav className="sidebar-menu">
           <ul>
             {menuItems.filter(item => {
-              if (item.permission === null) return true;
-              if (item.permission === 'authenticated') return isAuthenticated;
+              // 对于 /admin 路径，使用user?.role判断
               if (item.to === "/admin") {
                 return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
               }
+              // 对于其他需要权限的项，使用hasPermission
+              if (item.permission === null) return true;
+              if (item.permission === 'authenticated') return isAuthenticated;
+              
               if (Array.isArray(item.permission)) {
                 return item.permission.some(p => hasPermission(p));
               }

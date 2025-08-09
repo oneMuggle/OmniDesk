@@ -33,6 +33,8 @@ const AdminLayout = () => {
   const adminMenuItems = [
     { to: "/admin/trials", icon: faFlask, text: "试验管理", permission: ['admin', 'manager'] },
     { to: "/admin/personnel", icon: faUsers, text: "人员管理", permission: ['admin', 'manager'] },
+    { to: "/admin/schedules", icon: faFlask, text: "排班管理", permission: ['admin', 'manager'] },
+    { to: "/admin/personnel-management", icon: faUsers, text: "人员信息", permission: ['admin', 'manager'] },
     { to: "/admin/book-management", icon: faBook, text: "书籍管理", permission: ['admin', 'manager'] },
     { to: "/admin/documents", icon: faFileWord, text: "文档管理", permission: ['admin', 'manager'] },
     { to: "/admin/equipment", icon: faFlask, text: "设备管理", permission: ['admin', 'manager'] },

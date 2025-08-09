@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
-from datetime import timedelta
+from datetime import datetime, timedelta
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage
 )
@@ -235,6 +235,84 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             return Response({'error': 'One or both schedules not found'}, status=404)
         except Exception as e:
             return Response({'error': str(e)}, status=400)
+
+    @action(detail=False, methods=['post'], url_path='generate-schedules')
+    def generate_schedules(self, request):
+        """
+        根据人员顺序和起始日期自动生成排班。
+        请求体示例:
+        {
+            "start_date": "2025-01-01",
+            "personnel_order": [1, 2, 3, 4], // 人员ID列表，按顺序排班
+            "duration_days": 30 // 可选，生成排班的天数，默认为30天
+        }
+        """
+        start_date_str = request.data.get('start_date')
+        personnel_order = request.data.get('personnel_order')
+        duration_days = request.data.get('duration_days', 30)
+
+        if not start_date_str or not personnel_order:
+            return Response({'error': 'start_date and personnel_order are required'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not isinstance(personnel_order, list) or not all(isinstance(p_id, int) for p_id in personnel_order):
+            return Response({'error': 'personnel_order must be a list of integers (personnel IDs).'}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not personnel_order:
+            return Response({'error': 'personnel_order cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            # 验证人员ID是否存在
+            personnel_ids = set(personnel_order)
+            existing_personnel = Personnel.objects.filter(id__in=personnel_ids)
+            if existing_personnel.count() != len(personnel_ids):
+                missing_ids = personnel_ids - set(p.id for p in existing_personnel)
+                return Response({'error': f'Personnel IDs not found: {list(missing_ids)}'}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'error': f'Error validating personnel: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        created_schedules = []
+        with transaction.atomic():
+            for i in range(duration_days):
+                current_date = start_date + timedelta(days=i)
+                
+                # 轮流选择值班人员和领导
+                # 确保值班人员和值班领导不是同一个人
+                duty_person_id = personnel_order[i % len(personnel_order)]
+                duty_leader_id = personnel_order[(i + 1) % len(personnel_order)]
+
+                # 确保值班人员和值班领导不同
+                if duty_person_id == duty_leader_id:
+                    # 如果只有一个人，或者轮到同一个人，则尝试跳过或选择下一个
+                    if len(personnel_order) == 1:
+                        return Response({'error': 'Cannot assign duty_person and duty_leader to the same person with only one personnel in order.'}, status=status.HTTP_400_BAD_REQUEST)
+                    
+                    # 尝试选择下一个人员作为领导
+                    duty_leader_id = personnel_order[(i + 2) % len(personnel_order)]
+                    if duty_person_id == duty_leader_id:
+                        # 如果仍然相同，说明人员顺序有问题，或者人员太少
+                        return Response({'error': 'Cannot assign duty_person and duty_leader to different persons with the given personnel order.'}, status=status.HTTP_400_BAD_REQUEST)
+
+                # 检查该日期是否已有排班，如果有则覆盖
+                existing_schedule = Schedule.objects.filter(duty_date=current_date)
+                if existing_schedule.exists():
+                    existing_schedule.delete() # 删除旧排班
+
+                schedule_data = {
+                    'duty_date': current_date,
+                    'duty_person': Personnel.objects.get(id=duty_person_id),
+                    'duty_leader': Personnel.objects.get(id=duty_leader_id)
+                }
+                
+                schedule = Schedule.objects.create(**schedule_data)
+                created_schedules.append(schedule)
+
+        serializer = ScheduleSerializer(created_schedules, many=True)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()

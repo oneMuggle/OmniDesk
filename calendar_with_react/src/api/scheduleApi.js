@@ -129,5 +129,49 @@ export const scheduleApi = {
       handleError(error);
       return [];
     }
+  },
+
+  generateSchedules: async (startDate, personnelOrder, durationDays) => {
+    try {
+      const response = await apiClient.post('/events/schedules/generate-schedules/', {
+        start_date: startDate,
+        personnel_order: personnelOrder,
+        duration_days: durationDays
+      });
+      return response.data;
+    } catch (error) {
+      console.error('生成排班失败:', error.response?.data || error.message);
+      handleError(error);
+      throw error;
+    }
+  },
+
+  createPersonnel: async (personnelData) => {
+    try {
+      const response = await apiClient.post('/events/personnel/', personnelData);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  updatePersonnel: async (personnelId, personnelData) => {
+    try {
+      const response = await apiClient.patch(`/events/personnel/${personnelId}/`, personnelData);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  deletePersonnel: async (personnelId) => {
+    try {
+      await apiClient.delete(`/events/personnel/${personnelId}/`);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   }
 };

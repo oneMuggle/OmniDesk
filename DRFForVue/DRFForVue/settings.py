@@ -64,6 +64,7 @@ INSTALLED_APPS = [
     'documents.apps.DocumentsConfig',
     'config',
     'memos.apps.MemosConfig',
+    'dify_apps.apps.DifyAppsConfig',
 ]
 
 MIDDLEWARE = [
