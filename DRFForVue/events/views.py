@@ -12,7 +12,8 @@ from django.utils import timezone
 from django.db import transaction
 from datetime import datetime, timedelta
 from .models import (
-    Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage
+    Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
+    PersonnelSequence, LeaderSequence
 )
 from .serializers import (
     TrialSerializer,
@@ -22,7 +23,9 @@ from .serializers import (
     TimeSlotSerializer,
     ScheduleSerializer,
     AnnouncementSerializer,
-    UploadedImageSerializer
+    UploadedImageSerializer,
+    PersonnelSequenceSerializer,
+    LeaderSequenceSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -248,32 +251,29 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         }
         """
         start_date_str = request.data.get('start_date')
-        personnel_order = request.data.get('personnel_order')
+        personnel_sequence_id = request.data.get('personnel_sequence_id')
+        leader_sequence_id = request.data.get('leader_sequence_id')
         duration_days = request.data.get('duration_days', 30)
 
-        if not start_date_str or not personnel_order:
-            return Response({'error': 'start_date and personnel_order are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not start_date_str or not personnel_sequence_id or not leader_sequence_id:
+            return Response({'error': 'start_date, personnel_sequence_id, and leader_sequence_id are required'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
         except ValueError:
             return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not isinstance(personnel_order, list) or not all(isinstance(p_id, int) for p_id in personnel_order):
-            return Response({'error': 'personnel_order must be a list of integers (personnel IDs).'}, status=status.HTTP_400_BAD_REQUEST)
-
-        if not personnel_order:
-            return Response({'error': 'personnel_order cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
-
         try:
-            # 验证人员ID是否存在
-            personnel_ids = set(personnel_order)
-            existing_personnel = Personnel.objects.filter(id__in=personnel_ids)
-            if existing_personnel.count() != len(personnel_ids):
-                missing_ids = personnel_ids - set(p.id for p in existing_personnel)
-                return Response({'error': f'Personnel IDs not found: {list(missing_ids)}'}, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({'error': f'Error validating personnel: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            personnel_sequence = PersonnelSequence.objects.get(id=personnel_sequence_id)
+            leader_sequence = LeaderSequence.objects.get(id=leader_sequence_id)
+        except (PersonnelSequence.DoesNotExist, LeaderSequence.DoesNotExist):
+            return Response({'error': 'Invalid sequence ID'}, status=status.HTTP_404_NOT_FOUND)
+
+        personnel_order = personnel_sequence.sequence
+        leader_order = leader_sequence.sequence
+
+        if not personnel_order or not leader_order:
+            return Response({'error': 'Sequence cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
         created_schedules = []
         with transaction.atomic():
@@ -283,19 +283,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 # 轮流选择值班人员和领导
                 # 确保值班人员和值班领导不是同一个人
                 duty_person_id = personnel_order[i % len(personnel_order)]
-                duty_leader_id = personnel_order[(i + 1) % len(personnel_order)]
-
-                # 确保值班人员和值班领导不同
-                if duty_person_id == duty_leader_id:
-                    # 如果只有一个人，或者轮到同一个人，则尝试跳过或选择下一个
-                    if len(personnel_order) == 1:
-                        return Response({'error': 'Cannot assign duty_person and duty_leader to the same person with only one personnel in order.'}, status=status.HTTP_400_BAD_REQUEST)
-                    
-                    # 尝试选择下一个人员作为领导
-                    duty_leader_id = personnel_order[(i + 2) % len(personnel_order)]
-                    if duty_person_id == duty_leader_id:
-                        # 如果仍然相同，说明人员顺序有问题，或者人员太少
-                        return Response({'error': 'Cannot assign duty_person and duty_leader to different persons with the given personnel order.'}, status=status.HTTP_400_BAD_REQUEST)
+                duty_leader_id = leader_order[i % len(leader_order)]
 
                 # 检查该日期是否已有排班，如果有则覆盖
                 existing_schedule = Schedule.objects.filter(duty_date=current_date)
@@ -424,9 +412,8 @@ class TrialViewSet(viewsets.ModelViewSet):
                     description=period.get('description', '')
                 ) for period in time_periods
             ])
-            trial.update_time_range()  # 显式调用时间范围更新
+            trial.update_time_range()
         
-        # 返回新创建的时间段数据
         serializer = TimeSlotSerializer(new_slots, many=True)
         return Response(serializer.data, status=201)
 
@@ -446,7 +433,15 @@ class ImageUploadView(APIView):
         serializer = UploadedImageSerializer(data=request.data)
         if serializer.is_valid():
             serializer.save()
-            image_url = request.build_absolute_uri(serializer.instance.image.url)
-            return Response({'url': image_url}, status=status.HTTP_201_CREATED)
-        else:
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class PersonnelSequenceViewSet(viewsets.ModelViewSet):
+    queryset = PersonnelSequence.objects.all()
+    serializer_class = PersonnelSequenceSerializer
+    permission_classes = [IsAdminOrManager]
+
+class LeaderSequenceViewSet(viewsets.ModelViewSet):
+    queryset = LeaderSequence.objects.all()
+    serializer_class = LeaderSequenceSerializer
+    permission_classes = [IsAdminOrManager]

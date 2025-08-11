@@ -35,6 +35,7 @@ import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
 import DifyAppManagementPage from '../components/DifyApps/DifyAppManagementPage';
 import ScheduleManagementPage from '../pages/ScheduleManagementPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
+import ScheduleSettingsPage from '../components/ScheduleSettingsPage';
 
 const router = createBrowserRouter([
 {
@@ -162,61 +163,10 @@ const router = createBrowserRouter([
       {
         path: "dify-app-management",
         element: <ProtectedRoute roles={['admin', 'manager']}><DifyAppManagementPage /></ProtectedRoute>
-      }
-    ]
-  },
-  {
-    path: "/admin",
-    element: <ProtectedRoute roles={['admin', 'manager']}><AdminLayout /></ProtectedRoute>,
-    children: [
-      { index: true, element: <Navigate to="trials" replace /> },
-      {
-        path: "trials",
-        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
       },
       {
-        path: "personnel",
-        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
-      },
-      {
-        path: "schedules",
-        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "book-import",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookImportPage /></ProtectedRoute>
-      },
-      {
-        path: "book-manage-export",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookManageExportPage /></ProtectedRoute>
-      },
-      {
-        path: "documents",
-        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
-      },
-      {
-        path: "equipment",
-        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
-      },
-      {
-        path: "settings",
-        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
-      },
-      {
-        path: "announcements",
-        element: <ProtectedRoute roles={['admin', 'manager']}><ManageAnnouncementsPage /></ProtectedRoute>
-      },
-      {
-        path: "announcements/new",
-        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
-      },
-      {
-        path: "announcements/edit/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+        path: "schedule-settings",
+        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleSettingsPage /></ProtectedRoute>
       }
     ]
   },

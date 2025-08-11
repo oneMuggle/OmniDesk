@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Calendar as AntdCalendar } from 'antd';
 import { scheduleApi } from '../api/scheduleApi';
+import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
 
 const { Option } = Select;
@@ -91,7 +92,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
   );
 };
 
-const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelList }) => {
+const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, leaderSequences }) => {
   const [form] = Form.useForm();
 
   const handleOk = () => {
@@ -100,7 +101,8 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelList }) => {
         const submitData = {
           ...values,
           start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : null,
-          personnel_order: values.personnel_order || [],
+          personnel_sequence_id: values.personnel_sequence_id,
+          leader_sequence_id: values.leader_sequence_id,
         };
         onOk(submitData);
         form.resetFields();
@@ -127,21 +129,27 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelList }) => {
           <DatePicker style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item
-          name="personnel_order"
-          label="人员排班顺序"
-          rules={[{ required: true, message: '请选择人员排班顺序!' }]}
+          name="personnel_sequence_id"
+          label="人员顺序"
+          rules={[{ required: true, message: '请选择人员顺序!' }]}
         >
-          <Select
-            mode="multiple"
-            placeholder="选择人员顺序"
-            showSearch
-            filterOption={(input, option) =>
-              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }
-          >
-            {personnelList.map(person => (
-              <Option key={person.id} value={person.id}>
-                {person.name}
+          <Select placeholder="选择人员顺序">
+            {personnelSequences.map(seq => (
+              <Option key={seq.id} value={seq.id}>
+                {seq.name}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item
+          name="leader_sequence_id"
+          label="领导顺序"
+          rules={[{ required: true, message: '请选择领导顺序!' }]}
+        >
+          <Select placeholder="选择领导顺序">
+            {leaderSequences.map(seq => (
+              <Option key={seq.id} value={seq.id}>
+                {seq.name}
               </Option>
             ))}
           </Select>
@@ -162,6 +170,8 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelList }) => {
 const ScheduleManagementPage = () => {
   const [schedules, setSchedules] = useState([]);
   const [personnelList, setPersonnelList] = useState([]);
+  const [personnelSequences, setPersonnelSequences] = useState([]);
+  const [leaderSequences, setLeaderSequences] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
@@ -170,6 +180,7 @@ const ScheduleManagementPage = () => {
   useEffect(() => {
     fetchData();
     fetchPersonnel();
+    fetchSequences();
   }, []);
 
   const fetchData = async () => {
@@ -190,6 +201,17 @@ const ScheduleManagementPage = () => {
       setPersonnelList(data);
     } catch (error) {
       message.error('获取人员列表失败');
+    }
+  };
+
+  const fetchSequences = async () => {
+    try {
+      const personnelRes = await getPersonnelSequences();
+      setPersonnelSequences(personnelRes.data);
+      const leaderRes = await getLeaderSequences();
+      setLeaderSequences(leaderRes.data);
+    } catch (error) {
+      message.error('获取顺序列表失败');
     }
   };
 
@@ -236,7 +258,12 @@ const ScheduleManagementPage = () => {
 
   const handleGenerateModalOk = async (values) => {
     try {
-      await scheduleApi.generateSchedules(values.start_date, values.personnel_order, values.duration_days);
+      await scheduleApi.generateSchedules({
+        start_date: values.start_date,
+        personnel_sequence_id: values.personnel_sequence_id,
+        leader_sequence_id: values.leader_sequence_id,
+        duration_days: values.duration_days,
+      });
       message.success('排班生成成功');
       setIsGenerateModalVisible(false);
       fetchData();
@@ -321,7 +348,8 @@ const ScheduleManagementPage = () => {
         visible={isGenerateModalVisible}
         onCancel={() => setIsGenerateModalVisible(false)}
         onOk={handleGenerateModalOk}
-        personnelList={personnelList}
+        personnelSequences={personnelSequences}
+        leaderSequences={leaderSequences}
       />
     </Card>
   );

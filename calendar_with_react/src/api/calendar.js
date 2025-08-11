@@ -1,7 +1,7 @@
 import { trialApi } from './trialApi';
 import { timeSlotApi } from './timeSlotApi';
 import { scheduleApi } from './scheduleApi';
-import { personnelApi } from './personnelApi';
+import * as personnelApi from './personnelApi';
 import { calendarEventApi } from './calendarEventApi';
 
 export const calendarApi = {

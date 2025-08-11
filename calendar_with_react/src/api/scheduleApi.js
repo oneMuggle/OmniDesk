@@ -131,13 +131,9 @@ export const scheduleApi = {
     }
   },
 
-  generateSchedules: async (startDate, personnelOrder, durationDays) => {
+  generateSchedules: async (data) => {
     try {
-      const response = await apiClient.post('/events/schedules/generate-schedules/', {
-        start_date: startDate,
-        personnel_order: personnelOrder,
-        duration_days: durationDays
-      });
+      const response = await apiClient.post('/events/schedules/generate-schedules/', data);
       return response.data;
     } catch (error) {
       console.error('生成排班失败:', error.response?.data || error.message);

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
 from users.serializers import UserSerializer
@@ -276,3 +276,13 @@ class UploadedImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedImage
         fields = ['id', 'image', 'uploaded_at']
+
+class PersonnelSequenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PersonnelSequence
+        fields = '__all__'
+
+class LeaderSequenceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LeaderSequence
+        fields = '__all__'

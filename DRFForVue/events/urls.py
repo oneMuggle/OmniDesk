@@ -8,7 +8,9 @@ from .views import (
     TimeSlotViewSet,
     ScheduleViewSet,
     AnnouncementViewSet,
-    ImageUploadView
+    ImageUploadView,
+    PersonnelSequenceViewSet,
+    LeaderSequenceViewSet
 )
 
 router = DefaultRouter()
@@ -20,6 +22,8 @@ router.register(r'responsible-persons', ResponsiblePersonViewSet, basename='resp
 router.register(r'time-slots', TimeSlotViewSet, basename='time-slots')
 router.register(r'schedules', ScheduleViewSet, basename='schedules')
 router.register(r'announcements', AnnouncementViewSet, basename='announcements')
+router.register(r'personnel-sequences', PersonnelSequenceViewSet, basename='personnel-sequences')
+router.register(r'leader-sequences', LeaderSequenceViewSet, basename='leader-sequences')
 
 urlpatterns = [
     path('', include(router.urls)),
