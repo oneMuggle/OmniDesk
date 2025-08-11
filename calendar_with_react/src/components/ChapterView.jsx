@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom'; // Import Link
+import { Link, useLocation } from 'react-router-dom'; // Import Link and useLocation
 import api from '../api/axiosConfig';
 import './ChapterView.css';
 import Commenting from './Commenting';
@@ -9,6 +9,7 @@ const ChapterView = ({ chapter }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const contentRef = useRef(null); // Ref for the content div
+    const location = useLocation();
 
     useEffect(() => {
         if (!chapter) return;
@@ -35,6 +36,18 @@ const ChapterView = ({ chapter }) => {
             window.MathJax.typesetPromise([contentRef.current]).catch((err) => console.error("MathJax typesetting failed:", err));
         }
     }, [chapterDetails]); // Re-run when chapterDetails change
+
+    // Effect to handle scrolling to headings based on URL hash
+    useEffect(() => {
+        if (location.hash && !loading) {
+            const id = location.hash.replace('#', '');
+            // We need to find the element within the rendered HTML
+            const element = contentRef.current ? contentRef.current.querySelector(`#${id}`) : null;
+            if (element) {
+                element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+    }, [location.hash, loading, chapterDetails]);
 
     if (loading) {
         return <div>正在加载章节...</div>;

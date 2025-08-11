@@ -168,12 +168,51 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(ChapterSerializer(chapter).data, status=status.HTTP_200_OK)
 
 
+def extract_headings(markdown_content):
+    """
+    Extracts H1-H6 headings and builds a nested structure.
+    """
+    headings = []
+    lines = markdown_content.split('\n')
+    for line in lines:
+        match = re.match(r'^(#+)\s+(.*)', line)
+        if match:
+            level = len(match.group(1))
+            title = match.group(2).strip()
+            slug = re.sub(r'[^\w\s-]', '', title).strip().lower()
+            slug = re.sub(r'[-\s]+', '-', slug)
+            headings.append({'level': level, 'title': title, 'id': slug, 'children': []})
+    
+    if not headings:
+        return []
+
+    root_nodes = []
+    stack = []
+
+    for heading in headings:
+        level = heading['level']
+        
+        while stack and stack[-1]['level'] >= level:
+            stack.pop()
+
+        if not stack:
+            root_nodes.append(heading)
+        else:
+            stack[-1]['children'].append(heading)
+        
+        stack.append(heading)
+        
+    return root_nodes
+
 class BookImportView(APIView):
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
     permission_classes = [permissions.IsAdminUser] # 只有管理员可以导入
 
     def post(self, request, format=None):
-        markdown_file = request.FILES.get('markdown_file')
+        import zipfile
+        import tempfile
+
+        uploaded_file = request.FILES.get('file') # Accepting a single file (md or zip)
         cover_image_file = request.FILES.get('cover_image')
         title = request.data.get('title')
         author = request.data.get('author', '')
@@ -181,14 +220,39 @@ class BookImportView(APIView):
         publication_date = request.data.get('publication_date', None)
         tags_str = request.data.get('tags', '')
 
-        if not markdown_file:
-            return Response({"error": "Markdown file is required."}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Read markdown content
-        try:
-            content = markdown_file.read().decode('utf-8')
-        except Exception as e:
-            return Response({"error": f"Error reading markdown file: {e}"}, status=status.HTTP_400_BAD_REQUEST)
+        if not uploaded_file:
+            return Response({"error": "A markdown or zip file is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        content = ""
+        base_path_for_images = None
+
+        if uploaded_file.name.endswith('.zip'):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                zip_path = os.path.join(temp_dir, uploaded_file.name)
+                with open(zip_path, 'wb+') as destination:
+                    for chunk in uploaded_file.chunks():
+                        destination.write(chunk)
+                
+                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                    zip_ref.extractall(temp_dir)
+                
+                # Find the main markdown file in the zip
+                md_files = list(Path(temp_dir).glob('**/*.md'))
+                if not md_files:
+                    return Response({"error": "No markdown file found in the zip archive."}, status=status.HTTP_400_BAD_REQUEST)
+                
+                # Using the first md file found as the main one
+                markdown_file_path = md_files[0]
+                base_path_for_images = markdown_file_path.parent
+                content = markdown_file_path.read_text(encoding='utf-8')
+
+        elif uploaded_file.name.endswith('.md'):
+            content = uploaded_file.read().decode('utf-8')
+            # For single md file upload, relative images are not supported directly
+            # unless we have a convention. For now, we assume they are absolute URLs.
+            base_path_for_images = None # Or handle it differently if needed
+        else:
+            return Response({"error": "Unsupported file type. Please upload a .md or .zip file."}, status=status.HTTP_400_BAD_REQUEST)
 
         # Extract tags
         tags_list = [t.strip() for t in tags_str.split(',') if t.strip()]
@@ -285,36 +349,34 @@ class BookImportView(APIView):
 
                     # Image Path Correction within Chapter Content
                     def replace_image_path(match):
-                        original_path = match.group(2) if match.group(2) else match.group(4)
-                        if original_path.startswith(('http://', 'https://', 'data:')):
+                        alt_text = match.group(1)
+                        original_path_str = match.group(2)
+
+                        if not original_path_str or original_path_str.startswith(('http://', 'https://', 'data:')):
+                            return match.group(0)
+                        
+                        if not base_path_for_images:
+                            # Cannot resolve relative paths if not from a zip
                             return match.group(0)
 
-                        # For web import, assume image path is relative to the markdown file in the upload
-                        # For simplicity, we'll just copy it to a generic book_images folder
-                        # In a real scenario, you might want to associate it with the book ID
-                        image_filename = Path(original_path).name
-                        media_root_path = Path(settings.MEDIA_ROOT)
-                        
-                        # Sanitize title for directory name
-                        sanitized_title = re.sub(r'[^\w\-_\. ]', '_', book_obj.title)
-                        book_images_dir = media_root_path / 'book_images' / sanitized_title
-                        book_images_dir.mkdir(parents=True, exist_ok=True)
-                        dest_path = book_images_dir / image_filename
+                        src_image_path = base_path_for_images / original_path_str
+                        if not src_image_path.is_file():
+                            return match.group(0) # Keep if image not found
 
-                        # This part of image handling is simplified for web upload.
-                        # A robust solution would involve accepting a zip file with images,
-                        # or having a separate image upload process.
-                        # For now, we assume images are either external URLs or pre-uploaded.
-                        # If a local path is referenced, it will remain as is, and the user
-                        # would need to ensure the image is accessible via media URL or external.
-                        return match.group(0) # Keep original path for now
+                        try:
+                            sanitized_title = re.sub(r'[^\w\-_\. ]', '_', book_obj.title)
+                            image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
+                            image_dest_dir.mkdir(parents=True, exist_ok=True)
+                            
+                            dest_image_path = image_dest_dir / src_image_path.name
+                            shutil.copy(src_image_path, dest_image_path)
+                            
+                            new_path = f"{settings.MEDIA_URL}book_images/{sanitized_title}/{src_image_path.name}"
+                            return f'![{alt_text}]({new_path})'
+                        except Exception:
+                            return match.group(0) # Keep original on error
 
-                    chapter_content_md = re.sub(
-                        r'(!\[.*?\]\((.+?)\))|(<img\s+src="([^"]+)"[^>]*>)',
-                        replace_image_path,
-                        chapter_content_md,
-                        flags=re.IGNORECASE
-                    )
+                    chapter_content_md = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, chapter_content_md)
 
                     chapter_content_html = markdown.markdown(
                         chapter_content_md,
@@ -322,11 +384,14 @@ class BookImportView(APIView):
                         extension_configs=md_extension_configs
                     )
 
+                    headings = extract_headings(chapter_content_md)
+
                     Chapter.objects.create(
                         book=book_obj,
                         title=chapter_title,
                         content_md=chapter_content_md,
                         content_html=chapter_content_html,
+                        heading_structure=headings,
                         order=chapter_order
                     )
                     chapter_order += 1
