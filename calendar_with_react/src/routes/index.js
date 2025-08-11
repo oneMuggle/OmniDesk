@@ -23,7 +23,7 @@ import BookImportPage from '../components/BookImportPage';
 import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
-import BookManagementPage from '../components/BookManagementPage';
+import BookManageExportPage from '../components/BookManageExportPage';
 import TrialCalendarPage from '../components/TrialCalendarPage';
 import ShiftCalendarPage from '../components/ShiftCalendarPage';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
@@ -128,8 +128,12 @@ const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
       },
       {
-        path: "book-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute>
+        path: "book-import",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookImportPage /></ProtectedRoute>
+      },
+      {
+        path: "book-manage-export",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookManageExportPage /></ProtectedRoute>
       },
       {
         path: "documents",
@@ -183,8 +187,12 @@ const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
       },
       {
-        path: "book-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookManagementPage /></ProtectedRoute>
+        path: "book-import",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookImportPage /></ProtectedRoute>
+      },
+      {
+        path: "book-manage-export",
+        element: <ProtectedRoute roles={['admin', 'manager']}><BookManageExportPage /></ProtectedRoute>
       },
       {
         path: "documents",

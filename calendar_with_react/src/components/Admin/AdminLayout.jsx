@@ -13,12 +13,15 @@ import {
   faBars,
   faSignOutAlt,
   faHome,
-  faBullhorn
+  faBullhorn,
+  faCaretDown, // For dropdown indicator
+  faCaretRight // For dropdown indicator
 } from '@fortawesome/free-solid-svg-icons';
 import ProtectedRoute from '../ProtectedRoute';
 
 const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [openSubmenu, setOpenSubmenu] = useState(null); // State to manage open submenu
   const { user, isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
 
@@ -35,7 +38,15 @@ const AdminLayout = () => {
     { to: "/admin/personnel", icon: faUsers, text: "人员管理", permission: ['admin', 'manager'] },
     { to: "/admin/schedules", icon: faFlask, text: "排班管理", permission: ['admin', 'manager'] },
     { to: "/admin/personnel-management", icon: faUsers, text: "人员信息", permission: ['admin', 'manager'] },
-    { to: "/admin/book-management", icon: faBook, text: "书籍管理", permission: ['admin', 'manager'] },
+    {
+      text: "书籍管理",
+      icon: faBook,
+      permission: ['admin', 'manager'],
+      children: [
+        { to: "/admin/book-import", text: "书籍导入" },
+        { to: "/admin/book-manage-export", text: "管理与导出" }
+      ]
+    },
     { to: "/admin/documents", icon: faFileWord, text: "文档管理", permission: ['admin', 'manager'] },
     { to: "/admin/equipment", icon: faFlask, text: "设备管理", permission: ['admin', 'manager'] },
     { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] }, // 假设设置也放在这里，且需要admin/manager权限
@@ -65,16 +76,50 @@ const AdminLayout = () => {
               return user?.role === item.permission;
             }).map((item, index) => (
               <li key={index}>
-                <Link
-                  to={item.to}
-                  className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
-                  title={isCollapsed ? item.text : ''}
-                >
-                  <div className="menu-item-content">
-                    <FontAwesomeIcon icon={item.icon} className="icon" />
-                    {!isCollapsed && <span>{item.text}</span>}
+                {item.children ? (
+                  <div
+                    className={`menu-item ${location.pathname.startsWith(item.to) ? 'active' : ''} ${openSubmenu === item.text ? 'open' : ''}`}
+                    onClick={() => setOpenSubmenu(openSubmenu === item.text ? null : item.text)}
+                    title={isCollapsed ? item.text : ''}
+                  >
+                    <div className="menu-item-content">
+                      <FontAwesomeIcon icon={item.icon} className="icon" />
+                      {!isCollapsed && <span>{item.text}</span>}
+                      {!isCollapsed && (
+                        <FontAwesomeIcon
+                          icon={openSubmenu === item.text ? faCaretDown : faCaretRight}
+                          className="submenu-caret"
+                        />
+                      )}
+                    </div>
                   </div>
-                </Link>
+                ) : (
+                  <Link
+                    to={item.to}
+                    className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+                    title={isCollapsed ? item.text : ''}
+                  >
+                    <div className="menu-item-content">
+                      <FontAwesomeIcon icon={item.icon} className="icon" />
+                      {!isCollapsed && <span>{item.text}</span>}
+                    </div>
+                  </Link>
+                )}
+                {item.children && openSubmenu === item.text && (
+                  <ul className="submenu">
+                    {item.children.map((subItem, subIndex) => (
+                      <li key={subIndex}>
+                        <Link
+                          to={subItem.to}
+                          className={`submenu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                          title={isCollapsed ? subItem.text : ''}
+                        >
+                          {!isCollapsed && <span>{subItem.text}</span>}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </li>
             ))}
             <li>
