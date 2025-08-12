@@ -37,6 +37,9 @@ import ScheduleManagementPage from '../pages/ScheduleManagementPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import ScheduleSettingsPage from '../components/ScheduleSettingsPage';
 import OfficeAssistant from '../components/OfficeAssistant/OfficeAssistant';
+import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
+import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
+import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
 
 const router = createBrowserRouter([
 {
@@ -110,6 +113,18 @@ const router = createBrowserRouter([
         path: "office-assistant",
         element: <ProtectedRoute><OfficeAssistant /></ProtectedRoute>
       },
+      {
+        path: "projects", // Move ProjectsPage to root level
+        element: <ProtectedRoute roles={['admin', 'manager']}><ProjectsPage /></ProtectedRoute>
+      },
+      {
+        path: "notifications", // Add NotificationsPage to root level
+        element: <ProtectedRoute><NotificationsPage /></ProtectedRoute>
+      },
+      {
+        path: "documents", // 将 DocumentsPage 移动到主页面路由
+        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
+      }
     ]
   },
   {
@@ -142,10 +157,6 @@ const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'manager']}><BookManageExportPage /></ProtectedRoute>
       },
       {
-        path: "documents",
-        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
-      },
-      {
         path: "equipment",
         element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
       },
@@ -172,6 +183,10 @@ const router = createBrowserRouter([
       {
         path: "schedule-settings",
         element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleSettingsPage /></ProtectedRoute>
+      },
+      {
+        path: "compliance", // Add CompliancePage route under /admin
+        element: <ProtectedRoute roles={['admin', 'manager']}><CompliancePage /></ProtectedRoute>
       }
     ]
   },

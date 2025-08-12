@@ -66,6 +66,9 @@ INSTALLED_APPS = [
     'memos.apps.MemosConfig',
     'dify_apps.apps.DifyAppsConfig',
     'office_assistant.apps.OfficeAssistantConfig',
+    'projects', # Add the new projects app
+    'compliance', # Add the new compliance app
+    'django_celery_beat', # Add django-celery-beat
 ]
 
 MIDDLEWARE = [
@@ -285,3 +288,37 @@ AUTH_USER_MODEL = 'users.CustomUser'
 
 # 权限缓存设置
 PERMISSION_CACHE_TIMEOUT = 60 * 60  # 1小时
+
+# Celery Configuration
+CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
+CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'Asia/Shanghai'
+
+# Django-Celery-Beat Configuration
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
+CELERY_BEAT_SCHEDULE = {
+    'check-compliance-due-dates-every-day': {
+        'task': 'compliance.tasks.check_compliance_due_dates',
+        'schedule': timedelta(days=1), # 每天执行一次
+        'args': (),
+    },
+}
+
+# Mineru OCR API 配置
+# 请替换为您的 Mineru API 地址和密钥
+MINERU_API_URL = os.environ.get('MINERU_API_URL', 'YOUR_MINERU_API_URL')
+MINERU_API_KEY = os.environ.get('MINERU_API_KEY', 'YOUR_MINERU_API_KEY')
+
+# PDF 转图片工具的额外说明
+# 如果您需要处理不可直接提取文本的PDF，需要安装额外的库，例如 'pdf2image'，
+# 并且您的系统需要安装 Poppler。
+# 例如：pip install pdf2image
+# 更多信息请参考：https://pypi.org/project/pdf2image/
+
+# Ollama 配置
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
+OLLAMA_MODEL_NAME = os.environ.get('OLLAMA_MODEL_NAME', 'llama2') # 默认模型可以根据需要调整

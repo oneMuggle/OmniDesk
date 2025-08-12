@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const API_URL = process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000/api'; // Ensure API_URL is defined
+
 let currentConfig = {
   apiKey: process.env.REACT_APP_DEEPSEEK_API_KEY,
   apiEndpoint: process.env.REACT_APP_DEEPSEEK_API_ENDPOINT,
@@ -21,7 +23,7 @@ export const clearConversationHistory = () => {
 
 export const generateDocument = async (templateId, variables) => {
   try {
-    const response = await axios.post('/api/documents/generated/', {
+    const response = await axios.post(`${API_URL}/documents/generated/`, {
       template: templateId,
       variables_used: variables,
       content: "" // 内容由后端生成
@@ -41,7 +43,7 @@ export const generateDocument = async (templateId, variables) => {
 
 export const uploadTemplate = async (formData) => {
   try {
-    const response = await axios.post('/api/documents/templates/upload/', formData, {
+    const response = await axios.post(`${API_URL}/documents/templates/upload/`, formData, {
       headers: {
         'Content-Type': 'multipart/form-data'
       }
@@ -53,9 +55,13 @@ export const uploadTemplate = async (formData) => {
   }
 };
 
-export const getDocumentTemplates = async () => {
+export const getDocumentTemplates = async (projectId = null) => {
   try {
-    const response = await axios.get('/api/documents/templates/');
+    let url = `${API_URL}/documents/templates/`;
+    if (projectId) {
+      url += `?project_id=${projectId}`;
+    }
+    const response = await axios.get(url);
     return response.data;
   } catch (error) {
     console.error('获取模板失败:', error);

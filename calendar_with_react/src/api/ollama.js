@@ -64,7 +64,7 @@ export const setApiProvider = (config) => {
 
 export const getConfig = async () => {
   try {
-    const response = await apiClient.get('/api/config/');
+    const response = await apiClient.get('/config/');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -77,7 +77,7 @@ export const getConfig = async () => {
 
 export const setConfig = async (config) => {
   try {
-    const response = await apiClient.post('/api/config/', config);
+    const response = await apiClient.post('/config/', config);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {

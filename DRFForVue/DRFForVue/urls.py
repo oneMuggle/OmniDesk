@@ -18,6 +18,8 @@ urlpatterns = [
         path('memos/', include('memos.urls')),     # 备忘录相关路由
         path('dify-apps/', include('dify_apps.urls')), # Dify 应用相关路由
         path('office_assistant/', include('office_assistant.urls')), # Office助手相关路由
+        path('projects/', include('projects.urls')), # 项目管理相关路由
+        path('compliance/', include('compliance.urls')), # 合规问题管理相关路由
     ])),
 ]
 

@@ -33,3 +33,6 @@ Pillow==10.4.0
 pymdown-extensions==10.0.0
 
 requests
+
+celery
+django-celery-beat

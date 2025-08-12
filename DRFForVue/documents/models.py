@@ -1,8 +1,17 @@
 from django.db import models
 from django.db.models import JSONField
 from users.models import CustomUser
+from projects.models import Project # Import the Project model
 
 class DocumentTemplate(models.Model):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='document_templates_in_project',
+        verbose_name="所属项目"
+    )
     TEMPLATE_TYPES = [
         ('tech_design', '技术方案文档'),
         ('test_case', '测试用例文档'),
@@ -13,6 +22,7 @@ class DocumentTemplate(models.Model):
     name = models.CharField(max_length=200, verbose_name="模板名称")
     template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPES, verbose_name="模板类型")
     content = models.TextField(verbose_name="模板内容")
+    extracted_text = models.TextField(blank=True, verbose_name="提取文本") # 新增字段
     variables = JSONField(default=dict, verbose_name="模板变量")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
@@ -53,6 +63,14 @@ class Tag(models.Model):
         return self.name
 
 class Book(models.Model):
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='books_in_project',
+        verbose_name="所属项目"
+    )
     title = models.CharField(max_length=200, verbose_name="书名")
     author = models.CharField(max_length=100, blank=True, verbose_name="作者")
     description = models.TextField(blank=True, verbose_name="简介")

@@ -4,10 +4,26 @@ import api from '../api/axiosConfig';
 import './ChapterView.css';
 import Commenting from './Commenting';
 import AnnotationHandler from './AnnotationHandler';
-const ChapterView = ({ chapter }) => {
+import { Alert, Typography, List, ListItem, ListItemText, Collapse, IconButton } from '@mui/material';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import { styled } from '@mui/system';
+
+const ExpandMore = styled((props) => {
+    const { expand, ...other } = props;
+    return <IconButton {...other} />;
+})(({ theme, expand }) => ({
+    transform: !expand ? 'rotate(0deg)' : 'rotate(180deg)',
+    marginLeft: 'auto',
+    transition: theme.transitions.create('transform', {
+        duration: theme.transitions.duration.shortest,
+    }),
+}));
+
+const ChapterView = ({ chapter, complianceIssues }) => { // 接收 complianceIssues
     const [chapterDetails, setChapterDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [expandedIssueId, setExpandedIssueId] = useState(null); // 用于控制展开/折叠
     const contentRef = useRef(null); // Ref for the content div
     const location = useLocation();
 
@@ -63,6 +79,37 @@ const ChapterView = ({ chapter }) => {
 
     return (
         <div className="chapter-view">
+            {complianceIssues && complianceIssues.length > 0 && (
+                <Alert severity="warning" className="compliance-alert">
+                    <Typography variant="h6">本章存在合规问题：</Typography>
+                    <List dense>
+                        {complianceIssues.map((issue) => (
+                            <div key={issue.id}>
+                                <ListItem>
+                                    <ListItemText
+                                        primary={`问题类型: ${issue.issue_type} - ${issue.description}`}
+                                        secondary={`位置: ${issue.location} | 严重程度: ${issue.severity} | 状态: ${issue.status}`}
+                                    />
+                                    <ExpandMore
+                                        expand={expandedIssueId === issue.id}
+                                        onClick={() => setExpandedIssueId(expandedIssueId === issue.id ? null : issue.id)}
+                                        aria-expanded={expandedIssueId === issue.id}
+                                        aria-label="show more"
+                                    >
+                                        <ExpandMoreIcon />
+                                    </ExpandMore>
+                                </ListItem>
+                                <Collapse in={expandedIssueId === issue.id} timeout="auto" unmountOnExit>
+                                    <Typography variant="body2" color="textSecondary" style={{ marginLeft: '16px', marginBottom: '8px' }}>
+                                        建议修改: {issue.suggested_fix || '无'}
+                                    </Typography>
+                                </Collapse>
+                            </div>
+                        ))}
+                    </List>
+                </Alert>
+            )}
+
             <AnnotationHandler chapterId={chapterDetails.id}>
                 {/* Render content directly, MathJax will process it */}
                 <div

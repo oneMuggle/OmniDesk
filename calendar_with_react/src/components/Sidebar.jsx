@@ -27,7 +27,7 @@ import {
  
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [showCalendarSubMenu, setShowCalendarSubMenu] = useState(false);
+  const [expandedSubMenu, setExpandedSubMenu] = useState({}); // 维护每个子菜单的展开状态
   const { user, isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
 
@@ -52,7 +52,19 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
     { to: "/office-assistant", icon: faFileWord, text: "Office 助手", permission: null },
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
+    {
+      type: 'submenu',
+      text: '项目管理',
+      icon: faTasks,
+      permission: ["admin", "manager"],
+      subItems: [
+        { to: "/projects", text: "项目列表", permission: ["admin", "manager"] },
+        { to: "/documents", text: "文档管理", permission: ["admin", "manager"] },
+        { to: "/admin/compliance", text: "合规问题", permission: ["admin", "manager"] },
+      ]
+    },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
+    { to: "/notifications", icon: faBell, text: "通知中心", permission: null }, // 新增通知中心链接
     { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }
   ];
 
@@ -62,8 +74,9 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     if (item.permission !== null) {
       if (item.permission === 'authenticated' && !isAuthenticated) return null;
       if (Array.isArray(item.permission)) {
-        if (!isAuthenticated || !item.permission.some(p => user?.role === p)) return null;
+        if (!isAuthenticated || !item.permission.some(role => user?.role === role)) return null;
       } else if (!isAuthenticated || user?.role !== item.permission) {
+        // 如果是单个权限字符串，并且用户没有该权限，则不显示
         if (!hasPermission(item.permission)) return null;
       }
     }
@@ -89,12 +102,14 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     }
 
     if (item.type === 'submenu') {
-      const isActive = item.subItems.some(sub => location.pathname === sub.to);
+      const isSubMenuActive = item.subItems.some(sub => location.pathname === sub.to);
+      const isSubMenuExpanded = expandedSubMenu[item.text] || false; // 根据 item.text 获取状态
+
       return (
         <li key={index}>
           <div
-            className={`menu-item ${isActive ? 'active' : ''}`}
-            onClick={() => setShowCalendarSubMenu(!showCalendarSubMenu)}
+            className={`menu-item ${isSubMenuActive ? 'active' : ''}`}
+            onClick={() => setExpandedSubMenu(prev => ({ ...prev, [item.text]: !prev[item.text] }))} // 切换当前子菜单的状态
             title={isCollapsed ? item.text : ''}
           >
             <div className="menu-item-content">
@@ -102,12 +117,12 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               {!isCollapsed && (
                 <>
                   <span>{item.text}</span>
-                  <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${showCalendarSubMenu ? 'expanded' : ''}`} />
+                  <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${isSubMenuExpanded ? 'expanded' : ''}`} />
                 </>
               )}
             </div>
           </div>
-          {showCalendarSubMenu && !isCollapsed && (
+          {isSubMenuExpanded && !isCollapsed && ( // 根据当前子菜单的状态判断是否显示
             <ul className="submenu">
               {item.subItems.map((subItem, subIndex) => (
                 <li key={subIndex}>
@@ -186,7 +201,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               if (item.permission === 'authenticated') return isAuthenticated;
               
               if (Array.isArray(item.permission)) {
-                return item.permission.some(p => hasPermission(p));
+                return item.permission.some(role => user?.role === role);
               }
               return hasPermission(item.permission);
             }).map(renderMenuItem)}

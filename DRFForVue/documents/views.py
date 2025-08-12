@@ -3,9 +3,15 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView # For BookImportView
+import tempfile # 导入 tempfile 来创建临时目录
+
+from .file_processing import process_uploaded_file # 导入我们新创建的函数
 
 from .models import DocumentTemplate, GeneratedDocument, Book, Chapter, Comment, Annotation, Tag
 from .serializers import DocumentTemplateSerializer, GeneratedDocumentSerializer, BookSerializer, ChapterSerializer, CommentSerializer, AnnotationSerializer, TagSerializer
+from compliance.models import ComplianceIssue # 导入 ComplianceIssue 模型
+from compliance.serializers import ComplianceIssueSerializer # 导入 ComplianceIssue 序列化器
+from llm_service.ollama_client import OllamaClient # 导入 OllamaClient
 
 import re
 import os
@@ -23,7 +29,11 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
     parser_classes = [parsers.MultiPartParser]  # 添加文件上传支持
 
     def get_queryset(self):
-        return self.queryset.filter(owner=self.request.user)
+        queryset = self.queryset.filter(owner=self.request.user)
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
@@ -34,35 +44,88 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
         if not file_obj:
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
         
-        try:
-            template = DocumentTemplate.objects.create(
-                name=file_obj.name,
-                file=file_obj,
-                owner=request.user
-            )
-            return Response(DocumentTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
-        except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # 使用临时目录处理文件
+        with tempfile.TemporaryDirectory() as temp_dir:
+            try:
+                # 调用 file_processing.py 中的函数来处理文件并提取文本
+                extracted_text = process_uploaded_file(file_obj, temp_dir)
 
-    @action(detail=False, methods=['post'], url_path='analyze')
-    def analyze_file(self, request):
-        file_obj = request.FILES.get('file')
-        if not file_obj:
-            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
-        
+                project_id = request.data.get('project') # 获取 project ID
+                project_instance = None
+                if project_id:
+                    try:
+                        project_instance = Project.objects.get(id=project_id)
+                    except Project.DoesNotExist:
+                        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+
+                template = DocumentTemplate.objects.create(
+                    name=file_obj.name,
+                    file=file_obj, # 原始文件仍然保存
+                    owner=request.user,
+                    extracted_text=extracted_text, # 将提取的文本保存到模型字段
+                    project=project_instance # 关联项目
+                )
+                return Response(DocumentTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
+            except Exception as e:
+                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='analyze') # 将 detail 改为 True，以便通过 pk 获取 DocumentTemplate 实例
+    def analyze_file(self, request, pk=None):
         try:
-            # TODO: 实现实际的文件解析逻辑
-            # 这里模拟解析结果
-            result = {
-                'fileName': file_obj.name,
-                'people': [
-                    {'name': '张三', 'origin': '北京', 'age': 30},
-                    {'name': '李四', 'origin': '上海', 'age': 25}
-                ]
-            }
-            return Response(result, status=status.HTTP_200_OK)
+            document_template = self.get_object() # 获取 DocumentTemplate 实例
+            extracted_text = document_template.extracted_text # 从模型中获取提取的文本
+
+            ollama_client = OllamaClient()
+            
+            # 构建提示词
+            system_message = """你是一名专业的文档合规性审查员。你的任务是分析提供的文档文本，识别其中的不规范、时间冲突、内容缺失或内容与规定不符的问题。
+            请以 JSON 数组的格式返回发现的所有问题，每个问题对象包含以下字段：
+            - "issue_type": 问题类型，可选值为 "不规范", "时间冲突", "内容缺失", "内容与规定不符", "其他"。
+            - "description": 问题的详细描述。
+            - "location": 问题在文档中的大致位置（例如，页码、段落、章节）。
+            - "severity": 严重程度，可选值为 "低", "中", "高", "紧急"。
+            - "suggested_fix": 建议的修改方案。
+            如果未发现任何问题，请返回一个空的 JSON 数组。"""
+
+            prompt = f"请分析以下文档内容，并识别其中存在的合规性问题：\n\n{extracted_text}"
+
+            # 调用 Ollama 进行分析
+            ollama_response_json = ollama_client.generate(prompt=prompt, system_message=system_message)
+            
+            try:
+                compliance_issues_data = json.loads(ollama_response_json)
+                if not isinstance(compliance_issues_data, list):
+                    raise ValueError("Ollama response is not a JSON array.")
+            except json.JSONDecodeError:
+                raise Exception(f"Ollama 返回的不是有效的 JSON 格式: {ollama_response_json}")
+            except ValueError as ve:
+                raise Exception(f"Ollama 返回数据结构不正确: {ve}")
+
+            created_issues = []
+            for issue_data in compliance_issues_data:
+                # 检查必要的字段是否存在
+                required_fields = ['issue_type', 'description', 'location', 'severity', 'suggested_fix']
+                if not all(field in issue_data for field in required_fields):
+                    print(f"Skipping malformed issue data: {issue_data}")
+                    continue
+
+                # 创建 ComplianceIssue 实例
+                issue = ComplianceIssue.objects.create(
+                    project=document_template.project, # 假设 DocumentTemplate 已经关联了 Project
+                    document_template=document_template,
+                    issue_type=issue_data.get('issue_type', '其他'),
+                    description=issue_data['description'],
+                    location=issue_data['location'],
+                    severity=issue_data.get('severity', '中'),
+                    # suggested_fix 字段目前 ComplianceIssue 模型中没有，如果需要可以后续添加
+                )
+                created_issues.append(ComplianceIssueSerializer(issue).data)
+            
+            return Response({'message': 'Analysis complete', 'issues': created_issues}, status=status.HTTP_200_OK)
+        except DocumentTemplate.DoesNotExist:
+            return Response({'error': 'DocumentTemplate not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': f'文件分析失败: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.all()
@@ -194,7 +257,7 @@ def extract_headings(markdown_content):
         
         while stack and stack[-1]['level'] >= level:
             stack.pop()
-
+            
         if not stack:
             root_nodes.append(heading)
         else:
