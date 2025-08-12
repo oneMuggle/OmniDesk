@@ -65,6 +65,7 @@ INSTALLED_APPS = [
     'config',
     'memos.apps.MemosConfig',
     'dify_apps.apps.DifyAppsConfig',
+    'office_assistant.apps.OfficeAssistantConfig',
 ]
 
 MIDDLEWARE = [

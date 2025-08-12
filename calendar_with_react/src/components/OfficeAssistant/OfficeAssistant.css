@@ -1,0 +1,87 @@
+.office-assistant-container {
+  padding: 20px;
+  border-radius: 8px;
+  background-color: #f9f9f9;
+}
+
+.tiptap {
+  border: 1px solid #ccc;
+  padding: 10px;
+  border-radius: 4px;
+  min-height: 300px;
+  background-color: white;
+  outline: none;
+}
+
+.tiptap:focus {
+  border-color: #007bff;
+}
+
+.tiptap > p:first-child {
+    margin-top: 0;
+}
+
+.editor-menu-bar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-start; /* 从左侧开始排列 */
+  align-items: center; /* 垂直居中 */
+  border: 1px solid #ccc;
+  border-bottom: none;
+  padding: 8px;
+  background-color: #f1f1f1;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+  width: 100%; /* 新增 */
+}
+
+.editor-menu-bar button {
+  background: none;
+  border: none;
+  padding: 5px 8px;
+  width: auto; /* 覆盖 Login.css 中的 width: 100%; */
+  color: black;
+  flex-grow: 0; /* 防止按钮在弹性容器中拉伸 */
+  cursor: pointer;
+  border-radius: 3px;
+  font-size: 1rem;
+  display: inline-flex; /* 确保内容在同一行 */
+  white-space: nowrap; /* 新增 */
+  align-items: center; /* 垂直居中 */
+  gap: 5px; /* 图标和文本之间间距 */
+  flex-shrink: 0; /* 防止按钮缩小 */
+}
+
+.editor-menu-bar button:hover {
+  background-color: #ddd;
+}
+
+.editor-menu-bar button.is-active {
+  background-color: #007bff;
+  color: white;
+}
+
+.ai-actions {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+}
+
+.ai-actions button {
+    padding: 8px 15px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    background-color: #28a745;
+    color: white;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.ai-actions button:hover {
+    background-color: #218838;
+}

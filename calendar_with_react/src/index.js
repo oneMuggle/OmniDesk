@@ -1,15 +1,33 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import './index.css';
-import 'antd/dist/reset.css';
+import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider } from 'antd';
+import { library, config } from '@fortawesome/fontawesome-svg-core'; // 导入 config
+import {
+  faBold, faItalic, faStrikethrough, faParagraph,
+  faHeading, faListUl, faListOl, faQuoteRight, faUndo, faRedo,
+  faMagic, faLanguage, faSpellCheck
+} from '@fortawesome/free-solid-svg-icons';
 
-import { RouterProvider } from 'react-router-dom';
+import './index.css';
+import '@fortawesome/fontawesome-svg-core/styles.css'; // 导入 FontAwesome 核心样式
+import 'antd/dist/reset.css';
+
 import router from './routes';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthContext';
 import { ApiProvider } from './context/ApiProvider';
+
+// 禁用 Font Awesome 自动添加 CSS，因为我们手动导入了 styles.css
+config.autoAddCss = false;
+
+// 将所有需要使用的 FontAwesome 图标添加到库中
+library.add(
+  faBold, faItalic, faStrikethrough, faParagraph,
+  faHeading, faListUl, faListOl, faQuoteRight, faUndo, faRedo,
+  faMagic, faLanguage, faSpellCheck
+);
 
 const queryClient = new QueryClient();
 

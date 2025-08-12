@@ -50,6 +50,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     { to: "/library", icon: faBook, text: "书库", permission: null },
     { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
     { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
+    { to: "/office-assistant", icon: faFileWord, text: "Office 助手", permission: null },
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
     { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }

@@ -36,6 +36,7 @@ import DifyAppManagementPage from '../components/DifyApps/DifyAppManagementPage'
 import ScheduleManagementPage from '../pages/ScheduleManagementPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import ScheduleSettingsPage from '../components/ScheduleSettingsPage';
+import OfficeAssistant from '../components/OfficeAssistant/OfficeAssistant';
 
 const router = createBrowserRouter([
 {
@@ -104,6 +105,10 @@ const router = createBrowserRouter([
       {
         path: "dify-apps/:appId",
         element: <ProtectedRoute><DifyAppViewer /></ProtectedRoute>
+      },
+      {
+        path: "office-assistant",
+        element: <ProtectedRoute><OfficeAssistant /></ProtectedRoute>
       },
     ]
   },

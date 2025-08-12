@@ -17,6 +17,7 @@ urlpatterns = [
         path('config/', include('config.urls')),  # 配置相关路由
         path('memos/', include('memos.urls')),     # 备忘录相关路由
         path('dify-apps/', include('dify_apps.urls')), # Dify 应用相关路由
+        path('office_assistant/', include('office_assistant.urls')), # Office助手相关路由
     ])),
 ]
 

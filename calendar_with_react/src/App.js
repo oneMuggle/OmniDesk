@@ -1,10 +1,12 @@
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import './App.css';
+import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from './components/Sidebar';
 import 'animate.css';
 import { AuthProvider } from './context/AuthContext';
 import { ApiProvider } from './context/ApiProvider';
+import { ToastContainer } from 'react-toastify';
 
 function App() {
   return (
@@ -17,6 +19,17 @@ function App() {
               <Outlet />
             </div>
           </div>
+          <ToastContainer
+            position="top-right"
+            autoClose={5000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable
+            pauseOnHover
+          />
         </div>
       </ApiProvider>
     </AuthProvider>
