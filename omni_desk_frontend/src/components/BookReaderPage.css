@@ -1,0 +1,199 @@
+/* omni_desk_frontend/src/components/BookReaderPage.css */
+
+.book-reader-page {
+    display: flex;
+    height: 100vh; /* Full viewport height */
+    overflow: hidden; /* Hide overflow to prevent scrollbars on the main page */
+    background-color: #f5f5f5; /* Light background for the reader */
+}
+
+.table-of-contents-container {
+    width: 250px; /* Fixed width for TOC */
+    background-color: #fff;
+    border-right: 1px solid #eee;
+    overflow-y: auto; /* Scrollable TOC */
+    padding: 20px;
+    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    flex-shrink: 0; /* Prevent shrinking */
+}
+
+.chapter-view-container {
+    flex-grow: 1; /* Takes remaining space */
+    overflow-y: auto; /* Scrollable chapter content */
+    padding: 20px;
+    background-color: #fff;
+}
+
+.export-markdown-button {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    z-index: 1000;
+}
+
+.export-markdown-button:hover {
+    background-color: #0056b3;
+}
+
+/* Basic styles for rendered markdown content */
+.chapter-view-container h1, .chapter-view-container h2, .chapter-view-container h3, .chapter-view-container h4, .chapter-view-container h5, .chapter-view-container h6 {
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    line-height: 1.2;
+}
+
+.chapter-view-container h1 { font-size: 2em; }
+.chapter-view-container h2 { font-size: 1.75em; }
+.chapter-view-container h3 { font-size: 1.5em; }
+.chapter-view-container h4 { font-size: 1.25em; }
+.chapter-view-container h5 { font-size: 1em; }
+.chapter-view-container h6 { font-size: 0.875em; }
+
+.chapter-view-container p {
+    margin-bottom: 1em;
+    line-height: 1.6;
+}
+
+.chapter-view-container img {
+    max-width: 100%;
+    height: auto;
+    display: block;
+    margin: 1em auto;
+    border: 1px solid #eee;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.chapter-view-container pre {
+    background-color: #f4f4f4;
+    border: 1px solid #ddd;
+    border-left: 3px solid #f36d33;
+    color: #666;
+    page-break-inside: avoid;
+    font-family: monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    margin-bottom: 1.6em;
+    max-width: 100%;
+    overflow: auto;
+    padding: 1em 1.5em;
+    display: block;
+    word-wrap: break-word;
+}
+
+.chapter-view-container code {
+    font-family: monospace;
+    background-color: #e0e0e0;
+    padding: 2px 4px;
+    border-radius: 3px;
+}
+
+.chapter-view-container pre code {
+    background-color: transparent;
+    padding: 0;
+    border-radius: 0;
+}
+
+.chapter-view-container table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1em;
+}
+
+.chapter-view-container th, .chapter-view-container td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: left;
+}
+
+.chapter-view-container th {
+    background-color: #f2f2f2;
+}
+
+.chapter-view-container blockquote {
+    border-left: 4px solid #ccc;
+    margin: 1.5em 10px;
+    padding: 0.5em 10px;
+    color: #666;
+}
+
+.chapter-view-container ul, .chapter-view-container ol {
+    margin-bottom: 1em;
+    padding-left: 20px;
+}
+
+.chapter-view-container li {
+    margin-bottom: 0.5em;
+}
+
+/* Styles for TableOfContents component */
+.toc-list {
+    list-style-type: none;
+    padding: 0;
+}
+
+.toc-list ul {
+    list-style-type: none;
+    padding-left: 15px;
+    margin: 0;
+}
+
+.toc-list li a {
+    text-decoration: none;
+    color: #333;
+    display: block;
+    padding: 5px 0;
+    font-size: 0.95em;
+}
+
+.toc-list li a:hover {
+    color: #007bff;
+}
+
+.toc-list li.active > a {
+    font-weight: bold;
+    color: #007bff;
+}
+
+/* Specific styling for different heading levels in TOC if needed */
+.toc-list .level-1 > a {
+    font-size: 1.1em;
+    font-weight: bold;
+    margin-top: 10px;
+}
+
+.toc-list .level-2 > a {
+    font-size: 1em;
+    margin-left: 10px;
+}
+
+.toc-list .level-3 > a {
+    font-size: 0.95em;
+    margin-left: 20px;
+    color: #555;
+}
+
+.toc-list .level-4 > a {
+    font-size: 0.9em;
+    margin-left: 30px;
+    color: #777;
+}
+
+.toc-list .level-5 > a {
+    font-size: 0.85em;
+    margin-left: 40px;
+    color: #999;
+}
+
+.toc-list .level-6 > a {
+    font-size: 0.8em;
+    margin-left: 50px;
+    color: #bbb;
+}

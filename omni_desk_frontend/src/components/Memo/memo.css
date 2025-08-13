@@ -1,0 +1,61 @@
+/* MiniCalendar.jsx 样式 */
+.date-cell-content {
+  min-height: 20px; /* 确保有无备忘录时高度一致 */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.memo-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  background-color: #1890ff; /* Ant Design 主蓝色 */
+  border-radius: 50%;
+  margin-top: 4px; /* 调整位置使其在数字下方 */
+}
+
+/* 隐藏 Ant Design 日期单元格默认的数字下边距 */
+.ant-picker-cell-inner .ant-picker-schedule-date-value {
+    margin-bottom: 0 !important;
+}
+
+/* 确保数字和点在垂直方向上居中对齐 */
+.ant-picker-cell-inner {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+}
+
+/* MemoList.jsx 样式 */
+.ant-list-item .ant-card {
+  width: 100%;
+}
+
+.ant-card-actions {
+  background: #f0f2f5;
+  border-top: 1px solid #e8e8e8;
+  padding: 8px 0;
+}
+
+.ant-card-actions > li {
+  margin: 0 !important;
+}
+
+.ant-card-actions > li > span {
+  width: 100%;
+  text-align: center;
+  display: block;
+}
+
+.ant-card-actions .anticon {
+  font-size: 18px;
+}
+
+.ant-card-actions .ant-checkbox-wrapper {
+  display: block;
+  text-align: center;
+  padding: 0 10px;
+}

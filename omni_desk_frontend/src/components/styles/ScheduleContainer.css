@@ -1,0 +1,23 @@
+.schedule-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 16px;
+}
+
+.schedule-container.dark {
+  background-color: #1a1a1a;
+  color: #ffffff;
+}
+
+.schedule-controls {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.schedule-view {
+  flex: 1;
+  min-height: 0;
+}
