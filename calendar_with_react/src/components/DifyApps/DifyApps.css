@@ -1,55 +1,102 @@
-/* DifyAppList.jsx styles */
+/* DifyApps.css */
+
 .dify-app-list-container {
     padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.dify-app-list-container h1 {
+    text-align: center;
+    margin-bottom: 30px;
+    color: #333;
 }
 
 .dify-app-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
     gap: 20px;
-    margin-top: 20px;
 }
 
 .dify-app-card {
-    background-color: #f0f2f5;
+    background-color: #ffffff;
+    border: 1px solid #e0e0e0;
     border-radius: 8px;
     padding: 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
     cursor: pointer;
-    transition: transform 0.2s ease-in-out;
 }
 
 .dify-app-card:hover {
     transform: translateY(-5px);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .dify-app-card h2 {
-    margin-top: 0;
-    color: #333;
+    font-size: 1.5em;
+    color: #007bff;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 5px;
 }
 
 .dify-app-card p {
-    color: #666;
     font-size: 0.9em;
+    color: #666;
+    line-height: 1.5;
+}
+
+.error-message {
+    color: #dc3545;
+    text-align: center;
+    padding: 20px;
+    border: 1px solid #dc3545;
+    background-color: #f8d7da;
+    border-radius: 5px;
+    margin: 20px auto;
+    max-width: 600px;
 }
 
 /* DifyAppViewer.jsx styles */
 .dify-app-viewer-container {
-    padding: 20px;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 60px); /* Adjust based on header height if any */
+    height: 100%; /* Take full height of its parent */
+}
+
+.dify-app-viewer-container h1 {
+    text-align: center;
+    margin-bottom: 20px;
+    color: #333;
+    padding: 10px 0;
 }
 
 .dify-iframe {
-    flex-grow: 1;
-    border: none;
+    flex-grow: 1; /* Make iframe take remaining height */
     width: 100%;
-    height: 100%; /* Ensure iframe takes available space */
+    border: none;
+    min-height: 600px; /* Fallback min-height */
 }
 
-.error-message {
-    color: red;
-    padding: 20px;
-    text-align: center;
+@media (max-width: 768px) {
+    .dify-app-list-container {
+        padding: 10px;
+    }
+
+    .dify-app-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .dify-app-card {
+        padding: 15px;
+    }
+
+    .dify-app-card h2 {
+        font-size: 1.2em;
+    }
+
+    .dify-iframe {
+        min-height: 400px;
+    }
 }

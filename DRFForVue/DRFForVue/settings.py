@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'projects', # Add the new projects app
     'compliance', # Add the new compliance app
     'django_celery_beat', # Add django-celery-beat
+    'ragflow_service', # Add the new ragflow_service app
 ]
 
 MIDDLEWARE = [

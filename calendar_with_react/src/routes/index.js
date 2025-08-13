@@ -5,7 +5,8 @@ import UnauthorizedPage from '../components/UnauthorizedPage';
 import App from '../App';
 import CalendarPage from '../components/CalendarPage';
 import SettingsPage from '../components/SettingsPage';
-import DeepSeekChatPage from '../components/DeepSeekChatPage';
+import IntelligentChatPage from '../components/IntelligentChatPage';
+import RagflowChatPage from '../components/RagflowChatPage';
 import EventsPage from '../components/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
 import ProfilePage from '../components/ProfilePage';
@@ -82,8 +83,12 @@ const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementsPage /></ProtectedRoute>
       },
       {
-        path: "deepseek-chat",
-        element: <DeepSeekChatPage />
+        path: "intelligent-chat",
+        element: <IntelligentChatPage />
+      },
+      {
+        path: "ragflow-chat",
+        element: <RagflowChatPage />
       },
       {
         path: "file-analysis",

@@ -7,7 +7,6 @@ import { createClient } from '../api/deepseek';
 import { chatCompletion as ollamaChat } from '../api/ollama';
 import './ChatInterface.css';
 
-const deepseekClient = createClient();
 
 const ChatInterface = () => {
   const [messages, setMessages] = useState([]);
@@ -91,12 +90,12 @@ ${newMessage.files?.join('\n\n') || ''}
           ...messages,
           newMessage
         ]);
-      } else {
-        const client = createClient(apiConfig);
+      } else if (apiType === 'deepseek') {
+        const client = createClient(); // createClient现在从ApiProvider获取配置
         response = await client.chat.completions.create({
           messages: [
-            { 
-              role: 'system', 
+            {
+              role: 'system',
               content: `你是一个专业的文档助手，请根据用户提供的文档内容进行分析和修改：
 ${newMessage.files?.join('\n\n') || ''}
 用户需求：${newMessage.content}`
@@ -106,6 +105,44 @@ ${newMessage.files?.join('\n\n') || ''}
           ]
         });
         response = response.choices[0].message;
+      } else if (apiType === 'ragflow') {
+        // Ragflow API 调用逻辑
+        // 注意：这里需要根据Ragflow的实际API接口调整
+        // 假设Ragflow的API端点从apiConfig中获取，并且有一个/query接口
+        const ragflowResponse = await fetch(`${apiConfig.ragflow.apiEndpoint}/query`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.ragflow.apiKey}`
+          },
+          body: JSON.stringify({
+            question: newMessage.content,
+            // 如果Ragflow支持文件内容作为上下文，可以在这里添加
+            files: newMessage.files
+          })
+        });
+        const ragflowData = await ragflowResponse.json();
+        response = { content: ragflowData.answer }; // 假设Ragflow返回的答案在'answer'字段
+      } else if (apiType === 'dify') {
+        // Dify API 调用逻辑
+        // 注意：这里需要根据Dify的实际API接口调整
+        // 假设Dify的API端点从apiConfig中获取，并且有一个/chat接口
+        const difyResponse = await fetch(`${apiConfig.dify.apiEndpoint}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiConfig.dify.apiKey}`
+          },
+          body: JSON.stringify({
+            inputs: {
+              query: newMessage.content
+            },
+            // 如果Dify支持文件内容作为上下文，可以在这里添加
+            // files: newMessage.files
+          })
+        });
+        const difyData = await difyResponse.json();
+        response = { content: difyData.answer }; // 假设Dify返回的答案在'answer'字段
       }
 
       setMessages(prev => [
@@ -192,7 +229,7 @@ ${newMessage.files?.join('\n\n') || ''}
             onMouseLeave={handleMouseUp}
             style={{ cursor: 'move' }}
           >
-            <span>DeepSeek 文档助手</span>
+            <span>智能问答助手</span>
             <Button 
               type="text" 
               icon={<CloseOutlined />} 

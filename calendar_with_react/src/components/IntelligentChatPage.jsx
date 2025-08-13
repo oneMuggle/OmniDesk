@@ -2,7 +2,7 @@ import React, { useState, useEffect, useContext } from 'react';
 import { chatCompletion } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from './ThinkContent';
-import './DeepSeekChatPage.css';
+import './IntelligentChatPage.css';
 
 const parseThinkContent = (content) => {
   if (!content) return { mainContent: '', thinkContent: '' };
@@ -20,7 +20,7 @@ const parseThinkContent = (content) => {
   return { mainContent, thinkContent };
 };
 
-const DeepSeekChatPage = () => {
+const IntelligentChatPage = () => {
   const { conversationHistory, setConversationHistory } = useContext(ApiContext);
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState(() => {
@@ -73,7 +73,7 @@ const DeepSeekChatPage = () => {
   };
 
   return (
-    <div className="deepseek-chat-container">
+    <div className="intelligent-chat-container">
       <div className="chat-messages">
         {(messages || []).map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>
@@ -101,4 +101,4 @@ const DeepSeekChatPage = () => {
   );
 };
 
-export default DeepSeekChatPage;
+export default IntelligentChatPage;

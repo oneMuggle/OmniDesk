@@ -105,6 +105,8 @@ function SettingsPage() {
           >
             <option value="deepseek">DeepSeek</option>
             <option value="ollama">Ollama</option>
+            <option value="ragflow">Ragflow</option>
+            <option value="dify">Dify</option>
           </select>
         </div>
 

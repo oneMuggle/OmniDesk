@@ -44,7 +44,8 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         { to: "/shift-calendar", text: "排班日历", permission: null },
       ]
     },
-    { to: "/deepseek-chat", icon: faCommentDots, text: "DeepSeek聊天", permission: null },
+    { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },
+    { to: "/ragflow-chat", icon: faFlask, text: "Ragflow 聊天", permission: null },
     { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
     { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
     { to: "/library", icon: faBook, text: "书库", permission: null },
