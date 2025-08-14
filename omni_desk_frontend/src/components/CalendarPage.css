@@ -1,24 +1,53 @@
+:root {
+  /* 定义新的颜色变量 */
+  --primary-color: #4299e1; /* 柔和的蓝色 */
+  --secondary-color: #ecc94b; /* 柔和的黄色 */
+  --background-color: #f7fafc; /* 浅灰色背景 */
+  --surface-color: #ffffff; /* 白色卡片背景 */
+  --text-color: #2d3748; /* 深灰色文本 */
+  --text-secondary-color: #718096; /* 次要文本颜色 */
+  --border-color: #e2e8f0; /* 浅灰色边框 */
+  --shadow-color: rgba(0, 0, 0, 0.05); /* 轻微阴影 */
+  --event-staff-color: #63b3ed; /* 员工事件颜色 */
+  --event-leader-color: #f6e05e; /* 领导事件颜色 */
+}
+
+.dark {
+  --primary-color: #63b3ed;
+  --secondary-color: #f6e05e;
+  --background-color: #1a202c;
+  --surface-color: #2d3748;
+  --text-color: #e2e8f0;
+  --text-secondary-color: #a0aec0;
+  --border-color: #4a5568;
+  --shadow-color: rgba(0, 0, 0, 0.3);
+  --event-staff-color: #4299e1;
+  --event-leader-color: #d69e2e;
+}
+
 .schedule-page {
   padding: 20px;
-  background: linear-gradient(135deg, var(--bg-color) 0%, #ffffff 100%);
+  background-color: var(--background-color); /* 使用新的背景变量 */
   min-height: 100vh;
+  transition: background-color 0.3s ease; /* 添加过渡效果 */
 }
 
 .schedule-container {
   max-width: 1200px;
   margin: 0 auto;
-  background: white;
+  background-color: var(--surface-color); /* 使用新的卡片背景变量 */
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 1px 3px 0 var(--shadow-color), 0 1px 2px -1px var(--shadow-color); /* 更轻的阴影 */
   min-height: 90vh;
   display: flex;
   flex-direction: column;
+  transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 添加过渡效果 */
 }
 
 .fc {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  color: var(--text-color);
+  color: var(--text-color); /* 使用新的文本颜色变量 */
   height: 100%;
 }
 
@@ -31,30 +60,33 @@
 
 .fc-header-toolbar {
   margin-bottom: 1.5em;
-  padding: 0.5em;
-  background: var(--bg-color);
+  padding: 0.8em 1em; /* 调整内边距 */
+  background-color: var(--surface-color); /* 使用卡片背景色 */
   border-radius: 8px;
+  box-shadow: 0 1px 2px 0 var(--shadow-color); /* 轻微阴影 */
+  transition: background-color 0.3s ease, box-shadow 0.3s ease;
 }
 
 /* 排班事件样式 */
 .fc-event-schedule {
   border-radius: 4px;
-  border: 1px solid white;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  border: none; /* 移除边框 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08); /* 更轻的阴影 */
   transition: all 0.2s ease;
+  color: var(--text-color); /* 确保文本颜色在事件上可见 */
 }
 
 .fc-event-schedule:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 8px rgba(0,0,0,0.15);
+  transform: translateY(-2px); /* 轻微上浮效果 */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.12); /* 悬停时更明显的阴影 */
 }
 
 .fc-event-schedule-staff {
-  background: linear-gradient(45deg, rgba(66, 165, 245, 0.8), rgba(21, 101, 192, 0.8));
+  background-color: var(--event-staff-color); /* 使用新的员工事件颜色 */
 }
 
 .fc-event-schedule-leader {
-  background: linear-gradient(45deg, rgba(255, 152, 0, 0.8), rgba(239, 108, 0, 0.8));
+  background-color: var(--event-leader-color); /* 使用新的领导事件颜色 */
 }
 
 .fc-event-schedule-badge {
@@ -64,15 +96,16 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: white;
+  background-color: var(--surface-color); /* 使用新的卡片背景色 */
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: bold;
   font-size: 12px;
-  color: #333;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  border: 1px solid #eee;
+  color: var(--text-color); /* 使用新的文本颜色 */
+  box-shadow: 0 2px 4px var(--shadow-color); /* 使用新的阴影颜色 */
+  border: 1px solid var(--border-color); /* 使用新的边框颜色 */
+  transition: background-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .fc-event-schedule-leader .fc-event-schedule-badge::after {
@@ -81,7 +114,7 @@
   top: -5px;
   right: -5px;
   font-size: 10px;
-  color: gold;
+  color: var(--secondary-color); /* 使用辅助色 */
 }
 
 /* 性能优化 */
@@ -90,8 +123,6 @@
   will-change: transform, opacity;
   backface-visibility: hidden;
 }
-
-/* 删除所有重复的 will-change 声明 */
 
 /* 响应式布局 */
 @media (max-width: 768px) {
@@ -108,6 +139,7 @@
   .fc-header-toolbar {
     flex-direction: column;
     gap: 10px;
+    padding: 0.5em; /* 调整移动端内边距 */
   }
   
   .fc-toolbar-title {
@@ -170,5 +202,3 @@
   border-left-width: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
 }
-
-/* 保留其他媒体查询和暗黑模式样式... */

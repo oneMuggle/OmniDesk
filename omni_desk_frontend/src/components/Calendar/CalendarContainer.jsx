@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import TrialCalendar from './TrialCalendar';
+import TrialScheduleContainer from '../TrialScheduleContainer';
 import ScheduleCalendar from './ScheduleCalendar';
-import CalendarControls from './CalendarControls';
+import ScheduleControls from '../ScheduleControls';
 import './styles/CalendarContainer.css';
 
 const CalendarContainer = ({
@@ -20,7 +20,7 @@ const CalendarContainer = ({
   const [darkMode, setDarkMode] = useState(false);
 
   return (
-    <div className={`schedule-container ${darkMode ? 'dark' : ''}`}>
+    <div className={`schedule-container ${darkMode ? 'dark' : ''} ${scheduleType}`}>
       <ScheduleControls
         darkMode={darkMode}
         setDarkMode={setDarkMode}
@@ -29,7 +29,7 @@ const CalendarContainer = ({
       />
 
       {scheduleType === 'trial' ? (
-        <TrialSchedule
+        <TrialScheduleContainer
           trials={trialData}
           isGuest={isGuest}
           onTrialDateClick={onTrialDateClick}

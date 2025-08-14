@@ -1,5 +1,5 @@
 import React from 'react';
-import './styles/BaseSchedule.css'; // This CSS will be renamed to BaseSchedule.css
+import './styles/Schedule.css'; // 导入日历美化样式
 import './styles/Controls.css';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
