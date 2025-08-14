@@ -36,7 +36,7 @@ export const useScheduleData = () => {
 
   const { data: personnel = [], isLoading: isPersonnelLoading } = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => scheduleApi.getPersonnel(),
+    queryFn: () => scheduleApi.getPersonnel().then(res => res.results || []),
     gcTime: 600000,
     staleTime: 300000
   });

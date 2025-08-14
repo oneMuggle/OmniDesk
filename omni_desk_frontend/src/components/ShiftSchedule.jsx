@@ -20,10 +20,7 @@ const ShiftSchedule = ({
     }
     
     return schedules.map(schedule => {
-      const dutyPerson = personnel.find(p => p.id === schedule.duty_person);
-      const dutyLeader = personnel.find(p => p.id === schedule.duty_leader);
-
-      const title = `${dutyPerson ? dutyPerson.name : '未知'} (值班) / ${dutyLeader ? dutyLeader.name : '未知'} (领导)`;
+      const title = `${schedule.duty_person?.name || '未知'} (值班) / ${schedule.duty_leader?.name || '未知'} (领导)`;
 
       return {
         type: 'SCHEDULE',
@@ -33,13 +30,13 @@ const ShiftSchedule = ({
         allDay: true, // 排班通常是全天事件
         extendedProps: {
           type: 'SCHEDULE',
-          duty_person_id: schedule.duty_person,
-          duty_leader_id: schedule.duty_leader,
+          duty_person_id: schedule.duty_person?.id, // 仍然保留ID，以防其他地方需要
+          duty_leader_id: schedule.duty_leader?.id, // 仍然保留ID，以防其他地方需要
           scheduleDetails: {
-            leader: dutyLeader ? { name: dutyLeader.name, contact: dutyLeader.phone } : { name: '未知', contact: '' },
-            staff: dutyPerson ? { name: dutyPerson.name, contact: dutyPerson.phone } : { name: '未知', contact: '' },
-            position: 'N/A',
-            department: 'N/A',
+            leader: { name: schedule.duty_leader?.name || '未知', contact: schedule.duty_leader?.phone || '' },
+            staff: { name: schedule.duty_person?.name || '未知', contact: schedule.duty_person?.phone || '' },
+            position: 'N/A', // 假设这些信息不在Schedule模型中
+            department: 'N/A', // 假设这些信息不在Schedule模型中
             time: '全天'
           }
         },

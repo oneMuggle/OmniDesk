@@ -186,16 +186,8 @@ class TrialSerializer(serializers.ModelSerializer):
         return instance
 
 class ScheduleSerializer(serializers.ModelSerializer):
-    duty_person = serializers.PrimaryKeyRelatedField(
-        queryset=Personnel.objects.all(),
-        required=True,
-        help_text="值班人员ID"
-    )
-    duty_leader = serializers.PrimaryKeyRelatedField(
-        queryset=Personnel.objects.all(),
-        required=True,
-        help_text="值班领导ID"
-    )
+    duty_person = PersonnelSerializer(read_only=True)
+    duty_leader = PersonnelSerializer(read_only=True)
     duty_date = serializers.DateField(
         required=True,
         help_text="值班日期，格式：YYYY-MM-DD"

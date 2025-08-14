@@ -62,10 +62,10 @@ const ShiftScheduleContainer = () => {
             setCurrentSchedule({
               id: parseInt(event.id.replace('schedule-', '')),
               date: event.startStr,
-              staff: extendedProps.duty_person_id,
-              leader: extendedProps.duty_leader_id,
-              staffPhone: extendedProps.scheduleDetails.staff.contact,
-              leaderPhone: extendedProps.scheduleDetails.leader.contact
+              staff: extendedProps.scheduleDetails.duty_person?.id,
+              leader: extendedProps.scheduleDetails.duty_leader?.id,
+              staffPhone: extendedProps.scheduleDetails.duty_person?.phone || '',
+              leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone || ''
             });
             setScheduleModalMode('view');
             setScheduleModalOpen(true);

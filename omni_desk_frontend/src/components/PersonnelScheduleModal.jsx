@@ -35,6 +35,10 @@ const PersonnelScheduleModal = ({
   }, [scheduleData, form]);
 
   const getPersonName = (id) => {
+    if (!Array.isArray(personnelList)) {
+      console.warn('personnelList is not an array:', personnelList);
+      return '未知人员';
+    }
     const person = personnelList.find(p => p.id === id);
     return person ? person.name : '未知人员';
   };
@@ -66,7 +70,7 @@ const PersonnelScheduleModal = ({
                 <div className="schedule-modal__person-name">{getPersonName(scheduleData?.staff)}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
-                  <span>{personnelList.find(p => p.id === scheduleData?.staff)?.phone || '无电话'}</span>
+                  <span>{(Array.isArray(personnelList) && personnelList.find(p => p.id === scheduleData?.staff)?.phone) || '无电话'}</span>
                 </div>
               </div>
 
@@ -78,7 +82,7 @@ const PersonnelScheduleModal = ({
                 <div className="schedule-modal__person-name">{getPersonName(scheduleData?.leader)}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
-                  <span>{personnelList.find(p => p.id === scheduleData?.leader)?.phone || '无电话'}</span>
+                  <span>{(Array.isArray(personnelList) && personnelList.find(p => p.id === scheduleData?.leader)?.phone) || '无电话'}</span>
                 </div>
               </div>
             </div>
