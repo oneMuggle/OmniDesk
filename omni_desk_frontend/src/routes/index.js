@@ -26,7 +26,9 @@ import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
 import BookManageExportPage from '../components/BookManageExportPage';
 import TrialCalendarPage from '../components/TrialCalendarPage';
+import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftCalendarPage from '../components/ShiftCalendarPage';
+import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
@@ -56,8 +58,8 @@ const router = createBrowserRouter([
         ),
       },
       { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
-      { path: "trial-schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
-      { path: "shift-schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
+      { path: "trial-schedule", element: <GuestRoute><TrialScheduleContainer /></GuestRoute> },
+      { path: "shift-schedule", element: <GuestRoute><ShiftScheduleContainer /></GuestRoute> },
       {
         path: "events",
         element: <ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>
