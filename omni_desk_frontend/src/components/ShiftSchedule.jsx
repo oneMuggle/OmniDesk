@@ -1,9 +1,9 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import BaseCalendar from './BaseCalendar';
-import { fromServerFormat } from '../../utils/dateUtils';
+import BaseSchedule from './BaseSchedule';
+import { fromServerFormat } from '../utils/dateUtils';
 
-const ScheduleCalendar = ({
+const ShiftSchedule = ({
   schedules,
   isGuest,
   onDateClick,
@@ -49,7 +49,7 @@ const ScheduleCalendar = ({
   }, [schedules, personnel, isGuest]);
 
   return (
-    <BaseCalendar
+    <BaseSchedule
       events={events}
       onDateClick={onDateClick}
       onEventClick={onEventClick}
@@ -60,7 +60,7 @@ const ScheduleCalendar = ({
   );
 };
 
-ScheduleCalendar.propTypes = {
+ShiftSchedule.propTypes = {
   schedules: PropTypes.array,
   isGuest: PropTypes.bool,
   onDateClick: PropTypes.func,
@@ -68,4 +68,4 @@ ScheduleCalendar.propTypes = {
   onScheduleSelect: PropTypes.func
 };
 
-export default ScheduleCalendar;
+export default ShiftSchedule;

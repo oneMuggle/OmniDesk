@@ -1,7 +1,7 @@
 import React from 'react';
-import './styles/BaseCalendar.css'; // This CSS will be renamed to BaseSchedule.css
+import './styles/BaseSchedule.css'; // This CSS will be renamed to BaseSchedule.css
 import './styles/Controls.css';
-import FullSchedule from '@fullcalendar/react'; // Changed FullCalendar to FullSchedule
+import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -20,7 +20,7 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
 }) => {
   console.log('BaseSchedule received events:', events); // Add this line
   return (
-    <FullSchedule // Changed FullCalendar to FullSchedule
+    <FullCalendar
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
       initialView="dayGridMonth"
       initialDate="2025-04-01"

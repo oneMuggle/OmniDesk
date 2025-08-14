@@ -3,7 +3,7 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import GuestRoute from '../components/GuestRoute';
 import UnauthorizedPage from '../components/UnauthorizedPage';
 import App from '../App';
-import CalendarPage from '../components/CalendarPage';
+import SchedulePage from '../components/SchedulePage';
 import SettingsPage from '../components/SettingsPage';
 import IntelligentChatPage from '../components/IntelligentChatPage';
 import RagflowChatPage from '../components/RagflowChatPage';
@@ -55,9 +55,9 @@ const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
-      { path: "schedule", element: <GuestRoute><TrialCalendarPage /></GuestRoute> },
-      { path: "trial-schedule", element: <GuestRoute><TrialCalendarPage /></GuestRoute> },
-      { path: "shift-schedule", element: <GuestRoute><ShiftCalendarPage /></GuestRoute> },
+      { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
+      { path: "trial-schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
+      { path: "shift-schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
       {
         path: "events",
         element: <ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>

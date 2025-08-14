@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import './ScheduleModal.css'; // Assuming this will be renamed to PersonnelScheduleModal.css
+import './styles/PersonnelScheduleModal.css'; // Assuming this will be renamed to PersonnelScheduleModal.css
 import { Modal, Form, Input, Button, Select, message } from 'antd';
 import { useQueryClient } from '@tanstack/react-query';
-import { scheduleApi } from '../../api/schedule';
+import { scheduleApi } from '../api/schedule';
 
 const { Option } = Select;
 

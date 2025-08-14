@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { Modal, Form } from 'antd';
-import { scheduleApi } from '../../api/schedule';
-import { trialApi } from '../../api/trialApi';
-import { getStatusConfig } from '../../utils/scheduleUtils'; // Changed calendarUtils to scheduleUtils
-import { useAuth } from '../../context/AuthContext';
-import { fromServerFormat } from '../../utils/dateUtils';
-import { useTrialScheduleData } from '../../hooks/useTrialScheduleData'; // Changed useTrialCalendarData to useTrialScheduleData
-import EventModal from './EventModal/EventModal';
+import { scheduleApi } from '../api/schedule';
+import { trialApi } from '../api/trialApi';
+import { getStatusConfig } from '../utils/scheduleUtils'; // Changed calendarUtils to scheduleUtils
+import { useAuth } from '../context/AuthContext';
+import { fromServerFormat } from '../utils/dateUtils';
+import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // Changed useTrialCalendarData to useTrialScheduleData
+import EventModal from './EventModal';
 import TrialSchedule from './TrialSchedule'; // Changed TrialCalendar to TrialSchedule
 
 const TrialScheduleContainer = () => {

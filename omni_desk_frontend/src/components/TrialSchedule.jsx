@@ -1,8 +1,8 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import BaseCalendar from './BaseCalendar';
+import BaseSchedule from './BaseSchedule';
 
-const TrialCalendar = ({
+const TrialSchedule = ({
   trialEvents = [],
   isGuest,
   onDateClick,
@@ -10,7 +10,7 @@ const TrialCalendar = ({
   select = () => {}
 }) => {
   return (
-    <BaseCalendar
+    <BaseSchedule
       events={trialEvents}
       onDateClick={onDateClick}
       onEventClick={onEventClick}
@@ -21,7 +21,7 @@ const TrialCalendar = ({
   );
 };
 
-TrialCalendar.propTypes = {
+TrialSchedule.propTypes = {
   trialEvents: PropTypes.arrayOf(
     PropTypes.shape({
       extendedProps: PropTypes.shape({
@@ -35,4 +35,4 @@ TrialCalendar.propTypes = {
   select: PropTypes.func
 };
 
-export default TrialCalendar;
+export default TrialSchedule;

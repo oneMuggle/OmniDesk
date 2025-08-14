@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Form } from 'antd';
-import { useAuth } from '../../context/AuthContext';
-import { useScheduleCalendarData } from '../../hooks/useScheduleCalendarData'; // Changed useScheduleCalendarData to useScheduleData
-import { useScheduleEventDrop } from '../../hooks/useScheduleEventDrop'; // Changed useCalendarEventDrop to useScheduleEventDrop
-import PersonnelScheduleModal from './ScheduleModal';
+import { useAuth } from '../context/AuthContext';
+import { useScheduleData } from '../hooks/useScheduleData'; // Changed useScheduleCalendarData to useScheduleData
+import { useScheduleEventDrop } from '../hooks/useScheduleEventDrop'; // Changed useCalendarEventDrop to useScheduleEventDrop
+import PersonnelScheduleModal from './PersonnelScheduleModal';
 import ShiftSchedule from './ShiftSchedule'; // Changed ScheduleCalendar to ShiftSchedule
-import { scheduleApi } from '../../api/schedule';
+import { scheduleApi } from '../api/schedule';
 
 const ShiftScheduleContainer = () => {
   const { isGuest } = useAuth();
@@ -17,7 +17,7 @@ const ShiftScheduleContainer = () => {
     schedules,
     personnel,
     queryClient: scheduleQueryClient
-  } = useScheduleCalendarData(); // Changed useScheduleCalendarData to useScheduleData
+  } = useScheduleData(); // Changed useScheduleCalendarData to useScheduleData
 
   const handleScheduleDateClick = (arg) => {
     setCurrentSchedule({
