@@ -1,6 +1,10 @@
-calendar_with_react/node_modules
+/omni_desk_frontend/node_modules
 DRFForVue/db.sqlite3
 
 /data
 __pycache__/
 *.pyc
+
+/omni_desk_backend/media
+
+/omni_desk_backend/db.sqlite3

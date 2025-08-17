@@ -146,7 +146,7 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
         document.save()
         return Response({'status': 'document finalized'})
 
-class BookViewSet(viewsets.ReadOnlyModelViewSet):
+class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
     permission_classes = []
