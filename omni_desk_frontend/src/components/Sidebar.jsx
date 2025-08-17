@@ -12,12 +12,10 @@ import {
   faSignOutAlt,
   faTasks,
   faChevronLeft,
-  faSignInAlt,
   faFileWord,
   faBullhorn,
   faCommentDots,
   faFlask,
-  faUsers,
   faFileAlt,
   faBook, // 新增图标
   faChevronDown, // 新增图标
@@ -42,6 +40,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       subItems: [
         { to: "/trial-schedule", text: "试验日程", permission: null },
         { to: "/shift-schedule", text: "排班日程", permission: null },
+        { to: "/meeting-rooms", text: "会议室预约", permission: null },
       ]
     },
     { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },

@@ -38,7 +38,7 @@
   background-color: var(--surface-color); /* 使用新的卡片背景变量 */
   padding: 20px;
   border-radius: 12px;
-  box-shadow: 0 1px 3px 0 var(--shadow-color), 0 1px 2px -1px var(--shadow-color); /* 更轻的阴影 */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04); /* 更轻的阴影 */
   min-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -62,23 +62,42 @@
   margin-bottom: 1.5em;
   padding: 0.8em 1em; /* 调整内边距 */
   background-color: var(--surface-color); /* 使用卡片背景色 */
-  border-radius: 8px;
-  box-shadow: 0 1px 2px 0 var(--shadow-color); /* 轻微阴影 */
+  border-radius: 10px;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.04); /* 轻微阴影 */
   transition: background-color 0.3s ease, box-shadow 0.3s ease;
+  flex-wrap: wrap; /* 允许换行 */
+  justify-content: space-between; /* 按钮组之间留白 */
+}
+
+/* 调整react-big-calendar的工具栏按钮组 */
+.rbc-toolbar .rbc-btn-group {
+    flex-wrap: wrap;
+    justify-content: center;
+    margin-bottom: 5px; /* 增加按钮组之间的间距 */
+}
+
+.rbc-toolbar .rbc-btn-group > button {
+    margin: 2px; /* 调整按钮之间的间距 */
+}
+
+.rbc-toolbar-label {
+    flex-grow: 1;
+    text-align: center;
+    margin-bottom: 5px;
 }
 
 /* 排班事件样式 */
 .fc-event-schedule {
-  border-radius: 4px;
+  border-radius: 6px;
   border: none; /* 移除边框 */
-  box-shadow: 0 1px 2px rgba(0,0,0,0.08); /* 更轻的阴影 */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.06); /* 更轻的阴影 */
   transition: all 0.2s ease;
   color: var(--text-color); /* 确保文本颜色在事件上可见 */
 }
 
 .fc-event-schedule:hover {
   transform: translateY(-2px); /* 轻微上浮效果 */
-  box-shadow: 0 4px 8px rgba(0,0,0,0.12); /* 悬停时更明显的阴影 */
+  box-shadow: 0 4px 8px rgba(0,0,0,0.1); /* 悬停时更明显的阴影 */
 }
 
 .fc-event-schedule-staff {
@@ -201,4 +220,225 @@
   opacity: 1;
   border-left-width: 6px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 优化日历格样式 */
+.fc-daygrid-day {
+  background-color: var(--surface-color); /* 设置日历格背景色为白色 */
+  border: 1px solid var(--border-color); /* 添加明显边框 */
+  border-radius: 4px; /* 添加圆角 */
+}
+
+/* 确保日历容器有足够的空间 */
+.rbc-calendar {
+  height: 100%; /* 确保日历组件本身填充其父容器 */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-time-content {
+  min-height: 100%; /* 确保时间轴内容有最小高度 */
+}
+
+/* 调整时间轴的可见范围，如果需要显示更多时间 */
+.rbc-time-view .rbc-allday-cell {
+  min-height: 25px; /* 调整全天事件行高 */
+}
+
+.rbc-time-view .rbc-time-column {
+  min-width: 50px; /* 调整时间列宽度 */
+}
+
+.rbc-time-view .rbc-header {
+  min-height: 25px; /* 调整头部高度 */
+}
+
+.rbc-header {
+  padding: 5px 0;
+}
+
+.rbc-day-bg {
+  background-color: var(--background-color); /* 区分日历背景和事件背景 */
+}
+
+.rbc-off-range-bg {
+  background-color: var(--background-color); /* 非本月日期背景 */
+}
+
+.rbc-today {
+  background-color: var(--primary-color) !important; /* 今日背景色 */
+  opacity: 0.1; /* 降低透明度 */
+}
+
+/* 确保日历容器有足够的空间 */
+.rbc-calendar {
+  height: 100%; /* 确保日历组件本身填充其父容器 */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-time-content {
+  min-height: 100%; /* 确保时间轴内容有最小高度 */
+}
+
+/* 调整时间轴的可见范围，如果需要显示更多时间 */
+.rbc-time-view .rbc-allday-cell {
+  min-height: 25px; /* 调整全天事件行高 */
+}
+
+.rbc-time-view .rbc-time-column {
+  min-width: 50px; /* 调整时间列宽度 */
+}
+
+.rbc-time-view .rbc-header {
+  min-height: 25px; /* 调整头部高度 */
+}
+
+.rbc-header {
+  padding: 5px 0;
+}
+
+.rbc-day-bg {
+  background-color: var(--background-color); /* 区分日历背景和事件背景 */
+}
+
+.rbc-off-range-bg {
+  background-color: var(--background-color); /* 非本月日期背景 */
+}
+
+.rbc-today {
+  background-color: var(--primary-color) !important; /* 今日背景色 */
+  opacity: 0.1; /* 降低透明度 */
+}
+
+/* 确保日历容器有足够的空间 */
+.rbc-calendar {
+  height: 100%; /* 确保日历组件本身填充其父容器 */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-time-content {
+  min-height: 100%; /* 确保时间轴内容有最小高度 */
+}
+
+/* 调整时间轴的可见范围，如果需要显示更多时间 */
+.rbc-time-view .rbc-allday-cell {
+  min-height: 25px; /* 调整全天事件行高 */
+}
+
+.rbc-time-view .rbc-time-column {
+  min-width: 50px; /* 调整时间列宽度 */
+}
+
+.rbc-time-view .rbc-header {
+  min-height: 25px; /* 调整头部高度 */
+}
+
+.rbc-header {
+  padding: 5px 0;
+}
+
+.rbc-day-bg {
+  background-color: var(--background-color); /* 区分日历背景和事件背景 */
+}
+
+.rbc-off-range-bg {
+  background-color: var(--background-color); /* 非本月日期背景 */
+}
+
+.rbc-today {
+  background-color: var(--primary-color) !important; /* 今日背景色 */
+  opacity: 0.1; /* 降低透明度 */
+}
+
+/* 确保日历容器有足够的空间 */
+.rbc-calendar {
+  height: 100%; /* 确保日历组件本身填充其父容器 */
+  display: flex;
+  flex-direction: column;
+}
+
+.rbc-time-content {
+  min-height: 100%; /* 确保时间轴内容有最小高度 */
+}
+
+/* 调整时间轴的可见范围，如果需要显示更多时间 */
+.rbc-time-view .rbc-allday-cell {
+  min-height: 25px; /* 调整全天事件行高 */
+}
+
+.rbc-time-view .rbc-time-column {
+  min-width: 50px; /* 调整时间列宽度 */
+}
+
+.rbc-time-view .rbc-header {
+  min-height: 25px; /* 调整头部高度 */
+}
+
+.rbc-header {
+  padding: 5px 0;
+}
+
+.rbc-day-bg {
+  background-color: var(--background-color); /* 区分日历背景和事件背景 */
+}
+
+.rbc-off-range-bg {
+  background-color: var(--background-color); /* 非本月日期背景 */
+}
+
+.rbc-today {
+  background-color: var(--primary-color) !important; /* 今日背景色 */
+  opacity: 0.1; /* 降低透明度 */
+}
+
+/* 针对rbc-toolbar的样式调整 */
+.rbc-toolbar {
+  display: flex;
+  flex-wrap: wrap; /* 允许换行 */
+  justify-content: space-between; /* 按钮组之间留白 */
+  align-items: center;
+  margin-bottom: 15px; /* 增加与日历内容的间距 */
+}
+
+.rbc-toolbar .rbc-btn-group {
+  display: flex;
+  /* 移除 flex-wrap: wrap; 确保横向排列 */
+  margin: 5px; /* 增加按钮组之间的间距 */
+}
+
+.rbc-toolbar .rbc-btn-group > button {
+  /* flex: 1 1 auto; /* 允许按钮弹性伸缩，但有最小宽度 */
+  width: 50px !important; /* 强制设置宽度为50px */
+  padding: 8px 0px; /* 调整内边距，左右为0 */
+  font-size: 14px; /* 调整字体大小 */
+  margin: 2px; /* 按钮之间的间距 */
+  border-radius: 4px; /* 圆角 */
+  background-color: var(--surface-color); /* 与背景区分 */
+  border: 1px solid var(--border-color); /* 边框 */
+  color: var(--text-color); /* 文字颜色 */
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rbc-toolbar .rbc-btn-group > button:hover {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.rbc-toolbar .rbc-btn-group > button.rbc-active {
+  background-color: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.rbc-toolbar-label {
+  flex-grow: 1;
+  text-align: left; /* 调整为左对齐，避免被遮盖 */
+  margin: 5px; /* 调整间距 */
+  font-size: 1.2em; /* 调整字体大小 */
+  font-weight: bold;
+  color: var(--text-color);
 }

@@ -25,9 +25,7 @@ import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 Chapt
 import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
 import BookManageExportPage from '../components/BookManageExportPage';
-import TrialCalendarPage from '../components/TrialCalendarPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
-import ShiftCalendarPage from '../components/ShiftCalendarPage';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
@@ -43,6 +41,8 @@ import OfficeAssistant from '../components/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
 import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
 import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
+import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
+import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 
 const router = createBrowserRouter([
 {
@@ -56,6 +56,10 @@ const router = createBrowserRouter([
             <WelcomePage />
           </ProtectedRoute>
         ),
+      },
+      {
+        path: "meeting-rooms",
+        element: <ProtectedRoute><MeetingRoomBookingPage /></ProtectedRoute>
       },
       { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
       { path: "trial-schedule", element: <GuestRoute><TrialScheduleContainer /></GuestRoute> },
@@ -194,6 +198,10 @@ const router = createBrowserRouter([
       {
         path: "compliance", // Add CompliancePage route under /admin
         element: <ProtectedRoute roles={['admin', 'manager']}><CompliancePage /></ProtectedRoute>
+      },
+      {
+        path: "meeting-room-management",
+        element: <ProtectedRoute roles={['admin', 'manager']}><MeetingRoomManagementPage /></ProtectedRoute>
       }
     ]
   },
