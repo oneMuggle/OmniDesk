@@ -1,10 +1,18 @@
 from rest_framework import generics, permissions, status, exceptions
-from .permissions import IsAdminOrManager
+from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
 from rest_framework.response import Response
 from rest_framework import status
 from django.contrib.auth import authenticate
+from .serializers import (
+    UserRegistrationSerializer,
+    UserLoginSerializer,
+    UserDetailSerializer,
+    CustomTokenObtainPairSerializer,
+    PersonnelSerializer,
+    UserAdminSerializer # 导入 UserAdminSerializer
+)
 
 
 class LoginView(APIView):
@@ -118,4 +126,15 @@ class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PersonnelSerializer
     
     permission_classes = [IsAdminOrManager]
+    lookup_field = 'id'
+
+class UserAdminListView(generics.ListAPIView):
+    queryset = CustomUser.objects.all().order_by('id') # 按照id排序
+    serializer_class = UserAdminSerializer
+    permission_classes = [IsAdmin] # 只有管理员可以访问
+
+class UserAdminDetailView(generics.RetrieveUpdateAPIView):
+    queryset = CustomUser.objects.all()
+    serializer_class = UserAdminSerializer
+    permission_classes = [IsAdmin] # 只有管理员可以访问
     lookup_field = 'id'

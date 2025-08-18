@@ -88,11 +88,20 @@ class UserDetailSerializer(serializers.ModelSerializer):
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined')
+        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'role')
+        extra_kwargs = {
+            'role': {'required': True}
+        }
 
 class PersonnelSerializer(UserSerializer):
     """兼容原有人员管理接口"""
     pass
+
+class UserAdminSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined')
+        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined') # 除了role，其他字段不允许通过此序列化器修改
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

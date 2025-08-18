@@ -1,9 +1,10 @@
-from rest_framework import viewsets
+from rest_framework import viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
+from rest_framework.permissions import IsAdminUser # 导入 IsAdminUser
 
-from .models import Config
-from .serializers import ConfigSerializer
+from .models import Config, PageConfig # 导入 PageConfig
+from .serializers import ConfigSerializer, PageConfigSerializer # 导入 PageConfigSerializer
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
@@ -37,3 +38,14 @@ class SystemConfigView(APIView):
 class UserConfigView(APIView):
     """用户配置API"""
     permission_classes = []
+
+class PageConfigListView(generics.ListCreateAPIView):
+    queryset = PageConfig.objects.all()
+    serializer_class = PageConfigSerializer
+    permission_classes = [IsAdminUser] # 只有管理员可以访问
+
+class PageConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
+    queryset = PageConfig.objects.all()
+    serializer_class = PageConfigSerializer
+    permission_classes = [IsAdminUser] # 只有管理员可以访问
+    lookup_field = 'page_path' # 根据 page_path 进行查找

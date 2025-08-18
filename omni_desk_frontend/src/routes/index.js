@@ -43,6 +43,7 @@ import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
 import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
 import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
+import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
 
 const router = createBrowserRouter([
 {
@@ -59,22 +60,22 @@ const router = createBrowserRouter([
       },
       {
         path: "meeting-rooms",
-        element: <ProtectedRoute><MeetingRoomBookingPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/meeting-rooms"><MeetingRoomBookingPage /></ProtectedRoute>
       },
       { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
       { path: "trial-schedule", element: <GuestRoute><TrialScheduleContainer /></GuestRoute> },
       { path: "shift-schedule", element: <GuestRoute><ShiftScheduleContainer /></GuestRoute> },
       {
         path: "events",
-        element: <ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/events"><EventsPage /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/equipment"><EquipmentPage /></ProtectedRoute>
       },
       {
         path: "profile",
-        element: <ProtectedRoute><ProfilePage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/profile"><ProfilePage /></ProtectedRoute>
       },
       {
         path: "library", // 新增书库路由
@@ -86,23 +87,23 @@ const router = createBrowserRouter([
       },
       {
         path: "announcements",
-        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/announcements"><AnnouncementsPage /></ProtectedRoute>
       },
       {
         path: "intelligent-chat",
-        element: <IntelligentChatPage />
+        element: <ProtectedRoute pagePath="/intelligent-chat"><IntelligentChatPage /></ProtectedRoute>
       },
       {
         path: "ragflow-chat",
-        element: <RagflowChatPage />
+        element: <ProtectedRoute pagePath="/ragflow-chat"><RagflowChatPage /></ProtectedRoute>
       },
       {
         path: "file-analysis",
-        element: <FileAnalysisPage />
+        element: <ProtectedRoute pagePath="/file-analysis"><FileAnalysisPage /></ProtectedRoute>
       },
       {
         path: "docs/cdepsio6",
-        element: <DocsPage />
+        element: <ProtectedRoute pagePath="/docs/cdepsio6"><DocsPage /></ProtectedRoute>
       },
       {
         path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
@@ -110,98 +111,102 @@ const router = createBrowserRouter([
       },
       {
         path: "memos", // 新增备忘录路由
-        element: <ProtectedRoute><MemoPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/memos"><MemoPage /></ProtectedRoute>
       },
       {
         path: "dify-apps",
-        element: <ProtectedRoute><DifyAppList /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dify-apps"><DifyAppList /></ProtectedRoute>
       },
       {
         path: "dify-apps/:appId",
-        element: <ProtectedRoute><DifyAppViewer /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dify-apps/:appId"><DifyAppViewer /></ProtectedRoute>
       },
       {
         path: "office-assistant",
-        element: <ProtectedRoute><OfficeAssistant /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/office-assistant"><OfficeAssistant /></ProtectedRoute>
       },
       {
         path: "projects", // Move ProjectsPage to root level
-        element: <ProtectedRoute roles={['admin', 'manager']}><ProjectsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/projects"><ProjectsPage /></ProtectedRoute>
       },
       {
         path: "notifications", // Add NotificationsPage to root level
-        element: <ProtectedRoute><NotificationsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/notifications"><NotificationsPage /></ProtectedRoute>
       },
       {
         path: "documents", // 将 DocumentsPage 移动到主页面路由
-        element: <ProtectedRoute roles={['admin', 'manager']}><DocumentsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/documents"><DocumentsPage /></ProtectedRoute>
       }
     ]
   },
   {
     path: "/admin",
-    element: <ProtectedRoute roles={['admin', 'manager']}><AdminLayout /></ProtectedRoute>,
+    element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin"><AdminLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <Navigate to="trials" replace /> },
       {
         path: "trials",
-        element: <ProtectedRoute roles={['admin', 'manager']}><TrialsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/trials"><TrialsPage /></ProtectedRoute>
       },
       {
         path: "personnel",
-        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel"><PersonnelPage /></ProtectedRoute>
       },
       {
         path: "schedules",
-        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedules"><ScheduleManagementPage /></ProtectedRoute>
       },
       {
         path: "personnel-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><PersonnelManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel-management"><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "book-import",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookImportPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/book-import"><BookImportPage /></ProtectedRoute>
       },
       {
         path: "book-manage-export",
-        element: <ProtectedRoute roles={['admin', 'manager']}><BookManageExportPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/book-manage-export"><BookManageExportPage /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute roles={['admin', 'manager']}><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/equipment"><EquipmentPage /></ProtectedRoute>
       },
       {
         path: "settings",
-        element: <ProtectedRoute><SettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
       },
       {
         path: "announcements",
-        element: <ProtectedRoute roles={['admin', 'manager']}><ManageAnnouncementsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements"><ManageAnnouncementsPage /></ProtectedRoute>
       },
       {
         path: "announcements/new",
-        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements/new"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "announcements/edit/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']}><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements/edit/:id"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "dify-app-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><DifyAppManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/dify-app-management"><DifyAppManagementPage /></ProtectedRoute>
       },
       {
         path: "schedule-settings",
-        element: <ProtectedRoute roles={['admin', 'manager']}><ScheduleSettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedule-settings"><ScheduleSettingsPage /></ProtectedRoute>
       },
       {
         path: "compliance", // Add CompliancePage route under /admin
-        element: <ProtectedRoute roles={['admin', 'manager']}><CompliancePage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/compliance"><CompliancePage /></ProtectedRoute>
       },
       {
         path: "meeting-room-management",
-        element: <ProtectedRoute roles={['admin', 'manager']}><MeetingRoomManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/meeting-room-management"><MeetingRoomManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "user-management",
+        element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
       }
     ]
   },

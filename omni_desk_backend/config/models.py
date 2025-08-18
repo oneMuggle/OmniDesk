@@ -14,3 +14,15 @@ class Config(models.Model):
 
     def __str__(self):
         return f"{self.key}: {self.value[:50]}"
+
+class PageConfig(models.Model):
+    page_name = models.CharField(_('页面名称'), max_length=100)
+    page_path = models.CharField(_('页面路径'), max_length=200, unique=True)
+    is_hidden_for_non_admin = models.BooleanField(_('对非管理员隐藏'), default=False)
+
+    class Meta:
+        verbose_name = _('页面配置')
+        verbose_name_plural = _('页面配置')
+
+    def __str__(self):
+        return self.page_name
