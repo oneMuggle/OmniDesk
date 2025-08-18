@@ -1,6 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { jwtDecode } from 'jwt-decode';
 import apiClient from '../api/apiClient';
+import pageConfigApi from '../api/pageConfigApi';
 
 export const AuthContext = createContext({
   user: null,
@@ -10,49 +11,59 @@ export const AuthContext = createContext({
   login: () => Promise.resolve({ success: false }),
   logout: () => {},
   register: () => Promise.resolve({ success: false }),
-  loginAsGuest: () => {}
+  loginAsGuest: () => {},
+  pageConfigs: [],
+  isPageVisible: () => true,
 });
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [isInitializing, setIsInitializing] = useState(true);
   const [isGuest, setIsGuest] = useState(false);
-  
-  useEffect(() => {
-    const storedTokens = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens');
-    if (storedTokens) {
-      try {
-        const { access } = JSON.parse(storedTokens);
-        if (access) {
-          const decodedToken = jwtDecode(access);
-          const storedPermissions = JSON.parse(localStorage.getItem('userPermissions') || sessionStorage.getItem('userPermissions') || '[]');
-          const permissions = storedPermissions || [];
+  const [pageConfigs, setPageConfigs] = useState([]);
 
-          apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
-          apiClient.get('/users/me/')
-            .then(res => {
-              const userDataWithPermissions = { ...res.data, permissions };
-              setUser(userDataWithPermissions);
-              setIsInitializing(false);
-              setIsGuest(false);
-            })
-            .catch(() => {
-              localStorage.removeItem('authTokens');
-              delete apiClient.defaults.headers.common['Authorization'];
-              setIsInitializing(false);
-            });
-        } else {
-          setIsInitializing(false);
-        }
-      } catch (error) {
-        console.error('Error parsing authTokens:', error);
-        localStorage.removeItem('authTokens');
-        setIsInitializing(false);
-      }
-    } else {
-      setIsInitializing(false);
+  const fetchPageConfigs = useCallback(async () => {
+    try {
+      const response = await pageConfigApi.getAllPageConfigs();
+      setPageConfigs(response.data);
+    } catch (error) {
+      console.error('Failed to fetch page configurations:', error);
+      setPageConfigs([]);
     }
   }, []);
+
+  useEffect(() => {
+    const initializeAuth = async () => {
+      const storedTokens = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens');
+      if (storedTokens) {
+        try {
+          const { access } = JSON.parse(storedTokens);
+          if (access) {
+            apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
+            try {
+              const res = await apiClient.get('/users/me/');
+              const storedPermissions = JSON.parse(localStorage.getItem('userPermissions') || sessionStorage.getItem('userPermissions') || '[]');
+              const permissions = storedPermissions || [];
+              const userDataWithPermissions = { ...res.data, permissions };
+              setUser(userDataWithPermissions);
+              setIsGuest(false);
+              await fetchPageConfigs();
+            } catch (error) {
+              console.error('Failed to fetch user data:', error);
+              localStorage.removeItem('authTokens');
+              delete apiClient.defaults.headers.common['Authorization'];
+            }
+          }
+        } catch (error) {
+          console.error('Error parsing authTokens:', error);
+          localStorage.removeItem('authTokens');
+        }
+      }
+      setIsInitializing(false);
+    };
+
+    initializeAuth();
+  }, [fetchPageConfigs]);
 
   const login = async (username, password, rememberMe = false) => {
     try {
@@ -77,11 +88,12 @@ export function AuthProvider({ children }) {
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/users/me/');
-      const permissions = res.data.permissions || []; // 从登录API的原始响应中获取权限
+      const permissions = res.data.permissions || [];
       const userData = { ...userRes.data, permissions };
 
       setUser(userData);
       setIsGuest(false);
+      await fetchPageConfigs();
       
       console.log('Login successful - auth state updated:', {
         user: userData,
@@ -131,6 +143,7 @@ export function AuthProvider({ children }) {
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setIsGuest(false);
+    setPageConfigs([]);
     window.location.href = '/';
   };
 
@@ -141,7 +154,7 @@ export function AuthProvider({ children }) {
       delete apiClient.defaults.headers.common['Authorization'];
       setUser(null);
       setIsGuest(true);
-      // 添加微小延迟确保状态更新
+      setPageConfigs([]);
       await new Promise(resolve => setTimeout(resolve, 50));
       return { success: true };
     } catch (error) {
@@ -157,6 +170,28 @@ export function AuthProvider({ children }) {
     return user.permissions.includes(permission);
   };
 
+  const isPageVisible = useCallback((pagePath) => {
+    // 管理员始终可见所有页面
+    if (user && user.role === 'admin') {
+      return true;
+    }
+
+    // 确保 pageConfigs 是一个数组
+    if (!Array.isArray(pageConfigs)) {
+      return true; // 如果 pageConfigs 不是数组，默认可见以避免错误
+    }
+
+    const config = pageConfigs.find(pc => pc.page_path === pagePath);
+    if (config) {
+      // 如果配置为对非管理员隐藏，且当前用户不是管理员，则隐藏
+      if (config.is_hidden_for_non_admin && user && user.role !== 'admin') {
+        return false;
+      }
+    }
+    // 默认可见，或者没有特殊配置的页面也可见
+    return true;
+  }, [user, pageConfigs]);
+
   const value = {
     user,
     isAuthenticated: !!user,
@@ -166,7 +201,9 @@ export function AuthProvider({ children }) {
     logout,
     register,
     loginAsGuest,
-    hasPermission
+    hasPermission,
+    pageConfigs,
+    isPageVisible,
   };
 
   return (
