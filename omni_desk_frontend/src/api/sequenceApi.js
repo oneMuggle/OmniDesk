@@ -4,7 +4,7 @@ import apiClient from './apiClient';
 
 // 获取所有人员顺序
 export const getPersonnelSequences = () => {
-  return apiClient.get('/personnel-sequences/');
+  return apiClient.get('/events/personnel-sequences/');
 };
 
 // 获取单个人员顺序
@@ -32,7 +32,7 @@ export const deletePersonnelSequence = (id) => {
 
 // 获取所有领导顺序
 export const getLeaderSequences = () => {
-  return apiClient.get('/leader-sequences/');
+  return apiClient.get('/events/leader-sequences/');
 };
 
 // 获取单个领导顺序

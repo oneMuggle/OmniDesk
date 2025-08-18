@@ -63,7 +63,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         { to: "/admin/compliance", text: "合规问题", permission: ["admin", "manager"] },
       ]
     },
-    { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
+ { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
     { to: "/notifications", icon: faBell, text: "通知中心", permission: null }, // 新增通知中心链接
     { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }
   ];

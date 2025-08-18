@@ -52,7 +52,8 @@ const AdminLayout = () => {
     { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] }, // 假设设置也放在这里，且需要admin/manager权限
     { to: "/admin/announcements", icon: faBullhorn, text: "公告管理", permission: ['admin', 'manager'] },
     { to: "/admin/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: ['admin', 'manager'] },
-    { to: "/admin/schedule-settings", icon: faCog, text: "排班设置", permission: ['admin', 'manager'] }
+    { to: "/admin/schedule-settings", icon: faCog, text: "排班设置", permission: ['admin', 'manager'] },
+    { to: "/admin/meeting-room-management", icon: faCog, text: "会议室管理", permission: ['admin', 'manager'] }
   ];
 
   return (

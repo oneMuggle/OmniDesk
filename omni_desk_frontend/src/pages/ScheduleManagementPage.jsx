@@ -134,7 +134,7 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
           rules={[{ required: true, message: '请选择人员顺序!' }]}
         >
           <Select placeholder="选择人员顺序">
-            {personnelSequences.map(seq => (
+            {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name}
               </Option>
@@ -147,7 +147,7 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
           rules={[{ required: true, message: '请选择领导顺序!' }]}
         >
           <Select placeholder="选择领导顺序">
-            {leaderSequences.map(seq => (
+            {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name}
               </Option>
