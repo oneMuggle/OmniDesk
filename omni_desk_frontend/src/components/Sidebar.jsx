@@ -26,7 +26,7 @@ import {
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSubMenu, setExpandedSubMenu] = useState({}); // 维护每个子菜单的展开状态
-  const { user, isAuthenticated, logout, hasPermission } = useAuth();
+  const { user, isAuthenticated, logout, hasPermission, isInitializing } = useAuth();
   const location = useLocation();
 
   const menuItems = [
@@ -192,6 +192,14 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         <nav className="sidebar-menu">
           <ul>
             {menuItems.filter(item => {
+              // 在认证初始化完成且用户未登录时，不渲染需要认证的菜单项
+              if (!isInitializing && item.permission === 'authenticated' && !isAuthenticated) {
+                return false;
+              }
+              // 在认证初始化中，不渲染需要认证的菜单项
+              if (isInitializing && item.permission === 'authenticated') {
+                return false;
+              }
               // 对于 /admin 路径，使用user?.role判断
               if (item.to === "/admin") {
                 return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
