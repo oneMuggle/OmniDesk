@@ -435,6 +435,15 @@ class ImageUploadView(APIView):
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class PersonnelSequenceViewSet(viewsets.ModelViewSet):
+    queryset = PersonnelSequence.objects.all()
+    serializer_class = PersonnelSequenceSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+
+class LeaderSequenceViewSet(viewsets.ModelViewSet):
+    queryset = LeaderSequence.objects.all()
+    serializer_class = LeaderSequenceSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
 
 class PersonnelSequenceViewSet(viewsets.ModelViewSet):
     queryset = PersonnelSequence.objects.all()

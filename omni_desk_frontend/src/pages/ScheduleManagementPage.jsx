@@ -136,7 +136,7 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
           <Select placeholder="选择人员顺序">
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
-                {seq.name}
+                {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
               </Option>
             ))}
           </Select>
@@ -149,7 +149,7 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
           <Select placeholder="选择领导顺序">
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
-                {seq.name}
+                {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
               </Option>
             ))}
           </Select>
@@ -207,9 +207,9 @@ const ScheduleManagementPage = () => {
   const fetchSequences = async () => {
     try {
       const personnelRes = await getPersonnelSequences();
-      setPersonnelSequences(personnelRes.data);
+      setPersonnelSequences(personnelRes.data.results);
       const leaderRes = await getLeaderSequences();
-      setLeaderSequences(leaderRes.data);
+      setLeaderSequences(leaderRes.data.results);
     } catch (error) {
       message.error('获取顺序列表失败');
     }

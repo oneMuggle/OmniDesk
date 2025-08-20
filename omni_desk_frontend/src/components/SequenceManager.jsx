@@ -120,7 +120,7 @@ const SequenceManager = () => {
       ]);
       setPersonnelSequences(Array.isArray(personnelRes.data) ? personnelRes.data : []);
       setLeaderSequences(Array.isArray(leaderRes.data) ? leaderRes.data : []);
-      setAllPersonnel(Array.isArray(personnelListRes.data) ? personnelListRes.data : []);
+      setAllPersonnel(Array.isArray(personnelListRes.data.results) ? personnelListRes.data.results : []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");
       console.error("Failed to fetch data", error);

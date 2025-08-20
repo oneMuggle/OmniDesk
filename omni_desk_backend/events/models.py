@@ -232,6 +232,7 @@ class UploadedImage(models.Model):
 
 class PersonnelSequence(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="人员顺序名称")
+    personnel = models.ManyToManyField(Personnel, related_name='personnel_sequences')
     sequence = models.JSONField(default=list, verbose_name="人员ID顺序列表")
 
     class Meta:
@@ -243,28 +244,7 @@ class PersonnelSequence(models.Model):
 
 class LeaderSequence(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="领导顺序名称")
-    sequence = models.JSONField(default=list, verbose_name="领导ID顺序列表")
-
-    class Meta:
-        verbose_name = "领导顺序"
-        verbose_name_plural = "领导顺序管理"
-
-    def __str__(self):
-        return self.name
-
-class PersonnelSequence(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="人员顺序名称")
-    sequence = models.JSONField(default=list, verbose_name="人员ID顺序列表")
-
-    class Meta:
-        verbose_name = "人员顺序"
-        verbose_name_plural = "人员顺序管理"
-
-    def __str__(self):
-        return self.name
-
-class LeaderSequence(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="领导顺序名称")
+    personnel = models.ManyToManyField(Personnel, related_name='leader_sequences')
     sequence = models.JSONField(default=list, verbose_name="领导ID顺序列表")
 
     class Meta:

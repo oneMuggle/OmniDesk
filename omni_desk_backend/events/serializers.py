@@ -270,11 +270,15 @@ class UploadedImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'uploaded_at']
 
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
+    personnel_details = PersonnelSerializer(many=True, read_only=True, source='personnel')
+
     class Meta:
         model = PersonnelSequence
-        fields = '__all__'
+        fields = ['id', 'name', 'sequence', 'personnel_details']
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
+    personnel_details = PersonnelSerializer(many=True, read_only=True, source='personnel')
+
     class Meta:
         model = LeaderSequence
-        fields = '__all__'
+        fields = ['id', 'name', 'sequence', 'personnel_details']
