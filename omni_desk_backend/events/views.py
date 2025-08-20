@@ -434,23 +434,21 @@ class ImageUploadView(APIView):
         if serializer.is_valid():
             serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 class PersonnelSequenceViewSet(viewsets.ModelViewSet):
+    """
+    人员顺序视图集
+    """
     queryset = PersonnelSequence.objects.all()
     serializer_class = PersonnelSequenceSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
 
 class LeaderSequenceViewSet(viewsets.ModelViewSet):
+    """
+    领导顺序视图集
+    """
     queryset = LeaderSequence.objects.all()
     serializer_class = LeaderSequenceSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
-
-class PersonnelSequenceViewSet(viewsets.ModelViewSet):
-    queryset = PersonnelSequence.objects.all()
-    serializer_class = PersonnelSequenceSerializer
-    permission_classes = [IsAdminOrManager]
-
-class LeaderSequenceViewSet(viewsets.ModelViewSet):
-    queryset = LeaderSequence.objects.all()
-    serializer_class = LeaderSequenceSerializer
-    permission_classes = [IsAdminOrManager]

@@ -118,8 +118,8 @@ const SequenceManager = () => {
         getLeaderSequences(),
         getPersonnel()
       ]);
-      setPersonnelSequences(Array.isArray(personnelRes.data) ? personnelRes.data : []);
-      setLeaderSequences(Array.isArray(leaderRes.data) ? leaderRes.data : []);
+      setPersonnelSequences(Array.isArray(personnelRes.data.results) ? personnelRes.data.results : []);
+      setLeaderSequences(Array.isArray(leaderRes.data.results) ? leaderRes.data.results : []);
       setAllPersonnel(Array.isArray(personnelListRes.data.results) ? personnelListRes.data.results : []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");
@@ -152,19 +152,27 @@ const SequenceManager = () => {
   };
 
   const handleSave = async (values) => {
+    const isUpdate = !!values.id;
     const apiCall = isEditingLeader
-      ? (values.id ? updateLeaderSequence : createLeaderSequence)
-      : (values.id ? updatePersonnelSequence : createPersonnelSequence);
+      ? (isUpdate ? updateLeaderSequence : createLeaderSequence)
+      : (isUpdate ? updatePersonnelSequence : createPersonnelSequence);
 
     try {
-      if (values.id) {
-        await apiCall(values.id, values);
-      } else {
-        await apiCall(values);
-      }
+      const response = isUpdate ? await apiCall(values.id, values) : await apiCall(values);
+      const savedSequence = response.data;
+      
       message.success('保存成功');
       setIsModalVisible(false);
-      fetchData();
+
+      if (isEditingLeader) {
+        setLeaderSequences(prev =>
+          isUpdate ? prev.map(s => s.id === savedSequence.id ? savedSequence : s) : [...prev, savedSequence]
+        );
+      } else {
+        setPersonnelSequences(prev =>
+          isUpdate ? prev.map(s => s.id === savedSequence.id ? savedSequence : s) : [...prev, savedSequence]
+        );
+      }
     } catch (error) {
       message.error('保存失败');
       console.error("Failed to save sequence", error);

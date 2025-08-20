@@ -270,15 +270,31 @@ class UploadedImageSerializer(serializers.ModelSerializer):
         fields = ['id', 'image', 'uploaded_at']
 
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
-    personnel_details = PersonnelSerializer(many=True, read_only=True, source='personnel')
+    personnel_details = serializers.SerializerMethodField()
 
     class Meta:
         model = PersonnelSequence
         fields = ['id', 'name', 'sequence', 'personnel_details']
 
+    def get_personnel_details(self, obj):
+        personnel_ids = obj.sequence
+        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        # 保持原始ID列表的顺序
+        personnel_map = {p.id: p for p in personnel_queryset}
+        sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
+        return PersonnelSerializer(sorted_personnel, many=True).data
+
 class LeaderSequenceSerializer(serializers.ModelSerializer):
-    personnel_details = PersonnelSerializer(many=True, read_only=True, source='personnel')
+    personnel_details = serializers.SerializerMethodField()
 
     class Meta:
         model = LeaderSequence
         fields = ['id', 'name', 'sequence', 'personnel_details']
+
+    def get_personnel_details(self, obj):
+        personnel_ids = obj.sequence
+        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        # 保持原始ID列表的顺序
+        personnel_map = {p.id: p for p in personnel_queryset}
+        sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
+        return PersonnelSerializer(sorted_personnel, many=True).data
