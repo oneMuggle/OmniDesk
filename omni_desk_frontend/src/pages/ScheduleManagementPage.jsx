@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Calendar as AntdCalendar } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Calendar as AntdCalendar, Radio } from 'antd';
 import { scheduleApi } from '../api/scheduleApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
@@ -94,46 +94,69 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
 
 const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, leaderSequences }) => {
   const [form] = Form.useForm();
+  const [generationMode, setGenerationMode] = useState('days');
+  const [selectedPersonnel, setSelectedPersonnel] = useState([]);
+  const [selectedLeaders, setSelectedLeaders] = useState([]);
 
   const handleOk = () => {
     form.validateFields()
       .then(values => {
-        const submitData = {
-          ...values,
-          start_date: values.start_date ? values.start_date.format('YYYY-MM-DD') : null,
-          personnel_sequence_id: values.personnel_sequence_id,
-          leader_sequence_id: values.leader_sequence_id,
-        };
+        const submitData = { ...values };
+        if (values.start_date) {
+          submitData.start_date = values.start_date.format('YYYY-MM-DD');
+        }
+        if (values.target_month) {
+          submitData.target_month = values.target_month.format('YYYY-MM');
+        }
         onOk(submitData);
         form.resetFields();
+        setSelectedPersonnel([]);
+        setSelectedLeaders([]);
       })
       .catch(info => {
         console.log('Validate Failed:', info);
       });
   };
 
+  const handleSequenceChange = (type, sequenceId) => {
+    if (type === 'personnel') {
+      const sequence = personnelSequences.find(s => s.id === sequenceId);
+      setSelectedPersonnel(sequence ? sequence.personnel_details : []);
+      form.setFieldsValue({ start_personnel_id: null });
+    } else if (type === 'leader') {
+      const sequence = leaderSequences.find(s => s.id === sequenceId);
+      setSelectedLeaders(sequence ? sequence.personnel_details : []);
+      form.setFieldsValue({ start_leader_id: null });
+    }
+  };
+
   return (
-    <Modal
-      title="生成排班"
-      visible={visible}
-      onOk={handleOk}
-      onCancel={onCancel}
-      destroyOnClose
-    >
-      <Form form={form} layout="vertical">
-        <Form.Item
-          name="start_date"
-          label="起始日期"
-          rules={[{ required: true, message: '请选择起始日期!' }]}
-        >
-          <DatePicker style={{ width: '100%' }} />
+    <Modal title="生成排班" visible={visible} onOk={handleOk} onCancel={onCancel} destroyOnClose>
+      <Form form={form} layout="vertical" initialValues={{ generationMode: 'days' }}>
+        <Form.Item name="generationMode" label="生成方式">
+          <Radio.Group onChange={(e) => setGenerationMode(e.target.value)}>
+            <Radio value="days">按天数</Radio>
+            <Radio value="month">按月份</Radio>
+          </Radio.Group>
         </Form.Item>
-        <Form.Item
-          name="personnel_sequence_id"
-          label="人员顺序"
-          rules={[{ required: true, message: '请选择人员顺序!' }]}
-        >
-          <Select placeholder="选择人员顺序">
+
+        {generationMode === 'days' ? (
+          <>
+            <Form.Item name="start_date" label="起始日期" rules={[{ required: true, message: '请选择起始日期!' }]}>
+              <DatePicker style={{ width: '100%' }} />
+            </Form.Item>
+            <Form.Item name="duration_days" label="生成天数" initialValue={30} rules={[{ required: true, message: '请输入生成天数!' }]}>
+              <Input type="number" />
+            </Form.Item>
+          </>
+        ) : (
+          <Form.Item name="target_month" label="选择月份" rules={[{ required: true, message: '请选择月份!' }]}>
+            <DatePicker.MonthPicker style={{ width: '100%' }} />
+          </Form.Item>
+        )}
+
+        <Form.Item name="personnel_sequence_id" label="人员顺序" rules={[{ required: true, message: '请选择人员顺序!' }]}>
+          <Select placeholder="选择人员顺序" onChange={(value) => handleSequenceChange('personnel', value)}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
@@ -141,12 +164,15 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
             ))}
           </Select>
         </Form.Item>
-        <Form.Item
-          name="leader_sequence_id"
-          label="领导顺序"
-          rules={[{ required: true, message: '请选择领导顺序!' }]}
-        >
-          <Select placeholder="选择领导顺序">
+
+        <Form.Item name="start_personnel_id" label="起始人员">
+          <Select placeholder="选择起始人员" allowClear>
+            {selectedPersonnel.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+          </Select>
+        </Form.Item>
+
+        <Form.Item name="leader_sequence_id" label="领导顺序" rules={[{ required: true, message: '请选择领导顺序!' }]}>
+          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
@@ -154,13 +180,11 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
             ))}
           </Select>
         </Form.Item>
-        <Form.Item
-          name="duration_days"
-          label="生成天数"
-          initialValue={30}
-          rules={[{ required: true, message: '请输入生成天数!' }]}
-        >
-          <Input type="number" />
+
+        <Form.Item name="start_leader_id" label="起始领导">
+          <Select placeholder="选择起始领导" allowClear>
+            {selectedLeaders.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+          </Select>
         </Form.Item>
       </Form>
     </Modal>
@@ -258,17 +282,13 @@ const ScheduleManagementPage = () => {
 
   const handleGenerateModalOk = async (values) => {
     try {
-      await scheduleApi.generateSchedules({
-        start_date: values.start_date,
-        personnel_sequence_id: values.personnel_sequence_id,
-        leader_sequence_id: values.leader_sequence_id,
-        duration_days: values.duration_days,
-      });
+      await scheduleApi.generateSchedules(values);
       message.success('排班生成成功');
       setIsGenerateModalVisible(false);
       fetchData();
     } catch (error) {
-      message.error('生成排班失败');
+      const errorMsg = error.response?.data?.error || '生成排班失败';
+      message.error(errorMsg);
     }
   };
 

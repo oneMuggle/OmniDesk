@@ -16,20 +16,27 @@ export const scheduleApi = {
 
   getSchedules: async () => {
     try {
-      const response = await apiClient.get('/events/schedules/');
-      console.log('API原始响应数据:', response.data); // 添加调试日志
+      let allSchedules = [];
+      let url = '/events/schedules/';
       
-      if (!response?.data) {
-        console.error('无效的API响应格式: 缺少data字段', response);
-        return [];
+      while (url) {
+        const response = await apiClient.get(url);
+        console.log(`API原始响应数据 (${url}):`, response.data);
+
+        if (!response?.data) {
+          console.error('无效的API响应格式: 缺少data字段', response);
+          break;
+        }
+
+        const results = Array.isArray(response.data.results) ? response.data.results : [];
+        allSchedules = allSchedules.concat(results);
+        
+        url = response.data.next;
       }
 
-      const results = Array.isArray(response.data.results) 
-        ? response.data.results 
-        : [];
-      console.log('转换前排班数据:', results); // 添加调试日志
+      console.log('转换前所有排班数据:', allSchedules);
 
-      return results.map(schedule => ({
+      return allSchedules.map(schedule => ({
         id: schedule.id,
         duty_date: schedule.duty_date,
         duty_person: schedule.duty_person,
@@ -48,8 +55,8 @@ export const scheduleApi = {
       console.log('创建排班请求数据:', scheduleData);
       const response = await apiClient.post('/events/schedules/', {
         duty_date: scheduleData.date,
-        duty_person: scheduleData.staff,
-        duty_leader: scheduleData.leader
+        duty_person: scheduleData.duty_person,
+        duty_leader: scheduleData.duty_leader
       });
       console.log('创建排班响应:', response.data);
       return response.data;
@@ -65,8 +72,8 @@ export const scheduleApi = {
       console.log('更新排班请求数据:', {scheduleId, ...scheduleData});
       const response = await apiClient.patch(`/events/schedules/${scheduleId}/`, {
         duty_date: scheduleData.date,
-        duty_person: scheduleData.staff,
-        duty_leader: scheduleData.leader
+        duty_person: scheduleData.duty_person,
+        duty_leader: scheduleData.duty_leader
       });
       console.log('更新排班响应:', response.data);
       return response.data;

@@ -1,83 +1,78 @@
-# 排班顺序管理功能开发计划
+# 排班生成功能增强计划
 
-## 1. 核心目标
+## 1. 目标
 
-实现一个可以预先定义、保存和调用“值班人员”和“值班领导”顺序的功能，以简化和加速排班流程。
+增强排班管理页面的排班生成功能，实现以下目标：
 
-## 2. 后端开发计划 (Django REST Framework)
+1.  **指定起始人员/领导**：在按顺序生成排班时，可以指定从哪位人员和领导开始。
+2.  **按月份生成**：除了按指定天数生成外，增加按整个月份生成排班的选项。
 
-### 2.1. 新建数据模型 (`models.py`)
+## 2. 修订版开发计划
 
-创建两个新的模型来分别存储人员和领导的顺序：
+### 2.1. 后端修改 (Django)
 
-*   **`PersonnelSequence`**: 用于存储值班人员的排序列表。
-*   **`LeaderSequence`**: 用于存储值班领导的排序列表。
+**文件**: `omni_desk_backend/events/views.py`
+**函数**: `ScheduleViewSet.generate_schedules`
 
-每个模型将包含以下字段：
-*   `name`: 顺序的名称（例如，“日常轮班组”、“周末领导组”），方便用户识别和选择。
-*   `sequence`: 一个 `JSONField`，用于存储一个有序的人员ID列表 (e.g., `[3, 1, 4, 2]`)。
+*   **新增生成模式**: 函数将支持两种生成模式：按“持续天数”或按“指定月份”。
+*   **参数调整**:
+    *   接收 `target_month` (格式: "YYYY-MM") 或 `duration_days`。这两个参数是互斥的。
+    *   接收可选参数 `start_personnel_id` 和 `start_leader_id`。
+*   **逻辑调整**:
+    *   如果提供了 `target_month`，后端计算该月总天数，并将该月的第一天作为 `start_date`。
+    *   如果提供了 `start_personnel_id`，在 `personnel_order` 数组中找到该人员的索引，并从该索引开始循环。
+    *   如果提供了 `start_leader_id`，在 `leader_order` 数组中找到该领导的索引，并从该索引开始循环。
+    *   排班计算逻辑调整为 `(起始索引 + 当前循环次数) % 序列长度`。
 
-### 2.2. 创建序列化器 (`serializers.py`)
+### 2.2. 前端修改 (React)
 
-为 `PersonnelSequence` 和 `LeaderSequence` 模型创建对应的序列化器，以便在API中进行数据转换。
+**文件**: `omni_desk_frontend/src/pages/ScheduleManagementPage.jsx`
+**组件**: `GenerateScheduleModal`
 
-### 2.3. 创建新的API视图 (`views.py`)
+*   **增加生成方式选项**: 添加一个单选框，让用户选择“按天数生成”或“按月份生成”。
+*   **动态表单项**:
+    *   当选择“按天数生成”时，显示“起始日期”和“生成天数”的输入框。
+    *   当选择“按月份生成”时，显示一个“选择月份”的组件 (`DatePicker.MonthPicker`)。
+*   **新增下拉框**:
+    *   增加“起始人员”下拉选择框。
+    *   增加“起始领导”下拉选择框。
+*   **动态加载选项**: 当用户选择了“人员顺序”或“领导顺序”后，动态地将对应顺序中的人员/领导填充到“起始人员”和“起始领导”的下拉框中。
+*   **更新API调用**: 在 `handleGenerateModalOk` 函数中，将新选择的 `start_personnel_id` 和 `start_leader_id`，以及 `duration_days` 或 `target_month` 传递给后端。
 
-创建一个新的 `ViewSet`，提供对 `PersonnelSequence` 和 `LeaderSequence` 模型的增删改查（CRUD）功能。这将允许前端管理这些预设的顺序。
+### 2.3. API层修改
 
-### 2.4. 修改排班生成逻辑 (`ScheduleViewSet` in `views.py`)
+**文件**: `omni_desk_frontend/src/api/scheduleApi.js`
+**函数**: `generateSchedules`
 
-改造现有的 `generate_schedules` 方法：
-*   它将接受 `personnel_sequence_id` 和 `leader_sequence_id` 作为新的参数。
-*   后端逻辑会根据传入的ID，查找对应的顺序，并使用其中预设的人员列表来生成排班。
-*   保留旧的 `personnel_order` 逻辑作为备用方案，以保持向后兼容性。
+*   确保函数能将新的 `target_month`, `start_personnel_id`, 和 `start_leader_id` 参数包含在发送给后端的POST请求中。
 
-## 3. 前端开发计划 (React)
-
-### 3.1. 开发顺序管理界面
-
-创建一个新的管理页面或弹窗，用户可以在这里：
-*   查看所有已保存的人员和领导顺序。
-*   创建新的顺序：为顺序命名，并从人员列表中选择人员，通过拖拽等方式进行排序。
-*   编辑或删除已有的顺序。
-
-### 3.2. 优化排班生成界面
-
-在现有的“生成排班”功能中，将手动选择和排序人员的复杂操作替换为两个简单的下拉菜单：
-*   一个下拉菜单用于选择“值班人员顺序”。
-*   另一个下拉菜单用于选择“值班领导顺序”。
-*   用户选择好顺序后，点击“生成”按钮，前端将调用新的API，并传递所选顺序的ID。
-
-## 4. 计划示意图
+## 3. 修订后计划图
 
 ```mermaid
 graph TD
-    subgraph Backend (DRF)
-        A[1. 定义新模型: PersonnelSequence, LeaderSequence] --> B[2. 创建序列化器];
-        B --> C[3. 创建用于管理顺序的ViewSet];
-        C --> D[4. 修改 generate_schedules 视图以使用Sequence ID];
+    subgraph 前端 (React)
+        A["ScheduleManagementPage.jsx"] --> B{"GenerateScheduleModal"};
+        B -- 新增 --> B1["选择生成方式 (天数/月份)"];
+        B1 -- "按天数" --> B2["输入起始日期和天数"];
+        B1 -- "按月份" --> B3["选择目标月份"];
+        B -- 新增 --> C["选择起始人员"];
+        B -- 新增 --> D["选择起始领导"];
+        B -- 点击确认 --> G["handleGenerateModalOk"];
+        G -- 调用 --> H["api.generateSchedules"];
     end
 
-    subgraph Frontend (React)
-        E[5. 创建顺序管理UI] --> F[6. 实现对顺序的增删改查];
-        F --> G[7. 修改排班生成UI];
-        G --> H[8. 使用下拉菜单选择顺序];
-        H --> D;
+    subgraph API层
+        H -- HTTP POST请求 --> I["/events/schedules/generate-schedules/"];
     end
 
-    subgraph User Interaction
-        I[用户预先定义并保存顺序] --> E;
-        J[用户选择预设顺序以生成排班] --> G;
+    subgraph 后端 (Django)
+        I --> J["events/views.py: ScheduleViewSet"];
+        J -- 执行 --> K["generate_schedules"];
+        K -- 接收参数 --> L["duration_days 或 target_month"];
+        K -- 接收新参数 --> L2["start_personnel_id, start_leader_id"];
+        K -- 判断逻辑 --> K1{"有 target_month 吗?"};
+        K1 -- "是" --> K2["计算月份天数, 设置起始日期为月初"];
+        K1 -- "否" --> K3["使用 duration_days 和 start_date"];
+        K -- 查找起始位置 --> M["在序列中查找索引"];
+        K -- 生成排班 --> N["创建排班记录"];
     end
-
-    D --> K[成功生成并保存排班];
-
-    style A fill:#f9f,stroke:#333,stroke-width:2px
-    style B fill:#f9f,stroke:#333,stroke-width:2px
-    style C fill:#f9f,stroke:#333,stroke-width:2px
-    style D fill:#f9f,stroke:#333,stroke-width:2px
-
-    style E fill:#ccf,stroke:#333,stroke-width:2px
-    style F fill:#ccf,stroke:#333,stroke-width:2px
-    style G fill:#ccf,stroke:#333,stroke-width:2px
-    style H fill:#ccf,stroke:#333,stroke-width:2px

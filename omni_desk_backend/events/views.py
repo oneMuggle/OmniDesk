@@ -10,6 +10,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
+import calendar
 from datetime import datetime, timedelta
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
@@ -242,26 +243,36 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     @action(detail=False, methods=['post'], url_path='generate-schedules')
     def generate_schedules(self, request):
         """
-        根据人员顺序和起始日期自动生成排班。
-        请求体示例:
-        {
-            "start_date": "2025-01-01",
-            "personnel_order": [1, 2, 3, 4], // 人员ID列表，按顺序排班
-            "duration_days": 30 // 可选，生成排班的天数，默认为30天
-        }
+        根据人员顺序、起始日期或月份自动生成排班。
+        支持指定起始人员和领导。
         """
-        start_date_str = request.data.get('start_date')
         personnel_sequence_id = request.data.get('personnel_sequence_id')
         leader_sequence_id = request.data.get('leader_sequence_id')
-        duration_days = request.data.get('duration_days', 30)
+        start_personnel_id = request.data.get('start_personnel_id')
+        start_leader_id = request.data.get('start_leader_id')
+        target_month = request.data.get('target_month') # e.g., "2025-09"
+        duration_days = request.data.get('duration_days')
+        start_date_str = request.data.get('start_date')
 
-        if not start_date_str or not personnel_sequence_id or not leader_sequence_id:
-            return Response({'error': 'start_date, personnel_sequence_id, and leader_sequence_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+        if not personnel_sequence_id or not leader_sequence_id:
+            return Response({'error': 'personnel_sequence_id and leader_sequence_id are required'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+        if target_month:
+            try:
+                month_date = datetime.strptime(target_month, '%Y-%m').date()
+                start_date = month_date.replace(day=1)
+                _, num_days = calendar.monthrange(start_date.year, start_date.month)
+                duration_days = num_days
+            except ValueError:
+                return Response({'error': 'Invalid month format. Use YYYY-MM.'}, status=status.HTTP_400_BAD_REQUEST)
+        elif duration_days and start_date_str:
+            try:
+                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                duration_days = int(duration_days)
+            except (ValueError, TypeError):
+                return Response({'error': 'Invalid date or duration format.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            return Response({'error': 'Either target_month or both start_date and duration_days are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             personnel_sequence = PersonnelSequence.objects.get(id=personnel_sequence_id)
@@ -275,25 +286,37 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         if not personnel_order or not leader_order:
             return Response({'error': 'Sequence cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
+        personnel_start_index = 0
+        if start_personnel_id:
+            try:
+                personnel_start_index = personnel_order.index(int(start_personnel_id))
+            except (ValueError, TypeError):
+                return Response({'error': f'start_personnel_id {start_personnel_id} not in sequence.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        leader_start_index = 0
+        if start_leader_id:
+            try:
+                leader_start_index = leader_order.index(int(start_leader_id))
+            except (ValueError, TypeError):
+                return Response({'error': f'start_leader_id {start_leader_id} not in sequence.'}, status=status.HTTP_400_BAD_REQUEST)
+
         created_schedules = []
         with transaction.atomic():
             for i in range(duration_days):
                 current_date = start_date + timedelta(days=i)
                 
-                # 轮流选择值班人员和领导
-                # 确保值班人员和值班领导不是同一个人
-                duty_person_id = personnel_order[i % len(personnel_order)]
-                duty_leader_id = leader_order[i % len(leader_order)]
+                personnel_idx = (personnel_start_index + i) % len(personnel_order)
+                leader_idx = (leader_start_index + i) % len(leader_order)
+                
+                duty_person_id = personnel_order[personnel_idx]
+                duty_leader_id = leader_order[leader_idx]
 
-                # 检查该日期是否已有排班，如果有则覆盖
-                existing_schedule = Schedule.objects.filter(duty_date=current_date)
-                if existing_schedule.exists():
-                    existing_schedule.delete() # 删除旧排班
+                Schedule.objects.filter(duty_date=current_date).delete()
 
                 schedule_data = {
                     'duty_date': current_date,
-                    'duty_person': Personnel.objects.get(id=duty_person_id),
-                    'duty_leader': Personnel.objects.get(id=duty_leader_id)
+                    'duty_person_id': duty_person_id,
+                    'duty_leader_id': duty_leader_id
                 }
                 
                 schedule = Schedule.objects.create(**schedule_data)
