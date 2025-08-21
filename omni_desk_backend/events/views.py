@@ -221,10 +221,15 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 schedule1 = Schedule.objects.get(pk=schedule_id_1)
                 schedule2 = Schedule.objects.get(pk=schedule_id_2)
                 
-                # 交换日期
-                temp_date = schedule1.duty_date
-                schedule1.duty_date = schedule2.duty_date
-                schedule2.duty_date = temp_date
+                # 交换人员和领导，而不是日期，以避免违反UNIQUE约束
+                temp_person = schedule1.duty_person
+                temp_leader = schedule1.duty_leader
+
+                schedule1.duty_person = schedule2.duty_person
+                schedule1.duty_leader = schedule2.duty_leader
+
+                schedule2.duty_person = temp_person
+                schedule2.duty_leader = temp_leader
                 
                 # 保存并验证
                 schedule1.save()

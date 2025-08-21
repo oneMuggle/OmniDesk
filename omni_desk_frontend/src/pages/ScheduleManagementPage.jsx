@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Calendar as AntdCalendar, Radio } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio } from 'antd';
 import { scheduleApi } from '../api/scheduleApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import interactionPlugin from '@fullcalendar/interaction';
 
 const { Option } = Select;
 
@@ -292,6 +295,51 @@ const ScheduleManagementPage = () => {
     }
   };
 
+  const handleEventDrop = async (info) => {
+    const { event: draggedEvent, oldEvent, revert } = info;
+    const newDate = moment(draggedEvent.start).format('YYYY-MM-DD');
+
+    const targetEvent = schedules.find(s =>
+      moment(s.duty_date).format('YYYY-MM-DD') === newDate && String(s.id) !== draggedEvent.id
+    );
+
+    try {
+      const draggedId = parseInt(draggedEvent.id, 10);
+      if (targetEvent) {
+        // 目标日期已有排班，交换
+        const targetId = parseInt(targetEvent.id, 10);
+        await scheduleApi.swapScheduleDates(draggedId, targetId);
+        message.success('排班交换成功');
+      } else {
+        // 目标日期无排班，更新
+        const scheduleData = {
+          date: newDate,
+          duty_person: draggedEvent.extendedProps.duty_person,
+          duty_leader: draggedEvent.extendedProps.duty_leader,
+        };
+        await scheduleApi.updateSchedule(draggedId, scheduleData);
+        message.success('排班日期更新成功');
+      }
+      fetchData(); // 重新获取数据刷新日历
+    } catch (error) {
+      message.error('更新排班失败');
+      revert(); // 如果失败，则将事件还原
+    }
+  };
+
+  const formatCalendarEvents = () => {
+    return schedules.map(schedule => ({
+      id: String(schedule.id),
+      title: `${getPersonnelName(schedule.duty_person)} / ${getPersonnelName(schedule.duty_leader)}`,
+      start: schedule.duty_date,
+      allDay: true,
+      extendedProps: {
+        duty_person: schedule.duty_person,
+        duty_leader: schedule.duty_leader,
+      }
+    }));
+  };
+
   const columns = [
     {
       title: '值班日期',
@@ -324,22 +372,6 @@ const ScheduleManagementPage = () => {
     },
   ];
 
-  const cellRender = (value) => {
-    const date = value.format('YYYY-MM-DD');
-    const daySchedules = schedules.filter(s => moment(s.duty_date).format('YYYY-MM-DD') === date);
-
-    return (
-      <ul className="events">
-        {daySchedules.map(item => (
-          <li key={item.id}>
-            <p>值班人员: {getPersonnelName(item.duty_person)}</p>
-            <p>值班领导: {getPersonnelName(item.duty_leader)}</p>
-          </li>
-        ))}
-      </ul>
-    );
-  };
-
   return (
     <Card title="排班管理" extra={
       <Space>
@@ -348,7 +380,20 @@ const ScheduleManagementPage = () => {
       </Space>
     }>
       <div style={{ marginBottom: 20 }}>
-        <AntdCalendar cellRender={cellRender} />
+        <FullCalendar
+          plugins={[dayGridPlugin, interactionPlugin]}
+          initialView="dayGridMonth"
+          events={formatCalendarEvents()}
+          editable={true}
+          droppable={true}
+          eventDrop={handleEventDrop}
+          locale="zh-cn"
+          headerToolbar={{
+            left: 'prev,next today',
+            center: 'title',
+            right: 'dayGridMonth,dayGridWeek'
+          }}
+        />
       </div>
       <Table
         columns={columns}
