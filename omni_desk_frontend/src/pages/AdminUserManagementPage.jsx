@@ -23,8 +23,8 @@ const AdminUserManagementPage = () => {
                 userManagementApi.getAllUsers(),
                 pageConfigApi.getAllPageConfigs(),
             ]);
-            setUsers(usersRes.data);
-            setPageConfigs(pageConfigsRes.data);
+            setUsers(usersRes.data.results || []);
+            setPageConfigs(pageConfigsRes.data.results || []);
         } catch (error) {
             message.error('获取数据失败');
             console.error('Failed to fetch data:', error);
