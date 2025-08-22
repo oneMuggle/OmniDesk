@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Modal, Form } from 'antd';
 import { scheduleApi } from '../api/schedule';
 import { trialApi } from '../api/trialApi';
@@ -20,8 +20,15 @@ const TrialScheduleContainer = () => {
   const {
     trials,
     trialEvents,
+    isTrialsLoading,
     queryClient: trialQueryClient
-  } = useTrialScheduleData(); // Changed useTrialCalendarData to useTrialScheduleData
+  } = useTrialScheduleData();
+
+  useEffect(() => {
+    if (!isTrialsLoading) {
+      trialQueryClient.invalidateQueries(['trials']);
+    }
+  }, [isTrialsLoading, trialQueryClient]);
 
   const handleEventSubmit = async (values, isNewEvent) => {
     try {
@@ -70,9 +77,13 @@ const TrialScheduleContainer = () => {
     setCurrentEvent(newEvent);
   };
 
+  if (isTrialsLoading) {
+    return <div>正在加载试验日程...</div>;
+  }
+
   return (
     <>
-      <TrialSchedule // Changed TrialCalendar to TrialSchedule
+      <TrialSchedule
         trials={trials}
         trialEvents={trialEvents}
         isGuest={isGuest}
@@ -96,14 +107,14 @@ const TrialScheduleContainer = () => {
               extendedProps: {
                 ...eventObj.extendedProps,
                 statusConfig: getStatusConfig(eventObj.extendedProps.status),
-                trialDetails: trialDetails
-              }
+                trialDetails: trialDetails,
+              },
             });
           } catch (error) {
             console.error('获取试验详情失败:', error);
             Modal.error({
               title: '加载失败',
-              content: '无法加载试验详情，请稍后再试'
+              content: '无法加载试验详情，请稍后再试',
             });
           }
         }}

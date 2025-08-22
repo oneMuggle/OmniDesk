@@ -13,6 +13,7 @@ export const useTrialScheduleData = () => {
     },
     gcTime: 600000,
     staleTime: 300000,
+    refetchOnWindowFocus: false,
   });
 
   const trialEvents = (Array.isArray(trials) ? trials : []).flatMap(trial =>
