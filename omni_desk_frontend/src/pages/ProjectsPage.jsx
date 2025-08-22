@@ -130,7 +130,7 @@ const ProjectsPage = () => {
                                     <IconButton onClick={() => handleDelete(project.id)}>
                                         <DeleteIcon />
                                     </IconButton>
-                                    <IconButton onClick={() => navigate(`/admin/documents?project_id=${project.id}`)}>
+                                    <IconButton onClick={() => navigate(`/documents?project_id=${project.id}`)}>
                                         <UploadFileIcon />
                                     </IconButton>
                                 </TableCell>

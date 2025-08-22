@@ -3,15 +3,11 @@ import { Input, Select, Upload, Button, message, Form, Table } from 'antd';
 import { InboxOutlined, FileAddOutlined } from '@ant-design/icons';
 import mammoth from 'mammoth';
 import Docxtemplater from 'docxtemplater';
-import {
-  getDocumentTemplates,
-  generateDocument as generateDeepseekDoc,
-  uploadTemplate
-} from '../api/deepseek';
+import documentsApi from '../api/documents'; // 统一使用 documentsApi
 import ChatInterface from './ChatInterface';
 import projectsApi from '../api/projects'; // Add projectsApi
 import './DocumentsPage.css';
-import { useLocation } from 'react-router-dom'; // 导入 useLocation
+import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
 
 const { Option } = Select;
 const { Dragger } = Upload;
@@ -25,77 +21,106 @@ const DocumentsPage = () => {
   const [projects, setProjects] = useState([]); // Add projects state
   const [selectedProject, setSelectedProject] = useState(null); // Add selectedProject state
   const location = useLocation(); // 获取 location 对象
+  const navigate = useNavigate(); // 初始化 navigate
 
-  // 初始化加载模板列表和项目列表
+  // 统一的数据加载函数
+  const loadTemplates = async (projectId) => {
+    try {
+      const response = await documentsApi.getDocumentTemplates(projectId);
+      setTemplates(response.data.results || []); // 确保返回的是数组
+    } catch (error) {
+      message.error('加载模板列表失败');
+      console.error('Error loading templates:', error);
+    }
+  };
+
+  // 初始化加载项目列表，并根据 URL 参数加载模板
   useEffect(() => {
-    const loadData = async () => {
+    const loadInitialData = async () => {
       try {
+        const projectsResponse = await projectsApi.getAllProjects();
+        setProjects(projectsResponse.data.results || []);
+
         const queryParams = new URLSearchParams(location.search);
         const projectIdFromUrl = queryParams.get('project_id');
-
-        const [templatesResponse, projectsResponse] = await Promise.all([
-          getDocumentTemplates(projectIdFromUrl), // 初始加载所有模板，或根据URL参数过滤
-          projectsApi.getAllProjects() // Fetch all projects
-        ]);
-        setTemplates(templatesResponse);
-        setProjects(projectsResponse.data);
         if (projectIdFromUrl) {
-          setSelectedProject(parseInt(projectIdFromUrl)); // 设置选中的项目
+          setSelectedProject(parseInt(projectIdFromUrl));
+          loadTemplates(projectIdFromUrl); // 加载特定项目的模板
+        } else {
+          loadTemplates(); // 加载所有模板
         }
       } catch (error) {
-        message.error('加载数据失败');
-        console.error('Error loading data:', error);
+        message.error('加载项目数据失败');
+        console.error('Error loading projects:', error);
       }
     };
-    loadData();
-  }, [location.search]); // 依赖 location.search
+    loadInitialData();
+  }, [location.search]);
 
-  // 当选择项目时，重新加载模板
+  // 当选择的项目变化时，重新加载模板
   useEffect(() => {
-    const loadTemplatesByProject = async () => {
-      try {
-        // 根据 selectedProject 过滤模板
-        const filteredTemplates = await getDocumentTemplates(selectedProject);
-        setTemplates(filteredTemplates);
-      } catch (error) {
-        message.error('加载模板失败');
-        console.error('Error loading filtered templates:', error);
-      }
-    };
-    // 当 selectedProject 变化时，如果 selectedProject 为 null，则加载所有模板；否则加载指定项目的模板
-    if (selectedProject !== null) { // 只有当 selectedProject 明确被设置或取消时才重新加载
-        loadTemplatesByProject();
+    // We only need to react to changes, initial load is handled above.
+    // The dependency on location.search handles the initial load.
+    // This effect handles subsequent, user-driven changes.
+    if (selectedProject === null) {
+        loadTemplates(); // 如果清空选择，加载所有模板
+    } else {
+        loadTemplates(selectedProject);
     }
-  }, [selectedProject]); // 依赖 selectedProject
+  }, [selectedProject]);
 
   // 处理模板上传
   const handleUpload = async (file) => {
+    setUploading(true);
     try {
       const formData = new FormData();
       formData.append('template', file);
       if (selectedProject) {
-        formData.append('project', selectedProject); // 将选中的项目ID添加到 FormData
+        formData.append('project', selectedProject);
       }
-      await uploadTemplate(formData);
+      await documentsApi.uploadTemplate(formData);
       message.success('模板上传成功');
+      loadTemplates(selectedProject); // 重新加载模板列表
     } catch (error) {
       message.error('上传失败');
+      console.error('Upload error:', error);
+    } finally {
+      setUploading(false);
     }
   };
 
-  // 生成文档
+  // 触发智能分析
+  const handleAnalyze = async (templateId) => {
+    try {
+      message.loading({ content: '正在分析中，请稍候...', key: 'analyzing' });
+      const response = await documentsApi.analyzeDocumentTemplate(templateId);
+      message.success({ content: `分析完成！发现 ${response.data.issues.length} 个问题。`, key: 'analyzing' });
+      // 跳转到合规性页面查看结果
+      const template = templates.find(t => t.id === templateId);
+      if (template && template.project) {
+        navigate(`/admin/compliance?project_id=${template.project}&document_template_id=${templateId}`);
+      } else {
+        navigate(`/admin/compliance?document_template_id=${templateId}`);
+      }
+    } catch (error) {
+      message.error({ content: '分析失败，请检查后端服务。', key: 'analyzing' });
+      console.error('Analysis error:', error);
+    }
+  };
+
+  // 生成文档 (保留旧功能)
   const generateDocument = async (values) => {
     try {
-      const { content } = await generateDeepseekDoc(
-        selectedTemplate.id,
-        values
-      );
-      const blob = new Blob([content], { type: 'text/markdown' });
+      const response = await documentsApi.generateDocument(selectedTemplate.id, values);
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' });
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedTemplate.name}_generated.md`;
+      a.download = `${selectedTemplate.name}_generated.docx`;
+      document.body.appendChild(a);
       a.click();
+      window.URL.revokeObjectURL(url);
+      a.remove();
     } catch (error) {
       message.error('文档生成失败');
     }
@@ -145,7 +170,10 @@ const DocumentsPage = () => {
             {
               title: '操作',
               render: (_, record) => (
-                <Button onClick={() => setSelectedTemplate(record)}>使用此模板</Button>
+                <>
+                  <Button style={{ marginRight: 8 }} onClick={() => setSelectedTemplate(record)}>生成文档</Button>
+                  <Button type="primary" onClick={() => handleAnalyze(record.id)}>智能分析</Button>
+                </>
               )
             }
           ]}

@@ -3,41 +3,74 @@ import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow
 import complianceApi from '../api/compliance'; // Assuming you'll create this API service
 import projectsApi from '../api/projects'; // Import projectsApi
 
+import { useLocation } from 'react-router-dom';
+
 const CompliancePage = () => {
     const [complianceIssues, setComplianceIssues] = useState([]);
     const [projects, setProjects] = useState([]);
     const [selectedProject, setSelectedProject] = useState('');
+    const location = useLocation();
 
-    useEffect(() => {
-        fetchProjects();
-        fetchComplianceIssues();
-    }, []);
-
-    useEffect(() => {
-        fetchComplianceIssues(selectedProject);
-    }, [selectedProject]);
-
-    const fetchProjects = async () => {
+    const fetchComplianceIssues = async (params) => {
         try {
-            const response = await projectsApi.getAllProjects();
-            setProjects(response.data);
-        } catch (error) {
-            console.error('Error fetching projects:', error);
-        }
-    };
-
-    const fetchComplianceIssues = async (projectId = '') => {
-        try {
-            const params = projectId ? { project: projectId } : {};
             const response = await complianceApi.getAllComplianceIssues(params);
-            setComplianceIssues(response.data);
+            setComplianceIssues(response.data.results || []);
         } catch (error) {
             console.error('Error fetching compliance issues:', error);
         }
     };
 
+    const fetchProjects = async () => {
+        try {
+            const response = await projectsApi.getAllProjects();
+            setProjects(response.data.results || []);
+        } catch (error) {
+            console.error('Error fetching projects:', error);
+        }
+    };
+
+    useEffect(() => {
+        fetchProjects();
+    }, []);
+
+    useEffect(() => {
+        const queryParams = new URLSearchParams(location.search);
+        const projectId = queryParams.get('project_id');
+        const documentTemplateId = queryParams.get('document_template_id');
+
+        const params = {};
+        if (projectId) {
+            params.project = projectId;
+            // 如果URL中有project_id，则更新下拉框的选中状态
+            // 避免在handleProjectChange中再次触发获取
+            if (selectedProject !== projectId) {
+                setSelectedProject(projectId);
+            }
+        }
+        if (documentTemplateId) {
+            params.document_template = documentTemplateId;
+        }
+
+        // 如果是通过手动选择下拉框来筛选
+        if (selectedProject && !projectId) {
+            params.project = selectedProject;
+        }
+        
+        fetchComplianceIssues(params);
+
+    }, [location.search, selectedProject]);
+
+
     const handleProjectChange = (event) => {
-        setSelectedProject(event.target.value);
+        const projectId = event.target.value;
+        setSelectedProject(projectId);
+        // 清除URL中的document_template_id，因为我们现在是按项目筛选
+        const queryParams = new URLSearchParams();
+        if (projectId) {
+            queryParams.set('project_id', projectId);
+        }
+        // This part is tricky with react-router v6, usually we would use navigate
+        // For simplicity, we rely on the useEffect hook reacting to selectedProject change
     };
 
     const getSeverityColor = (severity) => {
@@ -96,7 +129,7 @@ const CompliancePage = () => {
                         {complianceIssues.length > 0 ? (
                             complianceIssues.map((issue) => (
                                 <TableRow key={issue.id}>
-                                    <TableCell>{issue.project_name}</TableCell>
+                                    <TableCell>{issue.project_details?.name || 'N/A'}</TableCell>
                                     <TableCell>{issue.issue_type}</TableCell>
                                     <TableCell>{issue.description}</TableCell>
                                     <TableCell>{issue.location}</TableCell>

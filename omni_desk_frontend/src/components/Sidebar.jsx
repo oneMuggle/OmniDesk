@@ -43,14 +43,24 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         { to: "/meeting-rooms", text: "会议室预约", permission: null },
       ]
     },
-    { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },
-    { to: "/ragflow-chat", icon: faFlask, text: "Ragflow 聊天", permission: null },
+    {
+      type: 'submenu',
+      text: 'AI 助手',
+      icon: faTasks,
+      permission: ["admin", "manager"],
+      subItems: [
+        { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },
+        { to: "/ragflow-chat", icon: faFlask, text: "Ragflow 聊天", permission: null },
+        { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
+        { to: "/office-assistant", icon: faFileWord, text: "Office 助手", permission: null },
+        { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+      ]
+    },
     { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
-    { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+
     { to: "/library", icon: faBook, text: "书库", permission: null },
     { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
-    { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
-    { to: "/office-assistant", icon: faFileWord, text: "Office 助手", permission: null },
+
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
     {
       type: 'submenu',

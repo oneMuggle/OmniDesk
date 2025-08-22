@@ -1,32 +1,35 @@
-import axios from 'axios';
+import apiClient from './apiClient'; // 统一使用 apiClient
 
-const API_URL = process.env.REACT_APP_API_BASE_URL;
+const documentsApi = {
+  // 获取文档模板列表，支持按项目ID筛选
+  getDocumentTemplates: (projectId = null) => {
+    let url = `/api/documents/templates/`;
+    if (projectId) {
+      url += `?project_id=${projectId}`;
+    }
+    return apiClient.get(url);
+  },
 
-export const documentAPI = {
-  uploadTemplate: (formData) => axios.post(`${API_URL}templates`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-  }),
+  // 上传新模板
+  uploadTemplate: (formData) => {
+    return apiClient.post('/api/documents/templates/upload/', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+  },
 
-  generateDocument: (templateId, data) => axios.post(`${API_URL}generate/${templateId}`, data, {
-    responseType: 'blob',
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-  }),
-  
-  saveResponsibles: (responsibles) => axios.post(`${API_URL}responsibles/`, responsibles, {
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-  }),
-  
-  analyzeFile: (formData) => axios.post(`${API_URL}templates/analyze`, formData, {
-    headers: {
-      'Content-Type': 'multipart/form-data',
-      Authorization: `Bearer ${localStorage.getItem('token')}`
-    }
-  })
+  // 分析指定的文档模板
+  analyzeDocumentTemplate: (templateId) => {
+    return apiClient.post(`/api/documents/templates/${templateId}/analyze/`);
+  },
+
+  // （保留）基于模板生成文档
+  generateDocument: (templateId, data) => {
+    return apiClient.post(`/api/documents/generate/${templateId}`, data, {
+      responseType: 'blob',
+    });
+  },
 };
+
+export default documentsApi;
