@@ -43,6 +43,7 @@ curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.d/nodesource.gp
 echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
 
 sudo apt-get update
+sudo apt-get --fix-broken install -y # Add this line to fix broken dependencies
 # Install Node.js
 sudo apt-get install -y nodejs
 

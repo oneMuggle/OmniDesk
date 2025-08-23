@@ -4,6 +4,7 @@ FROM python:3.10-slim-bullseye AS builder
 # 设置环境变量，防止生成 .pyc 文件并允许日志直接输出
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
+ENV PYTHONPATH=/home/app
 
 # 安装编译 psycopg2 所需的系统依赖
 RUN apt-get update && \
