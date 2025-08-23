@@ -38,6 +38,11 @@ sudo apt-get update
 # Ensure all previous nodesource list files are removed
 sudo rm -f /etc/apt/sources.list.d/nodesource.list
 
+# Re-add NodeSource repository for Node.js 18.x
+curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.d/nodesource.gpg | sudo gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+echo "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_18.x nodistro main" | sudo tee /etc/apt/sources.list.d/nodesource.list
+sudo apt-get update
+
 echo "Installing Node.js and npm..."
 # Remove old NodeSource keys if they exist
 sudo rm -f /etc/apt/keyrings/nodesource.gpg

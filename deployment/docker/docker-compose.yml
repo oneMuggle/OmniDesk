@@ -71,7 +71,7 @@ services:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_worker
-    command: celery -A omni_desk_backend worker -l info --workdir=/usr/src/app
+    command: celery -A omni_desk_backend worker -l info
     volumes:
       - ../../omni_desk_backend:/usr/src/app
     depends_on:
