@@ -78,11 +78,12 @@ const Login = () => {
           </label>
         </div>
         
-        <Button 
-          type="primary" 
-          htmlType="submit" 
+        <Button
+          type="primary"
+          htmlType="submit"
           loading={isLoading}
           block
+          className="login-button"
         >
           {isLoading ? '登录中...' : '登录'}
         </Button>
@@ -93,7 +94,7 @@ const Login = () => {
             立即注册
           </Link>
         </p>
-        <Button 
+        <Button
           type="default"
           onClick={async () => {
             try {
@@ -113,6 +114,7 @@ const Login = () => {
           }}
           loading={isLoading}
           style={{ marginTop: '16px', width: '100%' }}
+          className="login-button"
         >
           {isLoading ? '正在进入...' : '以游客身份访问'}
         </Button>

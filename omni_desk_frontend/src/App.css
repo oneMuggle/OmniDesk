@@ -30,6 +30,12 @@
   margin: 0;
 }
 
+.sidebar-menu ul {
+  list-style: none;
+  padding-inline-start: 0;
+  margin: 0;
+}
+
 .sidebar-menu li {
   list-style: none;
   margin: 8px 0;

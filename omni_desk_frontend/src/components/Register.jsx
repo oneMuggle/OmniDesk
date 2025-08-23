@@ -82,7 +82,7 @@ const Register = () => {
                         required
                     />
                 </div>
-                <button type="submit" disabled={isLoading}>
+                <button type="submit" disabled={isLoading} className="login-button">
                     {isLoading ? '注册中...' : '注册'}
                 </button>
                 <p className="toggle-mode">
