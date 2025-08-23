@@ -30,9 +30,8 @@ COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
-# 将应用代码复制到容器中
-WORKDIR /home/app
-COPY omni_desk_backend .
+# Set the working directory
+WORKDIR /usr/src/app
 
 # 更改文件所有权为新创建的非 root 用户
 RUN chown -R app:app /home/app

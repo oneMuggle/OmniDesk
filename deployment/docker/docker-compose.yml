@@ -36,10 +36,10 @@ services:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_backend
-    command: gunicorn --bind 0.0.0.0:8000 omni_desk_backend.wsgi:application
+    command: gunicorn --chdir /usr/src/app omni_desk_backend.wsgi:application --bind 0.0.0.0:8000
     volumes:
-      - ./omni_desk_backend:/home/app
-      - static_volume:/home/app/staticfiles
+      - ../../omni_desk_backend:/usr/src/app
+      - static_volume:/usr/src/app/staticfiles
     expose:
       - 8000
     depends_on:
@@ -57,7 +57,7 @@ services:
       dockerfile: Dockerfile
     container_name: omni_desk_frontend
     ports:
-      - "8080:80" # Changed host port to avoid conflict
+      - "8880:80" # Changed host port to avoid conflict
     volumes:
       - ../../omni_desk_frontend/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
@@ -69,9 +69,9 @@ services:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_worker
-    command: celery -A omni_desk_backend worker -l info
+    command: celery -A omni_desk_backend worker -l info --workdir=/usr/src/app
     volumes:
-      - ./omni_desk_backend:/home/app
+      - ../../omni_desk_backend:/usr/src/app
     depends_on:
       redis:
         condition: service_healthy

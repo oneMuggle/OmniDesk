@@ -31,6 +31,8 @@ sudo dpkg --remove --force-remove-reinstreq libnode-dev || true
 sudo find /usr/local -name "node*" -exec rm -rf {} + || true
 sudo rm -rf /usr/local/bin/npm /usr/local/share/man/man1/node* /usr/local/lib/dtrace/node.d || true
 sudo rm -rf /opt/nodejs || true
+# Remove any remaining nodesource apt sources
+sudo rm -f /etc/apt/sources.list.d/nodesource.list
 # Update package list after cleanup
 sudo apt-get update
 
