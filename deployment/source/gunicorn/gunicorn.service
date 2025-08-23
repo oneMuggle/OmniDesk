@@ -1,0 +1,18 @@
+# /etc/systemd/system/gunicorn.service
+
+[Unit]
+Description=gunicorn daemon for Omni Desk
+After=network.target
+
+[Service]
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/omni_desk/omni_desk_backend
+ExecStart=/var/www/omni_desk/venv/bin/gunicorn \
+          --access-logfile - \
+          --workers 3 \
+          --bind unix:/var/run/gunicorn.sock \
+          omni_desk_backend.wsgi:application
+
+[Install]
+WantedBy=multi-user.target
