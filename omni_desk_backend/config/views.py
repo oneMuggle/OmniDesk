@@ -49,3 +49,41 @@ class PageConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = PageConfigSerializer
     permission_classes = [IsAdminUser] # 只有管理员可以访问
     lookup_field = 'page_path' # 根据 page_path 进行查找
+
+from rest_framework import viewsets
+from .models import OllamaConfig
+from .serializers import OllamaConfigSerializer
+
+class OllamaConfigViewSet(viewsets.ModelViewSet):
+    queryset = OllamaConfig.objects.all()
+    serializer_class = OllamaConfigSerializer
+    pagination_class = None
+
+import requests
+
+class OllamaModelsView(APIView):
+    permission_classes = [IsAdminUser]
+
+    def post(self, request, *args, **kwargs):
+        api_endpoint = request.data.get('api_endpoint')
+        if not api_endpoint:
+            return Response({"error": "api_endpoint is required"}, status=400)
+
+        try:
+            # Ensure the endpoint points to the /api directory
+            if not api_endpoint.endswith('/api'):
+                if api_endpoint.endswith('/'):
+                    api_endpoint += 'api'
+                else:
+                    api_endpoint += '/api'
+            
+            # Make a request to the ollama /api/tags endpoint
+            response = requests.get(f"{api_endpoint}/tags")
+            response.raise_for_status() # Raise an exception for bad status codes
+            models = response.json().get('models', [])
+            model_names = [model['name'] for model in models]
+            return Response(model_names)
+        except requests.exceptions.RequestException as e:
+            return Response({"error": f"Failed to connect to Ollama API: {e}"}, status=500)
+        except Exception as e:
+            return Response({"error": str(e)}, status=500)

@@ -236,3 +236,4 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 };
 
 export default Sidebar;
+

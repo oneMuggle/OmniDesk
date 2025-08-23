@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useContext } from 'react';
-import { chatCompletion } from '../api/ollama';
+import { chatCompletion, getOllamaConfigs } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from './ThinkContent';
 import './IntelligentChatPage.css';
@@ -27,27 +27,36 @@ const IntelligentChatPage = () => {
     return Array.isArray(conversationHistory) ? conversationHistory : [];
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [configs, setConfigs] = useState([]);
+  const [selectedConfig, setSelectedConfig] = useState(null);
 
   useEffect(() => {
     setMessages(conversationHistory);
   }, [conversationHistory]);
 
+  useEffect(() => {
+    const loadConfigs = async () => {
+      const response = await getOllamaConfigs();
+      setConfigs(response.data);
+      const defaultConfig = response.data.find(c => c.is_default);
+      setSelectedConfig(defaultConfig || (response.data.length > 0 ? response.data[0] : null));
+    };
+    loadConfigs();
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!inputMessage.trim()) return;
+    if (!inputMessage.trim() || !selectedConfig) return;
 
     try {
       setIsLoading(true);
       const newMessage = { role: 'user', content: inputMessage };
-      const context = conversationHistory.length > 0 
-        ? conversationHistory[conversationHistory.length - 1].context 
+      const context = conversationHistory.length > 0
+        ? conversationHistory[conversationHistory.length - 1].context
         : null;
       
       const response = await chatCompletion(
-        {
-          model: process.env.REACT_APP_OLLAMA_MODEL || 'deepseek-r1:1.5b',
-          context: context
-        },
+        { ...selectedConfig, context },
         [...conversationHistory, newMessage]
       );
 
@@ -62,9 +71,9 @@ const IntelligentChatPage = () => {
       console.error('API Error:', error);
       setMessages(prev => {
         const current = Array.isArray(prev) ? prev : [];
-        return [...current, { 
-          role: 'system', 
-          content: '抱歉，请求失败，请稍后再试' 
+        return [...current, {
+          role: 'system',
+          content: '抱歉，请求失败，请稍后再试'
         }];
       });
     } finally {
@@ -74,6 +83,19 @@ const IntelligentChatPage = () => {
 
   return (
     <div className="intelligent-chat-container">
+      <div className="config-selector">
+        <select
+          value={selectedConfig ? selectedConfig.id : ''}
+          onChange={(e) => {
+            const config = configs.find(c => c.id === parseInt(e.target.value));
+            setSelectedConfig(config);
+          }}
+        >
+          {configs.map(config => (
+            <option key={config.id} value={config.id}>{config.alias}</option>
+          ))}
+        </select>
+      </div>
       <div className="chat-messages">
         {(messages || []).map((msg, index) => (
           <div key={index} className={`message ${msg.role}`}>

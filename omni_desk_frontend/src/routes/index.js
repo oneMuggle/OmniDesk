@@ -4,7 +4,7 @@ import GuestRoute from '../components/GuestRoute';
 import UnauthorizedPage from '../components/UnauthorizedPage';
 import App from '../App';
 import SchedulePage from '../components/SchedulePage';
-import SettingsPage from '../components/SettingsPage';
+import SettingsPage from '../pages/SettingsPage';
 import IntelligentChatPage from '../components/IntelligentChatPage';
 import RagflowChatPage from '../components/RagflowChatPage';
 import EventsPage from '../components/EventsPage';
@@ -207,7 +207,11 @@ const router = createBrowserRouter([
       {
         path: "user-management",
         element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
-      }
+      },
+      {
+       path: "settings",
+       element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
+     }
     ]
   },
   {
@@ -229,3 +233,4 @@ const router = createBrowserRouter([
 ], { basename: "/" });
 
 export default router;
+

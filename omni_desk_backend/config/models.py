@@ -26,3 +26,26 @@ class PageConfig(models.Model):
 
     def __str__(self):
         return self.page_name
+
+class OllamaConfig(models.Model):
+    alias = models.CharField(_('配置别名'), max_length=100, unique=True)
+    api_endpoint = models.URLField(_('API 地址'))
+    model = models.CharField(_('模型名称'), max_length=100)
+    temperature = models.FloatField(_('Temperature'), default=0.8, null=True, blank=True)
+    top_p = models.FloatField(_('Top P'), default=0.9, null=True, blank=True)
+    is_default = models.BooleanField(_('是否为默认'), default=False)
+    created_at = models.DateTimeField(_('创建时间'), auto_now_add=True)
+    updated_at = models.DateTimeField(_('更新时间'), auto_now=True)
+
+    class Meta:
+        verbose_name = _('Ollama 配置')
+        verbose_name_plural = _('Ollama 配置')
+
+    def __str__(self):
+        return self.alias
+
+    def save(self, *args, **kwargs):
+        if self.is_default:
+            # 将其他所有配置的 is_default 设置为 False
+            OllamaConfig.objects.filter(is_default=True).update(is_default=False)
+        super(OllamaConfig, self).save(*args, **kwargs)

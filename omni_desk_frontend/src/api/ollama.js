@@ -21,7 +21,17 @@ const ollamaClient = axios.create({
   }
 })();
 
+export const getOllamaConfigs = () => apiClient.get('/config/ollama-configs/');
+export const addOllamaConfig = (config) => apiClient.post('/config/ollama-configs/', config);
+export const updateOllamaConfig = (id, config) => apiClient.put(`/config/ollama-configs/${id}/`, config);
+export const deleteOllamaConfig = (id) => apiClient.delete(`/config/ollama-configs/${id}/`);
+
 export const chatCompletion = async (config, messages) => {
+  const ollamaClient = axios.create({
+    baseURL: config.api_endpoint,
+    headers: { 'Content-Type': 'application/json' }
+  });
+
   try {
     // 将消息历史转换为Ollama格式
     const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
@@ -30,7 +40,11 @@ export const chatCompletion = async (config, messages) => {
       model: config.model,
       prompt: prompt,
       stream: false,
-      context: config.context || null
+      context: config.context || null,
+      options: {
+        temperature: config.temperature,
+        top_p: config.top_p,
+      }
     });
     
     return {
@@ -87,3 +101,5 @@ export const setConfig = async (config) => {
     throw error.response?.data || { message: '保存OLLAMA配置失败' };
   }
 };
+
+export const getOllamaModelsFromEndpoint = (apiEndpoint) => apiClient.post('/config/ollama-models/', { api_endpoint: apiEndpoint });
