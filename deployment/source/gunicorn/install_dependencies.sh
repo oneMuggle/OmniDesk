@@ -29,7 +29,12 @@ sudo apt-get purge -y nodejs npm libnode-dev || true
 sudo apt-get autoremove -y
 sudo apt-get clean
 # Attempt to forcibly remove libnode-dev before installing new nodejs
+# This command forcefully removes the package and ignores dependency issues
 sudo dpkg --remove --force-remove-reinstreq libnode-dev || true
+# Remove any remaining Node.js related files and directories
+sudo find /usr/local -name "node*" -exec rm -rf {} + || true
+sudo rm -rf /usr/local/bin/npm /usr/local/share/man/man1/node* /usr/local/lib/dtrace/node.d || true
+sudo rm -rf /opt/nodejs || true
 # Update package list after cleanup
 sudo apt-get update
 
