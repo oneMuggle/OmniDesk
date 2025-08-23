@@ -21,6 +21,8 @@ usage() {
 # Main command logic
 case "$1" in
     up)
+        echo "Ensuring clean environment before starting services..."
+        docker-compose down --volumes --remove-orphans || true # Add this line to clean up previous runs
         echo "Starting all services..."
         docker-compose up -d --build
         echo "Services are up and running."
