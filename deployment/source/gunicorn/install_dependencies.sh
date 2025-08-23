@@ -18,6 +18,10 @@ sudo apt-get install -y python3.10 python3.10-venv python3-pip postgresql postgr
 # Install Node.js and npm for frontend builds
 # Using NodeSource repository for a specific Node.js version
 echo "Installing Node.js and npm..."
+
+# Remove conflicting Node.js packages if they exist
+sudo apt-get remove --purge -y nodejs npm libnode-dev || true
+
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 
