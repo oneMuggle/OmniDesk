@@ -26,7 +26,7 @@ RUN addgroup --system app && adduser --system --group app
 
 # 安装在构建阶段编译好的包
 COPY --from=builder /app/wheels /wheels
-COPY --from=builder /usr/src/app/omni_desk_backend/requirements.txt .
+COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
 # 将应用代码复制到容器中

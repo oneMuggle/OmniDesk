@@ -21,6 +21,7 @@ sudo rm -f /etc/apt/sources.list.d/nodesource.list
 sudo apt-get purge -y nodejs npm libnode-dev || true
 sudo apt-get autoremove -y
 sudo apt-get clean
+sudo apt-get remove --purge -y libnode-dev || true
 
 echo "Installing Node.js and npm..."
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
