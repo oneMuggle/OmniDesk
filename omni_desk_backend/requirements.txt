@@ -36,3 +36,4 @@ requests
 
 celery
 django-celery-beat
+pypdf
