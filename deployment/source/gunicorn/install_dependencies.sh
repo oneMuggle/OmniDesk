@@ -19,9 +19,14 @@ sudo apt-get install -y python3.10 python3.10-venv python3-pip postgresql postgr
 # Using NodeSource repository for a specific Node.js version
 echo "Installing Node.js and npm..."
 
-# Remove conflicting Node.js packages if they exist
-sudo apt-get remove --purge -y nodejs npm libnode-dev || true
+# Remove conflicting Node.js packages and old NodeSource repositories if they exist
+echo "Cleaning up existing Node.js installations..."
+sudo rm -f /etc/apt/sources.list.d/nodesource.list
+sudo apt-get purge -y nodejs npm libnode-dev || true
+sudo apt-get autoremove -y
+sudo apt-get clean
 
+echo "Installing Node.js and npm..."
 curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
 sudo apt-get install -y nodejs
 

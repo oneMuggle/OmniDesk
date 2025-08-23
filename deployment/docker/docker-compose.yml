@@ -33,8 +33,8 @@ services:
 
   backend:
     build:
-      context: .
-      dockerfile: ./omni_desk_backend/Dockerfile
+      context: ../..
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_backend
     command: gunicorn --bind 0.0.0.0:8000 omni_desk_backend.wsgi:application
     volumes:
@@ -64,8 +64,8 @@ services:
 
   worker:
     build:
-      context: .
-      dockerfile: ./omni_desk_backend/Dockerfile
+      context: ../..
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_worker
     command: celery -A omni_desk_backend worker -l info
     volumes:
