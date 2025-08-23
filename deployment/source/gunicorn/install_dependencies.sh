@@ -39,6 +39,8 @@ sudo rm -rf /opt/nodejs || true
 sudo rm -f /etc/apt/sources.list.d/nodesource.list
 # Update package list after cleanup
 sudo apt-get update
+# Ensure all previous nodesource list files are removed
+sudo rm -f /etc/apt/sources.list.d/nodesource.list
 
 echo "Installing Node.js and npm..."
 # Remove old NodeSource keys if they exist

@@ -49,6 +49,8 @@ services:
         condition: service_healthy
     env_file:
       - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
     restart: unless-stopped
 
   frontend:
@@ -79,6 +81,8 @@ services:
         condition: service_healthy
     env_file:
       - ./.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
     restart: unless-stopped
 
 volumes:
