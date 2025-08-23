@@ -1,39 +1,67 @@
+amqp==5.3.1
 asgiref==3.7.2
 babel==2.17.0
+beautifulsoup4==4.13.4
+billiard==4.2.1
+celery==5.5.3
 certifi==2024.2.2
+charset-normalizer==3.4.3
+click==8.2.1
+click-didyoumean==0.3.1
+click-plugins==1.1.1.2
+click-repl==0.3.0
+colorama @ file:///C:/b/abs_a9ozq0l032/croot/colorama_1672387194846/work
+cron-descriptor==1.4.5
 Django==4.2.11
+django-celery-beat==2.8.1
+django-ckeditor==6.7.2
 django-cors-headers==4.3.1
+django-crum==0.7.9
+django-extensions==3.2.3
+django-filter==24.2
+django-js-asset==3.1.2
+django-timezone-field==7.1
 djangorestframework==3.15.0
 djangorestframework-simplejwt==5.3.0
 docxcompose==1.4.0
 docxtpl==0.16.8
+exceptiongroup @ file:///C:/b/abs_c5h1o1_b5b/croot/exceptiongroup_1706031441653/work
 flit_core==3.9.0
 gunicorn==20.1.0
+idna==3.10
+iniconfig @ file:///home/linux1/recipes/ci/iniconfig_1610983019677/work
 Jinja2==3.1.6
+kombu==5.5.4
 lxml==5.2.1
+Markdown==3.6
 MarkupSafe==3.0.2
-psycopg2==2.9.9
+packaging @ file:///C:/b/abs_3by6s2fa66/croot/packaging_1734472138782/work
+pillow==10.4.0
+pluggy @ file:///C:/b/abs_dfec_m79vo/croot/pluggy_1733170145382/work
+prompt_toolkit==3.0.51
+psycopg2 @ file:///C:/b/abs_3ei4rka0ip/croot/psycopg2_1731693723700/work
 psycopg2-binary==2.9.3
 PyJWT==2.8.0
+pymdown-extensions==10.0
+PyPDF2==3.0.1
+pytest @ file:///C:/b/abs_9dllqyhfs_/croot/pytest_1738938859288/work
+python-crontab==3.3.0
+python-dateutil==2.9.0.post0
 python-docx==0.8.11
 python-dotenv==0.19.0
 pytz==2024.1
+PyYAML==6.0.2
+requests==2.32.4
 six==1.17.0
+soupsieve==2.7
 sqlparse==0.4.4
+tomli @ file:///C:/Windows/TEMP/abs_ac109f85-a7b3-4b4d-bcfd-52622eceddf0hy332ojo/croots/recipe/tomli_1657175513137/work
 typing_extensions==4.10.0
-wincertstore==0.2
-django-filter==24.2
+tzdata==2025.2
+Unidecode==1.4.0
+urllib3==2.5.0
+vine==5.1.0
 waitress==2.1.2
-whitenoise==6.6.0
-
-markdown==3.6
-
-Pillow==10.4.0
-
-pymdown-extensions==10.0.0
-
-requests
-
-celery
-django-celery-beat
-pypdf
+wcwidth==0.2.13
+whitenoise @ file:///home/conda/feedstock_root/build_artifacts/whitenoise_1697025952449/work
+wincertstore==0.2
