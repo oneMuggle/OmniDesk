@@ -32,6 +32,7 @@ services:
     restart: unless-stopped
 
   backend:
+    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
@@ -51,9 +52,11 @@ services:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
+      - DJANGO_ENV=production
     restart: unless-stopped
 
   frontend:
+    image: ${DOCKER_USER:-defaultuser}/omni-desk-frontend:${FRONTEND_VERSION:-latest}
     build:
       context: ../../omni_desk_frontend
       dockerfile: Dockerfile
@@ -67,6 +70,7 @@ services:
     restart: unless-stopped
 
   worker:
+    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
     build:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
@@ -83,6 +87,7 @@ services:
       - ./.env
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
+      - DJANGO_ENV=production
     restart: unless-stopped
 
 volumes:
