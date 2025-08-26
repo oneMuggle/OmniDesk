@@ -87,7 +87,7 @@ const router = createBrowserRouter([
       },
       {
         path: "announcements",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/announcements"><AnnouncementsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/announcements"><AnnouncementsPage /></ProtectedRoute>
       },
       {
         path: "intelligent-chat",

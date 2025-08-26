@@ -47,7 +47,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       type: 'submenu',
       text: 'AI 助手',
       icon: faTasks,
-      permission: ["admin", "manager"],
+      permission: null,
       subItems: [
         { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },
         { to: "/ragflow-chat", icon: faFlask, text: "Ragflow 聊天", permission: null },
