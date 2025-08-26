@@ -44,6 +44,7 @@ import NotificationsPage from '../pages/NotificationsPage'; // Import Notificati
 import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
+import UserPersonnelManagementPage from '../pages/UserPersonnelManagementPage'; // 导入新页面
 
 const router = createBrowserRouter([
 {
@@ -207,6 +208,10 @@ const router = createBrowserRouter([
       {
         path: "user-management",
         element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "user-personnel-management",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-personnel-management"><UserPersonnelManagementPage /></ProtectedRoute>
       },
       {
        path: "settings",

@@ -81,9 +81,17 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
+    assigned_by = serializers.PrimaryKeyRelatedField(
+        queryset=CustomUser.objects.all(),
+        allow_null=True,
+        required=False
+    )
+    assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True)
+
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined')
+        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username')
+        read_only_fields = ('username', 'email', 'role')
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:

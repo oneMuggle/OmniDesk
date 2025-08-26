@@ -75,7 +75,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       ]
     },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
-    { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: 'authenticated' }
+    { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: null },
   ];
 
   const renderMenuItem = (item, index) => {

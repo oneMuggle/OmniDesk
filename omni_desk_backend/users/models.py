@@ -13,6 +13,14 @@ class CustomUser(AbstractUser):
     phone = models.CharField(max_length=20, blank=True, null=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
+    assigned_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_personnel',
+        verbose_name='指派人'
+    )
     
     # 使用用户名作为唯一标识
     USERNAME_FIELD = 'username'

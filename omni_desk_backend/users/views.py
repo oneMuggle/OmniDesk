@@ -166,3 +166,15 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
     serializer_class = UserAdminSerializer
     permission_classes = [IsAdmin] # 只有管理员可以访问
     lookup_field = 'id'
+
+from rest_framework import viewsets
+class UserPersonnelViewSet(viewsets.ModelViewSet):
+    queryset = CustomUser.objects.all().order_by('username')
+    serializer_class = UserDetailSerializer # 使用 UserDetailSerializer
+    permission_classes = [IsAdminOrManager] # 确保只有管理员和经理可以访问
+
+    def get_queryset(self):
+        # 允许管理员和经理查看所有用户，普通用户只能查看自己
+        if self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager'):
+            return CustomUser.objects.all().order_by('username')
+        return CustomUser.objects.filter(id=self.request.user.id) # 假设普通用户只能看到自己
