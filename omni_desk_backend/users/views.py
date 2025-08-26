@@ -11,7 +11,8 @@ from .serializers import (
     UserDetailSerializer,
     CustomTokenObtainPairSerializer,
     PersonnelSerializer,
-    UserAdminSerializer # 导入 UserAdminSerializer
+    UserAdminSerializer, # 导入 UserAdminSerializer
+    ChangePasswordSerializer
 )
 
 
@@ -85,6 +86,12 @@ class CurrentUserView(generics.RetrieveAPIView):
     
     def get_object(self):
         return self.request.user
+class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserDetailSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
 
 class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
@@ -127,6 +134,27 @@ class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     
     permission_classes = [IsAdminOrManager]
     lookup_field = 'id'
+
+class ChangePasswordView(generics.UpdateAPIView):
+    serializer_class = ChangePasswordSerializer
+    model = CustomUser
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, queryset=None):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            if not self.object.check_password(serializer.data.get("old_password")):
+                return Response({"old_password": ["Wrong password."]}, status=status.HTTP_400_BAD_REQUEST)
+            self.object.set_password(serializer.data.get("new_password"))
+            self.object.save()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserAdminListView(generics.ListAPIView):
     queryset = CustomUser.objects.all().order_by('id') # 按照id排序

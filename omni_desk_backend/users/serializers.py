@@ -83,7 +83,7 @@ class UserLoginSerializer(serializers.Serializer):
 class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'date_joined')
+        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined')
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -143,3 +143,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token['username'] = user.username
         return token
         return token
+
+class ChangePasswordSerializer(serializers.Serializer):
+    old_password = serializers.CharField(required=True)
+    new_password = serializers.CharField(required=True)
