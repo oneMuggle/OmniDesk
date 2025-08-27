@@ -38,10 +38,10 @@ services:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_backend
-    command: gunicorn --chdir /usr/src/app omni_desk_backend.wsgi:application --bind 0.0.0.0:8000
+    command: gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000
     volumes:
-      - ../../omni_desk_backend:/usr/src/app
       - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/media
     expose:
       - 8000
     depends_on:
@@ -66,6 +66,8 @@ services:
       - "80:80" # Changed host port to avoid conflict
     volumes:
       - ../../omni_desk_frontend/nginx.conf:/etc/nginx/nginx.conf:ro
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/media
     depends_on:
       - backend
     restart: unless-stopped
@@ -94,3 +96,4 @@ services:
 volumes:
   postgres_data:
   static_volume:
+  media_volume:

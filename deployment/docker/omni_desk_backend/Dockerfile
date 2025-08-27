@@ -30,11 +30,16 @@ COPY --from=builder /app/wheels /wheels
 COPY --from=builder /app/requirements.txt .
 RUN pip install --no-cache /wheels/*
 
-# Set the working directory
+# 设置工作目录
 WORKDIR /usr/src/app
 
-# 更改文件所有权为新创建的非 root 用户
-RUN chown -R app:app /home/app
+# 复制应用代码并设置所有权
+# 注意：构建上下文是项目根目录，所以源路径是 ./omni_desk_backend
+COPY --chown=app:app ./omni_desk_backend .
+
+# 以 root 用户身份收集静态文件
+# --no-input 防止交互式提示, --clear 确保每次都是干净的收集
+RUN python manage.py collectstatic --no-input --clear
 
 # 切换到非 root 用户
 USER app
@@ -42,5 +47,5 @@ USER app
 # 暴露 Gunicorn 将要监听的端口
 EXPOSE 8000
 
-# 运行 Gunicorn 服务器
+# 运行 Gunicorn 服务器 (此命令将被 docker-compose 中的 command 覆盖)
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "omni_desk_backend.wsgi:application"]
