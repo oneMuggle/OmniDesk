@@ -85,11 +85,12 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# 添加CSRF和Session认证
-CSRF_COOKIE_SAMESITE = 'None'
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
+# 添加CSRF和Session认证 (适配HTTP部署)
+# 在非HTTPS环境下, SAMESITE='None' 会被浏览器拒绝, 且 SECURE 必须为 False
+CSRF_COOKIE_SAMESITE = 'Lax'
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SAMESITE = 'Lax'
+SESSION_COOKIE_SECURE = False
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
 
@@ -242,6 +243,8 @@ CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://113.44.214.144",
+    "http://113.44.214.144:8001",
 ]
 # CORS_ALLOWED_ORIGIN_REGEXES = [
 #     r"^https?://localhost(:\d+)?$",
@@ -256,15 +259,15 @@ CSRF_TRUSTED_ORIGINS = [
     "http://frontend:3000",
     "http://localhost:3001",
     "http://localhost:3002",
-    "http://backend:8000"
+    "http://backend:8000",
+    "http://113.44.214.144",
+    "http://113.44.214.144:8001",
 ]
 
 # 从环境变量中读取生产环境的信任源，以提高灵活性
 CSRF_TRUSTED_ORIGIN_PROD = os.environ.get('CSRF_TRUSTED_ORIGIN_PROD')
 if CSRF_TRUSTED_ORIGIN_PROD:
     CSRF_TRUSTED_ORIGINS.append(CSRF_TRUSTED_ORIGIN_PROD)
-SESSION_COOKIE_SAMESITE = 'None'
-SESSION_COOKIE_SECURE = True
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',
