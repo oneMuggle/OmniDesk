@@ -5,6 +5,8 @@ import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
+import { useQuery } from '@tanstack/react-query';
+import { trialApi } from '../api/trialApi';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
@@ -71,6 +73,36 @@ const CalendarEventModal = ({
       setIsEditing(false);
     }
   }, [currentEvent, form, setIsEditing]);
+
+  const handleValuesChange = async (changedValues, allValues) => {
+    if ('trial_id' in changedValues && changedValues.trial_id) {
+      // 查找对应的试验对象
+      const selectedTrialData = trials.find(
+        (trial) => trial.id === changedValues.trial_id
+      );
+
+      if (selectedTrialData) {
+        // 设置 title, client, description
+        form.setFieldsValue({
+          title: selectedTrialData.title,
+          client: selectedTrialData.client,
+          description: selectedTrialData.description,
+        });
+      }
+
+      if (!isEditing) { // 只有在新增模式下才自动填充时间段
+        try {
+          const timeSlots = await trialApi.fetchTimeSlotsByTrial(changedValues.trial_id);
+          const mappedTimeRanges = timeSlots.map(tr => ({
+            start_end_time: [moment(tr.start_time), moment(tr.end_time)],
+          }));
+          form.setFieldsValue({ time_ranges: mappedTimeRanges });
+        } catch (error) {
+          console.error('Failed to fetch trial time slots:', error);
+        }
+      }
+    }
+  };
 
   const handleOk = () => {
     form.validateFields()
@@ -141,6 +173,27 @@ const CalendarEventModal = ({
           ))}
         </Select>
       </Form.Item>
+      <Form.Item
+        name="title"
+        label="试验标题"
+        rules={[{ required: true, message: '该字段是必填项。' }]}
+      >
+        <Input disabled={true} />
+      </Form.Item>
+      <Form.Item
+        name="client"
+        label="客户"
+        rules={[{ required: true, message: '该字段是必填项。' }]}
+      >
+        <Input disabled={true} />
+      </Form.Item>
+      <Form.Item
+        name="description"
+        label="描述"
+        rules={[{ required: true, message: '该字段是必填项。' }]}
+      >
+        <Input.TextArea rows={2} disabled={true} />
+      </Form.Item>
       <Form.List name="time_ranges">
         {(fields, { add, remove }) => (
           <>
@@ -155,7 +208,6 @@ const CalendarEventModal = ({
                   <RangePicker
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
-                    // 移除 disabled={isEditing}，使其在编辑模式下可编辑
                   />
                 </Form.Item>
                 {!isEditing && <MinusCircleOutlined onClick={() => remove(name)} />}
@@ -175,12 +227,6 @@ const CalendarEventModal = ({
       {isEditing && (
         <>
           <Form.Item
-            name="description"
-            label="描述"
-          >
-            <Input.TextArea rows={2} disabled />
-          </Form.Item>
-          <Form.Item
             name="status"
             label="状态"
           >
@@ -190,12 +236,6 @@ const CalendarEventModal = ({
               <Option value="completed">已完成</Option>
               <Option value="cancelled">已取消</Option>
             </Select>
-          </Form.Item>
-          <Form.Item
-            name="client"
-            label="客户"
-          >
-            <Input disabled />
           </Form.Item>
           <Form.Item
             name="equipment_ids"
@@ -265,7 +305,7 @@ const CalendarEventModal = ({
         <Button key="submit" type="primary" onClick={handleOk}>保存</Button>,
       ] : null}
     >
-      <Form form={form} layout="vertical">
+      <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
         {currentEvent?.extendedProps?.type === 'SCHEDULE' && (
           currentEvent.id ? (isEditing ? renderScheduleForm() : renderDetails(currentEvent.extendedProps?.scheduleDetails)) : renderScheduleForm()
         )}

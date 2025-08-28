@@ -74,7 +74,7 @@ export const trialApi = {
   fetchCalendarEvents: () => apiClient.get('/events/trials/'),
   updateCalendarEvent: (id, eventData) => apiClient.put(`/events/trials/${id}/`, eventData),
   deleteCalendarEvent: (id) => apiClient.delete(`/events/trials/${id}/`),
-  
+
   getTrialDetails: async (trialId) => {
     try {
       const response = await apiClient.get(`/events/trials/${trialId}/`);
@@ -89,6 +89,23 @@ export const trialApi = {
     try {
       const response = await apiClient.get(`/events/time-slots/?trial=${trialId}`);
       return response.data.results || [];
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  bulkCreateTimeSlots: async (trialId, timeSlots) => {
+    try {
+      const response = await apiClient.post('/events/time-slots/bulk-create/', {
+        trial: trialId,
+        time_slots: timeSlots.map(slot => ({
+          start_time: slot.start_time,
+          end_time: slot.end_time,
+          description: slot.description || ''
+        }))
+      });
+      return response.data;
     } catch (error) {
       handleError(error);
       throw error;

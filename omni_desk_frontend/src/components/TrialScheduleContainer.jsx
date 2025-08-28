@@ -28,24 +28,41 @@ const TrialScheduleContainer = () => {
   }, [isTrialsLoading, trialQueryClient]);
 
   const handleSaveTrial = async (values) => {
-    const trialId = values.trial || selectedTrial?.id;
-    if (!trialId) {
-      // If it's a new trial, trialId might not exist yet.
-      // In this case, 'values' should contain all necessary data for creation.
-      // If it's an update, trialId must exist.
-      if (!values.id) { // Assuming new trials won't have an ID yet
-        console.error('无法确定要更新或创建的试验项目。');
-        return;
-      }
+    const targetTrialId = values.trial_id;
+    const isNewTimeSlot = !values.id; // 如果 values 中没有 id，则表示是新增时间段
+
+    if (!targetTrialId) {
+      console.error('无法确定要更新的试验项目。');
+      return;
     }
+
     try {
-      if (values.id) { // Existing trial, update
-        await trialApi.updateTrial(values.id, values);
-      } else { // New trial, create
-        await trialApi.createTrial(values); // Assuming createTrial expects a full trial object
+      if (isNewTimeSlot) {
+        // 新增时间段到现有试验
+        // values.time_ranges 包含了用户在模态框中选择的新时间段
+        await trialApi.bulkCreateTimeSlots(targetTrialId, values.time_ranges);
+      } else {
+        // 编辑现有试验或其时间段
+        // 注意：这里的 values.time_ranges 应该包含所有现有和修改后的时间段
+        // 因为后端 perform_update 会删除所有再重建
+        const updatePayload = {
+          title: values.title,
+          client: values.client,
+          description: values.description,
+          equipment_ids: values.equipment_ids || [],
+          responsible_person_ids: values.responsible_person_ids || [],
+          time_slots: values.time_ranges.map(tr => ({
+            id: tr.id, // 现有时间段可能带有id
+            start_time: tr.start_time,
+            end_time: tr.end_time,
+            description: tr.description || ''
+          })),
+        };
+        await trialApi.updateTrial(targetTrialId, updatePayload);
       }
-      trialQueryClient.invalidateQueries(['trials']);
-      setCurrentEvent(null);
+
+      trialQueryClient.invalidateQueries(['trials']); // 刷新数据
+      setCurrentEvent(null); // 关闭模态框
     } catch (error) {
       console.error('保存试验失败:', error);
     }
