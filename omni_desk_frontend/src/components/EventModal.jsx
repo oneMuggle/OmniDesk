@@ -47,19 +47,7 @@ const EventModal = ({
         // TODO: Add error notification
       }
     } else if (currentEvent.type === 'TRIAL') {
-      await handleEventSubmit({
-        trial: values.trial_id,
-        time_slots: [{
-          id: currentEvent.extendedProps?.id,
-          start_time: values.start_time,
-          end_time: values.end_time,
-          description: values.description,
-        }],
-        status: values.status,
-        client: values.client,
-        equipmentIds: values.equipment_ids,
-        responsiblePersonIds: values.responsible_person_ids,
-      });
+      await handleEventSubmit(values);
       queryClient.invalidateQueries(['trials']); // 使试验缓存失效
       handleCancel();
     }

@@ -5,9 +5,9 @@ import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
-import { useQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query'; // 引入 useQueryClient
 import { trialApi } from '../api/trialApi';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -27,6 +27,7 @@ const CalendarEventModal = ({
   const { isGuest } = useAuth();
   const { personnel } = useScheduleData(); // 获取人员数据
   const { trials } = useTrialScheduleData(); // 获取试验数据
+  const queryClient = useQueryClient(); // 获取 queryClient
 
   useEffect(() => {
     console.log('CalendarEventModal - useEffect: currentEvent', currentEvent);
@@ -109,10 +110,13 @@ const CalendarEventModal = ({
       .then(values => {
         const processedValues = { ...values };
         if (processedValues.time_ranges) {
-          processedValues.time_ranges = processedValues.time_ranges.map(tr => ({
+          processedValues.time_slots_data = processedValues.time_ranges.map(tr => ({
+            id: tr.id,
             start_time: tr.start_end_time[0].toISOString(),
             end_time: tr.start_end_time[1].toISOString(),
+            description: tr.description,
           }));
+          delete processedValues.time_ranges;
         }
         onSave(processedValues);
       })
@@ -174,13 +178,6 @@ const CalendarEventModal = ({
         </Select>
       </Form.Item>
       <Form.Item
-        name="title"
-        label="试验标题"
-        rules={[{ required: true, message: '该字段是必填项。' }]}
-      >
-        <Input disabled={true} />
-      </Form.Item>
-      <Form.Item
         name="client"
         label="客户"
         rules={[{ required: true, message: '该字段是必填项。' }]}
@@ -210,16 +207,16 @@ const CalendarEventModal = ({
                     format="YYYY-MM-DD HH:mm"
                   />
                 </Form.Item>
-                {!isEditing && <MinusCircleOutlined onClick={() => remove(name)} />}
+                <MinusCircleOutlined
+                  onClick={() => remove(name)}
+                />
               </Space>
             ))}
-            {!isEditing && (
-              <Form.Item>
-                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
-                  添加时间段
-                </Button>
-              </Form.Item>
-            )}
+            <Form.Item>
+              <Button type="dashed" onClick={() => add({ id: `new_slot_${Date.now()}` })} block icon={<PlusOutlined />}>
+                添加时间段
+              </Button>
+            </Form.Item>
           </>
         )}
       </Form.List>
@@ -230,7 +227,7 @@ const CalendarEventModal = ({
             name="status"
             label="状态"
           >
-            <Select placeholder="选择状态" disabled>
+            <Select placeholder="选择状态">
               <Option value="pending">待定</Option>
               <Option value="in_progress">进行中</Option>
               <Option value="completed">已完成</Option>
@@ -241,7 +238,7 @@ const CalendarEventModal = ({
             name="equipment_ids"
             label="相关设备"
           >
-            <Select mode="multiple" placeholder="选择相关设备" disabled>
+            <Select mode="multiple" placeholder="选择相关设备">
               {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
               <Option value="1">设备 A</Option>
               <Option value="2">设备 B</Option>
@@ -251,7 +248,7 @@ const CalendarEventModal = ({
             name="responsible_person_ids"
             label="责任人"
           >
-            <Select mode="multiple" placeholder="选择责任人" disabled>
+            <Select mode="multiple" placeholder="选择责任人">
               {personnel.map(p => (
                 <Option key={p.id} value={p.id}>{p.name}</Option>
               ))}
@@ -260,14 +257,39 @@ const CalendarEventModal = ({
         </>
       )}
       {isEditing && (
-        <Row gutter={16}>
-          <Col span={12}>
-            <Button type="primary" danger onClick={() => onDelete(currentEvent.id)} block>删除试验时间段</Button>
-          </Col>
-          <Col span={12}>
-            <Button type="default" onClick={() => onSwap(currentEvent.id)} block>调换试验时间段</Button>
-          </Col>
-        </Row>
+        <>
+          <Form.Item
+            name="status"
+            label="状态"
+          >
+            <Select placeholder="选择状态">
+              <Option value="pending">待定</Option>
+              <Option value="in_progress">进行中</Option>
+              <Option value="completed">已完成</Option>
+              <Option value="cancelled">已取消</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="equipment_ids"
+            label="相关设备"
+          >
+            <Select mode="multiple" placeholder="选择相关设备">
+              {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
+              <Option value="1">设备 A</Option>
+              <Option value="2">设备 B</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="responsible_person_ids"
+            label="责任人"
+          >
+            <Select mode="multiple" placeholder="选择责任人">
+              {personnel.map(p => (
+                <Option key={p.id} value={p.id}>{p.name}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </>
       )}
     </>
   );

@@ -110,5 +110,6 @@ export const trialApi = {
       handleError(error);
       throw error;
     }
-  }
+  },
+
 };
