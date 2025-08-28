@@ -333,7 +333,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all()
     serializer_class = PersonnelSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
+    permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'department', 'phone']
 

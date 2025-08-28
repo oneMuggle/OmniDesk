@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import { handleError } from './responseHandler';
+import { toServerFormat } from '../utils/dateUtils';
 
 export const trialApi = {
   fetchTrialEvents: async () => {
@@ -20,9 +21,9 @@ export const trialApi = {
         ...trialData,
         equipment_ids: trialData.equipmentIds || [],
         responsible_person_ids: trialData.responsiblePersonIds || [],
-        time_slots: trialData.timeSlots?.map(slot => ({
-          start_time: slot.start,
-          end_time: slot.end,
+        time_periods: trialData.time_slots?.map(slot => ({
+          start_time: toServerFormat(slot.start_time),
+          end_time: toServerFormat(slot.end_time),
           description: slot.description || ''
         })) || []
       }, {
@@ -51,10 +52,10 @@ export const trialApi = {
         ...trialData,
         equipment_ids: trialData.equipmentIds,
         responsible_person_ids: trialData.responsiblePersonIds,
-        time_slots: trialData.timeSlots?.map(slot => ({
+        time_slots_data: trialData.time_slots?.map(slot => ({
           id: slot.id || null,
-          start_time: slot.start,
-          end_time: slot.end,
+          start_time: toServerFormat(slot.start_time),
+          end_time: toServerFormat(slot.end_time),
           description: slot.description || ''
         })) || []
       }, {
@@ -78,6 +79,16 @@ export const trialApi = {
     try {
       const response = await apiClient.get(`/events/trials/${trialId}/`);
       return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  fetchTimeSlotsByTrial: async (trialId) => {
+    try {
+      const response = await apiClient.get(`/events/time-slots/?trial=${trialId}`);
+      return response.data.results || [];
     } catch (error) {
       handleError(error);
       throw error;

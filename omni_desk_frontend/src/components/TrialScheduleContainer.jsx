@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form } from 'antd';
-import { scheduleApi } from '../api/schedule';
+import { Form } from 'antd';
 import { trialApi } from '../api/trialApi';
-import { getStatusConfig } from '../utils/scheduleUtils'; // Changed calendarUtils to scheduleUtils
 import { useAuth } from '../context/AuthContext';
-import { fromServerFormat } from '../utils/dateUtils';
-import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // Changed useTrialCalendarData to useTrialScheduleData
-import EventModal from './EventModal';
-import TrialSchedule from './TrialSchedule'; // Changed TrialCalendar to TrialSchedule
+import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
+import CalendarEventModal from './CalendarEventModal'; // 使用新的通用模态框
+import TrialSchedule from './TrialSchedule';
 
 const TrialScheduleContainer = () => {
   const [form] = Form.useForm();
@@ -30,51 +27,50 @@ const TrialScheduleContainer = () => {
     }
   }, [isTrialsLoading, trialQueryClient]);
 
-  const handleEventSubmit = async (values, isNewEvent) => {
+  const handleSaveTrial = async (values) => {
+    const trialId = values.trial || selectedTrial?.id;
+    if (!trialId) {
+      console.error('无法确定要更新的试验项目。');
+      return;
+    }
     try {
-      if (isNewEvent) {
-        await scheduleApi.createTrialEvent(values);
-      } else {
-        await scheduleApi.updateTrialEvent(currentEvent.id, values);
-      }
+      await trialApi.updateTrial(trialId, values);
       trialQueryClient.invalidateQueries(['trials']);
       setCurrentEvent(null);
-      Modal.success({
-        title: '操作成功',
-        content: `事件已${isNewEvent ? '创建' : '更新'}！`,
-      });
     } catch (error) {
-      console.error('事件提交失败:', error);
-      Modal.error({
-        title: '操作失败',
-        content: `提交事件时发生错误: ${error.message}`,
-      });
+      console.error('更新试验失败:', error);
     }
   };
 
-  const handleTrialSelect = (selectInfo) => {
-    console.log('[DEBUG] handleTrialSelect triggered:', selectInfo);
-    const newEvent = {
+  const handleEventClick = async (clickInfo) => {
+    const eventObj = clickInfo.event.toPlainObject();
+    const trialId = eventObj.extendedProps?.trialId;
+
+    let trialDetails = null;
+    if (trialId) {
+      trialDetails = await trialApi.getTrialDetails(trialId);
+      setSelectedTrial(trialDetails);
+    }
+
+    setCurrentEvent({
+      ...eventObj,
+      start: eventObj.start,
+      end: eventObj.end,
+      extendedProps: {
+        ...eventObj.extendedProps,
+        trialDetails: trialDetails,
+      },
+    });
+  };
+
+  const handleDateSelect = (selectInfo) => {
+    setCurrentEvent({
       title: '',
       start: selectInfo.start,
       end: selectInfo.end,
       allDay: selectInfo.allDay,
       type: 'TRIAL'
-    };
-    console.log('[DEBUG] New event created in handleTrialSelect:', newEvent);
-    setCurrentEvent(newEvent);
-  };
-
-  const handleTrialDateClick = (arg) => {
-    console.log('[DEBUG] handleTrialDateClick triggered:', arg);
-    const newEvent = {
-      title: '',
-      start: arg.date,
-      allDay: arg.allDay,
-      type: 'TRIAL'
-    };
-    console.log('[DEBUG] New event created in handleTrialDateClick:', newEvent);
-    setCurrentEvent(newEvent);
+    });
   };
 
   if (isTrialsLoading) {
@@ -87,56 +83,24 @@ const TrialScheduleContainer = () => {
         trials={trials}
         trialEvents={trialEvents}
         isGuest={isGuest}
-        onDateClick={handleTrialDateClick}
-        select={handleTrialSelect}
-        onEventClick={async (clickInfo) => {
-          const eventObj = clickInfo.event.toPlainObject();
-          const trialId = eventObj.extendedProps?.trialId;
-
-          try {
-            let trialDetails = null;
-            if (trialId) {
-              trialDetails = await trialApi.getTrialDetails(trialId);
-              setSelectedTrial(trialDetails);
-            }
-
-            setCurrentEvent({
-              ...eventObj,
-              start: fromServerFormat(eventObj.start),
-              end: fromServerFormat(eventObj.end),
-              extendedProps: {
-                ...eventObj.extendedProps,
-                statusConfig: getStatusConfig(eventObj.extendedProps.status),
-                trialDetails: trialDetails,
-              },
-            });
-          } catch (error) {
-            console.error('获取试验详情失败:', error);
-            Modal.error({
-              title: '加载失败',
-              content: '无法加载试验详情，请稍后再试',
-            });
-          }
-        }}
+        onDateClick={handleDateSelect}
+        select={handleDateSelect}
+        onEventClick={handleEventClick}
       />
 
       {currentEvent && (
-        <EventModal
+        <CalendarEventModal
           form={form}
           currentEvent={currentEvent}
           trials={trials}
           isGuest={isGuest}
           isEditing={isEditing}
-          modifiedSlots={modifiedSlots}
-          selectedTrial={selectedTrial}
-          handleEventSubmit={handleEventSubmit}
-          setCurrentEvent={setCurrentEvent}
           setIsEditing={setIsEditing}
-          setModifiedSlots={setModifiedSlots}
-          setSelectedTrial={setSelectedTrial}
-          scheduleApi={scheduleApi}
+          selectedTrial={selectedTrial}
+          onSave={handleSaveTrial} // 将试验保存逻辑传递给 CalendarEventModal
         />
       )}
+
     </>
   );
 };

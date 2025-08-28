@@ -1,7 +1,8 @@
 import apiClient from './apiClient';
 
-export const getPersonnel = () => {
-  return apiClient.get('/events/personnel/');
+export const getPersonnel = async () => {
+  const response = await apiClient.get('/events/personnel/');
+  return response.data;
 };
 
 export const getPersonnelDetails = (id) => {

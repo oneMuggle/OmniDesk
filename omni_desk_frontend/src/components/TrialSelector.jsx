@@ -1,13 +1,13 @@
 import React from 'react';
 import { Form, Select, Spin, Modal } from 'antd';
 import { getTrials } from '../api/trials';
+import { trialApi } from '../api/trialApi';
 
-const TrialSelector = ({ 
-  trials, 
-  isTrialsLoading, 
-  form, 
-  onTrialSelect,
-  scheduleApi
+const TrialSelector = ({
+  trials,
+  isTrialsLoading,
+  form,
+  onTrialSelect
 }) => {
   return (
     <Form.Item label="试验项目" required name="trial">
@@ -36,7 +36,7 @@ const TrialSelector = ({
           onTrialSelect(option.trialData);
           
           try {
-            const slots = await scheduleApi.fetchTimeSlotsByTrial(value);
+            const slots = await trialApi.fetchTimeSlotsByTrial(value);
             if (!slots || slots.length === 0) {
               console.warn('获取到空时间段数组', { trialId: value });
               form.setFieldsValue({ time_slots: [] });

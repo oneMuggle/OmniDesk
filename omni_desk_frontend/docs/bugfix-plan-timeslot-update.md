@@ -1,60 +1,57 @@
-# 试验排班模态框时间槽更新 Bug 修复计划
+# 试验日程时间段更新失败 Bug 修复计划
 
-## 1. 问题描述
+## 1. 问题背景
 
-在日历界面的“编辑排班”模态框中，当用户在“试验项目”下拉菜单中切换到一个新的试验时，下方的“时间段”表单没有随之更新，依然显示的是上一个试验的时间槽数据。
+在试验日程页面，当用户通过“编辑排班”为试验新增或编辑时间段时，点击保存后前端会报错 `Cannot read properties of undefined (reading '0')`，导致保存失败。
 
 ## 2. 根本原因分析
 
-通过分析 `omni_desk_frontend/src/components/Calendar/EventModal/EventModalContainer.jsx` 组件，确定了问题的根本原因：
+通过对前后端代码的联合分析，定位到以下几个核心问题：
 
-- **数据获取逻辑不完整**: 当用户在 `TrialSelector` 组件中选择一个新试验时，`onTrialSelect` 回调函数只更新了组件的本地状态 (`localSelectedTrial`) 以显示新的试验详情，但**没有触发 API 调用**来获取新选定试验的时间槽数据。
-- **`useEffect` 依赖不足**: 负责获取时间槽的 `useEffect` 钩子只依赖于 `currentEvent` 和 `trials`，不依赖于用户选择的试验。因此，在切换试验时，该钩子不会重新执行。
+1.  **前端空指针错误**：在 `EventModal.jsx` 的 `handleManualSave` 函数中，当处理一个新添加但未填写完整的时间段时，代码尝试访问一个 `undefined` 对象的 `[0]` 索引，导致程序崩溃。
+2.  **前端逻辑过于复杂**：`handleManualSave` 函数试图手动区分时间段的新增、修改和删除，这使得逻辑复杂且容易出错。
+3.  **前后端字段名不匹配**：前端在 `updateTrial` 请求中发送的时间段数组键名为 `time_slots`，而后端 `TrialViewSet` 的 `perform_update` 方法期望接收的键名是 `time_periods`。
+4.  **后端采用“先删后增”策略**：后端在更新试验时，会删除所有旧的时间段，然后重新创建请求中提供的所有时间段。这一实现细节未在前端得到正确利用。
 
-## 3. 修复计划
+## 3. 修复方案
 
-为了解决此问题，需要修改 `EventModalContainer.jsx` 以确保在切换试验时能重新获取并更新时间槽数据。
+为了彻底解决此问题并优化代码，我将采取以下步骤：
 
-### 3.1. 详细步骤
+### 3.1. 重构前端 `EventModal.jsx`
 
-1.  **提取可重用函数**: 将 `useEffect` 中用于获取和设置时间槽的逻辑提取到一个新的异步函数中，例如 `fetchAndSetTimeSlots(trial)`。此函数接收一个 `trial` 对象作为参数。
+我将重构 `handleManualSave` 函数，使其逻辑更简单、更健壮：
 
-2.  **修改 `useEffect`**: 更新现有的 `useEffect` 钩子，使其在 `currentEvent` 发生变化时，调用 `fetchAndSetTimeSlots` 函数。
+-   **移除复杂逻辑**：删除当前用于区分新增、修改和删除时间段的手动处理逻辑。
+-   **增强验证**：在提交前，增加严格的数据验证，确保所有时间段都包含有效的起止日期和时间。如果验证失败，将向用户显示明确的错误提示。
+-   **统一数据处理**：构建一个包含所有最终时间段的完整列表（无论其是新建的还是已存在的）。
 
-3.  **修改 `onTrialSelect` 回调**: 在 `TrialSelector` 组件的 `onTrialSelect` 回调函数中，除了现有的状态更新逻辑外，增加对 `fetchAndSetTimeSlots` 函数的调用，并传入新选择的 `trial` 对象。
+### 3.2. 修正前端 API 调用
 
-### 3.2. 流程图
+我将修改 `trialApi.js` 中的 `updateTrial` 函数：
 
-使用 Mermaid 流程图来说明修复前后的数据流差异。
+-   **修正字段名**：将请求体中的时间段数组键名从 `time_slots` 更改为 `time_periods`，以匹配后端 API 的要求。
+-   **传递完整数据**：确保将 `EventModal.jsx` 中构建的完整时间段列表通过此 API 发送到后端。
 
-#### 当前有问题的流程
+### 3.3. 流程示意图
 
-```mermaid
-graph TD
-    subgraph "当前有问题的流程"
-        A[用户在 TrialSelector 中选择新试验] --> B{onTrialSelect 回调};
-        B --> C[更新 localSelectedTrial 状态];
-        C --> D[TrialDetails 组件更新];
-        B --x E[没有获取新时间槽];
-        F[TimeSlotForm 保持旧数据];
-    end
-```
-
-#### 计划修复后的流程
+修复后的数据流将如下所示：
 
 ```mermaid
 graph TD
-    subgraph "计划修复后的流程"
-        A_new[用户在 TrialSelector 中选择新试验] --> B_new{onTrialSelect 回diao};
-        B_new --> C_new[更新 localSelectedTrial 状态];
-        C_new --> D_new[TrialDetails 组件更新];
-        B_new --> G_new[调用 fetchAndSetTimeSlots(newTrial)];
-        G_new --> H_new[API: 获取新时间槽];
-        H_new --> I_new[更新表单中的 time_slots 数据];
-        I_new --> J_new[TimeSlotForm 组件更新];
-    end
+    A[用户点击“保存”] --> B{handleManualSave};
+    B --> C{验证所有时间段};
+    C -- 验证失败 --> D[向用户显示错误提示];
+    C -- 验证成功 --> E{构建包含所有时间段的 `time_periods` 数组};
+    E --> F{调用 trialApi.updateTrial};
+    F --> G[后端 `perform_update`];
+    G --> H{删除旧时间段};
+    H --> I{创建新时间段};
+    I --> J[更新成功];
 ```
 
-## 4. 预期结果
+## 4. 预期成果
 
-完成修复后，当用户在“编辑排班”模态框中选择一个新试验时，下方的“时间段”表单将立即异步加载并正确显示新试验的时间槽信息。
+-   彻底解决新增和编辑时间段时的崩溃问题。
+-   简化前端代码，提高其可维护性和健壮性。
+-   确保前后端数据格式和逻辑的一致性。
+-   提升用户体验，提供更可靠的错误处理和提示。
