@@ -30,15 +30,24 @@ const TrialScheduleContainer = () => {
   const handleSaveTrial = async (values) => {
     const trialId = values.trial || selectedTrial?.id;
     if (!trialId) {
-      console.error('无法确定要更新的试验项目。');
-      return;
+      // If it's a new trial, trialId might not exist yet.
+      // In this case, 'values' should contain all necessary data for creation.
+      // If it's an update, trialId must exist.
+      if (!values.id) { // Assuming new trials won't have an ID yet
+        console.error('无法确定要更新或创建的试验项目。');
+        return;
+      }
     }
     try {
-      await trialApi.updateTrial(trialId, values);
+      if (values.id) { // Existing trial, update
+        await trialApi.updateTrial(values.id, values);
+      } else { // New trial, create
+        await trialApi.createTrial(values); // Assuming createTrial expects a full trial object
+      }
       trialQueryClient.invalidateQueries(['trials']);
       setCurrentEvent(null);
     } catch (error) {
-      console.error('更新试验失败:', error);
+      console.error('保存试验失败:', error);
     }
   };
 
@@ -52,24 +61,32 @@ const TrialScheduleContainer = () => {
       setSelectedTrial(trialDetails);
     }
 
-    setCurrentEvent({
+    const updatedCurrentEvent = {
       ...eventObj,
-      start: eventObj.start,
-      end: eventObj.end,
       extendedProps: {
         ...eventObj.extendedProps,
         trialDetails: trialDetails,
+        time_ranges: eventObj.extendedProps?.time_ranges || [{
+          start_time: eventObj.start,
+          end_time: eventObj.end
+        }],
       },
-    });
+    };
+    console.log('TrialScheduleContainer - handleEventClick: updatedCurrentEvent', updatedCurrentEvent);
+    setCurrentEvent(updatedCurrentEvent);
   };
 
   const handleDateSelect = (selectInfo) => {
     setCurrentEvent({
       title: '',
-      start: selectInfo.start,
-      end: selectInfo.end,
+      time_ranges: [{
+        start_time: selectInfo.start,
+        end_time: selectInfo.end,
+      }],
       allDay: selectInfo.allDay,
-      type: 'TRIAL'
+      extendedProps: { // 将 type 移动到 extendedProps
+        type: 'TRIAL'
+      }
     });
   };
 
@@ -90,6 +107,7 @@ const TrialScheduleContainer = () => {
 
       {currentEvent && (
         <CalendarEventModal
+          isVisible={!!currentEvent}
           form={form}
           currentEvent={currentEvent}
           trials={trials}
@@ -98,6 +116,9 @@ const TrialScheduleContainer = () => {
           setIsEditing={setIsEditing}
           selectedTrial={selectedTrial}
           onSave={handleSaveTrial} // 将试验保存逻辑传递给 CalendarEventModal
+          onCancel={() => setCurrentEvent(null)}
+          onDelete={() => console.log('onDelete called')} // 临时空函数
+          onSwap={() => console.log('onSwap called')}     // 临时空函数
         />
       )}
 

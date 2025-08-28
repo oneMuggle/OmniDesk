@@ -37,7 +37,10 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       }}
       events={events}
       dateClick={onDateClick}
-      eventClick={onEventClick}
+      eventClick={(clickInfo) => {
+        console.log('BaseSchedule - onEventClick:', clickInfo);
+        onEventClick(clickInfo);
+      }}
       editable={editable}
       selectable={selectable}
       eventStartEditable={editable}

@@ -63,11 +63,15 @@ export const transformTrialToEvents = (trials) => {
         extendedProps: {
           type: 'TRIAL',
           trialId: trial.id,
-          description: slot.description,
+          description: trial.description, // 从 trial 获取 description
           equipment: trial.equipments,
           personnel: trial.responsible_persons,
           status: trial.status,
           client: trial.client,
+          time_ranges: trial.time_slots.map(ts => ({ // 添加 time_ranges
+            start_time: ts.start_time,
+            end_time: ts.end_time,
+          })),
         },
       };
     })

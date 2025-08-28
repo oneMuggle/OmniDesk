@@ -1,17 +1,17 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Row, Col, Typography } from 'antd';
+import { Modal, Form, Input, DatePicker, Select, Button, Row, Col, Typography, Space } from 'antd';
 import moment from 'moment';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
 
 const CalendarEventModal = ({
-  isVisible,
   currentEvent,
   onCancel,
   onSave,
@@ -27,24 +27,43 @@ const CalendarEventModal = ({
   const { trials } = useTrialScheduleData(); // 获取试验数据
 
   useEffect(() => {
+    console.log('CalendarEventModal - useEffect: currentEvent', currentEvent);
     if (currentEvent) {
-      if (currentEvent.type === 'SCHEDULE') {
+      console.log('CurrentEvent Type:', currentEvent.type); // New log
+      console.log('CalendarEventModal - Inside useEffect, currentEvent:', currentEvent);
+      console.log('CalendarEventModal - Inside useEffect, currentEvent.extendedProps:', currentEvent.extendedProps);
+      console.log('CalendarEventModal - CurrentEvent Full JSON:', JSON.stringify(currentEvent, null, 2)); // New log
+      if (currentEvent.extendedProps?.type === 'SCHEDULE') {
+        console.log('CalendarEventModal - Inside useEffect, SCHEDULE type branch');
         form.setFieldsValue({
           duty_date: currentEvent.start ? moment(currentEvent.start) : null,
           duty_person: currentEvent.extendedProps?.duty_person_id,
           duty_leader: currentEvent.extendedProps?.duty_leader_id,
         });
-      } else if (currentEvent.type === 'TRIAL') {
-        form.setFieldsValue({
+      } else if (currentEvent.extendedProps?.type === 'TRIAL') {
+        console.log('CalendarEventModal - Inside useEffect, TRIAL type branch');
+        console.log('CalendarEventModal - raw time_ranges from extendedProps:', currentEvent.extendedProps?.time_ranges);
+        const mappedTimeRanges = currentEvent.extendedProps?.time_ranges?.map(tr => {
+          const startTime = moment(tr.start_time);
+          const endTime = moment(tr.end_time);
+          console.log('CalendarEventModal - mapping tr:', tr, '->', { start_end_time: [startTime, endTime] });
+          return {
+            start_end_time: [startTime, endTime],
+          };
+        }) || [];
+        console.log('CalendarEventModal - mappedTimeRanges:', mappedTimeRanges);
+
+        const fieldsToSet = {
           trial_id: currentEvent.extendedProps?.trialId,
-          start_time: currentEvent.start ? moment(currentEvent.start) : null,
-          end_time: currentEvent.end ? moment(currentEvent.end) : null,
+          time_ranges: mappedTimeRanges,
           description: currentEvent.extendedProps?.description,
           status: currentEvent.extendedProps?.status,
           client: currentEvent.extendedProps?.client,
           equipment_ids: currentEvent.extendedProps?.equipment?.map(e => e.id),
           responsible_person_ids: currentEvent.extendedProps?.personnel?.map(p => p.id),
-        });
+        };
+        console.log('CalendarEventModal - useEffect: fieldsToSet', fieldsToSet);
+        form.setFieldsValue(fieldsToSet);
       }
       setIsEditing(!!currentEvent.id); // 如果有ID，则认为是编辑模式
     } else {
@@ -56,7 +75,14 @@ const CalendarEventModal = ({
   const handleOk = () => {
     form.validateFields()
       .then(values => {
-        onSave(values);
+        const processedValues = { ...values };
+        if (processedValues.time_ranges) {
+          processedValues.time_ranges = processedValues.time_ranges.map(tr => ({
+            start_time: tr.start_end_time[0].toISOString(),
+            end_time: tr.start_end_time[1].toISOString(),
+          }));
+        }
+        onSave(processedValues);
       })
       .catch(info => {
         console.log('Validate Failed:', info);
@@ -115,70 +141,84 @@ const CalendarEventModal = ({
           ))}
         </Select>
       </Form.Item>
-      <Form.Item
-        name="time_range"
-        label="时间范围"
-        rules={[{ required: true, message: '请选择时间范围!' }]}
-      >
-        <RangePicker
-          showTime={{ format: 'HH:mm' }}
-          format="YYYY-MM-DD HH:mm"
-          disabled={isEditing}
-          value={[
-            form.getFieldValue('start_time') ? moment(form.getFieldValue('start_time')) : null,
-            form.getFieldValue('end_time') ? moment(form.getFieldValue('end_time')) : null,
-          ]}
-          onChange={(dates) => {
-            form.setFieldsValue({
-              start_time: dates ? dates[0] : null,
-              end_time: dates ? dates[1] : null,
-            });
-          }}
-        />
-      </Form.Item>
-      <Form.Item
-        name="description"
-        label="描述"
-      >
-        <Input.TextArea rows={2} />
-      </Form.Item>
-      <Form.Item
-        name="status"
-        label="状态"
-      >
-        <Select placeholder="选择状态">
-          <Option value="pending">待定</Option>
-          <Option value="in_progress">进行中</Option>
-          <Option value="completed">已完成</Option>
-          <Option value="cancelled">已取消</Option>
-        </Select>
-      </Form.Item>
-      <Form.Item
-        name="client"
-        label="客户"
-      >
-        <Input />
-      </Form.Item>
-      <Form.Item
-        name="equipment_ids"
-        label="相关设备"
-      >
-        <Select mode="multiple" placeholder="选择相关设备">
-          {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
-          <Option value="1">设备 A</Option>
-          <Option value="2">设备 B</Option>
-        </Select>
-      </Form.Item>
-      <Form.Item
-        name="responsible_person_ids"
-        label="责任人"
-      >
-        <Select mode="multiple" placeholder="选择责任人">
-          {personnel.map(p => (
-            <Option key={p.id} value={p.id}>{p.name}</Option>
-          ))}
-        </Select>
-      </Form.Item>
+      <Form.List name="time_ranges">
+        {(fields, { add, remove }) => (
+          <>
+            {fields.map(({ key, name, fieldKey, ...restField }) => (
+              <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                <Form.Item
+                  {...restField}
+                  name={[name, 'start_end_time']}
+                  fieldKey={[fieldKey, 'start_end_time']}
+                  rules={[{ required: true, message: '请选择时间段!' }]}
+                >
+                  <RangePicker
+                    showTime={{ format: 'HH:mm' }}
+                    format="YYYY-MM-DD HH:mm"
+                    // 移除 disabled={isEditing}，使其在编辑模式下可编辑
+                  />
+                </Form.Item>
+                {!isEditing && <MinusCircleOutlined onClick={() => remove(name)} />}
+              </Space>
+            ))}
+            {!isEditing && (
+              <Form.Item>
+                <Button type="dashed" onClick={() => add()} block icon={<PlusOutlined />}>
+                  添加时间段
+                </Button>
+              </Form.Item>
+            )}
+          </>
+        )}
+      </Form.List>
+
+      {isEditing && (
+        <>
+          <Form.Item
+            name="description"
+            label="描述"
+          >
+            <Input.TextArea rows={2} disabled />
+          </Form.Item>
+          <Form.Item
+            name="status"
+            label="状态"
+          >
+            <Select placeholder="选择状态" disabled>
+              <Option value="pending">待定</Option>
+              <Option value="in_progress">进行中</Option>
+              <Option value="completed">已完成</Option>
+              <Option value="cancelled">已取消</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="client"
+            label="客户"
+          >
+            <Input disabled />
+          </Form.Item>
+          <Form.Item
+            name="equipment_ids"
+            label="相关设备"
+          >
+            <Select mode="multiple" placeholder="选择相关设备" disabled>
+              {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
+              <Option value="1">设备 A</Option>
+              <Option value="2">设备 B</Option>
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="responsible_person_ids"
+            label="责任人"
+          >
+            <Select mode="multiple" placeholder="选择责任人" disabled>
+              {personnel.map(p => (
+                <Option key={p.id} value={p.id}>{p.name}</Option>
+              ))}
+            </Select>
+          </Form.Item>
+        </>
+      )}
       {isEditing && (
         <Row gutter={16}>
           <Col span={12}>
@@ -216,21 +256,21 @@ const CalendarEventModal = ({
 
   return (
     <Modal
-      title={currentEvent ? (isEditing ? "编辑日程" : "查看日程详情") : "新增日程"}
-      open={isVisible}
+      title={currentEvent && currentEvent.id ? "编辑日程" : "新增日程"}
+      open={!!currentEvent}
       onOk={handleOk}
       onCancel={onCancel}
-      footer={!isGuest && isEditing ? [
+      footer={!isGuest && (!currentEvent || !currentEvent.id || isEditing) ? [
         <Button key="cancel" onClick={onCancel}>取消</Button>,
         <Button key="submit" type="primary" onClick={handleOk}>保存</Button>,
       ] : null}
     >
       <Form form={form} layout="vertical">
-        {currentEvent?.type === 'SCHEDULE' && (
-          isEditing ? renderScheduleForm() : renderDetails(currentEvent.extendedProps?.scheduleDetails)
+        {currentEvent?.extendedProps?.type === 'SCHEDULE' && (
+          currentEvent.id ? (isEditing ? renderScheduleForm() : renderDetails(currentEvent.extendedProps?.scheduleDetails)) : renderScheduleForm()
         )}
-        {currentEvent?.type === 'TRIAL' && (
-          isEditing ? renderTrialForm() : renderTrialDetails(currentEvent.extendedProps)
+        {currentEvent?.extendedProps?.type === 'TRIAL' && (
+          currentEvent.id ? (isEditing ? renderTrialForm() : renderTrialDetails(currentEvent.extendedProps)) : renderTrialForm()
         )}
       </Form>
     </Modal>
@@ -238,7 +278,6 @@ const CalendarEventModal = ({
 };
 
 CalendarEventModal.propTypes = {
-  isVisible: PropTypes.bool.isRequired,
   currentEvent: PropTypes.object,
   onCancel: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,

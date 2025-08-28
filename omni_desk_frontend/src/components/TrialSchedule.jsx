@@ -13,7 +13,10 @@ const TrialSchedule = ({
     <BaseSchedule
       events={trialEvents}
       onDateClick={onDateClick}
-      onEventClick={onEventClick}
+      onEventClick={(clickInfo) => {
+        console.log('TrialSchedule - onEventClick:', clickInfo);
+        onEventClick(clickInfo);
+      }}
       editable={!isGuest}
       selectable={!isGuest}
       select={select}
