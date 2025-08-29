@@ -48,7 +48,32 @@ const AnnouncementsPage = () => {
         <div className="loading-indicator">加载中...</div>
       ) : error ? (
         <div className="error-message">⚠️ {error}</div>
-      ) : announcements.length > 0 ? (
+      ) : announcements.length === 1 ? (
+        <div className="announcement-single-container">
+          <div key={announcements[0].id} className="announcement-slide">
+            <h3 className="announcement-title">{announcements[0].title}</h3>
+            <div className="announcement-content">
+              <div
+                className="announcement-html-content"
+                dangerouslySetInnerHTML={{
+                  __html: expanded[announcements[0].id] || announcements[0].content.length <= 150
+                    ? announcements[0].content
+                    : `${announcements[0].content.replace(/<[^>]+>/g, '').substring(0, 100)}...`
+                }}
+              />
+              {announcements[0].content.replace(/<[^>]+>/g, '').length > 100 && (
+                <button onClick={() => toggleExpand(announcements[0].id)} className="expand-btn">
+                  {expanded[announcements[0].id] ? '收起' : '查看更多'}
+                </button>
+              )}
+              <div className="announcement-meta">
+                <span className="announcement-date">{new Date(announcements[0].created_at).toLocaleDateString()}</span>
+                <span className="announcement-author">发布人：{announcements[0].author ? announcements[0].author.username : '匿名'}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : announcements.length > 1 ? (
         <div className="slider-container">
           <Slider {...settings}>
             {announcements.map((item) => (
