@@ -39,3 +39,6 @@
   background-color: #b2bec3;
   cursor: not-allowed;
 }
+.ql-editor {
+  background-color: #ffffff; /* 设置富文本框背景色为白色 */
+}

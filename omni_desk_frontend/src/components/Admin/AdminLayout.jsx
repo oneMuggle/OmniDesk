@@ -37,7 +37,6 @@ const AdminLayout = () => {
     { to: "/admin/trials", icon: faFlask, text: "试验管理", permission: ['admin', 'manager'] },
     { to: "/admin/personnel", icon: faUsers, text: "人员管理", permission: ['admin', 'manager'] },
     { to: "/admin/schedules", icon: faFlask, text: "排班管理", permission: ['admin', 'manager'] },
-    { to: "/admin/personnel-management", icon: faUsers, text: "人员信息", permission: ['admin', 'manager'] },
     { to: "/admin/user-management", icon: faUsers, text: "用户管理", permission: ['admin'] },
     {
       text: "书籍管理",

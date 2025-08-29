@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactQuill from 'react-quill';
 import 'react-quill/dist/quill.snow.css'; // 导入 Quill 的样式
@@ -16,7 +16,7 @@ const AnnouncementForm = () => {
   const quillRef = useRef(null);
 
   // 图片上传处理器
-  const imageHandler = () => {
+  const imageHandler = useCallback(() => {
     const input = document.createElement('input');
     input.setAttribute('type', 'file');
     input.setAttribute('accept', 'image/*');
@@ -43,9 +43,9 @@ const AnnouncementForm = () => {
         }
       }
     };
-  };
+  }, [setError, quillRef, apiClient]); // 添加依赖项
 
-  const modules = {
+  const modules = useMemo(() => ({
     toolbar: {
       container: [
         [{ 'header': [1, 2, false] }],
@@ -58,7 +58,7 @@ const AnnouncementForm = () => {
         image: imageHandler,
       },
     },
-  };
+  }), [imageHandler]); // 添加依赖项
 
   useEffect(() => {
     if (isEditing) {
@@ -117,7 +117,7 @@ const AnnouncementForm = () => {
             ref={quillRef}
             theme="snow"
             value={content}
-            onChange={setContent}
+            onChange={(value) => setContent(value)}
             modules={modules}
             required
             style={{ height: '300px', marginBottom: '50px' }}

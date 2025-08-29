@@ -70,15 +70,12 @@ class OllamaModelsView(APIView):
             return Response({"error": "api_endpoint is required"}, status=400)
 
         try:
-            # Ensure the endpoint points to the /api directory
-            if not api_endpoint.endswith('/api'):
-                if api_endpoint.endswith('/'):
-                    api_endpoint += 'api'
-                else:
-                    api_endpoint += '/api'
+            # Ensure the api_endpoint has a trailing slash for proper joining
+            if not api_endpoint.endswith('/'):
+                api_endpoint += '/'
             
-            # Make a request to the ollama /api/tags endpoint
-            response = requests.get(f"{api_endpoint}/tags")
+            # Make a request to the ollama /v1/models endpoint as per user's requirement
+            response = requests.get(f"{api_endpoint}v1/models")
             response.raise_for_status() # Raise an exception for bad status codes
             models = response.json().get('models', [])
             model_names = [model['name'] for model in models]

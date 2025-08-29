@@ -35,7 +35,6 @@ import DifyAppList from '../components/DifyApps/DifyAppList';
 import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
 import DifyAppManagementPage from '../components/DifyApps/DifyAppManagementPage';
 import ScheduleManagementPage from '../pages/ScheduleManagementPage';
-import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import ScheduleSettingsPage from '../components/ScheduleSettingsPage';
 import OfficeAssistant from '../components/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
@@ -156,10 +155,6 @@ const router = createBrowserRouter([
       {
         path: "schedules",
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedules"><ScheduleManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel-management"><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "book-import",
