@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Calendar, momentLocalizer } from 'react-big-calendar';
-import moment from 'moment';
+import { Calendar, dayjsLocalizer } from 'react-big-calendar';
+import dayjs from 'dayjs';
 import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import meetingRoomApi from '../api/meetingRoomApi';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
 
-const localizer = momentLocalizer(moment);
+const localizer = dayjsLocalizer(dayjs);
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TextArea } = Input;
@@ -62,7 +62,7 @@ const MeetingRoomBookingPage = () => {
 
     const handleSelectSlot = ({ start, end }) => {
         // 预约时间不能在当前时间之前
-        if (moment(start).isBefore(moment())) {
+        if (dayjs(start).isBefore(dayjs())) {
             message.warning('无法预约过去的时间段。');
             return;
         }
@@ -70,7 +70,7 @@ const MeetingRoomBookingPage = () => {
         setCurrentBooking(null); // Clear any previous selection
         form.resetFields();
         form.setFieldsValue({
-            timeRange: [moment(start), moment(end)],
+            timeRange: [dayjs(start), dayjs(end)],
             meeting_room: meetingRooms.length > 0 ? meetingRooms[0].id : undefined // 默认选择第一个会议室
         });
         setIsModalVisible(true);
@@ -87,7 +87,7 @@ const MeetingRoomBookingPage = () => {
         setSelectedSlot(null); // Clear selected slot
         form.setFieldsValue({
             meeting_room: event.meeting_room,
-            timeRange: [moment(event.start), moment(event.end)],
+            timeRange: [dayjs(event.start), dayjs(event.end)],
             title: event.title,
             participants: event.participants,
             description: event.description,
@@ -156,7 +156,7 @@ const MeetingRoomBookingPage = () => {
             <div>
                 <strong>{event.title}</strong>
                 <div>{event.meeting_room_name}</div>
-                <div>{moment(event.start).format('HH:mm')} - {moment(event.end).format('HH:mm')}</div>
+                <div>{dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
                 <div>{event.user.username}</div>
             </div>
         );
@@ -194,14 +194,14 @@ const MeetingRoomBookingPage = () => {
                     culture="zh-CN"
                     formats={{
                         timeGutterFormat: 'HH:mm',
-                        eventTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+                        eventTimeRangeFormat: ({ start, end }) => `${dayjs(start).format('HH:mm')} - ${dayjs(end).format('HH:mm')}`,
                         dayFormat: 'M/D (ddd)',
                         monthHeaderFormat: 'YYYY年M月',
-                        weekHeaderFormat: (date) => `${moment(date.start).format('YYYY年M月D日')} - ${moment(date.end).format('YYYY年M月D日')}`,
+                        weekHeaderFormat: (date) => `${dayjs(date.start).format('YYYY年M月D日')} - ${dayjs(date.end).format('YYYY年M月D日')}`,
                         dayHeaderFormat: 'YYYY年M月D日 (ddd)',
                         agendaDateFormat: 'M/D (ddd)',
                         agendaTimeFormat: 'HH:mm',
-                        agendaTimeRangeFormat: ({ start, end }) => `${moment(start).format('HH:mm')} - ${moment(end).format('HH:mm')}`,
+                        agendaTimeRangeFormat: ({ start, end }) => `${dayjs(start).format('HH:mm')} - ${dayjs(end).format('HH:mm')}`,
                     }}
                 />
             </div>

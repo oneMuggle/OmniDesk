@@ -1,12 +1,12 @@
 import React from 'react';
 import { List, Card, Button, Checkbox, Popconfirm, message } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = true, showReminderTime = true }) => {
   const sortedMemos = [...memos].sort((a, b) => {
     if (a.is_completed === b.is_completed) {
-      return moment(a.reminder_time).valueOf() - moment(b.reminder_time).valueOf();
+      return dayjs(a.reminder_time).valueOf() - dayjs(b.reminder_time).valueOf();
     }
     return a.is_completed ? 1 : -1;
   });
@@ -39,7 +39,7 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = tru
           >
             <p>{memo.content}</p>
             {showReminderTime && memo.reminder_time && (
-              <p>提醒时间: {moment(memo.reminder_time).format('YYYY-MM-DD HH:mm')}</p>
+              <p>提醒时间: {dayjs(memo.reminder_time).format('YYYY-MM-DD HH:mm')}</p>
             )}
           </Card>
         </List.Item>

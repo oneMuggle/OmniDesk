@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Switch, message } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { TextArea } = Input;
 
@@ -11,7 +11,7 @@ const MemoModal = ({ open, onCancel, onSave, memoData, mode }) => {
     if (open && mode !== 'create') {
       form.setFieldsValue({
         ...memoData,
-        reminder_time: memoData.reminder_time ? moment(memoData.reminder_time) : null,
+        reminder_time: memoData.reminder_time ? dayjs(memoData.reminder_time) : null,
       });
     } else if (open && mode === 'create') {
       form.resetFields();

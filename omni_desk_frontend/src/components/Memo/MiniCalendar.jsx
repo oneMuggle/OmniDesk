@@ -1,16 +1,15 @@
 import React from 'react';
 import { Calendar, ConfigProvider } from 'antd';
-import moment from 'moment';
-import 'moment/locale/zh-cn'; // 引入 moment 的中文语言包
+import dayjs from 'dayjs';
+import 'dayjs/locale/zh-cn'; // 引入 dayjs 的中文语言包
 import locale from 'antd/es/locale/zh_CN'; // 引入 antd 的中文语言包
-
-moment.locale('zh-cn'); // 全局设置 moment 的语言为中文
+dayjs.locale('zh-cn'); // 设置 dayjs 语言为中文
 
 const MiniCalendar = ({ memos, onSelectDate }) => {
   const dateCellRender = (value) => {
     const date = value.format('YYYY-MM-DD');
     const dayMemos = memos.filter(memo =>
-      memo.reminder_time && moment(memo.reminder_time).format('YYYY-MM-DD') === date
+      memo.reminder_time && dayjs(memo.reminder_time).format('YYYY-MM-DD') === date
     );
 
     return (

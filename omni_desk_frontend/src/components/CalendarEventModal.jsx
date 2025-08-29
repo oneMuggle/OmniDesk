@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Button, Row, Col, Typography, Space } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
@@ -39,7 +39,7 @@ const CalendarEventModal = ({
       if (currentEvent.extendedProps?.type === 'SCHEDULE') {
         console.log('CalendarEventModal - Inside useEffect, SCHEDULE type branch');
         form.setFieldsValue({
-          duty_date: currentEvent.start ? moment(currentEvent.start) : null,
+          duty_date: currentEvent.start ? dayjs(currentEvent.start) : null,
           duty_person: currentEvent.extendedProps?.duty_person_id,
           duty_leader: currentEvent.extendedProps?.duty_leader_id,
         });
@@ -47,8 +47,8 @@ const CalendarEventModal = ({
         console.log('CalendarEventModal - Inside useEffect, TRIAL type branch');
         console.log('CalendarEventModal - raw time_ranges from extendedProps:', currentEvent.extendedProps?.time_ranges);
         const mappedTimeRanges = currentEvent.extendedProps?.time_ranges?.map(tr => {
-          const startTime = tr.start_time ? moment(tr.start_time) : null;
-          const endTime = tr.end_time ? moment(tr.end_time) : null;
+          const startTime = tr.start_time ? dayjs(tr.start_time) : null;
+          const endTime = tr.end_time ? dayjs(tr.end_time) : null;
           if (startTime && startTime.isValid() && endTime && endTime.isValid()) {
             return {
               id: tr.id,
@@ -103,7 +103,7 @@ const CalendarEventModal = ({
         try {
           const timeSlots = await trialApi.fetchTimeSlotsByTrial(changedValues.trial_id);
           const mappedTimeRanges = timeSlots.map(tr => ({
-            start_end_time: [moment(tr.start_time), moment(tr.end_time)],
+            start_end_time: [dayjs(tr.start_time), dayjs(tr.end_time)],
           }));
           form.setFieldsValue({ time_ranges: mappedTimeRanges });
         } catch (error) {
@@ -320,7 +320,7 @@ const CalendarEventModal = ({
       <Text strong>描述: </Text><Text>{details?.description || 'N/A'}</Text><br />
       <Text strong>状态: </Text><Text>{details?.status || 'N/A'}</Text><br />
       <Text strong>客户: </Text><Text>{details?.client || 'N/A'}</Text><br />
-      <Text strong>时间: </Text><Text>{moment(currentEvent.start).format('YYYY-MM-DD HH:mm')} - {moment(currentEvent.end).format('YYYY-MM-DD HH:mm')}</Text><br />
+      <Text strong>时间: </Text><Text>{dayjs(currentEvent.start).format('YYYY-MM-DD HH:mm')} - {dayjs(currentEvent.end).format('YYYY-MM-DD HH:mm')}</Text><br />
       <Text strong>相关设备: </Text><Text>{currentEvent.extendedProps?.equipment?.map(e => e.name).join(', ') || 'N/A'}</Text><br />
       <Text strong>责任人: </Text><Text>{currentEvent.extendedProps?.personnel?.map(p => p.username).join(', ') || 'N/A'}</Text><br />
     </>

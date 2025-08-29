@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, DatePicker, Select, Card, Statistic, Row, Col } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import meetingRoomApi from '../api/meetingRoomApi';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { useAuth } from '../context/AuthContext';
 
 const { RangePicker } = DatePicker;
@@ -21,8 +21,8 @@ const MeetingRoomManagementPage = () => {
     const [maintenances, setMaintenances] = useState([]);
     const [stats, setStats] = useState({});
     const [statsFilter, setStatsFilter] = useState({
-        startDate: moment().subtract(30, 'days'),
-        endDate: moment(),
+        startDate: dayjs().subtract(30, 'days'),
+        endDate: dayjs(),
         meetingRoomId: null
     });
     const [loading, setLoading] = useState(false);
@@ -158,7 +158,7 @@ const MeetingRoomManagementPage = () => {
         setEditingMaintenance(record);
         maintenanceForm.setFieldsValue({
             meeting_room: record.meeting_room,
-            timeRange: [moment(record.start_time), moment(record.end_time)],
+            timeRange: [dayjs(record.start_time), dayjs(record.end_time)],
             reason: record.reason,
         });
         setIsMaintenanceModalVisible(true);
@@ -204,8 +204,8 @@ const MeetingRoomManagementPage = () => {
 
     const maintenanceColumns = [
         { title: '会议室', dataIndex: 'meeting_room_name', key: 'meeting_room_name' },
-        { title: '开始时间', dataIndex: 'start_time', key: 'start_time', render: (text) => moment(text).format('YYYY-MM-DD HH:mm') },
-        { title: '结束时间', dataIndex: 'end_time', key: 'end_time', render: (text) => moment(text).format('YYYY-MM-DD HH:mm') },
+        { title: '开始时间', dataIndex: 'start_time', key: 'start_time', render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm') },
+        { title: '结束时间', dataIndex: 'end_time', key: 'end_time', render: (text) => dayjs(text).format('YYYY-MM-DD HH:mm') },
         { title: '原因', dataIndex: 'reason', key: 'reason' },
         {
             title: '操作',

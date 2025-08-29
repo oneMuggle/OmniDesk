@@ -1,5 +1,11 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
+
+// 第三方库导入
+import dayjs from 'dayjs';
+import utc from 'dayjs-plugin-utc';
+// import timezone from 'dayjs/plugin/timezone'; // 禁用时区插件，用于排查问题
+import 'dayjs/locale/zh-cn'; // 导入中文语言包
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider } from 'antd';
@@ -10,14 +16,22 @@ import {
   faMagic, faLanguage, faSpellCheck
 } from '@fortawesome/free-solid-svg-icons';
 
+// 本地 CSS 文件
 import './index.css';
 import '@fortawesome/fontawesome-svg-core/styles.css'; // 导入 FontAwesome 核心样式
 import 'antd/dist/reset.css';
 
+// 本地模块导入
 import router from './routes';
 import reportWebVitals from './reportWebVitals';
 import { AuthProvider } from './context/AuthContext';
 import { ApiProvider } from './context/ApiProvider';
+
+// dayjs 全局配置
+dayjs.extend(utc);
+// dayjs.extend(timezone); // 禁用时区插件，用于排查问题
+dayjs.locale('zh-cn'); // 设置全局语言为中文
+// dayjs.tz.setDefault('Asia/Shanghai'); // 禁用时区设置，用于排查问题
 
 // 禁用 Font Awesome 自动添加 CSS，因为我们手动导入了 styles.css
 config.autoAddCss = false;

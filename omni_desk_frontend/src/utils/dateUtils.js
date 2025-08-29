@@ -1,23 +1,23 @@
 import dayjs from 'dayjs';
-import utc from 'dayjs-plugin-utc';
+// import utc from 'dayjs-plugin-utc'; // 禁用 utc 插件，用于排查问题
+// import timezone from 'dayjs/plugin/timezone'; // 禁用 timezone 插件，用于排查问题
 
-dayjs.extend(utc);
+// dayjs.extend(utc); // 禁用 utc 插件，用于排查问题
+// dayjs.extend(timezone); // 禁用 timezone 插件，用于排查问题
 
 // 确保所有日期都是 dayjs 实例
 const ensureDayjs = (date) => {
-  if (!date) return dayjs(); // 处理 null/undefined
-  
-  if (typeof date === 'string' || date instanceof Date) {
-    return dayjs(date);
-  }
-  
-  // 已经是 dayjs 实例
-  if (date && typeof date.isValid === 'function') {
+  if (dayjs.isDayjs(date)) { // 检查是否已经是 dayjs 实例
     return date;
   }
-  
-  // 其他情况尝试转换
-  return dayjs(date);
+  if (date instanceof Date) { // 检查是否是原生 Date 对象
+    return dayjs(date);
+  }
+  if (typeof date === 'string') { // 检查是否是字符串
+    return dayjs(date);
+  }
+  // 对于 null/undefined 或其他未知类型，返回一个有效的 dayjs 实例或 null
+  return date === null || date === undefined ? null : dayjs(date);
 };
 
 // 1. 日期解析 - 处理多种输入类型
@@ -48,11 +48,12 @@ export const isValidDate = (date) => {
 
 // 4. 转换为后端格式 (ISO 8601 with timezone)
 export const toServerFormat = (date) => {
-  const parsed = parseDate(date);
-  return parsed ? parsed.format() : null; // 使用本地时间格式
+  const parsed = ensureDayjs(date);
+  // 直接格式化为 ISO 8601 字符串，不进行 UTC 转换
+  return parsed ? parsed.format() : null;
 };
 
-// 5. 从后端格式解析 (支持带时区和数组输入)
+// 5. 从后端格式解析 (直接解析，不进行时区转换)
 export const fromServerFormat = (dateInput) => {
   if (!dateInput) return null;
   
@@ -60,7 +61,8 @@ export const fromServerFormat = (dateInput) => {
   if (Array.isArray(dateInput)) {
     return dateInput.map(d => {
       try {
-        return dayjs(d); // 直接解析，不进行utc().local()转换
+        // 直接解析，不进行时区转换
+        return dayjs(d);
       } catch (e) {
         console.error('Invalid date format in array:', d);
         return null;
@@ -70,7 +72,8 @@ export const fromServerFormat = (dateInput) => {
   
   // 处理单个日期输入
   try {
-    return dayjs(dateInput); // 直接解析，不进行utc().local()转换
+    // 直接解析，不进行时区转换
+    return dayjs(dateInput);
   } catch (e) {
     console.error('Invalid date format:', dateInput);
     return null;
