@@ -47,14 +47,22 @@ const CalendarEventModal = ({
         console.log('CalendarEventModal - Inside useEffect, TRIAL type branch');
         console.log('CalendarEventModal - raw time_ranges from extendedProps:', currentEvent.extendedProps?.time_ranges);
         const mappedTimeRanges = currentEvent.extendedProps?.time_ranges?.map(tr => {
-          const startTime = moment(tr.start_time);
-          const endTime = moment(tr.end_time);
-          console.log('CalendarEventModal - mapping tr:', tr, '->', { start_end_time: [startTime, endTime] });
+          const startTime = tr.start_time ? moment(tr.start_time) : null;
+          const endTime = tr.end_time ? moment(tr.end_time) : null;
+          if (startTime && startTime.isValid() && endTime && endTime.isValid()) {
+            return {
+              id: tr.id,
+              start_end_time: [startTime, endTime],
+              description: tr.description,
+            };
+          }
           return {
-            start_end_time: [startTime, endTime],
+            id: tr.id,
+            start_end_time: [null, null],
+            description: tr.description,
           };
         }) || [];
-        console.log('CalendarEventModal - mappedTimeRanges:', mappedTimeRanges);
+        console.log('CalendarEventModal - mappedTimeRanges:', JSON.stringify(mappedTimeRanges, null, 2));
 
         const fieldsToSet = {
           trial_id: currentEvent.extendedProps?.trialId,
@@ -65,7 +73,7 @@ const CalendarEventModal = ({
           equipment_ids: currentEvent.extendedProps?.equipment?.map(e => e.id),
           responsible_person_ids: currentEvent.extendedProps?.personnel?.map(p => p.id),
         };
-        console.log('CalendarEventModal - useEffect: fieldsToSet', fieldsToSet);
+        console.log('CalendarEventModal - useEffect: fieldsToSet', JSON.stringify(fieldsToSet, null, 2));
         form.setFieldsValue(fieldsToSet);
       }
       setIsEditing(!!currentEvent.id); // 如果有ID，则认为是编辑模式
@@ -73,7 +81,7 @@ const CalendarEventModal = ({
       form.resetFields();
       setIsEditing(false);
     }
-  }, [currentEvent, form, setIsEditing]);
+  }, [currentEvent, form, setIsEditing, form.getFieldValue('time_ranges')]);
 
   const handleValuesChange = async (changedValues, allValues) => {
     if ('trial_id' in changedValues && changedValues.trial_id) {
@@ -203,8 +211,10 @@ const CalendarEventModal = ({
                   rules={[{ required: true, message: '请选择时间段!' }]}
                 >
                   <RangePicker
+                    key={`${name}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[0]?.toISOString() || ''}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[1]?.toISOString() || ''}`}
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
+                    getPopupContainer={() => document.body}
                   />
                 </Form.Item>
                 <MinusCircleOutlined
@@ -332,7 +342,7 @@ const CalendarEventModal = ({
           currentEvent.id ? (isEditing ? renderScheduleForm() : renderDetails(currentEvent.extendedProps?.scheduleDetails)) : renderScheduleForm()
         )}
         {currentEvent?.extendedProps?.type === 'TRIAL' && (
-          currentEvent.id ? (isEditing ? renderTrialForm() : renderTrialDetails(currentEvent.extendedProps)) : renderTrialForm()
+          renderTrialForm()
         )}
       </Form>
     </Modal>
