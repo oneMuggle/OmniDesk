@@ -29,6 +29,36 @@ const AnnouncementsPage = () => {
     fetchAnnouncements();
   }, []);
 
+  const SampleNextArrow = (props) => {
+    const { className, style, onClick } = props;
+    return (
+      <div
+        className={className}
+        style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent" }}
+        onClick={onClick}
+      >
+        <svg fill="white" viewBox="0 0 24 24" width="40" height="40">
+          <path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z" />
+        </svg>
+      </div>
+    );
+  };
+
+  const SamplePrevArrow = (props) => {
+    const { className, style, onClick } = props;
+    return (
+      <div
+        className={className}
+        style={{ ...style, display: "flex", alignItems: "center", justifyContent: "center", background: "transparent" }}
+        onClick={onClick}
+      >
+        <svg fill="white" viewBox="0 0 24 24" width="40" height="40">
+          <path d="M15.41 16.59L10.83 12l4.58-4.59L14 6l-6 6 6 6 1.41-1.41z" />
+        </svg>
+      </div>
+    );
+  };
+
   const settings = {
     dots: true,
     infinite: true,
@@ -38,7 +68,9 @@ const AnnouncementsPage = () => {
     autoplay: true,
     autoplaySpeed: 3000,
     centerMode: true,
-    centerPadding: '60px'
+    centerPadding: '60px',
+    nextArrow: <SampleNextArrow />,
+    prevArrow: <SamplePrevArrow />
   };
 
   return (

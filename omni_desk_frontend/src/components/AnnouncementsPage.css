@@ -23,42 +23,36 @@
 .slider-container {
   max-width: 1200px;
   margin: 2rem auto;
-  padding: 0 20px;
-  overflow: visible;
+  padding: 0 40px; /* 调整左右内边距 */
   box-sizing: border-box;
   position: relative;
 }
 
 .announcement-content {
-  padding: 1.5rem;
-  background: #ffffff;
-  border-radius: 12px;
-  line-height: 1.6;
+  padding: 2.5rem; /* 增加内边距 */
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); /* 渐变背景 */
+  border-radius: 18px; /* 更圆润的边角 */
+  line-height: 1.8; /* 增加行高 */
   text-align: left;
-  margin: 0 10px;
-  min-height: 220px;
+  margin: 0 20px; /* 增加左右间距 */
+  min-height: 280px; /* 增加最小高度 */
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(108, 92, 231, 0.15);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1); /* 更明显的阴影 */
+  transition: all 0.4s cubic-bezier(0.25, 0.8, 0.25, 1); /* 更平滑的过渡 */
+  border: 2px solid rgba(108, 92, 231, 0.2); /* 更明显的边框 */
+}
+
+.announcements-container {
+  position: relative; /* 添加此属性，使slick-dots可以相对于它定位 */
 }
 
 .announcement-content:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 12px rgba(108, 92, 231, 0.15);
+  transform: translateY(-8px) scale(1.02); /* 鼠标悬停时上浮并轻微放大 */
+  box-shadow: 0 15px 30px rgba(108, 92, 231, 0.3); /* 鼠标悬停时更明显的阴影 */
 }
 
-.slick-slide {
-  display: flex !important;
-  justify-content: center;
-  margin: 0 8px;
-  transform: scale(0.98);
-  transition: transform 0.3s ease, opacity 0.3s ease;
-  opacity: 0.9;
-  filter: brightness(0.98);
-}
 
 .slick-slide.slick-active {
   transform: scale(1);
@@ -75,12 +69,6 @@
 
 
 /* 点标记水平布局 */
-.slick-dots {
-  display: flex !important;
-  justify-content: center;
-  gap: 8px;
-  bottom: -30px;
-}
 
 .slick-dots li {
   margin: 0;
@@ -137,20 +125,21 @@
   }
   
   .announcement-content {
-    padding: 2rem;
-    margin: 0 15px;
-    min-height: 240px;
+    padding: 3rem; /* 桌面端增加内边距 */
+    margin: 0 25px; /* 桌面端增加左右间距 */
+    min-height: 320px; /* 桌面端增加最小高度 */
   }
   
   .slick-slide {
     margin: 0 15px;
-    transform: scale(0.95);
-    opacity: 0.95;
+    transform: scale(0.9); /* 缩小非活动幻灯片 */
+    opacity: 0.7; /* 降低非活动幻灯片透明度 */
+    transition: all 0.3s ease; /* 添加过渡效果 */
   }
 
   .slick-slide.slick-active {
-    transform: scale(1);
-    opacity: 1;
+    transform: scale(1); /* 活动幻灯片恢复正常大小 */
+    opacity: 1; /* 活动幻灯片完全不透明 */
     filter: brightness(1);
   }
   
@@ -181,19 +170,91 @@
 
   .slick-prev,
   .slick-next {
-    position: relative;
-    top: auto;
-    left: auto;
-    right: auto;
-    bottom: auto;
-    transform: none;
+    position: absolute; /* 使用绝对定位 */
+    top: 50%; /* 垂直居中 */
+    transform: translateY(-50%); /* 垂直居中调整 */
+    z-index: 1; /* 确保在内容之上 */
+    width: 60px; /* 调整宽度 */
+    height: 60px; /* 调整高度 */
+    background-color: rgba(108, 92, 231, 1) !important; /* 更显眼的背景色，强制覆盖 */
+    border-radius: 50%; /* 圆形按钮 */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5); /* 添加阴影 */
+    transition: background-color 0.3s ease, box-shadow 0.3s ease; /* 添加过渡效果 */
   }
 
-  .slick-dots {
-    position: relative;
-    bottom: auto;
-    gap: 12px;
+  .slick-prev:hover,
+  .slick-next:hover {
+    background-color: rgba(108, 92, 231, 1); /* 鼠标悬停时完全不透明 */
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.7); /* 鼠标悬停时阴影更明显 */
   }
+
+  .slick-prev {
+    left: 10px; /* 调整左侧位置，使其位于容器内部 */
+  }
+
+  .slick-next {
+    right: 10px; /* 调整右侧位置，使其位于容器内部 */
+  }
+
+  /* .slick-prev:before,
+  .slick-next:before {
+    font-size: 20px;
+    color: white;
+    line-height: 1;
+  } */
+
+}
+
+/* 将 slick-dots 移到 @media 规则外部，并调整其定位 */
+.slick-dots {
+  position: absolute;
+  bottom: 20px; /* 调整点标记的位置 */
+  width: 100%;
+  text-align: center;
+  display: flex !important; /* 使点水平排列，并强制覆盖内联样式 */
+  justify-content: center; /* 水平居中 */
+  list-style: none; /* 移除列表默认样式 */
+  padding: 0;
+  margin: 0;
+}
+
+.slick-dots li {
+  margin: 0 5px; /* 调整点之间的间距 */
+}
+
+.slick-dots li button {
+  font-size: 0; /* 隐藏按钮文本 */
+  line-height: 0;
+  display: block;
+  width: 12px; /* 设置按钮宽度 */
+  height: 12px; /* 设置按钮高度 */
+  padding: 5px;
+  cursor: pointer;
+  color: transparent;
+  border: 0;
+  outline: none;
+  background: #bbb; /* 默认点颜色 */
+  border-radius: 50%; /* 圆形 */
+  transition: background-color 0.3s ease;
+}
+
+.slick-dots li button:hover,
+.slick-dots li button:focus {
+  background: #888; /* 鼠标悬停和聚焦时的颜色 */
+}
+
+.slick-dots li.slick-active button {
+  background: #6c5ce7; /* 激活点的颜色 */
+  transform: scale(1.2); /* 激活点稍微放大 */
+}
+
+.slick-dots li button::before {
+  content: ''; /* 移除伪元素，通常是点 */
+  display: none;
 }
 
 /* 入场动画 */
@@ -227,4 +288,26 @@
 .expand-btn:hover {
   background-color: rgba(108, 92, 231, 0.1);
   text-decoration: underline;
+}
+
+
+@media (max-width: 767px) {
+  .slider-container {
+    padding: 0 15px; /* 小屏幕下减小内边距 */
+  }
+
+  .announcement-content {
+    margin: 0 5px; /* 小屏幕下减小左右间距 */
+    min-height: 200px; /* 小屏幕下减小最小高度 */
+    padding: 1.5rem;
+  }
+
+  .slick-dots {
+    bottom: -30px; /* 小屏幕下调整点标记位置 */
+  }
+
+  .slick-prev,
+  .slick-next {
+    display: none !important; /* 小屏幕下隐藏导航按钮 */
+  }
 }
