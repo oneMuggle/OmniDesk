@@ -12,6 +12,65 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TextArea } = Input;
 
+const CustomToolbar = ({ label, onNavigate, onView, view }) => {
+    const navigate = (action) => {
+        onNavigate(action);
+    };
+
+    const viewNames = {
+        month: '月',
+        week: '周',
+        day: '日',
+        agenda: '议程',
+    };
+
+    const getNavText = (direction, currentView) => {
+        switch (currentView) {
+            case 'month':
+                return direction === 'PREV' ? '上个月' : '下个月';
+            case 'week':
+                return direction === 'PREV' ? '上一周' : '下一周';
+            case 'day':
+                return direction === 'PREV' ? '上一天' : '下一天';
+            case 'agenda':
+                return direction === 'PREV' ? '上一页' : '下一页';
+            default:
+                return direction === 'PREV' ? '上一个' : '下一个';
+        }
+    };
+
+    return (
+        <div className="rbc-toolbar">
+            <span className="rbc-btn-group">
+                <button type="button" onClick={() => navigate('PREV')}>
+                    {getNavText('PREV', view)}
+                </button>
+                <button type="button" onClick={() => navigate('TODAY')}>
+                    今天
+                </button>
+                <button type="button" onClick={() => navigate('NEXT')}>
+                    {getNavText('NEXT', view)}
+                </button>
+            </span>
+
+            <span className="rbc-toolbar-label">{label}</span>
+
+            <span className="rbc-btn-group">
+                {Object.keys(viewNames).map((name) => (
+                    <button
+                        type="button"
+                        key={name}
+                        className={view === name ? 'rbc-active' : ''}
+                        onClick={() => onView(name)}
+                    >
+                        {viewNames[name]}
+                    </button>
+                ))}
+            </span>
+        </div>
+    );
+};
+
 const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
     const [form] = Form.useForm();
@@ -176,18 +235,8 @@ const MeetingRoomBookingPage = () => {
                     onSelectEvent={handleSelectEvent}
                     views={['month', 'week', 'day', 'agenda']}
                     defaultView="week"
-                    messages={{
-                        next: '下个月',
-                        previous: '上个月',
-                        today: '今天',
-                        month: '月',
-                        week: '周',
-                        day: '日',
-                        agenda: '议程',
-                        date: '日期',
-                        time: '时间',
-                        event: '事件',
-                        noEventsInRange: '无事件',
+                    components={{
+                        toolbar: CustomToolbar,
                     }}
                     eventPropGetter={eventPropGetter}
                     titleAccessor={getEventTitle}
