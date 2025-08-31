@@ -211,14 +211,25 @@ const MeetingRoomBookingPage = () => {
     }, [user]);
 
     const getEventTitle = useCallback((event) => {
-        return (
-            <div>
-                <strong>{event.title}</strong>
-                <div>{event.meeting_room_name}</div>
-                <div>{dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
-                <div>{event.user.username}</div>
-            </div>
-        );
+        const duration = dayjs(event.end).diff(dayjs(event.start), 'minute'); // 计算持续时间（分钟）
+
+        if (duration < 60) { // 如果持续时间小于60分钟，只显示主题和时间
+            return (
+                <div style={{ padding: '2px', fontSize: '0.8em' }}>
+                    <div><strong>{event.title}</strong></div>
+                    <div>{dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
+                </div>
+            );
+        } else {
+            return (
+                <div style={{ padding: '5px' }}>
+                    <div style={{ marginBottom: '3px' }}><strong>主题:</strong> {event.title}</div>
+                    <div style={{ marginBottom: '3px' }}><strong>会议室:</strong> {event.meeting_room_name}</div>
+                    <div style={{ marginBottom: '3px' }}><strong>时间:</strong> {dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
+                    <div><strong>发布人:</strong> {event.user.username}</div>
+                </div>
+            );
+        }
     }, []);
 
     return (

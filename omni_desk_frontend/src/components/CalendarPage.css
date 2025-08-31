@@ -442,3 +442,13 @@
   font-weight: bold;
   color: var(--text-color);
 }
+
+/* 居中日历事件内容 */
+.rbc-event, .rbc-event-content {
+    display: flex;
+    justify-content: center; /* 水平居中 */
+    align-items: center;     /* 垂直居中 */
+    text-align: center;      /* 文本居中 */
+    height: 100%;            /* 确保容器占满高度 */
+    width: 100%;             /* 确保容器占满宽度 */
+}
