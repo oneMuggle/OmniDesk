@@ -70,7 +70,7 @@ const TrialScheduleContainer = () => {
       extendedProps: {
         ...eventObj.extendedProps,
         trialDetails: trialDetails,
-        time_ranges: eventObj.extendedProps?.time_ranges || [{
+        time_ranges: trialDetails?.time_slots || eventObj.extendedProps?.time_ranges || [{
           start_time: eventObj.start,
           end_time: eventObj.end
         }],

@@ -392,69 +392,19 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """原子化更新试验及其时间段"""
-        time_slots_data = self.request.data.get('time_slots_data', [])
-        instance = self.get_object()
+        # 乐观锁检查
+        # 乐观锁检查
+        current_version = serializer.instance.version
+        if 'version' in self.request.data:
+            if self.request.data['version'] != current_version:
+                raise serializers.ValidationError(
+                    {'version': '数据已被其他用户修改，请刷新后重试'}
+                )
         
-        with transaction.atomic():
-            # 乐观锁检查
-            current_version = instance.version
-            if 'version' in self.request.data:
-                if self.request.data['version'] != current_version:
-                    raise serializers.ValidationError(
-                        {'version': '数据已被其他用户修改，请刷新后重试'}
-                    )
-            
-            # 先更新试验基本信息并增加版本号
-            serializer.save(version=current_version + 1)
-            
-            # 获取现有时间段的ID
-            existing_time_slot_ids = set(instance.time_slots.values_list('id', flat=True))
-            
-            # 用于存储在请求中出现的时间段ID
-            updated_or_created_time_slot_ids = set()
-            
-            # 遍历前端发送的时间段数据
-            for slot_data in time_slots_data:
-                slot_id = slot_data.get('id')
-                
-                # 尝试将 slot_id 转换为整数，如果失败则认为是非法ID（新创建的或临时ID）
-                try:
-                    # 确保只处理有效的整数ID
-                    slot_id_int = int(slot_id)
-                except (ValueError, TypeError):
-                    slot_id_int = None # 非法ID，视为新创建
-                
-                if slot_id_int and slot_id_int in existing_time_slot_ids: # 如果是有效的现有ID
-                    try:
-                        time_slot = instance.time_slots.get(id=slot_id_int)
-                        time_slot.start_time = slot_data['start_time']
-                        time_slot.end_time = slot_data['end_time']
-                        time_slot.description = slot_data.get('description', '')
-                        time_slot.save()
-                        updated_or_created_time_slot_ids.add(slot_id_int)
-                    except TimeSlot.DoesNotExist:
-                        # 理论上不应该发生，因为已经检查了 existing_time_slot_ids
-                        # 如果发生，可能是数据不同步，此处选择创建新条目
-                        TimeSlot.objects.create(
-                            trial=instance,
-                            start_time=slot_data['start_time'],
-                            end_time=slot_data['end_time'],
-                            description=slot_data.get('description', '')
-                        )
-                else: # 如果没有ID，或者ID无效（前端临时ID），创建新的时间段
-                    # 移除 id 字段，因为它不应该被传递给 AutoField
-                    new_slot_data = {k: v for k, v in slot_data.items() if k != 'id'}
-                    TimeSlot.objects.create(
-                        trial=instance,
-                        **new_slot_data
-                    )
-            
-            # 删除不再存在的时间段
-            slots_to_delete = existing_time_slot_ids - updated_or_created_time_slot_ids
-            TimeSlot.objects.filter(id__in=slots_to_delete).delete()
-
-            # 更新试验的时间范围
-            instance.update_time_range()
+        # 更新试验基本信息并增加版本号
+        serializer.save(version=current_version + 1)
+        # 关联关系的更新由serializer的update方法处理
+        # 时间段的增删改由serializer的update方法处理
 
     @action(detail=True, methods=['post', 'patch'], url_path='update-time-slots')
     def update_time_slots(self, request, pk=None):

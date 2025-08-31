@@ -115,12 +115,16 @@ const CalendarEventModal = ({
 
         // 如果表单中有 time_ranges，则使用表单中的数据
         if (processedValues.time_ranges && processedValues.time_ranges.length > 0) {
-          finalTimeSlotsData = processedValues.time_ranges.map(tr => ({
-            id: tr.id,
-            start_time: tr.start_end_time[0].toISOString(),
-            end_time: tr.start_end_time[1].toISOString(),
-            description: tr.description,
-          }));
+          finalTimeSlotsData = processedValues.time_ranges.map(tr => {
+            const startTime = tr.start_end_time && tr.start_end_time[0] ? tr.start_end_time[0].toISOString() : null;
+            const endTime = tr.start_end_time && tr.start_end_time[1] ? tr.start_end_time[1].toISOString() : null;
+            return {
+              id: tr.id,
+              start_time: startTime,
+              end_time: endTime,
+              description: tr.description || '', // 确保 description 不为 undefined
+            };
+          }).filter(slot => slot.start_time && slot.end_time); // 过滤掉 start_time 或 end_time 为 null 的时间段
         } else if (isEditing && currentEvent?.extendedProps?.time_ranges) {
           // 如果是编辑模式，且表单中没有 time_ranges，但原始事件有时间段，
           // 则保留原始时间段数据，除非用户明确删除了所有时间段（即 time_ranges 数组为空）。

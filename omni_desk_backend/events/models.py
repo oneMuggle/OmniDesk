@@ -139,6 +139,12 @@ class Trial(models.Model):
                 end_date=time_range['max_end']
             )
             self._time_range_dirty = False
+        else: # 当没有时间段时，清空主时间范围
+            self.__class__.objects.filter(pk=self.pk).update(
+                start_date=None,
+                end_date=None
+            )
+            self._time_range_dirty = False
 
     def get_time_slots(self):
         """获取关联的时间段"""

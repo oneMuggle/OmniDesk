@@ -143,7 +143,7 @@ else:
 
 # 安全配置
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+DEBUG = True # 强制开启 DEBUG 模式以获取详细错误信息
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -187,7 +187,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'ERROR',
+            'level': 'DEBUG', # 更改日志级别为 DEBUG
             'propagate': True,
         },
     },
