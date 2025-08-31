@@ -187,7 +187,7 @@ LOGGING = {
     'loggers': {
         'django': {
             'handlers': ['console'],
-            'level': 'DEBUG', # 更改日志级别为 DEBUG
+            'level': 'INFO', # 更改日志级别为 INFO
             'propagate': True,
         },
     },
