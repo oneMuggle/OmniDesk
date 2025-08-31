@@ -24,7 +24,8 @@ const CalendarEventModal = ({
   setIsEditing,
   selectedTrial, // 用于试验日程的详情展示
 }) => {
-  const { isGuest } = useAuth();
+  const { user, isGuest } = useAuth(); // 获取 user 对象
+  const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
   const { personnel } = useScheduleData(); // 获取人员数据
   const { trials } = useTrialScheduleData(); // 获取试验数据
   const queryClient = useQueryClient(); // 获取 queryClient
@@ -207,14 +208,14 @@ const CalendarEventModal = ({
         label="客户"
         rules={[{ required: true, message: '该字段是必填项。' }]}
       >
-        <Input disabled={true} />
+        <Input disabled={!canEdit} />
       </Form.Item>
       <Form.Item
         name="description"
         label="描述"
         rules={[{ required: true, message: '该字段是必填项。' }]}
       >
-        <Input.TextArea rows={2} disabled={true} />
+        <Input.TextArea rows={2} disabled={!canEdit} />
       </Form.Item>
       <Form.List name="time_ranges">
         {(fields, { add, remove }) => (
@@ -235,34 +236,38 @@ const CalendarEventModal = ({
                   fieldKey={[fieldKey, 'start_end_time']}
                   rules={[{ required: true, message: '请选择时间段!' }]}
                 >
-                  <RangePicker // 移除复杂动态 key，Form.List 已经处理了列表项的 key
-                    // key={`${name}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[0]?.toISOString() || ''}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[1]?.toISOString() || ''}`}
+                  <RangePicker
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
                     getPopupContainer={() => document.body}
+                    disabled={!canEdit}
                   />
                 </Form.Item>
-                <MinusCircleOutlined
-                  onClick={() => remove(name)}
-                />
+                {canEdit && ( // 只有管理员和经理可以删除时间段
+                  <MinusCircleOutlined
+                    onClick={() => remove(name)}
+                  />
+                )}
               </Space>
             ))}
-            <Form.Item>
-              <Button type="dashed" onClick={() => add({ id: `new_slot_${Date.now()}` })} block icon={<PlusOutlined />}>
-                添加时间段
-              </Button>
-            </Form.Item>
+            {canEdit && ( // 只有管理员和经理可以添加时间段
+              <Form.Item>
+                <Button type="dashed" onClick={() => add({ id: `new_slot_${Date.now()}` })} block icon={<PlusOutlined />}>
+                  添加时间段
+                </Button>
+              </Form.Item>
+            )}
           </>
         )}
       </Form.List>
 
-      {isEditing && (
+      {(isEditing && canEdit) && ( // 只有在编辑模式且有编辑权限时才显示这些字段
         <>
           <Form.Item
             name="status"
             label="状态"
           >
-            <Select placeholder="选择状态">
+            <Select placeholder="选择状态" disabled={!canEdit}>
               <Option value="pending">待定</Option>
               <Option value="in_progress">进行中</Option>
               <Option value="completed">已完成</Option>
@@ -273,7 +278,7 @@ const CalendarEventModal = ({
             name="equipment_ids"
             label="相关设备"
           >
-            <Select mode="multiple" placeholder="选择相关设备">
+            <Select mode="multiple" placeholder="选择相关设备" disabled={!canEdit}>
               {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
               <Option value="1">设备 A</Option>
               <Option value="2">设备 B</Option>
@@ -283,42 +288,7 @@ const CalendarEventModal = ({
             name="responsible_person_ids"
             label="责任人"
           >
-            <Select mode="multiple" placeholder="选择责任人">
-              {personnel.map(p => (
-                <Option key={p.id} value={p.id}>{p.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-        </>
-      )}
-      {isEditing && (
-        <>
-          <Form.Item
-            name="status"
-            label="状态"
-          >
-            <Select placeholder="选择状态">
-              <Option value="pending">待定</Option>
-              <Option value="in_progress">进行中</Option>
-              <Option value="completed">已完成</Option>
-              <Option value="cancelled">已取消</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="equipment_ids"
-            label="相关设备"
-          >
-            <Select mode="multiple" placeholder="选择相关设备">
-              {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
-              <Option value="1">设备 A</Option>
-              <Option value="2">设备 B</Option>
-            </Select>
-          </Form.Item>
-          <Form.Item
-            name="responsible_person_ids"
-            label="责任人"
-          >
-            <Select mode="multiple" placeholder="选择责任人">
+            <Select mode="multiple" placeholder="选择责任人" disabled={!canEdit}>
               {personnel.map(p => (
                 <Option key={p.id} value={p.id}>{p.name}</Option>
               ))}
@@ -357,7 +327,7 @@ const CalendarEventModal = ({
       open={!!currentEvent}
       onOk={handleOk}
       onCancel={onCancel}
-      footer={!isGuest && (!currentEvent || !currentEvent.id || isEditing) ? [
+      footer={canEdit && (!currentEvent || !currentEvent.id || isEditing) ? [ // 只有管理员和经理且在编辑或新增时才显示保存按钮
         <Button key="cancel" onClick={onCancel}>取消</Button>,
         <Button key="submit" type="primary" onClick={handleOk}>保存</Button>,
       ] : null}
