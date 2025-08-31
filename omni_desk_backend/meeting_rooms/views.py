@@ -1,10 +1,11 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
 from django.db.models import Sum, F, ExpressionWrapper, fields
 from django.utils import timezone
 from datetime import timedelta
+from rest_framework.exceptions import PermissionDenied # 导入 PermissionDenied
 
 from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
 from .serializers import MeetingRoomSerializer, MeetingRoomBookingSerializer, MeetingRoomMaintenanceSerializer
@@ -13,23 +14,34 @@ from users.permissions import IsAdminOrManager # 假设users应用中有IsAdminO
 class MeetingRoomViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoom.objects.all()
     serializer_class = MeetingRoomSerializer
-    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理会议室
+    permission_classes = [IsAuthenticated] # 允许所有认证用户管理会议室，包括查看
 
 class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingRoomBookingSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        user = self.request.user
-        if user.is_authenticated and (user.role == 'admin' or user.role == 'manager'):
-            return MeetingRoomBooking.objects.all().order_by('start_time')
-        return MeetingRoomBooking.objects.filter(user=user).order_by('start_time')
+        # 所有认证用户都可以看到所有预约
+        return MeetingRoomBooking.objects.all().order_by('start_time')
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)
 
     def perform_update(self, serializer):
-        serializer.save()
+        # 只有预约创建者、管理员或经理才能修改
+        if self.request.user == serializer.instance.user or \
+           (self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager')):
+            serializer.save()
+        else:
+            raise PermissionDenied("您没有权限修改此预约。")
+
+    def perform_destroy(self, instance):
+        # 只有预约创建者、管理员或经理才能删除
+        if self.request.user == instance.user or \
+           (self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager')):
+            instance.delete()
+        else:
+            raise PermissionDenied("您没有权限删除此预约。")
 
 class MeetingRoomMaintenanceViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoomMaintenance.objects.all().order_by('start_time')
