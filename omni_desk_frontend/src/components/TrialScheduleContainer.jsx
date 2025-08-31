@@ -37,29 +37,16 @@ const TrialScheduleContainer = () => {
     }
 
     try {
-      if (isNewTimeSlot) {
-        // 新增时间段到现有试验
-        // values.time_ranges 包含了用户在模态框中选择的新时间段
-        await trialApi.bulkCreateTimeSlots(targetTrialId, values.time_ranges);
-      } else {
-        // 编辑现有试验或其时间段
-        // 注意：这里的 values.time_ranges 应该包含所有现有和修改后的时间段
-        // 因为后端 perform_update 会删除所有再重建
-        const updatePayload = {
-          title: values.title,
-          client: values.client,
-          description: values.description,
-          equipment_ids: values.equipment_ids || [],
-          responsible_person_ids: values.responsible_person_ids || [],
-          time_slots: values.time_ranges.map(tr => ({
-            id: tr.id, // 现有时间段可能带有id
-            start_time: tr.start_time,
-            end_time: tr.end_time,
-            description: tr.description || ''
-          })),
-        };
-        await trialApi.updateTrial(targetTrialId, updatePayload);
-      }
+      // 统一使用 updateTrial 来处理试验及其时间段的更新（包括新增、修改、删除时间段）
+      const updatePayload = {
+        title: values.title,
+        client: values.client,
+        description: values.description,
+        equipment_ids: values.equipment_ids || [],
+        responsible_person_ids: values.responsible_person_ids || [],
+        time_slots_data: values.time_slots_data, // 直接使用 CalendarEventModal 转换后的数据
+      };
+      await trialApi.updateTrial(targetTrialId, updatePayload);
 
       trialQueryClient.invalidateQueries(['trials']); // 刷新数据
       setCurrentEvent(null); // 关闭模态框

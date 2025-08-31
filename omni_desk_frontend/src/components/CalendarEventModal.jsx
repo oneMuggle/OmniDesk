@@ -30,22 +30,14 @@ const CalendarEventModal = ({
   const queryClient = useQueryClient(); // 获取 queryClient
 
   useEffect(() => {
-    console.log('CalendarEventModal - useEffect: currentEvent', currentEvent);
     if (currentEvent) {
-      console.log('CurrentEvent Type:', currentEvent.type); // New log
-      console.log('CalendarEventModal - Inside useEffect, currentEvent:', currentEvent);
-      console.log('CalendarEventModal - Inside useEffect, currentEvent.extendedProps:', currentEvent.extendedProps);
-      console.log('CalendarEventModal - CurrentEvent Full JSON:', JSON.stringify(currentEvent, null, 2)); // New log
       if (currentEvent.extendedProps?.type === 'SCHEDULE') {
-        console.log('CalendarEventModal - Inside useEffect, SCHEDULE type branch');
         form.setFieldsValue({
           duty_date: currentEvent.start ? dayjs(currentEvent.start) : null,
           duty_person: currentEvent.extendedProps?.duty_person_id,
           duty_leader: currentEvent.extendedProps?.duty_leader_id,
         });
       } else if (currentEvent.extendedProps?.type === 'TRIAL') {
-        console.log('CalendarEventModal - Inside useEffect, TRIAL type branch');
-        console.log('CalendarEventModal - raw time_ranges from extendedProps:', currentEvent.extendedProps?.time_ranges);
         const mappedTimeRanges = currentEvent.extendedProps?.time_ranges?.map(tr => {
           const startTime = tr.start_time ? dayjs(tr.start_time) : null;
           const endTime = tr.end_time ? dayjs(tr.end_time) : null;
@@ -62,7 +54,6 @@ const CalendarEventModal = ({
             description: tr.description,
           };
         }) || [];
-        console.log('CalendarEventModal - mappedTimeRanges:', JSON.stringify(mappedTimeRanges, null, 2));
 
         const fieldsToSet = {
           trial_id: currentEvent.extendedProps?.trialId,
@@ -73,7 +64,6 @@ const CalendarEventModal = ({
           equipment_ids: currentEvent.extendedProps?.equipment?.map(e => e.id),
           responsible_person_ids: currentEvent.extendedProps?.personnel?.map(p => p.id),
         };
-        console.log('CalendarEventModal - useEffect: fieldsToSet', JSON.stringify(fieldsToSet, null, 2));
         form.setFieldsValue(fieldsToSet);
       }
       setIsEditing(!!currentEvent.id); // 如果有ID，则认为是编辑模式
@@ -107,7 +97,7 @@ const CalendarEventModal = ({
           }));
           form.setFieldsValue({ time_ranges: mappedTimeRanges });
         } catch (error) {
-          console.error('Failed to fetch trial time slots:', error);
+          // 移除日志：console.error('Failed to fetch trial time slots:', error);
         }
       }
     }
@@ -116,20 +106,43 @@ const CalendarEventModal = ({
   const handleOk = () => {
     form.validateFields()
       .then(values => {
-        const processedValues = { ...values };
-        if (processedValues.time_ranges) {
-          processedValues.time_slots_data = processedValues.time_ranges.map(tr => ({
+        const processedValues = { ...values }; // 复制表单值
+        if (isEditing && currentEvent?.id) { // 如果是编辑模式且存在事件ID，则添加ID
+          processedValues.id = currentEvent.id;
+        }
+
+        let finalTimeSlotsData = [];
+
+        // 如果表单中有 time_ranges，则使用表单中的数据
+        if (processedValues.time_ranges && processedValues.time_ranges.length > 0) {
+          finalTimeSlotsData = processedValues.time_ranges.map(tr => ({
             id: tr.id,
             start_time: tr.start_end_time[0].toISOString(),
             end_time: tr.start_end_time[1].toISOString(),
             description: tr.description,
           }));
-          delete processedValues.time_ranges;
+        } else if (isEditing && currentEvent?.extendedProps?.time_ranges) {
+          // 如果是编辑模式，且表单中没有 time_ranges，但原始事件有时间段，
+          // 则保留原始时间段数据，除非用户明确删除了所有时间段（即 time_ranges 数组为空）。
+          finalTimeSlotsData = currentEvent.extendedProps.time_ranges.map(tr => ({
+            id: tr.id,
+            start_time: tr.start_time, // 原始数据已经是 ISO 格式
+            end_time: tr.end_time,     // 原始数据已经是 ISO 格式
+            description: tr.description,
+          }));
+        } else {
+          // 如果既不是表单中有 time_ranges 也不是编辑模式下有原始 time_ranges，
+          // 那么 finalTimeSlotsData 应该为空，这包括新增但没有添加时间段的情况。
+          finalTimeSlotsData = [];
         }
+
+        processedValues.time_slots_data = finalTimeSlotsData;
+        delete processedValues.time_ranges; // 移除原始的 time_ranges 字段
+
+        console.log('CalendarEventModal - handleOk: processedValues', processedValues);
         onSave(processedValues);
       })
       .catch(info => {
-        console.log('Validate Failed:', info);
       });
   };
 
@@ -204,14 +217,22 @@ const CalendarEventModal = ({
           <>
             {fields.map(({ key, name, fieldKey, ...restField }) => (
               <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                {/* 隐藏的 id 字段 */}
+                <Form.Item
+                  name={[name, 'id']}
+                  fieldKey={[fieldKey, 'id']}
+                  hidden
+                >
+                  <Input />
+                </Form.Item>
                 <Form.Item
                   {...restField}
                   name={[name, 'start_end_time']}
                   fieldKey={[fieldKey, 'start_end_time']}
                   rules={[{ required: true, message: '请选择时间段!' }]}
                 >
-                  <RangePicker
-                    key={`${name}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[0]?.toISOString() || ''}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[1]?.toISOString() || ''}`}
+                  <RangePicker // 移除复杂动态 key，Form.List 已经处理了列表项的 key
+                    // key={`${name}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[0]?.toISOString() || ''}-${form.getFieldValue(['time_ranges', name, 'start_end_time'])?.[1]?.toISOString() || ''}`}
                     showTime={{ format: 'HH:mm' }}
                     format="YYYY-MM-DD HH:mm"
                     getPopupContainer={() => document.body}

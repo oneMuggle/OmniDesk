@@ -52,12 +52,7 @@ export const trialApi = {
         ...trialData,
         equipment_ids: trialData.equipmentIds,
         responsible_person_ids: trialData.responsiblePersonIds,
-        time_slots_data: trialData.time_slots?.map(slot => ({
-          id: slot.id || null,
-          start_time: toServerFormat(slot.start_time),
-          end_time: toServerFormat(slot.end_time),
-          description: slot.description || ''
-        })) || []
+        time_slots_data: trialData.time_slots_data || []
       }, {
         headers: {
           'Content-Type': 'application/json',
