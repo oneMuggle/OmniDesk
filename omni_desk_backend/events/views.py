@@ -14,7 +14,7 @@ import calendar
 from datetime import datetime, timedelta
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence
+    PersonnelSequence, LeaderSequence, Position
 )
 from .serializers import (
     TrialSerializer,
@@ -26,9 +26,17 @@ from .serializers import (
     AnnouncementSerializer,
     UploadedImageSerializer,
     PersonnelSequenceSerializer,
-    LeaderSequenceSerializer
+    LeaderSequenceSerializer,
+    PositionSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
+
+class PositionViewSet(viewsets.ModelViewSet):
+    queryset = Position.objects.all()
+    serializer_class = PositionSerializer
+    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理职位
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['name']
 
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
@@ -335,7 +343,7 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     serializer_class = PersonnelSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'department', 'phone']
+    filterset_fields = ['name', 'phone', 'position'] # 移除 department 字段
     @action(detail=False, methods=['get'], url_path='all')
     def list_all(self, request):
         """

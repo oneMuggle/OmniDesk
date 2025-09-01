@@ -1,8 +1,13 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
+
+class PositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Position
+        fields = ['id', 'name']
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     trial_id = serializers.PrimaryKeyRelatedField(
@@ -25,13 +30,22 @@ class TimeSlotSerializer(serializers.ModelSerializer):
         return data
 
 class PersonnelSerializer(serializers.ModelSerializer):
+    position_name = serializers.SerializerMethodField()
+    position = serializers.PrimaryKeyRelatedField(
+        queryset=Position.objects.all(),
+        allow_null=True,
+        required=False
+    )
+
     class Meta:
         model = Personnel
-        fields = ['id', 'name', 'phone', 'department'] # 明确指定字段
+        fields = ['id', 'name', 'phone', 'position', 'position_name']
         extra_kwargs = {
             'phone': {'required': False},
-            'department': {'required': False}
         }
+
+    def get_position_name(self, obj):
+        return obj.position.name if obj.position else None
 
 class EquipmentSerializer(serializers.ModelSerializer):
     name = serializers.CharField()

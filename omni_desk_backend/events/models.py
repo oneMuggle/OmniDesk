@@ -2,10 +2,27 @@ from django.db import models
 from django.db.models import JSONField
 from users.models import CustomUser
 
+class Position(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="职位名称")
+
+    class Meta:
+        verbose_name = "职位"
+        verbose_name_plural = "职位管理"
+
+    def __str__(self):
+        return self.name
+
 class Personnel(models.Model):
     name = models.CharField(max_length=100)
-    department = models.CharField(max_length=50)
     phone = models.CharField(max_length=15, blank=True, null=True)
+    position = models.ForeignKey(
+        Position,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='personnel',
+        verbose_name="职位"
+    )
 
     class Meta:
         ordering = ['id']

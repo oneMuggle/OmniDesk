@@ -1,7 +1,7 @@
 import apiClient from './apiClient';
 
-export const getPersonnel = async () => {
-  const response = await apiClient.get('/events/personnel/');
+export const getPersonnel = async (params) => {
+  const response = await apiClient.get('/events/personnel/', { params });
   return response.data;
 };
 
@@ -25,4 +25,21 @@ export const updatePersonnel = (id, data) => {
 
 export const deletePersonnel = (id) => {
   return apiClient.delete(`/events/personnel/${id}/`);
+};
+
+export const getPositions = async () => {
+  const response = await apiClient.get('/events/positions/');
+  return response.data;
+};
+
+export const createPosition = (data) => {
+  return apiClient.post('/events/positions/', data);
+};
+
+export const updatePosition = (id, data) => {
+  return apiClient.put(`/events/positions/${id}/`, data);
+};
+
+export const deletePosition = (id) => {
+  return apiClient.delete(`/events/positions/${id}/`);
 };

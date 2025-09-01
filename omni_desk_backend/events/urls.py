@@ -10,10 +10,12 @@ from .views import (
     AnnouncementViewSet,
     ImageUploadView,
     PersonnelSequenceViewSet,
-    LeaderSequenceViewSet
+    LeaderSequenceViewSet,
+    PositionViewSet # Import PositionViewSet
 )
 
 router = DefaultRouter()
+router.register(r'positions', PositionViewSet, basename='positions') # Register PositionViewSet
 router.register(r'trials', TrialViewSet, basename='trials')
 router.register(r'personnel', ResponsiblePersonViewSet, basename='personnel')
 router.register(r'equipments', EquipmentViewSet, basename='equipments')
