@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio } from 'antd';
 import { scheduleApi } from '../api/scheduleApi';
+import { getAllPersonnel } from '../api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
@@ -224,7 +225,7 @@ const ScheduleManagementPage = () => {
 
   const fetchPersonnel = async () => {
     try {
-      const data = await scheduleApi.getPersonnel();
+      const data = await getAllPersonnel();
       setPersonnelList(data);
     } catch (error) {
       message.error('获取人员列表失败');

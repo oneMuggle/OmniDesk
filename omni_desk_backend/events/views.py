@@ -336,6 +336,14 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'department', 'phone']
+    @action(detail=False, methods=['get'], url_path='all')
+    def list_all(self, request):
+        """
+        获取所有人员信息，不进行分页。
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 class TrialViewSet(viewsets.ModelViewSet):
     queryset = Trial.objects.all()

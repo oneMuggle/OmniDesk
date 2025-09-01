@@ -5,6 +5,12 @@ export const getPersonnel = async () => {
   return response.data;
 };
 
+// 新增函数，用于获取所有人员信息
+export const getAllPersonnel = async () => {
+  const response = await apiClient.get('/events/personnel/all/');
+  return response.data;
+};
+
 export const getPersonnelDetails = (id) => {
   return apiClient.get(`/events/personnel/${id}/`);
 };
