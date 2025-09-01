@@ -32,14 +32,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'blank': '密码不能为空'
         }
     )
-    password_confirmation = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'},
-        error_messages={
-            'blank': '确认密码不能为空'
-        }
-    )
     email = serializers.EmailField(
         required=False,
         allow_blank=True,
@@ -50,7 +42,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ('username', 'password', 'email', 'password_confirmation')
+        fields = ('username', 'password', 'email')
 
     def validate_username(self, value):
         value = value.strip()
@@ -59,9 +51,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        if 'password' in data and 'password_confirmation' in data:
-            if data['password'] != data['password_confirmation']:
-                raise serializers.ValidationError({"password": "两次输入的密码不一致。"})
         return data
 
     def create(self, validated_data):
