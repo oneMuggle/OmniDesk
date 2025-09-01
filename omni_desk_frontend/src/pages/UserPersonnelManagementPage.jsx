@@ -1,96 +1,123 @@
 import React, { useState, useEffect } from 'react';
-import apiClient from '../api/apiClient'; // 导入 apiClient
-import { toast } from 'react-toastify';
-import { useAuth } from '../context/AuthContext'; // 假设有 AuthContext 用于获取 token
+import { Table, Button, Modal, Select, message } from 'antd';
+import axios from 'axios';
+
+const { Option } = Select;
 
 const UserPersonnelManagementPage = () => {
     const [users, setUsers] = useState([]);
-    const [personnel, setPersonnel] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const { isAuthenticated } = useAuth(); // 仅使用 isAuthenticated 状态，不再直接获取 authToken
+    const [personnelList, setPersonnelList] = useState([]);
+    const [isModalVisible, setIsModalVisible] = useState(false);
+    const [currentUser, setCurrentUser] = useState(null);
+    const [selectedPersonnel, setSelectedPersonnel] = useState(null);
 
     useEffect(() => {
-        const fetchData = async () => {
-            if (!isAuthenticated) { // 如果未认证，则不发送请求
-                setLoading(false);
-                setError('请登录以查看人员管理信息。');
-                return;
-            }
-            try {
-                // apiClient 已经自动处理了 Authorization 头，无需手动添加
-                const [usersResponse, personnelResponse] = await Promise.all([
-                    apiClient.get('/users/'), // 获取所有用户，用于指派人下拉列表
-                    apiClient.get('/users/personnel/') // 获取所有人员，即所有CustomUser
-                ]);
-                setUsers(usersResponse.data.results || usersResponse.data); // 假设 users 也可能是分页数据
-                setPersonnel(personnelResponse.data.results || personnelResponse.data);
-            } catch (err) {
-                setError('加载数据失败。请稍后重试。');
-                toast.error('加载数据失败。');
-                console.error('Error fetching data:', err);
-            } finally {
-                setLoading(false);
-            }
-        };
+        fetchUsers();
+        fetchPersonnel();
+    }, []);
 
-        fetchData();
-    }, [isAuthenticated]); // 依赖 isAuthenticated 状态
-
-    const handleAssignedByChange = async (personnelId, newAssignedById) => {
+    const fetchUsers = async () => {
         try {
-            // apiClient 已经自动处理了 Authorization 头，无需手动添加
-            await apiClient.patch(`/users/personnel/${personnelId}/`, { assigned_by: newAssignedById || null });
-            setPersonnel(prevPersonnel =>
-                prevPersonnel.map(p =>
-                    p.id === personnelId ? { ...p, assigned_by: newAssignedById, assigned_by_username: users.find(u => u.id === newAssignedById)?.username || null } : p
-                )
-            );
-            toast.success('关联更新成功！');
-        } catch (err) {
-            toast.error('更新关联失败。');
-            console.error('Error updating assignment:', err);
+            const response = await axios.get('/api/users/personnel/');
+            setUsers(response.data);
+        } catch (error) {
+            message.error('获取用户列表失败');
+            console.error('Error fetching users:', error);
         }
     };
 
-    if (loading) return <div>加载中...</div>;
-    if (error) return <div>{error}</div>;
+    const fetchPersonnel = async () => {
+        try {
+            const response = await axios.get('/api/events/personnel/'); // 假设人员管理接口
+            setPersonnelList(response.data);
+        } catch (error) {
+            message.error('获取人员列表失败');
+            console.error('Error fetching personnel:', error);
+        }
+    };
+
+    const handleAssociate = (user) => {
+        setCurrentUser(user);
+        setSelectedPersonnel(user.personnel ? user.personnel.id : null);
+        setIsModalVisible(true);
+    };
+
+    const handleModalOk = async () => {
+        if (!currentUser) return;
+
+        try {
+            await axios.patch(`/api/users/personnel/${currentUser.id}/`, {
+                personnel_id: selectedPersonnel
+            });
+            message.success('关联成功');
+            fetchUsers(); // 刷新用户列表
+            setIsModalVisible(false);
+        } catch (error) {
+            message.error('关联失败');
+            console.error('Error associating personnel:', error);
+        }
+    };
+
+    const handleModalCancel = () => {
+        setIsModalVisible(false);
+        setCurrentUser(null);
+        setSelectedPersonnel(null);
+    };
+
+    const columns = [
+        {
+            title: '用户名',
+            dataIndex: 'username',
+            key: 'username',
+        },
+        {
+            title: '关联人员',
+            dataIndex: 'personnel',
+            key: 'personnel',
+            render: (personnel) => personnel ? personnel.name : '未关联',
+        },
+        {
+            title: '操作',
+            key: 'action',
+            render: (_, record) => (
+                <Button type="primary" onClick={() => handleAssociate(record)}>
+                    {record.personnel ? '修改关联' : '关联人员'}
+                </Button>
+            ),
+        },
+    ];
 
     return (
-        <div className="user-personnel-management-page">
+        <div style={{ padding: '20px' }}>
             <h1>用户人员关联管理</h1>
-            <table>
-                <thead>
-                    <tr>
-                        <th>用户名</th>
-                        <th>角色</th>
-                        <th>当前指派人</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {personnel.map(p => (
-                        <tr key={p.id}>
-                            <td>{p.username}</td>
-                            <td>{p.role}</td>
-                            <td>{p.assigned_by_username || '未指派'}</td>
-                            <td>
-                                <select
-                                    value={p.assigned_by || ''}
-                                    onChange={(e) => handleAssignedByChange(p.id, e.target.value ? parseInt(e.target.value) : null)}
-                                >
-                                    <option value="">-- 选择指派人 --</option>
-                                    {users.map(u => (
-                                        <option key={u.id} value={u.id}>
-                                            {u.username} ({u.role})
-                                        </option>
-                                    ))}
-                                </select>
-                            </td>
-                        </tr>
+            <Table dataSource={users} columns={columns} rowKey="id" />
+
+            <Modal
+                title="关联人员"
+                visible={isModalVisible}
+                onOk={handleModalOk}
+                onCancel={handleModalCancel}
+            >
+                <p>为用户 <strong>{currentUser?.username}</strong> 关联人员:</p>
+                <Select
+                    showSearch
+                    placeholder="选择人员"
+                    optionFilterProp="children"
+                    onChange={(value) => setSelectedPersonnel(value)}
+                    value={selectedPersonnel}
+                    style={{ width: '100%' }}
+                    filterOption={(input, option) =>
+                        option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                    }
+                >
+                    <Option value="">不关联任何人员</Option>
+                    {personnelList.map(personnel => (
+                        <Option key={personnel.id} value={personnel.id}>
+                            {personnel.name}
+                        </Option>
                     ))}
-                </tbody>
-            </table>
+                </Select>
+            </Modal>
         </div>
     );
 };

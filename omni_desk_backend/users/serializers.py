@@ -3,6 +3,8 @@ from rest_framework import serializers
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+from events.models import Personnel
+from events.serializers import PersonnelSerializer
 
 CustomUser = get_user_model()
 
@@ -30,6 +32,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'blank': '密码不能为空'
         }
     )
+    password_confirmation = serializers.CharField(
+        write_only=True,
+        required=True,
+        style={'input_type': 'password'},
+        error_messages={
+            'blank': '确认密码不能为空'
+        }
+    )
     email = serializers.EmailField(
         required=False,
         allow_blank=True,
@@ -40,7 +50,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     
     class Meta:
         model = CustomUser
-        fields = ('username', 'password', 'email')
+        fields = ('username', 'password', 'email', 'password_confirmation')
 
     def validate_username(self, value):
         value = value.strip()
@@ -49,9 +59,14 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
+        if 'password' in data and 'password_confirmation' in data:
+            if data['password'] != data['password_confirmation']:
+                raise serializers.ValidationError({"password": "两次输入的密码不一致。"})
         return data
 
     def create(self, validated_data):
+        # 移除 password_confirmation，因为它不是模型字段
+        validated_data.pop('password_confirmation', None)
         return CustomUser.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
@@ -87,23 +102,36 @@ class UserDetailSerializer(serializers.ModelSerializer):
         required=False
     )
     assigned_by_username = serializers.CharField(source='assigned_by.username', read_only=True)
+    personnel = serializers.StringRelatedField(read_only=True)
+    personnel_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='personnel',
+        allow_null=True,
+        required=False,
+        write_only=True
+    )
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username')
+        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
         read_only_fields = ('username', 'email', 'role')
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'role')
+        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id')
         extra_kwargs = {
             'role': {'required': True}
         }
+    personnel = serializers.StringRelatedField(read_only=True)
+    personnel_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='personnel',
+        allow_null=True,
+        required=False,
+        write_only=True
+    )
 
-class PersonnelSerializer(UserSerializer):
-    """兼容原有人员管理接口"""
-    pass
 
 class UserAdminSerializer(serializers.ModelSerializer):
     class Meta:
@@ -155,3 +183,17 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 class ChangePasswordSerializer(serializers.Serializer):
     old_password = serializers.CharField(required=True)
     new_password = serializers.CharField(required=True)
+
+class UserPersonnelSerializer(serializers.ModelSerializer):
+    personnel = PersonnelSerializer(read_only=True)
+    personnel_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='personnel',
+        allow_null=True,
+        required=False
+    )
+
+    class Meta:
+        model = CustomUser
+        fields = ('id', 'username', 'personnel', 'personnel_id')
+        read_only_fields = ('username',)

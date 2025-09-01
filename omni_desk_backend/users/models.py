@@ -21,6 +21,14 @@ class CustomUser(AbstractUser):
         related_name='assigned_personnel',
         verbose_name='指派人'
     )
+    personnel = models.OneToOneField(
+        'events.Personnel',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='user_account',
+        verbose_name='关联人员'
+    )
     
     # 使用用户名作为唯一标识
     USERNAME_FIELD = 'username'

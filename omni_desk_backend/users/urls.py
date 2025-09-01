@@ -2,8 +2,10 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import CurrentUserView, UserAdminListView, UserAdminDetailView, UserProfileUpdateView, ChangePasswordView, UserPersonnelViewSet
 
+app_name = 'users' # 定义应用命名空间
+
 router = DefaultRouter()
-router.register(r'personnel', UserPersonnelViewSet)
+router.register(r'personnel', UserPersonnelViewSet, basename='customuser') # 指定 basename
 
 urlpatterns = [
     path('me/', CurrentUserView.as_view(), name='current-user'),

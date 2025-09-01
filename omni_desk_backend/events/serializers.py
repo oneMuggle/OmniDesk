@@ -3,7 +3,6 @@ from django.db import transaction
 from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
-from users.serializers import UserSerializer
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     trial_id = serializers.PrimaryKeyRelatedField(
@@ -26,11 +25,9 @@ class TimeSlotSerializer(serializers.ModelSerializer):
         return data
 
 class PersonnelSerializer(serializers.ModelSerializer):
-    department = serializers.CharField(allow_blank=True, required=False)
-    
     class Meta:
         model = Personnel
-        fields = '__all__'
+        fields = ['id', 'name', 'phone', 'department'] # 明确指定字段
         extra_kwargs = {
             'phone': {'required': False},
             'department': {'required': False}
@@ -262,7 +259,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class AnnouncementSerializer(serializers.ModelSerializer):
-    author = UserSerializer(read_only=True)
+    author = serializers.StringRelatedField(read_only=True)
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         write_only=True,

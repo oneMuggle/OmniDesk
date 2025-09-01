@@ -31,12 +31,14 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import CustomUser
+from events.models import Personnel
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
     UserDetailSerializer,
     CustomTokenObtainPairSerializer,
-    PersonnelSerializer
+    PersonnelSerializer,
+    UserPersonnelSerializer # 新增导入
 )
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -52,7 +54,8 @@ class UserRegistrationView(generics.CreateAPIView):
             return Response({
                 "success": True,
                 "message": "注册成功，请登录",
-                "username": user.username
+                "username": user.username,
+                "user": UserDetailSerializer(user).data # 返回 user 对象
             }, status=status.HTTP_201_CREATED)
         except exceptions.APIException as e:
             error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else 'validation_error'
@@ -170,8 +173,28 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
 from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by('username')
-    serializer_class = UserDetailSerializer # 使用 UserDetailSerializer
+    serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
     permission_classes = [IsAdminOrManager] # 确保只有管理员和经理可以访问
+
+    def update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        personnel_id = request.data.get('personnel_id')
+
+        if personnel_id is not None:
+            if personnel_id == '':  # 解除关联
+                instance.personnel = None
+            else:  # 关联
+                try:
+                    personnel = Personnel.objects.get(id=personnel_id)
+                    instance.personnel = personnel
+                except Personnel.DoesNotExist:
+                    return Response({"detail": "人员不存在。"}, status=status.HTTP_404_NOT_FOUND)
+        else:
+            return Response({"detail": "缺少 personnel_id 参数。"}, status=status.HTTP_400_BAD_REQUEST)
+
+        instance.save()
+        serializer = self.get_serializer(instance)
+        return Response(serializer.data)
 
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
