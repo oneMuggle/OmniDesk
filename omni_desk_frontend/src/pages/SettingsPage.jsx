@@ -57,7 +57,8 @@ const SettingsPage = () => {
     if (editingConfig && editingConfig.api_endpoint) {
       try {
         const response = await getOllamaModelsFromEndpoint(editingConfig.api_endpoint);
-        setAvailableModels(response.data);
+        // Ollama API 返回的格式是 { models: [...] }
+        setAvailableModels(response.models.map(model => model.name));
       } catch (error) {
         console.error("Failed to fetch models:", error);
         alert("获取模型列表失败，请检查 API 地址是否正确。");

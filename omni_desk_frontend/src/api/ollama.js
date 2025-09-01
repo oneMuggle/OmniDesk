@@ -102,4 +102,12 @@ export const setConfig = async (config) => {
   }
 };
 
-export const getOllamaModelsFromEndpoint = (apiEndpoint) => apiClient.post('/config/ollama-models/', { api_endpoint: apiEndpoint });
+export const getOllamaModelsFromEndpoint = async (apiEndpoint) => {
+  try {
+    const response = await axios.get(`${apiEndpoint}/v1/models`);
+    return response.data;
+  } catch (error) {
+    console.error('Failed to fetch models from endpoint:', error);
+    throw error;
+  }
+};
