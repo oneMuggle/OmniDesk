@@ -403,12 +403,13 @@ const ScheduleManagementPage = () => {
   const formatCalendarEvents = () => {
     return schedules.map(schedule => ({
       id: String(schedule.id),
-      title: `${getPersonnelName(schedule.duty_person)} / ${getPersonnelName(schedule.duty_leader)}`,
       start: schedule.duty_date,
       allDay: true,
       extendedProps: {
         duty_person: schedule.duty_person,
         duty_leader: schedule.duty_leader,
+        duty_person_name: getPersonnelName(schedule.duty_person),
+        duty_leader_name: getPersonnelName(schedule.duty_leader),
       }
     }));
   };
@@ -425,13 +426,13 @@ const ScheduleManagementPage = () => {
       title: '值班人员',
       dataIndex: 'duty_person',
       key: 'duty_person',
-      render: (id) => getPersonnelName(id),
+      render: (id) => <div style={{ textAlign: 'center' }}>{getPersonnelName(id)}</div>,
     },
     {
       title: '值班领导',
       dataIndex: 'duty_leader',
       key: 'duty_leader',
-      render: (id) => getPersonnelName(id),
+      render: (id) => <div style={{ textAlign: 'center' }}>{getPersonnelName(id)}</div>,
     },
     {
       title: '操作',
@@ -461,6 +462,12 @@ const ScheduleManagementPage = () => {
           droppable={true}
           eventDrop={handleEventDrop}
           locale="zh-cn"
+          eventContent={(eventInfo) => (
+            <div style={{ textAlign: 'center' }}>
+              <div>{eventInfo.event.extendedProps.duty_person_name}</div>
+              <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
+            </div>
+          )}
           headerToolbar={{
             left: 'prev,next today',
             center: 'title',

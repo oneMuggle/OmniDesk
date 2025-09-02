@@ -16,19 +16,20 @@ export const transformScheduleToEvents = (schedules, personnel) => {
     const duty_person = personnel.find(p => p.id === schedule.duty_person) || { name: '未知', phone: '' };
     const duty_leader = personnel.find(p => p.id === schedule.duty_leader) || { name: '未知', phone: '' };
 
-    const title = `${duty_person.name} (值班) / ${duty_leader.name} (领导)`;
     const start = fromServerFormat(schedule.duty_date)?.toDate();
 
     return {
       type: 'SCHEDULE',
       id: `schedule-${schedule.id}`,
-      title: title,
+      title: `${duty_person.name} (值班) / ${duty_leader.name} (领导)`, // 保持原始 title，以便在需要时作为备用
       start: start,
       end: start, // 排班通常是全天事件，开始和结束时间相同
       allDay: true,
       extendedProps: {
         duty_person_id: schedule.duty_person,
         duty_leader_id: schedule.duty_leader,
+        duty_person_name: duty_person.name, // 添加值班人员名称
+        duty_leader_name: duty_leader.name, // 添加值班领导名称
         scheduleDetails: {
           duty_person: duty_person,
           duty_leader: duty_leader,
