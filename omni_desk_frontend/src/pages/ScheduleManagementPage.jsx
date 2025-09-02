@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio } from 'antd';
 import { scheduleApi } from '../api/scheduleApi';
-import { getAllPersonnel } from '../api/personnelApi';
+import { getAllPersonnel, getPositions } from '../api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
@@ -10,8 +10,12 @@ import interactionPlugin from '@fullcalendar/interaction';
 
 const { Option } = Select;
 
-const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList }) => {
+const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList, positions }) => {
   const [form] = Form.useForm();
+  const [filteredDutyPersonList, setFilteredDutyPersonList] = useState(personnelList);
+  const [filteredDutyLeaderList, setFilteredDutyLeaderList] = useState(personnelList);
+  const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
+  const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
 
   useEffect(() => {
     if (visible) {
@@ -19,8 +23,31 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
         ...initialData,
         date: initialData.duty_date ? moment(initialData.duty_date) : null,
       });
+      // Reset filters and lists when modal opens
+      setFilteredDutyPersonList(personnelList);
+      setFilteredDutyLeaderList(personnelList);
+      setSelectedPersonPositionId(null);
+      setSelectedLeaderPositionId(null);
     }
-  }, [visible, initialData, form]);
+  }, [visible, initialData, form, personnelList]);
+
+  useEffect(() => {
+    if (selectedPersonPositionId) {
+      setFilteredDutyPersonList(personnelList.filter(p => p.position === selectedPersonPositionId));
+    } else {
+      setFilteredDutyPersonList(personnelList);
+    }
+    form.setFieldsValue({ duty_person: null }); // Clear selected person
+  }, [selectedPersonPositionId, personnelList, form]);
+
+  useEffect(() => {
+    if (selectedLeaderPositionId) {
+      setFilteredDutyLeaderList(personnelList.filter(p => p.position === selectedLeaderPositionId));
+    } else {
+      setFilteredDutyLeaderList(personnelList);
+    }
+    form.setFieldsValue({ duty_leader: null }); // Clear selected leader
+  }, [selectedLeaderPositionId, personnelList, form]);
 
   const handleOk = () => {
     form.validateFields()
@@ -54,6 +81,23 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
           <DatePicker style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item
+          name="person_position_filter"
+          label="值班人员职务筛选"
+        >
+          <Select
+            placeholder="按职务筛选值班人员"
+            allowClear
+            onChange={(value) => setSelectedPersonPositionId(value)}
+            value={selectedPersonPositionId}
+          >
+            {positions.map(position => (
+              <Option key={position.id} value={position.id}>
+                {position.name}
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item
           name="duty_person"
           label="值班人员"
           rules={[{ required: true, message: '请选择值班人员!' }]}
@@ -62,12 +106,29 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
             placeholder="选择值班人员"
             showSearch
             filterOption={(input, option) =>
-              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0 // option.children is array: [name, ' (', position_name, ')']
             }
           >
-            {personnelList.map(person => (
+            {filteredDutyPersonList.map(person => (
               <Option key={person.id} value={person.id}>
-                {person.name}
+                {person.name} ({person.position_name})
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item
+          name="leader_position_filter"
+          label="值班领导职务筛选"
+        >
+          <Select
+            placeholder="按职务筛选值班领导"
+            allowClear
+            onChange={(value) => setSelectedLeaderPositionId(value)}
+            value={selectedLeaderPositionId}
+          >
+            {positions.map(position => (
+              <Option key={position.id} value={position.id}>
+                {position.name}
               </Option>
             ))}
           </Select>
@@ -81,12 +142,12 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
             placeholder="选择值班领导"
             showSearch
             filterOption={(input, option) =>
-              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+              option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0
             }
           >
-            {personnelList.map(person => (
+            {filteredDutyLeaderList.map(person => (
               <Option key={person.id} value={person.id}>
-                {person.name}
+                {person.name} ({person.position_name})
               </Option>
             ))}
           </Select>
@@ -200,6 +261,7 @@ const ScheduleManagementPage = () => {
   const [personnelList, setPersonnelList] = useState([]);
   const [personnelSequences, setPersonnelSequences] = useState([]);
   const [leaderSequences, setLeaderSequences] = useState([]);
+  const [positions, setPositions] = useState([]); // 新增职务状态
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
@@ -209,6 +271,7 @@ const ScheduleManagementPage = () => {
     fetchData();
     fetchPersonnel();
     fetchSequences();
+    fetchPositions(); // 调用新增的获取职务函数
   }, []);
 
   const fetchData = async () => {
@@ -229,6 +292,15 @@ const ScheduleManagementPage = () => {
       setPersonnelList(data);
     } catch (error) {
       message.error('获取人员列表失败');
+    }
+  };
+
+  const fetchPositions = async () => {
+    try {
+      const data = await getPositions();
+      setPositions(data.results); // 假设API返回的数据在results字段
+    } catch (error) {
+      message.error('获取职务列表失败');
     }
   };
 
@@ -409,6 +481,7 @@ const ScheduleManagementPage = () => {
         onOk={handleModalOk}
         initialData={currentSchedule || {}}
         personnelList={personnelList}
+        positions={positions} // 传递职务列表
       />
       <GenerateScheduleModal
         visible={isGenerateModalVisible}
