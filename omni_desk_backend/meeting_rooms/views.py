@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
-from django.db.models import Sum, F, ExpressionWrapper, fields
+from django.db.models import Sum, F, ExpressionWrapper, fields, Count
 from django.utils import timezone
 from datetime import timedelta
 from rest_framework.exceptions import PermissionDenied # 导入 PermissionDenied
@@ -94,7 +94,7 @@ class MeetingRoomStatsAPIView(APIView):
 
         # 按会议室统计
         room_stats = bookings.values('meeting_room__name').annotate(
-            booking_count=models.Count('id'),
+            booking_count=Count('id'),
             total_duration_minutes=Sum(
                 ExpressionWrapper(
                     F('end_time') - F('start_time'),
