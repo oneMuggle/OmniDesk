@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Select, message } from 'antd';
-import axios from 'axios';
+import instance from '../api/axiosConfig';
 
 const { Option } = Select;
 
@@ -18,8 +18,8 @@ const UserPersonnelManagementPage = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await axios.get('/api/users/personnel/');
-            setUsers(response.data);
+            const response = await instance.get('/api/users/personnel/');
+            setUsers(response.data.results);
         } catch (error) {
             message.error('获取用户列表失败');
             console.error('Error fetching users:', error);
@@ -28,8 +28,8 @@ const UserPersonnelManagementPage = () => {
 
     const fetchPersonnel = async () => {
         try {
-            const response = await axios.get('/api/events/personnel/'); // 假设人员管理接口
-            setPersonnelList(response.data);
+            const response = await instance.get('/api/events/personnel/'); // 假设人员管理接口
+            setPersonnelList(response.data.results);
         } catch (error) {
             message.error('获取人员列表失败');
             console.error('Error fetching personnel:', error);
@@ -46,7 +46,7 @@ const UserPersonnelManagementPage = () => {
         if (!currentUser) return;
 
         try {
-            await axios.patch(`/api/users/personnel/${currentUser.id}/`, {
+            await instance.patch(`/api/users/personnel/${currentUser.id}/`, {
                 personnel_id: selectedPersonnel
             });
             message.success('关联成功');
