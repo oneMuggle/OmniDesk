@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.views import APIView
+from rest_framework.decorators import action # 导入 action 装饰器
 from django.db.models import Sum, F, ExpressionWrapper, fields, Count
 from django.utils import timezone
 from datetime import timedelta
@@ -23,6 +24,25 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 所有认证用户都可以看到所有预约
         return MeetingRoomBooking.objects.all().order_by('start_time')
+
+    @action(detail=False, methods=['get'], url_path='this-week')
+    def get_this_week_bookings(self, request):
+        """
+        获取本周的会议室预约。
+        """
+        today = timezone.now().date()
+        # 计算本周的开始日期 (周一)
+        start_of_week = today - timedelta(days=today.weekday())
+        # 计算本周的结束日期 (周日)
+        end_of_week = start_of_week + timedelta(days=6)
+
+        queryset = self.get_queryset().filter(
+            start_time__date__lte=end_of_week,
+            end_time__date__gte=start_of_week
+        )
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def perform_create(self, serializer):
         serializer.save(user=self.request.user)

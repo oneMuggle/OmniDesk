@@ -12,6 +12,10 @@ from django.utils import timezone
 from django.db import transaction
 import calendar
 from datetime import datetime, timedelta
+
+from django.db.models import Min, Max
+from django.db.models.functions import TruncDate
+
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
     PersonnelSequence, LeaderSequence, Position
@@ -372,6 +376,29 @@ class TrialViewSet(viewsets.ModelViewSet):
         'end_date',
         'time_slots__start_time'
     ]
+
+    @action(detail=False, methods=['get'], url_path='this-week')
+    def get_this_week_trials(self, request):
+        """
+        获取本周的试验日程。
+        """
+        today = timezone.now().date()
+        # 计算本周的开始日期 (周一)
+        start_of_week = today - timedelta(days=today.weekday())
+        # 计算本周的结束日期 (周日)
+        end_of_week = start_of_week + timedelta(days=6)
+
+        # 过滤本周的试验，考虑试验的主时间范围 (start_date, end_date) 与本周的重叠
+        # 或者考虑试验的时间段 (time_slots) 与本周的重叠
+        queryset = self.get_queryset().filter(
+            # 试验的主时间范围与本周有交集
+            # (start_date <= end_of_week AND end_date >= start_of_week)
+            start_date__lte=end_of_week,
+            end_date__gte=start_of_week
+        ).distinct() # 使用 distinct 避免重复，因为 time_slots 是多对多
+
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
     def get_queryset(self):
         """查询集配置（参照设备管理视图）"""
