@@ -1,5 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio } from 'antd';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
 import { getAllPersonnel, getPositions } from '../api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
@@ -266,6 +268,7 @@ const ScheduleManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
+  const calendarRef = useRef(null);
 
   useEffect(() => {
     fetchData();
@@ -414,6 +417,42 @@ const ScheduleManagementPage = () => {
     }));
   };
 
+  const handleExportPdf = async () => {
+    const input = document.getElementById('calendar-container');
+    if (input) {
+      message.loading('正在生成PDF...', 0);
+      try {
+        const canvas = await html2canvas(input, { scale: 2 }); // 提高分辨率
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210; // A4 width in mm
+        const pageHeight = 297; // A4 height in mm
+        const imgHeight = canvas.height * imgWidth / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+        pdf.save('排班日程.pdf');
+        message.destroy();
+        message.success('PDF导出成功');
+      } catch (error) {
+        console.error('PDF导出失败:', error);
+        message.destroy();
+        message.error('PDF导出失败');
+      }
+    } else {
+      message.error('未找到日历元素');
+    }
+  };
+
   const columns = [
     {
       title: '值班日期',
@@ -451,9 +490,10 @@ const ScheduleManagementPage = () => {
       <Space>
         <Button type="primary" onClick={handleAdd}>新增排班</Button>
         <Button type="default" onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
+        <Button type="default" onClick={handleExportPdf}>导出PDF</Button>
       </Space>
     }>
-      <div style={{ marginBottom: 20 }}>
+      <div style={{ marginBottom: 20 }} id="calendar-container"> {/* 添加ID用于html2canvas捕获 */}
         <FullCalendar
           plugins={[dayGridPlugin, interactionPlugin]}
           initialView="dayGridMonth"
@@ -473,6 +513,7 @@ const ScheduleManagementPage = () => {
             center: 'title',
             right: 'dayGridMonth,dayGridWeek'
           }}
+          ref={calendarRef}
         />
       </div>
       <Table

@@ -31,6 +31,8 @@
     "dayjs-plugin-utc": "^0.1.2",
     "docxtemplater": "^3.60.1",
     "file-saver": "^2.0.5",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.2",
     "jwt-decode": "^4.0.0",
     "mammoth": "^1.9.0",
     "mathjax-react": "^2.0.1",
