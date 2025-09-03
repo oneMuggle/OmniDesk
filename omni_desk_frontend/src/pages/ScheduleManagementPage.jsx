@@ -55,8 +55,10 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
     form.validateFields()
       .then(values => {
         const submitData = {
-          ...values,
           date: values.date ? values.date.format('YYYY-MM-DD') : null,
+          duty_person_id: values.duty_person, // 映射到后端期望的字段名
+          duty_leader_id: values.duty_leader, // 映射到后端期望的字段名
+          // 移除 person_position_filter 和 leader_position_filter，它们只用于前端筛选
         };
         onOk(submitData);
         form.resetFields();
@@ -411,8 +413,8 @@ const ScheduleManagementPage = () => {
       extendedProps: {
         duty_person: schedule.duty_person,
         duty_leader: schedule.duty_leader,
-        duty_person_name: getPersonnelName(schedule.duty_person),
-        duty_leader_name: getPersonnelName(schedule.duty_leader),
+        duty_person_name: schedule.duty_person ? schedule.duty_person.name : '未知',
+        duty_leader_name: schedule.duty_leader ? schedule.duty_leader.name : '未知',
       }
     }));
   };
@@ -465,13 +467,13 @@ const ScheduleManagementPage = () => {
       title: '值班人员',
       dataIndex: 'duty_person',
       key: 'duty_person',
-      render: (id) => <div style={{ textAlign: 'center' }}>{getPersonnelName(id)}</div>,
+      render: (duty_person) => <div style={{ textAlign: 'center' }}>{duty_person ? duty_person.name : '未知'}</div>,
     },
     {
       title: '值班领导',
       dataIndex: 'duty_leader',
       key: 'duty_leader',
-      render: (id) => <div style={{ textAlign: 'center' }}>{getPersonnelName(id)}</div>,
+      render: (duty_leader) => <div style={{ textAlign: 'center' }}>{duty_leader ? duty_leader.name : '未知'}</div>,
     },
     {
       title: '操作',

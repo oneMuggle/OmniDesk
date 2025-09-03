@@ -209,8 +209,21 @@ class TrialSerializer(serializers.ModelSerializer):
         return instance
 
 class ScheduleSerializer(serializers.ModelSerializer):
-    duty_person = serializers.PrimaryKeyRelatedField(queryset=Personnel.objects.all())
-    duty_leader = serializers.PrimaryKeyRelatedField(queryset=Personnel.objects.all())
+    duty_person_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='duty_person',
+        write_only=True,
+        required=True
+    )
+    duty_leader_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='duty_leader',
+        write_only=True,
+        required=True
+    )
+    duty_person = PersonnelSerializer(read_only=True)
+    duty_leader = PersonnelSerializer(read_only=True)
+
     duty_date = serializers.DateField(
         required=True,
         help_text="值班日期，格式：YYYY-MM-DD"
@@ -223,7 +236,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Schedule
-        fields = ['id', 'duty_person', 'duty_leader', 'duty_date', 'override']
+        fields = ['id', 'duty_person', 'duty_leader', 'duty_date', 'override', 'duty_person_id', 'duty_leader_id']
         extra_kwargs = {
             'duty_date': {'required': True},
             'id': {'read_only': False, 'required': False},

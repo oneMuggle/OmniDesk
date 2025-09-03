@@ -55,8 +55,8 @@ export const scheduleApi = {
       console.log('创建排班请求数据:', scheduleData);
       const response = await apiClient.post('/events/schedules/', {
         duty_date: scheduleData.date,
-        duty_person: scheduleData.duty_person,
-        duty_leader: scheduleData.duty_leader
+        duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
+        duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
       });
       console.log('创建排班响应:', response.data);
       return response.data;
@@ -72,8 +72,8 @@ export const scheduleApi = {
       console.log('更新排班请求数据:', {scheduleId, ...scheduleData});
       const response = await apiClient.patch(`/events/schedules/${scheduleId}/`, {
         duty_date: scheduleData.date,
-        duty_person: scheduleData.duty_person,
-        duty_leader: scheduleData.duty_leader
+        duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
+        duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
       });
       console.log('更新排班响应:', response.data);
       return response.data;
