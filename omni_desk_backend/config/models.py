@@ -45,7 +45,9 @@ class OllamaConfig(models.Model):
         return self.alias
 
     def save(self, *args, **kwargs):
+        # 只有当当前实例的 is_default 为 True 时，才更新其他实例
         if self.is_default:
-            # 将其他所有配置的 is_default 设置为 False
-            OllamaConfig.objects.filter(is_default=True).update(is_default=False)
+            # 使用 exclude(pk=self.pk) 确保不会将自身设置为 False
+            # 并且只更新那些 is_default 已经为 True 的实例
+            OllamaConfig.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
         super(OllamaConfig, self).save(*args, **kwargs)

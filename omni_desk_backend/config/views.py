@@ -1,10 +1,17 @@
 from rest_framework import viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework.permissions import IsAdminUser # 导入 IsAdminUser
+from rest_framework.permissions import IsAdminUser
+from rest_framework.exceptions import ValidationError
+from rest_framework import status
+from django.db import IntegrityError # Import IntegrityError
+import logging
+import requests
 
-from .models import Config, PageConfig # 导入 PageConfig
-from .serializers import ConfigSerializer, PageConfigSerializer # 导入 PageConfigSerializer
+from .models import Config, PageConfig, OllamaConfig
+from .serializers import ConfigSerializer, PageConfigSerializer, OllamaConfigSerializer
+
+logger = logging.getLogger(__name__)
 
 class ConfigViewSet(viewsets.ModelViewSet):
     queryset = Config.objects.all()
@@ -50,16 +57,36 @@ class PageConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAdminUser] # 只有管理员可以访问
     lookup_field = 'page_path' # 根据 page_path 进行查找
 
-from rest_framework import viewsets
-from .models import OllamaConfig
-from .serializers import OllamaConfigSerializer
-
 class OllamaConfigViewSet(viewsets.ModelViewSet):
     queryset = OllamaConfig.objects.all()
     serializer_class = OllamaConfigSerializer
     pagination_class = None
 
-import requests
+    def create(self, request, *args, **kwargs):
+        try:
+            return super().create(request, *args, **kwargs)
+        except ValidationError as e:
+            logger.error(f"Validation Error during OllamaConfig creation: {e.detail}")
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as e: # Catch IntegrityError specifically
+            logger.error(f"Integrity Error during OllamaConfig creation: {e}")
+            return Response({"detail": "Alias already exists. Please choose a different alias."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("An unexpected error occurred during OllamaConfig creation:") # Log full traceback
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    def update(self, request, *args, **kwargs):
+        try:
+            return super().update(request, *args, **kwargs)
+        except ValidationError as e:
+            logger.error(f"Validation Error during OllamaConfig update: {e.detail}")
+            return Response(e.detail, status=status.HTTP_400_BAD_REQUEST)
+        except IntegrityError as e: # Catch IntegrityError specifically
+            logger.error(f"Integrity Error during OllamaConfig update: {e}")
+            return Response({"detail": "Alias already exists. Please choose a different alias."}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            logger.exception("An unexpected error occurred during OllamaConfig update:") # Log full traceback
+            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class OllamaModelsView(APIView):
     permission_classes = [IsAdminUser]
