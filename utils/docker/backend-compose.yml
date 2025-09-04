@@ -1,0 +1,95 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:14-alpine
+    container_name: omni_desk_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-omni_desk}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTES_PASSWORD:-password}
+    ports:
+      - "5433:5432"
+    command: postgres -c listen_addresses='*'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-omni_desk}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - omni_desk_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: omni_desk_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - omni_desk_network
+
+  backend:
+    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+    container_name: omni_desk_backend
+    command: gunicorn --chdir /usr/src/app omni_desk_backend.wsgi:application --bind 0.0.0.0:8000
+    volumes:
+      - ../../omni_desk_backend:/usr/src/app
+      - static_volume:/usr/src/app/staticfiles
+    expose:
+      - 8000
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    env_file:
+      - ../../deployment/docker/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
+      - DJANGO_ENV=production
+    restart: unless-stopped
+    networks:
+      - omni_desk_network
+
+  worker:
+    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
+    build:
+      context: ../../
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+    container_name: omni_desk_worker
+    command: celery -A omni_desk_backend worker -l info
+    volumes:
+      - ../../omni_desk_backend:/usr/src/app
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    env_file:
+      - ../../deployment/docker/.env
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
+      - DJANGO_ENV=production
+    restart: unless-stopped
+    networks:
+      - omni_desk_network
+
+volumes:
+  postgres_data:
+  static_volume:
+
+networks:
+  omni_desk_network:
+    name: omni_desk_network
+    external: true

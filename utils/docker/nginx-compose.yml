@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  nginx:
+    image: nginx:latest
+    container_name: combined_nginx
+    ports:
+      - "80:80" # Expose Nginx on port 80
+      - "443:443" # For HTTPS, if needed
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro # Mount the new Nginx config
+      - ../../omni_desk_frontend/build:/usr/share/nginx/html:ro # Mount frontend build
+    networks:
+      - omni_desk_network
+    restart: unless-stopped
+
+networks:
+  omni_desk_network:
+    name: omni_desk_network
+    external: true
