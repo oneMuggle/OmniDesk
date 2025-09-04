@@ -55,8 +55,14 @@ const IntelligentChatPage = () => {
         ? conversationHistory[conversationHistory.length - 1].context
         : null;
       
+      const configToSend = { ...selectedConfig, context };
+      // 确保api_endpoint以/api结尾
+      if (configToSend.api_endpoint && !configToSend.api_endpoint.endsWith('/api')) {
+        configToSend.api_endpoint = `${configToSend.api_endpoint}/api`;
+      }
+      
       const response = await chatCompletion(
-        { ...selectedConfig, context },
+        configToSend,
         [...conversationHistory, newMessage]
       );
 
