@@ -48,42 +48,55 @@ const IntelligentChatPage = () => {
     e.preventDefault();
     if (!inputMessage.trim() || !selectedConfig) return;
 
+    const newMessage = { role: 'user', content: inputMessage };
+    const newMessages = [...messages, newMessage];
+    setMessages(newMessages); // 立即显示用户消息
+    setInputMessage(''); // 清空输入框
+    setIsLoading(true);
+
     try {
-      setIsLoading(true);
-      const newMessage = { role: 'user', content: inputMessage };
+      let currentAssistantMessage = { role: 'assistant', content: '', context: null };
+      let updatedConversationHistory = [...conversationHistory, newMessage]; // 用于传递给chatCompletion
+      
       const context = conversationHistory.length > 0
         ? conversationHistory[conversationHistory.length - 1].context
         : null;
-      
-      const configToSend = { ...selectedConfig, context };
-      // 确保api_endpoint以/api结尾
-      if (configToSend.api_endpoint && !configToSend.api_endpoint.endsWith('/api')) {
-        configToSend.api_endpoint = `${configToSend.api_endpoint}/api`;
-      }
-      
-      const response = await chatCompletion(
-        configToSend,
-        [...conversationHistory, newMessage]
-      );
 
-      const aiMessage = {
-        role: response.role,
-        content: response.content,
-        context: response.context
-      };
-      setConversationHistory([...conversationHistory, newMessage, aiMessage]);
-      setInputMessage('');
+      // 在messages中为AI的回答预留位置
+      const aiMessageIndex = newMessages.length;
+      setMessages(prev => [...prev, currentAssistantMessage]);
+
+      await chatCompletion(
+        { ...selectedConfig, context }, // 直接使用selectedConfig
+        updatedConversationHistory,
+        ({ content, context, done }) => {
+          // 逐步更新AI消息内容
+          currentAssistantMessage.content = content;
+          currentAssistantMessage.context = context;
+          setMessages(prev => {
+            const updated = [...prev];
+            updated[aiMessageIndex] = { ...currentAssistantMessage };
+            return updated;
+          });
+
+          // 如果流式传输完成，则更新conversationHistory
+          if (done) {
+            setConversationHistory([...updatedConversationHistory, currentAssistantMessage]);
+            setIsLoading(false); // 流式传输完成后才停止加载
+          }
+        }
+      );
     } catch (error) {
       console.error('API Error:', error);
+      setIsLoading(false); // 发生错误时停止加载
       setMessages(prev => {
         const current = Array.isArray(prev) ? prev : [];
+        // 添加错误提示消息，可能需要调整索引或消息类型
         return [...current, {
           role: 'system',
           content: '抱歉，请求失败，请稍后再试'
         }];
       });
-    } finally {
-      setIsLoading(false);
     }
   };
 
