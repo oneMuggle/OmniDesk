@@ -14,7 +14,6 @@ class Position(models.Model):
 
 class Personnel(models.Model):
     name = models.CharField(max_length=100)
-    phone = models.CharField(max_length=15, blank=True, null=True)
     position = models.ForeignKey(
         Position,
         on_delete=models.SET_NULL,
@@ -31,7 +30,7 @@ class Personnel(models.Model):
         ]
 
     def __str__(self):
-        return f"{self.name} ({self.department})"
+        return self.name
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100)
@@ -276,3 +275,19 @@ class LeaderSequence(models.Model):
 
     def __str__(self):
         return self.name
+
+class PhoneNumber(models.Model):
+    personnel = models.ForeignKey(
+        Personnel,
+        on_delete=models.CASCADE,
+        related_name='phone_numbers',
+        verbose_name="人员"
+    )
+    number = models.CharField(max_length=15, verbose_name="电话号码")
+
+    class Meta:
+        verbose_name = "电话号码"
+        verbose_name_plural = "电话号码"
+
+    def __str__(self):
+        return self.number

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs } from 'antd'; // Add Select, Tabs
+import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
 import ConfirmModal from './Calendar/ConfirmModal';
 import {
   getPersonnel,
@@ -11,7 +11,7 @@ import {
   updatePosition,
   deletePosition
 } from '../api/personnelApi';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 
 const { Option } = Select; // Destructure Option from Select
 const { TabPane } = Tabs; // Destructure TabPane from Tabs
@@ -41,8 +41,9 @@ const PersonnelPage = () => {
     },
     {
       title: '联系电话',
-      dataIndex: 'phone',
-      key: 'phone',
+      dataIndex: 'phone_numbers',
+      key: 'phone_numbers',
+      render: (phone_numbers) => phone_numbers.map(p => p.number).join(', '),
     },
     {
       title: '操作',
@@ -124,6 +125,7 @@ const PersonnelPage = () => {
     form.setFieldsValue({
       ...record,
       position: record.position ? record.position.id : null, // Set position for dropdown
+      phone_numbers: record.phone_numbers || [], // 初始化 phone_numbers
     });
     setEditingId(record.id);
     setIsModalVisible(true);
@@ -371,16 +373,33 @@ const PersonnelPage = () => {
                 </Select>
               </Form.Item>
 
-              <Form.Item
-                label="联系电话"
-                name="phone"
-                rules={[
-                  { required: true, message: '请输入联系电话' },
-                  { pattern: /^1[3-9]\d{9}$/, message: '请输入有效的手机号码' }
-                ]}
-              >
-                <Input placeholder="请输入联系电话" />
-              </Form.Item>
+              <Form.List name="phone_numbers">
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, fieldKey, ...restField }) => (
+                      <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'number']}
+                          fieldKey={[fieldKey, 'number']}
+                          rules={[
+                            { required: true, message: '请输入电话号码' },
+                            { pattern: /^(\d{5}|\d{6}|1[3-9]\d{9})$/, message: '请输入有效的电话号码（5位、6位短号或11位手机号）' }
+                          ]}
+                        >
+                          <Input placeholder="电话号码" />
+                        </Form.Item>
+                        <MinusCircleOutlined onClick={() => remove(name)} />
+                      </Space>
+                    ))}
+                    <Form.Item>
+                      <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />}>
+                        添加电话号码
+                      </Button>
+                    </Form.Item>
+                  </>
+                )}
+              </Form.List>
             </Form>
           </Modal>
         </TabPane>

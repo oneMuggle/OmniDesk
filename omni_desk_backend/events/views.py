@@ -347,7 +347,7 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
     serializer_class = PersonnelSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'phone', 'position'] # 移除 department 字段
+    filterset_fields = ['name', 'position']
     @action(detail=False, methods=['get'], url_path='all')
     def list_all(self, request):
         """
@@ -356,6 +356,24 @@ class ResponsiblePersonViewSet(viewsets.ModelViewSet):
         queryset = self.get_queryset()
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        phone_numbers_data = self.request.data.get('phone_numbers', [])
+        with transaction.atomic():
+            personnel = serializer.save()
+            for phone_data in phone_numbers_data:
+                PhoneNumber.objects.create(personnel=personnel, **phone_data)
+
+    def perform_update(self, serializer):
+        phone_numbers_data = self.request.data.get('phone_numbers', None)
+        with transaction.atomic():
+            personnel = serializer.save()
+            if phone_numbers_data is not None:
+                # 删除旧的电话号码
+                personnel.phone_numbers.all().delete()
+                # 创建新的电话号码
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
 
 class TrialViewSet(viewsets.ModelViewSet):
     queryset = Trial.objects.all()

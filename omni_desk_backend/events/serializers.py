@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position, PhoneNumber
 from users.models import CustomUser
 from .models import Trial, Equipment, Personnel, DocumentTemplate
 
@@ -8,6 +8,11 @@ class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
         fields = ['id', 'name']
+
+class PhoneNumberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhoneNumber
+        fields = ['id', 'number']
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     trial_id = serializers.PrimaryKeyRelatedField(
@@ -31,6 +36,7 @@ class TimeSlotSerializer(serializers.ModelSerializer):
 
 class PersonnelSerializer(serializers.ModelSerializer):
     position_name = serializers.SerializerMethodField()
+    phone_numbers = PhoneNumberSerializer(many=True, required=False) # 新增phone_numbers字段
     position = serializers.PrimaryKeyRelatedField(
         queryset=Position.objects.all(),
         allow_null=True,
@@ -39,10 +45,8 @@ class PersonnelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Personnel
-        fields = ['id', 'name', 'phone', 'position', 'position_name']
-        extra_kwargs = {
-            'phone': {'required': False},
-        }
+        fields = ['id', 'name', 'position', 'position_name', 'phone_numbers'] # 修改fields
+        # 移除extra_kwargs中对phone的设置
 
     def get_position_name(self, obj):
         return obj.position.name if obj.position else None
