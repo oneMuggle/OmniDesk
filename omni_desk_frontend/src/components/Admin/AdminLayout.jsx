@@ -49,6 +49,7 @@ const AdminLayout = () => {
     },
     { to: "/admin/documents", icon: faFileWord, text: "文档管理", permission: ['admin', 'manager'] },
     { to: "/admin/equipment", icon: faFlask, text: "设备管理", permission: ['admin', 'manager'] },
+    { to: "/admin/sensor-management", icon: faFlask, text: "传感器管理", permission: ['admin', 'manager'] }, // 新增传感器管理
     { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] }, // 假设设置也放在这里，且需要admin/manager权限
     { to: "/admin/announcements", icon: faBullhorn, text: "公告管理", permission: ['admin', 'manager'] },
     { to: "/admin/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: ['admin', 'manager'] },

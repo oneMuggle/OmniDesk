@@ -44,6 +44,7 @@ import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import 
 import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
 import UserPersonnelManagementPage from '../pages/UserPersonnelManagementPage'; // 导入新页面
+import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 SensorManagementPage
 
 const router = createBrowserRouter([
 {
@@ -211,6 +212,10 @@ const router = createBrowserRouter([
       {
        path: "settings",
        element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
+     },
+     {
+        path: "sensor-management", // 新增传感器管理路由
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/sensor-management"><SensorManagementPage /></ProtectedRoute>
      }
     ]
   },

@@ -1,0 +1,88 @@
+from rest_framework import viewsets, permissions, status
+from rest_framework.response import Response
+from rest_framework.decorators import action
+from django_filters.rest_framework import DjangoFilterBackend
+from django.db import transaction
+from django.utils import timezone
+from datetime import timedelta
+
+from .models import Sensor, SensorMovement, CalibrationReminder
+from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer
+from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假设有这些权限类
+
+class SensorViewSet(viewsets.ModelViewSet):
+    queryset = Sensor.objects.all()
+    serializer_class = SensorSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['status', 'model_name', 'manufacturer', 'serial_number']
+    search_fields = ['serial_number', 'model_name', 'manufacturer']
+    ordering_fields = ['serial_number', 'model_name', 'production_date', 'last_calibration_date', 'next_calibration_date']
+
+    @action(detail=False, methods=['get'], url_path='due-for-calibration')
+    def due_for_calibration(self, request):
+        """
+        获取即将到期或已过期的校准传感器列表。
+        查询参数：
+        days_ahead: 提前多少天提醒 (默认为7天)
+        """
+        days_ahead = int(request.query_params.get('days_ahead', 7))
+        today = timezone.now().date()
+        remind_threshold_date = today + timedelta(days=days_ahead)
+
+        # 筛选出 next_calibration_date 在提醒阈值内，或者已经过期的传感器
+        # 并且当前状态不是 'under_calibration' 或 'retired'
+        sensors = self.queryset.filter(
+            models.Q(last_calibration_date__isnull=False) &
+            models.Q(
+                models.Q(
+                    last_calibration_date__date__lte=today - timedelta(days=models.F('calibration_interval_days'))
+                ) | # 已经过期
+                models.Q(
+                    last_calibration_date__date__lte=remind_threshold_date - timedelta(days=models.F('calibration_interval_days'))
+                ) # 在提醒期内
+            )
+        ).exclude(status__in=['under_calibration', 'retired']).distinct()
+
+        serializer = self.get_serializer(sensors, many=True)
+        return Response(serializer.data)
+
+class SensorMovementViewSet(viewsets.ModelViewSet):
+    queryset = SensorMovement.objects.all()
+    serializer_class = SensorMovementSerializer
+    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理出入库
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['sensor', 'movement_type', 'operator', 'movement_date']
+    ordering_fields = ['movement_date']
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            instance = serializer.save(operator=self.request.user)
+            # 根据出入库类型更新传感器状态
+            sensor = instance.sensor
+            if instance.movement_type == 'in':
+                sensor.status = 'in_stock'
+            elif instance.movement_type == 'out':
+                sensor.status = 'in_use' # 或者其他更细致的状态，取决于业务逻辑
+            sensor.save()
+
+class CalibrationReminderViewSet(viewsets.ModelViewSet):
+    queryset = CalibrationReminder.objects.all()
+    serializer_class = CalibrationReminderSerializer
+    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理提醒
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['sensor', 'is_sent', 'remind_date']
+    ordering_fields = ['remind_date']
+
+    @action(detail=True, methods=['post'], url_path='mark-as-sent')
+    def mark_as_sent(self, request, pk=None):
+        """
+        标记校准提醒为已发送。
+        """
+        reminder = self.get_object()
+        if not reminder.is_sent:
+            reminder.is_sent = True
+            reminder.sent_date = timezone.now()
+            reminder.save()
+            return Response({'status': 'reminder marked as sent'}, status=status.HTTP_200_OK)
+        return Response({'status': 'reminder already sent'}, status=status.HTTP_200_OK)

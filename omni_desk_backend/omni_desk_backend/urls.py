@@ -11,7 +11,7 @@ urlpatterns = [
     # Authentication & User endpoints
     path('api/', include([
         path('users/', include('users.urls', namespace='users')),     # 用户个人资料路由
-        path('users/personnel/', include('users.urls', namespace='users')), # 用户人员关联路由
+        path('users/personnel/', include('users.urls')), # 用户人员关联路由
         path('auth/', include('users.auth_urls', namespace='users_auth')), # 认证路由
         path('events/', include('events.urls')),  # 事件相关路由
         path('documents/', include('documents.urls')),  # 新增文档相关路由
@@ -23,6 +23,7 @@ urlpatterns = [
         path('compliance/', include('compliance.urls')), # 合规问题管理相关路由
         path('ragflow-service/', include('ragflow_service.urls')), # Ragflow 服务相关路由
         path('meeting-rooms/', include('meeting_rooms.urls')), # 会议室预约相关路由
+        path('sensor-management/', include('sensor_management.urls')), # 传感器管理相关路由
     ])),
 ]
 
