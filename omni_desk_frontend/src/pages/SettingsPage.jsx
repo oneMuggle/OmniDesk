@@ -38,7 +38,7 @@ const SettingsPage = () => {
     setEditingConfig({
       alias: '',
       api_endpoint: '',
-      model: '',
+      model: availableModels.length > 0 ? availableModels[0] : '', // 设置默认模型
       temperature: 0.8,
       top_p: 0.9,
       is_default: false,
@@ -47,9 +47,17 @@ const SettingsPage = () => {
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
-    setEditingConfig({
-      ...editingConfig,
-      [name]: type === 'checkbox' ? checked : value,
+    setEditingConfig(prevConfig => {
+      let newValue = value;
+      if (type === 'number') {
+        newValue = parseFloat(value);
+      } else if (type === 'checkbox') {
+        newValue = checked;
+      }
+      return {
+        ...prevConfig,
+        [name]: newValue,
+      };
     });
   };
 
@@ -57,8 +65,11 @@ const SettingsPage = () => {
     if (editingConfig && editingConfig.api_endpoint) {
       try {
         const response = await getOllamaModelsFromEndpoint(editingConfig.api_endpoint);
-        // Ollama API 返回的格式是 { models: [...] }
-        setAvailableModels(response.models.map(model => model.name));
+        // Ollama API 返回的格式是 { object: "list", data: [...] }，其中 data 包含模型信息
+        // Ollama API 的 /v1/models 接口返回的模型对象中，模型名称在 'id' 字段
+        // 而 /tags 接口返回的模型对象中，模型名称在 'name' 字段
+        // 为了兼容性，这里假设后端需要的是模型名称，即 'id' 字段的值
+        setAvailableModels(response.data.map(model => model.id));
       } catch (error) {
         console.error("Failed to fetch models:", error);
         alert("获取模型列表失败，请检查 API 地址是否正确。");
