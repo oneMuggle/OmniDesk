@@ -21,19 +21,23 @@
   margin: 8px 0;
   padding: 10px 16px;
   border-radius: 16px;
-  max-width: 90%;
+  /* max-width: 90%; */ /* 移除最大宽度限制 */
+  width: fit-content; /* 宽度自适应内容 */
   font-size: 14px;
+  display: flex; /* 使用flex布局 */
 }
 
 .message.user {
   background: #1890ff;
   color: white;
   margin-left: auto;
+  justify-content: flex-end; /* 内容靠右对齐 */
 }
 
 .message.assistant {
   background: #f0f2f5;
   margin-right: auto;
+  justify-content: flex-start; /* 内容靠左对齐 */
 }
 
 .message.system {
@@ -92,7 +96,7 @@
   }
   
   .message {
-    max-width: 80%;
+    /* max-width: 80%; */ /* 移除媒体查询中的最大宽度限制 */
     padding: 12px 20px;
     font-size: 15px;
   }
