@@ -7,14 +7,15 @@ import './../types/schedule'; // Import the typedefs
  * @param {Array} personnel - 人员数据
  * @returns {Array<ScheduleEvent>} 转换后的 ScheduleEvent 数组
  */
-export const transformScheduleToEvents = (schedules, personnel) => {
-  if (!Array.isArray(schedules) || !Array.isArray(personnel)) {
+export const transformScheduleToEvents = (schedules) => {
+  if (!Array.isArray(schedules)) {
     return [];
   }
 
   return schedules.map(schedule => {
-    const duty_person = personnel.find(p => p.id === schedule.duty_person) || { name: '未知', phone: '' };
-    const duty_leader = personnel.find(p => p.id === schedule.duty_leader) || { name: '未知', phone: '' };
+    // 直接使用后端返回的 duty_person 和 duty_leader 对象
+    const duty_person = schedule.duty_person || { name: '未知', phone: '' };
+    const duty_leader = schedule.duty_leader || { name: '未知', phone: '' };
 
     const start = fromServerFormat(schedule.duty_date)?.toDate();
 

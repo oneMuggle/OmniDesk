@@ -274,7 +274,7 @@ const ScheduleManagementPage = () => {
 
   useEffect(() => {
     fetchData();
-    fetchPersonnel();
+    // fetchPersonnel(); // 移除对 fetchPersonnel 的调用
     fetchSequences();
     fetchPositions(); // 调用新增的获取职务函数
   }, []);
@@ -291,14 +291,15 @@ const ScheduleManagementPage = () => {
     }
   };
 
-  const fetchPersonnel = async () => {
-    try {
-      const data = await getAllPersonnel();
-      setPersonnelList(data);
-    } catch (error) {
-      message.error('获取人员列表失败');
-    }
-  };
+  // 移除 fetchPersonnel 函数，因为不再需要 personnelList 来转换排班数据
+  // const fetchPersonnel = async () => {
+  //   try {
+  //     const data = await getAllPersonnel();
+  //     setPersonnelList(data);
+  //   } catch (error) {
+  //     message.error('获取人员列表失败');
+  //   }
+  // };
 
   const fetchPositions = async () => {
     try {
@@ -413,8 +414,8 @@ const ScheduleManagementPage = () => {
       extendedProps: {
         duty_person: schedule.duty_person,
         duty_leader: schedule.duty_leader,
-        duty_person_name: schedule.duty_person ? schedule.duty_person.name : '未知',
-        duty_leader_name: schedule.duty_leader ? schedule.duty_leader.name : '未知',
+        duty_person_name: schedule.duty_person?.name || '未知', // 直接使用可选链操作符
+        duty_leader_name: schedule.duty_leader?.name || '未知', // 直接使用可选链操作符
       }
     }));
   };
