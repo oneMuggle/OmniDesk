@@ -49,7 +49,7 @@ const WelcomePage = () => {
 
       // Fetch weekly meeting room bookings
       try {
-        const bookingsResponse = await apiClient.get('/meeting-room-bookings/this-week/');
+        const bookingsResponse = await apiClient.get('/meeting-rooms/meeting-room-bookings/this-week/');
         setWeeklyBookings(bookingsResponse.data);
       } catch (error) {
         message.error('获取本周会议室预约失败！');
