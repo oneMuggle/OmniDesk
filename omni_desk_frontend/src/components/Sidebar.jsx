@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // 导入 useEffect
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -22,12 +22,33 @@ import {
   faClipboardList, // 新增备忘录图标
   faRobot // 新增 Dify 应用图标
 } from '@fortawesome/free-solid-svg-icons';
- 
+import complianceApi from '../api/compliance'; // 导入 complianceApi
+import { Badge } from '@mui/material'; // 导入 Material-UI 的 Badge
+
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSubMenu, setExpandedSubMenu] = useState({}); // 维护每个子菜单的展开状态
   const { user, isAuthenticated, logout, hasPermission, isInitializing } = useAuth();
   const location = useLocation();
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0); // 新增未读通知数量状态
+
+  useEffect(() => {
+    const fetchUnreadCount = async () => {
+      try {
+        const response = await complianceApi.getUnreadCount();
+        setUnreadNotificationCount(response.data.unread_count);
+      } catch (error) {
+        console.error('Error fetching unread notification count:', error);
+      }
+    };
+
+    if (isAuthenticated) {
+      fetchUnreadCount();
+      // 可以设置一个定时器，每隔一段时间刷新未读数量
+      const interval = setInterval(fetchUnreadCount, 60000); // 每分钟刷新一次
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
 
   const menuItems = [
     { to: "/", icon: faHome, text: "首页", permission: null },
@@ -71,7 +92,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         { to: "/projects", text: "项目列表", permission: ["admin", "manager"] },
         { to: "/documents", text: "文档管理", permission: ["admin", "manager"] },
         { to: "/admin/compliance", text: "合规问题", permission: ["admin", "manager"] },
-        { to: "/notifications", icon: faBell, text: "通知中心", permission: null }, // 新增通知中心链接
+        { to: "/notifications", icon: faBell, text: "通知中心", permission: null, badgeCount: unreadNotificationCount }, // 新增通知中心链接，并传递未读数量
       ]
     },
     { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
@@ -81,7 +102,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const renderMenuItem = (item, index) => {
     // 权限检查
     // 移除对 /admin/schedules 和 /admin/personnel 的特殊处理，这些路由的权限将由 AdminLayout 内部处理
-    if (item.permission !== null) {
+    if (!isInitializing && item.permission !== null) { // 确保 isInitializing 完成后再进行权限检查
       if (item.permission === 'authenticated' && !isAuthenticated) return null;
       if (Array.isArray(item.permission)) {
         if (!isAuthenticated || !item.permission.some(role => user?.role === role)) return null;
@@ -90,6 +111,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         if (!hasPermission(item.permission)) return null;
       }
     }
+
 
     if (item.type === 'button') {
       return (
@@ -142,7 +164,11 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
                     onClick={() => isMobileMenuOpen && toggleMobileMenu()}
                   >
                     <div className="menu-item-content">
+                      {subItem.icon && <FontAwesomeIcon icon={subItem.icon} className="icon" />} {/* 渲染子菜单图标 */}
                       <span>{subItem.text}</span>
+                      {subItem.badgeCount !== undefined && subItem.badgeCount > 0 && ( // 显示徽章
+                        <Badge badgeContent={subItem.badgeCount} color="error" max={99} sx={{ ml: 1 }} />
+                      )}
                     </div>
                   </Link>
                 </li>

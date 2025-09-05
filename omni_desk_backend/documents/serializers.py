@@ -5,6 +5,7 @@ from users.serializers import UserSerializer
 class DocumentTemplateSerializer(serializers.ModelSerializer):
     owner = UserSerializer(read_only=True)
     template_type_display = serializers.CharField(source='get_template_type_display', read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True) # 新增
     
     class Meta:
         model = DocumentTemplate
@@ -58,7 +59,8 @@ class ChapterSerializer(serializers.ModelSerializer):
 class BookSerializer(serializers.ModelSerializer):
     chapters = ChapterSerializer(many=True, read_only=True)
     tags = TagSerializer(many=True, read_only=True)
+    project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True) # 新增
 
     class Meta:
         model = Book
-        fields = ('id', 'title', 'author', 'description', 'cover_image', 'publication_date', 'tags', 'chapters')
+        fields = ('id', 'title', 'author', 'description', 'cover_image', 'publication_date', 'tags', 'chapters', 'project_name') # 添加 'project_name'

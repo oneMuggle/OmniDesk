@@ -1,6 +1,7 @@
 from rest_framework import viewsets, permissions
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.decorators import action # 导入 action 装饰器
 from .models import ComplianceIssue
 from .serializers import ComplianceIssueSerializer
 from documents.models import Book, DocumentTemplate
@@ -44,3 +45,17 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
         if not self.request.user.is_staff and project.manager != self.request.user:
             raise permissions.PermissionDenied("您无权删除此项目下的合规问题。")
         instance.delete()
+
+    @action(detail=False, methods=['get'], url_path='unread_count')
+    def unread_count(self, request):
+        # 假设“未读”是指状态为“待处理”或“处理中”的问题
+        # 并且只计算与当前用户负责项目相关的问题（如果用户不是管理员）
+        if request.user.is_staff:
+            count = ComplianceIssue.objects.filter(status__in=['待处理', '处理中']).count()
+        else:
+            user_projects = Project.objects.filter(manager=request.user)
+            count = ComplianceIssue.objects.filter(
+                project__in=user_projects,
+                status__in=['待处理', '处理中']
+            ).count()
+        return Response({'unread_count': count})

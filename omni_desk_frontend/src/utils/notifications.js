@@ -15,4 +15,11 @@ export const notifications = {
       style: { marginTop: '50vh' },
     });
   },
+  showInfo: (content, duration = 3) => { // 新增 showInfo 方法
+    message.info({
+      content,
+      duration,
+      style: { marginTop: '50vh' },
+    });
+  },
 };

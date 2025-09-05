@@ -7,6 +7,7 @@ const complianceApi = {
     updateComplianceIssue: (id, issueData) => apiClient.put(`/compliance/${id}/`, issueData),
     partialUpdateComplianceIssue: (id, issueData) => apiClient.patch(`/compliance/${id}/`, issueData),
     deleteComplianceIssue: (id) => apiClient.delete(`/compliance/${id}/`),
+    getUnreadCount: () => apiClient.get('/compliance/unread_count/'), // 新增方法
 };
 
 export default complianceApi;

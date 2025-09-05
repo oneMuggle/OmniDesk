@@ -13,6 +13,7 @@ from compliance.models import ComplianceIssue # 导入 ComplianceIssue 模型
 from compliance.serializers import ComplianceIssueSerializer # 导入 ComplianceIssue 序列化器
 from llm_service.ollama_client import OllamaClient # 导入 OllamaClient
 
+import json # 确保已导入
 import re
 import os
 import shutil
@@ -74,54 +75,73 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
         try:
             document_template = self.get_object() # 获取 DocumentTemplate 实例
             extracted_text = document_template.extracted_text # 从模型中获取提取的文本
+            project_instance = document_template.project # 获取关联的项目实例
+
+            if not project_instance:
+                return Response({'error': 'Document not associated with a project. Cannot analyze compliance issues.'}, status=status.HTTP_400_BAD_REQUEST)
 
             ollama_client = OllamaClient()
             
-            # 构建提示词
-            system_message = """你是一名专业的文档合规性审查员。你的任务是分析提供的文档文本，识别其中的不规范、时间冲突、内容缺失或内容与规定不符的问题。
-            请以 JSON 数组的格式返回发现的所有问题，每个问题对象包含以下字段：
-            - "issue_type": 问题类型，可选值为 "不规范", "时间冲突", "内容缺失", "内容与规定不符", "其他"。
-            - "description": 问题的详细描述。
-            - "location": 问题在文档中的大致位置（例如，页码、段落、章节）。
-            - "severity": 严重程度，可选值为 "低", "中", "高", "紧急"。
-            - "suggested_fix": 建议的修改方案。
-            如果未发现任何问题，请返回一个空的 JSON 数组。"""
+            # 优化后的系统消息和提示词
+            system_message = """你是一名专业的文档合规性审查员，专注于识别文档中的不规范、时间冲突、内容缺失或内容与规定不符的问题。
+            你的输出必须是严格的 JSON 数组格式，每个元素代表一个发现的问题。
+            每个问题对象应包含以下键值对：
+            - "issue_type": 字符串，问题类型，必须是以下之一："不规范", "时间冲突", "内容缺失", "内容与规定不符", "其他"。
+            - "description": 字符串，问题的详细描述，清晰说明哪里不符合规定。
+            - "location": 字符串，问题在文档中的大致位置，如“第3页第2段”、“章节标题：项目目标”、“图片描述缺失”。
+            - "severity": 字符串，问题的严重程度，必须是以下之一："低", "中", "高", "紧急"。
+            - "suggested_fix": 字符串，针对该问题提出的具体修改建议或改进措施。
 
-            prompt = f"请分析以下文档内容，并识别其中存在的合规性问题：\n\n{extracted_text}"
+            如果文档完全合规，没有发现任何问题，则返回一个空的 JSON 数组：[]。
+            请严格遵守 JSON 格式要求，不要包含任何额外的文本或说明。"""
 
-            # 调用 Ollama 进行分析
+            # 考虑RAG辅助，这里可以加入从知识库检索到的相关规范内容
+            # For now, let's keep it simple and assume `extracted_text` is sufficient.
+            # 后续可以在这里加入 RAG 逻辑，将相关规范作为 prompt 的一部分。
+            prompt = f"请严格按照系统消息的JSON格式要求，分析以下文档内容，识别其中存在的合规性问题：\n\n文档内容：\n{extracted_text}\n\n请输出JSON数组："
+
             ollama_response_json = ollama_client.generate(prompt=prompt, system_message=system_message)
             
             try:
                 compliance_issues_data = json.loads(ollama_response_json)
                 if not isinstance(compliance_issues_data, list):
-                    raise ValueError("Ollama response is not a JSON array.")
-            except json.JSONDecodeError:
-                raise Exception(f"Ollama 返回的不是有效的 JSON 格式: {ollama_response_json}")
+                    raise ValueError(f"Ollama response is not a JSON array. Response: {ollama_response_json}")
+            except json.JSONDecodeError as e:
+                raise Exception(f"Ollama 返回的不是有效的 JSON 格式: {ollama_response_json}. 错误: {e}")
             except ValueError as ve:
                 raise Exception(f"Ollama 返回数据结构不正确: {ve}")
 
             created_issues = []
             for issue_data in compliance_issues_data:
-                # 检查必要的字段是否存在
+                # 检查必要的字段是否存在，并进行类型校验
                 required_fields = ['issue_type', 'description', 'location', 'severity', 'suggested_fix']
-                if not all(field in issue_data for field in required_fields):
-                    print(f"Skipping malformed issue data: {issue_data}")
+                if not all(field in issue_data and isinstance(issue_data[field], str) for field in required_fields):
+                    print(f"Skipping malformed or incomplete issue data: {issue_data}")
                     continue
+
+                # 确保 issue_type 和 severity 在允许的 choices 范围内
+                issue_type = issue_data.get('issue_type', '其他')
+                if issue_type not in [choice[0] for choice in ComplianceIssue.ISSUE_TYPES]:
+                    issue_type = '其他' # 默认值
+
+                severity = issue_data.get('severity', '中')
+                if severity not in [choice[0] for choice in ComplianceIssue.SEVERITY_CHOICES]:
+                    severity = '中' # 默认值
 
                 # 创建 ComplianceIssue 实例
                 issue = ComplianceIssue.objects.create(
-                    project=document_template.project, # 假设 DocumentTemplate 已经关联了 Project
+                    project=project_instance,
                     document_template=document_template,
-                    issue_type=issue_data.get('issue_type', '其他'),
+                    issue_type=issue_type,
                     description=issue_data['description'],
                     location=issue_data['location'],
-                    severity=issue_data.get('severity', '中'),
+                    severity=severity,
                     # suggested_fix 字段目前 ComplianceIssue 模型中没有，如果需要可以后续添加
+                    # 如果需要保存 suggested_fix，需要先在 ComplianceIssue 模型中添加此字段
                 )
                 created_issues.append(ComplianceIssueSerializer(issue).data)
             
-            return Response({'message': 'Analysis complete', 'issues': created_issues}, status=status.HTTP_200_OK)
+            return Response({'message': f'Analysis complete. Found {len(created_issues)} compliance issues.', 'issues': created_issues}, status=status.HTTP_200_OK)
         except DocumentTemplate.DoesNotExist:
             return Response({'error': 'DocumentTemplate not found'}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
@@ -150,6 +170,13 @@ class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.all()
     serializer_class = BookSerializer
     permission_classes = []
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        project_id = self.request.query_params.get('project_id')
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset
 
     @action(detail=True, methods=['get'], url_path='export_markdown')
     def export_markdown(self, request, pk=None):
