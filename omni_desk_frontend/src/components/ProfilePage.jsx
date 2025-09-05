@@ -11,6 +11,7 @@ const ProfilePage = () => {
     username: '',
     email: '',
     phone: '',
+    real_name: '',
     avatar: null,
   });
   const [passwordData, setPasswordData] = useState({
@@ -27,6 +28,7 @@ const ProfilePage = () => {
           username: response.data.username,
           email: response.data.email,
           phone: response.data.phone || '',
+          real_name: response.data.real_name || '',
           avatar: response.data.avatar,
         });
       } catch (error) {
@@ -57,6 +59,7 @@ const ProfilePage = () => {
     profileUpdateData.append('username', formData.username);
     profileUpdateData.append('email', formData.email);
     profileUpdateData.append('phone', formData.phone);
+    profileUpdateData.append('real_name', formData.real_name);
     if (formData.avatar instanceof File) {
       profileUpdateData.append('avatar', formData.avatar);
     }
@@ -111,6 +114,16 @@ const ProfilePage = () => {
                     联系电话:
                     <input type="text" name="phone" value={formData.phone} onChange={handleInputChange} />
                   </p>
+                  <p>
+                    真实姓名:
+                    <input
+                      type="text"
+                      name="real_name"
+                      value={formData.real_name}
+                      onChange={handleInputChange}
+                      disabled={profileData?.personnel !== null} // 如果已关联人员，则禁用
+                    />
+                  </p>
                   <button type="submit">保存</button>
                   <button type="button" onClick={() => setEditMode(false)}>取消</button>
                 </form>
@@ -119,6 +132,7 @@ const ProfilePage = () => {
                   <p>用户名: {profileData.username}</p>
                   <p>邮箱: {profileData.email}</p>
                   <p>联系电话: {profileData.phone}</p>
+                  <p>真实姓名: {profileData.real_name}</p>
                   <p>角色: <span className="role-badge">{profileData.role}</span></p>
                   <button onClick={() => setEditMode(true)}>编辑</button>
                 </div>

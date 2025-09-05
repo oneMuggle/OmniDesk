@@ -35,6 +35,11 @@ const PersonnelPage = () => {
       key: 'name',
     },
     {
+      title: '真实姓名',
+      dataIndex: 'real_name',
+      key: 'real_name',
+    },
+    {
       title: '职位',
       dataIndex: 'position_name', // Change to position_name
       key: 'position_name',
@@ -358,6 +363,14 @@ const PersonnelPage = () => {
                 rules={[{ required: true, message: '请输入姓名' }]}
               >
                 <Input placeholder="请输入姓名" />
+              </Form.Item>
+
+              <Form.Item
+                label="真实姓名"
+                name="real_name"
+                rules={[{ required: true, message: '请输入真实姓名' }]}
+              >
+                <Input placeholder="请输入真实姓名" />
               </Form.Item>
 
 

@@ -187,6 +187,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
                 try:
                     personnel = Personnel.objects.get(id=personnel_id)
                     instance.personnel = personnel
+                    instance.real_name = personnel.name # 强制设置为人员名称
                 except Personnel.DoesNotExist:
                     return Response({"detail": "人员不存在。"}, status=status.HTTP_404_NOT_FOUND)
         else:

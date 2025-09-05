@@ -102,16 +102,27 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'phone', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
-        read_only_fields = ('username', 'email', 'role')
+        fields = ('id', 'username', 'email', 'phone', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
+        read_only_fields = ('username', 'email', 'role',) # 保持原有只读字段
+        extra_kwargs = {
+            'real_name': {'read_only': True}
+        }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.personnel:
+            self.fields['real_name'].read_only = True
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id')
+        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id')
         extra_kwargs = {
             'role': {'required': True}
         }
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.personnel:
+            self.fields['real_name'].read_only = True
     personnel = serializers.StringRelatedField(read_only=True)
     personnel_id = serializers.PrimaryKeyRelatedField(
         queryset=Personnel.objects.all(),
@@ -184,5 +195,5 @@ class UserPersonnelSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'personnel', 'personnel_id')
+        fields = ('id', 'username', 'real_name', 'personnel', 'personnel_id')
         read_only_fields = ('username',)

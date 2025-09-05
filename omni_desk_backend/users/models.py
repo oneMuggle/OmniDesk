@@ -11,6 +11,7 @@ class CustomUser(AbstractUser):
     # 显式定义email字段覆盖默认设置
     email = models.EmailField(blank=True, null=True, help_text='可选字段，允许为空')
     phone = models.CharField(max_length=20, blank=True, null=True)
+    real_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='真实姓名')
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     assigned_by = models.ForeignKey(
