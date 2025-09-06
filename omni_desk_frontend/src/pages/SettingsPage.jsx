@@ -1,198 +1,247 @@
 import React, { useState, useEffect } from 'react';
 import { getOllamaConfigs, addOllamaConfig, updateOllamaConfig, deleteOllamaConfig, getOllamaModelsFromEndpoint } from '../api/ollama';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Select, Space, Typography, message } from 'antd';
+
+const { Title } = Typography;
+const { Option } = Select;
 
 const SettingsPage = () => {
   const [configs, setConfigs] = useState([]);
+  const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [availableModels, setAvailableModels] = useState([]);
+  const [form] = Form.useForm();
 
   useEffect(() => {
     loadConfigs();
-    // handleFetchModels 仅在用户点击“获取模型”按钮时调用，因为它依赖于 api_endpoint。
-    // availableModels 的填充由用户手动触发。
   }, []);
 
   const loadConfigs = async () => {
-    const response = await getOllamaConfigs();
-    setConfigs(response.data);
-  };
-
-  const handleEdit = (config) => {
-    setEditingConfig({ ...config });
-  };
-
-  const handleDelete = async (id) => {
-    await deleteOllamaConfig(id);
-    loadConfigs();
-  };
-
-  
-  const handleSave = async () => {
-    // 获取当前的 editingConfig
-    const currentConfig = editingConfig;
-
-    if (!currentConfig.model) {
-      alert("请选择一个模型。");
-      return;
-    }
-
-    // 检查 alias 是否已存在（仅在添加新配置时进行）
-    // 如果 currentConfig.id 为空，表示是新增操作
-    if (!currentConfig.id) {
-      const aliasExists = configs.some(config => config.alias === currentConfig.alias);
-      if (aliasExists) {
-        alert("别名已存在，请选择一个不同的别名。");
-        return;
-      }
-    }
-
     try {
-      if (currentConfig.id) {
-        await updateOllamaConfig(currentConfig.id, currentConfig);
-      } else {
-        await addOllamaConfig(currentConfig);
-      }
-      setEditingConfig(null); // 清空编辑中的配置
-      loadConfigs(); // 重新加载配置列表
+      const response = await getOllamaConfigs();
+      setConfigs(response.data);
     } catch (error) {
-      console.error("保存 Ollama 配置失败:", error);
-      alert(`保存配置失败: ${error.message}`);
+      message.error('加载配置失败。');
+      console.error("加载 Ollama 配置失败:", error);
     }
   };
 
   const handleAddNew = () => {
-    // 确保在创建新配置时，如果模型列表已加载，则默认选择第一个模型
-    const defaultModel = availableModels.length > 0 ? availableModels[0] : '';
     setEditingConfig({
       alias: '',
       api_endpoint: '',
-      model: defaultModel,
+      model: '',
       temperature: 0.8,
       top_p: 0.9,
       is_default: false,
     });
-    // 在添加新配置后，尝试立即获取模型列表
-    // 这将确保 availableModels 在用户看到表单时尽可能快地被填充
-    // 但需要确保 editingConfig.api_endpoint 已经设置
-    if (editingConfig && editingConfig.api_endpoint) {
-      handleFetchModels();
+    setAvailableModels([]); // Clear available models when adding new config
+    setIsModalVisible(true);
+    form.resetFields();
+  };
+
+  const handleEdit = (config) => {
+    setEditingConfig({ ...config });
+    form.setFieldsValue({ ...config });
+    setIsModalVisible(true);
+    // Fetch models if api_endpoint is available for the config being edited
+    if (config.api_endpoint) {
+      fetchModelsForEditing(config.api_endpoint);
+    } else {
+      setAvailableModels([]);
     }
   };
 
-  const handleChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setEditingConfig(prevConfig => {
-      let newValue = value;
-      if (type === 'number') {
-        newValue = parseFloat(value);
-      } else if (type === 'checkbox') {
-        newValue = checked;
-      } else if (name === 'api_endpoint') {
-        // 确保 api_endpoint 包含协议
-        if (!newValue.startsWith('http://') && !newValue.startsWith('https://')) {
-          newValue = `http://${newValue}`;
+  const fetchModelsForEditing = async (apiEndpoint) => {
+    try {
+      const response = await getOllamaModelsFromEndpoint(apiEndpoint);
+      const models = response.data.map(model => model.id);
+      setAvailableModels(models);
+    } catch (error) {
+      message.error('获取模型列表失败，请检查 API 地址是否正确。');
+      console.error("Failed to fetch models:", error);
+    }
+  };
+
+  const handleDelete = async (id) => {
+    try {
+      await deleteOllamaConfig(id);
+      message.success('配置删除成功。');
+      loadConfigs();
+    } catch (error) {
+      message.error('删除配置失败。');
+      console.error("删除 Ollama 配置失败:", error);
+    }
+  };
+
+  const handleSave = async (values) => {
+    try {
+      if (editingConfig.id) {
+        await updateOllamaConfig(editingConfig.id, values);
+        message.success('配置更新成功。');
+      } else {
+        const aliasExists = configs.some(config => config.alias === values.alias);
+        if (aliasExists) {
+          message.error("别名已存在，请选择一个不同的别名。");
+          return;
         }
+        await addOllamaConfig(values);
+        message.success('配置添加成功。');
       }
-      return {
-        ...prevConfig,
-        [name]: newValue,
-      };
-    });
+      setIsModalVisible(false);
+      loadConfigs();
+    } catch (error) {
+      message.error('保存配置失败。');
+      console.error("保存 Ollama 配置失败:", error);
+    }
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    setEditingConfig(null);
+    setAvailableModels([]);
+    form.resetFields();
   };
 
   const handleFetchModels = async () => {
-    if (editingConfig && editingConfig.api_endpoint) {
+    const apiEndpoint = form.getFieldValue('api_endpoint');
+    if (apiEndpoint) {
       try {
-        const response = await getOllamaModelsFromEndpoint(editingConfig.api_endpoint);
-        // Ollama API 返回的格式是 { object: "list", data: [...] }，其中 data 包含模型信息
-        // Ollama API 的 /v1/models 接口返回的模型对象中，模型名称在 'id' 字段
-        // 而 /tags 接口返回的模型对象中，模型名称在 'name' 字段
-        // 为了兼容性，这里假设后端需要的是模型名称，即 'id' 字段的值
+        const response = await getOllamaModelsFromEndpoint(apiEndpoint);
         const models = response.data.map(model => model.id);
         setAvailableModels(models);
-        console.log("Available Models:", models);
-
-        // 如果当前没有选择模型，并且有可用模型，则自动选择第一个
-        if (!editingConfig.model && models.length > 0) {
-          setEditingConfig(prevConfig => ({
-            ...prevConfig,
-            model: models[0],
-          }));
+        if (models.length > 0 && !form.getFieldValue('model')) {
+          form.setFieldsValue({ model: models[0] });
         }
+        message.success('模型列表获取成功。');
       } catch (error) {
+        message.error('获取模型列表失败，请检查 API 地址是否正确。');
         console.error("Failed to fetch models:", error);
-        alert("获取模型列表失败，请检查 API 地址是否正确。");
       }
+    } else {
+      message.warning('请输入 API 地址。');
     }
   };
 
-  return (
-    <div>
-      <h1>Ollama 配置</h1>
-      <button onClick={handleAddNew}>添加新的配置</button>
-      <table>
-        <thead>
-          <tr>
-            <th>别名</th>
-            <th>API 地址</th>
-            <th>模型</th>
-            <th>默认</th>
-            <th>操作</th>
-          </tr>
-        </thead>
-        <tbody>
-          {configs.map((config) => (
-            <tr key={config.id}>
-              <td>{config.alias}</td>
-              <td>{config.api_endpoint}</td>
-              <td>{config.model}</td>
-              <td>{config.is_default ? '是' : '否'}</td>
-              <td>
-                <button onClick={() => handleEdit(config)}>编辑</button>
-                <button onClick={() => handleDelete(config.id)}>删除</button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+  const columns = [
+    {
+      title: '别名',
+      dataIndex: 'alias',
+      key: 'alias',
+    },
+    {
+      title: 'API 地址',
+      dataIndex: 'api_endpoint',
+      key: 'api_endpoint',
+    },
+    {
+      title: '模型',
+      dataIndex: 'model',
+      key: 'model',
+    },
+    {
+      title: '默认',
+      dataIndex: 'is_default',
+      key: 'is_default',
+      render: (text) => (text ? '是' : '否'),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" onClick={() => handleEdit(record)}>编辑</Button>
+          <Button type="link" danger onClick={() => handleDelete(record.id)}>删除</Button>
+        </Space>
+      ),
+    },
+  ];
 
-      {editingConfig && (
-        <div>
-          <h2>{editingConfig.id ? '编辑' : '添加'} 配置</h2>
-          <label>
-            别名:
-            <input type="text" name="alias" value={editingConfig.alias} onChange={handleChange} />
-          </label>
-          <label>
-            API 地址:
-            <input type="text" name="api_endpoint" value={editingConfig.api_endpoint} onChange={handleChange} />
-            <button onClick={handleFetchModels}>获取模型</button>
-          </label>
-          <label>
-            模型:
-            <select name="model" value={editingConfig.model} onChange={handleChange}>
-              {availableModels.map(model => (
-                <option key={model} value={model}>{model}</option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Temperature:
-            <input type="number" name="temperature" value={editingConfig.temperature} onChange={handleChange} />
-          </label>
-          <label>
-            Top P:
-            <input type="number" name="top_p" value={editingConfig.top_p} onChange={handleChange} />
-          </label>
-          <label>
-            默认:
-            <input type="checkbox" name="is_default" checked={editingConfig.is_default} onChange={handleChange} />
-          </label>
-          <button onClick={handleSave}>保存</button>
-          <button onClick={() => setEditingConfig(null)}>取消</button>
-        </div>
+  return (
+    <Card title={<Title level={2}>Ollama 配置</Title>} style={{ margin: '20px' }}>
+      <div style={{ marginBottom: 16 }}>
+        <Button type="primary" onClick={handleAddNew}>
+          添加新的配置
+        </Button>
+      </div>
+      <Table columns={columns} dataSource={configs} rowKey="id" pagination={false} />
+
+      {isModalVisible && (
+        <Modal
+          title={editingConfig && editingConfig.id ? '编辑配置' : '添加配置'}
+          visible={isModalVisible}
+          onCancel={handleCancel}
+          footer={null}
+        >
+          <Form
+            form={form}
+            layout="vertical"
+            onFinish={handleSave}
+            initialValues={editingConfig}
+          >
+            <Form.Item
+              label="别名"
+              name="alias"
+              rules={[{ required: true, message: '请输入别名!' }]}
+            >
+              <Input />
+            </Form.Item>
+            <Form.Item
+              label="API 地址"
+              name="api_endpoint"
+              rules={[{ required: true, message: '请输入 API 地址!' }]}
+            >
+              <Input
+                addonAfter={
+                  <Button type="link" onClick={handleFetchModels} style={{ padding: 0 }}>
+                    获取模型
+                  </Button>
+                }
+              />
+            </Form.Item>
+            <Form.Item
+              label="模型"
+              name="model"
+              rules={[{ required: true, message: '请选择一个模型!' }]}
+            >
+              <Select placeholder="请选择模型">
+                {availableModels.map(model => (
+                  <Option key={model} value={model}>{model}</Option>
+                ))}
+              </Select>
+            </Form.Item>
+            <Form.Item
+              label="Temperature"
+              name="temperature"
+            >
+              <InputNumber step={0.1} min={0} max={1} />
+            </Form.Item>
+            <Form.Item
+              label="Top P"
+              name="top_p"
+            >
+              <InputNumber step={0.1} min={0} max={1} />
+            </Form.Item>
+            <Form.Item
+              name="is_default"
+              valuePropName="checked"
+            >
+              <Checkbox>设为默认</Checkbox>
+            </Form.Item>
+            <Form.Item>
+              <Space>
+                <Button type="primary" htmlType="submit">
+                  保存
+                </Button>
+                <Button onClick={handleCancel}>
+                  取消
+                </Button>
+              </Space>
+            </Form.Item>
+          </Form>
+        </Modal>
       )}
-    </div>
+    </Card>
   );
 };
 
