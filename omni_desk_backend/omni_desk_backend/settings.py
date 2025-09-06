@@ -89,11 +89,15 @@ MIDDLEWARE = [
 # 添加CSRF和Session认证 (适配HTTP部署)
 # 在非HTTPS环境下, SAMESITE='None' 会被浏览器拒绝, 且 SECURE 必须为 False
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = True # Changed to True for HTTPS
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = True # Changed to True for HTTPS
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
+
+# For Nginx proxy with HTTPS
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+USE_X_FORWARDED_HOST = True
 
 ROOT_URLCONF = 'omni_desk_backend.urls'
 
@@ -243,6 +247,10 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://113.44.214.144",
     "http://113.44.214.144:8001",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+    "https://113.44.214.144",
+    "https://113.44.214.144:8001",
 ]
 # CORS_ALLOWED_ORIGIN_REGEXES = [
 #     r"^https?://localhost(:\d+)?$",
@@ -260,6 +268,15 @@ CSRF_TRUSTED_ORIGINS = [
     "http://backend:8000",
     "http://113.44.214.144",
     "http://113.44.214.144:8001",
+    "https://localhost:3000",
+    "https://127.0.0.1:3000",
+    "https://frontend:8080",
+    "https://frontend:3000",
+    "https://localhost:3001",
+    "https://localhost:3002",
+    "https://backend:8000",
+    "https://113.44.214.144",
+    "https://113.44.214.144:8001",
 ]
 
 # 从环境变量中读取生产环境的信任源，以提高灵活性

@@ -10,6 +10,7 @@ services:
     volumes:
       - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro # Mount the new Nginx config
       - ../../omni_desk_frontend/build:/usr/share/nginx/html:ro # Mount frontend build
+      - ../nginx/certs:/etc/nginx/certs:ro # Mount SSL certificates
     networks:
       - omni_desk_network
     restart: unless-stopped
