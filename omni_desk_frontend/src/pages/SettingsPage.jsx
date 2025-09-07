@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getOllamaConfigs, addOllamaConfig, updateOllamaConfig, deleteOllamaConfig, getOllamaModelsFromEndpoint } from '../api/ollama';
 import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Select, Space, Typography, message } from 'antd';
+import apiClient from '../api/apiClient'; // 导入 apiClient
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -12,8 +13,25 @@ const SettingsPage = () => {
   const [availableModels, setAvailableModels] = useState([]);
   const [form] = Form.useForm();
 
+  // Ragflow 相关的状态
+  const [ragflowConfigs, setRagflowConfigs] = useState([]);
+  const [selectedRagflowConfig, setSelectedRagflowConfig] = useState(null);
+  const [isRagflowModalVisible, setIsRagflowModalVisible] = useState(false); // 新增状态
+  const [ragflowForm] = Form.useForm(); // 为 Ragflow 配置管理创建新的 Form 实例
+
   useEffect(() => {
     loadConfigs();
+    // 加载 Ragflow 配置
+    const fetchRagflowConfigs = async () => {
+      try {
+        const response = await apiClient.get('/ragflow-service/configs/');
+        setRagflowConfigs(response.data.results || []);
+      } catch (error) {
+        message.error('加载 Ragflow 配置失败。');
+        console.error('Error fetching Ragflow configs:', error);
+      }
+    };
+    fetchRagflowConfigs();
   }, []);
 
   const loadConfigs = async () => {
@@ -157,91 +175,240 @@ const SettingsPage = () => {
     },
   ];
 
-  return (
-    <Card title={<Title level={2}>Ollama 配置</Title>} style={{ margin: '20px' }}>
-      <div style={{ marginBottom: 16 }}>
-        <Button type="primary" onClick={handleAddNew}>
-          添加新的配置
-        </Button>
-      </div>
-      <Table columns={columns} dataSource={configs} rowKey="id" pagination={false} />
+  const handleAddRagflowConfig = () => {
+    setSelectedRagflowConfig(null);
+    ragflowForm.resetFields();
+    ragflowForm.setFieldsValue({ is_active: true });
+    setIsRagflowModalVisible(true); // 显示 Modal
+  };
 
-      {isModalVisible && (
-        <Modal
-          title={editingConfig && editingConfig.id ? '编辑配置' : '添加配置'}
-          visible={isModalVisible}
-          onCancel={handleCancel}
-          footer={null}
-        >
-          <Form
-            form={form}
-            layout="vertical"
-            onFinish={handleSave}
-            initialValues={editingConfig}
+  const handleEditRagflowConfig = (config) => {
+    setSelectedRagflowConfig(config);
+    ragflowForm.setFieldsValue(config);
+  };
+
+  const handleDeleteRagflowConfig = async (id) => {
+    try {
+      await apiClient.delete(`/ragflow-service/configs/${id}/`);
+      message.success('Ragflow 配置删除成功。');
+      const response = await apiClient.get('/ragflow-service/configs/');
+      setRagflowConfigs(response.data.results || []);
+      setSelectedRagflowConfig(null);
+      ragflowForm.resetFields();
+      ragflowForm.setFieldsValue({ is_active: true });
+    } catch (error) {
+      message.error('删除 Ragflow 配置失败。');
+      console.error('删除 Ragflow 配置失败:', error);
+    }
+  };
+
+  const handleSaveRagflowConfig = async (values) => {
+    try {
+      if (selectedRagflowConfig) {
+        await apiClient.put(`/ragflow-service/configs/${selectedRagflowConfig.id}/`, values);
+        message.success('Ragflow 配置更新成功。');
+      } else {
+        await apiClient.post('/ragflow-service/configs/', values);
+        message.success('Ragflow 配置新增成功。');
+      }
+      const response = await apiClient.get('/ragflow-service/configs/');
+      setRagflowConfigs(response.data.results || []);
+      setSelectedRagflowConfig(null);
+      ragflowForm.resetFields();
+      ragflowForm.setFieldsValue({ is_active: true });
+    } catch (error) {
+      message.error(`保存 Ragflow 配置失败: ${error.response?.data?.detail || error.message}`);
+      console.error('保存 Ragflow 配置失败:', error);
+    }
+  };
+
+  const ragflowColumns = [
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: 'API 端点',
+      dataIndex: 'api_endpoint',
+      key: 'api_endpoint',
+    },
+    {
+      title: '是否激活',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (text) => (text ? '是' : '否'),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="middle">
+          <Button type="link" onClick={() => handleEditRagflowConfig(record)}>编辑</Button>
+          <Button type="link" danger onClick={() => handleDeleteRagflowConfig(record.id)}>删除</Button>
+        </Space>
+      ),
+    },
+  ];
+
+  return (
+    <>
+      <Card title={<Title level={2}>Ollama 配置</Title>} style={{ margin: '20px' }}>
+        <div style={{ marginBottom: 16 }}>
+          <Button type="primary" onClick={handleAddNew}>
+            添加新的配置
+          </Button>
+        </div>
+        <Table columns={columns} dataSource={configs} rowKey="id" pagination={false} />
+
+        {isModalVisible && (
+          <Modal
+            title={editingConfig && editingConfig.id ? '编辑配置' : '添加配置'}
+            visible={isModalVisible}
+            onCancel={handleCancel}
+            footer={null}
           >
-            <Form.Item
-              label="别名"
-              name="alias"
-              rules={[{ required: true, message: '请输入别名!' }]}
+            <Form
+              form={form}
+              layout="vertical"
+              onFinish={handleSave}
+              initialValues={editingConfig}
             >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              label="API 地址"
-              name="api_endpoint"
-              rules={[{ required: true, message: '请输入 API 地址!' }]}
-            >
-              <Input
-                addonAfter={
-                  <Button type="link" onClick={handleFetchModels} style={{ padding: 0 }}>
-                    获取模型
+              <Form.Item
+                label="别名"
+                name="alias"
+                rules={[{ required: true, message: '请输入别名!' }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="API 地址"
+                name="api_endpoint"
+                rules={[{ required: true, message: '请输入 API 地址!' }]}
+              >
+                <Input
+                  addonAfter={
+                    <Button type="link" onClick={handleFetchModels} style={{ padding: 0 }}>
+                      获取模型
+                    </Button>
+                  }
+                />
+              </Form.Item>
+              <Form.Item
+                label="模型"
+                name="model"
+                rules={[{ required: true, message: '请选择一个模型!' }]}
+              >
+                <Select placeholder="请选择模型">
+                  {availableModels.map(model => (
+                    <Option key={model} value={model}>{model}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+              <Form.Item
+                label="Temperature"
+                name="temperature"
+              >
+                <InputNumber step={0.1} min={0} max={1} />
+              </Form.Item>
+              <Form.Item
+                label="Top P"
+                name="top_p"
+              >
+                <InputNumber step={0.1} min={0} max={1} />
+              </Form.Item>
+              <Form.Item
+                name="is_default"
+                valuePropName="checked"
+              >
+                <Checkbox>设为默认</Checkbox>
+              </Form.Item>
+              <Form.Item>
+                <Space>
+                  <Button type="primary" htmlType="submit">
+                    保存
                   </Button>
-                }
-              />
-            </Form.Item>
-            <Form.Item
-              label="模型"
-              name="model"
-              rules={[{ required: true, message: '请选择一个模型!' }]}
+                  <Button onClick={handleCancel}>
+                    取消
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Modal>
+        )}
+      </Card>
+
+      <Card title={<Title level={2}>Ragflow 配置</Title>} style={{ margin: '20px' }}>
+        <div style={{ marginBottom: 16 }}>
+          <Button type="primary" onClick={handleAddRagflowConfig}>
+            添加新的 Ragflow 配置
+          </Button>
+        </div>
+        <Table columns={ragflowColumns} dataSource={ragflowConfigs} rowKey="id" pagination={false} />
+
+        {isRagflowModalVisible && ( // 使用新的状态控制 Modal 的显示
+          <Modal
+            title={selectedRagflowConfig ? '编辑 Ragflow 配置' : '添加 Ragflow 配置'}
+            visible={isRagflowModalVisible}
+            onCancel={() => {
+              setSelectedRagflowConfig(null);
+              ragflowForm.resetFields();
+              ragflowForm.setFieldsValue({ is_active: true });
+              setIsRagflowModalVisible(false); // 关闭 Modal
+            }}
+            footer={null}
+          >
+            <Form
+              form={ragflowForm}
+              layout="vertical"
+              onFinish={handleSaveRagflowConfig}
+              initialValues={selectedRagflowConfig || { is_active: true }}
             >
-              <Select placeholder="请选择模型">
-                {availableModels.map(model => (
-                  <Option key={model} value={model}>{model}</Option>
-                ))}
-              </Select>
-            </Form.Item>
-            <Form.Item
-              label="Temperature"
-              name="temperature"
-            >
-              <InputNumber step={0.1} min={0} max={1} />
-            </Form.Item>
-            <Form.Item
-              label="Top P"
-              name="top_p"
-            >
-              <InputNumber step={0.1} min={0} max={1} />
-            </Form.Item>
-            <Form.Item
-              name="is_default"
-              valuePropName="checked"
-            >
-              <Checkbox>设为默认</Checkbox>
-            </Form.Item>
-            <Form.Item>
-              <Space>
-                <Button type="primary" htmlType="submit">
-                  保存
-                </Button>
-                <Button onClick={handleCancel}>
-                  取消
-                </Button>
-              </Space>
-            </Form.Item>
-          </Form>
-        </Modal>
-      )}
-    </Card>
+              <Form.Item
+                label="配置名称"
+                name="name"
+                rules={[{ required: true, message: '请输入配置名称!' }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="API 端点"
+                name="api_endpoint"
+                rules={[{ required: true, message: '请输入 API 端点!' }]}
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                label="API 密钥"
+                name="api_key"
+              >
+                <Input />
+              </Form.Item>
+              <Form.Item
+                name="is_active"
+                valuePropName="checked"
+              >
+                <Checkbox>是否激活</Checkbox>
+              </Form.Item>
+              <Form.Item>
+                <Space>
+                  <Button type="primary" htmlType="submit">
+                    {selectedRagflowConfig ? '更新配置' : '新增配置'}
+                  </Button>
+                  <Button onClick={() => {
+                    setSelectedRagflowConfig(null);
+                    ragflowForm.resetFields();
+                    ragflowForm.setFieldsValue({ is_active: true });
+                  }}>
+                    取消
+                  </Button>
+                </Space>
+              </Form.Item>
+            </Form>
+          </Modal>
+        )}
+      </Card>
+    </>
   );
 };
 
