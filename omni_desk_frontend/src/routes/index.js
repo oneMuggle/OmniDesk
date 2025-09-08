@@ -137,6 +137,10 @@ const router = createBrowserRouter([
       {
         path: "documents", // 将 DocumentsPage 移动到主页面路由
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/documents"><DocumentsPage /></ProtectedRoute>
+      },
+      {
+        path: "sensor-management", // 新增传感器管理路由
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management"><SensorManagementPage /></ProtectedRoute>
       }
     ]
   },
@@ -212,10 +216,6 @@ const router = createBrowserRouter([
       {
        path: "settings",
        element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
-     },
-     {
-        path: "sensor-management", // 新增传感器管理路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/sensor-management"><SensorManagementPage /></ProtectedRoute>
      }
     ]
   },

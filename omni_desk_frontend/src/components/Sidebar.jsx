@@ -81,7 +81,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 
     { to: "/library", icon: faBook, text: "书库", permission: null },
     { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
-
+    { to: "/sensor-management", icon: faFlask, text: "传感器管理", permission: ["admin", "manager"] }, // 新增传感器管理
     { to: "/profile", icon: faUser, text: "个人资料", permission: null },
     {
       type: 'submenu',

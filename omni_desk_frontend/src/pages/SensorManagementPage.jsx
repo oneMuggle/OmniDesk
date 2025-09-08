@@ -100,8 +100,8 @@ const SensorManagementPage = () => {
   const fetchSensors = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/api/sensor-management/sensors/');
-      setSensors(response.data);
+      const response = await apiClient.get('/sensor-management/sensors/');
+      setSensors(Array.isArray(response.data.results) ? response.data.results : []);
     } catch (error) {
       message.error('获取传感器列表失败!');
       console.error('Error fetching sensors:', error);
@@ -141,10 +141,10 @@ const SensorManagementPage = () => {
   const handleModalOk = async (values) => {
     try {
       if (currentSensor) {
-        await apiClient.put(`/api/sensor-management/sensors/${currentSensor.id}/`, values);
+        await apiClient.put(`/sensor-management/sensors/${currentSensor.id}/`, values);
         message.success('传感器更新成功!');
       } else {
-        await apiClient.post('/api/sensor-management/sensors/', values);
+        await apiClient.post('/sensor-management/sensors/', values);
         message.success('传感器新增成功!');
       }
       setIsModalVisible(false);
