@@ -81,6 +81,9 @@ const DifyAppManagementPage = () => {
         } catch (err) {
             setError('Failed to save Dify application.');
             console.error('Error saving Dify app:', err);
+            if (err.response && err.response.data) {
+                console.error('Backend error details:', err.response.data);
+            }
         }
     };
 

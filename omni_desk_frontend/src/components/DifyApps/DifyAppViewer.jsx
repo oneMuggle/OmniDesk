@@ -13,7 +13,14 @@ const DifyAppViewer = () => {
         const fetchAppDetails = async () => {
             try {
                 // 假设后端API地址为 /api/dify-apps/{appId}/
-                const response = await axios.get(`/api/dify-apps/${appId}/`);
+                const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
+                const token = authTokens.access; // 从localStorage或sessionStorage获取Token
+                const config = token ? {
+                    headers: {
+                        Authorization: `Bearer ${token}` // 添加Authorization头
+                    }
+                } : {};
+                const response = await axios.get(`/api/dify-apps/${appId}/`, config);
                 setEmbedUrl(response.data.embed_url);
             } catch (err) {
                 setError('Failed to load Dify application.');
