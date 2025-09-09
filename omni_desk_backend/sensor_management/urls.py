@@ -1,11 +1,13 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import SensorViewSet, SensorMovementViewSet, CalibrationReminderViewSet
+from .views import SensorViewSet, SensorMovementViewSet, CalibrationReminderViewSet, SensorCategoryViewSet, StorageLocationViewSet
 
 router = DefaultRouter()
 router.register(r'sensors', SensorViewSet)
 router.register(r'sensor-movements', SensorMovementViewSet)
 router.register(r'calibration-reminders', CalibrationReminderViewSet)
+router.register(r'sensor-categories', SensorCategoryViewSet)
+router.register(r'storage-locations', StorageLocationViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

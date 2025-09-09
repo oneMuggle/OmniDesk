@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
-import apiClient from '../api/apiClient'; // 假设你有一个apiClient用于后端请求
+import apiClient from '../api/apiClient';
 
 const { Option } = Select;
 const { confirm } = Modal;
 
 const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
   const [form] = Form.useForm();
+  const [sensorCategories, setSensorCategories] = useState([]);
+  const [storageLocations, setStorageLocations] = useState([]);
 
   useEffect(() => {
     if (visible) {
@@ -17,9 +19,33 @@ const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
         production_date: initialData.production_date ? moment(initialData.production_date) : null,
         purchase_date: initialData.purchase_date ? moment(initialData.purchase_date) : null,
         last_calibration_date: initialData.last_calibration_date ? moment(initialData.last_calibration_date) : null,
+        sensor_category: initialData.sensor_category || undefined, // 确保初始值为 undefined 以便 Select 组件正确显示 Placeholder
+        location: initialData.location || undefined,
       });
+      fetchSensorCategories();
+      fetchStorageLocations();
     }
   }, [visible, initialData, form]);
+
+  const fetchSensorCategories = async () => {
+    try {
+      const response = await apiClient.get('/sensor-management/sensor-categories/');
+      setSensorCategories(response.data.results || []);
+    } catch (error) {
+      message.error('获取传感器类别失败!');
+      console.error('Error fetching sensor categories:', error);
+    }
+  };
+
+  const fetchStorageLocations = async () => {
+    try {
+      const response = await apiClient.get('/sensor-management/storage-locations/');
+      setStorageLocations(response.data.results || []);
+    } catch (error) {
+      message.error('获取存放位置失败!');
+      console.error('Error fetching storage locations:', error);
+    }
+  };
 
   const handleOk = () => {
     form.validateFields()
@@ -50,8 +76,12 @@ const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
         <Form.Item name="serial_number" label="序列号" rules={[{ required: true, message: '请输入序列号!' }]}>
           <Input />
         </Form.Item>
-        <Form.Item name="model_name" label="型号名称" rules={[{ required: true, message: '请输入型号名称!' }]}>
-          <Input />
+        <Form.Item name="sensor_category" label="传感器类别" rules={[{ required: true, message: '请选择传感器类别!' }]}>
+          <Select placeholder="请选择传感器类别">
+            {sensorCategories.map(category => (
+              <Option key={category.id} value={category.id}>{category.name}</Option>
+            ))}
+          </Select>
         </Form.Item>
         <Form.Item name="manufacturer" label="制造商" rules={[{ required: true, message: '请输入制造商!' }]}>
           <Input />
@@ -80,7 +110,11 @@ const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
           </Select>
         </Form.Item>
         <Form.Item name="location" label="存放位置">
-          <Input />
+          <Select placeholder="请选择存放位置">
+            {storageLocations.map(location => (
+              <Option key={location.id} value={location.id}>{location.name}</Option>
+            ))}
+          </Select>
         </Form.Item>
       </Form>
     </Modal>
@@ -178,9 +212,9 @@ const SensorManagementPage = () => {
       sorter: (a, b) => a.serial_number.localeCompare(b.serial_number),
     },
     {
-      title: '型号名称',
-      dataIndex: 'model_name',
-      key: 'model_name',
+      title: '传感器类别',
+      dataIndex: 'sensor_category_name',
+      key: 'sensor_category_name',
     },
     {
       title: '制造商',
@@ -227,8 +261,8 @@ const SensorManagementPage = () => {
     },
     {
       title: '存放位置',
-      dataIndex: 'location',
-      key: 'location',
+      dataIndex: 'location_name',
+      key: 'location_name',
     },
     {
       title: '操作',

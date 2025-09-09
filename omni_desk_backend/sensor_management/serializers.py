@@ -1,9 +1,23 @@
 from rest_framework import serializers
-from .models import Sensor, SensorMovement, CalibrationReminder
+from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation
 from users.models import CustomUser
+
+class SensorCategorySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SensorCategory
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
+
+class StorageLocationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = StorageLocation
+        fields = '__all__'
+        read_only_fields = ('created_at', 'updated_at')
 
 class SensorSerializer(serializers.ModelSerializer):
     next_calibration_date = serializers.DateField(read_only=True) # 自定义next_calibration_date字段
+    sensor_category_name = serializers.CharField(source='sensor_category.name', read_only=True)
+    location_name = serializers.CharField(source='location.name', read_only=True)
 
     class Meta:
         model = Sensor

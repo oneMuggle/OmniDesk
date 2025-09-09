@@ -337,7 +337,7 @@ const ScheduleManagementPage = () => {
 
   useEffect(() => {
     fetchData();
-    // fetchPersonnel(); // 移除对 fetchPersonnel 的调用
+    fetchPersonnel(); // 重新引入对 fetchPersonnel 的调用
     fetchSequences();
     fetchPositions(); // 调用新增的获取职务函数
   }, []);
@@ -354,15 +354,14 @@ const ScheduleManagementPage = () => {
     }
   };
 
-  // 移除 fetchPersonnel 函数，因为不再需要 personnelList 来转换排班数据
-  // const fetchPersonnel = async () => {
-  //   try {
-  //     const data = await getAllPersonnel();
-  //     setPersonnelList(data);
-  //   } catch (error) {
-  //     message.error('获取人员列表失败');
-  //   }
-  // };
+  const fetchPersonnel = async () => {
+    try {
+      const data = await getAllPersonnel();
+      setPersonnelList(data);
+    } catch (error) {
+      message.error('获取人员列表失败');
+    }
+  };
 
   const fetchPositions = async () => {
     try {

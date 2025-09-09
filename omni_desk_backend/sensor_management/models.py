@@ -11,13 +11,14 @@ class Sensor(models.Model):
     ]
 
     serial_number = models.CharField(max_length=100, unique=True, verbose_name="序列号")
-    model_name = models.CharField(max_length=100, verbose_name="型号名称")
+    sensor_category = models.ForeignKey('SensorCategory', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="传感器类别")
     manufacturer = models.CharField(max_length=100, verbose_name="制造商")
     calibration_accuracy = models.FloatField(verbose_name="校准精度")
     production_date = models.DateField(verbose_name="生产日期", null=True, blank=True)
     purchase_date = models.DateField(verbose_name="购买日期", null=True, blank=True)
     last_calibration_date = models.DateField(verbose_name="上次校准日期", null=True, blank=True)
     calibration_interval_days = models.IntegerField(default=365, verbose_name="校准周期（天）")
+    current_quantity = models.IntegerField(default=0, verbose_name="当前数量")
     
     @property
     def next_calibration_date(self):
@@ -31,7 +32,7 @@ class Sensor(models.Model):
         default='in_stock',
         verbose_name="状态"
     )
-    location = models.CharField(max_length=200, blank=True, verbose_name="存放位置")
+    location = models.ForeignKey('StorageLocation', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="存放位置")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -42,6 +43,20 @@ class Sensor(models.Model):
 
     def __str__(self):
         return f"{self.model_name} ({self.serial_number})"
+
+class SensorCategory(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="类别名称")
+    description = models.TextField(blank=True, verbose_name="描述")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "传感器类别"
+        verbose_name_plural = "传感器类别管理"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
 
 class SensorMovement(models.Model):
     MOVEMENT_TYPES = [
@@ -81,3 +96,17 @@ class CalibrationReminder(models.Model):
 
     def __str__(self):
         return f"传感器 {self.sensor.serial_number} 校准提醒 ({self.remind_date})"
+
+class StorageLocation(models.Model):
+    name = models.CharField(max_length=100, unique=True, verbose_name="位置名称")
+    description = models.TextField(blank=True, verbose_name="描述")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "存放位置"
+        verbose_name_plural = "存放位置管理"
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name

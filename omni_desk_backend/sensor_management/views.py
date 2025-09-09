@@ -6,8 +6,8 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Sensor, SensorMovement, CalibrationReminder
-from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer
+from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation
+from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer, SensorCategorySerializer, StorageLocationSerializer
 from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假设有这些权限类
 
 class SensorViewSet(viewsets.ModelViewSet):
@@ -15,9 +15,9 @@ class SensorViewSet(viewsets.ModelViewSet):
     serializer_class = SensorSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['status', 'model_name', 'manufacturer', 'serial_number']
-    search_fields = ['serial_number', 'model_name', 'manufacturer']
-    ordering_fields = ['serial_number', 'model_name', 'production_date', 'last_calibration_date', 'next_calibration_date']
+    filterset_fields = ['status', 'sensor_category__name', 'manufacturer', 'serial_number', 'location__name']
+    search_fields = ['serial_number', 'sensor_category__name', 'manufacturer']
+    ordering_fields = ['serial_number', 'sensor_category__name', 'production_date', 'last_calibration_date', 'next_calibration_date']
 
     @action(detail=False, methods=['get'], url_path='due-for-calibration')
     def due_for_calibration(self, request):
@@ -65,6 +65,16 @@ class SensorMovementViewSet(viewsets.ModelViewSet):
             elif instance.movement_type == 'out':
                 sensor.status = 'in_use' # 或者其他更细致的状态，取决于业务逻辑
             sensor.save()
+
+class SensorCategoryViewSet(viewsets.ModelViewSet):
+    queryset = SensorCategory.objects.all()
+    serializer_class = SensorCategorySerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看类别
+
+class StorageLocationViewSet(viewsets.ModelViewSet):
+    queryset = StorageLocation.objects.all()
+    serializer_class = StorageLocationSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看位置
 
 class CalibrationReminderViewSet(viewsets.ModelViewSet):
     queryset = CalibrationReminder.objects.all()
