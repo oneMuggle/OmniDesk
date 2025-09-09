@@ -142,7 +142,7 @@ export const getOllamaModelsFromEndpoint = async (apiEndpoint) => {
     const fullApiEndpoint = apiEndpoint.startsWith('http://') || apiEndpoint.startsWith('https://')
       ? apiEndpoint
       : `http://${apiEndpoint}`;
-    const response = await axios.get(`${fullApiEndpoint}/api/v1/models`);
+    const response = await axios.get(`${fullApiEndpoint}/v1/models`);
     return response.data;
   } catch (error) {
     console.error('Failed to fetch models from endpoint:', error);
