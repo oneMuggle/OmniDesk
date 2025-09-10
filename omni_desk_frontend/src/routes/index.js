@@ -45,6 +45,8 @@ import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // I
 import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
 import UserPersonnelManagementPage from '../pages/UserPersonnelManagementPage'; // 导入新页面
 import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 SensorManagementPage
+import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
+import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 
 const router = createBrowserRouter([
 {
@@ -141,6 +143,14 @@ const router = createBrowserRouter([
       {
         path: "sensor-management", // 新增传感器管理路由
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management"><SensorManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "sensor-categories", // 新增传感器类别管理路由
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-categories"><SensorCategoryManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "storage-locations", // 新增存放位置管理路由
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/storage-locations"><StorageLocationManagementPage /></ProtectedRoute>
       }
     ]
   },

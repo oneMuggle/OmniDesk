@@ -86,6 +86,7 @@ class CalibrationReminder(models.Model):
     is_sent = models.BooleanField(default=False, verbose_name="是否已发送")
     sent_date = models.DateTimeField(null=True, blank=True, verbose_name="发送日期")
     notes = models.TextField(blank=True, verbose_name="备注")
+    reminded_users = models.ManyToManyField(CustomUser, blank=True, verbose_name="被提醒用户")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Tag, InputNumber } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import apiClient from '../api/apiClient';
+import { useNavigate } from 'react-router-dom';
 
 const { Option } = Select;
 const { confirm } = Modal;
@@ -121,11 +122,154 @@ const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
   );
 };
 
+const InboundFormModal = ({ visible, onCancel, onOk, initialData }) => {
+  const [form] = Form.useForm();
+  const [storageLocations, setStorageLocations] = useState([]);
+
+  useEffect(() => {
+    if (visible) {
+      form.setFieldsValue({
+        sensor: initialData.id,
+        quantity: 1,
+        movement_date: moment(),
+        movement_type: 'in',
+        destination_source: initialData.location || undefined, // 默认使用传感器当前位置
+      });
+      fetchStorageLocations();
+    }
+  }, [visible, initialData, form]);
+
+  const fetchStorageLocations = async () => {
+    try {
+      const response = await apiClient.get('/sensor-management/storage-locations/');
+      setStorageLocations(response.data.results || []);
+    } catch (error) {
+      message.error('获取存放位置失败!');
+      console.error('Error fetching storage locations:', error);
+    }
+  };
+
+  const handleOk = () => {
+    form.validateFields()
+      .then(values => {
+        const submitData = {
+          ...values,
+          movement_date: values.movement_date ? values.movement_date.format('YYYY-MM-DDTHH:mm:ss') : null,
+        };
+        onOk(submitData);
+        form.resetFields();
+      })
+      .catch(info => {
+        console.log('Validate Failed:', info);
+      });
+  };
+
+  return (
+    <Modal
+      title={`传感器入库: ${initialData.serial_number}`}
+      visible={visible}
+      onOk={handleOk}
+      onCancel={onCancel}
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item name="sensor" label="传感器ID" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="movement_type" label="操作类型" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="quantity" label="数量" rules={[{ required: true, message: '请输入数量!' }, { type: 'number', min: 1, message: '数量必须大于0' }]}>
+          <InputNumber min={1} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="movement_date" label="入库时间" rules={[{ required: true, message: '请选择入库时间!' }]}>
+          <DatePicker showTime style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="destination_source" label="存放位置" rules={[{ required: true, message: '请选择存放位置!' }]}>
+          <Select placeholder="请选择存放位置">
+            {storageLocations.map(location => (
+              <Option key={location.id} value={location.id}>{location.name}</Option>
+            ))}
+          </Select>
+        </Form.Item>
+        <Form.Item name="reason" label="备注">
+          <Input.TextArea />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
+const OutboundFormModal = ({ visible, onCancel, onOk, initialData }) => {
+  const [form] = Form.useForm();
+
+  useEffect(() => {
+    if (visible) {
+      form.setFieldsValue({
+        sensor: initialData.id,
+        quantity: 1,
+        movement_date: moment(),
+        movement_type: 'out',
+        destination_source: '',
+      });
+    }
+  }, [visible, initialData, form]);
+
+  const handleOk = () => {
+    form.validateFields()
+      .then(values => {
+        const submitData = {
+          ...values,
+          movement_date: values.movement_date ? values.movement_date.format('YYYY-MM-DDTHH:mm:ss') : null,
+        };
+        onOk(submitData);
+        form.resetFields();
+      })
+      .catch(info => {
+        console.log('Validate Failed:', info);
+      });
+  };
+
+  return (
+    <Modal
+      title={`传感器出库: ${initialData.serial_number}`}
+      visible={visible}
+      onOk={handleOk}
+      onCancel={onCancel}
+      destroyOnClose
+    >
+      <Form form={form} layout="vertical">
+        <Form.Item name="sensor" label="传感器ID" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="movement_type" label="操作类型" hidden>
+          <Input />
+        </Form.Item>
+        <Form.Item name="quantity" label="数量" rules={[{ required: true, message: '请输入数量!' }, { type: 'number', min: 1, max: initialData.current_quantity, message: `数量不能大于当前库存: ${initialData.current_quantity}` }]}>
+          <InputNumber min={1} max={initialData.current_quantity} style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="movement_date" label="出库时间" rules={[{ required: true, message: '请选择出库时间!' }]}>
+          <DatePicker showTime style={{ width: '100%' }} />
+        </Form.Item>
+        <Form.Item name="destination_source" label="使用地点" rules={[{ required: true, message: '请输入使用地点!' }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="reason" label="备注">
+          <Input.TextArea />
+        </Form.Item>
+      </Form>
+    </Modal>
+  );
+};
+
 const SensorManagementPage = () => {
   const [sensors, setSensors] = useState([]);
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isInboundModalVisible, setIsInboundModalVisible] = useState(false);
+  const [isOutboundModalVisible, setIsOutboundModalVisible] = useState(false);
   const [currentSensor, setCurrentSensor] = useState(null);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchSensors();
@@ -161,7 +305,7 @@ const SensorManagementPage = () => {
       content: '删除后将无法恢复。',
       onOk: async () => {
         try {
-          await apiClient.delete(`/api/sensor-management/sensors/${id}/`);
+          await apiClient.delete(`/sensor-management/sensors/${id}/`);
           message.success('传感器删除成功!');
           fetchSensors();
         } catch (error) {
@@ -186,6 +330,29 @@ const SensorManagementPage = () => {
     } catch (error) {
       message.error('保存传感器失败!');
       console.error('Error saving sensor:', error);
+    }
+  };
+
+  const handleInbound = (record) => {
+    setCurrentSensor(record);
+    setIsInboundModalVisible(true);
+  };
+
+  const handleOutbound = (record) => {
+    setCurrentSensor(record);
+    setIsOutboundModalVisible(true);
+  };
+
+  const handleMovementOk = async (values) => {
+    try {
+      await apiClient.post('/sensor-management/sensor-movements/', values);
+      message.success('出入库操作成功!');
+      setIsInboundModalVisible(false);
+      setIsOutboundModalVisible(false);
+      fetchSensors(); // Refresh sensor list to show updated quantity and status
+    } catch (error) {
+      message.error('出入库操作失败!');
+      console.error('Error saving sensor movement:', error);
     }
   };
 
@@ -225,6 +392,12 @@ const SensorManagementPage = () => {
       title: '校准精度',
       dataIndex: 'calibration_accuracy',
       key: 'calibration_accuracy',
+    },
+    {
+      title: '当前数量',
+      dataIndex: 'current_quantity',
+      key: 'current_quantity',
+      sorter: (a, b) => a.current_quantity - b.current_quantity,
     },
     {
       title: '上次校准日期',
@@ -270,6 +443,8 @@ const SensorManagementPage = () => {
       render: (_, record) => (
         <Space size="middle">
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
+          <Button type="link" onClick={() => handleInbound(record)}>入库</Button>
+          <Button type="link" onClick={() => handleOutbound(record)}>出库</Button>
           <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
         </Space>
       ),
@@ -280,9 +455,13 @@ const SensorManagementPage = () => {
     <Card
       title="传感器管理"
       extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增传感器
-        </Button>
+        <Space>
+          <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+            新增传感器
+          </Button>
+          <Button onClick={() => navigate('/sensor-categories')}>管理类别</Button>
+          <Button onClick={() => navigate('/storage-locations')}>管理位置</Button>
+        </Space>
       }
     >
       <Table
@@ -296,6 +475,18 @@ const SensorManagementPage = () => {
         visible={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         onOk={handleModalOk}
+        initialData={currentSensor || {}}
+      />
+      <InboundFormModal
+        visible={isInboundModalVisible}
+        onCancel={() => setIsInboundModalVisible(false)}
+        onOk={handleMovementOk}
+        initialData={currentSensor || {}}
+      />
+      <OutboundFormModal
+        visible={isOutboundModalVisible}
+        onCancel={() => setIsOutboundModalVisible(false)}
+        onOk={handleMovementOk}
         initialData={currentSensor || {}}
       />
     </Card>
