@@ -24,6 +24,8 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
       form.setFieldsValue({
         ...initialData,
         date: initialData.duty_date ? moment(initialData.duty_date) : null,
+        duty_person: initialData.duty_person ? initialData.duty_person.id : null,
+        duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
       // Reset filters and lists when modal opens
       setFilteredDutyPersonList(personnelList);
