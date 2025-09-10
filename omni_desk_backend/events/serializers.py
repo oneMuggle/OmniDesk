@@ -51,6 +51,42 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_position_name(self, obj):
         return obj.position.name if obj.position else None
 
+    def update(self, instance, validated_data):
+        phone_numbers_data = validated_data.pop('phone_numbers', [])
+        
+        # Update Personnel instance
+        instance.name = validated_data.get('name', instance.name)
+        instance.position = validated_data.get('position', instance.position)
+        instance.save()
+
+        # Handle phone numbers
+        # Get IDs of existing phone numbers
+        existing_phone_numbers_ids = set(instance.phone_numbers.values_list('id', flat=True))
+        
+        # Get IDs of phone numbers from validated data
+        incoming_phone_numbers_ids = set()
+        for item in phone_numbers_data:
+            if 'id' in item:
+                incoming_phone_numbers_ids.add(item['id'])
+
+        # Delete phone numbers not in incoming data
+        phone_numbers_to_delete = existing_phone_numbers_ids - incoming_phone_numbers_ids
+        for phone_id in phone_numbers_to_delete:
+            PhoneNumber.objects.get(id=phone_id, personnel=instance).delete()
+
+        # Create or update phone numbers
+        for item in phone_numbers_data:
+            if 'id' in item:
+                # Update existing phone number
+                phone_number_instance = PhoneNumber.objects.get(id=item['id'], personnel=instance)
+                phone_number_instance.number = item.get('number', phone_number_instance.number)
+                phone_number_instance.save()
+            else:
+                # Create new phone number
+                PhoneNumber.objects.create(personnel=instance, **item)
+        
+        return instance
+
 class EquipmentSerializer(serializers.ModelSerializer):
     name = serializers.CharField()
     description = serializers.CharField(allow_blank=True, required=False)

@@ -18,7 +18,7 @@ from django.db.models.functions import TruncDate
 
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Position
+    PersonnelSequence, LeaderSequence, Position, PhoneNumber
 )
 from .serializers import (
     TrialSerializer,
