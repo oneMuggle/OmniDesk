@@ -64,8 +64,8 @@ const ShiftScheduleContainer = () => {
               date: event.startStr,
               staff: extendedProps.scheduleDetails.duty_person?.id,
               leader: extendedProps.scheduleDetails.duty_leader?.id,
-              staffPhone: extendedProps.scheduleDetails.duty_person?.phone || '',
-              leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone || ''
+              staffPhone: extendedProps.scheduleDetails.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
+              leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || ''
             });
             setScheduleModalMode('view');
             setScheduleModalOpen(true);

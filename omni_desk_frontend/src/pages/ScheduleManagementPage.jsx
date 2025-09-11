@@ -27,6 +27,9 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
+      console.log("ScheduleFormModal - initialData:", initialData);
+      console.log("ScheduleFormModal - duty_person phone_numbers:", initialData.duty_person?.phone_numbers);
+      console.log("ScheduleFormModal - duty_leader phone_numbers:", initialData.duty_leader?.phone_numbers);
       // Reset filters and lists when modal opens
       setFilteredDutyPersonList(personnelList);
       setFilteredDutyLeaderList(personnelList);
@@ -34,6 +37,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
       setSelectedLeaderPositionId(null);
     }
   }, [visible, initialData, form, personnelList]);
+
 
   useEffect(() => {
     if (selectedPersonPositionId) {
@@ -122,6 +126,11 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
             ))}
           </Select>
         </Form.Item>
+        {initialData.duty_person && initialData.duty_person.phone_numbers && initialData.duty_person.phone_numbers.length > 0 && (
+          <Form.Item label="值班人员电话">
+            <Input value={initialData.duty_person.phone_numbers.map(p => p.number).join(', ')} readOnly />
+          </Form.Item>
+        )}
         <Form.Item
           name="leader_position_filter"
           label="值班领导职务筛选"
@@ -158,6 +167,11 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
             ))}
           </Select>
         </Form.Item>
+        {initialData.duty_leader && initialData.duty_leader.phone_numbers && initialData.duty_leader.phone_numbers.length > 0 && (
+          <Form.Item label="值班领导电话">
+            <Input value={initialData.duty_leader.phone_numbers.map(p => p.number).join(', ')} readOnly />
+          </Form.Item>
+        )}
       </Form>
     </Modal>
   );

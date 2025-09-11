@@ -51,6 +51,13 @@ class PersonnelSerializer(serializers.ModelSerializer):
     def get_position_name(self, obj):
         return obj.position.name if obj.position else None
 
+    def create(self, validated_data):
+        phone_numbers_data = validated_data.pop('phone_numbers', [])
+        personnel = Personnel.objects.create(**validated_data)
+        for phone_data in phone_numbers_data:
+            PhoneNumber.objects.create(personnel=personnel, **phone_data)
+        return personnel
+
     def update(self, instance, validated_data):
         phone_numbers_data = validated_data.pop('phone_numbers', [])
         

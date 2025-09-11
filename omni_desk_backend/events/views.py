@@ -129,7 +129,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['name']
 
 class ScheduleViewSet(viewsets.ModelViewSet):
-    queryset = Schedule.objects.all()
+    queryset = Schedule.objects.select_related('duty_person', 'duty_leader').prefetch_related('duty_person__phone_numbers', 'duty_leader__phone_numbers')
     serializer_class = ScheduleSerializer
 
     @action(detail=False, methods=['post'])
@@ -343,7 +343,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 class ResponsiblePersonViewSet(viewsets.ModelViewSet):
-    queryset = Personnel.objects.all()
+    queryset = Personnel.objects.all().prefetch_related('phone_numbers')
     serializer_class = PersonnelSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
     filter_backends = [DjangoFilterBackend]
