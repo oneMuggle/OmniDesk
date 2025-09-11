@@ -228,6 +228,8 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
   const [generationMode, setGenerationMode] = useState('days');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
   const [selectedLeaders, setSelectedLeaders] = useState([]);
+console.log('GenerateScheduleModal - personnelSequences:', personnelSequences);
+console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
 
   const handleOk = () => {
     form.validateFields()
@@ -252,12 +254,19 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
   const handleSequenceChange = (type, sequenceId) => {
     if (type === 'personnel') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
+      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
       setSelectedPersonnel(sequence ? sequence.personnel_details : []);
+      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
       form.setFieldsValue({ start_personnel_id: null });
+      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
     } else if (type === 'leader') {
+      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       const sequence = leaderSequences.find(s => s.id === sequenceId);
+      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       setSelectedLeaders(sequence ? sequence.personnel_details : []);
+      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       form.setFieldsValue({ start_leader_id: null });
+      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
     }
   };
 
@@ -298,7 +307,10 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
 
         <Form.Item name="start_personnel_id" label="起始人员">
           <Select placeholder="选择起始人员" allowClear>
-            {selectedPersonnel.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+            {selectedPersonnel.map(p => {
+              console.log('Rendering personnel option:', p);
+              return <Option key={p.id} value={p.id}>{p.name}</Option>
+            })}
           </Select>
         </Form.Item>
 
@@ -314,7 +326,10 @@ const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, le
 
         <Form.Item name="start_leader_id" label="起始领导">
           <Select placeholder="选择起始领导" allowClear>
-            {selectedLeaders.map(p => <Option key={p.id} value={p.id}>{p.name}</Option>)}
+            {selectedLeaders.map(p => {
+              console.log('Rendering leader option:', p);
+              return <Option key={p.id} value={p.id}>{p.name}</Option>
+            })}
           </Select>
         </Form.Item>
       </Form>

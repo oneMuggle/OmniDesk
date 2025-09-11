@@ -4,7 +4,7 @@ import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
 } from '../api/sequenceApi';
-import { getPersonnel } from '../api/personnelApi';
+import { getPersonnel, getAllPersonnel } from '../api/personnelApi';
 
 const { Option } = Select;
 
@@ -17,7 +17,8 @@ const SequenceForm = ({ visible, onCancel, onSave, sequence, personnelList, isLe
     } else {
       form.resetFields();
     }
-  }, [sequence, form]);
+    console.log('SequenceForm - personnelList:', personnelList);
+  }, [sequence, form, personnelList]);
 
   const handleSave = () => {
     form.validateFields()
@@ -48,11 +49,14 @@ const SequenceForm = ({ visible, onCancel, onSave, sequence, personnelList, isLe
             placeholder="请选择人员并排序"
             optionLabelProp="label"
           >
-            {personnelList.map(p => (
-              <Option key={p.id} value={p.id} label={p.name}>
-                {p.name}
-              </Option>
-            ))}
+            {personnelList.map(p => {
+              console.log('SequenceForm - Rendering personnel option:', p);
+              return (
+                <Option key={p.id} value={p.id} label={p.name}>
+                  {p.name}
+                </Option>
+              );
+            })}
           </Select>
         </Form.Item>
       </Form>
@@ -69,10 +73,12 @@ const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd
       bordered
       dataSource={sequences}
       renderItem={item => {
-        const personnelNames = item.sequence.map(id => {
-          const person = personnelList.find(p => p.id === id);
-          return person ? person.name : '未知';
-        }).join(' → ');
+        const personnelNames = Array.isArray(item.sequence) && Array.isArray(personnelList)
+          ? item.sequence.map(id => {
+              const person = personnelList.find(p => p.id === id);
+              return person ? person.name : '未知';
+            }).join(' → ')
+          : '未设置人员';
 
         return (
           <List.Item
@@ -116,11 +122,15 @@ const SequenceManager = () => {
       const [personnelRes, leaderRes, personnelListRes] = await Promise.all([
         getPersonnelSequences(),
         getLeaderSequences(),
-        getPersonnel()
+        getAllPersonnel()
       ]);
       setPersonnelSequences(Array.isArray(personnelRes?.data?.results) ? personnelRes.data.results : []);
       setLeaderSequences(Array.isArray(leaderRes?.data?.results) ? leaderRes.data.results : []);
-      setAllPersonnel(Array.isArray(personnelListRes?.data?.results) ? personnelListRes.data.results : []);
+      console.log('personnelListRes.data:', personnelListRes); // Change to personnelListRes
+      setAllPersonnel(personnelListRes); // Change to personnelListRes
+      console.log('allPersonnel after set:', allPersonnel);
+      console.log('SequenceManager - personnelListRes:', personnelListRes);
+      console.log('SequenceManager - allPersonnel:', Array.isArray(personnelListRes?.data?.results) ? personnelListRes.data.results : []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");
       console.error("Failed to fetch data", error);
