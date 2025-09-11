@@ -20,15 +20,9 @@ const ShiftScheduleContainer = () => {
   } = useScheduleData(); // Changed useScheduleCalendarData to useScheduleData
 
   const handleScheduleDateClick = (arg) => {
-    setCurrentSchedule({
-      date: arg.dateStr,
-      staff: null,
-      leader: null,
-      staffPhone: '',
-      leaderPhone: ''
-    });
-    setScheduleModalMode('edit');
-    setScheduleModalOpen(true);
+    // 点击空白处时不应该显示模态框，如果需要新增排班功能，应通过其他方式触发
+    console.log("Date clicked:", arg.dateStr);
+    // 这里不再打开模态框
   };
 
   // 定义排班事件的更新函数
