@@ -27,9 +27,12 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
-      console.log("ScheduleFormModal - initialData:", initialData);
-      console.log("ScheduleFormModal - duty_person phone_numbers:", initialData.duty_person?.phone_numbers);
-      console.log("ScheduleFormModal - duty_leader phone_numbers:", initialData.duty_leader?.phone_numbers);
+      // console.log("ScheduleFormModal - initialData:", initialData);
+      // console.log("ScheduleFormModal - duty_person (from initialData):", initialData.duty_person);
+      // console.log("ScheduleFormModal - duty_leader (from initialData):", initialData.duty_leader);
+      // console.log("ScheduleFormModal - duty_person phone_numbers:", initialData.duty_person?.phone_numbers);
+      // console.log("ScheduleFormModal - duty_leader phone_numbers:", initialData.duty_leader?.phone_numbers);
+      // console.log("ScheduleFormModal - form fields after setFieldsValue:", form.getFieldsValue());
       // Reset filters and lists when modal opens
       setFilteredDutyPersonList(personnelList);
       setFilteredDutyLeaderList(personnelList);
@@ -367,17 +370,25 @@ const ScheduleManagementPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-    fetchPersonnel(); // 重新引入对 fetchPersonnel 的调用
-    fetchSequences();
-    fetchPositions(); // 调用新增的获取职务函数
+    const initData = async () => {
+      await fetchPersonnel(); // 确保人员列表先加载
+      await fetchPositions(); // 确保职务列表先加载
+      await fetchSequences(); // 确保顺序列表先加载
+      fetchData(); // 最后加载排班数据
+    };
+    initData();
   }, []);
 
   const fetchData = async () => {
     setLoading(true);
     try {
       const data = await scheduleApi.getSchedules();
-      setSchedules(data);
+      // 遍历排班数据，duty_person和duty_leader已经是完整对象，无需额外查找
+      const formattedData = data.map(schedule => ({
+        ...schedule,
+        // duty_person 和 duty_leader 已经包含完整信息，直接使用
+      }));
+      setSchedules(formattedData);
     } catch (error) {
       message.error('获取排班数据失败');
     } finally {
@@ -497,6 +508,17 @@ const ScheduleManagementPage = () => {
       message.error('更新排班失败');
       revert(); // 如果失败，则将事件还原
     }
+  };
+  const handleEventClick = (info) => {
+    // 提取事件的原始数据，这些数据在 extendedProps 中
+    const clickedSchedule = {
+      id: parseInt(info.event.id, 10), // FullCalendar 的事件ID可能是字符串，需要转回数字
+      duty_date: info.event.startStr,
+      duty_person: info.event.extendedProps.duty_person,
+      duty_leader: info.event.extendedProps.duty_leader,
+    };
+    setCurrentSchedule(clickedSchedule);
+    setIsModalVisible(true);
   };
 
   const formatCalendarEvents = () => {
@@ -660,6 +682,7 @@ const ScheduleManagementPage = () => {
           editable={true}
           droppable={true}
           eventDrop={handleEventDrop}
+          eventClick={handleEventClick}
           locale="zh-cn"
           eventContent={(eventInfo) => (
             <div style={{ textAlign: 'center' }}>
