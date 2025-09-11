@@ -70,7 +70,7 @@ const PersonnelScheduleModal = ({
                 <div className="schedule-modal__person-name">{getPersonName(scheduleData?.staff)}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
-                  <span>{(Array.isArray(personnelList) && personnelList.find(p => p.id === scheduleData?.staff)?.phone) || '无电话'}</span>
+                  <span>{scheduleData?.staffPhone || '无电话'}</span>
                 </div>
               </div>
 
@@ -82,7 +82,7 @@ const PersonnelScheduleModal = ({
                 <div className="schedule-modal__person-name">{getPersonName(scheduleData?.leader)}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
-                  <span>{(Array.isArray(personnelList) && personnelList.find(p => p.id === scheduleData?.leader)?.phone) || '无电话'}</span>
+                  <span>{scheduleData?.leaderPhone || '无电话'}</span>
                 </div>
               </div>
             </div>

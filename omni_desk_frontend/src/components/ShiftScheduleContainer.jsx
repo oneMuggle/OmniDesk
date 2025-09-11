@@ -58,6 +58,9 @@ const ShiftScheduleContainer = () => {
         onEventClick={(clickInfo) => {
           const { event } = clickInfo;
           const { extendedProps } = event;
+          console.log("ShiftScheduleContainer - extendedProps.scheduleDetails:", extendedProps.scheduleDetails);
+          console.log("ShiftScheduleContainer - extendedProps.scheduleDetails.duty_person:", extendedProps.scheduleDetails.duty_person);
+          console.log("ShiftScheduleContainer - extendedProps.scheduleDetails.duty_leader:", extendedProps.scheduleDetails.duty_leader);
           if (extendedProps && extendedProps.scheduleDetails) {
             setCurrentSchedule({
               id: parseInt(event.id.replace('schedule-', '')),
