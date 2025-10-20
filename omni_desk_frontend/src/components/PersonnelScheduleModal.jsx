@@ -34,14 +34,6 @@ const PersonnelScheduleModal = ({
     }
   }, [scheduleData, form]);
 
-  const getPersonName = (id) => {
-    if (!Array.isArray(personnelList)) {
-      console.warn('personnelList is not an array:', personnelList);
-      return '未知人员';
-    }
-    const person = personnelList.find(p => p.id === id);
-    return person ? person.name : '未知人员';
-  };
 
   return (
     <>
@@ -67,7 +59,7 @@ const PersonnelScheduleModal = ({
                   <span className="schedule-modal__status-dot schedule-modal__status-dot--staff"></span>
                   <span style={{ fontWeight: '600', color: '#262626' }}>值班人员</span>
                 </div>
-                <div className="schedule-modal__person-name">{getPersonName(scheduleData?.staff)}</div>
+                <div className="schedule-modal__person-name">{scheduleData?.staffName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
                   <span>{scheduleData?.staffPhone || '无电话'}</span>
@@ -79,7 +71,7 @@ const PersonnelScheduleModal = ({
                   <span className="schedule-modal__status-dot schedule-modal__status-dot--leader"></span>
                   <span style={{ fontWeight: '600', color: '#262626' }}>值班领导</span>
                 </div>
-                <div className="schedule-modal__person-name">{getPersonName(scheduleData?.leader)}</div>
+                <div className="schedule-modal__person-name">{scheduleData?.leaderName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
                   <span style={{ marginRight: '6px' }}>📞</span>
                   <span>{scheduleData?.leaderPhone || '无电话'}</span>
