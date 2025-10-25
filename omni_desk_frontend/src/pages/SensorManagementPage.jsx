@@ -74,6 +74,12 @@ const SensorFormModal = ({ visible, onCancel, onOk, initialData }) => {
       destroyOnClose
     >
       <Form form={form} layout="vertical">
+        <Form.Item name="sensor_name" label="传感器名称" rules={[{ required: true, message: '请输入传感器名称!' }]}>
+          <Input />
+        </Form.Item>
+        <Form.Item name="sensor_number" label="传感器编号" rules={[{ required: true, message: '请输入传感器编号!' }]}>
+          <Input />
+        </Form.Item>
         <Form.Item name="serial_number" label="序列号" rules={[{ required: true, message: '请输入序列号!' }]}>
           <Input />
         </Form.Item>
@@ -379,9 +385,21 @@ const SensorManagementPage = () => {
       sorter: (a, b) => a.serial_number.localeCompare(b.serial_number),
     },
     {
+      title: '传感器名称',
+      dataIndex: 'sensor_name',
+      key: 'sensor_name',
+      sorter: (a, b) => a.sensor_name.localeCompare(b.sensor_name),
+    },
+    {
       title: '传感器类别',
       dataIndex: 'sensor_category_name',
       key: 'sensor_category_name',
+    },
+    {
+      title: '传感器编号',
+      dataIndex: 'sensor_number',
+      key: 'sensor_number',
+      sorter: (a, b) => a.sensor_number.localeCompare(b.sensor_number),
     },
     {
       title: '制造商',
@@ -392,6 +410,20 @@ const SensorManagementPage = () => {
       title: '校准精度',
       dataIndex: 'calibration_accuracy',
       key: 'calibration_accuracy',
+    },
+    {
+      title: '室温',
+      dataIndex: 'room_temperature',
+      key: 'room_temperature',
+      render: (text) => text ? `${text}°C` : 'N/A',
+      sorter: (a, b) => (a.room_temperature || 0) - (b.room_temperature || 0),
+    },
+    {
+      title: '相对湿度',
+      dataIndex: 'relative_humidity',
+      key: 'relative_humidity',
+      render: (text) => text ? `${text}%` : 'N/A',
+      sorter: (a, b) => (a.relative_humidity || 0) - (b.relative_humidity || 0),
     },
     {
       title: '当前数量',
@@ -445,6 +477,7 @@ const SensorManagementPage = () => {
           <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
           <Button type="link" onClick={() => handleInbound(record)}>入库</Button>
           <Button type="link" onClick={() => handleOutbound(record)}>出库</Button>
+          <Button type="link" onClick={() => navigate(`/sensor-calibration/${record.id}`)}>校准数据</Button>
           <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
         </Space>
       ),

@@ -6,8 +6,8 @@ from django.db import transaction
 from django.utils import timezone
 from datetime import timedelta
 
-from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation
-from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer, SensorCategorySerializer, StorageLocationSerializer
+from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation, SensorCalibration
+from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer, SensorCategorySerializer, StorageLocationSerializer, SensorCalibrationSerializer
 from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假设有这些权限类
 
 class SensorViewSet(viewsets.ModelViewSet):
@@ -114,6 +114,14 @@ class SensorCategoryViewSet(viewsets.ModelViewSet):
     queryset = SensorCategory.objects.all()
     serializer_class = SensorCategorySerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看类别
+
+class SensorCalibrationViewSet(viewsets.ModelViewSet):
+    queryset = SensorCalibration.objects.all()
+    serializer_class = SensorCalibrationSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看校准记录
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['sensor', 'calibration_date', 'calibrator', 'reviewer']
+    ordering_fields = ['calibration_date', 'sensor__serial_number']
 
 class StorageLocationViewSet(viewsets.ModelViewSet):
     queryset = StorageLocation.objects.all()
