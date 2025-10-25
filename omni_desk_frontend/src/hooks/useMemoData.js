@@ -23,20 +23,16 @@ export const useMemoData = () => {
   const updateMemoMutation = useMutation({
     mutationFn: ({ id, data }) => memoApi.patchMemo(id, data), // 使用 patchMemo 进行部分更新
     onMutate: async (newMemo) => {
-      // 取消任何可能影响乐观更新的查询
-      await queryClient.cancelQueries({ queryKey: ['memos'] });
-
-      // 保存当前状态的快照
+      await queryClient.cancelQueries(['memos']);
       const previousMemos = queryClient.getQueryData(['memos']);
 
-      // 乐观地更新为新值
-      queryClient.setQueryData(['memos'], (old) =>
-        old.map((memo) =>
-          memo.id === newMemo.id ? { ...memo, ...newMemo.data } : memo
-        )
-      );
+      queryClient.setQueryData(['memos'], (old) => {
+        const oldMemos = Array.isArray(old) ? old : old?.results || [];
+        return oldMemos.map((memo) =>
+          memo.id === newMemo.id ? { ...memo, ...newMemo } : memo
+        );
+      });
 
-      // 返回包含快照的上下文对象
       return { previousMemos };
     },
     // 如果 mutation 失败，使用 onErorr 回滚

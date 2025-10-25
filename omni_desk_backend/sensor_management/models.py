@@ -45,7 +45,7 @@ class Sensor(models.Model):
         ordering = ['serial_number']
 
     def __str__(self):
-        return f"{self.model_name} ({self.serial_number})"
+        return f"{self.sensor_name} ({self.serial_number})"
 
 class SensorCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="类别名称")

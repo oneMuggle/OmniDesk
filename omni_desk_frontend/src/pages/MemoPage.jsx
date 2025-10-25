@@ -93,14 +93,27 @@ const MemoPage = () => {
   };
 
   const handleSaveMemo = (values, id) => {
-    const action = modalMode === 'create' ? createMemo : (data) => updateMemo({ id, data });
-    action(values, {
-      onSuccess: () => {
-        message.success(`备忘录已${modalMode === 'create' ? '创建' : '更新'}`);
-        setIsModalVisible(false);
-      },
-      onError: () => message.error('保存失败，请重试'),
-    });
+    if (modalMode === 'create') {
+      createMemo(values, {
+        onSuccess: () => {
+          message.success('备忘录创建成功');
+          setIsModalVisible(false);
+        },
+        onError: (error) => {
+          message.error(`创建失败: ${error.message}`);
+        },
+      });
+    } else {
+      updateMemo({ id, ...values }, {
+        onSuccess: () => {
+          message.success('备忘录更新成功');
+          setIsModalVisible(false);
+        },
+        onError: (error) => {
+          message.error(`更新失败: ${error.message}`);
+        },
+      });
+    }
   };
 
   if (isLoading) {
