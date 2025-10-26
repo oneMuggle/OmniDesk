@@ -17,8 +17,8 @@ const SensorManagementPage = () => {
   const fetchSensors = async () => {
     try {
       const data = await apiClient.get('sensor-management/sensors/');
-      if (data && Array.isArray(data.results)) {
-        setSensors(data.results);
+      if (data && Array.isArray(data.data.results)) {
+        setSensors(data.data.results);
       } else {
         setSensors([]);
       }
@@ -64,7 +64,7 @@ const SensorManagementPage = () => {
         });
         setIsModalVisible(false);
         setEditingSensor(null); // 清空编辑状态
-        fetchSensors(); // <--- 添加这一行来刷新列表
+        fetchSensors();
       })
       .catch(error => {
         if (error.response && error.response.data) {
