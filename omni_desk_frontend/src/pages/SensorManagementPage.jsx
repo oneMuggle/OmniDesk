@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, message, Space, notification } from 'antd';
 import { Link } from 'react-router-dom';
-import apiClient from '../api/apiClient';
+import apiClient from '../api/axiosConfig';
 import SensorForm from '../components/sensor/SensorForm';
 
 const SensorManagementPage = () => {
@@ -43,7 +43,7 @@ const SensorManagementPage = () => {
     form.resetFields();
   };
 
-  const handleFormSubmit = async (values) => {
+  const handleFormSubmit = (values) => {
     const processedValues = {
       ...values,
       room_temperature: values.room_temperature === '' || values.room_temperature === undefined ? null : values.room_temperature,
@@ -52,39 +52,43 @@ const SensorManagementPage = () => {
       manufacturer: values.manufacturer === '' ? null : values.manufacturer,
       serial_number: values.serial_number === '' ? null : values.serial_number,
     };
-    try {
-      if (editingSensor) {
-        await apiClient.put(`sensor-management/sensors/${editingSensor.id}/`, processedValues);
-        message.success('传感器更新成功');
-      } else {
-        await apiClient.post('sensor-management/sensors/', processedValues);
-        message.success('传感器添加成功');
-      }
-      fetchSensors();
-      handleCancel();
-    } catch (error) {
-      if (error.response && error.response.data) {
-        // 打印详细的后端错误到控制台，这对于调试至关重要
-        console.error('保存失败，后端验证错误:', error.response.data);
 
-        const errorData = error.response.data;
-        // 遍历后端返回的错误对象，为每个出错的字段显示一个通知
-        Object.keys(errorData).forEach(field => {
-          const messages = Array.isArray(errorData[field]) ? errorData[field].join(' ') : errorData[field];
-          notification.error({
-            message: `字段 "${field}" 无效`,
-            description: messages,
+    const request = editingSensor
+      ? apiClient.put(`sensor-management/sensors/${editingSensor.id}/`, processedValues)
+      : apiClient.post('sensor-management/sensors/', processedValues);
+
+    request
+      .then(response => {
+        notification.success({
+          message: '保存成功',
+        });
+        setIsModalVisible(false);
+        setEditingSensor(null); // 清空编辑状态
+        fetchSensors(); // <--- 添加这一行来刷新列表
+      })
+      .catch(error => {
+        if (error.response && error.response.data) {
+          // 打印详细的后端错误到控制台，这对于调试至关重要
+          console.error('保存失败，后端验证错误:', error.response.data);
+
+          const errorData = error.response.data;
+          // 遍历后端返回的错误对象，为每个出错的字段显示一个通知
+          Object.keys(errorData).forEach(field => {
+            const messages = Array.isArray(errorData[field]) ? errorData[field].join(' ') : errorData[field];
+            notification.error({
+              message: `字段 "${field}" 无效`,
+              description: messages,
+            });
           });
-        });
-      } else {
-        // 处理网络错误或其他未知错误
-        console.error('保存传感器失败:', error);
-        notification.error({
-          message: '保存传感器失败',
-          description: '发生未知错误，请检查网络连接或联系管理员。',
-        });
-      }
-    }
+        } else {
+          // 处理网络错误或其他未知错误
+          console.error('保存传感器失败:', error);
+          notification.error({
+            message: '保存传感器失败',
+            description: '发生未知错误，请检查网络连接或联系管理员。',
+          });
+        }
+      });
   };
 
   const columns = [

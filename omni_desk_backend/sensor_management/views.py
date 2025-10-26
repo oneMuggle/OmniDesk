@@ -13,6 +13,7 @@ from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假
 class SensorViewSet(viewsets.ModelViewSet):
     queryset = Sensor.objects.all()
     serializer_class = SensorSerializer
+    permission_classes = [permissions.AllowAny] # <--- 添加这一行
 
 class SensorMovementViewSet(viewsets.ModelViewSet):
     queryset = SensorMovement.objects.all()
