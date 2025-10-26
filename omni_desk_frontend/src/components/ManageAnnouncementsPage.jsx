@@ -57,7 +57,7 @@ const ManageAnnouncementsPage = () => {
           {announcements.map(announcement => (
             <tr key={announcement.id}>
               <td>{announcement.title}</td>
-              <td>{announcement.author ? announcement.author.username : '匿名'}</td>
+              <td>{announcement.author ? (announcement.author.real_name || announcement.author.username) : '匿名'}</td>
               <td>{new Date(announcement.created_at).toLocaleDateString()}</td>
               <td>
                 <Link to={`/admin/announcements/edit/${announcement.id}`} className="btn btn-secondary">
