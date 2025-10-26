@@ -11,12 +11,14 @@ class Sensor(models.Model):
         ('retired', '已报废'),
     ]
 
-    serial_number = models.CharField(max_length=100, unique=True, verbose_name="序列号")
-    sensor_name = models.CharField(max_length=255, verbose_name="传感器名称", default='未知传感器')
-    sensor_number = models.CharField(max_length=100, verbose_name="传感器编号", default='未知编号')
+    name = models.CharField(max_length=255, verbose_name="传感器名称", default='')
+    room_temperature = models.FloatField(null=True, blank=True, verbose_name="室温")
+    relative_humidity = models.FloatField(null=True, blank=True, verbose_name="相对湿度")
+    sensor_number = models.CharField(max_length=100, unique=True, verbose_name="传感器编号")
+    serial_number = models.CharField(max_length=100, verbose_name="序列号", blank=True, null=True)
     sensor_category = models.ForeignKey('SensorCategory', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="传感器类别")
-    manufacturer = models.CharField(max_length=100, verbose_name="制造商")
-    calibration_accuracy = models.FloatField(verbose_name="校准精度")
+    manufacturer = models.CharField(max_length=100, verbose_name="制造商", blank=True, null=True)
+    calibration_accuracy = models.CharField(max_length=50, verbose_name="校准精度", blank=True, null=True)
     production_date = models.DateField(verbose_name="生产日期", null=True, blank=True)
     purchase_date = models.DateField(verbose_name="购买日期", null=True, blank=True)
     last_calibration_date = models.DateField(verbose_name="上次校准日期", null=True, blank=True)
@@ -45,7 +47,7 @@ class Sensor(models.Model):
         ordering = ['serial_number']
 
     def __str__(self):
-        return f"{self.sensor_name} ({self.serial_number})"
+        return f"{self.name} ({self.serial_number})"
 
 class SensorCategory(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="类别名称")
@@ -106,21 +108,17 @@ class SensorCalibration(models.Model):
     calibration_instrument = models.CharField(max_length=255, verbose_name="校准仪器")
     calibration_range = models.CharField(max_length=100, verbose_name="校准范围")
     calibration_date = models.DateField(verbose_name="校准日期")
-    room_temperature = models.FloatField(verbose_name="室温", null=True, blank=True)
-    relative_humidity = models.FloatField(verbose_name="相对湿度", null=True, blank=True)
-    pressure_values = JSONField(verbose_name="压力值", null=True, blank=True)
-    voltage_values = JSONField(verbose_name="电压值", null=True, blank=True)
-    non_linearity = models.FloatField(verbose_name="非线性度", null=True, blank=True)
-    hysteresis = models.FloatField(verbose_name="迟滞", null=True, blank=True)
-    resonant_frequency = models.FloatField(verbose_name="谐振频率", null=True, blank=True)
-    repeatability = models.FloatField(verbose_name="重复性", null=True, blank=True)
-    accuracy = models.FloatField(verbose_name="准确度", null=True, blank=True)
-    rise_time = models.FloatField(verbose_name="上升时间", null=True, blank=True)
-    sensitivity = models.FloatField(verbose_name="灵敏度", null=True, blank=True)
-    calibration_equation = models.CharField(max_length=255, verbose_name="校准方程", null=True, blank=True)
-    calibrator = models.CharField(max_length=100, verbose_name="校准人", null=True, blank=True)
-    reviewer = models.CharField(max_length=100, verbose_name="审核人", null=True, blank=True)
-    notes = models.TextField(blank=True, verbose_name="备注")
+    non_linearity = models.FloatField(null=True, blank=True, verbose_name="非线性度")
+    hysteresis = models.FloatField(null=True, blank=True, verbose_name="迟滞")
+    resonant_frequency = models.FloatField(null=True, blank=True, verbose_name="共振频率")
+    repeatability = models.FloatField(null=True, blank=True, verbose_name="重复性")
+    accuracy = models.FloatField(null=True, blank=True, verbose_name="精度")
+    rise_time = models.FloatField(null=True, blank=True, verbose_name="上升时间")
+    sensitivity = models.FloatField(null=True, blank=True, verbose_name="灵敏度")
+    calibration_equation = models.CharField(max_length=255, blank=True, verbose_name="校准方程", default='')
+    calibrated_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='calibrations_done', verbose_name="校准人")
+    reviewed_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='calibrations_reviewed', verbose_name="审核人")
+    remarks = models.TextField(blank=True, verbose_name="备注")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -131,6 +129,24 @@ class SensorCalibration(models.Model):
 
     def __str__(self):
         return f"{self.sensor.serial_number} - 校准日期: {self.calibration_date}"
+
+class CalibrationDataPoint(models.Model):
+    sensor_calibration = models.ForeignKey(SensorCalibration, on_delete=models.CASCADE, related_name='data_points', verbose_name="传感器校准记录")
+    pressure_value = models.FloatField(verbose_name="压力值")
+    positive_trip_voltage_1 = models.FloatField(verbose_name="正行程电压1")
+    positive_trip_voltage_2 = models.FloatField(verbose_name="正行程电压2")
+    positive_trip_voltage_3 = models.FloatField(verbose_name="正行程电压3")
+    negative_trip_voltage_1 = models.FloatField(verbose_name="负行程电压1")
+    negative_trip_voltage_2 = models.FloatField(verbose_name="负行程电压2")
+    negative_trip_voltage_3 = models.FloatField(verbose_name="负行程电压3")
+
+    class Meta:
+        verbose_name = "校准数据点"
+        verbose_name_plural = "校准数据点"
+        ordering = ['pressure_value']
+
+    def __str__(self):
+        return f"Data point for {self.sensor_calibration.id} at {self.pressure_value} Pa"
 
 class StorageLocation(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="位置名称")

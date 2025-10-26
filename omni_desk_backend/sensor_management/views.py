@@ -13,39 +13,6 @@ from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假
 class SensorViewSet(viewsets.ModelViewSet):
     queryset = Sensor.objects.all()
     serializer_class = SensorSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['status', 'sensor_category__name', 'manufacturer', 'serial_number', 'location__name']
-    search_fields = ['serial_number', 'sensor_category__name', 'manufacturer']
-    ordering_fields = ['serial_number', 'sensor_category__name', 'production_date', 'last_calibration_date', 'next_calibration_date']
-
-    @action(detail=False, methods=['get'], url_path='due-for-calibration')
-    def due_for_calibration(self, request):
-        """
-        获取即将到期或已过期的校准传感器列表。
-        查询参数：
-        days_ahead: 提前多少天提醒 (默认为7天)
-        """
-        days_ahead = int(request.query_params.get('days_ahead', 7))
-        today = timezone.now().date()
-        remind_threshold_date = today + timedelta(days=days_ahead)
-
-        # 筛选出 next_calibration_date 在提醒阈值内，或者已经过期的传感器
-        # 并且当前状态不是 'under_calibration' 或 'retired'
-        sensors = self.queryset.filter(
-            models.Q(last_calibration_date__isnull=False) &
-            models.Q(
-                models.Q(
-                    last_calibration_date__date__lte=today - timedelta(days=models.F('calibration_interval_days'))
-                ) | # 已经过期
-                models.Q(
-                    last_calibration_date__date__lte=remind_threshold_date - timedelta(days=models.F('calibration_interval_days'))
-                ) # 在提醒期内
-            )
-        ).exclude(status__in=['under_calibration', 'retired']).distinct()
-
-        serializer = self.get_serializer(sensors, many=True)
-        return Response(serializer.data)
 
 class SensorMovementViewSet(viewsets.ModelViewSet):
     queryset = SensorMovement.objects.all()

@@ -48,6 +48,7 @@ import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 Sens
 import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
 import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
+import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 
 const router = createBrowserRouter([
 {
@@ -156,6 +157,10 @@ const router = createBrowserRouter([
       {
         path: "sensor-calibration/:id", // 新增传感器校准管理路由，:id 为动态参数
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-calibration/:id"><SensorCalibrationManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "sensors/:id", // 新增传感器详情路由
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensors/:id"><SensorDetailPage /></ProtectedRoute>
       }
     ]
   },
