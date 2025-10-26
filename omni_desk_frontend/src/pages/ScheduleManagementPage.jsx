@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -180,51 +180,6 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
   );
 };
 
-const PdfPreviewModal = ({ visible, imageUrl, orientation, scale, onOrientationChange, onScaleChange, onCancel, onExport, onSettingsChange }) => {
-  const handleOrientationChange = (e) => {
-    const newOrientation = e.target.value;
-    onOrientationChange(newOrientation);
-    onSettingsChange(newOrientation, scale);
-  };
-
-  const handleScaleChange = (value) => {
-    const newScale = typeof value === 'number' ? value : 0;
-    onScaleChange(newScale);
-    onSettingsChange(orientation, newScale);
-  };
-
-  return (
-    <Modal
-      title="PDF 预览与设置"
-      visible={visible}
-      onCancel={onCancel}
-      footer={[
-        <Button key="cancel" onClick={onCancel}>取消</Button>,
-        <Button key="export" type="primary" onClick={onExport}>导出PDF</Button>,
-      ]}
-      width={800}
-    >
-      <Space direction="vertical" style={{ width: '100%' }}>
-        <Radio.Group onChange={handleOrientationChange} value={orientation}>
-          <Radio value="p">纵向</Radio>
-          <Radio value="l">横向</Radio>
-        </Radio.Group>
-        <div>
-          缩放: <InputNumber min={0.5} max={2} step={0.1} value={scale} onChange={handleScaleChange} />
-          <Slider
-            min={0.5}
-            max={2}
-            step={0.1}
-            onChange={handleScaleChange}
-            value={typeof scale === 'number' ? scale : 0}
-            style={{ width: '80%', display: 'inline-block', marginLeft: '10px' }}
-          />
-        </div>
-        {imageUrl && <img src={imageUrl} alt="PDF Preview" style={{ width: '100%', border: '1px solid #eee' }} />}
-      </Space>
-    </Modal>
-  );
-};
 
 const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, leaderSequences }) => {
   const [form] = Form.useForm();
@@ -350,10 +305,7 @@ const ScheduleManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
-  const [isPreviewModalVisible, setIsPreviewModalVisible] = useState(false); // 控制预览Modal可见性
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState(''); // 存储PDF预览图片的URL
-  const [pdfOrientation, setPdfOrientation] = useState('p'); // PDF方向: 'p' (纵向) 或 'l' (横向)
-  const [pdfScale, setPdfScale] = useState(1); // PDF缩放比例
+  const [isExporting, setIsExporting] = useState(false);
   const calendarRef = useRef(null);
   const calendarContainerRef = useRef(null); // 新增ref用于日历容器
   const originalCalendarContainerStyle = useRef({}); // 存储日历容器的原始样式
@@ -379,7 +331,7 @@ const ScheduleManagementPage = () => {
     initData();
   }, []);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await scheduleApi.getSchedules();
@@ -394,7 +346,7 @@ const ScheduleManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const fetchPersonnel = async () => {
     try {
@@ -435,12 +387,12 @@ const ScheduleManagementPage = () => {
     setIsModalVisible(true);
   };
 
-  const handleEdit = (record) => {
+  const handleEdit = useCallback((record) => {
     setCurrentSchedule(record);
     setIsModalVisible(true);
-  };
+  }, []);
 
-  const handleDelete = async (id) => {
+  const handleDelete = useCallback(async (id) => {
     try {
       await scheduleApi.deleteSchedule(id);
       message.success('排班删除成功');
@@ -448,7 +400,7 @@ const ScheduleManagementPage = () => {
     } catch (error) {
       message.error('删除排班失败');
     }
-  };
+  }, [fetchData]);
 
   const handleModalOk = async (values) => {
     try {
@@ -521,7 +473,7 @@ const ScheduleManagementPage = () => {
     setIsModalVisible(true);
   };
 
-  const formatCalendarEvents = () => {
+  const calendarEvents = useMemo(() => {
     return schedules.map(schedule => ({
       id: String(schedule.id),
       start: schedule.duty_date,
@@ -529,112 +481,103 @@ const ScheduleManagementPage = () => {
       extendedProps: {
         duty_person: schedule.duty_person,
         duty_leader: schedule.duty_leader,
-        duty_person_name: schedule.duty_person?.name || '未知', // 直接使用可选链操作符
-        duty_leader_name: schedule.duty_leader?.name || '未知', // 直接使用可选链操作符
+        duty_person_name: schedule.duty_person?.name || '未知',
+        duty_leader_name: schedule.duty_leader?.name || '未知',
       }
     }));
-  };
+  }, [schedules]);
 
-  const captureCalendarAndGeneratePreview = async (orientation, scale) => {
-    const input = calendarContainerRef.current; // 使用ref获取DOM元素
-    if (input) {
-      message.loading('正在生成预览...', 0);
-
-      // 保存当前样式
-      const originalWidth = input.style.width;
-      const originalHeight = input.style.height;
-      const originalPosition = input.style.position;
-      const originalTop = input.style.top;
-      const originalLeft = input.style.left;
-
-      // 临时调整样式以适应横向截图
-      if (orientation === 'l') {
-        input.style.width = '297mm'; // A4横向宽度
-        input.style.height = '210mm'; // A4横向高度
-        // 确保元素在视口内可见，并且不影响布局
-        input.style.position = 'fixed';
-        input.style.top = '-9999px';
-        input.style.left = '-9999px';
+  const handleExportPdf = () => {
+    setIsExporting(true);
+  
+    // Use a timeout to allow React to re-render with the export-friendly view
+    setTimeout(async () => {
+      const input = calendarContainerRef.current;
+      const calendarApi = calendarRef.current?.getApi();
+  
+      if (!input || !calendarApi) {
+        message.error('未找到日历元素或API');
+        setIsExporting(false); // Reset state on error
+        return;
       }
-
+  
+      message.loading('正在导出PDF...', 0);
+  
+      const originalStyle = {
+        width: input.style.width,
+        height: input.style.height,
+        position: input.style.position,
+        top: input.style.top,
+        left: input.style.left,
+        zIndex: input.style.zIndex,
+      };
+  
+      // Temporarily resize container for capture
+      input.style.position = 'fixed';
+      input.style.top = '-9999px';
+      input.style.left = '-9999px';
+      input.style.zIndex = '1000';
+      input.style.width = '297mm'; // A4 landscape width
+      input.style.height = '210mm'; // A4 landscape height
+  
+      // Force calendar to update its size and wait for re-render
+      calendarApi.updateSize();
+      await new Promise(resolve => setTimeout(resolve, 200));
+  
       try {
-        // 捕获日历容器的截图
         const canvas = await html2canvas(input, {
-          scale: 2, // 提高分辨率
-          useCORS: true, // 允许加载跨域图片，如果日历中包含图片
+          scale: 2,
+          useCORS: true,
+          logging: false,
         });
         const imgDataUrl = canvas.toDataURL('image/png');
-
-        setPdfPreviewUrl(imgDataUrl);
-        setIsPreviewModalVisible(true);
-        message.destroy();
+  
+        const pdf = new jsPDF('l', 'mm', 'a4');
+        const img = new Image();
+  
+        await new Promise((resolve, reject) => {
+          img.onload = () => {
+            const pageWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+            const imageAspectRatio = img.width / img.height;
+  
+            let newImgWidth, newImgHeight, xOffset, yOffset;
+  
+            if (pageWidth / pageHeight > imageAspectRatio) {
+              newImgHeight = pageHeight;
+              newImgWidth = pageHeight * imageAspectRatio;
+              yOffset = 0;
+              xOffset = (pageWidth - newImgWidth) / 2;
+            } else {
+              newImgWidth = pageWidth;
+              newImgHeight = pageWidth / imageAspectRatio;
+              xOffset = 0;
+              yOffset = (pageHeight - newImgHeight) / 2;
+            }
+  
+            pdf.addImage(img, 'PNG', xOffset, yOffset, newImgWidth, newImgHeight);
+            pdf.save('排班日程.pdf');
+            message.success('PDF导出成功');
+            resolve();
+          };
+          img.onerror = reject;
+          img.src = imgDataUrl;
+        });
+  
       } catch (error) {
-        console.error('生成预览失败:', error);
-        message.destroy();
-        message.error('生成预览失败');
+        console.error('PDF导出失败:', error);
+        message.error('图片加载失败或PDF生成失败');
       } finally {
-        // 恢复原始样式
-        input.style.width = originalWidth;
-        input.style.height = originalHeight;
-        input.style.position = originalPosition;
-        input.style.top = originalTop;
-        input.style.left = originalLeft;
+        // Restore styles and state
+        Object.assign(input.style, originalStyle);
+        calendarApi.updateSize();
+        message.destroy();
+        setIsExporting(false);
       }
-    } else {
-      message.error('未找到日历元素');
-    }
+    }, 100);
   };
 
-  const handleExportPdf = async () => {
-    await captureCalendarAndGeneratePreview(pdfOrientation, pdfScale);
-  };
-
-  const generateAndDownloadPdf = (orientation, scale) => {
-    if (!pdfPreviewUrl) {
-      message.error('没有可供导出的预览图');
-      return;
-    }
-
-    message.loading('正在导出PDF...', 0);
-    try {
-      const pdf = new jsPDF(orientation, 'mm', 'a4');
-      const img = new Image();
-      img.src = pdfPreviewUrl;
-
-      img.onload = () => {
-        const imgWidth = pdf.internal.pageSize.getWidth() * scale;
-        const imgHeight = (img.height * imgWidth) / img.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pdf.internal.pageSize.getHeight();
-
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(img, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pdf.internal.pageSize.getHeight();
-        }
-        pdf.save('排班日程.pdf');
-        message.destroy();
-        message.success('PDF导出成功');
-        setIsPreviewModalVisible(false); // 导出后关闭预览Modal
-      };
-      img.onerror = (error) => {
-        console.error('图片加载失败:', error);
-        message.destroy();
-        message.error('图片加载失败，无法导出PDF');
-      };
-
-    } catch (error) {
-      console.error('PDF导出失败:', error);
-      message.destroy();
-      message.error('PDF导出失败');
-    }
-  };
-
-  const columns = [
+  const columns = useMemo(() => [
     {
       title: '值班日期',
       dataIndex: 'duty_date',
@@ -664,78 +607,72 @@ const ScheduleManagementPage = () => {
         </Space>
       ),
     },
-  ];
+  ], [handleEdit, handleDelete]);
 
   return (
-    <Card title="排班管理" extra={
-      <Space>
-        <Button type="primary" onClick={handleAdd}>新增排班</Button>
-        <Button type="default" onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
-        <Button type="default" onClick={handleExportPdf}>导出PDF</Button>
-      </Space>
-    }>
-      <div style={{ marginBottom: 20 }} id="calendar-container" ref={calendarContainerRef}> {/* 添加ID和ref用于html2canvas捕获和样式调整 */}
-        <FullCalendar
-          plugins={[dayGridPlugin, interactionPlugin]}
-          initialView="dayGridMonth"
-          events={formatCalendarEvents()}
-          editable={true}
-          droppable={true}
-          eventDrop={handleEventDrop}
-          eventClick={handleEventClick}
-          locale="zh-cn"
-          eventContent={(eventInfo) => (
-            <div style={{ textAlign: 'center' }}>
-              <div>{eventInfo.event.extendedProps.duty_person_name}</div>
-              <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
-            </div>
-          )}
-          headerToolbar={{
-            left: 'prev,next today',
-            center: 'title',
-            right: 'dayGridMonth,dayGridWeek'
-          }}
-          ref={calendarRef}
+    <>
+      <style>
+        {`
+          .calendar-export-mode .fc-day-today {
+            background-color: white !important;
+          }
+        `}
+      </style>
+      <Card title="排班管理" extra={
+        <Space>
+          <Button type="primary" onClick={handleAdd}>新增排班</Button>
+          <Button type="default" onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
+          <Button type="default" onClick={handleExportPdf} loading={isExporting}>导出PDF</Button>
+        </Space>
+      }>
+        <div style={{ marginBottom: 20 }} id="calendar-container" ref={calendarContainerRef} className={isExporting ? 'calendar-export-mode' : ''}>
+          <FullCalendar
+            plugins={[dayGridPlugin, interactionPlugin]}
+            initialView="dayGridMonth"
+            events={calendarEvents}
+            editable={true}
+            droppable={true}
+            eventDrop={handleEventDrop}
+            eventClick={handleEventClick}
+            locale="zh-cn"
+            eventContent={(eventInfo) => (
+              <div style={{ textAlign: 'center' }}>
+                <div>{eventInfo.event.extendedProps.duty_person_name}</div>
+                <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
+              </div>
+            )}
+            headerToolbar={
+              isExporting
+                ? { left: '', center: 'title', right: '' }
+                : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }
+            }
+            ref={calendarRef}
+          />
+        </div>
+        <Table
+          columns={columns}
+          dataSource={schedules}
+          rowKey="id"
+          loading={loading}
+          pagination={{ pageSize: 10 }}
         />
-      </div>
-      <Table
-        columns={columns}
-        dataSource={schedules}
-        rowKey="id"
-        loading={loading}
-        pagination={{ pageSize: 10 }}
-      />
-      <ScheduleFormModal
-        visible={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        onOk={handleModalOk}
-        initialData={currentSchedule || {}}
-        personnelList={personnelList}
-        positions={positions} // 传递职务列表
-      />
-      <GenerateScheduleModal
-        visible={isGenerateModalVisible}
-        onCancel={() => setIsGenerateModalVisible(false)}
-        onOk={handleGenerateModalOk}
-        personnelSequences={personnelSequences}
-        leaderSequences={leaderSequences}
-      />
-      <PdfPreviewModal
-        visible={isPreviewModalVisible}
-        imageUrl={pdfPreviewUrl}
-        orientation={pdfOrientation}
-        scale={pdfScale}
-        onOrientationChange={setPdfOrientation}
-        onScaleChange={setPdfScale}
-        onCancel={() => setIsPreviewModalVisible(false)}
-        onExport={() => generateAndDownloadPdf(pdfOrientation, pdfScale)}
-        onSettingsChange={(newOrientation, newScale) => {
-          setPdfOrientation(newOrientation);
-          setPdfScale(newScale);
-          captureCalendarAndGeneratePreview(newOrientation, newScale);
-        }}
-      />
-    </Card>
+        <ScheduleFormModal
+          visible={isModalVisible}
+          onCancel={() => setIsModalVisible(false)}
+          onOk={handleModalOk}
+          initialData={currentSchedule || {}}
+          personnelList={personnelList}
+          positions={positions} // 传递职务列表
+        />
+        <GenerateScheduleModal
+          visible={isGenerateModalVisible}
+          onCancel={() => setIsGenerateModalVisible(false)}
+          onOk={handleGenerateModalOk}
+          personnelSequences={personnelSequences}
+          leaderSequences={leaderSequences}
+        />
+      </Card>
+    </>
   );
 };
 
