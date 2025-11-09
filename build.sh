@@ -1,37 +1,56 @@
 #!/bin/bash
 # Docker镜像构建和推送脚本
 # 使用方法: ./build.sh [版本号] [Docker Hub用户名]
-# 优先从.env文件读取配置，命令行参数可覆盖
+# 如果不提供参数，将从 deployment/docker/.env.production 文件读取默认配置
 
-# 从.env文件读取默认值
-if [ -f .env ]; then
-  source .env
-  DEFAULT_VERSION=$FRONTEND_VERSION
-  DEFAULT_DOCKER_USER=$DOCKER_USER
+trap 'read -p "Press any key to exit..."' EXIT
+# 加载 .env.production 文件
+ENV_FILE="deployment/docker/.env.production"
+if [ -f "$ENV_FILE" ]; then
+  source "$ENV_FILE"
 fi
 
-# 使用命令行参数或.env中的默认值
-VERSION=${1:-$DEFAULT_VERSION}
-DOCKER_USER=${2:-$DEFAULT_DOCKER_USER}
+# 设置默认值
+DEFAULT_FRONTEND_VERSION=${FRONTEND_VERSION:-latest}
+DEFAULT_BACKEND_VERSION=${BACKEND_VERSION:-latest}
+DEFAULT_USER=${DOCKER_USER:-defaultuser}
+
+# 参数处理
+# 命令行传入的版本号会同时用于前端和后端
+if [ $# -ge 1 ]; then
+  VERSION=$1
+  FRONTEND_VERSION=$VERSION
+  BACKEND_VERSION=$VERSION
+else
+  FRONTEND_VERSION=$DEFAULT_FRONTEND_VERSION
+  BACKEND_VERSION=$DEFAULT_BACKEND_VERSION
+fi
+
+# Docker 用户名处理
+if [ $# -ge 2 ]; then
+  DOCKER_USER=$2
+else
+  DOCKER_USER=$DEFAULT_USER
+fi
 
 # 验证必要变量是否存在
-if [ -z "$VERSION" ] || [ -z "$DOCKER_USER" ]; then
-  echo "Error: Missing required parameters"
-  echo "Either provide them in .env file or as command line arguments"
+if [ -z "$FRONTEND_VERSION" ] || [ -z "$BACKEND_VERSION" ] || [ -z "$DOCKER_USER" ]; then
+  echo "Error: Missing required variables."
+  echo "Please define FRONTEND_VERSION, BACKEND_VERSION, and DOCKER_USER in $ENV_FILE or pass them as arguments."
   echo "Usage: $0 [version] [docker_username]"
   exit 1
 fi
 
 # 构建并推送前端镜像
-echo "Building frontend image..."
-docker build -t $DOCKER_USER/calendar-frontend:$VERSION ./calendar_with_react
-# docker push $DOCKER_USER/calendar-frontend:$VERSION
+echo "Building frontend image (omni-desk-frontend:$FRONTEND_VERSION)..."
+docker build -t $DOCKER_USER/omni-desk-frontend:$FRONTEND_VERSION ./omni_desk_frontend
+# docker push $DOCKER_USER/omni-desk-frontend:$FRONTEND_VERSION
 
 # 构建并推送后端镜像
-echo "Building backend image..."
-docker build -t $DOCKER_USER/calendar-backend:$VERSION ./DRFForVue
-# docker push $DOCKER_USER/calendar-backend:$VERSION
+echo "Building backend image (omni-desk-backend:$BACKEND_VERSION)..."
+docker build -t $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION ./omni_desk_backend
+# docker push $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION
 
-echo "Build and push completed for version $VERSION"
-
-
+echo "Build completed for:"
+echo "  - Frontend: $DOCKER_USER/omni-desk-frontend:$FRONTEND_VERSION"
+echo "  - Backend:  $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION"

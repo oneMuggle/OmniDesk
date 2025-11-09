@@ -28,7 +28,7 @@ const UserPersonnelManagementPage = () => {
 
     const fetchPersonnel = async () => {
         try {
-            const response = await instance.get('/api/events/personnel/'); // 假设人员管理接口
+            const response = await instance.get('/api/users/personnel/');
             setPersonnelList(response.data.results);
         } catch (error) {
             message.error('获取人员列表失败');

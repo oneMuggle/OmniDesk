@@ -3,6 +3,16 @@
 # 使用方法: ./export_images.sh [版本号] [Docker Hub用户名] [导出目录(可选)]
 # 如果不提供参数，将从 deployment/docker/.env.production 文件读取默认配置
 
+# Function to pause at the end
+cleanup() {
+    echo ""
+    read -n 1 -s -r -p "Press any key to exit..."
+    echo ""
+}
+
+# Set trap to call cleanup on exit
+trap cleanup EXIT
+
 # 加载 .env.production 文件
 ENV_FILE="deployment/docker/.env.production"
 if [ -f "$ENV_FILE" ]; then
