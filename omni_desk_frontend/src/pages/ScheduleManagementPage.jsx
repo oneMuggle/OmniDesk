@@ -9,6 +9,7 @@ import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
+import PersonnelSequenceModal from '../components/Schedule/PersonnelSequenceModal';
 
 const { Option } = Select;
 
@@ -304,6 +305,7 @@ const ScheduleManagementPage = () => {
   const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
+  const [isPersonnelSequenceModalVisible, setIsPersonnelSequenceModalVisible] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const calendarRef = useRef(null);
@@ -418,9 +420,20 @@ const ScheduleManagementPage = () => {
     }
   };
 
-  const handleGenerateModalOk = async (values) => {
-    try {
-      await scheduleApi.generateSchedules(values);
+  const handlePersonnelSequenceModalOk = () => {
+    // The modal now handles its own API call. We just need to close it and refetch.
+    setIsPersonnelSequenceModalVisible(false);
+    fetchSequences(); // Refetch sequences to update the list
+    message.success('人员顺序已成功保存');
+  };
+
+  const handlePersonnelSequenceModalCancel = () => {
+    setIsPersonnelSequenceModalVisible(false);
+  };
+ 
+   const handleGenerateModalOk = async (values) => {
+     try {
+       await scheduleApi.generateSchedules(values);
       message.success('排班生成成功');
       setIsGenerateModalVisible(false);
       fetchData();
@@ -487,116 +500,46 @@ const ScheduleManagementPage = () => {
     }));
   }, [schedules]);
 
-  const handleExportPdf = () => {
+  const exportToPdf = async () => {
     setIsExporting(true);
-  
-    // Use a timeout to allow React to re-render with the export-friendly view
-    setTimeout(async () => {
-      const input = calendarContainerRef.current;
-      const calendarApi = calendarRef.current?.getApi();
-  
-      if (!input || !calendarApi) {
-        message.error('未找到日历元素或API');
-        setIsExporting(false); // Reset state on error
-        return;
-      }
-  
-      message.loading('正在导出PDF...', 0);
-  
-      const originalStyle = {
-        width: input.style.width,
-        height: input.style.height,
-        position: input.style.position,
-        top: input.style.top,
-        left: input.style.left,
-        zIndex: input.style.zIndex,
-      };
-  
-      // Temporarily resize container for capture
-      input.style.position = 'fixed';
-      input.style.top = '-9999px';
-      input.style.left = '-9999px';
-      input.style.zIndex = '1000';
-      input.style.width = '297mm'; // A4 landscape width
-      input.style.height = '210mm'; // A4 landscape height
-  
-      // Force calendar to update its size and wait for re-render
-      calendarApi.updateSize();
-      await new Promise(resolve => setTimeout(resolve, 200));
-  
-      try {
-        const canvas = await html2canvas(input, {
-          scale: 2,
-          useCORS: true,
-          logging: false,
-        });
-        const imgDataUrl = canvas.toDataURL('image/png');
-  
-        const pdf = new jsPDF('l', 'mm', 'a4');
-        const img = new Image();
-  
-        await new Promise((resolve, reject) => {
-          img.onload = () => {
-            const pageWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-            const imageAspectRatio = img.width / img.height;
-  
-            let newImgWidth, newImgHeight, xOffset, yOffset;
-  
-            if (pageWidth / pageHeight > imageAspectRatio) {
-              newImgHeight = pageHeight;
-              newImgWidth = pageHeight * imageAspectRatio;
-              yOffset = 0;
-              xOffset = (pageWidth - newImgWidth) / 2;
-            } else {
-              newImgWidth = pageWidth;
-              newImgHeight = pageWidth / imageAspectRatio;
-              xOffset = 0;
-              yOffset = (pageHeight - newImgHeight) / 2;
-            }
-  
-            pdf.addImage(img, 'PNG', xOffset, yOffset, newImgWidth, newImgHeight);
-            pdf.save('排班日程.pdf');
-            message.success('PDF导出成功');
-            resolve();
-          };
-          img.onerror = reject;
-          img.src = imgDataUrl;
-        });
-  
-      } catch (error) {
-        console.error('PDF导出失败:', error);
-        message.error('图片加载失败或PDF生成失败');
-      } finally {
-        // Restore styles and state
-        Object.assign(input.style, originalStyle);
-        calendarApi.updateSize();
-        message.destroy();
-        setIsExporting(false);
-      }
-    }, 100);
+    const calendarEl = calendarRef.current.getApi().el;
+    const originalStyle = {
+      width: calendarEl.style.width,
+      height: calendarEl.style.height,
+    };
+    calendarEl.style.width = '100%';
+    calendarEl.style.height = 'auto';
+
+    await new Promise(resolve => setTimeout(resolve, 500));
+
+    html2canvas(calendarEl, {
+      scale: 2,
+      useCORS: true,
+      logging: true,
+    }).then(canvas => {
+      const pdf = new jsPDF({
+        orientation: 'landscape',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save('schedule.pdf');
+      calendarEl.style.width = originalStyle.width;
+      calendarEl.style.height = originalStyle.height;
+      setIsExporting(false);
+    }).catch(err => {
+      console.error("Error exporting to PDF:", err);
+      message.error('导出PDF失败');
+      calendarEl.style.width = originalStyle.width;
+      calendarEl.style.height = originalStyle.height;
+      setIsExporting(false);
+    });
   };
 
-  const columns = useMemo(() => [
-    {
-      title: '值班日期',
-      dataIndex: 'duty_date',
-      key: 'duty_date',
-      render: (text) => moment(text).format('YYYY-MM-DD'),
-      sorter: (a, b) => moment(a.duty_date).unix() - moment(b.duty_date).unix(),
-    },
-    {
-      title: '值班人员',
-      dataIndex: 'duty_person',
-      key: 'duty_person',
-      render: (duty_person) => <div style={{ textAlign: 'center' }}>{duty_person ? duty_person.name : '未知'}</div>,
-    },
-    {
-      title: '值班领导',
-      dataIndex: 'duty_leader',
-      key: 'duty_leader',
-      render: (duty_leader) => <div style={{ textAlign: 'center' }}>{duty_leader ? duty_leader.name : '未知'}</div>,
-    },
+  const columns = [
+    { title: '日期', dataIndex: 'duty_date', key: 'date' },
+    { title: '值班人员', dataIndex: ['duty_person', 'name'], key: 'duty_person' },
+    { title: '值班领导', dataIndex: ['duty_leader', 'name'], key: 'duty_leader' },
     {
       title: '操作',
       key: 'action',
@@ -607,28 +550,26 @@ const ScheduleManagementPage = () => {
         </Space>
       ),
     },
-  ], [handleEdit, handleDelete]);
+  ];
 
   return (
     <>
-      <style>
-        {`
-          .calendar-export-mode .fc-day-today {
-            background-color: white !important;
-          }
-        `}
-      </style>
-      <Card title="排班管理" extra={
-        <Space>
-          <Button type="primary" onClick={handleAdd}>新增排班</Button>
-          <Button type="default" onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
-          <Button type="default" onClick={handleExportPdf} loading={isExporting}>导出PDF</Button>
-        </Space>
-      }>
-        <div style={{ marginBottom: 20 }} id="calendar-container" ref={calendarContainerRef} className={isExporting ? 'calendar-export-mode' : ''}>
+      <Card
+        title="排班管理"
+        extra={
+          <Space>
+            <Button type="primary" onClick={handleAdd}>新增排班</Button>
+            <Button onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
+            <Button type="dashed" onClick={() => setIsPersonnelSequenceModalVisible(true)}>新建人员顺序</Button>
+            <Button onClick={exportToPdf} loading={isExporting}>导出为PDF</Button>
+          </Space>
+        }
+      >
+        <div ref={calendarContainerRef}>
           <FullCalendar
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
+            weekends={true}
             events={calendarEvents}
             editable={true}
             droppable={true}
@@ -664,13 +605,22 @@ const ScheduleManagementPage = () => {
           personnelList={personnelList}
           positions={positions} // 传递职务列表
         />
-        <GenerateScheduleModal
-          visible={isGenerateModalVisible}
-          onCancel={() => setIsGenerateModalVisible(false)}
-          onOk={handleGenerateModalOk}
-          personnelSequences={personnelSequences}
-          leaderSequences={leaderSequences}
-        />
+        {isGenerateModalVisible && (
+          <GenerateScheduleModal
+            visible={isGenerateModalVisible}
+            onCancel={() => setIsGenerateModalVisible(false)}
+            onOk={handleGenerateModalOk}
+            personnelSequences={personnelSequences}
+            leaderSequences={leaderSequences}
+          />
+        )}
+        {isPersonnelSequenceModalVisible && (
+          <PersonnelSequenceModal
+            visible={isPersonnelSequenceModalVisible}
+            onOk={handlePersonnelSequenceModalOk}
+            onCancel={handlePersonnelSequenceModalCancel}
+          />
+        )}
       </Card>
     </>
   );

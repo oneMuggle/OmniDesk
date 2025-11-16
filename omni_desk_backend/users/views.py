@@ -125,11 +125,36 @@ class UserLoginView(TokenObtainPairView):
                 "message": "用户名或密码错误"
             }, status=status.HTTP_401_UNAUTHORIZED)
 
+from pypinyin import lazy_pinyin
+from django.db.models import Q
+
 class PersonnelListCreateView(generics.ListCreateAPIView):
-    queryset = CustomUser.objects.all()
     serializer_class = PersonnelSerializer
-    
     permission_classes = [IsAdminOrManager]
+
+    def get_queryset(self):
+        queryset = CustomUser.objects.all()
+        search_term = self.request.query_params.get('search', None)
+        position_id = self.request.query_params.get('position_id', None)
+
+        if search_term:
+            # 生成拼音进行模糊查询
+            pinyin_search = ''.join(lazy_pinyin(search_term))
+            
+            # 筛选出 real_name 不为空的用户
+            users_with_real_name = queryset.exclude(real_name__isnull=True).exclude(real_name__exact='')
+            
+            # 筛选匹配的用户
+            matched_user_ids = [
+                user.id for user in users_with_real_name
+                if pinyin_search in ''.join(lazy_pinyin(user.real_name)).lower() or search_term.lower() in user.real_name.lower()
+            ]
+            queryset = queryset.filter(id__in=matched_user_ids)
+
+        if position_id:
+            queryset = queryset.filter(personnel__position_id=position_id)
+            
+        return queryset
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()

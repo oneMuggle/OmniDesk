@@ -1,51 +1,66 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { List, Button, Modal, Form, Input, Select, message, Popconfirm, Card, Col, Row, Tag } from 'antd';
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
 } from '../api/sequenceApi';
-import { getPersonnel, getAllPersonnel } from '../api/personnelApi';
+import { getAllPersonnel, getPositions } from '../api/personnelApi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
 
-const reorder = (list, startIndex, endIndex) => {
-  const result = Array.from(list);
-  const [removed] = result.splice(startIndex, 1);
-  result.splice(endIndex, 0, removed);
-  return result;
-};
-
-const SequenceForm = ({ visible, onCancel, onSave, sequence, personnelList, isLeader, onDragEnd, selectedPersonnelIds, setSelectedPersonnelIds }) => {
+const SequenceForm = ({
+  visible, onCancel, onSave, sequence, personnelList, isLeader, positions,
+  selectedPersonnel, setSelectedPersonnel
+}) => {
   const [form] = Form.useForm();
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedPosition, setSelectedPosition] = useState(null);
 
   useEffect(() => {
-    if (visible) { // Only set fields when modal becomes visible
-      form.setFieldsValue(sequence);
-      setSelectedPersonnelIds(sequence?.sequence || []);
-    } else {
-      form.resetFields();
-      setSelectedPersonnelIds([]);
+    if (visible) {
+      if (sequence) {
+        form.setFieldsValue({ name: sequence.name });
+        const initialPersonnel = (sequence.sequence || [])
+          .map(id => personnelList.find(p => p.id === id))
+          .filter(Boolean);
+        setSelectedPersonnel(initialPersonnel);
+      } else {
+        form.resetFields();
+        setSelectedPersonnel([]);
+      }
     }
-  }, [sequence, form, visible, setSelectedPersonnelIds]);
-
-
-  const handleSelectChange = (values) => {
-    setSelectedPersonnelIds(values);
-    form.setFieldsValue({ sequence: values });
-  };
+  }, [visible, sequence, personnelList, form, setSelectedPersonnel]);
 
   const handleSave = () => {
     form.validateFields()
       .then(values => {
-        onSave({ ...sequence, ...values, sequence: selectedPersonnelIds });
-        form.resetFields();
-        setSelectedPersonnelIds([]);
+        const personnel_ids = selectedPersonnel.map(p => p.id);
+        onSave({ ...sequence, ...values, sequence: personnel_ids });
       })
-      .catch(info => {
-        console.log('Validate Failed:', info);
-      });
+      .catch(info => console.log('Validate Failed:', info));
   };
+
+  const handleAddPersonnel = (person) => {
+    if (!selectedPersonnel.find(p => p.id === person.id)) {
+      setSelectedPersonnel([...selectedPersonnel, person]);
+    }
+  };
+
+  const handleRemovePersonnel = (personId) => {
+    setSelectedPersonnel(selectedPersonnel.filter(p => p.id !== personId));
+  };
+
+  const availablePersonnel = useMemo(() => {
+    return personnelList.filter(p => {
+      const name = p.name || '';
+      const pinyin = p.pinyin || '';
+      const lowerCaseSearchTerm = searchTerm.toLowerCase();
+      const matchesSearch = name.toLowerCase().includes(lowerCaseSearchTerm) || pinyin.toLowerCase().includes(lowerCaseSearchTerm);
+      const matchesPosition = !selectedPosition || p.position === selectedPosition;
+      return matchesSearch && matchesPosition;
+    });
+  }, [personnelList, searchTerm, selectedPosition]);
 
   return (
     <Modal
@@ -53,72 +68,101 @@ const SequenceForm = ({ visible, onCancel, onSave, sequence, personnelList, isLe
       visible={visible}
       onCancel={onCancel}
       onOk={handleSave}
+      width={1000}
       destroyOnClose
     >
       <Form form={form} layout="vertical">
         <Form.Item name="name" label="顺序名称" rules={[{ required: true, message: '请输入顺序名称!' }]}>
           <Input />
         </Form.Item>
-        <Form.Item name="sequence" label="选择人员" rules={[{ required: true, message: '请至少选择一名人员!' }]}>
-          <Select
-            mode="multiple"
-            placeholder="请选择人员"
-            onChange={handleSelectChange}
-            value={selectedPersonnelIds} // Controlled component
-            filterOption={(input, option) =>
-              option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
-            }
-          >
-            {personnelList.map(p => (
-              <Option key={p.id} value={p.id}>{p.name}</Option>
-            ))}
-          </Select>
-        </Form.Item>
-
-        {selectedPersonnelIds.length > 0 && (
-          <Form.Item label="拖动排序">
-              <Droppable droppableId="droppable">
-                {(provided) => (
-                  <div
-                    {...provided.droppableProps}
-                    ref={provided.innerRef}
-                    style={{ border: '1px solid #d9d9d9', padding: '8px', borderRadius: '4px' }}
-                  >
-                    {selectedPersonnelIds.map((id, index) => {
-                      const person = personnelList.find(p => p.id === id);
-                      // Only render draggable if person is found to avoid errors
-                      if (!person) return null;
-                      return (
-                        <Draggable key={String(person.id)} draggableId={String(person.id)} index={index}>
-                          {(provided, snapshot) => (
-                            <div
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              style={{
-                                userSelect: 'none',
-                                padding: '8px',
-                                margin: '0 0 8px 0',
-                                minHeight: '30px',
-                                backgroundColor: snapshot.isDragging ? '#e6f7ff' : '#f0f2f5',
-                                color: 'rgba(0, 0, 0, 0.85)',
-                                border: snapshot.isDragging ? '1px dashed #1890ff' : '1px solid #d9d9d9',
-                                borderRadius: '4px',
-                                ...provided.draggableProps.style,
-                              }}
-                            >
-                              <Tag color="blue">{person.name}</Tag>
-                            </div>
-                          )}
-                        </Draggable>
-                      );
-                    })}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-          </Form.Item>
-        )}
+        <Row gutter={16}>
+          <Col span={12}>
+            <h3>选择人员</h3>
+            <Input
+              placeholder="按姓名或拼音搜索"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              style={{ marginBottom: '10px' }}
+            />
+            <Select
+              placeholder="按职位筛选"
+              style={{ width: '100%', marginBottom: '10px' }}
+              onChange={(value) => setSelectedPosition(value)}
+              allowClear
+            >
+              {positions.map(pos => (
+                <Option key={pos.id} value={pos.id}>{pos.name}</Option>
+              ))}
+            </Select>
+            <List
+              header={<div>人员列表</div>}
+              bordered
+              dataSource={availablePersonnel}
+              renderItem={item => (
+                <List.Item actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}>
+                  {item.name} <Tag>{item.position_name}</Tag>
+                </List.Item>
+              )}
+              style={{ height: '350px', overflowY: 'auto' }}
+            />
+          </Col>
+          <Col span={12}>
+            <h3>人员排序</h3>
+            <Droppable droppableId="droppable-grid">
+              {(provided) => (
+                <div
+                  ref={provided.innerRef}
+                  {...provided.droppableProps}
+                  style={{
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    minHeight: '100px',
+                    maxHeight: '400px',
+                    overflowY: 'auto',
+                    border: '1px solid #d9d9d9',
+                    borderRadius: '2px',
+                    padding: '10px'
+                  }}
+                >
+                  {selectedPersonnel.map((item, index) => (
+                    <Draggable key={item.id} draggableId={String(item.id)} index={index}>
+                      {(provided) => (
+                        <div
+                          ref={provided.innerRef}
+                          {...provided.draggableProps}
+                          {...provided.dragHandleProps}
+                          style={{
+                            userSelect: 'none',
+                            padding: '2px 8px',
+                            margin: '2px',
+                            backgroundColor: '#fafafa',
+                            border: '1px solid #d9d9d9',
+                            borderRadius: '4px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            ...provided.draggableProps.style,
+                          }}
+                        >
+                          <span style={{ marginRight: '4px' }}>{item.name}</span>
+                          <Button
+                            type="text"
+                            danger
+                            size="small"
+                            onClick={() => handleRemovePersonnel(item.id)}
+                            style={{ padding: 0, height: 'auto', lineHeight: 1, border: 'none' }}
+                            icon={<span style={{ fontSize: '12px' }}>✖</span>}
+                          />
+                        </div>
+                      )}
+                    </Draggable>
+                  ))}
+                  {provided.placeholder}
+                </div>
+              )}
+            </Droppable>
+          </Col>
+        </Row>
       </Form>
     </Modal>
   );
@@ -169,10 +213,11 @@ const SequenceManager = () => {
   const [personnelSequences, setPersonnelSequences] = useState([]);
   const [leaderSequences, setLeaderSequences] = useState([]);
   const [allPersonnel, setAllPersonnel] = useState([]);
+  const [positions, setPositions] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingSequence, setEditingSequence] = useState(null);
   const [isEditingLeader, setIsEditingLeader] = useState(false);
-  const [globalSelectedPersonnelIds, setGlobalSelectedPersonnelIds] = useState([]); // 新增全局状态
+  const [selectedPersonnelInModal, setSelectedPersonnelInModal] = useState([]);
 
   useEffect(() => {
     fetchData();
@@ -180,18 +225,16 @@ const SequenceManager = () => {
 
   const fetchData = async () => {
     try {
-      const [personnelRes, leaderRes, personnelListRes] = await Promise.all([
+      const [personnelRes, leaderRes, personnelListRes, positionsRes] = await Promise.all([
         getPersonnelSequences(),
         getLeaderSequences(),
-        getAllPersonnel()
+        getAllPersonnel(),
+        getPositions()
       ]);
       setPersonnelSequences(Array.isArray(personnelRes?.data?.results) ? personnelRes.data.results : []);
       setLeaderSequences(Array.isArray(leaderRes?.data?.results) ? leaderRes.data.results : []);
-      console.log('personnelListRes.data:', personnelListRes); // Change to personnelListRes
-      setAllPersonnel(personnelListRes); // Change to personnelListRes
-      console.log('allPersonnel after set:', allPersonnel);
-      console.log('SequenceManager - personnelListRes:', personnelListRes);
-      console.log('SequenceManager - allPersonnel:', Array.isArray(personnelListRes?.data?.results) ? personnelListRes.data.results : []);
+      setAllPersonnel(personnelListRes || []);
+      setPositions(positionsRes?.results || []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");
       console.error("Failed to fetch data", error);
@@ -222,36 +265,6 @@ const SequenceManager = () => {
     }
   };
 
-  const reorder = (list, startIndex, endIndex) => { // Move reorder to global scope of SequenceManager
-    const result = Array.from(list);
-    const [removed] = result.splice(startIndex, 1);
-    result.splice(endIndex, 0, removed);
-    return result;
-  };
-
-  const onDragEndGlobal = (result) => {
-    console.log('onDragEndGlobal triggered:', result);
-    if (!result.destination) {
-      return;
-    }
-
-    const newOrder = reorder(
-      globalSelectedPersonnelIds,
-      result.source.index,
-      result.destination.index
-    );
-    setGlobalSelectedPersonnelIds(newOrder);
-
-    // Update the form field with the new order
-    // This is crucial for form.validateFields to get the correct sequence
-    // Use a ref to the form instance or pass it as a prop if necessary
-    // For now, we assume the form in SequenceForm will pick up the prop change
-    // or we might need to use form.setFieldsValue directly here,
-    // which would require getting the form instance from SequenceForm.
-    // Let's pass setGlobalSelectedPersonnelIds to SequenceForm for now,
-    // and SequenceForm will handle setting its internal form value.
-  };
-
   const handleSave = async (values) => {
     const isUpdate = !!values.id;
     const apiCall = isEditingLeader
@@ -259,25 +272,27 @@ const SequenceManager = () => {
       : (isUpdate ? updatePersonnelSequence : createPersonnelSequence);
 
     try {
-      const response = isUpdate ? await apiCall(values.id, values) : await apiCall(values);
-      const savedSequence = response.data;
-      
+      isUpdate ? await apiCall(values.id, values) : await apiCall(values);
       message.success('保存成功');
       setIsModalVisible(false);
-
-      if (isEditingLeader) {
-        setLeaderSequences(prev =>
-          isUpdate ? prev.map(s => s.id === savedSequence.id ? savedSequence : s) : [...prev, savedSequence]
-        );
-      } else {
-        setPersonnelSequences(prev =>
-          isUpdate ? prev.map(s => s.id === savedSequence.id ? savedSequence : s) : [...prev, savedSequence]
-        );
-      }
+      fetchData();
     } catch (error) {
       message.error('保存失败');
       console.error("Failed to save sequence", error);
     }
+  };
+
+  const onDragEnd = (result) => {
+    if (!result.destination) return;
+    const items = Array.from(selectedPersonnelInModal);
+    const [reorderedItem] = items.splice(result.source.index, 1);
+    items.splice(result.destination.index, 0, reorderedItem);
+    setSelectedPersonnelInModal(items);
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    setEditingSequence(null);
   };
 
   return (
@@ -307,18 +322,20 @@ const SequenceManager = () => {
         </Col>
       </Row>
 
-      <DragDropContext onDragEnd={onDragEndGlobal}>
-        <SequenceForm
-          visible={isModalVisible}
-          onCancel={() => setIsModalVisible(false)}
-          onSave={handleSave}
-          sequence={editingSequence}
-          personnelList={allPersonnel}
-          isLeader={isEditingLeader}
-          onDragEnd={onDragEndGlobal} // Pass down to SequenceForm if needed for internal logic
-          selectedPersonnelIds={globalSelectedPersonnelIds}
-          setSelectedPersonnelIds={setGlobalSelectedPersonnelIds}
-        />
+      <DragDropContext onDragEnd={onDragEnd}>
+        {isModalVisible && (
+          <SequenceForm
+            visible={isModalVisible}
+            onCancel={handleCancel}
+            onSave={handleSave}
+            sequence={editingSequence}
+            personnelList={allPersonnel}
+            isLeader={isEditingLeader}
+            positions={positions}
+            selectedPersonnel={selectedPersonnelInModal}
+            setSelectedPersonnel={setSelectedPersonnelInModal}
+          />
+        )}
       </DragDropContext>
     </>
   );
