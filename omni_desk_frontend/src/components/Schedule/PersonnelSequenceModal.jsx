@@ -156,22 +156,22 @@ const PersonnelSequenceModal = ({ visible, onCancel, onOk }) => {
         {/* Right Column: Drag to Sort */}
         <Col span={12} style={{ display: 'flex', flexDirection: 'column' }}>
           <h3>人员排序</h3>
-          <div style={{ flex: 1, minHeight: 0 }}>
+          <div style={{ height: '430px' }}>
             <DragDropContext onDragEnd={onDragEnd}>
-              <Droppable droppableId="droppable-grid" direction="horizontal">
+              <Droppable droppableId="droppable-grid">
                 {(provided) => (
                   <div
                     ref={provided.innerRef}
                     {...provided.droppableProps}
                     style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))',
-                      gap: '10px',
+                      display: 'flex',
+                      flexWrap: 'wrap',
                       height: '100%',
                       overflowY: 'auto',
                       border: '1px solid #d9d9d9',
                       borderRadius: '2px',
-                      padding: '10px'
+                      padding: '10px',
+                      alignContent: 'flex-start'
                     }}
                   >
                     {selectedPersonnel.map((item, index) => (
@@ -193,6 +193,8 @@ const PersonnelSequenceModal = ({ visible, onCancel, onOk }) => {
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
+                              width: '100px',
+                              margin: '0 10px 10px 0',
                               ...provided.draggableProps.style,
                             }}
                           >
