@@ -18,7 +18,7 @@ const UserPersonnelManagementPage = () => {
 
     const fetchUsers = async () => {
         try {
-            const response = await instance.get('/api/users/personnel/');
+            const response = await instance.get('users/personnel/');
             setUsers(response.data.results);
         } catch (error) {
             message.error('获取用户列表失败');
@@ -28,7 +28,7 @@ const UserPersonnelManagementPage = () => {
 
     const fetchPersonnel = async () => {
         try {
-            const response = await instance.get('/api/users/personnel/');
+            const response = await instance.get('users/personnel/');
             setPersonnelList(response.data.results);
         } catch (error) {
             message.error('获取人员列表失败');
@@ -46,7 +46,7 @@ const UserPersonnelManagementPage = () => {
         if (!currentUser) return;
 
         try {
-            await instance.patch(`/api/users/personnel/${currentUser.id}/`, {
+            await instance.patch(`users/personnel/${currentUser.id}/`, {
                 personnel_id: selectedPersonnel
             });
             message.success('关联成功');
