@@ -210,7 +210,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               <span className="login-hint">请登录</span>
             )}
           </div>
-          <h2><FontAwesomeIcon icon={faCalendarAlt} /> 日历</h2>
+          <h2><FontAwesomeIcon icon={faCalendarAlt} /> 智能办公桌面管理系统</h2>
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>
               &times;
