@@ -219,8 +219,8 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
       form.setFieldsValue({ start_personnel_id: null });
       console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
     } else if (type === 'leader') {
-      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       const sequence = leaderSequences.find(s => s.id === sequenceId);
+      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
       setSelectedLeaders(sequence ? sequence.personnel_details : []);
       console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);

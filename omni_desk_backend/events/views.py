@@ -319,11 +319,19 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
         created_schedules = []
         with transaction.atomic():
+            # To calculate weeks passed, we need to find the first Monday on or before the start_date
+            start_of_start_week = start_date - timedelta(days=start_date.weekday())
+            
             for i in range(duration_days):
                 current_date = start_date + timedelta(days=i)
                 
+                # Daily rotation for personnel
                 personnel_idx = (personnel_start_index + i) % len(personnel_order)
-                leader_idx = (leader_start_index + i) % len(leader_order)
+                
+                # Weekly rotation for leaders
+                start_of_current_week = current_date - timedelta(days=current_date.weekday())
+                weeks_passed = (start_of_current_week - start_of_start_week).days // 7
+                leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
                 
                 duty_person_id = personnel_order[personnel_idx]
                 duty_leader_id = leader_order[leader_idx]
