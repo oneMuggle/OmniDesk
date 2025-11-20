@@ -342,12 +342,16 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         serializer = ScheduleSerializer(created_schedules, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
-class ResponsiblePersonViewSet(viewsets.ModelViewSet):
+from rest_framework.filters import SearchFilter
+
+class PersonnelViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all().prefetch_related('phone_numbers')
     serializer_class = PersonnelSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly] # 恢复原有权限
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'position']
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['position']
+    search_fields = ['name']
+
     @action(detail=False, methods=['get'], url_path='all')
     def list_all(self, request):
         """

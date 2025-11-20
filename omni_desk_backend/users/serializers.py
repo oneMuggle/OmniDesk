@@ -3,7 +3,7 @@ from rest_framework import serializers
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from events.models import Personnel
+from events.models import Personnel, Position
 from events.serializers import PersonnelSerializer
 
 CustomUser = get_user_model()
@@ -197,3 +197,9 @@ class UserPersonnelSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'username', 'real_name', 'personnel', 'personnel_id')
         read_only_fields = ('username',)
+
+
+class PositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Position
+        fields = '__all__'

@@ -38,7 +38,8 @@ from .serializers import (
     UserDetailSerializer,
     CustomTokenObtainPairSerializer,
     PersonnelSerializer,
-    UserPersonnelSerializer # 新增导入
+    UserPersonnelSerializer,
+    PositionSerializer
 )
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -135,21 +136,10 @@ class PersonnelListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         queryset = CustomUser.objects.all()
         search_term = self.request.query_params.get('search', None)
-        position_id = self.request.query_params.get('position_id', None)
+        position_id = self.request.query_params.get('personnel__position', None)
 
         if search_term:
-            # 生成拼音进行模糊查询
-            pinyin_search = ''.join(lazy_pinyin(search_term))
-            
-            # 筛选出 real_name 不为空的用户
-            users_with_real_name = queryset.exclude(real_name__isnull=True).exclude(real_name__exact='')
-            
-            # 筛选匹配的用户
-            matched_user_ids = [
-                user.id for user in users_with_real_name
-                if pinyin_search in ''.join(lazy_pinyin(user.real_name)).lower() or search_term.lower() in user.real_name.lower()
-            ]
-            queryset = queryset.filter(id__in=matched_user_ids)
+            queryset = queryset.filter(real_name__icontains=search_term)
 
         if position_id:
             queryset = queryset.filter(personnel__position_id=position_id)
@@ -225,5 +215,22 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager'):
-            return CustomUser.objects.all().order_by('username')
-        return CustomUser.objects.filter(id=self.request.user.id) # 假设普通用户只能看到自己
+            queryset = CustomUser.objects.all().order_by('username')
+            search_term = self.request.query_params.get('search', None)
+            position = self.request.query_params.get('personnel__position', None)
+
+            if search_term:
+                queryset = queryset.filter(real_name__icontains=search_term)
+
+            if position:
+                queryset = queryset.filter(personnel__position_id=position)
+            
+            return queryset
+        return CustomUser.objects.filter(id=self.request.user.id)
+
+from events.models import Position
+
+class PositionListView(generics.ListAPIView):
+    queryset = Position.objects.all()
+    serializer_class = PositionSerializer
+    permission_classes = [permissions.IsAuthenticated]

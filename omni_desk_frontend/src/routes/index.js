@@ -22,7 +22,7 @@ import BookReaderPage from '../components/BookReaderPage';
 import LibraryPage from '../components/LibraryPage';
 import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../components/TrialsPage';
-import PersonnelPage from '../components/PersonnelPage';
+import PersonnelPage from '../pages/PersonnelPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
@@ -41,7 +41,6 @@ import NotificationsPage from '../pages/NotificationsPage'; // Import Notificati
 import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
-import UserPersonnelManagementPage from '../pages/UserPersonnelManagementPage'; // 导入新页面
 import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 SensorManagementPage
 import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
 import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
@@ -219,10 +218,6 @@ const router = createBrowserRouter([
       {
         path: "user-management",
         element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "user-personnel-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-personnel-management"><UserPersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",

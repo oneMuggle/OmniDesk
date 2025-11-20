@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import CurrentUserView, UserAdminListView, UserAdminDetailView, UserProfileUpdateView, ChangePasswordView, UserPersonnelViewSet
+from .views import CurrentUserView, UserAdminListView, UserAdminDetailView, UserProfileUpdateView, ChangePasswordView, UserPersonnelViewSet, PositionListView
 
 app_name = 'users' # 定义应用命名空间
 
@@ -14,6 +14,7 @@ urlpatterns = [
     path('me/update/', UserProfileUpdateView.as_view(), name='user-profile-update'),
     path('me/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('', UserPersonnelViewSet.as_view({'get': 'list'}), name='user-list'), # 将 /api/users/ 路由指向 UserPersonnelViewSet 的列表操作
+    path('positions/', PositionListView.as_view(), name='position-list'),
 ]
 
 urlpatterns += router.urls # 将 router 生成的 URL 添加到 urlpatterns 列表末尾
