@@ -7,8 +7,8 @@ import tempfile # 导入 tempfile 来创建临时目录
 
 from .file_processing import process_uploaded_file # 导入我们新创建的函数
 
-from .models import DocumentTemplate, GeneratedDocument, Book, Chapter, Comment, Annotation, Tag
-from .serializers import DocumentTemplateSerializer, GeneratedDocumentSerializer, BookSerializer, ChapterSerializer, CommentSerializer, AnnotationSerializer, TagSerializer
+from .models import DocumentTemplate, GeneratedDocument, Book, Chapter, Comment, Annotation, Tag, EBook
+from .serializers import DocumentTemplateSerializer, GeneratedDocumentSerializer, BookSerializer, ChapterSerializer, CommentSerializer, AnnotationSerializer, TagSerializer, EBookSerializer
 from compliance.models import ComplianceIssue # 导入 ComplianceIssue 模型
 from compliance.serializers import ComplianceIssueSerializer # 导入 ComplianceIssue 序列化器
 from llm_service.ollama_client import OllamaClient # 导入 OllamaClient
@@ -489,3 +489,35 @@ class BookImportView(APIView):
             return Response({"message": f"Book '{book_obj.title}' imported successfully with {chapter_order} chapters."}, status=status.HTTP_201_CREATED)
         except Exception as e:
             return Response({"error": f"Error importing book: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class EBookViewSet(viewsets.ModelViewSet):
+    queryset = EBook.objects.all()
+    serializer_class = EBookSerializer
+    permission_classes = []
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser]
+
+    @action(detail=False, methods=['post'])
+    def upload(self, request, *args, **kwargs):
+        file = request.FILES.get('file')
+        if not file:
+            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            content = file.read().decode('utf-8')
+            # Simple parsing for title and author from markdown
+            title_match = re.search(r'^#\s+(.*)', content, re.MULTILINE)
+            title = title_match.group(1).strip() if title_match else file.name
+
+            author_match = re.search(r'author:\s*(.*)', content, re.IGNORECASE)
+            author = author_match.group(1).strip() if author_match else ''
+
+            ebook = EBook.objects.create(
+                title=title,
+                author=author,
+                content=content
+            )
+            serializer = self.get_serializer(ebook)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        except Exception as e:
+            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

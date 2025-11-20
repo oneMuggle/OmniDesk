@@ -7,6 +7,7 @@ router.register(r'templates', views.DocumentTemplateViewSet, basename='document-
 router.register(r'generated', views.GeneratedDocumentViewSet, basename='generated-document')
 router.register(r'books', views.BookViewSet, basename='book')
 router.register(r'chapters', views.ChapterViewSet, basename='chapter')
+router.register(r'ebooks', views.EBookViewSet, basename='ebook')
 
 urlpatterns = [
     path('', include(router.urls)),

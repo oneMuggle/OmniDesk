@@ -133,3 +133,18 @@ class Annotation(models.Model):
 
     def __str__(self):
         return f"Annotation by {self.user} on {self.chapter}"
+
+
+class EBook(models.Model):
+    title = models.CharField(max_length=200, verbose_name="书名")
+    author = models.CharField(max_length=100, blank=True, verbose_name="作者")
+    content = models.TextField(verbose_name="Markdown内容")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        verbose_name = "电子书"
+        verbose_name_plural = "电子书"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return self.title

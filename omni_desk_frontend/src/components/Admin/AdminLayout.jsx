@@ -38,15 +38,7 @@ const AdminLayout = () => {
     { to: "/admin/personnel", icon: faUsers, text: "人员管理", permission: ['admin', 'manager'] },
     { to: "/admin/schedules", icon: faFlask, text: "排班管理", permission: ['admin', 'manager'] },
     { to: "/admin/user-management", icon: faUsers, text: "用户管理", permission: ['admin'] },
-    {
-      text: "书籍管理",
-      icon: faBook,
-      permission: ['admin', 'manager'],
-      children: [
-        { to: "/admin/book-import", text: "书籍导入" },
-        { to: "/admin/book-manage-export", text: "管理与导出" }
-      ]
-    },
+    { to: "/admin/ebook-management", icon: faBook, text: "电子书管理", permission: ['admin', 'manager'] },
     { to: "/admin/documents", icon: faFileWord, text: "文档管理", permission: ['admin', 'manager'] },
     { to: "/admin/equipment", icon: faFlask, text: "设备管理", permission: ['admin', 'manager'] },
     { to: "/admin/settings", icon: faCog, text: "设置", permission: ['admin', 'manager'] }, // 假设设置也放在这里，且需要admin/manager权限

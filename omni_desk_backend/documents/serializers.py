@@ -64,3 +64,10 @@ class BookSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ('id', 'title', 'author', 'description', 'cover_image', 'publication_date', 'tags', 'chapters', 'project_name') # 添加 'project_name'
+
+from .models import EBook
+
+class EBookSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EBook
+        fields = '__all__'

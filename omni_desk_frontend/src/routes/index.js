@@ -20,11 +20,9 @@ import DocsPage from '../components/DocsPage';
 import BookPage from '../components/BookPage';
 import BookReaderPage from '../components/BookReaderPage';
 import LibraryPage from '../components/LibraryPage';
-import BookImportPage from '../components/BookImportPage';
 import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../components/TrialsPage';
 import PersonnelPage from '../components/PersonnelPage';
-import BookManageExportPage from '../components/BookManageExportPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
@@ -49,6 +47,7 @@ import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'
 import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
+import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
 
 const router = createBrowserRouter([
 {
@@ -182,14 +181,6 @@ const router = createBrowserRouter([
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedules"><ScheduleManagementPage /></ProtectedRoute>
       },
       {
-        path: "book-import",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/book-import"><BookImportPage /></ProtectedRoute>
-      },
-      {
-        path: "book-manage-export",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/book-manage-export"><BookManageExportPage /></ProtectedRoute>
-      },
-      {
         path: "equipment",
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/equipment"><EquipmentPage /></ProtectedRoute>
       },
@@ -232,6 +223,10 @@ const router = createBrowserRouter([
       {
         path: "user-personnel-management",
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-personnel-management"><UserPersonnelManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "ebook-management",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/ebook-management"><EBookManagementPage /></ProtectedRoute>
       },
       {
        path: "settings",
