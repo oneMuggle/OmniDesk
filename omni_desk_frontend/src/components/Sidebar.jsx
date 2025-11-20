@@ -1,36 +1,36 @@
-import React, { useState, useEffect } from 'react'; // 导入 useEffect
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
-  faCalendarAlt,
-  faHome,
-  faCog,
-  faBars,
-  faBell,
-  faUser,
-  faSignOutAlt,
-  faTasks,
-  faChevronLeft,
-  faFileWord,
-  faBullhorn,
-  faCommentDots,
-  faFlask,
-  faFileAlt,
-  faBook, // 新增图标
-  faChevronDown, // 新增图标
-  faClipboardList, // 新增备忘录图标
-  faRobot // 新增 Dify 应用图标
-} from '@fortawesome/free-solid-svg-icons';
-import complianceApi from '../api/compliance'; // 导入 complianceApi
-import { Badge } from '@mui/material'; // 导入 Material-UI 的 Badge
+  AppstoreOutlined,
+  BellOutlined,
+  BookOutlined,
+  CalendarOutlined,
+  CommentOutlined,
+  DownOutlined,
+  ExperimentOutlined,
+  FileTextOutlined,
+  FileWordOutlined,
+  HomeOutlined,
+  LeftOutlined,
+  LogoutOutlined,
+  MenuOutlined,
+  ProfileOutlined,
+  ProjectOutlined,
+  RobotOutlined,
+  SettingOutlined,
+  SoundOutlined,
+  UserOutlined,
+} from '@ant-design/icons';
+import complianceApi from '../api/compliance';
+import { Badge, Tooltip } from 'antd';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
-  const [expandedSubMenu, setExpandedSubMenu] = useState({}); // 维护每个子菜单的展开状态
+  const [expandedSubMenu, setExpandedSubMenu] = useState({});
   const { user, isAuthenticated, logout, hasPermission, isInitializing } = useAuth();
   const location = useLocation();
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0); // 新增未读通知数量状态
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
@@ -44,19 +44,18 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 
     if (isAuthenticated) {
       fetchUnreadCount();
-      // 可以设置一个定时器，每隔一段时间刷新未读数量
-      const interval = setInterval(fetchUnreadCount, 60000); // 每分钟刷新一次
+      const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
   }, [isAuthenticated]);
 
   const menuItems = [
-    { to: "/", icon: faHome, text: "首页", permission: null },
-    { to: "/announcements", icon: faBullhorn, text: "公告栏", permission: null },
+    { to: "/", icon: HomeOutlined, text: "首页", permission: null },
+    { to: "/announcements", icon: SoundOutlined, text: "公告栏", permission: null },
     {
       type: 'submenu',
       text: '日历',
-      icon: faCalendarAlt,
+      icon: CalendarOutlined,
       permission: null,
       subItems: [
         { to: "/trial-schedule", text: "试验日程", permission: null },
@@ -67,131 +66,165 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     {
       type: 'submenu',
       text: 'AI 助手',
-      icon: faTasks,
+      icon: AppstoreOutlined,
       permission: null,
       subItems: [
-        { to: "/intelligent-chat", icon: faCommentDots, text: "智能问答", permission: null },
-        { to: "/ragflow-chat", icon: faFlask, text: "Ragflow 聊天", permission: null },
-        { to: "/dify-apps", icon: faRobot, text: "Dify 应用", permission: null }, // 新增 Dify 应用链接
-        { to: "/office-assistant", icon: faFileWord, text: "Office 助手", permission: null },
-        { to: "/file-analysis", icon: faFileAlt, text: "文件分析", permission: null },
+        { to: "/intelligent-chat", icon: CommentOutlined, text: "智能问答", permission: null },
+        { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
+        { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
+        { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
+        { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
       ]
     },
-    { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: null },
-
-    { to: "/library", icon: faBook, text: "书库", permission: null },
-    { to: "/memos", icon: faClipboardList, text: "备忘录", permission: null }, // 备忘录链接
-    { to: "/sensor-management", icon: faFlask, text: "传感器管理", permission: ["admin", "manager"] }, // 新增传感器管理
-    { to: "/profile", icon: faUser, text: "个人资料", permission: null },
+    { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: null },
+    { to: "/library", icon: BookOutlined, text: "书库", permission: null },
+    { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
+    { to: "/sensor-management", icon: ExperimentOutlined, text: "传感器管理", permission: ["admin", "manager"] },
+    { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
     {
       type: 'submenu',
       text: '项目管理',
-      icon: faTasks,
+      icon: ProjectOutlined,
       permission: ["admin", "manager"],
       subItems: [
         { to: "/projects", text: "项目列表", permission: ["admin", "manager"] },
         { to: "/documents", text: "文档管理", permission: ["admin", "manager"] },
         { to: "/admin/compliance", text: "合规问题", permission: ["admin", "manager"] },
-        { to: "/notifications", icon: faBell, text: "通知中心", permission: null, badgeCount: unreadNotificationCount }, // 新增通知中心链接，并传递未读数量
+        { to: "/notifications", icon: BellOutlined, text: "通知中心", permission: null, badgeCount: unreadNotificationCount },
       ]
     },
-    { to: "/admin", icon: faCog, text: "管理中心", permission: ["admin", "manager"] },
-    { type: 'button', icon: faSignOutAlt, text: '退出登录', action: logout, permission: null },
+    { to: "/admin", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
+    { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
   ];
 
   const renderMenuItem = (item, index) => {
-    // 权限检查
-    // 移除对 /admin/schedules 和 /admin/personnel 的特殊处理，这些路由的权限将由 AdminLayout 内部处理
-    if (!isInitializing && item.permission !== null) { // 确保 isInitializing 完成后再进行权限检查
+    if (!isInitializing && item.permission !== null) {
       if (item.permission === 'authenticated' && !isAuthenticated) return null;
       if (Array.isArray(item.permission)) {
         if (!isAuthenticated || !item.permission.some(role => user?.role === role)) return null;
       } else if (!isAuthenticated || user?.role !== item.permission) {
-        // 如果是单个权限字符串，并且用户没有该权限，则不显示
         if (!hasPermission(item.permission)) return null;
       }
     }
 
-
     if (item.type === 'button') {
+      const Icon = item.icon;
+      const buttonContent = (
+        <div className="menu-item-content">
+          <Icon className="icon" />
+          {!isCollapsed && <span>{item.text}</span>}
+        </div>
+      );
+      const button = (
+        <button
+          className="menu-item"
+          onClick={() => {
+            item.action();
+            if (isMobileMenuOpen) toggleMobileMenu();
+          }}
+        >
+          {buttonContent}
+        </button>
+      );
+
       return (
         <li key={index}>
-          <button
-            className="menu-item"
-            onClick={() => {
-              item.action();
-              if (isMobileMenuOpen) toggleMobileMenu();
-            }}
-            title={isCollapsed ? item.text : ''}
-          >
-            <div className="menu-item-content">
-              <FontAwesomeIcon icon={item.icon} className="icon" />
-              {!isCollapsed && <span>{item.text}</span>}
-            </div>
-          </button>
+          {isCollapsed ? (
+            <Tooltip title={item.text} placement="right">
+              {button}
+            </Tooltip>
+          ) : (
+            button
+          )}
         </li>
       );
     }
 
     if (item.type === 'submenu') {
+      const Icon = item.icon;
       const isSubMenuActive = item.subItems.some(sub => location.pathname === sub.to);
-      const isSubMenuExpanded = expandedSubMenu[item.text] || false; // 根据 item.text 获取状态
+      const isSubMenuExpanded = expandedSubMenu[item.text] || false;
+
+      const subMenuHeader = (
+        <div
+          className={`menu-item ${isSubMenuActive ? 'active' : ''}`}
+          onClick={() => setExpandedSubMenu(prev => ({ ...prev, [item.text]: !prev[item.text] }))}
+        >
+          <div className="menu-item-content">
+            <Icon className="icon" />
+            {!isCollapsed && (
+              <>
+                <span>{item.text}</span>
+                <DownOutlined className={`submenu-arrow ${isSubMenuExpanded ? 'expanded' : ''}`} />
+              </>
+            )}
+          </div>
+        </div>
+      );
 
       return (
         <li key={index}>
-          <div
-            className={`menu-item ${isSubMenuActive ? 'active' : ''}`}
-            onClick={() => setExpandedSubMenu(prev => ({ ...prev, [item.text]: !prev[item.text] }))} // 切换当前子菜单的状态
-            title={isCollapsed ? item.text : ''}
-          >
-            <div className="menu-item-content">
-              <FontAwesomeIcon icon={item.icon} className="icon" />
-              {!isCollapsed && (
-                <>
-                  <span>{item.text}</span>
-                  <FontAwesomeIcon icon={faChevronDown} className={`submenu-arrow ${isSubMenuExpanded ? 'expanded' : ''}`} />
-                </>
-              )}
-            </div>
-          </div>
-          {isSubMenuExpanded && !isCollapsed && ( // 根据当前子菜单的状态判断是否显示
-            <ul className="submenu">
-              {item.subItems.map((subItem, subIndex) => (
-                <li key={subIndex}>
-                  <Link
-                    to={subItem.to}
-                    className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
-                    onClick={() => isMobileMenuOpen && toggleMobileMenu()}
-                  >
-                    <div className="menu-item-content">
-                      {subItem.icon && <FontAwesomeIcon icon={subItem.icon} className="icon" />} {/* 渲染子菜单图标 */}
-                      <span>{subItem.text}</span>
-                      {subItem.badgeCount !== undefined && subItem.badgeCount > 0 && ( // 显示徽章
-                        <Badge badgeContent={subItem.badgeCount} color="error" max={99} sx={{ ml: 1 }} />
-                      )}
-                    </div>
-                  </Link>
-                </li>
-              ))}
+          {isCollapsed ? (
+            <Tooltip title={item.text} placement="right">
+              {subMenuHeader}
+            </Tooltip>
+          ) : (
+            subMenuHeader
+          )}
+          {!isCollapsed && (
+            <ul className={`submenu ${isSubMenuExpanded ? 'expanded' : ''}`}>
+              {item.subItems.map((subItem, subIndex) => {
+                const SubIcon = subItem.icon;
+                return (
+                  <li key={subIndex}>
+                    <Link
+                      to={subItem.to}
+                      className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                      onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+                    >
+                      <div className="menu-item-content">
+                        {SubIcon && <SubIcon className="icon" />}
+                        <span>{subItem.text}</span>
+                        {subItem.badgeCount !== undefined && subItem.badgeCount > 0 && (
+                          <Badge count={subItem.badgeCount} size="small" />
+                        )}
+                      </div>
+                    </Link>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </li>
       );
     }
 
+    const Icon = item.icon;
+    const linkContent = (
+      <div className="menu-item-content">
+        <Icon className="icon" />
+        {!isCollapsed && <span>{item.text}</span>}
+      </div>
+    );
+    const link = (
+      <Link
+        to={item.to}
+        className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+        onClick={() => isMobileMenuOpen && toggleMobileMenu()}
+      >
+        {linkContent}
+      </Link>
+    );
+
     return (
       <li key={index}>
-        <Link
-          to={item.to}
-          className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
-          onClick={() => isMobileMenuOpen && toggleMobileMenu()}
-          title={isCollapsed ? item.text : ''}
-        >
-          <div className="menu-item-content">
-            <FontAwesomeIcon icon={item.icon} className="icon" />
-            {!isCollapsed && <span>{item.text}</span>}
-          </div>
-        </Link>
+        {isCollapsed ? (
+          <Tooltip title={item.text} placement="right">
+            {link}
+          </Tooltip>
+        ) : (
+          link
+        )}
       </li>
     );
   };
@@ -203,14 +236,14 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
           <div className="user-info">
             {isAuthenticated ? (
               <>
-                <FontAwesomeIcon icon={faUser} className="user-icon" />
-                <span className="username">已登录</span>
+                <UserOutlined className="user-icon" />
+                {!isCollapsed && <span className="username">已登录</span>}
               </>
             ) : (
-              <span className="login-hint">请登录</span>
+              !isCollapsed && <span className="login-hint">请登录</span>
             )}
           </div>
-          <h2><FontAwesomeIcon icon={faCalendarAlt} /> 智能办公桌面管理系统</h2>
+          {!isCollapsed && <h2><CalendarOutlined /> 智能办公桌面管理系统</h2>}
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>
               &times;
@@ -221,26 +254,22 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               className="collapse-toggle"
               onClick={() => setIsCollapsed(!isCollapsed)}
             >
-              <FontAwesomeIcon icon={faChevronLeft} className={`collapse-icon ${isCollapsed ? 'rotate' : ''}`} />
+              <LeftOutlined className={`collapse-icon ${isCollapsed ? 'rotate' : ''}`} />
             </button>
           )}
         </div>
         <nav className="sidebar-menu">
           <ul>
             {menuItems.filter(item => {
-              // 在认证初始化完成且用户未登录时，不渲染需要认证的菜单项
               if (!isInitializing && item.permission === 'authenticated' && !isAuthenticated) {
                 return false;
               }
-              // 在认证初始化中，不渲染需要认证的菜单项
               if (isInitializing && item.permission === 'authenticated') {
                 return false;
               }
-              // 对于 /admin 路径，使用user?.role判断
               if (item.to === "/admin") {
                 return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
               }
-              // 对于其他需要权限的项，使用hasPermission
               if (item.permission === null) return true;
               if (item.permission === 'authenticated') return isAuthenticated;
               
@@ -254,7 +283,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       </div>
       {!isMobileMenuOpen && (
         <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
-          <FontAwesomeIcon icon={faBars} />
+          <MenuOutlined />
         </button>
       )}
     </>
@@ -262,4 +291,3 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 };
 
 export default Sidebar;
-

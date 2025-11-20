@@ -20,6 +20,7 @@ import {
 import './index.css';
 import '@fortawesome/fontawesome-svg-core/styles.css'; // 导入 FontAwesome 核心样式
 import 'antd/dist/reset.css';
+import './styles/global.css';
 
 // 本地模块导入
 import router from './routes';

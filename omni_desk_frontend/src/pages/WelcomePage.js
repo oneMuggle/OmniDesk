@@ -62,21 +62,21 @@ const WelcomePage = () => {
     fetchWeeklyData();
   }, []);
 
-  const antIcon = <LoadingOutlined style={{ fontSize: 24 }} spin />;
+  const antIcon = <LoadingOutlined className="welcome-page-loading-spinner" spin />;
 
   return (
-    <div style={{ padding: '24px' }}>
+    <div className="welcome-page-container">
       <Title level={2}>欢迎来到智能办公桌面管理系统！</Title>
       <Text>这里是您的智能办公中心，高效管理您的日常工作。</Text>
 
-      <div style={{ marginTop: '48px' }}>
+      <div className="welcome-page-overview">
         <Title level={3}>本周概览</Title>
         <Row gutter={[16, 16]}>
           {/* 本周试验日程 */}
           <Col xs={24} sm={24} md={8}>
             <Card title="本周试验日程" bordered={false}>
               {loadingTrials ? (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />
                 </div>
               ) : (
@@ -106,7 +106,7 @@ const WelcomePage = () => {
           <Col xs={24} sm={24} md={8}>
             <Card title="本周排班日程" bordered={false}>
               {loadingSchedules ? (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />
                 </div>
               ) : (
@@ -136,7 +136,7 @@ const WelcomePage = () => {
           <Col xs={24} sm={24} md={8}>
             <Card title="本周会议室预约" bordered={false}>
               {loadingBookings ? (
-                <div style={{ textAlign: 'center', padding: '20px' }}>
+                <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />
                 </div>
               ) : (
@@ -165,7 +165,7 @@ const WelcomePage = () => {
         </Row>
       </div>
 
-      <div style={{ marginTop: '48px', textAlign: 'center' }}>
+      <div className="welcome-page-footer">
         <Text type="secondary">
           如有任何疑问，请联系管理员。
         </Text>

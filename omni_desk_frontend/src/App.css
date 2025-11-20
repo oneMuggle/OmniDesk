@@ -5,23 +5,23 @@
   position: fixed;
   left: 0;
   top: 0;
-  background-color: #545c64;
+  background-color: var(--background-color-dark);
   z-index: 1000;
-  color: white;
-  padding: 20px;
-  box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-  transition: transform 0.3s ease;
+  color: var(--text-color-secondary-dark);
+  padding: 0;
+  box-shadow: var(--box-shadow-base);
+  transition: width 0.3s ease, transform 0.3s ease;
 }
 
 .sidebar-header {
   padding: 20px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid var(--border-color-inverse);
 }
 
 .sidebar-header h2 {
   margin: 0;
   font-size: 1.5rem;
-  color: white;
+  color: var(--text-color-inverse);
 }
 
 .sidebar-menu {
@@ -48,20 +48,25 @@
 .menu-item {
   display: flex;
   align-items: center;
-  color: white;
+  color: var(--text-color-secondary-dark);
   text-decoration: none;
-  padding: 12px;
-  border-radius: 4px;
+  padding: 12px 24px;
+  border-radius: 0;
   transition: all 0.3s ease;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
 }
 
 .menu-item:hover {
-  background-color: rgba(255,255,255,0.1);
+  color: var(--text-color-inverse);
 }
 
 .menu-item.active {
-  background-color: #ffd04b;
-  color: #545c64;
+  background-color: var(--primary-color);
+  color: var(--text-color-inverse);
 }
 
 /* 登出按钮样式 */
@@ -113,8 +118,36 @@
   flex: 1;
   margin-left: 250px;
   padding: 20px;
-  background-color: #f5f5f5;
+  background-color: var(--background-color-light);
   transition: margin-left 0.3s ease;
+}
+
+/* Submenu styles */
+.submenu {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  background-color: #000c17; /* Darker background for submenu - keeping this for now */
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
+}
+
+.submenu.expanded {
+  max-height: 500px; /* Adjust as needed */
+}
+
+.submenu .menu-item {
+  padding-left: 48px; /* Indent sub-items */
+}
+
+.submenu-arrow {
+  margin-left: auto;
+  transition: transform 0.3s ease;
+}
+
+.submenu-arrow.expanded {
+  transform: rotate(180deg);
 }
 
 .sidebar.collapsed ~ .main-content {
@@ -150,10 +183,10 @@
 }
 
 .feature-card {
-  background: white;
+  background: var(--background-color-base);
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: var(--border-radius-base);
+  box-shadow: var(--box-shadow-card);
   transition: transform 0.3s ease;
 }
 
@@ -186,7 +219,7 @@
   left: 20px;
   background: #545c64;
   border: none;
-  color: white;
+  color: var(--text-color-inverse);
   padding: 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -199,7 +232,7 @@
   top: 20px;
   background: none;
   border: none;
-  color: white;
+  color: var(--text-color-inverse);
   font-size: 1.5rem;
   cursor: pointer;
 }
@@ -224,10 +257,10 @@
 }
 
 .schedule-container {
-  background: white;
+  background: var(--background-color-base);
   padding: 20px;
-  border-radius: 8px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  border-radius: var(--border-radius-base);
+  box-shadow: var(--box-shadow-card);
 }
 
 .fc {
@@ -262,7 +295,7 @@
 /* 侧边栏收缩功能样式 */
 .sidebar.collapsed {
   width: 80px;
-  padding: 20px 10px;
+  padding: 0;
 }
 
 .sidebar.collapsed .sidebar-header {
@@ -287,8 +320,13 @@
   font-size: 1.4rem;
 }
 
-.sidebar.collapsed .menu-item span {
+.sidebar.collapsed .menu-item span,
+.sidebar.collapsed .submenu-arrow {
   display: none;
+}
+
+.sidebar.collapsed .submenu {
+  display: none; /* Hide submenu when collapsed */
 }
 
 .sidebar.collapsed .menu-item:hover {
@@ -327,7 +365,7 @@
   top: 20px;
   background: #545c64;
   border: none;
-  color: white;
+  color: var(--text-color-inverse);
   padding: 10px;
   border-radius: 4px;
   cursor: pointer;
@@ -345,4 +383,27 @@
 
 .sidebar.collapsed .collapse-toggle .fa-chevron-left {
   transform: rotate(180deg);
+}
+
+/* WelcomePage Styles */
+.welcome-page-container {
+  padding: var(--spacing-lg);
+}
+
+.welcome-page-overview {
+  margin-top: 48px;
+}
+
+.welcome-page-loading-spinner {
+  font-size: 24px;
+}
+
+.welcome-page-loading-container {
+  text-align: center;
+  padding: 20px;
+}
+
+.welcome-page-footer {
+  margin-top: 48px;
+  text-align: center;
 }
