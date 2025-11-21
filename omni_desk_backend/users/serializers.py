@@ -103,10 +103,8 @@ class UserDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = CustomUser
         fields = ('id', 'username', 'email', 'phone', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
-        read_only_fields = ('username', 'email', 'role',) # 保持原有只读字段
-        extra_kwargs = {
-            'real_name': {'read_only': True}
-        }
+        read_only_fields = ()
+        extra_kwargs = {}
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.personnel:

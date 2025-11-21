@@ -9,7 +9,7 @@ import IntelligentChatPage from '../components/IntelligentChatPage';
 import RagflowChatPage from '../components/RagflowChatPage';
 import EventsPage from '../components/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
-import ProfilePage from '../components/ProfilePage';
+import ProfilePage from '../components/profile/ProfilePage';
 import Login from '../components/Login';
 import Register from '../components/Register';
 import DocumentsPage from '../components/DocumentsPage';
