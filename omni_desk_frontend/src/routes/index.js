@@ -217,7 +217,7 @@ const router = createBrowserRouter([
       },
       {
         path: "user-management",
-        element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",

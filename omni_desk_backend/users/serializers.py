@@ -132,10 +132,18 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
+    personnel = PersonnelSerializer(read_only=True)
+    personnel_id = serializers.PrimaryKeyRelatedField(
+        queryset=Personnel.objects.all(),
+        source='personnel',
+        allow_null=True,
+        required=False
+    )
+
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined')
-        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined') # 除了role，其他字段不允许通过此序列化器修改
+        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'phone', 'avatar')
+        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'real_name', 'phone', 'avatar')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

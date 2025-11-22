@@ -12,6 +12,7 @@ import {
   deletePosition
 } from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import UserPersonnelAssociation from '../components/UserPersonnelAssociation';
 
 const { Option } = Select; // Destructure Option from Select
 const { TabPane } = Tabs; // Destructure TabPane from Tabs
@@ -444,6 +445,9 @@ const PersonnelPage = () => {
         </TabPane>
         <TabPane tab="职位管理" key="positions">
           <PositionManagementTab />
+        </TabPane>
+        <TabPane tab="用户人员关联" key="user-personnel-association">
+            <UserPersonnelAssociation />
         </TabPane>
       </Tabs>
     </div>

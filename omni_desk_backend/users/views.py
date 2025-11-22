@@ -185,6 +185,24 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdmin] # 只有管理员可以访问
     lookup_field = 'id'
 
+    def partial_update(self, request, *args, **kwargs):
+        instance = self.get_object()
+        personnel_id = request.data.get('personnel_id')
+
+        if personnel_id is not None:
+            try:
+                personnel = Personnel.objects.get(id=personnel_id)
+                instance.personnel = personnel
+                instance.real_name = personnel.name
+                # Assuming personnel model has a phone_numbers field
+                if hasattr(personnel, 'phone_numbers') and personnel.phone_numbers.exists():
+                    instance.phone = personnel.phone_numbers.first().number
+                instance.save()
+            except Personnel.DoesNotExist:
+                return Response({"detail": "Personnel not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        return super().partial_update(request, *args, **kwargs)
+
 from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by('username')
