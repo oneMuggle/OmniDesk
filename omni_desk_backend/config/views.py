@@ -2,6 +2,7 @@ from rest_framework import viewsets, generics
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAdminUser
+from users.permissions import IsAdminOrManager
 from rest_framework.exceptions import ValidationError
 from rest_framework import status
 from django.db import IntegrityError # Import IntegrityError
@@ -49,12 +50,12 @@ class UserConfigView(APIView):
 class PageConfigListView(generics.ListCreateAPIView):
     queryset = PageConfig.objects.all()
     serializer_class = PageConfigSerializer
-    permission_classes = [IsAdminUser] # 只有管理员可以访问
+    permission_classes = [IsAdminOrManager] # 只有管理员可以访问
 
 class PageConfigDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = PageConfig.objects.all()
     serializer_class = PageConfigSerializer
-    permission_classes = [IsAdminUser] # 只有管理员可以访问
+    permission_classes = [IsAdminOrManager] # 只有管理员可以访问
     lookup_field = 'page_path' # 根据 page_path 进行查找
 
 class OllamaConfigViewSet(viewsets.ModelViewSet):
