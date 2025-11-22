@@ -108,49 +108,50 @@ const SequenceForm = ({
           </Col>
           <Col span={12}>
             <h3>人员排序</h3>
-            <Droppable droppableId="droppable-grid">
+            <Droppable droppableId="droppable-list">
               {(provided) => (
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
                   style={{
-                    display: 'flex',
-                    flexWrap: 'wrap',
-                    gap: '10px',
                     height: '430px',
                     overflowY: 'auto',
                     border: '1px solid #d9d9d9',
                     borderRadius: '2px',
-                    padding: '10px'
+                    padding: '8px',
+                    backgroundColor: '#f5f5f5'
                   }}
                 >
                   {selectedPersonnel.map((item, index) => (
                     <Draggable key={item.id} draggableId={String(item.id)} index={index}>
-                      {(provided) => (
+                      {(provided, snapshot) => (
                         <div
                           ref={provided.innerRef}
                           {...provided.draggableProps}
                           {...provided.dragHandleProps}
                           style={{
                             userSelect: 'none',
-                            padding: '2px 8px',
-                            margin: '2px',
-                            backgroundColor: '#fafafa',
+                            padding: '10px',
+                            margin: '0 0 8px 0',
+                            backgroundColor: snapshot.isDragging ? '#e6f7ff' : 'white',
                             border: '1px solid #d9d9d9',
                             borderRadius: '4px',
                             display: 'flex',
+                            justifyContent: 'space-between',
                             alignItems: 'center',
                             ...provided.draggableProps.style,
                           }}
                         >
-                          <span style={{ marginRight: '4px' }}>{item.name}</span>
+                          <div>
+                            <span style={{ fontWeight: 'bold' }}>{item.name}</span>
+                            <Tag style={{ marginLeft: '8px' }}>{item.position_name}</Tag>
+                          </div>
                           <Button
                             type="text"
                             danger
                             size="small"
                             onClick={() => handleRemovePersonnel(item.id)}
-                            style={{ padding: 0, height: 'auto', lineHeight: 1, border: 'none' }}
-                            icon={<span style={{ fontSize: '12px' }}>✖</span>}
+                            icon={<span style={{ fontSize: '14px' }}>✖</span>}
                           />
                         </div>
                       )}
