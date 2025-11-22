@@ -560,7 +560,6 @@ const ScheduleManagementPage = () => {
           <Space>
             <Button type="primary" onClick={handleAdd}>新增排班</Button>
             <Button onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
-            <Button type="dashed" onClick={() => setIsPersonnelSequenceModalVisible(true)}>新建人员顺序</Button>
             <Button onClick={exportToPdf} loading={isExporting}>导出为PDF</Button>
           </Space>
         }
