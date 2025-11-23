@@ -350,6 +350,31 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         serializer = ScheduleSerializer(created_schedules, many=True)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['post'], url_path='bulk_destroy')
+    def bulk_delete(self, request):
+        """
+        批量删除排班记录。
+        接收一个包含排班 ID 列表的 POST 请求。
+        请求体格式: { "ids": [1, 2, 3] }
+        """
+        schedule_ids = request.data.get('ids', [])
+
+        if not isinstance(schedule_ids, list):
+            return Response(
+                {'error': 'Invalid data format. "ids" should be a list.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            with transaction.atomic():
+                Schedule.objects.filter(pk__in=schedule_ids).delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Exception as e:
+            return Response(
+                {'error': 'An internal server error occurred.'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 from rest_framework.filters import SearchFilter
 
 class PersonnelViewSet(viewsets.ModelViewSet):

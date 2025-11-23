@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider, Switch } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
@@ -13,7 +13,7 @@ import PersonnelSequenceModal from '../components/Schedule/PersonnelSequenceModa
 
 const { Option } = Select;
 
-const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList, positions }) => {
+const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, positions }) => {
   const [form] = Form.useForm();
   const [filteredDutyPersonList, setFilteredDutyPersonList] = useState(personnelList);
   const [filteredDutyLeaderList, setFilteredDutyLeaderList] = useState(personnelList);
@@ -21,7 +21,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
   const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
 
   useEffect(() => {
-    if (visible) {
+    if (open) {
       form.setFieldsValue({
         ...initialData,
         date: initialData.duty_date ? moment(initialData.duty_date) : null,
@@ -40,7 +40,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
       setSelectedPersonPositionId(null);
       setSelectedLeaderPositionId(null);
     }
-  }, [visible, initialData, form, personnelList]);
+  }, [open, initialData, form, personnelList]);
 
 
   useEffect(() => {
@@ -81,7 +81,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
   return (
     <Modal
       title={initialData.id ? "编辑排班" : "新增排班"}
-      visible={visible}
+      open={open}
       onOk={handleOk}
       onCancel={onCancel}
       destroyOnClose
@@ -182,7 +182,7 @@ const ScheduleFormModal = ({ visible, onCancel, onOk, initialData, personnelList
 };
 
 
-const GenerateScheduleModal = ({ visible, onCancel, onOk, personnelSequences, leaderSequences }) => {
+const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leaderSequences }) => {
   const [form] = Form.useForm();
   const [generationMode, setGenerationMode] = useState('days');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
@@ -230,7 +230,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
   };
 
   return (
-    <Modal title="生成排班" visible={visible} onOk={handleOk} onCancel={onCancel} destroyOnClose>
+    <Modal title="生成排班" open={open} onOk={handleOk} onCancel={onCancel} destroyOnClose>
       <Form form={form} layout="vertical" initialValues={{ generationMode: 'days' }}>
         <Form.Item name="generationMode" label="生成方式">
           <Radio.Group onChange={(e) => setGenerationMode(e.target.value)}>
@@ -311,6 +311,10 @@ const ScheduleManagementPage = () => {
   const calendarRef = useRef(null);
   const calendarContainerRef = useRef(null); // 新增ref用于日历容器
   const originalCalendarContainerStyle = useRef({}); // 存储日历容器的原始样式
+  const [selectedSchedules, setSelectedSchedules] = useState([]);
+  const [isAllSelected, setIsAllSelected] = useState(false);
+  const [isCalendarFilterEnabled, setIsCalendarFilterEnabled] = useState(false);
+  const [calendarViewInfo, setCalendarViewInfo] = useState(null);
 
   useEffect(() => {
     // 组件挂载时保存日历容器的原始样式
@@ -403,6 +407,21 @@ const ScheduleManagementPage = () => {
       message.error('删除排班失败');
     }
   }, [fetchData]);
+
+  const handleBulkDelete = async () => {
+    if (selectedSchedules.length === 0) {
+      message.info('请先选择要删除的排班');
+      return;
+    }
+    try {
+      await scheduleApi.bulkDeleteSchedules(selectedSchedules);
+      message.success('批量删除成功');
+      setSchedules(schedules.filter(s => !selectedSchedules.includes(s.id)));
+      setSelectedSchedules([]);
+    } catch (error) {
+      message.error('批量删除失败');
+    }
+  };
 
   const handleModalOk = async (values) => {
     try {
@@ -500,6 +519,21 @@ const ScheduleManagementPage = () => {
     }));
   }, [schedules]);
 
+  const filteredSchedules = useMemo(() => {
+    if (!isCalendarFilterEnabled || !calendarViewInfo) {
+      return schedules;
+    }
+
+    const { start, end } = calendarViewInfo;
+    const viewStart = moment(start).startOf('day');
+    const viewEnd = moment(end).endOf('day');
+
+    return schedules.filter(schedule => {
+      const dutyDate = moment(schedule.duty_date);
+      return dutyDate.isBetween(viewStart, viewEnd, undefined, '[]');
+    });
+  }, [schedules, isCalendarFilterEnabled, calendarViewInfo]);
+
   const exportToPdf = async () => {
     setIsExporting(true);
     const calendarEl = calendarRef.current.getApi().el;
@@ -552,6 +586,27 @@ const ScheduleManagementPage = () => {
     },
   ];
 
+  const handleSelectAll = () => {
+    const allScheduleIds = filteredSchedules.map(s => s.id);
+    setSelectedSchedules(allScheduleIds);
+    setIsAllSelected(true);
+  };
+
+  const handleInvertSelection = () => {
+    const allScheduleIds = filteredSchedules.map(s => s.id);
+    const unselectedSchedules = allScheduleIds.filter(id => !selectedSchedules.includes(id));
+    setSelectedSchedules(unselectedSchedules);
+    setIsAllSelected(false);
+  };
+
+  const rowSelection = {
+    selectedRowKeys: selectedSchedules,
+    onChange: (selectedRowKeys) => {
+      setSelectedSchedules(selectedRowKeys);
+      setIsAllSelected(selectedRowKeys.length === filteredSchedules.length && filteredSchedules.length > 0);
+    },
+  };
+
   return (
     <>
       <Card
@@ -561,6 +616,13 @@ const ScheduleManagementPage = () => {
             <Button type="primary" onClick={handleAdd}>新增排班</Button>
             <Button onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
             <Button onClick={exportToPdf} loading={isExporting}>导出为PDF</Button>
+            <Space align="center" style={{ marginLeft: 16 }}>
+              <span>日历过滤</span>
+              <Switch
+                checked={isCalendarFilterEnabled}
+                onChange={setIsCalendarFilterEnabled}
+              />
+            </Space>
           </Space>
         }
       >
@@ -581,6 +643,7 @@ const ScheduleManagementPage = () => {
                 <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
               </div>
             )}
+            datesSet={(view) => setCalendarViewInfo(view)}
             headerToolbar={
               isExporting
                 ? { left: '', center: 'title', right: '' }
@@ -589,9 +652,17 @@ const ScheduleManagementPage = () => {
             ref={calendarRef}
           />
         </div>
+        <div style={{ marginBottom: 16 }}>
+          <Space>
+            <Button onClick={handleSelectAll}>全选</Button>
+            <Button onClick={handleInvertSelection}>反选</Button>
+            <Button danger onClick={handleBulkDelete}>批量删除</Button>
+          </Space>
+        </div>
         <Table
+          rowSelection={rowSelection}
           columns={columns}
-          dataSource={schedules}
+          dataSource={filteredSchedules}
           rowKey="id"
           loading={loading}
           pagination={{ pageSize: 10 }}
@@ -615,7 +686,7 @@ const ScheduleManagementPage = () => {
         )}
         {isPersonnelSequenceModalVisible && (
           <PersonnelSequenceModal
-            visible={isPersonnelSequenceModalVisible}
+            open={isPersonnelSequenceModalVisible}
             onOk={handlePersonnelSequenceModalOk}
             onCancel={handlePersonnelSequenceModalCancel}
           />

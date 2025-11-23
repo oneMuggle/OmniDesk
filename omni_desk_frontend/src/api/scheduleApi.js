@@ -114,6 +114,16 @@ export const scheduleApi = {
     }
   },
 
+  bulkDeleteSchedules: async (ids) => {
+    try {
+      const response = await apiClient.post('/events/schedules/bulk_destroy/', { ids });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
   swapScheduleDates: async (scheduleId1, scheduleId2) => {
     try {
       const response = await apiClient.post('/events/schedules/swap-dates/', {

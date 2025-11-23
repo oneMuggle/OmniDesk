@@ -1,12 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Input, Select, List, Button, Row, Col } from 'antd';
+import { Modal, Form, Input, Select, List, Button, Row, Col } from 'antd';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
 
-const PersonnelSequenceModal = ({ visible, onCancel, onOk }) => {
-  const [sequenceName, setSequenceName] = useState('');
+const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
+  const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
   const [positions, setPositions] = useState([]);
@@ -86,20 +86,24 @@ const PersonnelSequenceModal = ({ visible, onCancel, onOk }) => {
   };
 
   const handleSave = () => {
-    const personnelIds = selectedPersonnel.map(p => p.id);
-    axios.post('/api/personnel-sequences/', { name: sequenceName, personnel_ids: personnelIds })
-      .then(() => {
-        onOk();
-      })
-      .catch(error => {
-        console.error('Error saving personnel sequence:', error);
-      });
+    form.validateFields().then(values => {
+      const personnelIds = selectedPersonnel.map(p => p.id);
+      axios.post('/api/personnel-sequences/', { ...values, personnel_ids: personnelIds })
+        .then(() => {
+          onOk();
+          form.resetFields();
+          setSelectedPersonnel([]);
+        })
+        .catch(error => {
+          console.error('Error saving personnel sequence:', error);
+        });
+    });
   };
 
   return (
     <Modal
       title="新建人员顺序"
-      visible={visible}
+      open={open}
       onOk={handleSave}
       onCancel={onCancel}
       width={1000}
@@ -112,12 +116,15 @@ const PersonnelSequenceModal = ({ visible, onCancel, onOk }) => {
         </Button>,
       ]}
     >
-      <Input
-        placeholder="顺序名称"
-        value={sequenceName}
-        onChange={(e) => setSequenceName(e.target.value)}
-        style={{ marginBottom: '20px' }}
-      />
+      <Form form={form} layout="vertical">
+        <Form.Item
+          name="name"
+          label="顺序名称"
+          rules={[{ required: true, message: '请输入顺序名称!' }]}
+        >
+          <Input placeholder="顺序名称" />
+        </Form.Item>
+      </Form>
       <Row gutter={16}>
         {/* Left Column: Select Personnel */}
         <Col span={12}>
