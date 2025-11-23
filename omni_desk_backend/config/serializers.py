@@ -1,20 +1,33 @@
 from rest_framework import serializers
-from .models import Config, PageConfig
+from django.contrib.auth.models import Group
+from .models import Page, PageVisibility
 
-class ConfigSerializer(serializers.ModelSerializer):
+
+class GroupSerializer(serializers.ModelSerializer):
+    """
+    序列化 Django 内置的 Group 模型。
+    """
     class Meta:
-        model = Config
+        model = Group
+        fields = ('id', 'name')
+
+
+class PageSerializer(serializers.ModelSerializer):
+    """
+    序列化 Page 模型。
+    """
+    class Meta:
+        model = Page
         fields = '__all__'
-        read_only_fields = ('created_at', 'updated_at')
 
-class PageConfigSerializer(serializers.ModelSerializer):
+
+class PageVisibilitySerializer(serializers.ModelSerializer):
+    """
+    序列化 PageVisibility 模型，并提供 page 和 group 的嵌套表示。
+    """
+    page = PageSerializer(read_only=True)
+    group = GroupSerializer(read_only=True)
+
     class Meta:
-        model = PageConfig
-        fields = '__all__'
-
-from .models import OllamaConfig
-
-class OllamaConfigSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = OllamaConfig
+        model = PageVisibility
         fields = '__all__'

@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.contrib.auth.models import Group
 
 class Config(models.Model):
     key = models.CharField(_('配置键'), max_length=100, unique=True)
@@ -51,3 +52,27 @@ class OllamaConfig(models.Model):
             # 并且只更新那些 is_default 已经为 True 的实例
             OllamaConfig.objects.filter(is_default=True).exclude(pk=self.pk).update(is_default=False)
         super(OllamaConfig, self).save(*args, **kwargs)
+
+class Page(models.Model):
+    name = models.CharField(_('显示名称'), max_length=255)
+    path = models.CharField(_('路由路径'), max_length=255, unique=True)
+
+    class Meta:
+        verbose_name = _('页面')
+        verbose_name_plural = _('页面')
+
+    def __str__(self):
+        return self.name
+
+class PageVisibility(models.Model):
+    page = models.ForeignKey(Page, on_delete=models.CASCADE)
+    group = models.ForeignKey(Group, on_delete=models.CASCADE)
+    is_visible = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('page', 'group')
+        verbose_name = _('页面可见性')
+        verbose_name_plural = _('页面可见性')
+
+    def __str__(self):
+        return f"{self.page.name} - {self.group.name}"
