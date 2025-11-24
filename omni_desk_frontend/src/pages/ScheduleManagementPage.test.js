@@ -228,3 +228,128 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
     });
   });
 });
+
+describe('ScheduleManagementPage CRUD Operations', () => {
+  beforeEach(() => {
+    scheduleApi.getSchedules.mockResolvedValue(mockSchedules);
+    getAllPersonnel.mockResolvedValue(mockPersonnel);
+    getPositions.mockResolvedValue(mockPositions);
+    getPersonnelSequences.mockResolvedValue(mockSequences);
+    getLeaderSequences.mockResolvedValue(mockSequences);
+  });
+
+  afterEach(() => {
+    jest.clearAllMocks();
+  });
+
+  const renderComponent = async () => {
+    render(<ScheduleManagementPage />);
+    await screen.findByRole('table');
+  };
+
+  test('opens add modal, submits, and closes', async () => {
+    await renderComponent();
+
+    // Open modal
+    fireEvent.click(screen.getByRole('button', { name: /新增排班/i }));
+    await screen.findByRole('dialog', { name: /新增排班/i });
+
+    // Fill form
+    fireEvent.change(screen.getByLabelText('值班日期'), { target: { value: '2025-11-26' } });
+    // antd select is complex, we need to click to open dropdown, then click option
+    fireEvent.mouseDown(screen.getByLabelText('值班人员'));
+    await screen.findByText('Alice (Dev)');
+    fireEvent.click(screen.getByText('Alice (Dev)'));
+
+    fireEvent.mouseDown(screen.getByLabelText('值班领导'));
+    await screen.findByText('Leader A (Dev)');
+    fireEvent.click(screen.getByText('Leader A (Dev)'));
+
+    scheduleApi.createSchedule.mockResolvedValue({ success: true });
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => {
+      expect(scheduleApi.createSchedule).toHaveBeenCalled();
+    });
+
+    // Modal should close
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /新增排班/i })).not.toBeInTheDocument();
+    });
+  });
+
+  test('opens edit modal, submits, and closes', async () => {
+    await renderComponent();
+
+    // Open modal
+    const editButtons = await screen.findAllByRole('button', { name: /编辑/i });
+    fireEvent.click(editButtons[0]);
+    await screen.findByRole('dialog', { name: /编辑排班/i });
+
+    // Form should be pre-filled
+    expect(screen.getByLabelText('值班日期')).toHaveValue('2025-11-10');
+
+    scheduleApi.updateSchedule.mockResolvedValue({ success: true });
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => {
+      expect(scheduleApi.updateSchedule).toHaveBeenCalledWith(1, expect.any(Object));
+    });
+
+    // Modal should close
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /编辑排班/i })).not.toBeInTheDocument();
+    });
+  });
+
+  test('deletes a schedule', async () => {
+    await renderComponent();
+
+    scheduleApi.deleteSchedule.mockResolvedValue({ success: true });
+
+    const deleteButtons = await screen.findAllByRole('button', { name: /删除/i });
+    fireEvent.click(deleteButtons[0]);
+
+    // Confirm deletion
+    const confirmButton = await screen.findByRole('button', { name: /确 定/i });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => {
+      expect(scheduleApi.deleteSchedule).toHaveBeenCalledWith(1);
+    });
+  });
+
+  test('opens generate schedule modal, submits, and closes', async () => {
+    await renderComponent();
+
+    // Open modal
+    fireEvent.click(screen.getByRole('button', { name: /生成排班/i }));
+    await screen.findByRole('dialog', { name: /生成排班/i });
+
+    // Fill form
+    fireEvent.change(screen.getByLabelText('起始日期'), { target: { value: '2025-12-01' } });
+    fireEvent.change(screen.getByLabelText('生成天数'), { target: { value: '10' } });
+
+    fireEvent.mouseDown(screen.getByLabelText('人员顺序'));
+    // Mock sequences need to be populated for this to work
+    // For now, we just check if the modal opens and closes
+
+    scheduleApi.generateSchedules.mockResolvedValue({ success: true });
+
+    // Submit
+    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+
+    await waitFor(() => {
+      expect(scheduleApi.generateSchedules).toHaveBeenCalled();
+    });
+
+    // Modal should close
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /生成排班/i })).not.toBeInTheDocument();
+    });
+  });
+});

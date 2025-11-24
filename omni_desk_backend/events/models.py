@@ -74,7 +74,7 @@ class TimeSlot(models.Model):
         """保存时触发关联试验的时间范围更新"""
         super().save(*args, **kwargs)
         if self.trial:
-            self.trial.update_time_range(changed_slots=[self])
+            self.trial.update_time_range()
 
     def delete(self, *args, **kwargs):
         """删除时触发关联试验的时间范围更新"""
@@ -120,47 +120,37 @@ class Trial(models.Model):
 
     def save(self, *args, **kwargs):
         """自动从时间段计算主时间范围"""
-        # 先保存基础信息生成ID
-        super().save(*args, **kwargs)  
-        
-        # 单独调用更新逻辑，避免关联关系问题
-        self.update_time_range()
+        super().save(*args, **kwargs)
+        # The related TimeSlot's save/delete will call update_time_range.
+        # We call it here to handle cases where a Trial is saved directly.
+        if not kwargs.get('skip_time_range_update', False):
+            self.update_time_range()
 
-    def update_time_range(self, changed_slots=None):
-        """优化后的时间范围计算方法"""
-        if not hasattr(self, '_time_range_dirty'):
-            self._time_range_dirty = False
-            
-        # 如果有传入变更的时间段，只设置脏标记
-        if changed_slots:
-            self._time_range_dirty = True
-            return
-            
-        # 如果没有脏标记则跳过计算
-        if not self._time_range_dirty:
-            return
-            
+    def update_time_range(self):
+        """
+        Calculates and updates the Trial's start_date and end_date based on its associated TimeSlots.
+        """
+        from django.db.models import Min, Max
+        
         time_slots = self.time_slots.all()
         if time_slots.exists():
-            # 使用数据库聚合查询优化性能
-            from django.db.models import Min, Max
             time_range = time_slots.aggregate(
                 min_start=Min('start_time'),
                 max_end=Max('end_time')
             )
-            
-            # 使用update避免递归保存
-            self.__class__.objects.filter(pk=self.pk).update(
-                start_date=time_range['min_start'],
-                end_date=time_range['max_end']
-            )
-            self._time_range_dirty = False
-        else: # 当没有时间段时，清空主时间范围
-            self.__class__.objects.filter(pk=self.pk).update(
-                start_date=None,
-                end_date=None
-            )
-            self._time_range_dirty = False
+            new_start_date = time_range['min_start']
+            new_end_date = time_range['max_end']
+        else:
+            new_start_date = None
+            new_end_date = None
+
+        # Update only if the dates have changed to prevent recursion
+        if self.start_date != new_start_date or self.end_date != new_end_date:
+            # Use update to bypass this save method and avoid recursion
+            Trial.objects.filter(pk=self.pk).update(start_date=new_start_date, end_date=new_end_date)
+            # Refresh the current instance's fields for immediate use
+            self.start_date = new_start_date
+            self.end_date = new_end_date
 
     def get_time_slots(self):
         """获取关联的时间段"""

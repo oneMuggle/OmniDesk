@@ -255,7 +255,7 @@ const MeetingRoomManagementPage = () => {
 
             <Modal
                 title={editingRoom ? "编辑会议室" : "添加会议室"}
-                visible={isRoomModalVisible}
+                open={isRoomModalVisible}
                 onOk={handleSaveRoom}
                 onCancel={() => setIsRoomModalVisible(false)}
                 confirmLoading={loading}
@@ -288,7 +288,7 @@ const MeetingRoomManagementPage = () => {
 
             <Modal
                 title={editingMaintenance ? "编辑维护记录" : "添加维护记录"}
-                visible={isMaintenanceModalVisible}
+                open={isMaintenanceModalVisible}
                 onOk={handleSaveMaintenance}
                 onCancel={() => setIsMaintenanceModalVisible(false)}
                 confirmLoading={loading}

@@ -76,3 +76,38 @@ class ProjectViewSetTests(APITestCase):
         self.assertEqual(Project.objects.count(), 3)
         new_project = Project.objects.get(name='Another Project')
         self.assertEqual(new_project.manager, self.manager_user)
+    def test_update_project_as_manager(self):
+        self.client.force_authenticate(user=self.manager_user)
+        url = reverse('project-detail', args=[self.project1.id])
+        data = {'name': 'Project 1 Updated'}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.project1.refresh_from_db()
+        self.assertEqual(self.project1.name, 'Project 1 Updated')
+
+    def test_delete_project_as_manager(self):
+        self.client.force_authenticate(user=self.manager_user)
+        url = reverse('project-detail', args=[self.project1.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Project.objects.count(), 1)
+
+    def test_regular_user_cannot_update_project(self):
+        self.client.force_authenticate(user=self.regular_user)
+        url = reverse('project-detail', args=[self.project1.id])
+        data = {'name': 'Unauthorized Update'}
+        response = self.client.patch(url, data, format='json')
+        # This should fail because the queryset in get_queryset will not find the project
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_regular_user_cannot_delete_project(self):
+        self.client.force_authenticate(user=self.regular_user)
+        url = reverse('project-detail', args=[self.project1.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_unauthenticated_user_cannot_access_projects(self):
+        self.client.force_authenticate(user=None)
+        url = reverse('project-list')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)

@@ -193,30 +193,30 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         duty_date = serializer.validated_data.get('duty_date')
         override = self.request.data.get('override', False)
         
-        if Schedule.objects.filter(duty_date=duty_date).exists():
+        existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
+        
+        if existing_schedule:
             if override:
-                # 覆盖模式 - 删除原有排班
-                Schedule.objects.filter(duty_date=duty_date).delete()
+                existing_schedule.delete()
             else:
-                raise serializers.ValidationError(
-                    {'duty_date': '该日期已有排班'}
-                )
+                # Directly use rest_framework.serializers.ValidationError
+                from rest_framework import serializers
+                raise serializers.ValidationError({'duty_date': '该日期已有排班'})
+                
         serializer.save()
 
     def perform_update(self, serializer):
         """更新排班时检查日期是否冲突"""
-        duty_date = serializer.validated_data.get('duty_date')
-        override = self.request.data.get('override', False)
+        duty_date = serializer.validated_data.get('duty_date', serializer.instance.duty_date)
         
-        conflicting_schedules = Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk)
-        if conflicting_schedules.exists():
-            if override:
-                # 覆盖模式 - 删除冲突的排班
-                conflicting_schedules.delete()
-            else:
-                raise serializers.ValidationError(
-                    {'duty_date': '该日期已有排班'}
-                )
+        # 检查是否存在与当前实例不同的、日期冲突的排班
+        conflicting_schedule = Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).first()
+        
+        if conflicting_schedule:
+            # 直接使用 rest_framework.serializers.ValidationError
+            from rest_framework import serializers
+            raise serializers.ValidationError({'duty_date': '该日期已有排班'})
+            
         serializer.save()
 
     @action(detail=False, methods=['post'], url_path='swap-dates')
@@ -330,7 +330,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 
                 # Weekly rotation for leaders
                 start_of_current_week = current_date - timedelta(days=current_date.weekday())
-                weeks_passed = (start_of_current_week - start_of_start_week).days // 7
+                weeks_passed = (current_date - start_date).days // 7
                 leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
                 
                 duty_person_id = personnel_order[personnel_idx]
@@ -395,11 +395,14 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
     def perform_create(self, serializer):
-        phone_numbers_data = self.request.data.get('phone_numbers', [])
         with transaction.atomic():
             personnel = serializer.save()
-            for phone_data in phone_numbers_data:
-                PhoneNumber.objects.create(personnel=personnel, **phone_data)
+            phone_numbers_data = self.request.data.get('phone_numbers', [])
+            if phone_numbers_data:
+                # Clear existing phone numbers before adding new ones
+                personnel.phone_numbers.all().delete()
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
 
     def perform_update(self, serializer):
         phone_numbers_data = self.request.data.get('phone_numbers', None)

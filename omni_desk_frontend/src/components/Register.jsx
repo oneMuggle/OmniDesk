@@ -55,8 +55,9 @@ const Register = () => {
                 <h2>注册</h2>
                 {error && <div className="error-message">{error}</div>}
                 <div className="form-group">
-                    <label>用户名</label>
+                    <label htmlFor="username">用户名</label>
                     <input
+                        id="username"
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
@@ -65,20 +66,24 @@ const Register = () => {
                     />
                 </div>
                 <div className="form-group">
-                    <label>密码</label>
+                    <label htmlFor="password">密码</label>
                     <input
+                        id="password"
                         type="password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
+                        placeholder="密码"
                         required
                     />
                 </div>
                 <div className="form-group">
-                    <label>确认密码</label>
+                    <label htmlFor="confirmPassword">确认密码</label>
                     <input
+                        id="confirmPassword"
                         type="password"
                         value={confirmPassword}
                         onChange={(e) => setConfirmPassword(e.target.value)}
+                        placeholder="确认密码"
                         required
                     />
                 </div>

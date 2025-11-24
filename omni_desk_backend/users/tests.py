@@ -130,9 +130,9 @@ class UserPersonnelManagementTests(APITestCase):
         CustomUser.objects.create_user(username='test_list_user', password='password123')
         response = self.client.get(self.list_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertGreater(len(response.data), 0)
+        self.assertGreater(len(response.data['results']), 0)
         # 检查是否包含 personnel 字段
-        self.assertIn('personnel', response.data[0])
+        self.assertIn('personnel', response.data['results'][0])
 
     def test_admin_can_associate_personnel_to_user(self):
         self.client.force_authenticate(user=self.admin_user)
@@ -175,3 +175,88 @@ class UserPersonnelManagementTests(APITestCase):
         data = {'personnel_id': self.personnel1.id}
         response = self.client.patch(update_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN) # 应该没有权限
+
+class UserProfileManagementTests(APITestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(
+            username='testuser',
+            password='password123',
+            real_name='Old Name',
+            phone='1234567890'
+        )
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.profile_update_url = reverse('users:user-profile-update')
+        self.change_password_url = reverse('users:change-password')
+
+    def test_user_can_update_profile(self):
+        data = {
+            'real_name': 'New Name',
+            'phone': '0987654321'
+        }
+        response = self.client.patch(self.profile_update_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.real_name, 'New Name')
+        self.assertEqual(self.user.phone, '0987654321')
+
+    def test_user_can_change_password(self):
+        data = {
+            'old_password': 'password123',
+            'new_password': 'newpassword456'
+        }
+        response = self.client.put(self.change_password_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.user.refresh_from_db()
+        self.assertTrue(self.user.check_password('newpassword456'))
+
+    def test_change_password_with_wrong_old_password(self):
+        data = {
+            'old_password': 'wrongpassword',
+            'new_password': 'newpassword456'
+        }
+        response = self.client.put(self.change_password_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+class UserAdminViewTests(APITestCase):
+    def setUp(self):
+        self.admin_user = CustomUser.objects.create_user(
+            username='admin',
+            password='password123',
+            role='admin',
+            is_staff=True,
+            is_superuser=True
+        )
+        self.manager_user = CustomUser.objects.create_user('manager', 'manager@test.com', 'password123', role='manager')
+        self.regular_user = CustomUser.objects.create_user('user', 'user@test.com', 'password123', role='user')
+        self.client = APIClient()
+        self.user_admin_list_url = reverse('users:user-admin-list')
+        self.user_admin_detail_url = reverse('users:user-admin-detail', args=[self.regular_user.id])
+
+    def test_admin_can_access_user_admin_list(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.user_admin_list_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_manager_cannot_access_user_admin_list(self):
+        self.client.force_authenticate(user=self.manager_user)
+        response = self.client.get(self.user_admin_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_regular_user_cannot_access_user_admin_list(self):
+        self.client.force_authenticate(user=self.regular_user)
+        response = self.client.get(self.user_admin_list_url)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    def test_admin_can_access_user_admin_detail(self):
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.user_admin_detail_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+    def test_admin_can_update_user_role(self):
+        self.client.force_authenticate(user=self.admin_user)
+        data = {'role': 'manager'}
+        response = self.client.patch(self.user_admin_detail_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.regular_user.refresh_from_db()
+        self.assertEqual(self.regular_user.role, 'manager')

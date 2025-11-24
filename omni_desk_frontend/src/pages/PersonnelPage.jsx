@@ -15,7 +15,6 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCi
 import UserPersonnelAssociation from '../components/UserPersonnelAssociation';
 
 const { Option } = Select; // Destructure Option from Select
-const { TabPane } = Tabs; // Destructure TabPane from Tabs
 
 const PersonnelPage = () => {
   const [form] = Form.useForm();
@@ -358,143 +357,144 @@ const PersonnelPage = () => {
   return (
     <div className='p-4'>
       <h2 className='text-xl font-bold mb-4'>人员管理系统</h2> {/* Moved outside Tabs */}
-      <Tabs defaultActiveKey="personnel" activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane tab="人员管理" key="personnel">
-          <div className='mb-4 flex justify-between'>
-            <Space>
-              <Input.Search
-                placeholder="按姓名搜索"
-                onSearch={(value) => {
-                  setSearchQuery(value);
-                  // Reset to first page on new search
-                  fetchData({ page: 1, pageSize: pagination.pageSize, search: value, position: positionFilter });
-                }}
-                onChange={(e) => {
-                  // Optional: live search as user types
-                  // setSearchQuery(e.target.value);
-                  // fetchData({ page: 1, pageSize: pagination.pageSize, search: e.target.value, position: positionFilter });
-                }}
-                style={{ width: 200 }}
-                allowClear
-              />
-              <Select
-                placeholder="按职位筛选"
-                onChange={(value) => {
-                  setPositionFilter(value);
-                  // Reset to first page on new filter
-                  fetchData({ page: 1, pageSize: pagination.pageSize, search: searchQuery, position: value });
-                }}
-                style={{ width: 200 }}
-                allowClear
-              >
-                {positions.map(pos => (
-                  <Option key={pos.id} value={pos.id}>{pos.name}</Option>
-                ))}
-              </Select>
-            </Space>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={showCreateModal}
-            >
-              新增人员
-            </Button>
-          </div>
-
-          <Table
-            columns={columns}
-            dataSource={data || []}
-            rowKey="id"
-            bordered
-            pagination={{
-              ...pagination,
-              showSizeChanger: true,
-              pageSizeOptions: ['10', '20', '50'],
-              showTotal: (total) => `共 ${total} 条`,
-            }}
-            onChange={handleTableChange}
-          />
-
-          <Modal
-            title={editingId ? '编辑人员' : '新增人员'}
-            open={isModalVisible}
-            onOk={handleSubmit}
-            onCancel={() => setIsModalVisible(false)}
-            destroyOnClose
-          >
-            <Form form={form} layout="vertical">
-              <Form.Item
-                label="姓名"
-                name="name"
-                rules={[{ required: true, message: '请输入姓名' }]}
-              >
-                <Input placeholder="请输入姓名" />
-              </Form.Item>
-
-
-
-              <Form.Item
-                label="职位"
-                name="position" // Changed to 'position'
-                rules={[{ required: true, message: '请选择职位' }]}
-              >
-                <Select placeholder="请选择职位" allowClear>
-                  {positions.map(pos => (
-                    <Option key={pos.id} value={pos.id}>{pos.name}</Option>
-                  ))}
-                </Select>
-              </Form.Item>
-
-              <Form.List name="phone_numbers">
-                {(fields, { add, remove }) => (
-                  <>
-                    {fields.map(({ key, name, fieldKey, ...restField }) => (
-                      <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                        <Form.Item
-                          {...restField}
-                          name={[name, 'number']}
-                          fieldKey={[fieldKey, 'number']}
-                          rules={[
-                            { required: true, message: '请输入电话号码' },
-                            { pattern: /^(\d{5}|\d{6}|1[3-9]\d{9})$/, message: '请输入有效的电话号码（5位、6位短号或11位手机号）' }
-                          ]}
-                        >
-                          <Input placeholder="电话号码" />
-                        </Form.Item>
-                        <MinusCircleOutlined onClick={() => remove(name)} />
-                      </Space>
-                    ))}
-                    <Form.Item>
-                      <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />}>
-                        添加电话号码
-                      </Button>
+      <Tabs
+        defaultActiveKey="personnel"
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        items={[
+          {
+            label: '人员管理',
+            key: 'personnel',
+            children: (
+              <>
+                <div className='mb-4 flex justify-between'>
+                  <Space>
+                    <Input.Search
+                      placeholder="按姓名搜索"
+                      onSearch={(value) => {
+                        setSearchQuery(value);
+                        fetchData({ page: 1, pageSize: pagination.pageSize, search: value, position: positionFilter });
+                      }}
+                      style={{ width: 200 }}
+                      allowClear
+                    />
+                    <Select
+                      placeholder="按职位筛选"
+                      onChange={(value) => {
+                        setPositionFilter(value);
+                        fetchData({ page: 1, pageSize: pagination.pageSize, search: searchQuery, position: value });
+                      }}
+                      style={{ width: 200 }}
+                      allowClear
+                    >
+                      {positions.map(pos => (
+                        <Option key={pos.id} value={pos.id}>{pos.name}</Option>
+                      ))}
+                    </Select>
+                  </Space>
+                  <Button
+                    type="primary"
+                    icon={<PlusOutlined />}
+                    onClick={showCreateModal}
+                  >
+                    新增人员
+                  </Button>
+                </div>
+                <Table
+                  columns={columns}
+                  dataSource={data || []}
+                  rowKey="id"
+                  bordered
+                  pagination={{
+                    ...pagination,
+                    showSizeChanger: true,
+                    pageSizeOptions: ['10', '20', '50'],
+                    showTotal: (total) => `共 ${total} 条`,
+                  }}
+                  onChange={handleTableChange}
+                />
+                <Modal
+                  title={editingId ? '编辑人员' : '新增人员'}
+                  open={isModalVisible}
+                  onOk={handleSubmit}
+                  onCancel={() => setIsModalVisible(false)}
+                  destroyOnClose
+                >
+                  <Form form={form} layout="vertical">
+                    <Form.Item
+                      label="姓名"
+                      name="name"
+                      rules={[{ required: true, message: '请输入姓名' }]}
+                    >
+                      <Input placeholder="请输入姓名" />
                     </Form.Item>
-                  </>
-                )}
-              </Form.List>
-            </Form>
-          </Modal>
-          <ConfirmModal
-            open={isDeleteConfirmVisible}
-            title="确认删除"
-            content="确定要删除该人员信息吗？"
-            okText="确认"
-            cancelText="取消"
-            type="danger"
-            onOk={handleConfirmDelete}
-            onCancel={() => {
-              setIsDeleteConfirmVisible(false);
-              setSelectedPersonnelId(null);
-            }}
-          />
-        </TabPane>
-        <TabPane tab="职位管理" key="positions">
-          <PositionManagementTab />
-        </TabPane>
-        <TabPane tab="用户人员关联" key="user-personnel-association">
-            <UserPersonnelAssociation />
-        </TabPane>
-      </Tabs>
+                    <Form.Item
+                      label="职位"
+                      name="position"
+                      rules={[{ required: true, message: '请选择职位' }]}
+                    >
+                      <Select placeholder="请选择职位" allowClear>
+                        {positions.map(pos => (
+                          <Option key={pos.id} value={pos.id}>{pos.name}</Option>
+                        ))}
+                      </Select>
+                    </Form.Item>
+                    <Form.List name="phone_numbers">
+                      {(fields, { add, remove }) => (
+                        <>
+                          {fields.map(({ key, name, ...restField }) => (
+                            <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                              <Form.Item
+                                {...restField}
+                                name={[name, 'number']}
+                                rules={[
+                                  { required: true, message: '请输入电话号码' },
+                                  { pattern: /^(\d{5}|\d{6}|1[3-9]\d{9})$/, message: '请输入有效的电话号码（5位、6位短号或11位手机号）' }
+                                ]}
+                              >
+                                <Input placeholder="电话号码" />
+                              </Form.Item>
+                              <MinusCircleOutlined onClick={() => remove(name)} />
+                            </Space>
+                          ))}
+                          <Form.Item>
+                            <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />}>
+                              添加电话号码
+                            </Button>
+                          </Form.Item>
+                        </>
+                      )}
+                    </Form.List>
+                  </Form>
+                </Modal>
+                <ConfirmModal
+                  open={isDeleteConfirmVisible}
+                  title="确认删除"
+                  content="确定要删除该人员信息吗？"
+                  okText="确认"
+                  cancelText="取消"
+                  type="danger"
+                  onOk={handleConfirmDelete}
+                  onCancel={() => {
+                    setIsDeleteConfirmVisible(false);
+                    setSelectedPersonnelId(null);
+                  }}
+                />
+              </>
+            ),
+          },
+          {
+            label: '职位管理',
+            key: 'positions',
+            children: <PositionManagementTab />,
+          },
+          {
+            label: '用户人员关联',
+            key: 'user-personnel-association',
+            children: <UserPersonnelAssociation />,
+          },
+        ]}
+      />
     </div>
   );
 };

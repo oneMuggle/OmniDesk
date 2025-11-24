@@ -8,6 +8,11 @@ from .models import ComplianceIssue
 
 class ComplianceIssueViewSetTests(APITestCase):
     def setUp(self):
+        # 清理环境，确保每次测试都在干净的状态下运行
+        ComplianceIssue.objects.all().delete()
+        CustomUser.objects.all().delete()
+        Project.objects.all().delete()
+
         self.admin_user = CustomUser.objects.create_user(
             username='admin',
             password='password123',
@@ -19,7 +24,6 @@ class ComplianceIssueViewSetTests(APITestCase):
             password='password123',
             role='manager'
         )
-        ComplianceIssue.objects.all().delete()
         self.regular_user = CustomUser.objects.create_user(
             username='user',
             password='password123',
@@ -44,21 +48,21 @@ class ComplianceIssueViewSetTests(APITestCase):
         url = reverse('complianceissue-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['results']), 1)
 
     def test_list_issues_as_manager(self):
         self.client.force_authenticate(user=self.manager_user)
         url = reverse('complianceissue-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['results']), 1)
 
     def test_list_issues_as_regular_user(self):
         self.client.force_authenticate(user=self.regular_user)
         url = reverse('complianceissue-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data['results']), 0)
 
     def test_create_issue_as_manager(self):
         self.client.force_authenticate(user=self.manager_user)
@@ -93,3 +97,47 @@ class ComplianceIssueViewSetTests(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['unread_count'], 1)
+    def test_update_issue_as_manager(self):
+        self.client.force_authenticate(user=self.manager_user)
+        url = reverse('complianceissue-detail', args=[self.issue1.id])
+        data = {'status': '已解决'}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.issue1.refresh_from_db()
+        self.assertEqual(self.issue1.status, '已解决')
+
+    def test_delete_issue_as_manager(self):
+        self.client.force_authenticate(user=self.manager_user)
+        url = reverse('complianceissue-detail', args=[self.issue1.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(ComplianceIssue.objects.count(), 0)
+
+    def test_regular_user_cannot_update_issue(self):
+        self.client.force_authenticate(user=self.regular_user)
+        url = reverse('complianceissue-detail', args=[self.issue1.id])
+        data = {'status': '已忽略'}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_admin_can_update_any_issue(self):
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('complianceissue-detail', args=[self.issue1.id])
+        data = {'severity': '高'}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.issue1.refresh_from_db()
+        self.assertEqual(self.issue1.severity, '高')
+
+    def test_unread_count_for_admin(self):
+        ComplianceIssue.objects.create(
+            project=self.project2,
+            issue_type='不规范',
+            description='Another issue.',
+            status='处理中'
+        )
+        self.client.force_authenticate(user=self.admin_user)
+        url = reverse('complianceissue-unread-count')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['unread_count'], 2)

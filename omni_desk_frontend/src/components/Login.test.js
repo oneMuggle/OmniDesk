@@ -39,9 +39,9 @@ describe('Login Component', () => {
     renderWithAuth(<Login />, { providerProps });
     expect(screen.getByRole('heading', { name: /登录/i })).toBeInTheDocument();
     expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();
-    expect(screen.getByLabelText('密码')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
     expect(screen.getByRole('checkbox', { name: /记住我/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /登录/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /登 录/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /以游客身份访问/i })).toBeInTheDocument();
     expect(screen.getByText(/没有账号？/i)).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /立即注册/i })).toBeInTheDocument();
@@ -50,7 +50,7 @@ describe('Login Component', () => {
   test('allows user to enter username and password', () => {
     renderWithAuth(<Login />, { providerProps });
     const usernameInput = screen.getByPlaceholderText('用户名');
-    const passwordInput = screen.getByLabelText('密码');
+    const passwordInput = screen.getByPlaceholderText('密码');
 
     fireEvent.change(usernameInput, { target: { value: 'testuser' } });
     fireEvent.change(passwordInput, { target: { value: 'password123' } });
@@ -69,7 +69,7 @@ describe('Login Component', () => {
 
   test('shows error message if username or password is not provided', async () => {
     renderWithAuth(<Login />, { providerProps });
-    const loginButton = screen.getByRole('button', { name: /登录/i });
+    const loginButton = screen.getByRole('button', { name: /登 录/i });
 
     fireEvent.click(loginButton);
 
@@ -82,8 +82,8 @@ describe('Login Component', () => {
     renderWithAuth(<Login />, { providerProps });
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'password123' } });
-    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
+    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123', false);
@@ -99,8 +99,8 @@ describe('Login Component', () => {
     renderWithAuth(<Login />, { providerProps });
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'wronguser' } });
-    fireEvent.change(screen.getByLabelText('密码'), { target: { value: 'wrongpass' } });
-    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
+    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'wrongpass' } });
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
 
     expect(await screen.findByText('无效的凭证')).toBeInTheDocument();
     expect(mockNavigate).not.toHaveBeenCalled();
@@ -137,5 +137,59 @@ describe('Login Component', () => {
     renderWithAuth(<Login />, { providerProps });
     const registerLink = screen.getByRole('link', { name: /立即注册/i });
     expect(registerLink).toHaveAttribute('href', '/register');
+  });
+
+  test('trims whitespace from username and password before login', async () => {
+    mockLogin.mockResolvedValue({ success: true, redirectTo: '/' });
+    renderWithAuth(<Login />, { providerProps });
+
+    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: '  testuser  ' } });
+    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: '  password123  ' } });
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+
+    await waitFor(() => {
+      expect(mockLogin).toHaveBeenCalledWith('testuser', 'password123', false);
+    });
+  });
+
+  test('disables login button and shows loading text during login', async () => {
+    const promise = new Promise(resolve => {});
+    mockLogin.mockReturnValue(promise);
+    renderWithAuth(<Login />, { providerProps });
+
+    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
+    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /登录中.../i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /登录中.../i })).toBeDisabled();
+  });
+
+  test('disables guest login button and shows loading text during guest login', async () => {
+    const promise = new Promise(resolve => {});
+    mockLoginAsGuest.mockReturnValue(promise);
+    renderWithAuth(<Login />, { providerProps });
+
+    fireEvent.click(screen.getByRole('button', { name: /以游客身份访问/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /正在进入.../i })).toBeInTheDocument();
+    });
+    expect(screen.getByRole('button', { name: /正在进入.../i })).toBeDisabled();
+  });
+
+  test('pre-fills username if passed from registration page', () => {
+    const location = {
+      state: {
+        registeredUsername: 'newUserFromRegister',
+      },
+    };
+    
+    jest.spyOn(require('react-router-dom'), 'useLocation').mockReturnValue(location);
+
+    renderWithAuth(<Login />, { providerProps });
+    expect(screen.getByPlaceholderText('用户名')).toHaveValue('newUserFromRegister');
   });
 });

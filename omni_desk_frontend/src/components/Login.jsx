@@ -49,8 +49,9 @@ const Login = () => {
         <h2>登录</h2>
         {error && <div className="error-message">{error}</div>}
         <div className="form-group">
-          <label>用户名</label>
+          <label htmlFor="username">用户名</label>
           <input
+            id="username"
             type="text"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
@@ -59,11 +60,13 @@ const Login = () => {
           />
         </div>
         <div className="form-group">
-          <label>密码</label>
+          <label htmlFor="password">密码</label>
           <input
+            id="password"
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            placeholder="密码"
             required
           />
         </div>
@@ -83,6 +86,7 @@ const Login = () => {
           type="primary"
           htmlType="submit"
           loading={isLoading}
+          disabled={isLoading}
           block
           className="login-button"
         >
@@ -114,6 +118,7 @@ const Login = () => {
             }
           }}
           loading={isLoading}
+          disabled={isLoading}
           style={{ marginTop: '16px', width: '100%' }}
           className="login-button"
         >

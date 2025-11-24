@@ -60,38 +60,20 @@ class PersonnelSerializer(serializers.ModelSerializer):
         return personnel
 
     def update(self, instance, validated_data):
-        phone_numbers_data = validated_data.pop('phone_numbers', [])
+        phone_numbers_data = validated_data.pop('phone_numbers', None)
         
-        # Update Personnel instance
+        # Update Personnel instance fields
         instance.name = validated_data.get('name', instance.name)
         instance.position = validated_data.get('position', instance.position)
         instance.save()
 
-        # Handle phone numbers
-        # Get IDs of existing phone numbers
-        existing_phone_numbers_ids = set(instance.phone_numbers.values_list('id', flat=True))
-        
-        # Get IDs of phone numbers from validated data
-        incoming_phone_numbers_ids = set()
-        for item in phone_numbers_data:
-            if 'id' in item:
-                incoming_phone_numbers_ids.add(item['id'])
-
-        # Delete phone numbers not in incoming data
-        phone_numbers_to_delete = existing_phone_numbers_ids - incoming_phone_numbers_ids
-        for phone_id in phone_numbers_to_delete:
-            PhoneNumber.objects.get(id=phone_id, personnel=instance).delete()
-
-        # Create or update phone numbers
-        for item in phone_numbers_data:
-            if 'id' in item:
-                # Update existing phone number
-                phone_number_instance = PhoneNumber.objects.get(id=item['id'], personnel=instance)
-                phone_number_instance.number = item.get('number', phone_number_instance.number)
-                phone_number_instance.save()
-            else:
-                # Create new phone number
-                PhoneNumber.objects.create(personnel=instance, **item)
+        # If phone_numbers data is provided, update them
+        if phone_numbers_data is not None:
+            # Clear existing phone numbers
+            instance.phone_numbers.all().delete()
+            # Create new phone numbers
+            for phone_data in phone_numbers_data:
+                PhoneNumber.objects.create(personnel=instance, **phone_data)
         
         return instance
 
@@ -293,44 +275,22 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     def validate(self, data):
         """验证排班数据"""
-        duty_date = data.get('duty_date')
         duty_person = data.get('duty_person')
         duty_leader = data.get('duty_leader')
-        instance_id = self.instance.id if self.instance else None
-        override = data.get('override', False)
 
         # 检查值班人和值班领导是否为同一人
         if duty_person and duty_leader and duty_person.id == duty_leader.id:
-            raise serializers.ValidationError({
-                'duty_leader': '值班人和值班领导不能为同一人'
-            })
+            raise serializers.ValidationError("值班人和值班领导不能为同一人。")
 
-        # 检查值班日期是否已存在（除非是覆盖操作）
-        if not override and Schedule.objects.filter(duty_date=duty_date).exclude(id=instance_id).exists():
-            raise serializers.ValidationError({
-                'duty_date': '该日期已有排班记录'
-            })
-
+        # 唯一性检查将由 perform_create/perform_update 处理
         return data
 
-    @transaction.atomic
     def create(self, validated_data):
-        override = validated_data.pop('override', False)
-        duty_date = validated_data['duty_date']
-        
-        if override:
-            Schedule.objects.filter(duty_date=duty_date).delete()
-        
+        validated_data.pop('override', False)
         return super().create(validated_data)
 
-    @transaction.atomic
     def update(self, instance, validated_data):
-        override = validated_data.pop('override', False)
-        duty_date = validated_data.get('duty_date', instance.duty_date)
-        
-        if override and duty_date != instance.duty_date:
-            Schedule.objects.filter(duty_date=duty_date).delete()
-        
+        validated_data.pop('override', False)
         return super().update(instance, validated_data)
 
 class AnnouncementSerializer(serializers.ModelSerializer):

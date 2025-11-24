@@ -10,7 +10,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 const { Option } = Select;
 
 const SequenceForm = ({
-  visible, onCancel, onSave, sequence, personnelList, isLeader, positions,
+  open, onCancel, onSave, sequence, personnelList, isLeader, positions,
   selectedPersonnel, setSelectedPersonnel
 }) => {
   const [form] = Form.useForm();
@@ -18,7 +18,7 @@ const SequenceForm = ({
   const [selectedPosition, setSelectedPosition] = useState(null);
 
   useEffect(() => {
-    if (visible) {
+    if (open) {
       if (sequence) {
         form.setFieldsValue({ name: sequence.name });
         const initialPersonnel = (sequence.sequence || [])
@@ -30,15 +30,12 @@ const SequenceForm = ({
         setSelectedPersonnel([]);
       }
     }
-  }, [visible, sequence, personnelList, form, setSelectedPersonnel]);
+  }, [open, sequence, personnelList, form, setSelectedPersonnel]);
 
-  const handleSave = () => {
-    form.validateFields()
-      .then(values => {
-        const personnel_ids = selectedPersonnel.map(p => p.id);
-        onSave({ ...sequence, ...values, sequence: personnel_ids });
-      })
-      .catch(info => console.log('Validate Failed:', info));
+  const handleSave = async () => {
+    const values = await form.validateFields();
+    const personnel_ids = selectedPersonnel.map(p => p.id);
+    onSave({ ...sequence, ...values, sequence: personnel_ids });
   };
 
   const handleAddPersonnel = (person) => {
@@ -65,9 +62,13 @@ const SequenceForm = ({
   return (
     <Modal
       title={sequence ? `编辑${isLeader ? '领导' : '人员'}顺序` : `新建${isLeader ? '领导' : '人员'}顺序`}
-      visible={visible}
+      open={open}
       onCancel={onCancel}
-      onOk={handleSave}
+      onOk={() => {
+       handleSave().catch(info => {
+         console.log('Validate Failed:', info);
+       });
+     }}
       width={1000}
       destroyOnClose
     >
@@ -113,6 +114,7 @@ const SequenceForm = ({
                 <div
                   ref={provided.innerRef}
                   {...provided.droppableProps}
+                  data-testid="sorted-personnel-list"
                   style={{
                     height: '430px',
                     overflowY: 'auto',
@@ -325,7 +327,7 @@ const SequenceManager = () => {
       <DragDropContext onDragEnd={onDragEnd}>
         {isModalVisible && (
           <SequenceForm
-            visible={isModalVisible}
+            open={isModalVisible}
             onCancel={handleCancel}
             onSave={handleSave}
             sequence={editingSequence}
