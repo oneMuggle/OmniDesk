@@ -10,7 +10,7 @@ class TrialModelTest(TestCase):
             description="Test Description"
         )
         self.equipment = Equipment.objects.create(name="Test Equipment")
-        self.person = Personnel.objects.create(name="Test Person", department="Test Dept")
+        self.person = Personnel.objects.create(name="Test Person")
 
     def test_trial_creation(self):
         """测试试验基础信息保存"""

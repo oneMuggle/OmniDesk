@@ -27,7 +27,7 @@ const Register = () => {
             setIsLoading(true);
             setError('');
             console.log('调用register方法前'); // 添加调试日志
-            const result = await register(username.trim(), password.trim());
+            const result = await register(username.trim(), password.trim(), confirmPassword.trim());
             if (!result.success) {
                 const errorMessage = result.errors?.non_field_errors?.[0]
                     || result.errors?.detail

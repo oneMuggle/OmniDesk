@@ -127,8 +127,9 @@ class UserPersonnelManagementTests(APITestCase):
 
     def test_admin_can_list_users_with_personnel(self):
         self.client.force_authenticate(user=self.admin_user)
+        CustomUser.objects.create_user(username='test_list_user', password='password123')
         response = self.client.get(self.list_url)
-        self.assertEqual(response.status_code, 200) # 导入 status
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertGreater(len(response.data), 0)
         # 检查是否包含 personnel 字段
         self.assertIn('personnel', response.data[0])

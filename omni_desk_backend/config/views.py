@@ -3,6 +3,19 @@ from rest_framework.response import Response
 from django.contrib.auth.models import Group
 from .models import Page, PageVisibility
 from .serializers import PageSerializer, GroupSerializer
+from django.conf import settings
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_ollama_config(request):
+    """
+    返回Ollama配置。
+    """
+    return Response({
+        'OLLAMA_ENDPOINT': settings.OLLAMA_BASE_URL
+    })
 
 class PageVisibilityViewSet(viewsets.ViewSet):
     """

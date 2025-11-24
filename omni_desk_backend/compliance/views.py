@@ -1,4 +1,6 @@
-from rest_framework import viewsets, permissions
+from rest_framework import viewsets
+from rest_framework import permissions
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
@@ -30,21 +32,21 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
         # 确保创建问题时，关联的项目是当前用户负责的，或者用户是管理员
         project = serializer.validated_data.get('project')
         if not self.request.user.is_staff and project.manager != self.request.user:
-            raise permissions.PermissionDenied("您无权在此项目下创建合规问题。")
+            raise PermissionDenied("您无权在此项目下创建合规问题。")
         serializer.save()
 
     def perform_update(self, serializer):
         # 确保更新问题时，关联的项目是当前用户负责的，或者用户是管理员
         project = serializer.instance.project
         if not self.request.user.is_staff and project.manager != self.request.user:
-            raise permissions.PermissionDenied("您无权修改此项目下的合规问题。")
+            raise PermissionDenied("您无权修改此项目下的合规问题。")
         serializer.save()
 
     def perform_destroy(self, instance):
         # 确保删除问题时，关联的项目是当前用户负责的，或者用户是管理员
         project = instance.project
         if not self.request.user.is_staff and project.manager != self.request.user:
-            raise permissions.PermissionDenied("您无权删除此项目下的合规问题。")
+            raise PermissionDenied("您无权删除此项目下的合规问题。")
         instance.delete()
 
     @action(detail=False, methods=['get'], url_path='unread_count')

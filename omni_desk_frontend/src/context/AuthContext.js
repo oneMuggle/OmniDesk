@@ -111,11 +111,12 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (username, password) => {
+  const register = async (username, password, password_confirmation) => {
     try {
-      const res = await apiClient.post('/auth/registration/', { 
+      const res = await apiClient.post('/auth/registration/', {
         username,
-        password
+        password,
+        password_confirmation
       });
 
       if (res.status === 201) {

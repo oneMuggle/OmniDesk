@@ -39,10 +39,11 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             'invalid': '请输入有效的电子邮件地址'
         }
     )
+    password_confirmation = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
     
     class Meta:
         model = CustomUser
-        fields = ('username', 'password', 'email')
+        fields = ('username', 'password', 'password_confirmation', 'email')
 
     def validate_username(self, value):
         value = value.strip()
@@ -51,6 +52,8 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
+        if data['password'] != data['password_confirmation']:
+            raise serializers.ValidationError({"password": "Passwords must match."})
         return data
 
     def create(self, validated_data):
