@@ -71,3 +71,12 @@ class PageVisibilityViewSet(viewsets.ViewSet):
         )
 
         return Response({'status': 'success'}, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def ollama_configs_view(request):
+    """
+    处理对 Ollama 配置的请求。
+    """
+    return Response([])
