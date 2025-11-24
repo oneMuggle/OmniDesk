@@ -380,7 +380,7 @@ from rest_framework.filters import SearchFilter
 class PersonnelViewSet(viewsets.ModelViewSet):
     queryset = Personnel.objects.all().prefetch_related('phone_numbers')
     serializer_class = PersonnelSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
+    permission_classes = [IsAdminOrManager]
     filter_backends = [DjangoFilterBackend, SearchFilter]
     filterset_fields = ['position']
     search_fields = ['name']

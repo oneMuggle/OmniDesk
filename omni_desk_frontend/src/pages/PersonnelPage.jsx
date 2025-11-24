@@ -30,6 +30,8 @@ const PersonnelPage = () => {
     pageSize: 10,
     total: 0,
   });
+  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
+  const [selectedPersonnelId, setSelectedPersonnelId] = useState(null);
 
   const columns = [
     {
@@ -163,23 +165,38 @@ const PersonnelPage = () => {
     }
   };
 
-  const handleDelete = async (id) => {
-    ConfirmModal({
-      title: '确认删除',
-      content: '确定要删除该人员信息吗？',
-      okText: '确认',
-      cancelText: '取消',
-      type: 'danger',
-      onConfirm: async () => {
-        try {
-          await deletePersonnel(id);
-          message.success('删除成功');
-          fetchData();
-        } catch (error) {
-          message.error('删除失败');
-        }
-      },
-    });
+  const handleConfirmDelete = async () => {
+    if (!selectedPersonnelId) return;
+    try {
+      await deletePersonnel(selectedPersonnelId);
+      message.success('删除成功');
+      // After successful deletion, filter out the deleted item from the local state
+      const newData = data.filter(item => item.id !== selectedPersonnelId);
+      setData(newData);
+      // If the page becomes empty after deletion and it's not the first page, fetch the previous page
+      if (newData.length === 0 && pagination.current > 1) {
+        fetchData({
+          page: pagination.current - 1,
+          pageSize: pagination.pageSize,
+        });
+      } else {
+        // Otherwise, refetch the current page to keep data consistent
+        fetchData({
+          page: pagination.current,
+          pageSize: pagination.pageSize,
+        });
+      }
+    } catch (error) {
+      message.error('删除失败，请稍后重试。');
+    } finally {
+      setIsDeleteConfirmVisible(false);
+      setSelectedPersonnelId(null);
+    }
+  };
+
+  const handleDelete = (id) => {
+    setSelectedPersonnelId(id);
+    setIsDeleteConfirmVisible(true);
   };
 
   const [activeTab, setActiveTab] = useState('personnel'); // New state for active tab
@@ -190,6 +207,8 @@ const PersonnelPage = () => {
     const [positionData, setPositionData] = useState([]);
     const [isPositionModalVisible, setIsPositionModalVisible] = useState(false);
     const [editingPositionId, setEditingPositionId] = useState(null);
+    const [isPositionDeleteModalVisible, setIsPositionDeleteModalVisible] = useState(false);
+    const [selectedPositionId, setSelectedPositionId] = useState(null);
 
     const fetchPositionData = useCallback(async () => {
       try {
@@ -264,23 +283,23 @@ const PersonnelPage = () => {
       }
     };
 
-    const handleDeletePosition = async (id) => {
-      ConfirmModal({
-        title: '确认删除',
-        content: '确定要删除该职位吗？',
-        okText: '确认',
-        cancelText: '取消',
-        type: 'danger',
-        onConfirm: async () => {
-          try {
-            await deletePosition(id);
-            message.success('职位删除成功');
-            fetchPositionData();
-          } catch (error) {
-            message.error('职位删除失败');
-          }
-        },
-      });
+    const handleConfirmPositionDelete = async () => {
+      if (!selectedPositionId) return;
+      try {
+        await deletePosition(selectedPositionId);
+        message.success('职位删除成功');
+        fetchPositionData();
+      } catch (error) {
+        message.error('职位删除失败');
+      } finally {
+        setIsPositionDeleteModalVisible(false);
+        setSelectedPositionId(null);
+      }
+    };
+
+    const handleDeletePosition = (id) => {
+      setSelectedPositionId(id);
+      setIsPositionDeleteModalVisible(true);
     };
 
     return (
@@ -304,7 +323,7 @@ const PersonnelPage = () => {
         />
         <Modal
           title={editingPositionId ? '编辑职位' : '新增职位'}
-          visible={isPositionModalVisible}
+          open={isPositionModalVisible}
           onOk={handleSubmitPosition}
           onCancel={() => setIsPositionModalVisible(false)}
           destroyOnClose
@@ -319,6 +338,19 @@ const PersonnelPage = () => {
             </Form.Item>
           </Form>
         </Modal>
+        <ConfirmModal
+          open={isPositionDeleteModalVisible}
+          title="确认删除"
+          content="确定要删除该职位吗？"
+          okText="确认"
+          cancelText="取消"
+          type="danger"
+          onOk={handleConfirmPositionDelete}
+          onCancel={() => {
+            setIsPositionDeleteModalVisible(false);
+            setSelectedPositionId(null);
+          }}
+        />
       </div>
     );
   };
@@ -385,7 +417,7 @@ const PersonnelPage = () => {
 
           <Modal
             title={editingId ? '编辑人员' : '新增人员'}
-            visible={isModalVisible}
+            open={isModalVisible}
             onOk={handleSubmit}
             onCancel={() => setIsModalVisible(false)}
             destroyOnClose
@@ -442,6 +474,19 @@ const PersonnelPage = () => {
               </Form.List>
             </Form>
           </Modal>
+          <ConfirmModal
+            open={isDeleteConfirmVisible}
+            title="确认删除"
+            content="确定要删除该人员信息吗？"
+            okText="确认"
+            cancelText="取消"
+            type="danger"
+            onOk={handleConfirmDelete}
+            onCancel={() => {
+              setIsDeleteConfirmVisible(false);
+              setSelectedPersonnelId(null);
+            }}
+          />
         </TabPane>
         <TabPane tab="职位管理" key="positions">
           <PositionManagementTab />

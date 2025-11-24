@@ -24,7 +24,8 @@ export const updatePersonnel = (id, data) => {
 };
 
 export const deletePersonnel = (id) => {
-  return apiClient.delete(`/events/personnel/${id}/`);
+  const url = `/events/personnel/${id}/`;
+  return apiClient.delete(url);
 };
 
 export const getPositions = async () => {

@@ -192,14 +192,16 @@ class DocumentTemplate(models.Model):
 class Schedule(models.Model):
     duty_date = models.DateField(unique=True, verbose_name="值班日期")
     duty_person = models.ForeignKey(
-        Personnel, 
-        on_delete=models.PROTECT, 
+        Personnel,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='duty_schedules',
         verbose_name="值班人员"
     )
     duty_leader = models.ForeignKey(
-        Personnel, 
-        on_delete=models.PROTECT, 
+        Personnel,
+        on_delete=models.SET_NULL,
+        null=True,
         related_name='leader_schedules',
         verbose_name="值班领导"
     )

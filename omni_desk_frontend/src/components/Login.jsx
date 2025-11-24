@@ -16,6 +16,7 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
+    console.log('handleSubmit triggered');
     e.preventDefault();
     if (!username || !password) {
       setError('请输入用户名和密码');
