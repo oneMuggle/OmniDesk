@@ -668,7 +668,7 @@ const ScheduleManagementPage = () => {
           pagination={{ pageSize: 10 }}
         />
         <ScheduleFormModal
-          visible={isModalVisible}
+          open={isModalVisible}
           onCancel={() => setIsModalVisible(false)}
           onOk={handleModalOk}
           initialData={currentSchedule || {}}
