@@ -48,7 +48,7 @@ docker build -t $DOCKER_USER/omni-desk-frontend:$FRONTEND_VERSION ./omni_desk_fr
 
 # 构建并推送后端镜像
 echo "Building backend image (omni-desk-backend:$BACKEND_VERSION)..."
-docker build -t $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION ./omni_desk_backend
+docker build -t $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION -f deployment/docker/omni_desk_backend/Dockerfile ./omni_desk_backend
 # docker push $DOCKER_USER/omni-desk-backend:$BACKEND_VERSION
 
 echo "Build completed for:"
