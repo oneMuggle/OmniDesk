@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import meetingRoomApi from '../api/meetingRoomApi';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -75,11 +75,27 @@ const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
+    const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [selectedSlot, setSelectedSlot] = useState(null); // Keep selectedSlot for handleSelectSlot
     const [currentBooking, setCurrentBooking] = useState(null);
+    const [selectedEvent, setSelectedEvent] = useState(null);
     const [meetingRooms, setMeetingRooms] = useState([]);
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    const roomColors = useMemo(() => [
+        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FED766', '#2AB7CA',
+        '#F0B7A4', '#F18C8E', '#A8D8EA', '#AA96DA', '#FCBAD3',
+        '#FFFFD2', '#A2D5F2', '#FFC3A0', '#D4A5A5', '#392F5A'
+    ], []);
+
+    const roomColorMap = useMemo(() => {
+        const map = new Map();
+        meetingRooms.forEach((room, index) => {
+            map.set(room.id, roomColors[index % roomColors.length]);
+        });
+        return map;
+    }, [meetingRooms, roomColors]);
 
     const isAdminOrManager = useMemo(() => {
         return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
@@ -135,22 +151,30 @@ const MeetingRoomBookingPage = () => {
     };
 
     const handleSelectEvent = (event) => {
-        // 普通用户只能编辑自己的预约
-        if (!isAdminOrManager && event.user.id !== user.id) {
-            message.info('您没有权限编辑此预约。');
+        setSelectedEvent(event);
+        setIsDetailModalVisible(true);
+    };
+
+    const handleEditEvent = () => {
+        if (!selectedEvent) return;
+
+        // Check for permission before opening edit modal
+        if (!isAdminOrManager && selectedEvent.user.id !== user.id) {
+            message.warning('您没有权限编辑此预约。');
             return;
         }
 
-        setCurrentBooking(event);
-        setSelectedSlot(null); // Clear selected slot
+        setIsDetailModalVisible(false); // Close detail modal
+        setCurrentBooking(selectedEvent); // Set for edit modal
+        
         form.setFieldsValue({
-            meeting_room: event.meeting_room,
-            timeRange: [dayjs(event.start), dayjs(event.end)],
-            title: event.title,
-            participants: event.participants,
-            description: event.description,
+            meeting_room: selectedEvent.meeting_room,
+            timeRange: [dayjs(selectedEvent.start), dayjs(selectedEvent.end)],
+            title: selectedEvent.title,
+            participants: selectedEvent.participants,
+            description: selectedEvent.description,
         });
-        setIsModalVisible(true);
+        setIsModalVisible(true); // Open edit modal
     };
 
     const handleOk = async () => {
@@ -196,8 +220,9 @@ const MeetingRoomBookingPage = () => {
     };
 
     const eventPropGetter = useCallback((event, start, end, isSelected) => {
+        const backgroundColor = roomColorMap.get(event.meeting_room) || '#6c757d';
         const style = {
-            backgroundColor: event.user.id === user?.id ? '#3174ad' : '#6c757d', // 自己的预约蓝色，别人的灰色
+            backgroundColor: backgroundColor,
             borderRadius: '0px',
             opacity: 0.8,
             color: 'white',
@@ -207,36 +232,75 @@ const MeetingRoomBookingPage = () => {
         return {
             style: style
         };
-    }, [user]);
+    }, [roomColorMap]);
 
-    const getEventTitle = useCallback((event) => {
-        const duration = dayjs(event.end).diff(dayjs(event.start), 'minute'); // 计算持续时间（分钟）
+    const EventComponent = ({ event }) => {
+        const eventRef = useRef(null);
+        const [showDetails, setShowDetails] = useState(true);
 
-        if (duration < 60) { // 如果持续时间小于60分钟，只显示主题和时间
-            return (
-                <div style={{ padding: '2px', fontSize: '0.8em' }}>
-                    <div><strong>{event.title}</strong></div>
-                    <div>{dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
+        useEffect(() => {
+            if (!eventRef.current) return;
+
+            const observer = new ResizeObserver(entries => {
+                // Use a loop in case there are multiple observations, though we expect one.
+                for (const entry of entries) {
+                    const minHeightForDetails = 35; // Height threshold in pixels
+                    setShowDetails(entry.contentRect.height > minHeightForDetails);
+                }
+            });
+
+            observer.observe(eventRef.current);
+
+            return () => {
+                observer.disconnect();
+            };
+        }, []);
+
+        return (
+            <div
+                ref={eventRef}
+                style={{
+                    height: '100%',
+                    overflow: 'hidden',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    textAlign: 'center',
+                    fontSize: '0.8em',
+                    lineHeight: '1.2',
+                }}
+            >
+                <div style={{ fontWeight: 'bold' }}>{event.title}</div>
+                {showDetails && (
+                    <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
+                        {event.meeting_room_name}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const MeetingRoomLegend = () => (
+        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
+            <h4>会议室颜色图例</h4>
+            {meetingRooms.map(room => (
+                <div key={room.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+                    <Tag color={roomColorMap.get(room.id)} style={{ marginRight: '8px' }}>
+                        {room.name}
+                    </Tag>
                 </div>
-            );
-        } else {
-            return (
-                <div style={{ padding: '5px' }}>
-                    <div style={{ marginBottom: '3px' }}><strong>主题:</strong> {event.title}</div>
-                    <div style={{ marginBottom: '3px' }}><strong>会议室:</strong> {event.meeting_room_name}</div>
-                    <div style={{ marginBottom: '3px' }}><strong>时间:</strong> {dayjs(event.start).format('HH:mm')} - {dayjs(event.end).format('HH:mm')}</div>
-                    <div><strong>发布人:</strong> {event.user.username}</div>
-                </div>
-            );
-        }
-    }, []);
+            ))}
+        </div>
+    );
 
     return (
         <div className="calendar-page-container">
             <h1>会议室预约</h1>
-            <div style={{ height: 700 }}>
-                <Calendar
-                    localizer={localizer}
+            <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ flex: 1, height: 700 }}>
+                    <Calendar
+                        localizer={localizer}
                     events={bookings}
                     startAccessor="start"
                     endAccessor="end"
@@ -247,22 +311,27 @@ const MeetingRoomBookingPage = () => {
                     defaultView="week"
                     components={{
                         toolbar: CustomToolbar,
+                        event: EventComponent,
                     }}
                     eventPropGetter={eventPropGetter}
-                    titleAccessor={getEventTitle}
+                    dayLayoutAlgorithm="no-overlap"
                     culture="zh-CN"
                     formats={{
                         timeGutterFormat: 'HH:mm',
-                        eventTimeRangeFormat: ({ start, end }) => `${dayjs(start).format('HH:mm')} - ${dayjs(end).format('HH:mm')}`,
+                        eventTimeRangeFormat: () => '',
                         dayFormat: 'M/D (ddd)',
                         monthHeaderFormat: 'YYYY年M月',
                         weekHeaderFormat: (date) => `${dayjs(date.start).format('YYYY年M月D日')} - ${dayjs(date.end).format('YYYY年M月D日')}`,
                         dayHeaderFormat: 'YYYY年M月D日 (ddd)',
                         agendaDateFormat: 'M/D (ddd)',
                         agendaTimeFormat: 'HH:mm',
-                        agendaTimeRangeFormat: ({ start, end }) => `${dayjs(start).format('HH:mm')} - ${dayjs(end).format('HH:mm')}`,
+                        agendaTimeRangeFormat: () => '',
                     }}
-                />
+                    />
+                </div>
+                <div style={{ flex: '0 0 200px' }}>
+                    <MeetingRoomLegend />
+                </div>
             </div>
 
             <Modal
@@ -334,6 +403,33 @@ const MeetingRoomBookingPage = () => {
                         <TextArea rows={3} />
                     </Form.Item>
                 </Form>
+            </Modal>
+
+            <Modal
+                title="预约详情"
+                visible={isDetailModalVisible}
+                onCancel={() => setIsDetailModalVisible(false)}
+                footer={[
+                    <Button key="back" onClick={() => setIsDetailModalVisible(false)}>
+                        关闭
+                    </Button>,
+                    selectedEvent && (isAdminOrManager || selectedEvent.user.id === user.id) && (
+                        <Button key="edit" type="primary" onClick={handleEditEvent}>
+                            编辑
+                        </Button>
+                    )
+                ]}
+            >
+                {selectedEvent && (
+                    <div>
+                        <p><strong>主题:</strong> {selectedEvent.title}</p>
+                        <p><strong>会议室:</strong> {selectedEvent.meeting_room_name}</p>
+                        <p><strong>时间:</strong> {`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</p>
+                        <p><strong>发布人:</strong> {selectedEvent.user.username}</p>
+                        <p><strong>参与人员:</strong> {selectedEvent.participants || '无'}</p>
+                        <p><strong>描述:</strong> {selectedEvent.description || '无'}</p>
+                    </div>
+                )}
             </Modal>
         </div>
     );
