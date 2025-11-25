@@ -88,9 +88,7 @@ const MeetingRoomBookingPage = () => {
     const fetchMeetingRooms = useCallback(async () => {
         try {
             const response = await meetingRoomApi.getMeetingRooms();
-            console.log('Meeting Rooms API Response:', response);
-            console.log('Meeting Rooms Data:', response.data);
-            setMeetingRooms(response.data.results);
+            setMeetingRooms(response.data.results || []);
         } catch (error) {
             message.error('获取会议室列表失败。');
             console.error('Failed to fetch meeting rooms:', error.response || error);
@@ -101,7 +99,8 @@ const MeetingRoomBookingPage = () => {
         setLoading(true);
         try {
             const response = await meetingRoomApi.getMeetingRoomBookings();
-            setBookings(response.data.results.map(booking => ({
+            const bookingsData = response.data.results || [];
+            setBookings(bookingsData.map(booking => ({
                 ...booking,
                 start: new Date(booking.start_time),
                 end: new Date(booking.end_time),

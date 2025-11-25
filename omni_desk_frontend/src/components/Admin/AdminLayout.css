@@ -19,6 +19,7 @@
 
 .admin-sidebar.collapsed {
   width: 80px; /* Collapsed width */
+  padding: 20px 10px;
 }
 
 .admin-sidebar-header {
@@ -88,13 +89,11 @@
 
 .admin-sidebar-menu .icon {
   margin-right: 15px;
-  font-size: 1.2em;
+  font-size: 1em;
 }
 
 .admin-sidebar.collapsed .admin-sidebar-menu .icon {
   margin-right: 0;
-  width: 100%; /* Center icon when collapsed */
-  text-align: center;
 }
 
 .admin-sidebar-menu .menu-item span {
@@ -105,6 +104,16 @@
 
 .admin-sidebar.collapsed .admin-sidebar-menu .menu-item span {
   display: none; /* Hide text when collapsed */
+}
+
+.admin-sidebar.collapsed .menu-item-content {
+  justify-content: center;
+}
+
+.menu-item-content {
+  display: flex;
+  align-items: center;
+  width: 100%;
 }
 
 .admin-content {
