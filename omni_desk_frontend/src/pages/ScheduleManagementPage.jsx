@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider, Switch } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider, Switch, Popconfirm } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
@@ -85,6 +85,15 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
       onOk={handleOk}
       onCancel={onCancel}
       destroyOnClose
+      data-testid="schedule-modal"
+      footer={[
+        <Button key="back" onClick={onCancel}>
+          取消
+        </Button>,
+        <Button key="submit" type="primary" onClick={handleOk} data-testid="schedule-modal-ok-button">
+          确定
+        </Button>,
+      ]}
     >
       <Form form={form} layout="vertical">
         <Form.Item
@@ -92,7 +101,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
           label="值班日期"
           rules={[{ required: true, message: '请选择值班日期!' }]}
         >
-          <DatePicker style={{ width: '100%' }} />
+          <DatePicker style={{ width: '100%' }} data-testid="schedule-modal-date-picker" />
         </Form.Item>
         <Form.Item
           name="person_position_filter"
@@ -103,6 +112,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
             allowClear
             onChange={(value) => setSelectedPersonPositionId(value)}
             value={selectedPersonPositionId}
+            getPopupContainer={(triggerNode) => triggerNode.parentNode}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -119,9 +129,11 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
           <Select
             placeholder="选择值班人员"
             showSearch
+            data-testid="schedule-modal-duty-person-select"
             filterOption={(input, option) =>
               option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0 // option.children is array: [name, ' (', position_name, ')']
             }
+            getPopupContainer={(triggerNode) => triggerNode.parentNode}
           >
             {filteredDutyPersonList.map(person => (
               <Option key={person.id} value={person.id}>
@@ -132,7 +144,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
         </Form.Item>
         {initialData.duty_person && initialData.duty_person.phone_numbers && initialData.duty_person.phone_numbers.length > 0 && (
           <Form.Item label="值班人员电话">
-            <Input value={initialData.duty_person.phone_numbers.map(p => p.number).join(', ')} readOnly />
+            <Input value={initialData.duty_person.phone_numbers.map(p => p.number).join(', ')} readOnly data-testid="schedule-modal-duty-person-phone" />
           </Form.Item>
         )}
         <Form.Item
@@ -144,6 +156,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
             allowClear
             onChange={(value) => setSelectedLeaderPositionId(value)}
             value={selectedLeaderPositionId}
+            getPopupContainer={(triggerNode) => triggerNode.parentNode}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -160,9 +173,11 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
           <Select
             placeholder="选择值班领导"
             showSearch
+            data-testid="schedule-modal-duty-leader-select"
             filterOption={(input, option) =>
               option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0
             }
+            getPopupContainer={(triggerNode) => triggerNode.parentNode}
           >
             {filteredDutyLeaderList.map(person => (
               <Option key={person.id} value={person.id}>
@@ -173,7 +188,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
         </Form.Item>
         {initialData.duty_leader && initialData.duty_leader.phone_numbers && initialData.duty_leader.phone_numbers.length > 0 && (
           <Form.Item label="值班领导电话">
-            <Input value={initialData.duty_leader.phone_numbers.map(p => p.number).join(', ')} readOnly />
+            <Input value={initialData.duty_leader.phone_numbers.map(p => p.number).join(', ')} readOnly data-testid="schedule-modal-duty-leader-phone" />
           </Form.Item>
         )}
       </Form>
@@ -230,7 +245,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
   };
 
   return (
-    <Modal title="生成排班" open={open} onOk={handleOk} onCancel={onCancel} destroyOnClose>
+    <Modal title="生成排班" open={open} onOk={handleOk} onCancel={onCancel} destroyOnClose data-testid="generate-schedule-modal">
       <Form form={form} layout="vertical" initialValues={{ generationMode: 'days' }}>
         <Form.Item name="generationMode" label="生成方式">
           <Radio.Group onChange={(e) => setGenerationMode(e.target.value)}>
@@ -242,20 +257,20 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
         {generationMode === 'days' ? (
           <>
             <Form.Item name="start_date" label="起始日期" rules={[{ required: true, message: '请选择起始日期!' }]}>
-              <DatePicker style={{ width: '100%' }} />
+              <DatePicker style={{ width: '100%' }} data-testid="generate-schedule-start-date" />
             </Form.Item>
             <Form.Item name="duration_days" label="生成天数" initialValue={30} rules={[{ required: true, message: '请输入生成天数!' }]}>
-              <Input type="number" />
+              <Input type="number" data-testid="generate-schedule-duration-days" />
             </Form.Item>
           </>
         ) : (
           <Form.Item name="target_month" label="选择月份" rules={[{ required: true, message: '请选择月份!' }]}>
-            <DatePicker.MonthPicker style={{ width: '100%' }} />
+            <DatePicker.MonthPicker style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
           </Form.Item>
         )}
 
         <Form.Item name="personnel_sequence_id" label="人员顺序" rules={[{ required: true, message: '请选择人员顺序!' }]}>
-          <Select placeholder="选择人员顺序" onChange={(value) => handleSequenceChange('personnel', value)}>
+          <Select placeholder="选择人员顺序" onChange={(value) => handleSequenceChange('personnel', value)} data-testid="generate-schedule-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
@@ -265,7 +280,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
         </Form.Item>
 
         <Form.Item name="start_personnel_id" label="起始人员">
-          <Select placeholder="选择起始人员" allowClear>
+          <Select placeholder="选择起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {selectedPersonnel.map(p => {
               console.log('Rendering personnel option:', p);
               return <Option key={p.id} value={p.id}>{p.name}</Option>
@@ -274,7 +289,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
         </Form.Item>
 
         <Form.Item name="leader_sequence_id" label="领导顺序" rules={[{ required: true, message: '请选择领导顺序!' }]}>
-          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)}>
+          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
                 {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
@@ -284,7 +299,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
         </Form.Item>
 
         <Form.Item name="start_leader_id" label="起始领导">
-          <Select placeholder="选择起始领导" allowClear>
+          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {selectedLeaders.map(p => {
               console.log('Rendering leader option:', p);
               return <Option key={p.id} value={p.id}>{p.name}</Option>
@@ -501,20 +516,22 @@ const ScheduleManagementPage = () => {
       duty_person: info.event.extendedProps.duty_person,
       duty_leader: info.event.extendedProps.duty_leader,
     };
-    setCurrentSchedule(clickedSchedule);
-    setIsModalVisible(true);
+    handleEdit(clickedSchedule);
+  };
+
+  const handleDatesSet = (viewInfo) => {
+    setCalendarViewInfo(viewInfo);
   };
 
   const calendarEvents = useMemo(() => {
     return schedules.map(schedule => ({
-      id: String(schedule.id),
+      id: schedule.id.toString(),
+      title: `${schedule.duty_person.name} (值班), ${schedule.duty_leader.name} (领导)`,
       start: schedule.duty_date,
       allDay: true,
       extendedProps: {
         duty_person: schedule.duty_person,
         duty_leader: schedule.duty_leader,
-        duty_person_name: schedule.duty_person?.name || '未知',
-        duty_leader_name: schedule.duty_leader?.name || '未知',
       }
     }));
   }, [schedules]);
@@ -523,176 +540,209 @@ const ScheduleManagementPage = () => {
     if (!isCalendarFilterEnabled || !calendarViewInfo) {
       return schedules;
     }
-
-    const { start, end } = calendarViewInfo;
-    const viewStart = moment(start).startOf('day');
-    const viewEnd = moment(end).endOf('day');
-
+    const viewStart = moment(calendarViewInfo.start).startOf('day');
+    const viewEnd = moment(calendarViewInfo.end).endOf('day');
     return schedules.filter(schedule => {
       const dutyDate = moment(schedule.duty_date);
-      return dutyDate.isBetween(viewStart, viewEnd, undefined, '[]');
+      return dutyDate.isBetween(viewStart, viewEnd, null, '[]');
     });
   }, [schedules, isCalendarFilterEnabled, calendarViewInfo]);
 
-  const exportToPdf = async () => {
-    setIsExporting(true);
-    const calendarEl = calendarRef.current.getApi().el;
-    const originalStyle = {
-      width: calendarEl.style.width,
-      height: calendarEl.style.height,
-    };
-    calendarEl.style.width = '100%';
-    calendarEl.style.height = 'auto';
+  const handleSelectAll = () => {
+    if (isAllSelected) {
+      setSelectedSchedules([]);
+    } else {
+      setSelectedSchedules(filteredSchedules.map(s => s.id));
+    }
+    setIsAllSelected(!isAllSelected);
+  };
 
+  const handleInvertSelection = () => {
+    const allIds = filteredSchedules.map(s => s.id);
+    const newSelectedIds = allIds.filter(id => !selectedSchedules.includes(id));
+    setSelectedSchedules(newSelectedIds);
+    setIsAllSelected(newSelectedIds.length === allIds.length && allIds.length > 0);
+  };
+
+  const rowSelection = {
+    selectedRowKeys: selectedSchedules,
+    onChange: (keys) => {
+      setSelectedSchedules(keys);
+      setIsAllSelected(keys.length === filteredSchedules.length && filteredSchedules.length > 0);
+    },
+  };
+
+  const exportToPDF = async () => {
+    setIsExporting(true);
+    // 确保在导出前，日历已经渲染了所有需要的数据
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    html2canvas(calendarEl, {
-      scale: 2,
-      useCORS: true,
-      logging: true,
-    }).then(canvas => {
+    const calendarEl = calendarContainerRef.current;
+    if (!calendarEl) {
+      message.error('无法找到日历元素');
+      setIsExporting(false);
+      return;
+    }
+
+    // 暂时移除日历容器的固定尺寸，以便html2canvas能捕获完整内容
+    const originalWidth = calendarEl.style.width;
+    const originalHeight = calendarEl.style.height;
+    calendarEl.style.width = 'auto';
+    calendarEl.style.height = 'auto';
+
+    try {
+      const canvas = await html2canvas(calendarEl, {
+        scale: 2, // 提高分辨率
+        useCORS: true,
+      });
       const pdf = new jsPDF({
         orientation: 'landscape',
         unit: 'px',
-        format: [canvas.width, canvas.height]
+        format: [canvas.width, canvas.height],
       });
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('schedule.pdf');
-      calendarEl.style.width = originalStyle.width;
-      calendarEl.style.height = originalStyle.height;
-      setIsExporting(false);
-    }).catch(err => {
-      console.error("Error exporting to PDF:", err);
+    } catch (error) {
+      console.error("导出PDF时出错:", error);
       message.error('导出PDF失败');
-      calendarEl.style.width = originalStyle.width;
-      calendarEl.style.height = originalStyle.height;
+    } finally {
+      // 恢复原始样式
+      calendarEl.style.width = originalWidth;
+      calendarEl.style.height = originalHeight;
       setIsExporting(false);
-    });
+    }
   };
 
   const columns = [
-    { title: '日期', dataIndex: 'duty_date', key: 'date' },
-    { title: '值班人员', dataIndex: ['duty_person', 'name'], key: 'duty_person' },
-    { title: '值班领导', dataIndex: ['duty_leader', 'name'], key: 'duty_leader' },
+    {
+      title: '值班日期',
+      dataIndex: 'duty_date',
+      key: 'duty_date',
+      sorter: (a, b) => moment(a.duty_date).unix() - moment(b.duty_date).unix(),
+      sortOrder: 'ascend',
+    },
+    {
+      title: '值班人员',
+      dataIndex: ['duty_person', 'name'],
+      key: 'duty_person',
+    },
+    {
+      title: '值班人员电话',
+      dataIndex: ['duty_person', 'phone_numbers'],
+      key: 'duty_person_phone',
+      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+    },
+    {
+      title: '值班领导',
+      dataIndex: ['duty_leader', 'name'],
+      key: 'duty_leader',
+    },
+    {
+      title: '值班领导电话',
+      dataIndex: ['duty_leader', 'phone_numbers'],
+      key: 'duty_leader_phone',
+      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+    },
     {
       title: '操作',
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Button type="link" onClick={() => handleEdit(record)}>编辑</Button>
-          <Button type="link" danger onClick={() => handleDelete(record.id)}>删除</Button>
+          <Button type="primary" onClick={() => handleEdit(record)} data-testid={`edit-schedule-button-${record.id}`}>编辑</Button>
+          <Popconfirm title="确定删除吗?" onConfirm={() => handleDelete(record.id)}>
+            <Button danger data-testid={`delete-schedule-button-${record.id}`}>删除</Button>
+          </Popconfirm>
         </Space>
       ),
     },
   ];
 
-  const handleSelectAll = () => {
-    const allScheduleIds = filteredSchedules.map(s => s.id);
-    setSelectedSchedules(allScheduleIds);
-    setIsAllSelected(true);
-  };
-
-  const handleInvertSelection = () => {
-    const allScheduleIds = filteredSchedules.map(s => s.id);
-    const unselectedSchedules = allScheduleIds.filter(id => !selectedSchedules.includes(id));
-    setSelectedSchedules(unselectedSchedules);
-    setIsAllSelected(false);
-  };
-
-  const rowSelection = {
-    selectedRowKeys: selectedSchedules,
-    onChange: (selectedRowKeys) => {
-      setSelectedSchedules(selectedRowKeys);
-      setIsAllSelected(selectedRowKeys.length === filteredSchedules.length && filteredSchedules.length > 0);
-    },
-  };
-
   return (
-    <>
-      <Card
-        title="排班管理"
-        extra={
+    <div className="p-4" data-testid="schedule-management-page">
+      <h1 className="text-2xl font-bold mb-4">排班管理</h1>
+      <Card>
+        <div className="flex justify-between items-center mb-4">
           <Space>
-            <Button type="primary" onClick={handleAdd}>新增排班</Button>
-            <Button onClick={() => setIsGenerateModalVisible(true)}>生成排班</Button>
-            <Button onClick={exportToPdf} loading={isExporting}>导出为PDF</Button>
-            <Space align="center" style={{ marginLeft: 16 }}>
-              <span>日历过滤</span>
-              <Switch
-                checked={isCalendarFilterEnabled}
-                onChange={setIsCalendarFilterEnabled}
-              />
-            </Space>
+            <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>
+            <Button type="default" onClick={() => setIsGenerateModalVisible(true)} data-testid="generate-schedule-button">生成排班</Button>
+            <Button type="default" onClick={() => setIsPersonnelSequenceModalVisible(true)} data-testid="set-sequence-button">设置顺序</Button>
+            <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
           </Space>
-        }
-      >
+          <Space>
+            <Switch
+              checkedChildren="日历筛选已开启"
+              unCheckedChildren="日历筛选已关闭"
+              checked={isCalendarFilterEnabled}
+              onChange={setIsCalendarFilterEnabled}
+              data-testid="calendar-filter-switch"
+            />
+            <Button onClick={exportToPDF} loading={isExporting} data-testid="export-pdf-button">导出为PDF</Button>
+          </Space>
+        </div>
         <div ref={calendarContainerRef}>
           <FullCalendar
+            ref={calendarRef}
             plugins={[dayGridPlugin, interactionPlugin]}
             initialView="dayGridMonth"
-            weekends={true}
+            headerToolbar={{
+              left: 'prev,next today',
+              center: 'title',
+              right: 'dayGridMonth,dayGridWeek'
+            }}
             events={calendarEvents}
             editable={true}
             droppable={true}
             eventDrop={handleEventDrop}
             eventClick={handleEventClick}
+            datesSet={handleDatesSet}
             locale="zh-cn"
-            eventContent={(eventInfo) => (
-              <div style={{ textAlign: 'center' }}>
-                <div>{eventInfo.event.extendedProps.duty_person_name}</div>
-                <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
-              </div>
-            )}
-            datesSet={(view) => setCalendarViewInfo(view)}
-            headerToolbar={
-              isExporting
-                ? { left: '', center: 'title', right: '' }
-                : { left: 'prev,next today', center: 'title', right: 'dayGridMonth,dayGridWeek' }
-            }
-            ref={calendarRef}
+            data-testid="schedule-calendar"
           />
         </div>
-        <div style={{ marginBottom: 16 }}>
-          <Space>
-            <Button onClick={handleSelectAll}>全选</Button>
-            <Button onClick={handleInvertSelection}>反选</Button>
-            <Button danger onClick={handleBulkDelete}>批量删除</Button>
+        <div className="mt-4">
+          <Space className="mb-2">
+            <Button onClick={handleSelectAll} data-testid="select-all-button">全选</Button>
+            <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
           </Space>
+          <Table
+            columns={columns}
+            dataSource={filteredSchedules}
+            rowKey="id"
+            loading={loading}
+            rowSelection={rowSelection}
+            pagination={{ pageSize: 10 }}
+            data-testid="schedule-table"
+          />
         </div>
-        <Table
-          rowSelection={rowSelection}
-          columns={columns}
-          dataSource={filteredSchedules}
-          rowKey="id"
-          loading={loading}
-          pagination={{ pageSize: 10 }}
-        />
+      </Card>
+      {isModalVisible && (
         <ScheduleFormModal
           open={isModalVisible}
           onCancel={() => setIsModalVisible(false)}
           onOk={handleModalOk}
           initialData={currentSchedule || {}}
           personnelList={personnelList}
-          positions={positions} // 传递职务列表
+          positions={positions}
         />
-        {isGenerateModalVisible && (
-          <GenerateScheduleModal
-            visible={isGenerateModalVisible}
-            onCancel={() => setIsGenerateModalVisible(false)}
-            onOk={handleGenerateModalOk}
-            personnelSequences={personnelSequences}
-            leaderSequences={leaderSequences}
-          />
-        )}
-        {isPersonnelSequenceModalVisible && (
-          <PersonnelSequenceModal
-            open={isPersonnelSequenceModalVisible}
-            onOk={handlePersonnelSequenceModalOk}
-            onCancel={handlePersonnelSequenceModalCancel}
-          />
-        )}
-      </Card>
-    </>
+      )}
+      {isGenerateModalVisible && (
+        <GenerateScheduleModal
+          open={isGenerateModalVisible}
+          onCancel={() => setIsGenerateModalVisible(false)}
+          onOk={handleGenerateModalOk}
+          personnelSequences={personnelSequences}
+          leaderSequences={leaderSequences}
+        />
+      )}
+      {isPersonnelSequenceModalVisible && (
+        <PersonnelSequenceModal
+          open={isPersonnelSequenceModalVisible}
+          onOk={handlePersonnelSequenceModalOk}
+          onCancel={handlePersonnelSequenceModalCancel}
+          personnelList={personnelList}
+        />
+      )}
+    </div>
   );
 };
 

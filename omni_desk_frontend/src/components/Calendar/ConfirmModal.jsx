@@ -47,10 +47,12 @@ const ConfirmModal = (props) => {
           loading={confirmLoading}
           onClick={handleOk}
           {...okButtonProps}
+          data-testid={props['data-testid'] ? `${props['data-testid']}-ok-button` : 'confirm-ok-button'}
         >
           {okText}
         </Button>
       ]}
+      data-testid={props['data-testid'] || 'confirm-modal'}
     >
       {content}
     </Modal>
