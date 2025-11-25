@@ -2,7 +2,7 @@
 FROM node:18-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --silent --omit=dev
+RUN npm install
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --chown=appuser:appgroup . .
 ENV NODE_ENV=production

@@ -35,8 +35,8 @@ services:
   backend:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
     build:
-      context: ../..
-      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+      context: ../../omni_desk_backend
+      dockerfile: Dockerfile
     container_name: omni_desk_backend
     command: gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000
     volumes:
@@ -75,8 +75,8 @@ services:
   worker:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
     build:
-      context: ../..
-      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+      context: ../../omni_desk_backend
+      dockerfile: Dockerfile
     container_name: omni_desk_worker
     command: celery -A omni_desk_backend worker -l info
     volumes:

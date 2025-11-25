@@ -50,10 +50,16 @@ describe('PersonnelSequenceModal', () => {
     });
 
     fireEvent.click(screen.getAllByText('添加')[0]);
-    expect(screen.getByText('Alice')).toBeInTheDocument();
+    
+    await waitFor(() => {
+        expect(screen.getAllByText('Alice').length).toBe(2);
+    });
 
     fireEvent.click(screen.getByText('X'));
-    expect(screen.queryByText('Alice')).not.toBeInTheDocument();
+    
+    await waitFor(() => {
+        expect(screen.getAllByText('Alice').length).toBe(1);
+    });
   });
 
   test('allows searching for personnel', async () => {
@@ -71,7 +77,7 @@ describe('PersonnelSequenceModal', () => {
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
     
     fireEvent.mouseDown(screen.getByPlaceholderText('按职位筛选'));
-    fireEvent.click(screen.getByText('Manager'));
+    fireEvent.click(await screen.findByText('Manager'));
 
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: '', position_id: 1 } });
@@ -79,7 +85,8 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('saves the personnel sequence', async () => {
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
+    const onOk = jest.fn();
+    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} />);
 
     await waitFor(() => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -94,6 +101,10 @@ describe('PersonnelSequenceModal', () => {
         name: 'Test Sequence',
         personnel_ids: [1],
       });
+    });
+    
+    await waitFor(() => {
+        expect(onOk).toHaveBeenCalled();
     });
   });
 });

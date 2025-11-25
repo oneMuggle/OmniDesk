@@ -16,3 +16,9 @@ global.matchMedia = global.matchMedia || function () {
     removeListener: jest.fn(),
   };
 };
+
+global.Notification = {
+  permission: 'default',
+  requestPermission: jest.fn().mockResolvedValue('granted'),
+  new: jest.fn(),
+};

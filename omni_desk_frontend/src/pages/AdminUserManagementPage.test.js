@@ -50,7 +50,9 @@ describe('AdminUserManagementPage', () => {
   test('renders user and page config tables with data', async () => {
     render(<AdminUserManagementPage />);
 
-    expect(screen.getByText('管理员面板')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('管理员面板')).toBeInTheDocument();
+    });
 
     expect(await screen.findByText('admin')).toBeInTheDocument();
     expect(await screen.findByText('testuser')).toBeInTheDocument();
@@ -67,8 +69,8 @@ describe('AdminUserManagementPage', () => {
 
     const roleSelect = screen.getAllByRole('combobox')[0];
     fireEvent.mouseDown(roleSelect);
-    fireEvent.click(screen.getByText('经理'));
-
+    const option = await screen.findByText('经理');
+    fireEvent.click(option);
 
     await waitFor(() => {
       expect(userManagementApi.updateUserRole).toHaveBeenCalledWith(2, 'manager');
@@ -98,6 +100,6 @@ describe('AdminUserManagementPage', () => {
     });
     
     const adminRoleSelect = screen.getAllByRole('combobox')[1];
-    expect(adminRoleSelect).toBeDisabled();
+    expect(adminRoleSelect.hasAttribute('disabled')).toBe(true);
   });
 });

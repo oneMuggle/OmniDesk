@@ -1,6 +1,10 @@
 import { render, screen, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 import { MemoryRouter } from 'react-router-dom';
+import apiClient from '../api/apiClient';
+
+// Mock apiClient
+jest.mock('../api/apiClient');
 
 // 测试组件用来消费上下文
 const TestComponent = () => {
@@ -15,12 +19,9 @@ const TestComponent = () => {
 };
 
 describe('AuthContext', () => {
-  beforeEach(() => {
-    global.fetch = jest.fn();
-  });
-
   afterEach(() => {
-    jest.resetAllMocks();
+    jest.clearAllMocks();
+    localStorage.clear();
   });
 
   test('初始状态应为未登录', () => {
@@ -36,15 +37,22 @@ describe('AuthContext', () => {
   });
 
   test('成功登录应更新用户状态', async () => {
-    const mockResponse = {
-      access: 'mock-token',
-      user: { username: 'testuser', email: 'test@example.com' }
+    const loginResponse = {
+      data: {
+        access: 'mock-token',
+        refresh: 'mock-refresh-token',
+        permissions: ['view_dashboard']
+      }
     };
-    
-    global.fetch.mockResolvedValueOnce({
-      ok: true,
-      json: () => Promise.resolve(mockResponse)
-    });
+    const userResponse = {
+      data: {
+        username: 'testuser',
+        email: 'test@example.com'
+      }
+    };
+
+    apiClient.post.mockResolvedValue(loginResponse);
+    apiClient.get.mockResolvedValue(userResponse);
 
     render(
       <MemoryRouter>
@@ -59,14 +67,11 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('user').textContent).toBe('testuser');
-    expect(localStorage.getItem('token')).toBe('mock-token');
+    expect(JSON.parse(sessionStorage.getItem('authTokens')).access).toBe('mock-token');
   });
 
   test('登录失败应保持未登录状态', async () => {
-    global.fetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401
-    });
+    apiClient.post.mockRejectedValue(new Error('Login failed'));
 
     render(
       <MemoryRouter>
@@ -81,12 +86,18 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('user').textContent).toBe('');
-    expect(localStorage.getItem('token')).toBeNull();
+    expect(sessionStorage.getItem('authTokens')).toBeNull();
   });
 
   test('登出应清除用户状态', async () => {
-    localStorage.setItem('token', 'mock-token');
+    const authTokens = { access: 'mock-token', refresh: 'mock-refresh-token' };
+    sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
     
+    // Mock window.location.href
+    const originalLocation = window.location;
+    delete window.location;
+    window.location = { href: '' };
+
     render(
       <MemoryRouter>
         <AuthProvider>
@@ -100,6 +111,9 @@ describe('AuthContext', () => {
     });
 
     expect(screen.getByTestId('user').textContent).toBe('');
-    expect(localStorage.getItem('token')).toBeNull();
+    expect(sessionStorage.getItem('authTokens')).toBeNull();
+
+    // Restore window.location
+    window.location = originalLocation;
   });
 });

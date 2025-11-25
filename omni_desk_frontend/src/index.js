@@ -1,4 +1,3 @@
-import React from 'react';
 import ReactDOM from 'react-dom/client';
 
 // 第三方库导入
@@ -10,6 +9,7 @@ import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ConfigProvider } from 'antd';
 import { library, config } from '@fortawesome/fontawesome-svg-core'; // 导入 config
+import React from 'react';
 import {
   faBold, faItalic, faStrikethrough, faParagraph,
   faHeading, faListUl, faListOl, faQuoteRight, faUndo, faRedo,
@@ -18,7 +18,6 @@ import {
 
 // 本地 CSS 文件
 import './index.css';
-import '@fortawesome/fontawesome-svg-core/styles.css'; // 导入 FontAwesome 核心样式
 import 'antd/dist/reset.css';
 import './styles/global.css';
 
