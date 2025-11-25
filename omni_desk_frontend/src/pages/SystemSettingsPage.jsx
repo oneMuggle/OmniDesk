@@ -6,7 +6,7 @@ import apiClient from '../api/apiClient'; // 导入 apiClient
 const { Title } = Typography;
 const { Option } = Select;
 
-const SettingsPage = () => {
+const SystemSettingsPage = () => {
   const [configs, setConfigs] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
@@ -412,4 +412,4 @@ const SettingsPage = () => {
   );
 };
 
-export default SettingsPage;
+export default SystemSettingsPage;

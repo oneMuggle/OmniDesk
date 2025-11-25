@@ -6,7 +6,7 @@ import apiClient from '../api/apiClient';
 const { Title, Text } = Typography;
 
 
-const WelcomePage = () => {
+const DashboardPage = () => {
   const [loadingTrials, setLoadingTrials] = useState(true);
   const [loadingSchedules, setLoadingSchedules] = useState(true);
   const [loadingBookings, setLoadingBookings] = useState(true);
@@ -175,4 +175,4 @@ const WelcomePage = () => {
   );
 };
 
-export default WelcomePage;
+export default DashboardPage;

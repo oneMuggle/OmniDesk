@@ -5,7 +5,7 @@ import { saveResponsiblePersons } from '../api/responsiblePersons';
 import { getConfig, setConfig } from '../api/ollama';
 import apiClient from '../api/apiClient'; // 导入 apiClient
 
-function SettingsPage() {
+function SystemSettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
   const [formData, setFormData] = useState(apiConfig);
   const [apiType, setApiType] = useState(apiConfig.apiType || 'deepseek');
@@ -378,4 +378,4 @@ function SettingsPage() {
 }
 
 
-export default SettingsPage;
+export default SystemSettingsPage;

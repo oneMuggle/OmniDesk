@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import AdminUserManagementPage from './AdminUserManagementPage';
+import UserManagementPage from './UserManagementPage';
 import userManagementApi from '../api/userManagementApi';
 import pageConfigApi from '../api/pageConfigApi';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +34,7 @@ const mockCurrentUser = {
   role: 'admin',
 };
 
-describe('AdminUserManagementPage', () => {
+describe('UserManagementPage', () => {
   beforeEach(() => {
     useAuth.mockReturnValue({ user: mockCurrentUser });
     userManagementApi.getAllUsers.mockResolvedValue(mockUsers);
@@ -48,7 +48,7 @@ describe('AdminUserManagementPage', () => {
   });
 
   test('renders user and page config tables with data', async () => {
-    render(<AdminUserManagementPage />);
+    render(<UserManagementPage />);
 
     await waitFor(() => {
       expect(screen.getByText('管理员面板')).toBeInTheDocument();
@@ -61,7 +61,7 @@ describe('AdminUserManagementPage', () => {
   });
 
   test('handles user role change', async () => {
-    render(<AdminUserManagementPage />);
+    render(<UserManagementPage />);
 
     await waitFor(() => {
         expect(screen.getByText('testuser')).toBeInTheDocument();
@@ -78,7 +78,7 @@ describe('AdminUserManagementPage', () => {
   });
 
   test('handles page visibility change', async () => {
-    render(<AdminUserManagementPage />);
+    render(<UserManagementPage />);
 
     await waitFor(() => {
         expect(screen.getByText('Home')).toBeInTheDocument();
@@ -93,7 +93,7 @@ describe('AdminUserManagementPage', () => {
   });
 
   test('disables role change for current user', async () => {
-    render(<AdminUserManagementPage />);
+    render(<UserManagementPage />);
 
     await waitFor(() => {
         expect(screen.getByText('admin')).toBeInTheDocument();

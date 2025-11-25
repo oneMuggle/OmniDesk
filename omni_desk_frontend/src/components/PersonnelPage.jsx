@@ -16,7 +16,7 @@ import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCi
 const { Option } = Select; // Destructure Option from Select
 const { TabPane } = Tabs; // Destructure TabPane from Tabs
 
-const PersonnelPage = () => {
+const PersonnelManagementPage = () => {
   const [form] = Form.useForm();
   const [data, setData] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -413,4 +413,4 @@ const PersonnelPage = () => {
   );
 };
 
-export default PersonnelPage;
+export default PersonnelManagementPage;

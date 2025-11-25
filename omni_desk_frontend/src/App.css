@@ -385,8 +385,8 @@
   transform: rotate(180deg);
 }
 
-/* WelcomePage Styles */
-.welcome-page-container {
+/* DashboardPage Styles */
+.dashboard-page-container {
   padding: var(--spacing-lg);
 }
 

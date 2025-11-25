@@ -17,7 +17,7 @@ import UserPersonnelAssociationTab from '../components/Personnel/UserPersonnelAs
 
 const { Option } = Select; // Destructure Option from Select
 
-const PersonnelPage = () => {
+const PersonnelManagementPage = () => {
   const [form] = Form.useForm();
   const [data, setData] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -375,4 +375,4 @@ const PersonnelPage = () => {
   );
 };
 
-export default PersonnelPage;
+export default PersonnelManagementPage;

@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import PersonnelPage from './PersonnelPage';
+import PersonnelManagementPage from './PersonnelManagementPage';
 import {
   getPersonnel,
   createPersonnel,
@@ -29,7 +29,7 @@ const mockPositions = {
   ],
 };
 
-describe('PersonnelPage', () => {
+describe('PersonnelManagementPage', () => {
   beforeEach(() => {
     getPersonnel.mockResolvedValue(mockPersonnel);
     getPositions.mockResolvedValue(mockPositions);
@@ -44,7 +44,7 @@ describe('PersonnelPage', () => {
   });
 
   test('renders the component and fetches data', async () => {
-    render(<PersonnelPage />);
+    render(<PersonnelManagementPage />);
     await waitFor(() => expect(getPersonnel).toHaveBeenCalled());
     await waitFor(() => expect(getPositions).toHaveBeenCalled());
     expect(await screen.findByText('John Doe')).toBeInTheDocument();
@@ -53,7 +53,7 @@ describe('PersonnelPage', () => {
 
   describe('Personnel Management', () => {
     test('adds a new person', async () => {
-      render(<PersonnelPage />);
+      render(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('add-personnel-button'));
@@ -85,7 +85,7 @@ describe('PersonnelPage', () => {
     });
 
     test('edits an existing person', async () => {
-      render(<PersonnelPage />);
+      render(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('edit-personnel-button-1'));
@@ -100,7 +100,7 @@ describe('PersonnelPage', () => {
     });
 
     test('deletes an existing person', async () => {
-      render(<PersonnelPage />);
+      render(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('delete-personnel-button-1'));
@@ -115,7 +115,7 @@ describe('PersonnelPage', () => {
 
     test('searches and filters personnel', async () => {
       getPositions.mockResolvedValue(mockPositions); // Ensure positions are loaded
-      render(<PersonnelPage />);
+      render(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
     
       const searchInput = screen.getByTestId('personnel-search-input');

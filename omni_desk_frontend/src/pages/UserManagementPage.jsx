@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
 
 const { Option } = Select;
 
-const AdminUserManagementPage = () => {
+const UserManagementPage = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState([]);
     const [pageConfigs, setPageConfigs] = useState([]);
@@ -159,4 +159,4 @@ const AdminUserManagementPage = () => {
     );
 };
 
-export default AdminUserManagementPage;
+export default UserManagementPage;

@@ -65,5 +65,5 @@ graph TD
     *   例如: `<ProtectedRoute roles={['admin', 'manager']}><EventsPage /></ProtectedRoute>`
 
 4.  **实现动态 UI (各个页面组件)**
-    *   在 `EventsPage`、`PersonnelPage` 等组件中，从 `AuthContext` 获取用户角色。
+    *   在 `EventsPage`、`PersonnelManagementPage` 等组件中，从 `AuthContext` 获取用户角色。
     *   根据角色，使用条件渲染来决定是否显示“新增”、“编辑”、“删除”等操作按钮。

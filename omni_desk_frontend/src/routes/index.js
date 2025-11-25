@@ -4,7 +4,7 @@ import GuestRoute from '../components/GuestRoute';
 import UnauthorizedPage from '../components/UnauthorizedPage';
 import App from '../App';
 import SchedulePage from '../components/SchedulePage';
-import SettingsPage from '../pages/SettingsPage';
+import SystemSettingsPage from '../pages/SystemSettingsPage';
 import IntelligentChatPage from '../components/IntelligentChatPage';
 import RagflowChatPage from '../components/RagflowChatPage';
 import EventsPage from '../components/EventsPage';
@@ -22,10 +22,10 @@ import BookReaderPage from '../components/BookReaderPage';
 import LibraryPage from '../components/LibraryPage';
 import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../components/TrialsPage';
-import PersonnelPage from '../pages/PersonnelPage';
+import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
-import WelcomePage from '../pages/WelcomePage'; // 导入 WelcomePage
+import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
@@ -40,7 +40,7 @@ import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
 import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
 import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
-import AdminUserManagementPage from '../pages/AdminUserManagementPage'; // Import AdminUserManagementPage
+import UserManagementPage from '../pages/UserManagementPage'; // Import UserManagementPage
 import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 SensorManagementPage
 import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
 import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
@@ -57,7 +57,7 @@ const router = createBrowserRouter([
         index: true,
         element: (
           <ProtectedRoute> {/* 使用 ProtectedRoute 判断登录状态 */}
-            <WelcomePage />
+            <DashboardPage />
           </ProtectedRoute>
         ),
       },
@@ -173,7 +173,7 @@ const router = createBrowserRouter([
       },
       {
         path: "personnel",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel"><PersonnelPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel"><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "schedules",
@@ -185,7 +185,7 @@ const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/settings"><SystemSettingsPage /></ProtectedRoute>
       },
       {
         path: "announcements",
@@ -217,7 +217,7 @@ const router = createBrowserRouter([
       },
       {
         path: "user-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-management"><AdminUserManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-management"><UserManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",
@@ -225,7 +225,7 @@ const router = createBrowserRouter([
       },
       {
        path: "settings",
-       element: <ProtectedRoute pagePath="/admin/settings"><SettingsPage /></ProtectedRoute>
+       element: <ProtectedRoute pagePath="/admin/settings"><SystemSettingsPage /></ProtectedRoute>
      }
     ]
   },
