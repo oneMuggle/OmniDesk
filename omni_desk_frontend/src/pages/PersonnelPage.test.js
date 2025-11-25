@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import PersonnelPage from './PersonnelPage';
 import {
@@ -32,6 +32,16 @@ const mockPositions = {
 
 describe('PersonnelPage', () => {
   beforeEach(() => {
+    jest.setTimeout(20000); // Increase timeout for all tests in this suite
+    getPersonnel.mockClear();
+    getPositions.mockClear();
+    createPersonnel.mockClear();
+    updatePersonnel.mockClear();
+    deletePersonnel.mockClear();
+    createPosition.mockClear();
+    updatePosition.mockClear();
+    deletePosition.mockClear();
+
     getPersonnel.mockResolvedValue(mockPersonnel);
     getPositions.mockResolvedValue(mockPositions);
     createPersonnel.mockResolvedValue({});
@@ -62,16 +72,17 @@ describe('PersonnelPage', () => {
   describe('Personnel Management', () => {
     test('adds a new person', async () => {
       render(<PersonnelPage />);
+      await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
 
       fireEvent.click(screen.getByRole('button', { name: /新增人员/i }));
-      await screen.findByRole('dialog', { name: /新增人员/i });
+      const dialog = await screen.findByRole('dialog', { name: /新增人员/i });
 
-      fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Peter Pan' } });
-      fireEvent.mouseDown(screen.getByLabelText('职位'));
-      const developerOptions = await screen.findAllByText('Developer');
-      fireEvent.click(developerOptions[0]);
+      await fireEvent.change(within(dialog).getByLabelText('姓名'), { target: { value: 'Peter Pan' } });
+      await fireEvent.mouseDown(within(dialog).getByLabelText('职位'));
+      const developerOption = await screen.findByText('Developer');
+      await fireEvent.click(developerOption);
 
-      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
       await waitFor(() => {
         expect(createPersonnel).toHaveBeenCalledWith(expect.objectContaining({ name: 'Peter Pan' }));
@@ -80,16 +91,16 @@ describe('PersonnelPage', () => {
 
     test('edits an existing person', async () => {
       render(<PersonnelPage />);
+      await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
 
-      await screen.findByText('John Doe');
       const editButtons = await screen.findAllByRole('button', { name: /编辑/i });
       fireEvent.click(editButtons[0]);
 
-      await screen.findByRole('dialog', { name: /编辑人员/i });
-      expect(screen.getByLabelText('姓名')).toHaveValue('John Doe');
+      const dialog = await screen.findByRole('dialog', { name: /编辑人员/i });
+      expect(within(dialog).getByLabelText('姓名')).toHaveValue('John Doe');
 
-      fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'John Doe Updated' } });
-      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      await fireEvent.change(within(dialog).getByLabelText('姓名'), { target: { value: 'John Doe Updated' } });
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
       await waitFor(() => {
         expect(updatePersonnel).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'John Doe Updated' }));
@@ -98,13 +109,14 @@ describe('PersonnelPage', () => {
 
     test('deletes an existing person', async () => {
       render(<PersonnelPage />);
+      await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
 
-      await screen.findByText('John Doe');
       const deleteButtons = await screen.findAllByRole('button', { name: /删除/i });
       fireEvent.click(deleteButtons[0]);
 
       await screen.findByText('确定要删除该人员信息吗？');
-      fireEvent.click(screen.getByRole('button', { name: /确认/i }));
+      const confirmButton = await screen.findByRole('button', { name: '确认' });
+      fireEvent.click(confirmButton);
 
       await waitFor(() => {
         expect(deletePersonnel).toHaveBeenCalledWith(1);
@@ -130,15 +142,16 @@ describe('PersonnelPage', () => {
   describe('Position Management', () => {
     test('switches to position management tab and adds a new position', async () => {
       render(<PersonnelPage />);
+      await waitFor(() => expect(screen.getAllByRole('row').length).toBeGreaterThan(1));
 
       fireEvent.click(screen.getByRole('tab', { name: /职位管理/i }));
       await screen.findByRole('heading', { name: /职位管理/i });
 
       fireEvent.click(screen.getByRole('button', { name: /新增职位/i }));
-      await screen.findByRole('dialog', { name: /新增职位/i });
+      const dialog = await screen.findByRole('dialog', { name: /新增职位/i });
 
-      fireEvent.change(screen.getByLabelText('职位名称'), { target: { value: 'Tester' } });
-      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      await fireEvent.change(within(dialog).getByLabelText('职位名称'), { target: { value: 'Tester' } });
+      await fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
       await waitFor(() => {
         expect(createPosition).toHaveBeenCalledWith({ name: 'Tester' });

@@ -31,7 +31,14 @@ const mockPersonnel = [
 ];
 
 const mockPositions = { results: [{ id: 1, name: 'Dev' }, { id: 2, name: 'QA' }] };
-const mockSequences = { data: { results: [] } };
+const mockSequences = {
+  data: {
+    results: [
+      { id: 1, name: 'Seq A', personnel_details: [{ id: 1, name: 'Alice' }, { id: 2, name: 'Bob' }] },
+      { id: 2, name: 'Seq B', personnel_details: [{ id: 3, name: 'Charlie' }, { id: 4, name: 'David' }] },
+    ],
+  },
+};
 
 describe('ScheduleManagementPage Calendar Filtering', () => {
   beforeEach(() => {
@@ -49,8 +56,12 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
   // Helper to render the component and wait for data to load
   const renderComponent = async () => {
     render(<ScheduleManagementPage />);
-    // Wait for the table to appear to ensure the component has loaded
-    await screen.findByRole('table');
+    // Wait for the table to be populated
+    await waitFor(() => {
+      const rows = screen.getAllByRole('row');
+      // Header row + data rows
+      expect(rows.length).toBeGreaterThan(1);
+    });
   };
 
   test('1. Enable Filter (Month View)', async () => {
@@ -64,24 +75,23 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
     expect(within(table).getByText('David')).toBeInTheDocument();
 
     // Enable the calendar filter switch
-    const filterSwitch = screen.getByRole('switch', { name: /日历过滤/i });
+    const filterSwitch = screen.getByRole('switch');
     fireEvent.click(filterSwitch);
 
-    // After enabling the filter, only schedules within the current month (Nov 2025) should be visible.
-    // We wait for the table to update.
+    // After enabling the filter, wait for the table to update
     await within(table).findByText('Alice');
     await within(table).findByText('Bob');
     await within(table).findByText('Charlie');
     await waitFor(() =>
       expect(within(table).queryByText('David')).not.toBeInTheDocument()
-    ); // David is in December
+    );
   });
 
   test('2. Enable Filter (Week View)', async () => {
     await renderComponent();
 
     // Enable filter and switch to week view
-    const filterSwitch = screen.getByRole('switch', { name: /日历过滤/i });
+    const filterSwitch = screen.getByRole('switch');
     fireEvent.click(filterSwitch);
     
     // Simulate switching to week view (e.g., the 2nd week of Nov)
@@ -104,7 +114,7 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
     await renderComponent();
 
     // Enable the filter first
-    const filterSwitch = screen.getByRole('switch', { name: /日历过滤/i });
+    const filterSwitch = screen.getByRole('switch');
     fireEvent.click(filterSwitch);
 
     const table = screen.getByRole('table');
@@ -127,7 +137,7 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
     await renderComponent();
 
     // Enable the filter
-    const filterSwitch = screen.getByRole('switch', { name: /日历过滤/i });
+    const filterSwitch = screen.getByRole('switch');
     fireEvent.click(filterSwitch);
 
     const table = screen.getByRole('table');
@@ -177,7 +187,7 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
       await renderComponent();
   
       // 1. Enable the calendar filter
-      const filterSwitch = screen.getByRole('switch', { name: /日历过滤/i });
+      const filterSwitch = screen.getByRole('switch');
       fireEvent.click(filterSwitch);
   
       const table = screen.getByRole('table');
@@ -206,7 +216,7 @@ describe('ScheduleManagementPage Calendar Filtering', () => {
       // 4. Confirm the deletion in the modal
       // Assuming a confirmation modal appears with a "Confirm" button.
       // The antd modal confirm button is usually inside a `div.ant-modal-confirm-btns`
-      const confirmButton = await screen.findByRole('button', { name: /确 定/i });
+      const confirmButton = await screen.findByRole('button', { name: '确定' });
       fireEvent.click(confirmButton);
   
       // 5. Verify that the delete API was called with the correct IDs
@@ -252,23 +262,23 @@ describe('ScheduleManagementPage CRUD Operations', () => {
 
     // Open modal
     fireEvent.click(screen.getByRole('button', { name: /新增排班/i }));
-    await screen.findByRole('dialog', { name: /新增排班/i });
+    const dialog = await screen.findByRole('dialog', { name: /新增排班/i });
 
     // Fill form
-    fireEvent.change(screen.getByLabelText('值班日期'), { target: { value: '2025-11-26' } });
-    // antd select is complex, we need to click to open dropdown, then click option
-    fireEvent.mouseDown(screen.getByLabelText('值班人员'));
-    await screen.findByText('Alice (Dev)');
-    fireEvent.click(screen.getByText('Alice (Dev)'));
+    fireEvent.change(within(dialog).getByLabelText('值班日期'), { target: { value: moment('2025-11-26') } });
+    
+    fireEvent.mouseDown(within(dialog).getByLabelText('值班人员'));
+    const aliceOption = await screen.findByText('Alice (Dev)');
+    fireEvent.click(aliceOption);
 
-    fireEvent.mouseDown(screen.getByLabelText('值班领导'));
-    await screen.findByText('Leader A (Dev)');
-    fireEvent.click(screen.getByText('Leader A (Dev)'));
+    fireEvent.mouseDown(within(dialog).getByLabelText('值班领导'));
+    const leaderAOption = await screen.findByText('Leader A (Dev)');
+    fireEvent.click(leaderAOption);
 
     scheduleApi.createSchedule.mockResolvedValue({ success: true });
 
     // Submit
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(scheduleApi.createSchedule).toHaveBeenCalled();
@@ -286,15 +296,17 @@ describe('ScheduleManagementPage CRUD Operations', () => {
     // Open modal
     const editButtons = await screen.findAllByRole('button', { name: /编辑/i });
     fireEvent.click(editButtons[0]);
-    await screen.findByRole('dialog', { name: /编辑排班/i });
+    const dialog = await screen.findByRole('dialog', { name: /编辑排班/i });
 
     // Form should be pre-filled
-    expect(screen.getByLabelText('值班日期')).toHaveValue('2025-11-10');
+    await waitFor(() => {
+        expect(within(dialog).getByLabelText('值班日期').value).toBe('2025-11-10');
+    });
 
     scheduleApi.updateSchedule.mockResolvedValue({ success: true });
 
     // Submit
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(scheduleApi.updateSchedule).toHaveBeenCalledWith(1, expect.any(Object));
@@ -314,8 +326,8 @@ describe('ScheduleManagementPage CRUD Operations', () => {
     const deleteButtons = await screen.findAllByRole('button', { name: /删除/i });
     fireEvent.click(deleteButtons[0]);
 
-    // Confirm deletion
-    const confirmButton = await screen.findByRole('button', { name: /确 定/i });
+    // Confirm deletion in Popconfirm
+    const confirmButton = await screen.findByRole('button', { name: /是/i });
     fireEvent.click(confirmButton);
 
     await waitFor(() => {
@@ -328,20 +340,24 @@ describe('ScheduleManagementPage CRUD Operations', () => {
 
     // Open modal
     fireEvent.click(screen.getByRole('button', { name: /生成排班/i }));
-    await screen.findByRole('dialog', { name: /生成排班/i });
+    const dialog = await screen.findByRole('dialog', { name: /生成排班/i });
 
     // Fill form
-    fireEvent.change(screen.getByLabelText('起始日期'), { target: { value: '2025-12-01' } });
-    fireEvent.change(screen.getByLabelText('生成天数'), { target: { value: '10' } });
+    fireEvent.change(within(dialog).getByLabelText('起始日期'), { target: { value: moment('2025-12-01') } });
+    fireEvent.change(within(dialog).getByLabelText('生成天数'), { target: { value: 10 } });
 
-    fireEvent.mouseDown(screen.getByLabelText('人员顺序'));
-    // Mock sequences need to be populated for this to work
-    // For now, we just check if the modal opens and closes
+    fireEvent.mouseDown(within(dialog).getByLabelText('人员顺序'));
+    const seqAOption = await screen.findByText(/Seq A/);
+    fireEvent.click(seqAOption);
+    
+    fireEvent.mouseDown(within(dialog).getByLabelText('领导顺序'));
+    const seqBOption = await screen.findByText(/Seq B/);
+    fireEvent.click(seqBOption);
 
     scheduleApi.generateSchedules.mockResolvedValue({ success: true });
 
     // Submit
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(scheduleApi.generateSchedules).toHaveBeenCalled();

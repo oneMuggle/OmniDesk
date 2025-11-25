@@ -138,9 +138,9 @@ const MeetingRoomManagementPage = () => {
             key: 'actions',
             render: (text, record) => (
                 <span>
-                    <Button icon={<EditOutlined />} onClick={() => handleEditRoom(record)} style={{ marginRight: 8 }} />
+                    <Button aria-label={`edit-room-${record.id}`} icon={<EditOutlined />} onClick={() => handleEditRoom(record)} style={{ marginRight: 8 }} />
                     <Popconfirm title="确定删除此会议室吗？" onConfirm={() => handleDeleteRoom(record.id)}>
-                        <Button icon={<DeleteOutlined />} danger />
+                        <Button aria-label={`delete-room-${record.id}`} icon={<DeleteOutlined />} danger />
                     </Popconfirm>
                 </span>
             ),
@@ -212,9 +212,9 @@ const MeetingRoomManagementPage = () => {
             key: 'actions',
             render: (text, record) => (
                 <span>
-                    <Button icon={<EditOutlined />} onClick={() => handleEditMaintenance(record)} style={{ marginRight: 8 }} />
+                    <Button aria-label={`edit-maintenance-${record.id}`} icon={<EditOutlined />} onClick={() => handleEditMaintenance(record)} style={{ marginRight: 8 }} />
                     <Popconfirm title="确定删除此维护记录吗？" onConfirm={() => handleDeleteMaintenance(record.id)}>
-                        <Button icon={<DeleteOutlined />} danger />
+                        <Button aria-label={`delete-maintenance-${record.id}`} icon={<DeleteOutlined />} danger />
                     </Popconfirm>
                 </span>
             ),

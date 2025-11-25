@@ -65,13 +65,14 @@ describe('SequenceManager', () => {
   test('adds a new personnel sequence', async () => {
     render(<SequenceManager />);
 
-    const addPersonnelSeqButton = screen.getAllByRole('button', { name: /新建人员顺序/i })[0];
+    await screen.findByText('Personnel Seq 1');
+    const addPersonnelSeqButton = screen.getByRole('button', { name: /新建人员顺序/i });
     fireEvent.click(addPersonnelSeqButton);
 
-    await screen.findByRole('dialog', { name: /新建人员顺序/i });
-    const nameInput = screen.getByLabelText('顺序名称');
-    await fireEvent.change(nameInput, { target: { value: 'New Personnel Seq' } });
-    await fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    const dialog = await screen.findByRole('dialog', { name: /新建人员顺序/i });
+    const nameInput = within(dialog).getByLabelText('顺序名称');
+    fireEvent.change(nameInput, { target: { value: 'New Personnel Seq' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(createPersonnelSequence).toHaveBeenCalledWith(expect.objectContaining({ name: 'New Personnel Seq' }));
@@ -82,14 +83,14 @@ describe('SequenceManager', () => {
     render(<SequenceManager />);
 
     await screen.findByText('Leader Seq 1');
-    const editButtons = await screen.findAllByRole('button', { name: /编辑/i });
-    fireEvent.click(editButtons[1]); // Assuming second edit button is for leader sequence
+    const editButton = (await screen.findAllByRole('button', { name: /编辑/i }))[1];
+    fireEvent.click(editButton);
 
-    await screen.findByRole('dialog', { name: /编辑领导顺序/i });
-    expect(screen.getByLabelText('顺序名称')).toHaveValue('Leader Seq 1');
+    const dialog = await screen.findByRole('dialog', { name: /编辑领导顺序/i });
+    expect(within(dialog).getByLabelText('顺序名称')).toHaveValue('Leader Seq 1');
 
-    fireEvent.change(screen.getByLabelText('顺序名称'), { target: { value: 'Updated Leader Seq' } });
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    fireEvent.change(within(dialog).getByLabelText('顺序名称'), { target: { value: 'Updated Leader Seq' } });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(updateLeaderSequence).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Updated Leader Seq' }));
@@ -100,8 +101,8 @@ describe('SequenceManager', () => {
     render(<SequenceManager />);
 
     await screen.findByText('Personnel Seq 1');
-    const deleteButtons = await screen.findAllByRole('button', { name: /删除/i });
-    fireEvent.click(deleteButtons[0]); // Assuming first delete button is for personnel sequence
+    const deleteButton = (await screen.findAllByRole('button', { name: /删除/i }))[0];
+    fireEvent.click(deleteButton);
 
     await screen.findByText('确定要删除吗?');
     fireEvent.click(screen.getByRole('button', { name: /是/i }));
@@ -114,21 +115,22 @@ describe('SequenceManager', () => {
   test('adds and removes personnel in the modal', async () => {
     render(<SequenceManager />);
 
-    const addPersonnelSeqButton = screen.getAllByRole('button', { name: /新建人员顺序/i })[0];
+    await screen.findByText('Personnel Seq 1');
+    const addPersonnelSeqButton = screen.getByRole('button', { name: /新建人员顺序/i });
     fireEvent.click(addPersonnelSeqButton);
 
     const modal = await screen.findByRole('dialog', { name: /新建人员顺序/i });
     
     // Add Alice
-    const addButtons = await within(modal).findAllByRole('button', { name: /添加/i });
-    fireEvent.click(addButtons[0]); // Add Alice
+    const addButton = (await within(modal).findAllByRole('button', { name: /添加/i }))[0];
+    fireEvent.click(addButton);
 
     const sortedList = within(modal).getByTestId('sorted-personnel-list');
     await within(sortedList).findByText('Alice');
 
     // Remove Alice
-    const removeButtons = await within(sortedList).findAllByRole('button', { name: /✖/i });
-    fireEvent.click(removeButtons[0]);
+    const removeButton = await within(sortedList).findByRole('button', { name: /✖/i });
+    fireEvent.click(removeButton);
 
     await waitFor(() => {
       expect(within(sortedList).queryByText('Alice')).not.toBeInTheDocument();

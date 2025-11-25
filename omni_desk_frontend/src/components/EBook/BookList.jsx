@@ -23,10 +23,10 @@ const BookList = ({ books, onEdit, onExport, loading }) => {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Button type="primary" onClick={() => onEdit(record)}>
+          <Button type="primary" onClick={() => onEdit(record)} aria-label={`edit-book-${record.id}`}>
             编辑
           </Button>
-          <Button onClick={() => onExport(record)}>
+          <Button onClick={() => onExport(record)} aria-label={`export-book-${record.id}`}>
             导出
           </Button>
         </Space>

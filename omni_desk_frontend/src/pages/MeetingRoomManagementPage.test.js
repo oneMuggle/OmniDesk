@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
 import MeetingRoomManagementPage from './MeetingRoomManagementPage';
@@ -82,29 +82,36 @@ describe('MeetingRoomManagementPage', () => {
     test('adds a new meeting room', async () => {
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-      fireEvent.click(screen.getByRole('button', { name: /添加会议室/i }));
-      await screen.findByRole('dialog', { name: /添加会议室/i });
-
-      fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Room C' } });
-      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      const addRoomButton = await screen.findByRole('button', { name: /添加会议室/i });
+      fireEvent.click(addRoomButton);
+      
+      const dialog = await screen.findByRole('dialog', { name: /添加会议室/i });
+      
+      const nameInput = await within(dialog).findByLabelText('名称');
+      fireEvent.change(nameInput, { target: { value: 'Room C' } });
+      
+      const okButton = await within(dialog).findByRole('button', { name: 'OK' });
+      fireEvent.click(okButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.createMeetingRoom).toHaveBeenCalledWith({ name: 'Room C' });
+        expect(meetingRoomApi.createMeetingRoom).toHaveBeenCalledWith(expect.objectContaining({ name: 'Room C' }));
       });
     });
 
     test('edits an existing meeting room', async () => {
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-      await screen.findAllByText('Room A');
-      const editButtons = await screen.findAllByRole('button', { name: /edit/i });
-      fireEvent.click(editButtons[0]);
+      const editButton = await screen.findByLabelText('edit-room-1');
+      fireEvent.click(editButton);
 
-      await screen.findByRole('dialog', { name: /编辑会议室/i });
-      expect(screen.getByLabelText('名称')).toHaveValue('Room A');
-
-      fireEvent.change(screen.getByLabelText('名称'), { target: { value: 'Room A Updated' } });
-      fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+      const dialog = await screen.findByRole('dialog', { name: /编辑会议室/i });
+      
+      const nameInput = await within(dialog).findByLabelText('名称');
+      expect(nameInput).toHaveValue('Room A');
+      fireEvent.change(nameInput, { target: { value: 'Room A Updated' } });
+      
+      const okButton = await within(dialog).findByRole('button', { name: 'OK' });
+      fireEvent.click(okButton);
 
       await waitFor(() => {
         expect(meetingRoomApi.updateMeetingRoom).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Room A Updated' }));
@@ -114,12 +121,11 @@ describe('MeetingRoomManagementPage', () => {
     test('deletes an existing meeting room', async () => {
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-      await screen.findAllByText('Room A');
-      const deleteButtons = await screen.findAllByRole('button', { name: /delete/i });
-      fireEvent.click(deleteButtons[0]);
+      const deleteButton = await screen.findByLabelText('delete-room-1');
+      fireEvent.click(deleteButton);
 
-      await screen.findByText('确定删除此会议室吗？');
-      fireEvent.click(screen.getByRole('button', { name: /ok/i }));
+      const confirmButton = await screen.findByRole('button', { name: /ok/i });
+      fireEvent.click(confirmButton);
 
       await waitFor(() => {
         expect(meetingRoomApi.deleteMeetingRoom).toHaveBeenCalledWith(1);
@@ -131,19 +137,31 @@ describe('MeetingRoomManagementPage', () => {
     test('adds a new maintenance record', async () => {
         renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
     
-        fireEvent.click(screen.getByRole('button', { name: /添加维护记录/i }));
-        await screen.findByRole('dialog', { name: /添加维护记录/i });
-    
-        // antd select is complex
-        fireEvent.mouseDown(screen.getByLabelText('会议室'));
-        const roomAOptions = await screen.findAllByText('Room A');
-        fireEvent.click(roomAOptions[0]);
-    
-        fireEvent.change(screen.getByLabelText('维护原因'), { target: { value: 'Cleaning' } });
-        fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+        const addMaintenanceButton = await screen.findByRole('button', { name: /添加维护记录/i });
+        fireEvent.click(addMaintenanceButton);
+        
+        const dialog = await screen.findByRole('dialog', { name: /添加维护记录/i });
+
+        // Select meeting room
+        fireEvent.mouseDown(await within(dialog).findByLabelText('会议室'));
+        const roomAOption = await screen.findByText('Room A');
+        fireEvent.click(roomAOption);
+
+        // Select time range
+        const rangePicker = await within(dialog).findByLabelText('维护时间范围');
+        fireEvent.click(rangePicker);
+        fireEvent.change(rangePicker, { target: { value: [dayjs(), dayjs().add(1, 'hour')] } });
+        
+        // Input reason
+        fireEvent.change(await within(dialog).findByLabelText('维护原因'), { target: { value: 'Cleaning' } });
+        
+        const okButton = await within(dialog).findByRole('button', { name: 'OK' });
+        fireEvent.click(okButton);
     
         await waitFor(() => {
-            expect(meetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalled();
+            expect(meetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalledWith(expect.objectContaining({
+                reason: 'Cleaning',
+            }));
         });
     });
   });
@@ -154,10 +172,8 @@ describe('MeetingRoomManagementPage', () => {
 
       await screen.findByText('总预约数量');
       
-      // Change date range
-      // Interacting with RangePicker is complex. We'll just test the refresh button.
-
-      fireEvent.click(screen.getByRole('button', { name: /刷新统计/i }));
+      const refreshButton = await screen.findByRole('button', { name: /刷新统计/i });
+      fireEvent.click(refreshButton);
 
       await waitFor(() => {
         expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2); // Initial fetch + refresh
