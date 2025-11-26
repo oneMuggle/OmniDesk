@@ -5,8 +5,14 @@ from django.contrib.auth import get_user_model
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from events.models import Personnel, Position
 from events.serializers import PersonnelSerializer
+from .models import PhoneNumber
 
 CustomUser = get_user_model()
+
+class PhoneNumberSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PhoneNumber
+        fields = ['id', 'number']
 
 class UserRegistrationSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
@@ -88,6 +94,7 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
+    phone_numbers = PhoneNumberSerializer(many=True, read_only=True)
     assigned_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         allow_null=True,
@@ -105,7 +112,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'phone_number', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
+        fields = ('id', 'username', 'email', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id', 'phone_numbers')
         read_only_fields = ()
         extra_kwargs = {}
     def __init__(self, *args, **kwargs):
@@ -114,9 +121,11 @@ class UserDetailSerializer(serializers.ModelSerializer):
             self.fields['real_name'].read_only = True
 
 class UserSerializer(serializers.ModelSerializer):
+    phone_numbers = PhoneNumberSerializer(many=True, read_only=True)
+
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id')
+        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id', 'phone_numbers')
         extra_kwargs = {
             'role': {'required': True}
         }
@@ -142,11 +151,38 @@ class UserAdminSerializer(serializers.ModelSerializer):
         allow_null=True,
         required=False
     )
+    phone_numbers = PhoneNumberSerializer(many=True, required=False)
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'phone_number', 'avatar')
-        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'real_name', 'phone_number', 'avatar')
+        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'avatar', 'phone_numbers')
+        read_only_fields = ('id', 'email', 'is_active', 'is_staff', 'date_joined', 'avatar')
+
+    def create(self, validated_data):
+        phone_numbers_data = validated_data.pop('phone_numbers', [])
+        user = CustomUser.objects.create_user(**validated_data)
+        for phone_number_data in phone_numbers_data:
+            PhoneNumber.objects.create(user=user, **phone_number_data)
+        return user
+
+    def update(self, instance, validated_data):
+        phone_numbers_data = validated_data.pop('phone_numbers', None)
+
+        # Update user instance
+        instance.username = validated_data.get('username', instance.username)
+        instance.role = validated_data.get('role', instance.role)
+        instance.real_name = validated_data.get('real_name', instance.real_name)
+        instance.personnel = validated_data.get('personnel', instance.personnel)
+        instance.save()
+
+        if phone_numbers_data is not None:
+            # Clear existing phone numbers
+            instance.phone_numbers.all().delete()
+            # Add new phone numbers
+            for phone_number_data in phone_numbers_data:
+                PhoneNumber.objects.create(user=instance, **phone_number_data)
+
+        return instance
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):

@@ -78,6 +78,16 @@ const UserManagementPage = () => {
             key: 'email',
         },
         {
+            title: '电话号码',
+            dataIndex: 'phone_numbers',
+            key: 'phone_numbers',
+            render: phoneNumbers => (
+                <span>
+                    {phoneNumbers && phoneNumbers.map(pn => pn.number).join(', ')}
+                </span>
+            ),
+        },
+        {
             title: '角色',
             dataIndex: 'role',
             key: 'role',

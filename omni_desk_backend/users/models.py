@@ -10,7 +10,6 @@ class CustomUser(AbstractUser):
     
     # 显式定义email字段覆盖默认设置
     email = models.EmailField(blank=True, null=True, help_text='可选字段，允许为空')
-    phone_number = models.CharField(max_length=20, blank=True, null=True, verbose_name='手机号码')
     real_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='真实姓名')
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
@@ -79,3 +78,10 @@ class CustomUser(AbstractUser):
             return True
         # 其他角色暂不使用Django内置权限系统
         return False
+
+class PhoneNumber(models.Model):
+    user = models.ForeignKey(CustomUser, related_name='phone_numbers', on_delete=models.CASCADE)
+    number = models.CharField(max_length=20, verbose_name='手机号码')
+
+    def __str__(self):
+        return self.number
