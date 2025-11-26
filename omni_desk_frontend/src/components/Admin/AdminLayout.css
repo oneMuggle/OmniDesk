@@ -10,7 +10,6 @@
   width: 250px; /* Default width */
   background-color: #2C3E50; /* Softer, modern dark blue-gray */
   color: #ECF0F1; /* Off-white for better readability */
-  padding: 20px;
   display: flex;
   flex-direction: column;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother animation */
@@ -27,6 +26,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 30px;
+  padding: 20px 20px 0 20px;
 }
 
 .admin-sidebar-header h2 {
@@ -57,6 +57,12 @@
 
 .collapse-toggle .collapse-icon.rotate {
   transform: rotate(180deg);
+}
+
+.admin-sidebar-menu {
+  overflow-y: auto;
+  flex-grow: 1;
+  padding: 0 20px;
 }
 
 .admin-sidebar-menu ul {
@@ -218,4 +224,23 @@
   .admin-content {
     margin-left: 0; /* No margin when sidebar is hidden */
   }
+}
+/* Custom scrollbar for admin sidebar menu */
+.admin-sidebar-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.admin-sidebar-menu::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-sidebar-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.admin-sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4);
 }

@@ -11,6 +11,8 @@
   padding: 0;
   box-shadow: var(--box-shadow-base);
   transition: width 0.3s ease, transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-header {
@@ -28,6 +30,31 @@
   list-style: none;
   padding: 20px 0;
   margin: 0;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+/* 自定义侧边栏菜单滚动条 */
+.sidebar-menu::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar-menu::-webkit-scrollbar-track {
+  background: transparent; /* 使轨道透明 */
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.2); /* 半透明滑块 */
+  border-radius: 4px;
+  border: 2px solid transparent; /* 增加边框以创建间距效果 */
+  background-clip: content-box;
+}
+
+.sidebar-menu::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.4); /* 悬停时更亮 */
+}
+
+.sidebar-menu::-webkit-scrollbar-corner {
+  background: transparent;
 }
 
 .sidebar-menu ul {
