@@ -196,7 +196,7 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
                 instance.real_name = personnel.name
                 # Assuming personnel model has a phone_numbers field
                 if hasattr(personnel, 'phone_numbers') and personnel.phone_numbers.exists():
-                    instance.phone = personnel.phone_numbers.first().number
+                    instance.phone_number = personnel.phone_numbers.first().number
                 instance.save()
             except Personnel.DoesNotExist:
                 return Response({"detail": "Personnel not found."}, status=status.HTTP_404_NOT_FOUND)

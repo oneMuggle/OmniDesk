@@ -11,8 +11,7 @@ urlpatterns = [
     # Authentication & User endpoints
     path('api/sensor-management/', include('sensor_management.urls')),
     path('api/', include([
-        path('users/', include('users.urls', namespace='users')),     # 用户个人资料路由
-        path('users/personnel/', include('users.urls')), # 用户人员关联路由
+        path('users/', include('users.urls')),     # 用户个人资料路由
         path('auth/', include('users.auth_urls', namespace='users_auth')), # 认证路由
         path('events/', include('events.urls')),  # 事件相关路由
         path('documents/', include('documents.urls')),  # 新增文档相关路由

@@ -105,7 +105,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'phone', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
+        fields = ('id', 'username', 'email', 'phone_number', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id')
         read_only_fields = ()
         extra_kwargs = {}
     def __init__(self, *args, **kwargs):
@@ -145,8 +145,8 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'phone', 'avatar')
-        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'real_name', 'phone', 'avatar')
+        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'phone_number', 'avatar')
+        read_only_fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'real_name', 'phone_number', 'avatar')
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
