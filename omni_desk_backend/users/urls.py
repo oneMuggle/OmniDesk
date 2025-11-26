@@ -8,11 +8,11 @@ router = DefaultRouter()
 router.register(r'personnel', UserPersonnelViewSet, basename='customuser') # 指定 basename
 
 urlpatterns = [
+    path('me/profile/', UserProfileUpdateView.as_view(), name='user-profile-update'),
+    path('me/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('me/', CurrentUserView.as_view(), name='current-user'),
     path('admin/', UserAdminListView.as_view(), name='user-admin-list'),
     path('admin/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
-    path('me/update/', UserProfileUpdateView.as_view(), name='user-profile-update'),
-    path('me/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('', UserPersonnelViewSet.as_view({'get': 'list'}), name='user-list'), # 将 /api/users/ 路由指向 UserPersonnelViewSet 的列表操作
     path('positions/', PositionListView.as_view(), name='position-list'),
 ]

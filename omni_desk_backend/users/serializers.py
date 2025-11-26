@@ -94,7 +94,7 @@ class UserLoginSerializer(serializers.Serializer):
         return data
 
 class UserDetailSerializer(serializers.ModelSerializer):
-    phone_numbers = PhoneNumberSerializer(many=True, read_only=True)
+    phone_numbers = PhoneNumberSerializer(many=True, required=False)
     assigned_by = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         allow_null=True,
@@ -119,6 +119,21 @@ class UserDetailSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.personnel:
             self.fields['real_name'].read_only = True
+    
+    def update(self, instance, validated_data):
+        phone_numbers_data = validated_data.pop('phone_numbers', None)
+        
+        # Update user instance using the default update logic
+        instance = super().update(instance, validated_data)
+
+        if phone_numbers_data is not None:
+            # Clear existing phone numbers
+            instance.phone_numbers.all().delete()
+            # Add new phone numbers
+            for phone_number_data in phone_numbers_data:
+                PhoneNumber.objects.create(user=instance, **phone_number_data)
+
+        return instance
 
 class UserSerializer(serializers.ModelSerializer):
     phone_numbers = PhoneNumberSerializer(many=True, read_only=True)
