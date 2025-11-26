@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification } from 'antd';
 import { useAuth } from '../context/AuthContext';
 import meetingRoomApi from '../api/meetingRoomApi';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
@@ -73,6 +74,7 @@ const CustomToolbar = ({ label, onNavigate, onView, view }) => {
 
 const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
+    const navigate = useNavigate();
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
@@ -135,6 +137,20 @@ const MeetingRoomBookingPage = () => {
     }, [fetchMeetingRooms, fetchBookings]);
 
     const handleSelectSlot = ({ start, end }) => {
+        if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
+            notification.error({
+                message: '信息不完整',
+                description: (
+                    <div>
+                        请先完善您的真实姓名和联系电话。
+                        <Button type="link" onClick={() => navigate('/profile')}>
+                            去完善
+                        </Button>
+                    </div>
+                ),
+            });
+            return;
+        }
         // 预约时间不能在当前时间之前
         if (dayjs(start).isBefore(dayjs())) {
             message.warning('无法预约过去的时间段。');
@@ -178,6 +194,20 @@ const MeetingRoomBookingPage = () => {
     };
 
     const handleOk = async () => {
+        if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
+            notification.error({
+                message: '信息不完整',
+                description: (
+                    <div>
+                        请先完善您的真实姓名和联系电话。
+                        <Button type="link" onClick={() => navigate('/profile')}>
+                            去完善
+                        </Button>
+                    </div>
+                ),
+            });
+            return;
+        }
         try {
             const values = await form.validateFields();
             const [start_time, end_time] = values.timeRange;
@@ -425,7 +455,8 @@ const MeetingRoomBookingPage = () => {
                         <p><strong>主题:</strong> {selectedEvent.title}</p>
                         <p><strong>会议室:</strong> {selectedEvent.meeting_room_name}</p>
                         <p><strong>时间:</strong> {`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</p>
-                        <p><strong>发布人:</strong> {selectedEvent.user.username}</p>
+                        <p><strong>发布人:</strong> {selectedEvent.user.real_name || selectedEvent.user.username}</p>
+                        <p><strong>联系电话:</strong> {selectedEvent.user.phone_numbers?.[0]?.number || '未提供'}</p>
                         <p><strong>参与人员:</strong> {selectedEvent.participants || '无'}</p>
                         <p><strong>描述:</strong> {selectedEvent.description || '无'}</p>
                     </div>
