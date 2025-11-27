@@ -665,7 +665,6 @@ const ScheduleManagementPage = () => {
           <Space>
             <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>
             <Button type="default" onClick={() => setIsGenerateModalVisible(true)} data-testid="generate-schedule-button">生成排班</Button>
-            <Button type="default" onClick={() => setIsPersonnelSequenceModalVisible(true)} data-testid="set-sequence-button">设置顺序</Button>
             <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
           </Space>
           <Space>
@@ -696,6 +695,7 @@ const ScheduleManagementPage = () => {
             eventClick={handleEventClick}
             datesSet={handleDatesSet}
             locale="zh-cn"
+            firstDay={1}
             data-testid="schedule-calendar"
           />
         </div>
