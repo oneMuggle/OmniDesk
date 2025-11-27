@@ -9,7 +9,9 @@ const ShiftSchedule = ({
   onDateClick,
   onEventClick,
   onScheduleSelect = () => {},
-  personnel // 接收 personnel prop
+  personnel, // 接收 personnel prop
+  calendarRef,
+  onDatesSet,
 }) => {
   // console.log('ScheduleCalendar接收到的排班数据:', schedules); // 添加调试日志
   // console.log('ScheduleCalendar接收到的人员数据:', personnel); // 添加调试日志
@@ -20,9 +22,11 @@ const ShiftSchedule = ({
 
   return (
     <BaseSchedule
+      calendarRef={calendarRef}
       events={events}
       onDateClick={onDateClick}
       onEventClick={onEventClick}
+      onDatesSet={onDatesSet}
       editable={false} // 排班在主页面不可编辑
       selectable={false} // 排班在主页面不可选择
       select={onScheduleSelect}

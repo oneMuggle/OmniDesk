@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider, Switch, Popconfirm } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -10,11 +11,16 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import PersonnelSequenceModal from '../components/Schedule/PersonnelSequenceModal';
+import WeeklyLeaderDisplay from '../components/Schedule/WeeklyLeaderDisplay';
+import MonthlyLeaderSidebar from '../components/Schedule/MonthlyLeaderSidebar';
+import { DragDropContext } from 'react-beautiful-dnd';
 
 const { Option } = Select;
 
 const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, positions }) => {
   const [form] = Form.useForm();
+  const isPersonFilterInitialMount = useRef(true);
+  const isLeaderFilterInitialMount = useRef(true);
   const [filteredDutyPersonList, setFilteredDutyPersonList] = useState(personnelList);
   const [filteredDutyLeaderList, setFilteredDutyLeaderList] = useState(personnelList);
   const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
@@ -23,42 +29,34 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
   useEffect(() => {
     if (open) {
       form.setFieldsValue({
-        ...initialData,
         date: initialData.duty_date ? moment(initialData.duty_date) : null,
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
-      // console.log("ScheduleFormModal - initialData:", initialData);
-      // console.log("ScheduleFormModal - duty_person (from initialData):", initialData.duty_person);
-      // console.log("ScheduleFormModal - duty_leader (from initialData):", initialData.duty_leader);
-      // console.log("ScheduleFormModal - duty_person phone_numbers:", initialData.duty_person?.phone_numbers);
-      // console.log("ScheduleFormModal - duty_leader phone_numbers:", initialData.duty_leader?.phone_numbers);
-      // console.log("ScheduleFormModal - form fields after setFieldsValue:", form.getFieldsValue());
-      // Reset filters and lists when modal opens
       setFilteredDutyPersonList(personnelList);
       setFilteredDutyLeaderList(personnelList);
       setSelectedPersonPositionId(null);
       setSelectedLeaderPositionId(null);
     }
-  }, [open, initialData, form, personnelList]);
+  }, [open, initialData, personnelList, form]);
 
 
   useEffect(() => {
     if (selectedPersonPositionId) {
       setFilteredDutyPersonList(personnelList.filter(p => p.position === selectedPersonPositionId));
+      form.setFieldsValue({ duty_person: null });
     } else {
       setFilteredDutyPersonList(personnelList);
     }
-    form.setFieldsValue({ duty_person: null }); // Clear selected person
   }, [selectedPersonPositionId, personnelList, form]);
 
   useEffect(() => {
     if (selectedLeaderPositionId) {
       setFilteredDutyLeaderList(personnelList.filter(p => p.position === selectedLeaderPositionId));
+      form.setFieldsValue({ duty_leader: null });
     } else {
       setFilteredDutyLeaderList(personnelList);
     }
-    form.setFieldsValue({ duty_leader: null }); // Clear selected leader
   }, [selectedLeaderPositionId, personnelList, form]);
 
   const handleOk = () => {
@@ -312,6 +310,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
 };
 
 const ScheduleManagementPage = () => {
+  const queryClient = useQueryClient();
   const [schedules, setSchedules] = useState([]);
   const [personnelList, setPersonnelList] = useState([]);
   const [personnelSequences, setPersonnelSequences] = useState([]);
@@ -330,6 +329,8 @@ const ScheduleManagementPage = () => {
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [isCalendarFilterEnabled, setIsCalendarFilterEnabled] = useState(false);
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
+  const [currentView, setCurrentView] = useState('dayGridMonth');
+  const [weeklyLeaders, setWeeklyLeaders] = useState([]);
 
   useEffect(() => {
     // 组件挂载时保存日历容器的原始样式
@@ -509,24 +510,83 @@ const ScheduleManagementPage = () => {
     }
   };
   const handleEventClick = (info) => {
-    // 提取事件的原始数据，这些数据在 extendedProps 中
-    const clickedSchedule = {
-      id: parseInt(info.event.id, 10), // FullCalendar 的事件ID可能是字符串，需要转回数字
-      duty_date: info.event.startStr,
-      duty_person: info.event.extendedProps.duty_person,
-      duty_leader: info.event.extendedProps.duty_leader,
-    };
-    handleEdit(clickedSchedule);
+    const scheduleId = parseInt(info.event.id, 10);
+    const clickedSchedule = schedules.find(s => s.id === scheduleId);
+
+    if (clickedSchedule) {
+      handleEdit(clickedSchedule);
+    } else {
+      message.error('未找到对应的排班数据');
+    }
   };
+
+  useEffect(() => {
+    if (!calendarViewInfo || !schedules || schedules.length === 0) {
+      setWeeklyLeaders([]);
+      return;
+    }
+
+    const start = moment(calendarViewInfo.start);
+    const end = moment(calendarViewInfo.end);
+    const leadersByWeek = {};
+
+    schedules.forEach(schedule => {
+      const scheduleDate = moment(schedule.duty_date);
+      if (scheduleDate.isBetween(start, end, 'day', '[]')) {
+        const week = scheduleDate.week();
+        if (!leadersByWeek[week]) {
+          leadersByWeek[week] = {
+            id: week,
+            start: scheduleDate.clone().startOf('week').format('YYYY-MM-DD'),
+            leaders: [],
+            schedules: []
+          };
+        }
+        if (schedule.duty_leader && !leadersByWeek[week].leaders.some(l => l.id === schedule.duty_leader.id)) {
+          leadersByWeek[week].leaders.push(schedule.duty_leader);
+        }
+        leadersByWeek[week].schedules.push(schedule);
+      }
+    });
+
+    setWeeklyLeaders(Object.values(leadersByWeek).sort((a, b) => a.id - b.id));
+  }, [schedules, calendarViewInfo]);
 
   const handleDatesSet = (viewInfo) => {
     setCalendarViewInfo(viewInfo);
+    setCurrentView(viewInfo.view.type);
+  };
+
+  const handleLeaderDragEnd = async (result) => {
+    if (!result.destination) return;
+
+    const newWeeklyLeaders = Array.from(weeklyLeaders);
+    const [reorderedItem] = newWeeklyLeaders.splice(result.source.index, 1);
+    newWeeklyLeaders.splice(result.destination.index, 0, reorderedItem);
+
+    setWeeklyLeaders(newWeeklyLeaders);
+
+    const sourceWeek = weeklyLeaders[result.source.index];
+    const destinationWeek = weeklyLeaders[result.destination.index];
+
+    try {
+      await scheduleApi.swapWeeklyLeaders({
+        source_week_start_date: sourceWeek.start,
+        destination_week_start_date: destinationWeek.start,
+      });
+      message.success('值班领导顺序更新成功');
+      fetchData();
+      queryClient.invalidateQueries(['schedules']); // Invalidate the cache
+    } catch (error) {
+      message.error('更新值班领导顺序失败');
+      // Revert UI on failure
+      setWeeklyLeaders(weeklyLeaders);
+    }
   };
 
   const calendarEvents = useMemo(() => {
     return schedules.map(schedule => ({
       id: schedule.id.toString(),
-      title: `${schedule.duty_person.name} (值班), ${schedule.duty_leader.name} (领导)`,
       start: schedule.duty_date,
       allDay: true,
       extendedProps: {
@@ -535,6 +595,29 @@ const ScheduleManagementPage = () => {
       }
     }));
   }, [schedules]);
+
+  const renderEventContent = (eventInfo) => {
+    const { duty_person } = eventInfo.event.extendedProps;
+    return (
+      <div style={{
+        height: '100%',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#1890ff',
+        borderColor: '#1890ff',
+        color: '#ffffff',
+        borderRadius: '4px',
+        borderWidth: '1px',
+        borderStyle: 'solid',
+        textAlign: 'center',
+        padding: '2px 4px',
+        fontWeight: '500'
+      }}>
+        {duty_person.name}
+      </div>
+    );
+  };
 
   const filteredSchedules = useMemo(() => {
     if (!isCalendarFilterEnabled || !calendarViewInfo) {
@@ -665,7 +748,6 @@ const ScheduleManagementPage = () => {
           <Space>
             <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>
             <Button type="default" onClick={() => setIsGenerateModalVisible(true)} data-testid="generate-schedule-button">生成排班</Button>
-            <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
           </Space>
           <Space>
             <Switch
@@ -678,31 +760,45 @@ const ScheduleManagementPage = () => {
             <Button onClick={exportToPDF} loading={isExporting} data-testid="export-pdf-button">导出为PDF</Button>
           </Space>
         </div>
-        <div ref={calendarContainerRef}>
-          <FullCalendar
-            ref={calendarRef}
-            plugins={[dayGridPlugin, interactionPlugin]}
-            initialView="dayGridMonth"
-            headerToolbar={{
-              left: 'prev,next today',
-              center: 'title',
-              right: 'dayGridMonth,dayGridWeek'
-            }}
-            events={calendarEvents}
-            editable={true}
-            droppable={true}
-            eventDrop={handleEventDrop}
-            eventClick={handleEventClick}
-            datesSet={handleDatesSet}
-            locale="zh-cn"
-            firstDay={1}
-            data-testid="schedule-calendar"
-          />
-        </div>
+        <DragDropContext onDragEnd={handleLeaderDragEnd}>
+          <div style={{ display: 'flex' }}>
+            <div ref={calendarContainerRef} style={{ flex: 1 }}>
+              {currentView === 'dayGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
+              <FullCalendar
+                ref={calendarRef}
+                plugins={[dayGridPlugin, interactionPlugin]}
+                initialView="dayGridMonth"
+                headerToolbar={{
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'dayGridMonth,dayGridWeek'
+                }}
+                events={calendarEvents}
+                editable={true}
+                droppable={true}
+                eventDrop={handleEventDrop}
+                eventClick={handleEventClick}
+                eventContent={renderEventContent}
+                datesSet={handleDatesSet}
+                locale="zh-cn"
+                firstDay={1}
+                data-testid="schedule-calendar"
+              />
+            </div>
+            {currentView === 'dayGridMonth' && (
+              <MonthlyLeaderSidebar
+                weeklyLeaders={weeklyLeaders}
+                calendarRef={calendarRef}
+                isDragDisabled={false}
+              />
+            )}
+          </div>
+        </DragDropContext>
         <div className="mt-4">
           <Space className="mb-2">
             <Button onClick={handleSelectAll} data-testid="select-all-button">全选</Button>
             <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
+            <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
           </Space>
           <Table
             columns={columns}

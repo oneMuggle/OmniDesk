@@ -137,6 +137,16 @@ export const scheduleApi = {
     }
   },
 
+  swapWeeklyLeaders: async (data) => {
+    try {
+      const response = await apiClient.post('/events/schedules/swap-weekly-leaders/', data);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
   getPersonnel: async () => {
     try {
       const response = await apiClient.get('/events/personnel/');

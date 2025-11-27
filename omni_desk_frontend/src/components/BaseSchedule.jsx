@@ -16,11 +16,14 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
   select,
   onEventDrop,
   onEventDragStart,
-  onEventDragStop
+  onEventDragStop,
+  calendarRef,
+  onDatesSet,
 }) => {
   console.log('BaseSchedule received events:', events); // Add this line
   return (
     <FullCalendar
+      ref={calendarRef}
       plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
       initialView="dayGridMonth"
       headerToolbar={{
@@ -41,6 +44,7 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
         console.log('BaseSchedule - onEventClick:', clickInfo);
         onEventClick(clickInfo);
       }}
+      datesSet={onDatesSet}
       editable={editable}
       selectable={selectable}
       eventStartEditable={editable}
@@ -52,14 +56,6 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       eventDragStart={onEventDragStart}
       select={select || (() => {})}
       eventContent={(eventInfo) => {
-        if (eventInfo.event.extendedProps.type === 'SCHEDULE') {
-          return (
-            <div style={{ textAlign: 'center' }}>
-              <div>{eventInfo.event.extendedProps.duty_person_name}</div>
-              <div>{eventInfo.event.extendedProps.duty_leader_name}</div>
-            </div>
-          );
-        }
         return (
           <div style={{ textAlign: 'center' }}>
             <div>{eventInfo.event.title}</div>

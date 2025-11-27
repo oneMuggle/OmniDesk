@@ -257,6 +257,48 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'error': str(e)}, status=400)
 
+    @action(detail=False, methods=['post'], url_path='swap-weekly-leaders')
+    def swap_weekly_leaders(self, request):
+        """
+        交换两周的值班领导。
+        接收 source_week_start_date 和 destination_week_start_date。
+        """
+        source_week_start_date_str = request.data.get('source_week_start_date')
+        destination_week_start_date_str = request.data.get('destination_week_start_date')
+
+        if not source_week_start_date_str or not destination_week_start_date_str:
+            return Response({'error': 'Both source and destination week start dates are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            source_start = datetime.strptime(source_week_start_date_str, '%Y-%m-%d').date()
+            destination_start = datetime.strptime(destination_week_start_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return Response({'error': 'Invalid date format. Use YYYY-MM-DD.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        source_end = source_start + timedelta(days=6)
+        destination_end = destination_start + timedelta(days=6)
+
+        with transaction.atomic():
+            source_schedules = list(Schedule.objects.filter(duty_date__range=[source_start, source_end]))
+            destination_schedules = list(Schedule.objects.filter(duty_date__range=[destination_start, destination_end]))
+
+            if not source_schedules and not destination_schedules:
+                return Response({'status': 'success', 'message': 'No schedules to swap in the given weeks.'})
+
+            source_leader = source_schedules[0].duty_leader if source_schedules else None
+            destination_leader = destination_schedules[0].duty_leader if destination_schedules else None
+
+            # Swap leaders
+            for schedule in source_schedules:
+                schedule.duty_leader = destination_leader
+                schedule.save()
+
+            for schedule in destination_schedules:
+                schedule.duty_leader = source_leader
+                schedule.save()
+
+        return Response({'status': 'success'}, status=status.HTTP_200_OK)
+
     @action(detail=False, methods=['post'], url_path='generate-schedules')
     def generate_schedules(self, request):
         """

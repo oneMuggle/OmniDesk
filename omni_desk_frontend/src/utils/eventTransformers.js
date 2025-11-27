@@ -22,7 +22,7 @@ export const transformScheduleToEvents = (schedules) => {
     return {
       type: 'SCHEDULE',
       id: `schedule-${schedule.id}`,
-      title: `${duty_person.name} (值班) / ${duty_leader.name} (领导)`, // 保持原始 title，以便在需要时作为备用
+      title: duty_person.name,
       start: start,
       end: start, // 排班通常是全天事件，开始和结束时间相同
       allDay: true,
