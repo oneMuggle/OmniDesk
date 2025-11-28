@@ -1,8 +1,8 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from django.contrib.auth.models import Group
-from .models import Page, PageVisibility
-from .serializers import PageSerializer, GroupSerializer
+from .models import OllamaConfig, Page, PageVisibility
+from .serializers import GroupSerializer, OllamaConfigSerializer, PageSerializer
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
@@ -73,10 +73,10 @@ class PageVisibilityViewSet(viewsets.ViewSet):
         return Response({'status': 'success'}, status=status.HTTP_200_OK)
 
 
-@api_view(['GET'])
-@permission_classes([AllowAny])
-def ollama_configs_view(request):
+class OllamaConfigViewSet(viewsets.ModelViewSet):
     """
-    处理对 Ollama 配置的请求。
+    用于管理 Ollama 配置的 ViewSet。
     """
-    return Response([])
+    queryset = OllamaConfig.objects.all()
+    serializer_class = OllamaConfigSerializer
+    permission_classes = [AllowAny]

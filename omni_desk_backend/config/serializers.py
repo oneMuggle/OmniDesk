@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth.models import Group
-from .models import Page, PageVisibility
+from .models import Page, PageVisibility, OllamaConfig
 
 
 class GroupSerializer(serializers.ModelSerializer):
@@ -31,3 +31,9 @@ class PageVisibilitySerializer(serializers.ModelSerializer):
     class Meta:
         model = PageVisibility
         fields = '__all__'
+
+class OllamaConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = OllamaConfig
+        fields = ['id', 'alias', 'api_endpoint', 'model', 'temperature', 'top_p', 'is_default', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']

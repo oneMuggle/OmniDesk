@@ -37,7 +37,7 @@ const SystemSettingsPage = () => {
   const loadConfigs = async () => {
     try {
       const response = await getOllamaConfigs();
-      setConfigs(response.data);
+      setConfigs(response.data.results || []);
     } catch (error) {
       message.error('加载配置失败。');
       console.error("加载 Ollama 配置失败:", error);
@@ -93,17 +93,24 @@ const SystemSettingsPage = () => {
   };
 
   const handleSave = async (values) => {
+    const payload = {
+      ...values,
+      is_default: values.is_default || false,
+      temperature: values.temperature === undefined ? null : values.temperature,
+      top_p: values.top_p === undefined ? null : values.top_p,
+    };
+
     try {
       if (editingConfig.id) {
-        await updateOllamaConfig(editingConfig.id, values);
+        await updateOllamaConfig(editingConfig.id, payload);
         message.success('配置更新成功。');
       } else {
-        const aliasExists = configs.some(config => config.alias === values.alias);
+        const aliasExists = configs.some(config => config.alias === payload.alias);
         if (aliasExists) {
           message.error("别名已存在，请选择一个不同的别名。");
           return;
         }
-        await addOllamaConfig(values);
+        await addOllamaConfig(payload);
         message.success('配置添加成功。');
       }
       setIsModalVisible(false);
@@ -284,7 +291,7 @@ const SystemSettingsPage = () => {
               <Form.Item
                 label="API 地址"
                 name="api_endpoint"
-                rules={[{ required: true, message: '请输入 API 地址!' }]}
+                rules={[{ required: true, message: '请输入 API 地址!' }, { type: 'url', message: '请输入有效的 URL 地址!' }]}
               >
                 <Input
                   addonAfter={
