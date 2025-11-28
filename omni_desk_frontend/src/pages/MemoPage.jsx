@@ -104,7 +104,7 @@ const MemoPage = () => {
         },
       });
     } else {
-      updateMemo({ id, ...values }, {
+      updateMemo({ id, data: values }, {
         onSuccess: () => {
           message.success('备忘录更新成功');
           setIsModalVisible(false);
