@@ -47,9 +47,10 @@ import StorageLocationManagementPage from '../pages/StorageLocationManagementPag
 import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
-
-const router = createBrowserRouter([
-{
+import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
+ 
+ const router = createBrowserRouter([
+ {
     path: "/",
     element: <App />,
     children: [
@@ -226,7 +227,11 @@ const router = createBrowserRouter([
       {
        path: "settings",
        element: <ProtectedRoute pagePath="/admin/settings"><SystemSettingsPage /></ProtectedRoute>
-     }
+      },
+      {
+       path: "holidays",
+       element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/holidays"><HolidayManagementPage /></ProtectedRoute>
+      }
     ]
   },
   {

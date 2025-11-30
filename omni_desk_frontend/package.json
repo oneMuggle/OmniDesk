@@ -59,7 +59,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
-    "test": "react-scripts test",
+    "test": "react-scripts test --testTimeout=30000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start"
   },

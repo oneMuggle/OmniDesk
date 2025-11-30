@@ -15,7 +15,8 @@ import {
   faHome,
   faBullhorn,
   faCaretDown, // For dropdown indicator
-  faCaretRight // For dropdown indicator
+  faCaretRight, // For dropdown indicator
+  faCalendarAlt
 } from '@fortawesome/free-solid-svg-icons';
 import ProtectedRoute from '../ProtectedRoute';
 
@@ -45,7 +46,8 @@ const AdminLayout = () => {
     { to: "/admin/announcements", icon: faBullhorn, text: "公告管理", permission: ['admin', 'manager'] },
     { to: "/admin/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: ['admin', 'manager'] },
     { to: "/admin/schedule-settings", icon: faCog, text: "排班设置", permission: ['admin', 'manager'] },
-    { to: "/admin/meeting-room-management", icon: faCog, text: "会议室管理", permission: ['admin', 'manager'] }
+    { to: "/admin/meeting-room-management", icon: faCog, text: "会议室管理", permission: ['admin', 'manager'] },
+    { to: "/admin/holidays", icon: faCalendarAlt, text: "节假日管理", permission: ['admin', 'manager'] }
   ];
 
   return (

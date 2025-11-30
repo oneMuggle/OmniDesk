@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, act } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import axios from 'axios';
 import PersonnelSequenceModal from './PersonnelSequenceModal';
@@ -14,6 +15,7 @@ const mockPositions = [
 const mockPersonnel = [
   { id: 1, name: 'Alice', position: 'Developer' },
   { id: 2, name: 'Bob', position: 'Manager' },
+  { id: 3, name: 'Charlie', position: 'Designer' },
 ];
 
 describe('PersonnelSequenceModal', () => {
@@ -42,45 +44,55 @@ describe('PersonnelSequenceModal', () => {
     expect(await screen.findByText('Bob')).toBeInTheDocument();
   });
 
-  test('allows adding and removing personnel', async () => {
+  test('allows adding and removing personnel for workday and holiday', async () => {
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
-    await waitFor(() => {
-        expect(screen.getByText('Alice')).toBeInTheDocument();
-    });
+    // Wait for personnel to load
+    await screen.findByText('Alice');
 
-    fireEvent.click(screen.getAllByText('添加')[0]);
+    // Add Alice to Workday
+    const addButtons = screen.getAllByRole('button', { name: '添加' });
+    await userEvent.click(addButtons[0]);
     
-    await waitFor(() => {
-        expect(screen.getAllByText('Alice').length).toBe(2);
-    });
+    // Check if Alice is in the workday list (which now has 2 "Alice" texts)
+    expect(screen.getAllByText('Alice').length).toBe(2);
 
-    fireEvent.click(screen.getByText('X'));
+    // Switch to Holiday tab
+    await userEvent.click(screen.getByText('节假日人员'));
+
+    // Add Bob to Holiday
+    const addButtonsAgain = screen.getAllByRole('button', { name: '添加' });
+    await userEvent.click(addButtonsAgain[1]);
     
-    await waitFor(() => {
-        expect(screen.getAllByText('Alice').length).toBe(1);
-    });
+    // Check if Bob is in the holiday list
+    expect(screen.getAllByText('Bob').length).toBe(2);
+
+    // Remove Bob from Holiday
+    const removeButtons = screen.getAllByRole('button', { name: 'X' });
+    await userEvent.click(removeButtons[0]); // Assuming Bob is the first in the holiday list
+    
+    expect(screen.getAllByText('Bob').length).toBe(1);
   });
 
-  test('allows searching for personnel', async () => {
+  test('allows searching and filtering personnel', async () => {
     axios.get.mockResolvedValue({ data: [{ id: 1, name: 'Alice', position: 'Developer' }] });
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
-    fireEvent.change(screen.getByPlaceholderText('按姓名拼音搜索'), { target: { value: 'Alice' } });
-
+    await userEvent.type(screen.getByPlaceholderText('按姓名拼音搜索'), 'Alice');
     await waitFor(() => {
       expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: 'Alice', position_id: null } });
     });
-  });
 
-  test('allows filtering personnel by position', async () => {
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
+    await act(async () => {
+      await userEvent.click(screen.getByTestId('position-filter-select'));
+    });
+    await act(async () => {
+      const managerOptions = await screen.findAllByText('Manager');
+      await userEvent.click(managerOptions[0]);
+    });
     
-    fireEvent.mouseDown(screen.getByPlaceholderText('按职位筛选'));
-    fireEvent.click(await screen.findByText('Manager'));
-
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: '', position_id: 1 } });
+      expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: 'Alice', position_id: 1 } });
     });
   });
 
@@ -88,23 +100,32 @@ describe('PersonnelSequenceModal', () => {
     const onOk = jest.fn();
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} />);
 
-    await waitFor(() => {
-        expect(screen.getByText('Alice')).toBeInTheDocument();
-    });
+    await screen.findByText('Alice');
 
-    fireEvent.change(screen.getByPlaceholderText('顺序名称'), { target: { value: 'Test Sequence' } });
-    fireEvent.click(screen.getAllByText('添加')[0]);
-    fireEvent.click(screen.getByText('保存'));
+    await userEvent.type(screen.getByPlaceholderText('顺序名称'), 'Test Sequence');
+    
+    // Add Alice to workday
+    const addButtons = screen.getAllByRole('button', { name: '添加' });
+    await userEvent.click(addButtons[0]);
+
+    // Switch to holiday tab and add Bob
+    await userEvent.click(screen.getByText('节假日人员'));
+    const addButtonsHoliday = screen.getAllByRole('button', { name: '添加' });
+    await userEvent.click(addButtonsHoliday[1]);
+
+    // Click save
+    await userEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith('/api/personnel-sequences/', {
+      expect(axios.post).toHaveBeenCalledWith('/api/events/personnel-sequences/', {
         name: 'Test Sequence',
         personnel_ids: [1],
+        holiday_personnel_ids: [2],
       });
     });
     
     await waitFor(() => {
-        expect(onOk).toHaveBeenCalled();
+      expect(onOk).toHaveBeenCalled();
     });
   });
 });

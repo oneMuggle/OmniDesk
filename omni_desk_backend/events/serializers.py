@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position, PhoneNumber
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position, PhoneNumber, Holiday
 from users.models import CustomUser
 from users.shared_serializers import AuthorSerializer
 from .models import Trial, Equipment, Personnel, DocumentTemplate
@@ -315,18 +315,37 @@ class UploadedImageSerializer(serializers.ModelSerializer):
 
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
     personnel_details = serializers.SerializerMethodField()
+    holiday_personnel_details = serializers.SerializerMethodField()
 
     class Meta:
         model = PersonnelSequence
-        fields = ['id', 'name', 'sequence', 'personnel_details']
+        fields = [
+            'id', 'name', 'sequence', 'personnel_details',
+            'holiday_sequence', 'holiday_personnel_details'
+        ]
 
     def get_personnel_details(self, obj):
         personnel_ids = obj.sequence
+        if not personnel_ids:
+            return []
         personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
-        # 保持原始ID列表的顺序
         personnel_map = {p.id: p for p in personnel_queryset}
         sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
         return PersonnelSerializer(sorted_personnel, many=True).data
+
+    def get_holiday_personnel_details(self, obj):
+        personnel_ids = obj.holiday_sequence
+        if not personnel_ids:
+            return []
+        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        personnel_map = {p.id: p for p in personnel_queryset}
+        sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
+        return PersonnelSerializer(sorted_personnel, many=True).data
+
+class HolidaySerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Holiday
+        fields = ['id', 'name', 'start_date', 'end_date']
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
     personnel_details = serializers.SerializerMethodField()

@@ -18,7 +18,7 @@ from django.db.models.functions import TruncDate
 
 from .models import (
     Trial, TimeSlot, Personnel, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Position, PhoneNumber
+    PersonnelSequence, LeaderSequence, Position, PhoneNumber, Holiday
 )
 from .serializers import (
     TrialSerializer,
@@ -31,7 +31,8 @@ from .serializers import (
     UploadedImageSerializer,
     PersonnelSequenceSerializer,
     LeaderSequenceSerializer,
-    PositionSerializer
+    PositionSerializer,
+    HolidaySerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -304,12 +305,13 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         """
         根据人员顺序、起始日期或月份自动生成排班。
         支持指定起始人员和领导。
+        区分工作日和节假日进行排班。
         """
         personnel_sequence_id = request.data.get('personnel_sequence_id')
         leader_sequence_id = request.data.get('leader_sequence_id')
         start_personnel_id = request.data.get('start_personnel_id')
         start_leader_id = request.data.get('start_leader_id')
-        target_month = request.data.get('target_month') # e.g., "2025-09"
+        target_month = request.data.get('target_month')  # e.g., "2025-09"
         duration_days = request.data.get('duration_days')
         start_date_str = request.data.get('start_date')
 
@@ -339,18 +341,38 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         except (PersonnelSequence.DoesNotExist, LeaderSequence.DoesNotExist):
             return Response({'error': 'Invalid sequence ID'}, status=status.HTTP_404_NOT_FOUND)
 
-        personnel_order = personnel_sequence.sequence
+        workday_personnel_order = personnel_sequence.sequence
+        # 如果节假日序列未配置，则使用工作日序列
+        holiday_personnel_order = personnel_sequence.holiday_sequence if personnel_sequence.holiday_sequence else workday_personnel_order
         leader_order = leader_sequence.sequence
 
-        if not personnel_order or not leader_order:
+        if not workday_personnel_order or not leader_order:
             return Response({'error': 'Sequence cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        personnel_start_index = 0
+        # 获取时间范围内的所有节假日
+        end_date = start_date + timedelta(days=duration_days - 1)
+        holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=start_date)
+        holiday_dates = set()
+        for holiday in holidays:
+            current_day = holiday.start_date
+            while current_day <= holiday.end_date:
+                if start_date <= current_day <= end_date:
+                    holiday_dates.add(current_day)
+                current_day += timedelta(days=1)
+
+        workday_start_index = 0
+        holiday_start_index = 0
+        is_start_day_holiday = start_date in holiday_dates
+
         if start_personnel_id:
             try:
-                personnel_start_index = personnel_order.index(int(start_personnel_id))
+                start_personnel_id_int = int(start_personnel_id)
+                if is_start_day_holiday:
+                    holiday_start_index = holiday_personnel_order.index(start_personnel_id_int)
+                else:
+                    workday_start_index = workday_personnel_order.index(start_personnel_id_int)
             except (ValueError, TypeError):
-                return Response({'error': f'start_personnel_id {start_personnel_id} not in sequence.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'error': f'start_personnel_id {start_personnel_id} not in the corresponding sequence.'}, status=status.HTTP_400_BAD_REQUEST)
 
         leader_start_index = 0
         if start_leader_id:
@@ -361,21 +383,27 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
         created_schedules = []
         with transaction.atomic():
-            # To calculate weeks passed, we need to find the first Monday on or before the start_date
-            start_of_start_week = start_date - timedelta(days=start_date.weekday())
+            workday_count = 0
+            holiday_count = 0
             
             for i in range(duration_days):
                 current_date = start_date + timedelta(days=i)
+                is_holiday = current_date in holiday_dates
+
+                if is_holiday:
+                    if not holiday_personnel_order:
+                        return Response({'error': 'Holiday sequence is not configured and fallback is not available.'}, status=status.HTTP_400_BAD_REQUEST)
+                    personnel_idx = (holiday_start_index + holiday_count) % len(holiday_personnel_order)
+                    duty_person_id = holiday_personnel_order[personnel_idx]
+                    holiday_count += 1
+                else:
+                    personnel_idx = (workday_start_index + workday_count) % len(workday_personnel_order)
+                    duty_person_id = workday_personnel_order[personnel_idx]
+                    workday_count += 1
                 
-                # Daily rotation for personnel
-                personnel_idx = (personnel_start_index + i) % len(personnel_order)
-                
-                # Weekly rotation for leaders
-                start_of_current_week = current_date - timedelta(days=current_date.weekday())
+                # Weekly rotation for leaders remains unchanged
                 weeks_passed = (current_date - start_date).days // 7
                 leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
-                
-                duty_person_id = personnel_order[personnel_idx]
                 duty_leader_id = leader_order[leader_idx]
 
                 Schedule.objects.filter(duty_date=current_date).delete()
@@ -608,3 +636,29 @@ class LeaderSequenceViewSet(viewsets.ModelViewSet):
     queryset = LeaderSequence.objects.all()
     serializer_class = LeaderSequenceSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
+
+
+class HolidayViewSet(viewsets.ModelViewSet):
+    queryset = Holiday.objects.all()
+    serializer_class = HolidaySerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['date']
+
+    def get_queryset(self):
+        """
+        Optionally restricts the returned holidays to a given year,
+        by filtering against a `year` query parameter in the URL.
+        """
+        queryset = Holiday.objects.all()
+        year = self.request.query_params.get('year')
+        if year is not None:
+            queryset = queryset.filter(date__year=year)
+        return queryset
+
+class HolidayViewSet(viewsets.ModelViewSet):
+    queryset = Holiday.objects.all()
+    serializer_class = HolidaySerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['name', 'start_date', 'end_date']

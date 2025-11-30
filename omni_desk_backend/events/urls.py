@@ -11,7 +11,8 @@ from .views import (
     ImageUploadView,
     PersonnelSequenceViewSet,
     LeaderSequenceViewSet,
-    PositionViewSet # Import PositionViewSet
+    PositionViewSet, # Import PositionViewSet
+    HolidayViewSet
 )
 
 router = DefaultRouter()
@@ -25,6 +26,7 @@ router.register(r'schedules', ScheduleViewSet, basename='schedules')
 router.register(r'announcements', AnnouncementViewSet, basename='announcements')
 router.register(r'personnel-sequences', PersonnelSequenceViewSet, basename='personnel-sequences')
 router.register(r'leader-sequences', LeaderSequenceViewSet, basename='leader-sequences')
+router.register(r'holidays', HolidayViewSet, basename='holidays')
 
 urlpatterns = [
     path('', include(router.urls)),

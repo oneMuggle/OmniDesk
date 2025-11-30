@@ -1,10 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Form, Input, Select, List, Button, Row, Col } from 'antd';
+import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
 import axios from 'axios';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
-
 const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
@@ -12,6 +11,8 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
   const [positions, setPositions] = useState([]);
   const [personnel, setPersonnel] = useState([]);
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
+  const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState([]);
+  const [activeTab, setActiveTab] = useState('workday');
 
   // Fetch positions from API
   useEffect(() => {
@@ -54,9 +55,11 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
             filteredData = filteredData.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
         }
         if (selectedPosition) {
-            const posName = positions.find(p => p.id === selectedPosition)?.name;
-            if (posName) {
-                filteredData = filteredData.filter(p => p.position === posName);
+            if (positions.length > 0) {
+                const posName = positions.find(p => p.id === selectedPosition)?.name;
+                if (posName) {
+                    filteredData = filteredData.filter(p => p.position === posName);
+                }
             }
         }
         setPersonnel(filteredData);
@@ -64,41 +67,117 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
   }, [searchTerm, selectedPosition, positions]);
 
   const handleAddPersonnel = (person) => {
-    if (!selectedPersonnel.find(p => p.id === person.id)) {
-      setSelectedPersonnel([...selectedPersonnel, person]);
+    const isWorkday = activeTab === 'workday';
+    const targetList = isWorkday ? selectedPersonnel : selectedHolidayPersonnel;
+    const setTargetList = isWorkday ? setSelectedPersonnel : setSelectedHolidayPersonnel;
+
+    if (!targetList.find(p => p.id === person.id)) {
+      setTargetList([...targetList, person]);
     }
   };
 
-  const handleRemovePersonnel = (personId) => {
-    setSelectedPersonnel(selectedPersonnel.filter(p => p.id !== personId));
+  const handleRemovePersonnel = (personId, type) => {
+    if (type === 'workday') {
+      setSelectedPersonnel(selectedPersonnel.filter(p => p.id !== personId));
+    } else {
+      setSelectedHolidayPersonnel(selectedHolidayPersonnel.filter(p => p.id !== personId));
+    }
   };
 
-  const onDragEnd = (result) => {
+  const onDragEnd = (result, type) => {
     if (!result.destination) {
       return;
     }
 
-    const items = Array.from(selectedPersonnel);
+    const list = type === 'workday' ? selectedPersonnel : selectedHolidayPersonnel;
+    const setList = type === 'workday' ? setSelectedPersonnel : setSelectedHolidayPersonnel;
+
+    const items = Array.from(list);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
 
-    setSelectedPersonnel(items);
+    setList(items);
   };
 
   const handleSave = () => {
     form.validateFields().then(values => {
       const personnelIds = selectedPersonnel.map(p => p.id);
-      axios.post('/api/personnel-sequences/', { ...values, personnel_ids: personnelIds })
+      const holidayPersonnelIds = selectedHolidayPersonnel.map(p => p.id);
+      axios.post('/api/events/personnel-sequences/', {
+        ...values,
+        personnel_ids: personnelIds,
+        holiday_personnel_ids: holidayPersonnelIds,
+      })
         .then(() => {
           onOk();
           form.resetFields();
           setSelectedPersonnel([]);
+          setSelectedHolidayPersonnel([]);
         })
         .catch(error => {
           console.error('Error saving personnel sequence:', error);
         });
     });
   };
+
+  const renderDraggableList = (type, list, setList) => (
+    <DragDropContext onDragEnd={(result) => onDragEnd(result, type)}>
+      <Droppable droppableId={`droppable-${type}`}>
+        {(provided) => (
+          <div
+            ref={provided.innerRef}
+            {...provided.droppableProps}
+            style={{
+              display: 'flex', flexWrap: 'wrap', height: '380px', overflowY: 'auto',
+              border: '1px solid #d9d9d9', borderRadius: '2px', padding: '10px', alignContent: 'flex-start'
+            }}
+          >
+            {list.map((item, index) => (
+              <Draggable key={item.id} draggableId={`${type}-${item.id}`} index={index}>
+                {(provided) => (
+                  <div
+                    ref={provided.innerRef}
+                    {...provided.draggableProps}
+                    {...provided.dragHandleProps}
+                    style={{
+                      userSelect: 'none', padding: '10px', backgroundColor: '#fff', border: '1px solid #d9d9d9',
+                      borderRadius: '4px', textAlign: 'center', position: 'relative', minHeight: '50px',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100px',
+                      margin: '0 10px 10px 0', ...provided.draggableProps.style,
+                    }}
+                  >
+                    {item.name}
+                    <Button
+                      type="link"
+                      danger
+                      onClick={() => handleRemovePersonnel(item.id, type)}
+                      style={{ position: 'absolute', top: 0, right: 0, padding: '2px' }}
+                    >
+                      X
+                    </Button>
+                  </div>
+                )}
+              </Draggable>
+            ))}
+            {provided.placeholder}
+          </div>
+        )}
+      </Droppable>
+    </DragDropContext>
+  );
+
+  const tabItems = [
+    {
+      key: 'workday',
+      label: '工作日人员',
+      children: renderDraggableList('workday', selectedPersonnel, setSelectedPersonnel),
+    },
+    {
+      key: 'holiday',
+      label: '节假日人员',
+      children: renderDraggableList('holiday', selectedHolidayPersonnel, setSelectedHolidayPersonnel),
+    },
+  ];
 
   return (
     <Modal
@@ -140,6 +219,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
             style={{ width: '100%', marginBottom: '10px' }}
             onChange={(value) => setSelectedPosition(value)}
             allowClear
+            data-testid="position-filter-select"
           >
             {positions.map(pos => (
               <Option key={pos.id} value={pos.id}>{pos.name}</Option>
@@ -161,69 +241,8 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
         </Col>
 
         {/* Right Column: Drag to Sort */}
-        <Col span={12} style={{ display: 'flex', flexDirection: 'column' }}>
-          <h3>人员排序</h3>
-          <div style={{ height: '430px' }}>
-            <DragDropContext onDragEnd={onDragEnd}>
-              <Droppable droppableId="droppable-grid">
-                {(provided) => (
-                  <div
-                    ref={provided.innerRef}
-                    {...provided.droppableProps}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      height: '100%',
-                      overflowY: 'auto',
-                      border: '1px solid #d9d9d9',
-                      borderRadius: '2px',
-                      padding: '10px',
-                      alignContent: 'flex-start'
-                    }}
-                  >
-                    {selectedPersonnel.map((item, index) => (
-                      <Draggable key={item.id} draggableId={String(item.id)} index={index}>
-                        {(provided) => (
-                          <div
-                            ref={provided.innerRef}
-                            {...provided.draggableProps}
-                            {...provided.dragHandleProps}
-                            style={{
-                              userSelect: 'none',
-                              padding: '10px',
-                              backgroundColor: '#fff',
-                              border: '1px solid #d9d9d9',
-                              borderRadius: '4px',
-                              textAlign: 'center',
-                              position: 'relative',
-                              minHeight: '50px',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              width: '100px',
-                              margin: '0 10px 10px 0',
-                              ...provided.draggableProps.style,
-                            }}
-                          >
-                            {item.name}
-                            <Button
-                              type="link"
-                              danger
-                              onClick={() => handleRemovePersonnel(item.id)}
-                              style={{ position: 'absolute', top: 0, right: 0, padding: '2px' }}
-                            >
-                              X
-                            </Button>
-                          </div>
-                        )}
-                      </Draggable>
-                    ))}
-                    {provided.placeholder}
-                  </div>
-                )}
-              </Droppable>
-            </DragDropContext>
-          </div>
+        <Col span={12}>
+          <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
         </Col>
       </Row>
     </Modal>

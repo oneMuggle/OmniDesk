@@ -199,9 +199,8 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
   const [form] = Form.useForm();
   const [generationMode, setGenerationMode] = useState('days');
   const [selectedPersonnel, setSelectedPersonnel] = useState([]);
+  const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState([]);
   const [selectedLeaders, setSelectedLeaders] = useState([]);
-console.log('GenerateScheduleModal - personnelSequences:', personnelSequences);
-console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
 
   const handleOk = () => {
     form.validateFields()
@@ -216,6 +215,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
         onOk(submitData);
         form.resetFields();
         setSelectedPersonnel([]);
+        setSelectedHolidayPersonnel([]);
         setSelectedLeaders([]);
       })
       .catch(info => {
@@ -224,21 +224,18 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
   };
 
   const handleSequenceChange = (type, sequenceId) => {
-    if (type === 'personnel') {
+    if (type === 'workday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
-      setSelectedPersonnel(sequence ? sequence.personnel_details : []);
-      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
+      setSelectedPersonnel((sequence && sequence.personnel_details) || []);
       form.setFieldsValue({ start_personnel_id: null });
-      console.log('handleSequenceChange - selectedPersonnel:', sequence ? sequence.personnel_details : []);
+    } else if (type === 'holiday') {
+      const sequence = personnelSequences.find(s => s.id === sequenceId);
+      setSelectedHolidayPersonnel((sequence && sequence.holiday_personnel_details) || []);
+      form.setFieldsValue({ start_holiday_personnel_id: null });
     } else if (type === 'leader') {
       const sequence = leaderSequences.find(s => s.id === sequenceId);
-      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
-      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
-      setSelectedLeaders(sequence ? sequence.personnel_details : []);
-      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
+      setSelectedLeaders((sequence && sequence.personnel_details) || []);
       form.setFieldsValue({ start_leader_id: null });
-      console.log('handleSequenceChange - selectedLeaders:', sequence ? sequence.personnel_details : []);
     }
   };
 
@@ -267,22 +264,39 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
           </Form.Item>
         )}
 
-        <Form.Item name="personnel_sequence_id" label="人员顺序" rules={[{ required: true, message: '请选择人员顺序!' }]}>
-          <Select placeholder="选择人员顺序" onChange={(value) => handleSequenceChange('personnel', value)} data-testid="generate-schedule-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+        <Form.Item name="workday_personnel_sequence_id" label="人员顺序 (工作日)" rules={[{ required: true, message: '请选择工作日人员顺序!' }]}>
+          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
-              <Option key={seq.id} value={seq.id}>
-                {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
+              <Option key={seq.id} value={seq.id} data-testid={`workday-sequence-option-${seq.id}`}>
+                {seq.name} (工作日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
               </Option>
             ))}
           </Select>
         </Form.Item>
 
-        <Form.Item name="start_personnel_id" label="起始人员">
-          <Select placeholder="选择起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
-            {selectedPersonnel.map(p => {
-              console.log('Rendering personnel option:', p);
-              return <Option key={p.id} value={p.id}>{p.name}</Option>
-            })}
+        <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
+          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+            {selectedPersonnel.map(p => (
+              <Option key={p.id} value={p.id}>{p.name}</Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        <Form.Item name="holiday_personnel_sequence_id" label="人员顺序 (节假日)" rules={[{ required: true, message: '请选择节假日人员顺序!' }]}>
+          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+            {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
+              <Option key={seq.id} value={seq.id} data-testid={`holiday-sequence-option-${seq.id}`}>
+                {seq.name} (节假日: {Array.isArray(seq.holiday_personnel_details) ? seq.holiday_personnel_details.map(p => p.name).join(', ') : ''})
+              </Option>
+            ))}
+          </Select>
+        </Form.Item>
+
+        <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
+          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+            {selectedHolidayPersonnel.map(p => (
+              <Option key={p.id} value={p.id}>{p.name}</Option>
+            ))}
           </Select>
         </Form.Item>
 
@@ -290,7 +304,7 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
           <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id}>
-                {seq.name} ({seq.personnel_details.map(p => p.name).join(', ')})
+                {seq.name} ({Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
               </Option>
             ))}
           </Select>
@@ -298,10 +312,9 @@ console.log('GenerateScheduleModal - leaderSequences:', leaderSequences);
 
         <Form.Item name="start_leader_id" label="起始领导">
           <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
-            {selectedLeaders.map(p => {
-              console.log('Rendering leader option:', p);
-              return <Option key={p.id} value={p.id}>{p.name}</Option>
-            })}
+            {selectedLeaders.map(p => (
+              <Option key={p.id} value={p.id}>{p.name}</Option>
+            ))}
           </Select>
         </Form.Item>
       </Form>

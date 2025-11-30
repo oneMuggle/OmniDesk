@@ -246,8 +246,20 @@ class UploadedImage(models.Model):
 
 class PersonnelSequence(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="人员顺序名称")
-    personnel = models.ManyToManyField(Personnel, related_name='personnel_sequences')
-    sequence = models.JSONField(default=list, verbose_name="人员ID顺序列表")
+    personnel = models.ManyToManyField(
+        Personnel,
+        related_name='personnel_sequences',
+        verbose_name="工作日人员"
+    )
+    sequence = models.JSONField(default=list, verbose_name="工作日人员ID顺序列表")
+    
+    holiday_personnel = models.ManyToManyField(
+        Personnel,
+        related_name='holiday_personnel_sequences',
+        verbose_name="节假日人员",
+        blank=True
+    )
+    holiday_sequence = models.JSONField(default=list, verbose_name="节假日人员ID顺序列表", blank=True)
 
     class Meta:
         verbose_name = "人员顺序"
@@ -283,3 +295,15 @@ class PhoneNumber(models.Model):
 
     def __str__(self):
         return self.number
+
+
+
+from django.utils import timezone
+
+class Holiday(models.Model):
+    name = models.CharField(max_length=100)
+    start_date = models.DateField(default=timezone.now)
+    end_date = models.DateField(default=timezone.now)
+
+    def __str__(self):
+        return self.name
