@@ -72,6 +72,8 @@ INSTALLED_APPS = [
     'ragflow_service', # Add the new ragflow_service app
     'meeting_rooms', # Add the new meeting_rooms app
     'sensor_management', # Add the new sensor_management app
+    'permissions.apps.PermissionsConfig',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
@@ -89,10 +91,10 @@ MIDDLEWARE = [
 # 添加CSRF和Session认证 (适配HTTP部署)
 # 在非HTTPS环境下, SAMESITE='None' 会被浏览器拒绝, 且 SECURE 必须为 False
 CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = True # Changed to True for HTTPS
+CSRF_COOKIE_SECURE = False # Allow CSRF cookie over HTTP for development
 SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = True # Changed to True for HTTPS
-CSRF_COOKIE_HTTPONLY = True
+SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
+CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
 SESSION_COOKIE_HTTPONLY = True
 
 # For Nginx proxy with HTTPS
@@ -210,6 +212,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # REST Framework配置 - 更新权限相关设置
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework.authentication.SessionAuthentication',
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
     'DEFAULT_PERMISSION_CLASSES': (
@@ -228,6 +231,14 @@ REST_FRAMEWORK = {
     ),
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
+
+# 在开发环境中禁用CSRF检查，以解决本地开发时的403问题
+# 这只会在 DEBUG = True 时生效，不会影响生产环境
+if DEBUG:
+    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
+        'permissions.authentication.CsrfExemptSessionAuthentication',
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    )
 
 # JWT配置
 SIMPLE_JWT = {

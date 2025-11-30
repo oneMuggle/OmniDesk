@@ -2,6 +2,7 @@ from datetime import timedelta
 from rest_framework import serializers
 from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
+from django.contrib.auth.models import Group
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from events.models import Personnel, Position
 from events.serializers import PersonnelSerializer
@@ -167,10 +168,11 @@ class UserAdminSerializer(serializers.ModelSerializer):
         required=False
     )
     phone_numbers = PhoneNumberSerializer(many=True, required=False)
+    groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True, required=False)
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'avatar', 'phone_numbers')
+        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'avatar', 'phone_numbers', 'groups')
         read_only_fields = ('id', 'email', 'is_active', 'is_staff', 'date_joined', 'avatar')
 
     def create(self, validated_data):
@@ -182,12 +184,17 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     def update(self, instance, validated_data):
         phone_numbers_data = validated_data.pop('phone_numbers', None)
+        groups_data = validated_data.pop('groups', None)
 
         # Update user instance
         instance.username = validated_data.get('username', instance.username)
         instance.role = validated_data.get('role', instance.role)
         instance.real_name = validated_data.get('real_name', instance.real_name)
         instance.personnel = validated_data.get('personnel', instance.personnel)
+        
+        if groups_data is not None:
+            instance.groups.set(groups_data)
+
         instance.save()
 
         if phone_numbers_data is not None:

@@ -218,7 +218,7 @@ import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 Ho
       },
       {
         path: "user-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/user-management"><UserManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management"><UserManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",
@@ -231,7 +231,7 @@ import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 Ho
       {
        path: "holidays",
        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/holidays"><HolidayManagementPage /></ProtectedRoute>
-      }
+      },
     ]
   },
   {

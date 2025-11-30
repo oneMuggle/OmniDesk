@@ -1,30 +1,28 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Select, Button, message, Spin, Card, Switch } from 'antd';
+import { Table, Select, Button, message, Spin, Card, Tabs } from 'antd';
 import userManagementApi from '../api/userManagementApi';
-import pageConfigApi from '../api/pageConfigApi';
+import { permissionsApi } from '../api/permissionsApi';
 import { useAuth } from '../context/AuthContext';
+import GroupPermissionManager from '../components/Admin/GroupPermissionManager';
 
 const { Option } = Select;
+const { TabPane } = Tabs;
 
 const UserManagementPage = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState([]);
-    const [pageConfigs, setPageConfigs] = useState([]);
+    const [groups, setGroups] = useState([]);
     const [loading, setLoading] = useState(true);
-
-    useEffect(() => {
-        fetchData();
-    }, []);
 
     const fetchData = async () => {
         setLoading(true);
         try {
-            const [usersRes, pageConfigsRes] = await Promise.all([
+            const [usersRes, groupsRes] = await Promise.all([
                 userManagementApi.getAllUsers(),
-                pageConfigApi.getAllPageConfigs(),
+                permissionsApi.getGroups(),
             ]);
             setUsers(usersRes.data.results || []);
-            setPageConfigs(pageConfigsRes.data.results || []);
+            setGroups(groupsRes.results || []);
         } catch (error) {
             message.error('获取数据失败');
             console.error('Failed to fetch data:', error);
@@ -32,6 +30,10 @@ const UserManagementPage = () => {
             setLoading(false);
         }
     };
+
+    useEffect(() => {
+        fetchData();
+    }, []);
 
     const handleRoleChange = async (userId, newRole) => {
         try {
@@ -46,18 +48,16 @@ const UserManagementPage = () => {
         }
     };
 
-    const handlePageVisibilityChange = async (pagePath, isHidden) => {
+    const handleGroupsChange = async (userId, groupIds) => {
         try {
-            await pageConfigApi.updatePageConfig(pagePath, { is_hidden_for_non_admin: isHidden });
-            message.success('页面可见性更新成功');
-            setPageConfigs(prevConfigs =>
-                prevConfigs.map(config =>
-                    config.page_path === pagePath ? { ...config, is_hidden_for_non_admin: isHidden } : config
-                )
+            await userManagementApi.updateUserGroups(userId, groupIds);
+            message.success('用户组更新成功');
+            setUsers(prevUsers =>
+                prevUsers.map(user => (user.id === userId ? { ...user, groups: groupIds } : user))
             );
         } catch (error) {
-            message.error('更新页面可见性失败');
-            console.error('Failed to update page visibility:', error);
+            message.error('更新用户组失败');
+            console.error('Failed to update user groups:', error);
         }
     };
 
@@ -105,34 +105,29 @@ const UserManagementPage = () => {
             ),
         },
         {
+            title: '用户组',
+            dataIndex: 'groups',
+            key: 'groups',
+            render: (groupIds, record) => (
+                <Select
+                    mode="multiple"
+                    value={groupIds}
+                    style={{ width: '100%' }}
+                    placeholder="选择用户组"
+                    onChange={values => handleGroupsChange(record.id, values)}
+                    disabled={currentUser.id === record.id}
+                >
+                    {groups.map(group => (
+                        <Option key={group.id} value={group.id}>{group.name}</Option>
+                    ))}
+                </Select>
+            ),
+        },
+        {
             title: '加入日期',
             dataIndex: 'date_joined',
             key: 'date_joined',
             render: text => new Date(text).toLocaleDateString(),
-        },
-    ];
-
-    const pageConfigColumns = [
-        {
-            title: '页面名称',
-            dataIndex: 'page_name',
-            key: 'page_name',
-        },
-        {
-            title: '页面路径',
-            dataIndex: 'page_path',
-            key: 'page_path',
-        },
-        {
-            title: '对非管理员隐藏',
-            dataIndex: 'is_hidden_for_non_admin',
-            key: 'is_hidden_for_non_admin',
-            render: (text, record) => (
-                <Switch
-                    checked={text}
-                    onChange={checked => handlePageVisibilityChange(record.page_path, checked)}
-                />
-            ),
         },
     ];
 
@@ -147,23 +142,20 @@ const UserManagementPage = () => {
     return (
         <div style={{ padding: '24px' }}>
             <h1>管理员面板</h1>
-
-            <Card title="用户管理" style={{ marginBottom: '24px' }}>
-                <Table
-                    columns={userColumns}
-                    dataSource={users}
-                    rowKey="id"
-                    pagination={{ pageSize: 10 }}
-                />
-            </Card>
-
-            <Card title="页面可见性管理">
-                <Table
-                    columns={pageConfigColumns}
-                    dataSource={pageConfigs}
-                    rowKey="page_path"
-                    pagination={{ pageSize: 10 }}
-                />
+            <Card>
+                <Tabs defaultActiveKey="1">
+                    <TabPane tab="用户列表" key="1">
+                        <Table
+                            columns={userColumns}
+                            dataSource={users}
+                            rowKey="id"
+                            pagination={{ pageSize: 10 }}
+                        />
+                    </TabPane>
+                    <TabPane tab="用户组与权限" key="2">
+                        <GroupPermissionManager />
+                    </TabPane>
+                </Tabs>
             </Card>
         </div>
     );
