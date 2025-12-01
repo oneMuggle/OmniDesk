@@ -36,10 +36,16 @@ const IntelligentChatPage = () => {
 
   useEffect(() => {
     const loadConfigs = async () => {
-      const response = await getOllamaConfigs();
-      setConfigs(response.data);
-      const defaultConfig = response.data.find(c => c.is_default);
-      setSelectedConfig(defaultConfig || (response.data.length > 0 ? response.data[0] : null));
+      try {
+        const response = await getOllamaConfigs();
+        const configsData = response.data && Array.isArray(response.data.data) ? response.data.data : [];
+        setConfigs(configsData);
+        const defaultConfig = configsData.find(c => c.is_default);
+        setSelectedConfig(defaultConfig || (configsData.length > 0 ? configsData[0] : null));
+      } catch (error) {
+        console.error('Failed to load configs:', error);
+        setConfigs([]);
+      }
     };
     loadConfigs();
   }, []);
