@@ -6,7 +6,7 @@ from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from users.views import UserRegistrationView, UserDetailView
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('django-admin/', admin.site.urls),
     # Authentication endpoints
     # Authentication & User endpoints
     path('api/sensor-management/', include('sensor_management.urls')),
