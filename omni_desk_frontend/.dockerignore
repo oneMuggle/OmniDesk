@@ -7,3 +7,5 @@ dist
 .dockerignore
 .gitignore
 .npmignore
+
+.env*
