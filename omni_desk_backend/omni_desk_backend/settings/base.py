@@ -15,36 +15,14 @@ import os
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-y-9g2sq2wu#aj0^szzgiao2)6&%v&ywp$m$f#dir&7c6x^rp$s'
-
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['*']
-
-# 添加详细日志配置
-LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-        },
-    },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'DEBUG',
-            'propagate': True,
-        },
-    },
-}
+SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
 
 # Application definition
 
@@ -88,15 +66,6 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# 添加CSRF和Session认证 (适配HTTP部署)
-# 在非HTTPS环境下, SAMESITE='None' 会被浏览器拒绝, 且 SECURE 必须为 False
-CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False # Allow CSRF cookie over HTTP for development
-SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
-CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
-SESSION_COOKIE_HTTPONLY = True
-
 # For Nginx proxy with HTTPS
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 USE_X_FORWARDED_HOST = True
@@ -121,36 +90,6 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'omni_desk_backend.wsgi.application'
 
-import os
-
-# Environment detection
-ENVIRONMENT = os.environ.get('DJANGO_ENV', 'development')
-
-# 数据库配置
-if ENVIRONMENT == 'production':
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('POSTGRES_DB'),
-            'USER': os.getenv('POSTGRES_USER'),
-            'PASSWORD': os.getenv('POSTGRES_PASSWORD'),
-            'HOST': os.getenv('DB_HOST'),
-            'PORT': os.getenv('DB_PORT', 5432),
-            'CONN_MAX_AGE': 600,
-            'TEST': {'NAME': 'test_postgres'}
-        }
-    }
-else:
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
-        }
-    }
-
-# 安全配置
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
-DEBUG = True # 强制开启 DEBUG 模式以获取详细错误信息
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
@@ -171,7 +110,7 @@ AUTH_PASSWORD_VALIDATORS = [
 # Internationalization
 LANGUAGE_CODE = 'zh-hans'
 TIME_ZONE = 'Asia/Shanghai'
-USE_I18N = True  # 禁用国际化
+USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
@@ -232,14 +171,6 @@ REST_FRAMEWORK = {
     'TEST_REQUEST_DEFAULT_FORMAT': 'json',
 }
 
-# 在开发环境中禁用CSRF检查，以解决本地开发时的403问题
-# 这只会在 DEBUG = True 时生效，不会影响生产环境
-if DEBUG:
-    REST_FRAMEWORK['DEFAULT_AUTHENTICATION_CLASSES'] = (
-        'permissions.authentication.CsrfExemptSessionAuthentication',
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
-    )
-
 # JWT配置
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
@@ -252,48 +183,7 @@ SIMPLE_JWT = {
 }
 
 # CORS configuration
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://113.44.214.144",
-    "http://113.44.214.144:8001",
-    "https://localhost:3000",
-    "https://127.0.0.1:3000",
-    "https://113.44.214.144",
-    "https://113.44.214.144:8001",
-]
-# CORS_ALLOWED_ORIGIN_REGEXES = [
-#     r"^https?://localhost(:\d+)?$",
-#     r"^https?://127\.0\.0\.1(:\d+)?$",
-#     r"^https?://frontend(:\d+)?$",
-# ]
 CORS_ALLOW_CREDENTIALS = True
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://frontend:8080",
-    "http://frontend:3000",
-    "http://localhost:3001",
-    "http://localhost:3002",
-    "http://backend:8000",
-    "http://113.44.214.144",
-    "http://113.44.214.144:8001",
-    "https://localhost:3000",
-    "https://127.0.0.1:3000",
-    "https://frontend:8080",
-    "https://frontend:3000",
-    "https://localhost:3001",
-    "https://localhost:3002",
-    "https://backend:8000",
-    "https://113.44.214.144",
-    "https://113.44.214.144:8001",
-]
-
-# 从环境变量中读取生产环境的信任源，以提高灵活性
-CSRF_TRUSTED_ORIGIN_PROD = os.environ.get('CSRF_TRUSTED_ORIGIN_PROD')
-if CSRF_TRUSTED_ORIGIN_PROD:
-    CSRF_TRUSTED_ORIGINS.append(CSRF_TRUSTED_ORIGIN_PROD)
 CORS_ALLOW_METHODS = [
     'DELETE',
     'GET',

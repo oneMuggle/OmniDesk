@@ -50,7 +50,7 @@ services:
       redis:
         condition: service_healthy
     env_file:
-      - ./.env
+      - ./.env.production
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
@@ -87,7 +87,7 @@ services:
       db:
         condition: service_healthy
     env_file:
-      - ./.env
+      - ./.env.production
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production

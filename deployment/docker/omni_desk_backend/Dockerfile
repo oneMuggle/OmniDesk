@@ -22,6 +22,9 @@ RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.t
 # 2. 生产阶段 - 运行应用
 FROM python:3.10-slim-bullseye
 
+# 设置 Django 运行环境为生产环境
+ENV DJANGO_ENV=production
+
 # 创建一个非 root 用户来运行应用
 RUN addgroup --system app && adduser --system --group app
 

@@ -6,13 +6,11 @@ from django.contrib.auth.models import Group
 from django.db import transaction
 from .models import PageRoute, GroupPagePermission
 from .serializers import GroupSerializer, PageRouteSerializer
-from .authentication import CsrfExemptSessionAuthentication
 
 
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('id')
     serializer_class = GroupSerializer
-    authentication_classes = [CsrfExemptSessionAuthentication]
     permission_classes = [IsAdminUser]
 
 class PageRouteViewSet(viewsets.ReadOnlyModelViewSet):
