@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'sensor_management', # Add the new sensor_management app
     'permissions.apps.PermissionsConfig',
     'django_extensions',
+    'communication',
 ]
 
 MIDDLEWARE = [

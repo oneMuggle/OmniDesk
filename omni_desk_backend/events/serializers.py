@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position, PhoneNumber, Holiday
 from users.models import CustomUser
-from users.shared_serializers import AuthorSerializer
+from users.shared_serializers import UserDataSerializer
 from .models import Trial, Equipment, Personnel, DocumentTemplate
 
 class PositionSerializer(serializers.ModelSerializer):
@@ -294,7 +294,7 @@ class ScheduleSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 class AnnouncementSerializer(serializers.ModelSerializer):
-    author = AuthorSerializer(read_only=True)
+    author = UserDataSerializer(read_only=True)
     author_id = serializers.PrimaryKeyRelatedField(
         queryset=CustomUser.objects.all(),
         write_only=True,

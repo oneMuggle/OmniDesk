@@ -48,6 +48,9 @@ import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagemen
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
 import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
+import PostList from '../components/communication/PostList';
+import PostDetail from '../components/communication/PostDetail';
+import PostForm from '../components/communication/PostForm';
  
  const router = createBrowserRouter([
  {
@@ -160,6 +163,18 @@ import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 Ho
       {
         path: "sensors/:id", // 新增传感器详情路由
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensors/:id"><SensorDetailPage /></ProtectedRoute>
+      },
+      {
+        path: "communication",
+        element: <ProtectedRoute pagePath="/communication"><PostList /></ProtectedRoute>
+      },
+      {
+        path: "communication/post/:id",
+        element: <ProtectedRoute pagePath="/communication/post/:id"><PostDetail /></ProtectedRoute>
+      },
+      {
+        path: "communication/new",
+        element: <ProtectedRoute pagePath="/communication/new"><PostForm /></ProtectedRoute>
       }
     ]
   },
@@ -223,10 +238,6 @@ import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 Ho
       {
         path: "ebook-management",
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/ebook-management"><EBookManagementPage /></ProtectedRoute>
-      },
-      {
-       path: "settings",
-       element: <ProtectedRoute pagePath="/admin/settings"><SystemSettingsPage /></ProtectedRoute>
       },
       {
        path: "holidays",

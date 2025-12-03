@@ -7,12 +7,14 @@ import 'animate.css';
 import { AuthProvider } from './context/AuthContext';
 import { ApiProvider } from './context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
+import { RefreshProvider } from './context/RefreshContext';
 
 function App() {
   return (
     <AuthProvider>
       <ApiProvider>
-        <div className="app-container">
+        <RefreshProvider>
+          <div className="app-container">
           <Sidebar />
           <div className="main-content">
             <div className="content-wrapper">
@@ -30,7 +32,8 @@ function App() {
             draggable
             pauseOnHover
           />
-        </div>
+          </div>
+        </RefreshProvider>
       </ApiProvider>
     </AuthProvider>
   );

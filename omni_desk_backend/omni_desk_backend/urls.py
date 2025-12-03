@@ -24,6 +24,7 @@ urlpatterns = [
         path('ragflow-service/', include('ragflow_service.urls')), # Ragflow 服务相关路由
         path('meeting-rooms/', include('meeting_rooms.urls')), # 会议室预约相关路由
         path('permissions/', include('permissions.urls')), # 权限管理相关路由
+        path('communication/', include('communication.urls')), # 用户交流相关路由
     ])),
 ]
 

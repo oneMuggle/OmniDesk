@@ -79,6 +79,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
     { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: null },
     { to: "/library", icon: BookOutlined, text: "书库", permission: null },
     { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
+    { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
     { to: "/sensor-management", icon: ExperimentOutlined, text: "传感器管理", permission: ["admin", "manager"] },
     { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
     {
