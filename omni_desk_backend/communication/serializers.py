@@ -10,8 +10,10 @@ class CommentSerializer(serializers.ModelSerializer):
         fields = ['id', 'post', 'author', 'content', 'created_at']
 
     def get_author(self, obj):
-        if obj.author:
+        if obj.author and hasattr(obj.author, 'real_name'):
             return obj.author.real_name or obj.author.username
+        elif obj.author:
+            return obj.author.username
         return "Anonymous"
 
 
@@ -24,6 +26,8 @@ class PostSerializer(serializers.ModelSerializer):
         fields = ['id', 'title', 'content', 'author', 'created_at', 'updated_at', 'expires_at', 'is_archived', 'comments']
 
     def get_author(self, obj):
-        if obj.author:
+        if obj.author and hasattr(obj.author, 'real_name'):
             return obj.author.real_name or obj.author.username
+        elif obj.author:
+            return obj.author.username
         return "Anonymous"

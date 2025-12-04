@@ -10,7 +10,10 @@ class PostViewSet(viewsets.ModelViewSet):
     queryset = Post.objects.all()
 
     def get_queryset(self):
-        return Post.objects.filter(is_archived=False).order_by('-created_at')
+        queryset = Post.objects.filter(is_archived=False).order_by('-created_at')
+        if self.action == 'list':
+            return queryset.filter(author=self.request.user)
+        return queryset
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)

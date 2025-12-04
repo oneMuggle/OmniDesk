@@ -4,7 +4,7 @@ from users.models import CustomUser
 class Post(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField()
-    author = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    author = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     expires_at = models.DateTimeField(null=True, blank=True)

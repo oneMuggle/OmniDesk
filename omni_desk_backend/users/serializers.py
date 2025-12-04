@@ -80,12 +80,15 @@ class UserLoginSerializer(serializers.Serializer):
     remember_me = serializers.BooleanField(default=False, required=False)
 
     def validate(self, data):
-        user = authenticate(
-            username=data.get('username'),
-            password=data.get('password')
-        )
+        username = data.get('username')
+        password = data.get('password')
         
-        if not user:
+        try:
+            user = CustomUser.objects.get(username=username)
+        except CustomUser.DoesNotExist:
+            raise serializers.ValidationError("用户名或密码不正确")
+
+        if not user.check_password(password):
             raise serializers.ValidationError("用户名或密码不正确")
             
         if not user.is_active:

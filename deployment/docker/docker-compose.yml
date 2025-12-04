@@ -36,7 +36,7 @@ services:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
     build:
       context: ../..
-      dockerfile: omni_desk_backend/Dockerfile
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_backend
     command: /bin/sh -c "python manage.py migrate && python init_superuser.py && gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000"
     volumes:

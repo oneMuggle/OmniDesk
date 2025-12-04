@@ -22,7 +22,7 @@ class Command(BaseCommand):
         # These are the routes relevant for permission management.
         # It captures the pagePath and the name of the component being wrapped.
         route_pattern = re.compile(
-            r'<ProtectedRoute.*?pagePath="(?P<path>[^"]+)".*?>\s*<(?P<component>\w+)'
+            r'<ProtectedRoute.*?pageName="(?P<name>[^"]+)".*?pagePath="(?P<path>[^"]+)".*?>\s*<(?P<component>\w+)'
         )
 
         routes = route_pattern.finditer(content)
@@ -34,10 +34,7 @@ class Command(BaseCommand):
         for match in routes_list:
             path = match.group('path')
             component = match.group('component')
-            
-            # Generate a user-friendly name from the path
-            # e.g., "/admin/user-management" -> "Admin User Management"
-            name = ' '.join(word.capitalize() for word in path.strip('/').replace('-', ' ').split('/'))
+            name = match.group('name')
 
             # Attempt to find an existing route by path
             page_route, created = PageRoute.objects.update_or_create(

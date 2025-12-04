@@ -31,6 +31,47 @@ class TrialModelTest(TestCase):
         self.trial.refresh_from_db()
         self.assertIsNotNone(self.trial.start_date)
         self.assertIsNotNone(self.trial.end_date)
+        self.assertEqual(self.trial.start_date, start_time)
+        self.assertEqual(self.trial.end_date, end_time)
+
+    def test_update_time_range_on_timeslot_update(self):
+        """Test that updating a TimeSlot updates the Trial's time range."""
+        start1 = timezone.now()
+        end1 = start1 + timezone.timedelta(hours=1)
+        ts = TimeSlot.objects.create(trial=self.trial, start_time=start1, end_time=end1)
+        self.trial.refresh_from_db()
+        self.assertEqual(self.trial.start_date, start1)
+
+        # Now update the timeslot
+        new_start = start1 - timezone.timedelta(hours=1)
+        ts.start_time = new_start
+        ts.save()
+        self.trial.refresh_from_db()
+        self.assertEqual(self.trial.start_date, new_start)
+
+    def test_update_time_range_on_timeslot_delete(self):
+        """Test that deleting a TimeSlot updates the Trial's time range."""
+        start1 = timezone.now()
+        end1 = start1 + timezone.timedelta(hours=1)
+        start2 = timezone.now() + timezone.timedelta(days=1)
+        end2 = start2 + timezone.timedelta(hours=1)
+        ts1 = TimeSlot.objects.create(trial=self.trial, start_time=start1, end_time=end1)
+        ts2 = TimeSlot.objects.create(trial=self.trial, start_time=start2, end_time=end2)
+        self.trial.refresh_from_db()
+        self.assertEqual(self.trial.start_date, start1)
+        self.assertEqual(self.trial.end_date, end2)
+
+        # Delete the earliest timeslot
+        ts1.delete()
+        self.trial.refresh_from_db()
+        self.assertEqual(self.trial.start_date, start2)
+        self.assertEqual(self.trial.end_date, end2)
+
+        # Delete the last timeslot
+        ts2.delete()
+        self.trial.refresh_from_db()
+        self.assertIsNone(self.trial.start_date)
+        self.assertIsNone(self.trial.end_date)
 
     def test_save_without_time_periods(self):
         """测试没有时间段的保存"""
@@ -373,24 +414,53 @@ class TrialViewSetTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
 
-    def test_create_trial_with_timeslot(self):
+    def test_create_trial_with_timeslot_data(self):
+        """Test creating a trial with nested time_slots_data."""
         start_time = timezone.now()
         end_time = start_time + timedelta(hours=2)
         data = {
-            'title': 'New Trial',
+            'title': 'New Trial with Slots',
             'client': 'New Client',
             'description': 'A new trial.',
             'equipment_ids': [self.equipment1.id],
             'responsible_person_ids': [self.person1.id],
-            'time_periods': [
-                {'start_time': start_time.isoformat(), 'end_time': end_time.isoformat()}
+            'time_slots_data': [
+                {'start_time': start_time.isoformat(), 'end_time': end_time.isoformat(), 'description': 'Slot 1'}
             ]
         }
         response = self.client.post(self.url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         new_trial = Trial.objects.get(id=response.data['id'])
         self.assertEqual(new_trial.time_slots.count(), 1)
-        self.assertIsNotNone(new_trial.start_date)
+        self.assertEqual(new_trial.start_date.strftime('%Y-%m-%dT%H:%M'), start_time.strftime('%Y-%m-%dT%H:%M'))
+
+    def test_update_trial_with_timeslot_data(self):
+        """Test updating a trial's timeslots via nested time_slots_data."""
+        # Create initial timeslot
+        ts1_start = timezone.now()
+        ts1_end = ts1_start + timedelta(hours=1)
+        ts1 = TimeSlot.objects.create(trial=self.trial, start_time=ts1_start, end_time=ts1_end)
+
+        # New and updated timeslot data
+        ts2_start = timezone.now() + timedelta(days=1)
+        ts2_end = ts2_start + timedelta(hours=1)
+        
+        update_url = f"{self.url}{self.trial.id}/"
+        data = {
+            'title': 'Updated Trial Title',
+            'time_slots_data': [
+                {'id': ts1.id, 'start_time': ts1_start.isoformat(), 'end_time': (ts1_end + timedelta(hours=1)).isoformat()}, # Update existing
+                {'start_time': ts2_start.isoformat(), 'end_time': ts2_end.isoformat(), 'description': 'New Slot'} # Add new
+            ]
+        }
+        response = self.client.patch(update_url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.trial.refresh_from_db()
+        self.assertEqual(self.trial.title, 'Updated Trial Title')
+        self.assertEqual(self.trial.time_slots.count(), 2)
+        
+        # Check that the trial's main date range was updated
+        self.assertEqual(self.trial.end_date.strftime('%Y-%m-%dT%H:%M'), ts2_end.strftime('%Y-%m-%dT%H:%M'))
 
     def test_get_this_week_trials(self):
         # Ensure the trial is within this week

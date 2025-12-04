@@ -3,7 +3,7 @@ from .models import DocumentTemplate, GeneratedDocument
 from users.serializers import UserSerializer
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):
-    owner = UserSerializer(read_only=True)
+    owner = serializers.StringRelatedField(read_only=True)
     template_type_display = serializers.CharField(source='get_template_type_display', read_only=True)
     project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True) # 新增
     
@@ -33,7 +33,7 @@ class TagSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class CommentSerializer(serializers.ModelSerializer):
-    user = UserSerializer(read_only=True)
+    user = serializers.StringRelatedField(read_only=True)
 
     class Meta:
         model = Comment

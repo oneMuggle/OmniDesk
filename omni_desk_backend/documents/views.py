@@ -5,6 +5,7 @@ from rest_framework import status
 from rest_framework.views import APIView # For BookImportView
 import tempfile # 导入 tempfile 来创建临时目录
 
+import markdown
 from .file_processing import process_uploaded_file # 导入我们新创建的函数
 
 from .models import DocumentTemplate, GeneratedDocument, Book, Chapter, Comment, Annotation, Tag, EBook
@@ -210,7 +211,7 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def add_comment(self, request, pk=None):
         chapter = self.get_object()
-        serializer = CommentSerializer(data=request.data)
+        serializer = CommentSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save(chapter=chapter, user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
@@ -333,6 +334,7 @@ class BookImportView(APIView):
                 
                 # Using the first md file found as the main one
                 markdown_file_path = md_files[0]
+                print(f"Base path for images: {base_path_for_images}")
                 base_path_for_images = markdown_file_path.parent
                 content = markdown_file_path.read_text(encoding='utf-8')
 
@@ -429,13 +431,10 @@ class BookImportView(APIView):
 
                 for i in range(1, len(chapters_md)):
                     chapter_full_content = chapters_md[i]
-                    title_line_match = re.match(r'^#\s*(.+)', chapter_full_content)
-                    if title_line_match:
-                        chapter_title = title_line_match.group(1).strip()
-                    else:
-                        chapter_title = f"Untitled Chapter {chapter_order}"
-                    
-                    chapter_content_md = "# " + chapter_full_content.strip()
+                    # The title is the first line, and the rest is content
+                    parts = chapter_full_content.split('\n', 1)
+                    chapter_title = parts[0].strip()
+                    chapter_content_md = "# " + chapter_full_content.strip() # Keep the title in the content
 
                     # Image Path Correction within Chapter Content
                     def replace_image_path(match):
@@ -466,7 +465,7 @@ class BookImportView(APIView):
                         except Exception:
                             return match.group(0) # Keep original on error
 
-                    chapter_content_md = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, chapter_content_md)
+                    chapter_content_md = replace_image_path(chapter_content_md)
 
                     chapter_content_html = markdown.markdown(
                         chapter_content_md,

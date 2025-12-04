@@ -71,3 +71,5 @@ pypinyin
 holidays
 
 holidays
+
+coverage

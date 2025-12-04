@@ -173,16 +173,12 @@ class TrialSerializer(serializers.ModelSerializer):
         return data
 
     def create(self, validated_data):
-        time_slots = validated_data.pop('time_slots', [])
+        time_slots_data = validated_data.pop('time_slots_data', [])
         with transaction.atomic():
             trial = super().create(validated_data)
-            for slot in time_slots:
-                TimeSlot.objects.create(
-                    trial=trial,
-                    start_time=slot['start_time'],
-                    end_time=slot['end_time'],
-                    description=slot.get('description', '')
-                )
+            for slot_data in time_slots_data:
+                TimeSlot.objects.create(trial=trial, **slot_data)
+        trial.update_time_range() # Ensure time range is updated after creation
         return trial
 
     def update(self, instance, validated_data):

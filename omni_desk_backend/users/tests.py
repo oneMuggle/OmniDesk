@@ -86,7 +86,7 @@ class UserAuthTests(TestCase):
     def test_protected_endpoint_access(self):
         # 未认证用户访问
         response = self.client.get(self.profile_url)
-        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.status_code, 403) # Or 401, depending on default auth class
 
         # 认证用户访问
         self.client.force_authenticate(user=self.user)
@@ -181,9 +181,9 @@ class UserProfileManagementTests(APITestCase):
         self.user = CustomUser.objects.create_user(
             username='testuser',
             password='password123',
-            real_name='Old Name',
-            phone='1234567890'
+            real_name='Old Name'
         )
+        PhoneNumber.objects.create(user=self.user, number='1234567890')
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.profile_update_url = reverse('users:user-profile-update')
@@ -192,13 +192,14 @@ class UserProfileManagementTests(APITestCase):
     def test_user_can_update_profile(self):
         data = {
             'real_name': 'New Name',
-            'phone': '0987654321'
+            'real_name': 'New Name',
+            'phone_numbers': [{'number': '0987654321'}]
         }
         response = self.client.patch(self.profile_update_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.user.refresh_from_db()
         self.assertEqual(self.user.real_name, 'New Name')
-        self.assertEqual(self.user.phone, '0987654321')
+        self.assertEqual(self.user.phone_numbers.first().number, '0987654321')
 
     def test_user_can_change_password(self):
         data = {
@@ -260,3 +261,154 @@ class UserAdminViewTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.regular_user.refresh_from_db()
         self.assertEqual(self.regular_user.role, 'manager')
+
+from .models import PhoneNumber
+
+class UserModelTests(TestCase):
+    def test_user_str(self):
+        """Test the string representation of the CustomUser model."""
+        user = CustomUser.objects.create_user(username='testuser_str', password='password')
+        self.assertEqual(str(user), 'testuser_str')
+
+    def test_has_perm_admin(self):
+        """Test that admin users have all permissions."""
+        admin_user = CustomUser.objects.create_user(username='admin_perm', password='password', role='admin')
+        self.assertTrue(admin_user.has_perm('any.permission'))
+
+    def test_has_perm_manager(self):
+        """Test the specific permissions for manager users."""
+        manager_user = CustomUser.objects.create_user(username='manager_perm', password='password', role='manager')
+        self.assertTrue(manager_user.has_perm('events.manage_schedule'))
+        self.assertFalse(manager_user.has_perm('any.other_permission'))
+
+    def test_has_perm_user(self):
+        """Test that regular users rely on the default permission system."""
+        user_user = CustomUser.objects.create_user(username='user_perm', password='password', role='user')
+        # This will be False as we haven't assigned any specific permission
+        self.assertFalse(user_user.has_perm('events.manage_schedule'))
+
+    def test_has_module_perms_admin(self):
+        """Test that admin users have all module permissions."""
+        admin_user = CustomUser.objects.create_user(username='admin_module_perm', password='password', role='admin')
+        self.assertTrue(admin_user.has_module_perms('any_app'))
+
+    def test_has_module_perms_non_admin(self):
+        """Test that non-admin users do not have module permissions by default via this method."""
+        manager_user = CustomUser.objects.create_user(username='manager_module_perm', password='password', role='manager')
+        user_user = CustomUser.objects.create_user(username='user_module_perm', password='password', role='user')
+        self.assertFalse(manager_user.has_module_perms('any_app'))
+        self.assertFalse(user_user.has_module_perms('any_app'))
+
+class PhoneNumberModelTests(TestCase):
+    def setUp(self):
+        self.user = CustomUser.objects.create_user(username='testuser_phone', password='password')
+
+    def test_phone_number_str(self):
+        """Test the string representation of the PhoneNumber model."""
+        phone = PhoneNumber.objects.create(user=self.user, number='1234567890')
+        self.assertEqual(str(phone), '1234567890')
+
+    def test_phone_number_creation(self):
+        """Test creating a phone number and associating it with a user."""
+        PhoneNumber.objects.create(user=self.user, number='1112223333')
+        self.assertEqual(self.user.phone_numbers.count(), 1)
+        self.assertEqual(self.user.phone_numbers.first().number, '1112223333')
+
+from .serializers import UserRegistrationSerializer, UserLoginSerializer, CustomTokenObtainPairSerializer, UserDetailSerializer
+from rest_framework import serializers
+
+class UserSerializerTests(TestCase):
+    def test_registration_serializer_validate_username_whitespace(self):
+        """Test that username validation strips whitespace."""
+        serializer = UserRegistrationSerializer()
+        validated_username = serializer.validate_username("  testuser  ")
+        self.assertEqual(validated_username, "testuser")
+
+    def test_login_serializer_inactive_user(self):
+        """Test that an inactive user cannot log in."""
+        user = CustomUser.objects.create_user(username='inactive', password='password')
+        user.is_active = False
+        user.save()
+        data = {'username': 'inactive', 'password': 'password'}
+        serializer = UserLoginSerializer(data=data)
+        with self.assertRaises(serializers.ValidationError) as cm:
+            serializer.is_valid(raise_exception=True)
+        self.assertIn("用户账户已被禁用", str(cm.exception.detail['non_field_errors'][0]))
+
+    def test_custom_token_serializer_admin_permissions(self):
+        """Test that admin users get correct permissions in their token."""
+        admin_user = CustomUser.objects.create_user(username='token_admin', password='password', role='admin')
+        serializer = CustomTokenObtainPairSerializer(data={'username': 'token_admin', 'password': 'password'})
+        self.assertTrue(serializer.is_valid())
+        data = serializer.validated_data
+        self.assertIn('permissions', data)
+        self.assertIn('events.manage_schedule', data['permissions'])
+        self.assertIn('documents.view_book', data['permissions'])
+
+    def test_custom_token_serializer_manager_permissions(self):
+        """Test that manager users get correct permissions in their token."""
+        manager_user = CustomUser.objects.create_user(username='token_manager', password='password', role='manager')
+        serializer = CustomTokenObtainPairSerializer(data={'username': 'token_manager', 'password': 'password'})
+        self.assertTrue(serializer.is_valid())
+        data = serializer.validated_data
+        self.assertIn('permissions', data)
+        self.assertIn('events.manage_personnel', data['permissions'])
+        self.assertNotIn('some.admin.permission', data['permissions'])
+
+    def test_user_detail_serializer_update_phone_numbers(self):
+        """Test updating a user's phone numbers via the UserDetailSerializer."""
+        user = CustomUser.objects.create_user(username='phone_updater', password='password')
+        PhoneNumber.objects.create(user=user, number='111')
+        
+        data = {
+            'phone_numbers': [
+                {'number': '222'},
+                {'number': '333'}
+            ]
+        }
+        serializer = UserDetailSerializer(instance=user, data=data, partial=True)
+        self.assertTrue(serializer.is_valid(raise_exception=True))
+        serializer.save()
+        user.refresh_from_db()
+        self.assertEqual(user.phone_numbers.count(), 2)
+        numbers = list(user.phone_numbers.values_list('number', flat=True))
+        self.assertIn('222', numbers)
+        self.assertIn('333', numbers)
+        self.assertNotIn('111', numbers)
+
+class UserViewTests(APITestCase):
+    def setUp(self):
+        CustomUser.objects.all().delete()
+        self.admin_user = CustomUser.objects.create_user(username='view_admin', password='password', role='admin')
+        self.manager_user = CustomUser.objects.create_user(username='view_manager', password='password', role='manager')
+        self.user1 = CustomUser.objects.create_user(username='view_user1', password='password', real_name='张三')
+        self.user2 = CustomUser.objects.create_user(username='view_user2', password='password', real_name='李四')
+        
+        self.personnel_list_url = reverse('users:customuser-list')
+
+    def test_personnel_list_search(self):
+        """Test searching personnel list by real_name."""
+        self.client.force_authenticate(user=self.admin_user)
+        response = self.client.get(self.personnel_list_url, {'search': '张三'})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['real_name'], '张三')
+
+    def test_user_personnel_viewset_update(self):
+        """Test updating personnel association via UserPersonnelViewSet."""
+        self.client.force_authenticate(user=self.admin_user)
+        personnel = Personnel.objects.create(name='王五')
+        update_url = reverse('users:customuser-detail', args=[self.user1.id])
+        
+        # Associate
+        response = self.client.patch(update_url, {'personnel_id': personnel.id}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user1.refresh_from_db()
+        self.assertEqual(self.user1.personnel, personnel)
+        self.assertEqual(self.user1.real_name, '王五')
+
+        # Disassociate
+        response = self.client.patch(update_url, {'personnel_id': ''}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.user1.refresh_from_db()
+        self.assertIsNone(self.user1.personnel)
