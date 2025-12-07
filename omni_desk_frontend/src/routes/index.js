@@ -51,6 +51,8 @@ import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 Ho
 import PostList from '../components/communication/PostList';
 import PostDetail from '../components/communication/PostDetail';
 import PostForm from '../components/communication/PostForm';
+import NewsStatsPage from '../pages/NewsStatsPage';
+import NewsManagementPage from '../pages/NewsManagementPage';
  
  const router = createBrowserRouter([
  {
@@ -242,6 +244,14 @@ import PostForm from '../components/communication/PostForm';
       {
        path: "holidays",
        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "news-stats",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
+      },
+      {
+        path: "news-management",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
       },
     ]
   },

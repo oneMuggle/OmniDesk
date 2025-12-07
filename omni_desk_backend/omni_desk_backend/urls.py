@@ -25,6 +25,7 @@ urlpatterns = [
         path('meeting-rooms/', include('meeting_rooms.urls')), # 会议室预约相关路由
         path('permissions/', include('permissions.urls')), # 权限管理相关路由
         path('communication/', include('communication.urls')), # 用户交流相关路由
+        path('', include('news.urls')), # 新闻发布相关路由
     ])),
 ]
 

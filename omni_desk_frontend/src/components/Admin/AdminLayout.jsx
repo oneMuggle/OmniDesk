@@ -18,7 +18,8 @@ import {
   faCaretDown, // For dropdown indicator
   faCaretRight, // For dropdown indicator
   faCalendarAlt,
-  faUserShield
+  faUserShield,
+  faNewspaper
 } from '@fortawesome/free-solid-svg-icons';
 import ProtectedRoute from '../ProtectedRoute';
 
@@ -43,7 +44,9 @@ const AdminLayout = () => {
     { to: "/admin/dify-app-management", icon: faCog, text: "Dify 应用管理", path: "/admin/dify-app-management" },
     { to: "/admin/schedule-settings", icon: faCog, text: "排班设置", path: "/admin/schedule-settings" },
     { to: "/admin/meeting-room-management", icon: faCog, text: "会议室管理", path: "/admin/meeting-room-management" },
-    { to: "/admin/holidays", icon: faCalendarAlt, text: "节假日管理", path: "/admin/holidays" }
+    { to: "/admin/holidays", icon: faCalendarAlt, text: "节假日管理", path: "/admin/holidays" },
+    { to: "/admin/news-stats", icon: faNewspaper, text: "新闻统计", path: "/admin/news-stats" },
+    { to: "/admin/news-management", icon: faNewspaper, text: "新闻管理", path: "/admin/news-management" }
   ];
 
   useEffect(() => {

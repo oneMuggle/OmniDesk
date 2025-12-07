@@ -53,6 +53,7 @@ INSTALLED_APPS = [
     'permissions.apps.PermissionsConfig',
     'django_extensions',
     'communication',
+    'news',
 ]
 
 MIDDLEWARE = [
