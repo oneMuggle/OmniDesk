@@ -71,6 +71,20 @@ class CommunicationViewSetTests(APITestCase):
         self.assertEqual(Post.objects.count(), 3) # Including setUp posts
         self.assertEqual(response.data['author'], 'Api User')
 
+    def test_update_post(self):
+        url = reverse('post-detail', args=[self.post.id])
+        data = {'title': 'Updated Post'}
+        response = self.client.patch(url, data, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.post.refresh_from_db()
+        self.assertEqual(self.post.title, 'Updated Post')
+
+    def test_delete_post(self):
+        url = reverse('post-detail', args=[self.post.id])
+        response = self.client.delete(url)
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertEqual(Post.objects.count(), 1) # Archived post remains
+
     def test_create_comment(self):
         url = reverse('comment-list')
         data = {'post': self.post.id, 'content': 'A new comment'}
