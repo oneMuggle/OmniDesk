@@ -168,7 +168,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         queryset=Personnel.objects.all(),
         source='personnel',
         allow_null=True,
-        required=False
+        required=False # 确保在更新时不是必需的
     )
     phone_numbers = PhoneNumberSerializer(many=True, required=False)
     groups = serializers.PrimaryKeyRelatedField(queryset=Group.objects.all(), many=True, required=False)
@@ -255,18 +255,19 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
 
 class UserPersonnelSerializer(serializers.ModelSerializer):
-    personnel = PersonnelSerializer(read_only=True)
     personnel_id = serializers.PrimaryKeyRelatedField(
         queryset=Personnel.objects.all(),
         source='personnel',
         allow_null=True,
-        required=False
+        required=False,
+        write_only=True
     )
 
     class Meta:
         model = CustomUser
         fields = ('id', 'username', 'real_name', 'personnel', 'personnel_id')
         read_only_fields = ('username',)
+        depth = 1
 
 
 class PositionSerializer(serializers.ModelSerializer):

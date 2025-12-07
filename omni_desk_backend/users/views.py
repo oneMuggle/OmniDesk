@@ -1,3 +1,4 @@
+from rest_framework.decorators import action
 from rest_framework import generics, permissions, status, exceptions
 from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
 from rest_framework.views import APIView
@@ -31,7 +32,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import CustomUser
-from events.models import Personnel
+from events.models import Personnel, Position, PhoneNumber
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -131,6 +132,9 @@ class UserLoginView(TokenObtainPairView):
 
 from pypinyin import lazy_pinyin
 from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework.filters import SearchFilter
+from django.db import transaction
 
 class PersonnelListCreateView(generics.ListCreateAPIView):
     serializer_class = PersonnelSerializer
@@ -216,6 +220,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
         instance = self.get_object()
         personnel_id = request.data.get('personnel_id')
 
+        # 如果提供了 personnel_id，则处理关联
         if personnel_id is not None:
             if personnel_id == '':  # 解除关联
                 instance.personnel = None
@@ -223,13 +228,14 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
                 try:
                     personnel = Personnel.objects.get(id=personnel_id)
                     instance.personnel = personnel
-                    instance.real_name = personnel.name # 强制设置为人员名称
+                    instance.real_name = personnel.name  # 强制设置为人员名称
                 except Personnel.DoesNotExist:
                     return Response({"detail": "人员不存在。"}, status=status.HTTP_404_NOT_FOUND)
-        else:
-            return Response({"detail": "缺少 personnel_id 参数。"}, status=status.HTTP_400_BAD_REQUEST)
-
+        
+        # 不论 personnel_id 是否提供，都保存实例
         instance.save()
+        
+        # 在保存后序列化并返回
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
@@ -255,3 +261,50 @@ class PositionListView(generics.ListAPIView):
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+
+class PersonnelViewSet(viewsets.ModelViewSet):
+    queryset = Personnel.objects.all().prefetch_related('phone_numbers')
+    serializer_class = PersonnelSerializer
+    permission_classes = [IsAdminOrManager]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['position']
+    search_fields = ['name']
+
+    @action(detail=False, methods=['get'], url_path='all')
+    def list_all(self, request):
+        """
+        获取所有人员信息，不进行分页。
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            personnel = serializer.save()
+            phone_numbers_data = self.request.data.get('phone_numbers', [])
+            if phone_numbers_data:
+                # Clear existing phone numbers before adding new ones
+                personnel.phone_numbers.all().delete()
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
+
+    def perform_update(self, serializer):
+        phone_numbers_data = self.request.data.get('phone_numbers', None)
+        with transaction.atomic():
+            personnel = serializer.save()
+            if phone_numbers_data is not None:
+                # 删除旧的电话号码
+                personnel.phone_numbers.all().delete()
+                # 创建新的电话号码
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
+
+
+class PositionViewSet(viewsets.ModelViewSet):
+    queryset = Position.objects.all()
+    serializer_class = PositionSerializer
+    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理职位
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ['name']

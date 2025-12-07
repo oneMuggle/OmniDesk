@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Table, Select, Button, message, Spin, Card, Tabs, Modal, Form, Input, Space, Tree, Row, Col } from 'antd';
+import { Table, Select, Button, message, Spin, Card, Tabs, Modal, Form, Input, Space, Tree, Row, Col, Avatar } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import userManagementApi from '../api/userManagementApi';
+import { getAllPersonnel } from '../api/personnelApi';
 import { permissionsApi } from '../api/permissionsApi';
 import { useAuth } from '../context/AuthContext';
 
@@ -288,6 +289,7 @@ const UserManagementPage = () => {
     const { user: currentUser } = useAuth();
     const [users, setUsers] = useState([]);
     const [groups, setGroups] = useState([]);
+    const [personnel, setPersonnel] = useState([]);
     const [loading, setLoading] = useState(true);
 
     const fetchUsers = async () => {
@@ -308,9 +310,18 @@ const UserManagementPage = () => {
         }
     };
 
+    const fetchPersonnel = async () => {
+        try {
+            const response = await getAllPersonnel();
+            setPersonnel(response);
+        } catch (error) {
+            message.error('获取人员数据失败');
+        }
+    };
+ 
     const fetchData = async () => {
         setLoading(true);
-        await Promise.all([fetchUsers(), fetchGroups()]);
+        await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);
         setLoading(false);
     };
 
@@ -338,8 +349,23 @@ const UserManagementPage = () => {
         }
     };
 
+    const handleAssociationChange = async (userId, personnelId) => {
+        try {
+          await userManagementApi.associateUserWithPersonnel(userId, personnelId);
+          message.success('关联成功');
+          fetchUsers(); // Refresh users to show updated data
+        } catch (error) {
+          message.error('关联失败');
+        }
+    };
+ 
     const userColumns = [
-        { title: 'ID', dataIndex: 'id', key: 'id' },
+        {
+            title: '头像',
+            dataIndex: 'avatar',
+            key: 'avatar',
+            render: (avatar) => <Avatar src={avatar} />,
+        },
         { title: '用户名', dataIndex: 'username', key: 'username' },
         { title: '邮箱', dataIndex: 'email', key: 'email' },
         {
@@ -350,6 +376,25 @@ const UserManagementPage = () => {
                 <span>
                     {phoneNumbers && phoneNumbers.map(pn => pn.number).join(', ')}
                 </span>
+            ),
+        },
+        {
+            title: '关联人员',
+            dataIndex: 'personnel',
+            key: 'personnel',
+            render: (personnelData, record) => (
+                <Select
+                    value={personnelData ? personnelData.id : null}
+                    style={{ width: 200 }}
+                    onChange={(value) => handleAssociationChange(record.id, value)}
+                    allowClear
+                >
+                    {personnel.map((p) => (
+                        <Option key={p.id} value={p.id}>
+                            {p.name}
+                        </Option>
+                    ))}
+                </Select>
             ),
         },
         {

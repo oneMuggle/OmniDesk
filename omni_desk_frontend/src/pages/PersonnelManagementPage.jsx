@@ -13,7 +13,6 @@ import {
 } from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 import PositionManagementTab from '../components/Personnel/PositionManagementTab';
-import UserPersonnelAssociationTab from '../components/Personnel/UserPersonnelAssociationTab';
 
 const { Option } = Select; // Destructure Option from Select
 
@@ -362,12 +361,6 @@ const PersonnelManagementPage = () => {
             key: 'positions',
             "data-testid": "positions-tab",
             children: <PositionManagementTab />,
-          },
-          {
-            label: '用户人员关联',
-            key: 'user-personnel-association',
-            "data-testid": "user-personnel-association-tab",
-            children: <UserPersonnelAssociationTab />,
           },
         ]}
       />
