@@ -54,6 +54,7 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
+      - DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1,backend
     restart: unless-stopped
 
   frontend:
