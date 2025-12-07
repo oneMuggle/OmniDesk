@@ -1,24 +1,39 @@
 from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.permissions import IsAuthenticated
+from users.permissions import IsAdminOrReadOnly
 from django.contrib.auth.models import Group
 from django.db import transaction
 from .models import PageRoute, GroupPagePermission
 from .serializers import GroupSerializer, PageRouteSerializer
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by('id')
     serializer_class = GroupSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
+
+    def list(self, request, *args, **kwargs):
+        logger.info(f"User: {request.user}, is_staff: {request.user.is_staff}")
+        return super().list(request, *args, **kwargs)
 
 class PageRouteViewSet(viewsets.ReadOnlyModelViewSet):
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminOrReadOnly]
+    pagination_class = None
+
+    def list(self, request, *args, **kwargs):
+        logger.info(f"User: {request.user}, is_staff: {request.user.is_staff}")
+        return super().list(request, *args, **kwargs)
     queryset = PageRoute.objects.filter(parent__isnull=True).order_by('id')
     serializer_class = PageRouteSerializer
 
 class GroupPermissionView(APIView):
+    permission_classes = [IsAdminOrReadOnly]
+
     def get(self, request, group_id):
         try:
             group = Group.objects.get(id=group_id)

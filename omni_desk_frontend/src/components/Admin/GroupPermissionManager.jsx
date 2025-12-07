@@ -45,7 +45,7 @@ const GroupPermissionManager = () => {
         title: node.name,
         children: node.children ? addKeys(node.children) : [],
       }));
-      setPageTree(addKeys(response.results));
+      setPageTree(addKeys(response));
     } catch (error) {
       message.error('获取页面权限树失败');
     } finally {

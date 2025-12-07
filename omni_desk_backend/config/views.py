@@ -6,6 +6,7 @@ from .serializers import GroupSerializer, OllamaConfigSerializer, PageSerializer
 from django.conf import settings
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
+from users.permissions import IsAdminOrReadOnly
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
@@ -21,6 +22,8 @@ class PageVisibilityViewSet(viewsets.ViewSet):
     """
     一个用于查看和编辑页面可见性的ViewSet。
     """
+
+    permission_classes = [IsAdminOrReadOnly]
 
     def list(self, request):
         """
@@ -79,4 +82,4 @@ class OllamaConfigViewSet(viewsets.ModelViewSet):
     """
     queryset = OllamaConfig.objects.all()
     serializer_class = OllamaConfigSerializer
-    permission_classes = [AllowAny]
+    permission_classes = [IsAdminOrReadOnly]
