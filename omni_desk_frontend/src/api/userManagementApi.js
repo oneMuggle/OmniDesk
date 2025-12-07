@@ -7,6 +7,10 @@ const userManagementApi = {
     createUser: (userData) => apiClient.post('/users/admin/', userData),
     updateUser: (userId, userData) => apiClient.patch(`/users/admin/${userId}/`, userData),
     updateUserGroups: (userId, groups) => apiClient.patch(`/users/admin/${userId}/`, { groups }),
+    getGroups: () => apiClient.get('/permissions/groups/'),
+    getGroupedPermissions: () => apiClient.get('/permissions/permissions/grouped/'),
+    getGroupPermissions: (groupId) => apiClient.get(`/permissions/groups/${groupId}/permissions/`),
+    updateGroupPermissions: (groupId, permissions) => apiClient.put(`/permissions/groups/${groupId}/permissions/`, { permissions }),
 };
 
 export default userManagementApi;

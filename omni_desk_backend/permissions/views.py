@@ -3,7 +3,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from users.permissions import IsAdminOrReadOnly
-from django.contrib.auth.models import Group
+from django.contrib.auth.models import Group, Permission
 from django.db import transaction
 from .models import PageRoute, GroupPagePermission
 from .serializers import GroupSerializer, PageRouteSerializer
@@ -37,9 +37,8 @@ class GroupPermissionView(APIView):
     def get(self, request, group_id):
         try:
             group = Group.objects.get(id=group_id)
-            permissions = GroupPagePermission.objects.filter(group=group)
-            page_ids = [p.page.id for p in permissions]
-            return Response(page_ids)
+            permission_ids = group.permissions.values_list('id', flat=True)
+            return Response(list(permission_ids))
         except Group.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
@@ -49,27 +48,14 @@ class GroupPermissionView(APIView):
         except Group.DoesNotExist:
             return Response(status=status.HTTP_404_NOT_FOUND)
 
-        page_ids = request.data.get('permissions', [])
+        permission_ids = request.data.get('permissions', [])
 
         try:
-            with transaction.atomic():
-                # First, delete all existing permissions for the group.
-                GroupPagePermission.objects.filter(group=group).delete()
-
-                # Filter for valid page IDs to prevent IntegrityError on bulk_create.
-                valid_page_ids = PageRoute.objects.filter(id__in=page_ids).values_list('id', flat=True)
-
-                new_permissions = [
-                    GroupPagePermission(group=group, page_id=page_id)
-                    for page_id in valid_page_ids
-                ]
-
-                if new_permissions:
-                    GroupPagePermission.objects.bulk_create(new_permissions)
-            
+            permissions = Permission.objects.filter(id__in=permission_ids)
+            group.permissions.set(permissions)
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception:
-            # The transaction will be rolled back automatically on any exception.
+        except Exception as e:
+            logger.error(f"Error updating permissions for group {group_id}: {e}")
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class UserPermissionView(APIView):
@@ -86,3 +72,34 @@ class UserPermissionView(APIView):
         
         serializer = PageRouteSerializer(pages, many=True)
         return Response(serializer.data)
+
+
+class GroupedPermissionsView(APIView):
+    """
+    Provides a list of all available permissions, grouped by their content type (model).
+    """
+    permission_classes = [IsAdminOrReadOnly]
+
+    def get(self, request, *args, **kwargs):
+        # Eagerly fetch content types to reduce database queries
+        permissions = Permission.objects.select_related('content_type').all()
+        
+        grouped_permissions = {}
+        for perm in permissions:
+            # Use model_class() to get the verbose_name of the model if available
+            model_class = perm.content_type.model_class()
+            if model_class and hasattr(model_class._meta, 'verbose_name'):
+                group_name = f"{perm.content_type.app_label} | {model_class._meta.verbose_name}"
+            else:
+                group_name = f"{perm.content_type.app_label} | {perm.content_type.model}"
+
+            if group_name not in grouped_permissions:
+                grouped_permissions[group_name] = []
+            
+            grouped_permissions[group_name].append({
+                'id': perm.id,
+                'name': perm.name,
+                'codename': perm.codename
+            })
+            
+        return Response(grouped_permissions)
