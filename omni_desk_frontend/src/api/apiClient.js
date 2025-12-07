@@ -27,6 +27,11 @@ export const createApiClient = (options = {}) => {
   });
 
   instance.interceptors.request.use(config => {
+    const token = localStorage.getItem('access_token');
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
     // For methods that can cause side-effects, attach the CSRF token.
     if (!['GET', 'HEAD', 'OPTIONS', 'TRACE'].includes(config.method.toUpperCase())) {
         const csrfToken = getCookie('csrftoken');
