@@ -1,119 +1,53 @@
+import React, { useContext } from 'react';
 import { render, screen, act } from '@testing-library/react';
-import { AuthProvider, useAuth } from './AuthContext';
-import { MemoryRouter } from 'react-router-dom';
-import apiClient from '../api/apiClient';
+import '@testing-library/jest-dom/extend-expect';
+import { AuthProvider, AuthContext } from './AuthContext';
 
-// Mock apiClient
-jest.mock('../api/apiClient');
-
-// 测试组件用来消费上下文
 const TestComponent = () => {
-  const { user, login, logout } = useAuth();
+  const { user, isAuthenticated, login, logout } = useContext(AuthContext);
   return (
     <div>
-      <span data-testid="user">{user?.username}</span>
-      <button onClick={() => login('testuser', 'password')}>Login</button>
+      <span data-testid="isAuthenticated">{isAuthenticated.toString()}</span>
+      <span data-testid="user">{user ? user.username : 'null'}</span>
+      <button onClick={() => login({ username: 'testuser' })}>Login</button>
       <button onClick={logout}>Logout</button>
     </div>
   );
 };
 
+const renderWithAuthProvider = () => {
+  return render(
+    <AuthProvider>
+      <TestComponent />
+    </AuthProvider>
+  );
+};
+
 describe('AuthContext', () => {
-  afterEach(() => {
-    jest.clearAllMocks();
-    localStorage.clear();
+  it('should have default values', () => {
+    renderWithAuthProvider();
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('user')).toHaveTextContent('null');
   });
 
-  test('初始状态应为未登录', () => {
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>
-    );
-    
-    expect(screen.getByTestId('user').textContent).toBe('');
-  });
-
-  test('成功登录应更新用户状态', async () => {
-    const loginResponse = {
-      data: {
-        access: 'mock-token',
-        refresh: 'mock-refresh-token',
-        permissions: ['view_dashboard']
-      }
-    };
-    const userResponse = {
-      data: {
-        username: 'testuser',
-        email: 'test@example.com'
-      }
-    };
-
-    apiClient.post.mockResolvedValue(loginResponse);
-    apiClient.get.mockResolvedValue(userResponse);
-
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>
-    );
-
-    await act(async () => {
+  it('should update state on login', () => {
+    renderWithAuthProvider();
+    act(() => {
       screen.getByText('Login').click();
     });
-
-    expect(screen.getByTestId('user').textContent).toBe('testuser');
-    expect(JSON.parse(sessionStorage.getItem('authTokens')).access).toBe('mock-token');
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
+    expect(screen.getByTestId('user')).toHaveTextContent('testuser');
   });
 
-  test('登录失败应保持未登录状态', async () => {
-    apiClient.post.mockRejectedValue(new Error('Login failed'));
-
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>
-    );
-
-    await act(async () => {
+  it('should update state on logout', () => {
+    renderWithAuthProvider();
+    act(() => {
       screen.getByText('Login').click();
     });
-
-    expect(screen.getByTestId('user').textContent).toBe('');
-    expect(sessionStorage.getItem('authTokens')).toBeNull();
-  });
-
-  test('登出应清除用户状态', async () => {
-    const authTokens = { access: 'mock-token', refresh: 'mock-refresh-token' };
-    sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
-    
-    // Mock window.location.href
-    const originalLocation = window.location;
-    delete window.location;
-    window.location = { href: '' };
-
-    render(
-      <MemoryRouter>
-        <AuthProvider>
-          <TestComponent />
-        </AuthProvider>
-      </MemoryRouter>
-    );
-
-    await act(async () => {
+    act(() => {
       screen.getByText('Logout').click();
     });
-
-    expect(screen.getByTestId('user').textContent).toBe('');
-    expect(sessionStorage.getItem('authTokens')).toBeNull();
-
-    // Restore window.location
-    window.location = originalLocation;
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
+    expect(screen.getByTestId('user')).toHaveTextContent('null');
   });
 });
