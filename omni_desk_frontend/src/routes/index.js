@@ -53,6 +53,8 @@ import PostDetail from '../components/communication/PostDetail';
 import PostForm from '../components/communication/PostForm';
 import NewsStatsPage from '../pages/NewsStatsPage';
 import NewsManagementPage from '../pages/NewsManagementPage';
+import AddCalibrationRecordPage from '../pages/AddCalibrationRecordPage';
+import SensorCalibrationHistoryPage from '../pages/SensorCalibrationHistoryPage';
  
  const router = createBrowserRouter([
  {
@@ -177,6 +179,14 @@ import NewsManagementPage from '../pages/NewsManagementPage';
       {
         path: "communication/new",
         element: <ProtectedRoute pagePath="/communication/new" pageName="新帖子"><PostForm /></ProtectedRoute>
+      },
+      {
+        path: "sensor-management/add-record",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management/add-record" pageName="添加校准记录"><AddCalibrationRecordPage /></ProtectedRoute>
+      },
+      {
+        path: "sensor-management/history/:sensorId",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management/history/:sensorId" pageName="传感器校准历史"><SensorCalibrationHistoryPage /></ProtectedRoute>
       }
     ]
   },

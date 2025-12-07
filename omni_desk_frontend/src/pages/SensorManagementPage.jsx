@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Space, notification } from 'antd';
+import { Table, Button, Modal, Form, Input, message, notification, Space } from 'antd';
 import { Link } from 'react-router-dom';
-import apiClient from '../api/axiosConfig';
-import SensorForm from '../components/sensor/SensorForm';
+import { getSensors, createSensor } from '../api/sensorApi';
 
 const SensorManagementPage = () => {
   const [sensors, setSensors] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [editingSensor, setEditingSensor] = useState(null);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -16,95 +14,71 @@ const SensorManagementPage = () => {
 
   const fetchSensors = async () => {
     try {
-      const data = await apiClient.get('sensor-management/sensors/');
-      if (data && Array.isArray(data.data.results)) {
-        setSensors(data.data.results);
+      const response = await getSensors();
+      if (response.data && Array.isArray(response.data.results)) {
+        setSensors(response.data.results);
+      } else if (Array.isArray(response.data)) {
+        setSensors(response.data);
       } else {
         setSensors([]);
       }
     } catch (error) {
       message.error('获取传感器列表失败');
+      console.error('获取传感器列表失败:', error);
     }
   };
 
-  const handleAdd = () => {
-    setEditingSensor(null);
-    setIsModalVisible(true);
-  };
-
-  const handleEdit = (sensor) => {
-    setEditingSensor(sensor);
+  const showAddModal = () => {
     setIsModalVisible(true);
   };
 
   const handleCancel = () => {
     setIsModalVisible(false);
-    setEditingSensor(null);
     form.resetFields();
   };
 
-  const handleFormSubmit = (values) => {
-    const processedValues = {
-      ...values,
-      room_temperature: values.room_temperature === '' || values.room_temperature === undefined ? null : values.room_temperature,
-      relative_humidity: values.relative_humidity === '' || values.relative_humidity === undefined ? null : values.relative_humidity,
-      calibration_accuracy: values.calibration_accuracy === '' ? null : values.calibration_accuracy,
-      manufacturer: values.manufacturer === '' ? null : values.manufacturer,
-      serial_number: values.serial_number === '' ? null : values.serial_number,
-    };
-
-    const request = editingSensor
-      ? apiClient.put(`sensor-management/sensors/${editingSensor.id}/`, processedValues)
-      : apiClient.post('sensor-management/sensors/', processedValues);
-
-    request
-      .then(response => {
-        notification.success({
-          message: '保存成功',
-        });
-        setIsModalVisible(false);
-        setEditingSensor(null); // 清空编辑状态
-        fetchSensors();
-      })
-      .catch(error => {
-        if (error.response && error.response.data) {
-          // 打印详细的后端错误到控制台，这对于调试至关重要
-          console.error('保存失败，后端验证错误:', error.response.data);
-
-          const errorData = error.response.data;
-          // 遍历后端返回的错误对象，为每个出错的字段显示一个通知
-          Object.keys(errorData).forEach(field => {
-            const messages = Array.isArray(errorData[field]) ? errorData[field].join(' ') : errorData[field];
-            notification.error({
-              message: `字段 "${field}" 无效`,
-              description: messages,
-            });
-          });
-        } else {
-          // 处理网络错误或其他未知错误
-          console.error('保存传感器失败:', error);
-          notification.error({
-            message: '保存传感器失败',
-            description: '发生未知错误，请检查网络连接或联系管理员。',
-          });
-        }
+  const handleCreate = async () => {
+    try {
+      const values = await form.validateFields();
+      await createSensor(values);
+      notification.success({
+        message: '添加成功',
+        description: '新的传感器已成功添加。',
       });
+      setIsModalVisible(false);
+      form.resetFields();
+      fetchSensors(); // Refresh the list
+    } catch (error) {
+      notification.error({
+        message: '添加失败',
+        description: '无法添加传感器，请检查您输入的数据。',
+      });
+      console.error('创建传感器失败:', error);
+    }
   };
 
   const columns = [
-    { title: '传感器名称', dataIndex: 'name', key: 'name' },
-    { title: '室温 (°C)', dataIndex: 'room_temperature', key: 'room_temperature' },
-    { title: '相对湿度 (%)', dataIndex: 'relative_humidity', key: 'relative_humidity' },
-    { title: '传感器编号', dataIndex: 'sensor_number', key: 'sensor_number' },
+    {
+      title: '名称',
+      dataIndex: 'name',
+      key: 'name',
+    },
+    {
+      title: '序列号',
+      dataIndex: 'serial_number',
+      key: 'serial_number',
+    },
+    {
+      title: '校准范围',
+      dataIndex: 'calibration_range',
+      key: 'calibration_range',
+    },
     {
       title: '操作',
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Button onClick={() => handleEdit(record)}>编辑</Button>
-          <Link to={`/sensor-management/sensors/${record.id}`}>
-            <Button>查看详情</Button>
-          </Link>
+          <Link to={`/sensor-management/history/${record.id}`}>校准历史</Link>
         </Space>
       ),
     },
@@ -112,21 +86,48 @@ const SensorManagementPage = () => {
 
   return (
     <div>
-      <Button type="primary" onClick={handleAdd} style={{ marginBottom: 16 }}>
-        添加新传感器
-      </Button>
-      <Table dataSource={sensors} columns={columns} rowKey="id" />
+      <Space style={{ marginBottom: 16 }}>
+        <Button type="primary" onClick={showAddModal}>
+          添加传感器
+        </Button>
+        <Link to="/sensor-management/add-record">
+          <Button type="primary">
+            添加校准记录
+          </Button>
+        </Link>
+      </Space>
+      <Table columns={columns} dataSource={sensors} rowKey="id" />
       <Modal
-        title={editingSensor ? '编辑传感器' : '添加新传感器'}
+        title="添加新传感器"
         visible={isModalVisible}
+        onOk={handleCreate}
         onCancel={handleCancel}
-        footer={null}
+        okText="创建"
+        cancelText="取消"
       >
-        <SensorForm
-          form={form}
-          initialValues={editingSensor}
-          onSubmit={handleFormSubmit}
-        />
+        <Form form={form} layout="vertical" name="sensor_form">
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, message: '请输入传感器名称!' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="serial_number"
+            label="序列号"
+            rules={[{ required: true, message: '请输入序列号!' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="calibration_range"
+            label="校准范围"
+            rules={[{ required: true, message: '请输入校准范围!' }]}
+          >
+            <Input />
+          </Form.Item>
+        </Form>
       </Modal>
     </div>
   );
