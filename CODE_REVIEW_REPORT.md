@@ -78,7 +78,7 @@
 
 **发现的问题**:
 
-1.  **架构冗余与复杂性**: 项目中存在两个 Nginx 实例（一个全局反向代理，一个在前端容器内部），职责重叠，增加了不必要的复杂性。这是最主要的架构问题。
+1.  **基于网关模式的多层代理架构**: 项目采用了一个清晰的“反向代理网关”模式。一个全局 Nginx 负责作为服务器的统一入口，将流量根据路径（如 `/omni/`）分发到 `omni-desk` 项目。项目内部（`frontend` 容器）的 Nginx 则负责处理应用自身的路由逻辑，包括提供 React 静态文件和代理 API 请求。这是一个良好且可扩展的设计，特别适用于在同一服务器上部署多个独立项目。
 2.  **镜像构建效率低下**:
     *   后端和前端的 Docker 构建都缺少 `.dockerignore` 文件，导致构建上下文过大，将整个项目（包括 `.git` 目录、本地 `node_modules` 等）复制到镜像中，严重影响构建速度和镜像大小。
     *   前端 Dockerfile 中存在冗余的 `chown` 命令。
@@ -113,7 +113,7 @@
 | 优先级 | 问题分类 | 问题描述 | 建议方案 |
 | :--- | :--- | :--- | :--- |
 | **紧急** | 安全性 | **前端权限控制严重漏洞**: 权限数据存储在 Local Storage，用户可轻易修改以获得任意权限。 | 1. **立即移除** 前端 `localStorage` 中的权限存储。 <br> 2. **改造 `ProtectedRoute`**: 使其在需要时向后端发送请求，验证用户对特定页面/资源的访问权限。 <br> 3. **后端强制验证**: 确保每个需要权限的 API 端点都严格验证用户的实时权限，而不是信任 JWT 中的信息。 |
-| **高** | 架构设计 | **双重 Nginx 架构冗余**: 全局反向代理和前端容器内的 Nginx 职责重叠，增加了不必要的复杂性。 | 1. **移除前端容器内的 Nginx**。 <br> 2. **统一由全局 Nginx 处理所有路由**: <br> &nbsp;&nbsp; - `/api/*` -> `backend:8000` <br> &nbsp;&nbsp; - `/django-admin/*` -> `backend:8000` <br> &nbsp;&nbsp; - `/media/*` -> `backend:8000` (或通过共享卷) <br> &nbsp;&nbsp; - `/*` (其他所有) -> `frontend` 容器提供的静态文件。 |
+| **中** | 部署 | **Nginx 路由配置优化**: 全局 Nginx 将 `/omni/` 路径代理到前端，但前端 Nginx 内部的 API 代理路径是 `/api/`。这可能导致前端应用在构建或请求时需要处理路径前缀，增加了复杂性。 | **建议统一路由前缀**: 考虑在全局 Nginx 中使用 `rewrite` 规则剥离 `/omni` 前缀，或在前端 Nginx 中统一处理该前缀，以简化前端应用的 API 请求逻辑。例如，全局 Nginx 将 `/omni/api/` 直接代理到后端，将 `/omni/` 代理到前端。 |
 | **高** | 后端 | **混乱的权限系统**: 同时使用硬编码的 `role` 字段和 Django 内置的 `Group`/`Permission` 系统。 | 1. **废弃 `CustomUser.role` 字段**。 <br> 2. **迁移到 Django RBAC**: 创建 `Admin`, `Manager`, `User` 等 `Group`，并为它们分配合适的 `Permission`。 <br> 3. **重构 `has_perm`**: 移除硬编码逻辑，完全依赖 Django 的权限检查。 |
 | **中** | 部署 | **镜像构建效率低下**: 缺少 `.dockerignore` 文件，导致构建上下文过大，镜像臃肿。 | 1. 在 `omni_desk_backend` 和 `omni_desk_frontend` 目录下分别创建 `.dockerignore` 文件。 <br> 2. 将 `.git`, `node_modules`, `__pycache__`, `*.pyc`, 本地配置文件等加入忽略列表。 |
 | **中** | 安全性 | **CORS 配置过于宽松**: 允许任何来源的凭证请求。 | 在 `settings.py` 中设置 `CORS_ALLOWED_ORIGINS` 或 `CORS_ORIGIN_WHITELIST`，仅包含前端应用的域名。 |
