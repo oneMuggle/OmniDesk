@@ -8,10 +8,10 @@ COPY --chown=appuser:appgroup . .
 ENV NODE_ENV=production
 RUN npm run build
 RUN npm cache clean --force
-RUN chown -R appuser:appgroup /app
 
 # 生产阶段
 FROM nginx:alpine
+RUN apk --no-cache add curl
 COPY --from=builder /app/build /usr/share/nginx/html
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \

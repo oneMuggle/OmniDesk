@@ -60,11 +60,11 @@ services:
   frontend:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-frontend:${FRONTEND_VERSION:-latest}
     build:
-      context: ../..
-      dockerfile: omni_desk_frontend/Dockerfile
+      context: ../../omni_desk_frontend
+      dockerfile: Dockerfile
     container_name: omni_desk_frontend
     ports:
-      - "80:80" # Changed host port to avoid conflict
+      - "8088:80" # Changed host port to avoid conflict
     volumes:
       - ../../omni_desk_frontend/nginx.conf:/etc/nginx/nginx.conf:ro
       - static_volume:/usr/src/app/staticfiles
