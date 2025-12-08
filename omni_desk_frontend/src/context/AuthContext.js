@@ -42,21 +42,22 @@ export function AuthProvider({ children }) {
             apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
             try {
               const res = await apiClient.get('/users/me/');
-              const storedPermissions = JSON.parse(localStorage.getItem('userPermissions') || sessionStorage.getItem('userPermissions') || '[]');
-              const permissions = storedPermissions || [];
-              const userDataWithPermissions = { ...res.data, permissions };
-              setUser(userDataWithPermissions);
+              // Permissions should be fetched from the backend, not from localStorage.
+              // Assuming res.data contains user info including permissions.
+              setUser(res.data);
               setIsGuest(false);
               await fetchPageConfigs();
             } catch (error) {
               console.error('Failed to fetch user data:', error);
               localStorage.removeItem('authTokens');
+              sessionStorage.removeItem('authTokens');
               delete apiClient.defaults.headers.common['Authorization'];
             }
           }
         } catch (error) {
           console.error('Error parsing authTokens:', error);
           localStorage.removeItem('authTokens');
+          sessionStorage.removeItem('authTokens');
         }
       }
       setIsInitializing(false);
@@ -79,17 +80,17 @@ export function AuthProvider({ children }) {
       
       if (rememberMe) {
         localStorage.setItem('authTokens', JSON.stringify(authTokens));
-        localStorage.setItem('userPermissions', JSON.stringify(res.data.permissions || []));
+        // DO NOT store permissions in localStorage. This is a major security flaw.
       } else {
         sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
-        sessionStorage.setItem('userPermissions', JSON.stringify(res.data.permissions || []));
+        // DO NOT store permissions in sessionStorage.
       }
       
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/users/me/');
-      const permissions = res.data.permissions || [];
-      const userData = { ...userRes.data, permissions };
+      // The user data from /users/me/ should be the source of truth.
+      const userData = userRes.data;
 
       setUser(userData);
       setIsGuest(false);
@@ -141,6 +142,8 @@ export function AuthProvider({ children }) {
   const logout = () => {
     localStorage.removeItem('authTokens');
     sessionStorage.removeItem('authTokens');
+    localStorage.removeItem('userPermissions'); // Clean up old insecure data
+    sessionStorage.removeItem('userPermissions'); // Clean up old insecure data
     delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setIsGuest(false);
@@ -164,33 +167,40 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const hasPermission = (permission) => {
-    if (!user || !user.permissions) {
-      return false;
-    }
-    return user.permissions.includes(permission);
-  };
+  const hasPermission = useCallback((permission, pagePath) => {
+    if (!user) return false;
+    if (user.role === 'admin') return true;
 
-  const isPageVisible = useCallback((pagePath) => {
-    // 管理员始终可见所有页面
-    if (user && user.role === 'admin') {
-      return true;
-    }
-
-    // 确保 pageConfigs 是一个数组
-    if (!Array.isArray(pageConfigs)) {
-      return true; // 如果 pageConfigs 不是数组，默认可见以避免错误
-    }
-
-    const config = pageConfigs.find(pc => pc.page_path === pagePath);
-    if (config) {
-      // 如果配置为对非管理员隐藏，且当前用户不是管理员，则隐藏
-      if (config.is_hidden_for_non_admin && user && user.role !== 'admin') {
+    // Page visibility check
+    if (pagePath) {
+      if (!Array.isArray(pageConfigs)) return true;
+      const config = pageConfigs.find(pc => pc.page_path === pagePath);
+      if (config && config.is_hidden_for_non_admin && user.role !== 'admin') {
         return false;
       }
     }
-    // 默认可见，或者没有特殊配置的页面也可见
-    return true;
+
+    // Role-based permission check
+    if (permission) {
+      if (Array.isArray(permission)) {
+        return permission.includes(user.role);
+      }
+      if (typeof permission === 'string') {
+        return user.permissions?.includes(permission);
+      }
+    }
+
+    // If no specific permission is required, grant access for authenticated users.
+    if (!permission && !pagePath) {
+      return true;
+    }
+    
+    // Fallback for page-only checks where no specific permission is needed
+    if (pagePath && !permission) {
+        return true;
+    }
+
+    return false;
   }, [user, pageConfigs]);
 
   const value = {
@@ -204,7 +214,6 @@ export function AuthProvider({ children }) {
     loginAsGuest,
     hasPermission,
     pageConfigs,
-    isPageVisible,
   };
 
   return (

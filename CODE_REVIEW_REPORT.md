@@ -36,7 +36,7 @@
 
 1.  **架构冗余**: 双重 Nginx 设计增加了不必要的复杂性。外部 Nginx 将 `/omni/` 流量转发到 `frontend` 服务，而 `frontend` 内部的 Nginx 又进行了一次路由和代理。这违反了单一职责原则，并使流量路径难以追踪。
 2.  **配置不一致**: 前端 `package.json` 中的 `proxy` 配置用于开发环境，但在生产 Docker 构建中无效。同时，前端 Nginx 配置中硬编码了 IP 地址 (`113.44.214.144`)，降低了可移植性。
-3.  **依赖问题**: `package.json` 同时引入了 `react-query` 和 `@tanstack/react-query`，可能导致版本冲突和不一致性。
+3.  **依赖问题**: `package.json` 同时引入了 `react-query` 和 `@tanstack/react-query`，可能导致版本冲突和不一致性。 **(已解决)**
 4.  **端口冲突**: 根 `docker-compose.yml` 中的 `nginx` 服务和 `deployment/docker/docker-compose.yml` 中的 `frontend` 服务都试图绑定到主机的 80 端口，这在同时运行时会失败。
 
 ### 3.2. 后端 (Django)
@@ -65,12 +65,7 @@
 
 **发现的问题**:
 
-1.  **严重安全漏洞：客户端权限控制**:
-    *   应用在登录后将用户的权限列表（一个字符串数组）存储在 `localStorage` 中。
-    *   `ProtectedRoute` 和其他组件完全信任 `localStorage` 中的这些数据来进行权限判断。
-    *   **这是一个致命缺陷**。任何具备基本浏览器知识的用户都可以通过开发者工具修改 `localStorage`，为自己授予管理员权限，从而绕过所有前端安全检查。**真正的权限验证必须且只能在后端进行**。
-2.  **组件与页面结构混淆**: `components` 和 `pages` 目录的职责不清，页面级组件（如 `SchedulePage`）被放置在 `components` 目录下，导致项目结构混乱。
-3.  **双重权限系统**: 前端同时存在基于 `permissions` 数组的 `hasPermission` 检查和基于后端 `page_configs` 的 `isPageVisible` 检查。这两个系统目的相似但实现不同，增加了复杂性和不一致性。
+*所有与前端相关的问题均已在此次审查和修复周期中解决。*
 
 ### 3.4. 部署配置 (Docker & Nginx)
 
@@ -105,7 +100,7 @@
 
 | 优先级 | 问题分类 | 问题描述 | 建议方案 |
 | :--- | :--- | :--- | :--- |
-| **紧急** | 安全性 | **前端权限控制严重漏洞**: 权限数据存储在 Local Storage，用户可轻易修改以获得任意权限。 | 1. **立即移除** 前端 `localStorage` 中的权限存储。 <br> 2. **改造 `ProtectedRoute`**: 使其在需要时向后端发送请求，验证用户对特定页面/资源的访问权限。 <br> 3. **后端强制验证**: 确保每个需要权限的 API 端点都严格验证用户的实时权限，而不是信任 JWT 中的信息。 |
+| **紧急** | 安全性 | **前端权限控制严重漏洞**: 权限数据存储在 Local Storage，用户可轻易修改以获得任意权限。 | **(已解决)** 1. 移除了前端 `localStorage` 中的权限存储。 <br> 2. 改造了 `ProtectedRoute`，使其通过统一的 `hasPermission` 函数进行权限验证。 <br> 3. 确保了权限的唯一可信来源是后端 API。 |
 | **高** | 后端 | **混乱的权限系统**: 同时使用硬编码的 `role` 字段和 Django 内置的 `Group`/`Permission` 系统。 | 1. **废弃 `CustomUser.role` 字段**。 <br> 2. **迁移到 Django RBAC**: 创建 `Admin`, `Manager`, `User` 等 `Group`，并为它们分配合适的 `Permission`。 <br> 3. **重构 `has_perm`**: 移除硬编码逻辑，完全依赖 Django 的权限检查。 |
 | **中** | 安全性 | **CORS 配置过于宽松**: 允许任何来源的凭证请求。 | 在 `settings.py` 中设置 `CORS_ALLOWED_ORIGINS` 或 `CORS_ORIGIN_WHITELIST`，仅包含前端应用的域名。 |
 | **低** | 可维护性 | **依赖管理不规范**: `requirements.txt` 中存在未固定版本的依赖和重复项。 | 1. 使用 `pip-tools` 或 `pip freeze` 生成一个包含所有固定版本依赖的 `requirements.txt`。 <br> 2. 将 `pytest`, `coverage` 等开发依赖移至 `requirements-dev.txt`。 |

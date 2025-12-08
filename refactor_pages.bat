@@ -1,0 +1,65 @@
+@echo off
+set "SRC_COMPONENTS=omni_desk_frontend\src\components"
+set "DEST_PAGES=omni_desk_frontend\src\pages"
+
+echo Moving page components from 'components' to 'pages'...
+
+move "%SRC_COMPONENTS%\SchedulePage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\AnnouncementsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\AnnouncementsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\BookPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\BookPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\BookReaderPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\BookReaderPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ChapterEditorPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ChapterEditorPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\DocsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\DocsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\DocumentsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\DocumentsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\EquipmentPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\EquipmentPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\EquipmentPage.test.js" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\EventsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\EventsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\FileAnalysisPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\FileAnalysisPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\IntelligentChatPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\IntelligentChatPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\LibraryPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\LibraryPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\Login.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\Login.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\Login.test.js" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ManageAnnouncementsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ManageAnnouncementsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\RagflowChatPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\RagflowChatPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\Register.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\Register.test.js" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ScheduleSettingsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\ScheduleSettingsPage.test.js" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\TrialsPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\TrialsPage.css" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\UnauthorizedPage.jsx" "%DEST_PAGES%\"
+move "%SRC_COMPONENTS%\UnauthorizedPage.css" "%DEST_PAGES%\"
+
+echo Moving subdirectory page components...
+
+if not exist "%DEST_PAGES%\DifyApps" mkdir "%DEST_PAGES%\DifyApps"
+move "%SRC_COMPONENTS%\DifyApps\DifyAppList.jsx" "%DEST_PAGES%\DifyApps\"
+move "%SRC_COMPONENTS%\DifyApps\DifyAppViewer.jsx" "%DEST_PAGES%\DifyApps\"
+move "%SRC_COMPONENTS%\DifyApps\DifyAppManagementPage.jsx" "%DEST_PAGES%\DifyApps\"
+
+if not exist "%DEST_PAGES%\OfficeAssistant" mkdir "%DEST_PAGES%\OfficeAssistant"
+move "%SRC_COMPONENTS%\OfficeAssistant\OfficeAssistant.jsx" "%DEST_PAGES%\OfficeAssistant\"
+
+if not exist "%DEST_PAGES%\communication" mkdir "%DEST_PAGES%\communication"
+move "%SRC_COMPONENTS%\communication\PostList.jsx" "%DEST_PAGES%\communication\"
+move "%SRC_COMPONENTS%\communication\PostDetail.jsx" "%DEST_PAGES%\communication\"
+move "%SRC_COMPONENTS%\communication\PostForm.jsx" "%DEST_PAGES%\communication\"
+
+if not exist "%DEST_PAGES%\profile" mkdir "%DEST_PAGES%\profile"
+move "%SRC_COMPONENTS%\profile\ProfilePage.jsx" "%DEST_PAGES%\profile\"
+
+echo File move complete.

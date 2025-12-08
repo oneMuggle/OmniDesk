@@ -1,40 +1,40 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import GuestRoute from '../components/GuestRoute';
-import UnauthorizedPage from '../components/UnauthorizedPage';
+import UnauthorizedPage from '../pages/UnauthorizedPage';
 import App from '../App';
-import SchedulePage from '../components/SchedulePage';
+import SchedulePage from '../pages/SchedulePage';
 import SystemSettingsPage from '../pages/SystemSettingsPage';
-import IntelligentChatPage from '../components/IntelligentChatPage';
-import RagflowChatPage from '../components/RagflowChatPage';
-import EventsPage from '../components/EventsPage';
+import IntelligentChatPage from '../pages/IntelligentChatPage';
+import RagflowChatPage from '../pages/RagflowChatPage';
+import EventsPage from '../pages/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
-import ProfilePage from '../components/profile/ProfilePage';
-import Login from '../components/Login';
-import Register from '../components/Register';
-import DocumentsPage from '../components/DocumentsPage';
-import AnnouncementsPage from '../components/AnnouncementsPage';
-import EquipmentPage from '../components/EquipmentPage';
-import FileAnalysisPage from '../components/FileAnalysisPage';
-import DocsPage from '../components/DocsPage';
-import BookPage from '../components/BookPage';
-import BookReaderPage from '../components/BookReaderPage';
-import LibraryPage from '../components/LibraryPage';
-import ChapterEditorPage from '../components/ChapterEditorPage'; // 导入 ChapterEditorPage
-import TrialsPage from '../components/TrialsPage';
+import ProfilePage from '../pages/profile/ProfilePage';
+import Login from '../pages/Login';
+import Register from '../pages/Register';
+import DocumentsPage from '../pages/DocumentsPage';
+import AnnouncementsPage from '../pages/AnnouncementsPage';
+import EquipmentPage from '../pages/EquipmentPage';
+import FileAnalysisPage from '../pages/FileAnalysisPage';
+import DocsPage from '../pages/DocsPage';
+import BookPage from '../pages/BookPage';
+import BookReaderPage from '../pages/BookReaderPage';
+import LibraryPage from '../pages/LibraryPage';
+import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEditorPage
+import TrialsPage from '../pages/TrialsPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
-import ManageAnnouncementsPage from '../components/ManageAnnouncementsPage';
+import ManageAnnouncementsPage from '../pages/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
-import DifyAppList from '../components/DifyApps/DifyAppList';
-import DifyAppViewer from '../components/DifyApps/DifyAppViewer';
-import DifyAppManagementPage from '../components/DifyApps/DifyAppManagementPage';
+import DifyAppList from '../pages/DifyApps/DifyAppList';
+import DifyAppViewer from '../pages/DifyApps/DifyAppViewer';
+import DifyAppManagementPage from '../pages/DifyApps/DifyAppManagementPage';
 import ScheduleManagementPage from '../pages/ScheduleManagementPage';
-import ScheduleSettingsPage from '../components/ScheduleSettingsPage';
-import OfficeAssistant from '../components/OfficeAssistant/OfficeAssistant';
+import ScheduleSettingsPage from '../pages/ScheduleSettingsPage';
+import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
 import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
 import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
@@ -48,9 +48,9 @@ import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagemen
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
 import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
-import PostList from '../components/communication/PostList';
-import PostDetail from '../components/communication/PostDetail';
-import PostForm from '../components/communication/PostForm';
+import PostList from '../pages/communication/PostList';
+import PostDetail from '../pages/communication/PostDetail';
+import PostForm from '../pages/communication/PostForm';
 import NewsStatsPage from '../pages/NewsStatsPage';
 import NewsManagementPage from '../pages/NewsManagementPage';
 import AddCalibrationRecordPage from '../pages/AddCalibrationRecordPage';
