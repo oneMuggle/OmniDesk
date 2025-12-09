@@ -7,7 +7,7 @@ import './Communication.css';
 const { TextArea } = Input;
 
 const PostDetail = () => {
-    const { id } = useParams();
+    const { postId } = useParams();
     const [post, setPost] = useState(null);
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -19,7 +19,7 @@ const PostDetail = () => {
         const fetchPost = async () => {
             try {
                 setLoading(true);
-                const postResponse = await getPost(id);
+                const postResponse = await getPost(postId);
                 setPost(postResponse.data);
                 if (Array.isArray(postResponse.data.comments)) {
                     setComments(postResponse.data.comments);
@@ -35,7 +35,7 @@ const PostDetail = () => {
         };
 
         fetchPost();
-    }, [id]);
+    }, [postId]);
 
     const handleSubmitComment = async (values) => {
         if (!values.comment) return;

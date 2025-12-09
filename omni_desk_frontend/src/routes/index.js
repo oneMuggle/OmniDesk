@@ -48,13 +48,14 @@ import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagemen
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
 import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
-import PostList from '../pages/communication/PostList';
-import PostDetail from '../pages/communication/PostDetail';
-import PostForm from '../pages/communication/PostForm';
+import CommunicationPage from '../pages/CommunicationPage';
+import PostDetailPage from '../pages/PostDetailPage';
+import PostForm from '../components/communication/PostForm';
 import NewsStatsPage from '../pages/NewsStatsPage';
 import NewsManagementPage from '../pages/NewsManagementPage';
 import AddCalibrationRecordPage from '../pages/AddCalibrationRecordPage';
 import SensorCalibrationHistoryPage from '../pages/SensorCalibrationHistoryPage';
+import NewPostPage from '../pages/NewPostPage';
  
  const router = createBrowserRouter([
  {
@@ -170,15 +171,15 @@ import SensorCalibrationHistoryPage from '../pages/SensorCalibrationHistoryPage'
       },
       {
         path: "communication",
-        element: <ProtectedRoute pagePath="/communication" pageName="交流"><PostList /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/communication" pageName="交流"><CommunicationPage /></ProtectedRoute>
       },
       {
-        path: "communication/post/:id",
-        element: <ProtectedRoute pagePath="/communication/post/:id" pageName="帖子详情"><PostDetail /></ProtectedRoute>
+        path: "communication/post/:postId",
+        element: <ProtectedRoute pagePath="/communication/post/:postId" pageName="帖子详情"><PostDetailPage /></ProtectedRoute>
       },
       {
         path: "communication/new",
-        element: <ProtectedRoute pagePath="/communication/new" pageName="新帖子"><PostForm /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/communication/new" pageName="新帖子"><NewPostPage /></ProtectedRoute>
       },
       {
         path: "sensor-management/add-record",
