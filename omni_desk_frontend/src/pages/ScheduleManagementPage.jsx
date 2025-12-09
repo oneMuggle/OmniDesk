@@ -230,7 +230,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
       form.setFieldsValue({ start_personnel_id: null });
     } else if (type === 'holiday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedHolidayPersonnel((sequence && sequence.holiday_personnel_details) || []);
+      setSelectedHolidayPersonnel((sequence && sequence.personnel_details) || []);
       form.setFieldsValue({ start_holiday_personnel_id: null });
     } else if (type === 'leader') {
       const sequence = leaderSequences.find(s => s.id === sequenceId);
@@ -286,7 +286,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
           <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`holiday-sequence-option-${seq.id}`}>
-                {seq.name} (节假日: {Array.isArray(seq.holiday_personnel_details) ? seq.holiday_personnel_details.map(p => p.name).join(', ') : ''})
+                {seq.name} (节假日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
               </Option>
             ))}
           </Select>
