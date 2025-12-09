@@ -66,10 +66,6 @@ wcwidth==0.2.13
 whitenoise==6.6.0
 wincertstore==0.2
 
-pypinyin
-
-holidays
-
 holidays
 
 coverage

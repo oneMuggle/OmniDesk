@@ -130,7 +130,6 @@ class UserLoginView(TokenObtainPairView):
                 "message": "用户名或密码错误"
             }, status=status.HTTP_401_UNAUTHORIZED)
 
-from pypinyin import lazy_pinyin
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
