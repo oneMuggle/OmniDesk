@@ -4,7 +4,7 @@ import { InboxOutlined, FileAddOutlined } from '@ant-design/icons';
 import mammoth from 'mammoth';
 import Docxtemplater from 'docxtemplater';
 import documentsApi from '../api/documents'; // 统一使用 documentsApi
-import ChatInterface from './ChatInterface';
+import ChatInterface from '../components/ChatInterface';
 import projectsApi from '../api/projects'; // Add projectsApi
 import './DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate

@@ -12,7 +12,7 @@ import {
   message,
   InputNumber,
 } from 'antd';
-import sensorApi from '../api/sensorApi';
+import { getSensors, createCalibrationRecord } from '../api/sensorApi';
 
 const { Option } = Select;
 
@@ -42,7 +42,7 @@ const AddCalibrationRecordPage = () => {
   useEffect(() => {
     const fetchSensors = async () => {
       try {
-        const response = await sensorApi.getSensors();
+        const response = await getSensors();
         setSensors(response.data);
       } catch (error) {
         message.error('获取传感器列表失败');
@@ -166,7 +166,7 @@ const AddCalibrationRecordPage = () => {
       data_points: dataSource,
     };
     try {
-      await sensorApi.createCalibrationRecord(payload);
+      await createCalibrationRecord(payload);
       message.success('校准记录创建成功');
       form.resetFields();
       setDataSource([

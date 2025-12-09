@@ -1,8 +1,8 @@
 import React from 'react';
-import ScheduleControls from './ScheduleControls';
-import TrialScheduleContainer from './TrialScheduleContainer';
-import ShiftScheduleContainer from './ShiftScheduleContainer';
-import './CalendarPage.css'; // Assuming this will be renamed to SchedulePage.css
+import ScheduleControls from '../components/ScheduleControls';
+import TrialScheduleContainer from '../components/TrialScheduleContainer';
+import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
+import '../components/CalendarPage.css';
 
 const SchedulePage = ({ scheduleType }) => {
   return (

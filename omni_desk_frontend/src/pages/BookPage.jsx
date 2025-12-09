@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import api from '../api/axiosConfig';
-import TableOfContents from './TableOfContents';
-import ChapterView from './ChapterView';
+import TableOfContents from '../components/TableOfContents';
+import ChapterView from '../components/ChapterView';
 import './BookPage.css';
 
 const BookPage = () => {

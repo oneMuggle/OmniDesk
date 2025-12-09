@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { chatCompletion, getOllamaConfigs } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
-import ThinkContent from './ThinkContent';
+import ThinkContent from '../components/ThinkContent';
 import './IntelligentChatPage.css';
 
 const parseThinkContent = (content) => {

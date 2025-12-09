@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import ProfileSidebar from './ProfileSidebar';
-import EditProfileForm from './EditProfileForm';
-import ChangePasswordForm from './ChangePasswordForm';
-import './ProfilePage.css';
+import ProfileSidebar from '../../components/profile/ProfileSidebar';
+import EditProfileForm from '../../components/profile/EditProfileForm';
+import ChangePasswordForm from '../../components/profile/ChangePasswordForm';
+import '../../components/profile/ProfilePage.css';
 import { notifications } from '../../utils/notifications';
 import apiClient from '../../api/apiClient';
 

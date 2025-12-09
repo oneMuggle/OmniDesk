@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
-import MenuBar from './MenuBar';
-import './OfficeAssistant.css';
+import MenuBar from '../../components/OfficeAssistant/MenuBar';
+import '../../components/OfficeAssistant/OfficeAssistant.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagic, faLanguage, faSpellCheck } from '@fortawesome/free-solid-svg-icons';
 import { processText } from '../../api/officeAssistantApi';

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { ApiContext } from '../context/ApiProvider';
-import ThinkContent from './ThinkContent';
+import ThinkContent from '../components/ThinkContent';
 import './RagflowChatPage.css'; // 稍后创建此CSS文件
 import apiClient from '../api/apiClient'; // 假设你有一个通用的API客户端
 

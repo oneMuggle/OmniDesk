@@ -1,5 +1,5 @@
 import React from 'react';
-import SequenceManager from './SequenceManager';
+import SequenceManager from '../components/SequenceManager';
 
 const ScheduleSettingsPage = () => {
   return (
