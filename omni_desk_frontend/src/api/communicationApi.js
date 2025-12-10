@@ -19,3 +19,7 @@ export const updatePost = (id, data) => {
 export const deletePost = (id) => {
     return apiClient.delete(`/communication/posts/${id}/`);
 };
+
+export const createComment = (postId, commentData) => {
+    return apiClient.post(`/communication/posts/${postId}/comments/`, commentData);
+};

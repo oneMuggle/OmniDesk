@@ -1,13 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, List, Form, Input, Button, Avatar, Alert } from 'antd';
-import { getPost } from '../../api/communicationApi';
+import { getPost, createComment } from '../../api/communicationApi';
 import './Communication.css';
 
 const { TextArea } = Input;
 
 const PostDetail = () => {
-    const { postId } = useParams();
+    const { postId: urlPostId } = useParams();
     const navigate = useNavigate();
     const [post, setPost] = useState(null);
     const [comments, setComments] = useState([]);
@@ -16,37 +16,35 @@ const PostDetail = () => {
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
 
-    useEffect(() => {
-        const fetchPost = async () => {
-            try {
-                setLoading(true);
-                const postResponse = await getPost(postId);
-                setPost(postResponse.data);
-                if (Array.isArray(postResponse.data.comments)) {
-                    setComments(postResponse.data.comments);
-                } else {
-                    setComments([]);
-                }
-            } catch (err) {
-                setError('Failed to fetch post. Please try again later.');
-                console.error('Failed to fetch post:', err);
-            } finally {
-                setLoading(false);
+    const fetchPost = useCallback(async () => {
+        try {
+            setLoading(true);
+            const postResponse = await getPost(urlPostId);
+            setPost(postResponse.data);
+            if (Array.isArray(postResponse.data.comments)) {
+                setComments(postResponse.data.comments);
+            } else {
+                setComments([]);
             }
-        };
+        } catch (err) {
+            setError('Failed to fetch post. Please try again later.');
+            console.error('Failed to fetch post:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, [urlPostId]);
 
+    useEffect(() => {
         fetchPost();
-    }, [postId]);
+    }, [fetchPost]);
 
     const handleSubmitComment = async (values) => {
         if (!values.comment) return;
         setSubmitting(true);
         try {
-            // Replace with your actual API call to create a comment
-            // const response = await createComment({ post: id, content: values.comment });
-            // setComments([...comments, response.data]);
-            console.log('Submitting comment:', values.comment);
+            await createComment(urlPostId, { content: values.comment });
             form.resetFields();
+            await fetchPost();
         } catch (error) {
             console.error('Failed to submit comment:', error);
         } finally {
