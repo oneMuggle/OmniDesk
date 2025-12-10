@@ -1,0 +1,40 @@
+name: Build and Push Docker Images
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push backend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./deployment/docker/omni_desk_backend
+          file: ./deployment/docker/omni_desk_backend/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/omni-desk-backend:latest
+
+      - name: Build and push frontend image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./omni_desk_frontend
+          file: ./omni_desk_frontend/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/omni-desk-frontend:latest
