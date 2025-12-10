@@ -36,6 +36,46 @@ from .serializers import (
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
+
+class PersonnelViewSet(viewsets.ModelViewSet):
+    queryset = Personnel.objects.all().prefetch_related('phone_numbers')
+    serializer_class = PersonnelSerializer
+    permission_classes = [IsAdminOrManager]
+    filter_backends = [DjangoFilterBackend, SearchFilter]
+    filterset_fields = ['position']
+    search_fields = ['name']
+
+    @action(detail=False, methods=['get'], url_path='all')
+    def list_all(self, request):
+        """
+        获取所有人员信息，不进行分页。
+        """
+        queryset = self.get_queryset()
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
+    def perform_create(self, serializer):
+        with transaction.atomic():
+            personnel = serializer.save()
+            phone_numbers_data = self.request.data.get('phone_numbers', [])
+            if phone_numbers_data:
+                # Clear existing phone numbers before adding new ones
+                personnel.phone_numbers.all().delete()
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
+
+    def perform_update(self, serializer):
+        phone_numbers_data = self.request.data.get('phone_numbers', None)
+        with transaction.atomic():
+            personnel = serializer.save()
+            if phone_numbers_data is not None:
+                # 删除旧的电话号码
+                personnel.phone_numbers.all().delete()
+                # 创建新的电话号码
+                for phone_data in phone_numbers_data:
+                    PhoneNumber.objects.create(personnel=personnel, **phone_data)
+
+
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer

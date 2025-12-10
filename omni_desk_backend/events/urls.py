@@ -10,10 +10,12 @@ from .views import (
     ImageUploadView,
     PersonnelSequenceViewSet,
     LeaderSequenceViewSet,
-    HolidayViewSet
+    HolidayViewSet,
+    PersonnelViewSet
 )
 
 router = DefaultRouter()
+router.register(r'personnel', PersonnelViewSet, basename='personnel')
 router.register(r'trials', TrialViewSet, basename='trials')
 router.register(r'equipments', EquipmentViewSet, basename='equipments')
 router.register(r'document-templates', DocumentTemplateViewSet, basename='document-templates')

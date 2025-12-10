@@ -15,5 +15,3 @@ urlpatterns = [
     path('admin/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
     path('', include('users.user_urls')),
 ]
-
-urlpatterns += router.urls # 将 router 生成的 URL 添加到 urlpatterns 列表末尾
