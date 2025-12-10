@@ -42,7 +42,7 @@ COPY --chown=app:app . .
 
 # 以 root 用户身份收集静态文件
 # --no-input 防止交互式提示, --clear 确保每次都是干净的收集
-RUN python manage.py collectstatic --no-input --clear
+RUN python omni_desk_backend/manage.py collectstatic --no-input --clear
 
 # 切换到非 root 用户
 USER app
