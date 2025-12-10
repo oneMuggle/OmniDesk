@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
+import { AuthContext } from '../../context/AuthContext';
 import ProfileSidebar from '../../components/profile/ProfileSidebar';
 import EditProfileForm from '../../components/profile/EditProfileForm';
 import ChangePasswordForm from '../../components/profile/ChangePasswordForm';
@@ -7,6 +8,7 @@ import { notifications } from '../../utils/notifications';
 import apiClient from '../../api/apiClient';
 
 const ProfilePage = () => {
+  const { setUser: setAuthUser } = useContext(AuthContext);
   const [activeSection, setActiveSection] = useState('editProfile');
   const [userData, setUserData] = useState(null); // Use null for initial loading state
 
@@ -36,7 +38,10 @@ const ProfilePage = () => {
         userData={userData} 
       />
       <div className="profile-content">
-        {activeSection === 'editProfile' && <EditProfileForm userData={userData} setUserData={setUserData} />}
+        {activeSection === 'editProfile' && <EditProfileForm userData={userData} setUserData={(updatedUser) => {
+          setUserData(updatedUser);
+          setAuthUser(updatedUser);
+        }} />}
         {activeSection === 'changePassword' && <ChangePasswordForm />}
       </div>
     </div>
