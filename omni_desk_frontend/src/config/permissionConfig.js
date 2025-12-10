@@ -90,7 +90,7 @@ export const ENV_PERMISSIONS = {
 export const PERMISSION_GROUPS = {
   BASIC_USER: {
     name: '基础用户',
-    permissions: ['use_ai_chat', 'analyze_files', 'view_documents']
+    permissions: ['use_ai_chat', 'analyze_files', 'view_documents', 'view_communication']
   },
   ADMIN: {
     name: '管理员',
