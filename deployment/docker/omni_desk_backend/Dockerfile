@@ -16,7 +16,7 @@ RUN apt-get update && \
 WORKDIR /app
 
 # 仅复制依赖文件并安装，以利用 Docker 的层缓存
-COPY requirements.txt .
+COPY omni_desk_backend/requirements.txt .
 RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
 
 # 2. 生产阶段 - 运行应用

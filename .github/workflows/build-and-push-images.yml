@@ -26,7 +26,7 @@ jobs:
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
-          context: ./deployment/docker/omni_desk_backend
+          context: .
           file: ./deployment/docker/omni_desk_backend/Dockerfile
           push: true
           tags: ghcr.io/onemuggle/omni-desk-backend:latest
