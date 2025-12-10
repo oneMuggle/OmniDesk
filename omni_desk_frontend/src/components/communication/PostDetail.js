@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, List, Form, Input, Button, Avatar, Alert } from 'antd';
 import { getPost } from '../../api/communicationApi';
 import './Communication.css';
@@ -8,6 +8,7 @@ const { TextArea } = Input;
 
 const PostDetail = () => {
     const { postId } = useParams();
+    const navigate = useNavigate();
     const [post, setPost] = useState(null);
     const [comments, setComments] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -67,6 +68,9 @@ const PostDetail = () => {
 
     return (
         <div className="post-detail-container">
+            <Button onClick={() => navigate('/communication')} style={{ marginBottom: '1rem' }}>
+                返回列表
+            </Button>
             <Card bordered={false}>
                 <div className="post-header">
                     <h1 className="post-title">{post.title}</h1>
