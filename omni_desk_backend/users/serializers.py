@@ -239,6 +239,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                'documents.delete_book' # Add permission to delete books
            ]
            print(f"Manager permissions: {permissions}") # 新增日志
+       elif self.user.role == 'user':
+           permissions = [
+               'view_communication'
+           ]
        
        data['permissions'] = permissions
        return data
