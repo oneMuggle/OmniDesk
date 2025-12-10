@@ -29,7 +29,7 @@ jobs:
           context: ./deployment/docker/omni_desk_backend
           file: ./deployment/docker/omni_desk_backend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/omni-desk-backend:latest
+          tags: ghcr.io/onemuggle/omni-desk-backend:latest
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -37,4 +37,4 @@ jobs:
           context: ./omni_desk_frontend
           file: ./omni_desk_frontend/Dockerfile
           push: true
-          tags: ghcr.io/${{ github.repository_owner }}/omni-desk-frontend:latest
+          tags: ghcr.io/onemuggle/omni-desk-frontend:latest
