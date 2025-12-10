@@ -60,8 +60,8 @@ class CommunicationViewSetTests(APITestCase):
         url = reverse('post-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['title'], 'API Test Post')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['title'], 'API Test Post')
 
     def test_create_post(self):
         url = reverse('post-list')
@@ -88,8 +88,8 @@ class CommunicationViewSetTests(APITestCase):
         url = reverse('comment-list')
         response = self.client.get(url, {'post_id': self.post.id})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
-        self.assertEqual(response.data[0]['content'], 'Comment 1')
+        self.assertEqual(len(response.data['results']), 1)
+        self.assertEqual(response.data['results'][0]['content'], 'Comment 1')
 
 from .serializers import PostSerializer, CommentSerializer
 

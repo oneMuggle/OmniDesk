@@ -334,7 +334,6 @@ class BookImportView(APIView):
                 
                 # Using the first md file found as the main one
                 markdown_file_path = md_files[0]
-                print(f"Base path for images: {base_path_for_images}")
                 base_path_for_images = markdown_file_path.parent
                 content = markdown_file_path.read_text(encoding='utf-8')
 
@@ -453,7 +452,7 @@ class BookImportView(APIView):
                             return match.group(0) # Keep if image not found
 
                         try:
-                            sanitized_title = re.sub(r'[^\w\-_\. ]', '_', book_obj.title)
+                            sanitized_title = re.sub(r'[^\w\-_\.]', '_', book_obj.title)
                             image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
                             image_dest_dir.mkdir(parents=True, exist_ok=True)
                             
@@ -464,8 +463,7 @@ class BookImportView(APIView):
                             return f'![{alt_text}]({new_path})'
                         except Exception:
                             return match.group(0) # Keep original on error
-
-                    chapter_content_md = replace_image_path(chapter_content_md)
+                    chapter_content_md = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, chapter_content_md)
 
                     chapter_content_html = markdown.markdown(
                         chapter_content_md,

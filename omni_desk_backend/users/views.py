@@ -136,7 +136,7 @@ from rest_framework.filters import SearchFilter
 from django.db import transaction
 
 class PersonnelListCreateView(generics.ListCreateAPIView):
-    serializer_class = PersonnelSerializer
+    serializer_class = UserPersonnelSerializer
     permission_classes = [IsAdminOrManager]
 
     def get_queryset(self):
@@ -146,6 +146,8 @@ class PersonnelListCreateView(generics.ListCreateAPIView):
 
         if search_term:
             queryset = queryset.filter(real_name__icontains=search_term)
+        else:
+            queryset = queryset.none()
 
         if position_id:
             queryset = queryset.filter(personnel__position_id=position_id)
@@ -154,7 +156,7 @@ class PersonnelListCreateView(generics.ListCreateAPIView):
 
 class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
     queryset = CustomUser.objects.all()
-    serializer_class = PersonnelSerializer
+    serializer_class = UserPersonnelSerializer
     
     permission_classes = [IsAdminOrManager]
     lookup_field = 'id'
@@ -213,6 +215,7 @@ from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by('username')
     serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
+    pagination_class = None
     permission_classes = [IsAdminOrManager] # 确保只有管理员和经理可以访问
 
     def update(self, request, *args, **kwargs):

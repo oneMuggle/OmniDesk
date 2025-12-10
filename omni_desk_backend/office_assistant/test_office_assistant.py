@@ -40,7 +40,7 @@ class ProcessDocumentViewTests(APITestCase):
         self.user = CustomUser.objects.create_user(username='testuser', password='password123')
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
-        self.url = reverse('process-document')
+        self.url = reverse('office-assistant-process-document')
 
     @patch('llm_service.ollama_client.OllamaClient.generate')
     def test_process_document_successfully(self, mock_generate):

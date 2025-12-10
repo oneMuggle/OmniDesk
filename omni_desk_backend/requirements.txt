@@ -69,3 +69,5 @@ wincertstore==0.2
 holidays
 
 coverage
+
+pytest-django

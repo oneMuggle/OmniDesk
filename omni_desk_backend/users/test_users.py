@@ -123,7 +123,7 @@ class UserPersonnelManagementTests(APITestCase):
         self.personnel2 = Personnel.objects.create(name='李四')
 
         self.client = APIClient()
-        self.list_url = reverse('users:customuser-list') # 'users' 命名空间已在 omni_desk_backend/urls.py 中定义
+        self.list_url = reverse('users:user-admin-list') # 'users' 命名空间已在 omni_desk_backend/urls.py 中定义
 
     def test_admin_can_list_users_with_personnel(self):
         self.client.force_authenticate(user=self.admin_user)
@@ -391,8 +391,8 @@ class UserViewTests(APITestCase):
         self.client.force_authenticate(user=self.admin_user)
         response = self.client.get(self.personnel_list_url, {'search': '张三'})
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 1)
-        self.assertEqual(response.data['results'][0]['real_name'], '张三')
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['real_name'], '张三')
 
     def test_user_personnel_viewset_update(self):
         """Test updating personnel association via UserPersonnelViewSet."""

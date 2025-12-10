@@ -255,6 +255,7 @@ class ChangePasswordSerializer(serializers.Serializer):
     new_password = serializers.CharField(required=True)
 
 class UserPersonnelSerializer(serializers.ModelSerializer):
+    personnel = PersonnelSerializer(read_only=True)
     personnel_id = serializers.PrimaryKeyRelatedField(
         queryset=Personnel.objects.all(),
         source='personnel',
@@ -267,7 +268,6 @@ class UserPersonnelSerializer(serializers.ModelSerializer):
         model = CustomUser
         fields = ('id', 'username', 'real_name', 'personnel', 'personnel_id')
         read_only_fields = ('username',)
-        depth = 1
 
 
 class PositionSerializer(serializers.ModelSerializer):

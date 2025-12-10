@@ -1,5 +1,6 @@
 import os
 import requests
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
@@ -9,22 +10,17 @@ import docx
 from llm_service.ollama_client import OllamaClient
 from rest_framework.parsers import MultiPartParser, FormParser
 
-# 从环境变量中读取Dify配置
-DIFY_API_KEY = os.environ.get('DIFY_API_KEY')
-DIFY_BASE_URL = os.environ.get('DIFY_BASE_URL', 'https://api.dify.ai/v1')
-
-# 预定义不同操作对应的Dify App ID
-# 请确保已在Dify平台创建了这些应用，并在此处填入正确的ID
-DIFY_APP_IDS = {
-    'proofread': os.environ.get('DIFY_APP_ID_PROOFREAD', 'your-proofread-app-id'),
-    'translate': os.environ.get('DIFY_APP_ID_TRANSLATE', 'your-translate-app-id'),
-    'polish': os.environ.get('DIFY_APP_ID_POLISH', 'your-polish-app-id'),
-}
-
 class OfficeAssistantProcessView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        DIFY_API_KEY = getattr(settings, 'DIFY_API_KEY', os.environ.get('DIFY_API_KEY'))
+        DIFY_BASE_URL = getattr(settings, 'DIFY_BASE_URL', os.environ.get('DIFY_BASE_URL', 'https://api.dify.ai/v1'))
+        DIFY_APP_IDS = getattr(settings, 'DIFY_APP_IDS', {
+            'proofread': os.environ.get('DIFY_APP_ID_PROOFREAD', 'your-proofread-app-id'),
+            'translate': os.environ.get('DIFY_APP_ID_TRANSLATE', 'your-translate-app-id'),
+            'polish': os.environ.get('DIFY_APP_ID_POLISH', 'your-polish-app-id'),
+        })
         action = request.data.get('action')
         text = request.data.get('text')
         user = request.user

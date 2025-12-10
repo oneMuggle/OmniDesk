@@ -34,21 +34,21 @@ class ProjectViewSetTests(APITestCase):
         url = reverse('project-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 2)
+        self.assertEqual(len(response.data['results']), 2)
 
     def test_list_projects_as_manager(self):
         self.client.force_authenticate(user=self.manager_user)
         url = reverse('project-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data['results']), 1)
 
     def test_list_projects_as_regular_user(self):
         self.client.force_authenticate(user=self.regular_user)
         url = reverse('project-list')
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 0)
+        self.assertEqual(len(response.data['results']), 0)
 
     def test_create_project_as_manager(self):
         self.client.force_authenticate(user=self.manager_user)

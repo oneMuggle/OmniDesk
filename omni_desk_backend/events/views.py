@@ -7,6 +7,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
 from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly
 from rest_framework.views import APIView
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from django.utils import timezone
 from django.db import transaction
