@@ -11,7 +11,7 @@ services:
       - POSTGRES_USER=${POSTGRES_USER:-user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
     ports:
-      - "5433:5432" # Changed host port to avoid conflict
+      - "5433:5432"
     command: postgres -c listen_addresses='*'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-omni_desk}"]
@@ -34,9 +34,6 @@ services:
 
   backend:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
-    build:
-      context: ../..
-      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
     container_name: omni_desk_backend
     command: /bin/sh -c "python manage.py migrate && python init_superuser.py && gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000"
     volumes:
@@ -59,12 +56,9 @@ services:
 
   frontend:
     image: ${DOCKER_USER:-defaultuser}/omni-desk-frontend:${FRONTEND_VERSION:-latest}
-    build:
-      context: ../../omni_desk_frontend
-      dockerfile: Dockerfile
     container_name: omni_desk_frontend
     ports:
-      - "8088:80" # Changed host port to avoid conflict
+      - "8088:80"
     volumes:
       - ../../omni_desk_frontend/nginx.conf:/etc/nginx/nginx.conf:ro
       - static_volume:/usr/src/app/staticfiles
