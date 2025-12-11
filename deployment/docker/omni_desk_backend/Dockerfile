@@ -1,54 +1,62 @@
-# 1. 构建阶段 - 安装依赖
+# Stage 1: Builder - Create a wheelhouse for dependencies
 FROM python:3.10-slim-bullseye AS builder
 
-# 设置环境变量，防止生成 .pyc 文件并允许日志直接输出
+# Set environment variables for pip
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-ENV PYTHONPATH=/home/app
+ENV PIP_NO_CACHE_DIR=off
+ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 
-# 安装编译 psycopg2 所需的系统依赖
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+WORKDIR /wheelhouse
 
-WORKDIR /app
-
-# 仅复制生产环境的依赖文件并安装，以利用 Docker 的层缓存
+# Copy requirements file
 COPY omni_desk_backend/requirements-prod.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements-prod.txt
 
-# 2. 生产阶段 - 运行应用
+# Create wheelhouse for all dependencies. This command downloads/builds all packages and their dependencies.
+RUN pip wheel --wheel-dir=/wheelhouse -r requirements-prod.txt
+
+# Stage 2: Final - Create the lightweight production image
 FROM python:3.10-slim-bullseye
 
-# 设置 Django 运行环境为生产环境
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
 ENV DJANGO_ENV=production
 
-# 创建一个非 root 用户来运行应用
+# Create a non-root user to run the application
 RUN addgroup --system app && adduser --system --group app
 
-# 安装在构建阶段编译好的包
-COPY --from=builder /app/wheels /wheels
-COPY --from=builder /app/requirements-prod.txt .
-RUN pip install --no-cache /wheels/*
+# Install runtime OS dependencies
+# libpq5 is the runtime dependency for psycopg2-binary
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/*
 
-# 设置工作目录
+# Copy the wheelhouse and requirements file from the builder stage
+COPY --from=builder /wheelhouse /wheelhouse
+COPY --from=builder /wheelhouse/requirements-prod.txt .
+
+# Install Python dependencies from the local wheelhouse
+# --no-index ensures pip does not access the network
+RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requirements-prod.txt
+
+# Set the working directory for the application
 WORKDIR /usr/src/app
 
-# 复制应用代码并设置所有权
-# 注意：构建上下文是项目根目录，所以源路径是 ./omni_desk_backend
-COPY --chown=app:app . .
+# Copy the application code into the image
+# The .dockerignore file prevents unnecessary files from being included.
+# We are copying the contents of omni_desk_backend into the WORKDIR.
+COPY --chown=app:app omni_desk_backend/ .
 
-# 以 root 用户身份收集静态文件
-# --no-input 防止交互式提示, --clear 确保每次都是干净的收集
-RUN python omni_desk_backend/manage.py collectstatic --no-input --clear
+# Collect static files as root user
+RUN python manage.py collectstatic --no-input --clear
 
-# 切换到非 root 用户
+# Switch to the non-root user for security
 USER app
 
-# 暴露 Gunicorn 将要监听的端口
+# Expose the port Gunicorn will listen on
 EXPOSE 8000
 
-# 运行 Gunicorn 服务器 (此命令将被 docker-compose 中的 command 覆盖)
+# Define the command to run the application
+# This CMD is often overridden by docker-compose.
 CMD ["gunicorn", "--bind", "0.0.0.0:8000", "omni_desk_backend.wsgi:application"]

@@ -1,25 +1,50 @@
-# Git history
+# Git
 .git
+.gitignore
 
-# Python cache
-__pycache__
+# Node.js / Frontend
+node_modules
+omni_desk_frontend/
+package.json
+package-lock.json
+.npmignore
+
+# Python cache and virtual environments
+__pycache__/
 *.pyc
-.pytest_cache
+*.pyo
+*.pyd
+.pytest_cache/
+.coverage
+omni_desk_backend/python/
+omni_desk_backend/venv/
+venv/
+*.venv
 
-# IDE and editor configuration
-.vscode
-.idea
-
-# Frontend project
-omni_desk_frontend
+# IDE and OS specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
 
 # Documentation
-docs
-tech_docs
-
-# Other irrelevant directories and files
-misc
-scripts
-nginx_config
-.trae
+docs/
+tech_docs/
 *.md
+
+# Deployment & Config files not needed in the image
+deployment/
+docker/
+nginx_config/
+scripts/
+misc/
+
+# Project specific tooling
+.roo/
+.trae/
+.cospec/
+
+# Other logs and artifacts
+nohup.out
