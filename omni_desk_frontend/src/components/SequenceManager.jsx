@@ -235,7 +235,7 @@ const SequenceManager = () => {
       ]);
       setPersonnelSequences(Array.isArray(personnelRes?.data?.results) ? personnelRes.data.results : []);
       setLeaderSequences(Array.isArray(leaderRes?.data?.results) ? leaderRes.data.results : []);
-      setAllPersonnel(personnelListRes || []);
+      setAllPersonnel(personnelListRes.results || []);
       setPositions(positionsRes?.results || []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");

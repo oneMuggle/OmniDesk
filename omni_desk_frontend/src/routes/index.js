@@ -10,6 +10,7 @@ import RagflowChatPage from '../pages/RagflowChatPage';
 import EventsPage from '../pages/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
 import ProfilePage from '../pages/profile/ProfilePage';
+import PersonnelDetailPage from '../pages/PersonnelDetailPage';
 import Login from '../pages/Login';
 import Register from '../pages/Register';
 import DocumentsPage from '../pages/DocumentsPage';
@@ -23,6 +24,7 @@ import LibraryPage from '../pages/LibraryPage';
 import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../pages/TrialsPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
+import PersonnelEditPage from '../pages/PersonnelEditPage';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
@@ -203,6 +205,18 @@ import NewPostPage from '../pages/NewPostPage';
       {
         path: "personnel",
         element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel/:id",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel/edit/:id",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
+      },
+      {
+        path: "personnel/:id",
+        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "schedules",

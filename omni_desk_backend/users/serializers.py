@@ -4,8 +4,8 @@ from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from events.models import Personnel, Position
-from events.serializers import PersonnelSerializer
+from personnel.models import Personnel, Position
+from personnel.serializers import PersonnelSerializer
 from .models import PhoneNumber
 
 CustomUser = get_user_model()

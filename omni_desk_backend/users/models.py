@@ -22,7 +22,7 @@ class CustomUser(AbstractUser):
         verbose_name='指派人'
     )
     personnel = models.OneToOneField(
-        'events.Personnel',
+        'personnel.Personnel',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

@@ -386,7 +386,7 @@ const ScheduleManagementPage = () => {
   const fetchPersonnel = async () => {
     try {
       const data = await getAllPersonnel();
-      setPersonnelList(data);
+      setPersonnelList(data.results);
     } catch (error) {
       message.error('获取人员列表失败');
     }

@@ -1,19 +1,9 @@
 from rest_framework import serializers
 from django.db import transaction
-from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Position, PhoneNumber, Holiday
+from .models import Trial, TimeSlot, Schedule, Announcement, UploadedImage, PersonnelSequence, LeaderSequence, Holiday
 from users.models import CustomUser
 from users.shared_serializers import UserDataSerializer
-from .models import Trial, Equipment, Personnel, DocumentTemplate
-
-class PositionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Position
-        fields = ['id', 'name']
-
-class PhoneNumberSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = PhoneNumber
-        fields = ['id', 'number']
+from .models import Trial, Equipment, DocumentTemplate
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     trial_id = serializers.PrimaryKeyRelatedField(
@@ -35,47 +25,6 @@ class TimeSlotSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("时间槽结束时间必须晚于开始时间")
         return data
 
-class PersonnelSerializer(serializers.ModelSerializer):
-    position_name = serializers.SerializerMethodField()
-    phone_numbers = PhoneNumberSerializer(many=True, required=False) # 新增phone_numbers字段
-    position = serializers.PrimaryKeyRelatedField(
-        queryset=Position.objects.all(),
-        allow_null=True,
-        required=False
-    )
-
-    class Meta:
-        model = Personnel
-        fields = ['id', 'name', 'position', 'position_name', 'phone_numbers'] # 修改fields
-        # 移除extra_kwargs中对phone的设置
-
-    def get_position_name(self, obj):
-        return obj.position.name if obj.position else None
-
-    def create(self, validated_data):
-        phone_numbers_data = validated_data.pop('phone_numbers', [])
-        personnel = Personnel.objects.create(**validated_data)
-        for phone_data in phone_numbers_data:
-            PhoneNumber.objects.create(personnel=personnel, **phone_data)
-        return personnel
-
-    def update(self, instance, validated_data):
-        phone_numbers_data = validated_data.pop('phone_numbers', None)
-        
-        # Update Personnel instance fields
-        instance.name = validated_data.get('name', instance.name)
-        instance.position = validated_data.get('position', instance.position)
-        instance.save()
-
-        # If phone_numbers data is provided, update them
-        if phone_numbers_data is not None:
-            # Clear existing phone numbers
-            instance.phone_numbers.all().delete()
-            # Create new phone numbers
-            for phone_data in phone_numbers_data:
-                PhoneNumber.objects.create(personnel=instance, **phone_data)
-        
-        return instance
 
 class EquipmentSerializer(serializers.ModelSerializer):
     name = serializers.CharField()
@@ -99,7 +48,7 @@ class DocumentTemplateSerializer(serializers.ModelSerializer):
         }
 
 class TrialSerializer(serializers.ModelSerializer):
-    responsible_persons = PersonnelSerializer(many=True, read_only=True)
+    responsible_persons = serializers.StringRelatedField(many=True, read_only=True)
     equipments = EquipmentSerializer(many=True, read_only=True)
     time_slots = TimeSlotSerializer(
         many=True,
@@ -117,7 +66,7 @@ class TrialSerializer(serializers.ModelSerializer):
     
     responsible_person_ids = serializers.PrimaryKeyRelatedField(
         many=True,
-        queryset=Personnel.objects.all(),
+        queryset=CustomUser.objects.all(), # This should be CustomUser now
         required=True,
         write_only=True,
         source='responsible_persons'
@@ -236,19 +185,19 @@ class TrialSerializer(serializers.ModelSerializer):
 
 class ScheduleSerializer(serializers.ModelSerializer):
     duty_person_id = serializers.PrimaryKeyRelatedField(
-        queryset=Personnel.objects.all(),
+        queryset=CustomUser.objects.all(), # This should be CustomUser now
         source='duty_person',
         write_only=True,
         required=True
     )
     duty_leader_id = serializers.PrimaryKeyRelatedField(
-        queryset=Personnel.objects.all(),
+        queryset=CustomUser.objects.all(), # This should be CustomUser now
         source='duty_leader',
         write_only=True,
         required=True
     )
-    duty_person = PersonnelSerializer(read_only=True)
-    duty_leader = PersonnelSerializer(read_only=True)
+    duty_person = serializers.StringRelatedField(read_only=True)
+    duty_leader = serializers.StringRelatedField(read_only=True)
 
     duty_date = serializers.DateField(
         required=True,
@@ -324,19 +273,19 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
         personnel_ids = obj.sequence
         if not personnel_ids:
             return []
-        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        personnel_queryset = CustomUser.objects.filter(id__in=personnel_ids) # This should be CustomUser now
         personnel_map = {p.id: p for p in personnel_queryset}
         sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
-        return PersonnelSerializer(sorted_personnel, many=True).data
+        return UserDataSerializer(sorted_personnel, many=True).data
 
     def get_holiday_personnel_details(self, obj):
         personnel_ids = obj.holiday_sequence
         if not personnel_ids:
             return []
-        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        personnel_queryset = CustomUser.objects.filter(id__in=personnel_ids) # This should be CustomUser now
         personnel_map = {p.id: p for p in personnel_queryset}
         sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
-        return PersonnelSerializer(sorted_personnel, many=True).data
+        return UserDataSerializer(sorted_personnel, many=True).data
 
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
@@ -352,8 +301,8 @@ class LeaderSequenceSerializer(serializers.ModelSerializer):
 
     def get_personnel_details(self, obj):
         personnel_ids = obj.sequence
-        personnel_queryset = Personnel.objects.filter(id__in=personnel_ids)
+        personnel_queryset = CustomUser.objects.filter(id__in=personnel_ids) # This should be CustomUser now
         # 保持原始ID列表的顺序
         personnel_map = {p.id: p for p in personnel_queryset}
         sorted_personnel = [personnel_map[pid] for pid in personnel_ids if pid in personnel_map]
-        return PersonnelSerializer(sorted_personnel, many=True).data
+        return UserDataSerializer(sorted_personnel, many=True).data

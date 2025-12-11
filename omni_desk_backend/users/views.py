@@ -32,7 +32,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import CustomUser
-from events.models import Personnel, Position, PhoneNumber
+from personnel.models import Personnel, Position
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,

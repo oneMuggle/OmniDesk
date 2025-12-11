@@ -1,36 +1,8 @@
 from django.db import models
 from django.db.models import JSONField
 from users.models import CustomUser
-
-class Position(models.Model):
-    name = models.CharField(max_length=100, unique=True, verbose_name="职位名称")
-
-    class Meta:
-        verbose_name = "职位"
-        verbose_name_plural = "职位管理"
-
-    def __str__(self):
-        return self.name
-
-class Personnel(models.Model):
-    name = models.CharField(max_length=100)
-    position = models.ForeignKey(
-        Position,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='personnel',
-        verbose_name="职位"
-    )
-
-    class Meta:
-        ordering = ['id']
-        permissions = [
-            ("manage_personnel", "Can manage personnel"),
-        ]
-
-    def __str__(self):
-        return self.name
+# 导入新的 personnel 模型
+from personnel.models import Personnel, Position
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100)
@@ -105,7 +77,7 @@ class Trial(models.Model):
         verbose_name="相关设备"
     )
     responsible_persons = models.ManyToManyField(
-        Personnel,
+        'personnel.Personnel',
         related_name='trials',
         verbose_name="责任人"
     )
@@ -182,14 +154,14 @@ class DocumentTemplate(models.Model):
 class Schedule(models.Model):
     duty_date = models.DateField(unique=True, verbose_name="值班日期")
     duty_person = models.ForeignKey(
-        Personnel,
+        'personnel.Personnel',
         on_delete=models.SET_NULL,
         null=True,
         related_name='duty_schedules',
         verbose_name="值班人员"
     )
     duty_leader = models.ForeignKey(
-        Personnel,
+        'personnel.Personnel',
         on_delete=models.SET_NULL,
         null=True,
         related_name='leader_schedules',
@@ -247,14 +219,14 @@ class UploadedImage(models.Model):
 class PersonnelSequence(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="人员顺序名称")
     personnel = models.ManyToManyField(
-        Personnel,
+        'personnel.Personnel',
         related_name='personnel_sequences',
         verbose_name="工作日人员"
     )
     sequence = models.JSONField(default=list, verbose_name="工作日人员ID顺序列表")
     
     holiday_personnel = models.ManyToManyField(
-        Personnel,
+        'personnel.Personnel',
         related_name='holiday_personnel_sequences',
         verbose_name="节假日人员",
         blank=True
@@ -270,7 +242,7 @@ class PersonnelSequence(models.Model):
 
 class LeaderSequence(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="领导顺序名称")
-    personnel = models.ManyToManyField(Personnel, related_name='leader_sequences')
+    personnel = models.ManyToManyField('personnel.Personnel', related_name='leader_sequences')
     sequence = models.JSONField(default=list, verbose_name="领导ID顺序列表")
 
     class Meta:
@@ -280,21 +252,6 @@ class LeaderSequence(models.Model):
     def __str__(self):
         return self.name
 
-class PhoneNumber(models.Model):
-    personnel = models.ForeignKey(
-        Personnel,
-        on_delete=models.CASCADE,
-        related_name='phone_numbers',
-        verbose_name="人员"
-    )
-    number = models.CharField(max_length=15, verbose_name="电话号码")
-
-    class Meta:
-        verbose_name = "电话号码"
-        verbose_name_plural = "电话号码"
-
-    def __str__(self):
-        return self.number
 
 
 
