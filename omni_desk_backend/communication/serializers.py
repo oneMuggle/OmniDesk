@@ -8,6 +8,7 @@ class CommentSerializer(serializers.ModelSerializer):
     class Meta:
         model = Comment
         fields = ['id', 'post', 'author', 'content', 'created_at']
+        read_only_fields = ('post',)
 
     def get_author(self, obj):
         if obj.author and hasattr(obj.author, 'real_name'):

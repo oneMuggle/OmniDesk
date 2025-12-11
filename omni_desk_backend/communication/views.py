@@ -19,7 +19,7 @@ class CommentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def perform_create(self, serializer):
-        serializer.save(author=self.request.user)
+        serializer.save(author=self.request.user, post_id=self.kwargs['post_pk'])
 
     def get_queryset(self):
         queryset = Comment.objects.all().order_by('created_at')

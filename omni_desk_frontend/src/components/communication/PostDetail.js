@@ -46,7 +46,7 @@ const PostDetail = () => {
             form.resetFields();
             await fetchPost();
         } catch (error) {
-            console.error('Failed to submit comment:', error);
+            console.error('Failed to submit comment:', error.response ? error.response.data : error);
         } finally {
             setSubmitting(false);
         }
