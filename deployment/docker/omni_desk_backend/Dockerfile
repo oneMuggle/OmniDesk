@@ -15,9 +15,9 @@ RUN apt-get update && \
 
 WORKDIR /app
 
-# 仅复制依赖文件并安装，以利用 Docker 的层缓存
-COPY omni_desk_backend/requirements.txt .
-RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements.txt
+# 仅复制生产环境的依赖文件并安装，以利用 Docker 的层缓存
+COPY omni_desk_backend/requirements-prod.txt .
+RUN pip wheel --no-cache-dir --no-deps --wheel-dir /app/wheels -r requirements-prod.txt
 
 # 2. 生产阶段 - 运行应用
 FROM python:3.10-slim-bullseye
@@ -30,7 +30,7 @@ RUN addgroup --system app && adduser --system --group app
 
 # 安装在构建阶段编译好的包
 COPY --from=builder /app/wheels /wheels
-COPY --from=builder /app/requirements.txt .
+COPY --from=builder /app/requirements-prod.txt .
 RUN pip install --no-cache /wheels/*
 
 # 设置工作目录

@@ -1,0 +1,25 @@
+# Git history
+.git
+
+# Python cache
+__pycache__
+*.pyc
+.pytest_cache
+
+# IDE and editor configuration
+.vscode
+.idea
+
+# Frontend project
+omni_desk_frontend
+
+# Documentation
+docs
+tech_docs
+
+# Other irrelevant directories and files
+misc
+scripts
+nginx_config
+.trae
+*.md
