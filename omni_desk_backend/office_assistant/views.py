@@ -1,12 +1,14 @@
 import os
 import requests
 from django.conf import settings
+from django.http import StreamingHttpResponse
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 import docx
+import PyPDF2
 from llm_service.ollama_client import OllamaClient
 from rest_framework.parsers import MultiPartParser, FormParser
 
@@ -14,54 +16,33 @@ class OfficeAssistantProcessView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
-        DIFY_API_KEY = getattr(settings, 'DIFY_API_KEY', os.environ.get('DIFY_API_KEY'))
-        DIFY_BASE_URL = getattr(settings, 'DIFY_BASE_URL', os.environ.get('DIFY_BASE_URL', 'https://api.dify.ai/v1'))
-        DIFY_APP_IDS = getattr(settings, 'DIFY_APP_IDS', {
-            'proofread': os.environ.get('DIFY_APP_ID_PROOFREAD', 'your-proofread-app-id'),
-            'translate': os.environ.get('DIFY_APP_ID_TRANSLATE', 'your-translate-app-id'),
-            'polish': os.environ.get('DIFY_APP_ID_POLISH', 'your-polish-app-id'),
-        })
         action = request.data.get('action')
         text = request.data.get('text')
-        user = request.user
+        stream = request.data.get('stream', True)
 
         if not action or not text:
             return Response({'error': 'Action and text are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if action not in DIFY_APP_IDS:
+        system_prompts = {
+            'proofread': "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
+            'translate': "You are a translator. Translate the following text to Chinese.",
+            'polish': "You are a writing assistant. Improve the style and clarity of the following text.",
+        }
+
+        if action not in system_prompts:
             return Response({'error': 'Invalid action.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not DIFY_API_KEY:
-            return Response({'error': 'Dify API key is not configured.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-
-        app_id = DIFY_APP_IDS[action]
-        dify_url = f"{DIFY_BASE_URL}/chat-messages"
-
-        headers = {
-            'Authorization': f'Bearer {DIFY_API_KEY}',
-            'Content-Type': 'application/json'
-        }
-
-        data = {
-            "inputs": {
-                "text": text
-            },
-            "response_mode": "blocking",
-            "user": str(user.id) # 使用用户ID作为Dify的会话标识
-        }
-
         try:
-            response = requests.post(dify_url, headers=headers, json=data, timeout=60)
-            response.raise_for_status()  # 如果请求失败则抛出HTTPError
+            client = OllamaClient()
+            system_message = system_prompts[action]
             
-            dify_response_data = response.json()
-            # 假设Dify返回的文本在 'answer' 字段中
-            processed_text = dify_response_data.get('answer', '')
+            if stream:
+                response_stream = client.chat(prompt=text, system_message=system_message, stream=True)
+                return StreamingHttpResponse(response_stream, content_type='text/event-stream')
+            else:
+                processed_text = client.chat(prompt=text, system_message=system_message, stream=False)
+                return Response({'processed_text': processed_text}, status=status.HTTP_200_OK)
 
-            return Response({'processed_text': processed_text}, status=status.HTTP_200_OK)
-
-        except requests.exceptions.RequestException as e:
-            return Response({'error': f'Failed to connect to Dify API: {e}'}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         except Exception as e:
             return Response({'error': f'An unexpected error occurred: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
@@ -74,41 +55,54 @@ class ProcessDocumentView(APIView):
             return Response({'status': 'error', 'message': 'No file provided.'}, status=status.HTTP_400_BAD_REQUEST)
 
         file_obj = request.FILES['file']
-        action = request.data.get('action', 'proofread') # 默认为校对
-
-        if not file_obj.name.endswith('.docx'):
-            return Response({'status': 'error', 'message': 'Invalid file type. Only .docx is supported.'}, status=status.HTTP_400_BAD_REQUEST)
+        action = request.data.get('action', 'proofread')
+        stream = request.data.get('stream', 'true').lower() == 'true'
+        
+        file_name = file_obj.name
+        original_text = ""
 
         try:
-            document = docx.Document(file_obj)
-            original_text = "\n".join([para.text for para in document.paragraphs])
+            if file_name.endswith('.docx'):
+                document = docx.Document(file_obj)
+                original_text = "\n".join([para.text for para in document.paragraphs])
+            elif file_name.endswith('.pdf'):
+                pdf_reader = PyPDF2.PdfReader(file_obj)
+                for page in pdf_reader.pages:
+                    original_text += page.extract_text() or ""
+            elif file_name.endswith('.txt'):
+                original_text = file_obj.read().decode('utf-8')
+            else:
+                return Response({'status': 'error', 'message': 'Invalid file type. Only .docx, .pdf, and .txt are supported.'}, status=status.HTTP_400_BAD_REQUEST)
 
             if not original_text.strip():
                 return Response({'status': 'error', 'message': 'The document is empty or contains no text.'}, status=status.HTTP_400_BAD_REQUEST)
 
             client = OllamaClient()
 
-            # 根据action调用不同的LLM功能
-            if action == 'proofread':
-                system_message = "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text."
-                processed_text = client.generate(prompt=original_text, system_message=system_message)
-            elif action == 'improve':
-                system_message = "You are a writing assistant. Improve the style and clarity of the following text."
-                processed_text = client.generate(prompt=original_text, system_message=system_message)
-            elif action == 'translate':
-                system_message = "You are a translator. Translate the following text to Chinese."
-                processed_text = client.generate(prompt=original_text, system_message=system_message)
-            else:
+            system_prompts = {
+                'proofread': "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
+                'improve': "You are a writing assistant. Improve the style and clarity of the following text.",
+                'translate': "You are a translator. Translate the following text to Chinese.",
+            }
+
+            if action not in system_prompts:
                 return Response({'status': 'error', 'message': 'Invalid action specified.'}, status=status.HTTP_400_BAD_REQUEST)
 
-            response_data = {
-                'status': 'success',
-                'data': {
-                    'original_text': original_text,
-                    'processed_text': processed_text,
+            system_message = system_prompts[action]
+
+            if stream:
+                response_stream = client.chat(prompt=original_text, system_message=system_message, stream=True)
+                return StreamingHttpResponse(response_stream, content_type='text/event-stream')
+            else:
+                processed_text = client.chat(prompt=original_text, system_message=system_message, stream=False)
+                response_data = {
+                    'status': 'success',
+                    'data': {
+                        'original_text': original_text,
+                        'processed_text': processed_text,
+                    }
                 }
-            }
-            return Response(response_data, status=status.HTTP_200_OK)
+                return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response({'status': 'error', 'message': f'Failed to process document: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

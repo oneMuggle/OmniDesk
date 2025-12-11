@@ -9,12 +9,14 @@ class OllamaClient:
         self.base_url = base_url or os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
         self.model_name = model_name or os.environ.get('OLLAMA_MODEL_NAME', 'llama2') # 默认使用llama2模型
 
-    def _make_request(self, endpoint, data):
+    def _make_request(self, endpoint, data, stream=False):
         url = f"{self.base_url}/{endpoint}"
         headers = {'Content-Type': 'application/json'}
         try:
-            response = requests.post(url, headers=headers, data=json.dumps(data), timeout=120)
-            response.raise_for_status() # Raises HTTPError for bad responses (4xx or 5xx)
+            response = requests.post(url, headers=headers, data=json.dumps(data), timeout=120, stream=stream)
+            response.raise_for_status()
+            if stream:
+                return response
             return response.json()
         except requests.exceptions.Timeout:
             raise Exception("Ollama API request timed out.")
@@ -25,7 +27,14 @@ class OllamaClient:
         except Exception as e:
             raise Exception(f"An unexpected error occurred during Ollama API request: {e}")
 
-    def generate(self, prompt, system_message=None, stream=False, options=None):
+    def _stream_chat(self, response):
+        for line in response.iter_lines():
+            if line:
+                chunk = json.loads(line)
+                if 'message' in chunk and 'content' in chunk['message']:
+                    yield chunk['message']['content']
+
+    def chat(self, prompt, system_message=None, stream=False, options=None):
         """
         Generates a response from the Ollama model.
         :param prompt: The user prompt.
@@ -47,16 +56,12 @@ class OllamaClient:
         }
 
         if stream:
-            # For streaming, requests.post with stream=True and iterate response.iter_lines()
-            # This part needs to be handled by the caller or a custom generator
-            raise NotImplementedError("Streaming is not directly supported by this method. Implement in caller.")
+            response = self._make_request("api/chat", data, stream=True)
+            return self._stream_chat(response)
         else:
             response_data = self._make_request("api/chat", data)
-            # Assuming the response structure for chat API
             if 'message' in response_data and 'content' in response_data['message']:
                 return response_data['message']['content']
-            elif 'response' in response_data: # Fallback for older generate API or simpler responses
-                return response_data['response']
             else:
                 raise Exception(f"Unexpected Ollama API response structure: {response_data}")
 
