@@ -1,6 +1,6 @@
 from django.test import TestCase
 from django.db.utils import IntegrityError
-from .models import Personnel, Position, Contract, Education, WorkExperience
+from personnel.models import Personnel, Position, Contract, Education, WorkExperience
 import datetime
 
 class PersonnelModelTest(TestCase):
