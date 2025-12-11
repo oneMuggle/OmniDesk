@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
 import axios from 'axios';
+import { getPersonnel } from '../../api/personnelApi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
@@ -37,32 +38,14 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
       search: searchTerm,
       position_id: selectedPosition,
     };
-    axios.get('/api/personnel/', { params })
-      .then(response => {
-        setPersonnel(response.data);
+    getPersonnel(params)
+      .then(data => {
+        setPersonnel(data.results);
       })
       .catch(error => {
         console.error('Error fetching personnel:', error);
-        // Mock data for development
-        const mockPersonnel = [
-          { id: 1, name: 'Alice', position: 'Developer' },
-          { id: 2, name: 'Bob', position: 'Manager' },
-          { id: 3, name: 'Charlie', position: 'Designer' },
-          { id: 4, name: 'David', position: 'Developer' },
-        ];
-        let filteredData = mockPersonnel;
-        if (searchTerm) {
-            filteredData = filteredData.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-        }
-        if (selectedPosition) {
-            if (positions.length > 0) {
-                const posName = positions.find(p => p.id === selectedPosition)?.name;
-                if (posName) {
-                    filteredData = filteredData.filter(p => p.position === posName);
-                }
-            }
-        }
-        setPersonnel(filteredData);
+        // Mock data for development is useful for UI development, but for now, we'll just clear the list on error.
+        setPersonnel([]);
       });
   }, [searchTerm, selectedPosition, positions]);
 
@@ -103,6 +86,8 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
     form.validateFields().then(values => {
       const personnelIds = selectedPersonnel.map(p => p.id);
       const holidayPersonnelIds = selectedHolidayPersonnel.map(p => p.id);
+      // This part seems to be posting to a different endpoint, which is correct.
+      // We will leave it as is.
       axios.post('/api/events/personnel-sequences/', {
         ...values,
         personnel_ids: personnelIds,
