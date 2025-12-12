@@ -22,6 +22,10 @@
     "testing-library"
   ],
   "rules": {
+    "no-unused-vars": "warn",
+    "react/prop-types": "warn",
+    "react/jsx-key": "warn",
+    "react/react-in-jsx-scope": "warn"
   },
   "settings": {
     "react": {
