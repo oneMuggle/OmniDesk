@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
-    'personnel',
+    'personnel.apps.PersonnelConfig',
     'users',
     'events',
     'documents.apps.DocumentsConfig',

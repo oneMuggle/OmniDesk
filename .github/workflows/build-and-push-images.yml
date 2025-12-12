@@ -1,12 +1,72 @@
-name: Build and Push Docker Images
+name: Run Tests, Build and Push Docker Images
 
 on:
   push:
     branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
   workflow_dispatch:
 
 jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      # 启动一个PostgreSQL数据库供后端测试使用
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # --- 前端测试 ---
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18' # 或与项目匹配的版本
+      
+      - name: Install Frontend Dependencies
+        run: npm install
+        working-directory: ./omni_desk_frontend
+
+      - name: Run Frontend Tests
+        run: npm test -- --watchAll=false
+        working-directory: ./omni_desk_frontend
+
+      # --- 后端测试 ---
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9' # 或与项目匹配的版本
+
+      - name: Install Backend Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        working-directory: ./omni_desk_backend
+
+      - name: Run Backend Tests
+        run: pytest
+        working-directory: ./omni_desk_backend
+        env:
+          # 将测试数据库连接到CI服务
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
+          SECRET_KEY: 'a-dummy-secret-key-for-ci'
+          # 其他必要的环境变量
+
   build-and-push:
+    needs: test # 依赖测试任务成功
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -28,7 +88,7 @@ jobs:
         with:
           context: .
           file: ./deployment/docker/omni_desk_backend/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
           tags: ghcr.io/onemuggle/omni-desk-backend:latest
 
       - name: Build and push frontend image
@@ -36,5 +96,5 @@ jobs:
         with:
           context: ./omni_desk_frontend
           file: ./omni_desk_frontend/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
           tags: ghcr.io/onemuggle/omni-desk-frontend:latest

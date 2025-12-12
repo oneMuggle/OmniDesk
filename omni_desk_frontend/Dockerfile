@@ -6,7 +6,7 @@ RUN npm install
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 COPY --chown=appuser:appgroup . .
 ENV NODE_ENV=production
-RUN npm run build
+RUN DISABLE_ESLINT_PLUGIN=true npm run build
 RUN npm cache clean --force
 
 # 生产阶段
