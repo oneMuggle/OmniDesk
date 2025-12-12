@@ -141,16 +141,28 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     phone_numbers = PhoneNumberSerializer(many=True, read_only=True)
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'phone_numbers')
+        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'phone_numbers', 'permissions')
         extra_kwargs = {
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.personnel:
             self.fields['real_name'].read_only = True
+
+    def get_permissions(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user:
+            return {'can_change': False, 'can_delete': False}
+
+        user = request.user
+        return {
+            'can_change': user.has_perm('users.change_customuser', obj),
+            'can_delete': user.has_perm('users.delete_customuser', obj)
+        }
     personnel = serializers.StringRelatedField(read_only=True)
     personnel_id = serializers.PrimaryKeyRelatedField(
         queryset=Personnel.objects.all(),

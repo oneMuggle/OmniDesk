@@ -439,6 +439,16 @@ const UserManagementPage = () => {
             key: 'date_joined',
             render: text => new Date(text).toLocaleDateString(),
         },
+        {
+            title: '操作',
+            key: 'action',
+            render: (text, record) => (
+                <Space size="middle">
+                    {record.permissions?.can_change && <Button type="primary" icon={<EditOutlined />} onClick={() => console.log('Edit user', record.id)}>编辑</Button>}
+                    {record.permissions?.can_delete && <Button type="danger" icon={<DeleteOutlined />} onClick={() => console.log('Delete user', record.id)}>删除</Button>}
+                </Space>
+            ),
+        },
     ];
 
     if (loading) {
