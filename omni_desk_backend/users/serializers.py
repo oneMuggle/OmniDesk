@@ -116,7 +116,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'real_name', 'avatar', 'role', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id', 'phone_numbers')
+        fields = ('id', 'username', 'email', 'real_name', 'avatar', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id', 'phone_numbers')
         read_only_fields = ()
         extra_kwargs = {}
     def __init__(self, *args, **kwargs):
@@ -144,9 +144,8 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'role', 'personnel', 'personnel_id', 'phone_numbers')
+        fields = ('id', 'username', 'email', 'real_name', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'phone_numbers')
         extra_kwargs = {
-            'role': {'required': True}
         }
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -175,7 +174,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'role', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'avatar', 'phone_numbers', 'groups')
+        fields = ('id', 'username', 'email', 'is_active', 'is_staff', 'date_joined', 'personnel', 'personnel_id', 'real_name', 'avatar', 'phone_numbers', 'groups')
         read_only_fields = ('id', 'email', 'is_active', 'is_staff', 'date_joined', 'avatar')
 
     def create(self, validated_data):
@@ -191,7 +190,6 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
         # Update user instance
         instance.username = validated_data.get('username', instance.username)
-        instance.role = validated_data.get('role', instance.role)
         instance.real_name = validated_data.get('real_name', instance.real_name)
         instance.personnel = validated_data.get('personnel', instance.personnel)
         
@@ -214,7 +212,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
        data = super().validate(attrs)
        
        permissions = []
-       if self.user.role == 'admin' or self.user.is_superuser:
+       if self.user.is_superuser or self.user.groups.filter(name='Admin').exists():
            # 对于管理员，可以返回所有权限的特殊标记，或具体列表
            permissions = [
                'events.manage_schedule',
@@ -227,7 +225,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                'documents.delete_book' # Add permission to delete books
            ]
            print(f"Admin permissions: {permissions}") # 新增日志
-       elif self.user.role == 'manager':
+       elif self.user.groups.filter(name='Manager').exists():
            permissions = [
                'events.manage_schedule',
                'events.manage_equipment',
@@ -239,7 +237,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
                'documents.delete_book' # Add permission to delete books
            ]
            print(f"Manager permissions: {permissions}") # 新增日志
-       elif self.user.role == 'user':
+       elif self.user.groups.filter(name='User').exists():
            permissions = [
                'view_communication'
            ]

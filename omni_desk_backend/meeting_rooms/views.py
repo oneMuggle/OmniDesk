@@ -50,7 +50,7 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         # 只有预约创建者、管理员或经理才能修改
         if self.request.user == serializer.instance.user or \
-           (self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager')):
+           (self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.groups.filter(name__in=['Admin', 'Manager']).exists())):
             serializer.save()
         else:
             raise PermissionDenied("您没有权限修改此预约。")
@@ -58,7 +58,7 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         # 只有预约创建者、管理员或经理才能删除
         if self.request.user == instance.user or \
-           (self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager')):
+           (self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.groups.filter(name__in=['Admin', 'Manager']).exists())):
             instance.delete()
         else:
             raise PermissionDenied("您没有权限删除此预约。")

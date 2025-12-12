@@ -5,21 +5,21 @@ class IsAdmin(BasePermission):
     Allows access only to admin users.
     """
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+        return request.user and request.user.is_authenticated and (request.user.is_superuser or request.user.groups.filter(name='Admin').exists())
 
 class IsManager(BasePermission):
     """
     Allows access only to manager users.
     """
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.role == 'manager'
+        return request.user and request.user.is_authenticated and request.user.groups.filter(name='Manager').exists()
 
 class IsAdminOrManager(BasePermission):
     """
     Allows access to admin or manager users.
     """
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'manager')
+        return request.user and request.user.is_authenticated and (request.user.is_superuser or request.user.groups.filter(name__in=['Admin', 'Manager']).exists())
 
 class IsAdminOrManagerOrReadOnly(BasePermission):
     """
@@ -29,7 +29,7 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return request.user and request.user.is_authenticated
-        return request.user and request.user.is_authenticated and (request.user.role == 'admin' or request.user.role == 'manager')
+        return request.user and request.user.is_authenticated and (request.user.is_superuser or request.user.groups.filter(name__in=['Admin', 'Manager']).exists())
 
 class IsAdminOrReadOnly(BasePermission):
     """
@@ -39,4 +39,4 @@ class IsAdminOrReadOnly(BasePermission):
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
             return True
-        return request.user and request.user.is_authenticated and request.user.role == 'admin'
+        return request.user and request.user.is_authenticated and (request.user.is_superuser or request.user.groups.filter(name='Admin').exists())

@@ -90,7 +90,9 @@ class PersonnelAPITest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.user = User.objects.create_user(username='testuser', password='testpassword', role='admin')
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        self.user = User.objects.create_user(username='testuser', password='testpassword')
+        self.user.groups.add(admin_group)
 
         self.personnel_data = {
             "name": "API Test User",
@@ -150,8 +152,12 @@ class PersonnelPermissionTest(TestCase):
 
     def setUp(self):
         self.client = APIClient()
-        self.admin_user = User.objects.create_user(username='adminuser', password='password', role='admin')
-        self.regular_user = User.objects.create_user(username='regularuser', password='password', role='user')
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        user_group, _ = Group.objects.get_or_create(name='User')
+        self.admin_user = User.objects.create_user(username='adminuser', password='password')
+        self.admin_user.groups.add(admin_group)
+        self.regular_user = User.objects.create_user(username='regularuser', password='password')
+        self.regular_user.groups.add(user_group)
         self.personnel = Personnel.objects.create(name="Permissions Test", id_card_number="111222333444555666")
 
     def test_unauthenticated_access(self):

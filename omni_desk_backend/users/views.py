@@ -17,16 +17,6 @@ from .serializers import (
 )
 
 
-class LoginView(APIView):
-    def post(self, request):
-        username = request.data.get('username')
-        password = request.data.get('password')
-        
-        user = authenticate(username=username, password=password)
-        if user:
-            token, _ = Token.objects.get_or_create(user=user)
-            return Response({'token': token.key})
-        return Response({'error': 'Invalid Credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 from rest_framework_simplejwt.authentication import JWTAuthentication
 from rest_framework.response import Response
@@ -110,7 +100,7 @@ class UserLoginView(TokenObtainPairView):
         try:
             serializer.is_valid(raise_exception=True)
             user = serializer.user
-            print(f"User role in UserLoginView: {user.role}") # <-- 新增日志
+            print(f"User authenticated in UserLoginView: {user.username}") # <-- 新增日志
             token = serializer.validated_data
             
             response_data = {
@@ -243,7 +233,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
-        if self.request.user.is_authenticated and (self.request.user.role == 'admin' or self.request.user.role == 'manager'):
+        if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
             queryset = CustomUser.objects.all().order_by('username')
             search_term = self.request.query_params.get('search', None)
             position = self.request.query_params.get('personnel__position', None)

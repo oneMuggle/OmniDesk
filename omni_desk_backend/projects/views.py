@@ -12,9 +12,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if user.is_anonymous:
             return Project.objects.none()
 
-        if user.role == 'admin':
+        if user.is_superuser or user.groups.filter(name='Admin').exists():
             return Project.objects.all()
-        elif user.role == 'manager':
+        elif user.groups.filter(name='Manager').exists():
             return Project.objects.filter(manager=user)
         
         # Regular users should not see any projects directly
@@ -23,9 +23,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Only managers can create projects, and they are set as the manager.
-        if self.request.user.role == 'manager':
+        if self.request.user.groups.filter(name='Manager').exists():
             serializer.save(manager=self.request.user)
-        elif self.request.user.role == 'admin':
+        elif self.request.user.is_superuser or self.request.user.groups.filter(name='Admin').exists():
             # Admins can create projects and must specify a manager.
             serializer.save()
         else:

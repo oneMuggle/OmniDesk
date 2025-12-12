@@ -114,11 +114,12 @@ class BaseTestCase(TestCase):
         from .models import PhoneNumber
         PhoneNumber.objects.all().delete()
 
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
         self.admin_user = CustomUser.objects.create_user(
             username='admin',
-            password='password',
-            role='admin'
+            password='password'
         )
+        self.admin_user.groups.add(admin_group)
         self.client.force_authenticate(user=self.admin_user)
 
         self.position1 = Position.objects.create(name='员工')

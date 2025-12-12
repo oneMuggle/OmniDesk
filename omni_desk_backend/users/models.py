@@ -2,17 +2,10 @@ from django.db import models
 from django.contrib.auth.models import AbstractUser
 
 class CustomUser(AbstractUser):
-    ROLE_CHOICES = [
-        ('admin', '管理员'),
-        ('manager', '经理'), 
-        ('user', '普通用户'),
-    ]
-    
     # 显式定义email字段覆盖默认设置
     email = models.EmailField(blank=True, null=True, help_text='可选字段，允许为空')
     real_name = models.CharField(max_length=100, blank=True, null=True, verbose_name='真实姓名')
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='user')
     assigned_by = models.ForeignKey(
         'self',
         on_delete=models.SET_NULL,
@@ -54,30 +47,12 @@ class CustomUser(AbstractUser):
         return self.username
 
     def has_perm(self, perm, obj=None):
-        # 管理员拥有所有权限
-        if self.is_superuser or self.role == 'admin':
-            return True
-        
-        # 经理的特定权限
-        if self.role == 'manager':
-            manager_perms = [
-                'events.manage_schedule',
-                'events.manage_equipment',
-                'events.manage_personnel',
-                'events.manage_announcements'
-            ]
-            if perm in manager_perms:
-                return True
-        
         # 默认情况下，依赖于Django的内置权限系统
         return super().has_perm(perm, obj)
 
     def has_module_perms(self, app_label):
-        # 管理员拥有所有模块权限
-        if self.is_superuser or self.role == 'admin':
-            return True
-        # 其他角色暂不使用Django内置权限系统
-        return False
+        # 默认情况下，依赖于Django的内置权限系统
+        return super().has_module_perms(app_label)
 
 class PhoneNumber(models.Model):
     user = models.ForeignKey(CustomUser, related_name='phone_numbers', on_delete=models.CASCADE)

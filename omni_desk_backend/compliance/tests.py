@@ -13,22 +13,28 @@ class ComplianceIssueViewSetTests(APITestCase):
         CustomUser.objects.all().delete()
         Project.objects.all().delete()
 
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        user_group, _ = Group.objects.get_or_create(name='User')
+
         self.admin_user = CustomUser.objects.create_user(
             username='admin',
             password='password123',
-            role='admin',
             is_staff=True
         )
+        self.admin_user.groups.add(admin_group)
+
         self.manager_user = CustomUser.objects.create_user(
             username='manager',
-            password='password123',
-            role='manager'
+            password='password123'
         )
+        self.manager_user.groups.add(manager_group)
+
         self.regular_user = CustomUser.objects.create_user(
             username='user',
-            password='password123',
-            role='user'
+            password='password123'
         )
+        self.regular_user.groups.add(user_group)
 
         self.project1 = Project.objects.create(name='Project 1', manager=self.manager_user)
         self.project2 = Project.objects.create(name='Project 2')

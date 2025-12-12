@@ -104,21 +104,27 @@ class UserAuthTests(TestCase):
 
 class UserPersonnelManagementTests(APITestCase):
     def setUp(self):
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        user_group, _ = Group.objects.get_or_create(name='User')
+
         self.admin_user = CustomUser.objects.create_user(
             username='admin',
-            password='password123',
-            role='admin'
+            password='password123'
         )
+        self.admin_user.groups.add(admin_group)
+
         self.manager_user = CustomUser.objects.create_user(
             username='manager',
-            password='password123',
-            role='manager'
+            password='password123'
         )
+        self.manager_user.groups.add(manager_group)
+
         self.regular_user = CustomUser.objects.create_user(
             username='user',
-            password='password123',
-            role='user'
+            password='password123'
         )
+        self.regular_user.groups.add(user_group)
         self.personnel1 = Personnel.objects.create(name='张三')
         self.personnel2 = Personnel.objects.create(name='李四')
 
@@ -221,15 +227,23 @@ class UserProfileManagementTests(APITestCase):
 
 class UserAdminViewTests(APITestCase):
     def setUp(self):
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        user_group, _ = Group.objects.get_or_create(name='User')
+
         self.admin_user = CustomUser.objects.create_user(
             username='admin',
             password='password123',
-            role='admin',
             is_staff=True,
             is_superuser=True
         )
-        self.manager_user = CustomUser.objects.create_user('manager', 'manager@test.com', 'password123', role='manager')
-        self.regular_user = CustomUser.objects.create_user('user', 'user@test.com', 'password123', role='user')
+        self.admin_user.groups.add(admin_group)
+
+        self.manager_user = CustomUser.objects.create_user('manager', 'manager@test.com', 'password123')
+        self.manager_user.groups.add(manager_group)
+
+        self.regular_user = CustomUser.objects.create_user('user', 'user@test.com', 'password123')
+        self.regular_user.groups.add(user_group)
         self.client = APIClient()
         self.user_admin_list_url = reverse('users:user-admin-list')
         self.user_admin_detail_url = reverse('users:user-admin-detail', args=[self.regular_user.id])
@@ -254,13 +268,14 @@ class UserAdminViewTests(APITestCase):
         response = self.client.get(self.user_admin_detail_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-    def test_admin_can_update_user_role(self):
+    def test_admin_can_update_user_group(self):
         self.client.force_authenticate(user=self.admin_user)
-        data = {'role': 'manager'}
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        data = {'groups': [manager_group.id]}
         response = self.client.patch(self.user_admin_detail_url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.regular_user.refresh_from_db()
-        self.assertEqual(self.regular_user.role, 'manager')
+        self.assertIn(manager_group, self.regular_user.groups.all())
 
 from .models import PhoneNumber
 
@@ -270,34 +285,6 @@ class UserModelTests(TestCase):
         user = CustomUser.objects.create_user(username='testuser_str', password='password')
         self.assertEqual(str(user), 'testuser_str')
 
-    def test_has_perm_admin(self):
-        """Test that admin users have all permissions."""
-        admin_user = CustomUser.objects.create_user(username='admin_perm', password='password', role='admin')
-        self.assertTrue(admin_user.has_perm('any.permission'))
-
-    def test_has_perm_manager(self):
-        """Test the specific permissions for manager users."""
-        manager_user = CustomUser.objects.create_user(username='manager_perm', password='password', role='manager')
-        self.assertTrue(manager_user.has_perm('events.manage_schedule'))
-        self.assertFalse(manager_user.has_perm('any.other_permission'))
-
-    def test_has_perm_user(self):
-        """Test that regular users rely on the default permission system."""
-        user_user = CustomUser.objects.create_user(username='user_perm', password='password', role='user')
-        # This will be False as we haven't assigned any specific permission
-        self.assertFalse(user_user.has_perm('events.manage_schedule'))
-
-    def test_has_module_perms_admin(self):
-        """Test that admin users have all module permissions."""
-        admin_user = CustomUser.objects.create_user(username='admin_module_perm', password='password', role='admin')
-        self.assertTrue(admin_user.has_module_perms('any_app'))
-
-    def test_has_module_perms_non_admin(self):
-        """Test that non-admin users do not have module permissions by default via this method."""
-        manager_user = CustomUser.objects.create_user(username='manager_module_perm', password='password', role='manager')
-        user_user = CustomUser.objects.create_user(username='user_module_perm', password='password', role='user')
-        self.assertFalse(manager_user.has_module_perms('any_app'))
-        self.assertFalse(user_user.has_module_perms('any_app'))
 
 class PhoneNumberModelTests(TestCase):
     def setUp(self):
@@ -337,7 +324,9 @@ class UserSerializerTests(TestCase):
 
     def test_custom_token_serializer_admin_permissions(self):
         """Test that admin users get correct permissions in their token."""
-        admin_user = CustomUser.objects.create_user(username='token_admin', password='password', role='admin')
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        admin_user = CustomUser.objects.create_user(username='token_admin', password='password')
+        admin_user.groups.add(admin_group)
         serializer = CustomTokenObtainPairSerializer(data={'username': 'token_admin', 'password': 'password'})
         self.assertTrue(serializer.is_valid())
         data = serializer.validated_data
@@ -347,7 +336,9 @@ class UserSerializerTests(TestCase):
 
     def test_custom_token_serializer_manager_permissions(self):
         """Test that manager users get correct permissions in their token."""
-        manager_user = CustomUser.objects.create_user(username='token_manager', password='password', role='manager')
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        manager_user = CustomUser.objects.create_user(username='token_manager', password='password')
+        manager_user.groups.add(manager_group)
         serializer = CustomTokenObtainPairSerializer(data={'username': 'token_manager', 'password': 'password'})
         self.assertTrue(serializer.is_valid())
         data = serializer.validated_data
@@ -379,8 +370,12 @@ class UserSerializerTests(TestCase):
 class UserViewTests(APITestCase):
     def setUp(self):
         CustomUser.objects.all().delete()
-        self.admin_user = CustomUser.objects.create_user(username='view_admin', password='password', role='admin')
-        self.manager_user = CustomUser.objects.create_user(username='view_manager', password='password', role='manager')
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        manager_group, _ = Group.objects.get_or_create(name='Manager')
+        self.admin_user = CustomUser.objects.create_user(username='view_admin', password='password')
+        self.admin_user.groups.add(admin_group)
+        self.manager_user = CustomUser.objects.create_user(username='view_manager', password='password')
+        self.manager_user.groups.add(manager_group)
         self.user1 = CustomUser.objects.create_user(username='view_user1', password='password', real_name='张三')
         self.user2 = CustomUser.objects.create_user(username='view_user2', password='password', real_name='李四')
         

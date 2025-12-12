@@ -8,6 +8,5 @@ router.register(r'positions', PositionViewSet, basename='positions')
 
 urlpatterns = [
     path('me/', CurrentUserView.as_view(), name='user-me'),
-    path('login/', views.LoginView.as_view(), name='login'),
     path('', include(router.urls)),
 ]
