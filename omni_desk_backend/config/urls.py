@@ -7,5 +7,5 @@ router.register(r'page-visibility', PageVisibilityViewSet, basename='page-visibi
 router.register(r'ollama-configs', OllamaConfigViewSet, basename='ollama-config')
 
 urlpatterns = [
-    path('config/', get_ollama_config, name='get_ollama_config'),
+    path('', get_ollama_config, name='get_ollama_config'),
 ] + router.urls
