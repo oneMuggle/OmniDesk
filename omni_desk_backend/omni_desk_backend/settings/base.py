@@ -51,11 +51,11 @@ INSTALLED_APPS = [
     'ragflow_service', # Add the new ragflow_service app
     'meeting_rooms', # Add the new meeting_rooms app
     'sensor_management', # Add the new sensor_management app
-    'omni_desk_backend.permissions.apps.PermissionsConfig',
     'django_extensions',
     'communication',
     'news',
     'sensors',
+    'permissions.apps.PermissionsConfig',
 ]
 
 MIDDLEWARE = [
