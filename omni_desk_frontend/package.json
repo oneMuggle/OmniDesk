@@ -56,7 +56,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "react-scripts build",
+    "build": "node scripts/generate-routes.js && react-scripts build",
     "test": "react-scripts test --testTimeout=30000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
@@ -75,6 +75,8 @@
     ]
   },
   "devDependencies": {
+    "@babel/parser": "^7.24.7",
+    "@babel/traverse": "^7.24.7",
     "@babel/plugin-transform-modules-commonjs": "^7.23.3",
     "babel-jest": "^29.7.0",
     "eslint": "latest",

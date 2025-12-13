@@ -1,5 +1,5 @@
 import os
-import re
+import json
 from django.core.management.base import BaseCommand
 from django.conf import settings
 from permissions.models import PageRoute
@@ -8,66 +8,43 @@ class Command(BaseCommand):
     help = 'Sync routes from frontend to database'
 
     def handle(self, *args, **options):
-        frontend_dir = settings.BASE_DIR.parent / 'omni_desk_frontend'
-        routes_file = frontend_dir / 'src' / 'routes' / 'index.js'
+        # Path to the routes.json file
+        routes_json_path = settings.BASE_DIR.parent / 'omni_desk_frontend' / 'public' / 'routes.json'
 
-        if not os.path.exists(routes_file):
-            self.stdout.write(self.style.ERROR(f'Routes file not found at {routes_file}'))
+        if not os.path.exists(routes_json_path):
+            self.stdout.write(self.style.ERROR(f'Routes JSON file not found at {routes_json_path}'))
             return
 
-        with open(routes_file, 'r', encoding='utf-8') as f:
-            content = f.read()
+        with open(routes_json_path, 'r', encoding='utf-8') as f:
+            try:
+                routes_data = json.load(f)
+            except json.JSONDecodeError:
+                self.stdout.write(self.style.ERROR('Failed to decode routes.json. Please check for syntax errors.'))
+                return
 
-        # This pattern finds all ProtectedRoute components and captures the props and the child component.
-        protected_route_pattern = re.compile(
-            r'<ProtectedRoute(?P<props>.*?)>(?P<children>.*?)</ProtectedRoute>',
-            re.DOTALL
-        )
-
-        # These patterns extract specific props from the props string.
-        name_pattern = re.compile(r'pageName="([^"]+)"')
-        path_pattern = re.compile(r'pagePath="([^"]+)"')
-        component_pattern = re.compile(r'<(\w+)')
-
-        routes_found = protected_route_pattern.finditer(content)
-        
         synced_paths = set()
         count = 0
 
-        for match in routes_found:
-            props_str = match.group('props')
-            children_str = match.group('children')
+        for route_info in routes_data:
+            name = route_info.get('name')
+            path = route_info.get('path')
+            component = route_info.get('component')
 
-            name_match = name_pattern.search(props_str)
-            path_match = path_pattern.search(props_str)
-            component_match = component_pattern.search(children_str)
+            if not all([name, path, component]):
+                self.stdout.write(self.style.WARNING(f'Skipping incomplete route data: {route_info}'))
+                continue
 
-            if name_match:
-                name = name_match.group(1)
-                # If pagePath is not found, check if it's the root route which has a different structure.
-                if path_match:
-                    path = path_match.group(1)
-                else:
-                    # A bit of a hack: check if the route is the main dashboard
-                    if name == "仪表盘":
-                        path = "/"
-                    else:
-                        # If there's no path, we can't sync it.
-                        continue
-                
-                component = component_match.group(1) if component_match else 'Unknown'
-
-                page_route, created = PageRoute.objects.update_or_create(
-                    path=path,
-                    defaults={'name': name, 'component': component}
-                )
-                synced_paths.add(path)
-                count += 1
-                
-                if created:
-                    self.stdout.write(self.style.SUCCESS(f'Created new route: {name} ({path})'))
-                else:
-                    self.stdout.write(f'Updated existing route: {name} ({path})')
+            page_route, created = PageRoute.objects.update_or_create(
+                path=path,
+                defaults={'name': name, 'component': component}
+            )
+            synced_paths.add(path)
+            count += 1
+            
+            if created:
+                self.stdout.write(self.style.SUCCESS(f'Created new route: {name} ({path})'))
+            else:
+                self.stdout.write(f'Updated existing route: {name} ({path})')
 
         self.stdout.write(self.style.SUCCESS(f'Found and processed {count} routes.'))
 
