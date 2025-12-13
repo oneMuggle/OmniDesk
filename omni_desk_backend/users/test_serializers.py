@@ -1,6 +1,9 @@
 import pytest
 from django.contrib.auth import get_user_model
-from .serializers import UserSerializer
+from django.contrib.auth.models import Permission
+from django.contrib.contenttypes.models import ContentType
+from rest_framework_simplejwt.tokens import AccessToken
+from .serializers import UserSerializer, CustomTokenObtainPairSerializer
 
 User = get_user_model()
 
@@ -34,3 +37,36 @@ def test_user_serializer_with_invalid_data():
     assert not serializer.is_valid()
     assert 'email' in serializer.errors
     assert 'password' in serializer.errors
+
+
+@pytest.mark.django_db
+class TestCustomTokenObtainPairSerializer:
+    def test_get_token_includes_permissions(self):
+        """
+        测试获取的 JWT 令牌中包含了正确的用户权限。
+        """
+        # 1. 创建用户和权限
+        user = User.objects.create_user(username='testpermuser', password='password123')
+        content_type = ContentType.objects.create(app_label='test_app', model='test_model')
+        permission = Permission.objects.create(
+            codename='can_do_something',
+            name='Can do something',
+            content_type=content_type,
+        )
+        user.user_permissions.add(permission)
+
+        # 2. 模拟登录并获取令牌
+        serializer = CustomTokenObtainPairSerializer(data={
+            'username': 'testpermuser',
+            'password': 'password123',
+        })
+        assert serializer.is_valid(), serializer.errors
+        tokens = serializer.validated_data
+
+        # 3. 解码令牌并验证权限
+        access_token = AccessToken(tokens['access'])
+        decoded_permissions = access_token.get('permissions', [])
+        
+        expected_permission = f'{content_type.app_label}.{permission.codename}'
+        assert expected_permission in decoded_permissions
+        assert len(decoded_permissions) == 1

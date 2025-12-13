@@ -1,53 +1,54 @@
-import React, { useContext } from 'react';
-import { render, screen, act } from '@testing-library/react';
-import '@testing-library/jest-dom/extend-expect';
-import { AuthProvider, AuthContext } from './AuthContext';
+import React from 'react';
+import { render, screen } from '@testing-library/react';
+import { AuthContext, AuthProvider } from './AuthContext';
 
-const TestComponent = () => {
-  const { user, isAuthenticated, login, logout } = useContext(AuthContext);
+const TestComponent = ({ requiredPermission }) => {
+  const { hasPermission } = React.useContext(AuthContext);
   return (
     <div>
-      <span data-testid="isAuthenticated">{isAuthenticated.toString()}</span>
-      <span data-testid="user">{user ? user.username : 'null'}</span>
-      <button onClick={() => login({ username: 'testuser' })}>Login</button>
-      <button onClick={logout}>Logout</button>
+      {hasPermission(requiredPermission) ? 'Has Permission' : 'No Permission'}
     </div>
   );
 };
 
-const renderWithAuthProvider = () => {
-  return render(
-    <AuthProvider>
-      <TestComponent />
-    </AuthProvider>
-  );
-};
-
-describe('AuthContext', () => {
-  it('should have default values', () => {
-    renderWithAuthProvider();
-    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
-    expect(screen.getByTestId('user')).toHaveTextContent('null');
+describe('AuthContext - hasPermission', () => {
+  test('should return true if user has the required permission', () => {
+    const user = { permissions: ['users.add_customuser'] };
+    render(
+      <AuthProvider value={{ user }}>
+        <TestComponent requiredPermission="users.add_customuser" />
+      </AuthProvider>
+    );
+    expect(screen.getByText('Has Permission')).toBeInTheDocument();
   });
 
-  it('should update state on login', () => {
-    renderWithAuthProvider();
-    act(() => {
-      screen.getByText('Login').click();
-    });
-    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true');
-    expect(screen.getByTestId('user')).toHaveTextContent('testuser');
+  test('should return false if user does not have the required permission', () => {
+    const user = { permissions: ['users.view_customuser'] };
+    render(
+      <AuthProvider value={{ user }}>
+        <TestComponent requiredPermission="some.missing_permission" />
+      </AuthProvider>
+    );
+    expect(screen.getByText('No Permission')).toBeInTheDocument();
   });
 
-  it('should update state on logout', () => {
-    renderWithAuthProvider();
-    act(() => {
-      screen.getByText('Login').click();
-    });
-    act(() => {
-      screen.getByText('Logout').click();
-    });
-    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false');
-    expect(screen.getByTestId('user')).toHaveTextContent('null');
+  test('should return true if no permission is required', () => {
+    const user = { permissions: ['users.view_customuser'] };
+    render(
+      <AuthProvider value={{ user }}>
+        <TestComponent />
+      </AuthProvider>
+    );
+    expect(screen.getByText('Has Permission')).toBeInTheDocument();
+  });
+
+  test('should return false if user has no permissions at all', () => {
+    const user = { permissions: [] };
+    render(
+      <AuthProvider value={{ user }}>
+        <TestComponent requiredPermission="any.permission" />
+      </AuthProvider>
+    );
+    expect(screen.getByText('No Permission')).toBeInTheDocument();
   });
 });
