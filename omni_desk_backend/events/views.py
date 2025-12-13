@@ -19,7 +19,7 @@ from django.db.models.functions import TruncDate
 
 from .models import (
     Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Holiday
+    PersonnelSequence, LeaderSequence, Holiday, Position
 )
 from .serializers import (
     TrialSerializer,
@@ -31,7 +31,8 @@ from .serializers import (
     UploadedImageSerializer,
     PersonnelSequenceSerializer,
     LeaderSequenceSerializer,
-    HolidaySerializer
+    HolidaySerializer,
+    PositionSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -615,3 +616,9 @@ class HolidayViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name', 'start_date', 'end_date']
+
+
+class PositionViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Position.objects.all()
+    serializer_class = PositionSerializer
+    permission_classes = [permissions.IsAuthenticated]

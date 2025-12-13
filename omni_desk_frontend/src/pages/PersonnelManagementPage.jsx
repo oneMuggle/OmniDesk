@@ -69,7 +69,14 @@ const PersonnelManagementPage = () => {
   const fetchPositions = useCallback(async () => {
     try {
       const response = await getPositions();
-      setPositions(response.results || []);
+      if (Array.isArray(response)) {
+        setPositions(response);
+      } else if (response && Array.isArray(response.results)) {
+        setPositions(response.results);
+      } else {
+        setPositions([]);
+        console.log('Unexpected API response structure for positions:', response);
+      }
     } catch (error) {
       message.error('获取职位数据失败');
       setPositions([]);

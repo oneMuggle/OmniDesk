@@ -30,7 +30,7 @@ export const deletePersonnel = (id) => {
 };
 
 export const getPositions = async () => {
-  const response = await apiClient.get('/personnel/positions/');
+  const response = await apiClient.get('/events/positions/');
   return response.data;
 };
 
