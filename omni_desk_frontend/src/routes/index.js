@@ -81,11 +81,11 @@ import NewPostPage from '../pages/NewPostPage';
       { path: "shift-schedule", element: <GuestRoute><ShiftScheduleContainer /></GuestRoute> },
       {
         path: "events",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/events" pageName="事件管理"><EventsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/events" pageName="事件管理"><EventsPage /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/equipment" pageName="设备管理"><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/equipment" pageName="设备管理"><EquipmentPage /></ProtectedRoute>
       },
       {
         path: "profile",
@@ -121,7 +121,7 @@ import NewPostPage from '../pages/NewPostPage';
       },
       {
         path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
-        element: <ProtectedRoute roles={['admin']} pageName="章节编辑器"><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
+        element: <ProtectedRoute pageName="章节编辑器"><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
       },
       {
         path: "memos", // 新增备忘录路由
@@ -141,7 +141,7 @@ import NewPostPage from '../pages/NewPostPage';
       },
       {
         path: "projects", // Move ProjectsPage to root level
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/projects" pageName="项目"><ProjectsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/projects" pageName="项目"><ProjectsPage /></ProtectedRoute>
       },
       {
         path: "notifications", // Add NotificationsPage to root level
@@ -149,27 +149,27 @@ import NewPostPage from '../pages/NewPostPage';
       },
       {
         path: "documents", // 将 DocumentsPage 移动到主页面路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/documents" pageName="文档管理"><DocumentsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/documents" pageName="文档管理"><DocumentsPage /></ProtectedRoute>
       },
       {
         path: "sensor-management", // 新增传感器管理路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
       },
       {
         path: "sensor-categories", // 新增传感器类别管理路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-categories" pageName="传感器类别管理"><SensorCategoryManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensor-categories" pageName="传感器类别管理"><SensorCategoryManagementPage /></ProtectedRoute>
       },
       {
         path: "storage-locations", // 新增存放位置管理路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/storage-locations" pageName="存储位置管理"><StorageLocationManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/storage-locations" pageName="存储位置管理"><StorageLocationManagementPage /></ProtectedRoute>
       },
       {
         path: "sensor-calibration/:id", // 新增传感器校准管理路由，:id 为动态参数
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-calibration/:id" pageName="传感器校准管理"><SensorCalibrationManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensor-calibration/:id" pageName="传感器校准管理"><SensorCalibrationManagementPage /></ProtectedRoute>
       },
       {
         path: "sensors/:id", // 新增传感器详情路由
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
       },
       {
         path: "communication",
@@ -185,46 +185,46 @@ import NewPostPage from '../pages/NewPostPage';
       },
       {
         path: "sensor-management/add-record",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management/add-record" pageName="添加校准记录"><AddCalibrationRecordPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensor-management/add-record" pageName="添加校准记录"><AddCalibrationRecordPage /></ProtectedRoute>
       },
       {
         path: "sensor-management/history/:sensorId",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/sensor-management/history/:sensorId" pageName="传感器校准历史"><SensorCalibrationHistoryPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/sensor-management/history/:sensorId" pageName="传感器校准历史"><SensorCalibrationHistoryPage /></ProtectedRoute>
       }
     ]
   },
   {
     path: "/admin",
-    element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin" pageName="管理后台"><AdminLayout /></ProtectedRoute>,
+    element: <ProtectedRoute pagePath="/admin" pageName="管理后台"><AdminLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <Navigate to="trials" replace /> },
       {
         path: "trials",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/trials" pageName="试验管理"><TrialsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/trials" pageName="试验管理"><TrialsPage /></ProtectedRoute>
       },
       {
         path: "personnel",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "personnel/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "personnel/edit/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
       },
       {
         path: "personnel/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "schedules",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedules" pageName="排班管理"><ScheduleManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/schedules" pageName="排班管理"><ScheduleManagementPage /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/equipment" pageName="设备管理 (Admin)"><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/equipment" pageName="设备管理 (Admin)"><EquipmentPage /></ProtectedRoute>
       },
       {
         path: "settings",
@@ -232,51 +232,51 @@ import NewPostPage from '../pages/NewPostPage';
       },
       {
         path: "announcements",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements" pageName="管理公告"><ManageAnnouncementsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/announcements" pageName="管理公告"><ManageAnnouncementsPage /></ProtectedRoute>
       },
       {
         path: "announcements/new",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements/new" pageName="新公告"><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/announcements/new" pageName="新公告"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "announcements/edit/:id",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/announcements/edit/:id" pageName="编辑公告"><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/announcements/edit/:id" pageName="编辑公告"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "dify-app-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/dify-app-management" pageName="Dify 应用管理"><DifyAppManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/dify-app-management" pageName="Dify 应用管理"><DifyAppManagementPage /></ProtectedRoute>
       },
       {
         path: "schedule-settings",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/schedule-settings" pageName="排班设置"><ScheduleSettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/schedule-settings" pageName="排班设置"><ScheduleSettingsPage /></ProtectedRoute>
       },
       {
         path: "compliance", // Add CompliancePage route under /admin
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/compliance" pageName="合规性"><CompliancePage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/compliance" pageName="合规性"><CompliancePage /></ProtectedRoute>
       },
       {
         path: "meeting-room-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/meeting-room-management" pageName="会议室管理"><MeetingRoomManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/meeting-room-management" pageName="会议室管理"><MeetingRoomManagementPage /></ProtectedRoute>
       },
       {
         path: "user-management",
-        element: <ProtectedRoute roles={['admin']} pagePath="/admin/user-management" pageName="用户管理"><UserManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/user-management" pageName="用户管理"><UserManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/ebook-management" pageName="电子书管理"><EBookManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/ebook-management" pageName="电子书管理"><EBookManagementPage /></ProtectedRoute>
       },
       {
        path: "holidays",
-       element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
+       element: <ProtectedRoute pagePath="/admin/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
       },
       {
         path: "news-stats",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
       },
       {
         path: "news-management",
-        element: <ProtectedRoute roles={['admin', 'manager']} pagePath="/admin/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/admin/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
       },
     ]
   },

@@ -99,15 +99,6 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   ];
 
   const renderMenuItem = (item, index) => {
-    if (!isInitializing && item.permission !== null) {
-      if (item.permission === 'authenticated' && !isAuthenticated) return null;
-      if (Array.isArray(item.permission)) {
-        if (!isAuthenticated || !item.permission.some(role => user?.role === role)) return null;
-      } else if (!isAuthenticated || user?.role !== item.permission) {
-        if (!hasPermission(item.permission)) return null;
-      }
-    }
-
     if (item.type === 'button') {
       const Icon = item.icon;
       const buttonContent = (
@@ -174,7 +165,9 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
           )}
           {!isCollapsed && (
             <ul className={`submenu ${isSubMenuExpanded ? 'expanded' : ''}`}>
-              {item.subItems.map((subItem, subIndex) => {
+              {item.subItems
+                .filter(subItem => hasPermission(subItem.permission, subItem.to))
+                .map((subItem, subIndex) => {
                 const SubIcon = subItem.icon;
                 return (
                   <li key={subIndex}>
@@ -261,24 +254,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         </div>
         <nav className="sidebar-menu">
           <ul>
-            {menuItems.filter(item => {
-              if (!isInitializing && item.permission === 'authenticated' && !isAuthenticated) {
-                return false;
-              }
-              if (isInitializing && item.permission === 'authenticated') {
-                return false;
-              }
-              if (item.to === "/admin") {
-                return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
-              }
-              if (item.permission === null) return true;
-              if (item.permission === 'authenticated') return isAuthenticated;
-              
-              if (Array.isArray(item.permission)) {
-                return item.permission.some(role => user?.role === role);
-              }
-              return hasPermission(item.permission);
-            }).map(renderMenuItem)}
+            {menuItems.filter(item => hasPermission(item.permission, item.to)).map(renderMenuItem)}
           </ul>
         </nav>
       </div>
