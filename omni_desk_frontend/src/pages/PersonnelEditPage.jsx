@@ -51,7 +51,7 @@ const PersonnelEditPage = () => {
             };
             await updatePersonnel(id, dataToSend);
             message.success('更新成功');
-            navigate('/admin/personnel');
+            navigate('/dashboard/personnel');
         } catch (error) {
             console.error('操作失败:', error);
             message.error('操作失败');
@@ -93,7 +93,7 @@ const PersonnelEditPage = () => {
             <Card>
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">编辑人员详细信息</h1>
-                    <Link to="/admin/personnel">
+                    <Link to="/dashboard/personnel">
                         <Button icon={<ArrowLeftOutlined />}>返回列表</Button>
                     </Link>
                 </div>

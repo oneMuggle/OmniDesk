@@ -194,89 +194,89 @@ import NewPostPage from '../pages/NewPostPage';
     ]
   },
   {
-    path: "/admin",
-    element: <ProtectedRoute pagePath="/admin" pageName="管理后台"><AdminLayout /></ProtectedRoute>,
+    path: "/dashboard",
+    element: <ProtectedRoute pagePath="/dashboard" pageName="管理后台"><AdminLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <Navigate to="trials" replace /> },
       {
         path: "trials",
-        element: <ProtectedRoute pagePath="/admin/trials" pageName="试验管理"><TrialsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/trials" pageName="试验管理"><TrialsPage /></ProtectedRoute>
       },
       {
         path: "personnel",
-        element: <ProtectedRoute pagePath="/admin/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
       },
       {
         path: "personnel/:id",
-        element: <ProtectedRoute pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "personnel/edit/:id",
-        element: <ProtectedRoute pagePath="/admin/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
       },
       {
         path: "personnel/:id",
-        element: <ProtectedRoute pagePath="/admin/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "schedules",
-        element: <ProtectedRoute pagePath="/admin/schedules" pageName="排班管理"><ScheduleManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/schedules" pageName="排班管理"><ScheduleManagementPage /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute pagePath="/admin/equipment" pageName="设备管理 (Admin)"><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/equipment" pageName="设备管理 (Admin)"><EquipmentPage /></ProtectedRoute>
       },
       {
         path: "settings",
-        element: <ProtectedRoute pagePath="/admin/settings" pageName="系统设置"><SystemSettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/settings" pageName="系统设置"><SystemSettingsPage /></ProtectedRoute>
       },
       {
         path: "announcements",
-        element: <ProtectedRoute pagePath="/admin/announcements" pageName="管理公告"><ManageAnnouncementsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/announcements" pageName="管理公告"><ManageAnnouncementsPage /></ProtectedRoute>
       },
       {
         path: "announcements/new",
-        element: <ProtectedRoute pagePath="/admin/announcements/new" pageName="新公告"><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/announcements/new" pageName="新公告"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "announcements/edit/:id",
-        element: <ProtectedRoute pagePath="/admin/announcements/edit/:id" pageName="编辑公告"><AnnouncementForm /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/announcements/edit/:id" pageName="编辑公告"><AnnouncementForm /></ProtectedRoute>
       },
       {
         path: "dify-app-management",
-        element: <ProtectedRoute pagePath="/admin/dify-app-management" pageName="Dify 应用管理"><DifyAppManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/dify-app-management" pageName="Dify 应用管理"><DifyAppManagementPage /></ProtectedRoute>
       },
       {
         path: "schedule-settings",
-        element: <ProtectedRoute pagePath="/admin/schedule-settings" pageName="排班设置"><ScheduleSettingsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/schedule-settings" pageName="排班设置"><ScheduleSettingsPage /></ProtectedRoute>
       },
       {
-        path: "compliance", // Add CompliancePage route under /admin
-        element: <ProtectedRoute pagePath="/admin/compliance" pageName="合规性"><CompliancePage /></ProtectedRoute>
+        path: "compliance", // Add CompliancePage route under /dashboard
+        element: <ProtectedRoute pagePath="/dashboard/compliance" pageName="合规性"><CompliancePage /></ProtectedRoute>
       },
       {
         path: "meeting-room-management",
-        element: <ProtectedRoute pagePath="/admin/meeting-room-management" pageName="会议室管理"><MeetingRoomManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/meeting-room-management" pageName="会议室管理"><MeetingRoomManagementPage /></ProtectedRoute>
       },
       {
         path: "user-management",
-        element: <ProtectedRoute pagePath="/admin/user-management" pageName="用户管理"><UserManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/user-management" pageName="用户管理"><UserManagementPage /></ProtectedRoute>
       },
       {
         path: "ebook-management",
-        element: <ProtectedRoute pagePath="/admin/ebook-management" pageName="电子书管理"><EBookManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/ebook-management" pageName="电子书管理"><EBookManagementPage /></ProtectedRoute>
       },
       {
        path: "holidays",
-       element: <ProtectedRoute pagePath="/admin/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
+       element: <ProtectedRoute pagePath="/dashboard/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
       },
       {
         path: "news-stats",
-        element: <ProtectedRoute pagePath="/admin/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
       },
       {
         path: "news-management",
-        element: <ProtectedRoute pagePath="/admin/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dashboard/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
       },
     ]
   },

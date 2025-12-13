@@ -38,13 +38,13 @@ const renderWithRouter = (ui, { route = '/', path = '/' } = {}) => {
 describe('PersonnelDetailPage', () => {
   it('shows loading spinner initially', () => {
     personnelApi.getPersonnelDetails.mockReturnValue(new Promise(() => {})); // Never resolves
-    renderWithRouter(<PersonnelDetailPage />, { route: '/admin/personnel/1', path: '/admin/personnel/:id' });
+    renderWithRouter(<PersonnelDetailPage />, { route: '/dashboard/personnel/1', path: '/dashboard/personnel/:id' });
     expect(screen.getByRole('spin')).toBeInTheDocument();
   });
 
   it('displays personnel details after successful fetch', async () => {
     personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
-    renderWithRouter(<PersonnelDetailPage />, { route: '/admin/personnel/1', path: '/admin/personnel/:id' });
+    renderWithRouter(<PersonnelDetailPage />, { route: '/dashboard/personnel/1', path: '/dashboard/personnel/:id' });
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument();
     expect(await screen.findByText('12345')).toBeInTheDocument();
@@ -55,7 +55,7 @@ describe('PersonnelDetailPage', () => {
 
   it('displays error message on fetch failure', async () => {
     personnelApi.getPersonnelDetails.mockRejectedValue(new Error('Failed to fetch'));
-    renderWithRouter(<PersonnelDetailPage />, { route: '/admin/personnel/1', path: '/admin/personnel/:id' });
+    renderWithRouter(<PersonnelDetailPage />, { route: '/dashboard/personnel/1', path: '/dashboard/personnel/:id' });
 
     await waitFor(() => expect(screen.queryByRole('spin')).not.toBeInTheDocument());
     expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument();

@@ -42,10 +42,10 @@ const PersonnelManagementPage = () => {
       key: 'action',
       render: (_, record) => (
         <Space>
-          <Link to={`/admin/personnel/${record.id}`}>
+          <Link to={`/dashboard/personnel/${record.id}`}>
             <Button>详情</Button>
           </Link>
-          <Link to={`/admin/personnel/edit/${record.id}`}>
+          <Link to={`/dashboard/personnel/edit/${record.id}`}>
             <Button type="primary" icon={<EditOutlined />} />
           </Link>
           <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />

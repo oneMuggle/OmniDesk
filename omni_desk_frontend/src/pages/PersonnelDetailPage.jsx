@@ -60,7 +60,7 @@ const PersonnelDetailPage = () => {
             <Card>
                 <div className="flex justify-between items-center mb-6">
                     <h1 className="text-2xl font-bold">人员信息详情</h1>
-                    <Link to="/admin/personnel">
+                    <Link to="/dashboard/personnel">
                         <Button icon={<ArrowLeftOutlined />}>返回列表</Button>
                     </Link>
                 </div>

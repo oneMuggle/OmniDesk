@@ -98,9 +98,9 @@ const DocumentsPage = () => {
       // 跳转到合规性页面查看结果
       const template = templates.find(t => t.id === templateId);
       if (template && template.project) {
-        navigate(`/admin/compliance?project_id=${template.project}&document_template_id=${templateId}`);
+        navigate(`/dashboard/compliance?project_id=${template.project}&document_template_id=${templateId}`);
       } else {
-        navigate(`/admin/compliance?document_template_id=${templateId}`);
+        navigate(`/dashboard/compliance?document_template_id=${templateId}`);
       }
     } catch (error) {
       message.error({ content: '分析失败，请检查后端服务。', key: 'analyzing' });

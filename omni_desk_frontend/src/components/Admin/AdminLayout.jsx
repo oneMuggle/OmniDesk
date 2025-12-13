@@ -31,22 +31,22 @@ const AdminLayout = () => {
   const location = useLocation();
 
   const allAdminMenuItems = [
-    { to: "/admin/trials", icon: faFlask, text: "试验管理", path: "/admin/trials" },
-    { to: "/admin/personnel", icon: faUsers, text: "人员管理", path: "/admin/personnel" },
-    { to: "/admin/schedules", icon: faFlask, text: "排班管理", path: "/admin/schedules" },
-    { to: "/admin/user-management", icon: faUsers, text: "用户管理", path: "/admin/user-management" },
-    { to: "/admin/permissions", icon: faUserShield, text: "权限管理", path: "/admin/permissions" },
-    { to: "/admin/ebook-management", icon: faBook, text: "电子书管理", path: "/admin/ebook-management" },
-    { to: "/admin/documents", icon: faFileWord, text: "文档管理", path: "/admin/documents" },
-    { to: "/admin/equipment", icon: faFlask, text: "设备管理", path: "/admin/equipment" },
-    { to: "/admin/settings", icon: faCog, text: "设置", path: "/admin/settings" },
-    { to: "/admin/announcements", icon: faBullhorn, text: "公告管理", path: "/admin/announcements" },
-    { to: "/admin/dify-app-management", icon: faCog, text: "Dify 应用管理", path: "/admin/dify-app-management" },
-    { to: "/admin/schedule-settings", icon: faCog, text: "排班设置", path: "/admin/schedule-settings" },
-    { to: "/admin/meeting-room-management", icon: faCog, text: "会议室管理", path: "/admin/meeting-room-management" },
-    { to: "/admin/holidays", icon: faCalendarAlt, text: "节假日管理", path: "/admin/holidays" },
-    { to: "/admin/news-stats", icon: faNewspaper, text: "新闻统计", path: "/admin/news-stats" },
-    { to: "/admin/news-management", icon: faNewspaper, text: "新闻管理", path: "/admin/news-management" }
+    { to: "/dashboard/trials", icon: faFlask, text: "试验管理", path: "/dashboard/trials" },
+    { to: "/dashboard/personnel", icon: faUsers, text: "人员管理", path: "/dashboard/personnel" },
+    { to: "/dashboard/schedules", icon: faFlask, text: "排班管理", path: "/dashboard/schedules" },
+    { to: "/dashboard/user-management", icon: faUsers, text: "用户管理", path: "/dashboard/user-management" },
+    { to: "/dashboard/permissions", icon: faUserShield, text: "权限管理", path: "/dashboard/permissions" },
+    { to: "/dashboard/ebook-management", icon: faBook, text: "电子书管理", path: "/dashboard/ebook-management" },
+    { to: "/dashboard/documents", icon: faFileWord, text: "文档管理", path: "/dashboard/documents" },
+    { to: "/dashboard/equipment", icon: faFlask, text: "设备管理", path: "/dashboard/equipment" },
+    { to: "/dashboard/settings", icon: faCog, text: "设置", path: "/dashboard/settings" },
+    { to: "/dashboard/announcements", icon: faBullhorn, text: "公告管理", path: "/dashboard/announcements" },
+    { to: "/dashboard/dify-app-management", icon: faCog, text: "Dify 应用管理", path: "/dashboard/dify-app-management" },
+    { to: "/dashboard/schedule-settings", icon: faCog, text: "排班设置", path: "/dashboard/schedule-settings" },
+    { to: "/dashboard/meeting-room-management", icon: faCog, text: "会议室管理", path: "/dashboard/meeting-room-management" },
+    { to: "/dashboard/holidays", icon: faCalendarAlt, text: "节假日管理", path: "/dashboard/holidays" },
+    { to: "/dashboard/news-stats", icon: faNewspaper, text: "新闻统计", path: "/dashboard/news-stats" },
+    { to: "/dashboard/news-management", icon: faNewspaper, text: "新闻管理", path: "/dashboard/news-management" }
   ];
 
   useEffect(() => {
