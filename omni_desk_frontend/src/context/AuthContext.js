@@ -167,41 +167,15 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const hasPermission = useCallback((permission, pagePath) => {
-    if (!user) return false;
-    if (user.role === 'admin') return true;
-
-    // Page visibility check
-    if (pagePath) {
-      if (!Array.isArray(pageConfigs)) return true;
-      const config = pageConfigs.find(pc => pc.page_path === pagePath);
-      if (config && config.is_hidden_for_non_admin && user.role !== 'admin') {
-        return false;
-      }
-    }
-
-    // Role-based permission check
-    if (permission) {
-      if (Array.isArray(permission)) {
-        return permission.includes(user.role);
-      }
-      if (typeof permission === 'string') {
-        return user.permissions?.includes(permission);
-      }
-    }
-
-    // If no specific permission is required, grant access for authenticated users.
-    if (!permission && !pagePath) {
+  const hasPermission = useCallback((requiredPermission) => {
+    if (!requiredPermission) {
       return true;
     }
-    
-    // Fallback for page-only checks where no specific permission is needed
-    if (pagePath && !permission) {
-        return true;
+    if (!user || !user.permissions) {
+      return false;
     }
-
-    return false;
-  }, [user, pageConfigs]);
+    return user.permissions.includes(requiredPermission);
+  }, [user]);
 
   const value = {
     user,

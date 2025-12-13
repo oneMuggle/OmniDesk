@@ -221,47 +221,17 @@ class UserAdminSerializer(serializers.ModelSerializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
-       data = super().validate(attrs)
-       
-       permissions = []
-       if self.user.is_superuser or self.user.groups.filter(name='Admin').exists():
-           # 对于管理员，可以返回所有权限的特殊标记，或具体列表
-           permissions = [
-               'events.manage_schedule',
-               'events.manage_equipment',
-               'events.manage_personnel',
-               'events.manage_announcements',
-               'documents.view_book',  # Add permission to view books
-               'documents.add_book',   # Add permission to add books
-               'documents.change_book', # Add permission to change books
-               'documents.delete_book' # Add permission to delete books
-           ]
-           print(f"Admin permissions: {permissions}") # 新增日志
-       elif self.user.groups.filter(name='Manager').exists():
-           permissions = [
-               'events.manage_schedule',
-               'events.manage_equipment',
-               'events.manage_personnel',
-               'events.manage_announcements',
-               'documents.view_book',  # Add permission to view books
-               'documents.add_book',   # Add permission to add books
-               'documents.change_book', # Add permission to change books
-               'documents.delete_book' # Add permission to delete books
-           ]
-           print(f"Manager permissions: {permissions}") # 新增日志
-       elif self.user.groups.filter(name='User').exists():
-           permissions = [
-               'view_communication'
-           ]
-       
-       data['permissions'] = permissions
-       return data
+        data = super().validate(attrs)
+        # Dynamically get all user permissions and add them to the response.
+        data['permissions'] = list(self.user.get_all_permissions())
+        return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         token['username'] = user.username
-        return token
+        # Add dynamic permissions to the JWT token payload.
+        token['permissions'] = list(user.get_all_permissions())
         return token
 
 class ChangePasswordSerializer(serializers.Serializer):

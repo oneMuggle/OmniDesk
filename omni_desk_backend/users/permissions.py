@@ -40,3 +40,23 @@ class IsAdminOrReadOnly(BasePermission):
         if request.method in SAFE_METHODS:
             return True
         return request.user and request.user.is_authenticated and (request.user.is_superuser or request.user.groups.filter(name='Admin').exists())
+
+class HasPermission(BasePermission):
+    """
+    Allows access only if the user has all the permissions defined in the view.
+    A `required_permissions` attribute must be set on the view.
+    """
+    def has_permission(self, request, view):
+        # Check if the view has the required_permissions attribute
+        if not hasattr(view, 'required_permissions'):
+            # If not defined, default to allowing access
+            return True
+
+        required_permissions = getattr(view, 'required_permissions', [])
+
+        # Check if the user has all the required permissions
+        for perm in required_permissions:
+            if not request.user.has_perm(perm):
+                return False
+        
+        return True
