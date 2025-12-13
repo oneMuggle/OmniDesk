@@ -113,12 +113,22 @@ class UserDetailSerializer(serializers.ModelSerializer):
         required=False,
         write_only=True
     )
+    permissions = serializers.SerializerMethodField()
 
     class Meta:
         model = CustomUser
-        fields = ('id', 'username', 'email', 'real_name', 'avatar', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id', 'phone_numbers')
+        fields = ('id', 'username', 'email', 'real_name', 'avatar', 'date_joined', 'assigned_by', 'assigned_by_username', 'personnel', 'personnel_id', 'phone_numbers', 'permissions')
         read_only_fields = ()
         extra_kwargs = {}
+
+    def get_permissions(self, obj):
+        permissions = set(obj.get_all_permissions())
+        if obj.is_staff or obj.is_superuser:
+            permissions.add('admin')
+        if obj.groups.filter(name='manager').exists():
+            permissions.add('manager')
+        return list(permissions)
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.personnel:
@@ -223,15 +233,25 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         # Dynamically get all user permissions and add them to the response.
-        data['permissions'] = list(self.user.get_all_permissions())
+        permissions = set(self.user.get_all_permissions())
+        if self.user.is_staff or self.user.is_superuser:
+            permissions.add('admin')
+        if self.user.groups.filter(name='manager').exists():
+            permissions.add('manager')
+        data['permissions'] = list(permissions)
         return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
         token['username'] = user.username
-        # Add dynamic permissions to the JWT token payload.
-        token['permissions'] = list(user.get_all_permissions())
+        # Add dynamic permissions and roles to the JWT token payload.
+        permissions = set(user.get_all_permissions())
+        if user.is_staff or user.is_superuser:
+            permissions.add('admin')
+        if user.groups.filter(name='manager').exists():
+            permissions.add('manager')
+        token['permissions'] = list(permissions)
         return token
 
 class ChangePasswordSerializer(serializers.Serializer):

@@ -174,6 +174,11 @@ export function AuthProvider({ children }) {
     if (!user || !user.permissions) {
       return false;
     }
+
+    if (Array.isArray(requiredPermission)) {
+      return requiredPermission.some(permission => user.permissions.includes(permission));
+    }
+
     return user.permissions.includes(requiredPermission);
   }, [user]);
 
