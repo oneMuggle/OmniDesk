@@ -11,8 +11,8 @@ urlpatterns = [
     path('me/profile/', UserProfileUpdateView.as_view(), name='user-profile-update'),
     path('me/change-password/', ChangePasswordView.as_view(), name='change-password'),
     path('me/', CurrentUserView.as_view(), name='current-user'),
-    path('dashboard/', UserAdminListView.as_view(), name='user-admin-list'),
-    path('dashboard/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
+    path('control-panel/', UserAdminListView.as_view(), name='user-admin-list'),
+    path('control-panel/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
     path('', include('users.user_urls')),
     path('', include(router.urls)),
 ]

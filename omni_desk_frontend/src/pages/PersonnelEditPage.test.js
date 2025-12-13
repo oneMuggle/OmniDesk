@@ -35,13 +35,13 @@ describe('PersonnelEditPage', () => {
   });
 
   test('loads and displays existing personnel data', async () => {
-    renderWithRouter(<PersonnelEditPage />, { route: '/dashboard/personnel/edit/1', path: '/dashboard/personnel/edit/:id' });
+    renderWithRouter(<PersonnelEditPage />, { route: '/control-panel/personnel/edit/1', path: '/control-panel/personnel/edit/:id' });
     expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
   });
 
   test('allows adding a new contract and submitting the form', async () => {
-    renderWithRouter(<PersonnelEditPage />, { route: '/dashboard/personnel/edit/1', path: '/dashboard/personnel/edit/:id' });
+    renderWithRouter(<PersonnelEditPage />, { route: '/control-panel/personnel/edit/1', path: '/control-panel/personnel/edit/:id' });
     
     // Wait for initial data to load
     await screen.findByDisplayValue('Jane Doe');

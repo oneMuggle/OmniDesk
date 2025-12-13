@@ -86,7 +86,7 @@ const AnnouncementForm = () => {
       } else {
         await apiClient.post('/events/announcements/', payload);
       }
-      navigate('/dashboard/announcements');
+      navigate('/control-panel/announcements');
     } catch (e) {
       setError(e.message);
     } finally {

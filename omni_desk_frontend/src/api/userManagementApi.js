@@ -1,12 +1,12 @@
 import apiClient from './apiClient';
 
 const userManagementApi = {
-    getAllUsers: () => apiClient.get('/users/dashboard/'),
-    updateUserRole: (userId, role) => apiClient.patch(`/users/dashboard/${userId}/`, { role }),
-    associateUserWithPersonnel: (userId, personnelId) => apiClient.patch(`/users/dashboard/${userId}/`, { personnel_id: personnelId }),
-    createUser: (userData) => apiClient.post('/users/dashboard/', userData),
-    updateUser: (userId, userData) => apiClient.patch(`/users/dashboard/${userId}/`, userData),
-    updateUserGroups: (userId, groups) => apiClient.patch(`/users/dashboard/${userId}/`, { groups }),
+    getAllUsers: () => apiClient.get('/users/control-panel/'),
+    updateUserRole: (userId, role) => apiClient.patch(`/users/control-panel/${userId}/`, { role }),
+    associateUserWithPersonnel: (userId, personnelId) => apiClient.patch(`/users/control-panel/${userId}/`, { personnel_id: personnelId }),
+    createUser: (userData) => apiClient.post('/users/control-panel/', userData),
+    updateUser: (userId, userData) => apiClient.patch(`/users/control-panel/${userId}/`, userData),
+    updateUserGroups: (userId, groups) => apiClient.patch(`/users/control-panel/${userId}/`, { groups }),
     getGroups: () => apiClient.get('/permissions/groups/'),
     getGroupedPermissions: () => apiClient.get('/permissions/permissions/grouped/'),
     getGroupPermissions: (groupId) => apiClient.get(`/permissions/groups/${groupId}/permissions/`),

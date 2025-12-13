@@ -90,11 +90,11 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       subItems: [
         { to: "/projects", text: "项目列表", permission: 'admin' },
         { to: "/documents", text: "文档管理", permission: 'admin' },
-        { to: "/dashboard/compliance", text: "合规问题", permission: 'admin' },
+        { to: "/control-panel/compliance", text: "合规问题", permission: 'admin' },
         { to: "/notifications", icon: BellOutlined, text: "通知中心", permission: 'admin', badgeCount: unreadNotificationCount },
       ]
     },
-    { to: "/dashboard", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
+    { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
     { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
   ];
 
