@@ -167,19 +167,27 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const hasPermission = useCallback((requiredPermission) => {
-    if (!requiredPermission) {
+  const hasPermission = useCallback((requiredPermissions) => {
+    // 1. Superusers have all permissions.
+    if (user?.is_superuser) {
       return true;
     }
-    if (!user || !user.permissions) {
-      return false;
+
+    // 2. If no specific permissions are required, grant access.
+    if (!requiredPermissions || requiredPermissions.length === 0) {
+      return true;
     }
 
-    if (Array.isArray(requiredPermission)) {
-      return requiredPermission.some(permission => user.permissions.includes(permission));
+    // 3. Check if the user has at least one of the required permissions.
+    if (user?.permissions) {
+      const userPermissions = Array.isArray(user.permissions) ? user.permissions : [user.permissions];
+      const required = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
+      
+      return required.some(p => userPermissions.includes(p));
     }
 
-    return user.permissions.includes(requiredPermission);
+    // 4. If no user permissions are found, deny access.
+    return false;
   }, [user]);
 
   const value = {

@@ -195,7 +195,7 @@ import NewPostPage from '../pages/NewPostPage';
   },
   {
     path: "/control-panel",
-    element: <ProtectedRoute pagePath="/control-panel" pageName="管理后台"><AdminLayout /></ProtectedRoute>,
+    element: <ProtectedRoute roles={['admin', 'manager']} pageName="管理后台"><AdminLayout /></ProtectedRoute>,
     children: [
       { index: true, element: <Navigate to="trials" replace /> },
       {

@@ -166,7 +166,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
           {!isCollapsed && (
             <ul className={`submenu ${isSubMenuExpanded ? 'expanded' : ''}`}>
               {item.subItems
-                .filter(subItem => hasPermission(subItem.permission, subItem.to))
+                .filter(subItem => hasPermission(subItem.permission))
                 .map((subItem, subIndex) => {
                 const SubIcon = subItem.icon;
                 return (
@@ -254,7 +254,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         </div>
         <nav className="sidebar-menu">
           <ul>
-            {menuItems.filter(item => hasPermission(item.permission, item.to)).map(renderMenuItem)}
+            {menuItems.filter(item => hasPermission(item.permission)).map(renderMenuItem)}
           </ul>
         </nav>
       </div>

@@ -23,60 +23,43 @@ import {
 } from '@fortawesome/free-solid-svg-icons';
 import ProtectedRoute from '../ProtectedRoute';
 
+const allAdminMenuItems = [
+  { to: "/control-panel/trials", icon: faFlask, text: "试验管理", permission: "trials.view_trial" },
+  { to: "/control-panel/personnel", icon: faUsers, text: "人员管理", permission: "users.view_personnel" },
+  { to: "/control-panel/schedules", icon: faFlask, text: "排班管理", permission: "schedule.view_schedule" },
+  { to: "/control-panel/user-management", icon: faUsers, text: "用户管理", permission: "users.view_customuser" },
+  { to: "/control-panel/permissions", icon: faUserShield, text: "权限管理", permission: "auth.view_group" },
+  { to: "/control-panel/ebook-management", icon: faBook, text: "电子书管理", permission: "documents.view_ebook" },
+  { to: "/control-panel/documents", icon: faFileWord, text: "文档管理", permission: "documents.view_documenttemplate" },
+  { to: "/control-panel/equipment", icon: faFlask, text: "设备管理", permission: "equipment.view_equipment" },
+  { to: "/control-panel/settings", icon: faCog, text: "设置", permission: "config.view_setting" },
+  { to: "/control-panel/announcements", icon: faBullhorn, text: "公告管理", permission: "announcements.view_announcement" },
+  { to: "/control-panel/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: "dify_apps.view_difyapp" },
+  { to: "/control-panel/schedule-settings", icon: faCog, text: "排班设置", permission: "schedule.view_schedulesetting" },
+  { to: "/control-panel/meeting-room-management", icon: faCog, text: "会议室管理", permission: "meetings.view_meetingroom" },
+  { to: "/control-panel/holidays", icon: faCalendarAlt, text: "节假日管理", permission: "holidays.view_holiday" },
+  { to: "/control-panel/news-stats", icon: faNewspaper, text: "新闻统计", permission: "news.view_news" },
+  { to: "/control-panel/news-management", icon: faNewspaper, text: "新闻管理", permission: "news.view_news" }
+];
+
 const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
   const [menuItems, setMenuItems] = useState([]);
-  const { user, isAuthenticated, logout } = useAuth();
+  const { user, isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
 
-  const allAdminMenuItems = [
-    { to: "/control-panel/trials", icon: faFlask, text: "试验管理", path: "/control-panel/trials" },
-    { to: "/control-panel/personnel", icon: faUsers, text: "人员管理", path: "/control-panel/personnel" },
-    { to: "/control-panel/schedules", icon: faFlask, text: "排班管理", path: "/control-panel/schedules" },
-    { to: "/control-panel/user-management", icon: faUsers, text: "用户管理", path: "/control-panel/user-management" },
-    { to: "/control-panel/permissions", icon: faUserShield, text: "权限管理", path: "/control-panel/permissions" },
-    { to: "/control-panel/ebook-management", icon: faBook, text: "电子书管理", path: "/control-panel/ebook-management" },
-    { to: "/control-panel/documents", icon: faFileWord, text: "文档管理", path: "/control-panel/documents" },
-    { to: "/control-panel/equipment", icon: faFlask, text: "设备管理", path: "/control-panel/equipment" },
-    { to: "/control-panel/settings", icon: faCog, text: "设置", path: "/control-panel/settings" },
-    { to: "/control-panel/announcements", icon: faBullhorn, text: "公告管理", path: "/control-panel/announcements" },
-    { to: "/control-panel/dify-app-management", icon: faCog, text: "Dify 应用管理", path: "/control-panel/dify-app-management" },
-    { to: "/control-panel/schedule-settings", icon: faCog, text: "排班设置", path: "/control-panel/schedule-settings" },
-    { to: "/control-panel/meeting-room-management", icon: faCog, text: "会议室管理", path: "/control-panel/meeting-room-management" },
-    { to: "/control-panel/holidays", icon: faCalendarAlt, text: "节假日管理", path: "/control-panel/holidays" },
-    { to: "/control-panel/news-stats", icon: faNewspaper, text: "新闻统计", path: "/control-panel/news-stats" },
-    { to: "/control-panel/news-management", icon: faNewspaper, text: "新闻管理", path: "/control-panel/news-management" }
-  ];
-
   useEffect(() => {
-    const fetchPermissionsAndSetMenu = async () => {
-      if (user?.role === 'admin') {
-        setMenuItems(allAdminMenuItems);
-        return;
-      }
-
-      try {
-        const userPermissions = await permissionsApi.getMyPermissions();
-        const allowedPaths = userPermissions.map(p => p.path);
-        const filteredMenuItems = allAdminMenuItems.filter(item => allowedPaths.includes(item.path));
-        setMenuItems(filteredMenuItems);
-      } catch (error) {
-        console.error("Failed to fetch user permissions:", error);
-        setMenuItems([]); // Or handle error appropriately
-      }
-    };
-
-    if (isAuthenticated) {
-      fetchPermissionsAndSetMenu();
+    if (isAuthenticated && user) {
+      const filteredMenuItems = allAdminMenuItems.filter(item =>
+        item.permission ? hasPermission(item.permission) : true
+      );
+      setMenuItems(filteredMenuItems);
+    } else {
+      setMenuItems([]);
     }
-  }, [isAuthenticated, user]);
+  }, [isAuthenticated, user, hasPermission]);
 
-  const canAccessAdmin = isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
-
-  if (!canAccessAdmin) {
-    return <ProtectedRoute roles={['admin', 'manager']}><div></div></ProtectedRoute>;
-  }
 
   return (
     <div className="admin-layout">
@@ -92,7 +75,7 @@ const AdminLayout = () => {
         </div>
         <nav className="admin-sidebar-menu">
           <ul>
-            {menuItems.map((item, index) => (
+            {(menuItems || []).map((item, index) => (
               <li key={index}>
                 {item.children ? (
                   <div

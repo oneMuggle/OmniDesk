@@ -2,7 +2,7 @@ import React from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, roles, pagePath }) => {
+const ProtectedRoute = ({ children, permissions }) => {
   const { isAuthenticated, isInitializing, hasPermission } = useAuth();
 
   if (isInitializing) {
@@ -14,7 +14,7 @@ const ProtectedRoute = ({ children, roles, pagePath }) => {
   }
 
   // Use the unified hasPermission function for all checks
-  if (!hasPermission(roles, pagePath)) {
+  if (!hasPermission(permissions)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
