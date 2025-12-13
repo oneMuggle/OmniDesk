@@ -43,7 +43,7 @@ const PersonnelManagementPage = () => {
       title: '联系电话',
       dataIndex: 'phone_numbers',
       key: 'phone_numbers',
-      render: (phone_numbers) => phone_numbers.map(p => p.number).join(', '),
+      render: (phone_numbers) => (phone_numbers || []).map(p => p.number).join(', '),
     },
     {
       title: '操作',

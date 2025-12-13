@@ -62,8 +62,8 @@ const EBookManagementPage = () => {
   };
 
   const handleSave = (updatedBook) => {
-    setBooks(books.map(book => (book.id === updatedBook.id ? updatedBook : book)));
-    setFilteredBooks(books.map(book => (book.id === updatedBook.id ? updatedBook : book)));
+    setBooks((books || []).map(book => (book.id === updatedBook.id ? updatedBook : book)));
+    setFilteredBooks((filteredBooks || []).map(book => (book.id === updatedBook.id ? updatedBook : book)));
     setEditingBook(null);
     message.success('电子书保存成功');
   };
@@ -91,7 +91,7 @@ const EBookManagementPage = () => {
         </Card>
         <Card style={{ marginTop: '24px' }}>
           <BookList
-            books={filteredBooks}
+            books={filteredBooks || []}
             onEdit={handleEdit}
             onExport={handleExport}
             loading={isLoading}

@@ -53,7 +53,7 @@ const GroupPermissionManager = ({ groups, fetchGroups }) => {
             const formattedTreeData = Object.keys(data).map(groupName => ({
                 title: groupName,
                 key: groupName,
-                children: data[groupName].map(perm => ({
+                children: (data[groupName] || []).map(perm => ({
                     title: perm.name,
                     key: perm.id,
                 })),
@@ -313,7 +313,7 @@ const UserManagementPage = () => {
     const fetchPersonnel = async () => {
         try {
             const response = await getAllPersonnel();
-            setPersonnel(response.results);
+            setPersonnel(response.results || []);
         } catch (error) {
             message.error('获取人员数据失败');
         }
