@@ -329,16 +329,6 @@ const UserManagementPage = () => {
         fetchData();
     }, []);
 
-    const handleRoleChange = async (userId, newRole) => {
-        try {
-            await userManagementApi.updateUserRole(userId, newRole);
-            message.success('用户角色更新成功');
-            fetchUsers();
-        } catch (error) {
-            message.error('更新用户角色失败');
-        }
-    };
-
     const handleGroupsChange = async (userId, groupIds) => {
         try {
             await userManagementApi.updateUserGroups(userId, groupIds);
@@ -394,23 +384,6 @@ const UserManagementPage = () => {
                             {p.name}
                         </Option>
                     ))}
-                </Select>
-            ),
-        },
-        {
-            title: '角色',
-            dataIndex: 'role',
-            key: 'role',
-            render: (text, record) => (
-                <Select
-                    value={text}
-                    style={{ width: 120 }}
-                    onChange={value => handleRoleChange(record.id, value)}
-                    disabled={currentUser.id === record.id}
-                >
-                    <Option value="admin">管理员</Option>
-                    <Option value="manager">经理</Option>
-                    <Option value="user">普通用户</Option>
                 </Select>
             ),
         },

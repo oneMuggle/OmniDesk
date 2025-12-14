@@ -2,7 +2,6 @@ import apiClient from './apiClient';
 
 const userManagementApi = {
     getAllUsers: () => apiClient.get('/users/control-panel/'),
-    updateUserRole: (userId, role) => apiClient.patch(`/users/control-panel/${userId}/`, { role }),
     associateUserWithPersonnel: (userId, personnelId) => apiClient.patch(`/users/control-panel/${userId}/`, { personnel_id: personnelId }),
     createUser: (userData) => apiClient.post('/users/control-panel/', userData),
     updateUser: (userId, userData) => apiClient.patch(`/users/control-panel/${userId}/`, userData),
