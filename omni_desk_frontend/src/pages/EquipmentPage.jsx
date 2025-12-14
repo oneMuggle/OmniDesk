@@ -14,18 +14,18 @@ const EquipmentPage = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
 
-  useEffect(() => {
-    loadEquipment();
-  }, []);
-
-  const loadEquipment = async () => {
+  const loadEquipment = React.useCallback(async () => {
     try {
       const response = await getEquipment();
       setEquipmentList(response.data);
     } catch (error) {
       message.error(error.message || '获取设备列表失败');
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadEquipment();
+  }, [loadEquipment]);
 
   const handleSubmit = async (values) => {
     try {

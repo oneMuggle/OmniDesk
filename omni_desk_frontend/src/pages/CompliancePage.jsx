@@ -3,74 +3,63 @@ import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow
 import complianceApi from '../api/compliance'; // Assuming you'll create this API service
 import projectsApi from '../api/projects'; // Import projectsApi
 
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 const CompliancePage = () => {
     const [complianceIssues, setComplianceIssues] = useState([]);
     const [projects, setProjects] = useState([]);
-    const [selectedProject, setSelectedProject] = useState('');
     const location = useLocation();
+    const navigate = useNavigate();
 
-    const fetchComplianceIssues = async (params) => {
-        try {
-            const response = await complianceApi.getAllComplianceIssues(params);
-            setComplianceIssues(response.data.results || []);
-        } catch (error) {
-            console.error('Error fetching compliance issues:', error);
-        }
-    };
-
-    const fetchProjects = async () => {
-        try {
-            const response = await projectsApi.getAllProjects();
-            setProjects(response.data.results || []);
-        } catch (error) {
-            console.error('Error fetching projects:', error);
-        }
-    };
+    // Derive selectedProject from URL's query parameters
+    const queryParams = new URLSearchParams(location.search);
+    const selectedProject = queryParams.get('project_id') || '';
 
     useEffect(() => {
+        const fetchProjects = async () => {
+            try {
+                const response = await projectsApi.getAllProjects();
+                setProjects(response.data.results || []);
+            } catch (error) {
+                console.error('Error fetching projects:', error);
+            }
+        };
         fetchProjects();
     }, []);
 
     useEffect(() => {
-        const queryParams = new URLSearchParams(location.search);
-        const projectId = queryParams.get('project_id');
-        const documentTemplateId = queryParams.get('document_template_id');
+        const fetchComplianceIssues = async () => {
+            const params = {};
+            const projectId = queryParams.get('project_id');
+            const documentTemplateId = queryParams.get('document_template_id');
 
-        const params = {};
-        if (projectId) {
-            params.project = projectId;
-            // 如果URL中有project_id，则更新下拉框的选中状态
-            // 避免在handleProjectChange中再次触发获取
-            if (selectedProject !== projectId) {
-                setSelectedProject(projectId);
+            if (projectId) {
+                params.project = projectId;
             }
-        }
-        if (documentTemplateId) {
-            params.document_template = documentTemplateId;
-        }
-
-        // 如果是通过手动选择下拉框来筛选
-        if (selectedProject && !projectId) {
-            params.project = selectedProject;
-        }
+            if (documentTemplateId) {
+                params.document_template = documentTemplateId;
+            }
+            
+            try {
+                const response = await complianceApi.getAllComplianceIssues(params);
+                setComplianceIssues(response.data.results || []);
+            } catch (error) {
+                console.error('Error fetching compliance issues:', error);
+            }
+        };
         
-        fetchComplianceIssues(params);
+        fetchComplianceIssues();
 
-    }, [location.search, selectedProject]);
+    }, [location.search]);
 
 
     const handleProjectChange = (event) => {
         const projectId = event.target.value;
-        setSelectedProject(projectId);
-        // 清除URL中的document_template_id，因为我们现在是按项目筛选
-        const queryParams = new URLSearchParams();
+        const newQueryParams = new URLSearchParams();
         if (projectId) {
-            queryParams.set('project_id', projectId);
+            newQueryParams.set('project_id', projectId);
         }
-        // This part is tricky with react-router v6, usually we would use navigate
-        // For simplicity, we rely on the useEffect hook reacting to selectedProject change
+        navigate({ search: newQueryParams.toString() });
     };
 
     const getSeverityColor = (severity) => {

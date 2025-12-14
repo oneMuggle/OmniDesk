@@ -45,19 +45,16 @@ const allAdminMenuItems = [
 const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
-  const [menuItems, setMenuItems] = useState([]);
   const { user, isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
 
-  useEffect(() => {
+  const menuItems = React.useMemo(() => {
     if (isAuthenticated && user) {
-      const filteredMenuItems = allAdminMenuItems.filter(item =>
+      return allAdminMenuItems.filter(item =>
         item.permission ? hasPermission(item.permission) : true
       );
-      setMenuItems(filteredMenuItems);
-    } else {
-      setMenuItems([]);
     }
+    return [];
   }, [isAuthenticated, user, hasPermission]);
 
 

@@ -5,19 +5,28 @@ import moment from 'moment';
 import StrictModeDroppable from './StrictModeDroppable';
 
 const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = false }) => {
-  const getWeekRowHeights = () => {
-    if (!calendarRef.current) return {};
-    const calendarEl = calendarRef.current.getApi().el;
-    const weekElements = calendarEl.querySelectorAll('.fc-daygrid-week');
-    const heights = {};
-    weekElements.forEach((weekEl, index) => {
-      const weekNumber = moment(weekEl.dataset.date).week();
-      heights[weekNumber] = weekEl.offsetHeight;
-    });
-    return heights;
-  };
+  const [weekRowHeights, setWeekRowHeights] = React.useState({});
 
-  const weekRowHeights = getWeekRowHeights();
+  React.useEffect(() => {
+    const calculateHeights = () => {
+      if (!calendarRef.current) return;
+      const calendarEl = calendarRef.current.getApi().el;
+      const weekElements = calendarEl.querySelectorAll('.fc-daygrid-week');
+      const heights = {};
+      weekElements.forEach((weekEl) => {
+        const weekNumber = moment(weekEl.dataset.date).week();
+        heights[weekNumber] = weekEl.offsetHeight;
+      });
+      setWeekRowHeights(heights);
+    };
+
+    // Calculate heights on mount and when weeklyLeaders changes (as it might affect the calendar layout)
+    calculateHeights();
+
+    // Optional: Recalculate on window resize if the calendar is responsive
+    window.addEventListener('resize', calculateHeights);
+    return () => window.removeEventListener('resize', calculateHeights);
+  }, [calendarRef, weeklyLeaders]);
 
   return (
     <Card title="本月值班领导" size="small" style={{ width: 180, marginLeft: 10 }} bodyStyle={{ padding: '4px' }}>

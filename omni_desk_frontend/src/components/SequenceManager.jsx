@@ -221,11 +221,7 @@ const SequenceManager = () => {
   const [isEditingLeader, setIsEditingLeader] = useState(false);
   const [selectedPersonnelInModal, setSelectedPersonnelInModal] = useState([]);
 
-  useEffect(() => {
-    fetchData();
-  }, []);
-
-  const fetchData = async () => {
+  const fetchData = React.useCallback(async () => {
     try {
       const [personnelRes, leaderRes, personnelListRes, positionsRes] = await Promise.all([
         getPersonnelSequences(),
@@ -241,7 +237,11 @@ const SequenceManager = () => {
       message.error("数据加载失败，请刷新页面重试。");
       console.error("Failed to fetch data", error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleAdd = (isLeader) => {
     setEditingSequence(null);

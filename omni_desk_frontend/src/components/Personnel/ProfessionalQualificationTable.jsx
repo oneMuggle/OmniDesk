@@ -8,20 +8,19 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
   const [editingQualification, setEditingQualification] = useState(null);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    if (personnelId) {
-      fetchQualifications();
-    }
-  }, [personnelId]);
-
-  const fetchQualifications = async () => {
+  const fetchQualifications = React.useCallback(async () => {
+    if (!personnelId) return;
     try {
       const response = await getQualifications(personnelId);
       setQualifications(response.data);
     } catch (error) {
       console.error('Failed to fetch qualifications', error);
     }
-  };
+  }, [personnelId]);
+
+  useEffect(() => {
+    fetchQualifications();
+  }, [fetchQualifications]);
 
   const handleOk = async () => {
     try {

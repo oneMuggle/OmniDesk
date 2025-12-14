@@ -18,7 +18,6 @@ const ShiftScheduleContainer = () => {
   const [scheduleModalMode, setScheduleModalMode] = useState('edit');
   const calendarRef = useRef(null);
   const [currentView, setCurrentView] = useState('dayGridMonth');
-  const [weeklyLeaders, setWeeklyLeaders] = useState([]);
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
 
   const {
@@ -27,30 +26,9 @@ const ShiftScheduleContainer = () => {
     queryClient: scheduleQueryClient
   } = useScheduleData();
 
-  const handleScheduleDateClick = (arg) => {
-    console.log("Date clicked:", arg.dateStr);
-  };
-
-  const updateScheduleEvent = async (scheduleId, newDate) => {
-    const targetSchedule = schedules.find(s => s.date === newDate);
-    if (targetSchedule) {
-      await scheduleApi.swapScheduleDates(scheduleId, targetSchedule.id);
-    } else {
-      await scheduleApi.updateScheduleDate(scheduleId, newDate);
-    }
-  };
-
-  const { handleEventDrop } = useScheduleEventDrop(
-    updateScheduleEvent,
-    scheduleQueryClient,
-    () => { /* onDropSuccess callback */ },
-    (error) => { console.error('排班事件拖放失败:', error); }
-  );
-
-  useEffect(() => {
+  const weeklyLeaders = React.useMemo(() => {
     if (!calendarViewInfo || !schedules || schedules.length === 0) {
-      setWeeklyLeaders([]);
-      return;
+      return [];
     }
 
     const start = moment(calendarViewInfo.start);
@@ -76,8 +54,28 @@ const ShiftScheduleContainer = () => {
       }
     });
 
-    setWeeklyLeaders(Object.values(leadersByWeek).sort((a, b) => a.id - b.id));
+    return Object.values(leadersByWeek).sort((a, b) => a.id - b.id);
   }, [schedules, calendarViewInfo]);
+
+  const handleScheduleDateClick = (arg) => {
+    console.log("Date clicked:", arg.dateStr);
+  };
+
+  const updateScheduleEvent = async (scheduleId, newDate) => {
+    const targetSchedule = schedules.find(s => s.date === newDate);
+    if (targetSchedule) {
+      await scheduleApi.swapScheduleDates(scheduleId, targetSchedule.id);
+    } else {
+      await scheduleApi.updateScheduleDate(scheduleId, newDate);
+    }
+  };
+
+  const { handleEventDrop } = useScheduleEventDrop(
+    updateScheduleEvent,
+    scheduleQueryClient,
+    () => { /* onDropSuccess callback */ },
+    (error) => { console.error('排班事件拖放失败:', error); }
+  );
 
   const handleDatesSet = (viewInfo) => {
     setCalendarViewInfo(viewInfo);

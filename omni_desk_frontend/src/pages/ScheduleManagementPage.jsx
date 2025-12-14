@@ -19,10 +19,6 @@ const { Option } = Select;
 
 const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, positions }) => {
   const [form] = Form.useForm();
-  const isPersonFilterInitialMount = useRef(true);
-  const isLeaderFilterInitialMount = useRef(true);
-  const [filteredDutyPersonList, setFilteredDutyPersonList] = useState(personnelList);
-  const [filteredDutyLeaderList, setFilteredDutyLeaderList] = useState(personnelList);
   const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
   const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
 
@@ -33,31 +29,28 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
-      setFilteredDutyPersonList(personnelList);
-      setFilteredDutyLeaderList(personnelList);
       setSelectedPersonPositionId(null);
       setSelectedLeaderPositionId(null);
     }
-  }, [open, initialData, personnelList, form]);
+  }, [open, initialData, form]);
 
+  const filteredDutyPersonList = useMemo(() => {
+    if (!selectedPersonPositionId) return personnelList;
+    return personnelList.filter(p => p.position === selectedPersonPositionId);
+  }, [personnelList, selectedPersonPositionId]);
+
+  const filteredDutyLeaderList = useMemo(() => {
+    if (!selectedLeaderPositionId) return personnelList;
+    return personnelList.filter(p => p.position === selectedLeaderPositionId);
+  }, [personnelList, selectedLeaderPositionId]);
 
   useEffect(() => {
-    if (selectedPersonPositionId) {
-      setFilteredDutyPersonList(personnelList.filter(p => p.position === selectedPersonPositionId));
-      form.setFieldsValue({ duty_person: null });
-    } else {
-      setFilteredDutyPersonList(personnelList);
-    }
-  }, [selectedPersonPositionId, personnelList, form]);
+    form.setFieldsValue({ duty_person: null });
+  }, [selectedPersonPositionId, form]);
 
   useEffect(() => {
-    if (selectedLeaderPositionId) {
-      setFilteredDutyLeaderList(personnelList.filter(p => p.position === selectedLeaderPositionId));
-      form.setFieldsValue({ duty_leader: null });
-    } else {
-      setFilteredDutyLeaderList(personnelList);
-    }
-  }, [selectedLeaderPositionId, personnelList, form]);
+    form.setFieldsValue({ duty_leader: null });
+  }, [selectedLeaderPositionId, form]);
 
   const handleOk = () => {
     form.validateFields()

@@ -19,6 +19,16 @@ const SystemSettingsPage = () => {
   const [isRagflowModalVisible, setIsRagflowModalVisible] = useState(false); // 新增状态
   const [ragflowForm] = Form.useForm(); // 为 Ragflow 配置管理创建新的 Form 实例
 
+  const loadConfigs = React.useCallback(async () => {
+    try {
+      const response = await getOllamaConfigs();
+      setConfigs(response.data.results || []);
+    } catch (error) {
+      message.error('加载配置失败。');
+      console.error("加载 Ollama 配置失败:", error);
+    }
+  }, []);
+
   useEffect(() => {
     loadConfigs();
     // 加载 Ragflow 配置
@@ -32,17 +42,7 @@ const SystemSettingsPage = () => {
       }
     };
     fetchRagflowConfigs();
-  }, []);
-
-  const loadConfigs = async () => {
-    try {
-      const response = await getOllamaConfigs();
-      setConfigs(response.data.results || []);
-    } catch (error) {
-      message.error('加载配置失败。');
-      console.error("加载 Ollama 配置失败:", error);
-    }
-  };
+  }, [loadConfigs]);
 
   const handleAddNew = () => {
     setEditingConfig({

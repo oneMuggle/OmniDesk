@@ -1,4 +1,5 @@
 import React from 'react';
+import apiClient from '../../api/apiClient';
 
 const ProfileSidebar = ({ activeSection, setActiveSection, userData }) => {
   const defaultAvatar = '/default-avatar.svg'; // Path to the new SVG in the public folder
@@ -7,11 +8,11 @@ const ProfileSidebar = ({ activeSection, setActiveSection, userData }) => {
     if (!avatarPath) {
       return defaultAvatar;
     }
-    const baseUrl = process.env.NODE_ENV === 'production' 
-      ? '' 
-      : (process.env.REACT_APP_API_BASE_URL || 'http://localhost:8000');
+    // apiClient.defaults.baseURL is 'http://localhost:8000/api' or '/api' in prod.
+    // We need the root of the backend URL for media files, which doesn't include '/api'.
+    const backendRoot = apiClient.defaults.baseURL.replace(/\/api$/, '');
       
-    return `${baseUrl}${avatarPath}`;
+    return `${backendRoot}${avatarPath}`;
   };
 
   return (

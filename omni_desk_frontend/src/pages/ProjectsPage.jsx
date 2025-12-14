@@ -19,18 +19,18 @@ const ProjectsPage = () => {
     });
     const navigate = useNavigate(); // 初始化 useNavigate
 
-    useEffect(() => {
-        fetchProjects();
-    }, []);
-
-    const fetchProjects = async () => {
+    const fetchProjects = React.useCallback(async () => {
         try {
             const response = await projectsApi.getAllProjects();
             setProjects(response.data.results || []); // Ensure projects is an array
         } catch (error) {
             console.error('Error fetching projects:', error);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchProjects();
+    }, [fetchProjects]);
 
     const handleOpenDialog = (project = null) => {
         setCurrentProject(project);

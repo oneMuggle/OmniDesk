@@ -3,8 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { getPersonnelDetails } from '../api/personnelApi';
 import { Descriptions, Table, Spin, message, Button, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import ProfessionalQualificationTable from '../components/personnel/ProfessionalQualificationTable';
-import FamilyMemberTable from '../components/personnel/FamilyMemberTable';
+import { ProfessionalQualificationTable, FamilyMemberTable } from '../components/Personnel';
 
 const PersonnelDetailPage = () => {
     const { id } = useParams();

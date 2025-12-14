@@ -8,11 +8,7 @@ const SensorManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    fetchSensors();
-  }, []);
-
-  const fetchSensors = async () => {
+  const fetchSensors = React.useCallback(async () => {
     try {
       const response = await getSensors();
       if (response.data && Array.isArray(response.data.results)) {
@@ -26,7 +22,11 @@ const SensorManagementPage = () => {
       message.error('获取传感器列表失败');
       console.error('获取传感器列表失败:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    fetchSensors();
+  }, [fetchSensors]);
 
   const showAddModal = () => {
     setIsModalVisible(true);

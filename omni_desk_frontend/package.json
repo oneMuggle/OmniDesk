@@ -80,7 +80,7 @@
     "@babel/plugin-transform-modules-commonjs": "^7.23.3",
     "babel-jest": "^29.7.0",
     "eslint": "latest",
-    "eslint-plugin-jest": "latest",
+    "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-react": "latest",
     "eslint-plugin-react-hooks": "latest",
     "eslint-plugin-testing-library": "latest"

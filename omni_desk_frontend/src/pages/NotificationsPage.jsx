@@ -8,11 +8,7 @@ const NotificationsPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        fetchNotifications();
-    }, []);
-
-    const fetchNotifications = async () => {
+    const fetchNotifications = React.useCallback(async () => {
         try {
             setLoading(true);
             const response = await complianceApi.getAllComplianceIssues();
@@ -23,7 +19,11 @@ const NotificationsPage = () => {
             console.error('Error fetching notifications:', err);
             setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchNotifications();
+    }, [fetchNotifications]);
 
     if (loading) {
         return <Container><Typography>正在加载通知...</Typography></Container>;

@@ -8,20 +8,19 @@ const FamilyMemberTable = ({ personnelId }) => {
   const [editingFamilyMember, setEditingFamilyMember] = useState(null);
   const [form] = Form.useForm();
 
-  useEffect(() => {
-    if (personnelId) {
-      fetchFamilyMembers();
-    }
-  }, [personnelId]);
-
-  const fetchFamilyMembers = async () => {
+  const fetchFamilyMembers = React.useCallback(async () => {
+    if (!personnelId) return;
     try {
       const response = await getFamilyMembers(personnelId);
       setFamilyMembers(response.data);
     } catch (error) {
       console.error('Failed to fetch family members', error);
     }
-  };
+  }, [personnelId]);
+
+  useEffect(() => {
+    fetchFamilyMembers();
+  }, [fetchFamilyMembers]);
 
   const handleOk = async () => {
     try {
