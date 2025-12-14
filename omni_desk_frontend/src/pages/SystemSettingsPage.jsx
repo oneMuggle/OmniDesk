@@ -30,6 +30,7 @@ const SystemSettingsPage = () => {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadConfigs();
     // 加载 Ragflow 配置
     const fetchRagflowConfigs = async () => {

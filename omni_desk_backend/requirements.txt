@@ -73,6 +73,5 @@ coverage
 
 pytest-django
 
-rest_framework_nested
 
 pytest-cov

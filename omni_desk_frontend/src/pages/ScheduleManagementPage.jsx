@@ -29,6 +29,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
       });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedPersonPositionId(null);
       setSelectedLeaderPositionId(null);
     }
