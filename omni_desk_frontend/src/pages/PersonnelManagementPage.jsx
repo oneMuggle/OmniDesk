@@ -33,7 +33,12 @@ const PersonnelManagementPage = () => {
 
   const columns = [
     { title: '姓名', dataIndex: 'name', key: 'name' },
-    { title: '职位', dataIndex: 'position', key: 'position' },
+    {
+      title: '职位',
+      dataIndex: 'position',
+      key: 'position',
+      render: (position) => (position ? position.name : '未分配'),
+    },
     { title: '联系电话', dataIndex: 'phone_number', key: 'phone_number' },
     { title: '部门', dataIndex: 'department', key: 'department' },
     { title: '员工状态', dataIndex: 'status', key: 'status' },

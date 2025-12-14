@@ -25,7 +25,13 @@ class Personnel(models.Model):
     # Employment Info
     hire_date = models.DateField(verbose_name="入职日期", null=True, blank=True)
     department = models.CharField(max_length=100, verbose_name="部门", blank=True)
-    position = models.CharField(max_length=100, verbose_name="职位", blank=True)
+    position = models.ForeignKey(
+        Position,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name="职位"
+    )
     
     STATUS_CHOICES = [
         ('active', '在职'),

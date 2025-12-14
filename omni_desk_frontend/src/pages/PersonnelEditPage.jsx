@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space, Spin } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import moment from 'moment';
-import { getPersonnelDetails, updatePersonnel } from '../api/personnelApi';
+import { getPersonnelDetails, updatePersonnel, getAllPositions } from '../api/personnelApi';
 
 const { Option } = Select;
 
@@ -13,15 +13,23 @@ const PersonnelEditPage = () => {
     const navigate = useNavigate();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [positions, setPositions] = useState([]);
 
     useEffect(() => {
-        const fetchDetails = async () => {
+        const fetchDetailsAndPositions = async () => {
             try {
                 setLoading(true);
-                const response = await getPersonnelDetails(id);
-                const record = response.data;
+                const [detailsResponse, positionsResponse] = await Promise.all([
+                    getPersonnelDetails(id),
+                    getAllPositions()
+                ]);
+                
+                const record = detailsResponse.data;
+                setPositions(positionsResponse || []);
+
                 form.setFieldsValue({
                     ...record,
+                    position: record.position ? record.position.id : null,
                     date_of_birth: record.date_of_birth ? moment(record.date_of_birth) : null,
                     hire_date: record.hire_date ? moment(record.hire_date) : null,
                     contracts: record.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
@@ -29,12 +37,12 @@ const PersonnelEditPage = () => {
                     work_experiences: record.work_experiences?.map(w => ({ ...w, start_date: moment(w.start_date), end_date: moment(w.end_date) })) || [],
                 });
             } catch (error) {
-                message.error('获取人员详细信息失败');
+                message.error('获取页面数据失败');
             } finally {
                 setLoading(false);
             }
         };
-        fetchDetails();
+        fetchDetailsAndPositions();
     }, [id, form]);
 
     const handleSubmit = async () => {
@@ -105,7 +113,15 @@ const PersonnelEditPage = () => {
                         <Col span={8}><Form.Item label="联系电话" name="phone_number"><Input /></Form.Item></Col>
                         <Col span={16}><Form.Item label="家庭住址" name="address"><Input /></Form.Item></Col>
                         <Col span={8}><Form.Item label="部门" name="department"><Input /></Form.Item></Col>
-                        <Col span={8}><Form.Item label="职位" name="position"><Input /></Form.Item></Col>
+                        <Col span={8}>
+                            <Form.Item label="职位" name="position">
+                                <Select placeholder="请选择职位">
+                                    {positions.map(pos => (
+                                        <Option key={pos.id} value={pos.id}>{pos.name}</Option>
+                                    ))}
+                                </Select>
+                            </Form.Item>
+                        </Col>
                         <Col span={8}><Form.Item label="入职日期" name="hire_date"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
                         <Col span={8}><Form.Item label="员工状态" name="status" initialValue="active">
                             <Select>

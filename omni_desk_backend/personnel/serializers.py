@@ -42,6 +42,12 @@ class PersonnelSerializer(serializers.ModelSerializer):
             'address', 'hire_date', 'department', 'position', 'status'
         ]
 
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.position:
+            representation['position'] = PositionSerializer(instance.position).data
+        return representation
+
 class PersonnelDetailSerializer(serializers.ModelSerializer):
     """
     用于人员详情的序列化器 (包含所有关联信息)
@@ -59,3 +65,9 @@ class PersonnelDetailSerializer(serializers.ModelSerializer):
             'address', 'hire_date', 'department', 'position', 'status',
             'contracts', 'educations', 'work_experiences', 'qualifications', 'family_members'
         ]
+    
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        if instance.position:
+            representation['position'] = PositionSerializer(instance.position).data
+        return representation

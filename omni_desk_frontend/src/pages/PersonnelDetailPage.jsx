@@ -81,7 +81,7 @@ const PersonnelDetailPage = () => {
                     <Descriptions.Item label="联系电话">{personnel.phone_number}</Descriptions.Item>
                     <Descriptions.Item label="家庭住址" span={2}>{personnel.address}</Descriptions.Item>
                     <Descriptions.Item label="部门">{personnel.department}</Descriptions.Item>
-                    <Descriptions.Item label="职位">{personnel.position}</Descriptions.Item>
+                    <Descriptions.Item label="职位">{personnel.position ? personnel.position.name : '未分配'}</Descriptions.Item>
                     <Descriptions.Item label="入职日期">{personnel.hire_date}</Descriptions.Item>
                     <Descriptions.Item label="员工状态">{personnel.status}</Descriptions.Item>
                 </Descriptions>

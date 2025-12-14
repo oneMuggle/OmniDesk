@@ -29,9 +29,14 @@ export const deletePersonnel = (id) => {
   return apiClient.delete(url);
 };
 
-export const getPositions = async () => {
-  const response = await apiClient.get('/events/positions/');
+export const getPositions = async (params) => {
+  const response = await apiClient.get('/personnel/positions/', { params });
   return response.data;
+};
+
+export const getAllPositions = async () => {
+  const response = await apiClient.get('/personnel/positions/', { params: { page_size: 1000 } });
+  return response.data.results;
 };
 
 export const createPosition = (data) => {
