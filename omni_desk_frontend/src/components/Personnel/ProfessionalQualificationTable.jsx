@@ -1,26 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { getQualifications, createQualification, updateQualification, deleteQualification } from '../../api/personnelApi';
+import React, { useState } from 'react';
+import { createQualification, updateQualification, deleteQualification } from '../../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
 
-const ProfessionalQualificationTable = ({ personnelId }) => {
-  const [qualifications, setQualifications] = useState([]);
+const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQualifications }) => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingQualification, setEditingQualification] = useState(null);
   const [form] = Form.useForm();
-
-  const fetchQualifications = React.useCallback(async () => {
-    if (!personnelId) return;
-    try {
-      const response = await getQualifications(personnelId);
-      setQualifications(response.data);
-    } catch (error) {
-      console.error('Failed to fetch qualifications', error);
-    }
-  }, [personnelId]);
-
-  useEffect(() => {
-    fetchQualifications();
-  }, [fetchQualifications]);
 
   const handleOk = async () => {
     try {
@@ -68,7 +53,7 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
       <Button type="primary" onClick={() => { setEditingQualification(null); setIsModalVisible(true); form.resetFields(); }} style={{ marginBottom: 16 }}>
         添加职业资质
       </Button>
-      <Table dataSource={qualifications} columns={columns} rowKey="id" />
+      <Table dataSource={qualifications || []} columns={columns} rowKey="id" />
       <Modal
         title={editingQualification ? '编辑职业资质' : '添加职业资质'}
         visible={isModalVisible}

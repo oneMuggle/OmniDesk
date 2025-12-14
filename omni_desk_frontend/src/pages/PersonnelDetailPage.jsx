@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPersonnelDetails } from '../api/personnelApi';
+import { getPersonnelDetails, getQualifications, getFamilyMembers } from '../api/personnelApi';
 import { Descriptions, Table, Spin, message, Button, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { ProfessionalQualificationTable, FamilyMemberTable } from '../components/Personnel';
@@ -8,14 +8,22 @@ import { ProfessionalQualificationTable, FamilyMemberTable } from '../components
 const PersonnelDetailPage = () => {
     const { id } = useParams();
     const [personnel, setPersonnel] = useState(null);
+    const [qualifications, setQualifications] = useState([]);
+    const [familyMembers, setFamilyMembers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchDetails = async () => {
             try {
                 setLoading(true);
-                const response = await getPersonnelDetails(id);
-                setPersonnel(response.data);
+                const [personnelRes, qualificationsRes, familyMembersRes] = await Promise.all([
+                    getPersonnelDetails(id),
+                    getQualifications(id),
+                    getFamilyMembers(id)
+                ]);
+                setPersonnel(personnelRes.data);
+                setQualifications(qualificationsRes.data.results || []);
+                setFamilyMembers(familyMembersRes.data.results || []);
             } catch (error) {
                 message.error('获取人员详细信息失败');
             } finally {
@@ -79,19 +87,19 @@ const PersonnelDetailPage = () => {
                 </Descriptions>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">合同信息</h2>
-                <Table dataSource={personnel.contracts} columns={contractColumns} rowKey="id" pagination={false} bordered />
+                <Table dataSource={personnel.contracts || []} columns={contractColumns} rowKey="id" pagination={false} bordered />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">教育背景</h2>
-                <Table dataSource={personnel.educations} columns={educationColumns} rowKey="id" pagination={false} bordered />
+                <Table dataSource={personnel.educations || []} columns={educationColumns} rowKey="id" pagination={false} bordered />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">工作经历</h2>
-                <Table dataSource={personnel.work_experiences} columns={workExperienceColumns} rowKey="id" pagination={false} bordered />
+                <Table dataSource={personnel.work_experiences || []} columns={workExperienceColumns} rowKey="id" pagination={false} bordered />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
-                <ProfessionalQualificationTable personnelId={id} />
+                <ProfessionalQualificationTable qualifications={qualifications} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
-                <FamilyMemberTable personnelId={id} />
+                <FamilyMemberTable familyMembers={familyMembers} />
             </Card>
         </div>
     );
