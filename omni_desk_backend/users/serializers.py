@@ -7,8 +7,27 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from personnel.models import Personnel, Position
 from personnel.serializers import PersonnelSerializer
 from .models import PhoneNumber
+from permissions.models import GroupPagePermission
 
 CustomUser = get_user_model()
+
+def get_user_permissions(user):
+    """
+    获取用户的所有权限，包括标准的Django权限和自定义页面权限。
+    """
+    permissions = set(user.get_all_permissions())
+    if user.is_staff or user.is_superuser:
+        permissions.add('admin')
+    
+    # 获取用户通过组获得的页面路由权限
+    user_groups = user.groups.all()
+    page_permissions = GroupPagePermission.objects.filter(group__in=user_groups).select_related('page').values_list('page__path', flat=True)
+    permissions.update(page_permissions)
+
+    if user.groups.filter(name='manager').exists():
+        permissions.add('manager')
+        
+    return list(permissions)
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
     class Meta:
@@ -122,12 +141,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         extra_kwargs = {}
 
     def get_permissions(self, obj):
-        permissions = set(obj.get_all_permissions())
-        if obj.is_staff or obj.is_superuser:
-            permissions.add('admin')
-        if obj.groups.filter(name='manager').exists():
-            permissions.add('manager')
-        return list(permissions)
+        return get_user_permissions(obj)
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -233,12 +247,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         # Dynamically get all user permissions and add them to the response.
-        permissions = set(self.user.get_all_permissions())
-        if self.user.is_staff or self.user.is_superuser:
-            permissions.add('admin')
-        if self.user.groups.filter(name='manager').exists():
-            permissions.add('manager')
-        data['permissions'] = list(permissions)
+        data['permissions'] = get_user_permissions(self.user)
         return data
 
     @classmethod
@@ -246,12 +255,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         token = super().get_token(user)
         token['username'] = user.username
         # Add dynamic permissions and roles to the JWT token payload.
-        permissions = set(user.get_all_permissions())
-        if user.is_staff or user.is_superuser:
-            permissions.add('admin')
-        if user.groups.filter(name='manager').exists():
-            permissions.add('manager')
-        token['permissions'] = list(permissions)
+        token['permissions'] = get_user_permissions(user)
         return token
 
 class ChangePasswordSerializer(serializers.Serializer):
