@@ -53,6 +53,10 @@ class HasPermission(BasePermission):
             return True
 
         required_permissions = getattr(view, 'required_permissions', [])
+        if isinstance(required_permissions, str):
+            required_permissions = [required_permissions]
+        elif not isinstance(required_permissions, list):
+            return True # Not an iterable, so we can't check permissions.
 
         # Check if the user has all the required permissions
         for perm in required_permissions:

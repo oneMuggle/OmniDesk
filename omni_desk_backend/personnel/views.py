@@ -1,11 +1,14 @@
-from rest_framework import viewsets
-from .models import Personnel, Contract, Education, WorkExperience
+from rest_framework import viewsets, permissions
+from users.permissions import IsAdminOrReadOnly
+from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember
 from .serializers import (
-    PersonnelSerializer, 
+    PersonnelSerializer,
     PersonnelDetailSerializer,
-    ContractSerializer, 
-    EducationSerializer, 
-    WorkExperienceSerializer
+    ContractSerializer,
+    EducationSerializer,
+    WorkExperienceSerializer,
+    ProfessionalQualificationSerializer,
+    FamilyMemberSerializer
 )
 
 class PersonnelViewSet(viewsets.ModelViewSet):
@@ -13,6 +16,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     一个用于查看和编辑人员信息的ViewSet。
     """
     queryset = Personnel.objects.all()
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_serializer_class(self):
         """
@@ -30,6 +34,7 @@ class ContractViewSet(viewsets.ModelViewSet):
     """
     queryset = Contract.objects.all()
     serializer_class = ContractSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class EducationViewSet(viewsets.ModelViewSet):
     """
@@ -37,6 +42,7 @@ class EducationViewSet(viewsets.ModelViewSet):
     """
     queryset = Education.objects.all()
     serializer_class = EducationSerializer
+    permission_classes = [permissions.IsAuthenticated]
 
 class WorkExperienceViewSet(viewsets.ModelViewSet):
     """
@@ -44,3 +50,20 @@ class WorkExperienceViewSet(viewsets.ModelViewSet):
     """
     queryset = WorkExperience.objects.all()
     serializer_class = WorkExperienceSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class ProfessionalQualificationViewSet(viewsets.ModelViewSet):
+    """
+    一个用于查看和编辑职业资质的ViewSet。
+    """
+    queryset = ProfessionalQualification.objects.all()
+    serializer_class = ProfessionalQualificationSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+class FamilyMemberViewSet(viewsets.ModelViewSet):
+    """
+    一个用于查看和编辑家庭成员的ViewSet。
+    """
+    queryset = FamilyMember.objects.all()
+    serializer_class = FamilyMemberSerializer
+    permission_classes = [permissions.IsAuthenticated]

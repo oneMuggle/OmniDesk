@@ -45,3 +45,37 @@ export const updatePosition = (id, data) => {
 export const deletePosition = (id) => {
   return apiClient.delete(`/personnel/positions/${id}/`);
 };
+
+// Professional Qualifications
+export const getQualifications = (personnelId) => {
+  return apiClient.get(`/personnel/qualifications/?personnel=${personnelId}`);
+};
+
+export const createQualification = (data) => {
+  return apiClient.post('/personnel/qualifications/', data);
+};
+
+export const updateQualification = (id, data) => {
+  return apiClient.put(`/personnel/qualifications/${id}/`, data);
+};
+
+export const deleteQualification = (id) => {
+  return apiClient.delete(`/personnel/qualifications/${id}/`);
+};
+
+// Family Members
+export const getFamilyMembers = (personnelId) => {
+  return apiClient.get(`/personnel/family-members/?personnel=${personnelId}`);
+};
+
+export const createFamilyMember = (data) => {
+  return apiClient.post('/personnel/family-members/', data);
+};
+
+export const updateFamilyMember = (id, data) => {
+  return apiClient.put(`/personnel/family-members/${id}/`, data);
+};
+
+export const deleteFamilyMember = (id) => {
+  return apiClient.delete(`/personnel/family-members/${id}/`);
+};

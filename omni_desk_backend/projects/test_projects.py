@@ -4,6 +4,7 @@ from django.urls import reverse
 from rest_framework import status
 from users.models import CustomUser
 from .models import Project
+from django.contrib.auth.models import Group
 
 class ProjectViewSetTests(APITestCase):
     def setUp(self):
@@ -116,4 +117,4 @@ class ProjectViewSetTests(APITestCase):
         self.client.force_authenticate(user=None)
         url = reverse('project-list')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)

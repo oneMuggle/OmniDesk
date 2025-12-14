@@ -5,6 +5,7 @@ from rest_framework import status
 from users.models import CustomUser
 from projects.models import Project
 from .models import ComplianceIssue
+from django.contrib.auth.models import Group
 
 class ComplianceIssueViewSetTests(APITestCase):
     def setUp(self):

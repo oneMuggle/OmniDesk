@@ -1,8 +1,11 @@
 import pytest
 from unittest.mock import Mock
-from django.contrib.auth.models import User, Permission
+from django.contrib.auth.models import Permission
+from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
 from users.permissions import HasPermission
+
+User = get_user_model()
 
 @pytest.mark.django_db
 class TestHasPermission:
@@ -33,7 +36,7 @@ class TestHasPermission:
         request = Mock()
         request.user = user_with_permission
         view = Mock()
-        view.required_permission = 'test_app.test_permission'
+        view.required_permissions = ['test_app.test_permission']
         
         assert permission_checker.has_permission(request, view) is True
 
@@ -45,7 +48,7 @@ class TestHasPermission:
         request = Mock()
         request.user = user_without_permission
         view = Mock()
-        view.required_permission = 'test_app.test_permission'
+        view.required_permissions = ['test_app.test_permission']
         
         # 确保权限存在，以便检查
         Permission.objects.get_or_create(

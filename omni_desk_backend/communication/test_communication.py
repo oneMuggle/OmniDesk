@@ -72,7 +72,7 @@ class CommunicationViewSetTests(APITestCase):
         self.assertEqual(response.data['author'], 'Api User')
 
     def test_create_comment(self):
-        url = reverse('comment-list')
+        url = reverse('post-comments-list', kwargs={'post_pk': self.post.pk})
         data = {'post': self.post.id, 'content': 'A new comment'}
         response = self.client.post(url, data, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
@@ -85,8 +85,8 @@ class CommunicationViewSetTests(APITestCase):
         other_post = Post.objects.create(title='Other Post', content='Content', author=self.user)
         Comment.objects.create(post=other_post, author=self.user, content='Comment 2')
 
-        url = reverse('comment-list')
-        response = self.client.get(url, {'post_id': self.post.id})
+        url = reverse('post-comments-list', kwargs={'post_pk': self.post.pk})
+        response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data['results']), 1)
         self.assertEqual(response.data['results'][0]['content'], 'Comment 1')

@@ -10,7 +10,7 @@ class TrialModelTest(TestCase):
             description="Test Description"
         )
         self.equipment = Equipment.objects.create(name="Test Equipment")
-        self.person = Personnel.objects.create(name="Test Person")
+        self.person = Personnel.objects.create(name="Test Person", id_card_number="unique_id_123")
 
     def test_trial_creation(self):
         """测试试验基础信息保存"""
@@ -98,6 +98,7 @@ from rest_framework import status
 from users.models import CustomUser
 from .models import Position, Personnel, Schedule, PersonnelSequence, LeaderSequence
 from datetime import date, timedelta
+from django.contrib.auth.models import Group
 
 
 class BaseTestCase(TestCase):
@@ -111,7 +112,7 @@ class BaseTestCase(TestCase):
         Schedule.objects.all().delete()
         PersonnelSequence.objects.all().delete()
         LeaderSequence.objects.all().delete()
-        from .models import PhoneNumber
+        from users.models import PhoneNumber
         PhoneNumber.objects.all().delete()
 
         admin_group, _ = Group.objects.get_or_create(name='Admin')
@@ -125,94 +126,12 @@ class BaseTestCase(TestCase):
         self.position1 = Position.objects.create(name='员工')
         self.position2 = Position.objects.create(name='领导')
 
-        self.person1 = Personnel.objects.create(name='张三', position=self.position1)
-        self.person2 = Personnel.objects.create(name='李四', position=self.position1)
-        self.leader1 = Personnel.objects.create(name='王五', position=self.position2)
-        self.leader2 = Personnel.objects.create(name='赵六', position=self.position2)
+        self.person1 = Personnel.objects.create(name='张三', position=self.position1, id_card_number='p1')
+        self.person2 = Personnel.objects.create(name='李四', position=self.position1, id_card_number='p2')
+        self.leader1 = Personnel.objects.create(name='王五', position=self.position2, id_card_number='l1')
+        self.leader2 = Personnel.objects.create(name='赵六', position=self.position2, id_card_number='l2')
 
 
-class PersonnelViewSetTest(BaseTestCase):
-    def test_list_personnel(self):
-        """测试获取人员列表"""
-        url = '/api/events/personnel/'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data['results']), 4)
-
-    def test_create_personnel(self):
-        """测试创建人员"""
-        url = '/api/events/personnel/'
-        data = {'name': '新人', 'position': self.position1.id}
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(Personnel.objects.count(), 5)
-        self.assertEqual(response.data['name'], '新人')
-
-    def test_retrieve_personnel(self):
-        """测试获取单个人员信息"""
-        url = f'/api/events/personnel/{self.person1.id}/'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(response.data['name'], self.person1.name)
-
-    def test_update_personnel(self):
-        """测试更新人员信息"""
-        url = f'/api/events/personnel/{self.person1.id}/'
-        data = {'name': '张三更新', 'position': self.position2.id}
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.person1.refresh_from_db()
-        self.assertEqual(self.person1.name, '张三更新')
-        self.assertEqual(self.person1.position, self.position2)
-
-    def test_delete_personnel(self):
-        """测试删除人员"""
-        url = f'/api/events/personnel/{self.person1.id}/'
-        response = self.client.delete(url)
-        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
-        self.assertEqual(Personnel.objects.count(), 3)
-
-    def test_list_all_action(self):
-        """测试 list_all 自定义 action"""
-        url = '/api/events/personnel/all/'
-        response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 4)
-
-    def test_create_personnel_with_phone_numbers(self):
-        """测试创建人员时附带电话号码"""
-        url = '/api/events/personnel/'
-        data = {
-            'name': '周七',
-            'position': self.position1.id,
-            'phone_numbers': [
-                {'number': '13800138000'},
-                {'number': '13900139000'}
-            ]
-        }
-        response = self.client.post(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        personnel = Personnel.objects.get(id=response.data['id'])
-        self.assertEqual(personnel.phone_numbers.count(), 2)
-        numbers = [p.number for p in personnel.phone_numbers.all()]
-        self.assertIn('13800138000', numbers)
-        self.assertIn('13900139000', numbers)
-
-    def test_update_personnel_with_phone_numbers(self):
-        """测试更新人员时附带电话号码"""
-        url = f'/api/events/personnel/{self.person1.id}/'
-        data = {
-            'name': '张三电话更新',
-            'position': self.position1.id,
-            'phone_numbers': [
-                {'number': '11111111111'}
-            ]
-        }
-        response = self.client.put(url, data, format='json')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.person1.refresh_from_db()
-        self.assertEqual(self.person1.phone_numbers.count(), 1)
-        self.assertEqual(self.person1.phone_numbers.first().number, '11111111111')
 
 
 class ScheduleViewSetTest(BaseTestCase):

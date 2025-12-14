@@ -124,7 +124,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
     filterset_fields = ['name']
 
 class ScheduleViewSet(viewsets.ModelViewSet):
-    queryset = Schedule.objects.select_related('duty_person', 'duty_leader').prefetch_related('duty_person__phone_numbers', 'duty_leader__phone_numbers')
+    queryset = Schedule.objects.select_related('duty_person', 'duty_leader')
     serializer_class = ScheduleSerializer
 
     @action(detail=False, methods=['post'])

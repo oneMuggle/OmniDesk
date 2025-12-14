@@ -102,3 +102,37 @@ class WorkExperience(models.Model):
     class Meta:
         verbose_name = "工作经历"
         verbose_name_plural = verbose_name
+
+class ProfessionalQualification(models.Model):
+    """
+    职业资质模型
+    """
+    personnel = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name='qualifications', verbose_name="关联人员")
+    qualification_name = models.CharField(max_length=200, verbose_name="资质名称")
+    issue_date = models.DateField(verbose_name="生效日期")
+    expiry_date = models.DateField(verbose_name="失效日期", null=True, blank=True)
+    certificate_id = models.CharField(max_length=100, verbose_name="证件编号", blank=True)
+
+    def __str__(self):
+        return f"{self.personnel.name} - {self.qualification_name}"
+
+    class Meta:
+        verbose_name = "职业资质"
+        verbose_name_plural = verbose_name
+
+class FamilyMember(models.Model):
+    """
+    家庭成员模型
+    """
+    personnel = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name='family_members', verbose_name="关联人员")
+    name = models.CharField(max_length=100, verbose_name="姓名")
+    relationship = models.CharField(max_length=50, verbose_name="与本人关系")
+    id_card_number = models.CharField(max_length=18, verbose_name="身份证号", blank=True)
+    contact_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
+
+    def __str__(self):
+        return f"{self.personnel.name} - {self.name} ({self.relationship})"
+
+    class Meta:
+        verbose_name = "家庭成员"
+        verbose_name_plural = verbose_name

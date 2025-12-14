@@ -2,8 +2,9 @@ from django.test import TestCase
 from rest_framework.test import APIClient, APITestCase
 from django.urls import reverse
 from rest_framework import status # 导入 status
-from .models import CustomUser
+from .models import CustomUser, PhoneNumber
 from events.models import Personnel # 导入 Personnel 模型
+from django.contrib.auth.models import Group
 
 class UserRegistrationTests(TestCase):
     def setUp(self):
@@ -125,8 +126,8 @@ class UserPersonnelManagementTests(APITestCase):
             password='password123'
         )
         self.regular_user.groups.add(user_group)
-        self.personnel1 = Personnel.objects.create(name='张三')
-        self.personnel2 = Personnel.objects.create(name='李四')
+        self.personnel1 = Personnel.objects.create(name='张三', id_card_number='111111111111111111')
+        self.personnel2 = Personnel.objects.create(name='李四', id_card_number='222222222222222222')
 
         self.client = APIClient()
         self.list_url = reverse('users:user-admin-list') # 'users' 命名空间已在 omni_desk_backend/urls.py 中定义
@@ -143,7 +144,7 @@ class UserPersonnelManagementTests(APITestCase):
     def test_admin_can_associate_personnel_to_user(self):
         self.client.force_authenticate(user=self.admin_user)
         user_to_update = CustomUser.objects.create_user(username='test_associate', password='password123')
-        update_url = reverse('users:customuser-detail', args=[user_to_update.id]) # 确保这里是正确的 URL name
+        update_url = reverse('customuser-detail', args=[user_to_update.id]) # 确保这里是正确的 URL name
         
         data = {'personnel_id': self.personnel1.id}
         response = self.client.patch(update_url, data, format='json')
@@ -154,7 +155,7 @@ class UserPersonnelManagementTests(APITestCase):
     def test_admin_can_disassociate_personnel_from_user(self):
         self.client.force_authenticate(user=self.admin_user)
         user_to_update = CustomUser.objects.create_user(username='test_disassociate', password='password123', personnel=self.personnel1)
-        update_url = reverse('users:customuser-detail', args=[user_to_update.id])
+        update_url = reverse('customuser-detail', args=[user_to_update.id])
 
         data = {'personnel_id': ''} # 空字符串表示解除关联
         response = self.client.patch(update_url, data, format='json')
@@ -165,7 +166,7 @@ class UserPersonnelManagementTests(APITestCase):
     def test_manager_can_associate_personnel_to_user(self):
         self.client.force_authenticate(user=self.manager_user)
         user_to_update = CustomUser.objects.create_user(username='test_manager_associate', password='password123')
-        update_url = reverse('users:customuser-detail', args=[user_to_update.id])
+        update_url = reverse('customuser-detail', args=[user_to_update.id])
         
         data = {'personnel_id': self.personnel2.id}
         response = self.client.patch(update_url, data, format='json')
@@ -176,7 +177,7 @@ class UserPersonnelManagementTests(APITestCase):
     def test_regular_user_cannot_associate_personnel(self):
         self.client.force_authenticate(user=self.regular_user)
         user_to_update = CustomUser.objects.create_user(username='test_regular_user', password='password123')
-        update_url = reverse('users:customuser-detail', args=[user_to_update.id])
+        update_url = reverse('customuser-detail', args=[user_to_update.id])
         
         data = {'personnel_id': self.personnel1.id}
         response = self.client.patch(update_url, data, format='json')
@@ -277,7 +278,6 @@ class UserAdminViewTests(APITestCase):
         self.regular_user.refresh_from_db()
         self.assertIn(manager_group, self.regular_user.groups.all())
 
-from .models import PhoneNumber
 
 class UserModelTests(TestCase):
     def test_user_str(self):
@@ -379,7 +379,7 @@ class UserViewTests(APITestCase):
         self.user1 = CustomUser.objects.create_user(username='view_user1', password='password', real_name='张三')
         self.user2 = CustomUser.objects.create_user(username='view_user2', password='password', real_name='李四')
         
-        self.personnel_list_url = reverse('users:customuser-list')
+        self.personnel_list_url = reverse('customuser-list')
 
     def test_personnel_list_search(self):
         """Test searching personnel list by real_name."""
@@ -392,8 +392,8 @@ class UserViewTests(APITestCase):
     def test_user_personnel_viewset_update(self):
         """Test updating personnel association via UserPersonnelViewSet."""
         self.client.force_authenticate(user=self.admin_user)
-        personnel = Personnel.objects.create(name='王五')
-        update_url = reverse('users:customuser-detail', args=[self.user1.id])
+        personnel = Personnel.objects.create(name='王五', id_card_number='333333333333333333')
+        update_url = reverse('customuser-detail', args=[self.user1.id])
         
         # Associate
         response = self.client.patch(update_url, {'personnel_id': personnel.id}, format='json')
