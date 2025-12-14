@@ -63,7 +63,7 @@ const PersonnelManagementPage = () => {
     try {
       const { page = 1, pageSize = 10, search = searchQuery, position = positionFilter } = params;
       const response = await getPersonnel({ page, page_size: pageSize, search, position });
-      setData(response.results);
+      setData(response.results || []);
       setPagination(prev => ({ ...prev, total: response.count, current: page, pageSize }));
     } catch (error) {
       message.error('获取人员数据失败');
