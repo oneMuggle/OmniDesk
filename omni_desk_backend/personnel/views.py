@@ -1,7 +1,8 @@
 from rest_framework import viewsets, permissions
 from users.permissions import IsAdminOrReadOnly
-from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember
+from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
 from .serializers import (
+    PositionSerializer,
     PersonnelSerializer,
     PersonnelDetailSerializer,
     ContractSerializer,
@@ -67,3 +68,11 @@ class FamilyMemberViewSet(viewsets.ModelViewSet):
     queryset = FamilyMember.objects.all()
     serializer_class = FamilyMemberSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+class PositionViewSet(viewsets.ModelViewSet):
+    """
+    一个用于查看和编辑职位信息的ViewSet。
+    """
+    queryset = Position.objects.all()
+    serializer_class = PositionSerializer
+    permission_classes = [IsAdminOrReadOnly]

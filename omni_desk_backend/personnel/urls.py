@@ -6,10 +6,12 @@ from .views import (
     EducationViewSet,
     WorkExperienceViewSet,
     ProfessionalQualificationViewSet,
-    FamilyMemberViewSet
+    FamilyMemberViewSet,
+    PositionViewSet
 )
 
 router = DefaultRouter()
+router.register(r'positions', PositionViewSet, basename='positions')
 router.register(r'personnel', PersonnelViewSet, basename='personnel')
 router.register(r'contracts', ContractViewSet, basename='contracts')
 router.register(r'educations', EducationViewSet, basename='educations')

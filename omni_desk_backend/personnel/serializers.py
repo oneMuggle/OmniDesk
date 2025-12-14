@@ -1,5 +1,10 @@
 from rest_framework import serializers
-from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember
+from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
+
+class PositionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Position
+        fields = '__all__'
 
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:
