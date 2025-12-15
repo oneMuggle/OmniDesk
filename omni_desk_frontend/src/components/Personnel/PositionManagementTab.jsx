@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd';
+import { Table, Button, Form, Input, Modal, message, Select } from 'antd';
 import {
   getPositions,
   createPosition,
@@ -9,7 +9,6 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import ConfirmModal from '../Calendar/ConfirmModal';
 
-const { Option } = Select;
 
 const PositionManagementTab = () => {
   const [positionForm] = Form.useForm();

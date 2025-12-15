@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Calendar, ConfigProvider } from 'antd';
 import dayjs from 'dayjs';
 import 'dayjs/locale/zh-cn'; // 引入 dayjs 的中文语言包
@@ -45,6 +46,11 @@ const MiniCalendar = ({ memos, onSelectDate }) => {
       />
     </ConfigProvider>
   );
+};
+
+MiniCalendar.propTypes = {
+  memos: PropTypes.array.isRequired,
+  onSelectDate: PropTypes.func.isRequired,
 };
 
 export default MiniCalendar;

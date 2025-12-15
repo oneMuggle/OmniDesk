@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import PropTypes from 'prop-types';
 import { Droppable } from 'react-beautiful-dnd';
 
 const StrictModeDroppable = ({ children, ...props }) => {
@@ -18,6 +19,10 @@ const StrictModeDroppable = ({ children, ...props }) => {
   }
 
   return <Droppable {...props}>{children}</Droppable>;
+};
+
+StrictModeDroppable.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default StrictModeDroppable;

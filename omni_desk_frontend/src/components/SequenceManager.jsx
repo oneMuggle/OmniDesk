@@ -101,7 +101,7 @@ const SequenceForm = ({
               bordered
               dataSource={availablePersonnel}
               renderItem={item => (
-                <List.Item actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}>
+                <List.Item key={item.id} actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}>
                   {item.name} <Tag>{item.position_name}</Tag>
                 </List.Item>
               )}
@@ -206,8 +206,9 @@ const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd
         return (
           <List.Item
             actions={[
-              <Button type="link" onClick={() => onEdit(item, isLeader)}>编辑</Button>,
+              <Button key="edit" type="link" onClick={() => onEdit(item, isLeader)}>编辑</Button>,
               <Popconfirm
+                key="delete"
                 title="确定要删除吗?"
                 onConfirm={() => onDelete(item.id, isLeader)}
                 okText="是"

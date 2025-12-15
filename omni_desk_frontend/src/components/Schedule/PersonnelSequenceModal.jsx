@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
 import axios from 'axios';
 import { getPersonnel } from '../../api/personnelApi';
@@ -105,7 +106,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
     });
   };
 
-  const renderDraggableList = (type, list, setList) => (
+  const renderDraggableList = (type, list) => (
     <DragDropContext onDragEnd={(result) => onDragEnd(result, type)}>
       <Droppable droppableId={`droppable-${type}`}>
         {(provided) => (
@@ -216,6 +217,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
             dataSource={personnel}
             renderItem={item => (
               <List.Item
+                key={item.id}
                 actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}
               >
                 {item.name}
@@ -232,6 +234,12 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
       </Row>
     </Modal>
   );
+};
+
+PersonnelSequenceModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onOk: PropTypes.func.isRequired,
 };
 
 export default PersonnelSequenceModal;

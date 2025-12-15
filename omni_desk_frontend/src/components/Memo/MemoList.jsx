@@ -1,5 +1,6 @@
 import React from 'react';
-import { List, Card, Button, Checkbox, Popconfirm, message } from 'antd';
+import PropTypes from 'prop-types';
+import { List, Card, Checkbox, Popconfirm } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -21,6 +22,7 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = tru
             title={memo.title}
             actions={showActions ? [
               <Checkbox
+                key="complete"
                 checked={memo.is_completed}
                 onChange={() => onToggleComplete(memo.id, !memo.is_completed)}
               >
@@ -28,12 +30,13 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = tru
               </Checkbox>,
               <EditOutlined key="edit" onClick={() => onEdit(memo)} />,
               <Popconfirm
+                key="delete"
                 title="确定删除此备忘录吗?"
                 onConfirm={() => onDelete(memo.id)}
                 okText="是"
                 cancelText="否"
               >
-                <DeleteOutlined key="delete" />
+                <DeleteOutlined />
               </Popconfirm>,
             ] : []}
           >
@@ -46,6 +49,15 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = tru
       )}
     />
   );
+};
+
+MemoList.propTypes = {
+  memos: PropTypes.array.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  onToggleComplete: PropTypes.func.isRequired,
+  showActions: PropTypes.bool,
+  showReminderTime: PropTypes.bool,
 };
 
 export default MemoList;

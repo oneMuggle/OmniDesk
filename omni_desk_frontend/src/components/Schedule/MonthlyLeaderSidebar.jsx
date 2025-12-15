@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Draggable } from 'react-beautiful-dnd';
 import { Card, List } from 'antd';
 import moment from 'moment';
@@ -84,6 +85,12 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
       </StrictModeDroppable>
     </Card>
   );
+};
+
+MonthlyLeaderSidebar.propTypes = {
+  weeklyLeaders: PropTypes.array.isRequired,
+  calendarRef: PropTypes.object.isRequired,
+  isDragDisabled: PropTypes.bool,
 };
 
 export default MonthlyLeaderSidebar;

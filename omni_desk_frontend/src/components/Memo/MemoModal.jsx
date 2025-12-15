@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Modal, Form, Input, DatePicker, Switch, message } from 'antd';
 import dayjs from 'dayjs';
 
@@ -77,6 +78,18 @@ const MemoModal = ({ open, onCancel, onSave, memoData, mode }) => {
       </Form>
     </Modal>
   );
+};
+
+MemoModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  memoData: PropTypes.object,
+  mode: PropTypes.string.isRequired,
+};
+
+MemoModal.defaultProps = {
+  memoData: null,
 };
 
 export default MemoModal;

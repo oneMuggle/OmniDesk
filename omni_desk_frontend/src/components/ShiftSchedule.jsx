@@ -5,7 +5,6 @@ import { transformScheduleToEvents } from '../utils/eventTransformers';
 
 const ShiftSchedule = ({
   schedules,
-  isGuest,
   onDateClick,
   onEventClick,
   onScheduleSelect = () => {},
@@ -39,7 +38,10 @@ ShiftSchedule.propTypes = {
   isGuest: PropTypes.bool,
   onDateClick: PropTypes.func,
   onEventClick: PropTypes.func,
-  onScheduleSelect: PropTypes.func
+  onScheduleSelect: PropTypes.func,
+  personnel: PropTypes.array.isRequired,
+  calendarRef: PropTypes.object.isRequired,
+  onDatesSet: PropTypes.func.isRequired,
 };
 
 export default ShiftSchedule;

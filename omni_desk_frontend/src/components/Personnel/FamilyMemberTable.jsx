@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { createFamilyMember, updateFamilyMember, deleteFamilyMember } from '../../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
 
@@ -74,6 +75,12 @@ const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) =
       </Modal>
     </div>
   );
+};
+
+FamilyMemberTable.propTypes = {
+  familyMembers: PropTypes.array.isRequired,
+  personnelId: PropTypes.number.isRequired,
+  fetchFamilyMembers: PropTypes.func.isRequired,
 };
 
 export default FamilyMemberTable;

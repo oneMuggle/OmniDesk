@@ -1,10 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
+import PropTypes from 'prop-types';
 import './styles/PersonnelScheduleModal.css'; // Assuming this will be renamed to PersonnelScheduleModal.css
-import { Modal, Form, Input, Button, Select, message } from 'antd';
-import { useQueryClient } from '@tanstack/react-query';
-import { scheduleApi } from '../api/schedule';
-
-const { Option } = Select;
+import { Modal, Form, Button } from 'antd';
 
 /**
  * 人员排班模态框组件 - 专门用于展示人员排班信息
@@ -12,13 +9,9 @@ const { Option } = Select;
 const PersonnelScheduleModal = ({
   open,
   onCancel,
-  scheduleData,
-  personnelList,
-  mode = 'view' // 强制为查看模式
+  scheduleData
 }) => {
   const [form] = Form.useForm();
-  const queryClient = useQueryClient();
-  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (!form) return;
@@ -83,6 +76,16 @@ const PersonnelScheduleModal = ({
     </Modal>
   </>
   );
+};
+
+PersonnelScheduleModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  scheduleData: PropTypes.object,
+};
+
+PersonnelScheduleModal.defaultProps = {
+  scheduleData: null,
 };
 
 export default PersonnelScheduleModal;

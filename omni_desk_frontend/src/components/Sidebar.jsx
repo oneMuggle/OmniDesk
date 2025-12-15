@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
@@ -28,7 +29,7 @@ import { Badge, Tooltip } from 'antd';
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSubMenu, setExpandedSubMenu] = useState({});
-  const { user, isAuthenticated, logout, hasPermission, isInitializing } = useAuth();
+  const { isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
@@ -265,6 +266,11 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
       )}
     </>
   );
+};
+
+Sidebar.propTypes = {
+  isMobileMenuOpen: PropTypes.bool.isRequired,
+  toggleMobileMenu: PropTypes.func.isRequired,
 };
 
 export default Sidebar;

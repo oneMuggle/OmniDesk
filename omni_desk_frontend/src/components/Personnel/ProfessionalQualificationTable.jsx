@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { createQualification, updateQualification, deleteQualification } from '../../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
 
@@ -74,6 +75,12 @@ const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQual
       </Modal>
     </div>
   );
+};
+
+ProfessionalQualificationTable.propTypes = {
+  qualifications: PropTypes.array.isRequired,
+  personnelId: PropTypes.number.isRequired,
+  fetchQualifications: PropTypes.func.isRequired,
 };
 
 export default ProfessionalQualificationTable;

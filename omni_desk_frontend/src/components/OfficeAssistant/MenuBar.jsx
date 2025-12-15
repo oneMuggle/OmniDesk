@@ -1,8 +1,9 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
   faBold, faItalic, faStrikethrough, faParagraph,
-  faHeading, faListUl, faListOl, faQuoteRight, faUndo, faRedo
+  faListUl, faListOl, faQuoteRight, faUndo, faRedo
 } from '@fortawesome/free-solid-svg-icons';
 
 const MenuBar = ({ editor }) => {
@@ -39,6 +40,14 @@ const MenuBar = ({ editor }) => {
       ))}
     </div>
   );
+};
+
+MenuBar.propTypes = {
+  editor: PropTypes.object,
+};
+
+MenuBar.defaultProps = {
+  editor: null,
 };
 
 export default MenuBar;
