@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import './styles/Schedule.css'; // 导入日历美化样式
 import './styles/Controls.css';
 import FullCalendar from '@fullcalendar/react';
@@ -64,6 +65,33 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       }}
     />
   );
+};
+
+BaseSchedule.propTypes = {
+  events: PropTypes.array.isRequired,
+  onDateClick: PropTypes.func,
+  onEventClick: PropTypes.func,
+  editable: PropTypes.bool,
+  selectable: PropTypes.bool,
+  select: PropTypes.func,
+  onEventDrop: PropTypes.func,
+  onEventDragStart: PropTypes.func,
+  onEventDragStop: PropTypes.func,
+  calendarRef: PropTypes.object,
+  onDatesSet: PropTypes.func,
+};
+
+BaseSchedule.defaultProps = {
+  onDateClick: () => {},
+  onEventClick: () => {},
+  editable: false,
+  selectable: false,
+  select: () => {},
+  onEventDrop: () => {},
+  onEventDragStart: () => {},
+  onEventDragStop: () => {},
+  calendarRef: null,
+  onDatesSet: () => {},
 };
 
 export default BaseSchedule; // Changed BaseCalendar to BaseSchedule

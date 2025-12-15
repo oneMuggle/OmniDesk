@@ -1,4 +1,5 @@
 import React, { createContext, useState, useCallback } from 'react';
+import PropTypes from 'prop-types';
 
 export const RefreshContext = createContext();
 
@@ -14,4 +15,8 @@ export const RefreshProvider = ({ children }) => {
       {children}
     </RefreshContext.Provider>
   );
+};
+
+RefreshProvider.propTypes = {
+  children: PropTypes.node.isRequired,
 };

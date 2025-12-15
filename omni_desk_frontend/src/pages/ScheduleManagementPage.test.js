@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
+import PropTypes from 'prop-types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ScheduleManagementPage from './ScheduleManagementPage';
 import { scheduleApi } from '../api/scheduleApi';
@@ -14,9 +15,21 @@ jest.mock('../api/personnelApi');
 jest.mock('../api/sequenceApi');
 
 // Mock child components
-jest.mock('../components/Schedule/PersonnelSequenceModal', () => () => <div data-testid="personnel-sequence-modal-mock" />);
-jest.mock('../components/Schedule/WeeklyLeaderDisplay', () => () => <div data-testid="weekly-leader-display-mock" />);
-jest.mock('../components/Schedule/MonthlyLeaderSidebar', () => () => <div data-testid="monthly-leader-sidebar-mock" />);
+jest.mock('../components/Schedule/PersonnelSequenceModal', () => {
+    const MockComponent = () => <div data-testid="personnel-sequence-modal-mock" />;
+    MockComponent.displayName = 'PersonnelSequenceModal';
+    return MockComponent;
+});
+jest.mock('../components/Schedule/WeeklyLeaderDisplay', () => {
+    const MockComponent = () => <div data-testid="weekly-leader-display-mock" />;
+    MockComponent.displayName = 'WeeklyLeaderDisplay';
+    return MockComponent;
+});
+jest.mock('../components/Schedule/MonthlyLeaderSidebar', () => {
+    const MockComponent = () => <div data-testid="monthly-leader-sidebar-mock" />;
+    MockComponent.displayName = 'MonthlyLeaderSidebar';
+    return MockComponent;
+});
 
 const mockSchedules = [
   { id: 1, duty_date: '2025-11-10', duty_person: { id: 1, name: 'Alice' }, duty_leader: { id: 101, name: 'Leader A' } },
@@ -46,24 +59,35 @@ const mockSequences = {
 const mockEventClick = jest.fn();
 jest.mock('@fullcalendar/react', () => {
     const React = require('react');
+    const FullCalendar = React.forwardRef((props, ref) => {
+        React.useImperativeHandle(ref, () => ({
+            getApi: () => ({
+                getEventById: (id) => mockSchedules.find(s => s.id.toString() === id),
+            }),
+        }));
+        return (
+            <div data-testid="fullcalendar-mock">
+                {props.events.map(event => (
+                    <div key={event.id} data-testid={`event-${event.id}`} onClick={() => mockEventClick({ event })}>
+                        {event.title}
+                    </div>
+                ))}
+            </div>
+        );
+    });
+
+    FullCalendar.displayName = 'FullCalendar';
+
+    FullCalendar.propTypes = {
+        events: PropTypes.arrayOf(PropTypes.shape({
+            id: PropTypes.any.isRequired,
+            title: PropTypes.string,
+        })).isRequired,
+    };
+
     return {
         __esModule: true,
-        default: React.forwardRef((props, ref) => {
-            React.useImperativeHandle(ref, () => ({
-                getApi: () => ({
-                    getEventById: (id) => mockSchedules.find(s => s.id.toString() === id),
-                }),
-            }));
-            return (
-                <div data-testid="fullcalendar-mock">
-                    {props.events.map(event => (
-                        <div key={event.id} data-testid={`event-${event.id}`} onClick={() => mockEventClick({ event })}>
-                            {event.title}
-                        </div>
-                    ))}
-                </div>
-            );
-        }),
+        default: FullCalendar,
     };
 });
 
@@ -112,16 +136,12 @@ describe('ScheduleManagementPage', () => {
     await userEvent.type(within(dialog).getByLabelText('值班日期'), '2025-11-26');
     
     await userEvent.click(within(dialog).getByLabelText('值班人员'));
-    await waitFor(async () => {
-      const aliceOptions = await screen.findAllByText('Alice (Dev)');
-      await userEvent.click(aliceOptions[0]);
-    });
+    const aliceOptions = await screen.findAllByText('Alice (Dev)');
+    await userEvent.click(aliceOptions[0]);
 
     await userEvent.click(within(dialog).getByLabelText('值班领导'));
-    await waitFor(async () => {
-      const leaderAOptions = await screen.findAllByText('Leader A (Dev)');
-      await userEvent.click(leaderAOptions[0]);
-    });
+    const leaderAOptions = await screen.findAllByText('Leader A (Dev)');
+    await userEvent.click(leaderAOptions[0]);
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -144,16 +164,12 @@ describe('ScheduleManagementPage', () => {
     });
 
     await userEvent.click(within(dialog).getByLabelText('值班人员'));
-    await waitFor(async () => {
-      const bobOptions = await screen.findAllByText('Bob (Dev)');
-      await userEvent.click(bobOptions[0]);
-    });
+    const bobOptions = await screen.findAllByText('Bob (Dev)');
+    await userEvent.click(bobOptions[0]);
 
     await userEvent.click(within(dialog).getByLabelText('值班领导'));
-    await waitFor(async () => {
-      const leaderBOptions = await screen.findAllByText('Leader B (QA)');
-      await userEvent.click(leaderBOptions[0]);
-    });
+    const leaderBOptions = await screen.findAllByText('Leader B (QA)');
+    await userEvent.click(leaderBOptions[0]);
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -184,34 +200,24 @@ describe('ScheduleManagementPage', () => {
     await userEvent.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
     await userEvent.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
-    await waitFor(async () => {
-      const seqAWorkdayOptions = await screen.findAllByText(/Seq A \(工作日: Alice, Bob\)/);
-      await userEvent.click(seqAWorkdayOptions[0]);
-    });
+    const seqAWorkdayOptions = await screen.findAllByText(/Seq A \(工作日: Alice, Bob\)/);
+    await userEvent.click(seqAWorkdayOptions[0]);
     
     await userEvent.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
-    await waitFor(async () => {
-      const seqAHolidayOptions = await screen.findAllByText(/Seq A \(节假日: Charlie\)/);
-      await userEvent.click(seqAHolidayOptions[0]);
-    });
+    const seqAHolidayOptions = await screen.findAllByText(/Seq A \(节假日: Charlie\)/);
+    await userEvent.click(seqAHolidayOptions[0]);
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-personnel'));
-    await waitFor(async () => {
-      const aliceOptionsGen = await screen.findAllByRole('option', { name: 'Alice' });
-      await userEvent.click(aliceOptionsGen[0]);
-    });
+    const aliceOptionsGen = await screen.findAllByRole('option', { name: 'Alice' });
+    await userEvent.click(aliceOptionsGen[0]);
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-holiday-personnel'));
-    await waitFor(async () => {
-      const charlieOptionsGen = await screen.findAllByRole('option', { name: 'Charlie' });
-      await userEvent.click(charlieOptionsGen[0]);
-    });
+    const charlieOptionsGen = await screen.findAllByRole('option', { name: 'Charlie' });
+    await userEvent.click(charlieOptionsGen[0]);
 
     await userEvent.click(screen.getByTestId('generate-schedule-leader-sequence'));
-    await waitFor(async () => {
-      const seqBOptions = await screen.findAllByText(/Seq B \(Leader A, Leader B\)/);
-      await userEvent.click(seqBOptions[0]);
-    });
+    const seqBOptions = await screen.findAllByText(/Seq B \(Leader A, Leader B\)/);
+    await userEvent.click(seqBOptions[0]);
 
     await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 

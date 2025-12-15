@@ -1,3 +1,4 @@
+import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import ProtectedRoute from '../components/ProtectedRoute';
 import GuestRoute from '../components/GuestRoute';
@@ -212,10 +213,6 @@ import NewPostPage from '../pages/NewPostPage';
       {
         path: "personnel/edit/:id",
         element: <ProtectedRoute pagePath="/control-panel/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel/:id",
-        element: <ProtectedRoute pagePath="/control-panel/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
         path: "schedules",

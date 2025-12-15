@@ -1,13 +1,12 @@
 import React, { useEffect } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Row, Col, Typography, Space } from 'antd';
+import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import { useAuth } from '../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
-import { useQueryClient } from '@tanstack/react-query'; // 引入 useQueryClient
 import { trialApi } from '../api/trialApi';
-import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
+import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -18,17 +17,15 @@ const CalendarEventModal = ({
   onCancel,
   onSave,
   onDelete,
-  onSwap,
   form,
   isEditing,
   setIsEditing,
   selectedTrial, // 用于试验日程的详情展示
 }) => {
-  const { user, isGuest } = useAuth(); // 获取 user 对象
+  const { user } = useAuth(); // 获取 user 对象
   const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
   const { personnel } = useScheduleData(); // 获取人员数据
   const { trials } = useTrialScheduleData(); // 获取试验数据
-  const queryClient = useQueryClient(); // 获取 queryClient
 
   useEffect(() => {
     if (currentEvent) {
@@ -72,9 +69,9 @@ const CalendarEventModal = ({
       form.resetFields();
       setIsEditing(false);
     }
-  }, [currentEvent, form, setIsEditing, form.getFieldValue('time_ranges')]);
+  }, [currentEvent, form, setIsEditing]);
 
-  const handleValuesChange = async (changedValues, allValues) => {
+  const handleValuesChange = async (changedValues) => {
     if ('trial_id' in changedValues && changedValues.trial_id) {
       // 查找对应的试验对象
       const selectedTrialData = trials.find(
@@ -147,7 +144,7 @@ const CalendarEventModal = ({
         console.log('CalendarEventModal - handleOk: processedValues', processedValues);
         onSave(processedValues);
       })
-      .catch(info => {
+      .catch(() => {
       });
   };
 
@@ -349,7 +346,6 @@ CalendarEventModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
-  onSwap: PropTypes.func.isRequired,
   form: PropTypes.object.isRequired,
   isEditing: PropTypes.bool.isRequired,
   setIsEditing: PropTypes.func.isRequired,

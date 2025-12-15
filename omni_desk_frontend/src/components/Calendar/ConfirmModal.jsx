@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { Modal, Button } from 'antd';
 
 const ConfirmModal = (props) => {
@@ -57,6 +58,19 @@ const ConfirmModal = (props) => {
       {content}
     </Modal>
   );
+};
+
+ConfirmModal.propTypes = {
+  title: PropTypes.string,
+  content: PropTypes.node,
+  okText: PropTypes.string,
+  cancelText: PropTypes.string,
+  onOk: PropTypes.func,
+  onCancel: PropTypes.func,
+  okButtonProps: PropTypes.object,
+  danger: PropTypes.bool,
+  open: PropTypes.bool.isRequired,
+  'data-testid': PropTypes.string,
 };
 
 export default ConfirmModal;

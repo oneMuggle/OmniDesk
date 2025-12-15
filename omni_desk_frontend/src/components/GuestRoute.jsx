@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import ProtectedRoute from './ProtectedRoute';
 
 const GuestRoute = ({ children, ...props }) => {
@@ -10,6 +11,10 @@ const GuestRoute = ({ children, ...props }) => {
       {React.cloneElement(children, { isGuest: true })}
     </ProtectedRoute>
   );
+};
+
+GuestRoute.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 export default GuestRoute;

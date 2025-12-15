@@ -1,4 +1,6 @@
+/* eslint-disable no-undef */
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { getModels } from '../api/ollama';
 
 export const ApiContext = createContext();
@@ -101,6 +103,10 @@ export function ApiProvider({ children }) {
     </ApiContext.Provider>
   );
 }
+
+ApiProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 export function useApi() {
   return useContext(ApiContext);

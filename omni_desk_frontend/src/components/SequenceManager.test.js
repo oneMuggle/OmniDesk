@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import PropTypes from 'prop-types';
 import SequenceManager from './SequenceManager';
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
@@ -13,12 +14,23 @@ jest.mock('../api/sequenceApi');
 jest.mock('../api/personnelApi');
 
 // Mock react-beautiful-dnd
-jest.mock('react-beautiful-dnd', () => ({
-  ...jest.requireActual('react-beautiful-dnd'),
-  DragDropContext: ({ children }) => <div>{children}</div>,
-  Droppable: ({ children }) => <div>{children( { innerRef: jest.fn(), droppableProps: {}, placeholder: null } )}</div>,
-  Draggable: ({ children }) => <div>{children( { innerRef: jest.fn(), draggableProps: {}, dragHandleProps: {} }, {} )}</div>,
-}));
+jest.mock('react-beautiful-dnd', () => {
+  const DragDropContext = ({ children }) => <div>{children}</div>;
+  DragDropContext.propTypes = { children: PropTypes.node.isRequired };
+
+  const Droppable = ({ children }) => <div>{children( { innerRef: jest.fn(), droppableProps: {}, placeholder: null } )}</div>;
+  Droppable.propTypes = { children: PropTypes.func.isRequired };
+
+  const Draggable = ({ children }) => <div>{children( { innerRef: jest.fn(), draggableProps: {}, dragHandleProps: {} }, {} )}</div>;
+  Draggable.propTypes = { children: PropTypes.func.isRequired };
+
+  return {
+    ...jest.requireActual('react-beautiful-dnd'),
+    DragDropContext,
+    Droppable,
+    Draggable,
+  };
+});
 
 
 const mockPersonnelSequences = { data: { results: [{ id: 1, name: 'Personnel Seq 1', sequence: [1, 2] }] } };

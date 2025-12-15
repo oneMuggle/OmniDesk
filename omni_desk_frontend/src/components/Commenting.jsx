@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import api from '../api/axiosConfig';
 import './Commenting.css';
 
@@ -50,6 +51,18 @@ const Commenting = ({ chapterId, comments: initialComments }) => {
             </form>
         </div>
     );
+};
+
+Commenting.propTypes = {
+  chapterId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  comments: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    user: PropTypes.shape({
+      username: PropTypes.string,
+    }),
+    content: PropTypes.string,
+    created_at: PropTypes.string,
+  })).isRequired,
 };
 
 export default Commenting;

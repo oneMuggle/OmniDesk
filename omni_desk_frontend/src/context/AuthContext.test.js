@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
+import PropTypes from 'prop-types';
 import { AuthContext, AuthProvider } from './AuthContext';
 
 const TestComponent = ({ requiredPermission }) => {
@@ -9,6 +10,10 @@ const TestComponent = ({ requiredPermission }) => {
       {hasPermission(requiredPermission) ? 'Has Permission' : 'No Permission'}
     </div>
   );
+};
+
+TestComponent.propTypes = {
+  requiredPermission: PropTypes.string,
 };
 
 describe('AuthContext - hasPermission', () => {

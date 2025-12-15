@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import api from '../api/axiosConfig';
 import './AnnotationHandler.css';
 
@@ -56,6 +57,11 @@ const AnnotationHandler = ({ chapterId, children }) => {
             )}
         </div>
     );
+};
+
+AnnotationHandler.propTypes = {
+  chapterId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  children: PropTypes.node.isRequired,
 };
 
 export default AnnotationHandler;

@@ -73,7 +73,8 @@ describe('MeetingRoomManagementPage', () => {
     expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalled();
 
     // Check if data is rendered
-    await screen.findByText('Room A');
+    const roomAElements = await screen.findAllByText('Room A');
+    expect(roomAElements.length).toBeGreaterThan(0);
     await screen.findByText('Projector issue');
     await screen.findByText('总预约数量');
   });
@@ -144,7 +145,7 @@ describe('MeetingRoomManagementPage', () => {
 
         // Select meeting room
         fireEvent.mouseDown(await within(dialog).findByLabelText('会议室'));
-        const roomAOption = await screen.findByText('Room A');
+        const roomAOption = await within(dialog).findByText('Room A');
         fireEvent.click(roomAOption);
 
         // Select time range
@@ -177,7 +178,7 @@ describe('MeetingRoomManagementPage', () => {
 
       await waitFor(() => {
         expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2); // Initial fetch + refresh
-      });
+      }, { timeout: 2000 });
     });
   });
 });

@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { useDrag } from 'react-dnd'; // 确保这个包已安装
 import { Button, Input, Spin, FloatButton, Popover, Upload } from 'antd';
-import { CommentOutlined, SendOutlined, CloseOutlined, UploadOutlined } from '@ant-design/icons';
+import { CommentOutlined, SendOutlined, CloseOutlined } from '@ant-design/icons';
 import { useApi } from '../context/ApiProvider';
 import { createClient } from '../api/deepseek';
 import { chatCompletion as ollamaChat } from '../api/ollama';

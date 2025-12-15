@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { List, Button, Modal, Form, Input, Select, message, Popconfirm, Card, Col, Row, Tag } from 'antd';
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
@@ -170,6 +171,22 @@ const SequenceForm = ({
   );
 };
 
+SequenceForm.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onSave: PropTypes.func.isRequired,
+  sequence: PropTypes.object,
+  personnelList: PropTypes.array.isRequired,
+  isLeader: PropTypes.bool.isRequired,
+  positions: PropTypes.array.isRequired,
+  selectedPersonnel: PropTypes.array.isRequired,
+  setSelectedPersonnel: PropTypes.func.isRequired,
+};
+
+SequenceForm.defaultProps = {
+  sequence: null,
+};
+
 const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd, isLeader }) => (
   <Card title={title}>
     <Button type="primary" onClick={() => onAdd(isLeader)} style={{ marginBottom: 16 }}>
@@ -210,6 +227,16 @@ const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd
     />
   </Card>
 );
+
+SequenceList.propTypes = {
+  title: PropTypes.string.isRequired,
+  sequences: PropTypes.array.isRequired,
+  personnelList: PropTypes.array.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onDelete: PropTypes.func.isRequired,
+  onAdd: PropTypes.func.isRequired,
+  isLeader: PropTypes.bool.isRequired,
+};
 
 const SequenceManager = () => {
   const [personnelSequences, setPersonnelSequences] = useState([]);

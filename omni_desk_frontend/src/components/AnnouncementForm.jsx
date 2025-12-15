@@ -43,7 +43,7 @@ const AnnouncementForm = () => {
         }
       }
     };
-  }, [setError, quillRef, apiClient]); // 添加依赖项
+  }, [setError, quillRef]); // 添加依赖项
 
   const modules = useMemo(() => ({
     toolbar: {

@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Upload, Button, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 
@@ -18,6 +19,10 @@ const FileUpload = ({ onFileUpload }) => {
       <Button icon={<UploadOutlined />}>选择文件</Button>
     </Upload>
   );
+};
+
+FileUpload.propTypes = {
+  onFileUpload: PropTypes.func.isRequired,
 };
 
 export default FileUpload;

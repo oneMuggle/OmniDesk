@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Table, Button, Space } from 'antd';
 
 const BookList = ({ books, onEdit, onExport, loading }) => {
@@ -43,6 +44,13 @@ const BookList = ({ books, onEdit, onExport, loading }) => {
       pagination={{ pageSize: 10 }}
     />
   );
+};
+
+BookList.propTypes = {
+  books: PropTypes.array.isRequired,
+  onEdit: PropTypes.func.isRequired,
+  onExport: PropTypes.func.isRequired,
+  loading: PropTypes.bool.isRequired,
 };
 
 export default BookList;

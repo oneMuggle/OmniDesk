@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Modal, Form, Input, Button } from 'antd';
 
 const BookForm = ({ book, onSave, onCancel }) => {
@@ -54,6 +55,19 @@ const BookForm = ({ book, onSave, onCancel }) => {
       </Form>
     </Modal>
   );
+};
+
+BookForm.propTypes = {
+  book: PropTypes.shape({
+    title: PropTypes.string,
+    author: PropTypes.string,
+  }),
+  onSave: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
+};
+
+BookForm.defaultProps = {
+  book: null,
 };
 
 export default BookForm;

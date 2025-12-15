@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { permissionsApi } from '../../api/permissionsApi';
 import './AdminLayout.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import {
@@ -11,17 +10,14 @@ import {
   faCog,
   faChevronLeft,
   faFileWord,
-  faBars,
   faSignOutAlt,
   faHome,
   faBullhorn,
   faCaretDown, // For dropdown indicator
   faCaretRight, // For dropdown indicator
   faCalendarAlt,
-  faUserShield,
   faNewspaper
 } from '@fortawesome/free-solid-svg-icons';
-import ProtectedRoute from '../ProtectedRoute';
 
 const allAdminMenuItems = [
   { to: "/control-panel/trials", icon: faFlask, text: "试验管理", permission: "events.view_trial" },

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, InputNumber, Slider, Switch, Popconfirm } from 'antd';
+import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, Switch, Popconfirm } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
@@ -16,6 +16,8 @@ import MonthlyLeaderSidebar from '../components/Schedule/MonthlyLeaderSidebar';
 import { DragDropContext } from 'react-beautiful-dnd';
 
 const { Option } = Select;
+
+import PropTypes from 'prop-types';
 
 const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, positions }) => {
   const [form] = Form.useForm();
@@ -188,6 +190,19 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
   );
 };
 
+ScheduleFormModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onOk: PropTypes.func.isRequired,
+  initialData: PropTypes.object,
+  personnelList: PropTypes.array.isRequired,
+  positions: PropTypes.array.isRequired,
+};
+
+ScheduleFormModal.defaultProps = {
+  initialData: {},
+};
+
 
 const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leaderSequences }) => {
   const [form] = Form.useForm();
@@ -316,6 +331,14 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
   );
 };
 
+GenerateScheduleModal.propTypes = {
+  open: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onOk: PropTypes.func.isRequired,
+  personnelSequences: PropTypes.array.isRequired,
+  leaderSequences: PropTypes.array.isRequired,
+};
+
 const ScheduleManagementPage = () => {
   const queryClient = useQueryClient();
   const [schedules, setSchedules] = useState([]);
@@ -358,7 +381,7 @@ const ScheduleManagementPage = () => {
       fetchData(); // 最后加载排班数据
     };
     initData();
-  }, []);
+  }, [fetchData]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
@@ -406,10 +429,6 @@ const ScheduleManagementPage = () => {
     }
   };
 
-  const getPersonnelName = (id) => {
-    const person = personnelList.find(p => p.id === id);
-    return person ? person.name : '未知';
-  };
 
   const handleAdd = () => {
     setCurrentSchedule(null);
@@ -486,7 +505,7 @@ const ScheduleManagementPage = () => {
   };
 
   const handleEventDrop = async (info) => {
-    const { event: draggedEvent, oldEvent, revert } = info;
+    const { event: draggedEvent, revert } = info;
     const newDate = moment(draggedEvent.start).format('YYYY-MM-DD');
 
     const targetEvent = schedules.find(s =>

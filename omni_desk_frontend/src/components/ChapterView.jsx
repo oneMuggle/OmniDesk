@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { Link, useLocation } from 'react-router-dom'; // Import Link and useLocation
 import api from '../api/axiosConfig';
 import './ChapterView.css';
@@ -9,7 +10,7 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { styled } from '@mui/system';
 
 const ExpandMore = styled((props) => {
-    const { expand, ...other } = props;
+    const { ...other } = props;
     return <IconButton {...other} />;
 })(({ theme, expand }) => ({
     transform: !expand ? 'rotate(0deg)' : 'rotate(180deg)',
@@ -128,6 +129,25 @@ const ChapterView = ({ chapter, complianceIssues }) => { // 接收 complianceIss
             </Link>
         </div>
     );
+};
+
+ChapterView.propTypes = {
+  chapter: PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
+  }).isRequired,
+  complianceIssues: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    issue_type: PropTypes.string,
+    description: PropTypes.string,
+    location: PropTypes.string,
+    severity: PropTypes.string,
+    status: PropTypes.string,
+    suggested_fix: PropTypes.string,
+  })),
+};
+
+ChapterView.defaultProps = {
+  complianceIssues: [],
 };
 
 export default ChapterView;
