@@ -214,7 +214,17 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             # Now, with the coast clear, proceed with standard creation.
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            serializer.save()
+            # Mimic the fix from perform_update to ensure FKs are set correctly.
+            save_kwargs = {}
+            duty_person_val = request.data.get('duty_person_id') or request.data.get('duty_person')
+            if duty_person_val:
+                save_kwargs['duty_person_id'] = duty_person_val
+
+            duty_leader_val = request.data.get('duty_leader_id') or request.data.get('duty_leader')
+            if duty_leader_val:
+                save_kwargs['duty_leader_id'] = duty_leader_val
+            
+            serializer.save(**save_kwargs)
 
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)

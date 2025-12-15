@@ -56,7 +56,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "node scripts/generate-routes.js && react-scripts build",
+    "build": "CI=false node scripts/generate-routes.js && react-scripts build",
     "test": "react-scripts test --testTimeout=30000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",

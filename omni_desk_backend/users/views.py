@@ -205,6 +205,7 @@ from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by('username')
     serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
+    lookup_field = 'id'
     pagination_class = None
     permission_classes = [IsAdminOrManager] # 确保只有管理员和经理可以访问
 

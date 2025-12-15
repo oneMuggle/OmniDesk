@@ -396,8 +396,9 @@ class BookImportView(APIView):
 
                 # Image Path Correction for the entire book content
                 def replace_image_path(match):
+                    from urllib.parse import unquote
                     alt_text = match.group(1)
-                    original_path_str = match.group(2)
+                    original_path_str = unquote(match.group(2))
 
                     if not original_path_str or original_path_str.startswith(('http://', 'https://', 'data:')):
                         return match.group(0)
