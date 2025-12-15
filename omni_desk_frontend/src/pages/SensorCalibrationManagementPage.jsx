@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, Space, Collapse } from 'antd';
 import axios from 'axios';
@@ -11,7 +11,7 @@ const SensorCalibrationManagementPage = () => {
     const [editingCalibration, setEditingCalibration] = useState(null);
     const [form] = Form.useForm();
 
-    const fetchCalibrations = async () => {
+    const fetchCalibrations = useCallback(async () => {
         setLoading(true);
         try {
             const response = await axios.get(`/api/sensor-calibrations/?sensor_id=${sensorId}`);
@@ -22,13 +22,13 @@ const SensorCalibrationManagementPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [sensorId]);
 
     useEffect(() => {
         if (sensorId) {
             fetchCalibrations();
         }
-    }, [sensorId, fetchCalibrations]);
+    }, [fetchCalibrations, sensorId]);
 
     const handleAdd = () => {
         setEditingCalibration(null);

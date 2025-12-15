@@ -11,7 +11,6 @@ const { Option } = Select;
 
 const DocumentsPage = () => {
   const [form] = Form.useForm();
-  const [uploading, setUploading] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);
   const [projects, setProjects] = useState([]); // Add projects state
@@ -53,21 +52,9 @@ const DocumentsPage = () => {
     loadInitialData();
   }, [location.search]);
 
-  // 当选择的项目变化时，重新加载模板
-  useEffect(() => {
-    // We only need to react to changes, initial load is handled above.
-    // The dependency on location.search handles the initial load.
-    // This effect handles subsequent, user-driven changes.
-    if (selectedProject === null) {
-        loadTemplates(); // 如果清空选择，加载所有模板
-    } else {
-        loadTemplates(selectedProject);
-    }
-  }, [selectedProject]);
 
   // 处理模板上传
   const handleUpload = async (file) => {
-    setUploading(true);
     try {
       const formData = new FormData();
       formData.append('template', file);
@@ -80,8 +67,6 @@ const DocumentsPage = () => {
     } catch (error) {
       message.error('上传失败');
       console.error('Upload error:', error);
-    } finally {
-      setUploading(false);
     }
   };
 

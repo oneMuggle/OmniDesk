@@ -101,7 +101,7 @@ const SequenceForm = ({
               bordered
               dataSource={availablePersonnel}
               renderItem={item => (
-                <List.Item key={item.id} actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}>
+                <List.Item key={item.id} actions={[<Button key={`add-${item.id}`} type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}>
                   {item.name} <Tag>{item.position_name}</Tag>
                 </List.Item>
               )}

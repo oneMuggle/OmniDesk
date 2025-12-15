@@ -218,7 +218,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
             renderItem={item => (
               <List.Item
                 key={item.id}
-                actions={[<Button type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}
+                actions={[<Button key={`add-${item.id}`} type="link" onClick={() => handleAddPersonnel(item)}>添加</Button>]}
               >
                 {item.name}
               </List.Item>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip, Box, Select, MenuItem, FormControl, InputLabel } from '@mui/material';
 import complianceApi from '../api/compliance'; // Assuming you'll create this API service
 import projectsApi from '../api/projects'; // Import projectsApi
@@ -12,7 +12,7 @@ const CompliancePage = () => {
     const navigate = useNavigate();
 
     // Derive selectedProject from URL's query parameters
-    const queryParams = new URLSearchParams(location.search);
+    const queryParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
     const selectedProject = queryParams.get('project_id') || '';
 
     useEffect(() => {
@@ -50,7 +50,7 @@ const CompliancePage = () => {
         
         fetchComplianceIssues();
 
-    }, [location.search, queryParams]);
+    }, [queryParams]);
 
 
     const handleProjectChange = (event) => {

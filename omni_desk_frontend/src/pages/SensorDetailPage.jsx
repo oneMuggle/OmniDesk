@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Card, Spin, Alert, Modal } from 'antd';
 import apiClient from '../api/apiClient';
@@ -12,7 +12,7 @@ const SensorDetailPage = () => {
     const [error, setError] = useState(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
 
-    const fetchSensorDetails = async () => {
+    const fetchSensorDetails = useCallback(async () => {
         try {
             setLoading(true);
             const sensorRes = await apiClient.get(`/sensors/${id}/`);
@@ -26,11 +26,11 @@ const SensorDetailPage = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [id]);
 
     useEffect(() => {
         fetchSensorDetails();
-    }, [id, fetchSensorDetails]);
+    }, [fetchSensorDetails]);
 
     const handleAddCalibration = () => {
         setIsModalVisible(true);

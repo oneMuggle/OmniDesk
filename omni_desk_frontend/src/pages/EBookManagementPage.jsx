@@ -15,20 +15,19 @@ const EBookManagementPage = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   // Mock data for initial display
-  const mockBooks = [
-    { id: 1, title: 'React 入门指南', author: '张三', createdAt: '2023-10-01' },
-    { id: 2, title: 'Vue.js 深度剖析', author: '李四', createdAt: '2023-09-15' },
-    { id: 3, title: 'JavaScript 高级编程', author: '王五', createdAt: '2023-11-01' },
-  ];
-
   useEffect(() => {
+    const mockBooks = [
+        { id: 1, title: 'React 入门指南', author: '张三', createdAt: '2023-10-01' },
+        { id: 2, title: 'Vue.js 深度剖析', author: '李四', createdAt: '2023-09-15' },
+        { id: 3, title: 'JavaScript 高级编程', author: '王五', createdAt: '2023-11-01' },
+    ];
     // Simulate fetching data from an API
     setTimeout(() => {
       setBooks(mockBooks);
       setFilteredBooks(mockBooks);
       setIsLoading(false);
     }, 1000);
-  }, [mockBooks]);
+  }, []);
 
   const handleSearch = (query) => {
     const lowercasedQuery = query.toLowerCase();
