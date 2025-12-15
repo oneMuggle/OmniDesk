@@ -125,31 +125,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework.filters import SearchFilter
 from django.db import transaction
 
-class PersonnelListCreateView(generics.ListCreateAPIView):
-    serializer_class = UserPersonnelSerializer
-    permission_classes = [IsAdminOrManager]
-
-    def get_queryset(self):
-        queryset = CustomUser.objects.all()
-        search_term = self.request.query_params.get('search', None)
-        position_id = self.request.query_params.get('personnel__position', None)
-
-        if search_term:
-            queryset = queryset.filter(real_name__icontains=search_term)
-        else:
-            queryset = queryset.none()
-
-        if position_id:
-            queryset = queryset.filter(personnel__position_id=position_id)
-            
-        return queryset
-
-class PersonnelRetrieveUpdateDestroyView(generics.RetrieveUpdateDestroyAPIView):
-    queryset = CustomUser.objects.all()
-    serializer_class = UserPersonnelSerializer
-    
-    permission_classes = [IsAdminOrManager]
-    lookup_field = 'id'
 
 class ChangePasswordView(generics.UpdateAPIView):
     serializer_class = ChangePasswordSerializer
@@ -208,8 +183,10 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
     lookup_field = 'id'
     pagination_class = None
     permission_classes = [IsAdminOrManager] # 确保只有管理员和经理可以访问
+    filter_backends = [SearchFilter]
+    search_fields = ['real_name', 'username']
 
-    def update(self, request, *args, **kwargs):
+    def partial_update(self, request, *args, **kwargs):
         instance = self.get_object()
         personnel_id = request.data.get('personnel_id')
 
@@ -236,11 +213,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
             queryset = CustomUser.objects.all().order_by('username')
-            search_term = self.request.query_params.get('search', None)
             position = self.request.query_params.get('personnel__position', None)
-
-            if search_term:
-                queryset = queryset.filter(real_name__icontains=search_term)
 
             if position:
                 queryset = queryset.filter(personnel__position_id=position)

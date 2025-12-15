@@ -21,11 +21,17 @@ def get_user_permissions(user):
     
     # 获取用户通过组获得的页面路由权限
     user_groups = user.groups.all()
+    group_names = set(user_groups.values_list('name', flat=True))
     page_permissions = GroupPagePermission.objects.filter(group__in=user_groups).select_related('page').values_list('page__path', flat=True)
     permissions.update(page_permissions)
 
-    if user.groups.filter(name='manager').exists():
+    if 'Admin' in group_names:
+        permissions.add('events.manage_schedule')
+        permissions.add('documents.view_book')
+
+    if 'Manager' in group_names:
         permissions.add('manager')
+        permissions.add('events.manage_personnel')
         
     return list(permissions)
 
@@ -248,8 +254,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # 获取用户的所有权限（包括直接分配和从组继承的），并将其添加到响应中。
         # 权限格式为 'app_label.codename'。
-        permissions = self.user.get_all_permissions()
-        data['permissions'] = list(permissions)
+        data['permissions'] = get_user_permissions(self.user)
         return data
 
     @classmethod

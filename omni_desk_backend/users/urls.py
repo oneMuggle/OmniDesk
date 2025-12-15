@@ -1,11 +1,10 @@
 from django.urls import path, include
-from rest_framework.routers import DefaultRouter
-from .views import CurrentUserView, UserAdminListView, UserAdminDetailView, UserProfileUpdateView, ChangePasswordView, UserPersonnelViewSet
+from .views import (
+    ChangePasswordView, CurrentUserView, UserAdminDetailView,
+    UserAdminListView, UserPersonnelViewSet, UserProfileUpdateView
+)
 
-app_name = 'users' # 定义应用命名空间
-
-router = DefaultRouter()
-router.register(r'users', UserPersonnelViewSet, basename='user-personnel')
+app_name = 'users'  # 定义应用命名空间
 
 urlpatterns = [
     path('me/profile/', UserProfileUpdateView.as_view(), name='user-profile-update'),
@@ -13,5 +12,11 @@ urlpatterns = [
     path('me/', CurrentUserView.as_view(), name='current-user'),
     path('control-panel/', UserAdminListView.as_view(), name='user-admin-list'),
     path('control-panel/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
-    path('', include(router.urls)),
+
+    # 为 UserPersonnelViewSet 显式定义 URL
+    path('', UserPersonnelViewSet.as_view({'get': 'list'}), name='user-personnel-list'),
+    path('<int:id>/', UserPersonnelViewSet.as_view({
+        'get': 'retrieve',
+        'patch': 'partial_update'
+    }), name='user-personnel-detail'),
 ]

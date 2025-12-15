@@ -1,4 +1,5 @@
 from rest_framework import viewsets, permissions
+from rest_framework.filters import SearchFilter
 from users.permissions import IsAdminOrReadOnly
 from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
 from .serializers import (
@@ -18,6 +19,8 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     """
     queryset = Personnel.objects.all()
     permission_classes = [IsAdminOrReadOnly]
+    filter_backends = [SearchFilter]
+    search_fields = ['name', 'id_card_number']
 
     def get_serializer_class(self):
         """
