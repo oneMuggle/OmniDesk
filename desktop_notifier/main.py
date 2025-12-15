@@ -3,7 +3,7 @@ import os
 import winreg
 import requests
 from PyQt6.QtWidgets import (
-    QApplication, QWidget, QVBoxLayout, QListWidget, QTabWidget,
+    QApplication, QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QStackedWidget,
     QDialog, QCheckBox, QPushButton, QDialogButtonBox
 )
 from PyQt6.QtCore import Qt, QPropertyAnimation, QPoint, QEasingCurve, QTimer
@@ -12,10 +12,10 @@ from PyQt6.QtGui import QScreen
 class MainWindow(QWidget):
     def __init__(self):
         super().__init__()
-        # Make the window frameless and stay on top
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.initUI()
-        self.is_hidden = True
+        self.is_docked = False
+        self.drag_position = QPoint()
 
         # Set up data fetching
         self.timer = QTimer(self)
@@ -65,51 +65,61 @@ class MainWindow(QWidget):
 
     def initUI(self):
         self.setWindowTitle('Desktop Notifier')
-        
+
         # Get screen geometry
-        screen = QScreen.primaryScreen()
+        screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
         screen_width = screen_geometry.width()
         screen_height = screen_geometry.height()
 
         # Set window size
-        self.window_width = 300
-        self.window_height = 200
+        self.window_width = 320
+        self.window_height = 700
         self.resize(self.window_width, self.window_height)
 
-        # Define visible and hidden positions
-        self.visible_x = screen_width - self.window_width
-        self.hidden_x = screen_width - 10  # Leave 10 pixels visible
-        
-        # Center vertically
-        y_pos = (screen_height - self.window_height) // 2
-        
-        self.start_pos = QPoint(self.hidden_x, y_pos)
-        self.end_pos = QPoint(self.visible_x, y_pos)
+        # Define docking positions
+        self.start_pos_x = screen_width - 10  # Hidden position
+        self.end_pos_x = screen_width - self.window_width  # Visible position
 
-        # Set initial position
-        self.move(self.start_pos)
+        # Center window on startup
+        start_x = (screen_width - self.window_width) // 2
+        start_y = (screen_height - self.window_height) // 2
+        self.move(start_x, start_y)
 
-        layout = QVBoxLayout(self)
-        
-        # Create Tab Widget
-        self.tabs = QTabWidget()
+        # Main layout
+        main_layout = QVBoxLayout(self)
+        content_layout = QHBoxLayout()
+
+        # Left-side List Widget (Navigation)
+        self.nav_list = QListWidget()
+        self.nav_list.setObjectName("navList")
+        self.nav_list.setMaximumWidth(80)
+        self.nav_list.addItems(["排班", "试验", "会议室"])
+
+        # Right-side Stacked Widget (Content)
+        self.stacked_widget = QStackedWidget()
         self.schedule_list = QListWidget()
         self.experiment_list = QListWidget()
         self.booking_list = QListWidget()
-        
-        self.tabs.addTab(self.schedule_list, "排班")
-        self.tabs.addTab(self.experiment_list, "试验")
-        self.tabs.addTab(self.booking_list, "会议室")
-        
-        layout.addWidget(self.tabs)
+        self.stacked_widget.addWidget(self.schedule_list)
+        self.stacked_widget.addWidget(self.experiment_list)
+        self.stacked_widget.addWidget(self.booking_list)
 
-        # Add settings button
+        # Connect navigation list to stacked widget
+        self.nav_list.currentRowChanged.connect(self.stacked_widget.setCurrentIndex)
+        self.nav_list.setCurrentRow(0)  # Set initial selection
+
+        # Add widgets to content layout
+        content_layout.addWidget(self.nav_list)
+        content_layout.addWidget(self.stacked_widget)
+
+        # Add content layout and settings button to main layout
+        main_layout.addLayout(content_layout)
         self.settings_button = QPushButton("设置")
         self.settings_button.clicked.connect(self.open_settings_dialog)
-        layout.addWidget(self.settings_button)
+        main_layout.addWidget(self.settings_button)
 
-        self.setLayout(layout)
+        self.setLayout(main_layout)
 
         # Set up animation
         self.animation = QPropertyAnimation(self, b"pos")
@@ -117,28 +127,51 @@ class MainWindow(QWidget):
         self.animation.setDuration(300)
 
     def enterEvent(self, event):
-        """Mouse enters the window."""
-        if self.is_hidden:
+        """Show window when mouse enters if docked."""
+        if self.is_docked:
             self.slide_in()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        """Mouse leaves the window."""
-        if not self.is_hidden:
+        """Hide window when mouse leaves if docked."""
+        if self.is_docked:
             self.slide_out()
         super().leaveEvent(event)
 
+    def mousePressEvent(self, event):
+        """Handle mouse press for dragging."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.is_docked = False  # Undock when dragging starts
+            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+            event.accept()
+
+    def mouseMoveEvent(self, event):
+        """Handle window dragging."""
+        if event.buttons() == Qt.MouseButton.LeftButton:
+            self.move(event.globalPosition().toPoint() - self.drag_position)
+            event.accept()
+
+    def mouseReleaseEvent(self, event):
+        """Handle mouse release to check for docking."""
+        if event.button() == Qt.MouseButton.LeftButton:
+            screen = QApplication.primaryScreen().geometry()
+            # Check if the window is close to the right edge
+            if self.pos().x() + self.width() > screen.width() - 50:
+                self.is_docked = True
+                self.slide_out()  # Snap to the edge
+            event.accept()
+
     def slide_in(self):
+        """Slides the window in to be fully visible."""
         self.animation.setStartValue(self.pos())
-        self.animation.setEndValue(self.end_pos)
+        self.animation.setEndValue(QPoint(self.end_pos_x, self.pos().y()))
         self.animation.start()
-        self.is_hidden = False
 
     def slide_out(self):
+        """Slides the window out to a partially hidden state."""
         self.animation.setStartValue(self.pos())
-        self.animation.setEndValue(self.start_pos)
+        self.animation.setEndValue(QPoint(self.start_pos_x, self.pos().y()))
         self.animation.start()
-        self.is_hidden = True
 
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
@@ -218,7 +251,8 @@ def main():
 
     # 加载QSS样式
     try:
-        with open("desktop_notifier/styles.qss", "r") as f:
+        style_path = os.path.join(os.path.dirname(__file__), "styles.qss")
+        with open(style_path, "r") as f:
             app.setStyleSheet(f.read())
     except FileNotFoundError:
         print("Warning: styles.qss not found. Using default style.")
