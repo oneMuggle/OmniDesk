@@ -56,7 +56,7 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "CI=false node scripts/generate-routes.js && react-scripts build",
+    "build": "cross-env CI=false node scripts/generate-routes.js && react-scripts build",
     "test": "react-scripts test --testTimeout=30000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
@@ -76,9 +76,10 @@
   },
   "devDependencies": {
     "@babel/parser": "^7.24.7",
-    "@babel/traverse": "^7.24.7",
     "@babel/plugin-transform-modules-commonjs": "^7.23.3",
+    "@babel/traverse": "^7.24.7",
     "babel-jest": "^29.7.0",
+    "cross-env": "^10.1.0",
     "eslint": "latest",
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-react": "latest",
