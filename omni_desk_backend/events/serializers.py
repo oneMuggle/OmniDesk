@@ -13,10 +13,32 @@ class TimeSlotSerializer(serializers.ModelSerializer):
 class TrialSerializer(serializers.ModelSerializer):
     time_slots = TimeSlotSerializer(many=True, read_only=True)
     responsible_persons = PersonnelSerializer(many=True, read_only=True)
+    time_slots_data = serializers.ListField(
+        child=serializers.DictField(), write_only=True, required=False
+    )
 
     class Meta:
         model = Trial
         fields = '__all__'
+
+    def create(self, validated_data):
+        time_slots_data = validated_data.pop('time_slots_data', [])
+        trial = Trial.objects.create(**validated_data)
+        for slot_data in time_slots_data:
+            TimeSlot.objects.create(trial=trial, **slot_data)
+        return trial
+
+    def update(self, instance, validated_data):
+        time_slots_data = validated_data.pop('time_slots_data', None)
+        instance = super().update(instance, validated_data)
+        if time_slots_data is not None:
+            for slot_data in time_slots_data:
+                slot_id = slot_data.pop('id', None)
+                if slot_id:
+                    TimeSlot.objects.filter(id=slot_id, trial=instance).update(**slot_data)
+                else:
+                    TimeSlot.objects.create(trial=instance, **slot_data)
+        return instance
 
 class EquipmentSerializer(serializers.ModelSerializer):
     class Meta:

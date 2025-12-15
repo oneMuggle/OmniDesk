@@ -18,7 +18,7 @@ class OfficeAssistantProcessView(APIView):
     def post(self, request, *args, **kwargs):
         action = request.data.get('action')
         text = request.data.get('text')
-        stream = request.data.get('stream', True)
+        stream = request.data.get('stream', False)
 
         if not action or not text:
             return Response({'error': 'Action and text are required.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -37,10 +37,10 @@ class OfficeAssistantProcessView(APIView):
             system_message = system_prompts[action]
             
             if stream:
-                response_stream = client.chat(prompt=text, system_message=system_message, stream=True)
+                response_stream = client.generate(prompt=text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type='text/event-stream')
             else:
-                processed_text = client.chat(prompt=text, system_message=system_message, stream=False)
+                processed_text = client.generate(prompt=text, system_message=system_message, stream=False)
                 return Response({'processed_text': processed_text}, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -69,10 +69,10 @@ class ProcessDocumentView(APIView):
                 pdf_reader = PyPDF2.PdfReader(file_obj)
                 for page in pdf_reader.pages:
                     original_text += page.extract_text() or ""
-            elif file_name.endswith('.txt'):
+            elif file_name.endswith('.txt') or file_name.endswith('.md'):
                 original_text = file_obj.read().decode('utf-8')
             else:
-                return Response({'status': 'error', 'message': 'Invalid file type. Only .docx, .pdf, and .txt are supported.'}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({'status': 'error', 'message': 'Invalid file type. Only .docx, .pdf, .txt and .md are supported.'}, status=status.HTTP_400_BAD_REQUEST)
 
             if not original_text.strip():
                 return Response({'status': 'error', 'message': 'The document is empty or contains no text.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -91,10 +91,10 @@ class ProcessDocumentView(APIView):
             system_message = system_prompts[action]
 
             if stream:
-                response_stream = client.chat(prompt=original_text, system_message=system_message, stream=True)
+                response_stream = client.generate(prompt=original_text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type='text/event-stream')
             else:
-                processed_text = client.chat(prompt=original_text, system_message=system_message, stream=False)
+                processed_text = client.generate(prompt=original_text, system_message=system_message, stream=False)
                 response_data = {
                     'status': 'success',
                     'data': {

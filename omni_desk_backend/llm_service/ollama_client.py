@@ -27,14 +27,14 @@ class OllamaClient:
         except Exception as e:
             raise Exception(f"An unexpected error occurred during Ollama API request: {e}")
 
-    def _stream_chat(self, response):
+    def _stream_generate(self, response):
         for line in response.iter_lines():
             if line:
                 chunk = json.loads(line)
                 if 'message' in chunk and 'content' in chunk['message']:
                     yield chunk['message']['content']
 
-    def chat(self, prompt, system_message=None, stream=False, options=None):
+    def generate(self, prompt, system_message=None, stream=False, options=None):
         """
         Generates a response from the Ollama model.
         :param prompt: The user prompt.
@@ -57,7 +57,7 @@ class OllamaClient:
 
         if stream:
             response = self._make_request("api/chat", data, stream=True)
-            return self._stream_chat(response)
+            return self._stream_generate(response)
         else:
             response_data = self._make_request("api/chat", data)
             if 'message' in response_data and 'content' in response_data['message']:

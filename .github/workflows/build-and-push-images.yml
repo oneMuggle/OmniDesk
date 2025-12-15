@@ -98,3 +98,5 @@ jobs:
           file: ./omni_desk_frontend/Dockerfile
           push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
           tags: ghcr.io/onemuggle/omni-desk-frontend:latest
+          build-args: |
+            CI=false

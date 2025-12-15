@@ -246,8 +246,10 @@ class UserAdminSerializer(serializers.ModelSerializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
-        # Dynamically get all user permissions and add them to the response.
-        data['permissions'] = get_user_permissions(self.user)
+        # 获取用户的所有权限（包括直接分配和从组继承的），并将其添加到响应中。
+        # 权限格式为 'app_label.codename'。
+        permissions = self.user.get_all_permissions()
+        data['permissions'] = list(permissions)
         return data
 
     @classmethod

@@ -393,6 +393,37 @@ class BookImportView(APIView):
                     tag, _ = Tag.objects.get_or_create(name=tag_name)
                     book_obj.tags.add(tag)
 
+                # Image Path Correction for the entire book content
+                def replace_image_path(match):
+                    alt_text = match.group(1)
+                    original_path_str = match.group(2)
+
+                    if not original_path_str or original_path_str.startswith(('http://', 'https://', 'data:')):
+                        return match.group(0)
+                    
+                    if not base_path_for_images:
+                        # Cannot resolve relative paths if not from a zip
+                        return match.group(0)
+
+                    src_image_path = base_path_for_images / Path(original_path_str)
+                    if not src_image_path.is_file():
+                        return match.group(0) # Keep if image not found
+
+                    try:
+                        sanitized_title = re.sub(r'[^\w\-_\.]', '_', book_obj.title)
+                        image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
+                        image_dest_dir.mkdir(parents=True, exist_ok=True)
+                        
+                        dest_image_path = image_dest_dir / src_image_path.name
+                        shutil.copy(src_image_path, dest_image_path)
+                        
+                        new_path = f"/{settings.MEDIA_URL.lstrip('/')}book_images/{sanitized_title}/{src_image_path.name}"
+                        return f'![{alt_text}]({new_path})'
+                    except Exception:
+                        return match.group(0) # Keep original on error
+                
+                content = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, content)
+
                 # Clear existing chapters
                 book_obj.chapters.all().delete()
 
@@ -434,36 +465,6 @@ class BookImportView(APIView):
                     parts = chapter_full_content.split('\n', 1)
                     chapter_title = parts[0].strip()
                     chapter_content_md = "# " + chapter_full_content.strip() # Keep the title in the content
-
-                    # Image Path Correction within Chapter Content
-                    def replace_image_path(match):
-                        alt_text = match.group(1)
-                        original_path_str = match.group(2)
-
-                        if not original_path_str or original_path_str.startswith(('http://', 'https://', 'data:')):
-                            return match.group(0)
-                        
-                        if not base_path_for_images:
-                            # Cannot resolve relative paths if not from a zip
-                            return match.group(0)
-
-                        src_image_path = base_path_for_images / original_path_str
-                        if not src_image_path.is_file():
-                            return match.group(0) # Keep if image not found
-
-                        try:
-                            sanitized_title = re.sub(r'[^\w\-_\.]', '_', book_obj.title)
-                            image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
-                            image_dest_dir.mkdir(parents=True, exist_ok=True)
-                            
-                            dest_image_path = image_dest_dir / src_image_path.name
-                            shutil.copy(src_image_path, dest_image_path)
-                            
-                            new_path = f"{settings.MEDIA_URL}book_images/{sanitized_title}/{src_image_path.name}"
-                            return f'![{alt_text}]({new_path})'
-                        except Exception:
-                            return match.group(0) # Keep original on error
-                    chapter_content_md = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, chapter_content_md)
 
                     chapter_content_html = markdown.markdown(
                         chapter_content_md,

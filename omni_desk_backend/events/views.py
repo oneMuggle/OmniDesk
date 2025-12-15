@@ -183,36 +183,51 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         
         return Response({'status': 'success'}, status=201)
 
-    def perform_create(self, serializer):
-        """创建排班时检查日期是否已存在"""
+    def create(self, request, *args, **kwargs):
+        """
+        创建排班。
+        如果提供了 `override=True`，并且当天已存在排班，则会删除旧排班并创建新排班。
+        否则，如果排班已存在，则会引发 ValidationError。
+        """
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        
         duty_date = serializer.validated_data.get('duty_date')
-        override = self.request.data.get('override', False)
-        
-        existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
-        
-        if existing_schedule:
-            if override:
-                existing_schedule.delete()
-            else:
-                # Directly use rest_framework.serializers.ValidationError
-                from rest_framework import serializers
-                raise serializers.ValidationError({'duty_date': '该日期已有排班'})
-                
-        serializer.save()
+        override = str(request.data.get('override', 'false')).lower() == 'true'
+
+        with transaction.atomic():
+            existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
+            
+            if existing_schedule:
+                if override:
+                    existing_schedule.delete()
+                else:
+                    from rest_framework.exceptions import ValidationError
+                    raise ValidationError({'duty_date': '该日期已有排班。如需覆盖，请设置 override=True。'})
+            
+            serializer.save()
+
+        headers = self.get_success_headers(serializer.data)
+        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_update(self, serializer):
-        """更新排班时检查日期是否冲突"""
+        """更新排班时检查日期是否冲突，并确保外键字段正确更新。"""
         duty_date = serializer.validated_data.get('duty_date', serializer.instance.duty_date)
         
-        # 检查是否存在与当前实例不同的、日期冲突的排班
-        conflicting_schedule = Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).first()
+        # 检查日期冲突
+        if Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'duty_date': '该日期已有排班'})
         
-        if conflicting_schedule:
-            # 直接使用 rest_framework.serializers.ValidationError
-            from rest_framework import serializers
-            raise serializers.ValidationError({'duty_date': '该日期已有排班'})
-            
-        serializer.save()
+        # 显式传递 duty_person_id 和 duty_leader_id 以确保更新
+        # 这是为了解决测试中发现的 PUT 请求未更新这些字段的问题
+        update_kwargs = {}
+        if 'duty_person_id' in self.request.data:
+            update_kwargs['duty_person_id'] = self.request.data.get('duty_person_id')
+        if 'duty_leader_id' in self.request.data:
+            update_kwargs['duty_leader_id'] = self.request.data.get('duty_leader_id')
+
+        serializer.save(**update_kwargs)
 
     @action(detail=False, methods=['post'], url_path='swap-dates')
     def swap_dates(self, request):

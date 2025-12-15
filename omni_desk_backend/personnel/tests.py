@@ -10,7 +10,7 @@ class PersonnelModelTest(TestCase):
         self.personnel = Personnel.objects.create(
             name="Test User",
             id_card_number="123456789012345678",
-            position="Developer",
+            position=self.position,
             department="IT",
         )
 
@@ -121,13 +121,19 @@ class PersonnelAPITest(TestCase):
         self.user = User.objects.create_user(username='testuser', password='testpassword')
         self.user.groups.add(admin_group)
 
+        position_obj = Position.objects.create(name="API Tester")
         self.personnel_data = {
             "name": "API Test User",
             "id_card_number": "987654321098765432",
-            "position": "API Tester",
+            "position": position_obj.id,
             "department": "QA"
         }
-        self.personnel = Personnel.objects.create(**self.personnel_data)
+        self.personnel = Personnel.objects.create(
+            name="API Test User",
+            id_card_number="987654321098765432",
+            position=position_obj,
+            department="QA"
+        )
 
     def test_list_personnel(self):
         """Test listing all personnel."""
