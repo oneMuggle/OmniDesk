@@ -30,7 +30,7 @@ const SensorDetailPage = () => {
 
     useEffect(() => {
         fetchSensorDetails();
-    }, [id]);
+    }, [id, fetchSensorDetails]);
 
     const handleAddCalibration = () => {
         setIsModalVisible(true);

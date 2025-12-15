@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import ScheduleControls from '../components/ScheduleControls';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
@@ -14,6 +15,10 @@ const SchedulePage = ({ scheduleType }) => {
       </div>
     </div>
   );
+};
+
+SchedulePage.propTypes = {
+  scheduleType: PropTypes.string.isRequired,
 };
 
 export default SchedulePage;

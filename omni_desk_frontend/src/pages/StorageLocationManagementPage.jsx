@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Card, Table, Button, Modal, Form, Input, message, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import apiClient from '../api/apiClient';
@@ -43,6 +44,17 @@ const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData }) => {
       </Form>
     </Modal>
   );
+};
+
+StorageLocationFormModal.propTypes = {
+  visible: PropTypes.bool.isRequired,
+  onCancel: PropTypes.func.isRequired,
+  onOk: PropTypes.func.isRequired,
+  initialData: PropTypes.object,
+};
+
+StorageLocationFormModal.defaultProps = {
+  initialData: null,
 };
 
 const StorageLocationManagementPage = () => {

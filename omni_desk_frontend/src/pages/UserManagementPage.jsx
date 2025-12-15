@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import { Table, Select, Button, message, Spin, Card, Tabs, Modal, Form, Input, Space, Tree, Row, Col, Avatar } from 'antd';
-import { PlusOutlined, MinusCircleOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import userManagementApi from '../api/userManagementApi';
 import { getAllPersonnel } from '../api/personnelApi';
 import { permissionsApi } from '../api/permissionsApi';
@@ -282,6 +283,11 @@ const GroupPermissionManager = ({ groups, fetchGroups }) => {
             </Modal>
         </Card>
     );
+};
+
+GroupPermissionManager.propTypes = {
+  groups: PropTypes.array.isRequired,
+  fetchGroups: PropTypes.func.isRequired,
 };
 
 

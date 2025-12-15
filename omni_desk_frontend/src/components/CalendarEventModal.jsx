@@ -20,7 +20,6 @@ const CalendarEventModal = ({
   form,
   isEditing,
   setIsEditing,
-  selectedTrial, // 用于试验日程的详情展示
 }) => {
   const { user } = useAuth(); // 获取 user 对象
   const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
@@ -306,17 +305,6 @@ const CalendarEventModal = ({
     </>
   );
 
-  const renderTrialDetails = (details) => (
-    <>
-      <Text strong>试验项目: </Text><Text>{selectedTrial?.title || 'N/A'}</Text><br />
-      <Text strong>描述: </Text><Text>{details?.description || 'N/A'}</Text><br />
-      <Text strong>状态: </Text><Text>{details?.status || 'N/A'}</Text><br />
-      <Text strong>客户: </Text><Text>{details?.client || 'N/A'}</Text><br />
-      <Text strong>时间: </Text><Text>{dayjs(currentEvent.start).format('YYYY-MM-DD HH:mm')} - {dayjs(currentEvent.end).format('YYYY-MM-DD HH:mm')}</Text><br />
-      <Text strong>相关设备: </Text><Text>{currentEvent.extendedProps?.equipment?.map(e => e.name).join(', ') || 'N/A'}</Text><br />
-      <Text strong>责任人: </Text><Text>{currentEvent.extendedProps?.personnel?.map(p => p.username).join(', ') || 'N/A'}</Text><br />
-    </>
-  );
 
   return (
     <Modal

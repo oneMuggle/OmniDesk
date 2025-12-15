@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space, DatePicker, Card, Row, Col } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import ConfirmModal from '../components/Calendar/ConfirmModal';
 import { Link } from 'react-router-dom';
 import {
@@ -91,7 +91,7 @@ const PersonnelManagementPage = () => {
   useEffect(() => {
     fetchData({ page: pagination.current, pageSize: pagination.pageSize });
     fetchPositions();
-  }, [fetchData, fetchPositions, pagination.current, pagination.pageSize]);
+  }, [fetchData, fetchPositions]);
 
   const handleTableChange = (newPagination) => {
     fetchData({ page: newPagination.current, pageSize: newPagination.pageSize });
@@ -103,13 +103,6 @@ const PersonnelManagementPage = () => {
     setIsModalVisible(true);
   };
 
-  const showEditModal = (record) => {
-    form.setFieldsValue({
-      ...record,
-    });
-    setEditingId(record.id);
-    setIsModalVisible(true);
-  };
 
   const handleSubmit = async () => {
     try {

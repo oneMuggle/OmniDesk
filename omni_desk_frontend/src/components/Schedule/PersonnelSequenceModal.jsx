@@ -156,12 +156,12 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
     {
       key: 'workday',
       label: '工作日人员',
-      children: renderDraggableList('workday', selectedPersonnel, setSelectedPersonnel),
+      children: renderDraggableList('workday', selectedPersonnel),
     },
     {
       key: 'holiday',
       label: '节假日人员',
-      children: renderDraggableList('holiday', selectedHolidayPersonnel, setSelectedHolidayPersonnel),
+      children: renderDraggableList('holiday', selectedHolidayPersonnel),
     },
   ];
 

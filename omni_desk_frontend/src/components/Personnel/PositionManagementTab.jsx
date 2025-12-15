@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Modal, message, Select } from 'antd';
+import { Table, Button, Form, Input, Modal, message } from 'antd';
 import {
   getPositions,
   createPosition,

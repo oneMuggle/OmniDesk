@@ -28,7 +28,7 @@ const SensorCalibrationManagementPage = () => {
         if (sensorId) {
             fetchCalibrations();
         }
-    }, [sensorId]);
+    }, [sensorId, fetchCalibrations]);
 
     const handleAdd = () => {
         setEditingCalibration(null);

@@ -205,6 +205,7 @@ const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd
 
         return (
           <List.Item
+            key={item.id}
             actions={[
               <Button key="edit" type="link" onClick={() => onEdit(item, isLeader)}>编辑</Button>,
               <Popconfirm

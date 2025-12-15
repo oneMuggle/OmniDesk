@@ -75,7 +75,7 @@ const PersonnelEditPage = () => {
                     {formFields.map(({ key, name: fieldName, ...restField }) => (
                         <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                             {fields.map(field => (
-                                <Form.Item {...restField} name={[fieldName, field.name]} rules={field.rules}>
+                                <Form.Item key={field.name} {...restField} name={[fieldName, field.name]} rules={field.rules}>
                                     {field.type === 'date' ? <DatePicker placeholder={field.placeholder} style={{ width: '100%' }} /> : <Input placeholder={field.placeholder} />}
                                 </Form.Item>
                             ))}
