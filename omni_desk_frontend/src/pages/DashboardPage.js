@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { Typography, Card, Space, Row, Col, List, message, Spin } from 'antd';
-import { UserOutlined, CalendarOutlined, BookOutlined, LoadingOutlined } from '@ant-design/icons';
+import { Typography, Card, Row, Col, List, message, Spin } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
 import apiClient from '../api/apiClient';
 
 const { Title, Text } = Typography;

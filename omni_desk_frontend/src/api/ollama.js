@@ -36,7 +36,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
     const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
 
     // 修改为流式请求
-    const response = await ollamaClient.post('/api/generate', {
+    await ollamaClient.post('/api/generate', {
       model: config.model,
       prompt: prompt,
       stream: true, // 开启流式传输

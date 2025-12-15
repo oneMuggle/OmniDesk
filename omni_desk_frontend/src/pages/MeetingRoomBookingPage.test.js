@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import dayjs from 'dayjs';
 import MeetingRoomBookingPage from './MeetingRoomBookingPage';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { AuthContext } from '../context/AuthContext';

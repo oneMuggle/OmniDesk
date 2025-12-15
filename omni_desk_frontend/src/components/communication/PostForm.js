@@ -17,12 +17,12 @@ const PostForm = () => {
             expiration_date: values.expiration_date ? values.expiration_date.format('YYYY-MM-DD HH:mm:ss') : null,
         };
         communicationApi.createPost(postData)
-            .then(response => {
+            .then(() => {
                 message.success('帖子发布成功！');
                 triggerRefresh();
                 navigate('/communication');
             })
-            .catch(error => {
+            .catch(() => {
                 message.error('帖子发布失败，请重试。');
             });
     };

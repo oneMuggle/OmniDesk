@@ -1,6 +1,5 @@
 import apiClient from './apiClient';
 import { handleError } from './responseHandler';
-import { fromServerFormat } from '../utils/dateUtils';
 
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {

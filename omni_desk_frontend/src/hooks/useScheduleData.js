@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleApi } from '../api/schedule';
 import { getTrials } from '../api/trials';
-import { fromServerFormat } from '../utils/dateUtils';
 
 export const useScheduleData = () => {
   const queryClient = useQueryClient();

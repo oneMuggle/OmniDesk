@@ -52,7 +52,6 @@ import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookM
 import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
 import CommunicationPage from '../pages/CommunicationPage';
 import PostDetailPage from '../pages/PostDetailPage';
-import PostForm from '../components/communication/PostForm';
 import NewsStatsPage from '../pages/NewsStatsPage';
 import NewsManagementPage from '../pages/NewsManagementPage';
 import AddCalibrationRecordPage from '../pages/AddCalibrationRecordPage';

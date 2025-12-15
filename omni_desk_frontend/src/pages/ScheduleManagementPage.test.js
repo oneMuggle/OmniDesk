@@ -14,9 +14,9 @@ jest.mock('../api/personnelApi');
 jest.mock('../api/sequenceApi');
 
 // Mock child components
-jest.mock('../components/Schedule/PersonnelSequenceModal', () => (props) => <div data-testid="personnel-sequence-modal-mock" />);
-jest.mock('../components/Schedule/WeeklyLeaderDisplay', () => (props) => <div data-testid="weekly-leader-display-mock" />);
-jest.mock('../components/Schedule/MonthlyLeaderSidebar', () => (props) => <div data-testid="monthly-leader-sidebar-mock" />);
+jest.mock('../components/Schedule/PersonnelSequenceModal', () => () => <div data-testid="personnel-sequence-modal-mock" />);
+jest.mock('../components/Schedule/WeeklyLeaderDisplay', () => () => <div data-testid="weekly-leader-display-mock" />);
+jest.mock('../components/Schedule/MonthlyLeaderSidebar', () => () => <div data-testid="monthly-leader-sidebar-mock" />);
 
 const mockSchedules = [
   { id: 1, duty_date: '2025-11-10', duty_person: { id: 1, name: 'Alice' }, duty_leader: { id: 101, name: 'Leader A' } },

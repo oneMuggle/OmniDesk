@@ -1,5 +1,4 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { jwtDecode } from 'jwt-decode';
 import apiClient from '../api/apiClient';
 import pageConfigApi from '../api/pageConfigApi';
 

@@ -80,7 +80,7 @@ describe('MemoPage Component', () => {
 
     // Now we should see the memo for the next day
     await waitFor(() => {
-        const memoForNextDay = screen.queryByText('Test Memo 2');
+        screen.queryByText('Test Memo 2');
         // This assertion is tricky because the component re-renders.
         // A better approach would be to check the list of memos for the selected date.
         // For now, we'll just check that the other memo is not visible.

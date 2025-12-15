@@ -1,8 +1,8 @@
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom/extend-expect';
 import UserManagementPage from './UserManagementPage';
-import { getUsers, updateUser, deleteUser } from '../api/userManagementApi';
+import { getUsers } from '../api/userManagementApi';
 import { AuthProvider } from '../context/AuthContext';
 
 jest.mock('../api/userManagementApi');
