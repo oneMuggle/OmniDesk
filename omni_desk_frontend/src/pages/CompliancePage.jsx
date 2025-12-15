@@ -50,7 +50,7 @@ const CompliancePage = () => {
         
         fetchComplianceIssues();
 
-    }, [location.search]);
+    }, [location.search, queryParams]);
 
 
     const handleProjectChange = (event) => {

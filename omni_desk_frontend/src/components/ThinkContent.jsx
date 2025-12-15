@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import './ThinkContent.css';
 
 const ThinkContent = ({ content }) => {
@@ -27,6 +28,14 @@ const ThinkContent = ({ content }) => {
       </div>
     </div>
   );
+};
+
+ThinkContent.propTypes = {
+  content: PropTypes.string,
+};
+
+ThinkContent.defaultProps = {
+  content: '',
 };
 
 export default ThinkContent;

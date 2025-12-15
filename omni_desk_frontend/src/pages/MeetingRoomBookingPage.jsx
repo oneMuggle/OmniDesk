@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
@@ -72,13 +73,19 @@ const CustomToolbar = ({ label, onNavigate, onView, view }) => {
     );
 };
 
+CustomToolbar.propTypes = {
+  label: PropTypes.string.isRequired,
+  onNavigate: PropTypes.func.isRequired,
+  onView: PropTypes.func.isRequired,
+  view: PropTypes.string.isRequired,
+};
+
 const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-    const [selectedSlot, setSelectedSlot] = useState(null); // Keep selectedSlot for handleSelectSlot
     const [currentBooking, setCurrentBooking] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [meetingRooms, setMeetingRooms] = useState([]);
@@ -156,7 +163,6 @@ const MeetingRoomBookingPage = () => {
             message.warning('无法预约过去的时间段。');
             return;
         }
-        setSelectedSlot({ start, end });
         setCurrentBooking(null); // Clear any previous selection
         form.resetFields();
         form.setFieldsValue({
@@ -249,7 +255,7 @@ const MeetingRoomBookingPage = () => {
         }
     };
 
-    const eventPropGetter = useCallback((event, start, end, isSelected) => {
+    const eventPropGetter = useCallback((event) => {
         const backgroundColor = roomColorMap.get(event.meeting_room) || '#6c757d';
         const style = {
             backgroundColor: backgroundColor,
@@ -309,6 +315,10 @@ const MeetingRoomBookingPage = () => {
                 )}
             </div>
         );
+    };
+    
+    EventComponent.propTypes = {
+      event: PropTypes.object.isRequired,
     };
 
     const MeetingRoomLegend = () => (

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import api from '../api/axiosConfig';
 import './LibraryPage.css';
 
@@ -20,6 +21,19 @@ const BookCard = ({ book }) => (
         </div>
     </a>
 );
+
+BookCard.propTypes = {
+  book: PropTypes.shape({
+    id: PropTypes.number.isRequired,
+    cover_image: PropTypes.string,
+    title: PropTypes.string.isRequired,
+    author: PropTypes.string,
+    tags: PropTypes.arrayOf(PropTypes.shape({
+      id: PropTypes.number,
+      name: PropTypes.string,
+    })),
+  }).isRequired,
+};
 
 const LibraryPage = () => {
     const [books, setBooks] = useState([]);

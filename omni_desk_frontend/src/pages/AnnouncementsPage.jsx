@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import Slider from 'react-slick';
 import apiClient from '../api/apiClient'; // 修正导入路径
 import './AnnouncementsPage.css';
@@ -44,6 +45,12 @@ const AnnouncementsPage = () => {
     );
   };
 
+  SampleNextArrow.propTypes = {
+    className: PropTypes.string,
+    style: PropTypes.object,
+    onClick: PropTypes.func,
+  };
+
   const SamplePrevArrow = (props) => {
     const { className, style, onClick } = props;
     return (
@@ -57,6 +64,12 @@ const AnnouncementsPage = () => {
         </svg>
       </div>
     );
+  };
+
+  SamplePrevArrow.propTypes = {
+    className: PropTypes.string,
+    style: PropTypes.object,
+    onClick: PropTypes.func,
   };
 
   const settings = {

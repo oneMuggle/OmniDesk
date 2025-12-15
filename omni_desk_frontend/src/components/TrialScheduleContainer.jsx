@@ -11,7 +11,6 @@ const TrialScheduleContainer = () => {
   const { isGuest } = useAuth();
   const [currentEvent, setCurrentEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [modifiedSlots, setModifiedSlots] = useState([]);
   const [selectedTrial, setSelectedTrial] = useState(null);
 
   const {
@@ -29,7 +28,6 @@ const TrialScheduleContainer = () => {
 
   const handleSaveTrial = async (values) => {
     const targetTrialId = values.trial_id;
-    const isNewTimeSlot = !values.id; // 如果 values 中没有 id，则表示是新增时间段
 
     if (!targetTrialId) {
       console.error('无法确定要更新的试验项目。');

@@ -28,7 +28,7 @@ const EBookManagementPage = () => {
       setFilteredBooks(mockBooks);
       setIsLoading(false);
     }, 1000);
-  }, []);
+  }, [mockBooks]);
 
   const handleSearch = (query) => {
     const lowercasedQuery = query.toLowerCase();

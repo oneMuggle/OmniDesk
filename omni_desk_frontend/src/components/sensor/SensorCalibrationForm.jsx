@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import PropTypes from 'prop-types';
 import { Form, Input, Button, DatePicker, Table, Space, InputNumber } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 
@@ -159,6 +160,11 @@ const SensorCalibrationForm = ({ onSubmit, onCancel }) => {
             </Form.Item>
         </Form>
     );
+};
+
+SensorCalibrationForm.propTypes = {
+  onSubmit: PropTypes.func.isRequired,
+  onCancel: PropTypes.func.isRequired,
 };
 
 export default SensorCalibrationForm;

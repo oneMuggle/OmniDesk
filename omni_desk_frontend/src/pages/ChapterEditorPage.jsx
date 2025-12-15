@@ -4,8 +4,7 @@ import api from '../api/axiosConfig';
 import './ChapterEditorPage.css';
 
 const ChapterEditorPage = () => {
-    const { bookId, chapterId } = useParams();
-    const navigate = useNavigate();
+    const { chapterId } = useParams();
     const [chapter, setChapter] = useState(null);
     const [contentMd, setContentMd] = useState('');
     const [loading, setLoading] = useState(true);

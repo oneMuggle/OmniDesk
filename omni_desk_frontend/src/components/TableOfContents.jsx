@@ -1,4 +1,5 @@
 import React from 'react';
+import PropTypes from 'prop-types';
 import { Menu } from 'antd';
 import { useNavigate } from 'react-router-dom';
 import './TableOfContents.css';
@@ -56,6 +57,16 @@ const TableOfContents = ({ chapters, onChapterSelect, selectedChapterId }) => {
             </Menu>
         </div>
     );
+};
+
+TableOfContents.propTypes = {
+  chapters: PropTypes.array.isRequired,
+  onChapterSelect: PropTypes.func.isRequired,
+  selectedChapterId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
+
+TableOfContents.defaultProps = {
+  selectedChapterId: null,
 };
 
 export default TableOfContents;

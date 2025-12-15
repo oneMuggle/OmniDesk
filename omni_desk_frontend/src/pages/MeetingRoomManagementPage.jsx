@@ -10,7 +10,6 @@ const { Option } = Select;
 const { TextArea } = Input;
 
 const MeetingRoomManagementPage = () => {
-    const { user } = useAuth(); // Keep user for isAdminOrManager check if needed elsewhere, otherwise remove.
     const [roomForm] = Form.useForm();
     const [maintenanceForm] = Form.useForm();
     const [isRoomModalVisible, setIsRoomModalVisible] = useState(false);
@@ -222,7 +221,7 @@ const MeetingRoomManagementPage = () => {
     ];
 
     // Stats Management
-    const handleStatsFilterChange = (dates, dateStrings) => {
+    const handleStatsFilterChange = (dates) => {
         setStatsFilter(prev => ({
             ...prev,
             startDate: dates ? dates[0] : null,

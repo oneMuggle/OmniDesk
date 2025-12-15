@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Input, Select, Upload, Button, message, Form, Table } from 'antd';
-import { InboxOutlined, FileAddOutlined } from '@ant-design/icons';
-import mammoth from 'mammoth';
-import Docxtemplater from 'docxtemplater';
+import { FileAddOutlined } from '@ant-design/icons';
 import documentsApi from '../api/documents'; // 统一使用 documentsApi
 import ChatInterface from '../components/ChatInterface';
 import projectsApi from '../api/projects'; // Add projectsApi
@@ -10,11 +8,9 @@ import './DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
 
 const { Option } = Select;
-const { Dragger } = Upload;
 
 const DocumentsPage = () => {
   const [form] = Form.useForm();
-  const [htmlContent, setHtmlContent] = useState('');
   const [uploading, setUploading] = useState(false);
   const [templates, setTemplates] = useState([]);
   const [selectedTemplate, setSelectedTemplate] = useState(null);

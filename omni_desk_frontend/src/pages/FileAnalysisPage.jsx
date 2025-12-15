@@ -9,7 +9,6 @@ function FileAnalysisPage() {
   const { isAuthenticated } = useAuth();
   const [file, setFile] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
-  const [templateId, setTemplateId] = useState(null);
 
   const handleFileChange = (e) => {
     setFile(e.target.files[0]);
@@ -31,7 +30,6 @@ function FileAnalysisPage() {
       const uploadResponse = await documentsApi.uploadTemplate(formData);
   
       if (uploadResponse && uploadResponse.id) {
-        setTemplateId(uploadResponse.id);
         const analysisResponse = await documentsApi.analyzeDocumentTemplate(uploadResponse.id);
         setAnalysisResult(analysisResponse);
       } else {
