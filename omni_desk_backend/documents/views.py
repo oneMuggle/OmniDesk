@@ -18,6 +18,7 @@ import json # 确保已导入
 import re
 import os
 import shutil
+import posixpath
 from pathlib import Path
 from django.conf import settings
 from django.db import transaction
@@ -417,7 +418,7 @@ class BookImportView(APIView):
                         dest_image_path = image_dest_dir / src_image_path.name
                         shutil.copy(src_image_path, dest_image_path)
                         
-                        new_path = f"/{settings.MEDIA_URL.lstrip('/')}book_images/{sanitized_title}/{src_image_path.name}"
+                        new_path = posixpath.join(settings.MEDIA_URL, 'book_images', sanitized_title, src_image_path.name)
                         return f'![{alt_text}]({new_path})'
                     except Exception:
                         return match.group(0) # Keep original on error

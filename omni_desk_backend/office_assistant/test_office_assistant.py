@@ -14,13 +14,9 @@ class OfficeAssistantProcessViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = reverse('office-assistant-process')
 
-    @override_settings(DIFY_API_KEY='test_api_key')
-    @patch('requests.post')
-    def test_process_text_successfully(self, mock_post):
-        mock_response = MagicMock()
-        mock_response.status_code = 200
-        mock_response.json.return_value = {'answer': 'Processed text'}
-        mock_post.return_value = mock_response
+    @patch('llm_service.ollama_client.OllamaClient.generate')
+    def test_process_text_successfully(self, mock_generate):
+        mock_generate.return_value = 'Processed text'
 
         data = {'action': 'proofread', 'text': 'Some text to process.'}
         response = self.client.post(self.url, data, format='json')
@@ -53,7 +49,7 @@ class ProcessDocumentViewTests(APITestCase):
         file_stream.seek(0)
         file_stream.name = 'test.docx'
 
-        data = {'file': file_stream, 'action': 'proofread'}
+        data = {'file': file_stream, 'action': 'proofread', 'stream': 'false'}
         response = self.client.post(self.url, data, format='multipart')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
@@ -65,7 +61,7 @@ class ProcessDocumentViewTests(APITestCase):
 
     def test_invalid_file_type(self):
         file_stream = BytesIO(b"some text data")
-        file_stream.name = 'test.txt'
-        data = {'file': file_stream}
+        file_stream.name = 'test.invalid'
+        data = {'file': file_stream, 'action': 'proofread'}
         response = self.client.post(self.url, data, format='multipart')
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)

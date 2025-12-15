@@ -17,7 +17,7 @@ class PersonnelModelTest(TestCase):
     def test_personnel_creation(self):
         """Test the creation of a Personnel instance."""
         self.assertEqual(self.personnel.name, "Test User")
-        self.assertEqual(self.personnel.position, "Developer")
+        self.assertEqual(self.personnel.position.name, "Developer")
         self.assertEqual(Personnel.objects.count(), 1)
 
     def test_id_card_uniqueness(self):
@@ -26,7 +26,7 @@ class PersonnelModelTest(TestCase):
             Personnel.objects.create(
                 name="Another User",
                 id_card_number="123456789012345678", # Same as setUp
-                position="QA",
+                position=self.position,
                 department="IT",
             )
 
@@ -145,10 +145,11 @@ class PersonnelAPITest(TestCase):
     def test_create_personnel(self):
         """Test creating a new personnel."""
         self.client.force_authenticate(user=self.user)
+        new_position = Position.objects.create(name="Newbie")
         data = {
             "name": "New API User",
             "id_card_number": "112233445566778899",
-            "position": "Newbie",
+            "position": new_position.id,
             "department": "Training"
         }
         response = self.client.post('/api/personnel/personnel/', data, format='json')

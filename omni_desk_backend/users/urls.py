@@ -5,7 +5,7 @@ from .views import CurrentUserView, UserAdminListView, UserAdminDetailView, User
 app_name = 'users' # 定义应用命名空间
 
 router = DefaultRouter()
-router.register(r'users', UserPersonnelViewSet, basename='customuser')
+router.register(r'users', UserPersonnelViewSet, basename='user-personnel')
 
 urlpatterns = [
     path('me/profile/', UserProfileUpdateView.as_view(), name='user-profile-update'),

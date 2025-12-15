@@ -248,8 +248,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         data = super().validate(attrs)
         # 获取用户的所有权限（包括直接分配和从组继承的），并将其添加到响应中。
         # 权限格式为 'app_label.codename'。
-        permissions = self.user.get_all_permissions()
-        data['permissions'] = list(permissions)
+        permissions = get_user_permissions(self.user)
+        data['permissions'] = permissions
         return data
 
     @classmethod

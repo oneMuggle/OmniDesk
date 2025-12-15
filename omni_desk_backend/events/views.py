@@ -189,26 +189,35 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         如果提供了 `override=True`，并且当天已存在排班，则会删除旧排班并创建新排班。
         否则，如果排班已存在，则会引发 ValidationError。
         """
-        serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        
-        duty_date = serializer.validated_data.get('duty_date')
         override = str(request.data.get('override', 'false')).lower() == 'true'
+        duty_date_str = request.data.get('duty_date')
 
         with transaction.atomic():
-            existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
-            
-            if existing_schedule:
-                if override:
-                    existing_schedule.delete()
-                else:
-                    from rest_framework.exceptions import ValidationError
-                    raise ValidationError({'duty_date': '该日期已有排班。如需覆盖，请设置 override=True。'})
-            
+            # We need a valid date to check for existence.
+            try:
+                duty_date = datetime.strptime(duty_date_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                # Let the serializer handle the invalid format error.
+                duty_date = None
+
+            if duty_date:
+                existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
+                if existing_schedule:
+                    if override:
+                        # Delete the old schedule to make way for the new one.
+                        existing_schedule.delete()
+                    else:
+                        # If not overriding, this is a conflict.
+                        from rest_framework.exceptions import ValidationError
+                        raise ValidationError({'duty_date': '该日期已有排班。如需覆盖，请设置 override=True。'})
+
+            # Now, with the coast clear, proceed with standard creation.
+            serializer = self.get_serializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
             serializer.save()
 
-        headers = self.get_success_headers(serializer.data)
-        return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
     def perform_update(self, serializer):
         """更新排班时检查日期是否冲突，并确保外键字段正确更新。"""
