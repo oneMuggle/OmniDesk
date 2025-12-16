@@ -168,12 +168,12 @@ const PersonnelManagementPage = () => {
             children: (
               <>
                 <div className='mb-4 flex justify-between'>
-                  <Space>
+                  <Space.Compact>
                     <Input.Search placeholder="按姓名搜索" onSearch={value => { setSearchQuery(value); fetchData({ search: value }); }} style={{ width: 200 }} allowClear />
                     <Select placeholder="按职位筛选" data-testid="personnel-position-filter" onChange={value => { setPositionFilter(value); fetchData({ position: value }); }} style={{ width: 200 }} allowClear>
                       {positions.map(pos => <Option key={pos.id} value={pos.id}>{pos.name}</Option>)}
                     </Select>
-                  </Space>
+                  </Space.Compact>
                   <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal} data-testid="add-personnel-button">新增人员</Button>
                 </div>
                 <Table columns={columns} dataSource={data} rowKey="id" bordered pagination={pagination} onChange={handleTableChange} />

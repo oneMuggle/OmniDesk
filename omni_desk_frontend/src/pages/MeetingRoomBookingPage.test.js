@@ -110,6 +110,14 @@ describe('MeetingRoomBookingPage', () => {
     });
 
     expect(await screen.findByText(/预约创建成功！/i)).toBeInTheDocument();
+
+    // Wait for the modal to close and bookings to be refetched
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /新建会议室预约/i })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
+    });
   });
 
   test('opens detail modal, then edit modal, and updates a booking', async () => {
@@ -142,6 +150,14 @@ describe('MeetingRoomBookingPage', () => {
     });
     
     expect(await screen.findByText(/预约更新成功！/i)).toBeInTheDocument();
+
+    // Wait for the modal to close and bookings to be refetched
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
+    });
   });
 
   test('deletes a booking from the edit modal', async () => {
@@ -168,6 +184,14 @@ describe('MeetingRoomBookingPage', () => {
     });
 
     expect(await screen.findByText(/预约删除成功！/i)).toBeInTheDocument();
+
+    // Wait for the modal to close and bookings to be refetched
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
+    });
   });
 
   test('user cannot see edit button for other users bookings', async () => {
@@ -211,5 +235,13 @@ describe('MeetingRoomBookingPage', () => {
     });
     
     expect(await screen.findByText(/预约删除成功！/i)).toBeInTheDocument();
+
+    // Wait for the modal to close and bookings to be refetched
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
+    });
+    await waitFor(() => {
+      expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
+    });
   });
 });

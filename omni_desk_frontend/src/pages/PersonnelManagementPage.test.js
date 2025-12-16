@@ -99,7 +99,7 @@ describe('PersonnelManagementPage', () => {
       
       // Use userEvent for more reliable interaction with Ant Design's Select
       await userEvent.click(screen.getByTestId('personnel-modal-position-select'));
-      const dropdown = await within(screen.getByTestId('personnel-modal')).findByRole('listbox');
+      const dropdown = await screen.findByRole('listbox');
       const developerOption = await within(dropdown).findByText('Developer');
       await userEvent.click(developerOption);
 

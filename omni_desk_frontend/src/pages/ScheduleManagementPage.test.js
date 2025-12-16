@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -36,11 +36,11 @@ const mockSchedules = [
 ];
 
 const mockPersonnel = [
-  { id: 1, name: 'Alice', position: 1, position_name: 'Dev' },
-  { id: 2, name: 'Bob', position: 1, position_name: 'Dev' },
-  { id: 3, name: 'Charlie', position: 2, position_name: 'QA' },
-  { id: 101, name: 'Leader A', position: 1, position_name: 'Dev' },
-  { id: 102, name: 'Leader B', position: 2, position_name: 'QA' },
+  { id: 1, name: 'Alice', position: 1, position_name: 'Dev', phone_numbers: [{ number: '111' }] },
+  { id: 2, name: 'Bob', position: 1, position_name: 'Dev', phone_numbers: [] },
+  { id: 3, name: 'Charlie', position: 2, position_name: 'QA', phone_numbers: [] },
+  { id: 101, name: 'Leader A', position: 1, position_name: 'Dev', phone_numbers: [{ number: '222' }] },
+  { id: 102, name: 'Leader B', position: 2, position_name: 'QA', phone_numbers: [] },
 ];
 
 const mockPositions = { results: [{ id: 1, name: 'Dev' }, { id: 2, name: 'QA' }] };
@@ -55,7 +55,6 @@ const mockSequences = {
 };
 
 // Mock FullCalendar
-const mockEventClick = jest.fn();
 jest.mock('@fullcalendar/react', () => {
     const React = require('react');
     const PropTypes = require('prop-types');
@@ -63,6 +62,7 @@ jest.mock('@fullcalendar/react', () => {
         React.useImperativeHandle(ref, () => ({
             getApi: () => ({
                 getEventById: (id) => mockSchedules.find(s => s.id.toString() === id),
+                changeView: jest.fn(),
             }),
         }));
         return (
@@ -83,6 +83,11 @@ jest.mock('@fullcalendar/react', () => {
             id: PropTypes.any.isRequired,
             title: PropTypes.string,
         })).isRequired,
+        eventClick: PropTypes.func,
+    };
+    
+    FullCalendar.defaultProps = {
+      eventClick: () => {},
     };
 
     return {
@@ -111,7 +116,13 @@ describe('ScheduleManagementPage', () => {
   });
 
   const renderComponent = async () => {
-    const queryClient = new QueryClient();
+    const queryClient = new QueryClient({
+      defaultOptions: {
+        queries: {
+          retry: false,
+        },
+      },
+    });
     render(
       <QueryClientProvider client={queryClient}>
         <ScheduleManagementPage />
@@ -129,23 +140,22 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens add modal, submits, and closes', async () => {
+    const user = userEvent.setup();
     await renderComponent();
-    await userEvent.click(screen.getByTestId('add-schedule-button'));
+    await user.click(screen.getByTestId('add-schedule-button'));
     const dialog = await screen.findByTestId('schedule-modal');
 
     const dateInput = within(dialog).getByLabelText('值班日期');
-    fireEvent.change(dateInput, { target: { value: '2025-11-26' } });
-    fireEvent.keyDown(dateInput, { key: 'Enter', code: 'Enter' });
-    
-    await userEvent.click(within(dialog).getByLabelText('值班人员'));
-    const aliceOptions = await screen.findAllByText('Alice (Dev)');
-    await userEvent.click(aliceOptions[0]);
+    await user.click(dateInput);
+    await user.click(await screen.findByTitle('2025-11-26'));
 
-    await userEvent.click(within(dialog).getByLabelText('值班领导'));
-    const leaderAOptions = await screen.findAllByText('Leader A (Dev)');
-    await userEvent.click(leaderAOptions[0]);
+    await user.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
+    await user.click(await screen.findByRole('option', { name: 'Alice (Dev)' }));
 
-    await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
+    await user.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
+    await user.click(await screen.findByRole('option', { name: 'Leader A (Dev)' }));
+
+    await user.click(screen.getByTestId('schedule-modal-ok-button'));
 
     await waitFor(() => {
       expect(scheduleApi.createSchedule).toHaveBeenCalledWith({
@@ -157,23 +167,22 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens edit modal, submits, and closes', async () => {
+    const user = userEvent.setup();
     await renderComponent();
-    await userEvent.click(screen.getByTestId('event-1'));
+    await user.click(screen.getByTestId('event-1'));
     const dialog = await screen.findByTestId('schedule-modal');
 
     await waitFor(() => {
       expect(within(dialog).getByLabelText('值班日期')).toHaveValue('2025-11-10');
     });
 
-    await userEvent.click(within(dialog).getByLabelText('值班人员'));
-    const bobOptions = await screen.findAllByText('Bob (Dev)');
-    await userEvent.click(bobOptions[0]);
+    await user.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
+    await user.click(await screen.findByRole('option', { name: 'Bob (Dev)' }));
 
-    await userEvent.click(within(dialog).getByLabelText('值班领导'));
-    const leaderBOptions = await screen.findAllByText('Leader B (QA)');
-    await userEvent.click(leaderBOptions[0]);
+    await user.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
+    await user.click(await screen.findByRole('option', { name: 'Leader B (QA)' }));
 
-    await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
+    await user.click(screen.getByTestId('schedule-modal-ok-button'));
 
     await waitFor(() => {
       expect(scheduleApi.updateSchedule).toHaveBeenCalledWith(1, expect.objectContaining({
@@ -183,10 +192,17 @@ describe('ScheduleManagementPage', () => {
     });
   });
 
-  test('deletes a schedule', async () => {
+  test('deletes a schedule from list view', async () => {
+    const user = userEvent.setup();
     await renderComponent();
-    await userEvent.click(await screen.findByTestId('delete-schedule-button-1'));
-    await userEvent.click(await screen.findByRole('button', { name: /确 定/ }));
+
+    await user.click(screen.getByRole('radio', { name: '列表' }));
+
+    const deleteButton = await screen.findByTestId('delete-schedule-button-1');
+    await user.click(deleteButton);
+
+    const confirmButton = await screen.findByRole('button', { name: /确 定/i });
+    await user.click(confirmButton);
 
     await waitFor(() => {
       expect(scheduleApi.deleteSchedule).toHaveBeenCalledWith(1);
@@ -194,39 +210,38 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens generate schedule modal, submits, and closes', async () => {
+    const user = userEvent.setup();
     await renderComponent();
-    await userEvent.click(screen.getByTestId('generate-schedule-button'));
+    await user.click(screen.getByTestId('generate-schedule-button'));
     const dialog = await screen.findByTestId('generate-schedule-modal');
 
-    const dateInputGen = screen.getByLabelText('起始日期');
-    fireEvent.change(dateInputGen, { target: { value: '2025-12-01' } });
-    fireEvent.keyDown(dateInputGen, { key: 'Enter', code: 'Enter' });
-    await userEvent.type(screen.getByTestId('generate-schedule-duration-days'), '10');
+    await user.click(within(dialog).getByLabelText('起始日期'));
+    await user.click(await screen.findByTitle('2025-12-01'));
 
-    await userEvent.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
-    const seqAWorkdayOptions = await screen.findAllByText(/Seq A \(工作日: Alice, Bob\)/);
-    await userEvent.click(seqAWorkdayOptions[0]);
-    
-    await userEvent.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
-    const seqAHolidayOptions = await screen.findAllByText(/Seq A \(节假日: Charlie\)/);
-    await userEvent.click(seqAHolidayOptions[0]);
+    await user.clear(screen.getByTestId('generate-schedule-duration-days'));
+    await user.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
-    await userEvent.click(screen.getByTestId('generate-schedule-start-personnel'));
-    const aliceOptionsGen = await screen.findAllByRole('option', { name: 'Alice' });
-    await userEvent.click(aliceOptionsGen[0]);
+    await user.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
+    await user.click(await screen.findByText(/Seq A \(工作日: Alice, Bob\)/));
 
-    await userEvent.click(screen.getByTestId('generate-schedule-start-holiday-personnel'));
-    const charlieOptionsGen = await screen.findAllByRole('option', { name: 'Charlie' });
-    await userEvent.click(charlieOptionsGen[0]);
+    await user.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
+    await user.click(await screen.findByText(/Seq A \(节假日: Charlie\)/));
 
-    await userEvent.click(screen.getByTestId('generate-schedule-leader-sequence'));
-    const seqBOptions = await screen.findAllByText(/Seq B \(Leader A, Leader B\)/);
-    await userEvent.click(seqBOptions[0]);
+    await user.click(screen.getByTestId('generate-schedule-start-personnel'));
+    await user.click(await screen.findByRole('option', { name: 'Alice' }));
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+    await user.click(screen.getByTestId('generate-schedule-start-holiday-personnel'));
+    await user.click(await screen.findByRole('option', { name: 'Charlie' }));
+
+    await user.click(screen.getByTestId('generate-schedule-leader-sequence'));
+    await user.click(await screen.findByText(/Seq B \(Leader A, Leader B\)/));
+
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(scheduleApi.generateSchedules).toHaveBeenCalledWith(expect.objectContaining({
+        start_date: '2025-12-01',
+        duration_days: '10',
         workday_personnel_sequence_id: 1,
         holiday_personnel_sequence_id: 1,
         start_personnel_id: 1,

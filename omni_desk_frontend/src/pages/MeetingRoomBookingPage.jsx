@@ -377,7 +377,7 @@ const MeetingRoomBookingPage = () => {
 
             <Modal
                 title={currentBooking ? "编辑会议室预约" : "新建会议室预约"}
-                visible={isModalVisible}
+                open={isModalVisible}
                 onOk={handleOk}
                 onCancel={() => setIsModalVisible(false)}
                 footer={[
@@ -448,7 +448,7 @@ const MeetingRoomBookingPage = () => {
 
             <Modal
                 title="预约详情"
-                visible={isDetailModalVisible}
+                open={isDetailModalVisible}
                 onCancel={() => setIsDetailModalVisible(false)}
                 footer={[
                     <Button key="back" onClick={() => setIsDetailModalVisible(false)}>

@@ -47,6 +47,7 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('allows adding and removing personnel for workday and holiday', async () => {
+    const user = userEvent.setup();
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
     // Wait for personnel to load
@@ -54,24 +55,24 @@ describe('PersonnelSequenceModal', () => {
 
     // Add Alice to Workday
     const addButtons = screen.getAllByRole('button', { name: '添加' });
-    await userEvent.click(addButtons[0]);
+    await user.click(addButtons[0]);
     
     // Check if Alice is in the workday list (which now has 2 "Alice" texts)
     expect(screen.getAllByText('Alice').length).toBe(2);
 
     // Switch to Holiday tab
-    await userEvent.click(screen.getByText('节假日人员'));
+    await user.click(screen.getByText('节假日人员'));
 
     // Add Bob to Holiday
     const addButtonsAgain = screen.getAllByRole('button', { name: '添加' });
-    await userEvent.click(addButtonsAgain[1]);
+    await user.click(addButtonsAgain[1]);
     
     // Check if Bob is in the holiday list
     expect(screen.getAllByText('Bob').length).toBe(2);
 
     // Remove Bob from Holiday
     const removeButtons = screen.getAllByRole('button', { name: 'X' });
-    await userEvent.click(removeButtons[0]); // Assuming Bob is the first in the holiday list
+    await user.click(removeButtons[0]); // Assuming Bob is the first in the holiday list
     
     expect(screen.getAllByText('Bob').length).toBe(1);
   });
@@ -98,24 +99,25 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('saves the personnel sequence', async () => {
+    const user = userEvent.setup();
     const onOk = jest.fn();
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} />);
 
     await screen.findByText('Alice');
 
-    await userEvent.type(screen.getByPlaceholderText('顺序名称'), 'Test Sequence');
+    await user.type(screen.getByPlaceholderText('顺序名称'), 'Test Sequence');
     
     // Add Alice to workday
     const addButtons = screen.getAllByRole('button', { name: '添加' });
-    await userEvent.click(addButtons[0]);
+    await user.click(addButtons[0]);
 
     // Switch to holiday tab and add Bob
-    await userEvent.click(screen.getByText('节假日人员'));
+    await user.click(screen.getByText('节假日人员'));
     const addButtonsHoliday = screen.getAllByRole('button', { name: '添加' });
-    await userEvent.click(addButtonsHoliday[1]);
+    await user.click(addButtonsHoliday[1]);
 
     // Click save
-    await userEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
+    await user.click(screen.getByRole('button', { name: /保\s*存/ }));
 
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/api/events/personnel-sequences/', {

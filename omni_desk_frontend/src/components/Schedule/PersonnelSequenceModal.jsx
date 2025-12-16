@@ -3,10 +3,11 @@ import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
 import { getPersonnel, getPositions } from '../../api/personnelApi';
 import apiClient from '../../api/apiClient';
-import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
+import { DragDropContext, Draggable } from 'react-beautiful-dnd';
+import StrictModeDroppable from './StrictModeDroppable';
 
 const { Option } = Select;
-const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
+const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {} }) => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
@@ -108,7 +109,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
 
   const renderDraggableList = (type, list) => (
     <DragDropContext onDragEnd={(result) => onDragEnd(result, type)}>
-      <Droppable droppableId={`droppable-${type}`}>
+      <StrictModeDroppable droppableId={`droppable-${type}`}>
         {(provided) => (
           <div
             ref={provided.innerRef}
@@ -148,7 +149,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
             {provided.placeholder}
           </div>
         )}
-      </Droppable>
+      </StrictModeDroppable>
     </DragDropContext>
   );
 

@@ -78,7 +78,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
       open={open}
       onOk={handleOk}
       onCancel={onCancel}
-      destroyOnClose
+      destroyOnHidden
       data-testid="schedule-modal"
       footer={[
         <Button key="back" onClick={onCancel}>
@@ -249,7 +249,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
   };
 
   return (
-    <Modal title="生成排班" open={open} onOk={handleOk} onCancel={onCancel} destroyOnClose data-testid="generate-schedule-modal">
+    <Modal title="生成排班" open={open} onOk={handleOk} onCancel={onCancel} destroyOnHidden data-testid="generate-schedule-modal">
       <Form form={form} layout="vertical" initialValues={{ generationMode: 'days' }}>
         <Form.Item name="generationMode" label="生成方式">
           <Radio.Group onChange={(e) => setGenerationMode(e.target.value)}>
