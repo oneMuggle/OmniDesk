@@ -179,7 +179,7 @@ class MainWindow(QWidget):
         """Loads and applies a theme from a QSS file."""
         app = QApplication.instance()
         try:
-            style_sheet_path = os.path.join(os.path.dirname(__file__), f"theme_{theme_name}.qss")
+            style_sheet_path = os.path.join(os.path.dirname(__file__), "..", f"theme_{theme_name}.qss")
             with open(style_sheet_path, "r") as f:
                 app.setStyleSheet(f.read())
         except FileNotFoundError:
