@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PersonnelManagementPage from './PersonnelManagementPage';
@@ -44,7 +45,7 @@ describe('PersonnelManagementPage', () => {
   });
 
   test('renders the component and fetches data', async () => {
-    render(<PersonnelManagementPage />);
+    render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
     await waitFor(() => expect(getPersonnel).toHaveBeenCalled());
     await waitFor(() => expect(getPositions).toHaveBeenCalled());
     expect(await screen.findByText('John Doe')).toBeInTheDocument();
@@ -53,7 +54,7 @@ describe('PersonnelManagementPage', () => {
 
   describe('Personnel Management', () => {
     test('adds a new person', async () => {
-      render(<PersonnelManagementPage />);
+      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('add-personnel-button'));
@@ -85,10 +86,10 @@ describe('PersonnelManagementPage', () => {
     });
 
     test('edits an existing person', async () => {
-      render(<PersonnelManagementPage />);
+      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
 
-      fireEvent.click(screen.getByTestId('edit-personnel-button-1'));
+      fireEvent.click(screen.getByLabelText('edit-personnel-1'));
       await screen.findByTestId('personnel-modal');
 
       fireEvent.change(screen.getByTestId('personnel-modal-name-input'), { target: { value: 'John Doe Updated' } });
@@ -100,12 +101,14 @@ describe('PersonnelManagementPage', () => {
     });
 
     test('deletes an existing person', async () => {
-      render(<PersonnelManagementPage />);
+      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
 
-      fireEvent.click(screen.getByTestId('delete-personnel-button-1'));
-      
-      await screen.findByTestId('delete-personnel-confirm-modal');
+      fireEvent.click(screen.getByLabelText('delete-personnel-1'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('delete-personnel-confirm-modal')).toBeVisible();
+      });
       fireEvent.click(screen.getByTestId('delete-personnel-confirm-modal-ok-button'));
 
       await waitFor(() => {
@@ -115,10 +118,10 @@ describe('PersonnelManagementPage', () => {
 
     test('searches and filters personnel', async () => {
       getPositions.mockResolvedValue(mockPositions); // Ensure positions are loaded
-      render(<PersonnelManagementPage />);
+      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
     
-      const searchInput = screen.getByTestId('personnel-search-input');
+      const searchInput = screen.getByPlaceholderText('按姓名搜索');
       fireEvent.change(searchInput, { target: { value: 'John' } });
       fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
     

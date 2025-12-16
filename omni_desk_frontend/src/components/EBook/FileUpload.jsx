@@ -15,7 +15,7 @@ const FileUpload = ({ onFileUpload }) => {
   };
 
   return (
-    <Upload {...props}>
+    <Upload {...props} data-testid="upload-input">
       <Button icon={<UploadOutlined />}>选择文件</Button>
     </Upload>
   );

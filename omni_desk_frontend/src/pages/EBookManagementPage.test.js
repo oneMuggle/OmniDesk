@@ -2,19 +2,33 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EBookManagementPage from './EBookManagementPage';
+import axios from 'axios';
 
-test('renders EBookManagementPage and displays title', async () => {
+jest.mock('axios');
+
+const mockBooks = [
+  { id: 1, title: 'React 入门指南', author: '张三', createdAt: '2023-10-01' },
+  { id: 2, title: 'Vue.js 深度剖析', author: '李四', createdAt: '2023-10-02' },
+  { id: 3, title: 'JavaScript 高级编程', author: '王五', createdAt: '2023-10-03' },
+];
+
+beforeEach(() => {
+  axios.get.mockResolvedValue({ data: mockBooks });
+  axios.post.mockResolvedValue({
+    data: { id: 4, title: 'hello', author: 'Unknown', createdAt: '2023-10-04' },
+  });
+  axios.put.mockImplementation(async (url, data) => {
+    return Promise.resolve({ data });
+  });
+  axios.delete.mockResolvedValue({ status: 204 });
+});
+
+test('renders without crashing', async () => {
   render(<EBookManagementPage />);
-  
-  const titleElement = screen.getByText(/电子书管理/i);
-  expect(titleElement).toBeInTheDocument();
-  
+  expect(screen.getByText(/电子书管理/i)).toBeInTheDocument();
   await waitFor(() => {
-    expect(screen.queryByText(/加载中.../i)).not.toBeInTheDocument();
-  }, { timeout: 2000 });
-  
-  const bookTitleElement = await screen.findByText(/React 入门指南/i);
-  expect(bookTitleElement).toBeInTheDocument();
+    expect(screen.getByText('React 入门指南')).toBeInTheDocument();
+  });
 });
 
 test('uploads a new book and displays it in the list', async () => {
@@ -23,7 +37,7 @@ test('uploads a new book and displays it in the list', async () => {
   await screen.findByText('React 入门指南'); // Wait for initial data
 
   const file = new File(['hello'], 'hello.md', { type: 'text/markdown' });
-  const input = screen.getByLabelText('选择文件').querySelector('input');
+  const input = screen.getByTestId('upload-input');
 
   await userEvent.upload(input, file);
 
@@ -34,7 +48,7 @@ test('uploads a new book and displays it in the list', async () => {
 test('opens the edit form with the correct book data', async () => {
   render(<EBookManagementPage />);
 
-  const editButton = await screen.findByLabelText('edit-book-1');
+  const editButton = await screen.findByTestId('edit-book-1');
   await userEvent.click(editButton);
 
   const titleInput = await screen.findByLabelText(/书名/i);
@@ -47,7 +61,7 @@ test('opens the edit form with the correct book data', async () => {
 test('edits a book and updates the list', async () => {
   render(<EBookManagementPage />);
 
-  const editButton = await screen.findByLabelText('edit-book-1');
+  const editButton = await screen.findByTestId('edit-book-1');
   await userEvent.click(editButton);
 
   const titleInput = await screen.findByLabelText(/书名/i);
@@ -58,7 +72,7 @@ test('edits a book and updates the list', async () => {
   await userEvent.clear(authorInput);
   await userEvent.type(authorInput, '李四二世');
 
-  const saveButton = screen.getByRole('button', { name: /保存/i });
+  const saveButton = screen.getByRole('button', { name: /保 存/i });
   await userEvent.click(saveButton);
 
   const updatedTitleElement = await screen.findByText(/React 高级指南/i);
@@ -93,7 +107,7 @@ test('calls the onExport function when the export button is clicked', async () =
   const consoleSpy = jest.spyOn(console, 'log');
   render(<EBookManagementPage />);
 
-  const exportButton = await screen.findByLabelText('export-book-1');
+  const exportButton = await screen.findByTestId('export-book-1');
   await userEvent.click(exportButton);
 
   expect(consoleSpy).toHaveBeenCalledWith('Exporting book:', {
@@ -103,4 +117,21 @@ test('calls the onExport function when the export button is clicked', async () =
     createdAt: '2023-10-01',
   });
   consoleSpy.mockRestore();
+});
+
+test('deletes a book and removes it from the list', async () => {
+  render(<EBookManagementPage />);
+
+  const deleteButton = await screen.findByTestId('delete-book-1');
+  await userEvent.click(deleteButton);
+
+  // Wait for the confirmation dialog and confirm
+  const confirmButton = await screen.findByRole('button', { name: /确\s*定/i });
+  await userEvent.click(confirmButton);
+
+  await waitFor(() => {
+    expect(screen.queryByText('React 入门指南')).not.toBeInTheDocument();
+  });
+
+  expect(axios.delete).toHaveBeenCalledWith('/api/ebooks/1');
 });

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Input, Typography, message, Card, Row, Col } from 'antd';
+import axios from 'axios';
 import FileUpload from '../components/EBook/FileUpload';
 import BookList from '../components/EBook/BookList';
 import BookForm from '../components/EBook/BookForm';
@@ -14,19 +15,21 @@ const EBookManagementPage = () => {
   const [editingBook, setEditingBook] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Mock data for initial display
   useEffect(() => {
-    const mockBooks = [
-        { id: 1, title: 'React 入门指南', author: '张三', createdAt: '2023-10-01' },
-        { id: 2, title: 'Vue.js 深度剖析', author: '李四', createdAt: '2023-09-15' },
-        { id: 3, title: 'JavaScript 高级编程', author: '王五', createdAt: '2023-11-01' },
-    ];
-    // Simulate fetching data from an API
-    setTimeout(() => {
-      setBooks(mockBooks);
-      setFilteredBooks(mockBooks);
-      setIsLoading(false);
-    }, 1000);
+    const fetchBooks = async () => {
+      setIsLoading(true);
+      try {
+        const response = await axios.get('/api/ebooks');
+        setBooks(response.data);
+        setFilteredBooks(response.data);
+      } catch (error) {
+        message.error('获取电子书列表失败');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchBooks();
   }, []);
 
   const handleSearch = (query) => {
@@ -38,16 +41,23 @@ const EBookManagementPage = () => {
     setFilteredBooks(filtered);
   };
 
-  const handleFileUpload = (file) => {
-    const newBook = {
-      id: books.length + 1,
-      title: file.name.replace(/\.md$/, ''),
-      author: '未知作者',
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setBooks([...books, newBook]);
-    setFilteredBooks([...books, newBook]);
-    message.success(`'${file.name}' 导入成功`);
+  const handleFileUpload = async (file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    try {
+      const response = await axios.post('/api/ebooks/upload', formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      const newBook = response.data;
+      setBooks([...books, newBook]);
+      setFilteredBooks([...books, newBook]);
+      message.success(`'${file.name}' 导入成功`);
+    } catch (error) {
+      message.error('文件上传失败');
+    }
   };
 
   const handleEdit = (book) => {
@@ -65,6 +75,18 @@ const EBookManagementPage = () => {
     setFilteredBooks((filteredBooks || []).map(book => (book.id === updatedBook.id ? updatedBook : book)));
     setEditingBook(null);
     message.success('电子书保存成功');
+  };
+
+  const handleDelete = async (bookId) => {
+    try {
+      await axios.delete(`/api/ebooks/${bookId}`);
+      const updatedBooks = books.filter(book => book.id !== bookId);
+      setBooks(updatedBooks);
+      setFilteredBooks(updatedBooks);
+      message.success('电子书删除成功');
+    } catch (error) {
+      message.error('删除电子书失败');
+    }
   };
 
   return (
@@ -92,6 +114,7 @@ const EBookManagementPage = () => {
           <BookList
             books={filteredBooks || []}
             onEdit={handleEdit}
+            onDelete={handleDelete}
             onExport={handleExport}
             loading={isLoading}
           />

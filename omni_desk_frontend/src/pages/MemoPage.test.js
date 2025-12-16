@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import moment from 'moment';
 import MemoPage from './MemoPage';
@@ -7,21 +7,34 @@ import { useMemoData } from '../hooks/useMemoData';
 
 jest.mock('../hooks/useMemoData');
 
-const mockMemos = [
-  { id: 1, title: 'Test Memo 1', content: 'Content 1', reminder_time: moment().toISOString(), is_completed: false },
-  { id: 2, title: 'Test Memo 2', content: 'Content 2', reminder_time: moment().add(1, 'day').toISOString(), is_completed: true },
-];
-
-const mockUseMemoData = {
-  memos: mockMemos,
-  isLoading: false,
-  createMemo: jest.fn(),
-  updateMemo: jest.fn(),
-  deleteMemo: jest.fn(),
-};
-
 describe('MemoPage Component', () => {
+  const MOCK_DATE_NOW = new Date('2025-10-27T10:00:00.000Z').getTime();
+  let dateNowSpy;
+  let mockMemos;
+  let mockUseMemoData;
+
+  beforeAll(() => {
+    dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => MOCK_DATE_NOW);
+  });
+
+  afterAll(() => {
+    dateNowSpy.mockRestore();
+  });
+
   beforeEach(() => {
+    mockMemos = [
+      { id: 1, title: 'Test Memo 1', content: 'Content 1', reminder_time: moment().toISOString(), is_completed: false },
+      { id: 2, title: 'Test Memo 2', content: 'Content 2', reminder_time: moment().add(1, 'day').toISOString(), is_completed: true },
+    ];
+
+    mockUseMemoData = {
+      memos: mockMemos,
+      isLoading: false,
+      createMemo: jest.fn(),
+      updateMemo: jest.fn(),
+      deleteMemo: jest.fn(),
+    };
+
     useMemoData.mockReturnValue(mockUseMemoData);
     jest.clearAllMocks();
   });
@@ -58,7 +71,7 @@ describe('MemoPage Component', () => {
     render(<Router><MemoPage /></Router>);
     const deleteButtons = await screen.findAllByRole('button', { name: /delete/i });
     fireEvent.click(deleteButtons[0]);
-    expect(mockUseMemoData.deleteMemo).toHaveBeenCalledWith(1, expect.any(Object));
+    await waitFor(() => expect(mockUseMemoData.deleteMemo).toHaveBeenCalledWith(1, expect.any(Object)));
   });
 
   test('calls updateMemo when checkbox is toggled', async () => {
@@ -75,8 +88,10 @@ describe('MemoPage Component', () => {
     expect(screen.getByText('Test Memo 1')).toBeInTheDocument();
     
     // Click on the next day in the calendar
-    const nextDay = moment().add(1, 'day').date();
-    fireEvent.click(screen.getByText(nextDay.toString()));
+    const calendar = screen.getByRole('grid');
+    const nextDay = moment(MOCK_DATE_NOW).add(1, 'day');
+    const nextDayCell = within(calendar).getByText(nextDay.format('D'));
+    fireEvent.click(nextDayCell);
 
     // Now we should see the memo for the next day
     await waitFor(() => {

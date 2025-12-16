@@ -152,7 +152,7 @@ const PersonnelManagementPage = () => {
           <div className='mb-4 flex justify-between'>
             <Space>
               <Input.Search placeholder="按姓名搜索" onSearch={value => { setSearchQuery(value); fetchData({ search: value }); }} style={{ width: 200 }} allowClear />
-              <Select placeholder="按职位筛选" onChange={value => { setPositionFilter(value); fetchData({ position: value }); }} style={{ width: 200 }} allowClear>
+              <Select placeholder="按职位筛选" data-testid="personnel-position-filter" onChange={value => { setPositionFilter(value); fetchData({ position: value }); }} style={{ width: 200 }} allowClear>
                 {positions.map(pos => <Option key={pos.id} value={pos.id}>{pos.name}</Option>)}
               </Select>
             </Space>

@@ -70,7 +70,7 @@ describe('PositionManagementTab', () => {
     fireEvent.click(screen.getByTestId('delete-position-button-1'));
     
     await screen.findByText('确定要删除该职位吗？');
-    await userEvent.click(screen.getByRole('button', { name: '确认' }));
+    await userEvent.click(screen.getByRole('button', { name: '确 认' }));
 
     await waitFor(() => {
       expect(deletePosition).toHaveBeenCalledWith(1);

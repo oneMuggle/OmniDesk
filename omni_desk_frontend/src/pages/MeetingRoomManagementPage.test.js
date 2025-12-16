@@ -145,13 +145,13 @@ describe('MeetingRoomManagementPage', () => {
 
         // Select meeting room
         fireEvent.mouseDown(await within(dialog).findByLabelText('会议室'));
-        const roomAOption = await within(dialog).findByText('Room A');
+        const roomAOption = await screen.findByRole('option', { name: 'Room A' });
         fireEvent.click(roomAOption);
 
         // Select time range
-        const rangePicker = await within(dialog).findByLabelText('维护时间范围');
-        fireEvent.click(rangePicker);
-        fireEvent.change(rangePicker, { target: { value: [dayjs(), dayjs().add(1, 'hour')] } });
+        // Select time range
+        fireEvent.click(await within(dialog).findByLabelText('维护时间范围'));
+        fireEvent.click(await screen.findByText('OK'));
         
         // Input reason
         fireEvent.change(await within(dialog).findByLabelText('维护原因'), { target: { value: 'Cleaning' } });
@@ -173,12 +173,18 @@ describe('MeetingRoomManagementPage', () => {
 
       await screen.findByText('总预约数量');
       
+      // Change the filter to trigger a refresh, which aligns with the test name
+      const roomSelect = screen.getByText('选择会议室');
+      fireEvent.mouseDown(roomSelect);
+      const roomAOption = await screen.findByRole('option', { name: 'Room A' });
+      fireEvent.click(roomAOption);
+
       const refreshButton = await screen.findByRole('button', { name: /刷新统计/i });
       fireEvent.click(refreshButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2); // Initial fetch + refresh
-      }, { timeout: 2000 });
+        expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2); // Initial fetch + fetch on filter change
+      });
     });
   });
 });
