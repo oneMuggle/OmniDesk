@@ -8,9 +8,10 @@ const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TextArea } = Input;
 
-const MeetingRoomManagementPage = () => {
+const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }) => {
     const [roomForm] = Form.useForm();
-    const [maintenanceForm] = Form.useForm();
+    const [maintenanceFormInternal] = Form.useForm();
+    const maintenanceForm = maintenanceFormFromProps || maintenanceFormInternal;
     const [isRoomModalVisible, setIsRoomModalVisible] = useState(false);
     const [isMaintenanceModalVisible, setIsMaintenanceModalVisible] = useState(false);
     const [editingRoom, setEditingRoom] = useState(null);

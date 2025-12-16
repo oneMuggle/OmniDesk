@@ -32,6 +32,7 @@ describe('PersonnelEditPage', () => {
   beforeEach(() => {
     personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
     personnelApi.updatePersonnel.mockResolvedValue({ data: {} });
+    personnelApi.getAllPositions.mockResolvedValue([]);
   });
 
   test('loads and displays existing personnel data', async () => {
@@ -50,8 +51,20 @@ describe('PersonnelEditPage', () => {
     fireEvent.click(screen.getByText('添加合同'));
 
     // Fill in the new contract form
-    fireEvent.change(screen.getByPlaceholderText('合同编号'), { target: { value: 'C002' } });
-    fireEvent.change(screen.getByPlaceholderText('合同类型'), { target: { value: 'fixed-term' } });
+    const contractNumberInput = await screen.findByPlaceholderText('合同编号');
+    fireEvent.change(contractNumberInput, { target: { value: 'C002' } });
+
+    const contractTypeInput = await screen.findByPlaceholderText('合同类型');
+    fireEvent.change(contractTypeInput, { target: { value: 'fixed-term' } });
+
+    // Fill in dates
+    const startDateInput = await screen.findByPlaceholderText('开始日期');
+    fireEvent.change(startDateInput, { target: { value: '2023-01-01' } });
+    fireEvent.click(screen.getByText('2023-01-01')); // Mock selection
+
+    const endDateInput = await screen.findByPlaceholderText('结束日期');
+    fireEvent.change(endDateInput, { target: { value: '2024-01-01' } });
+    fireEvent.click(screen.getByText('2024-01-01')); // Mock selection
 
     // Click save
     fireEvent.click(screen.getByText('保存更改'));
@@ -63,6 +76,8 @@ describe('PersonnelEditPage', () => {
           expect.objectContaining({
             contract_number: 'C002',
             contract_type: 'fixed-term',
+            start_date: expect.anything(), // Moment objects are tricky to match
+            end_date: expect.anything(),
           })
         ])
       }));

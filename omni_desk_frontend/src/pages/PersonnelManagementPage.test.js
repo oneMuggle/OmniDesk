@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { ConfigProvider } from 'antd';
 import { MemoryRouter } from 'react-router-dom';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
@@ -12,6 +13,19 @@ import {
   getPositions,
   createPosition,
 } from '../api/personnelApi';
+
+jest.mock('antd', () => {
+  const antd = jest.requireActual('antd');
+  return {
+    ...antd,
+    message: {
+      success: jest.fn(),
+      error: jest.fn(),
+      warning: jest.fn(),
+      info: jest.fn(),
+    },
+  };
+});
 
 jest.mock('../api/personnelApi');
 
@@ -31,9 +45,25 @@ const mockPositions = {
 };
 
 describe('PersonnelManagementPage', () => {
+  let container;
+
+  const renderWithProvider = (ui) => {
+    return render(
+      <MemoryRouter>
+        <ConfigProvider getPopupContainer={() => container}>
+          {ui}
+        </ConfigProvider>
+      </MemoryRouter>
+    );
+  };
+
   beforeEach(() => {
+    // eslint-disable-next-line testing-library/no-node-access
+    container = document.createElement('div');
+    // eslint-disable-next-line testing-library/no-node-access
+    document.body.appendChild(container);
     getPersonnel.mockResolvedValue(mockPersonnel);
-    getPositions.mockResolvedValue(mockPositions);
+    getPositions.mockResolvedValue({ results: mockPositions.results });
     createPersonnel.mockResolvedValue({});
     updatePersonnel.mockResolvedValue({});
     deletePersonnel.mockResolvedValue({});
@@ -42,10 +72,15 @@ describe('PersonnelManagementPage', () => {
 
   afterEach(() => {
     jest.clearAllMocks();
+    if (container) {
+      // eslint-disable-next-line testing-library/no-node-access
+      document.body.removeChild(container);
+      container = null;
+    }
   });
 
   test('renders the component and fetches data', async () => {
-    render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
+    renderWithProvider(<PersonnelManagementPage />);
     await waitFor(() => expect(getPersonnel).toHaveBeenCalled());
     await waitFor(() => expect(getPositions).toHaveBeenCalled());
     expect(await screen.findByText('John Doe')).toBeInTheDocument();
@@ -54,7 +89,7 @@ describe('PersonnelManagementPage', () => {
 
   describe('Personnel Management', () => {
     test('adds a new person', async () => {
-      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
+      renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('add-personnel-button'));
@@ -63,17 +98,10 @@ describe('PersonnelManagementPage', () => {
       fireEvent.change(screen.getByTestId('personnel-modal-name-input'), { target: { value: 'Peter Pan' } });
       
       // Use userEvent for more reliable interaction with Ant Design's Select
-      // Use userEvent for more reliable interaction with Ant Design's Select
-      // Use userEvent for more reliable interaction with Ant Design's Select
-      // Use userEvent for more reliable interaction with Ant Design's Select
       await userEvent.click(screen.getByTestId('personnel-modal-position-select'));
-      await userEvent.click(await screen.findByText('Developer'));
-      await waitFor(() => {
-        expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
-      });
-      await waitFor(() => {
-        expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
-      });
+      const developerOption = await screen.findByText('Developer', { selector: '.ant-select-item-option-content' });
+      await userEvent.click(developerOption);
+
       await waitFor(() => {
         expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
       });
@@ -86,7 +114,7 @@ describe('PersonnelManagementPage', () => {
     });
 
     test('edits an existing person', async () => {
-      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
+      renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('edit-personnel-1'));
@@ -101,7 +129,7 @@ describe('PersonnelManagementPage', () => {
     });
 
     test('deletes an existing person', async () => {
-      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
+      renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
       fireEvent.click(screen.getByTestId('delete-personnel-1'));
@@ -118,7 +146,7 @@ describe('PersonnelManagementPage', () => {
 
     test('searches and filters personnel', async () => {
       getPositions.mockResolvedValue(mockPositions); // Ensure positions are loaded
-      render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
+      renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
     
       const searchInput = screen.getByPlaceholderText('按姓名搜索');
@@ -133,13 +161,9 @@ describe('PersonnelManagementPage', () => {
     
       const positionFilter = screen.getByTestId('personnel-position-filter');
       await userEvent.click(positionFilter);
-      await userEvent.click(await screen.findByRole('option', { name: 'Developer' }));
-      await waitFor(() => {
-        expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
-      });
-      await waitFor(() => {
-        expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
-      });
+      const developerOptionFilter = await screen.findByText('Developer', { selector: '.ant-select-item-option-content' });
+      await userEvent.click(developerOptionFilter);
+
       await waitFor(() => {
         expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
       });

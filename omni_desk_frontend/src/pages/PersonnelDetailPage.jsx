@@ -57,7 +57,7 @@ const PersonnelDetailPage = () => {
     ];
 
     if (loading) {
-        return <div className="flex justify-center items-center h-screen"><Spin size="large" /></div>;
+        return <div className="flex justify-center items-center h-screen"><Spin size="large" data-testid="loading-spinner" /></div>;
     }
 
     if (!personnel) {

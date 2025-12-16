@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
+import { Form } from 'antd';
 import MeetingRoomManagementPage from './MeetingRoomManagementPage';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { AuthContext } from '../context/AuthContext';
@@ -136,35 +137,39 @@ describe('MeetingRoomManagementPage', () => {
 
   describe('Maintenance CRUD', () => {
     test('adds a new maintenance record', async () => {
-        renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
-    
+        let maintenanceForm;
+        const TestWrapper = () => {
+            const [form] = Form.useForm();
+            maintenanceForm = form;
+            return <MeetingRoomManagementPage maintenanceForm={form} />;
+        };
+
+        renderWithAuth(<TestWrapper />, { providerProps: { user: mockUser, isAuthenticated: true } });
+
         const addMaintenanceButton = await screen.findByRole('button', { name: /添加维护记录/i });
         fireEvent.click(addMaintenanceButton);
-        
+
         const dialog = await screen.findByRole('dialog', { name: /添加维护记录/i });
 
-        // Select meeting room
-        fireEvent.mouseDown(await within(dialog).findByLabelText('会议室'));
-        const roomAOption = await screen.findByRole('option', { name: 'Room A' });
-        fireEvent.click(roomAOption);
-
-        // Select time range
-        // Select time range
-        fireEvent.click(await within(dialog).findByLabelText('维护时间范围'));
-        // The date picker popup has its own "OK" button. To avoid conflict with the modal's "OK" button,
-        // we find the date picker dialog and then find the "OK" button within it.
-        const datePickerPopup = await screen.findByRole('dialog');
-        fireEvent.click(within(datePickerPopup).getByText('OK'));
-        
-        // Input reason
-        fireEvent.change(await within(dialog).findByLabelText('维护原因'), { target: { value: 'Cleaning' } });
-        
-        const okButton = await within(dialog).findByRole('button', { name: 'OK' });
-        fireEvent.click(okButton);
-    
-        await waitFor(() => {
-            expect(meetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalledWith(expect.objectContaining({
+        await act(async () => {
+            maintenanceForm.setFieldsValue({
+                meeting_room: 1,
+                timeRange: [dayjs('2025-12-20T10:00:00Z'), dayjs('2025-12-20T11:00:00Z')],
                 reason: 'Cleaning',
+            });
+        });
+
+        const okButton = within(dialog).getByRole('button', { name: 'OK' });
+        fireEvent.click(okButton);
+
+        await waitFor(() => {
+            const expectedStartTime = '2025-12-20T10:00:00.000Z';
+            const expectedEndTime = '2025-12-20T11:00:00.000Z';
+            expect(meetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalledWith(expect.objectContaining({
+                meeting_room: 1,
+                reason: 'Cleaning',
+                start_time: expectedStartTime,
+                end_time: expectedEndTime,
             }));
         });
     });
