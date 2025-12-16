@@ -16,6 +16,7 @@ class LoginDialog(QDialog):
         super().__init__(parent)
         self.setWindowTitle("登录")
         self.access_token = None
+        self.refresh_token = None
 
         layout = QVBoxLayout(self)
 
@@ -32,10 +33,19 @@ class LoginDialog(QDialog):
         layout.addWidget(self.password_label)
         layout.addWidget(self.password_input)
 
-        # Login button
+        # Auto login checkbox
+        self.auto_login_checkbox = QCheckBox("自动登录")
+        layout.addWidget(self.auto_login_checkbox)
+
+        # Buttons
+        button_layout = QHBoxLayout()
         self.login_button = QPushButton("登录")
         self.login_button.clicked.connect(self.handle_login)
-        layout.addWidget(self.login_button)
+        self.register_button = QPushButton("注册")
+        self.register_button.clicked.connect(self.handle_register)
+        button_layout.addWidget(self.login_button)
+        button_layout.addWidget(self.register_button)
+        layout.addLayout(button_layout)
 
         self.setLayout(layout)
 
@@ -56,8 +66,14 @@ class LoginDialog(QDialog):
             response.raise_for_status()  # Raise an exception for bad status codes
             
             if response.status_code == 200:
-                self.access_token = response.json().get("access")
+                data = response.json()
+                self.access_token = data.get("access")
+                self.refresh_token = data.get("refresh")
+                
                 if self.access_token:
+                    if self.auto_login_checkbox.isChecked():
+                        settings = QSettings("MyCompany", "DesktopNotifier")
+                        settings.setValue("refresh_token", self.refresh_token)
                     self.accept()
                 else:
                     QMessageBox.critical(self, "登录失败", "未能从响应中获取令牌。")
@@ -66,6 +82,81 @@ class LoginDialog(QDialog):
 
         except requests.exceptions.RequestException as e:
             QMessageBox.critical(self, "登录错误", f"请求失败: {e}")
+
+    def handle_register(self):
+        register_dialog = RegisterDialog(self)
+        register_dialog.exec()
+
+
+class RegisterDialog(QDialog):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setWindowTitle("注册")
+
+        layout = QVBoxLayout(self)
+
+        # Username
+        self.username_label = QLabel("用户名:")
+        self.username_input = QLineEdit()
+        layout.addWidget(self.username_label)
+        layout.addWidget(self.username_input)
+
+        # Password
+        self.password_label = QLabel("密码:")
+        self.password_input = QLineEdit()
+        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.password_label)
+        layout.addWidget(self.password_input)
+
+        # Confirm Password
+        self.confirm_password_label = QLabel("确认密码:")
+        self.confirm_password_input = QLineEdit()
+        self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        layout.addWidget(self.confirm_password_label)
+        layout.addWidget(self.confirm_password_input)
+
+        # Register button
+        self.register_button = QPushButton("确认注册")
+        self.register_button.clicked.connect(self.handle_registration)
+        layout.addWidget(self.register_button)
+
+        self.setLayout(layout)
+
+    def handle_registration(self):
+        username = self.username_input.text()
+        password = self.password_input.text()
+        confirm_password = self.confirm_password_input.text()
+
+        if not username or not password or not confirm_password:
+            QMessageBox.warning(self, "输入错误", "所有字段都不能为空。")
+            return
+
+        if password != confirm_password:
+            QMessageBox.warning(self, "密码不匹配", "两次输入的密码不一致。")
+            return
+
+        try:
+            response = requests.post(
+                "http://127.0.0.1:8000/api/auth/registration/",
+                json={"username": username, "password": password},
+                timeout=5
+            )
+            response.raise_for_status()
+
+            if response.status_code == 201:
+                QMessageBox.information(self, "注册成功", "用户注册成功！现在您可以登录了。")
+                self.accept()
+            else:
+                # Try to get a more specific error message from the response
+                try:
+                    error_data = response.json()
+                    error_message = error_data.get("username", ["注册失败"])[0]
+                except (ValueError, KeyError):
+                    error_message = f"服务器返回错误: {response.status_code}"
+                QMessageBox.critical(self, "注册失败", error_message)
+
+        except requests.exceptions.RequestException as e:
+            QMessageBox.critical(self, "注册错误", f"请求失败: {e}")
 
 
 class MainWindow(QWidget):
@@ -245,12 +336,16 @@ class MainWindow(QWidget):
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.theme_changed.connect(self.handle_theme_change)
+        dialog.logout_requested.connect(self.handle_logout)
         dialog.exec()
 
     def handle_theme_change(self, theme_name):
         self.apply_theme(theme_name)
         settings = QSettings("MyCompany", "DesktopNotifier")
         settings.setValue("theme", theme_name)
+
+    def handle_logout(self):
+        self.close()
 
     def apply_theme(self, theme_name):
         """Loads and applies a theme from a QSS file."""
@@ -265,6 +360,7 @@ class MainWindow(QWidget):
 
 class SettingsDialog(QDialog):
     theme_changed = pyqtSignal(str)
+    logout_requested = pyqtSignal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -294,6 +390,11 @@ class SettingsDialog(QDialog):
         
         self.theme_combo.currentTextChanged.connect(self.on_theme_changed)
 
+        # Logout button
+        self.logout_button = QPushButton("登出")
+        self.logout_button.clicked.connect(self.handle_logout)
+        layout.addWidget(self.logout_button)
+
         # Dialog buttons
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
         button_box.accepted.connect(self.accept)
@@ -308,6 +409,12 @@ class SettingsDialog(QDialog):
     def on_theme_changed(self, text):
         theme_name = "light" if text == "浅色" else "dark"
         self.theme_changed.emit(theme_name)
+
+    def handle_logout(self):
+        self.settings.remove("refresh_token")
+        self.logout_requested.emit()
+        self.parent().close() # Close MainWindow
+        self.accept() # Close SettingsDialog
 
 
 def is_autostart_enabled() -> bool:
@@ -356,27 +463,51 @@ def set_autostart(enabled: bool):
 
 def main():
     app = QApplication(sys.argv)
-    
+
     # Setup settings
     QApplication.setOrganizationName("MyCompany")
     QApplication.setApplicationName("DesktopNotifier")
     settings = QSettings()
-    
-    # Load theme from settings
-    theme_name = settings.value("theme", "dark")
 
-    login_dialog = LoginDialog()
-    if login_dialog.exec() == QDialog.DialogCode.Accepted:
-        access_token = login_dialog.access_token
+    while True:
+        # Load theme from settings
+        theme_name = settings.value("theme", "dark")
+        
+        access_token = None
+        refresh_token = settings.value("refresh_token")
+
+        if refresh_token:
+            try:
+                response = requests.post(
+                    "http://127.0.0.1:8000/api/token/refresh/",
+                    json={"refresh": refresh_token},
+                    timeout=5
+                )
+                if response.status_code == 200:
+                    access_token = response.json().get("access")
+                else:
+                    # If refresh fails, clear the stored token
+                    settings.remove("refresh_token")
+            except requests.exceptions.RequestException:
+                # Network or other errors, proceed to login
+                pass
+
         if access_token:
             window = MainWindow(access_token=access_token, theme_name=theme_name)
             window.show()
-            sys.exit(app.exec())
+            app.exec()
+            # After the main window is closed (e.g., by logout), the loop will restart
         else:
-            # This case should ideally not be hit if dialog logic is correct
-            sys.exit(1)
-    else:
-        sys.exit(0)
+            login_dialog = LoginDialog()
+            if login_dialog.exec() == QDialog.DialogCode.Accepted:
+                access_token = login_dialog.access_token
+                if not access_token:
+                    # If login fails to get a token, exit
+                    sys.exit(1)
+                # Loop will restart and attempt to use the new token
+            else:
+                # User cancelled login
+                sys.exit(0)
 
 
 if __name__ == '__main__':
