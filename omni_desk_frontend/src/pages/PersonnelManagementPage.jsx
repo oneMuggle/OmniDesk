@@ -51,9 +51,9 @@ const PersonnelManagementPage = () => {
             <Button>详情</Button>
           </Link>
           <Link to={`/control-panel/personnel/edit/${record.id}`}>
-            <Button type="primary" icon={<EditOutlined />} />
+            <Button type="primary" icon={<EditOutlined />} data-testid={`edit-personnel-${record.id}`} />
           </Link>
-          <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
+          <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} data-testid={`delete-personnel-${record.id}`} />
         </Space>
       ),
     },

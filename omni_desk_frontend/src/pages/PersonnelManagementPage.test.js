@@ -89,7 +89,7 @@ describe('PersonnelManagementPage', () => {
       render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
 
-      fireEvent.click(screen.getByLabelText('edit-personnel-1'));
+      fireEvent.click(screen.getByTestId('edit-personnel-1'));
       await screen.findByTestId('personnel-modal');
 
       fireEvent.change(screen.getByTestId('personnel-modal-name-input'), { target: { value: 'John Doe Updated' } });
@@ -104,7 +104,7 @@ describe('PersonnelManagementPage', () => {
       render(<MemoryRouter><PersonnelManagementPage /></MemoryRouter>);
       await screen.findByText('John Doe');
 
-      fireEvent.click(screen.getByLabelText('delete-personnel-1'));
+      fireEvent.click(screen.getByTestId('delete-personnel-1'));
 
       await waitFor(() => {
         expect(screen.getByTestId('delete-personnel-confirm-modal')).toBeVisible();
@@ -133,7 +133,7 @@ describe('PersonnelManagementPage', () => {
     
       const positionFilter = screen.getByTestId('personnel-position-filter');
       await userEvent.click(positionFilter);
-      await userEvent.click(await screen.findByText('Developer'));
+      await userEvent.click(await screen.findByRole('option', { name: 'Developer' }));
       await waitFor(() => {
         expect(screen.getByText('Developer', { selector: '.ant-select-selection-item' })).toBeInTheDocument();
       });

@@ -3,6 +3,7 @@ import { Layout, Row, Col, Button, Spin, Typography, Space, Card, message } from
 import { PlusOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import { useMemoData } from '../hooks/useMemoData';
+import { useCalendar } from '../hooks/useCalendar';
 import MiniCalendar from '../components/Memo/MiniCalendar';
 import MemoList from '../components/Memo/MemoList';
 import MemoModal from '../components/Memo/MemoModal';
@@ -13,7 +14,7 @@ const { Title } = Typography;
 
 const MemoPage = () => {
   const { memos, isLoading, createMemo, updateMemo, deleteMemo } = useMemoData();
-  const [selectedDate, setSelectedDate] = useState(moment());
+  const { selectedDate, handleSelectDate } = useCalendar();
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentMemo, setCurrentMemo] = useState(null);
   const [modalMode, setModalMode] = useState('create');
@@ -61,10 +62,6 @@ const MemoPage = () => {
     }
   }, [memos, selectedDate, memosForSelectedDate]);
 
-  const handleSelectDate = (date) => {
-    setSelectedDate(date);
-    console.log("handleSelectDate called. New selectedDate:", date.format());
-  };
 
   const handleAddMemo = () => {
     setCurrentMemo(null);
@@ -119,7 +116,7 @@ const MemoPage = () => {
   if (isLoading) {
     return (
       <Layout style={{ minHeight: '100vh', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-        <Spin size="large" tip="加载备忘录中..." />
+        <Spin size="large" tip="加载备忘录中..." data-testid="loading-spinner" />
       </Layout>
     );
   }
@@ -132,7 +129,7 @@ const MemoPage = () => {
       <Content style={{ padding: '24px' }}>
         <Row gutter={[24, 24]}>
           <Col xs={24} md={12}>
-            <Card title="所有备忘录" extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddMemo}>新建备忘录</Button>}>
+            <Card title="所有备忘录" extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddMemo}>新建备忘录</Button>} data-testid="all-memos-card">
               <MemoList
                 memos={memos || []}
                 onEdit={handleEditMemo}
@@ -148,7 +145,7 @@ const MemoPage = () => {
                 <MiniCalendar memos={memos || []} onSelectDate={handleSelectDate} />
               </Card>
 
-              <Card title={`选定日期备忘录 (${selectedDate.format('YYYY年MM月DD日')})`}>
+              <Card title={`选定日期备忘录 (${selectedDate.format('YYYY年MM月DD日')})`} data-testid="selected-date-memos-card">
                 <MemoList
                   memos={memosForSelectedDate}
                   onEdit={handleEditMemo}

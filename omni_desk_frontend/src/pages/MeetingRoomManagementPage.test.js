@@ -151,7 +151,10 @@ describe('MeetingRoomManagementPage', () => {
         // Select time range
         // Select time range
         fireEvent.click(await within(dialog).findByLabelText('维护时间范围'));
-        fireEvent.click(await screen.findByText('OK'));
+        // The date picker popup has its own "OK" button. To avoid conflict with the modal's "OK" button,
+        // we find the date picker dialog and then find the "OK" button within it.
+        const datePickerPopup = await screen.findByRole('dialog');
+        fireEvent.click(within(datePickerPopup).getByText('OK'));
         
         // Input reason
         fireEvent.change(await within(dialog).findByLabelText('维护原因'), { target: { value: 'Cleaning' } });

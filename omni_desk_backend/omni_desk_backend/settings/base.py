@@ -261,3 +261,5 @@ MINERU_API_KEY = os.environ.get('MINERU_API_KEY', 'YOUR_MINERU_API_KEY')
 # Ollama 配置
 OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
 OLLAMA_MODEL_NAME = os.environ.get('OLLAMA_MODEL_NAME', 'llama2') # 默认模型可以根据需要调整
+
+ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')

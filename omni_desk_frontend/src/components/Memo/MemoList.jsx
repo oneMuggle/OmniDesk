@@ -35,6 +35,7 @@ const MemoList = ({ memos, onEdit, onDelete, onToggleComplete, showActions = tru
                 onConfirm={() => onDelete(memo.id)}
                 okText="是"
                 cancelText="否"
+                getPopupContainer={triggerNode => triggerNode.parentNode}
               >
                 <DeleteOutlined />
               </Popconfirm>,
