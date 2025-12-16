@@ -15,6 +15,7 @@ const mockQualifications = {
 
 describe('ProfessionalQualificationTable', () => {
   beforeEach(() => {
+    jest.clearAllMocks();
     api.getQualifications.mockResolvedValue(mockQualifications);
     api.createQualification.mockResolvedValue({ data: { id: 3, name: 'New Cert' } });
     api.updateQualification.mockResolvedValue({ data: { id: 1, name: 'Updated Cert' } });
@@ -22,18 +23,19 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('renders qualifications fetched from API', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
+    render(<ProfessionalQualificationTable personnelId={1} />);
+
+    await waitFor(() => {
+      expect(api.getQualifications).toHaveBeenCalledWith(1);
+    });
 
     expect(await screen.findByText('Cert A')).toBeInTheDocument();
     expect(await screen.findByText('Cert B')).toBeInTheDocument();
-    expect(api.getQualifications).toHaveBeenCalledWith(1);
-    expect(api.getQualifications).toHaveBeenCalledTimes(1);
   });
 
   test('opens add modal, creates a new qualification, and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
-    await screen.findByText('Cert A'); // Wait for initial load
-    expect(api.getQualifications).toHaveBeenCalledTimes(1);
+    render(<ProfessionalQualificationTable personnelId={1} />);
+    await waitFor(() => expect(api.getQualifications).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByText('添加职业资质'));
 
@@ -43,8 +45,7 @@ describe('ProfessionalQualificationTable', () => {
 
     fireEvent.change(screen.getByLabelText('证书名称'), { target: { value: 'New Cert' } });
     fireEvent.change(screen.getByLabelText('颁发机构'), { target: { value: 'New Org' } });
-    // Mocking date input is tricky, let's assume the component handles it.
-    // fireEvent.change(screen.getByLabelText('颁发日期'), { target: { value: '2025-01-01' } });
+    fireEvent.change(screen.getByLabelText('颁发日期'), { target: { value: '2025-01-01' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
@@ -62,7 +63,8 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('opens edit modal, updates a qualification, and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
+    render(<ProfessionalQualificationTable personnelId={1} />);
+    await waitFor(() => expect(api.getQualifications).toHaveBeenCalledTimes(1));
 
     await screen.findByText('Cert A');
     fireEvent.click(screen.getAllByText('编辑')[0]);
@@ -83,7 +85,8 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('deletes a qualification and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
+    render(<ProfessionalQualificationTable personnelId={1} />);
+    await waitFor(() => expect(api.getQualifications).toHaveBeenCalledTimes(1));
 
     await screen.findByText('Cert A');
     fireEvent.click(screen.getAllByText('删除')[0]);

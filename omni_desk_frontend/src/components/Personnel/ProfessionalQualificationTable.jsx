@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { createQualification, updateQualification, deleteQualification } from '../../api/personnelApi';
+import { getQualifications, createQualification, updateQualification, deleteQualification } from '../../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
 
-const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQualifications }) => {
+const ProfessionalQualificationTable = ({ personnelId }) => {
+  const [qualifications, setQualifications] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingQualification, setEditingQualification] = useState(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    const fetchQualificationsData = async () => {
+      if (!personnelId) return;
+      try {
+        const response = await getQualifications(personnelId);
+        setQualifications(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch qualifications', error);
+        setQualifications([]);
+      }
+    };
+
+    fetchQualificationsData();
+  }, [personnelId]);
 
   const handleOk = async () => {
     try {
@@ -16,7 +32,17 @@ const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQual
       } else {
         await createQualification({ ...values, personnel: personnelId });
       }
-      fetchQualifications();
+      // Re-fetch data after modal is closed
+      const fetch = async () => {
+        if (!personnelId) return;
+        try {
+          const response = await getQualifications(personnelId);
+          setQualifications(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch qualifications', error);
+        }
+      };
+      fetch();
       setIsModalVisible(false);
       setEditingQualification(null);
     } catch (error) {
@@ -27,7 +53,17 @@ const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQual
   const handleDelete = async (id) => {
     try {
       await deleteQualification(id);
-      fetchQualifications();
+      // Re-fetch data after deletion
+      const fetch = async () => {
+        if (!personnelId) return;
+        try {
+          const response = await getQualifications(personnelId);
+          setQualifications(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch qualifications', error);
+        }
+      };
+      fetch();
     } catch (error) {
       console.error('Failed to delete qualification', error);
     }
@@ -54,10 +90,10 @@ const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQual
       <Button type="primary" onClick={() => { setEditingQualification(null); setIsModalVisible(true); form.resetFields(); }} style={{ marginBottom: 16 }}>
         添加职业资质
       </Button>
-      <Table dataSource={qualifications || []} columns={columns} rowKey="id" />
+      <Table dataSource={qualifications} columns={columns} rowKey="id" />
       <Modal
         title={editingQualification ? '编辑职业资质' : '添加职业资质'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={() => { setIsModalVisible(false); setEditingQualification(null); }}
       >
@@ -78,9 +114,7 @@ const ProfessionalQualificationTable = ({ qualifications, personnelId, fetchQual
 };
 
 ProfessionalQualificationTable.propTypes = {
-  qualifications: PropTypes.array.isRequired,
   personnelId: PropTypes.number.isRequired,
-  fetchQualifications: PropTypes.func.isRequired,
 };
 
 export default ProfessionalQualificationTable;

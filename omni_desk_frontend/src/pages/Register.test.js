@@ -1,14 +1,19 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { MemoryRouter } from 'react-router-dom';
 import Register from './Register';
 import { register } from '../api/userManagementApi';
 
-jest.mock('../api/userManagementApi');
-
-import { MemoryRouter } from 'react-router-dom';
+jest.mock('../api/userManagementApi', () => ({
+  register: jest.fn(),
+}));
 
 describe('Register Component', () => {
+  beforeEach(() => {
+    register.mockClear();
+  });
+
   it('should render registration form', () => {
     render(<MemoryRouter><Register /></MemoryRouter>);
     expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();

@@ -2,13 +2,14 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import AnnouncementsPage from './AnnouncementsPage';
 
+import apiClient from '../api/apiClient';
+
 // Mocking the API client to prevent actual network requests during tests
-jest.mock('../api/apiClient', () => ({
-  get: jest.fn(() => Promise.resolve({ data: { results: [] } })),
-}));
+jest.mock('../api/apiClient');
 
 describe('AnnouncementsPage', () => {
   test('renders the announcements page title', () => {
+    apiClient.get.mockResolvedValue({ data: [] });
     render(<AnnouncementsPage />);
     
     // 查找标题元素
@@ -19,6 +20,7 @@ describe('AnnouncementsPage', () => {
   });
 
   test('displays "No announcements" message when there are no announcements', async () => {
+    apiClient.get.mockResolvedValue({ data: [] });
     render(<AnnouncementsPage />);
     
     // 等待并查找“没有公告”的消息

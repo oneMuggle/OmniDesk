@@ -1,13 +1,14 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import { MemoryRouter } from 'react-router-dom';
 import Login from './Login';
 import { login } from '../api/userManagementApi';
 import { AuthProvider } from '../context/AuthContext';
 
-jest.mock('../api/userManagementApi');
-
-import { MemoryRouter } from 'react-router-dom';
+jest.mock('../api/userManagementApi', () => ({
+  login: jest.fn(),
+}));
 
 const renderWithAuthProvider = (component) => {
   return render(
@@ -20,6 +21,10 @@ const renderWithAuthProvider = (component) => {
 };
 
 describe('Login Component', () => {
+  beforeEach(() => {
+    login.mockClear();
+  });
+
   it('should render login form', () => {
     renderWithAuthProvider(<Login />);
     expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();

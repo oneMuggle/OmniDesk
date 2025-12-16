@@ -1,12 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { createFamilyMember, updateFamilyMember, deleteFamilyMember } from '../../api/personnelApi';
+import { getFamilyMembers, createFamilyMember, updateFamilyMember, deleteFamilyMember } from '../../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
 
-const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) => {
+const FamilyMemberTable = ({ personnelId }) => {
+  const [familyMembers, setFamilyMembers] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingFamilyMember, setEditingFamilyMember] = useState(null);
   const [form] = Form.useForm();
+
+  useEffect(() => {
+    const fetchFamilyMembersData = async () => {
+      if (!personnelId) return;
+      try {
+        const response = await getFamilyMembers(personnelId);
+        setFamilyMembers(response.data || []);
+      } catch (error) {
+        console.error('Failed to fetch family members', error);
+        setFamilyMembers([]);
+      }
+    };
+
+    fetchFamilyMembersData();
+  }, [personnelId]);
 
   const handleOk = async () => {
     try {
@@ -16,7 +32,17 @@ const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) =
       } else {
         await createFamilyMember({ ...values, personnel: personnelId });
       }
-      fetchFamilyMembers();
+      // Re-fetch data after modal is closed
+      const fetch = async () => {
+        if (!personnelId) return;
+        try {
+          const response = await getFamilyMembers(personnelId);
+          setFamilyMembers(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch family members', error);
+        }
+      };
+      fetch();
       setIsModalVisible(false);
       setEditingFamilyMember(null);
     } catch (error) {
@@ -27,7 +53,17 @@ const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) =
   const handleDelete = async (id) => {
     try {
       await deleteFamilyMember(id);
-      fetchFamilyMembers();
+      // Re-fetch data after deletion
+      const fetch = async () => {
+        if (!personnelId) return;
+        try {
+          const response = await getFamilyMembers(personnelId);
+          setFamilyMembers(response.data || []);
+        } catch (error) {
+          console.error('Failed to fetch family members', error);
+        }
+      };
+      fetch();
     } catch (error) {
       console.error('Failed to delete family member', error);
     }
@@ -54,10 +90,10 @@ const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) =
       <Button type="primary" onClick={() => { setEditingFamilyMember(null); setIsModalVisible(true); form.resetFields(); }} style={{ marginBottom: 16 }}>
         添加家庭成员
       </Button>
-      <Table dataSource={familyMembers || []} columns={columns} rowKey="id" />
+      <Table dataSource={familyMembers} columns={columns} rowKey="id" />
       <Modal
         title={editingFamilyMember ? '编辑家庭成员' : '添加家庭成员'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={() => { setIsModalVisible(false); setEditingFamilyMember(null); }}
       >
@@ -78,9 +114,7 @@ const FamilyMemberTable = ({ familyMembers, personnelId, fetchFamilyMembers }) =
 };
 
 FamilyMemberTable.propTypes = {
-  familyMembers: PropTypes.array.isRequired,
   personnelId: PropTypes.number.isRequired,
-  fetchFamilyMembers: PropTypes.func.isRequired,
 };
 
 export default FamilyMemberTable;

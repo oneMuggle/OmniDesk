@@ -68,7 +68,7 @@ jest.mock('@fullcalendar/react', () => {
         return (
             <div data-testid="fullcalendar-mock">
                 {props.events.map(event => (
-                    <div key={event.id} data-testid={`event-${event.id}`} onClick={() => mockEventClick({ event })}>
+                    <div key={event.id} data-testid={`event-${event.id}`} onClick={() => props.eventClick({ event })}>
                         {event.title}
                     </div>
                 ))}
@@ -96,7 +96,7 @@ describe('ScheduleManagementPage', () => {
   beforeEach(() => {
     jest.setTimeout(30000);
     scheduleApi.getSchedules.mockResolvedValue(mockSchedules);
-    getAllPersonnel.mockResolvedValue(mockPersonnel);
+    getAllPersonnel.mockResolvedValue({ results: mockPersonnel });
     getPositions.mockResolvedValue(mockPositions);
     getPersonnelSequences.mockResolvedValue(mockSequences);
     getLeaderSequences.mockResolvedValue(mockSequences);
@@ -133,7 +133,9 @@ describe('ScheduleManagementPage', () => {
     await userEvent.click(screen.getByTestId('add-schedule-button'));
     const dialog = await screen.findByTestId('schedule-modal');
 
-    await userEvent.type(within(dialog).getByLabelText('值班日期'), '2025-11-26');
+    const dateInput = within(dialog).getByLabelText('值班日期');
+    fireEvent.change(dateInput, { target: { value: '2025-11-26' } });
+    fireEvent.keyDown(dateInput, { key: 'Enter', code: 'Enter' });
     
     await userEvent.click(within(dialog).getByLabelText('值班人员'));
     const aliceOptions = await screen.findAllByText('Alice (Dev)');
@@ -156,7 +158,7 @@ describe('ScheduleManagementPage', () => {
 
   test('opens edit modal, submits, and closes', async () => {
     await renderComponent();
-    fireEvent.click(screen.getByTestId('event-1'));
+    await userEvent.click(screen.getByTestId('event-1'));
     const dialog = await screen.findByTestId('schedule-modal');
 
     await waitFor(() => {
@@ -196,7 +198,9 @@ describe('ScheduleManagementPage', () => {
     await userEvent.click(screen.getByTestId('generate-schedule-button'));
     const dialog = await screen.findByTestId('generate-schedule-modal');
 
-    await userEvent.type(screen.getByTestId('generate-schedule-start-date'), '2025-12-01');
+    const dateInputGen = screen.getByLabelText('起始日期');
+    fireEvent.change(dateInputGen, { target: { value: '2025-12-01' } });
+    fireEvent.keyDown(dateInputGen, { key: 'Enter', code: 'Enter' });
     await userEvent.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
     await userEvent.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));

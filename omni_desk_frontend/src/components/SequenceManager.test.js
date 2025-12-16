@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import SequenceManager from './SequenceManager';
 import {
@@ -35,11 +36,13 @@ jest.mock('react-beautiful-dnd', () => {
 
 const mockPersonnelSequences = { data: { results: [{ id: 1, name: 'Personnel Seq 1', sequence: [1, 2] }] } };
 const mockLeaderSequences = { data: { results: [{ id: 1, name: 'Leader Seq 1', sequence: [3] }] } };
-const mockAllPersonnel = [
-  { id: 1, name: 'Alice', position: 1, position_name: 'Dev' },
-  { id: 2, name: 'Bob', position: 1, position_name: 'Dev' },
-  { id: 3, name: 'Charlie', position: 2, position_name: 'Manager' },
-];
+const mockAllPersonnel = {
+  results: [
+    { id: 1, name: 'Alice', position: 1, position_name: 'Dev' },
+    { id: 2, name: 'Bob', position: 1, position_name: 'Dev' },
+    { id: 3, name: 'Charlie', position: 2, position_name: 'Manager' },
+  ],
+};
 const mockPositions = { results: [{ id: 1, name: 'Dev' }, { id: 2, name: 'Manager' }] };
 
 describe('SequenceManager', () => {
@@ -75,16 +78,17 @@ describe('SequenceManager', () => {
   });
 
   test('adds a new personnel sequence', async () => {
+    const user = userEvent.setup();
     render(<SequenceManager />);
 
     await screen.findByText('Personnel Seq 1');
     const addPersonnelSeqButton = screen.getByRole('button', { name: /新建人员顺序/i });
-    fireEvent.click(addPersonnelSeqButton);
+    await user.click(addPersonnelSeqButton);
 
     const dialog = await screen.findByRole('dialog', { name: /新建人员顺序/i });
     const nameInput = within(dialog).getByLabelText('顺序名称');
-    fireEvent.change(nameInput, { target: { value: 'New Personnel Seq' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+    await user.type(nameInput, 'New Personnel Seq');
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(createPersonnelSequence).toHaveBeenCalledWith(expect.objectContaining({ name: 'New Personnel Seq' }));
@@ -92,17 +96,20 @@ describe('SequenceManager', () => {
   });
 
   test('edits a leader sequence', async () => {
+    const user = userEvent.setup();
     render(<SequenceManager />);
 
     await screen.findByText('Leader Seq 1');
     const editButton = (await screen.findAllByRole('button', { name: /编辑/i }))[1];
-    fireEvent.click(editButton);
+    await user.click(editButton);
 
     const dialog = await screen.findByRole('dialog', { name: /编辑领导顺序/i });
-    expect(within(dialog).getByLabelText('顺序名称')).toHaveValue('Leader Seq 1');
+    const nameInput = within(dialog).getByLabelText('顺序名称');
+    expect(nameInput).toHaveValue('Leader Seq 1');
 
-    fireEvent.change(within(dialog).getByLabelText('顺序名称'), { target: { value: 'Updated Leader Seq' } });
-    fireEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+    await user.clear(nameInput);
+    await user.type(nameInput, 'Updated Leader Seq');
+    await user.click(within(dialog).getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
       expect(updateLeaderSequence).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Updated Leader Seq' }));
@@ -110,14 +117,15 @@ describe('SequenceManager', () => {
   });
 
   test('deletes a personnel sequence', async () => {
+    const user = userEvent.setup();
     render(<SequenceManager />);
 
     await screen.findByText('Personnel Seq 1');
     const deleteButton = (await screen.findAllByRole('button', { name: /删除/i }))[0];
-    fireEvent.click(deleteButton);
+    await user.click(deleteButton);
 
     await screen.findByText('确定要删除吗?');
-    fireEvent.click(screen.getByRole('button', { name: /是/i }));
+    await user.click(screen.getByRole('button', { name: /是/i }));
 
     await waitFor(() => {
       expect(deletePersonnelSequence).toHaveBeenCalledWith(1);
@@ -125,24 +133,26 @@ describe('SequenceManager', () => {
   });
 
   test('adds and removes personnel in the modal', async () => {
+    const user = userEvent.setup();
+    getAllPersonnel.mockResolvedValue(mockAllPersonnel.results); // Correctly return the array
     render(<SequenceManager />);
 
     await screen.findByText('Personnel Seq 1');
     const addPersonnelSeqButton = screen.getByRole('button', { name: /新建人员顺序/i });
-    fireEvent.click(addPersonnelSeqButton);
+    await user.click(addPersonnelSeqButton);
 
     const modal = await screen.findByRole('dialog', { name: /新建人员顺序/i });
     
     // Add Alice
     const addButton = (await within(modal).findAllByRole('button', { name: /添加/i }))[0];
-    fireEvent.click(addButton);
+    await user.click(addButton);
 
     const sortedList = within(modal).getByTestId('sorted-personnel-list');
     await within(sortedList).findByText('Alice');
 
     // Remove Alice
     const removeButton = await within(sortedList).findByRole('button', { name: /✖/i });
-    fireEvent.click(removeButton);
+    await user.click(removeButton);
 
     await waitFor(() => {
       expect(within(sortedList).queryByText('Alice')).not.toBeInTheDocument();

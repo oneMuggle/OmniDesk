@@ -266,7 +266,8 @@ const MeetingRoomBookingPage = () => {
             display: 'block'
         };
         return {
-            style: style
+            style: style,
+            'data-testid': `booking-event-${event.id}`,
         };
     }, [roomColorMap]);
 
@@ -295,7 +296,6 @@ const MeetingRoomBookingPage = () => {
         return (
             <div
                 ref={eventRef}
-                data-testid={`booking-event-${event.id}`}
                 style={{
                     height: '100%',
                     overflow: 'hidden',

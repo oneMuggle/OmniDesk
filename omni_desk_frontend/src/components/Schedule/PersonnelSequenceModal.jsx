@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
-import axios from 'axios';
-import { getPersonnel } from '../../api/personnelApi';
+import { getPersonnel, getPositions } from '../../api/personnelApi';
+import apiClient from '../../api/apiClient';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
@@ -18,9 +18,9 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
 
   // Fetch positions from API
   useEffect(() => {
-    axios.get('/api/positions/')
-      .then(response => {
-        setPositions(response.data);
+    getPositions()
+      .then(data => {
+        setPositions(data);
       })
       .catch(error => {
         console.error('Error fetching positions:', error);
@@ -89,7 +89,7 @@ const PersonnelSequenceModal = ({ open, onCancel, onOk }) => {
       const holidayPersonnelIds = selectedHolidayPersonnel.map(p => p.id);
       // This part seems to be posting to a different endpoint, which is correct.
       // We will leave it as is.
-      axios.post('/api/events/personnel-sequences/', {
+      apiClient.post('/api/events/personnel-sequences/', {
         ...values,
         personnel_ids: personnelIds,
         holiday_personnel_ids: holidayPersonnelIds,

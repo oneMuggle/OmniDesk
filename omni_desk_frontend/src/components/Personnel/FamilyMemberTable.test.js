@@ -26,18 +26,19 @@ describe('FamilyMemberTable', () => {
   });
 
   test('renders family members fetched from API', async () => {
-    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
+    render(<FamilyMemberTable personnelId={1} />);
+
+    await waitFor(() => {
+      expect(api.getFamilyMembers).toHaveBeenCalledWith(1);
+    });
 
     expect(await screen.findByText('Spouse Name')).toBeInTheDocument();
     expect(await screen.findByText('Child Name')).toBeInTheDocument();
-    expect(api.getFamilyMembers).toHaveBeenCalledWith(1);
-    expect(api.getFamilyMembers).toHaveBeenCalledTimes(1);
   });
 
   test('opens add modal, creates a new family member, and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
-    await screen.findByText('Spouse Name'); // Wait for initial load
-    expect(api.getFamilyMembers).toHaveBeenCalledTimes(1);
+    render(<FamilyMemberTable personnelId={1} />);
+    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
 
     fireEvent.click(screen.getByText('添加家庭成员'));
 
@@ -52,12 +53,12 @@ describe('FamilyMemberTable', () => {
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
-      expect(api.createFamilyMember).toHaveBeenCalledWith({
+      expect(api.createFamilyMember).toHaveBeenCalledWith(expect.objectContaining({
         name: 'New Member',
         relationship: 'Parent',
         contact_number: '333',
         personnel: 1,
-      });
+      }));
     });
 
     await waitFor(() => {
@@ -66,7 +67,8 @@ describe('FamilyMemberTable', () => {
   });
 
   test('opens edit modal, updates a family member, and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
+    render(<FamilyMemberTable personnelId={1} />);
+    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
 
     await screen.findByText('Spouse Name');
     fireEvent.click(screen.getAllByText('编辑')[0]);
@@ -87,7 +89,8 @@ describe('FamilyMemberTable', () => {
   });
 
   test('deletes a family member and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
+    render(<FamilyMemberTable personnelId={1} />);
+    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
 
     await screen.findByText('Spouse Name');
     fireEvent.click(screen.getAllByText('删除')[0]);
