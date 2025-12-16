@@ -9,7 +9,7 @@ class ApiClient:
     def login(self, username, password):
         try:
             response = requests.post(
-                f"{self.base_url}/token/",
+                f"{self.base_url}/auth/login/",
                 data={"username": username, "password": password},
                 timeout=5
             )
@@ -23,7 +23,7 @@ class ApiClient:
     def refresh_token(self, refresh_token):
         try:
             response = requests.post(
-                f"{self.base_url}/token/refresh/",
+                f"{self.base_url}/auth/token/refresh/",
                 json={"refresh": refresh_token},
                 timeout=5
             )

@@ -6,13 +6,14 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, Qt
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.utils.config import is_autostart_enabled, set_autostart, save_refresh_token, save_theme, \
-    load_theme, remove_refresh_token, save_server_address, load_server_address
+    load_theme, remove_refresh_token, save_server_address, load_server_address, load_stay_on_top, save_stay_on_top
 
 
 class LoginDialog(QDialog):
-    def __init__(self, api_client, parent=None):
+    def __init__(self, parent=None):
         super().__init__(parent)
-        self.api_client = api_client
+        server_address = load_server_address()
+        self.api_client = ApiClient(base_url=server_address)
         self.setWindowTitle("登录")
         self.access_token = None
         self.refresh_token = None
@@ -42,8 +43,11 @@ class LoginDialog(QDialog):
         self.login_button.clicked.connect(self.handle_login)
         self.register_button = QPushButton("注册")
         self.register_button.clicked.connect(self.handle_register)
+        self.settings_button = QPushButton("服务器设置")
+        self.settings_button.clicked.connect(self.open_server_settings)
         button_layout.addWidget(self.login_button)
         button_layout.addWidget(self.register_button)
+        button_layout.addWidget(self.settings_button)
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
@@ -73,6 +77,15 @@ class LoginDialog(QDialog):
     def handle_register(self):
         register_dialog = RegisterDialog(self.api_client, self)
         register_dialog.exec()
+
+    def open_server_settings(self):
+        settings_dialog = SettingsDialog(self)
+        settings_dialog.server_address_changed.connect(self.on_server_address_changed)
+        settings_dialog.exec()
+
+    def on_server_address_changed(self, new_address):
+        self.api_client = ApiClient(base_url=new_address)
+        QMessageBox.information(self, "设置已更新", f"服务器地址已更新为: {new_address}")
 
 
 class RegisterDialog(QDialog):
@@ -209,5 +222,4 @@ class SettingsDialog(QDialog):
     def handle_logout(self):
         remove_refresh_token()
         self.logout_requested.emit()
-        self.parent().close()  # Close MainWindow
         self.accept()  # Close SettingsDialog

@@ -1,7 +1,7 @@
 import os
 from PyQt6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QStackedWidget,
-    QPushButton
+    QPushButton, QSpacerItem, QSizePolicy
 )
 from PyQt6.QtCore import Qt, QPropertyAnimation, QPoint, QEasingCurve, QTimer, QDate, QDateTime
 from PyQt6.QtGui import QScreen
@@ -19,7 +19,7 @@ class MainWindow(QWidget):
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
         self.initUI()
         self.apply_theme(theme_name)  # Apply initial theme
-        self.is_docked = False
+        self.dock_location = "none"  # Can be "none", "right", "top"
         self.drag_position = QPoint()
 
         # Set up data fetching
@@ -32,19 +32,38 @@ class MainWindow(QWidget):
         """Fetches data from multiple API endpoints and populates the tabs."""
         self.schedule_list.clear()
         schedules = self.api_client.get_schedules(self.access_token)
-        for item in schedules:
-            display_text = f"{item.get('duty_person_name', 'N/A')} - {item.get('duty_leader_name', 'N/A')}"
+        schedules_list = schedules.get('results', []) if isinstance(schedules, dict) else schedules
+        for item in schedules_list:
+            if isinstance(item, dict):
+                display_text = f"{item.get('duty_person_name', 'N/A')} - {item.get('duty_leader_name', 'N/A')}"
+            elif isinstance(item, str):
+                display_text = item
+            else:
+                display_text = "Invalid schedule data"
             self.schedule_list.addItem(display_text)
 
         self.experiment_list.clear()
         experiments = self.api_client.get_experiments(self.access_token)
-        for item in experiments:
-            self.experiment_list.addItem(item.get("name", str(item)))
+        experiments_list = experiments.get('results', []) if isinstance(experiments, dict) else experiments
+        for item in experiments_list:
+            if isinstance(item, dict):
+                display_text = item.get("name", "N/A")
+            elif isinstance(item, str):
+                display_text = item
+            else:
+                display_text = "Invalid experiment data"
+            self.experiment_list.addItem(display_text)
 
         self.booking_list.clear()
         bookings = self.api_client.get_bookings(self.access_token)
-        for item in bookings:
-            display_text = f"{item.get('meeting_room_name', 'N/A')} by {item.get('user_name', 'N/A')} for {item.get('purpose', 'N/A')}"
+        bookings_list = bookings.get('results', []) if isinstance(bookings, dict) else bookings
+        for item in bookings_list:
+            if isinstance(item, dict):
+                display_text = f"{item.get('meeting_room_name', 'N/A')} by {item.get('user_name', 'N/A')} for {item.get('purpose', 'N/A')}"
+            elif isinstance(item, str):
+                display_text = item
+            else:
+                display_text = "Invalid booking data"
             self.booking_list.addItem(display_text)
 
     def initUI(self):
@@ -62,16 +81,37 @@ class MainWindow(QWidget):
         self.resize(self.window_width, self.window_height)
 
         # Define docking positions
-        self.start_pos_x = screen_width - 10  # Hidden position
-        self.end_pos_x = screen_width - self.window_width  # Visible position
+        self.w = self.window_width
+        self.h = self.window_height
+        self.visible_x_right = screen_width - self.w
+        self.hidden_x_right = screen_width - 2
+        self.visible_y_top = 0
+        self.hidden_y_top = 2 - self.h
 
         # Center window on startup
         start_x = (screen_width - self.window_width) // 2
         start_y = (screen_height - self.window_height) // 2
         self.move(start_x, start_y)
 
-        # Main layout
-        main_layout = QVBoxLayout(self)
+        # Top-level layout
+        top_layout = QVBoxLayout()
+
+        # Close button layout
+        close_button_layout = QHBoxLayout()
+        close_button_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
+        
+        self.settings_button = QPushButton("S")
+        self.settings_button.setObjectName("settingsButton")
+        self.settings_button.clicked.connect(self.open_settings)
+        close_button_layout.addWidget(self.settings_button)
+
+        self.close_button = QPushButton("X")
+        self.close_button.setObjectName("closeButton")
+        self.close_button.clicked.connect(self.close)
+        close_button_layout.addWidget(self.close_button)
+        top_layout.addLayout(close_button_layout)
+
+        # Main content layout
         content_layout = QHBoxLayout()
 
         # Left-side List Widget (Navigation)
@@ -98,12 +138,12 @@ class MainWindow(QWidget):
         content_layout.addWidget(self.stacked_widget)
 
         # Add content layout and settings button to main layout
-        main_layout.addLayout(content_layout)
+        top_layout.addLayout(content_layout)
         self.settings_button = QPushButton("设置")
         self.settings_button.clicked.connect(self.open_settings_dialog)
-        main_layout.addWidget(self.settings_button)
+        top_layout.addWidget(self.settings_button)
 
-        self.setLayout(main_layout)
+        self.setLayout(top_layout)
 
         # Set up animation
         self.animation = QPropertyAnimation(self, b"pos")
@@ -112,20 +152,32 @@ class MainWindow(QWidget):
 
     def enterEvent(self, event):
         """Show window when mouse enters if docked."""
-        if self.is_docked:
-            self.slide_in()
+        if self.dock_location == "right":
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(QPoint(self.visible_x_right, self.pos().y()))
+            self.animation.start()
+        elif self.dock_location == "top":
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(QPoint(self.pos().x(), self.visible_y_top))
+            self.animation.start()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         """Hide window when mouse leaves if docked."""
-        if self.is_docked:
-            self.slide_out()
+        if self.dock_location == "right":
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(QPoint(self.hidden_x_right, self.pos().y()))
+            self.animation.start()
+        elif self.dock_location == "top":
+            self.animation.setStartValue(self.pos())
+            self.animation.setEndValue(QPoint(self.pos().x(), self.hidden_y_top))
+            self.animation.start()
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
         """Handle mouse press for dragging."""
         if event.button() == Qt.MouseButton.LeftButton:
-            self.is_docked = False  # Undock when dragging starts
+            self.dock_location = "none"  # Undock when dragging starts
             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
             event.accept()
 
@@ -139,23 +191,24 @@ class MainWindow(QWidget):
         """Handle mouse release to check for docking."""
         if event.button() == Qt.MouseButton.LeftButton:
             screen = QApplication.primaryScreen().geometry()
-            # Check if the window is close to the right edge
-            if self.pos().x() + self.width() > screen.width() - 50:
-                self.is_docked = True
-                self.slide_out()  # Snap to the edge
+            pos = self.pos()
+
+            # Check for top docking first
+            if pos.y() < 30:
+                self.dock_location = "top"
+                self.animation.setStartValue(pos)
+                self.animation.setEndValue(QPoint(pos.x(), self.hidden_y_top))
+                self.animation.start()
+            # Check for right docking
+            elif pos.x() + self.width() > screen.width() - 50:
+                self.dock_location = "right"
+                self.animation.setStartValue(pos)
+                self.animation.setEndValue(QPoint(self.hidden_x_right, pos.y()))
+                self.animation.start()
+            else:
+                self.dock_location = "none"
+
             event.accept()
-
-    def slide_in(self):
-        """Slides the window in to be fully visible."""
-        self.animation.setStartValue(self.pos())
-        self.animation.setEndValue(QPoint(self.end_pos_x, self.pos().y()))
-        self.animation.start()
-
-    def slide_out(self):
-        """Slides the window out to a partially hidden state."""
-        self.animation.setStartValue(self.pos())
-        self.animation.setEndValue(QPoint(self.start_pos_x, self.pos().y()))
-        self.animation.start()
 
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
@@ -173,7 +226,7 @@ class MainWindow(QWidget):
         save_theme(theme_name)
 
     def handle_logout(self):
-        self.close()
+        QApplication.instance().quit()
 
     def apply_theme(self, theme_name):
         """Loads and applies a theme from a QSS file."""

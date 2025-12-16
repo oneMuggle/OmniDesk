@@ -36,6 +36,17 @@ def load_server_address() -> str:
     settings = QSettings(COMPANY_NAME, APP_NAME)
     return settings.value("server_address", "http://127.0.0.1:8000")
 
+def save_stay_on_top(enabled: bool):
+    """Saves the stay on top state."""
+    settings = QSettings(COMPANY_NAME, APP_NAME)
+    settings.setValue("stay_on_top", enabled)
+
+
+def load_stay_on_top() -> bool:
+    """Loads the stay on top state."""
+    settings = QSettings(COMPANY_NAME, APP_NAME)
+    return settings.value("stay_on_top", False, type=bool)
+
 def is_autostart_enabled() -> bool:
     """Checks if the application is set to run at startup."""
     key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"

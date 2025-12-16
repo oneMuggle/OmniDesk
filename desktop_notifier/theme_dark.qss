@@ -98,3 +98,15 @@ QCheckBox::indicator {
     width: 13px;
     height: 13px;
 }
+#closeButton {
+    background-color: transparent;
+    border: none;
+    font-size: 14pt;
+    font-weight: bold;
+    color: #aaa;
+    padding: 5px;
+}
+#closeButton:hover {
+    color: #fff;
+    background-color: #555;
+}

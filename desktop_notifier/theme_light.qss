@@ -110,3 +110,15 @@ QScrollBar::handle:horizontal {
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {
     width: 0px;
 }
+#closeButton {
+    background-color: transparent;
+    border: none;
+    font-size: 14pt;
+    font-weight: bold;
+    color: #888;
+    padding: 5px;
+}
+#closeButton:hover {
+    color: #000;
+    background-color: #ddd;
+}

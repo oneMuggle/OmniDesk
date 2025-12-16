@@ -5,7 +5,7 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from PyQt6.QtWidgets import QApplication
+from PyQt6.QtWidgets import QApplication, QDialog
 from PyQt6.QtCore import QSettings
 
 from desktop_notifier.api.client import ApiClient
@@ -20,35 +20,37 @@ def main():
     # Setup settings
     QApplication.setOrganizationName("MyCompany")
     QApplication.setApplicationName("DesktopNotifier")
+
+    theme_name = load_theme()
+    access_token = None
+    api_client = None
     
-    server_address = load_server_address()
-    api_client = ApiClient(base_url=server_address)
-
-    while True:
-        theme_name = load_theme()
-        access_token = None
-        refresh_token = load_refresh_token()
-
-        if refresh_token:
-            access_token = api_client.refresh_token(refresh_token)
-            if not access_token:
-                remove_refresh_token()
-
+    # First, try to use the refresh token
+    refresh_token = load_refresh_token()
+    if refresh_token:
+        server_address = load_server_address()
+        temp_api_client = ApiClient(base_url=server_address)
+        access_token = temp_api_client.refresh_token(refresh_token)
         if access_token:
-            window = MainWindow(api_client=api_client, access_token=access_token, theme_name=theme_name)
-            window.show()
-            app.exec()
-            # After the main window is closed (e.g., by logout), the loop will restart
+            api_client = temp_api_client
         else:
-            login_dialog = LoginDialog(api_client=api_client)
-            if login_dialog.exec():
-                access_token = login_dialog.access_token
-                # The loop will restart and try to launch the main window
-            else:
-                # User closed the login dialog without logging in
-                break  # Exit the application
-    
-    sys.exit()
+            remove_refresh_token()
+
+    if not (access_token and api_client):
+        login_dialog = LoginDialog()
+        if login_dialog.exec() == QDialog.DialogCode.Accepted:
+            access_token = login_dialog.access_token
+            api_client = login_dialog.api_client
+        else:
+            # User closed the login dialog without logging in
+            sys.exit(0)  # Exit the application cleanly
+
+    if access_token and api_client:
+        window = MainWindow(api_client=api_client, access_token=access_token, theme_name=theme_name)
+        window.show()
+        sys.exit(app.exec())
+    else:
+        sys.exit(1) # Exit if login fails and no token is available
 
 if __name__ == '__main__':
     main()
