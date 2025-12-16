@@ -373,21 +373,11 @@ const ScheduleManagementPage = () => {
     }
   }, []);
 
-  useEffect(() => {
-    const initData = async () => {
-      await fetchPersonnel(); // 确保人员列表先加载
-      await fetchPositions(); // 确保职务列表先加载
-      await fetchSequences(); // 确保顺序列表先加载
-      fetchData(); // 最后加载排班数据
-    };
-    initData();
-  }, [fetchData]);
-
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const data = await scheduleApi.getSchedules();
-      // 遍历排班数据，duty_person和duty_leader已经是完整对象，无需额外查找
+      // 遍历排班数据，duty_person和duty_leader已经是完整对象无需额外查找
       const formattedData = data.map(schedule => ({
         ...schedule,
         // duty_person 和 duty_leader 已经包含完整信息，直接使用
@@ -399,6 +389,16 @@ const ScheduleManagementPage = () => {
       setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    const initData = async () => {
+      await fetchPersonnel(); // 确保人员列表先加载
+      await fetchPositions(); // 确保职务列表先加载
+      await fetchSequences(); // 确保顺序列表先加载
+      await fetchData(); // 最后加载排班数据
+    };
+    initData();
+  }, [fetchData]);
 
   const fetchPersonnel = async () => {
     try {

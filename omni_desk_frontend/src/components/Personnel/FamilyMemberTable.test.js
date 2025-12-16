@@ -13,12 +13,10 @@ describe('FamilyMemberTable', () => {
     jest.clearAllMocks();
 
     mockFamilyMembers = {
-      data: {
-        results: [
-          { id: 1, name: 'Spouse Name', relationship: 'Spouse', contact_number: '111', personnel: 1 },
-          { id: 2, name: 'Child Name', relationship: 'Child', contact_number: '222', personnel: 1 },
-        ],
-      }
+      data: [
+        { id: 1, name: 'Spouse Name', relationship: 'Spouse', contact_number: '111', personnel: 1 },
+        { id: 2, name: 'Child Name', relationship: 'Child', contact_number: '222', personnel: 1 },
+      ],
     };
 
     api.getFamilyMembers.mockResolvedValue(mockFamilyMembers);
@@ -28,7 +26,7 @@ describe('FamilyMemberTable', () => {
   });
 
   test('renders family members fetched from API', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
+    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
 
     expect(await screen.findByText('Spouse Name')).toBeInTheDocument();
     expect(await screen.findByText('Child Name')).toBeInTheDocument();
@@ -37,7 +35,7 @@ describe('FamilyMemberTable', () => {
   });
 
   test('opens add modal, creates a new family member, and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
+    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
     await screen.findByText('Spouse Name'); // Wait for initial load
     expect(api.getFamilyMembers).toHaveBeenCalledTimes(1);
 
@@ -68,7 +66,7 @@ describe('FamilyMemberTable', () => {
   });
 
   test('opens edit modal, updates a family member, and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
+    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
 
     await screen.findByText('Spouse Name');
     fireEvent.click(screen.getAllByText('编辑')[0]);
@@ -89,7 +87,7 @@ describe('FamilyMemberTable', () => {
   });
 
   test('deletes a family member and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
+    render(<FamilyMemberTable personnelId={1} familyMembers={mockFamilyMembers.data} fetchFamilyMembers={jest.fn()} />);
 
     await screen.findByText('Spouse Name');
     fireEvent.click(screen.getAllByText('删除')[0]);

@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import PropTypes from 'prop-types';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import ScheduleManagementPage from './ScheduleManagementPage';
 import { scheduleApi } from '../api/scheduleApi';
@@ -59,6 +58,7 @@ const mockSequences = {
 const mockEventClick = jest.fn();
 jest.mock('@fullcalendar/react', () => {
     const React = require('react');
+    const PropTypes = require('prop-types');
     const FullCalendar = React.forwardRef((props, ref) => {
         React.useImperativeHandle(ref, () => ({
             getApi: () => ({

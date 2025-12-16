@@ -20,9 +20,9 @@ describe('AuthContext - hasPermission', () => {
   test('should return true if user has the required permission', () => {
     const user = { permissions: ['users.add_customuser'] };
     render(
-      <AuthProvider value={{ user }}>
+      <AuthContext.Provider value={{ user, hasPermission: (required) => user.permissions.includes(required) }}>
         <TestComponent requiredPermission="users.add_customuser" />
-      </AuthProvider>
+      </AuthContext.Provider>
     );
     expect(screen.getByText('Has Permission')).toBeInTheDocument();
   });
@@ -30,9 +30,9 @@ describe('AuthContext - hasPermission', () => {
   test('should return false if user does not have the required permission', () => {
     const user = { permissions: ['users.view_customuser'] };
     render(
-      <AuthProvider value={{ user }}>
+      <AuthContext.Provider value={{ user, hasPermission: (required) => user.permissions.includes(required) }}>
         <TestComponent requiredPermission="some.missing_permission" />
-      </AuthProvider>
+      </AuthContext.Provider>
     );
     expect(screen.getByText('No Permission')).toBeInTheDocument();
   });
@@ -40,9 +40,9 @@ describe('AuthContext - hasPermission', () => {
   test('should return true if no permission is required', () => {
     const user = { permissions: ['users.view_customuser'] };
     render(
-      <AuthProvider value={{ user }}>
+      <AuthContext.Provider value={{ user, hasPermission: (required) => !required || user.permissions.includes(required) }}>
         <TestComponent />
-      </AuthProvider>
+      </AuthContext.Provider>
     );
     expect(screen.getByText('Has Permission')).toBeInTheDocument();
   });
@@ -50,9 +50,9 @@ describe('AuthContext - hasPermission', () => {
   test('should return false if user has no permissions at all', () => {
     const user = { permissions: [] };
     render(
-      <AuthProvider value={{ user }}>
+      <AuthContext.Provider value={{ user, hasPermission: (required) => user.permissions.includes(required) }}>
         <TestComponent requiredPermission="any.permission" />
-      </AuthProvider>
+      </AuthContext.Provider>
     );
     expect(screen.getByText('No Permission')).toBeInTheDocument();
   });

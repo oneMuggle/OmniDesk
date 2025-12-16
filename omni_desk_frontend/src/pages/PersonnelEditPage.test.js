@@ -61,11 +61,13 @@ describe('PersonnelEditPage', () => {
     // Fill in dates
     const startDateInput = await screen.findByPlaceholderText('开始日期');
     await userEvent.click(startDateInput);
-    await userEvent.click(await screen.findByText('Today'));
+    const todayButtons = await screen.findAllByText('Today');
+    await userEvent.click(todayButtons[todayButtons.length - 1]);
 
     const endDateInput = await screen.findByPlaceholderText('结束日期');
     await userEvent.click(endDateInput);
-    await userEvent.click(await screen.findByText('Today'));
+    const todayButtonsEnd = await screen.findAllByText('Today');
+    await userEvent.click(todayButtonsEnd[todayButtonsEnd.length - 1]);
 
     // Click save
     fireEvent.click(screen.getByText('保存更改'));

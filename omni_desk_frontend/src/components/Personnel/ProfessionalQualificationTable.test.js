@@ -7,12 +7,10 @@ import * as api from '../../api/personnelApi';
 jest.mock('../../api/personnelApi');
 
 const mockQualifications = {
-  data: {
-    results: [
-      { id: 1, name: 'Cert A', issuing_authority: 'Org A', issue_date: '2023-01-01', personnel: 1 },
-      { id: 2, name: 'Cert B', issuing_authority: 'Org B', issue_date: '2024-01-01', personnel: 1 },
-    ],
-  }
+  data: [
+    { id: 1, name: 'Cert A', issuing_authority: 'Org A', issue_date: '2023-01-01', personnel: 1 },
+    { id: 2, name: 'Cert B', issuing_authority: 'Org B', issue_date: '2024-01-01', personnel: 1 },
+  ],
 };
 
 describe('ProfessionalQualificationTable', () => {
@@ -24,7 +22,7 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('renders qualifications fetched from API', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} />);
+    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
 
     expect(await screen.findByText('Cert A')).toBeInTheDocument();
     expect(await screen.findByText('Cert B')).toBeInTheDocument();
@@ -33,7 +31,7 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('opens add modal, creates a new qualification, and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} />);
+    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
     await screen.findByText('Cert A'); // Wait for initial load
     expect(api.getQualifications).toHaveBeenCalledTimes(1);
 
@@ -64,7 +62,7 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('opens edit modal, updates a qualification, and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} />);
+    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
 
     await screen.findByText('Cert A');
     fireEvent.click(screen.getAllByText('编辑')[0]);
@@ -85,7 +83,7 @@ describe('ProfessionalQualificationTable', () => {
   });
 
   test('deletes a qualification and refreshes the table', async () => {
-    render(<ProfessionalQualificationTable personnelId={1} />);
+    render(<ProfessionalQualificationTable personnelId={1} qualifications={mockQualifications.data} fetchQualifications={jest.fn()} />);
 
     await screen.findByText('Cert A');
     fireEvent.click(screen.getAllByText('删除')[0]);

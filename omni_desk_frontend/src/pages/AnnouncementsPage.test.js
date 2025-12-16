@@ -4,7 +4,7 @@ import AnnouncementsPage from './AnnouncementsPage';
 
 // Mocking the API client to prevent actual network requests during tests
 jest.mock('../api/apiClient', () => ({
-  get: jest.fn(() => Promise.resolve({ data: [] })),
+  get: jest.fn(() => Promise.resolve({ data: { results: [] } })),
 }));
 
 describe('AnnouncementsPage', () => {
@@ -12,7 +12,7 @@ describe('AnnouncementsPage', () => {
     render(<AnnouncementsPage />);
     
     // 查找标题元素
-    const titleElement = screen.getByRole('heading', { name: /공지사항/i });
+    const titleElement = screen.getByRole('heading', { name: /系统公告/i });
     
     // 断言标题元素存在于文档中
     expect(titleElement).toBeInTheDocument();
@@ -22,7 +22,7 @@ describe('AnnouncementsPage', () => {
     render(<AnnouncementsPage />);
     
     // 等待并查找“没有公告”的消息
-    const noAnnouncementsMessage = await screen.findByText(/등록된 공지사항이 없습니다./i);
+    const noAnnouncementsMessage = await screen.findByText(/没有公告/i);
     
     // 断言消息存在于文档中
     expect(noAnnouncementsMessage).toBeInTheDocument();

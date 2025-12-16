@@ -4,6 +4,7 @@ import '@testing-library/jest-dom';
 import MeetingRoomBookingPage from './MeetingRoomBookingPage';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { AuthContext } from '../context/AuthContext';
+import { MemoryRouter } from 'react-router-dom';
 
 jest.mock('../api/meetingRoomApi');
 
@@ -30,7 +31,9 @@ const mockAdmin = { id: 3, username: 'adminuser', role: 'admin' };
 
 const renderWithAuth = (ui, { providerProps, ...renderOptions }) => {
   return render(
-    <AuthContext.Provider value={providerProps}>{ui}</AuthContext.Provider>,
+    <MemoryRouter>
+      <AuthContext.Provider value={providerProps}>{ui}</AuthContext.Provider>
+    </MemoryRouter>,
     renderOptions
   );
 };
@@ -58,8 +61,8 @@ describe('MeetingRoomBookingPage', () => {
     expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalled();
 
     // Check if bookings are rendered
-    await screen.findByText('Team Meeting');
-    await screen.findByText('Project Sync');
+    await screen.findByTestId('booking-event-1');
+    await screen.findByTestId('booking-event-2');
   });
 
   test('opens a modal to create a new booking', async () => {
@@ -90,8 +93,8 @@ describe('MeetingRoomBookingPage', () => {
   test('opens a modal to edit an existing booking', async () => {
     renderWithAuth(<MeetingRoomBookingPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-    await screen.findByText('Team Meeting');
-    fireEvent.click(screen.getByText('Team Meeting'));
+    const event = await screen.findByTestId('booking-event-1');
+    fireEvent.click(event);
 
     await screen.findByRole('dialog', { name: /编辑会议室预约/i });
     expect(screen.getByLabelText('主题')).toHaveValue('Team Meeting');
@@ -107,8 +110,8 @@ describe('MeetingRoomBookingPage', () => {
   test('deletes an existing booking', async () => {
     renderWithAuth(<MeetingRoomBookingPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-    await screen.findByText('Team Meeting');
-    fireEvent.click(screen.getByText('Team Meeting'));
+    const event = await screen.findByTestId('booking-event-1');
+    fireEvent.click(event);
 
     await screen.findByRole('dialog', { name: /编辑会议室预约/i });
     fireEvent.click(screen.getByRole('button', { name: /删除/i }));
@@ -125,8 +128,8 @@ describe('MeetingRoomBookingPage', () => {
   test('user cannot edit or delete other users bookings', async () => {
     renderWithAuth(<MeetingRoomBookingPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
-    await screen.findByText('Project Sync');
-    fireEvent.click(screen.getByText('Project Sync'));
+    const event = await screen.findByTestId('booking-event-2');
+    fireEvent.click(event);
 
     // Modal should not open, and a message should be shown
     await screen.findByText('您没有权限编辑此预约。');
@@ -136,8 +139,8 @@ describe('MeetingRoomBookingPage', () => {
   test('admin can edit and delete other users bookings', async () => {
     renderWithAuth(<MeetingRoomBookingPage />, { providerProps: { user: mockAdmin, isAuthenticated: true } });
 
-    await screen.findByText('Project Sync');
-    fireEvent.click(screen.getByText('Project Sync'));
+    const event = await screen.findByTestId('booking-event-2');
+    fireEvent.click(event);
 
     await screen.findByRole('dialog', { name: /编辑会议室预约/i });
     expect(screen.getByLabelText('主题')).toHaveValue('Project Sync');

@@ -99,7 +99,8 @@ describe('PersonnelManagementPage', () => {
       
       // Use userEvent for more reliable interaction with Ant Design's Select
       await userEvent.click(screen.getByTestId('personnel-modal-position-select'));
-      const developerOption = await screen.findByRole('option', { name: 'Developer' });
+      const dropdown = await screen.findByRole('listbox');
+      const developerOption = await within(dropdown).findByText('Developer');
       await userEvent.click(developerOption);
 
       await waitFor(() => {
@@ -161,7 +162,8 @@ describe('PersonnelManagementPage', () => {
     
       const positionFilter = screen.getByTestId('personnel-position-filter');
       await userEvent.click(positionFilter);
-      const developerOptionFilter = await screen.findByRole('option', { name: 'Developer' });
+      const dropdownFilter = await screen.findByRole('listbox');
+      const developerOptionFilter = await within(dropdownFilter).findByText('Developer');
       await userEvent.click(developerOptionFilter);
 
       await waitFor(() => {

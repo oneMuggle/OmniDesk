@@ -1,7 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import PropTypes from 'prop-types';
 import SequenceManager from './SequenceManager';
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
@@ -15,6 +14,7 @@ jest.mock('../api/personnelApi');
 
 // Mock react-beautiful-dnd
 jest.mock('react-beautiful-dnd', () => {
+  const PropTypes = require('prop-types');
   const DragDropContext = ({ children }) => <div>{children}</div>;
   DragDropContext.propTypes = { children: PropTypes.node.isRequired };
 

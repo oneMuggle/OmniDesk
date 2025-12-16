@@ -295,6 +295,7 @@ const MeetingRoomBookingPage = () => {
         return (
             <div
                 ref={eventRef}
+                data-testid={`booking-event-${event.id}`}
                 style={{
                     height: '100%',
                     overflow: 'hidden',

@@ -2,10 +2,10 @@ import React from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import PersonnelSequenceModal from './PersonnelSequenceModal';
 
-jest.mock('axios');
+jest.mock('../../api/apiClient');
 
 const mockPositions = [
   { id: 1, name: 'Manager' },
@@ -20,16 +20,16 @@ const mockPersonnel = [
 
 describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
-    axios.get.mockImplementation((url) => {
-      if (url.includes('/api/positions')) {
+    apiClient.get.mockImplementation((url) => {
+      if (url.includes('/personnel/positions')) {
         return Promise.resolve({ data: mockPositions });
       }
-      if (url.includes('/api/personnel')) {
+      if (url.includes('/personnel/personnel')) {
         return Promise.resolve({ data: mockPersonnel });
       }
       return Promise.reject(new Error('not found'));
     });
-    axios.post.mockResolvedValue({});
+    apiClient.post.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -75,24 +75,20 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('allows searching and filtering personnel', async () => {
-    axios.get.mockResolvedValue({ data: [{ id: 1, name: 'Alice', position: 'Developer' }] });
+    apiClient.get.mockResolvedValue({ data: [{ id: 1, name: 'Alice', position: 'Developer' }] });
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
     await userEvent.type(screen.getByPlaceholderText('按姓名拼音搜索'), 'Alice');
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: 'Alice', position_id: null } });
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { search: 'Alice', position_id: null } });
     });
 
-    await act(async () => {
-      await userEvent.click(screen.getByTestId('position-filter-select'));
-    });
-    await act(async () => {
-      const managerOptions = await screen.findAllByText('Manager');
-      await userEvent.click(managerOptions[0]);
-    });
+    await userEvent.click(screen.getByTestId('position-filter-select'));
+    const managerOptions = await screen.findAllByText('Manager');
+    await userEvent.click(managerOptions[0]);
     
     await waitFor(() => {
-      expect(axios.get).toHaveBeenCalledWith('/api/personnel/', { params: { search: 'Alice', position_id: 1 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { search: 'Alice', position_id: 1 } });
     });
   });
 
@@ -117,7 +113,7 @@ describe('PersonnelSequenceModal', () => {
     await userEvent.click(screen.getByRole('button', { name: /保\s*存/ }));
 
     await waitFor(() => {
-      expect(axios.post).toHaveBeenCalledWith('/api/events/personnel-sequences/', {
+      expect(apiClient.post).toHaveBeenCalledWith('/personnel/personnel-sequences/', {
         name: 'Test Sequence',
         personnel_ids: [1],
         holiday_personnel_ids: [2],

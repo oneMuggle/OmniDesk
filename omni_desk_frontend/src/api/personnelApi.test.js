@@ -27,20 +27,20 @@ describe('personnelApi', () => {
 
       const result = await getPersonnel(params);
 
-      expect(apiClient.get).toHaveBeenCalledWith('/events/personnel/', { params });
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params });
       expect(result).toEqual(response.data);
     });
   });
 
   describe('getAllPersonnel', () => {
     it('should fetch all personnel', async () => {
-      const response = { data: [{ id: 1, name: 'John Doe' }] };
+      const response = { data: { results: [{ id: 1, name: 'John Doe' }] } };
       apiClient.get.mockResolvedValue(response);
 
       const result = await getAllPersonnel();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/events/personnel/all/');
-      expect(result).toEqual(response.data);
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { page_size: 1000 } });
+      expect(result).toEqual(response.data.results);
     });
   });
 
@@ -52,7 +52,7 @@ describe('personnelApi', () => {
 
       await getPersonnelDetails(id);
 
-      expect(apiClient.get).toHaveBeenCalledWith(`/events/personnel/${id}/`);
+      expect(apiClient.get).toHaveBeenCalledWith(`/personnel/personnel/${id}/`);
     });
   });
 
@@ -64,7 +64,7 @@ describe('personnelApi', () => {
 
       await createPersonnel(data);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/events/personnel/', data);
+      expect(apiClient.post).toHaveBeenCalledWith('/personnel/personnel/', data);
     });
   });
 
@@ -77,7 +77,7 @@ describe('personnelApi', () => {
 
       await updatePersonnel(id, data);
 
-      expect(apiClient.put).toHaveBeenCalledWith(`/events/personnel/${id}/`, data);
+      expect(apiClient.put).toHaveBeenCalledWith(`/personnel/personnel/${id}/`, data);
     });
   });
 
@@ -88,7 +88,7 @@ describe('personnelApi', () => {
 
       await deletePersonnel(id);
 
-      expect(apiClient.delete).toHaveBeenCalledWith(`/events/personnel/${id}/`);
+      expect(apiClient.delete).toHaveBeenCalledWith(`/personnel/personnel/${id}/`);
     });
   });
 
@@ -99,7 +99,7 @@ describe('personnelApi', () => {
 
       const result = await getPositions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/events/positions/');
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/positions/', { "params": undefined });
       expect(result).toEqual(response.data);
     });
   });
@@ -112,7 +112,7 @@ describe('personnelApi', () => {
 
       await createPosition(data);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/events/positions/', data);
+      expect(apiClient.post).toHaveBeenCalledWith('/personnel/positions/', data);
     });
   });
 
@@ -125,7 +125,7 @@ describe('personnelApi', () => {
 
       await updatePosition(id, data);
 
-      expect(apiClient.put).toHaveBeenCalledWith(`/events/positions/${id}/`, data);
+      expect(apiClient.put).toHaveBeenCalledWith(`/personnel/positions/${id}/`, data);
     });
   });
 
@@ -136,7 +136,7 @@ describe('personnelApi', () => {
 
       await deletePosition(id);
 
-      expect(apiClient.delete).toHaveBeenCalledWith(`/events/positions/${id}/`);
+      expect(apiClient.delete).toHaveBeenCalledWith(`/personnel/positions/${id}/`);
     });
   });
 });
