@@ -1,0 +1,77 @@
+name: Desktop Notifier CI
+
+on:
+  push:
+    branches:
+      - develop
+      - test
+      - main
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install system dependencies for PyQt6
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgl1-mesa-glx libegl1-mesa libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r desktop_notifier/requirements.txt
+        pip install -r desktop_notifier/requirements-dev.txt
+
+    - name: Run tests
+      run: |
+        cd desktop_notifier
+        pytest
+
+  build:
+    if: github.ref_name == 'test' || github.ref_name == 'main'
+    needs: test
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r desktop_notifier/requirements.txt
+        pip install -r desktop_notifier/requirements-dev.txt
+
+    - name: Run PyInstaller
+      run: |
+        cd desktop_notifier
+        pyinstaller --onefile --windowed --add-data "theme_dark.qss;." --add-data "theme_light.qss;." main.py
+
+    - name: Upload Release Artifact (main)
+      if: github.ref_name == 'main'
+      uses: actions/upload-artifact@v4
+      with:
+        name: DesktopNotifier-Windows-Release
+        path: desktop_notifier/dist/
+
+    - name: Upload Test Artifact (test)
+      if: github.ref_name == 'test'
+      uses: actions/upload-artifact@v4
+      with:
+        name: DesktopNotifier-Windows-Test
+        path: desktop_notifier/dist/
