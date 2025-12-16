@@ -41,7 +41,7 @@ describe('PersonnelDetailPage', () => {
     personnelApi.getQualifications.mockReturnValue(new Promise(() => {}));
     personnelApi.getFamilyMembers.mockReturnValue(new Promise(() => {}));
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
-    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
   it('displays personnel details after successful fetch', async () => {
@@ -63,7 +63,7 @@ describe('PersonnelDetailPage', () => {
     personnelApi.getFamilyMembers.mockResolvedValue({ data: { results: [] } });
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
 
-    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument());
     expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument();
   });
 });

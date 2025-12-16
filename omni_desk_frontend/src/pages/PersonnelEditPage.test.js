@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import PersonnelEditPage from './PersonnelEditPage';
 import * as personnelApi from '../api/personnelApi';
@@ -59,12 +60,12 @@ describe('PersonnelEditPage', () => {
 
     // Fill in dates
     const startDateInput = await screen.findByPlaceholderText('开始日期');
-    fireEvent.change(startDateInput, { target: { value: '2023-01-01' } });
-    fireEvent.click(screen.getByText('2023-01-01')); // Mock selection
+    await userEvent.click(startDateInput);
+    await userEvent.click(await screen.findByText('Today'));
 
     const endDateInput = await screen.findByPlaceholderText('结束日期');
-    fireEvent.change(endDateInput, { target: { value: '2024-01-01' } });
-    fireEvent.click(screen.getByText('2024-01-01')); // Mock selection
+    await userEvent.click(endDateInput);
+    await userEvent.click(await screen.findByText('Today'));
 
     // Click save
     fireEvent.click(screen.getByText('保存更改'));
