@@ -3,15 +3,13 @@ from PyQt6.QtCore import QDate, QDateTime, Qt
 
 
 class ApiClient:
-    BASE_URL = "http://127.0.0.1:8000/api"
-
-    def __init__(self):
-        pass
+    def __init__(self, base_url):
+        self.base_url = f"{base_url}/api"
 
     def login(self, username, password):
         try:
             response = requests.post(
-                f"{self.BASE_URL}/token/",
+                f"{self.base_url}/token/",
                 data={"username": username, "password": password},
                 timeout=5
             )
@@ -25,7 +23,7 @@ class ApiClient:
     def refresh_token(self, refresh_token):
         try:
             response = requests.post(
-                f"{self.BASE_URL}/token/refresh/",
+                f"{self.base_url}/token/refresh/",
                 json={"refresh": refresh_token},
                 timeout=5
             )
@@ -38,7 +36,7 @@ class ApiClient:
     def register(self, username, password):
         try:
             response = requests.post(
-                f"{self.BASE_URL}/auth/registration/",
+                f"{self.base_url}/auth/registration/",
                 json={"username": username, "password": password},
                 timeout=5
             )
@@ -50,7 +48,7 @@ class ApiClient:
 
     def get_schedules(self, access_token):
         today_str = QDate.currentDate().toString("yyyy-MM-dd")
-        url = f"{self.BASE_URL}/events/schedules/?duty_date={today_str}"
+        url = f"{self.base_url}/events/schedules/?duty_date={today_str}"
         headers = {'Authorization': f'Bearer {access_token}'}
         try:
             response = requests.get(url, headers=headers, timeout=5)
@@ -62,7 +60,7 @@ class ApiClient:
 
     def get_experiments(self, access_token):
         today_str = QDate.currentDate().toString("yyyy-MM-dd")
-        url = f"{self.BASE_URL}/events/trials/?start_date__lte={today_str}&end_date__gte={today_str}"
+        url = f"{self.base_url}/events/trials/?start_date__lte={today_str}&end_date__gte={today_str}"
         headers = {'Authorization': f'Bearer {access_token}'}
         try:
             response = requests.get(url, headers=headers, timeout=5)
@@ -73,7 +71,7 @@ class ApiClient:
         return []
 
     def get_bookings(self, access_token):
-        url = f"{self.BASE_URL}/meeting-rooms/meeting-room-bookings/this-week/"
+        url = f"{self.base_url}/meeting-rooms/meeting-room-bookings/this-week/"
         headers = {'Authorization': f'Bearer {access_token}'}
         try:
             response = requests.get(url, headers=headers, timeout=5)

@@ -161,7 +161,12 @@ class MainWindow(QWidget):
         dialog = SettingsDialog(self)
         dialog.theme_changed.connect(self.handle_theme_change)
         dialog.logout_requested.connect(self.handle_logout)
+        dialog.server_address_changed.connect(self.handle_server_address_change)
         dialog.exec()
+
+    def handle_server_address_change(self, new_address):
+        self.api_client = ApiClient(new_address)
+        self.fetch_data()
 
     def handle_theme_change(self, theme_name):
         self.apply_theme(theme_name)

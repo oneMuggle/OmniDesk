@@ -26,6 +26,16 @@ def load_theme():
     settings = QSettings(COMPANY_NAME, APP_NAME)
     return settings.value("theme", "dark")
 
+def save_server_address(address: str):
+    """Saves the server address."""
+    settings = QSettings(COMPANY_NAME, APP_NAME)
+    settings.setValue("server_address", address)
+
+def load_server_address() -> str:
+    """Loads the server address."""
+    settings = QSettings(COMPANY_NAME, APP_NAME)
+    return settings.value("server_address", "http://127.0.0.1:8000")
+
 def is_autostart_enabled() -> bool:
     """Checks if the application is set to run at startup."""
     key_path = r"Software\Microsoft\Windows\CurrentVersion\Run"

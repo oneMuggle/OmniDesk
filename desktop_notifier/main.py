@@ -5,7 +5,7 @@ from PyQt6.QtCore import QSettings
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.ui.dialogs import LoginDialog
 from desktop_notifier.ui.main_window import MainWindow
-from desktop_notifier.utils.config import load_refresh_token, remove_refresh_token, load_theme
+from desktop_notifier.utils.config import load_refresh_token, remove_refresh_token, load_theme, load_server_address
 
 
 def main():
@@ -15,7 +15,8 @@ def main():
     QApplication.setOrganizationName("MyCompany")
     QApplication.setApplicationName("DesktopNotifier")
     
-    api_client = ApiClient()
+    server_address = load_server_address()
+    api_client = ApiClient(base_url=server_address)
 
     while True:
         theme_name = load_theme()

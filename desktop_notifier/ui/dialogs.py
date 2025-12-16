@@ -6,7 +6,7 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtCore import pyqtSignal, Qt
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.utils.config import is_autostart_enabled, set_autostart, save_refresh_token, save_theme, \
-    load_theme, remove_refresh_token
+    load_theme, remove_refresh_token, save_server_address, load_server_address
 
 
 class LoginDialog(QDialog):
@@ -141,11 +141,19 @@ class RegisterDialog(QDialog):
 class SettingsDialog(QDialog):
     theme_changed = pyqtSignal(str)
     logout_requested = pyqtSignal()
+    server_address_changed = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("设置")
         layout = QVBoxLayout(self)
+
+        # Server address
+        self.server_address_label = QLabel("服务器地址:")
+        self.server_address_input = QLineEdit()
+        self.server_address_input.setText(load_server_address())
+        layout.addWidget(self.server_address_label)
+        layout.addWidget(self.server_address_input)
 
         # Autostart checkbox
         self.autostart_checkbox = QCheckBox("开机时自动启动")
@@ -175,11 +183,19 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.logout_button)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok)
-        button_box.accepted.connect(self.accept)
+        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box.accepted.connect(self.save_settings)
+        button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
 
         self.setLayout(layout)
+
+    def save_settings(self):
+        # Save server address
+        new_address = self.server_address_input.text()
+        save_server_address(new_address)
+        self.server_address_changed.emit(new_address)
+        self.accept()
 
     def toggle_autostart(self, state):
         enabled = state == Qt.CheckState.Checked.value
