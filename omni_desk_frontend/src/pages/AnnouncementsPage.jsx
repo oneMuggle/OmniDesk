@@ -93,7 +93,7 @@ const AnnouncementsPage = () => {
         <div className="loading-indicator">加载中...</div>
       ) : error ? (
         <div className="error-message">⚠️ {error}</div>
-      ) : announcements.length === 1 ? (
+      ) : announcements?.length === 1 ? (
         <div className="announcement-single-container">
           <div key={announcements[0].id} className="announcement-slide">
             <h3 className="announcement-title">{announcements[0].title}</h3>
@@ -118,7 +118,7 @@ const AnnouncementsPage = () => {
             </div>
           </div>
         </div>
-      ) : announcements.length > 1 ? (
+      ) : announcements?.length > 1 ? (
         <div className="slider-container">
           <Slider {...settings}>
             {announcements.map((item) => (
@@ -148,7 +148,7 @@ const AnnouncementsPage = () => {
           </Slider>
         </div>
       ) : (
-        <div className="no-announcements">暂无系统公告</div>
+        <div className="no-announcements">没有公告</div>
       )}
     </div>
   );

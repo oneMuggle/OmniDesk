@@ -5,6 +5,7 @@ import './Login.css';
 
 const Register = () => {
     const [username, setUsername] = useState('');
+    const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const { register } = useAuth();
@@ -27,7 +28,7 @@ const Register = () => {
             setIsLoading(true);
             setError('');
             console.log('调用register方法前'); // 添加调试日志
-            const result = await register(username.trim(), password.trim(), confirmPassword.trim());
+            const result = await register(username.trim(), email.trim(), password.trim(), confirmPassword.trim());
             if (!result.success) {
                 const errorMessage = result.errors?.non_field_errors?.[0]
                     || result.errors?.detail
@@ -62,6 +63,17 @@ const Register = () => {
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="用户名"
+                        required
+                    />
+                </div>
+                <div className="form-group">
+                    <label htmlFor="email">Email</label>
+                    <input
+                        id="email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Email"
                         required
                     />
                 </div>

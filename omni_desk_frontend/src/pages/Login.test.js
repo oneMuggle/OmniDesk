@@ -3,57 +3,59 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import Login from './Login';
-import { login } from '../api/userManagementApi';
-import { AuthProvider } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
-jest.mock('../api/userManagementApi', () => ({
-  login: jest.fn(),
+jest.mock('../context/AuthContext', () => ({
+  __esModule: true,
+  useAuth: jest.fn(),
 }));
 
-const renderWithAuthProvider = (component) => {
-  return render(
-    <MemoryRouter>
-      <AuthProvider>
-        {component}
-      </AuthProvider>
-    </MemoryRouter>
-  );
-};
+const mockLogin = jest.fn();
+const mockLoginAsGuest = jest.fn();
 
 describe('Login Component', () => {
   beforeEach(() => {
-    login.mockClear();
+    mockLogin.mockClear();
+    mockLoginAsGuest.mockClear();
+    useAuth.mockReturnValue({
+      login: mockLogin,
+      loginAsGuest: mockLoginAsGuest,
+    });
   });
 
+  const renderInRouter = (component) => render(<MemoryRouter>{component}</MemoryRouter>);
+
   it('should render login form', () => {
-    renderWithAuthProvider(<Login />);
+    renderInRouter(<Login />);
     expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /登 录/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /登录/i })).toBeInTheDocument();
   });
 
   it('should show error message on failed login', async () => {
-    login.mockResolvedValue({ success: false, error: 'Invalid credentials' });
-    renderWithAuthProvider(<Login />);
+    mockLogin.mockRejectedValue(new Error('登录失败'));
+    renderInRouter(<Login />);
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'wronguser' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'wrongpassword' } });
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
 
-    expect(await screen.findByText('Invalid credentials')).toBeInTheDocument();
+    expect(await screen.findByText('登录失败')).toBeInTheDocument();
+    expect(mockLogin).toHaveBeenCalledWith('wronguser', 'wrongpassword', false);
   });
 
   it('should not show error when login is successful', async () => {
-    login.mockResolvedValue({ success: true });
-    renderWithAuthProvider(<Login />);
+    mockLogin.mockResolvedValue({ success: true });
+    renderInRouter(<Login />);
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalled();
-      expect(screen.queryByText('Invalid credentials')).not.toBeInTheDocument();
+      expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', false);
     });
+
+    expect(screen.queryByText(/登录失败/)).not.toBeInTheDocument();
   });
 });

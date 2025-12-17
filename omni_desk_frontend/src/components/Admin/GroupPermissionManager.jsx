@@ -223,7 +223,7 @@ const GroupPermissionManager = () => {
       </Content>
       <Modal
         title={editingGroup ? '编辑用户组' : '新增用户组'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
         okText="确定"

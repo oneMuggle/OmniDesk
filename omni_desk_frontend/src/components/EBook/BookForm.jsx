@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Button } from 'antd';
 
-const BookForm = ({ book, onSave, onCancel }) => {
+const BookForm = ({ book = null, onSave, onCancel }) => {
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -26,7 +26,7 @@ const BookForm = ({ book, onSave, onCancel }) => {
   return (
     <Modal
       title={book ? '编辑电子书' : '添加电子书'}
-      visible={!!book}
+      open={!!book}
       onCancel={onCancel}
       footer={[
         <Button key="back" onClick={onCancel}>
@@ -66,8 +66,5 @@ BookForm.propTypes = {
   onCancel: PropTypes.func.isRequired,
 };
 
-BookForm.defaultProps = {
-  book: null,
-};
 
 export default BookForm;

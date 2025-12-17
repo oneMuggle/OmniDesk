@@ -3,15 +3,18 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import Register from './Register';
-import { register } from '../api/userManagementApi';
+import { useAuth } from '../context/AuthContext';
 
-jest.mock('../api/userManagementApi', () => ({
-  register: jest.fn(),
+jest.mock('../context/AuthContext', () => ({
+  useAuth: jest.fn(),
 }));
 
 describe('Register Component', () => {
+  let register;
+
   beforeEach(() => {
-    register.mockClear();
+    register = jest.fn();
+    useAuth.mockReturnValue({ register });
   });
 
   it('should render registration form', () => {
@@ -29,6 +32,7 @@ describe('Register Component', () => {
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'existinguser' } });
     fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'test@example.com' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
+    fireEvent.change(screen.getByPlaceholderText('确认密码'), { target: { value: 'password' } });
     fireEvent.click(screen.getByRole('button', { name: /注册/i }));
 
     expect(await screen.findByText('A user with that username already exists.')).toBeInTheDocument();
@@ -41,6 +45,7 @@ describe('Register Component', () => {
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'newuser' } });
     fireEvent.change(screen.getByPlaceholderText('Email'), { target: { value: 'new@example.com' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
+    fireEvent.change(screen.getByPlaceholderText('确认密码'), { target: { value: 'password' } });
     fireEvent.click(screen.getByRole('button', { name: /注册/i }));
 
     await waitFor(() => {
