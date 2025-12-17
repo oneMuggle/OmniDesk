@@ -5,7 +5,7 @@ import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/i
 import apiClient from '../../api/apiClient';
 import { notifications } from '../../utils/notifications';
 
-const EditProfileForm = ({ userData, setUserData }) => {
+const EditProfileForm = ({ userData = null, setUserData }) => {
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [avatarFile, setAvatarFile] = useState(null);
@@ -180,8 +180,5 @@ EditProfileForm.propTypes = {
   setUserData: PropTypes.func.isRequired,
 };
 
-EditProfileForm.defaultProps = {
-  userData: null,
-};
 
 export default EditProfileForm;

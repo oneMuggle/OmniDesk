@@ -11,7 +11,7 @@ import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 const { Option } = Select;
 
 const SequenceForm = ({
-  open, onCancel, onSave, sequence, personnelList, isLeader, positions,
+  open, onCancel, onSave, sequence = null, personnelList, isLeader, positions,
   selectedPersonnel, setSelectedPersonnel
 }) => {
   const [form] = Form.useForm();
@@ -183,9 +183,6 @@ SequenceForm.propTypes = {
   setSelectedPersonnel: PropTypes.func.isRequired,
 };
 
-SequenceForm.defaultProps = {
-  sequence: null,
-};
 
 const SequenceList = ({ title, sequences, personnelList, onEdit, onDelete, onAdd, isLeader }) => (
   <Card title={title}>

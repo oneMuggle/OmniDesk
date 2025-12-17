@@ -6,7 +6,7 @@ import apiClient from '../api/apiClient';
 
 const { confirm } = Modal;
 
-const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData }) => {
+const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData = null }) => {
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -53,9 +53,6 @@ StorageLocationFormModal.propTypes = {
   initialData: PropTypes.object,
 };
 
-StorageLocationFormModal.defaultProps = {
-  initialData: null,
-};
 
 const StorageLocationManagementPage = () => {
   const [locations, setLocations] = useState([]);

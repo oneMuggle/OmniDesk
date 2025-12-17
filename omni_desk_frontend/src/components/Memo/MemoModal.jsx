@@ -5,7 +5,7 @@ import dayjs from 'dayjs';
 
 const { TextArea } = Input;
 
-const MemoModal = ({ open, onCancel, onSave, memoData, mode }) => {
+const MemoModal = ({ open, onCancel, onSave, memoData = null, mode }) => {
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -88,8 +88,5 @@ MemoModal.propTypes = {
   mode: PropTypes.string.isRequired,
 };
 
-MemoModal.defaultProps = {
-  memoData: null,
-};
 
 export default MemoModal;

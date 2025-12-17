@@ -6,7 +6,7 @@ import apiClient from '../api/apiClient';
 
 const { confirm } = Modal;
 
-const SensorCategoryFormModal = ({ visible, onCancel, onOk, initialData }) => {
+const SensorCategoryFormModal = ({ visible, onCancel, onOk, initialData = null }) => {
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -53,9 +53,6 @@ SensorCategoryFormModal.propTypes = {
   initialData: PropTypes.object,
 };
 
-SensorCategoryFormModal.defaultProps = {
-  initialData: null,
-};
 
 const SensorCategoryManagementPage = () => {
   const [categories, setCategories] = useState([]);

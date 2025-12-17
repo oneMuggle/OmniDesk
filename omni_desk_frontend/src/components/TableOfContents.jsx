@@ -6,7 +6,7 @@ import './TableOfContents.css';
 
 const { SubMenu } = Menu;
 
-const TableOfContents = ({ chapters, onChapterSelect, selectedChapterId }) => {
+const TableOfContents = ({ chapters, onChapterSelect, selectedChapterId = null }) => {
     const navigate = useNavigate();
 
     const handleHeadingClick = (chapter, headingId) => {
@@ -65,8 +65,5 @@ TableOfContents.propTypes = {
   selectedChapterId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
 };
 
-TableOfContents.defaultProps = {
-  selectedChapterId: null,
-};
 
 export default TableOfContents;

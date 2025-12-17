@@ -6,7 +6,7 @@ import {
   faListUl, faListOl, faQuoteRight, faUndo, faRedo
 } from '@fortawesome/free-solid-svg-icons';
 
-const MenuBar = ({ editor }) => {
+const MenuBar = ({ editor = null }) => {
   if (!editor) {
     return null;
   }
@@ -46,8 +46,5 @@ MenuBar.propTypes = {
   editor: PropTypes.object,
 };
 
-MenuBar.defaultProps = {
-  editor: null,
-};
 
 export default MenuBar;

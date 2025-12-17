@@ -20,7 +20,7 @@ const ExpandMore = styled((props) => {
     }),
 }));
 
-const ChapterView = ({ chapter, complianceIssues }) => { // 接收 complianceIssues
+const ChapterView = ({ chapter, complianceIssues = [] }) => { // 接收 complianceIssues
     const [chapterDetails, setChapterDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -146,8 +146,5 @@ ChapterView.propTypes = {
   })),
 };
 
-ChapterView.defaultProps = {
-  complianceIssues: [],
-};
 
 export default ChapterView;

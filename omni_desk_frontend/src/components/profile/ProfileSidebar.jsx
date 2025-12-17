@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import apiClient from '../../api/apiClient';
 
-const ProfileSidebar = ({ activeSection, setActiveSection, userData }) => {
+const ProfileSidebar = ({ activeSection, setActiveSection, userData = null }) => {
   const defaultAvatar = '/default-avatar.svg'; // Path to the new SVG in the public folder
 
   const getFullAvatarUrl = (avatarPath) => {
@@ -58,8 +58,5 @@ ProfileSidebar.propTypes = {
   userData: PropTypes.object,
 };
 
-ProfileSidebar.defaultProps = {
-  userData: null,
-};
 
 export default ProfileSidebar;

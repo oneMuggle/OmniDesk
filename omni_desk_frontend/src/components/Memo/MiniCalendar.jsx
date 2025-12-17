@@ -7,7 +7,7 @@ import locale from 'antd/es/locale/zh_CN'; // 引入 antd 的中文语言包
 dayjs.locale('zh-cn'); // 设置 dayjs 语言为中文
 
 const MiniCalendar = ({ memos, onSelectDate }) => {
-  const dateCellRender = (value) => {
+  const cellRender = (value) => {
     const date = value.format('YYYY-MM-DD');
     const dayMemos = memos.filter(memo =>
       memo.reminder_time && dayjs(memo.reminder_time).format('YYYY-MM-DD') === date
@@ -42,7 +42,7 @@ const MiniCalendar = ({ memos, onSelectDate }) => {
       <Calendar
         fullscreen={false}
         onSelect={onSelectDate}
-        dateCellRender={dateCellRender}
+        cellRender={cellRender}
       />
     </ConfigProvider>
   );

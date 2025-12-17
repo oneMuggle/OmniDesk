@@ -2,7 +2,7 @@ import React from 'react';
 import PropTypes from 'prop-types';
 import './ThinkContent.css';
 
-const ThinkContent = ({ content }) => {
+const ThinkContent = ({ content = '' }) => {
   if (!content) return null;
 
   // 处理代码块和缩进
@@ -34,8 +34,5 @@ ThinkContent.propTypes = {
   content: PropTypes.string,
 };
 
-ThinkContent.defaultProps = {
-  content: '',
-};
 
 export default ThinkContent;

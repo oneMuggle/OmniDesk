@@ -9,7 +9,7 @@ import { Modal, Form, Button } from 'antd';
 const PersonnelScheduleModal = ({
   open,
   onCancel,
-  scheduleData
+  scheduleData = null
 }) => {
   const [form] = Form.useForm();
 
@@ -84,8 +84,5 @@ PersonnelScheduleModal.propTypes = {
   scheduleData: PropTypes.object,
 };
 
-PersonnelScheduleModal.defaultProps = {
-  scheduleData: null,
-};
 
 export default PersonnelScheduleModal;
