@@ -91,7 +91,7 @@ const SensorCalibrationHistoryPage = () => {
       {selectedRecord && (
         <Modal
           title="校准记录详情"
-          visible={isModalVisible}
+          open={isModalVisible}
           onOk={handleOk}
           onCancel={handleCancel}
           width={800}

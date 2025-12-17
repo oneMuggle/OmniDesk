@@ -245,7 +245,7 @@ const TrialsPage = () => {
 
       <Modal
         title={currentRecord ? '编辑试验' : '新建试验'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
       >

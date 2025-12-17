@@ -272,7 +272,7 @@ const SystemSettingsPage = () => {
         {isModalVisible && (
           <Modal
             title={editingConfig && editingConfig.id ? '编辑配置' : '添加配置'}
-            visible={isModalVisible}
+            open={isModalVisible}
             onCancel={handleCancel}
             footer={null}
           >
@@ -294,13 +294,12 @@ const SystemSettingsPage = () => {
                 name="api_endpoint"
                 rules={[{ required: true, message: '请输入 API 地址!' }, { type: 'url', message: '请输入有效的 URL 地址!' }]}
               >
-                <Input
-                  addonAfter={
-                    <Button type="link" onClick={handleFetchModels} style={{ padding: 0 }}>
-                      获取模型
-                    </Button>
-                  }
-                />
+                <Space.Compact>
+                  <Input />
+                  <Button type="primary" onClick={handleFetchModels}>
+                    获取模型
+                  </Button>
+                </Space.Compact>
               </Form.Item>
               <Form.Item
                 label="模型"
@@ -357,7 +356,7 @@ const SystemSettingsPage = () => {
         {isRagflowModalVisible && ( // 使用新的状态控制 Modal 的显示
           <Modal
             title={selectedRagflowConfig ? '编辑 Ragflow 配置' : '添加 Ragflow 配置'}
-            visible={isRagflowModalVisible}
+            open={isRagflowModalVisible}
             onCancel={() => {
               setSelectedRagflowConfig(null);
               ragflowForm.resetFields();

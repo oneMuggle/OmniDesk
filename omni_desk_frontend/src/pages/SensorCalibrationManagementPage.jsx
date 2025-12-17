@@ -143,7 +143,7 @@ const SensorCalibrationManagementPage = () => {
 
             <Modal
                 title={editingCalibration ? 'Edit Calibration' : 'Add New Calibration'}
-                visible={isModalVisible}
+                open={isModalVisible}
                 onOk={handleModalOk}
                 onCancel={handleModalCancel}
             >

@@ -297,7 +297,7 @@ const PersonnelManagementPage = () => {
         />
         <Modal
           title={editingPositionId ? '编辑职位' : '新增职位'}
-          visible={isPositionModalVisible}
+          open={isPositionModalVisible}
           onOk={handleSubmitPosition}
           onCancel={() => setIsPositionModalVisible(false)}
           destroyOnClose
@@ -347,7 +347,7 @@ const PersonnelManagementPage = () => {
 
           <Modal
             title={editingId ? '编辑人员' : '新增人员'}
-            visible={isModalVisible}
+            open={isModalVisible}
             onOk={handleSubmit}
             onCancel={() => setIsModalVisible(false)}
             destroyOnClose

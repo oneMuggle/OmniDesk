@@ -29,7 +29,7 @@ const SensorCategoryFormModal = ({ visible, onCancel, onOk, initialData }) => {
   return (
     <Modal
       title={initialData.id ? "编辑传感器类别" : "新增传感器类别"}
-      visible={visible}
+      open={visible}
       onOk={handleOk}
       onCancel={onCancel}
       destroyOnClose
@@ -166,7 +166,7 @@ const SensorCategoryManagementPage = () => {
         pagination={{ pageSize: 10 }}
       />
       <SensorCategoryFormModal
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         onOk={handleModalOk}
         initialData={currentCategory || {}}

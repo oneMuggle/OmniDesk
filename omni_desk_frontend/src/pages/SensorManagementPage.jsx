@@ -100,7 +100,7 @@ const SensorManagementPage = () => {
       <Table columns={columns} dataSource={sensors} rowKey="id" />
       <Modal
         title="添加新传感器"
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleCreate}
         onCancel={handleCancel}
         okText="创建"

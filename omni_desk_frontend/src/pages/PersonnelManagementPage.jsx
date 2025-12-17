@@ -189,7 +189,7 @@ const PersonnelManagementPage = () => {
         ]}
       />
 
-      <Modal title={editingId ? '编辑人员' : '新增人员'} open={isModalVisible} onOk={handleSubmit} onCancel={() => setIsModalVisible(false)} width={1000} destroyOnHidden data-testid="personnel-modal" okButtonProps={{ 'data-testid': 'personnel-modal-ok-button' }}>
+      <Modal title={editingId ? '编辑人员' : '新增人员'} open={isModalVisible} onOk={handleSubmit} onCancel={() => setIsModalVisible(false)} width={1000} destroyOnHidden data-testid="personnel-modal" okButtonProps={{ 'data-testid': 'personnel-modal-ok-button' }} getContainer={false}>
         <Form form={form} layout="vertical">
           <Form.Item label="姓名" name="name" rules={[{ required: true }]}><Input data-testid="personnel-modal-name-input" /></Form.Item>
           <Form.Item label="职位" name="position" rules={[{ required: true }]}>

@@ -95,7 +95,7 @@ describe('PersonnelManagementPage', () => {
       fireEvent.click(screen.getByTestId('add-personnel-button'));
       await screen.findByTestId('personnel-modal');
 
-      fireEvent.change(screen.getByTestId('personnel-modal-name-input'), { target: { value: 'Peter Pan' } });
+      await userEvent.type(screen.getByTestId('personnel-modal-name-input'), 'Peter Pan');
       
       // Use userEvent for more reliable interaction with Ant Design's Select
       await userEvent.click(screen.getByTestId('personnel-modal-position-select'));
@@ -151,8 +151,8 @@ describe('PersonnelManagementPage', () => {
       await screen.findByText('John Doe');
     
       const searchInput = screen.getByPlaceholderText('按姓名搜索');
-      fireEvent.change(searchInput, { target: { value: 'John' } });
-      fireEvent.click(screen.getByRole('button', { name: '搜索' }));
+      await userEvent.type(searchInput, 'John');
+      fireEvent.click(screen.getByRole('button', { name: /搜\s*索/ }));
     
       // The search triggers two calls: one from onSearch, one from useEffect.
       // We wait for the call that includes the search term.

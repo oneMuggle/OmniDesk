@@ -87,7 +87,7 @@ const SensorDetailPage = () => {
             </Card>
             <Modal
                 title="添加校准记录"
-                visible={isModalVisible}
+                open={isModalVisible}
                 onCancel={handleModalCancel}
                 footer={null}
             >

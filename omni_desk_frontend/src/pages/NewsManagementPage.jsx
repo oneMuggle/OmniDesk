@@ -221,7 +221,7 @@ const NewsManagementPage = () => {
 
       <Modal
         title={editingArticle ? '编辑文章' : '添加文章'}
-        visible={articleModalVisible}
+        open={articleModalVisible}
         onOk={handleArticleModalOk}
         onCancel={() => setArticleModalVisible(false)}
       >
@@ -250,7 +250,7 @@ const NewsManagementPage = () => {
 
       <Modal
         title={editingType ? '编辑类型' : '添加类型'}
-        visible={typeModalVisible}
+        open={typeModalVisible}
         onOk={handleTypeModalOk}
         onCancel={() => setTypeModalVisible(false)}
       >

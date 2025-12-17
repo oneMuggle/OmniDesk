@@ -29,7 +29,7 @@ const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData }) => {
   return (
     <Modal
       title={initialData.id ? "编辑存放位置" : "新增存放位置"}
-      visible={visible}
+      open={visible}
       onOk={handleOk}
       onCancel={onCancel}
       destroyOnClose
@@ -166,7 +166,7 @@ const StorageLocationManagementPage = () => {
         pagination={{ pageSize: 10 }}
       />
       <StorageLocationFormModal
-        visible={isModalVisible}
+        open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         onOk={handleModalOk}
         initialData={currentLocation || {}}
