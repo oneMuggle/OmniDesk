@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, DatePicker, Select, Card, Statistic, Row, Col } from 'antd';
+import PropTypes from 'prop-types';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import meetingRoomApi from '../api/meetingRoomApi';
 import dayjs from 'dayjs';
@@ -370,6 +371,10 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             </Card>
         </div>
     );
+};
+
+MeetingRoomManagementPage.propTypes = {
+    maintenanceForm: PropTypes.object,
 };
 
 export default MeetingRoomManagementPage;

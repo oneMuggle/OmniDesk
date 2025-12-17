@@ -99,7 +99,7 @@ const PersonnelManagementPage = () => {
     if (positionsLoaded) {
       fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
     }
-  }, [positionsLoaded, pagination.current, pagination.pageSize, searchQuery, positionFilter, fetchData]);
+  }, [positionsLoaded, pagination, searchQuery, positionFilter, fetchData]);
 
   const handleTableChange = (newPagination) => {
     setPagination(prev => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
