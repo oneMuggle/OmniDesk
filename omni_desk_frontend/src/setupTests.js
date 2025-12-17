@@ -1,3 +1,4 @@
+/* eslint-env jest */
 // jest-dom adds custom jest matchers for asserting on DOM nodes.
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
@@ -5,11 +6,11 @@
 import '@testing-library/jest-dom';
 import { TextEncoder, TextDecoder } from 'util';
 
-global.TextEncoder = TextEncoder;
-global.TextDecoder = TextDecoder;
+window.TextEncoder = TextEncoder;
+window.TextDecoder = TextDecoder;
 
 // Mock matchMedia
-global.matchMedia = global.matchMedia || function () {
+window.matchMedia = window.matchMedia || function () {
   return {
     matches: false,
     addListener: jest.fn(),
@@ -17,7 +18,7 @@ global.matchMedia = global.matchMedia || function () {
   };
 };
 
-global.Notification = {
+window.Notification = {
   permission: 'default',
   requestPermission: jest.fn().mockResolvedValue('granted'),
   new: jest.fn(),
@@ -25,8 +26,9 @@ global.Notification = {
 
 
 // Mock ResizeObserver
-global.ResizeObserver = jest.fn().mockImplementation(() => ({
-  observe: jest.fn(),
-  unobserve: jest.fn(),
-  disconnect: jest.fn(),
-}));
+window.ResizeObserver = class ResizeObserver {
+  constructor() {}
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+};

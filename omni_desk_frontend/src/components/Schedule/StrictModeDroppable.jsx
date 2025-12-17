@@ -22,7 +22,7 @@ const StrictModeDroppable = ({ children, ...props }) => {
 };
 
 StrictModeDroppable.propTypes = {
-  children: PropTypes.node.isRequired,
+  children: PropTypes.func.isRequired,
 };
 
 export default StrictModeDroppable;

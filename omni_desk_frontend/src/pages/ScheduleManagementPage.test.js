@@ -140,7 +140,7 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens add modal, submits, and closes', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     await renderComponent();
     await user.click(screen.getByTestId('add-schedule-button'));
     const dialog = await screen.findByTestId('schedule-modal');
@@ -167,7 +167,7 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens edit modal, submits, and closes', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     await renderComponent();
     await user.click(screen.getByTestId('event-1'));
     const dialog = await screen.findByTestId('schedule-modal');
@@ -193,7 +193,7 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('deletes a schedule from list view', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     await renderComponent();
 
     await user.click(screen.getByRole('radio', { name: '列表' }));
@@ -210,7 +210,7 @@ describe('ScheduleManagementPage', () => {
   });
 
   test('opens generate schedule modal, submits, and closes', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     await renderComponent();
     await user.click(screen.getByTestId('generate-schedule-button'));
     const dialog = await screen.findByTestId('generate-schedule-modal');

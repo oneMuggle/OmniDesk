@@ -47,7 +47,7 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('allows adding and removing personnel for workday and holiday', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
     // Wait for personnel to load
@@ -78,7 +78,7 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('allows searching and filtering personnel', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
 
     // Wait for initial data to load
@@ -99,7 +99,7 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('saves the personnel sequence', async () => {
-    const user = userEvent.setup();
+    const user = userEvent;
     const onOk = jest.fn();
     render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} />);
 

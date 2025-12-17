@@ -99,7 +99,7 @@ describe('PersonnelManagementPage', () => {
       
       // Use userEvent for more reliable interaction with Ant Design's Select
       await userEvent.click(screen.getByTestId('personnel-modal-position-select'));
-      const dropdown = await screen.findByRole('listbox');
+      const dropdown = await waitFor(() => screen.findByRole('listbox'));
       const developerOption = await within(dropdown).findByText('Developer');
       await userEvent.click(developerOption);
 
@@ -152,7 +152,7 @@ describe('PersonnelManagementPage', () => {
     
       const searchInput = screen.getByPlaceholderText('按姓名搜索');
       fireEvent.change(searchInput, { target: { value: 'John' } });
-      fireEvent.keyDown(searchInput, { key: 'Enter', code: 'Enter' });
+      fireEvent.click(screen.getByRole('button', { name: '搜索' }));
     
       // The search triggers two calls: one from onSearch, one from useEffect.
       // We wait for the call that includes the search term.
@@ -162,7 +162,7 @@ describe('PersonnelManagementPage', () => {
     
       const positionFilter = screen.getByTestId('personnel-position-filter');
       await userEvent.click(positionFilter);
-      const dropdownFilter = await screen.findByRole('listbox');
+      const dropdownFilter = await waitFor(() => screen.findByRole('listbox'));
       const developerOptionFilter = await within(dropdownFilter).findByText('Developer');
       await userEvent.click(developerOptionFilter);
 
