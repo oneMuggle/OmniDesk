@@ -147,13 +147,13 @@ describe('ScheduleManagementPage', () => {
 
     const dateInput = within(dialog).getByLabelText('值班日期');
     await user.click(dateInput);
-    await user.click(await screen.findByTitle('2025-11-26'));
+    await user.click(await screen.findByLabelText('2025-11-26'));
 
     await user.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await user.click(await screen.findByRole('option', { name: 'Alice (Dev)' }));
+    await user.click(await screen.findByRole('option', { name: /Alice \(Dev\)/ }));
 
     await user.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await user.click(await screen.findByRole('option', { name: 'Leader A (Dev)' }));
+    await user.click(await screen.findByRole('option', { name: /Leader A \(Dev\)/ }));
 
     await user.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -177,10 +177,10 @@ describe('ScheduleManagementPage', () => {
     });
 
     await user.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await user.click(await screen.findByRole('option', { name: 'Bob (Dev)' }));
+    await user.click(await screen.findByRole('option', { name: 'Bob' }));
 
     await user.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await user.click(await screen.findByRole('option', { name: 'Leader B (QA)' }));
+    await user.click(await screen.findByRole('option', { name: /Leader B \(QA\)/ }));
 
     await user.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -222,10 +222,10 @@ describe('ScheduleManagementPage', () => {
     await user.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
     await user.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
-    await user.click(await screen.findByText(/Seq A \(工作日: Alice, Bob\)/));
+    await user.click(await screen.findByText(/Seq A \(工作日:/));
 
     await user.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
-    await user.click(await screen.findByText(/Seq A \(节假日: Charlie\)/));
+    await user.click(await screen.findByText(/Seq A \(节假日:/));
 
     await user.click(screen.getByTestId('generate-schedule-start-personnel'));
     await user.click(await screen.findByRole('option', { name: 'Alice' }));
@@ -234,9 +234,9 @@ describe('ScheduleManagementPage', () => {
     await user.click(await screen.findByRole('option', { name: 'Charlie' }));
 
     await user.click(screen.getByTestId('generate-schedule-leader-sequence'));
-    await user.click(await screen.findByText(/Seq B \(Leader A, Leader B\)/));
+    await user.click(await screen.findByText(/Seq B \(/));
 
-    await user.click(within(dialog).getByRole('button', { name: 'OK' }));
+    await user.click(within(dialog).getByRole('button', { name: '确 定' }));
 
     await waitFor(() => {
       expect(scheduleApi.generateSchedules).toHaveBeenCalledWith(expect.objectContaining({

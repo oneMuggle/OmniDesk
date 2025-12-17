@@ -32,7 +32,7 @@ const SensorCategoryFormModal = ({ visible, onCancel, onOk, initialData }) => {
       open={visible}
       onOk={handleOk}
       onCancel={onCancel}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="name" label="类别名称" rules={[{ required: true, message: '请输入类别名称!' }]}>

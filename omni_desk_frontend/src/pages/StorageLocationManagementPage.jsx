@@ -32,7 +32,7 @@ const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData }) => {
       open={visible}
       onOk={handleOk}
       onCancel={onCancel}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="name" label="位置名称" rules={[{ required: true, message: '请输入位置名称!' }]}>

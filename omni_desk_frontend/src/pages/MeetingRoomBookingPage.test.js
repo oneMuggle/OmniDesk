@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import MeetingRoomBookingPage from './MeetingRoomBookingPage';
 import meetingRoomApi from '../api/meetingRoomApi';
@@ -8,6 +8,35 @@ import { MemoryRouter } from 'react-router-dom';
 import dayjs from 'dayjs';
 
 jest.mock('../api/meetingRoomApi');
+jest.mock('react-big-calendar', () => {
+  const RealCalendar = jest.requireActual('react-big-calendar');
+  return {
+    ...RealCalendar,
+    Calendar: ({ events, onSelectSlot, onSelectEvent, eventPropGetter, components }) => {
+      const { event: EventComponent } = components || {};
+      return (
+        <div data-testid="mock-calendar">
+          <button
+            data-testid="mock-calendar-slot"
+            onClick={() => onSelectSlot({ start: new Date('2025-12-16T09:00:00Z'), end: new Date('2025-12-16T10:00:00Z') })}
+          >
+            Select Slot
+          </button>
+          {events.map(event => {
+            const props = eventPropGetter ? eventPropGetter(event) : {};
+            // The real calendar wraps the custom component, so we simulate that.
+            // The onClick and other props from eventPropGetter go on the wrapper.
+            return (
+              <div key={event.id} {...props} onClick={() => onSelectEvent && onSelectEvent(event)}>
+                {EventComponent ? <EventComponent event={event} /> : event.title}
+              </div>
+            );
+          })}
+        </div>
+      );
+    },
+  };
+});
 
 const mockMeetingRooms = {
   data: {
@@ -86,18 +115,18 @@ describe('MeetingRoomBookingPage', () => {
     // Simulate clicking on a time slot. We target a specific time slot element.
     // This is brittle, but a common way to test react-big-calendar slot selection.
     // Simulate clicking on a time slot. We find a clickable element representing a time.
-    const timeSlotButton = screen.getAllByRole('button', { name: /9:00 AM/i })[0];
-    fireEvent.click(timeSlotButton);
+    // Simulate clicking on a time slot via the mocked calendar
+    const mockSlot = screen.getByTestId('mock-calendar-slot');
+    fireEvent.click(mockSlot);
 
-    await waitFor(() => {
-        expect(screen.getByRole('dialog', { name: /新建会议室预约/i })).toBeInTheDocument();
-    });
+    const modal = await screen.findByRole('dialog', { name: /新建会议室预约/i });
+    expect(modal).toBeInTheDocument();
 
     // Fill the form
-    fireEvent.change(screen.getByLabelText(/主题/i), { target: { value: 'New Important Meeting' } });
+    fireEvent.change(within(modal).getByLabelText(/主题/i), { target: { value: 'New Important Meeting' } });
     
     // Antd Select requires more specific interaction
-    fireEvent.mouseDown(screen.getByLabelText(/会议室/i));
+    fireEvent.mouseDown(within(modal).getByLabelText(/会议室/i));
     fireEvent.click(await screen.findByText('Room A'));
 
     fireEvent.click(screen.getByRole('button', { name: /创建/i }));

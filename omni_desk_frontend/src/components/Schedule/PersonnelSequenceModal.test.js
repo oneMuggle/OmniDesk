@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import apiClient from '../../api/apiClient';
@@ -53,12 +53,21 @@ describe('PersonnelSequenceModal', () => {
     // Wait for personnel to load
     await screen.findByText('Alice');
 
+    // Define containers
+    // The query `getByRole('list')` is ambiguous as Ant Design's List component
+    // renders multiple `<ul>` elements with the list role (for item actions).
+    // We select the first element found, which corresponds to the main source list.
+    const sourceListContainer = screen.getAllByRole('list')[0];
+    
     // Add Alice to Workday
     const addButtons = screen.getAllByRole('button', { name: '添加' });
     await user.click(addButtons[0]);
     
-    // Check if Alice is in the workday list (which now has 2 "Alice" texts)
-    expect(screen.getAllByText('Alice').length).toBe(2);
+    // After adding, there should be two "Alice" texts on the screen:
+    // one in the source list and one in the selected list.
+    await waitFor(() => {
+      expect(screen.getAllByText('Alice').length).toBe(2);
+    });
 
     // Switch to Holiday tab
     await user.click(screen.getByText('节假日人员'));
@@ -67,14 +76,21 @@ describe('PersonnelSequenceModal', () => {
     const addButtonsAgain = screen.getAllByRole('button', { name: '添加' });
     await user.click(addButtonsAgain[1]);
     
-    // Check if Bob is in the holiday list
-    expect(screen.getAllByText('Bob').length).toBe(2);
+    // After adding Bob to the holiday list, there should be two "Bob" texts.
+    await waitFor(() => {
+      expect(screen.getAllByText('Bob').length).toBe(2);
+    });
 
     // Remove Bob from Holiday
+    // There are multiple remove buttons, we need to find the one for Bob in the holiday list.
+    // Since we just added Bob, he will be the last one.
     const removeButtons = screen.getAllByRole('button', { name: 'X' });
-    await user.click(removeButtons[0]); // Assuming Bob is the first in the holiday list
+    await user.click(removeButtons[removeButtons.length - 1]);
     
-    expect(screen.getAllByText('Bob').length).toBe(1);
+    // After removing, there should be only one "Bob" text left (in the source list).
+    await waitFor(() => {
+      expect(screen.getAllByText('Bob').length).toBe(1);
+    });
   });
 
   test('allows searching and filtering personnel', async () => {
@@ -91,8 +107,11 @@ describe('PersonnelSequenceModal', () => {
     });
 
     // Filter by position
-    await user.click(screen.getByTestId('position-filter-select'));
-    await user.click(await screen.findByText('Manager'));
+    // Click the combobox to open the dropdown
+    const positionSelect = screen.getByRole('combobox');
+    await user.click(positionSelect);
+    // Pressing Enter should select the first option, which is 'Manager'
+    await user.keyboard('{Enter}');
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { search: 'Ali', position_id: 1 } });
     });

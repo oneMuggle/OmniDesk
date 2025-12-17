@@ -138,7 +138,7 @@ const PositionManagementTab = () => {
         open={isPositionModalVisible}
         onOk={handleSubmitPosition}
         onCancel={() => setIsPositionModalVisible(false)}
-        destroyOnClose
+        destroyOnHidden
         data-testid="position-modal"
       >
         <Form form={positionForm} layout="vertical">

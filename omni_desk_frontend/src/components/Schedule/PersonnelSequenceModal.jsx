@@ -207,6 +207,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
             onChange={(value) => setSelectedPosition(value)}
             allowClear
             data-testid="position-filter-select"
+            getPopupContainer={triggerNode => triggerNode.parentNode}
           >
             {positions.map(pos => (
               <Option key={pos.id} value={pos.id}>{pos.name}</Option>

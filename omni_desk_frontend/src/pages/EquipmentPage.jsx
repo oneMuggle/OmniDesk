@@ -107,7 +107,7 @@ const EquipmentPage = () => {
         open={modalVisible}
         onCancel={() => setModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}

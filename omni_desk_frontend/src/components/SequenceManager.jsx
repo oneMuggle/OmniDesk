@@ -71,7 +71,7 @@ const SequenceForm = ({
        });
      }}
       width={1000}
-      destroyOnClose
+      destroyOnHidden
     >
       <Form form={form} layout="vertical">
         <Form.Item name="name" label="顺序名称" rules={[{ required: true, message: '请输入顺序名称!' }]}>

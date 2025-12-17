@@ -29,7 +29,7 @@ describe('Login Component', () => {
     renderInRouter(<Login />);
     expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /登录/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /登 录/i })).toBeInTheDocument();
   });
 
   it('should show error message on failed login', async () => {
@@ -38,7 +38,7 @@ describe('Login Component', () => {
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'wronguser' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'wrongpassword' } });
-    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
 
     expect(await screen.findByText('登录失败')).toBeInTheDocument();
     expect(mockLogin).toHaveBeenCalledWith('wronguser', 'wrongpassword', false);
@@ -50,7 +50,7 @@ describe('Login Component', () => {
 
     fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
     fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /登录/i }));
+    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', false);

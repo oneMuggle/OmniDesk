@@ -19,7 +19,7 @@ const { Option } = Select;
 
 import PropTypes from 'prop-types';
 
-const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, positions }) => {
+const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelList, positions }) => {
   const [form] = Form.useForm();
   const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
   const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
@@ -95,7 +95,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData, personnelList, p
           label="值班日期"
           rules={[{ required: true, message: '请选择值班日期!' }]}
         >
-          <DatePicker style={{ width: '100%' }} data-testid="schedule-modal-date-picker" />
+          <DatePicker style={{ width: '100%' }} data-testid="schedule-modal-date-picker" getPopupContainer={triggerNode => triggerNode.parentNode} />
         </Form.Item>
         <Form.Item
           name="person_position_filter"
@@ -199,9 +199,6 @@ ScheduleFormModal.propTypes = {
   positions: PropTypes.array.isRequired,
 };
 
-ScheduleFormModal.defaultProps = {
-  initialData: {},
-};
 
 
 const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leaderSequences }) => {
@@ -261,7 +258,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         {generationMode === 'days' ? (
           <>
             <Form.Item name="start_date" label="起始日期" rules={[{ required: true, message: '请选择起始日期!' }]}>
-              <DatePicker style={{ width: '100%' }} data-testid="generate-schedule-start-date" />
+              <DatePicker style={{ width: '100%' }} data-testid="generate-schedule-start-date" getPopupContainer={triggerNode => triggerNode.parentNode} />
             </Form.Item>
             <Form.Item name="duration_days" label="生成天数" initialValue={30} rules={[{ required: true, message: '请输入生成天数!' }]}>
               <Input type="number" data-testid="generate-schedule-duration-days" />
@@ -269,7 +266,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
           </>
         ) : (
           <Form.Item name="target_month" label="选择月份" rules={[{ required: true, message: '请选择月份!' }]}>
-            <DatePicker.MonthPicker style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
+            <DatePicker.MonthPicker style={{ width: '100%' }} data-testid="generate-schedule-target-month" getPopupContainer={triggerNode => triggerNode.parentNode} />
           </Form.Item>
         )}
 

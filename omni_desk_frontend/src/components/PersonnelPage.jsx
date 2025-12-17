@@ -300,7 +300,7 @@ const PersonnelManagementPage = () => {
           open={isPositionModalVisible}
           onOk={handleSubmitPosition}
           onCancel={() => setIsPositionModalVisible(false)}
-          destroyOnClose
+          destroyOnHidden
         >
           <Form form={positionForm} layout="vertical">
             <Form.Item
@@ -350,7 +350,7 @@ const PersonnelManagementPage = () => {
             open={isModalVisible}
             onOk={handleSubmit}
             onCancel={() => setIsModalVisible(false)}
-            destroyOnClose
+            destroyOnHidden
           >
             <Form form={form} layout="vertical">
               <Form.Item
