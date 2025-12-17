@@ -106,7 +106,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             allowClear
             onChange={(value) => setSelectedPersonPositionId(value)}
             value={selectedPersonPositionId}
-            getPopupContainer={(triggerNode) => triggerNode.parentNode}
+            getPopupContainer={triggerNode => triggerNode.parentElement}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -125,12 +125,12 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             showSearch
             data-testid="schedule-modal-duty-person-select"
             filterOption={(input, option) =>
-              option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0 // option.children is array: [name, ' (', position_name, ')']
+              (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
-            getPopupContainer={(triggerNode) => triggerNode.parentNode}
+            getPopupContainer={triggerNode => triggerNode.parentElement}
           >
             {filteredDutyPersonList.map(person => (
-              <Option key={person.id} value={person.id}>
+              <Option key={person.id} value={person.id} data-testid={`duty-person-option-${person.id}`}>
                 {person.name} ({person.position_name})
               </Option>
             ))}
@@ -150,7 +150,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             allowClear
             onChange={(value) => setSelectedLeaderPositionId(value)}
             value={selectedLeaderPositionId}
-            getPopupContainer={(triggerNode) => triggerNode.parentNode}
+            getPopupContainer={triggerNode => triggerNode.parentElement}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -169,12 +169,12 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             showSearch
             data-testid="schedule-modal-duty-leader-select"
             filterOption={(input, option) =>
-              option.children[0].toLowerCase().indexOf(input.toLowerCase()) >= 0
+              (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
-            getPopupContainer={(triggerNode) => triggerNode.parentNode}
+            getPopupContainer={triggerNode => triggerNode.parentElement}
           >
             {filteredDutyLeaderList.map(person => (
-              <Option key={person.id} value={person.id}>
+              <Option key={person.id} value={person.id} data-testid={`duty-leader-option-${person.id}`}>
                 {person.name} ({person.position_name})
               </Option>
             ))}
@@ -236,7 +236,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
       form.setFieldsValue({ start_personnel_id: null });
     } else if (type === 'holiday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedHolidayPersonnel((sequence && sequence.personnel_details) || []);
+      setSelectedHolidayPersonnel((sequence && sequence.holiday_personnel_details) || []);
       form.setFieldsValue({ start_holiday_personnel_id: null });
     } else if (type === 'leader') {
       const sequence = leaderSequences.find(s => s.id === sequenceId);
@@ -271,7 +271,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         )}
 
         <Form.Item name="workday_personnel_sequence_id" label="人员顺序 (工作日)" rules={[{ required: true, message: '请选择工作日人员顺序!' }]}>
-          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`workday-sequence-option-${seq.id}`}>
                 {seq.name} (工作日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -281,35 +281,35 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
-          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {selectedPersonnel.map(p => (
-              <Option key={p.id} value={p.id}>{p.name}</Option>
+              <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
           </Select>
         </Form.Item>
 
         <Form.Item name="holiday_personnel_sequence_id" label="人员顺序 (节假日)" rules={[{ required: true, message: '请选择节假日人员顺序!' }]}>
-          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`holiday-sequence-option-${seq.id}`}>
-                {seq.name} (节假日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
+                {seq.name} (节假日: {Array.isArray(seq.holiday_personnel_details) ? seq.holiday_personnel_details.map(p => p.name).join(', ') : ''})
               </Option>
             ))}
           </Select>
         </Form.Item>
 
         <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
-          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {selectedHolidayPersonnel.map(p => (
-              <Option key={p.id} value={p.id}>{p.name}</Option>
+              <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
           </Select>
         </Form.Item>
 
         <Form.Item name="leader_sequence_id" label="领导顺序" rules={[{ required: true, message: '请选择领导顺序!' }]}>
-          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
-              <Option key={seq.id} value={seq.id}>
+              <Option key={seq.id} value={seq.id} data-testid={`leader-sequence-option-${seq.id}`}>
                 {seq.name} ({Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
               </Option>
             ))}
@@ -317,7 +317,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_leader_id" label="起始领导">
-          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" getPopupContainer={(triggerNode) => triggerNode.parentNode}>
+          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" getPopupContainer={triggerNode => triggerNode.parentElement}>
             {selectedLeaders.map(p => (
               <Option key={p.id} value={p.id}>{p.name}</Option>
             ))}
@@ -357,6 +357,7 @@ const ScheduleManagementPage = () => {
   const [isCalendarFilterEnabled, setIsCalendarFilterEnabled] = useState(false);
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
   const [currentView, setCurrentView] = useState('dayGridMonth');
+  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'list'
   const [weeklyLeaders, setWeeklyLeaders] = useState([]);
 
   useEffect(() => {
@@ -609,7 +610,7 @@ const ScheduleManagementPage = () => {
 
   const calendarEvents = useMemo(() => {
     return schedules.map(schedule => ({
-      id: schedule.id.toString(),
+      id: String(schedule.id),
       start: schedule.duty_date,
       allDay: true,
       extendedProps: {
@@ -773,6 +774,10 @@ const ScheduleManagementPage = () => {
             <Button type="default" onClick={() => setIsGenerateModalVisible(true)} data-testid="generate-schedule-button">生成排班</Button>
           </Space>
           <Space>
+           <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
+             <Radio.Button value="calendar">日历</Radio.Button>
+             <Radio.Button value="list">列表</Radio.Button>
+           </Radio.Group>
             <Switch
               checkedChildren="日历筛选已开启"
               unCheckedChildren="日历筛选已关闭"
@@ -783,56 +788,62 @@ const ScheduleManagementPage = () => {
             <Button onClick={exportToPDF} loading={isExporting} data-testid="export-pdf-button">导出为PDF</Button>
           </Space>
         </div>
-        <DragDropContext onDragEnd={handleLeaderDragEnd}>
-          <div style={{ display: 'flex' }}>
-            <div ref={calendarContainerRef} style={{ flex: 1 }}>
-              {currentView === 'dayGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
-              <FullCalendar
-                ref={calendarRef}
-                plugins={[dayGridPlugin, interactionPlugin]}
-                initialView="dayGridMonth"
-                headerToolbar={{
-                  left: 'prev,next today',
-                  center: 'title',
-                  right: 'dayGridMonth,dayGridWeek'
-                }}
-                events={calendarEvents}
-                editable={true}
-                droppable={true}
-                eventDrop={handleEventDrop}
-                eventClick={handleEventClick}
-                eventContent={renderEventContent}
-                datesSet={handleDatesSet}
-                locale="zh-cn"
-                firstDay={1}
-                data-testid="schedule-calendar"
-              />
-            </div>
-            {currentView === 'dayGridMonth' && (
-              <MonthlyLeaderSidebar
-                weeklyLeaders={weeklyLeaders}
-                calendarRef={calendarRef}
-                isDragDisabled={false}
-              />
-            )}
-          </div>
-        </DragDropContext>
-        <div className="mt-4">
-          <Space className="mb-2">
-            <Button onClick={handleSelectAll} data-testid="select-all-button">全选</Button>
-            <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
-            <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
-          </Space>
-          <Table
-            columns={columns}
-            dataSource={filteredSchedules}
-            rowKey="id"
-            loading={loading}
-            rowSelection={rowSelection}
-            pagination={{ pageSize: 10 }}
-            data-testid="schedule-table"
-          />
-        </div>
+
+       {viewMode === 'calendar' && (
+         <DragDropContext onDragEnd={handleLeaderDragEnd}>
+           <div style={{ display: 'flex' }}>
+             <div ref={calendarContainerRef} style={{ flex: 1 }}>
+               {currentView === 'dayGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
+               <FullCalendar
+                 ref={calendarRef}
+                 plugins={[dayGridPlugin, interactionPlugin]}
+                 initialView="dayGridMonth"
+                 headerToolbar={{
+                   left: 'prev,next today',
+                   center: 'title',
+                   right: 'dayGridMonth,dayGridWeek'
+                 }}
+                 events={calendarEvents}
+                 editable={true}
+                 droppable={true}
+                 eventDrop={handleEventDrop}
+                 eventClick={handleEventClick}
+                 eventContent={renderEventContent}
+                 datesSet={handleDatesSet}
+                 locale="zh-cn"
+                 firstDay={1}
+                 data-testid="schedule-calendar"
+               />
+             </div>
+             {currentView === 'dayGridMonth' && (
+               <MonthlyLeaderSidebar
+                 weeklyLeaders={weeklyLeaders}
+                 calendarRef={calendarRef}
+                 isDragDisabled={false}
+               />
+             )}
+           </div>
+         </DragDropContext>
+       )}
+
+       {viewMode === 'list' && (
+         <div className="mt-4">
+           <Space className="mb-2">
+             <Button onClick={handleSelectAll} data-testid="select-all-button">全选</Button>
+             <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
+             <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
+           </Space>
+           <Table
+             columns={columns}
+             dataSource={filteredSchedules}
+             rowKey="id"
+             loading={loading}
+             rowSelection={rowSelection}
+             pagination={{ pageSize: 10 }}
+             data-testid="schedule-table"
+           />
+         </div>
+       )}
       </Card>
       {isModalVisible && (
         <ScheduleFormModal

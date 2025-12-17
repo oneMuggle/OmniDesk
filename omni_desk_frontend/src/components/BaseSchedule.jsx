@@ -10,16 +10,16 @@ import zhCnLocale from '@fullcalendar/core/locales/zh-cn';
 
 const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
   events,
-  onDateClick,
-  onEventClick,
-  editable,
-  selectable,
-  select,
-  onEventDrop,
-  onEventDragStart,
-  onEventDragStop,
-  calendarRef,
-  onDatesSet,
+  onDateClick = () => {},
+  onEventClick = () => {},
+  editable = false,
+  selectable = false,
+  select = () => {},
+  onEventDrop = () => {},
+  onEventDragStart = () => {},
+  onEventDragStop = () => {},
+  calendarRef = null,
+  onDatesSet = () => {},
 }) => {
   console.log('BaseSchedule received events:', events); // Add this line
   return (
@@ -81,17 +81,5 @@ BaseSchedule.propTypes = {
   onDatesSet: PropTypes.func,
 };
 
-BaseSchedule.defaultProps = {
-  onDateClick: () => {},
-  onEventClick: () => {},
-  editable: false,
-  selectable: false,
-  select: () => {},
-  onEventDrop: () => {},
-  onEventDragStart: () => {},
-  onEventDragStop: () => {},
-  calendarRef: null,
-  onDatesSet: () => {},
-};
 
 export default BaseSchedule; // Changed BaseCalendar to BaseSchedule

@@ -38,7 +38,10 @@ const PersonnelManagementPage = () => {
       title: '职位',
       dataIndex: 'position',
       key: 'position',
-      render: (position) => (position ? position.name : '未分配'),
+      render: (positionId) => {
+        const position = positions.find(p => p.id === positionId);
+        return position ? position.name : '未分配';
+      },
     },
     { title: '联系电话', dataIndex: 'phone_number', key: 'phone_number' },
     { title: '部门', dataIndex: 'department', key: 'department' },
@@ -58,9 +61,8 @@ const PersonnelManagementPage = () => {
     },
   ];
 
-  const fetchData = useCallback(async (params = {}) => {
+  const fetchData = useCallback(async (page, pageSize, search, position) => {
     try {
-      const { page = 1, pageSize = 10, search = searchQuery, position = positionFilter } = params;
       const response = await getPersonnel({ page, page_size: pageSize, search, position });
       setData(response.results || []);
       setPagination(prev => ({ ...prev, total: response.count, current: page, pageSize }));
@@ -68,7 +70,7 @@ const PersonnelManagementPage = () => {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, [searchQuery, positionFilter]);
+  }, []);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -95,12 +97,12 @@ const PersonnelManagementPage = () => {
 
   useEffect(() => {
     if (positionsLoaded) {
-      fetchData({ page: pagination.current, pageSize: pagination.pageSize });
+      fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
     }
-  }, [positionsLoaded, fetchData, pagination.current, pagination.pageSize]);
+  }, [positionsLoaded, pagination.current, pagination.pageSize, searchQuery, positionFilter, fetchData]);
 
   const handleTableChange = (newPagination) => {
-    fetchData({ page: newPagination.current, pageSize: newPagination.pageSize });
+    setPagination(prev => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
   };
 
   const showCreateModal = () => {
@@ -110,7 +112,10 @@ const PersonnelManagementPage = () => {
   };
 
   const showEditModal = (record) => {
-    form.setFieldsValue(record);
+    form.setFieldsValue({
+      ...record,
+      position: record.position,
+    });
     setEditingId(record.id);
     setIsModalVisible(true);
   };
@@ -128,7 +133,17 @@ const PersonnelManagementPage = () => {
         message.success('创建成功');
       }
       setIsModalVisible(false);
-      fetchData();
+      // After a successful action, reset to the first page and clear filters
+      // to ensure the user sees the newly created/updated item.
+      setSearchQuery('');
+      setPositionFilter(null);
+      if (pagination.current !== 1) {
+        setPagination(prev => ({ ...prev, current: 1 }));
+      } else {
+        // If we are already on page 1, the pagination change won't trigger the effect,
+        // so we need to trigger the refetch manually.
+        fetchData(1, pagination.pageSize, '', null);
+      }
     } catch (error) {
       console.error('操作失败:', error);
       message.error('操作失败');
@@ -140,7 +155,7 @@ const PersonnelManagementPage = () => {
     try {
       await deletePersonnel(selectedPersonnelId);
       message.success('删除成功');
-      fetchData({ page: pagination.current, pageSize: pagination.pageSize });
+      await fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
     } catch (error) {
       message.error('删除失败');
     } finally {
@@ -169,9 +184,9 @@ const PersonnelManagementPage = () => {
               <>
                 <div className='mb-4 flex justify-between'>
                   <Space.Compact>
-                    <Input placeholder="按姓名搜索" onChange={e => setSearchQuery(e.target.value)} style={{ width: 200 }} allowClear />
-                    <Button type="primary" onClick={() => fetchData({ search: searchQuery })}>搜索</Button>
-                    <Select placeholder="按职位筛选" data-testid="personnel-position-filter" onChange={value => { setPositionFilter(value); fetchData({ position: value }); }} style={{ width: 200 }} allowClear>
+                    <Input placeholder="按姓名搜索" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: 200 }} allowClear />
+                    <Button type="primary" onClick={() => setPagination(prev => ({ ...prev, current: 1 }))}>搜索</Button>
+                    <Select placeholder="按职位筛选" data-testid="personnel-position-filter" value={positionFilter} onChange={value => { setPositionFilter(value); setPagination(prev => ({ ...prev, current: 1 })); }} style={{ width: 200 }} allowClear>
                       {positions.map(pos => <Option key={pos.id} value={pos.id}>{pos.name}</Option>)}
                     </Select>
                   </Space.Compact>
@@ -189,7 +204,7 @@ const PersonnelManagementPage = () => {
         ]}
       />
 
-      <Modal title={editingId ? '编辑人员' : '新增人员'} open={isModalVisible} onOk={handleSubmit} onCancel={() => setIsModalVisible(false)} width={1000} destroyOnHidden data-testid="personnel-modal" okButtonProps={{ 'data-testid': 'personnel-modal-ok-button' }} getContainer={false}>
+      <Modal title={editingId ? '编辑人员' : '新增人员'} open={isModalVisible} onOk={handleSubmit} onCancel={() => setIsModalVisible(false)} width={1000} destroyOnHidden data-testid="personnel-modal" okButtonProps={{ 'data-testid': 'personnel-modal-ok-button' }}>
         <Form form={form} layout="vertical">
           <Form.Item label="姓名" name="name" rules={[{ required: true }]}><Input data-testid="personnel-modal-name-input" /></Form.Item>
           <Form.Item label="职位" name="position" rules={[{ required: true }]}>

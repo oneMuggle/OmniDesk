@@ -31,5 +31,18 @@
     "react": {
       "version": "detect"
     }
-  }
+  },
+  "overrides": [
+    {
+      "files": [
+        "babel.config.js",
+        "jest.config.js",
+        "src/api/**/*.js",
+        "scripts/generate-routes.js"
+      ],
+      "env": {
+        "node": true
+      }
+    }
+  ]
 }

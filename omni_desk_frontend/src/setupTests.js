@@ -32,3 +32,11 @@ window.ResizeObserver = class ResizeObserver {
   unobserve() {}
   disconnect() {}
 };
+
+// Fix for antd components using portals
+// This is a workaround for antd components that use portals
+// It ensures that the popups are rendered within the test container
+// so that they can be found by the testing library.
+require('antd').ConfigProvider.config({
+  getPopupContainer: (node) => node || document.body,
+});

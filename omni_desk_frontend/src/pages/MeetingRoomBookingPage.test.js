@@ -50,8 +50,8 @@ const mockMeetingRooms = {
 const mockBookings = {
   data: {
     results: [
-      { id: 1, title: 'Team Meeting', start_time: '2025-12-16T10:00:00Z', end_time: '2025-12-16T11:00:00Z', meeting_room: 1, meeting_room_name: 'Room A', user: { id: 1, username: 'testuser', real_name: 'Test User', phone_numbers: [{ number: '1234567890' }] } },
-      { id: 2, title: 'Project Sync', start_time: '2025-12-17T14:00:00Z', end_time: '2025-12-17T15:00:00Z', meeting_room: 2, meeting_room_name: 'Room B', user: { id: 2, username: 'anotheruser', real_name: 'Another User', phone_numbers: [{ number: '0987654321' }] } },
+      { id: 1, title: 'Team Meeting', start: '2025-12-16T10:00:00Z', end: '2025-12-16T11:00:00Z', meeting_room: 1, meeting_room_name: 'Room A', user: { id: 1, username: 'testuser', real_name: 'Test User', phone_numbers: [{ number: '1234567890' }] } },
+      { id: 2, title: 'Project Sync', start: '2025-12-17T14:00:00Z', end: '2025-12-17T15:00:00Z', meeting_room: 2, meeting_room_name: 'Room B', user: { id: 2, username: 'anotheruser', real_name: 'Another User', phone_numbers: [{ number: '0987654321' }] } },
     ],
   },
 };
@@ -69,6 +69,7 @@ const renderWithAuth = (ui, { providerProps, ...renderOptions }) => {
 };
 
 describe('MeetingRoomBookingPage', () => {
+
   beforeAll(() => {
     // Set a fixed date for all tests to ensure the calendar view is consistent
     jest.useFakeTimers('modern');
@@ -76,6 +77,7 @@ describe('MeetingRoomBookingPage', () => {
   });
 
   beforeEach(() => {
+    // Mock APIs
     meetingRoomApi.getMeetingRooms.mockResolvedValue(mockMeetingRooms);
     meetingRoomApi.getMeetingRoomBookings.mockResolvedValue(mockBookings);
     meetingRoomApi.createMeetingRoomBooking.mockResolvedValue({ data: { id: 3, ...mockBookings.data.results[0] } });
@@ -102,11 +104,11 @@ describe('MeetingRoomBookingPage', () => {
     });
 
     // Check if bookings are rendered
-    expect(await screen.findByTestId('booking-event-1')).toBeInTheDocument();
-    expect(await screen.findByTestId('booking-event-2')).toBeInTheDocument();
+    await screen.findByTestId('booking-event-1');
+    expect(screen.getByTestId('booking-event-2')).toBeInTheDocument();
   });
 
-  test('opens a modal to create a new booking when a slot is selected', async () => {
+  test('creates a new booking', async () => {
     renderWithAuth(<MeetingRoomBookingPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
     
     // Wait for data to load
@@ -127,9 +129,12 @@ describe('MeetingRoomBookingPage', () => {
     
     // Antd Select requires more specific interaction
     fireEvent.mouseDown(within(modal).getByLabelText(/会议室/i));
-    fireEvent.click(await screen.findByText('Room A'));
+    // Use a more specific selector for the dropdown option, which is rendered in a portal
+    const dropdown = await screen.findByRole('listbox');
+    fireEvent.click(within(dropdown).getByLabelText('Room A'));
 
-    fireEvent.click(screen.getByRole('button', { name: /创建/i }));
+    const createButton = await screen.findByRole('button', { name: /确 定/i });
+    fireEvent.click(createButton);
 
     await waitFor(() => {
       expect(meetingRoomApi.createMeetingRoomBooking).toHaveBeenCalledWith(expect.objectContaining({
@@ -145,6 +150,7 @@ describe('MeetingRoomBookingPage', () => {
       expect(screen.queryByRole('dialog', { name: /新建会议室预约/i })).not.toBeInTheDocument();
     });
     await waitFor(() => {
+      // Initial call + call after creation
       expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
     });
   });
@@ -158,10 +164,10 @@ describe('MeetingRoomBookingPage', () => {
     // Detail modal should open first
     const detailModal = await screen.findByRole('dialog', { name: /预约详情/i });
     expect(detailModal).toBeInTheDocument();
-    expect(screen.getByText('Team Meeting')).toBeInTheDocument();
+    expect(within(detailModal).getByText('Team Meeting')).toBeInTheDocument();
 
     // Click edit button in detail modal
-    fireEvent.click(screen.getByRole('button', { name: /编辑/i }));
+    fireEvent.click(within(detailModal).getByRole('button', { name: /编辑/i }));
 
     // Now the edit modal should open
     const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
@@ -185,6 +191,7 @@ describe('MeetingRoomBookingPage', () => {
       expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
     });
     await waitFor(() => {
+      // Initial call + call after update
       expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
     });
   });
@@ -197,12 +204,14 @@ describe('MeetingRoomBookingPage', () => {
 
     // Open detail modal, then edit modal
     await screen.findByRole('dialog', { name: /预约详情/i });
-    fireEvent.click(screen.getByRole('button', { name: /编辑/i }));
+    const detailModal = await screen.findByRole('dialog', { name: /预约详情/i });
+    fireEvent.click(within(detailModal).getByRole('button', { name: /编辑/i }));
     
     await screen.findByRole('dialog', { name: /编辑会议室预约/i });
 
     // Click delete button
-    fireEvent.click(screen.getByRole('button', { name: /删除/i }));
+    const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
+    fireEvent.click(within(editModal).getByRole('button', { name: /删除/i }));
 
     // Confirm deletion in Popconfirm
     const confirmButton = await screen.findByRole('button', { name: /是/i });
@@ -219,6 +228,7 @@ describe('MeetingRoomBookingPage', () => {
       expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
     });
     await waitFor(() => {
+      // Initial call + call after delete
       expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
     });
   });
@@ -247,7 +257,8 @@ describe('MeetingRoomBookingPage', () => {
     await screen.findByRole('dialog', { name: /预约详情/i });
     
     // Admin should see the edit button
-    const editButton = screen.getByRole('button', { name: /编辑/i });
+    const detailModal = await screen.findByRole('dialog', { name: /预约详情/i });
+    const editButton = within(detailModal).getByRole('button', { name: /编辑/i });
     expect(editButton).toBeInTheDocument();
     fireEvent.click(editButton);
 
@@ -270,6 +281,7 @@ describe('MeetingRoomBookingPage', () => {
       expect(screen.queryByRole('dialog', { name: /编辑会议室预约/i })).not.toBeInTheDocument();
     });
     await waitFor(() => {
+      // Initial call + call after delete
       expect(meetingRoomApi.getMeetingRoomBookings).toHaveBeenCalledTimes(2);
     });
   });

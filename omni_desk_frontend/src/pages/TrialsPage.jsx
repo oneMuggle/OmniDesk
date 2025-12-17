@@ -103,7 +103,11 @@ const TrialsPage = () => {
     },
   };
 
-  if (isLoading) return <div style={{ padding: 20 }}><Spin tip="加载试验数据中..." /></div>;
+  if (isLoading) return (
+    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+      <Spin tip="加载试验数据中..." />
+    </div>
+  );
   if (error) return <div style={{ padding: 20 }}><Alert 
     message="数据加载错误"
     description={`错误详情：${error.message}`}

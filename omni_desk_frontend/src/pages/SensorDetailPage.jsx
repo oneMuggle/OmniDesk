@@ -62,7 +62,11 @@ const SensorDetailPage = () => {
     ];
 
     if (loading) {
-        return <Spin tip="加载中..." />;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+                <Spin tip="加载中..." />
+            </div>
+        );
     }
 
     if (error) {
