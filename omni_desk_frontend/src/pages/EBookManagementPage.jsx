@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Input, Typography, message, Card, Row, Col } from 'antd';
+import { Layout, Input, Typography, message, Card, Row, Col, Space, Button } from 'antd';
 import axios from 'axios';
 import FileUpload from '../components/EBook/FileUpload';
 import BookList from '../components/EBook/BookList';
@@ -7,13 +7,12 @@ import BookForm from '../components/EBook/BookForm';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
-const { Search } = Input;
-
 const EBookManagementPage = () => {
   const [books, setBooks] = useState([]);
   const [filteredBooks, setFilteredBooks] = useState([]);
   const [editingBook, setEditingBook] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     const fetchBooks = async () => {
@@ -101,12 +100,17 @@ const EBookManagementPage = () => {
               <FileUpload onFileUpload={handleFileUpload} />
             </Col>
             <Col flex="auto">
-              <Search
-                placeholder="搜索电子书..."
-                onSearch={handleSearch}
-                enterButton
-                style={{ maxWidth: '400px' }}
-              />
+              <Space.Compact style={{ maxWidth: '400px' }}>
+                <Input
+                  placeholder="搜索电子书..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onPressEnter={() => handleSearch(searchQuery)}
+                />
+                <Button type="primary" onClick={() => handleSearch(searchQuery)}>
+                  搜索
+                </Button>
+              </Space.Compact>
             </Col>
           </Row>
         </Card>

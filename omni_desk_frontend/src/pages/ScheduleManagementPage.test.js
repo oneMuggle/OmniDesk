@@ -42,6 +42,7 @@ const mockPersonnel = [
   { id: 1, name: 'Alice', position: 1, position_name: 'Dev', phone_numbers: [{ number: '111' }] },
   { id: 2, name: 'Bob', position: 1, position_name: 'Dev', phone_numbers: [] },
   { id: 3, name: 'Charlie', position: 2, position_name: 'QA', phone_numbers: [] },
+  { id: 4, name: 'David', position: 2, position_name: 'QA', phone_numbers: [] },
   { id: 101, name: 'Leader A', position: 1, position_name: 'Dev', phone_numbers: [{ number: '222' }] },
   { id: 102, name: 'Leader B', position: 2, position_name: 'QA', phone_numbers: [] },
 ];
@@ -148,13 +149,13 @@ describe('ScheduleManagementPage', () => {
     const dialog = await screen.findByTestId('schedule-modal');
     
     await userEvent.click(within(dialog).getByLabelText('值班日期'));
-    await userEvent.click(await screen.findByText('26'));
+    await userEvent.click(await screen.findByTitle('2025-12-26'));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await userEvent.click(await screen.findByText('Alice (Dev)'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Alice$/ }));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await userEvent.click(await screen.findByText('Leader A (Dev)'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Leader A$/ }));
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -162,6 +163,7 @@ describe('ScheduleManagementPage', () => {
       expect(scheduleApi.createSchedule).toHaveBeenCalledWith(expect.objectContaining({
         duty_person_id: 1,
         duty_leader_id: 101,
+        date: '2025-12-26',
       }));
     });
   });
@@ -177,10 +179,10 @@ describe('ScheduleManagementPage', () => {
     });
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await userEvent.click(await screen.findByText('Bob (Dev)'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Bob$/ }));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await userEvent.click(await screen.findByText('Leader B (QA)'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Leader B$/ }));
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -212,25 +214,25 @@ describe('ScheduleManagementPage', () => {
     const dialog = await screen.findByTestId('generate-schedule-modal');
 
     await userEvent.click(within(dialog).getByLabelText('起始日期'));
-    await userEvent.click(await screen.findByText('1'));
+    await userEvent.click(await screen.findByTitle('2025-12-01'));
 
     await userEvent.clear(screen.getByTestId('generate-schedule-duration-days'));
     await userEvent.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
     await userEvent.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
-    await userEvent.click(await screen.findByText(/Seq A \(工作日: Alice, Bob\)/));
+    await userEvent.click(await screen.findByRole('option', { name: /Seq A \(工作日: Alice, Bob\)/ }));
 
     await userEvent.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
-    await userEvent.click(await screen.findByText(/Seq A \(节假日: Charlie, David\)/));
+    await userEvent.click(await screen.findByRole('option', { name: /Seq A \(节假日: Charlie, David\)/ }));
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-personnel'));
-    await userEvent.click(await screen.findByText('Alice'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Alice$/ }));
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-holiday-personnel'));
-    await userEvent.click(await screen.findByText('Charlie'));
+    await userEvent.click(await screen.findByRole('option', { name: /^Charlie$/ }));
 
     await userEvent.click(screen.getByTestId('generate-schedule-leader-sequence'));
-    await userEvent.click(await screen.findByText(/Seq B \(Leader A, Leader B\)/));
+    await userEvent.click(await screen.findByRole('option', { name: /Seq B \(Leader A, Leader B\)/ }));
 
     await userEvent.click(within(dialog).getByRole('button', { name: '确 定' }));
 

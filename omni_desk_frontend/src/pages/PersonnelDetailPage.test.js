@@ -38,16 +38,12 @@ const renderWithRouter = (ui, { route = '/', path = '/' } = {}) => {
 describe('PersonnelDetailPage', () => {
   it('shows loading spinner initially', () => {
     personnelApi.getPersonnelDetails.mockReturnValue(new Promise(() => {})); // Never resolves
-    personnelApi.getQualifications.mockReturnValue(new Promise(() => {}));
-    personnelApi.getFamilyMembers.mockReturnValue(new Promise(() => {}));
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
   it('displays personnel details after successful fetch', async () => {
     personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
-    personnelApi.getQualifications.mockResolvedValue({ data: { results: [] } });
-    personnelApi.getFamilyMembers.mockResolvedValue({ data: { results: [] } });
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument();
@@ -59,8 +55,6 @@ describe('PersonnelDetailPage', () => {
 
   it('displays error message on fetch failure', async () => {
     personnelApi.getPersonnelDetails.mockRejectedValue(new Error('Failed to fetch'));
-    personnelApi.getQualifications.mockResolvedValue({ data: { results: [] } });
-    personnelApi.getFamilyMembers.mockResolvedValue({ data: { results: [] } });
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
 
     await waitFor(() => expect(screen.queryByTestId('loading-spinner')).not.toBeInTheDocument());

@@ -87,7 +87,7 @@ test('searches for books by title and author', async () => {
   await screen.findByText('React 入门指南'); // Wait for initial data
 
   const searchInput = screen.getByPlaceholderText(/搜索电子书.../i);
-  const searchButton = screen.getByRole('button', { name: /search/i });
+  const searchButton = screen.getByRole('button', { name: /搜 索/i });
 
   await userEvent.type(searchInput, 'React');
   await userEvent.click(searchButton);

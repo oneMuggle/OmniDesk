@@ -50,8 +50,8 @@ const mockMeetingRooms = {
 const mockBookings = {
   data: {
     results: [
-      { id: 1, title: 'Team Meeting', start: '2025-12-16T10:00:00Z', end: '2025-12-16T11:00:00Z', meeting_room: 1, meeting_room_name: 'Room A', user: { id: 1, username: 'testuser', real_name: 'Test User', phone_numbers: [{ number: '1234567890' }] } },
-      { id: 2, title: 'Project Sync', start: '2025-12-17T14:00:00Z', end: '2025-12-17T15:00:00Z', meeting_room: 2, meeting_room_name: 'Room B', user: { id: 2, username: 'anotheruser', real_name: 'Another User', phone_numbers: [{ number: '0987654321' }] } },
+      { id: 1, title: 'Team Meeting', start_time: '2025-12-16T10:00:00Z', end_time: '2025-12-16T11:00:00Z', meeting_room: 1, meeting_room_name: 'Room A', user: { id: 1, username: 'testuser', real_name: 'Test User', phone_numbers: [{ number: '1234567890' }] } },
+      { id: 2, title: 'Project Sync', start_time: '2025-12-17T14:00:00Z', end_time: '2025-12-17T15:00:00Z', meeting_room: 2, meeting_room_name: 'Room B', user: { id: 2, username: 'anotheruser', real_name: 'Another User', phone_numbers: [{ number: '0987654321' }] } },
     ],
   },
 };
@@ -78,15 +78,15 @@ describe('MeetingRoomBookingPage', () => {
 
   beforeEach(() => {
     // Mock APIs
-    meetingRoomApi.getMeetingRooms.mockResolvedValue(mockMeetingRooms);
-    meetingRoomApi.getMeetingRoomBookings.mockResolvedValue(mockBookings);
-    meetingRoomApi.createMeetingRoomBooking.mockResolvedValue({ data: { id: 3, ...mockBookings.data.results[0] } });
-    meetingRoomApi.updateMeetingRoomBooking.mockResolvedValue({ data: { id: 1, title: 'Updated Meeting' } });
-    meetingRoomApi.deleteMeetingRoomBooking.mockResolvedValue({ status: 204 });
+    meetingRoomApi.getMeetingRooms.mockImplementation(() => Promise.resolve(mockMeetingRooms));
+    meetingRoomApi.getMeetingRoomBookings.mockImplementation(() => Promise.resolve(mockBookings));
+    meetingRoomApi.createMeetingRoomBooking.mockImplementation(() => Promise.resolve({ data: { id: 3, ...mockBookings.data.results[0] } }));
+    meetingRoomApi.updateMeetingRoomBooking.mockImplementation(() => Promise.resolve({ data: { id: 1, title: 'Updated Meeting' } }));
+    meetingRoomApi.deleteMeetingRoomBooking.mockImplementation(() => Promise.resolve({ status: 204 }));
   });
 
   afterEach(() => {
-    jest.clearAllMocks();
+    jest.resetAllMocks();
   });
 
   afterAll(() => {
@@ -133,7 +133,7 @@ describe('MeetingRoomBookingPage', () => {
     const dropdown = await screen.findByRole('listbox');
     fireEvent.click(within(dropdown).getByLabelText('Room A'));
 
-    const createButton = await screen.findByRole('button', { name: /确 定/i });
+    const createButton = await screen.findByRole('button', { name: /创.*建/i });
     fireEvent.click(createButton);
 
     await waitFor(() => {
@@ -167,7 +167,7 @@ describe('MeetingRoomBookingPage', () => {
     expect(within(detailModal).getByText('Team Meeting')).toBeInTheDocument();
 
     // Click edit button in detail modal
-    fireEvent.click(within(detailModal).getByRole('button', { name: /编辑/i }));
+    fireEvent.click(within(detailModal).getByRole('button', { name: /编.*辑/i }));
 
     // Now the edit modal should open
     const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
@@ -176,7 +176,7 @@ describe('MeetingRoomBookingPage', () => {
 
     // Edit the form
     fireEvent.change(screen.getByLabelText(/主题/i), { target: { value: 'Updated Meeting Title' } });
-    fireEvent.click(screen.getByRole('button', { name: /更新/i }));
+    fireEvent.click(screen.getByRole('button', { name: /更.*新/i }));
 
     await waitFor(() => {
       expect(meetingRoomApi.updateMeetingRoomBooking).toHaveBeenCalledWith(1, expect.objectContaining({
@@ -205,13 +205,14 @@ describe('MeetingRoomBookingPage', () => {
     // Open detail modal, then edit modal
     await screen.findByRole('dialog', { name: /预约详情/i });
     const detailModal = await screen.findByRole('dialog', { name: /预约详情/i });
-    fireEvent.click(within(detailModal).getByRole('button', { name: /编辑/i }));
+    fireEvent.click(within(detailModal).getByRole('button', { name: /编.*辑/i }));
+
     
-    await screen.findByRole('dialog', { name: /编辑会议室预约/i });
+
+    const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
 
     // Click delete button
-    const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
-    fireEvent.click(within(editModal).getByRole('button', { name: /删除/i }));
+    fireEvent.click(within(editModal).getByRole('button', { name: /删.*除/i }));
 
     // Confirm deletion in Popconfirm
     const confirmButton = await screen.findByRole('button', { name: /是/i });
@@ -244,7 +245,7 @@ describe('MeetingRoomBookingPage', () => {
     expect(detailModal).toBeInTheDocument();
     
     // The "Edit" button should NOT be present
-    expect(screen.queryByRole('button', { name: /编辑/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /编.*辑/i })).not.toBeInTheDocument();
   });
 
   test('admin can see edit button and delete other users bookings', async () => {
@@ -258,16 +259,16 @@ describe('MeetingRoomBookingPage', () => {
     
     // Admin should see the edit button
     const detailModal = await screen.findByRole('dialog', { name: /预约详情/i });
-    const editButton = within(detailModal).getByRole('button', { name: /编辑/i });
+    const editButton = within(detailModal).getByRole('button', { name: /编.*辑/i });
     expect(editButton).toBeInTheDocument();
     fireEvent.click(editButton);
 
     // Edit modal opens
-    await screen.findByRole('dialog', { name: /编辑会议室预约/i });
-    expect(screen.getByLabelText(/主题/i)).toHaveValue('Project Sync');
+    const editModal = await screen.findByRole('dialog', { name: /编辑会议室预约/i });
+    expect(within(editModal).getByLabelText(/主题/i)).toHaveValue('Project Sync');
 
     // Test deletion
-    fireEvent.click(screen.getByRole('button', { name: /删除/i }));
+    fireEvent.click(within(editModal).getByRole('button', { name: /删.*除/i }));
     fireEvent.click(await screen.findByRole('button', { name: /是/i }));
 
     await waitFor(() => {

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { getPersonnelDetails, getQualifications, getFamilyMembers } from '../api/personnelApi';
+import { getPersonnelDetails } from '../api/personnelApi';
 import { Descriptions, Table, Spin, message, Button, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
 import { ProfessionalQualificationTable, FamilyMemberTable } from '../components/Personnel';
@@ -8,22 +8,14 @@ import { ProfessionalQualificationTable, FamilyMemberTable } from '../components
 const PersonnelDetailPage = () => {
     const { id } = useParams();
     const [personnel, setPersonnel] = useState(null);
-    const [qualifications, setQualifications] = useState([]);
-    const [familyMembers, setFamilyMembers] = useState([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchDetails = async () => {
             try {
                 setLoading(true);
-                const [personnelRes, qualificationsRes, familyMembersRes] = await Promise.all([
-                    getPersonnelDetails(id),
-                    getQualifications(id),
-                    getFamilyMembers(id)
-                ]);
+                const personnelRes = await getPersonnelDetails(id);
                 setPersonnel(personnelRes.data);
-                setQualifications(qualificationsRes.data.results || []);
-                setFamilyMembers(familyMembersRes.data.results || []);
             } catch (error) {
                 message.error('获取人员详细信息失败');
             } finally {
@@ -96,10 +88,10 @@ const PersonnelDetailPage = () => {
                 <Table dataSource={personnel.work_experiences || []} columns={workExperienceColumns} rowKey="id" pagination={false} bordered />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
-                <ProfessionalQualificationTable qualifications={qualifications} />
+                <ProfessionalQualificationTable personnelId={parseInt(id, 10)} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
-                <FamilyMemberTable familyMembers={familyMembers} />
+                <FamilyMemberTable personnelId={parseInt(id, 10)} />
             </Card>
         </div>
     );

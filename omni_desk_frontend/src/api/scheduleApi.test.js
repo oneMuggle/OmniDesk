@@ -29,19 +29,28 @@ describe('scheduleApi', () => {
   });
 
   describe('getSchedules', () => {
-    it('should fetch and format schedules correctly', async () => {
-      const mockSchedules = {
+    it('should fetch and format schedules correctly, handling pagination', async () => {
+      const mockSchedulesPage1 = {
         results: [
           { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob' },
+        ],
+        next: '/events/schedules/?page=2',
+      };
+      const mockSchedulesPage2 = {
+        results: [
           { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave' },
         ],
         next: null,
       };
-      apiClient.get.mockResolvedValue({ data: mockSchedules });
+
+      apiClient.get
+        .mockResolvedValueOnce({ data: mockSchedulesPage1 })
+        .mockResolvedValueOnce({ data: mockSchedulesPage2 });
 
       const result = await scheduleApi.getSchedules();
 
       expect(apiClient.get).toHaveBeenCalledWith('/events/schedules/');
+      expect(apiClient.get).toHaveBeenCalledWith('/events/schedules/?page=2');
       expect(result).toEqual([
         { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob', type: 'SCHEDULE' },
         { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave', type: 'SCHEDULE' },
