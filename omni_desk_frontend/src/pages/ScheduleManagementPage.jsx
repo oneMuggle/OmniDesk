@@ -106,7 +106,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             allowClear
             onChange={(value) => setSelectedPersonPositionId(value)}
             value={selectedPersonPositionId}
-            getPopupContainer={triggerNode => triggerNode.parentElement}
+            getPopupContainer={trigger => trigger.parentNode}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -124,10 +124,11 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             placeholder="选择值班人员"
             showSearch
             data-testid="schedule-modal-duty-person-select"
+            classNames={{ popup: 'duty-person-select-dropdown' }}
             filterOption={(input, option) =>
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
-            getPopupContainer={triggerNode => triggerNode.parentElement}
+            getPopupContainer={trigger => trigger.parentNode}
           >
             {filteredDutyPersonList.map(person => (
               <Option key={person.id} value={person.id} data-testid={`duty-person-option-${person.id}`}>
@@ -150,7 +151,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             allowClear
             onChange={(value) => setSelectedLeaderPositionId(value)}
             value={selectedLeaderPositionId}
-            getPopupContainer={triggerNode => triggerNode.parentElement}
+            getPopupContainer={trigger => trigger.parentNode}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -168,10 +169,11 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             placeholder="选择值班领导"
             showSearch
             data-testid="schedule-modal-duty-leader-select"
+            classNames={{ popup: 'duty-leader-select-dropdown' }}
             filterOption={(input, option) =>
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
-            getPopupContainer={triggerNode => triggerNode.parentElement}
+            getPopupContainer={trigger => trigger.parentNode}
           >
             {filteredDutyLeaderList.map(person => (
               <Option key={person.id} value={person.id} data-testid={`duty-leader-option-${person.id}`}>
@@ -271,7 +273,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         )}
 
         <Form.Item name="workday_personnel_sequence_id" label="人员顺序 (工作日)" rules={[{ required: true, message: '请选择工作日人员顺序!' }]}>
-          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" classNames={{ popup: 'workday-sequence-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`workday-sequence-option-${seq.id}`}>
                 {seq.name} (工作日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -281,7 +283,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
-          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" classNames={{ popup: 'start-personnel-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {selectedPersonnel.map(p => (
               <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
@@ -289,7 +291,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="holiday_personnel_sequence_id" label="人员顺序 (节假日)" rules={[{ required: true, message: '请选择节假日人员顺序!' }]}>
-          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" classNames={{ popup: 'holiday-sequence-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`holiday-sequence-option-${seq.id}`}>
                 {seq.name} (节假日: {Array.isArray(seq.holiday_personnel_details) ? seq.holiday_personnel_details.map(p => p.name).join(', ') : ''})
@@ -299,7 +301,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
-          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" classNames={{ popup: 'start-holiday-personnel-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {selectedHolidayPersonnel.map(p => (
               <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
@@ -307,7 +309,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="leader_sequence_id" label="领导顺序" rules={[{ required: true, message: '请选择领导顺序!' }]}>
-          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" classNames={{ popup: 'leader-sequence-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`leader-sequence-option-${seq.id}`}>
                 {seq.name} ({Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -317,7 +319,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_leader_id" label="起始领导">
-          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" getPopupContainer={triggerNode => triggerNode.parentElement}>
+          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" classNames={{ popup: 'start-leader-select-dropdown' }} getPopupContainer={trigger => trigger.parentNode}>
             {selectedLeaders.map(p => (
               <Option key={p.id} value={p.id}>{p.name}</Option>
             ))}
@@ -372,28 +374,34 @@ const ScheduleManagementPage = () => {
   }, []);
 
   const fetchData = useCallback(async () => {
-    setLoading(true);
+    // setLoading(true) is moved to initData
     try {
       const data = await scheduleApi.getSchedules();
-      // 遍历排班数据，duty_person和duty_leader已经是完整对象无需额外查找
       const formattedData = data.map(schedule => ({
         ...schedule,
-        // duty_person 和 duty_leader 已经包含完整信息，直接使用
       }));
       setSchedules(formattedData);
     } catch (error) {
       message.error('获取排班数据失败');
-    } finally {
-      setLoading(false);
     }
+    // setLoading(false) is moved to initData
   }, []);
 
   useEffect(() => {
     const initData = async () => {
-      await fetchPersonnel(); // 确保人员列表先加载
-      await fetchPositions(); // 确保职务列表先加载
-      await fetchSequences(); // 确保顺序列表先加载
-      await fetchData(); // 最后加载排班数据
+      setLoading(true);
+      try {
+        await Promise.all([
+          fetchPersonnel(),
+          fetchPositions(),
+          fetchSequences(),
+          fetchData(),
+        ]);
+      } catch (error) {
+        // Errors are handled in individual fetch functions
+      } finally {
+        setLoading(false);
+      }
     };
     initData();
   }, [fetchData]);
@@ -767,7 +775,7 @@ const ScheduleManagementPage = () => {
   return (
     <div className="p-4" data-testid="schedule-management-page">
       <h1 className="text-2xl font-bold mb-4">排班管理</h1>
-      <Card>
+      <Card loading={loading}>
         <div className="flex justify-between items-center mb-4">
           <Space>
             <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>

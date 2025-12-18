@@ -152,10 +152,12 @@ describe('ScheduleManagementPage', () => {
     await userEvent.click(await screen.findByTitle('2025-12-26'));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Alice$/ }));
+    const dutyPersonDropdown = await screen.findByTestId('duty-person-select-dropdown');
+    await userEvent.click(within(dutyPersonDropdown).getByTestId('duty-person-option-1'));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Leader A$/ }));
+    const dutyLeaderDropdown = await screen.findByTestId('duty-leader-select-dropdown');
+    await userEvent.click(within(dutyLeaderDropdown).getByTestId('duty-leader-option-101'));
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -179,10 +181,12 @@ describe('ScheduleManagementPage', () => {
     });
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-person-select'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Bob$/ }));
+    const dutyPersonDropdown = await screen.findByTestId('duty-person-select-dropdown');
+    await userEvent.click(within(dutyPersonDropdown).getByTestId('duty-person-option-2'));
 
     await userEvent.click(within(dialog).getByTestId('schedule-modal-duty-leader-select'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Leader B$/ }));
+    const dutyLeaderDropdown = await screen.findByTestId('duty-leader-select-dropdown');
+    await userEvent.click(within(dutyLeaderDropdown).getByTestId('duty-leader-option-102'));
 
     await userEvent.click(screen.getByTestId('schedule-modal-ok-button'));
 
@@ -220,19 +224,24 @@ describe('ScheduleManagementPage', () => {
     await userEvent.type(screen.getByTestId('generate-schedule-duration-days'), '10');
 
     await userEvent.click(screen.getByTestId('generate-schedule-workday-personnel-sequence'));
-    await userEvent.click(await screen.findByRole('option', { name: /Seq A \(工作日: Alice, Bob\)/ }));
+    const workdayDropdown = await screen.findByTestId('workday-sequence-select-dropdown');
+    await userEvent.click(within(workdayDropdown).getByTestId('workday-sequence-option-1'));
 
     await userEvent.click(screen.getByTestId('generate-schedule-holiday-personnel-sequence'));
-    await userEvent.click(await screen.findByRole('option', { name: /Seq A \(节假日: Charlie, David\)/ }));
+    const holidayDropdown = await screen.findByTestId('holiday-sequence-select-dropdown');
+    await userEvent.click(within(holidayDropdown).getByTestId('holiday-sequence-option-1'));
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-personnel'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Alice$/ }));
+    const startPersonnelDropdown = await screen.findByTestId('start-personnel-select-dropdown');
+    await userEvent.click(within(startPersonnelDropdown).getByText('Alice'));
 
     await userEvent.click(screen.getByTestId('generate-schedule-start-holiday-personnel'));
-    await userEvent.click(await screen.findByRole('option', { name: /^Charlie$/ }));
+    const startHolidayPersonnelDropdown = await screen.findByTestId('start-holiday-personnel-select-dropdown');
+    await userEvent.click(within(startHolidayPersonnelDropdown).getByText('Charlie'));
 
     await userEvent.click(screen.getByTestId('generate-schedule-leader-sequence'));
-    await userEvent.click(await screen.findByRole('option', { name: /Seq B \(Leader A, Leader B\)/ }));
+    const leaderSequenceDropdown = await screen.findByTestId('leader-sequence-select-dropdown');
+    await userEvent.click(within(leaderSequenceDropdown).getByTestId('leader-sequence-option-2'));
 
     await userEvent.click(within(dialog).getByRole('button', { name: '确 定' }));
 
