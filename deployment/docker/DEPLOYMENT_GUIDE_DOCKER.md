@@ -1,124 +1,93 @@
 # Omni Desk Docker 部署指南
 
-本文档将指导您如何在 Ubuntu 22.04 系统上使用 Docker 和 Docker Compose 部署 Omni Desk 应用。
+本文档将指导您如何使用 Docker 和 Docker Compose 在开发和生产环境中部署 Omni Desk 应用。
 
-## 1. 先决条件
+## 1. 开发环境
 
-在开始之前，请确保您的服务器满足以下条件：
-- 一台安装了 Ubuntu 22.04 的服务器。
-- 拥有 sudo 权限的用户。
-- Git 已安装 (`sudo apt update && sudo apt install git -y`)。
+开发环境旨在提供一个快速、高效的开发体验，支持代码热重载。
 
-## 2. 安装 Docker 和 Docker Compose
+### 1.1 启动开发环境
 
-首先，我们需要在服务器上安装 Docker 引擎和 Docker Compose。
-
-### 2.1 安装 Docker
+我们使用 `docker-compose.dev.yml` 文件来管理开发环境的服务。要启动所有服务，请在 `deployment/docker` 目录下运行以下命令：
 
 ```bash
-# 更新软件包列表
-sudo apt-get update
-
-# 安装必要的依赖
-sudo apt-get install -y ca-certificates curl gnupg
-
-# 添加 Docker 官方 GPG 密钥
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# 设置 Docker 仓库
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# 再次更新软件包列表
-sudo apt-get update
-
-# 安装 Docker 引擎, CLI, 和 containerd
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+docker-compose -f docker-compose.dev.yml up --build
 ```
 
-### 2.2 将当前用户添加到 Docker 组
+这个命令会执行以下操作：
+-   `--build`: 在启动容器前，会根据 `Dockerfile.dev` 构建 `backend` 和 `frontend` 服务的镜像。
+-   `up`: 创建并启动 `db`, `redis`, `backend`, 和 `frontend` 四个服务。
 
-为了避免每次使用 `docker` 命令时都需要输入 `sudo`，可以将当前用户添加到 `docker` 组。
+### 1.2 代码热重载
+
+为了实现热重载，我们在 `docker-compose.dev.yml` 文件中为 `backend` 和 `frontend` 服务配置了卷挂载（volumes）：
+
+**后端 (backend):**
+```yaml
+services:
+  backend:
+    # ...
+    volumes:
+      - ../../omni_desk_backend:/app
+```
+这将您本地的 `omni_desk_backend` 目录挂载到容器内的 `/app` 目录。当您在本地修改后端代码时，更改会立即同步到容器中，Django 开发服务器会自动重新加载，使您的更改生效。
+
+**前端 (frontend):**
+```yaml
+services:
+  frontend:
+    # ...
+    volumes:
+      - ../../omni_desk_frontend:/app
+```
+同样，`omni_desk_frontend` 目录被挂载到容器的 `/app` 目录。当您修改 React 代码时，Create React App 的开发服务器会检测到文件变化，并自动在浏览器中刷新页面。
+
+## 2. 生产环境
+
+生产环境的部署侧重于性能、安全和稳定性。代码会被打包到最终的 Docker 镜像中，而不是通过卷挂载。
+
+### 2.1 构建和部署生产镜像
+
+我们使用 `docker-compose.prod.yml` 和 `Dockerfile.prod` 文件来构建和部署生产环境。
+
+在 `deployment/docker` 目录下，运行以下命令来构建和启动生产服务：
 
 ```bash
-sudo usermod -aG docker $USER
-```
-**注意**: 您需要重新登录服务器或开启一个新的 shell 会话，这个改动才会生效。
-
-## 3. 获取源代码
-
-从您的代码仓库克隆项目。
-
-```bash
-git clone <您的项目仓库地址>
-cd <项目目录>
+docker-compose -f docker-compose.prod.yml up --build -d
 ```
 
-## 4. 配置环境变量
+-   `--build`: 会根据 `Dockerfile.prod` 为 `backend` 和 `frontend` 构建生产镜像。
+-   `-d`: (detached mode) 会在后台运行容器。
 
-我们使用 `.env` 文件来管理环境变量。您可以基于我们提供的模板创建一个生产环境的配置。
+### 2.2 代码打包机制
 
-```bash
-cp .env .env.production
-```
+与开发环境不同，生产镜像直接将应用程序代码和依赖项打包进去，以创建独立的、可移植的镜像。
 
-然后，编辑 `.env.production` 文件，**务必修改以下配置**：
+**后端 (backend):**
 
-- `SECRET_KEY`: 生成一个新的、安全的 Django 密钥。
-- `DEBUG`: 在生产环境中，应设置为 `False`。
-- `ALLOWED_HOSTS`: 添加您的服务器域名或 IP 地址。
-- `POSTGRES_PASSWORD`: 设置一个强密码。
+在 `deployment/docker/omni_desk_backend/Dockerfile.prod` 中：
+1.  `COPY ./omni_desk_backend/requirements-prod.txt .`: 复制生产环境所需的依赖文件。
+2.  `RUN pip install ...`: 安装这些依赖。
+3.  `COPY ./omni_desk_backend/ /app/`: 将整个 `omni_desk_backend` 项目目录复制到镜像的 `/app/` 目录中。
+4.  `CMD ["gunicorn", ...]`: 使用 Gunicorn 作为 WSGI 服务器来运行 Django 应用。
 
-## 5. 部署应用
+**前端 (frontend):**
 
-我们提供了一个便捷的部署脚本 `deploy_docker.sh` 来管理应用的生命周期。
+在 `omni_desk_frontend/Dockerfile.prod` 中，我们使用多阶段构建（multi-stage build）来优化镜像大小：
 
-### 5.1 首次启动
+1.  **Build Stage**:
+    *   `FROM node:18-alpine AS build`: 使用 Node.js 镜像作为构建环境。
+    *   `COPY package.json ./` 和 `npm install`: 安装所有依赖。
+    *   `COPY . .`: 复制所有前端源代码。
+    *   `RUN npm run build`: 执行构建命令，生成优化的静态文件（HTML, CSS, JS）到 `/app/build` 目录。
 
-要构建镜像并启动所有服务，请运行：
+2.  **Production Stage**:
+    *   `FROM nginx:stable-alpine`: 使用一个轻量级的 Nginx 镜像作为最终的生产镜像。
+    *   `COPY --from=build /app/build /usr/share/nginx/html`: **关键步骤** - 仅将上一个阶段生成的静态文件复制到 Nginx 的静态文件服务目录。源代码和 `node_modules` 都不会被包含在最终镜像中。
+    *   `COPY nginx.conf ...`: 复制 Nginx 配置文件。
+    *   `CMD ["nginx", ...]`: 启动 Nginx 服务器来提供前端静态文件。
 
-```bash
-# 确保脚本有执行权限
-chmod +x deploy_docker.sh
-
-# 启动服务
-./deploy_docker.sh up
-```
-这个命令会以后台模式启动所有在 `docker-compose.yml` 中定义的服务。
-
-### 5.2 执行数据库迁移
-
-在首次启动应用后，您需要执行数据库迁移来创建所有的数据表。
-
-```bash
-./deploy_docker.sh migrate
-```
-
-### 5.3 创建超级用户 (可选)
-
-如果您需要访问 Django admin 后台，可以创建一个超级用户。
-
-```bash
-docker-compose exec backend python manage.py createsuperuser
-```
-
-## 6. 管理应用
-
-`deploy_docker.sh` 脚本提供了一些有用的命令来管理您的应用：
-
-- **停止服务**: `./deploy_docker.sh down`
-- **查看日志**: `./deploy_docker.sh logs` 或 `./deploy_docker.sh logs backend`
-- **重建镜像**: `./deploy_docker.sh build`
-
-## 7. 访问应用
-
-部署成功后，您可以通过服务器的 IP 地址或域名在浏览器中访问 Omni Desk 应用。
-- **前端应用**: `http://<您的服务器IP或域名>`
-- **后端 API**: `http://<您的服务器IP或域名>/api/`
+通过这种方式，我们创建了两个优化的生产镜像：一个包含运行 Django 应用所需的一切，另一个则是一个非常小的、只包含静态文件和 Nginx 的前端镜像。
 
 ---
 部署完成！

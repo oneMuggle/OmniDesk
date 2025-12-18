@@ -1,0 +1,28 @@
+# syntax=docker/dockerfile:1
+
+# Production Stage
+FROM python:3.11-slim AS base
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE 1
+ENV PYTHONUNBUFFERED 1
+
+# Set work directory
+WORKDIR /app
+
+# Install dependencies
+# Copy requirements first to leverage Docker cache
+COPY ./omni_desk_backend/requirements-prod.txt .
+RUN pip install --no-cache-dir -r requirements-prod.txt
+
+# Copy project
+COPY ./omni_desk_backend/ /app/
+
+# Expose port
+EXPOSE 8000
+
+# Command to run the application
+# Ensure the user is not root
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+CMD ["gunicorn", "omni_desk_backend.wsgi:application", "--bind", "0.0.0.0:8000"]

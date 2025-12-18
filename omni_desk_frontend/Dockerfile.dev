@@ -1,0 +1,14 @@
+# Base image for development
+FROM node:18-alpine
+
+# Set the working directory in the container
+WORKDIR /app
+
+# Copy package.json and package-lock.json to leverage Docker cache
+COPY package*.json ./
+
+# Install dependencies
+RUN npm install
+
+# The command to start the development server
+CMD ["npm", "start"]
