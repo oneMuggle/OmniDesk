@@ -10,7 +10,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 WORKDIR /wheelhouse
 
 # Copy requirements file
-COPY omni_desk_backend/requirements-prod.txt .
+COPY requirements-prod.txt .
 
 # Create wheelhouse for all dependencies. This command downloads/builds all packages and their dependencies.
 RUN pip wheel --wheel-dir=/wheelhouse -r requirements-prod.txt
@@ -46,7 +46,7 @@ WORKDIR /usr/src/app
 # Copy the application code into the image
 # The .dockerignore file prevents unnecessary files from being included.
 # We are copying the contents of omni_desk_backend into the WORKDIR.
-COPY --chown=app:app omni_desk_backend/ .
+COPY --chown=app:app . .
 
 # Collect static files as root user
 RUN python manage.py collectstatic --no-input --clear
