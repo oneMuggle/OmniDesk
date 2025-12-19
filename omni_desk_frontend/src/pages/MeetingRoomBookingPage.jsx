@@ -350,6 +350,8 @@ const MeetingRoomBookingPage = () => {
                     onSelectEvent={handleSelectEvent}
                     views={['month', 'week', 'day', 'agenda']}
                     defaultView="week"
+                    slotMinTime="08:00:00"
+                    slotMaxTime="23:00:00"
                     components={{
                         toolbar: CustomToolbar,
                         event: EventComponent,

@@ -809,6 +809,8 @@ const ScheduleManagementPage = () => {
                  datesSet={handleDatesSet}
                  locale="zh-cn"
                  firstDay={1}
+                 slotMinTime="08:00:00"
+                 slotMaxTime="23:00:00"
                  data-testid="schedule-calendar"
                />
              </div>

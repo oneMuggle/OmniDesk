@@ -105,6 +105,8 @@ const TrialScheduleContainer = () => {
         onDateClick={handleDateSelect}
         select={handleDateSelect}
         onEventClick={handleEventClick}
+        slotMinTime="08:00:00"
+        slotMaxTime="23:00:00"
       />
 
       {currentEvent && (
