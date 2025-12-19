@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import PropTypes from 'prop-types';
-import { AuthContext, AuthProvider } from './AuthContext';
+import { AuthContext } from './AuthContext';
 
 const TestComponent = ({ requiredPermission }) => {
   const { hasPermission } = React.useContext(AuthContext);

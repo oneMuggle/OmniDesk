@@ -1,6 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
+import PropTypes from 'prop-types';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import Login from './Login';
 import { useAuth } from '../context/AuthContext';
@@ -29,6 +30,10 @@ const MemoryRouterWrapper = ({ children }) => (
     </Routes>
   </MemoryRouter>
 );
+
+MemoryRouterWrapper.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 const renderWithRouter = (ui) => {
   return render(ui, { wrapper: MemoryRouterWrapper });

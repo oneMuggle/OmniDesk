@@ -4,7 +4,11 @@ import '@testing-library/jest-dom';
 import ScheduleSettingsPage from './ScheduleSettingsPage';
 
 // Mock the child component
-jest.mock('../components/SequenceManager', () => () => <div>SequenceManager Mock</div>);
+jest.mock('../components/SequenceManager', () => {
+  const MockSequenceManager = () => <div>SequenceManager Mock</div>;
+  MockSequenceManager.displayName = 'MockSequenceManager';
+  return MockSequenceManager;
+});
 
 describe('ScheduleSettingsPage', () => {
   test('renders the page with title and the SequenceManager component', () => {

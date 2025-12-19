@@ -1,5 +1,6 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import PropTypes from 'prop-types';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
 import { Form } from 'antd';
@@ -137,14 +138,18 @@ describe('MeetingRoomManagementPage', () => {
 
   describe('Maintenance CRUD', () => {
     test('adds a new maintenance record', async () => {
-        let maintenanceForm;
-        const TestWrapper = () => {
+        const TestWrapper = ({ formRef }) => {
             const [form] = Form.useForm();
-            maintenanceForm = form;
+            React.useImperativeHandle(formRef, () => form);
             return <MeetingRoomManagementPage maintenanceForm={form} />;
         };
 
-        renderWithAuth(<TestWrapper />, { providerProps: { user: mockUser, isAuthenticated: true } });
+        TestWrapper.propTypes = {
+            formRef: PropTypes.object,
+        };
+
+        const maintenanceFormRef = React.createRef();
+        renderWithAuth(<TestWrapper formRef={maintenanceFormRef} />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
         const addMaintenanceButton = await screen.findByRole('button', { name: /添加维护记录/i });
         fireEvent.click(addMaintenanceButton);
@@ -152,7 +157,7 @@ describe('MeetingRoomManagementPage', () => {
         const dialog = await screen.findByRole('dialog', { name: /添加维护记录/i });
 
         await act(async () => {
-            maintenanceForm.setFieldsValue({
+            maintenanceFormRef.current.setFieldsValue({
                 meeting_room: 1,
                 timeRange: [dayjs('2025-12-20T10:00:00Z'), dayjs('2025-12-20T11:00:00Z')],
                 reason: 'Cleaning',

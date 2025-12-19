@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import apiClient from '../../api/apiClient';
@@ -57,7 +57,7 @@ describe('PersonnelSequenceModal', () => {
     // The query `getByRole('list')` is ambiguous as Ant Design's List component
     // renders multiple `<ul>` elements with the list role (for item actions).
     // We select the first element found, which corresponds to the main source list.
-    const sourceListContainer = screen.getAllByRole('list')[0];
+    screen.getAllByRole('list')[0];
     
     // Add Alice to Workday
     const addButtons = screen.getAllByRole('button', { name: '添加' });
