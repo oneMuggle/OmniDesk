@@ -87,7 +87,6 @@ const MeetingRoomBookingPage = () => {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [currentBooking, setCurrentBooking] = useState(null);
-    const [eventToEdit, setEventToEdit] = useState(null); // New state to trigger effect
     const [selectedEvent, setSelectedEvent] = useState(null);
     const [meetingRooms, setMeetingRooms] = useState([]);
     const [bookings, setBookings] = useState([]);
@@ -144,21 +143,6 @@ const MeetingRoomBookingPage = () => {
         fetchBookings();
     }, [fetchMeetingRooms, fetchBookings]);
 
-    // Effect to handle opening the edit modal
-    useEffect(() => {
-        if (eventToEdit) {
-            setCurrentBooking(eventToEdit);
-            form.setFieldsValue({
-                meeting_room: eventToEdit.meeting_room,
-                timeRange: [dayjs(eventToEdit.start), dayjs(eventToEdit.end)],
-                title: eventToEdit.title,
-                participants: eventToEdit.participants,
-                description: eventToEdit.description,
-            });
-            setIsModalVisible(true);
-            setEventToEdit(null); // Reset the trigger
-        }
-    }, [eventToEdit, form]);
 
     const handleSelectSlot = ({ start, end }) => {
         if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
@@ -204,7 +188,15 @@ const MeetingRoomBookingPage = () => {
         }
 
         setIsDetailModalVisible(false); // Close detail modal
-        setEventToEdit(selectedEvent); // Trigger the effect to open the edit modal
+        setCurrentBooking(selectedEvent);
+        form.setFieldsValue({
+            meeting_room: selectedEvent.meeting_room,
+            timeRange: [dayjs(selectedEvent.start), dayjs(selectedEvent.end)],
+            title: selectedEvent.title,
+            participants: selectedEvent.participants,
+            description: selectedEvent.description,
+        });
+        setIsModalVisible(true);
     };
 
     const handleOk = async () => {

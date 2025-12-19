@@ -21,10 +21,8 @@ export const scheduleApi = {
       
       while (url) {
         const response = await apiClient.get(url);
-        console.log(`API原始响应数据 (${url}):`, response.data);
 
         if (!response?.data) {
-          console.error('无效的API响应格式: 缺少data字段', response);
           break;
         }
 
@@ -34,7 +32,6 @@ export const scheduleApi = {
         url = response.data.next;
       }
 
-      console.log('转换前所有排班数据:', allSchedules);
 
       return allSchedules.map(schedule => ({
         id: schedule.id,
@@ -44,7 +41,6 @@ export const scheduleApi = {
         type: 'SCHEDULE'
       }));
     } catch (error) {
-      console.error('获取排班数据失败:', error);
       handleError(error);
       return [];
     }
@@ -52,16 +48,13 @@ export const scheduleApi = {
 
   createSchedule: async (scheduleData) => {
     try {
-      console.log('创建排班请求数据:', scheduleData);
       const response = await apiClient.post('/events/schedules/', {
         duty_date: scheduleData.date,
         duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
         duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
       });
-      console.log('创建排班响应:', response.data);
       return response.data;
     } catch (error) {
-      console.error('创建排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }
@@ -69,16 +62,13 @@ export const scheduleApi = {
 
   updateSchedule: async (scheduleId, scheduleData) => {
     try {
-      console.log('更新排班请求数据:', {scheduleId, ...scheduleData});
       const response = await apiClient.patch(`/events/schedules/${scheduleId}/`, {
         duty_date: scheduleData.date,
         duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
         duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
       });
-      console.log('更新排班响应:', response.data);
       return response.data;
     } catch (error) {
-      console.error('更新排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }
@@ -99,7 +89,6 @@ export const scheduleApi = {
       
       return response.data;
     } catch (error) {
-      console.error('保存排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }
@@ -152,7 +141,6 @@ export const scheduleApi = {
       const response = await apiClient.get('/events/personnel/');
       return response.data.results || [];
     } catch (error) {
-      console.error('获取人员数据失败:', error);
       handleError(error);
       return [];
     }
@@ -163,7 +151,6 @@ export const scheduleApi = {
       const response = await apiClient.post('/events/schedules/generate-schedules/', data);
       return response.data;
     } catch (error) {
-      console.error('生成排班失败:', error.response?.data || error.message);
       handleError(error);
       throw error;
     }

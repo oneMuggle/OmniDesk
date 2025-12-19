@@ -16,7 +16,6 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
         const response = await getQualifications(personnelId);
         setQualifications(response.data || []);
       } catch (error) {
-        console.error('Failed to fetch qualifications', error);
         setQualifications([]);
       }
     };
@@ -39,14 +38,12 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
           const response = await getQualifications(personnelId);
           setQualifications(response.data || []);
         } catch (error) {
-          console.error('Failed to fetch qualifications', error);
         }
       };
       fetch();
       setIsModalVisible(false);
       setEditingQualification(null);
     } catch (error) {
-      console.error('Failed to save qualification', error);
     }
   };
 
@@ -60,12 +57,10 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
           const response = await getQualifications(personnelId);
           setQualifications(response.data || []);
         } catch (error) {
-          console.error('Failed to fetch qualifications', error);
         }
       };
       fetch();
     } catch (error) {
-      console.error('Failed to delete qualification', error);
     }
   };
 

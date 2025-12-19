@@ -21,11 +21,21 @@ describe('scheduleApi', () => {
 
   it('should handle bulk delete schedules failure', async () => {
     const ids = [1, 2, 3];
-    const error = new Error('Network Error');
+    const error = {
+      isAxiosError: true,
+      response: { data: { detail: 'Bulk delete failed' }, status: 500 },
+      message: 'Network Error'
+    };
     apiClient.post.mockRejectedValue(error);
 
-    await expect(scheduleApi.bulkDeleteSchedules(ids)).rejects.toThrow('Network Error');
+    // We spy on handleError to ensure it's called, but prevent its output in tests
+    const handleError = jest.spyOn(require('./responseHandler'), 'handleError').mockImplementation(() => {});
+
+    await expect(scheduleApi.bulkDeleteSchedules(ids)).rejects.toEqual(error);
     expect(apiClient.post).toHaveBeenCalledWith('/events/schedules/bulk_destroy/', { ids });
+    expect(handleError).toHaveBeenCalledWith(error);
+
+    handleError.mockRestore();
   });
 
   describe('getSchedules', () => {

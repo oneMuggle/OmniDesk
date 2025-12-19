@@ -16,7 +16,6 @@ const FamilyMemberTable = ({ personnelId }) => {
         const response = await getFamilyMembers(personnelId);
         setFamilyMembers(response.data || []);
       } catch (error) {
-        console.error('Failed to fetch family members', error);
         setFamilyMembers([]);
       }
     };
@@ -39,14 +38,12 @@ const FamilyMemberTable = ({ personnelId }) => {
           const response = await getFamilyMembers(personnelId);
           setFamilyMembers(response.data || []);
         } catch (error) {
-          console.error('Failed to fetch family members', error);
         }
       };
       fetch();
       setIsModalVisible(false);
       setEditingFamilyMember(null);
     } catch (error) {
-      console.error('Failed to save family member', error);
     }
   };
 
@@ -60,12 +57,10 @@ const FamilyMemberTable = ({ personnelId }) => {
           const response = await getFamilyMembers(personnelId);
           setFamilyMembers(response.data || []);
         } catch (error) {
-          console.error('Failed to fetch family members', error);
         }
       };
       fetch();
     } catch (error) {
-      console.error('Failed to delete family member', error);
     }
   };
 
