@@ -238,7 +238,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
               !isCollapsed && <span className="login-hint">请登录</span>
             )}
           </div>
-          {!isCollapsed && <h2><CalendarOutlined /> 智能办公桌面管理系统</h2>}
+          {!isCollapsed && <h2><CalendarOutlined /> 智能办公系统</h2>}
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>
               &times;

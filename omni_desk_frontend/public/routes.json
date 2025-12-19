@@ -1,15 +1,5 @@
 [
   {
-    "name": "仪表盘",
-    "path": "/",
-    "component": "DashboardPage"
-  },
-  {
-    "name": "会议室预定",
-    "path": "/meeting-rooms",
-    "component": "MeetingRoomBookingPage"
-  },
-  {
     "name": "事件管理",
     "path": "/events",
     "component": "EventsPage"
@@ -55,11 +45,6 @@
     "component": "ChapterEditorPage"
   },
   {
-    "name": "备忘录",
-    "path": "/memos",
-    "component": "MemoPage"
-  },
-  {
     "name": "Dify 应用列表",
     "path": "/dify-apps",
     "component": "DifyAppList"
@@ -75,44 +60,9 @@
     "component": "OfficeAssistant"
   },
   {
-    "name": "项目",
-    "path": "/projects",
-    "component": "ProjectsPage"
-  },
-  {
-    "name": "通知",
-    "path": "/notifications",
-    "component": "NotificationsPage"
-  },
-  {
     "name": "文档管理",
     "path": "/documents",
     "component": "DocumentsPage"
-  },
-  {
-    "name": "传感器管理",
-    "path": "/sensor-management",
-    "component": "SensorManagementPage"
-  },
-  {
-    "name": "传感器类别管理",
-    "path": "/sensor-categories",
-    "component": "SensorCategoryManagementPage"
-  },
-  {
-    "name": "存储位置管理",
-    "path": "/storage-locations",
-    "component": "StorageLocationManagementPage"
-  },
-  {
-    "name": "传感器校准管理",
-    "path": "/sensor-calibration/:id",
-    "component": "SensorCalibrationManagementPage"
-  },
-  {
-    "name": "传感器详情",
-    "path": "/sensors/:id",
-    "component": "SensorDetailPage"
   },
   {
     "name": "交流",
@@ -203,26 +153,6 @@
     "name": "排班设置",
     "path": "/control-panel/schedule-settings",
     "component": "ScheduleSettingsPage"
-  },
-  {
-    "name": "合规性",
-    "path": "/control-panel/compliance",
-    "component": "CompliancePage"
-  },
-  {
-    "name": "会议室管理",
-    "path": "/control-panel/meeting-room-management",
-    "component": "MeetingRoomManagementPage"
-  },
-  {
-    "name": "用户管理",
-    "path": "/control-panel/user-management",
-    "component": "UserManagementPage"
-  },
-  {
-    "name": "电子书管理",
-    "path": "/control-panel/ebook-management",
-    "component": "EBookManagementPage"
   },
   {
     "name": "假期管理",
