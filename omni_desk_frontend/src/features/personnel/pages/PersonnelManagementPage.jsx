@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import ConfirmModal from '../components/Calendar/ConfirmModal';
 import { Link } from 'react-router-dom';
 import {
   getPersonnel,
@@ -165,8 +164,21 @@ const PersonnelManagementPage = () => {
   };
 
   const handleDelete = (id) => {
-    setSelectedPersonnelId(id);
-    setIsDeleteConfirmVisible(true);
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除该人员信息吗？',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await deletePersonnel(id);
+          message.success('删除成功');
+          fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
+        } catch (error) {
+          message.error('删除失败');
+        }
+      },
+    });
   };
 
 
@@ -225,7 +237,6 @@ const PersonnelManagementPage = () => {
         </Form>
       </Modal>
 
-      <ConfirmModal open={isDeleteConfirmVisible} title="确认删除" content="确定要删除该人员信息吗？" okText="确认" cancelText="取消" type="danger" onOk={handleConfirmDelete} onCancel={() => setIsDeleteConfirmVisible(false)} data-testid="delete-personnel-confirm-modal" okButtonProps={{ 'data-testid': 'delete-personnel-confirm-modal-ok-button' }} destroyOnHidden />
     </div>
   );
 };

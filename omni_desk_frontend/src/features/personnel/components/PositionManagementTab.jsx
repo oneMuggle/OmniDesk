@@ -7,7 +7,6 @@ import {
   deletePosition
 } from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import ConfirmModal from '../Calendar/ConfirmModal';
 
 
 const PositionManagementTab = () => {
@@ -108,8 +107,21 @@ const PositionManagementTab = () => {
   };
 
   const handleDeletePosition = (id) => {
-    setSelectedPositionId(id);
-    setIsPositionDeleteModalVisible(true);
+    Modal.confirm({
+      title: '确认删除',
+      content: '确定要删除该职位吗？',
+      okText: '确认',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          await deletePosition(id);
+          message.success('职位删除成功');
+          fetchPositionData();
+        } catch (error) {
+          message.error('职位删除失败');
+        }
+      },
+    });
   };
 
   return (
@@ -151,19 +163,6 @@ const PositionManagementTab = () => {
           </Form.Item>
         </Form>
       </Modal>
-      <ConfirmModal
-        open={isPositionDeleteModalVisible}
-        title="确认删除"
-        content="确定要删除该职位吗？"
-        okText="确认"
-        cancelText="取消"
-        type="danger"
-        onOk={handleConfirmPositionDelete}
-        onCancel={() => {
-          setIsPositionDeleteModalVisible(false);
-          setSelectedPositionId(null);
-        }}
-      />
     </div>
   );
 };

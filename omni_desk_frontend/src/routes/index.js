@@ -1,62 +1,62 @@
 import React from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import ProtectedRoute from '../components/ProtectedRoute';
-import GuestRoute from '../components/GuestRoute';
-import UnauthorizedPage from '../pages/UnauthorizedPage';
+import ProtectedRoute from '../shared/components/ProtectedRoute';
+import GuestRoute from '../shared/components/GuestRoute';
+import UnauthorizedPage from '../shared/pages/UnauthorizedPage';
 import App from '../App';
 import SchedulePage from '../features/schedule/pages/SchedulePage';
-import SystemSettingsPage from '../pages/SystemSettingsPage';
-import IntelligentChatPage from '../pages/IntelligentChatPage';
-import RagflowChatPage from '../pages/RagflowChatPage';
-import EventsPage from '../pages/EventsPage';
+import SystemSettingsPage from '../features/settings/pages/SystemSettingsPage';
+import IntelligentChatPage from '../features/chat/pages/IntelligentChatPage';
+import RagflowChatPage from '../features/chat/pages/RagflowChatPage';
+import EventsPage from '../features/events/pages/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
 import ProfilePage from '../pages/profile/ProfilePage';
 import PersonnelDetailPage from '../features/personnel/pages/PersonnelDetailPage';
 import Login from '../features/authentication/pages/Login';
-import Register from '../pages/Register';
-import DocumentsPage from '../pages/DocumentsPage';
-import AnnouncementsPage from '../pages/AnnouncementsPage';
-import EquipmentPage from '../pages/EquipmentPage';
-import FileAnalysisPage from '../pages/FileAnalysisPage';
+import Register from '../features/authentication/pages/Register';
+import DocumentsPage from '../features/documents/pages/DocumentsPage';
+import AnnouncementsPage from '../features/announcements/pages/AnnouncementsPage';
+import EquipmentPage from '../features/equipment/pages/EquipmentPage';
+import FileAnalysisPage from '../features/file-analysis/pages/FileAnalysisPage';
 import DocsPage from '../pages/DocsPage';
 import BookPage from '../pages/BookPage';
 import BookReaderPage from '../pages/BookReaderPage';
-import LibraryPage from '../pages/LibraryPage';
+import LibraryPage from '../features/library/pages/LibraryPage';
 import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEditorPage
-import TrialsPage from '../pages/TrialsPage';
+import TrialsPage from '../features/trials/pages/TrialsPage';
 import PersonnelManagementPage from '../features/personnel/pages/PersonnelManagementPage';
 import PersonnelEditPage from '../features/personnel/pages/PersonnelEditPage';
 import TrialScheduleContainer from '../features/schedule/components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../features/schedule/components/ShiftScheduleContainer';
-import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
-import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
-import ManageAnnouncementsPage from '../pages/ManageAnnouncementsPage';
+import DashboardPage from '../features/dashboard/pages/DashboardPage'; // 导入 DashboardPage
+import MemoPage from '../features/memo/pages/MemoPage'; // 导入 MemoPage
+import ManageAnnouncementsPage from '../features/announcements/pages/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
-import DifyAppList from '../pages/DifyApps/DifyAppList';
-import DifyAppViewer from '../pages/DifyApps/DifyAppViewer';
-import DifyAppManagementPage from '../pages/DifyApps/DifyAppManagementPage';
+import DifyAppList from '../features/dify/pages/DifyAppList';
+import DifyAppViewer from '../features/dify/pages/DifyAppViewer';
+import DifyAppManagementPage from '../features/dify/pages/DifyAppManagementPage';
 import ScheduleManagementPage from '../features/schedule/pages/ScheduleManagementPage';
 import ScheduleSettingsPage from '../features/schedule/pages/ScheduleSettingsPage';
 import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
-import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
-import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
-import NotificationsPage from '../pages/NotificationsPage'; // Import NotificationsPage
-import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
-import MeetingRoomManagementPage from '../pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
-import UserManagementPage from '../pages/UserManagementPage'; // Import UserManagementPage
-import SensorManagementPage from '../pages/SensorManagementPage'; // 导入 SensorManagementPage
-import SensorCategoryManagementPage from '../pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
-import StorageLocationManagementPage from '../pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
-import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
-import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
-import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
+import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import ProjectsPage
+import CompliancePage from '../features/compliance/pages/CompliancePage'; // Import CompliancePage
+import NotificationsPage from '../features/notifications/pages/NotificationsPage'; // Import NotificationsPage
+import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
+import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
+import UserManagementPage from '../features/user-management/pages/UserManagementPage'; // Import UserManagementPage
+import SensorManagementPage from '../features/sensor/pages/SensorManagementPage'; // 导入 SensorManagementPage
+import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
+import StorageLocationManagementPage from '../features/sensor/pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
+import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
+import SensorDetailPage from '../features/sensor/pages/SensorDetailPage'; // 导入 SensorDetailPage
+import EBookManagementPage from '../features/ebook/pages/EBookManagementPage'; // 导入 EBookManagementPage
 import HolidayManagementPage from '../features/schedule/pages/HolidayManagementPage'; // 导入 HolidayManagementPage
-import CommunicationPage from '../pages/CommunicationPage';
+import CommunicationPage from '../features/communication/pages/CommunicationPage';
 import PostDetailPage from '../pages/PostDetailPage';
-import NewsStatsPage from '../pages/NewsStatsPage';
-import NewsManagementPage from '../pages/NewsManagementPage';
+import NewsStatsPage from '../features/news/pages/NewsStatsPage';
+import NewsManagementPage from '../features/news/pages/NewsManagementPage';
 import AddCalibrationRecordPage from '../pages/AddCalibrationRecordPage';
-import SensorCalibrationHistoryPage from '../pages/SensorCalibrationHistoryPage';
+import SensorCalibrationHistoryPage from '../features/sensor/pages/SensorCalibrationHistoryPage';
 import NewPostPage from '../pages/NewPostPage';
  
  const router = createBrowserRouter([

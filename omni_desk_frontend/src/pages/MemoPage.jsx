@@ -3,7 +3,7 @@ import { Layout, Row, Col, Button, Spin, Typography, Space, Card, message } from
 import { PlusOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import { useMemoData } from '../hooks/useMemoData';
-import { useCalendar } from '../hooks/useCalendar';
+import { useCalendar } from '../features/schedule/hooks/useCalendar';
 import MiniCalendar from '../components/Memo/MiniCalendar';
 import MemoList from '../components/Memo/MemoList';
 import MemoModal from '../components/Memo/MemoModal';

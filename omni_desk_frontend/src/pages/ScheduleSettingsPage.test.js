@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ScheduleSettingsPage from './ScheduleSettingsPage';
+import ScheduleSettingsPage from '../features/schedule/pages/ScheduleSettingsPage';
 
 // Mock the child component
 jest.mock('../components/SequenceManager', () => {

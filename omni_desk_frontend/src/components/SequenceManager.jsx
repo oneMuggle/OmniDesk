@@ -4,7 +4,7 @@ import { List, Button, Modal, Form, Input, Select, message, Popconfirm, Card, Co
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
-} from '../features/schedule/api/sequenceApi';
+} from '../api/sequenceApi';
 import { getAllPersonnel, getPositions } from '../features/personnel/api/personnelApi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
