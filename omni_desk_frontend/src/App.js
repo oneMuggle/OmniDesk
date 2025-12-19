@@ -2,12 +2,12 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import './App.css';
 import 'react-toastify/dist/ReactToastify.css';
-import Sidebar from './shared/components/Sidebar';
+import Sidebar from './components/Sidebar';
 import 'animate.css';
-import { AuthProvider } from './shared/context/AuthContext';
-import { ApiProvider } from './shared/context/ApiProvider';
+import { AuthProvider } from './context/AuthContext';
+import { ApiProvider } from './context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
-import { RefreshProvider } from './shared/context/RefreshContext';
+import { RefreshProvider } from './context/RefreshContext';
 
 function App() {
   return (

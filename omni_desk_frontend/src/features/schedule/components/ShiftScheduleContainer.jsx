@@ -1,11 +1,11 @@
 import React, { useState, useRef } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../../context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData';
 import { useScheduleEventDrop } from '../hooks/useScheduleEventDrop';
 import PersonnelScheduleModal from './PersonnelScheduleModal';
 import ShiftSchedule from './ShiftSchedule';
-import WeeklyLeaderDisplay from './Schedule/WeeklyLeaderDisplay';
-import MonthlyLeaderSidebar from './Schedule/MonthlyLeaderSidebar';
+import WeeklyLeaderDisplay from '../../../components/Schedule/WeeklyLeaderDisplay';
+import MonthlyLeaderSidebar from '../../../components/Schedule/MonthlyLeaderSidebar';
 import moment from 'moment';
 import { DragDropContext } from 'react-beautiful-dnd';
 import { scheduleApi } from '../api/schedule';

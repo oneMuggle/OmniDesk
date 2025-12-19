@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import api from '../api/axiosConfig';
+import api from '../shared/api/axiosConfig';
 import './AnnotationHandler.css';
 
 const AnnotationHandler = ({ chapterId, children }) => {

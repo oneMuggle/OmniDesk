@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import ScheduleControls from '../components/ScheduleControls';
 import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
-import '../components/CalendarPage.css';
+import '../../../components/CalendarPage.css';
 
 const SchedulePage = ({ scheduleType }) => {
   return (

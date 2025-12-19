@@ -1,5 +1,5 @@
 import React from 'react';
-import PostList from '../components/communication/PostList';
+import PostList from '../../../components/communication/PostList';
 
 const CommunicationPage = () => {
 

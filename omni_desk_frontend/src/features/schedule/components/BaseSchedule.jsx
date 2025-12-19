@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import './styles/Schedule.css'; // 导入日历美化样式
-import './styles/Controls.css';
+import '../../../components/styles/Schedule.css'; // 导入日历美化样式
+import '../../../components/styles/Controls.css';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';

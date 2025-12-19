@@ -1,6 +1,6 @@
-import { trialApi } from './trialApi';
+import { trialApi } from '../../../api/trialApi';
 import { timeSlotApi } from './timeSlotApi';
-import * as personnelApi from './personnelApi';
+import * as personnelApi from '../../personnel/api/personnelApi';
 import { scheduleEventApi } from './scheduleEventApi';
 import { scheduleApi as coreScheduleApi } from './scheduleApi'; // 导入原始的 scheduleApi 并重命名
 

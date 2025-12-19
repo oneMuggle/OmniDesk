@@ -1,5 +1,5 @@
-import { fromServerFormat } from './dateUtils';
-import './../types/schedule'; // Import the typedefs
+import { fromServerFormat } from '../../../utils/dateUtils';
+import '../../../types/schedule'; // Import the typedefs
 
 /**
  * 将后端排班数据转换为 ScheduleEvent 格式

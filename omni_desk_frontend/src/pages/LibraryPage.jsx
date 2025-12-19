@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import api from '../api/axiosConfig';
+import api from '../api/apiClient';
 import './LibraryPage.css';
 
 const BookCard = ({ book }) => (

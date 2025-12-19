@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useLocation } from 'react-router-dom'; // Import Link and useLocation
-import api from '../api/axiosConfig';
+import api from '../shared/api/axiosConfig';
 import './ChapterView.css';
 import Commenting from './Commenting';
 import AnnotationHandler from './AnnotationHandler';
