@@ -4,7 +4,7 @@ import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, S
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '~/features/schedule/api/scheduleApi';
-import { getAllPersonnel, getPositions } from '../api/personnelApi';
+import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';

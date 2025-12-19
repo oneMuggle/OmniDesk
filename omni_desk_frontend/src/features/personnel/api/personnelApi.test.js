@@ -10,9 +10,9 @@ import {
   updatePosition,
   deletePosition,
 } from './personnelApi';
-import apiClient from './apiClient';
+import apiClient from '../../../api/apiClient';
 
-jest.mock('./apiClient');
+jest.mock('../../../api/apiClient');
 
 describe('personnelApi', () => {
   afterEach(() => {

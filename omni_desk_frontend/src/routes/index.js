@@ -4,15 +4,15 @@ import ProtectedRoute from '../components/ProtectedRoute';
 import GuestRoute from '../components/GuestRoute';
 import UnauthorizedPage from '../pages/UnauthorizedPage';
 import App from '../App';
-import SchedulePage from '../pages/SchedulePage';
+import SchedulePage from '../features/schedule/pages/SchedulePage';
 import SystemSettingsPage from '../pages/SystemSettingsPage';
 import IntelligentChatPage from '../pages/IntelligentChatPage';
 import RagflowChatPage from '../pages/RagflowChatPage';
 import EventsPage from '../pages/EventsPage';
 import AdminLayout from '../components/Admin/AdminLayout';
 import ProfilePage from '../pages/profile/ProfilePage';
-import PersonnelDetailPage from '../pages/PersonnelDetailPage';
-import Login from '../pages/Login';
+import PersonnelDetailPage from '../features/personnel/pages/PersonnelDetailPage';
+import Login from '../features/authentication/pages/Login';
 import Register from '../pages/Register';
 import DocumentsPage from '../pages/DocumentsPage';
 import AnnouncementsPage from '../pages/AnnouncementsPage';
@@ -24,8 +24,8 @@ import BookReaderPage from '../pages/BookReaderPage';
 import LibraryPage from '../pages/LibraryPage';
 import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEditorPage
 import TrialsPage from '../pages/TrialsPage';
-import PersonnelManagementPage from '../pages/PersonnelManagementPage';
-import PersonnelEditPage from '../pages/PersonnelEditPage';
+import PersonnelManagementPage from '../features/personnel/pages/PersonnelManagementPage';
+import PersonnelEditPage from '../features/personnel/pages/PersonnelEditPage';
 import TrialScheduleContainer from '~/features/schedule/components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
@@ -35,7 +35,7 @@ import AnnouncementForm from '../components/AnnouncementForm';
 import DifyAppList from '../pages/DifyApps/DifyAppList';
 import DifyAppViewer from '../pages/DifyApps/DifyAppViewer';
 import DifyAppManagementPage from '../pages/DifyApps/DifyAppManagementPage';
-import ScheduleManagementPage from '~/features/schedule/pages/ScheduleManagementPage';
+import ScheduleManagementPage from '../features/schedule/pages/ScheduleManagementPage';
 import ScheduleSettingsPage from '../pages/ScheduleSettingsPage';
 import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage

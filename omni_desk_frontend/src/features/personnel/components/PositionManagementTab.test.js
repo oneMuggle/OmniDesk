@@ -3,9 +3,9 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PositionManagementTab from './PositionManagementTab';
-import { getPositions, createPosition, updatePosition, deletePosition } from '../../api/personnelApi';
+import { getPositions, createPosition, updatePosition, deletePosition } from '../api/personnelApi';
 
-jest.mock('../../api/personnelApi');
+jest.mock('../api/personnelApi');
 
 const mockPositions = {
   results: [

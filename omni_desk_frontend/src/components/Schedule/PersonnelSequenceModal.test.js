@@ -2,10 +2,10 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import apiClient from '../../api/apiClient';
+import apiClient from '../../shared/api/apiClient';
 import PersonnelSequenceModal from './PersonnelSequenceModal';
 
-jest.mock('../../api/apiClient');
+jest.mock('../../shared/api/apiClient');
 
 const mockPositions = [
   { id: 1, name: 'Manager' },

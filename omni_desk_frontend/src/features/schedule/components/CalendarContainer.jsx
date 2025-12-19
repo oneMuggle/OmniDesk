@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import PropTypes from 'prop-types';
 import TrialScheduleContainer from '~/features/schedule/components/TrialScheduleContainer';
 import ScheduleCalendar from './ScheduleCalendar';
-import ScheduleControls from '../ScheduleControls';
+import ScheduleControls from './ScheduleControls';
 import './styles/CalendarContainer.css';
 
 const CalendarContainer = ({

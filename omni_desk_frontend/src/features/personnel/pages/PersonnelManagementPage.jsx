@@ -10,7 +10,7 @@ import {
   deletePersonnel,
   getPositions,
 } from '../api/personnelApi';
-import PositionManagementTab from '../components/Personnel/PositionManagementTab';
+import PositionManagementTab from '../components/PositionManagementTab';
 
 const { Option } = Select;
 

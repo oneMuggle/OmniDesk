@@ -6,12 +6,12 @@ import SequenceManager from './SequenceManager';
 import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
-} from '../api/sequenceApi';
-import { getAllPersonnel, getPositions } from '../api/personnelApi';
+} from '../features/schedule/api/sequenceApi';
+import { getAllPersonnel, getPositions } from '../features/personnel/api/personnelApi';
 
 // Mock APIs
-jest.mock('../api/sequenceApi');
-jest.mock('../api/personnelApi');
+jest.mock('../features/schedule/api/sequenceApi');
+jest.mock('../features/personnel/api/personnelApi');
 
 // Mock react-beautiful-dnd
 jest.mock('react-beautiful-dnd', () => {

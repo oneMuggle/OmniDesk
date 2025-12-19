@@ -5,7 +5,7 @@ import {
   createPosition,
   updatePosition,
   deletePosition
-} from '../../api/personnelApi';
+} from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import ConfirmModal from '../Calendar/ConfirmModal';
 

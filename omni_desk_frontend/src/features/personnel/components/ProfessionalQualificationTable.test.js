@@ -2,9 +2,9 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import ProfessionalQualificationTable from './ProfessionalQualificationTable';
-import * as api from '../../api/personnelApi';
+import * as api from '../api/personnelApi';
 
-jest.mock('../../api/personnelApi');
+jest.mock('../api/personnelApi');
 
 const mockQualifications = {
   data: [
