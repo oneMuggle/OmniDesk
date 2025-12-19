@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
 
     steps:
     - name: Checkout code
@@ -21,10 +21,6 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install system dependencies for PyQt6
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y libgl1 libegl1 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-xinerama0 libxcb-xfixes0
 
     - name: Install Python dependencies
       run: |
