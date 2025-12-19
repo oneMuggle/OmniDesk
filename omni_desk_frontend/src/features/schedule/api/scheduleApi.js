@@ -1,5 +1,5 @@
-import apiClient from './apiClient';
-import { handleError } from './responseHandler';
+import apiClient from '../../../api/apiClient';
+import { handleError } from '../../../api/responseHandler';
 
 export const scheduleApi = {
   checkScheduleDate: async (date) => {

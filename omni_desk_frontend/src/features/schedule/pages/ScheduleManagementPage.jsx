@@ -3,7 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, Switch, Popconfirm } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
-import { scheduleApi } from '../api/scheduleApi';
+import { scheduleApi } from '~/features/schedule/api/scheduleApi';
 import { getAllPersonnel, getPositions } from '../api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../api/sequenceApi';
 import moment from 'moment';

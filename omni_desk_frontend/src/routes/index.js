@@ -26,7 +26,7 @@ import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEdi
 import TrialsPage from '../pages/TrialsPage';
 import PersonnelManagementPage from '../pages/PersonnelManagementPage';
 import PersonnelEditPage from '../pages/PersonnelEditPage';
-import TrialScheduleContainer from '../components/TrialScheduleContainer';
+import TrialScheduleContainer from '~/features/schedule/components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
@@ -35,7 +35,7 @@ import AnnouncementForm from '../components/AnnouncementForm';
 import DifyAppList from '../pages/DifyApps/DifyAppList';
 import DifyAppViewer from '../pages/DifyApps/DifyAppViewer';
 import DifyAppManagementPage from '../pages/DifyApps/DifyAppManagementPage';
-import ScheduleManagementPage from '../pages/ScheduleManagementPage';
+import ScheduleManagementPage from '~/features/schedule/pages/ScheduleManagementPage';
 import ScheduleSettingsPage from '../pages/ScheduleSettingsPage';
 import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
