@@ -38,12 +38,14 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
           const response = await getQualifications(personnelId);
           setQualifications(response.data || []);
         } catch (error) {
+          console.error("Failed to re-fetch qualifications:", error);
         }
       };
       fetch();
       setIsModalVisible(false);
       setEditingQualification(null);
     } catch (error) {
+      console.error("Error saving qualification:", error);
     }
   };
 
@@ -57,10 +59,12 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
           const response = await getQualifications(personnelId);
           setQualifications(response.data || []);
         } catch (error) {
+          console.error("Failed to re-fetch qualifications after deletion:", error);
         }
       };
       fetch();
     } catch (error) {
+      console.error("Error deleting qualification:", error);
     }
   };
 
