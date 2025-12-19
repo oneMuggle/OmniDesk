@@ -1,7 +1,7 @@
 import React from 'react';
 import PropTypes from 'prop-types';
 import ScheduleControls from '../components/ScheduleControls';
-import TrialScheduleContainer from '~/features/schedule/components/TrialScheduleContainer';
+import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import '../components/CalendarPage.css';
 

@@ -26,8 +26,8 @@ import ChapterEditorPage from '../pages/ChapterEditorPage'; // 导入 ChapterEdi
 import TrialsPage from '../pages/TrialsPage';
 import PersonnelManagementPage from '../features/personnel/pages/PersonnelManagementPage';
 import PersonnelEditPage from '../features/personnel/pages/PersonnelEditPage';
-import TrialScheduleContainer from '~/features/schedule/components/TrialScheduleContainer';
-import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
+import TrialScheduleContainer from '../features/schedule/components/TrialScheduleContainer';
+import ShiftScheduleContainer from '../features/schedule/components/ShiftScheduleContainer';
 import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
 import MemoPage from '../pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../pages/ManageAnnouncementsPage';
@@ -36,7 +36,7 @@ import DifyAppList from '../pages/DifyApps/DifyAppList';
 import DifyAppViewer from '../pages/DifyApps/DifyAppViewer';
 import DifyAppManagementPage from '../pages/DifyApps/DifyAppManagementPage';
 import ScheduleManagementPage from '../features/schedule/pages/ScheduleManagementPage';
-import ScheduleSettingsPage from '../pages/ScheduleSettingsPage';
+import ScheduleSettingsPage from '../features/schedule/pages/ScheduleSettingsPage';
 import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 import ProjectsPage from '../pages/ProjectsPage'; // Import ProjectsPage
 import CompliancePage from '../pages/CompliancePage'; // Import CompliancePage
@@ -50,7 +50,7 @@ import StorageLocationManagementPage from '../pages/StorageLocationManagementPag
 import SensorCalibrationManagementPage from '../pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
 import SensorDetailPage from '../pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../pages/EBookManagementPage'; // 导入 EBookManagementPage
-import HolidayManagementPage from '../pages/HolidayManagementPage'; // 导入 HolidayManagementPage
+import HolidayManagementPage from '../features/schedule/pages/HolidayManagementPage'; // 导入 HolidayManagementPage
 import CommunicationPage from '../pages/CommunicationPage';
 import PostDetailPage from '../pages/PostDetailPage';
 import NewsStatsPage from '../pages/NewsStatsPage';
