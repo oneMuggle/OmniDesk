@@ -41,7 +41,7 @@ import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 // import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import ProjectsPage
 // import CompliancePage from '../features/compliance/pages/CompliancePage'; // Import CompliancePage
 // import NotificationsPage from '../features/notifications/pages/NotificationsPage'; // Import NotificationsPage
-import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
+import MeetingRoomBookingPage from '../pages/MeetingRoomBookingPage.jsx'; // Import MeetingRoomBookingPage
 // import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 // import UserManagementPage from '../features/user-management/pages/UserManagementPage'; // Import UserManagementPage
 // import SensorManagementPage from '../features/sensor/pages/SensorManagementPage'; // 导入 SensorManagementPage
