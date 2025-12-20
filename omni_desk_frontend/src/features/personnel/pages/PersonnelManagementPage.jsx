@@ -28,8 +28,6 @@ const PersonnelManagementPage = () => {
     pageSize: 10,
     total: 0,
   });
-  const [isDeleteConfirmVisible, setIsDeleteConfirmVisible] = useState(false);
-  const [selectedPersonnelId, setSelectedPersonnelId] = useState(null);
   const [activeTab, setActiveTab] = useState('personnel');
 
   const columns = [
@@ -111,7 +109,7 @@ const PersonnelManagementPage = () => {
     if (positionsLoaded) {
       fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
     }
-  }, [positionsLoaded, id, pagination.current, pagination.pageSize, searchQuery, positionFilter, fetchData]);
+  }, [positionsLoaded, id, pagination, searchQuery, positionFilter, fetchData]);
 
   const handleTableChange = (newPagination) => {
     setPagination(prev => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
@@ -159,20 +157,6 @@ const PersonnelManagementPage = () => {
     } catch (error) {
       console.error('操作失败:', error);
       message.error('操作失败');
-    }
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!selectedPersonnelId) return;
-    try {
-      await deletePersonnel(selectedPersonnelId);
-      message.success('删除成功');
-      await fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
-    } catch (error) {
-      message.error('删除失败');
-    } finally {
-      setIsDeleteConfirmVisible(false);
-      setSelectedPersonnelId(null);
     }
   };
 

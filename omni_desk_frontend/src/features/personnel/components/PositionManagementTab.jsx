@@ -14,22 +14,21 @@ const PositionManagementTab = () => {
   const [positionData, setPositionData] = useState([]);
   const [isPositionModalVisible, setIsPositionModalVisible] = useState(false);
   const [editingPositionId, setEditingPositionId] = useState(null);
-  const [isPositionDeleteModalVisible, setIsPositionDeleteModalVisible] = useState(false);
-  const [selectedPositionId, setSelectedPositionId] = useState(null);
-
-  const fetchPositionData = useCallback(async () => {
-    try {
-      const response = await getPositions();
-      setPositionData(response.results || []);
-    } catch (error) {
-      message.error('获取职位数据失败');
-      setPositionData([]);
-    }
-  }, []);
+  const [version, setVersion] = useState(0);
 
   useEffect(() => {
+    const fetchPositionData = async () => {
+      try {
+        const response = await getPositions();
+        setPositionData(response.results || []);
+      } catch (error) {
+        message.error('获取职位数据失败');
+        setPositionData([]);
+      }
+    };
+
     fetchPositionData();
-  }, [fetchPositionData]);
+  }, [version]);
 
   const positionColumns = [
     {
@@ -86,23 +85,9 @@ const PositionManagementTab = () => {
         message.success('职位创建成功');
       }
       setIsPositionModalVisible(false);
-      fetchPositionData();
+      setVersion(v => v + 1);
     } catch (error) {
       message.error('职位操作失败');
-    }
-  };
-
-  const handleConfirmPositionDelete = async () => {
-    if (!selectedPositionId) return;
-    try {
-      await deletePosition(selectedPositionId);
-      message.success('职位删除成功');
-      fetchPositionData();
-    } catch (error) {
-      message.error('职位删除失败');
-    } finally {
-      setIsPositionDeleteModalVisible(false);
-      setSelectedPositionId(null);
     }
   };
 
@@ -116,7 +101,7 @@ const PositionManagementTab = () => {
         try {
           await deletePosition(id);
           message.success('职位删除成功');
-          fetchPositionData();
+          setVersion(v => v + 1);
         } catch (error) {
           message.error('职位删除失败');
         }
