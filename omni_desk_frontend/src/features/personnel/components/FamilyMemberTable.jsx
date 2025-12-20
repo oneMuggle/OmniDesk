@@ -89,7 +89,7 @@ const FamilyMemberTable = ({ personnelId }) => {
       <Button type="primary" onClick={() => { setEditingFamilyMember(null); setIsModalVisible(true); form.resetFields(); }} style={{ marginBottom: 16 }}>
         添加家庭成员
       </Button>
-      <Table dataSource={familyMembers} columns={columns} rowKey="id" />
+      <Table dataSource={Array.isArray(familyMembers) ? familyMembers : []} columns={columns} rowKey="id" />
       <Modal
         title={editingFamilyMember ? '编辑家庭成员' : '添加家庭成员'}
         open={isModalVisible}

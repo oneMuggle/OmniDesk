@@ -89,7 +89,7 @@ const ProfessionalQualificationTable = ({ personnelId }) => {
       <Button type="primary" onClick={() => { setEditingQualification(null); setIsModalVisible(true); form.resetFields(); }} style={{ marginBottom: 16 }}>
         添加职业资质
       </Button>
-      <Table dataSource={qualifications} columns={columns} rowKey="id" />
+      <Table dataSource={Array.isArray(qualifications) ? qualifications : []} columns={columns} rowKey="id" />
       <Modal
         title={editingQualification ? '编辑职业资质' : '添加职业资质'}
         open={isModalVisible}

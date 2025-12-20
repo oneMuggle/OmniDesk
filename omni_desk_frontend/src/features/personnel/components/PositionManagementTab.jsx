@@ -20,7 +20,7 @@ const PositionManagementTab = () => {
   const fetchPositionData = useCallback(async () => {
     try {
       const response = await getPositions();
-      setPositionData(response.results || response);
+      setPositionData(response.results || []);
     } catch (error) {
       message.error('获取职位数据失败');
       setPositionData([]);
@@ -139,7 +139,7 @@ const PositionManagementTab = () => {
       </div>
       <Table
         columns={positionColumns}
-        dataSource={positionData || []}
+        dataSource={Array.isArray(positionData) ? positionData : []}
         rowKey="id"
         bordered
         pagination={false} // Positional data often doesn't need pagination

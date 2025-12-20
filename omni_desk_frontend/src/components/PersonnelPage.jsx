@@ -77,7 +77,7 @@ const PersonnelManagementPage = () => {
         page_size: pageSize
       });
       
-      setData(response.results); // Adjust for pagination structure
+      setData(response.results || []); // Adjust for pagination structure
       setPagination(prev => ({
         ...prev,
         total: response.count, // Adjust for pagination structure
@@ -187,7 +187,7 @@ const PersonnelManagementPage = () => {
     const fetchPositionData = useCallback(async () => {
       try {
         const response = await getPositions();
-        setPositionData(response.results || response);
+        setPositionData(response.results || []);
       } catch (error) {
         message.error('获取职位数据失败');
         setPositionData([]);
@@ -333,7 +333,7 @@ const PersonnelManagementPage = () => {
 
           <Table
             columns={columns}
-            dataSource={data || []}
+            dataSource={Array.isArray(data) ? data : []}
             rowKey="id"
             bordered
             pagination={{

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   getPersonnel,
   createPersonnel,
@@ -14,6 +14,7 @@ import PositionManagementTab from '../components/PositionManagementTab';
 const { Option } = Select;
 
 const PersonnelManagementPage = () => {
+  const { id } = useParams();
   const [form] = Form.useForm();
   const [data, setData] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -62,14 +63,26 @@ const PersonnelManagementPage = () => {
 
   const fetchData = useCallback(async (page, pageSize, search, position) => {
     try {
-      const response = await getPersonnel({ page, page_size: pageSize, search, position });
-      setData(response.results || []);
-      setPagination(prev => ({ ...prev, total: response.count, current: page, pageSize }));
+      if (id) {
+        const response = await getPersonnel(id);
+        const data = response && response.id ? [response] : [];
+        setData(data);
+        setPagination(prev => ({ ...prev, total: data.length, current: 1, pageSize: 10 }));
+      } else {
+        const response = await getPersonnel({ page, page_size: pageSize, search, position });
+        if (response && response.results) {
+          setData(response.results);
+          setPagination(prev => ({ ...prev, total: response.count, current: page, pageSize }));
+        } else {
+          setData([]);
+          setPagination(prev => ({ ...prev, total: 0, current: page, pageSize }));
+        }
+      }
     } catch (error) {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, []);
+  }, [id]);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -98,7 +111,7 @@ const PersonnelManagementPage = () => {
     if (positionsLoaded) {
       fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
     }
-  }, [positionsLoaded, pagination, searchQuery, positionFilter, fetchData]);
+  }, [positionsLoaded, id, pagination.current, pagination.pageSize, searchQuery, positionFilter, fetchData]);
 
   const handleTableChange = (newPagination) => {
     setPagination(prev => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
@@ -204,7 +217,7 @@ const PersonnelManagementPage = () => {
                   </Space.Compact>
                   <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal} data-testid="add-personnel-button">新增人员</Button>
                 </div>
-                <Table columns={columns} dataSource={data} rowKey="id" bordered pagination={pagination} onChange={handleTableChange} />
+                <Table columns={columns} dataSource={Array.isArray(data) ? data : []} rowKey="id" bordered pagination={pagination} onChange={handleTableChange} />
               </>
             ),
           },
