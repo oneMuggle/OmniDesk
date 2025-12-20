@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated]
+    queryset = Post.objects.all()
 
     def get_queryset(self):
         queryset = Post.objects.filter(is_archived=False).order_by('-created_at')
