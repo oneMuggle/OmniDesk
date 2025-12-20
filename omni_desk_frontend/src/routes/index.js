@@ -28,7 +28,7 @@ import PersonnelManagementPage from '../features/personnel/pages/PersonnelManage
 import PersonnelEditPage from '../features/personnel/pages/PersonnelEditPage';
 import TrialScheduleContainer from '../features/schedule/components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../features/schedule/components/ShiftScheduleContainer';
-// import DashboardPage from '../features/dashboard/pages/DashboardPage'; // 导入 DashboardPage
+import DashboardPage from '../pages/DashboardPage'; // 导入 DashboardPage
 // import MemoPage from '../features/memo/pages/MemoPage'; // 导入 MemoPage
 import ManageAnnouncementsPage from '../pages/ManageAnnouncementsPage';
 import AnnouncementForm from '../components/AnnouncementForm';
@@ -65,12 +65,12 @@ import NewPostPage from '../pages/NewPostPage';
     element: <App />,
     children: [
       {
-        // index: true,
-        // element: (
-        //   <ProtectedRoute pageName="仪表盘"> {/* 使用 ProtectedRoute 判断登录状态 */}
-        //     <DashboardPage />
-        //   </ProtectedRoute>
-        // ),
+        index: true,
+        element: (
+          <ProtectedRoute pageName="仪表盘"> {/* 使用 ProtectedRoute 判断登录状态 */}
+            <DashboardPage />
+          </ProtectedRoute>
+        ),
       },
       {
         path: "meeting-rooms",
