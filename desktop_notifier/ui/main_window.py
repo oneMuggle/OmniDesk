@@ -210,6 +210,10 @@ class MainWindow(QWidget):
 
             event.accept()
 
+
+    def open_settings(self):
+        pass
+
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.theme_changed.connect(self.handle_theme_change)
