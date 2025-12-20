@@ -3,9 +3,9 @@ const traverse = require('@babel/traverse').default;
 const fs = require('fs');
 const path = require('path');
 
-// Assuming the script is run from the project root directory
-const routesFilePath = path.resolve('omni_desk_frontend/src/routes/index.js');
-const outputFilePath = path.resolve('omni_desk_frontend/public/routes.json');
+// Make paths relative to the script file to avoid issues with CWD
+const routesFilePath = path.resolve(__dirname, '../src/routes/index.js');
+const outputFilePath = path.resolve(__dirname, '../public/routes.json');
 
 const code = fs.readFileSync(routesFilePath, 'utf-8');
 

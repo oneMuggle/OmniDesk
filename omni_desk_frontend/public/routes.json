@@ -1,5 +1,10 @@
 [
   {
+    "name": "仪表盘",
+    "path": "/",
+    "component": "DashboardPage"
+  },
+  {
     "name": "会议室预定",
     "path": "/meeting-rooms",
     "component": "MeetingRoomBookingPage"
