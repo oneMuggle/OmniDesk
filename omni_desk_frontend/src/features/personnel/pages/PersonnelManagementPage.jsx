@@ -1,118 +1,119 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import { Link, useParams } from 'react-router-dom';
+import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
+import ConfirmModal from '../../../components/Calendar/ConfirmModal';
 import {
   getPersonnel,
   createPersonnel,
   updatePersonnel,
   deletePersonnel,
   getPositions,
+  getAllPositions,
+  createPosition, // Import new position APIs
+  updatePosition,
+  deletePosition
 } from '../api/personnelApi';
-import PositionManagementTab from '../components/PositionManagementTab';
+import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 
-const { Option } = Select;
+const { Option } = Select; // Destructure Option from Select
+const { TabPane } = Tabs; // Destructure TabPane from Tabs
 
 const PersonnelManagementPage = () => {
-  const { id } = useParams();
   const [form] = Form.useForm();
   const [data, setData] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
-  const [positions, setPositions] = useState([]);
-  const [positionsLoaded, setPositionsLoaded] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [positionFilter, setPositionFilter] = useState(null);
+  const [positions, setPositions] = useState([]); // New state for positions
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
     total: 0,
   });
-  const [activeTab, setActiveTab] = useState('personnel');
 
   const columns = [
-    { title: '姓名', dataIndex: 'name', key: 'name' },
+    {
+      title: '姓名',
+      dataIndex: 'name',
+      key: 'name',
+    },
     {
       title: '职位',
-      dataIndex: 'position',
-      key: 'position',
-      render: (positionId) => {
-        const position = positions.find(p => p.id === positionId);
-        return position ? position.name : '未分配';
-      },
+      dataIndex: 'position_name', // Change to position_name
+      key: 'position_name',
     },
-    { title: '联系电话', dataIndex: 'phone_number', key: 'phone_number' },
-    { title: '部门', dataIndex: 'department', key: 'department' },
-    { title: '员工状态', dataIndex: 'status', key: 'status' },
+    {
+      title: '联系电话',
+      dataIndex: 'phone_numbers',
+      key: 'phone_numbers',
+      render: (phone_numbers) => (phone_numbers || []).map(p => p.number).join(', '),
+    },
     {
       title: '操作',
       key: 'action',
       render: (_, record) => (
-        <Space>
-          <Link to={`/control-panel/personnel/${record.id}`}>
-            <Button>详情</Button>
-          </Link>
-          <Button type="primary" icon={<EditOutlined />} onClick={() => showEditModal(record)} data-testid={`edit-personnel-${record.id}`} />
-          <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} data-testid={`delete-personnel-${record.id}`} />
-        </Space>
+        <div className='space-x-2'>
+          <Button
+            type="primary"
+            icon={<EditOutlined />}
+            onClick={() => showEditModal(record)}
+          >
+            编辑
+          </Button>
+          <Button
+            danger
+            icon={<DeleteOutlined />}
+            onClick={() => handleDelete(record.id)}
+          >
+            删除
+          </Button>
+        </div>
       ),
     },
   ];
 
-  const fetchData = useCallback(async (page, pageSize, search, position) => {
+  const fetchData = useCallback(async (params = {}) => {
     try {
-      if (id) {
-        const response = await getPersonnel(id);
-        const data = response && response.id ? [response] : [];
-        setData(data);
-        setPagination(prev => ({ ...prev, total: data.length, current: 1, pageSize: 10 }));
-      } else {
-        const response = await getPersonnel({ page, page_size: pageSize, search, position });
-        if (response && response.results) {
-          setData(response.results);
-          setPagination(prev => ({ ...prev, total: response.count, current: page, pageSize }));
-        } else {
-          setData([]);
-          setPagination(prev => ({ ...prev, total: 0, current: page, pageSize }));
-        }
-      }
+      const { page = 1, pageSize = 10 } = params;
+      const response = await getPersonnel({
+        page,
+        page_size: pageSize
+      });
+      
+      setData(response.data || []); // Adjust for pagination structure
+      setPagination(prev => ({
+        ...prev,
+        total: response.pagination.total, // Adjust for pagination structure
+        current: page,
+        pageSize: pageSize,
+      }));
     } catch (error) {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, [id]);
+  }, []);
 
   const fetchPositions = useCallback(async () => {
     try {
-      const response = await getPositions();
-      if (Array.isArray(response)) {
-        setPositions(response);
-      } else if (response && Array.isArray(response.results)) {
-        setPositions(response.results);
-      } else {
-        setPositions([]);
-        console.log('Unexpected API response structure for positions:', response);
-      }
+      const response = await getAllPositions();
+      setPositions(response || []); // Assume response.results is the array, or response itself if it's directly an array
     } catch (error) {
       message.error('获取职位数据失败');
       setPositions([]);
-    } finally {
-      setPositionsLoaded(true);
     }
   }, []);
 
   useEffect(() => {
-    fetchPositions();
-  }, [fetchPositions]);
-
-  useEffect(() => {
-    if (positionsLoaded) {
-      fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
-    }
-  }, [positionsLoaded, id, pagination, searchQuery, positionFilter, fetchData]);
+    fetchData({
+      page: pagination.current,
+      pageSize: pagination.pageSize
+    });
+    fetchPositions(); // Fetch positions on component mount
+  }, [fetchData, fetchPositions]);
 
   const handleTableChange = (newPagination) => {
-    setPagination(prev => ({ ...prev, current: newPagination.current, pageSize: newPagination.pageSize }));
+    fetchData({
+      page: newPagination.current,
+      pageSize: newPagination.pageSize,
+    });
   };
 
   const showCreateModal = () => {
@@ -122,9 +123,11 @@ const PersonnelManagementPage = () => {
   };
 
   const showEditModal = (record) => {
+    console.log('Record:', record);
     form.setFieldsValue({
       ...record,
-      position: record.position,
+      position: record.position || null, // Directly use position ID
+      phone_numbers: record.phone_numbers || [], // 初始化 phone_numbers
     });
     setEditingId(record.id);
     setIsModalVisible(true);
@@ -133,7 +136,11 @@ const PersonnelManagementPage = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const dataToSend = { ...values };
+      // Directly use 'position' field from form, which will be the ID
+      const dataToSend = {
+        ...values,
+      };
+      // No need for position_id mapping or deletion
 
       if (editingId) {
         await updatePersonnel(editingId, dataToSend);
@@ -143,34 +150,25 @@ const PersonnelManagementPage = () => {
         message.success('创建成功');
       }
       setIsModalVisible(false);
-      // After a successful action, reset to the first page and clear filters
-      // to ensure the user sees the newly created/updated item.
-      setSearchQuery('');
-      setPositionFilter(null);
-      if (pagination.current !== 1) {
-        setPagination(prev => ({ ...prev, current: 1 }));
-      } else {
-        // If we are already on page 1, the pagination change won't trigger the effect,
-        // so we need to trigger the refetch manually.
-        fetchData(1, pagination.pageSize, '', null);
-      }
+      fetchData();
     } catch (error) {
-      console.error('操作失败:', error);
+      console.error('操作失败:', error); // Log error for debugging
       message.error('操作失败');
     }
   };
 
-  const handleDelete = (id) => {
-    Modal.confirm({
+  const handleDelete = async (id) => {
+    ConfirmModal({
       title: '确认删除',
       content: '确定要删除该人员信息吗？',
       okText: '确认',
       cancelText: '取消',
-      onOk: async () => {
+      type: 'danger',
+      onConfirm: async () => {
         try {
           await deletePersonnel(id);
           message.success('删除成功');
-          fetchData(pagination.current, pagination.pageSize, searchQuery, positionFilter);
+          fetchData();
         } catch (error) {
           message.error('删除失败');
         }
@@ -178,62 +176,240 @@ const PersonnelManagementPage = () => {
     });
   };
 
+  const [activeTab, setActiveTab] = useState('personnel'); // New state for active tab
+
+  // Position Management Tab Component
+  const PositionManagementTab = () => {
+    const [positionForm] = Form.useForm();
+    const [positionData, setPositionData] = useState([]);
+    const [isPositionModalVisible, setIsPositionModalVisible] = useState(false);
+    const [editingPositionId, setEditingPositionId] = useState(null);
+
+    const fetchPositionData = useCallback(async () => {
+      try {
+        const response = await getPositions();
+        setPositionData(response.data || []);
+      } catch (error) {
+        message.error('获取职位数据失败');
+        setPositionData([]);
+      }
+    }, []);
+
+    useEffect(() => {
+      fetchPositionData();
+    }, [fetchPositionData]);
+
+    const positionColumns = [
+      {
+        title: '职位名称',
+        dataIndex: 'name',
+        key: 'name',
+      },
+      {
+        title: '操作',
+        key: 'action',
+        render: (_, record) => (
+          <div className='space-x-2'>
+            <Button
+              type="primary"
+              icon={<EditOutlined />}
+              onClick={() => showEditPositionModal(record)}
+            >
+              编辑
+            </Button>
+            <Button
+              danger
+              icon={<DeleteOutlined />}
+              onClick={() => handleDeletePosition(record.id)}
+            >
+              删除
+            </Button>
+          </div>
+        ),
+      },
+    ];
+
+    const showCreatePositionModal = () => {
+      positionForm.resetFields();
+      setEditingPositionId(null);
+      setIsPositionModalVisible(true);
+    };
+
+    const showEditPositionModal = (record) => {
+      positionForm.setFieldsValue(record);
+      setEditingPositionId(record.id);
+      setIsPositionModalVisible(true);
+    };
+
+    const handleSubmitPosition = async () => {
+      try {
+        const values = await positionForm.validateFields();
+        if (editingPositionId) {
+          await updatePosition(editingPositionId, values);
+          message.success('职位更新成功');
+        } else {
+          await createPosition(values);
+          message.success('职位创建成功');
+        }
+        setIsPositionModalVisible(false);
+        fetchPositionData();
+      } catch (error) {
+        message.error('职位操作失败');
+      }
+    };
+
+    const handleDeletePosition = async (id) => {
+      ConfirmModal({
+        title: '确认删除',
+        content: '确定要删除该职位吗？',
+        okText: '确认',
+        cancelText: '取消',
+        type: 'danger',
+        onConfirm: async () => {
+          try {
+            await deletePosition(id);
+            message.success('职位删除成功');
+            fetchPositionData();
+          } catch (error) {
+            message.error('职位删除失败');
+          }
+        },
+      });
+    };
+
+    return (
+      <div>
+        <div className='mb-4 flex justify-between'>
+          <h3 className='text-lg font-bold'>职位管理</h3>
+          <Button
+            type="primary"
+            icon={<PlusOutlined />}
+            onClick={showCreatePositionModal}
+          >
+            新增职位
+          </Button>
+        </div>
+        <Table
+          columns={positionColumns}
+          dataSource={positionData || []}
+          rowKey="id"
+          bordered
+          pagination={false} // Positional data often doesn't need pagination
+        />
+        <Modal
+          title={editingPositionId ? '编辑职位' : '新增职位'}
+          open={isPositionModalVisible}
+          onOk={handleSubmitPosition}
+          onCancel={() => setIsPositionModalVisible(false)}
+          destroyOnHidden
+        >
+          <Form form={positionForm} layout="vertical">
+            <Form.Item
+              label="职位名称"
+              name="name"
+              rules={[{ required: true, message: '请输入职位名称' }]}
+            >
+              <Input placeholder="请输入职位名称" />
+            </Form.Item>
+          </Form>
+        </Modal>
+      </div>
+    );
+  };
 
   return (
     <div className='p-4'>
-      <h2 className='text-xl font-bold mb-4'>人员管理系统</h2>
-      <Tabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        items={[
-          {
-            label: '人员管理',
-            key: 'personnel',
-            children: (
-              <>
-                <div className='mb-4 flex justify-between'>
-                  <Space.Compact>
-                    <Input placeholder="按姓名搜索" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} style={{ width: 200 }} allowClear />
-                    <Button type="primary" onClick={() => setPagination(prev => ({ ...prev, current: 1 }))}>搜索</Button>
-                    <Select placeholder="按职位筛选" data-testid="personnel-position-filter" value={positionFilter} onChange={value => { setPositionFilter(value); setPagination(prev => ({ ...prev, current: 1 })); }} style={{ width: 200 }} allowClear>
-                      {positions.map(pos => <Option key={pos.id} value={pos.id}>{pos.name}</Option>)}
-                    </Select>
-                  </Space.Compact>
-                  <Button type="primary" icon={<PlusOutlined />} onClick={showCreateModal} data-testid="add-personnel-button">新增人员</Button>
-                </div>
-                <Table columns={columns} dataSource={Array.isArray(data) ? data : []} rowKey="id" bordered pagination={pagination} onChange={handleTableChange} />
-              </>
-            ),
-          },
-          {
-            label: '职位管理',
-            key: 'positions',
-            children: <PositionManagementTab />,
-          },
-        ]}
-      />
+      <h2 className='text-xl font-bold mb-4'>人员管理系统</h2> {/* Moved outside Tabs */}
+      <Tabs defaultActiveKey="personnel" activeKey={activeTab} onChange={setActiveTab}>
+        <TabPane tab="人员管理" key="personnel">
+          <div className='mb-4 flex justify-end'> {/* Adjusted flex for button alignment */}
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={showCreateModal}
+            >
+              新增人员
+            </Button>
+          </div>
 
-      <Modal title={editingId ? '编辑人员' : '新增人员'} open={isModalVisible} onOk={handleSubmit} onCancel={() => setIsModalVisible(false)} width={1000} destroyOnHidden data-testid="personnel-modal" okButtonProps={{ 'data-testid': 'personnel-modal-ok-button' }}>
-        <Form form={form} layout="vertical">
-          <Form.Item label="姓名" name="name" rules={[{ required: true }]}><Input data-testid="personnel-modal-name-input" /></Form.Item>
-          <Form.Item label="职位" name="position" rules={[{ required: true }]}>
-            <Select data-testid="personnel-modal-position-select" placeholder="请选择职位">
-              {positions.map(pos => (
-                <Option key={pos.id} value={pos.id}>{pos.name}</Option>
-              ))}
-            </Select>
-          </Form.Item>
-          <Form.Item label="部门" name="department"><Input /></Form.Item>
-          <Form.Item label="联系电话" name="phone_number"><Input /></Form.Item>
-          <Form.Item label="员工状态" name="status" initialValue="active">
-            <Select>
-              <Option value="active">在职</Option>
-              <Option value="inactive">离职</Option>
-            </Select>
-          </Form.Item>
-        </Form>
-      </Modal>
+          <Table
+            columns={columns}
+            dataSource={Array.isArray(data) ? data : []}
+            rowKey="id"
+            bordered
+            pagination={{
+              ...pagination,
+              showSizeChanger: true,
+              pageSizeOptions: ['10', '20', '50'],
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            onChange={handleTableChange}
+          />
 
+          <Modal
+            title={editingId ? '编辑人员' : '新增人员'}
+            open={isModalVisible}
+            onOk={handleSubmit}
+            onCancel={() => setIsModalVisible(false)}
+            destroyOnHidden
+          >
+            <Form form={form} layout="vertical">
+              <Form.Item
+                label="姓名"
+                name="name"
+                rules={[{ required: true, message: '请输入姓名' }]}
+              >
+                <Input placeholder="请输入姓名" />
+              </Form.Item>
+
+
+
+              <Form.Item
+                label="职位"
+                name="position" // Changed to 'position'
+                rules={[{ required: true, message: '请选择职位' }]}
+              >
+                <Select placeholder="请选择职位" allowClear>
+                  {positions.map(pos => (
+                    <Option key={pos.id} value={pos.id}>{pos.name}</Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.List name="phone_numbers">
+                {(fields, { add, remove }) => (
+                  <>
+                    {fields.map(({ key, name, fieldKey, ...restField }) => (
+                      <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
+                        <Form.Item
+                          {...restField}
+                          name={[name, 'number']}
+                          fieldKey={[fieldKey, 'number']}
+                          rules={[
+                            { required: true, message: '请输入电话号码' },
+                            { pattern: /^(\d{5}|\d{6}|1[3-9]\d{9})$/, message: '请输入有效的电话号码（5位、6位短号或11位手机号）' }
+                          ]}
+                        >
+                          <Input placeholder="电话号码" />
+                        </Form.Item>
+                        <MinusCircleOutlined onClick={() => remove(name)} />
+                      </Space>
+                    ))}
+                    <Form.Item>
+                      <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />}>
+                        添加电话号码
+                      </Button>
+                    </Form.Item>
+                  </>
+                )}
+              </Form.List>
+            </Form>
+          </Modal>
+        </TabPane>
+        <TabPane tab="职位管理" key="positions">
+          <PositionManagementTab />
+        </TabPane>
+      </Tabs>
     </div>
   );
 };

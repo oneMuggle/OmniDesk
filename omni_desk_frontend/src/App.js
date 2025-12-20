@@ -4,7 +4,7 @@ import './App.css';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from './components/Sidebar';
 import 'animate.css';
-import { AuthProvider } from './context/AuthContext';
+import { AuthProvider } from './features/auth/context/AuthContext';
 import { ApiProvider } from './context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
 import { RefreshProvider } from './context/RefreshContext';
