@@ -92,6 +92,11 @@ const MeetingRoomBookingPage = () => {
     const [bookings, setBookings] = useState([]);
     const [loading, setLoading] = useState(false);
 
+    const minTime = new Date();
+    minTime.setHours(8, 0, 0);
+    const maxTime = new Date();
+    maxTime.setHours(22, 0, 0);
+
     const roomColors = useMemo(() => [
         '#FF6B6B', '#4ECDC4', '#45B7D1', '#FED766', '#2AB7CA',
         '#F0B7A4', '#F18C8E', '#A8D8EA', '#AA96DA', '#FCBAD3',
@@ -350,8 +355,8 @@ const MeetingRoomBookingPage = () => {
                     onSelectEvent={handleSelectEvent}
                     views={['month', 'week', 'day', 'agenda']}
                     defaultView="week"
-                    slotMinTime="08:00:00"
-                    slotMaxTime="23:00:00"
+                    min={minTime}
+                    max={maxTime}
                     components={{
                         toolbar: CustomToolbar,
                         event: EventComponent,

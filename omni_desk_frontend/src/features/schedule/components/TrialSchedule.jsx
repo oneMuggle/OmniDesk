@@ -20,6 +20,8 @@ const TrialSchedule = ({
       editable={!isGuest}
       selectable={!isGuest}
       select={select}
+      slotMinTime="08:00:00"
+      slotMaxTime="22:00:00"
     />
   );
 };

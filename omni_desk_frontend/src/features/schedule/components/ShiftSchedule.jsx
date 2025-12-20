@@ -29,6 +29,8 @@ const ShiftSchedule = ({
       editable={false} // 排班在主页面不可编辑
       selectable={false} // 排班在主页面不可选择
       select={onScheduleSelect}
+      slotMinTime="08:00:00"
+      slotMaxTime="22:00:00"
     />
   );
 };

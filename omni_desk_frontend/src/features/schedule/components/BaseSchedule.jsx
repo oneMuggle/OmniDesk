@@ -20,6 +20,8 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
   onEventDragStop = () => {},
   calendarRef = null,
   onDatesSet = () => {},
+  slotMinTime,
+  slotMaxTime,
 }) => {
   console.log('BaseSchedule received events:', events); // Add this line
   return (
@@ -56,6 +58,8 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       eventDragStop={onEventDragStop}
       eventDragStart={onEventDragStart}
       select={select || (() => {})}
+      slotMinTime={slotMinTime}
+      slotMaxTime={slotMaxTime}
       eventContent={(eventInfo) => {
         return (
           <div style={{ textAlign: 'center' }}>
@@ -79,6 +83,8 @@ BaseSchedule.propTypes = {
   onEventDragStop: PropTypes.func,
   calendarRef: PropTypes.object,
   onDatesSet: PropTypes.func,
+  slotMinTime: PropTypes.string,
+  slotMaxTime: PropTypes.string,
 };
 
 
