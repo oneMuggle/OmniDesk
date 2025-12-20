@@ -41,7 +41,7 @@ import OfficeAssistant from '../pages/OfficeAssistant/OfficeAssistant';
 // import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import ProjectsPage
 // import CompliancePage from '../features/compliance/pages/CompliancePage'; // Import CompliancePage
 // import NotificationsPage from '../features/notifications/pages/NotificationsPage'; // Import NotificationsPage
-// import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
+import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage'; // Import MeetingRoomBookingPage
 // import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 // import UserManagementPage from '../features/user-management/pages/UserManagementPage'; // Import UserManagementPage
 // import SensorManagementPage from '../features/sensor/pages/SensorManagementPage'; // 导入 SensorManagementPage
@@ -73,8 +73,8 @@ import NewPostPage from '../pages/NewPostPage';
         // ),
       },
       {
-        // path: "meeting-rooms",
-        // element: <ProtectedRoute pagePath="/meeting-rooms" pageName="会议室预定"><MeetingRoomBookingPage /></ProtectedRoute>
+        path: "meeting-rooms",
+        element: <ProtectedRoute pageName="会议室预定"><MeetingRoomBookingPage /></ProtectedRoute>
       },
       { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
       { path: "trial-schedule", element: <GuestRoute><TrialScheduleContainer /></GuestRoute> },

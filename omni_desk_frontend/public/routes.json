@@ -1,5 +1,10 @@
 [
   {
+    "name": "会议室预定",
+    "path": "/meeting-rooms",
+    "component": "MeetingRoomBookingPage"
+  },
+  {
     "name": "事件管理",
     "path": "/events",
     "component": "EventsPage"
