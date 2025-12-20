@@ -1,7 +1,7 @@
 import './DifyApps.css';
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 import './DifyApps.css'; // 稍后创建此CSS文件
 
 const DifyAppList = () => {

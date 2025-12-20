@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Input, Select, Upload, Button, message, Form, Table } from 'antd';
 import { FileAddOutlined } from '@ant-design/icons';
 import documentsApi from '../api/documents'; // 统一使用 documentsApi
-import ChatInterface from '../../../components/ChatInterface';
+import ChatInterface from '../../../shared/components/ChatInterface';
 import projectsApi from '../../projects/api/projects'; // Add projectsApi
-import './DocumentsPage.css';
+import '../../../shared/pages/DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
 
 const { Option } = Select;

@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Card, Spin, Alert, Modal } from 'antd';
-import apiClient from '../api/apiClient';
-import SensorCalibrationForm from '../components/sensor/SensorCalibrationForm';
+import apiClient from '../../../shared/api/apiClient';
+import SensorCalibrationForm from '../components/SensorCalibrationForm';
 
 const SensorDetailPage = () => {
     const { id } = useParams();

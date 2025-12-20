@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import apiClient from '../../../api/apiClient'; // 导入 apiClient
+import apiClient from '../../../shared/api/apiClient'; // 导入 apiClient
 import './ManageAnnouncementsPage.css';
 
 const ManageAnnouncementsPage = () => {

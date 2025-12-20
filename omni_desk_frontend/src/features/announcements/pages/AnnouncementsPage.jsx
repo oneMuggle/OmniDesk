@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import Slider from 'react-slick';
-import apiClient from '../../../api/apiClient'; // 修正导入路径
+import apiClient from '../../../shared/api/apiClient'; // 修正导入路径
 import './AnnouncementsPage.css';
 
 const AnnouncementsPage = () => {

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Form } from 'antd';
-import { trialApi } from '../../../api/trialApi';
-import { useAuth } from '../../../context/AuthContext';
+import { trialApi } from '../../../shared/api/trialApi';
+import { useAuth } from '../../auth/context/AuthContext';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
 import CalendarEventModal from './CalendarEventModal'; // 使用新的通用模态框
 import TrialSchedule from './TrialSchedule';

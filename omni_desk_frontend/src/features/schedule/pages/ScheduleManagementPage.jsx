@@ -5,14 +5,14 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
 import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
-import { getPersonnelSequences, getLeaderSequences } from '../../../api/sequenceApi';
+import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import PersonnelSequenceModal from '../../../components/Schedule/PersonnelSequenceModal';
-import WeeklyLeaderDisplay from '../../../components/Schedule/WeeklyLeaderDisplay';
-import MonthlyLeaderSidebar from '../../../components/Schedule/MonthlyLeaderSidebar';
+import PersonnelSequenceModal from '../../../shared/components/Schedule/PersonnelSequenceModal';
+import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
+import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { DragDropContext } from 'react-beautiful-dnd';
 
 const { Option } = Select;

@@ -1,5 +1,5 @@
-import apiClient from '../../../api/apiClient';
-import { handleError } from '../../../api/responseHandler';
+import apiClient from '../../../shared/api/apiClient';
+import { handleError } from '../../../shared/api/responseHandler';
 
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {

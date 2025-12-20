@@ -7,7 +7,7 @@ import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Ta
 import { useAuth } from '../../auth/context/AuthContext';
 import meetingRoomApi from '../api/meetingRoomApi';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import '../../../components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
+import '../../../shared/components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
 
 const localizer = dayjsLocalizer(dayjs);
 const { RangePicker } = DatePicker;

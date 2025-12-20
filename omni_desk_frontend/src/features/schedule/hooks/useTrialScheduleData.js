@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { trialApi } from '../../../api/trialApi';
+import { trialApi } from '../../../shared/api/trialApi';
 import { transformTrialToEvents } from '../utils/eventTransformers';
 
 export const useTrialScheduleData = () => {

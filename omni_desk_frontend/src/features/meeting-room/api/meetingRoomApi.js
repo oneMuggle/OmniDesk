@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 const meetingRoomApi = {
     getMeetingRooms: () => apiClient.get('/meeting-rooms/meeting-rooms/'),

@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import memoApi from '../../api/memoApi';
+import memoApi from '../../../shared/api/memoApi';
 
 export const useMemoData = () => {
   const queryClient = useQueryClient();

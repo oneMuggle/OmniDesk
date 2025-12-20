@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import apiClient from '../../api/apiClient';
-import { notifications } from '../../utils/notifications';
+import apiClient from '../../../shared/api/apiClient';
+import { notifications } from '../../../shared/utils/notifications';
 import './ProfileForms.css';
 
 const ChangePasswordForm = () => {

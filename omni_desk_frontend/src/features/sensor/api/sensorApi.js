@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 // 获取所有传感器列表
 export const getSensors = () => {

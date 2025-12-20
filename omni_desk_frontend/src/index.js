@@ -19,12 +19,12 @@ import {
 // 本地 CSS 文件
 import './index.css';
 import 'antd/dist/reset.css';
-import './styles/global.css';
+import './shared/styles/global.css';
 
 // 本地模块导入
 import router from './routes';
-import { AuthProvider } from './context/AuthContext';
-import { ApiProvider } from './context/ApiProvider';
+import { AuthProvider } from './features/auth/context/AuthContext';
+import { ApiProvider } from './shared/context/ApiProvider';
 
 // dayjs 全局配置
 dayjs.extend(utc);

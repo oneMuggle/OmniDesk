@@ -4,8 +4,8 @@ import ProfileSidebar from '../components/ProfileSidebar';
 import EditProfileForm from '../components/EditProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import '../components/ProfilePage.css';
-import { notifications } from '../../utils/notifications';
-import apiClient from '../../api/apiClient';
+import { notifications } from '../../../shared/utils/notifications';
+import apiClient from '../../../shared/api/apiClient';
 
 const ProfilePage = () => {
   const { setUser: setAuthUser } = useContext(AuthContext);

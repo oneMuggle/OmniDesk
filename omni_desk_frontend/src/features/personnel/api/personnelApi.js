@@ -1,4 +1,4 @@
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 // Centralized error handler
 const handleError = (error, defaultMessage = '操作失败') => {

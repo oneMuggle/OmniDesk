@@ -6,7 +6,7 @@ import {
   updateEquipment,
   deleteEquipment
 } from '../api/equipment';
-import './EquipmentPage.css';
+import '../../../shared/pages/EquipmentPage.css';
 
 const EquipmentPage = () => {
   const [equipmentList, setEquipmentList] = useState([]);

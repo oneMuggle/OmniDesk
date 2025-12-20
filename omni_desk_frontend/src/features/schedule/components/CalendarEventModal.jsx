@@ -2,10 +2,10 @@ import React, { useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
-import { useAuth } from '../../../context/AuthContext';
+import { useAuth } from '../../auth/context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
-import { trialApi } from '../../../api/trialApi';
+import { trialApi } from '../../../shared/api/trialApi';
 import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
 
 const { Option } = Select;

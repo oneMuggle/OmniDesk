@@ -1,4 +1,4 @@
-import { trialApi } from '../../../api/trialApi';
+import { trialApi } from '../../../shared/api/trialApi';
 import { timeSlotApi } from './timeSlotApi';
 import * as personnelApi from '../../personnel/api/personnelApi';
 import { scheduleEventApi } from './scheduleEventApi';

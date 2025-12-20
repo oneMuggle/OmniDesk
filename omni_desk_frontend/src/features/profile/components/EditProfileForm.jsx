@@ -2,8 +2,8 @@ import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Form, Input, Button, Upload, message } from 'antd';
 import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
-import apiClient from '../../api/apiClient';
-import { notifications } from '../../utils/notifications';
+import apiClient from '../../../shared/api/apiClient';
+import { notifications } from '../../../shared/utils/notifications';
 
 const EditProfileForm = ({ userData = null, setUserData }) => {
   const [form] = Form.useForm();

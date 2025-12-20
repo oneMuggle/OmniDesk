@@ -1,5 +1,5 @@
 import React from 'react';
-import PostForm from '../components/communication/PostForm';
+import PostForm from '../../../shared/pages/communication/PostForm';
 
 const NewPostPage = () => {
   return (

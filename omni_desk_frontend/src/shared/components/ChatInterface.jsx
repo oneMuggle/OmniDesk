@@ -90,7 +90,7 @@ ${newMessage.files?.join('\n\n') || ''}
           newMessage
         ]);
       } else if (apiType === 'deepseek') {
-        const client = createClient(); // createClient现在从ApiProvider获取配置
+        const client = createClient(apiConfig);
         response = await client.chat.completions.create({
           messages: [
             {

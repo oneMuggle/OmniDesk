@@ -1,4 +1,4 @@
-import apiClient from '../../../api/apiClient'; // 统一使用 apiClient
+import apiClient from '../../../shared/api/apiClient'; // 统一使用 apiClient
 
 const documentsApi = {
   // 获取文档模板列表，支持按项目ID筛选

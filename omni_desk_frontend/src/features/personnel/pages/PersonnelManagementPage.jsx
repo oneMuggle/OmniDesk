@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
-import ConfirmModal from '../../../components/Calendar/ConfirmModal';
+import ConfirmModal from '../../schedule/components/Calendar/ConfirmModal';
 import {
   getPersonnel,
   createPersonnel,
@@ -107,7 +107,7 @@ const PersonnelManagementPage = () => {
       pageSize: pagination.pageSize
     });
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions]);
+  }, [fetchData, fetchPositions, pagination]);
 
   const handleTableChange = (newPagination) => {
     fetchData({

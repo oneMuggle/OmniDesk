@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import apiClient from '../api/apiClient';
-import pageConfigApi from '../api/pageConfigApi';
+import apiClient from '../../../shared/api/apiClient';
+import pageConfigApi from '../../../shared/api/pageConfigApi';
 
 export const AuthContext = createContext({
   user: null,

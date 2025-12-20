@@ -3,9 +3,9 @@ import PropTypes from 'prop-types';
 import { Table, Select, Button, message, Spin, Card, Tabs, Modal, Form, Input, Space, Tree, Row, Col, Avatar } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import userManagementApi from '../api/userManagementApi';
-import { getAllPersonnel } from '../features/personnel/api/personnelApi';
-import { permissionsApi } from '../api/permissionsApi';
-import { useAuth } from '../context/AuthContext';
+import { getAllPersonnel } from '../../personnel/api/personnelApi';
+import { permissionsApi } from '../../../shared/api/permissionsApi';
+import { useAuth } from '../../auth/context/AuthContext';
 
 const { Option } = Select;
 const { TabPane } = Tabs;

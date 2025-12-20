@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useLocation } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../features/auth/context/AuthContext';
 import {
   AppstoreOutlined,
   BellOutlined,
@@ -23,7 +23,7 @@ import {
   SoundOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import complianceApi from '../api/compliance';
+import getComplianceData from '../api/compliance';
 import { Badge, Tooltip } from 'antd';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -36,7 +36,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const response = await complianceApi.getUnreadCount();
+        const response = await getComplianceData();
         setUnreadNotificationCount(response.data.unread_count);
       } catch (error) {
         console.error('Error fetching unread notification count:', error);

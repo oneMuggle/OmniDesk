@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../../features/auth/context/AuthContext';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileAlt, faUpload } from '@fortawesome/free-solid-svg-icons';
-import documentsApi from '../api/documents';
+import documentsApi from '../../features/documents/api/documents';
 import './FileAnalysisPage.css';
 
 function FileAnalysisPage() {

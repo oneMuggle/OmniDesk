@@ -1,4 +1,4 @@
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 export const getEquipment = async (params = {}) => {
   try {

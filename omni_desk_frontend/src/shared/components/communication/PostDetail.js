@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, List, Form, Input, Button, Avatar, Alert } from 'antd';
-import { getPost, createComment } from '../../api/communicationApi';
+import { getPost, createComment } from '../../../features/communication/api/communicationApi';
 import './Communication.css';
 
 const { TextArea } = Input;

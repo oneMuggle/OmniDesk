@@ -1,6 +1,6 @@
 import React from 'react';
 import PropTypes from 'prop-types';
-import apiClient from '../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 const ProfileSidebar = ({ activeSection, setActiveSection, userData = null }) => {
   const defaultAvatar = '/default-avatar.svg'; // Path to the new SVG in the public folder

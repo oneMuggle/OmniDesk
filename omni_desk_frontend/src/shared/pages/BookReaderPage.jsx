@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../shared/api/axiosConfig';
+import api from '../api/axiosConfig';
 import TableOfContents from '../components/TableOfContents';
 import ChapterView from '../components/ChapterView';
 import complianceApi from '../api/compliance'; // 导入合规API

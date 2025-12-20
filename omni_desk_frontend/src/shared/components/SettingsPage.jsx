@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApi } from '../context/ApiProvider';
-import { setApiProvider } from '../api/deepseek';
+import { setApiProvider } from '../../features/intelligent-chat/api/deepseek';
 import { saveResponsiblePersons } from '../api/responsiblePersons';
 import { getConfig, setConfig } from '../api/ollama';
 import apiClient from '../api/apiClient'; // 导入 apiClient

@@ -1,4 +1,4 @@
-import apiClient from './apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 /**
  * Process text using the office assistant AI.

@@ -45,7 +45,7 @@ export function ApiProvider({ children }) {
     localStorage.setItem('apiConfig', JSON.stringify(apiConfig));
     localStorage.setItem('apiType', apiType);
     // 同步配置到deepseek模块
-    import('../api/deepseek').then(({ setApiProvider }) => {
+    import('../../features/intelligent-chat/api/deepseek').then(({ setApiProvider }) => {
       setApiProvider(apiConfig);
     });
   }, [apiConfig, apiType]);

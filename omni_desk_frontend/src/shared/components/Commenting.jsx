@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import PropTypes from 'prop-types';
-import api from '../shared/api/axiosConfig';
+import api from '../api/axiosConfig';
 import './Commenting.css';
 
 const Commenting = ({ chapterId, comments: initialComments }) => {

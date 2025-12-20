@@ -5,7 +5,7 @@ import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
 } from '../api/sequenceApi';
-import { getAllPersonnel, getPositions } from '../features/personnel/api/personnelApi';
+import { getAllPersonnel, getPositions } from '../../features/personnel/api/personnelApi';
 import { DragDropContext, Droppable, Draggable } from 'react-beautiful-dnd';
 
 const { Option } = Select;
