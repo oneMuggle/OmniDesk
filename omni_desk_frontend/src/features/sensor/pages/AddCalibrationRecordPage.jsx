@@ -43,7 +43,7 @@ const AddCalibrationRecordPage = () => {
     const fetchSensors = async () => {
       try {
         const response = await getSensors();
-        setSensors(response.data);
+        setSensors(Array.isArray(response.data) ? response.data : response.data?.results || []);
       } catch (error) {
         message.error('获取传感器列表失败');
         console.error('Failed to fetch sensors:', error);

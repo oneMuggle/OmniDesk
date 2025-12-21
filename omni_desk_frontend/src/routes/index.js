@@ -57,7 +57,7 @@ import NewsStatsPage from '../features/news/pages/NewsStatsPage';
 import NewsManagementPage from '../features/news/pages/NewsManagementPage';
 import AddCalibrationRecordPage from '../features/sensor/pages/AddCalibrationRecordPage';
 import SensorCalibrationHistoryPage from '../features/sensor/pages/SensorCalibrationHistoryPage';
-import NewPostPage from '../features/announcements/pages/NewPostPage';
+import NewPostPage from '../features/communication/pages/NewPostPage';
  
  const router = createBrowserRouter([
  {

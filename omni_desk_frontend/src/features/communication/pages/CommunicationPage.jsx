@@ -1,8 +1,7 @@
 import React from 'react';
-import PostList from '../../../shared/pages/communication/PostList';
+import PostList from '../../../components/communication/PostList';
 
 const CommunicationPage = () => {
-
   return (
     <div>
       <h1>交流</h1>
