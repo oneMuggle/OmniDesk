@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Form,
   Input,
@@ -28,6 +29,7 @@ const initialDataPoint = {
 };
 
 const AddCalibrationRecordPage = () => {
+  const navigate = useNavigate();
   const [form] = Form.useForm();
   const [sensors, setSensors] = useState([]);
   const [dataSource, setDataSource] = useState([
@@ -301,6 +303,9 @@ const AddCalibrationRecordPage = () => {
         </Card>
 
         <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
+          <Button onClick={() => navigate('/sensor-management')} style={{ marginRight: 8 }}>
+            返回
+          </Button>
           <Button type="primary" htmlType="submit">
             提交记录
           </Button>
