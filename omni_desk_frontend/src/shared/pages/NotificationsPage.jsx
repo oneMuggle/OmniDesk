@@ -8,23 +8,22 @@ const NotificationsPage = () => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    const fetchNotifications = React.useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await complianceApi.getAllComplianceIssues();
-            setNotifications(response.data.results || response.data); // 假设返回的数据结构
-            setLoading(false);
-        } catch (err) {
-            setError('无法加载通知，请稍后再试。');
-            console.error('Error fetching notifications:', err);
-            setLoading(false);
-        }
-    }, []);
-
     useEffect(() => {
-        // eslint-disable-next-line react-hooks/set-state-in-effect
+        const fetchNotifications = async () => {
+            try {
+                setLoading(true);
+                const response = await complianceApi.getAllComplianceIssues();
+                setNotifications(response.data.results || response.data); // 假设返回的数据结构
+                setLoading(false);
+            } catch (err) {
+                setError('无法加载通知，请稍后再试。');
+                console.error('Error fetching notifications:', err);
+                setLoading(false);
+            }
+        };
+
         fetchNotifications();
-    }, [fetchNotifications]);
+    }, []);
 
     if (loading) {
         return <Container><Typography>正在加载通知...</Typography></Container>;

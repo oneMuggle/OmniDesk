@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { API_BASE_URL } from '../../config/config';
 
 const getCookie = (name) => {
   let cookieValue = null;
@@ -18,7 +19,7 @@ const getCookie = (name) => {
 // 创建可配置的axios实例
 export const createApiClient = (options = {}) => {
   const instance = axios.create({
-    baseURL: process.env.NODE_ENV === 'production' ? '/api' : (process.env.REACT_APP_API_BASE_URL ? `${process.env.REACT_APP_API_BASE_URL}/api` : 'http://localhost:8000/api'),
+    baseURL: API_BASE_URL,
     headers: {
       'Content-Type': 'application/json',
       'X-Requested-With': 'XMLHttpRequest'

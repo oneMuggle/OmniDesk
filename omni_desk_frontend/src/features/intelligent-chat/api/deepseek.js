@@ -1,11 +1,11 @@
 import axios from 'axios';
-import { API_BASE_URL } from '../../../config/config';
+import { API_BASE_URL, DEEPSEEK_API_KEY, DEEPSEEK_API_URL } from '../../../config/config';
 
 const API_URL = API_BASE_URL;
 
 let currentConfig = {
-  apiKey: process.env.REACT_APP_DEEPSEEK_API_KEY,
-  apiEndpoint: process.env.REACT_APP_DEEPSEEK_API_ENDPOINT,
+  apiKey: DEEPSEEK_API_KEY,
+  apiEndpoint: DEEPSEEK_API_URL,
   model: 'deepseek-chat'
 };
 

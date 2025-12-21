@@ -325,21 +325,19 @@ const UserManagementPage = () => {
         }
     };
  
-    const fetchData = React.useCallback(async () => {
-        setLoading(true);
-        try {
-            await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);
-        } catch (error) {
-            // Errors are handled in individual fetch functions, but you could add a general one here if needed.
-            console.error("An error occurred during initial data fetch:", error);
-        } finally {
-            setLoading(false);
-        }
-    }, []); // Dependencies are implicitly handled by useCallback if they are not changing.
-
     useEffect(() => {
+        const fetchData = async () => {
+            setLoading(true);
+            try {
+                await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);
+            } catch (error) {
+                console.error("An error occurred during initial data fetch:", error);
+            } finally {
+                setLoading(false);
+            }
+        };
         fetchData();
-    }, [fetchData]);
+    }, []);
 
     const handleGroupsChange = async (userId, groupIds) => {
         try {

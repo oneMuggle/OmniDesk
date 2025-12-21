@@ -26,12 +26,20 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
 
   useEffect(() => {
     if (open) {
+      const personPosition = initialData.duty_person?.position || null;
+      const leaderPosition = initialData.duty_leader?.position || null;
       form.setFieldsValue({
         date: initialData.duty_date ? moment(initialData.duty_date) : null,
         duty_person: initialData.duty_person ? initialData.duty_person.id : null,
         duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
+        person_position_filter: personPosition,
+        leader_position_filter: leaderPosition,
       });
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedPersonPositionId(personPosition);
+      setSelectedLeaderPositionId(leaderPosition);
+    } else {
+      form.resetFields();
       setSelectedPersonPositionId(null);
       setSelectedLeaderPositionId(null);
     }
@@ -97,7 +105,11 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
           <Select
             placeholder="按职务筛选值班人员"
             allowClear
-            onChange={(value) => setSelectedPersonPositionId(value)}
+            onChange={(value) => {
+              setSelectedPersonPositionId(value);
+              setSelectedPersonPositionId(value);
+              form.setFieldsValue({ duty_person: null });
+            }}
             value={selectedPersonPositionId}
           >
             {positions.map(position => (
@@ -140,7 +152,10 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
           <Select
             placeholder="按职务筛选值班领导"
             allowClear
-            onChange={(value) => setSelectedLeaderPositionId(value)}
+            onChange={(value) => {
+              setSelectedLeaderPositionId(value);
+              form.setFieldsValue({ duty_leader: null });
+            }}
             value={selectedLeaderPositionId}
           >
             {positions.map(position => (
@@ -352,31 +367,6 @@ const ScheduleManagementPage = () => {
   const [weeklyLeaders, setWeeklyLeaders] = useState([]);
 
   useEffect(() => {
-    // 组件挂载时保存日历容器的原始样式
-    if (calendarContainerRef.current) {
-      originalCalendarContainerStyle.current = {
-        width: calendarContainerRef.current.style.width,
-        height: calendarContainerRef.current.style.height,
-        // 可以添加其他需要保存的样式属性
-      };
-    }
-  }, []);
-
-  const fetchData = useCallback(async () => {
-    // setLoading(true) is moved to initData
-    try {
-      const data = await scheduleApi.getSchedules();
-      const formattedData = data.map(schedule => ({
-        ...schedule,
-      }));
-      setSchedules(formattedData);
-    } catch (error) {
-      message.error('获取排班数据失败');
-    }
-    // setLoading(false) is moved to initData
-  }, []);
-
-  useEffect(() => {
     const initData = async () => {
       setLoading(true);
       try {
@@ -394,6 +384,31 @@ const ScheduleManagementPage = () => {
     };
     initData();
   }, [fetchData]);
+
+  const fetchData = useCallback(async () => {
+    // setLoading(true) is moved to initData
+    try {
+      const data = await scheduleApi.getSchedules();
+      const formattedData = data.map(schedule => ({
+        ...schedule,
+      }));
+      setSchedules(formattedData);
+    } catch (error) {
+      message.error('获取排班数据失败');
+    }
+    // setLoading(false) is moved to initData
+  }, []);
+
+  useEffect(() => {
+    // 组件挂载时保存日历容器的原始样式
+    if (calendarContainerRef.current) {
+      originalCalendarContainerStyle.current = {
+        width: calendarContainerRef.current.style.width,
+        height: calendarContainerRef.current.style.height,
+        // 可以添加其他需要保存的样式属性
+      };
+    }
+  }, []);
 
   const fetchPersonnel = async () => {
     try {

@@ -1,9 +1,10 @@
 import axios from 'axios';
 import apiClient from '../../../api/apiClient';
+import { OLLAMA_API_URL } from '../../../config/config';
 
 // 创建独立的Ollama客户端
 const ollamaClient = axios.create({
-  baseURL: process.env.REACT_APP_OLLAMA_ENDPOINT || 'http://localhost:11434/api',
+  baseURL: OLLAMA_API_URL,
   headers: {
     'Content-Type': 'application/json'
   }

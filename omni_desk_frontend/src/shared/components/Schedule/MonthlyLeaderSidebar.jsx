@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Draggable } from 'react-beautiful-dnd';
 import { Card, List } from 'antd';
@@ -6,27 +6,29 @@ import moment from 'moment';
 import StrictModeDroppable from './StrictModeDroppable';
 
 const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = false }) => {
-  const [weekRowHeights, setWeekRowHeights] = React.useState({});
+  const [weekRowHeights, setWeekRowHeights] = useState({});
 
-  React.useEffect(() => {
-    const calculateHeights = () => {
-      if (!calendarRef.current) return;
+  useEffect(() => {
+    const calculateAndSetHeights = () => {
+      if (!calendarRef.current) {
+        return;
+      }
       const calendarEl = calendarRef.current.getApi().el;
       const weekElements = calendarEl.querySelectorAll('.fc-daygrid-week');
-      const heights = {};
+      const newHeights = {};
       weekElements.forEach((weekEl) => {
         const weekNumber = moment(weekEl.dataset.date).week();
-        heights[weekNumber] = weekEl.offsetHeight;
+        newHeights[weekNumber] = weekEl.offsetHeight;
       });
-      setWeekRowHeights(heights);
+      setWeekRowHeights(newHeights);
     };
 
-    // Calculate heights on mount and when weeklyLeaders changes (as it might affect the calendar layout)
-    calculateHeights();
+    // Calculate heights on mount and when weeklyLeaders changes
+    calculateAndSetHeights();
 
-    // Optional: Recalculate on window resize if the calendar is responsive
-    window.addEventListener('resize', calculateHeights);
-    return () => window.removeEventListener('resize', calculateHeights);
+    // Recalculate on window resize
+    window.addEventListener('resize', calculateAndSetHeights);
+    return () => window.removeEventListener('resize', calculateAndSetHeights);
   }, [calendarRef, weeklyLeaders]);
 
   return (
