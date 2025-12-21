@@ -1,4 +1,4 @@
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 const complianceApi = {
     getAllComplianceIssues: (params) => apiClient.get('/compliance/', { params }),

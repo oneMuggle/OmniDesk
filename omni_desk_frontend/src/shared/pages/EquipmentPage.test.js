@@ -1,15 +1,15 @@
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import EquipmentPage from './EquipmentPage';
+import EquipmentPage from '../../features/equipment/pages/EquipmentPage';
 import {
   getEquipment,
   createEquipment,
   updateEquipment,
   deleteEquipment,
-} from '../api/equipment';
+} from '../../features/equipment/api/equipment';
 
-jest.mock('../api/equipment');
+jest.mock('../../features/equipment/api/equipment');
 
 const mockEquipment = {
   data: [

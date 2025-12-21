@@ -83,7 +83,7 @@ describe('PersonnelManagementPage', () => {
         // Ensure position is treated as a number for comparison
         results = results.filter(p => p.position === parseInt(String(position), 10));
       }
-      return Promise.resolve({ results, count: results.length });
+      return Promise.resolve({ data: results, pagination: { total: results.length } });
     });
 
     getPositions.mockResolvedValue({ results: mockPositions.results });
@@ -142,18 +142,18 @@ describe('PersonnelManagementPage', () => {
       renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe'); // Wait for initial data
 
-      await userEvent.click(screen.getByTestId('add-personnel-button'));
-      await screen.findByTestId('personnel-modal');
+      await userEvent.click(screen.getByRole('button', { name: /新增人员/i }));
+      await screen.findByRole('dialog');
 
-      await userEvent.type(screen.getByTestId('personnel-modal-name-input'), 'Peter Pan');
+      await userEvent.type(screen.getByLabelText('姓名'), 'Peter Pan');
       
-      const positionSelect = screen.getByRole('combobox', { name: '职位' });
+      const positionSelect = screen.getByLabelText('职位');
       await userEvent.click(positionSelect);
       await screen.findByRole('listbox');
       // The first option is 'Developer' with id 1
       await userEvent.keyboard('{enter}');
 
-      await userEvent.click(screen.getByTestId('personnel-modal-ok-button'));
+      await userEvent.click(screen.getByRole('button', { name: 'OK' }));
 
       // Wait for the new person to appear in the table. This confirms the re-fetch and re-render.
       expect(await screen.findByText('Peter Pan')).toBeInTheDocument();
@@ -168,12 +168,12 @@ describe('PersonnelManagementPage', () => {
       renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe'); // Wait for initial data
 
-      await userEvent.click(screen.getByTestId('edit-personnel-1'));
-      await screen.findByTestId('personnel-modal');
+      await userEvent.click(screen.getAllByRole('button', { name: /编辑/i })[0]);
+      await screen.findByRole('dialog');
 
-      await userEvent.clear(screen.getByTestId('personnel-modal-name-input'));
-      await userEvent.type(screen.getByTestId('personnel-modal-name-input'), 'John Doe Updated');
-      await userEvent.click(screen.getByTestId('personnel-modal-ok-button'));
+      await userEvent.clear(screen.getByLabelText('姓名'));
+      await userEvent.type(screen.getByLabelText('姓名'), 'John Doe Updated');
+      await userEvent.click(screen.getByRole('button', { name: 'OK' }));
 
       // Wait for the updated name to appear, confirming re-fetch and re-render.
       expect(await screen.findByText('John Doe Updated')).toBeInTheDocument();
@@ -187,10 +187,10 @@ describe('PersonnelManagementPage', () => {
       renderWithProvider(<PersonnelManagementPage />);
       const johnDoeElement = await screen.findByText('John Doe'); // Wait for initial data
 
-      await userEvent.click(screen.getByTestId('delete-personnel-1'));
+      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]);
 
       const dialog = await screen.findByRole('dialog');
-      const confirmButton = await within(dialog).findByRole('button', { name: /确\s*认/ });
+      const confirmButton = await within(dialog).findByRole('button', { name: /确认/ });
       await userEvent.click(confirmButton);
 
       // Wait for the element to be removed from the DOM, confirming re-fetch and re-render.
@@ -206,7 +206,7 @@ describe('PersonnelManagementPage', () => {
       renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe'); // Wait for initial data
     
-      const searchInput = screen.getByPlaceholderText('按姓名搜索');
+      const searchInput = screen.getByPlaceholderText('按姓名、电话、职位搜索');
       await userEvent.type(searchInput, 'Jane');
       // The search button has a space in its name.
       await userEvent.click(screen.getByRole('button', { name: /搜 索/i }));

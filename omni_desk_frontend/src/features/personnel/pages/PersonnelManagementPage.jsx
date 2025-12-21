@@ -158,13 +158,13 @@ const PersonnelManagementPage = () => {
   };
 
   const handleDelete = async (id) => {
-    ConfirmModal({
+    Modal.confirm({
       title: '确认删除',
       content: '确定要删除该人员信息吗？',
       okText: '确认',
       cancelText: '取消',
-      type: 'danger',
-      onConfirm: async () => {
+      okType: 'danger',
+      onOk: async () => {
         try {
           await deletePersonnel(id);
           message.success('删除成功');
@@ -259,13 +259,13 @@ const PersonnelManagementPage = () => {
     };
 
     const handleDeletePosition = async (id) => {
-      ConfirmModal({
+      Modal.confirm({
         title: '确认删除',
         content: '确定要删除该职位吗？',
         okText: '确认',
         cancelText: '取消',
-        type: 'danger',
-        onConfirm: async () => {
+        okType: 'danger',
+        onOk: async () => {
           try {
             await deletePosition(id);
             message.success('职位删除成功');

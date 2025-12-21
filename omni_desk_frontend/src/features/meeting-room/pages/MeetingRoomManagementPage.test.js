@@ -6,7 +6,7 @@ import dayjs from 'dayjs';
 import { Form } from 'antd';
 import MeetingRoomManagementPage from './MeetingRoomManagementPage';
 import meetingRoomApi from '../api/meetingRoomApi';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../../auth/context/AuthContext';
 
 jest.mock('../api/meetingRoomApi');
 

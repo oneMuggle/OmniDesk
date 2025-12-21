@@ -24,7 +24,7 @@ describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
     apiClient.get.mockImplementation((url) => {
       if (url.includes('/personnel/positions')) {
-        return Promise.resolve({ data: mockPositions });
+        return Promise.resolve({ data: { results: mockPositions } });
       }
       if (url.includes('/personnel/personnel')) {
         return Promise.resolve({ data: mockPersonnel });

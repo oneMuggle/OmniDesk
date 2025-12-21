@@ -7,11 +7,11 @@ import {
   getPersonnelSequences, createPersonnelSequence, updatePersonnelSequence, deletePersonnelSequence,
   getLeaderSequences, createLeaderSequence, updateLeaderSequence, deleteLeaderSequence
 } from '../api/sequenceApi';
-import { getAllPersonnel, getPositions } from '../features/personnel/api/personnelApi';
+import { getAllPersonnel, getPositions } from '../../features/personnel/api/personnelApi';
 
 // Mock APIs
 jest.mock('../api/sequenceApi');
-jest.mock('../features/personnel/api/personnelApi');
+jest.mock('../../features/personnel/api/personnelApi');
 
 // Mock react-beautiful-dnd
 jest.mock('react-beautiful-dnd', () => {

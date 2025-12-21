@@ -4,10 +4,10 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import moment from 'moment';
 import MemoPage from './MemoPage';
 import { useMemoData } from '../hooks/useMemoData';
-import { useCalendar } from '../features/schedule/hooks/useCalendar';
+import { useCalendar } from '../../schedule/hooks/useCalendar';
 
 jest.mock('../hooks/useMemoData');
-jest.mock('../features/schedule/hooks/useCalendar');
+jest.mock('../../schedule/hooks/useCalendar');
 
 describe('MemoPage Component', () => {
   const MOCK_DATE_NOW = new Date('2025-10-27T10:00:00.000Z').getTime();

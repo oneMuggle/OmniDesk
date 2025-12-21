@@ -2,10 +2,10 @@ import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import AnnouncementsPage from './AnnouncementsPage';
 
-import apiClient from '../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
 // Mocking the API client to prevent actual network requests during tests
-jest.mock('../api/apiClient');
+jest.mock('../../../shared/api/apiClient');
 
 describe('AnnouncementsPage', () => {
   test('renders the announcements page title', async () => {

@@ -1,12 +1,12 @@
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
-import { AuthContext } from '../context/AuthContext';
+import { AuthContext } from '../../features/auth/context/AuthContext';
 import Sidebar from './Sidebar';
-import complianceApi from '../api/compliance';
+import complianceApi from '../../features/compliance/api/compliance';
 
 // Mock the complianceApi module
-jest.mock('../api/compliance');
+jest.mock('../../features/compliance/api/compliance');
 
 const mockAuthContext = {
   user: null,

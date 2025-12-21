@@ -1,10 +1,10 @@
 import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
-import ScheduleSettingsPage from '../features/schedule/pages/ScheduleSettingsPage';
+import ScheduleSettingsPage from '../../features/schedule/pages/ScheduleSettingsPage';
 
 // Mock the child component
-jest.mock('../components/SequenceManager', () => {
+jest.mock('../../shared/components/SequenceManager', () => {
   const MockSequenceManager = () => <div>SequenceManager Mock</div>;
   MockSequenceManager.displayName = 'MockSequenceManager';
   return MockSequenceManager;

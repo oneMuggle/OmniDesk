@@ -1,7 +1,7 @@
 import { scheduleApi } from './scheduleApi';
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
-jest.mock('../../../api/apiClient');
+jest.mock('../../../shared/api/apiClient');
 
 describe('scheduleApi', () => {
   afterEach(() => {
@@ -29,7 +29,7 @@ describe('scheduleApi', () => {
     apiClient.post.mockRejectedValue(error);
 
     // We spy on handleError to ensure it's called, but prevent its output in tests
-    const handleError = jest.spyOn(require('../../../api/responseHandler'), 'handleError').mockImplementation(() => {});
+    const handleError = jest.spyOn(require('../../../shared/api/responseHandler'), 'handleError').mockImplementation(() => {});
 
     await expect(scheduleApi.bulkDeleteSchedules(ids)).rejects.toEqual(error);
     expect(apiClient.post).toHaveBeenCalledWith('/events/schedules/bulk_destroy/', { ids });

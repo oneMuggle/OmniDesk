@@ -2,13 +2,13 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import UserManagementPage from './UserManagementPage';
 import userManagementApi from '../api/userManagementApi';
-import { getAllPersonnel } from '../features/personnel/api/personnelApi';
-import { permissionsApi } from '../api/permissionsApi';
-import { AuthContext } from '../context/AuthContext';
+import { getAllPersonnel } from '../../personnel/api/personnelApi';
+import { permissionsApi } from '../../../shared/api/permissionsApi';
+import { AuthContext } from '../../auth/context/AuthContext';
 
 jest.mock('../api/userManagementApi');
-jest.mock('../features/personnel/api/personnelApi');
-jest.mock('../api/permissionsApi');
+jest.mock('../../personnel/api/personnelApi');
+jest.mock('../../../shared/api/permissionsApi');
 
 const mockUsers = [
   { id: 1, username: 'user1', email: 'user1@example.com', role: 'user', groups: [] },

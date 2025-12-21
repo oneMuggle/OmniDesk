@@ -10,9 +10,9 @@ import {
   updatePosition,
   deletePosition,
 } from './personnelApi';
-import apiClient from '../../../api/apiClient';
+import apiClient from '../../../shared/api/apiClient';
 
-jest.mock('../../../api/apiClient');
+jest.mock('../../../shared/api/apiClient');
 
 describe('personnelApi', () => {
   afterEach(() => {
@@ -22,13 +22,16 @@ describe('personnelApi', () => {
   describe('getPersonnel', () => {
     it('should fetch personnel with given params', async () => {
       const params = { page: 1 };
-      const response = { data: { results: [{ id: 1, name: 'John Doe' }] } };
+      const response = { data: { results: [{ id: 1, name: 'John Doe' }], count: 1, current_page: 1, page_size: 10 } };
       apiClient.get.mockResolvedValue(response);
 
       const result = await getPersonnel(params);
 
       expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params });
-      expect(result).toEqual(response.data);
+      expect(result).toEqual({
+        data: [{ id: 1, name: 'John Doe' }],
+        pagination: { current: 1, total: 1, pageSize: 10 },
+      });
     });
   });
 
@@ -94,13 +97,16 @@ describe('personnelApi', () => {
 
   describe('getPositions', () => {
     it('should fetch all positions', async () => {
-      const response = { data: [{ id: 1, name: 'Manager' }] };
+      const response = { data: { results: [{ id: 1, name: 'Manager' }], count: 1, current_page: 1, page_size: 10 } };
       apiClient.get.mockResolvedValue(response);
 
       const result = await getPositions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/personnel/positions/', { "params": undefined });
-      expect(result).toEqual(response.data);
+      expect(apiClient.get).toHaveBeenCalledWith('/personnel/positions/', { "params": {} });
+      expect(result).toEqual({
+        data: [{ id: 1, name: 'Manager' }],
+        pagination: { current: 1, total: 1, pageSize: 10 },
+      });
     });
   });
 

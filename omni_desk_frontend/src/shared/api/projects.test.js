@@ -1,4 +1,4 @@
-import projectsApi from './projects';
+import projectsApi from '../../features/projects/api/projects';
 import apiClient from './apiClient';
 
 jest.mock('./apiClient');
