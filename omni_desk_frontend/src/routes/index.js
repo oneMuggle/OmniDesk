@@ -43,7 +43,7 @@ import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import Pr
 import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage.jsx'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import UserManagementPage from '../features/user/pages/UserManagementPage'; // Import UserManagementPage
-import SensorManagementPage from '../features/sensor/pages/SensorManagementPage'; // 导入 SensorManagementPage
+import SensorManagementPage from '../features/sensor-management/pages/SensorManagementPage';
 import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
 import StorageLocationManagementPage from '../features/sensor/pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage

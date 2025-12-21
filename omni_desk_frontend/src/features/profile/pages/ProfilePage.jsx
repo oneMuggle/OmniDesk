@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { AuthContext } from '../../auth/context/AuthContext';
 import ProfileSidebar from '../components/ProfileSidebar';
 import EditProfileForm from '../components/EditProfileForm';

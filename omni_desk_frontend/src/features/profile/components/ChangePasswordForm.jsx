@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import apiClient from '../../../shared/api/apiClient';
 import { notifications } from '../../../shared/utils/notifications';
 import './ProfileForms.css';

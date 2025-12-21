@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Form } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
 import { useAuth } from '../../auth/context/AuthContext';

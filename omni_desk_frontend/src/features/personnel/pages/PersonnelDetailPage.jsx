@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPersonnelDetails } from '../api/personnelApi';
 import { Descriptions, Table, Spin, message, Button, Card } from 'antd';

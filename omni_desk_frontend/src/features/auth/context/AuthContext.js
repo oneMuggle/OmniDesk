@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import apiClient from '../../../shared/api/apiClient';
 import pageConfigApi from '../../../shared/api/pageConfigApi';

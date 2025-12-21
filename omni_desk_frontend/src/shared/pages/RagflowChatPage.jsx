@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from '../components/ThinkContent';
 import './RagflowChatPage.css'; // 稍后创建此CSS文件

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
 import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';

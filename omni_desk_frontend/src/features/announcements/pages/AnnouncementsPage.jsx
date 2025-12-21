@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import Slider from 'react-slick';
 import apiClient from '../../../shared/api/apiClient'; // 修正导入路径

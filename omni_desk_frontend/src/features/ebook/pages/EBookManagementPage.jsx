@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Layout, Input, Typography, message, Card, Row, Col, Space, Button } from 'antd';
 import axios from 'axios';
 import FileUpload from '../components/FileUpload';

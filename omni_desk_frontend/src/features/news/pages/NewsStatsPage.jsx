@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getNewsStats, getNewsArticles } from '../api/newsApi';
 import { Table, Typography, Card, Row, Col } from 'antd';
 

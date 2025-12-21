@@ -1,4 +1,3 @@
-import React from 'react';
 import PropTypes from 'prop-types';
 import { Upload, Button, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';

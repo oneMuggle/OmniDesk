@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { chatCompletion, getOllamaConfigs } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from '../components/ThinkContent';

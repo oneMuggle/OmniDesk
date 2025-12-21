@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, message, Spin, Card } from 'antd';
 import { getCalibrationRecords } from '../api/sensorApi';

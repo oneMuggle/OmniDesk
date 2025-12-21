@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Button, Input, Spin, FloatButton, Popover, Upload } from 'antd';
 import { CommentOutlined, SendOutlined, CloseOutlined } from '@ant-design/icons';
 import { useApi } from '../context/ApiProvider';

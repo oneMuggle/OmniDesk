@@ -1,4 +1,3 @@
-import React from 'react';
 import PropTypes from 'prop-types';
 import '../../../shared/components/styles/Schedule.css'; // 导入日历美化样式
 import '../../../shared/components/styles/Controls.css';

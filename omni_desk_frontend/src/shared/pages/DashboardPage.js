@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Typography, Card, Row, Col, List, message, Spin } from 'antd';
 import { LoadingOutlined } from '@ant-design/icons';
 import apiClient from '../api/apiClient';

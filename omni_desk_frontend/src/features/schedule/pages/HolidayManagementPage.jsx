@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, message, Popconfirm, Spin } from 'antd';
 import moment from 'moment';
 import { holidayApi } from '../api/holidayApi';

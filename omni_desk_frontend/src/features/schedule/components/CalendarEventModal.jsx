@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
