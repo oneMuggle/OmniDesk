@@ -7,6 +7,7 @@
   "extends": [
     "eslint:recommended",
     "plugin:react/recommended",
+    "plugin:react/jsx-runtime",
     "plugin:react-hooks/recommended",
     "plugin:testing-library/react"
   ],
@@ -24,8 +25,7 @@
   "rules": {
     "no-unused-vars": "warn",
     "react/prop-types": "warn",
-    "react/jsx-key": "warn",
-    "react/react-in-jsx-scope": "warn"
+    "react/jsx-key": "warn"
   },
   "settings": {
     "react": {

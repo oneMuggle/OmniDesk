@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
-import ConfirmModal from '../../schedule/components/Calendar/ConfirmModal';
 import {
   getPersonnel,
   createPersonnel,
@@ -88,7 +87,7 @@ const PersonnelManagementPage = () => {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, [pagination.current, pagination.pageSize]);
+  }, [pagination]);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -106,7 +105,7 @@ const PersonnelManagementPage = () => {
       pageSize: pagination.pageSize
     });
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions, pagination.current, pagination.pageSize]);
+  }, [fetchData, fetchPositions, pagination]);
 
   const handleTableChange = (newPagination) => {
     fetchData({
