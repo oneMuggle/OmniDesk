@@ -39,7 +39,6 @@ export function AuthProvider({ children }) {
         try {
           const { access } = JSON.parse(storedTokens);
           if (access) {
-            apiClient.defaults.headers.common['Authorization'] = `Bearer ${access}`;
             try {
               const res = await apiClient.get('/users/me/');
               // Permissions should be fetched from the backend, not from localStorage.
@@ -52,7 +51,6 @@ export function AuthProvider({ children }) {
               console.error('Failed to fetch user data:', error);
               localStorage.removeItem('authTokens');
               sessionStorage.removeItem('authTokens');
-              delete apiClient.defaults.headers.common['Authorization'];
             }
           }
         } catch (error) {
@@ -86,8 +84,6 @@ export function AuthProvider({ children }) {
         sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
         // DO NOT store permissions in sessionStorage.
       }
-      
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${res.data.access}`;
       
       const userRes = await apiClient.get('/users/me/');
       // The user data from /users/me/ should be the source of truth.
@@ -146,7 +142,6 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem('authTokens');
     localStorage.removeItem('userPermissions'); // Clean up old insecure data
     sessionStorage.removeItem('userPermissions'); // Clean up old insecure data
-    delete apiClient.defaults.headers.common['Authorization'];
     setUser(null);
     setIsGuest(false);
     setPageConfigs([]);
@@ -157,7 +152,6 @@ export function AuthProvider({ children }) {
     try {
       localStorage.removeItem('authTokens');
       sessionStorage.removeItem('authTokens');
-      delete apiClient.defaults.headers.common['Authorization'];
       setUser(null);
       setIsGuest(true);
       setPageConfigs([]);
