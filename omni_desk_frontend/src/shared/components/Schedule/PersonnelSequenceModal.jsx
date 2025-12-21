@@ -20,8 +20,9 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
   // Fetch positions from API
   useEffect(() => {
     getPositions()
-      .then(data => {
-        setPositions(data);
+      .then(response => {
+        // The API returns a paginated response, so we need to extract the `results` array.
+        setPositions(response.data || []);
       })
       .catch(error => {
         console.error('Error fetching positions:', error);
@@ -36,20 +37,22 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
 
   // Fetch personnel based on search and filter
   useEffect(() => {
-    const params = {
-      search: searchTerm,
-      position_id: selectedPosition,
-    };
-    getPersonnel(params)
-      .then(data => {
-        setPersonnel(data.results);
-      })
-      .catch(error => {
+    const fetchPersonnel = async () => {
+      const params = {
+        search: searchTerm,
+        position_id: selectedPosition,
+      };
+      try {
+        const data = await getPersonnel(params);
+        setPersonnel(data.data);
+      } catch (error) {
         console.error('Error fetching personnel:', error);
-        // Mock data for development is useful for UI development, but for now, we'll just clear the list on error.
         setPersonnel([]);
-      });
-  }, [searchTerm, selectedPosition, positions]);
+      }
+    };
+
+    fetchPersonnel();
+  }, [searchTerm, selectedPosition]);
 
   const handleAddPersonnel = (person) => {
     const isWorkday = activeTab === 'workday';

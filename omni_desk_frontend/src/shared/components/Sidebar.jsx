@@ -23,7 +23,7 @@ import {
   SoundOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import getComplianceData from '../api/compliance';
+import complianceApi from '../../features/compliance/api/compliance';
 import { Badge, Tooltip } from 'antd';
 
 const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
@@ -36,7 +36,7 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const response = await getComplianceData();
+        const response = await complianceApi.getUnreadCount();
         setUnreadNotificationCount(response.data.unread_count);
       } catch (error) {
         console.error('Error fetching unread notification count:', error);

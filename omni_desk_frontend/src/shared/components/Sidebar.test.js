@@ -30,11 +30,16 @@ describe('Sidebar', () => {
   beforeEach(() => {
     // Reset mocks before each test
     complianceApi.getUnreadCount.mockClear();
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.clearAllTimers();
   });
 
   it('renders the sidebar with title', () => {
     renderSidebar();
-    expect(screen.getByText(/智能办公桌面管理系统/i)).toBeInTheDocument();
+    expect(screen.getByText(/智能办公系统/i)).toBeInTheDocument();
   });
 
   it('shows login hint when not authenticated', () => {

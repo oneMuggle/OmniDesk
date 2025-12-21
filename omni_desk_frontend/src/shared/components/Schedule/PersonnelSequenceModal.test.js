@@ -22,12 +22,22 @@ const mockPersonnel = {
 
 describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
-    apiClient.get.mockImplementation((url) => {
+    apiClient.get.mockImplementation((url, { params } = {}) => {
       if (url.includes('/personnel/positions')) {
         return Promise.resolve({ data: { results: mockPositions } });
       }
       if (url.includes('/personnel/personnel')) {
-        return Promise.resolve({ data: mockPersonnel });
+        const { search, position_id } = params || {};
+        let results = [...mockPersonnel.results];
+        if (search) {
+          results = results.filter(p =>
+            p.name.toLowerCase().includes(search.toLowerCase())
+          );
+        }
+        if (position_id) {
+          results = results.filter(p => p.position === 'Manager');
+        }
+        return Promise.resolve({ data: { results } });
       }
       return Promise.reject(new Error('not found'));
     });
@@ -102,16 +112,16 @@ describe('PersonnelSequenceModal', () => {
 
     // Search for personnel
     await user.type(screen.getByPlaceholderText('按姓名拼音搜索'), 'Ali');
+
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { search: 'Ali', position_id: null } });
     });
 
     // Filter by position
-    // Click the combobox to open the dropdown
     const positionSelect = screen.getByRole('combobox');
     await user.click(positionSelect);
-    // Pressing Enter should select the first option, which is 'Manager'
-    await user.keyboard('{Enter}');
+    await user.click(await screen.findByText('Manager'));
+
     await waitFor(() => {
       expect(apiClient.get).toHaveBeenCalledWith('/personnel/personnel/', { params: { search: 'Ali', position_id: 1 } });
     });

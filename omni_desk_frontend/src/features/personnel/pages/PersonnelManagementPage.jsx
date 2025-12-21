@@ -15,7 +15,6 @@ import {
 import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
 
 const { Option } = Select; // Destructure Option from Select
-const { TabPane } = Tabs; // Destructure TabPane from Tabs
 
 const PersonnelManagementPage = () => {
   const [form] = Form.useForm();
@@ -72,7 +71,7 @@ const PersonnelManagementPage = () => {
 
   const fetchData = useCallback(async (params = {}) => {
     try {
-      const { page = 1, pageSize = 10 } = params;
+      const { page = pagination.current, pageSize = pagination.pageSize } = params;
       const response = await getPersonnel({
         page,
         page_size: pageSize
@@ -89,7 +88,7 @@ const PersonnelManagementPage = () => {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, []);
+  }, [pagination.current, pagination.pageSize]);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -107,7 +106,7 @@ const PersonnelManagementPage = () => {
       pageSize: pagination.pageSize
     });
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions, pagination]);
+  }, [fetchData, fetchPositions, pagination.current, pagination.pageSize]);
 
   const handleTableChange = (newPagination) => {
     fetchData({
@@ -150,7 +149,7 @@ const PersonnelManagementPage = () => {
         message.success('创建成功');
       }
       setIsModalVisible(false);
-      fetchData();
+      fetchData({ page: 1, pageSize: pagination.pageSize });
     } catch (error) {
       console.error('操作失败:', error); // Log error for debugging
       message.error('操作失败');
@@ -317,11 +316,12 @@ const PersonnelManagementPage = () => {
     );
   };
 
-  return (
-    <div className='p-4'>
-      <h2 className='text-xl font-bold mb-4'>人员管理系统</h2> {/* Moved outside Tabs */}
-      <Tabs defaultActiveKey="personnel" activeKey={activeTab} onChange={setActiveTab}>
-        <TabPane tab="人员管理" key="personnel">
+  const tabItems = [
+    {
+      key: 'personnel',
+      label: '人员管理',
+      children: (
+        <>
           <div className='mb-4 flex justify-end'> {/* Adjusted flex for button alignment */}
             <Button
               type="primary"
@@ -405,11 +405,20 @@ const PersonnelManagementPage = () => {
               </Form.List>
             </Form>
           </Modal>
-        </TabPane>
-        <TabPane tab="职位管理" key="positions">
-          <PositionManagementTab />
-        </TabPane>
-      </Tabs>
+        </>
+      )
+    },
+    {
+      key: 'positions',
+      label: '职位管理',
+      children: <PositionManagementTab />
+    }
+  ];
+
+  return (
+    <div className='p-4'>
+      <h2 className='text-xl font-bold mb-4'>人员管理系统</h2> {/* Moved outside Tabs */}
+      <Tabs defaultActiveKey="personnel" activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
     </div>
   );
 };
