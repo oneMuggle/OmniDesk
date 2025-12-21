@@ -24,6 +24,20 @@ const SensorForm = ({ form, initialValues, onSubmit }) => {
         <Input />
       </Form.Item>
       <Form.Item
+        name="sensor_category"
+        label="传感器类别"
+        rules={[{ required: true, message: '请输入传感器类别！' }]}
+      >
+        <Input />
+      </Form.Item>
+      <Form.Item
+        name="location"
+        label="位置"
+        rules={[{ required: true, message: '请输入位置！' }]}
+      >
+        <Input />
+      </Form.Item>
+      <Form.Item
         name="room_temperature"
         label="室温 (°C)"
         rules={[{ required: true, message: '请输入室温！' }]}
@@ -42,7 +56,7 @@ const SensorForm = ({ form, initialValues, onSubmit }) => {
         label="传感器编号"
         rules={[{ required: true, message: '请输入传感器编号！' }]}
       >
-        <Input />
+        <InputNumber style={{ width: '100%' }} />
       </Form.Item>
       <Form.Item
         name="serial_number"

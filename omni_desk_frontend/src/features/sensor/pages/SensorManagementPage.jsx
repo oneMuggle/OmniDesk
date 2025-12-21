@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, notification, Space } from 'antd';
+import { Table, Button, Modal, Form, Input, message, notification, Space, Select } from 'antd';
 import { Link } from 'react-router-dom';
 import { getSensors, createSensor } from '../api/sensorApi';
+import apiClient from '../../../shared/api/apiClient';
 
 const SensorManagementPage = () => {
   const [sensors, setSensors] = useState([]);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [form] = Form.useForm();
+  const [sensorCategories, setSensorCategories] = useState([]);
+  const [locations, setLocations] = useState([]);
 
   const fetchSensors = React.useCallback(async () => {
     try {
@@ -28,6 +31,32 @@ const SensorManagementPage = () => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchSensors();
   }, [fetchSensors]);
+
+  useEffect(() => {
+    const fetchDropdownData = async () => {
+      try {
+        const categoriesResponse = await apiClient.get('sensor-management/categories/');
+        const locationsResponse = await apiClient.get('sensor-management/storage-locations/');
+        
+        const categoriesData = categoriesResponse.data.results || categoriesResponse.data;
+        const locationsData = locationsResponse.data.results || locationsResponse.data;
+
+        if (Array.isArray(categoriesData)) {
+          setSensorCategories(categoriesData);
+        }
+        if (Array.isArray(locationsData)) {
+          setLocations(locationsData);
+        }
+      } catch (error) {
+        notification.error({
+          message: '加载失败',
+          description: '无法加载传感器类别和位置的下拉选项。',
+        });
+      }
+    };
+
+    fetchDropdownData();
+  }, []);
 
   const showAddModal = () => {
     setIsModalVisible(true);
@@ -127,6 +156,39 @@ const SensorManagementPage = () => {
             rules={[{ required: true, message: '请输入校准范围!' }]}
           >
             <Input />
+          </Form.Item>
+          <Form.Item
+            name="sensor_number"
+            label="传感器编号"
+            rules={[{ required: true, message: '请输入传感器编号!' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item
+            name="sensor_category"
+            label="传感器类别"
+            rules={[{ required: true, message: '请选择传感器类别!' }]}
+          >
+            <Select placeholder="请选择传感器类别">
+              {sensorCategories.map(category => (
+                <Select.Option key={category.id} value={category.id}>
+                  {category.name}
+                </Select.Option>
+              ))}
+            </Select>
+          </Form.Item>
+          <Form.Item
+            name="location"
+            label="位置"
+            rules={[{ required: true, message: '请选择位置!' }]}
+          >
+            <Select placeholder="请选择位置">
+              {locations.map(location => (
+                <Select.Option key={location.id} value={location.id}>
+                  {location.name}
+                </Select.Option>
+              ))}
+            </Select>
           </Form.Item>
         </Form>
       </Modal>
