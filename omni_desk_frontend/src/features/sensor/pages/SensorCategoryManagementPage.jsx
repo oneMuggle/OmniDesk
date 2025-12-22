@@ -9,7 +9,7 @@ const SensorCategoryManagementPage = () => {
   const fetchCategories = async () => {
     try {
       const response = await getSensorCategories();
-      setCategories(response.data);
+      setCategories(response.data.results || []);
     } catch (error) {
       console.error('Error fetching sensor categories:', error);
     }
