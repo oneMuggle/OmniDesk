@@ -30,6 +30,8 @@ class MainWindow(QWidget):
 
     def fetch_data(self):
         """Fetches data from multiple API endpoints and populates the tabs."""
+        if not self.api_client:
+            return
         self.schedule_list.clear()
         schedules = self.api_client.get_schedules(self.access_token)
         schedules_list = schedules.get('results', []) if isinstance(schedules, dict) else schedules
