@@ -68,9 +68,8 @@ const PersonnelManagementPage = () => {
     },
   ];
 
-  const fetchData = useCallback(async (params = {}) => {
+  const fetchData = useCallback(async (page, pageSize) => {
     try {
-      const { page = pagination.current, pageSize = pagination.pageSize } = params;
       const response = await getPersonnel({
         page,
         page_size: pageSize
@@ -87,7 +86,7 @@ const PersonnelManagementPage = () => {
       message.error('获取人员数据失败');
       setData([]);
     }
-  }, [pagination]);
+  }, []);
 
   const fetchPositions = useCallback(async () => {
     try {
@@ -100,18 +99,12 @@ const PersonnelManagementPage = () => {
   }, []);
 
   useEffect(() => {
-    fetchData({
-      page: pagination.current,
-      pageSize: pagination.pageSize
-    });
+    fetchData(pagination.current, pagination.pageSize);
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions, pagination]);
+  }, [fetchData, fetchPositions]);
 
   const handleTableChange = (newPagination) => {
-    fetchData({
-      page: newPagination.current,
-      pageSize: newPagination.pageSize,
-    });
+    fetchData(newPagination.current, newPagination.pageSize);
   };
 
   const showCreateModal = () => {
@@ -148,7 +141,7 @@ const PersonnelManagementPage = () => {
         message.success('创建成功');
       }
       setIsModalVisible(false);
-      fetchData({ page: 1, pageSize: pagination.pageSize });
+      fetchData(1, pagination.pageSize);
     } catch (error) {
       console.error('操作失败:', error); // Log error for debugging
       message.error('操作失败');

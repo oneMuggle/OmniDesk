@@ -1,8 +1,20 @@
+jest.mock('antd', () => {
+  const antd = jest.requireActual('antd');
+  return {
+    ...antd,
+    message: {
+      success: jest.fn(),
+      error: jest.fn(),
+      info: jest.fn(),
+    },
+  };
+});
 import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EBookManagementPage from './EBookManagementPage';
 import axios from 'axios';
+import { message } from 'antd';
 
 jest.mock('axios');
 
@@ -42,7 +54,9 @@ test('uploads a new book and displays it in the list', async () => {
   await userEvent.upload(input, file);
 
   await screen.findByText('hello');
-  await screen.findByText(/导入成功/);
+  await waitFor(() => {
+    expect(message.success).toHaveBeenCalledWith("'hello.md' 导入成功");
+  });
 });
 
 test('opens the edit form with the correct book data', async () => {

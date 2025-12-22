@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { render, screen, waitFor, within, waitForElementToBeRemoved } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
@@ -134,9 +133,11 @@ describe('PersonnelManagementPage', () => {
 
   test('renders the component and fetches data', async () => {
     renderWithProvider(<PersonnelManagementPage />);
-    // findBy* queries wait for the element to appear, handling the async useEffect fetch.
-    expect(await screen.findByText('John Doe')).toBeInTheDocument();
-    expect(await screen.findByText('Jane Smith')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('John Doe')).toBeInTheDocument();
+      expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+      expect(screen.getByText(/共 2 条/)).toBeInTheDocument();
+    });
   });
 
   describe('Personnel Management', () => {
@@ -157,8 +158,12 @@ describe('PersonnelManagementPage', () => {
 
       await userEvent.click(screen.getByRole('button', { name: 'OK' }));
 
-      // Wait for the new person to appear in the table. This confirms the re-fetch and re-render.
-      expect(await screen.findByText('Peter Pan')).toBeInTheDocument();
+      // Wait for the new person to appear and pagination to update.
+      await waitFor(() => {
+        expect(screen.getByText('Peter Pan')).toBeInTheDocument();
+        expect(screen.getByText(/共 3 条/)).toBeInTheDocument();
+      });
+
       // Verify the API call was made correctly.
       expect(createPersonnel).toHaveBeenCalledWith(expect.objectContaining({
         name: 'Peter Pan',
@@ -177,8 +182,11 @@ describe('PersonnelManagementPage', () => {
       await userEvent.type(screen.getByLabelText('姓名'), 'John Doe Updated');
       await userEvent.click(screen.getByRole('button', { name: 'OK' }));
 
-      // Wait for the updated name to appear, confirming re-fetch and re-render.
-      expect(await screen.findByText('John Doe Updated')).toBeInTheDocument();
+      // Wait for the updated name to appear and pagination to be correct.
+      await waitFor(() => {
+        expect(screen.getByText('John Doe Updated')).toBeInTheDocument();
+        expect(screen.getByText(/共 2 条/)).toBeInTheDocument();
+      });
       expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
 
       // Verify the API call.
@@ -187,7 +195,7 @@ describe('PersonnelManagementPage', () => {
 
     test('deletes an existing person', async () => {
       renderWithProvider(<PersonnelManagementPage />);
-      const johnDoeElement = await screen.findByText('John Doe'); // Wait for initial data
+      await screen.findByText('John Doe'); // Wait for initial data
 
       await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]);
 
@@ -195,12 +203,14 @@ describe('PersonnelManagementPage', () => {
       const confirmButton = await within(dialog).findByRole('button', { name: /确\s*认/ });
       await userEvent.click(confirmButton);
 
-      // Wait for the element to be removed from the DOM, confirming re-fetch and re-render.
-      await waitForElementToBeRemoved(johnDoeElement);
+      // Wait for the person to be removed and pagination to update.
+      await waitFor(() => {
+        expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+        expect(screen.getByText(/共 1 条/)).toBeInTheDocument();
+      });
 
-      // Verify the API call and the DOM state.
+      // Verify the API call.
       expect(deletePersonnel).toHaveBeenCalledWith(1);
-      expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
     });
 
   });
