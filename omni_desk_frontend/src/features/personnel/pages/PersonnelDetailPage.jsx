@@ -20,7 +20,7 @@ const PersonnelDetailPage = () => {
             try {
                 setLoading(true);
                 const personnelRes = await getPersonnelDetails(id);
-                setPersonnel(personnelRes.data);
+                setPersonnel(personnelRes);
             } catch (error) {
                 message.error('获取人员详细信息失败');
             } finally {

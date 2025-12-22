@@ -30,7 +30,7 @@ const PersonnelEditPage = () => {
                     getAllPositions()
                 ]);
                 
-                const record = detailsResponse.data;
+                const record = detailsResponse;
                 setPositions(positionsResponse || []);
 
                 form.setFieldsValue({
