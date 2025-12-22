@@ -16,7 +16,7 @@ const StorageLocationManagementPage = () => {
   const fetchLocations = async () => {
     try {
       const response = await getStorageLocations();
-      setLocations(response.data);
+      setLocations(response.data.results || []);
     } catch (error) {
       message.error('获取存放地点列表失败');
     }
