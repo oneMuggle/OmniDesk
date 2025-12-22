@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
 import {
   getPersonnel,
@@ -48,14 +49,9 @@ const PersonnelManagementPage = () => {
       title: '操作',
       key: 'action',
       render: (_, record) => (
-        <div className='space-x-2'>
-          <Button
-            type="primary"
-            icon={<EditOutlined />}
-            onClick={() => showEditModal(record)}
-          >
-            编辑
-          </Button>
+        <Space size="middle">
+          <Link to={`/control-panel/personnel/${record.id}`}>详情</Link>
+          <Link to={`/control-panel/personnel/${record.id}/edit`}>编辑</Link>
           <Button
             danger
             icon={<DeleteOutlined />}
@@ -63,7 +59,7 @@ const PersonnelManagementPage = () => {
           >
             删除
           </Button>
-        </div>
+        </Space>
       ),
     },
   ];

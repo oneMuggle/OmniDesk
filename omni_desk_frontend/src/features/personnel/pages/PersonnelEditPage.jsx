@@ -4,6 +4,12 @@ import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import { getPersonnelDetails, updatePersonnel, getAllPositions } from '../api/personnelApi';
+import {
+    ProfessionalQualificationTable,
+    PublicHousingInfoTable,
+    BankAccountTable,
+    FamilyMemberTable
+} from '../components';
 
 const { Option } = Select;
 
@@ -35,6 +41,9 @@ const PersonnelEditPage = () => {
                     contracts: record.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
                     educations: record.educations?.map(e => ({ ...e, start_date: moment(e.start_date), end_date: moment(e.end_date) })) || [],
                     work_experiences: record.work_experiences?.map(w => ({ ...w, start_date: moment(w.start_date), end_date: moment(w.end_date) })) || [],
+                    professional_qualifications: record.professional_qualifications || [],
+                    public_housing_info: record.public_housing_info || [],
+                    bank_accounts: record.bank_accounts || [],
                 });
             } catch (error) {
                 message.error('获取页面数据失败');
@@ -56,6 +65,9 @@ const PersonnelEditPage = () => {
                 contracts: values.contracts?.map(c => ({ ...c, start_date: c.start_date.format('YYYY-MM-DD'), end_date: c.end_date.format('YYYY-MM-DD') })),
                 educations: values.educations?.map(e => ({ ...e, start_date: e.start_date.format('YYYY-MM-DD'), end_date: e.end_date.format('YYYY-MM-DD') })),
                 work_experiences: values.work_experiences?.map(w => ({ ...w, start_date: w.start_date.format('YYYY-MM-DD'), end_date: w.end_date.format('YYYY-MM-DD') })),
+                professional_qualifications: values.professional_qualifications,
+                public_housing_info: values.public_housing_info,
+                bank_accounts: values.bank_accounts,
             };
             await updatePersonnel(id, dataToSend);
             message.success('更新成功');
@@ -150,6 +162,25 @@ const PersonnelEditPage = () => {
                         { name: 'end_date', placeholder: '结束日期', type: 'date' },
                         { name: 'description', placeholder: '工作描述' },
                     ])}
+
+                    <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
+                    <Form.Item name="professional_qualifications">
+                        <ProfessionalQualificationTable isEditing={true} />
+                    </Form.Item>
+
+                    <h2 className="text-xl font-semibold mt-8 mb-4">公积金信息</h2>
+                    <Form.Item name="public_housing_info">
+                        <PublicHousingInfoTable isEditing={true} />
+                    </Form.Item>
+
+                    <h2 className="text-xl font-semibold mt-8 mb-4">银行账户</h2>
+                    <Form.Item name="bank_accounts">
+                        <BankAccountTable isEditing={true} />
+                    </Form.Item>
+
+                    <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
+                    <FamilyMemberTable personnelId={parseInt(id, 10)} isEditing={true} />
+
                     <Form.Item>
                         <Button type="primary" htmlType="submit" loading={saving}>
                             保存更改

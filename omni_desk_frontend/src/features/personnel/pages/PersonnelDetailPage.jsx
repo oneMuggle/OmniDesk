@@ -3,7 +3,12 @@ import { useParams, Link } from 'react-router-dom';
 import { getPersonnelDetails } from '../api/personnelApi';
 import { Descriptions, Table, Spin, message, Button, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
-import { ProfessionalQualificationTable, FamilyMemberTable } from '../components';
+import {
+    ProfessionalQualificationTable,
+    FamilyMemberTable,
+    PublicHousingInfoTable,
+    BankAccountTable
+} from '../components';
 
 const PersonnelDetailPage = () => {
     const { id } = useParams();
@@ -88,10 +93,16 @@ const PersonnelDetailPage = () => {
                 <Table dataSource={personnel.work_experiences || []} columns={workExperienceColumns} rowKey="id" pagination={false} bordered />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
-                <ProfessionalQualificationTable personnelId={parseInt(id, 10)} />
+                <ProfessionalQualificationTable data={personnel.professional_qualifications || []} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
                 <FamilyMemberTable personnelId={parseInt(id, 10)} />
+
+                <h2 className="text-xl font-semibold mt-8 mb-4">公积金信息</h2>
+                <PublicHousingInfoTable data={personnel.public_housing_info || []} />
+
+                <h2 className="text-xl font-semibold mt-8 mb-4">银行账户</h2>
+                <BankAccountTable data={personnel.bank_accounts || []} />
             </Card>
         </div>
     );
