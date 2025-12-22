@@ -62,7 +62,7 @@ class UserAuthTests(TestCase):
             password='Testpass123',
             email='test@example.com'
         )
-        self.login_url = reverse('users_auth:auth-login')
+        self.login_url = reverse('users_auth:token_obtain_pair')
         self.profile_url = reverse('users:current-user')
 
     def test_successful_login(self):
