@@ -19,3 +19,37 @@ export const getCalibrationRecords = (params) => {
 export const createCalibrationRecord = (data) => {
   return apiClient.post('/calibration-records/', data);
 };
+
+// SensorCategory API
+export const getSensorCategories = () => {
+  return apiClient.get('/sensor-management/categories/');
+};
+
+export const createSensorCategory = (data) => {
+  return apiClient.post('/sensor-management/categories/', data);
+};
+
+export const updateSensorCategory = (id, data) => {
+  return apiClient.put(`/sensor-management/categories/${id}/`, data);
+};
+
+export const deleteSensorCategory = (id) => {
+  return apiClient.delete(`/sensor-management/categories/${id}/`);
+};
+
+// StorageLocation API
+export const getStorageLocations = () => {
+  return apiClient.get('/sensor-management/storage-locations/');
+};
+
+export const createStorageLocation = (data) => {
+  return apiClient.post('/sensor-management/storage-locations/', data);
+};
+
+export const updateStorageLocation = (id, data) => {
+  return apiClient.put(`/sensor-management/storage-locations/${id}/`, data);
+};
+
+export const deleteStorageLocation = (id) => {
+  return apiClient.delete(`/sensor-management/storage-locations/${id}/`);
+};

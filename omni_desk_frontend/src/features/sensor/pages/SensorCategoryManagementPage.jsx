@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getSensorCategories, createSensorCategory, updateSensorCategory, deleteSensorCategory } from '../../api/sensorApi';
+import { getSensorCategories, createSensorCategory, updateSensorCategory, deleteSensorCategory } from '../api/sensorApi';
 
 const SensorCategoryManagementPage = () => {
   const [categories, setCategories] = useState([]);

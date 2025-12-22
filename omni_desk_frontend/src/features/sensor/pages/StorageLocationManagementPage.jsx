@@ -5,7 +5,7 @@ import {
   createStorageLocation,
   updateStorageLocation,
   deleteStorageLocation,
-} from '../../api/sensorApi';
+} from '../api/sensorApi';
 
 const StorageLocationManagementPage = () => {
   const [locations, setLocations] = useState([]);
