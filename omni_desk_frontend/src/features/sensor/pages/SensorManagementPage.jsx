@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Button, Table, Modal, Form, message, Space } from 'antd';
-import { useQuery, useMutation, useQueryClient } from 'react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
 import SensorForm from '../components/SensorForm';
 import { Link } from 'react-router-dom';
@@ -11,7 +11,7 @@ const SensorManagementPage = () => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
-  const { data: rawData, isLoading } = useQuery('sensors', getSensors);
+  const { data: rawData, isLoading } = useQuery(['sensors'], getSensors);
   const sensors = rawData?.results || [];
 
   const createMutation = useMutation(createSensor, {

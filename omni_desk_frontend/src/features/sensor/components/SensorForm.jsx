@@ -1,13 +1,14 @@
-import React, { useEffect } from 'react';
-import { Form, Input, Select, message } from 'antd';
-import { useQuery } from 'react-query';
+import { useEffect } from 'react';
+import PropTypes from 'prop-types';
+import { Form, Input, Select } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import { getSensorCategories, getStorageLocations } from '../api/sensorApi';
 
 const { Option } = Select;
 
 const SensorForm = ({ form, initialValues }) => {
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery('sensorCategories', getSensorCategories);
-  const { data: locations = [], isLoading: locationsLoading } = useQuery('storageLocations', getStorageLocations, { select: data => data.data });
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery(['sensorCategories'], getSensorCategories);
+  const { data: locations = [], isLoading: locationsLoading } = useQuery(['storageLocations'], getStorageLocations, { select: data => data.data });
 
   useEffect(() => {
     if (initialValues) {
@@ -61,6 +62,11 @@ const SensorForm = ({ form, initialValues }) => {
       </Form.Item>
     </Form>
   );
+};
+
+SensorForm.propTypes = {
+  form: PropTypes.object.isRequired,
+  initialValues: PropTypes.object,
 };
 
 export default SensorForm;
