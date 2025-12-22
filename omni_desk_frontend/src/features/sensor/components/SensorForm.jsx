@@ -1,85 +1,63 @@
 import React, { useEffect } from 'react';
-import { Form, Input, Button, InputNumber } from 'antd';
+import { Form, Input, Select, message } from 'antd';
+import { useQuery } from 'react-query';
+import { getSensorCategories, getStorageLocations } from '../api/sensorApi';
 
-const SensorForm = ({ form, initialValues, onSubmit }) => {
+const { Option } = Select;
+
+const SensorForm = ({ form, initialValues }) => {
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery('sensorCategories', getSensorCategories);
+  const { data: locations = [], isLoading: locationsLoading } = useQuery('storageLocations', getStorageLocations, { select: data => data.data });
+
   useEffect(() => {
     if (initialValues) {
       form.setFieldsValue(initialValues);
     } else {
       form.resetFields();
     }
-  }, [initialValues, form]);
-
-  const onFinish = (values) => {
-    onSubmit(values);
-  };
+  }, [form, initialValues]);
 
   return (
-    <Form form={form} layout="vertical" onFinish={onFinish} initialValues={initialValues}>
+    <Form form={form} layout="vertical" name="sensor_form">
       <Form.Item
         name="name"
-        label="传感器名称"
-        rules={[{ required: true, message: '请输入传感器名称！' }]}
+        label="名称"
+        rules={[{ required: true, message: '请输入传感器名称!' }]}
       >
         <Input />
       </Form.Item>
       <Form.Item
-        name="sensor_category"
-        label="传感器类别"
-        rules={[{ required: true, message: '请输入传感器类别！' }]}
+        name="category"
+        label="类别"
+        rules={[{ required: true, message: '请选择传感器类别!' }]}
       >
-        <Input />
+        <Select loading={categoriesLoading} placeholder="选择类别">
+          {Array.isArray(categories) && categories.map(category => (
+            <Option key={category.id} value={category.id}>{category.name}</Option>
+          ))}
+        </Select>
       </Form.Item>
       <Form.Item
-        name="location"
-        label="位置"
-        rules={[{ required: true, message: '请输入位置！' }]}
+        name="storage_location"
+        label="存放地点"
+        rules={[{ required: true, message: '请选择存放地点!' }]}
       >
-        <Input />
+        <Select loading={locationsLoading} placeholder="选择存放地点">
+          {Array.isArray(locations) && locations.map(location => (
+            <Option key={location.id} value={location.id}>{location.name}</Option>
+          ))}
+        </Select>
       </Form.Item>
       <Form.Item
-        name="room_temperature"
-        label="室温 (°C)"
-        rules={[{ required: true, message: '请输入室温！' }]}
+        name="status"
+        label="状态"
+        rules={[{ required: true, message: '请选择传感器状态!' }]}
       >
-        <InputNumber style={{ width: '100%' }} />
-      </Form.Item>
-      <Form.Item
-        name="relative_humidity"
-        label="相对湿度 (%)"
-        rules={[{ required: true, message: '请输入相对湿度！' }]}
-      >
-        <InputNumber style={{ width: '100%' }} />
-      </Form.Item>
-      <Form.Item
-        name="sensor_number"
-        label="传感器编号"
-        rules={[{ required: true, message: '请输入传感器编号！' }]}
-      >
-        <InputNumber style={{ width: '100%' }} />
-      </Form.Item>
-      <Form.Item
-        name="serial_number"
-        label="序列号"
-      >
-        <Input />
-      </Form.Item>
-      <Form.Item
-        name="manufacturer"
-        label="制造商"
-      >
-        <Input />
-      </Form.Item>
-      <Form.Item
-        name="calibration_accuracy"
-        label="校准精度"
-      >
-        <Input />
-      </Form.Item>
-      <Form.Item>
-        <Button type="primary" htmlType="submit">
-          保存
-        </Button>
+        <Select placeholder="选择状态">
+          <Option value="正常">正常</Option>
+          <Option value="需校准">需校准</Option>
+          <Option value="维修中">维修中</Option>
+        </Select>
       </Form.Item>
     </Form>
   );

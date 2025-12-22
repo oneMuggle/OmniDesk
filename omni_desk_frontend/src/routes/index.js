@@ -159,6 +159,10 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
         element: <ProtectedRoute pagePath="/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
       },
       {
+        path: "sensor-management",
+        element: <ProtectedRoute pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
+      },
+      {
         path: "communication",
         element: <ProtectedRoute pagePath="/communication" pageName="交流"><CommunicationPage /></ProtectedRoute>
       },
@@ -178,10 +182,6 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
         path: "sensor-management/history/:sensorId",
         element: <ProtectedRoute pagePath="/sensor-management/history/:sensorId" pageName="传感器校准历史"><SensorCalibrationHistoryPage /></ProtectedRoute>
       },
-      {
-        path: "sensor-management",
-        element: <ProtectedRoute pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
-      }
     ]
   },
   {
@@ -272,7 +272,11 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
       {
         path: "sensor/storage-location",
         element: <ProtectedRoute pagePath="/control-panel/sensor/storage-location" pageName="存放地点管理"><StorageLocationManagementPage /></ProtectedRoute>,
-      }
+      },
+      {
+        path: "sensor/sensors/:id",
+        element: <ProtectedRoute pagePath="/control-panel/sensor/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
+      },
     ]
   },
   {

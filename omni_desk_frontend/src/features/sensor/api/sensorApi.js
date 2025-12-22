@@ -9,6 +9,16 @@ export const getSensors = () => {
 export const createSensor = (data) => {
   return apiClient.post('/sensor-management/sensors/', data);
 };
+// 更新现有传感器的信息
+export const updateSensor = (id, data) => {
+  return apiClient.put(`/sensor-management/sensors/${id}/`, data);
+};
+
+// 删除一个传感器
+export const deleteSensor = (id) => {
+  return apiClient.delete(`/sensor-management/sensors/${id}/`);
+};
+
 
 // 根据参数获取校准记录列表
 export const getCalibrationRecords = (params) => {
