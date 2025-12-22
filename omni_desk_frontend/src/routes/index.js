@@ -43,7 +43,7 @@ import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import Pr
 import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage.jsx'; // Import MeetingRoomBookingPage
 import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import UserManagementPage from '../features/user/pages/UserManagementPage'; // Import UserManagementPage
-import SensorManagementPage from '../features/sensor-management/pages/SensorManagementPage';
+import SensorManagementPage from '../features/sensor/pages/SensorManagementPage';
 import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
 import StorageLocationManagementPage from '../features/sensor/pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
@@ -149,18 +149,6 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
       {
         path: "documents", // 将 DocumentsPage 移动到主页面路由
         element: <ProtectedRoute pagePath="/documents" pageName="文档管理"><DocumentsPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor-management", // 新增传感器管理路由
-        element: <ProtectedRoute pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor-categories", // 新增传感器类别管理路由
-        element: <ProtectedRoute pagePath="/sensor-categories" pageName="传感器类别管理"><SensorCategoryManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "storage-locations", // 新增存放位置管理路由
-        element: <ProtectedRoute pagePath="/storage-locations" pageName="存储位置管理"><StorageLocationManagementPage /></ProtectedRoute>
       },
       {
         path: "sensor-calibration/:id", // 新增传感器校准管理路由，:id 为动态参数
@@ -273,6 +261,18 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
         path: "news-management",
         element: <ProtectedRoute pagePath="/control-panel/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
       },
+      {
+        path: "sensor",
+        element: <ProtectedRoute pagePath="/control-panel/sensor" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>,
+      },
+      {
+        path: "sensor/category",
+        element: <ProtectedRoute pagePath="/control-panel/sensor/category" pageName="传感器类别管理"><SensorCategoryManagementPage /></ProtectedRoute>,
+      },
+      {
+        path: "sensor/storage-location",
+        element: <ProtectedRoute pagePath="/control-panel/sensor/storage-location" pageName="存放地点管理"><StorageLocationManagementPage /></ProtectedRoute>,
+      }
     ]
   },
   {

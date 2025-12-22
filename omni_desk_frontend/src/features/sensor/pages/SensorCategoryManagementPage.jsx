@@ -1,174 +1,93 @@
 import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { Card, Table, Button, Modal, Form, Input, message, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import apiClient from '../../../shared/api/apiClient';
-
-const { confirm } = Modal;
-
-const SensorCategoryFormModal = ({ visible, onCancel, onOk, initialData = null }) => {
-  const [form] = Form.useForm();
-
-  useEffect(() => {
-    if (visible) {
-      form.setFieldsValue(initialData);
-    }
-  }, [visible, initialData, form]);
-
-  const handleOk = () => {
-    form.validateFields()
-      .then(values => {
-        onOk(values);
-        form.resetFields();
-      })
-      .catch(info => {
-        console.log('Validate Failed:', info);
-      });
-  };
-
-  return (
-    <Modal
-      title={initialData.id ? "编辑传感器类别" : "新增传感器类别"}
-      open={visible}
-      onOk={handleOk}
-      onCancel={onCancel}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical">
-        <Form.Item name="name" label="类别名称" rules={[{ required: true, message: '请输入类别名称!' }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="description" label="描述">
-          <Input.TextArea />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-};
-
-SensorCategoryFormModal.propTypes = {
-  visible: PropTypes.bool.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  onOk: PropTypes.func.isRequired,
-  initialData: PropTypes.object,
-};
-
+import { getSensorCategories, createSensorCategory, updateSensorCategory, deleteSensorCategory } from '../../api/sensorApi';
 
 const SensorCategoryManagementPage = () => {
   const [categories, setCategories] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentCategory, setCurrentCategory] = useState(null);
-
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [editingCategory, setEditingCategory] = useState(null);
 
   const fetchCategories = async () => {
-    setLoading(true);
     try {
-      const response = await apiClient.get('/sensor-management/sensor-categories/');
-      setCategories(Array.isArray(response.data.results) ? response.data.results : []);
+      const response = await getSensorCategories();
+      setCategories(response.data);
     } catch (error) {
-      message.error('获取传感器类别列表失败!');
       console.error('Error fetching sensor categories:', error);
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleAdd = () => {
-    setCurrentCategory(null);
-    setIsModalVisible(true);
-  };
+  useEffect(() => {
+    const loadCategories = async () => {
+      await fetchCategories();
+    };
+    loadCategories();
+  }, []);
 
-  const handleEdit = (record) => {
-    setCurrentCategory(record);
-    setIsModalVisible(true);
-  };
-
-  const handleDelete = (id) => {
-    confirm({
-      title: '确定要删除此传感器类别吗?',
-      icon: <ExclamationCircleOutlined />,
-      content: '删除后将无法恢复。',
-      onOk: async () => {
-        try {
-          await apiClient.delete(`/sensor-management/sensor-categories/${id}/`);
-          message.success('传感器类别删除成功!');
-          fetchCategories();
-        } catch (error) {
-          message.error('删除传感器类别失败!');
-          console.error('Error deleting sensor category:', error);
-        }
-      },
-    });
-  };
-
-  const handleModalOk = async (values) => {
+  const handleCreateCategory = async () => {
     try {
-      if (currentCategory) {
-        await apiClient.put(`/sensor-management/sensor-categories/${currentCategory.id}/`, values);
-        message.success('传感器类别更新成功!');
-      } else {
-        await apiClient.post('/sensor-management/sensor-categories/', values);
-        message.success('传感器类别新增成功!');
-      }
-      setIsModalVisible(false);
+      await createSensorCategory({ name: newCategoryName });
+      setNewCategoryName('');
       fetchCategories();
     } catch (error) {
-      message.error('保存传感器类别失败!');
-      console.error('Error saving sensor category:', error);
+      console.error('Error creating sensor category:', error);
     }
   };
 
-  const columns = [
-    {
-      title: '类别名称',
-      dataIndex: 'name',
-      key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
-    },
-    {
-      title: '描述',
-      dataIndex: 'description',
-      key: 'description',
-    },
-    {
-      title: '操作',
-      key: 'action',
-      render: (_, record) => (
-        <Space size="middle">
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
-        </Space>
-      ),
-    },
-  ];
+  const handleUpdateCategory = async () => {
+    if (!editingCategory) return;
+    try {
+      await updateSensorCategory(editingCategory.id, { name: editingCategory.name });
+      setEditingCategory(null);
+      fetchCategories();
+    } catch (error) {
+      console.error('Error updating sensor category:', error);
+    }
+  };
+
+  const handleDeleteCategory = async (id) => {
+    try {
+      await deleteSensorCategory(id);
+      fetchCategories();
+    } catch (error) {
+      console.error('Error deleting sensor category:', error);
+    }
+  };
 
   return (
-    <Card
-      title="传感器类别管理"
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增类别
-        </Button>
-      }
-    >
-      <Table
-        columns={columns}
-        dataSource={categories}
-        loading={loading}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
-      <SensorCategoryFormModal
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        onOk={handleModalOk}
-        initialData={currentCategory || {}}
-      />
-    </Card>
+    <div>
+      <h2>Sensor Categories</h2>
+      <div>
+        <input
+          type="text"
+          value={newCategoryName}
+          onChange={(e) => setNewCategoryName(e.target.value)}
+          placeholder="New category name"
+        />
+        <button onClick={handleCreateCategory}>Add Category</button>
+      </div>
+      <ul>
+        {categories.map((category) => (
+          <li key={category.id}>
+            {editingCategory && editingCategory.id === category.id ? (
+              <>
+                <input
+                  type="text"
+                  value={editingCategory.name}
+                  onChange={(e) => setEditingCategory({ ...editingCategory, name: e.target.value })}
+                />
+                <button onClick={handleUpdateCategory}>Save</button>
+                <button onClick={() => setEditingCategory(null)}>Cancel</button>
+              </>
+            ) : (
+              <>
+                {category.name}
+                <button onClick={() => setEditingCategory({ ...category })}>Edit</button>
+                <button onClick={() => handleDeleteCategory(category.id)}>Delete</button>
+              </>
+            )}
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 };
 

@@ -1,133 +1,82 @@
 import { useState, useEffect } from 'react';
-import PropTypes from 'prop-types';
-import { Card, Table, Button, Modal, Form, Input, message, Space } from 'antd';
-import { PlusOutlined, EditOutlined, DeleteOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
-import apiClient from '../../../shared/api/apiClient';
-
-const { confirm } = Modal;
-
-const StorageLocationFormModal = ({ visible, onCancel, onOk, initialData = null }) => {
-  const [form] = Form.useForm();
-
-  useEffect(() => {
-    if (visible) {
-      form.setFieldsValue(initialData);
-    }
-  }, [visible, initialData, form]);
-
-  const handleOk = () => {
-    form.validateFields()
-      .then(values => {
-        onOk(values);
-        form.resetFields();
-      })
-      .catch(info => {
-        console.log('Validate Failed:', info);
-      });
-  };
-
-  return (
-    <Modal
-      title={initialData.id ? "编辑存放位置" : "新增存放位置"}
-      open={visible}
-      onOk={handleOk}
-      onCancel={onCancel}
-      destroyOnHidden
-    >
-      <Form form={form} layout="vertical">
-        <Form.Item name="name" label="位置名称" rules={[{ required: true, message: '请输入位置名称!' }]}>
-          <Input />
-        </Form.Item>
-        <Form.Item name="description" label="描述">
-          <Input.TextArea />
-        </Form.Item>
-      </Form>
-    </Modal>
-  );
-};
-
-StorageLocationFormModal.propTypes = {
-  visible: PropTypes.bool.isRequired,
-  onCancel: PropTypes.func.isRequired,
-  onOk: PropTypes.func.isRequired,
-  initialData: PropTypes.object,
-};
-
+import { Table, Button, Modal, Form, Input, message, Popconfirm } from 'antd';
+import {
+  getStorageLocations,
+  createStorageLocation,
+  updateStorageLocation,
+  deleteStorageLocation,
+} from '../../api/sensorApi';
 
 const StorageLocationManagementPage = () => {
   const [locations, setLocations] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentLocation, setCurrentLocation] = useState(null);
-
-  useEffect(() => {
-    fetchLocations();
-  }, []);
+  const [editingLocation, setEditingLocation] = useState(null);
+  const [form] = Form.useForm();
 
   const fetchLocations = async () => {
-    setLoading(true);
     try {
-      const response = await apiClient.get('/sensor-management/storage-locations/');
-      setLocations(Array.isArray(response.data.results) ? response.data.results : []);
+      const response = await getStorageLocations();
+      setLocations(response.data);
     } catch (error) {
-      message.error('获取存放位置列表失败!');
-      console.error('Error fetching storage locations:', error);
-    } finally {
-      setLoading(false);
+      message.error('获取存放地点列表失败');
     }
   };
 
+  useEffect(() => {
+    const loadData = async () => {
+      await fetchLocations();
+    };
+    loadData();
+  }, []);
+
   const handleAdd = () => {
-    setCurrentLocation(null);
+    setEditingLocation(null);
+    form.resetFields();
     setIsModalVisible(true);
   };
 
   const handleEdit = (record) => {
-    setCurrentLocation(record);
+    setEditingLocation(record);
+    form.setFieldsValue(record);
     setIsModalVisible(true);
   };
 
-  const handleDelete = (id) => {
-    confirm({
-      title: '确定要删除此存放位置吗?',
-      icon: <ExclamationCircleOutlined />,
-      content: '删除后将无法恢复。',
-      onOk: async () => {
-        try {
-          await apiClient.delete(`/sensor-management/storage-locations/${id}/`);
-          message.success('存放位置删除成功!');
-          fetchLocations();
-        } catch (error) {
-          message.error('删除存放位置失败!');
-          console.error('Error deleting storage location:', error);
-        }
-      },
-    });
+  const handleDelete = async (id) => {
+    try {
+      await deleteStorageLocation(id);
+      message.success('删除成功');
+      await fetchLocations();
+    } catch (error) {
+      message.error('删除失败');
+    }
   };
 
-  const handleModalOk = async (values) => {
+  const handleOk = async () => {
     try {
-      if (currentLocation) {
-        await apiClient.put(`/sensor-management/storage-locations/${currentLocation.id}/`, values);
-        message.success('存放位置更新成功!');
+      const values = await form.validateFields();
+      if (editingLocation) {
+        await updateStorageLocation(editingLocation.id, values);
+        message.success('更新成功');
       } else {
-        await apiClient.post('/sensor-management/storage-locations/', values);
-        message.success('存放位置新增成功!');
+        await createStorageLocation(values);
+        message.success('添加成功');
       }
       setIsModalVisible(false);
-      fetchLocations();
+      await fetchLocations();
     } catch (error) {
-      message.error('保存存放位置失败!');
-      console.error('Error saving storage location:', error);
+      message.error('操作失败');
     }
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
   };
 
   const columns = [
     {
-      title: '位置名称',
+      title: '名称',
       dataIndex: 'name',
       key: 'name',
-      sorter: (a, b) => a.name.localeCompare(b.name),
     },
     {
       title: '描述',
@@ -138,37 +87,51 @@ const StorageLocationManagementPage = () => {
       title: '操作',
       key: 'action',
       render: (_, record) => (
-        <Space size="middle">
-          <Button type="link" icon={<EditOutlined />} onClick={() => handleEdit(record)}>编辑</Button>
-          <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)}>删除</Button>
-        </Space>
+        <span>
+          <Button type="link" onClick={() => handleEdit(record)}>
+            编辑
+          </Button>
+          <Popconfirm
+            title="确定删除吗?"
+            onConfirm={() => handleDelete(record.id)}
+            okText="是"
+            cancelText="否"
+          >
+            <Button type="link" danger>
+              删除
+            </Button>
+          </Popconfirm>
+        </span>
       ),
     },
   ];
 
   return (
-    <Card
-      title="存放位置管理"
-      extra={
-        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-          新增位置
-        </Button>
-      }
-    >
-      <Table
-        columns={columns}
-        dataSource={locations}
-        loading={loading}
-        rowKey="id"
-        pagination={{ pageSize: 10 }}
-      />
-      <StorageLocationFormModal
-        open={isModalVisible}
-        onCancel={() => setIsModalVisible(false)}
-        onOk={handleModalOk}
-        initialData={currentLocation || {}}
-      />
-    </Card>
+    <div>
+      <Button type="primary" onClick={handleAdd} style={{ marginBottom: 16 }}>
+        添加存放地点
+      </Button>
+      <Table columns={columns} dataSource={locations} rowKey="id" />
+      <Modal
+        title={editingLocation ? '编辑存放地点' : '添加存放地点'}
+        visible={isModalVisible}
+        onOk={handleOk}
+        onCancel={handleCancel}
+      >
+        <Form form={form} layout="vertical">
+          <Form.Item
+            name="name"
+            label="名称"
+            rules={[{ required: true, message: '请输入名称' }]}
+          >
+            <Input />
+          </Form.Item>
+          <Form.Item name="description" label="描述">
+            <Input.TextArea />
+          </Form.Item>
+        </Form>
+      </Modal>
+    </div>
   );
 };
 
