@@ -13,6 +13,7 @@ RUN npm cache clean --force
 FROM nginx:alpine
 RUN apk --no-cache add curl
 COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/nginx.conf
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \
     chown -R appuser:appgroup \
@@ -23,7 +24,6 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
     chmod -R 755 /var/run/nginx
 
 USER appuser
-COPY nginx.conf /etc/nginx/nginx.conf
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD curl --fail http://127.0.0.1:80 || exit 1
 CMD ["nginx", "-g", "daemon off;"]

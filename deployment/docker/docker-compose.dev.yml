@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   db:
@@ -18,11 +17,20 @@ services:
       context: ../../
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile.dev
     volumes:
-      - ../../omni_desk_backend:/app
+      - ../../:/usr/src/app
+    working_dir: /usr/src/app/omni_desk_backend
+    environment:
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=devpassword
     depends_on:
       - db
       - redis
 
+  worker:
+    working_dir: /usr/src/app/omni_desk_backend
+    environment:
+      - POSTGRES_USER=devuser
+      - POSTGRES_PASSWORD=devpassword
   frontend:
     build:
       context: ../../omni_desk_frontend

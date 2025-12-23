@@ -46,12 +46,10 @@ WORKDIR /usr/src/app
 # Copy the application code into the image
 # The .dockerignore file prevents unnecessary files from being included.
 # We are copying the contents of omni_desk_backend into the WORKDIR.
-COPY --chown=app:app . .
+COPY --chown=app:app omni_desk_backend/ .
 
 # Collect static files as root user
-WORKDIR /usr/src/app/omni_desk_backend
 RUN python manage.py collectstatic --no-input --clear
-WORKDIR /usr/src/app
 
 # Switch to the non-root user for security
 USER app
