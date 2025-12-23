@@ -97,7 +97,7 @@ const PersonnelManagementPage = () => {
   useEffect(() => {
     fetchData(pagination.current, pagination.pageSize);
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions]);
+  }, [fetchData, fetchPositions, pagination]);
 
   const handleTableChange = (newPagination) => {
     fetchData(newPagination.current, newPagination.pageSize);
@@ -106,17 +106,6 @@ const PersonnelManagementPage = () => {
   const showCreateModal = () => {
     form.resetFields();
     setEditingId(null);
-    setIsModalVisible(true);
-  };
-
-  const showEditModal = (record) => {
-    console.log('Record:', record);
-    form.setFieldsValue({
-      ...record,
-      position: record.position || null, // Directly use position ID
-      phone_numbers: record.phone_numbers || [], // 初始化 phone_numbers
-    });
-    setEditingId(record.id);
     setIsModalVisible(true);
   };
 

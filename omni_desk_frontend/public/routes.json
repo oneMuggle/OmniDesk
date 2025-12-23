@@ -85,21 +85,6 @@
     "component": "DocumentsPage"
   },
   {
-    "name": "传感器管理",
-    "path": "/sensor-management",
-    "component": "SensorManagementPage"
-  },
-  {
-    "name": "传感器类别管理",
-    "path": "/sensor-categories",
-    "component": "SensorCategoryManagementPage"
-  },
-  {
-    "name": "存储位置管理",
-    "path": "/storage-locations",
-    "component": "StorageLocationManagementPage"
-  },
-  {
     "name": "传感器校准管理",
     "path": "/sensor-calibration/:id",
     "component": "SensorCalibrationManagementPage"
@@ -108,6 +93,11 @@
     "name": "传感器详情",
     "path": "/sensors/:id",
     "component": "SensorDetailPage"
+  },
+  {
+    "name": "传感器管理",
+    "path": "/sensor-management",
+    "component": "SensorManagementPage"
   },
   {
     "name": "交流",
@@ -228,5 +218,20 @@
     "name": "新闻管理",
     "path": "/control-panel/news-management",
     "component": "NewsManagementPage"
+  },
+  {
+    "name": "传感器类别管理",
+    "path": "/control-panel/sensor/category",
+    "component": "SensorCategoryManagementPage"
+  },
+  {
+    "name": "存放地点管理",
+    "path": "/control-panel/sensor/storage-location",
+    "component": "StorageLocationManagementPage"
+  },
+  {
+    "name": "传感器详情",
+    "path": "/control-panel/sensor/sensors/:id",
+    "component": "SensorDetailPage"
   }
 ]
