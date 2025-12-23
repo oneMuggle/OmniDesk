@@ -10,7 +10,7 @@ ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 WORKDIR /wheelhouse
 
 # Copy requirements file
-COPY requirements-prod.txt .
+COPY omni_desk_backend/requirements-prod.txt .
 
 # Create wheelhouse for all dependencies. This command downloads/builds all packages and their dependencies.
 RUN pip wheel --wheel-dir=/wheelhouse -r requirements-prod.txt
@@ -49,7 +49,9 @@ WORKDIR /usr/src/app
 COPY --chown=app:app . .
 
 # Collect static files as root user
+WORKDIR /usr/src/app/omni_desk_backend
 RUN python manage.py collectstatic --no-input --clear
+WORKDIR /usr/src/app
 
 # Switch to the non-root user for security
 USER app
