@@ -15,7 +15,7 @@ const ProfilePage = () => {
   useEffect(() => {
     const fetchUserData = async () => {
       try {
-        const response = await apiClient.get('/users/me/');
+        const response = await apiClient.get('/api/users/me/');
         setUserData(response.data);
       } catch (error) {
         notifications.showError('加载用户信息失败。');
