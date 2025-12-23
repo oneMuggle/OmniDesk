@@ -39,7 +39,7 @@ const RagflowChatPage = () => {
     // 获取所有Ragflow配置
     const fetchRagflowConfigs = async () => {
       try {
-        const response = await apiClient.get('/ragflow-service/configs/');
+        const response = await apiClient.get('/api/ragflow-service/configs/');
         setRagflowConfigs(response.data.results || []);
         if (response.data.results && response.data.results.length > 0) {
           // 默认选中第一个激活的配置
@@ -78,7 +78,7 @@ const RagflowChatPage = () => {
       const conversationId = lastMessage && lastMessage.conversation_id ? lastMessage.conversation_id : null;
 
       const response = await apiClient.post(
-        `/ragflow-service/configs/${ragflowConfig.id}/query/`,
+        `/api/ragflow-service/configs/${ragflowConfig.id}/query/`,
         { 
           question: inputMessage,
           conversation_id: conversationId // 传递conversation_id

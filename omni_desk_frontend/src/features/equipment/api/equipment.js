@@ -2,7 +2,7 @@ import apiClient from '../../../shared/api/apiClient';
 
 export const getEquipment = async (params = {}) => {
   try {
-    const response = await apiClient.get('/events/equipments/', {
+    const response = await apiClient.get('/api/events/equipments/', {
       params: {
         page: params.page,
         page_size: params.pageSize
@@ -31,7 +31,7 @@ export const getEquipment = async (params = {}) => {
 
 export const createEquipment = async (data) => {
   try {
-    const response = await apiClient.post('/events/equipments/', data);
+    const response = await apiClient.post('/api/events/equipments/', data);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -44,7 +44,7 @@ export const createEquipment = async (data) => {
 
 export const updateEquipment = async (id, data) => {
   try {
-    const response = await apiClient.patch(`/events/equipments/${id}/`, data);
+    const response = await apiClient.patch(`/api/events/equipments/${id}/`, data);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -57,7 +57,7 @@ export const updateEquipment = async (id, data) => {
 
 export const deleteEquipment = async (id) => {
   try {
-    await apiClient.delete(`/events/equipments/${id}/`);
+    await apiClient.delete(`/api/events/equipments/${id}/`);
     return { success: true };
   } catch (error) {
     if (error.response?.status === 401) {

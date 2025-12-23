@@ -15,7 +15,7 @@ describe('scheduleApi', () => {
 
     const result = await scheduleApi.bulkDeleteSchedules(ids);
 
-    expect(apiClient.post).toHaveBeenCalledWith('/events/schedules/bulk_destroy/', { ids });
+    expect(apiClient.post).toHaveBeenCalledWith('/api/events/schedules/bulk_destroy/', { ids });
     expect(result).toEqual(response.data);
   });
 
@@ -32,7 +32,7 @@ describe('scheduleApi', () => {
     const handleError = jest.spyOn(require('../../../shared/api/responseHandler'), 'handleError').mockImplementation(() => {});
 
     await expect(scheduleApi.bulkDeleteSchedules(ids)).rejects.toEqual(error);
-    expect(apiClient.post).toHaveBeenCalledWith('/events/schedules/bulk_destroy/', { ids });
+    expect(apiClient.post).toHaveBeenCalledWith('/api/events/schedules/bulk_destroy/', { ids });
     expect(handleError).toHaveBeenCalledWith(error);
 
     handleError.mockRestore();
@@ -44,7 +44,7 @@ describe('scheduleApi', () => {
         results: [
           { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob' },
         ],
-        next: '/events/schedules/?page=2',
+        next: '/api/events/schedules/?page=2',
       };
       const mockSchedulesPage2 = {
         results: [
@@ -59,8 +59,8 @@ describe('scheduleApi', () => {
 
       const result = await scheduleApi.getSchedules();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/events/schedules/');
-      expect(apiClient.get).toHaveBeenCalledWith('/events/schedules/?page=2');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/events/schedules/');
+      expect(apiClient.get).toHaveBeenCalledWith('/api/events/schedules/?page=2');
       expect(result).toEqual([
         { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob', type: 'SCHEDULE' },
         { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave', type: 'SCHEDULE' },
@@ -76,7 +76,7 @@ describe('scheduleApi', () => {
 
       const result = await scheduleApi.createSchedule(newSchedule);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/events/schedules/', {
+      expect(apiClient.post).toHaveBeenCalledWith('/api/events/schedules/', {
         duty_date: newSchedule.date,
         duty_person_id: newSchedule.duty_person_id,
         duty_leader_id: newSchedule.duty_leader_id,
@@ -94,7 +94,7 @@ describe('scheduleApi', () => {
 
       const result = await scheduleApi.updateSchedule(scheduleId, updatedSchedule);
 
-      expect(apiClient.patch).toHaveBeenCalledWith(`/events/schedules/${scheduleId}/`, {
+      expect(apiClient.patch).toHaveBeenCalledWith(`/api/events/schedules/${scheduleId}/`, {
         duty_date: updatedSchedule.date,
         duty_person_id: updatedSchedule.duty_person_id,
         duty_leader_id: updatedSchedule.duty_leader_id,
@@ -110,7 +110,7 @@ describe('scheduleApi', () => {
 
       await scheduleApi.deleteSchedule(scheduleId);
 
-      expect(apiClient.delete).toHaveBeenCalledWith(`/events/schedules/${scheduleId}/`);
+      expect(apiClient.delete).toHaveBeenCalledWith(`/api/events/schedules/${scheduleId}/`);
     });
   });
 });

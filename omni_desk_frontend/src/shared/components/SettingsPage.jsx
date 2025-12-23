@@ -29,7 +29,7 @@ function SystemSettingsPage() {
     // 新增：获取所有Ragflow配置
     const fetchRagflowConfigs = async () => {
       try {
-        const response = await apiClient.get('/ragflow-service/configs/');
+        const response = await apiClient.get('/api/ragflow-service/configs/');
         setRagflowConfigs(response.data.results || []);
       } catch (error) {
         console.error('Error fetching Ragflow configs:', error);
@@ -239,15 +239,15 @@ function SystemSettingsPage() {
             try {
               if (selectedRagflowConfig) {
                 // 更新现有配置
-                await apiClient.put(`/ragflow-service/configs/${selectedRagflowConfig.id}/`, newRagflowConfig);
+                await apiClient.put(`/api/ragflow-service/configs/${selectedRagflowConfig.id}/`, newRagflowConfig);
                 alert('Ragflow 配置更新成功！');
               } else {
                 // 新增配置
-                await apiClient.post('/ragflow-service/configs/', newRagflowConfig);
+                await apiClient.post('/api/ragflow-service/configs/', newRagflowConfig);
                 alert('Ragflow 配置新增成功！');
               }
               // 重新获取配置列表
-              const response = await apiClient.get('/ragflow-service/configs/');
+              const response = await apiClient.get('/api/ragflow-service/configs/');
               setRagflowConfigs(response.data.results || []);
               setSelectedRagflowConfig(null);
               setNewRagflowConfig({ name: '', api_endpoint: '', api_key: '', is_active: true });
@@ -299,9 +299,9 @@ function SystemSettingsPage() {
                 onClick={async () => {
                   if (window.confirm('确定要删除此配置吗？')) {
                     try {
-                      await apiClient.delete(`/ragflow-service/configs/${selectedRagflowConfig.id}/`);
+                      await apiClient.delete(`/api/ragflow-service/configs/${selectedRagflowConfig.id}/`);
                       alert('Ragflow 配置删除成功！');
-                      const response = await apiClient.get('/ragflow-service/configs/');
+                      const response = await apiClient.get('/api/ragflow-service/configs/');
                       setRagflowConfigs(response.data.results || []);
                       setSelectedRagflowConfig(null);
                       setNewRagflowConfig({ name: '', api_endpoint: '', api_key: '', is_active: true });

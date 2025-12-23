@@ -14,7 +14,7 @@ describe('projectsApi', () => {
 
     await projectsApi.getAllProjects();
 
-    expect(apiClient.get).toHaveBeenCalledWith('/projects/');
+    expect(apiClient.get).toHaveBeenCalledWith('/api/projects/');
   });
 
   it('should fetch a project by id', async () => {
@@ -24,7 +24,7 @@ describe('projectsApi', () => {
 
     await projectsApi.getProjectById(id);
 
-    expect(apiClient.get).toHaveBeenCalledWith(`/projects/${id}/`);
+    expect(apiClient.get).toHaveBeenCalledWith(`/api/projects/${id}/`);
   });
 
   it('should create a new project', async () => {
@@ -34,7 +34,7 @@ describe('projectsApi', () => {
 
     await projectsApi.createProject(projectData);
 
-    expect(apiClient.post).toHaveBeenCalledWith('/projects/', projectData);
+    expect(apiClient.post).toHaveBeenCalledWith('/api/projects/', projectData);
   });
 
   it('should update a project', async () => {
@@ -45,7 +45,7 @@ describe('projectsApi', () => {
 
     await projectsApi.updateProject(id, projectData);
 
-    expect(apiClient.put).toHaveBeenCalledWith(`/projects/${id}/`, projectData);
+    expect(apiClient.put).toHaveBeenCalledWith(`/api/projects/${id}/`, projectData);
   });
 
   it('should partially update a project', async () => {
@@ -56,7 +56,7 @@ describe('projectsApi', () => {
 
     await projectsApi.partialUpdateProject(id, projectData);
 
-    expect(apiClient.patch).toHaveBeenCalledWith(`/projects/${id}/`, projectData);
+    expect(apiClient.patch).toHaveBeenCalledWith(`/api/projects/${id}/`, projectData);
   });
 
   it('should delete a project', async () => {
@@ -65,6 +65,6 @@ describe('projectsApi', () => {
 
     await projectsApi.deleteProject(id);
 
-    expect(apiClient.delete).toHaveBeenCalledWith(`/projects/${id}/`);
+    expect(apiClient.delete).toHaveBeenCalledWith(`/api/projects/${id}/`);
   });
 });

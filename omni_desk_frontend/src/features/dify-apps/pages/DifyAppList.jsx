@@ -14,7 +14,7 @@ const DifyAppList = () => {
         const fetchDifyApps = async () => {
             try {
                 // 假设后端API地址为 /api/dify-apps/
-                const response = await apiClient.get('/dify-apps/');
+                const response = await apiClient.get('/api/dify-apps/');
                 setDifyApps(response.data.results || []);
             } catch (err) {
                 setError('Failed to fetch Dify applications.');

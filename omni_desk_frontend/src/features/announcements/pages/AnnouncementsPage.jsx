@@ -18,7 +18,7 @@ const AnnouncementsPage = () => {
     const fetchAnnouncements = async () => {
       try {
         // 使用 apiClient 发起请求
-        const response = await apiClient.get('/events/announcements/');
+        const response = await apiClient.get('/api/events/announcements/');
         setAnnouncements(response.data.results); // 提取 results 字段
       } catch (e) {
         setError(e.message);

@@ -29,7 +29,7 @@ const AnnouncementForm = () => {
         formData.append('image', file);
 
         try {
-          const response = await apiClient.post('/events/upload-image/', formData, {
+          const response = await apiClient.post('/api/events/upload-image/', formData, {
             headers: {
               'Content-Type': 'multipart/form-data',
             },
@@ -63,7 +63,7 @@ const AnnouncementForm = () => {
   useEffect(() => {
     if (isEditing) {
       setLoading(true);
-      apiClient.get(`/events/announcements/${id}/`)
+      apiClient.get(`/api/events/announcements/${id}/`)
         .then(response => {
           setTitle(response.data.title);
           setContent(response.data.content);
@@ -82,9 +82,9 @@ const AnnouncementForm = () => {
     
     try {
       if (isEditing) {
-        await apiClient.put(`/events/announcements/${id}/`, payload);
+        await apiClient.put(`/api/events/announcements/${id}/`, payload);
       } else {
-        await apiClient.post('/events/announcements/', payload);
+        await apiClient.post('/api/events/announcements/', payload);
       }
       navigate('/control-panel/announcements');
     } catch (e) {

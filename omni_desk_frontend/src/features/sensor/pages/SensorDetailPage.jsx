@@ -15,8 +15,8 @@ const SensorDetailPage = () => {
     const fetchSensorDetails = useCallback(async () => {
         try {
             setLoading(true);
-            const sensorRes = await apiClient.get(`/sensors/${id}/`);
-            const calibrationsRes = await apiClient.get(`/sensors/${id}/calibrations/`);
+            const sensorRes = await apiClient.get(`/api/sensors/${id}/`);
+            const calibrationsRes = await apiClient.get(`/api/sensors/${id}/calibrations/`);
             setSensor(sensorRes);
             setCalibrations(calibrationsRes);
             setError(null);
@@ -42,7 +42,7 @@ const SensorDetailPage = () => {
 
     const handleFormSubmit = async (values) => {
         try {
-            await apiClient.post(`/sensors/${id}/calibrations/`, values);
+            await apiClient.post(`/api/sensors/${id}/calibrations/`, values);
             setIsModalVisible(false);
             fetchSensorDetails(); // Refresh details
         } catch (error) {

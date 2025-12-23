@@ -7,7 +7,7 @@ import apiClient from '../../../shared/api/apiClient';
  * @returns {Promise<any>}
  */
 export const processText = (text, action) => {
-  return apiClient.post('/office_assistant/process/', {
+  return apiClient.post('/api/office_assistant/process/', {
     text,
     action,
   });

@@ -29,7 +29,7 @@ const handlePaginatedResponse = (response) => {
 // Personnel API
 export const getPersonnel = async (params = {}) => {
   try {
-    const response = await apiClient.get('/personnel/personnel/', { params });
+    const response = await apiClient.get('/api/personnel/personnel/', { params });
     return handlePaginatedResponse(response);
   } catch (error) {
     return handleError(error, '获取人员列表失败');
@@ -38,7 +38,7 @@ export const getPersonnel = async (params = {}) => {
 
 export const getAllPersonnel = async () => {
   try {
-    const response = await apiClient.get('/personnel/personnel/', { params: { page_size: 1000 } });
+    const response = await apiClient.get('/api/personnel/personnel/', { params: { page_size: 1000 } });
     return response.data.results;
   } catch (error) {
     return handleError(error, '获取所有人员信息失败');
@@ -47,7 +47,7 @@ export const getAllPersonnel = async () => {
 
 export const getPersonnelDetails = async (id) => {
   try {
-    const response = await apiClient.get(`/personnel/personnel/${id}/`);
+    const response = await apiClient.get(`/api/personnel/personnel/${id}/`);
     return response.data;
   } catch (error) {
     return handleError(error, '获取人员详细信息失败');
@@ -56,7 +56,7 @@ export const getPersonnelDetails = async (id) => {
 
 export const createPersonnel = async (data) => {
   try {
-    const response = await apiClient.post('/personnel/personnel/', data);
+    const response = await apiClient.post('/api/personnel/personnel/', data);
     return response.data;
   } catch (error) {
     return handleError(error, '创建人员信息失败');
@@ -65,7 +65,7 @@ export const createPersonnel = async (data) => {
 
 export const updatePersonnel = async (id, data) => {
   try {
-    const response = await apiClient.put(`/personnel/personnel/${id}/`, data);
+    const response = await apiClient.put(`/api/personnel/personnel/${id}/`, data);
     return response.data;
   } catch (error) {
     return handleError(error, '更新人员信息失败');
@@ -74,7 +74,7 @@ export const updatePersonnel = async (id, data) => {
 
 export const deletePersonnel = async (id) => {
   try {
-    await apiClient.delete(`/personnel/personnel/${id}/`);
+    await apiClient.delete(`/api/personnel/personnel/${id}/`);
     return { success: true };
   } catch (error) {
     return handleError(error, '删除人员信息失败');
@@ -84,7 +84,7 @@ export const deletePersonnel = async (id) => {
 // Position API
 export const getPositions = async (params = {}) => {
   try {
-    const response = await apiClient.get('/personnel/positions/', { params });
+    const response = await apiClient.get('/api/personnel/positions/', { params });
     return handlePaginatedResponse(response);
   } catch (error) {
     return handleError(error, '获取职位列表失败');
@@ -93,7 +93,7 @@ export const getPositions = async (params = {}) => {
 
 export const getAllPositions = async () => {
   try {
-    const response = await apiClient.get('/personnel/positions/', { params: { page_size: 1000 } });
+    const response = await apiClient.get('/api/personnel/positions/', { params: { page_size: 1000 } });
     return response.data.results;
   } catch (error) {
     return handleError(error, '获取所有职位信息失败');
@@ -102,7 +102,7 @@ export const getAllPositions = async () => {
 
 export const createPosition = async (data) => {
   try {
-    const response = await apiClient.post('/personnel/positions/', data);
+    const response = await apiClient.post('/api/personnel/positions/', data);
     return response.data;
   } catch (error) {
     return handleError(error, '创建职位失败');
@@ -111,7 +111,7 @@ export const createPosition = async (data) => {
 
 export const updatePosition = async (id, data) => {
   try {
-    const response = await apiClient.put(`/personnel/positions/${id}/`, data);
+    const response = await apiClient.put(`/api/personnel/positions/${id}/`, data);
     return response.data;
   } catch (error) {
     return handleError(error, '更新职位失败');
@@ -120,7 +120,7 @@ export const updatePosition = async (id, data) => {
 
 export const deletePosition = async (id) => {
   try {
-    await apiClient.delete(`/personnel/positions/${id}/`);
+    await apiClient.delete(`/api/personnel/positions/${id}/`);
     return { success: true };
   } catch (error) {
     return handleError(error, '删除职位失败');
@@ -130,7 +130,7 @@ export const deletePosition = async (id) => {
 // Professional Qualifications API
 export const getQualifications = async (personnelId) => {
   try {
-    const response = await apiClient.get(`/personnel/qualifications/?personnel=${personnelId}`);
+    const response = await apiClient.get(`/api/personnel/qualifications/?personnel=${personnelId}`);
     return response.data;
   } catch (error) {
     return handleError(error, '获取专业资格失败');
@@ -139,7 +139,7 @@ export const getQualifications = async (personnelId) => {
 
 export const createQualification = async (data) => {
   try {
-    const response = await apiClient.post('/personnel/qualifications/', data);
+    const response = await apiClient.post('/api/personnel/qualifications/', data);
     return response.data;
   } catch (error) {
     return handleError(error, '创建专业资格失败');
@@ -148,7 +148,7 @@ export const createQualification = async (data) => {
 
 export const updateQualification = async (id, data) => {
   try {
-    const response = await apiClient.put(`/personnel/qualifications/${id}/`, data);
+    const response = await apiClient.put(`/api/personnel/qualifications/${id}/`, data);
     return response.data;
   } catch (error) {
     return handleError(error, '更新专业资格失败');
@@ -157,7 +157,7 @@ export const updateQualification = async (id, data) => {
 
 export const deleteQualification = async (id) => {
   try {
-    await apiClient.delete(`/personnel/qualifications/${id}/`);
+    await apiClient.delete(`/api/personnel/qualifications/${id}/`);
     return { success: true };
   } catch (error) {
     return handleError(error, '删除专业资格失败');
@@ -167,7 +167,7 @@ export const deleteQualification = async (id) => {
 // Family Members API
 export const getFamilyMembers = async (personnelId) => {
   try {
-    const response = await apiClient.get(`/personnel/family-members/?personnel=${personnelId}`);
+    const response = await apiClient.get(`/api/personnel/family-members/?personnel=${personnelId}`);
     return response.data;
   } catch (error) {
     return handleError(error, '获取家庭成员失败');
@@ -176,7 +176,7 @@ export const getFamilyMembers = async (personnelId) => {
 
 export const createFamilyMember = async (data) => {
   try {
-    const response = await apiClient.post('/personnel/family-members/', data);
+    const response = await apiClient.post('/api/personnel/family-members/', data);
     return response.data;
   } catch (error) {
     return handleError(error, '创建家庭成员失败');
@@ -185,7 +185,7 @@ export const createFamilyMember = async (data) => {
 
 export const updateFamilyMember = async (id, data) => {
   try {
-    const response = await apiClient.put(`/personnel/family-members/${id}/`, data);
+    const response = await apiClient.put(`/api/personnel/family-members/${id}/`, data);
     return response.data;
   } catch (error) {
     return handleError(error, '更新家庭成员失败');
@@ -194,7 +194,7 @@ export const updateFamilyMember = async (id, data) => {
 
 export const deleteFamilyMember = async (id) => {
   try {
-    await apiClient.delete(`/personnel/family-members/${id}/`);
+    await apiClient.delete(`/api/personnel/family-members/${id}/`);
     return { success: true };
   } catch (error) {
     return handleError(error, '删除家庭成员失败');

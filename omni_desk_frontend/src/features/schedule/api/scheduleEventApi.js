@@ -67,7 +67,7 @@ export const scheduleEventApi = {
         };
       });
       
-      const response = await apiClient.post('/events/trials/', {
+      const response = await apiClient.post('/api/events/trials/', {
         title: eventData.title,
         // 使用已验证的时间段
         time_slots: validatedSlots,

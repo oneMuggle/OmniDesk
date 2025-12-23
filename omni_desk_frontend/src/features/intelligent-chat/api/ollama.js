@@ -22,10 +22,10 @@ const ollamaClient = axios.create({
   }
 })();
 
-export const getOllamaConfigs = () => apiClient.get('/config/ollama-configs/');
-export const addOllamaConfig = (config) => apiClient.post('/config/ollama-configs/', config);
-export const updateOllamaConfig = (id, config) => apiClient.put(`/config/ollama-configs/${id}/`, config);
-export const deleteOllamaConfig = (id) => apiClient.delete(`/config/ollama-configs/${id}/`);
+export const getOllamaConfigs = () => apiClient.get('/api/config/ollama-configs/');
+export const addOllamaConfig = (config) => apiClient.post('/api/config/ollama-configs/', config);
+export const updateOllamaConfig = (id, config) => apiClient.put(`/api/config/ollama-configs/${id}/`, config);
+export const deleteOllamaConfig = (id) => apiClient.delete(`/api/config/ollama-configs/${id}/`);
 
 export const chatCompletion = async (config, messages, onUpdate) => {
   const ollamaClient = axios.create({
@@ -113,7 +113,7 @@ export const setApiProvider = (config) => {
 
 export const getConfig = async () => {
   try {
-    const response = await apiClient.get('/config/');
+    const response = await apiClient.get('/api/config/');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -126,7 +126,7 @@ export const getConfig = async () => {
 
 export const setConfig = async (config) => {
   try {
-    const response = await apiClient.post('/config/', config);
+    const response = await apiClient.post('/api/config/', config);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {

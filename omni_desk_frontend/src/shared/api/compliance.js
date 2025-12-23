@@ -2,7 +2,7 @@ import apiClient from './apiClient';
 
 const complianceApi = {
   getUnreadCount: () => {
-    return apiClient.get('/compliance/unread-count/');
+    return apiClient.get('/api/compliance/unread-count/');
   },
 };
 

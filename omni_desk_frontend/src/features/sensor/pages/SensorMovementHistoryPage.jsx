@@ -14,7 +14,7 @@ const SensorMovementHistoryPage = () => {
   const fetchMovements = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/sensor-management/sensor-movements/');
+      const response = await apiClient.get('/api/sensor-management/sensor-movements/');
       setMovements(Array.isArray(response.data.results) ? response.data.results : []);
     } catch (error) {
       message.error('获取传感器出入库记录失败!');

@@ -4,7 +4,7 @@ import { handleError } from '../../../shared/api/responseHandler';
 export const scheduleApi = {
   checkScheduleDate: async (date) => {
     try {
-      const response = await apiClient.get('/events/schedules/', {
+      const response = await apiClient.get('/api/events/schedules/', {
         params: { duty_date: date }
       });
       return (response.data.results || []).length > 0;
@@ -17,7 +17,7 @@ export const scheduleApi = {
   getSchedules: async () => {
     try {
       let allSchedules = [];
-      let url = '/events/schedules/';
+      let url = '/api/events/schedules/';
       
       while (url) {
         const response = await apiClient.get(url);
@@ -48,7 +48,7 @@ export const scheduleApi = {
 
   createSchedule: async (scheduleData) => {
     try {
-      const response = await apiClient.post('/events/schedules/', {
+      const response = await apiClient.post('/api/events/schedules/', {
         duty_date: scheduleData.date,
         duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
         duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
@@ -62,7 +62,7 @@ export const scheduleApi = {
 
   updateSchedule: async (scheduleId, scheduleData) => {
     try {
-      const response = await apiClient.patch(`/events/schedules/${scheduleId}/`, {
+      const response = await apiClient.patch(`/api/events/schedules/${scheduleId}/`, {
         duty_date: scheduleData.date,
         duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
         duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
@@ -77,7 +77,7 @@ export const scheduleApi = {
   upsertSchedule: async (scheduleData) => {
     try {
       const { id, override, ...data } = scheduleData;
-      const endpoint = id ? `/events/schedules/${id}/` : '/events/schedules/';
+      const endpoint = id ? `/api/events/schedules/${id}/` : '/api/events/schedules/';
       const method = id ? 'patch' : 'post';
       
       const response = await apiClient[method](endpoint, {
@@ -96,7 +96,7 @@ export const scheduleApi = {
 
   deleteSchedule: async (scheduleId) => {
     try {
-      await apiClient.delete(`/events/schedules/${scheduleId}/`);
+      await apiClient.delete(`/api/events/schedules/${scheduleId}/`);
     } catch (error) {
       handleError(error);
       throw error;
@@ -105,7 +105,7 @@ export const scheduleApi = {
 
   bulkDeleteSchedules: async (ids) => {
     try {
-      const response = await apiClient.post('/events/schedules/bulk_destroy/', { ids });
+      const response = await apiClient.post('/api/events/schedules/bulk_destroy/', { ids });
       return response.data;
     } catch (error) {
       handleError(error);
@@ -115,7 +115,7 @@ export const scheduleApi = {
 
   swapScheduleDates: async (scheduleId1, scheduleId2) => {
     try {
-      const response = await apiClient.post('/events/schedules/swap-dates/', {
+      const response = await apiClient.post('/api/events/schedules/swap-dates/', {
         schedule_id_1: scheduleId1,
         schedule_id_2: scheduleId2
       });
@@ -128,7 +128,7 @@ export const scheduleApi = {
 
   swapWeeklyLeaders: async (data) => {
     try {
-      const response = await apiClient.post('/events/schedules/swap-weekly-leaders/', data);
+      const response = await apiClient.post('/api/events/schedules/swap-weekly-leaders/', data);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -138,7 +138,7 @@ export const scheduleApi = {
 
   getPersonnel: async () => {
     try {
-      const response = await apiClient.get('/events/personnel/');
+      const response = await apiClient.get('/api/events/personnel/');
       return response.data.results || [];
     } catch (error) {
       handleError(error);
@@ -148,7 +148,7 @@ export const scheduleApi = {
 
   generateSchedules: async (data) => {
     try {
-      const response = await apiClient.post('/events/schedules/generate-schedules/', data);
+      const response = await apiClient.post('/api/events/schedules/generate-schedules/', data);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -158,7 +158,7 @@ export const scheduleApi = {
 
   createPersonnel: async (personnelData) => {
     try {
-      const response = await apiClient.post('/events/personnel/', personnelData);
+      const response = await apiClient.post('/api/events/personnel/', personnelData);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -168,7 +168,7 @@ export const scheduleApi = {
 
   updatePersonnel: async (personnelId, personnelData) => {
     try {
-      const response = await apiClient.patch(`/events/personnel/${personnelId}/`, personnelData);
+      const response = await apiClient.patch(`/api/events/personnel/${personnelId}/`, personnelData);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -178,7 +178,7 @@ export const scheduleApi = {
 
   deletePersonnel: async (personnelId) => {
     try {
-      await apiClient.delete(`/events/personnel/${personnelId}/`);
+      await apiClient.delete(`/api/events/personnel/${personnelId}/`);
     } catch (error) {
       handleError(error);
       throw error;

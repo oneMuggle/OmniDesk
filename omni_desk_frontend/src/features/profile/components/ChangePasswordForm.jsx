@@ -24,7 +24,7 @@ const ChangePasswordForm = () => {
     }
     setLoading(true);
     try {
-      await apiClient.post('/users/change_password/', {
+      await apiClient.post('/api/users/change_password/', {
         old_password: passwordData.old_password,
         new_password: passwordData.new_password,
       });

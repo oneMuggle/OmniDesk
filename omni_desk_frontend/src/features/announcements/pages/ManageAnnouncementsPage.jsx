@@ -10,7 +10,7 @@ const ManageAnnouncementsPage = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await apiClient.get('/events/announcements/');
+      const response = await apiClient.get('/api/events/announcements/');
       setAnnouncements(response.data.results); // 提取 results 字段
     } catch (e) {
       setError(e.message);
@@ -26,7 +26,7 @@ const ManageAnnouncementsPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('你确定要删除这条公告吗？')) {
       try {
-        await apiClient.delete(`/events/announcements/${id}/`);
+        await apiClient.delete(`/api/events/announcements/${id}/`);
         // 重新获取公告列表
         fetchAnnouncements();
       } catch (e) {
