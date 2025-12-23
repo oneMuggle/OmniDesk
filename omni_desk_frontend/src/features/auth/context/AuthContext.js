@@ -67,7 +67,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password, rememberMe = false) => {
     try {
-      const res = await apiClient.post('/auth/login/', {
+      const res = await apiClient.post('/api/auth/login/', {
         username,
         password,
         remember_me: rememberMe
