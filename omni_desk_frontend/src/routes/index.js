@@ -44,7 +44,9 @@ import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBo
 import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
 import UserManagementPage from '../features/user/pages/UserManagementPage'; // Import UserManagementPage
 import SensorManagementPage from '../features/sensor/pages/SensorManagementPage';
-import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage'; // 导入 SensorCategoryManagementPage
+import SensorListPage from '../features/sensor/pages/SensorListPage';
+import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage.jsx'; // 导入 SensorCategoryManagementPage
+import SensorArchiveLocationManagementPage from '../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'; // Corrected path
 import StorageLocationManagementPage from '../features/sensor/pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
 import SensorDetailPage from '../features/sensor/pages/SensorDetailPage'; // 导入 SensorDetailPage
@@ -266,12 +268,22 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
         element: <ProtectedRoute pagePath="/control-panel/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
       },
       {
-        path: "sensor/category",
-        element: <ProtectedRoute pagePath="/control-panel/sensor/category" pageName="传感器类别管理"><SensorCategoryManagementPage /></ProtectedRoute>,
-      },
-      {
-        path: "sensor/storage-location",
-        element: <ProtectedRoute pagePath="/control-panel/sensor/storage-location" pageName="存放地点管理"><StorageLocationManagementPage /></ProtectedRoute>,
+        path: "sensor",
+        element: <ProtectedRoute pagePath="/control-panel/sensor" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>,
+        children: [
+          {
+            index: true,
+            element: <SensorListPage />,
+          },
+          {
+            path: "categories",
+            element: <SensorCategoryManagementPage />,
+          },
+          {
+            path: "storage-locations",
+            element: <SensorArchiveLocationManagementPage />,
+          },
+        ]
       },
       {
         path: "sensor/sensors/:id",
