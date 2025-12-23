@@ -110,7 +110,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const register = async (username, password, password_confirmation) => {
+  const register = async ({ username, password, password_confirmation }) => {
     try {
       const res = await apiClient.post('/auth/registration/', {
         username,

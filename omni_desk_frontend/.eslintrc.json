@@ -38,7 +38,8 @@
         "babel.config.js",
         "jest.config.js",
         "src/api/**/*.js",
-        "scripts/generate-routes.js"
+        "scripts/generate-routes.js",
+        "src/config/**/*.js"
       ],
       "env": {
         "node": true
