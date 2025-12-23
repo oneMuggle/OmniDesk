@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
           const { access } = JSON.parse(storedTokens);
           if (access) {
             try {
-              const res = await apiClient.get('/users/me/');
+              const res = await apiClient.get('/api/users/me/');
               // Permissions should be fetched from the backend, not from localStorage.
               // Assuming res.data contains user info including permissions.
               setUser(res.data);
@@ -85,7 +85,7 @@ export function AuthProvider({ children }) {
         // DO NOT store permissions in sessionStorage.
       }
       
-      const userRes = await apiClient.get('/users/me/');
+      const userRes = await apiClient.get('/api/users/me/');
       // The user data from /users/me/ should be the source of truth.
       const userData = userRes.data;
 
