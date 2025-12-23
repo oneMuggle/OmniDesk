@@ -11,14 +11,16 @@ export const useScheduleData = () => {
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedTrial, setSelectedTrial] = useState(null);
 
-  const { data: trials = [], isLoading: isTrialsLoading } = useQuery({
+  const trialsQuery = useQuery({
     queryKey: ['trials'],
     queryFn: () => getTrials().then(res => Array.isArray(res?.results) ? res.results : []),
     gcTime: 600000,
     staleTime: 300000
   });
+  const trials = trialsQuery.data ?? [];
+  const isTrialsLoading = trialsQuery.isLoading;
 
-  const { data: schedules = [], isLoading: isSchedulesLoading } = useQuery({
+  const schedulesQuery = useQuery({
     queryKey: ['schedules'],
     queryFn: async () => {
       try {
@@ -32,13 +34,17 @@ export const useScheduleData = () => {
     gcTime: 600000,
     staleTime: 300000
   });
+  const schedules = schedulesQuery.data ?? [];
+  const isSchedulesLoading = schedulesQuery.isLoading;
 
-  const { data: personnel = [], isLoading: isPersonnelLoading } = useQuery({
+  const personnelQuery = useQuery({
     queryKey: ['personnel'],
     queryFn: () => scheduleApi.getPersonnel().then(res => res.results || []),
     gcTime: 600000,
     staleTime: 300000
   });
+  const personnel = personnelQuery.data ?? [];
+  const isPersonnelLoading = personnelQuery.isLoading;
 
   useEffect(() => {
     const fetchAllEvents = async (trials) => {

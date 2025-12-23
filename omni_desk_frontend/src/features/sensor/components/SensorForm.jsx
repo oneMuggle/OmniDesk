@@ -7,8 +7,8 @@ import { getSensorCategories, getStorageLocations } from '../api/sensorApi';
 const { Option } = Select;
 
 const SensorForm = ({ form, initialValues }) => {
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery(['sensorCategories'], getSensorCategories);
-  const { data: locations = [], isLoading: locationsLoading } = useQuery(['storageLocations'], getStorageLocations, { select: data => data.data });
+  const { data: categories = [], isPending: categoriesPending } = useQuery({ queryKey: ['sensorCategories'], queryFn: getSensorCategories });
+  const { data: locations = [], isPending: locationsPending } = useQuery({ queryKey: ['storageLocations'], queryFn: getStorageLocations, select: data => data.data });
 
   useEffect(() => {
     if (initialValues) {
@@ -32,7 +32,7 @@ const SensorForm = ({ form, initialValues }) => {
         label="类别"
         rules={[{ required: true, message: '请选择传感器类别!' }]}
       >
-        <Select loading={categoriesLoading} placeholder="选择类别">
+        <Select loading={categoriesPending} placeholder="选择类别">
           {Array.isArray(categories) && categories.map(category => (
             <Option key={category.id} value={category.id}>{category.name}</Option>
           ))}
@@ -43,7 +43,7 @@ const SensorForm = ({ form, initialValues }) => {
         label="存放地点"
         rules={[{ required: true, message: '请选择存放地点!' }]}
       >
-        <Select loading={locationsLoading} placeholder="选择存放地点">
+        <Select loading={locationsPending} placeholder="选择存放地点">
           {Array.isArray(locations) && locations.map(location => (
             <Option key={location.id} value={location.id}>{location.name}</Option>
           ))}

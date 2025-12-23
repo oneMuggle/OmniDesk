@@ -11,12 +11,13 @@ const SensorManagementPage = () => {
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
 
-  const { data: rawData, isLoading } = useQuery(['sensors'], getSensors);
-  const sensors = rawData?.results || [];
+  const sensorsQuery = useQuery({ queryKey: ['sensors'], queryFn: getSensors });
+  const sensors = sensorsQuery.data?.results || [];
 
-  const createMutation = useMutation(createSensor, {
+  const createMutation = useMutation({
+    mutationFn: createSensor,
     onSuccess: () => {
-      queryClient.invalidateQueries('sensors');
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
       message.success('传感器创建成功');
       setIsModalVisible(false);
       form.resetFields();
@@ -26,9 +27,10 @@ const SensorManagementPage = () => {
     },
   });
 
-  const updateMutation = useMutation(({ id, data }) => updateSensor(id, data), {
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => updateSensor(id, data),
     onSuccess: () => {
-      queryClient.invalidateQueries('sensors');
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
       message.success('传感器更新成功');
       setIsModalVisible(false);
       setEditingSensor(null);
@@ -39,9 +41,9 @@ const SensorManagementPage = () => {
     },
   });
 
-  const deleteMutation = useMutation(deleteSensor, {
+  const deleteMutation = useMutation({ mutationFn: deleteSensor,
     onSuccess: () => {
-      queryClient.invalidateQueries('sensors');
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
       message.success('传感器删除成功');
     },
     onError: () => {
@@ -118,15 +120,15 @@ const SensorManagementPage = () => {
       <Table
         columns={columns}
         dataSource={sensors}
-        loading={isLoading}
+        loading={sensorsQuery.isLoading}
         rowKey="id"
       />
       <Modal
         title={editingSensor ? '编辑传感器' : '新增传感器'}
-        visible={isModalVisible}
+        open={isModalVisible}
         onOk={handleOk}
         onCancel={handleCancel}
-        confirmLoading={createMutation.isLoading || updateMutation.isLoading}
+        confirmLoading={createMutation.isPending || updateMutation.isPending}
       >
         <SensorForm form={form} initialValues={editingSensor} />
       </Modal>

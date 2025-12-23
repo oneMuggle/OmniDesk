@@ -1,13 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 import { scheduleApi } from '../../../api/schedule';
-import { getTrials } from '../../../api/trials';
 import { fromServerFormat, toServerFormat } from '../../../utils/dateUtils';
-import { Modal, Button } from 'antd';
+import { Modal, Button, Form } from 'antd';
 import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
 import TrialDetails from './TrialDetails';
-import EventModalActions from './EventModalActions';
 
 const EventModalContainer = ({
   currentEvent,
@@ -26,9 +24,33 @@ const EventModalContainer = ({
   setSelectedTrial
 }) => {
   const queryClient = useQueryClient();
-  const [localSelectedTrial, setLocalSelectedTrial] = useState(selectedTrial);
+  const [userSelectedTrial, setUserSelectedTrial] = useState(null);
 
-  const fetchAndSetTimeSlots = async (trial) => {
+  const { mutateAsync: updateTimeSlots, isPending: isUpdatingTimeSlots } = useMutation({
+    mutationFn: (slots) =>
+      Promise.all(
+        slots.map((slot) => scheduleApi.updateTimeSlot(slot.id, slot))
+      ),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trials'] });
+      setModifiedSlots([]);
+    },
+    onError: (error) => {
+      console.error('更新时间段失败:', error);
+      Modal.error({ title: '更新失败', content: '无法保存时间段更改。' });
+    }
+  });
+
+  const derivedInitialTrial = useMemo(() => {
+    if (currentEvent?.trialId) {
+      return trials.find(t => t.id === currentEvent.trialId) || null;
+    }
+    return null;
+  }, [currentEvent, trials]);
+
+  const localSelectedTrial = userSelectedTrial || derivedInitialTrial;
+
+  const fetchAndSetTimeSlots = useCallback(async (trial) => {
     if (!trial || !trial.id) {
       form.setFieldsValue({ time_slots: [] });
       return;
@@ -36,22 +58,7 @@ const EventModalContainer = ({
 
     try {
       const slots = await scheduleApi.fetchTimeSlotsByTrial(trial.id);
-      if (!slots || slots.length === 0) {
-        console.warn('获取到空时间段数组', { trialId: trial.id });
-        form.setFieldsValue({ time_slots: [] });
-        return;
-      }
-
-      const validSlots = slots.filter(slot => slot.id && slot.start && slot.end);
-      if (validSlots.length !== slots.length) {
-        console.warn('过滤掉无效时间段', {
-          trialId: trial.id,
-          total: slots.length,
-          valid: validSlots.length,
-          invalid: slots.filter(slot => !slot.id || !slot.start || !slot.end)
-        });
-      }
-
+      const validSlots = slots?.filter(slot => slot.id && slot.start && slot.end) || [];
       form.setFieldsValue({
         time_slots: validSlots.map(slot => ({
           id: slot.id,
@@ -68,23 +75,23 @@ const EventModalContainer = ({
       });
       form.setFieldsValue({ time_slots: [] });
     }
-  };
+  }, [form]);
+
 
   useEffect(() => {
-    if (currentEvent?.trialId) {
-      const trial = trials.find(t => t.id === currentEvent.trialId);
-      if (trial) {
-        form.setFieldsValue({ trial: trial.id });
-        setLocalSelectedTrial(trial);
-        fetchAndSetTimeSlots(trial);
-      }
+    if (localSelectedTrial) {
+      form.setFieldsValue({ trial: localSelectedTrial.id });
+      fetchAndSetTimeSlots(localSelectedTrial);
+    } else {
+      form.setFieldsValue({ trial: undefined, time_slots: [] });
     }
-  }, [currentEvent, trials, form]);
+  }, [localSelectedTrial, form, fetchAndSetTimeSlots]);
 
   const handleManualSave = async () => {
-    const trialId = form.getFieldValue('trial');
-    if (!trialId) {
-      Modal.error({ title: '验证失败', content: '请先选择试验项目' });
+    try {
+      await form.validateFields();
+    } catch (error) {
+      Modal.error({ title: '验证失败', content: '请填写所有必填项。' });
       return;
     }
 
@@ -97,41 +104,22 @@ const EventModalContainer = ({
         invalidSlots.push(`时间段 ${index + 1}: 缺少开始或结束时间`);
         return null;
       }
-
       try {
         const start = fromServerFormat(slot.start);
         const end = fromServerFormat(slot.end);
-
-        if (!start || !end || isNaN(start.toDate().getTime()) || isNaN(end.toDate().getTime())) {
-          invalidSlots.push(`时间段 ${index + 1}: 时间格式无效`);
+        if (!start.isValid() || !end.isValid() || end.isSameOrBefore(start)) {
+          invalidSlots.push(`时间段 ${index + 1}: 时间无效或结束时间不晚于开始时间`);
           return null;
         }
-
-        if (end <= start) {
-          invalidSlots.push(`时间段 ${index + 1}: 结束时间必须晚于开始时间`);
-          return null;
-        }
-
-        return {
-          start,
-          end,
-          ...(slot.id && { id: slot.id })
-        };
-      } catch (error) {
-        invalidSlots.push(`时间段 ${index + 1}: ${error.message}`);
+        return { ...slot, start, end };
+      } catch (e) {
+        invalidSlots.push(`时间段 ${index + 1}: 时间格式解析错误`);
         return null;
       }
     }).filter(Boolean);
 
-    if (invalidSlots.length > 0 || validSlots.length === 0) {
-      Modal.error({
-        title: '验证失败',
-        content: [
-          '请修正以下问题:',
-          ...invalidSlots,
-          validSlots.length === 0 ? '至少需要一个有效时间段' : ''
-        ].join('\n'),
-      });
+    if (invalidSlots.length > 0) {
+      Modal.error({ title: '验证失败', content: invalidSlots.join('\n') });
       return;
     }
 
@@ -144,18 +132,8 @@ const EventModalContainer = ({
     
     try {
       if (isEditing && modifiedSlots.length > 0) {
-        const currentSlotIds = validSlots
-          .filter(slot => slot.id)
-          .map(slot => slot.id);
-          
-        const validModifiedSlots = modifiedSlots.filter(id => 
-          currentSlotIds.includes(id)
-        );
-          
-        const modifiedTimeSlots = formData.time_slots
-          .filter(slot => 
-            slot.id && 
-            validModifiedSlots.includes(slot.id))
+        const modifiedTimeSlotsData = validSlots
+          .filter(slot => slot.id && modifiedSlots.includes(slot.id))
           .map(slot => ({
             id: slot.id,
             start: toServerFormat(slot.start),
@@ -163,27 +141,16 @@ const EventModalContainer = ({
             description: slot.description
           }));
 
-        setModifiedSlots(validModifiedSlots);
-      
-        if (modifiedTimeSlots.length > 0) {
-          await Promise.all(
-            modifiedTimeSlots.map(slot => 
-              scheduleApi.updateTimeSlot(slot.id, slot)
-            )
-          );
-          queryClient.invalidateQueries(['trials']);
-          setModifiedSlots([]);
+        if (modifiedTimeSlotsData.length > 0) {
+          await updateTimeSlots(modifiedTimeSlotsData);
         }
-        
-        await handleEventSubmit(formData);
-      } else {
-        await handleEventSubmit(formData);
       }
       
+      await handleEventSubmit(formData);
       setIsEditing(false);
     } catch (error) {
-      console.error('保存时间段失败:', error);
-      Modal.error({ title: '保存失败', content: error.message });
+      // Error is handled by useMutation's onError or handleEventSubmit's own try/catch
+      console.error('保存事件失败:', error);
     }
   };
 
@@ -195,7 +162,7 @@ const EventModalContainer = ({
         setIsEditing(false);
         setCurrentEvent(null);
         form.resetFields();
-        setLocalSelectedTrial(null);
+        setUserSelectedTrial(null);
       }}
       closable={true}
       width={800}
@@ -205,7 +172,7 @@ const EventModalContainer = ({
             编辑
           </Button>
         ) : (
-          <Button key="save" type="primary" onClick={handleManualSave}>
+          <Button key="save" type="primary" onClick={handleManualSave} loading={isUpdatingTimeSlots}>
             保存
           </Button>
         ),
@@ -215,6 +182,7 @@ const EventModalContainer = ({
             setIsEditing(false);
             form.resetFields();
             setCurrentEvent(null);
+            setUserSelectedTrial(null);
           }}
         >
           {isEditing ? '取消' : '关闭'}
@@ -222,7 +190,7 @@ const EventModalContainer = ({
       ]}
     >
       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-        <form layout="vertical" form={form} initialValues={{ time_slots: [{ id: 'new_slot', start: null, end: null, description: '' }] }}>
+        <Form layout="vertical" form={form} initialValues={{ time_slots: [{ id: 'new_slot', start: null, end: null, description: '' }] }}>
           <TrialSelector
             trials={trials}
             isTrialsLoading={isTrialsLoading}
@@ -230,9 +198,8 @@ const EventModalContainer = ({
             scheduleApi={scheduleApi}
             Modal={Modal}
             onTrialSelect={(trial) => {
-              setLocalSelectedTrial(trial);
+              setUserSelectedTrial(trial);
               setSelectedTrial(trial);
-              fetchAndSetTimeSlots(trial);
             }}
           />
 
@@ -250,7 +217,7 @@ const EventModalContainer = ({
             scheduleApi={scheduleApi}
             Modal={Modal}
           />
-        </form>
+        </Form>
       </div>
     </Modal>
   );

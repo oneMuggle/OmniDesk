@@ -5,7 +5,7 @@ export const useMemoData = () => {
   const queryClient = useQueryClient();
 
   // 获取所有备忘录
-  const { data, isLoading, error } = useQuery({
+  const memosQuery = useQuery({
     queryKey: ['memos'],
     queryFn: memoApi.getAllMemos,
     select: (data) => data.results, // 提取results数组
@@ -22,22 +22,25 @@ export const useMemoData = () => {
   // 更新备忘录
   const updateMemoMutation = useMutation({
     mutationFn: ({ id, data }) => memoApi.patchMemo(id, data), // 使用 patchMemo 进行部分更新
-    onMutate: async (newMemo) => {
-      await queryClient.cancelQueries(['memos']);
-      const previousMemos = queryClient.getQueryData(['memos']);
+    onMutate: async (updatedMemo) => {
+      await queryClient.cancelQueries({ queryKey: ['memos'] });
+      const previousMemosData = queryClient.getQueryData(['memos']);
 
-      queryClient.setQueryData(['memos'], (old) => {
-        const oldMemos = Array.isArray(old) ? old : old?.results || [];
-        return oldMemos.map((memo) =>
-          memo.id === newMemo.id ? { ...memo, ...newMemo } : memo
+      queryClient.setQueryData(['memos'], (oldData) => {
+        if (!oldData || !oldData.results) {
+          return oldData;
+        }
+        const newResults = oldData.results.map((memo) =>
+          memo.id === updatedMemo.id ? { ...memo, ...updatedMemo.data } : memo
         );
+        return { ...oldData, results: newResults };
       });
 
-      return { previousMemos };
+      return { previousMemosData };
     },
     // 如果 mutation 失败，使用 onErorr 回滚
-    onError: (err, newMemo, context) => {
-      queryClient.setQueryData(['memos'], context.previousMemos);
+    onError: (err, updatedMemo, context) => {
+      queryClient.setQueryData(['memos'], context.previousMemosData);
     },
     // 总是在 mutation 结束后重新获取数据，以确保数据同步
     onSettled: () => {
@@ -54,9 +57,9 @@ export const useMemoData = () => {
   });
 
   return {
-    memos: data || [],
-    isLoading,
-    error,
+    memos: memosQuery.data || [],
+    isLoading: memosQuery.isLoading,
+    error: memosQuery.error,
     createMemo: createMemoMutation.mutate,
     updateMemo: updateMemoMutation.mutate,
     deleteMemo: deleteMemoMutation.mutate,

@@ -5,16 +5,16 @@ import { transformTrialToEvents } from '../utils/eventTransformers';
 export const useTrialScheduleData = () => {
   const queryClient = useQueryClient();
 
-  const { data: trials = [], isLoading: isTrialsLoading } = useQuery({
+  const trialQuery = useQuery({
     queryKey: ['trials'],
-    queryFn: async () => {
-      const data = await trialApi.fetchTrialEvents();
-      return data;
-    },
+    queryFn: () => trialApi.fetchTrialEvents(),
     gcTime: 600000,
     staleTime: 300000,
     refetchOnWindowFocus: false,
   });
+
+  const trials = trialQuery.data || [];
+  const isTrialsLoading = trialQuery.isLoading;
 
   const trialEvents = transformTrialToEvents(trials);
 
@@ -22,6 +22,6 @@ export const useTrialScheduleData = () => {
     trials,
     isTrialsLoading,
     trialEvents,
-    queryClient
+    queryClient,
   };
 };

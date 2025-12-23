@@ -1,5 +1,5 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, Space, Radio, Switch, Popconfirm } from 'antd';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
@@ -106,7 +106,6 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             placeholder="按职务筛选值班人员"
             allowClear
             onChange={(value) => {
-              setSelectedPersonPositionId(value);
               setSelectedPersonPositionId(value);
               form.setFieldsValue({ duty_person: null });
             }}
@@ -344,211 +343,224 @@ GenerateScheduleModal.propTypes = {
 
 const ScheduleManagementPage = () => {
   const queryClient = useQueryClient();
-  const [schedules, setSchedules] = useState([]);
-  const [personnelList, setPersonnelList] = useState([]);
-  const [personnelSequences, setPersonnelSequences] = useState([]);
-  const [leaderSequences, setLeaderSequences] = useState([]);
-  const [positions, setPositions] = useState([]); // 新增职务状态
-  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
   const [isPersonnelSequenceModalVisible, setIsPersonnelSequenceModalVisible] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const calendarRef = useRef(null);
-  const calendarContainerRef = useRef(null); // 新增ref用于日历容器
-  const originalCalendarContainerStyle = useRef({}); // 存储日历容器的原始样式
+  const calendarContainerRef = useRef(null);
+  const originalCalendarContainerStyle = useRef({});
   const [selectedSchedules, setSelectedSchedules] = useState([]);
   const [isAllSelected, setIsAllSelected] = useState(false);
   const [isCalendarFilterEnabled, setIsCalendarFilterEnabled] = useState(false);
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
   const [currentView, setCurrentView] = useState('dayGridMonth');
-  const [viewMode, setViewMode] = useState('calendar'); // 'calendar' or 'list'
+  const [viewMode, setViewMode] = useState('calendar');
   const [weeklyLeaders, setWeeklyLeaders] = useState([]);
 
-  useEffect(() => {
-    const initData = async () => {
-      setLoading(true);
-      try {
-        await Promise.all([
-          fetchPersonnel(),
-          fetchPositions(),
-          fetchSequences(),
-          fetchData(),
-        ]);
-      } catch (error) {
-        // Errors are handled in individual fetch functions
-      } finally {
-        setLoading(false);
-      }
-    };
-    initData();
-  }, [fetchData]);
+  const schedulesQuery = useQuery({
+    queryKey: ['schedules'],
+    queryFn: scheduleApi.getSchedules,
+  });
 
-  const fetchData = useCallback(async () => {
-    // setLoading(true) is moved to initData
-    try {
-      const data = await scheduleApi.getSchedules();
-      const formattedData = data.map(schedule => ({
-        ...schedule,
-      }));
-      setSchedules(formattedData);
-    } catch (error) {
-      message.error('获取排班数据失败');
-    }
-    // setLoading(false) is moved to initData
-  }, []);
+  const personnelQuery = useQuery({
+    queryKey: ['personnel'],
+    queryFn: () => getAllPersonnel().then(data => data.results),
+  });
+
+  const positionsQuery = useQuery({
+    queryKey: ['positions'],
+    queryFn: () => getPositions().then(data => data.results),
+  });
+
+  const personnelSequencesQuery = useQuery({
+    queryKey: ['personnelSequences'],
+    queryFn: () => getPersonnelSequences().then(res => res.data.results),
+  });
+
+  const leaderSequencesQuery = useQuery({
+    queryKey: ['leaderSequences'],
+    queryFn: () => getLeaderSequences().then(res => res.data.results),
+  });
+
+  const schedules = schedulesQuery.data || [];
+  const personnelList = personnelQuery.data || [];
+  const positions = positionsQuery.data || [];
+  const personnelSequences = personnelSequencesQuery.data || [];
+  const leaderSequences = leaderSequencesQuery.data || [];
+
+  const isDataPending =
+    schedulesQuery.isPending ||
+    personnelQuery.isPending ||
+    positionsQuery.isPending ||
+    personnelSequencesQuery.isPending ||
+    leaderSequencesQuery.isPending;
+
+  const invalidateSchedules = () => {
+    queryClient.invalidateQueries({ queryKey: ['schedules'] });
+  };
+
+  const createOrUpdateMutation = useMutation({
+    mutationFn: (values) =>
+      currentSchedule
+        ? scheduleApi.updateSchedule(currentSchedule.id, values)
+        : scheduleApi.createSchedule(values),
+    onSuccess: () => {
+      message.success(currentSchedule ? '排班更新成功' : '排班创建成功');
+      invalidateSchedules();
+      setIsModalVisible(false);
+    },
+    onError: () => {
+      message.error('保存排班失败');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => scheduleApi.deleteSchedule(id),
+    onSuccess: () => {
+      message.success('排班删除成功');
+      invalidateSchedules();
+    },
+    onError: () => {
+      message.error('删除排班失败');
+    },
+  });
+
+  const bulkDeleteMutation = useMutation({
+    mutationFn: (ids) => scheduleApi.bulkDeleteSchedules(ids),
+    onSuccess: () => {
+      message.success('批量删除成功');
+      invalidateSchedules();
+      setSelectedSchedules([]);
+    },
+    onError: () => {
+      message.error('批量删除失败');
+    },
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: (values) => scheduleApi.generateSchedules(values),
+    onSuccess: () => {
+      message.success('排班生成成功');
+      invalidateSchedules();
+      setIsGenerateModalVisible(false);
+    },
+    onError: (error) => {
+      const errorMsg = error.response?.data?.error || '生成排班失败';
+      message.error(errorMsg);
+    },
+  });
+
+  const swapDatesMutation = useMutation({
+    mutationFn: ({ draggedId, targetId }) => scheduleApi.swapScheduleDates(draggedId, targetId),
+    onSuccess: () => {
+      message.success('排班交换成功');
+      invalidateSchedules();
+    },
+    onError: (error, variables, context) => {
+      message.error('更新排班失败');
+      context.revert();
+    },
+  });
+
+  const updateDateMutation = useMutation({
+    mutationFn: ({ id, data }) => scheduleApi.updateSchedule(id, data),
+    onSuccess: () => {
+      message.success('排班日期更新成功');
+      invalidateSchedules();
+    },
+    onError: (error, variables, context) => {
+      message.error('更新排班失败');
+      context.revert();
+    },
+  });
+  
+  const swapLeadersMutation = useMutation({
+    mutationFn: (data) => scheduleApi.swapWeeklyLeaders(data),
+    onSuccess: () => {
+      message.success('值班领导顺序更新成功');
+      invalidateSchedules();
+    },
+    onError: (error, variables, context) => {
+      message.error('更新值班领导顺序失败');
+      setWeeklyLeaders(context.previousWeeklyLeaders);
+    },
+  });
 
   useEffect(() => {
-    // 组件挂载时保存日历容器的原始样式
     if (calendarContainerRef.current) {
       originalCalendarContainerStyle.current = {
         width: calendarContainerRef.current.style.width,
         height: calendarContainerRef.current.style.height,
-        // 可以添加其他需要保存的样式属性
       };
     }
   }, []);
-
-  const fetchPersonnel = async () => {
-    try {
-      const data = await getAllPersonnel();
-      setPersonnelList(data.results);
-    } catch (error) {
-      message.error('获取人员列表失败');
-    }
-  };
-
-  const fetchPositions = async () => {
-    try {
-      const data = await getPositions();
-      setPositions(data.results); // 假设API返回的数据在results字段
-    } catch (error) {
-      message.error('获取职务列表失败');
-    }
-  };
-
-  const fetchSequences = async () => {
-    try {
-      const personnelRes = await getPersonnelSequences();
-      setPersonnelSequences(personnelRes.data.results);
-      const leaderRes = await getLeaderSequences();
-      setLeaderSequences(leaderRes.data.results);
-    } catch (error) {
-      message.error('获取顺序列表失败');
-    }
-  };
-
 
   const handleAdd = () => {
     setCurrentSchedule(null);
     setIsModalVisible(true);
   };
 
-  const handleEdit = useCallback((record) => {
+  const handleEdit = (record) => {
     setCurrentSchedule(record);
     setIsModalVisible(true);
-  }, []);
+  };
 
-  const handleDelete = useCallback(async (id) => {
-    try {
-      await scheduleApi.deleteSchedule(id);
-      message.success('排班删除成功');
-      fetchData();
-    } catch (error) {
-      message.error('删除排班失败');
-    }
-  }, [fetchData]);
+  const handleDelete = (id) => {
+    deleteMutation.mutate(id);
+  };
 
-  const handleBulkDelete = async () => {
+  const handleBulkDelete = () => {
     if (selectedSchedules.length === 0) {
       message.info('请先选择要删除的排班');
       return;
     }
-    try {
-      await scheduleApi.bulkDeleteSchedules(selectedSchedules);
-      message.success('批量删除成功');
-      setSchedules(schedules.filter(s => !selectedSchedules.includes(s.id)));
-      setSelectedSchedules([]);
-    } catch (error) {
-      message.error('批量删除失败');
-    }
+    bulkDeleteMutation.mutate(selectedSchedules);
   };
 
-  const handleModalOk = async (values) => {
-    try {
-      if (currentSchedule) {
-        await scheduleApi.updateSchedule(currentSchedule.id, values);
-        message.success('排班更新成功');
-      } else {
-        await scheduleApi.createSchedule(values);
-        message.success('排班创建成功');
-      }
-      setIsModalVisible(false);
-      fetchData();
-    } catch (error) {
-      message.error('保存排班失败');
-    }
+  const handleModalOk = (values) => {
+    createOrUpdateMutation.mutate(values);
   };
 
   const handlePersonnelSequenceModalOk = () => {
-    // The modal now handles its own API call. We just need to close it and refetch.
     setIsPersonnelSequenceModalVisible(false);
-    fetchSequences(); // Refetch sequences to update the list
+    queryClient.invalidateQueries({ queryKey: ['personnelSequences', 'leaderSequences'] });
     message.success('人员顺序已成功保存');
   };
 
   const handlePersonnelSequenceModalCancel = () => {
     setIsPersonnelSequenceModalVisible(false);
   };
- 
-   const handleGenerateModalOk = async (values) => {
-     try {
-       await scheduleApi.generateSchedules(values);
-      message.success('排班生成成功');
-      setIsGenerateModalVisible(false);
-      fetchData();
-    } catch (error) {
-      const errorMsg = error.response?.data?.error || '生成排班失败';
-      message.error(errorMsg);
-    }
+
+  const handleGenerateModalOk = (values) => {
+    generateMutation.mutate(values);
   };
 
-  const handleEventDrop = async (info) => {
+  const handleEventDrop = (info) => {
     const { event: draggedEvent, revert } = info;
     const newDate = moment(draggedEvent.start).format('YYYY-MM-DD');
-
     const targetEvent = schedules.find(s =>
       moment(s.duty_date).format('YYYY-MM-DD') === newDate && String(s.id) !== draggedEvent.id
     );
+    const draggedId = parseInt(draggedEvent.id, 10);
 
-    try {
-      const draggedId = parseInt(draggedEvent.id, 10);
-      if (targetEvent) {
-        // 目标日期已有排班，交换
-        const targetId = parseInt(targetEvent.id, 10);
-        await scheduleApi.swapScheduleDates(draggedId, targetId);
-        message.success('排班交换成功');
-      } else {
-        // 目标日期无排班，更新
-        const scheduleData = {
-          date: newDate,
-          duty_person: draggedEvent.extendedProps.duty_person,
-          duty_leader: draggedEvent.extendedProps.duty_leader,
-        };
-        await scheduleApi.updateSchedule(draggedId, scheduleData);
-        message.success('排班日期更新成功');
-      }
-      fetchData(); // 重新获取数据刷新日历
-    } catch (error) {
-      message.error('更新排班失败');
-      revert(); // 如果失败，则将事件还原
+    if (targetEvent) {
+      const targetId = parseInt(targetEvent.id, 10);
+      swapDatesMutation.mutate({ draggedId, targetId }, { context: { revert } });
+    } else {
+      const scheduleData = {
+        date: newDate,
+        duty_person_id: draggedEvent.extendedProps.duty_person.id,
+        duty_leader_id: draggedEvent.extendedProps.duty_leader.id,
+      };
+      updateDateMutation.mutate({ id: draggedId, data: scheduleData }, { context: { revert } });
     }
   };
+
   const handleEventClick = (info) => {
     const scheduleId = parseInt(info.event.id, 10);
     const clickedSchedule = schedules.find(s => s.id === scheduleId);
-
     if (clickedSchedule) {
       handleEdit(clickedSchedule);
     } else {
@@ -561,11 +573,9 @@ const ScheduleManagementPage = () => {
       setWeeklyLeaders([]);
       return;
     }
-
     const start = moment(calendarViewInfo.start);
     const end = moment(calendarViewInfo.end);
     const leadersByWeek = {};
-
     schedules.forEach(schedule => {
       const scheduleDate = moment(schedule.duty_date);
       if (scheduleDate.isBetween(start, end, 'day', '[]')) {
@@ -584,7 +594,6 @@ const ScheduleManagementPage = () => {
         leadersByWeek[week].schedules.push(schedule);
       }
     });
-
     setWeeklyLeaders(Object.values(leadersByWeek).sort((a, b) => a.id - b.id));
   }, [schedules, calendarViewInfo]);
 
@@ -596,28 +605,19 @@ const ScheduleManagementPage = () => {
   const handleLeaderDragEnd = async (result) => {
     if (!result.destination) return;
 
+    const previousWeeklyLeaders = weeklyLeaders;
     const newWeeklyLeaders = Array.from(weeklyLeaders);
     const [reorderedItem] = newWeeklyLeaders.splice(result.source.index, 1);
     newWeeklyLeaders.splice(result.destination.index, 0, reorderedItem);
-
     setWeeklyLeaders(newWeeklyLeaders);
 
     const sourceWeek = weeklyLeaders[result.source.index];
     const destinationWeek = weeklyLeaders[result.destination.index];
 
-    try {
-      await scheduleApi.swapWeeklyLeaders({
-        source_week_start_date: sourceWeek.start,
-        destination_week_start_date: destinationWeek.start,
-      });
-      message.success('值班领导顺序更新成功');
-      fetchData();
-      queryClient.invalidateQueries(['schedules']); // Invalidate the cache
-    } catch (error) {
-      message.error('更新值班领导顺序失败');
-      // Revert UI on failure
-      setWeeklyLeaders(weeklyLeaders);
-    }
+    swapLeadersMutation.mutate({
+      source_week_start_date: sourceWeek.start,
+      destination_week_start_date: destinationWeek.start,
+    }, { context: { previousWeeklyLeaders } });
   };
 
   const calendarEvents = useMemo(() => {
@@ -693,39 +693,26 @@ const ScheduleManagementPage = () => {
 
   const exportToPDF = async () => {
     setIsExporting(true);
-    // 确保在导出前，日历已经渲染了所有需要的数据
     await new Promise(resolve => setTimeout(resolve, 500));
-
     const calendarEl = calendarContainerRef.current;
     if (!calendarEl) {
       message.error('无法找到日历元素');
       setIsExporting(false);
       return;
     }
-
-    // 暂时移除日历容器的固定尺寸，以便html2canvas能捕获完整内容
     const originalWidth = calendarEl.style.width;
     const originalHeight = calendarEl.style.height;
     calendarEl.style.width = 'auto';
     calendarEl.style.height = 'auto';
-
     try {
-      const canvas = await html2canvas(calendarEl, {
-        scale: 2, // 提高分辨率
-        useCORS: true,
-      });
-      const pdf = new jsPDF({
-        orientation: 'landscape',
-        unit: 'px',
-        format: [canvas.width, canvas.height],
-      });
+      const canvas = await html2canvas(calendarEl, { scale: 2, useCORS: true });
+      const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('schedule.pdf');
     } catch (error) {
       console.error("导出PDF时出错:", error);
       message.error('导出PDF失败');
     } finally {
-      // 恢复原始样式
       calendarEl.style.width = originalWidth;
       calendarEl.style.height = originalHeight;
       setIsExporting(false);
@@ -779,7 +766,7 @@ const ScheduleManagementPage = () => {
   return (
     <div className="p-4" data-testid="schedule-management-page">
       <h1 className="text-2xl font-bold mb-4">排班管理</h1>
-      <Card loading={loading}>
+      <Card loading={isDataPending}>
         <div className="flex justify-between items-center mb-4">
           <Space>
             <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>
@@ -833,7 +820,7 @@ const ScheduleManagementPage = () => {
                <MonthlyLeaderSidebar
                  weeklyLeaders={weeklyLeaders}
                  calendarRef={calendarRef}
-                 isDragDisabled={false}
+                 isDragDisabled={swapLeadersMutation.isPending}
                />
              )}
            </div>
@@ -845,13 +832,13 @@ const ScheduleManagementPage = () => {
            <Space className="mb-2">
              <Button onClick={handleSelectAll} data-testid="select-all-button">全选</Button>
              <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
-             <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0} data-testid="bulk-delete-button">批量删除</Button>
+             <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0 || bulkDeleteMutation.isPending} data-testid="bulk-delete-button">批量删除</Button>
            </Space>
            <Table
              columns={columns}
              dataSource={filteredSchedules}
              rowKey="id"
-             loading={loading}
+             loading={isDataPending}
              rowSelection={rowSelection}
              pagination={{ pageSize: 10 }}
              data-testid="schedule-table"

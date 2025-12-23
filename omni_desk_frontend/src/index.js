@@ -42,7 +42,15 @@ library.add(
   faMagic, faLanguage, faSpellCheck
 );
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60 * 5, // 5 minutes
+      refetchOnWindowFocus: false, // 禁用窗口聚焦时重新获取
+      retry: 1, // 重试1次
+    },
+  },
+});
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

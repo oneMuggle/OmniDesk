@@ -20,6 +20,7 @@ const CalendarEventModal = ({
   form,
   isEditing,
   setIsEditing,
+  isProcessing,
 }) => {
   const { user } = useAuth(); // 获取 user 对象
   const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
@@ -314,7 +315,7 @@ const CalendarEventModal = ({
       onCancel={onCancel}
       footer={canEdit && (!currentEvent || !currentEvent.id || isEditing) ? [ // 只有管理员和经理且在编辑或新增时才显示保存按钮
         <Button key="cancel" onClick={onCancel}>取消</Button>,
-        <Button key="submit" type="primary" onClick={handleOk}>保存</Button>,
+        <Button key="submit" type="primary" onClick={handleOk} loading={isProcessing}>保存</Button>,
       ] : null}
     >
       <Form form={form} layout="vertical" onValuesChange={handleValuesChange}>
@@ -338,6 +339,7 @@ CalendarEventModal.propTypes = {
   isEditing: PropTypes.bool.isRequired,
   setIsEditing: PropTypes.func.isRequired,
   selectedTrial: PropTypes.object,
+  isProcessing: PropTypes.bool,
 };
 
 export default CalendarEventModal;

@@ -5,7 +5,7 @@ import CalendarEventModal from './CalendarEventModal';
 import { scheduleApi } from '../api/schedule'; // 引入 scheduleApi
 import { trialApi } from '../api/trialApi'; // 引入 trialApi
 import { toServerFormat } from '../utils/dateUtils';
-import { useQueryClient } from '@tanstack/react-query'; // 引入 useQueryClient
+import { useQueryClient, useMutation } from '@tanstack/react-query';
 
 const EventModal = ({
   form,
@@ -25,56 +25,64 @@ const EventModal = ({
 
   const handleCancel = () => setCurrentEvent(null);
 
+  const { mutate: saveSchedule, isPending: isSaving } = useMutation({
+    mutationFn: (values) => {
+      const payload = {
+        date: toServerFormat(values.duty_date),
+        duty_person: values.duty_person,
+        duty_leader: values.duty_leader,
+      };
+      if (currentEvent.id && currentEvent.id.startsWith('schedule-')) {
+        return scheduleApi.updateSchedule(currentEvent.id.replace('schedule-', ''), payload);
+      }
+      return scheduleApi.createSchedule(payload);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['schedules'] });
+      handleCancel();
+    },
+    onError: (error) => {
+      console.error('提交排班失败:', error);
+      // TODO: Add error notification
+    },
+  });
+
+  const { mutate: deleteEvent, isPending: isDeleting } = useMutation({
+    mutationFn: (id) => {
+      if (currentEvent.type === 'SCHEDULE') {
+        return scheduleApi.deleteSchedule(id.replace('schedule-', ''));
+      }
+      if (currentEvent.type === 'TRIAL') {
+        return trialApi.deleteTimeSlot(id.replace('slot_', ''));
+      }
+      return Promise.reject(new Error('Unknown event type for deletion'));
+    },
+    onSuccess: () => {
+      const queryKey = currentEvent.type === 'SCHEDULE' ? ['schedules'] : ['trials'];
+      queryClient.invalidateQueries({ queryKey });
+      handleCancel();
+    },
+    onError: (error) => {
+      console.error(`删除 ${currentEvent.type} 事件失败:`, error);
+      // TODO: Add error notification
+    },
+  });
+
   const handleSave = async (values) => {
     if (!currentEvent) return;
 
     if (currentEvent.type === 'SCHEDULE') {
-      try {
-        const payload = {
-          date: toServerFormat(values.duty_date),
-          duty_person: values.duty_person,
-          duty_leader: values.duty_leader,
-        };
-        if (currentEvent.id && currentEvent.id.startsWith('schedule-')) {
-          await scheduleApi.updateSchedule(currentEvent.id.replace('schedule-', ''), payload);
-        } else {
-          await scheduleApi.createSchedule(payload);
-        }
-        queryClient.invalidateQueries(['schedules']); // 使排班缓存失效
-        handleCancel();
-      } catch (error) {
-        console.error('提交排班失败:', error);
-        // TODO: Add error notification
-      }
+      saveSchedule(values);
     } else if (currentEvent.type === 'TRIAL') {
       await handleEventSubmit(values);
-      queryClient.invalidateQueries(['trials']); // 使试验缓存失效
+      queryClient.invalidateQueries({ queryKey: ['trials'] });
       handleCancel();
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     if (!currentEvent) return;
-
-    if (currentEvent.type === 'SCHEDULE') {
-      try {
-        await scheduleApi.deleteSchedule(id.replace('schedule-', ''));
-        queryClient.invalidateQueries(['schedules']);
-        handleCancel();
-      } catch (error) {
-        console.error('删除排班失败:', error);
-        // TODO: Add error notification
-      }
-    } else if (currentEvent.type === 'TRIAL') {
-      try {
-        await trialApi.deleteTimeSlot(id.replace('slot_', ''));
-        queryClient.invalidateQueries(['trials']);
-        handleCancel();
-      } catch (error) {
-        console.error('删除试验时间段失败:', error);
-        // TODO: Add error notification
-      }
-    }
+    deleteEvent(id);
   };
 
   const handleSwap = async (id) => {
@@ -95,6 +103,7 @@ const EventModal = ({
       isEditing={isEditing}
       setIsEditing={setIsEditing}
       selectedTrial={selectedTrial}
+      isProcessing={isSaving || isDeleting}
     />
   );
 };

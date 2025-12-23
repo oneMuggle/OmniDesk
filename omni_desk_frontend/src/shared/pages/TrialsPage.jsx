@@ -23,8 +23,8 @@ const TrialsPage = () => {
   const [currentRecord, setCurrentRecord] = useState(null);
   const queryClient = useQueryClient();
 
-  // 获取数据
-  const { data: trials = [], isLoading, error } = useQuery({ 
+  // 获取数据 (已重构为 v5 API)
+  const trialsQuery = useQuery({
     queryKey: ['trials'],
     queryFn: fetchTrials,
     select: (data) => {
@@ -32,51 +32,49 @@ const TrialsPage = () => {
       if (data?.results && Array.isArray(data.results)) return data.results;
       return [];
     },
-    useErrorBoundary: true,
-    retry: false,
-    onError: (error) => {
-      console.error('API Request Error:', error);
-    },
-    onSuccess: (data) => {
-      console.log('Processed trials data:', data);
-    }
   });
-  const { data: equipments } = useQuery({ 
+  const { data: trials = [] } = trialsQuery;
+
+  const equipmentsQuery = useQuery({
     queryKey: ['equipments'],
     queryFn: () => getEquipmentOptions({ page: 1, pageSize: 100 }),
     select: response => response?.results || []
   });
-  const { data: responsiblePersons } = useQuery({ 
+  const { data: equipments } = equipmentsQuery;
+
+  const responsiblePersonsQuery = useQuery({
     queryKey: ['responsiblePersons'],
     queryFn: () => getPersonnelOptions({ page: 1, pageSize: 100 }),
     select: response => response?.results || [],
-    onError: (error) => console.error('[MCP_ERROR] 人员选项加载失败:', error),
-    onSuccess: (data) => console.log('[MCP_DEBUG] 人员选项加载完成:', data)
   });
+  const { data: responsiblePersons } = responsiblePersonsQuery;
 
   // 调试设备数据加载状态
   useEffect(() => {
     console.log('[MCP_DEBUG] 当前设备选项数据:', equipments);
   }, [equipments]);
 
-  // 调试人员数据加载状态  
+  // 调试人员数据加载状态
   useEffect(() => {
     console.log('[MCP_DEBUG] 当前人员选项数据:', responsiblePersons);
   }, [responsiblePersons]);
 
-  // 表单提交处理
-  const handleSubmit = useMutation({
+  // 创建/更新操作 (已重构为 v5 API)
+  const trialMutation = useMutation({
     mutationFn: (values) => {
-    const processedValues = {
-      ...values,
-      responsible_person_ids: values.responsible_persons,
-      equipment_ids: values.equipment_ids,
-      start_date: dayjs(values.start_date).toISOString(),
-      end_date: dayjs(values.end_date).toISOString(),
-      status: values.status || 'planned', // 添加默认状态
-      _legacy_related_equipment: values.related_equipment
-    };
-      return currentRecord ? updateTrial(currentRecord.id, processedValues) : createTrial(processedValues);
+      const processedValues = {
+        ...values,
+        responsible_person_ids: values.responsible_persons,
+        equipment_ids: values.equipment_ids,
+        start_date: dayjs(values.start_date).toISOString(),
+        end_date: dayjs(values.end_date).toISOString(),
+        status: values.status || 'planned',
+        _legacy_related_equipment: values.related_equipment
+      };
+      const action = currentRecord
+        ? updateTrial(currentRecord.id, processedValues)
+        : createTrial(processedValues);
+      return action;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['trials'] });
@@ -87,6 +85,18 @@ const TrialsPage = () => {
     onError: (error) => {
       message.error(`操作失败: ${error.response?.data?.message || error.message}`);
     }
+  });
+
+  // 删除操作 (已重构为 v5 API)
+  const deleteMutation = useMutation({
+    mutationFn: deleteTrial,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['trials'] });
+      message.success('删除成功');
+    },
+    onError: (error) => {
+      message.error(`删除失败: ${error.response?.data?.message || error.message}`);
+    },
   });
 
   // 文件上传配置
@@ -103,14 +113,15 @@ const TrialsPage = () => {
     },
   };
 
-  if (isLoading) return (
+  if (trialsQuery.isLoading) return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
       <Spin tip="加载试验数据中..." />
     </div>
   );
-  if (error) return <div style={{ padding: 20 }}><Alert 
+
+  if (trialsQuery.error) return <div style={{ padding: 20 }}><Alert
     message="数据加载错误"
-    description={`错误详情：${error.message}`}
+    description={`错误详情：${trialsQuery.error.message}`}
     type="error"
     showIcon
   /></div>;
@@ -120,16 +131,22 @@ const TrialsPage = () => {
       {console.log('Trials Data Structure:', trials)}
       {console.log('API Response Sample:', trials?.[0])}
       <div className="header-section">
-        <Button 
-          type="primary" 
+        <Button
+          type="primary"
           onClick={() => {
             setCurrentRecord(null);
+            form.resetFields();
+            form.setFieldsValue({
+              start_date: dayjs(),
+              end_date: dayjs().add(1, 'day'),
+              status: 'planned'
+            });
             setIsModalVisible(true);
           }}
         >
           新建试验
         </Button>
-        <Button 
+        <Button
           icon={<DownloadOutlined />}
           onClick={() => window.open('/api/export-trials/?format=xlsx')}
         >
@@ -137,24 +154,24 @@ const TrialsPage = () => {
         </Button>
       </div>
 
-      <Table 
-        dataSource={trials ?? []} 
+      <Table
+        dataSource={trials ?? []}
         rowKey="id"
         pagination={{ pageSize: 8 }}
         locale={{
-          emptyText: <Empty 
+          emptyText: <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description={trials ? "暂无试验数据" : "数据加载失败"}
           />
         }}
       >
         <Column title="试验名称" dataIndex="title" key="title" />
-        <Column 
-          title="试验设备" 
+        <Column
+          title="试验设备"
           render={(_, record) => (record.equipments || []).map(e => e?.name || '未知设备').join(', ') || '暂无设备'}
         />
         <Column title="委托单位" dataIndex="client" key="client" />
-        <Column 
+        <Column
           title="负责人"
           render={(_, record) => (record.responsible_persons || []).map(p => (
             <a href={`tel:${p?.phone}`} key={p.id}>
@@ -166,27 +183,26 @@ const TrialsPage = () => {
           title="状态"
           render={(_, record) => (
             <Tag color={
-              { 
+              {
                 planned: 'blue',
                 in_progress: 'green',
                 completed: 'gray',
                 cancelled: 'red'
               }[record.status]
             }>
-              {{ 
+              {{
                 planned: '计划中',
-                in_progress: '进行中', 
+                in_progress: '进行中',
                 completed: '已完成',
                 cancelled: '已取消'
               }[record.status]}
             </Tag>
           )}
         />
-        <Column 
-          title="开始时间" 
+        <Column
+          title="开始时间"
           render={(_, record) => {
             try {
-              // 直接解析ISO8601格式并转换时区（UTC+8）
               const date = dayjs(record.start_date);
               return isValidDate(date) ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
@@ -194,11 +210,10 @@ const TrialsPage = () => {
             }
           }}
         />
-        <Column 
-          title="结束时间" 
+        <Column
+          title="结束时间"
           render={(_, record) => {
             try {
-              // 直接解析ISO8601格式并转换时区（UTC+8）
               const date = dayjs(record.end_date);
               return isValidDate(date) ? date.format('YYYY-MM-DD') : '无效日期';
             } catch (e) {
@@ -210,10 +225,17 @@ const TrialsPage = () => {
           title="操作"
           render={(_, record) => (
             <div className="action-buttons">
-              <Button 
-                type="link" 
+              <Button
+                type="link"
                 onClick={() => {
                   setCurrentRecord(record);
+                  form.setFieldsValue({
+                    ...record,
+                    equipment_ids: record.equipments?.map(e => e.id),
+                    responsible_persons: record.responsible_persons?.map(p => p.id),
+                    start_date: record.start_date ? dayjs(record.start_date) : null,
+                    end_date: record.end_date ? dayjs(record.end_date) : null,
+                  });
                   setIsModalVisible(true);
                 }}
                 style={{ padding: '0 8px' }}
@@ -222,20 +244,13 @@ const TrialsPage = () => {
               </Button>
               <Popconfirm
                 title="确认删除该试验？"
-                onConfirm={async () => {
-                  try {
-                    await deleteTrial(record.id);
-                    queryClient.invalidateQueries({ queryKey: ['trials'] });
-                    message.success('删除成功');
-                  } catch (error) {
-                    message.error(`删除失败: ${error.response?.data?.message || error.message}`);
-                  }
-                }}
+                onConfirm={() => deleteMutation.mutate(record.id)}
                 okText="确定"
                 cancelText="取消"
+                disabled={deleteMutation.isPending}
               >
-                <Button 
-                  type="link" 
+                <Button
+                  type="link"
                   danger
                   style={{ padding: '0 8px' }}
                 >
@@ -252,20 +267,11 @@ const TrialsPage = () => {
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
+        destroyOnClose
       >
         <Form
           form={form}
-          initialValues={currentRecord ? {
-            ...currentRecord,
-            equipment_ids: currentRecord.equipments?.map(e => e.id),
-            responsible_persons: currentRecord.responsible_persons?.map(p => p.id),
-            start_date: currentRecord.start_date ? dayjs(currentRecord.start_date) : dayjs(),
-            end_date: currentRecord.end_date ? dayjs(currentRecord.end_date) : dayjs().add(1, 'day')
-          } : {
-            start_date: dayjs(),
-            end_date: dayjs().add(1, 'day')
-          }}
-          onFinish={handleSubmit.mutate}
+          onFinish={trialMutation.mutate}
           layout="vertical"
         >
           <Form.Item
@@ -286,18 +292,19 @@ const TrialsPage = () => {
 
           <Form.Item
             label="试验设备"
-          name="equipment_ids"
+            name="equipment_ids"
             rules={[{ required: true, message: '请选择试验设备' }]}
           >
-            <Select 
+            <Select
               mode="multiple"
               placeholder="请选择试验设备"
+              loading={equipmentsQuery.isLoading}
               optionFilterProp="children"
               showSearch
             >
               {equipments?.map(equipment => (
-                <Option 
-                  key={equipment.id} 
+                <Option
+                  key={equipment.id}
                   value={equipment.id}
                   title={`设备编号：${equipment.serial_number}`}
                 >
@@ -318,7 +325,6 @@ const TrialsPage = () => {
           <Form.Item
             label="状态"
             name="status"
-            initialValue="planned"
             rules={[{ required: true }]}
           >
             <Select>
@@ -334,18 +340,19 @@ const TrialsPage = () => {
             name="responsible_persons"
             rules={[{ required: true, message: '请选择负责人' }]}
           >
-            <Select 
+            <Select
               mode="multiple"
               placeholder="请选择负责人"
+              loading={responsiblePersonsQuery.isLoading}
               optionFilterProp="children"
               showSearch
               filterOption={(input, option) =>
-                option.children.toLowerCase().indexOf(input.toLowerCase()) >= 0
+                (option?.children ?? '').toLowerCase().includes(input.toLowerCase())
               }
             >
               {responsiblePersons?.map(person => (
-                <Option 
-                  key={person.id} 
+                <Option
+                  key={person.id}
                   value={person.id}
                   title={`联系方式：${person.phone}`}
                 >
@@ -360,7 +367,7 @@ const TrialsPage = () => {
             name="start_date"
             rules={[{ required: true, message: '请选择开始时间' }]}
           >
-            <DatePicker format="YYYY-MM-DD" />
+            <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
           </Form.Item>
 
           <Form.Item
@@ -368,7 +375,7 @@ const TrialsPage = () => {
             name="end_date"
             rules={[{ required: true, message: '请选择结束时间' }]}
           >
-            <DatePicker format="YYYY-MM-DD" />
+            <DatePicker format="YYYY-MM-DD" style={{ width: '100%' }} />
           </Form.Item>
 
           <Form.Item label="备注" name="remarks">
@@ -382,8 +389,8 @@ const TrialsPage = () => {
           </Form.Item>
 
           <Form.Item>
-            <Button type="primary" htmlType="submit">
-              提交
+            <Button type="primary" htmlType="submit" loading={trialMutation.isPending}>
+              {currentRecord ? '更新' : '创建'}
             </Button>
           </Form.Item>
         </Form>
