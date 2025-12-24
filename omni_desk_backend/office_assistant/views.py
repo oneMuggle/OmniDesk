@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 
 import docx
-import PyPDF2
+import pypdf
 from llm_service.ollama_client import OllamaClient
 from rest_framework.parsers import MultiPartParser, FormParser
 
@@ -66,7 +66,7 @@ class ProcessDocumentView(APIView):
                 document = docx.Document(file_obj)
                 original_text = "\n".join([para.text for para in document.paragraphs])
             elif file_name.endswith('.pdf'):
-                pdf_reader = PyPDF2.PdfReader(file_obj)
+                pdf_reader = pypdf.PdfReader(file_obj)
                 for page in pdf_reader.pages:
                     original_text += page.extract_text() or ""
             elif file_name.endswith('.txt') or file_name.endswith('.md'):

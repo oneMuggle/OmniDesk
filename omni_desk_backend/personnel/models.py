@@ -125,6 +125,7 @@ class ProfessionalQualification(models.Model):
     class Meta:
         verbose_name = "职业资质"
         verbose_name_plural = verbose_name
+        ordering = ['id']
 
 class FamilyMember(models.Model):
     """
@@ -142,3 +143,4 @@ class FamilyMember(models.Model):
     class Meta:
         verbose_name = "家庭成员"
         verbose_name_plural = verbose_name
+        ordering = ['id']

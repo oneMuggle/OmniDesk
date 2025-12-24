@@ -97,7 +97,7 @@ from rest_framework.test import APIClient
 from rest_framework import status
 from users.models import CustomUser
 from .models import Position, Personnel, Schedule, PersonnelSequence, LeaderSequence
-from datetime import date, timedelta
+from datetime import date, timedelta, datetime
 from django.contrib.auth.models import Group
 
 
@@ -384,16 +384,23 @@ class TrialViewSetTest(BaseTestCase):
 
     def test_get_this_week_trials(self):
         # Ensure the trial is within this week
-        today = timezone.now()
+        today = timezone.now().date()
         start_of_week = today - timedelta(days=today.weekday())
-        # Ensure start_time is a datetime object
-        start_time = timezone.make_aware(
-            timezone.datetime.combine(start_of_week.date(), timezone.datetime.min.time()),
-            timezone.get_current_timezone()
+
+        # Create a naive datetime for the start of the week
+        start_time_naive = datetime.combine(start_of_week, datetime.min.time())
+
+        # Make it timezone-aware
+        start_time_aware = timezone.make_aware(start_time_naive)
+
+        # Assign it to a new TimeSlot, which will update the Trial's dates
+        TimeSlot.objects.create(
+            trial=self.trial,
+            start_time=start_time_aware,
+            end_time=start_time_aware + timedelta(hours=1)
         )
-        TimeSlot.objects.create(trial=self.trial, start_time=start_time, end_time=start_time + timedelta(hours=1))
         self.trial.refresh_from_db()
-        
+
         url = f"{self.url}this-week/"
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)

@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 import requests
 from django.conf import settings
-import PyPDF2
+import pypdf
 from docx import Document as DocxDocument
 from PIL import Image
 import mimetypes # 新增导入
@@ -44,11 +44,11 @@ def extract_text_from_pdf(file_path):
     text = ""
     try:
         with open(file_path, 'rb') as f:
-            reader = PyPDF2.PdfReader(f)
+            reader = pypdf.PdfReader(f)
             for page in reader.pages:
                 text += page.extract_text() or ""
         return text
-    except PyPDF2.errors.PdfReadError:
+    except pypdf.errors.PdfReadError:
         print(f"PDFReadError: Could not read text directly from {file_path}. Will try Mineru OCR.")
         return None
     except Exception as e:
