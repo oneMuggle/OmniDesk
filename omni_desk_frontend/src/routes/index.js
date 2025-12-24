@@ -47,7 +47,6 @@ import SensorManagementPage from '../features/sensor/pages/SensorManagementPage'
 import SensorListPage from '../features/sensor/pages/SensorListPage';
 import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage.jsx'; // 导入 SensorCategoryManagementPage
 import SensorArchiveLocationManagementPage from '../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'; // Corrected path
-import StorageLocationManagementPage from '../features/sensor/pages/StorageLocationManagementPage'; // 导入 StorageLocationManagementPage
 import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
 import SensorDetailPage from '../features/sensor/pages/SensorDetailPage'; // 导入 SensorDetailPage
 import EBookManagementPage from '../features/ebook/pages/EBookManagementPage'; // 导入 EBookManagementPage

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleEventApi as scheduleApi } from '../api/scheduleEventApi';
 import { getTrials } from '../../../shared/api/trials';
@@ -17,7 +17,7 @@ export const useScheduleData = () => {
     gcTime: 600000,
     staleTime: 300000
   });
-  const trials = trialsQuery.data ?? [];
+  const trials = useMemo(() => trialsQuery.data ?? [], [trialsQuery.data]);
   const isTrialsLoading = trialsQuery.isLoading;
 
   const schedulesQuery = useQuery({

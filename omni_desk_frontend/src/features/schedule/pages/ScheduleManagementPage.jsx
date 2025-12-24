@@ -384,7 +384,7 @@ const ScheduleManagementPage = () => {
     queryFn: () => getLeaderSequences().then(res => res.data.results),
   });
 
-  const schedules = schedulesQuery.data || [];
+  const schedules = useMemo(() => schedulesQuery.data || [], [schedulesQuery.data]);
   const personnelList = personnelQuery.data || [];
   const positions = positionsQuery.data || [];
   const personnelSequences = personnelSequencesQuery.data || [];
