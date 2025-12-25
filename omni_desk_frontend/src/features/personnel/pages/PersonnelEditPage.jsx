@@ -1,4 +1,5 @@
 import { useState, useEffect, useImperativeHandle } from 'react';
+import PropTypes from 'prop-types';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space, Spin } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
@@ -191,6 +192,10 @@ const PersonnelEditPage = ({ formRef }) => {
             </Card>
         </div>
     );
+};
+
+PersonnelEditPage.propTypes = {
+    formRef: PropTypes.object,
 };
 
 export default PersonnelEditPage;

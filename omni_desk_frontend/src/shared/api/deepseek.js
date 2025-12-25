@@ -1,9 +1,9 @@
-export const createClient = (apiConfig) => {
+export const createClient = () => {
   // Mocking DeepSeek client creation
   return {
     chat: {
       completions: {
-        create: async (payload) => {
+        create: async () => {
           // Mock response
           return {
             choices: [
