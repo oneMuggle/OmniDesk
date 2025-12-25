@@ -1,7 +1,7 @@
 # OmniDesk 开发规范
 
 ## 依赖管理
-- 🔴 后端Python依赖必须通过`requirements.txt`文件管理，禁止使用`pip install`手动添加。
+- 🔴 后端Python依赖必须通过`requirements.in`和`pip-compile`管理，禁止手动修改`requirements.txt`。
 - 🔴 前端React版本必须严格使用`package.json`中定义的`latest`，禁止手动指定版本号。
 - 🟡 必须定期运行`npm audit`和`pip-audit`来检查并修复已知的安全漏洞。
 

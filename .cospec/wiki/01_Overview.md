@@ -4,142 +4,133 @@
 
 ### 项目定位
 - **项目名称**: OmniDesk
-- **项目类型**: 全栈集成化业务管理平台
-- **核心价值**: 简化组织运营，提供文档、项目、传感器和用户管理的统一解决方案。
-- **目标用户**: 需要集中管理内部业务流程和数据的各类组织和企业。
+- **项目类型**: 集成化业务管理平台 (全栈)
+- **核心价值**: 提供一个全面、可扩展的解决方案，用于简化文档、项目、传感器和用户管理等组织运营。
+- **目标用户**: 需要集中管理内部业务流程的各类组织。
 
 ### 技术特色
-- **架构特点**: 采用前后端分离的单体仓库（Monorepo）架构，后端为 Django，前端为 React。
-- **技术亮点**:
-    - 使用 Django REST Framework 构建强大的 RESTful API。
-    - 集成 Celery 进行异步任务处理。
-    - 使用 React 和 Ant Design 构建现代化、响应式的用户界面。
-    - 利用 Docker 和 Docker Compose 实现容器化部署，简化环境配置和交付。
-    - 通过 GitHub Actions 实现 CI/CD，自动化构建和推送镜像。
-- **创新点**: 集成了多种业务模块（如人事、事件、文档、项目等），并引入了AI服务（Ollama）以增强智能化功能。
-- **竞争优势**: 提供了一套完整的、可扩展的业务管理解决方案，覆盖了从后端逻辑到前端交互再到部署运维的全过程。
+- **架构特点**: 采用前后端分离的单体架构，后端为Django，前端为React。通过Docker实现容器化部署，并利用Celery处理异步任务。
+- **技术亮点**: 
+    - **全栈解决方案**: 提供从前端UI到后端逻辑再到数据库的完整业务支持。
+    - **容器化部署**: 使用Docker和Docker Compose简化了开发、测试和生产环境的部署与管理。
+    - **异步任务处理**: 集成Celery和Redis，用于处理耗时任务，提升系统响应速度和用户体验。
+    - **完善的测试体系**: 通过GitHub Actions实现CI，自动运行后端Pytest和前端Jest测试，保证代码质量。
+- **创新点**: 将多种业务管理功能（文档、项目、传感器等）集成于一个平台，提高了数据和流程的统一性。
+- **竞争优势**: 相比于零散的工具，OmniDesk提供了更强的集成性和一致的用户体验，同时保持了良好的可扩展性。
 
 ## 技术栈分析
 
 ### 后端技术栈
 | 技术类型 | 技术选型 | 版本 | 用途 |
-|---|---|---|---|
+|---------|---------|------|------|
 | 编程语言 | Python | 3.8+ | 主要开发语言 |
-| Web框架 | Django | 4.2.11 | 构建后端应用 |
-| API框架 | Django REST Framework | 3.15.0 | 构建RESTful API |
-| 数据库 | PostgreSQL / SQLite | - | 主数据存储 (推荐PostgreSQL) |
-| 缓存 | Redis | 4.6.0+ | 缓存和Celery消息代理 |
+| Web框架 | Django | 4.2.11 | 构建后端应用和API |
+| API框架 | Django Rest Framework | 3.15.0 | 构建RESTful API |
 | 异步任务 | Celery | 5.5.3 | 处理后台和定时任务 |
-| 认证 | Simple JWT | 5.3.0 | 基于JWT的API认证 |
-| ORM框架 | Django ORM | - | 数据库操作 |
+| ORM框架 | Django ORM | - | 数据库交互 |
+| 数据库 | PostgreSQL | 14 | 主数据存储 |
+| 缓存/消息代理 | Redis | 7 | Celery消息代理及应用缓存 |
+| WSGI服务器 | Gunicorn | 20.1.0 | 生产环境下的Python应用服务器 |
 
 ### 前端技术栈
 | 技术类型 | 技术选型 | 版本 | 用途 |
-|---|---|---|---|
+|---------|---------|------|------|
 | JavaScript框架 | React | latest | 构建用户界面 |
-| UI组件库 | Ant Design, MUI | 5.x, 5.x | 快速构建高质量UI |
-| 状态管理 | React Query | 5.x | 服务端状态管理和缓存 |
-| 路由 | React Router | 6.x | 客户端路由 |
-| HTTP客户端 | Axios | 1.x | 发送API请求 |
-| 日历组件 | FullCalendar | 6.x | 日程和事件管理 |
-| 打包工具 | react-scripts | 5.0.1 | 项目构建和开发服务器 |
+| UI组件库 | Ant Design, MUI | ^5.24, ^5.15 | 提供丰富的UI组件 |
+| 状态管理 | React Query | ^5.70.0 | 服务端状态管理、缓存、同步 |
+| 路由管理 | React Router | ^6.28.2 | 客户端路由 |
+| HTTP客户端 | Axios | ^1.8.4 | 发起网络请求 |
+| 测试框架 | Jest, React Testing Library | - | 单元和组件测试 |
 
 ### 基础设施技术
 | 技术领域 | 技术选型 | 作用 |
-|---|---|---|
-| 容器化 | Docker, Docker Compose | 应用容器化和本地编排 |
-| CI/CD | GitHub Actions | 持续集成与部署 |
-| 部署工具 | Gunicorn, Nginx | WSGI服务器和反向代理 |
-| 代码托管 | Git | 版本控制 |
+|---------|---------|------|
+| 容器化 | Docker, Docker Compose | 应用容器化及本地环境编排 |
+| Web服务器 | Nginx | 反向代理和静态文件服务 |
+| CI/CD | GitHub Actions | 自动化测试和构建 |
 
 ## 架构设计
 
 ### 系统架构图
 ```mermaid
-graph TB
-    subgraph "客户端"
-        A[Web浏览器]
+graph TD
+    subgraph "用户端"
+        User[用户浏览器]
     end
 
-    subgraph "接入与服务层 (Backend)"
-        A --> B{Nginx/Gunicorn}
-        B --> C[Django App]
-        C -- API --> D[Django REST Framework]
+    subgraph "接入层"
+        Nginx[Nginx]
     end
 
-    subgraph "核心业务模块"
-        D --- E[用户与权限]
-        D --- F[项目管理]
-        D --- G[文档管理]
-        D --- H[事件与日程]
-        D --- I[传感器管理]
-        D --- J[AI服务]
+    subgraph "服务层"
+        Frontend[React前端服务]
+        Backend[Django后端API]
+        Worker[Celery Worker]
     end
-
+    
     subgraph "数据与中间件"
-        K[(PostgreSQL)]
-        L[(Redis)]
-        M[(Celery)]
-        E & F & G & H & I -- 读写 --> K
-        C -- 缓存/会话 --> L
-        C -- 触发任务 --> M
-        M -- 读写任务队列 --> L
+        DB[(PostgreSQL)]
+        Cache[(Redis)]
     end
 
-    style C fill:#f9f,stroke:#333,stroke-width:2px
+    User --> Nginx
+    Nginx --> Frontend
+    Nginx --> Backend
+    Frontend --> Backend
+    Backend --> DB
+    Backend --> Cache
+    Backend --> Worker
+    Worker --> Cache
+    Worker --> DB
 ```
 
 ### 分层架构
-- **前端层 (Frontend)**: 基于 React 构建的单页面应用(SPA)，负责用户交互和视图展示。
-- **后端层 (Backend)**: 基于 Django 的单体应用，通过 Django REST Framework 提供 API 接口。内部按功能模块划分（如 `personnel`, `events`, `projects` 等）。
-- **数据层 (Data)**: 使用 PostgreSQL 作为主数据库，Redis 作为缓存和消息队列代理。
-- **基础设施 (Infrastructure)**: 使用 Docker 进行容器化，通过 GitHub Actions 实现自动化构建和部署。
+- **接入层**: Nginx作为反向代理，负责请求分发到前端和后端服务，并处理静态资源。
+- **服务层**: 
+    - **前端服务**: 基于React的单页面应用，负责用户交互和视图展示。
+    - **后端服务**: 基于Django的API服务，负责处理业务逻辑、数据持久化和API接口。
+    - **异步任务服务**: Celery Worker独立于主应用运行，处理邮件发送、数据处理等耗时任务。
+- **数据层**: 
+    - **PostgreSQL**: 作为主数据库，存储所有业务数据。
+    - **Redis**: 作为Celery的消息队列和Broker，同时可用于应用级别的数据缓存。
 
 ## 开发规范
 
 ### 代码规范
-- **后端**: 遵循 PEP 8 编码规范。
-- **前端**: 遵循 React 和 JSX 的最佳实践，使用 ESLint 进行代码风格检查。
-- **命名约定**: 遵循各语言和框架的通用命名约定（例如，Python类使用驼峰，函数和变量使用下划线）。
-- **错误处理**: API返回统一的错误格式，后端记录详细日志。
+- **后端**: 遵循PEP 8规范。依赖通过`pip-tools`管理，确保环境一致性。
+- **前端**: 使用ESLint进行代码风格检查和规范。
 
 ### 工程实践
-- **测试策略**: 项目包含 `pytest` 和 `jest` 的配置，鼓励单元测试和集成测试。
-- **版本管理**: 使用 Git 进行版本控制，主要开发在 `main` 分支进行。
-- **依赖管理**: 后端使用 `requirements.txt`，前端使用 `package.json`。
-- **文档维护**: 项目根目录有 `README.md`，`docs/` 目录存放更多详细文档。
+- **测试策略**: 
+    - 后端使用`pytest`进行单元测试和集成测试。
+    - 前端使用`Jest`和`@testing-library/react`进行组件和逻辑测试。
+- **代码审查**: 所有代码变更通过Pull Request进行，鼓励团队成员之间进行审查。
+- **版本管理**: 使用Git进行版本控制，遵循功能分支开发流程。
+- **CI/CD**: 在`test`分支上的推送会触发GitHub Actions，自动执行前后端的测试套件。
 
 ## 快速开始
 
 ### 环境准备
-- **开发环境**: Python 3.8+, Node.js 14+, Docker, PostgreSQL, Redis
+- **开发环境**: Python 3.8+, Node.js 14+, Docker, Docker Compose
+- **依赖服务**: PostgreSQL, Redis
 - **开发工具**: VSCode 或其他现代IDE
 
-### 构建运行
+### 构建运行 (Docker)
 ```bash
 # 克隆项目
-git clone <repository_url>
-cd omni-desk-project
+git clone {repository_url}
+cd {project_name}/deployment/docker
 
-# 启动后端
-cd omni_desk_backend
-python -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
-python manage.py migrate
-python manage.py runserver
-
-# 启动前端
-cd ../omni_desk_frontend
-npm install
-npm start
+# 启动所有服务
+docker-compose up --build
 ```
+应用将在 `http://localhost:80` 上可用。
 
 ## 贡献指南
 
 ### 开发流程
-1.  Fork 项目仓库。
-2.  从 `main` 分支创建新的功能分支。
-3.  完成功能开发并提交代码。
-4.  创建 Pull Request 到原始仓库的 `main` 分支。
-5.  等待代码审查和合并。
+1. Fork项目仓库。
+2. 基于`main`或`develop`分支创建新的功能分支。
+3. 提交代码变更，确保通过本地测试。
+4. 创建Pull Request到上游仓库。
+5. 等待代码审查和合并。

@@ -2,141 +2,105 @@
 
 ## 依赖概览
 
-由于OmniDesk是模块化单体架构，其核心“服务”是以后端Django应用内的模块（Apps）和外部基础服务（如数据库、缓存）的形式存在的。
-
 ### 服务清单
-| 服务/模块名称 | 类型 | 技术栈 | 责任 |
+| 服务名称 | 容器名 | 技术栈 | 职责 |
 |---|---|---|---|
-| `omni_desk_backend` | 后端应用 | Django, Python | 核心后端团队 |
-| `omni_desk_frontend` | 前端应用 | React, JavaScript | 核心前端团队 |
-| PostgreSQL | 数据库 | PostgreSQL | DBA/运维团队 |
-| Redis | 缓存/消息代理 | Redis | 运维团队 |
-| Celery | 异步任务 | Python, Celery | 核心后端团队 |
-| Ollama | 第三方AI服务 | - | AI服务提供商/运维 |
-| Nginx | Web服务器 | Nginx | 运维团队 |
+| 前端 | `omni_desk_frontend` | React, Node.js | 用户界面与交互 |
+| 后端 | `omni_desk_backend` | Django, Python | 核心业务逻辑与API |
+| 数据库 | `omni_desk_db` | PostgreSQL | 数据持久化 |
+| 缓存/消息代理 | `omni_desk_redis` | Redis | 缓存与Celery Broker |
+| 异步任务Worker | `omni_desk_worker` | Celery, Python | 执行后台任务 |
+| Web服务器 | `omni_desk_nginx` | Nginx | 反向代理与静态文件服务 |
 
 ### 依赖关系总览
 ```mermaid
 graph TD
-    subgraph "用户端"
-        A[浏览器]
+    subgraph "外部"
+        User[用户]
     end
 
-    subgraph "应用层"
-        B[前端 React App]
-        C[后端 Django App]
-        A --> B
-        B -- API请求 --> C
+    subgraph "基础设施"
+        Nginx
     end
 
-    subgraph "核心模块 (Django Apps)"
-        C -.-> D[users]
-        C -.-> E[personnel]
-        C -.-> F[events]
-        C -.-> G[projects]
-        C -.-> H[...]
+    subgraph "应用服务"
+        Frontend
+        Backend
+        Worker
     end
 
-    subgraph "基础设施与外部服务"
-        I[(PostgreSQL)]
-        J[(Redis)]
-        K[Celery Worker]
-        L[Ollama Service]
-
-        C -- 强依赖 --> I
-        C -- 强依赖 --> J
-        C -- 触发 --> K
-        K -- 消费任务 --> J
-        K -- 读写 --> I
-        C -- 可选依赖 --> L
+    subgraph "数据与中间件"
+        Postgres[(PostgreSQL)]
+        Redis[(Redis)]
     end
 
-    B -- /api --> C
+    User --> Nginx
+    Nginx --> Frontend
+    Nginx --> Backend
+
+    Frontend -- "HTTP/API" --> Backend
+    
+    Backend -- "读/写" --> Postgres
+    Backend -- "发布任务/缓存" --> Redis
+    
+    Worker -- "获取任务" --> Redis
+    Worker -- "读/写" --> Postgres
 ```
 
-## 内部模块依赖 (Django Apps)
+## 服务间调用依赖
 
-在单体架构中，模块间的依赖主要通过Python的导入语句和Django的`INSTALLED_APPS`设置来体现。所有模块共享同一个数据库，因此存在紧密的数据耦合。
+### HTTP服务调用
+- **前端 -> 后端**: 前端应用是后端API的主要消费者。所有的数据获取、状态变更都通过调用后端RESTful API完成。这是一个强依赖关系。
+    - **接口路径**: `/api/*`
+    - **调用方式**: HTTP (GET, POST, PUT, DELETE等)
+    - **数据格式**: JSON
 
-| 模块 (App) | 主要职责 | 依赖的其他模块 (示例) |
-|---|---|---|
-| `users` | 用户管理、认证、权限 | `permissions` |
-| `personnel` | 人事信息管理 | `users` (外键关联) |
-| `events` | 日程、事件、排班管理 | `personnel` (外键关联) |
-| `projects` | 项目管理 | `users` |
-| `documents` | 文档管理 | `users` |
-| `compliance` | 合规性检查 (使用Celery) | - |
-| `llm_service` | 与Ollama服务交互 | - |
-| `permissions` | 自定义权限管理 | `users` |
-
-**分析**:
-- 模块之间通过Django ORM的外键（`ForeignKey`）关系形成了强数据依赖。
-- `urls.py`将来自不同App的URL组织在一起，形成统一的API入口。
-- 这种紧耦合的依赖关系是单体架构的典型特征，简化了开发但降低了模块独立性。
+### 异步消息依赖 (Celery)
+后端服务与异步任务Worker之间通过Redis消息队列进行解耦。
+- **消息生产者**: 
+    - **服务**: `omni_desk_backend`
+    - **场景**: 在处理某些业务逻辑时（例如，在`sensor_management`和`compliance`模块中），后端服务会将需要异步执行的任务放入Redis队列。
+- **消息消费者**:
+    - **服务**: `omni_desk_worker`
+    - **场景**: Worker进程持续监听Redis队列，获取并执行任务，如检查合规性到期日、创建校准提醒等。
 
 ## 数据依赖分析
 
-### 数据库依赖
-- **主数据库**:
-    - **服务**: `omni_desk_backend` (所有内部模块)
-    - **技术**: PostgreSQL (生产推荐) / SQLite (开发默认)
-    - **依赖级别**: **强依赖**。所有业务数据的持久化都依赖于此数据库。数据库不可用将导致整个后端服务瘫痪。
-- **数据库连接配置**: 在 `settings/base.py` 中定义，但通常通过环境变量在生产环境中覆盖。
+### 数据库依赖 (PostgreSQL)
+- **`omni_desk_backend`**: 后端主服务直接依赖PostgreSQL进行所有业务数据的CRUD（创建、读取、更新、删除）操作。这是一个强依赖。
+- **`omni_desk_worker`**: 异步任务Worker在执行任务时，也需要连接PostgreSQL来读取或更新数据。这是一个强依赖。
 
-### 缓存依赖
-- **服务**: `omni_desk_backend`
-- **技术**: Redis
-- **用途**:
-    1.  **Celery消息代理**: 接收Django应用派发的异步任务。
-    2.  **Celery结果后端**: 存储异步任务的执行结果。
-    3.  **应用缓存**: 缓存API查询结果、权限数据等，以提高性能。
-- **依赖级别**: **强依赖**。Redis的不可用将导致异步任务系统完全失效，并可能因缓存失效引起性能下降和数据库压力增大。
+### 缓存依赖 (Redis)
+- **`omni_desk_backend`**: 
+    - **作为Celery Broker**: 后端服务依赖Redis来存放Celery的任务消息。这是一个强依赖。
+    - **作为应用缓存**: 后端服务可以利用Redis进行数据缓存，以提高API响应性能（可选依赖）。
+- **`omni_desk_worker`**: Worker进程依赖Redis来获取待执行的任务。这是一个强依赖。
 
-## 第三方服务依赖
+## 配置依赖分析
 
-### AI/LLM 服务
-- **服务**: Ollama
-- **调用方**: `omni_desk_backend` (通过 `llm_service/ollama_client.py`)
-- **接口**: HTTP API (e.g., `http://localhost:11434/api/chat`)
-- **依赖级别**: **可选/弱依赖**。该依赖主要用于提供AI增强功能。如果Ollama服务不可用，核心的业务管理功能（如CRUD操作）仍可正常运行，但AI问答、内容生成等功能会失败。
-- **配置**: Ollama的URL和模型名称在 `settings/base.py` 中配置，并可通过环境变量覆盖。
+### 环境配置依赖
+- **`.env` 文件**: 项目通过`.env`文件（如`.env.production`）管理环境变量。所有服务（尤其是`backend`和`db`）都依赖这些环境变量来获取数据库凭证、`SECRET_KEY`等关键配置。
+- **共享配置**: 
+    - `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`: 由`db`服务使用，并由`backend`服务依赖以连接数据库。
+    - `REDIS_HOST`: 由`backend`和`worker`服务共享，用于连接Redis。
+    - `DJANGO_SETTINGS_MODULE`: 由`backend`和`worker`服务共享，用于指定Django的配置文件。
 
 ## 基础设施依赖
 
-### Web服务器 / 反向代理
-- **技术**: Nginx
-- **依赖关系**: `omni_desk_frontend` 和 `omni_desk_backend` 都依赖Nginx来处理外部请求。
-    - Nginx为前端React应用提供静态文件服务。
-    - Nginx将 `/api` 路径下的请求反向代理到后端Gunicorn/Unit服务器。
-- **依赖级别**: **强依赖**。Nginx是整个服务的入口，其故障将导致前端和后端都无法从外部访问。
+### 容器编排依赖 (Docker Compose)
+- 整个应用栈（包括所有服务和数据库）都依赖`docker-compose.yml`文件进行定义和编排。服务间的网络连接、卷挂载、启动顺序（通过`depends_on`）都在此文件中定义。
 
-### 应用服务器
-- **技术**: Gunicorn 或 Nginx Unit
-- **依赖关系**: `omni_desk_backend` 依赖应用服务器来运行其WSGI应用。
-- **依赖级别**: **强依赖**。应用服务器的故障将导致整个后端API不可用。
-
-### 容器化与编排
-- **技术**: Docker, Docker Compose
-- **依赖关系**: 整个项目的开发和部署环境都依赖于Docker。`docker-compose.yml` 文件定义了服务（如Nginx）的编排。
-- **依赖级别**: **强依赖** (对于部署和标准化的开发环境而言)。
-
-### CI/CD
-- **技术**: GitHub Actions
-- **依赖关系**: 依赖 `.github/workflows/build-and-push-images.yml` 文件来自动化构建Docker镜像并推送到容器仓库。
-- **依赖级别**: **开发/运维流程依赖**。CI/CD的失败不直接影响正在运行的服务，但会中断新版本的构建和部署流程。
+### 网络依赖 (Nginx)
+- **`omni_desk_frontend`** 和 **`omni_desk_backend`**: 这两个核心服务都依赖Nginx作为入口。Nginx负责将来自用户的请求正确地路由到前端或后端服务，实现了服务的统一访问入口。
 
 ## 依赖风险评估
 
 ### 关键依赖识别
-| 依赖服务/组件 | 影响范围 | 故障影响 |
-|---|---|---|
-| **PostgreSQL** | 整个后端应用 | **致命**。数据无法读写，所有核心功能失效。 |
-| **Redis** | 后端应用 (特别是异步任务和缓存) | **严重**。异步任务系统瘫痪，性能显著下降。 |
-| **Nginx** | 整个应用 (前端和后端) | **致命**。外部用户无法访问任何服务。 |
-| **Gunicorn/Unit** | 整个后端应用 | **致命**。所有API接口失效。 |
-| **Ollama** | AI相关功能 | **中等**。核心业务功能不受影响，但AI功能失效。 |
+- **PostgreSQL**: 是整个系统的核心数据存储。如果数据库服务不可用，整个平台的核心功能将完全瘫痪。
+- **Redis**: 对于异步任务处理至关重要。如果Redis服务不可用，所有后台任务将无法被创建和执行。如果用作缓存，其不可用会导致性能下降。
+- **`omni_desk_backend`**: 作为核心API服务，如果它不可用，前端将无法获取或提交任何数据，应用将变为空壳。
 
 ### 单点故障风险
-- **数据库**: PostgreSQL是典型的单点故障。**解决方案**: 在生产环境中应部署主从复制或高可用集群。
-- **缓存/消息代理**: Redis同样是单点故障。**解决方案**: 部署Redis哨兵或集群模式以实现高可用。
-- **后端应用实例**: 单个Gunicorn/Unit实例是单点故障。**解决方案**: 在负载均衡器后运行多个实例。
+- **数据库 (`omni_desk_db`)**: 在当前的`docker-compose.yml`配置中，数据库是单实例的，存在单点故障风险。**解决方案**: 在生产环境中，应使用云服务商提供的RDS或自建高可用数据库集群（如主从复制）。
+- **Redis (`omni_desk_redis`)**: 同样是单实例的，存在单点故障风险。**解决方案**: 在生产环境中，应使用高可用的Redis集群或哨兵模式。
+- **后端/Worker服务**: 虽然可以通过Docker快速重启，但如果应用本身存在导致持续崩溃的bug，也会导致服务不可用。**解决方案**: 部署多个实例并使用负载均衡。
