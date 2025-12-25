@@ -1,0 +1,46 @@
+# Core Frameworks
+Django==4.2.11
+djangorestframework==3.15.0
+gunicorn==20.1.0
+
+# Authentication
+djangorestframework-simplejwt==5.3.0
+
+# Database & Cache
+psycopg2-binary
+redis
+
+# Async Tasks
+celery
+django-celery-beat
+
+# Django Apps & Extensions
+django-cors-headers
+django-filter
+django-extensions
+django-ckeditor
+drf-nested-routers
+django-crum
+django-js-asset
+django-timezone-field
+
+# Document & Data Handling
+pypdf
+python-docx
+docxcompose
+docxtpl
+PyYAML
+Markdown
+beautifulsoup4
+lxml
+pillow
+
+# Utilities
+python-dotenv
+requests
+whitenoise
+holidays
+python-crontab
+cron-descriptor
+Unidecode
+waitress

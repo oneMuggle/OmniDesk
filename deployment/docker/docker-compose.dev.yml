@@ -15,7 +15,8 @@ services:
   backend:
     build:
       context: ../../
-      dockerfile: deployment/docker/omni_desk_backend/Dockerfile.dev
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+      target: development
     volumes:
       - ../../:/usr/src/app
     working_dir: /usr/src/app/omni_desk_backend

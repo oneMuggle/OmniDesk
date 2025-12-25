@@ -48,7 +48,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.9' # 或与项目匹配的版本
+          python-version: '3.11'
 
       - name: Install Backend Dependencies
         run: |
@@ -88,6 +88,7 @@ jobs:
         with:
           context: .
           file: ./deployment/docker/omni_desk_backend/Dockerfile
+          target: production
           push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
           tags: ghcr.io/onemuggle/omni-desk-backend:latest
 

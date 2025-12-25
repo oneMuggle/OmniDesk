@@ -1,0 +1,11 @@
+-r requirements.in
+
+# Testing
+pytest
+coverage
+
+# Linting & Formatting
+# (Add any linting/formatting tools here if needed in the future)
+
+# Dependency Management
+pip-tools
