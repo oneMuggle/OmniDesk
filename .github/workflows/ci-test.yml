@@ -35,6 +35,7 @@ jobs:
         working-directory: ./omni_desk_backend
         env:
           PYTHONPATH: ${{ github.workspace }}
+          DJANGO_SETTINGS_MODULE: omni_desk_backend.settings.test
         run: pytest
 
   test-frontend:
