@@ -83,6 +83,15 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata for backend image
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/onemuggle/omni-desk-backend
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
       - name: Build and push backend image
         uses: docker/build-push-action@v5
         with:
@@ -90,7 +99,19 @@ jobs:
           file: ./deployment/docker/omni_desk_backend/Dockerfile
           target: production
           push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
-          tags: ghcr.io/onemuggle/omni-desk-backend:latest
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for frontend image
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/onemuggle/omni-desk-frontend
+          tags: |
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
@@ -98,5 +119,8 @@ jobs:
           context: ./omni_desk_frontend
           file: ./omni_desk_frontend/Dockerfile
           push: ${{ github.event_name == 'push' }} # 仅在推送到main分支时发布
-          tags: ghcr.io/onemuggle/omni-desk-frontend:latest
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: CI=false
