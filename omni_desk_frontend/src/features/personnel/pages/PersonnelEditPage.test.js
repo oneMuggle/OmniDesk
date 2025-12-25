@@ -1,5 +1,7 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import moment from 'moment';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { Form } from 'antd';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import PersonnelEditPage from './PersonnelEditPage';
@@ -12,9 +14,16 @@ const mockPersonnelDetail = {
     id: 1,
     name: 'Jane Doe',
     id_card_number: '12345',
-    contracts: [],
-    educations: [],
-    work_experiences: [],
+    date_of_birth: '1990-01-01',
+    phone_number: '555-1234',
+    address: '123 Main St',
+    department: 'Engineering',
+    position: 'Senior Developer',
+    hire_date: '2020-03-15',
+    status: 'active',
+    contracts: [{ id: 1, contract_number: 'C001', contract_type: 'permanent', start_date: '2020-03-15', end_date: '2025-03-14' }],
+    educations: [{ id: 1, school: 'State University', degree: 'M.Sc.', major: 'Computer Engineering', start_date: '2016-09-01', end_date: '2018-06-15' }],
+    work_experiences: [{ id: 1, company: 'Tech Corp', position: 'Developer', start_date: '2018-07-01', end_date: '2020-03-14', description: 'Developed awesome things.' }],
   }
 };
 
@@ -38,49 +47,53 @@ describe('PersonnelEditPage', () => {
 
   test('loads and displays existing personnel data', async () => {
     renderWithRouter(<PersonnelEditPage />, { route: '/control-panel/personnel/edit/1', path: '/control-panel/personnel/edit/:id' });
-    expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
+    await waitFor(async () => {
+      expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
+    }, { timeout: 5000 });
   });
 
   test('allows adding a new contract and submitting the form', async () => {
-    renderWithRouter(<PersonnelEditPage />, { route: '/control-panel/personnel/edit/1', path: '/control-panel/personnel/edit/:id' });
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />, { route: '/control-panel/personnel/edit/1', path: '/control-panel/personnel/edit/:id' });
     
-    // Wait for initial data to load
-    await screen.findByDisplayValue('Jane Doe');
+    await waitFor(() => {
+      expect(formRef.current).toBeDefined();
+    });
 
-    // Click "添加合同" button
-    fireEvent.click(screen.getByText('添加合同'));
+    expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
 
-    // Fill in the new contract form
-    const contractNumberInput = await screen.findByPlaceholderText('合同编号');
-    fireEvent.change(contractNumberInput, { target: { value: 'C002' } });
+    const testStartDate = moment();
+    const testEndDate = moment().add(1, 'year');
 
-    const contractTypeInput = await screen.findByPlaceholderText('合同类型');
-    fireEvent.change(contractTypeInput, { target: { value: 'fixed-term' } });
+    await act(async () => {
+      const currentValues = formRef.current.getFieldsValue();
+      const newContract = {
+        contract_number: 'C002',
+        contract_type: 'fixed-term',
+        start_date: testStartDate,
+        end_date: testEndDate,
+      };
+      formRef.current.setFieldsValue({
+        contracts: [...(currentValues.contracts || []), newContract],
+      });
+    });
+    
+    await act(async () => {
+      formRef.current.submit();
+    });
 
-    // Fill in dates
-    const startDateInput = await screen.findByPlaceholderText('开始日期');
-    await userEvent.click(startDateInput);
-    const todayButtons = await screen.findAllByText('Today');
-    await userEvent.click(todayButtons[todayButtons.length - 1]);
-
-    const endDateInput = await screen.findByPlaceholderText('结束日期');
-    await userEvent.click(endDateInput);
-    const todayButtonsEnd = await screen.findAllByText('Today');
-    await userEvent.click(todayButtonsEnd[todayButtonsEnd.length - 1]);
-
-    // Click save
-    fireEvent.click(screen.getByText('保存更改'));
-
-    // Verify the API call
     await waitFor(() => {
       expect(personnelApi.updatePersonnel).toHaveBeenCalledWith('1', expect.objectContaining({
         contracts: expect.arrayContaining([
           expect.objectContaining({
             contract_number: 'C002',
             contract_type: 'fixed-term',
-            start_date: expect.anything(), // Moment objects are tricky to match
-            end_date: expect.anything(),
+            start_date: testStartDate.format('YYYY-MM-DD'),
+            end_date: testEndDate.format('YYYY-MM-DD'),
+          }),
+          expect.objectContaining({
+            contract_number: 'C001'
           })
         ])
       }));

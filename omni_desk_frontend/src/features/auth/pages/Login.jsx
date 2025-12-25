@@ -16,7 +16,6 @@ const Login = () => {
   const [error, setError] = useState('');
 
   const handleSubmit = async (e) => {
-    console.log('handleSubmit triggered');
     e.preventDefault();
     if (!username || !password) {
       setError('请输入用户名和密码');
@@ -30,11 +29,9 @@ const Login = () => {
       const result = await login(username.trim(), password.trim(), rememberMe);
       if (!result.success) throw new Error(result.error);
       
-      console.log('Login successful, waiting for state update...');
       // 添加微小延迟确保状态完全更新
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      console.log('Redirecting after login...');
       navigate(result.redirectTo || '/');
     } catch (err) {
       setError(err.message || '登录失败，请重试');

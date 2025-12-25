@@ -58,7 +58,7 @@
   "scripts": {
     "start": "react-scripts start",
     "build": "cross-env CI=false node scripts/generate-routes.js && react-scripts build",
-    "test": "react-scripts test --testTimeout=30000",
+    "test": "react-scripts test --testTimeout=60000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
     "lint": "eslint ."

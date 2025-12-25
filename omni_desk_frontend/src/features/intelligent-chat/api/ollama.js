@@ -18,7 +18,7 @@ const ollamaClient = axios.create({
       ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
     }
   } catch (error) {
-    console.log('使用环境变量中的OLLAMA配置');
+    // 环境变量中没有OLLAMA配置，将使用默认值
   }
 })();
 

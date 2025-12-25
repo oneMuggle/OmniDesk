@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useImperativeHandle } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space, Spin } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
@@ -13,10 +13,12 @@ import {
 
 const { Option } = Select;
 
-const PersonnelEditPage = () => {
+const PersonnelEditPage = ({ formRef }) => {
     const { id } = useParams();
     const [form] = Form.useForm();
     const navigate = useNavigate();
+
+    useImperativeHandle(formRef, () => form);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [positions, setPositions] = useState([]);
@@ -30,7 +32,7 @@ const PersonnelEditPage = () => {
                     getAllPositions()
                 ]);
                 
-                const record = detailsResponse;
+                const record = detailsResponse.data;
                 setPositions(positionsResponse || []);
 
                 form.setFieldsValue({
@@ -54,10 +56,9 @@ const PersonnelEditPage = () => {
         fetchDetailsAndPositions();
     }, [id, form]);
 
-    const handleSubmit = async () => {
+    const handleSubmit = async (values) => {
         try {
             setSaving(true);
-            const values = await form.validateFields();
             const dataToSend = {
                 ...values,
                 date_of_birth: values.date_of_birth?.format('YYYY-MM-DD'),
@@ -117,7 +118,7 @@ const PersonnelEditPage = () => {
                         <Button icon={<ArrowLeftOutlined />}>返回列表</Button>
                     </Link>
                 </div>
-                <Form form={form} layout="vertical" onFinish={handleSubmit}>
+                <Form data-testid="personnel-edit-form" form={form} layout="vertical" onFinish={handleSubmit}>
                     <Row gutter={16}>
                         <Col span={8}><Form.Item label="姓名" name="name" rules={[{ required: true }]}><Input /></Form.Item></Col>
                         <Col span={8}><Form.Item label="身份证号" name="id_card_number" rules={[{ required: true }]}><Input /></Form.Item></Col>

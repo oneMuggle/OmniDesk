@@ -31,8 +31,6 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         setLoading(true);
         try {
             const response = await meetingRoomApi.getMeetingRooms();
-            console.log('Meeting Rooms API Response:', response);
-            console.log('Meeting Rooms Data:', response.data);
             setMeetingRooms(response.data.results);
         } catch (error) {
             message.error('获取会议室列表失败。');

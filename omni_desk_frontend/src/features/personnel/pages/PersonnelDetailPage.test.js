@@ -43,7 +43,7 @@ describe('PersonnelDetailPage', () => {
   });
 
   it('displays personnel details after successful fetch', async () => {
-    personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
+    personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail.data);
     renderWithRouter(<PersonnelDetailPage />, { route: '/control-panel/personnel/1', path: '/control-panel/personnel/:id' });
 
     expect(await screen.findByText('Jane Doe')).toBeInTheDocument();

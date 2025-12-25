@@ -56,7 +56,6 @@ export const getStatusConfig = (status) =>
   };
 
 export const extractSlotId = (compositeId) => {
-  console.log('[DEBUG] 正在解析ID:', compositeId);
   
   // 处理 'trial-1-0' 格式 (提取 slotId)
   if (typeof compositeId === 'string' && compositeId.startsWith('trial-')) {
@@ -64,7 +63,6 @@ export const extractSlotId = (compositeId) => {
     if (match) {
       const trialId = parseInt(match[1]);
       const slotIndex = parseInt(match[2]);
-      console.log('[DEBUG] 从 trial-id 格式提取出 trialId:', trialId, 'slotIndex:', slotIndex);
       return { trialId, slotIndex };
     }
     return null;
@@ -73,21 +71,18 @@ export const extractSlotId = (compositeId) => {
   // 处理 'slot_1' 格式 (提取 slotId)
   if (typeof compositeId === 'string' && compositeId.startsWith('slot_')) {
     const id = parseInt(compositeId.replace('slot_', ''));
-    console.log('[DEBUG] 从 slot_id 格式提取出:', id);
     return { slotId: id };
   }
   
   // 处理 '1-0' 格式 (提取 trialId 和 slotIndex)
   if (typeof compositeId === 'string' && /^\d+-\d+$/.test(compositeId)) {
     const [trialId, slotIndex] = compositeId.split('-').map(Number);
-    console.log('[DEBUG] 从 1-0 格式提取出 trialId:', trialId, 'slotIndex:', slotIndex);
     return { trialId, slotIndex };
   }
   
   // 处理直接数字ID
   if (!isNaN(parseInt(compositeId))) {
     const id = parseInt(compositeId);
-    console.log('[DEBUG] 直接解析数字ID:', id);
     return { slotId: id };
   }
   

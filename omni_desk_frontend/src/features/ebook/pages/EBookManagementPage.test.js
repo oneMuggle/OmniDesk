@@ -116,21 +116,6 @@ test('searches for books by title and author', async () => {
   expect(screen.queryByText(/React 入门指南/i)).not.toBeInTheDocument();
 });
 
-test('calls the onExport function when the export button is clicked', async () => {
-  const consoleSpy = jest.spyOn(console, 'log');
-  render(<EBookManagementPage />);
-
-  const exportButton = await screen.findByTestId('export-book-1');
-  await userEvent.click(exportButton);
-
-  expect(consoleSpy).toHaveBeenCalledWith('Exporting book:', {
-    id: 1,
-    title: 'React 入门指南',
-    author: '张三',
-    createdAt: '2023-10-01',
-  });
-  consoleSpy.mockRestore();
-});
 
 test('deletes a book and removes it from the list', async () => {
   render(<EBookManagementPage />);

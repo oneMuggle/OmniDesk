@@ -97,5 +97,3 @@ traverse(ast, {
 const uniqueRoutes = protectedRoutes.filter((v,i,a)=>a.findIndex(t=>(t.path === v.path && t.name === v.name))===i)
 
 fs.writeFileSync(outputFilePath, JSON.stringify(uniqueRoutes, null, 2));
-
-console.log(`Successfully generated routes.json with ${uniqueRoutes.length} routes!`);

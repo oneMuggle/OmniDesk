@@ -37,8 +37,6 @@ export const deleteTrial = (id) => {
 };
 
 export const getTrialById = async (id) => {
-  console.log('[MCP_DEBUG] 正在请求试验详情数据...');
-  console.log('[MCP_DEBUG] 试验ID:', id);
   try {
     const response = await api.get(`/events/trials/${id}/`);
     return { 
@@ -53,13 +51,11 @@ export const getTrialById = async (id) => {
 // 获取关联资源（与设备/人员管理一致）
 // 设备列表接口（保持命名一致性）
 export const getEquipmentOptions = async (params) => {
-  console.log('[MCP_DEBUG] 正在请求设备选项数据...');
   const response = await api.get('/events/equipments/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
       throw err;
     });
-  console.log('[MCP_DEBUG] 设备选项响应:', JSON.stringify(response.data, null, 2));
   return {
     results: response.data.results.map(item => ({
       id: item.id,
@@ -72,13 +68,11 @@ export const getEquipmentOptions = async (params) => {
 };
 
 export const getPersonnelOptions = async (params) => {
-  console.log('[MCP_DEBUG] 正在请求人员选项数据...');
   const response = await api.get('/events/personnel/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;
     });
-  console.log('[MCP_DEBUG] 人员选项响应:', JSON.stringify(response.data, null, 2));
   return {
     results: response.data.results.map(person => ({
       id: person.id,

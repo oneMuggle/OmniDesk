@@ -4,7 +4,6 @@ export const createClient = (apiConfig) => {
     chat: {
       completions: {
         create: async (payload) => {
-          console.log("DeepSeek API call with payload:", payload, "and config:", apiConfig);
           // Mock response
           return {
             choices: [

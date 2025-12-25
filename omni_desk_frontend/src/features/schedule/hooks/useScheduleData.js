@@ -51,12 +51,10 @@ export const useScheduleData = () => {
       if (!Array.isArray(trials) || trials.length === 0) return [];
       
       try {
-        console.log('Fetching time slots for trials:', trials.map(t => t.id));
         const events = await Promise.all(
           trials.map(async (trial) => {
             try {
               const slots = await scheduleApi.fetchTimeSlotsByTrial(trial.id);
-              console.log(`Fetched ${slots.length} slots for trial ${trial.id}`);
               return slots.map(slot => ({
                 ...slot,
                 trialId: trial.id,
@@ -70,7 +68,6 @@ export const useScheduleData = () => {
           })
         );
         const flattened = events.flat();
-        console.log('Total time slots loaded:', flattened.length);
         return flattened;
       } catch (error) {
         console.error('Error loading time slots:', error);

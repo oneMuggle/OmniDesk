@@ -52,7 +52,6 @@ export const timeSlotApi = {
 
   updateTimeSlot: async (slotId, slotData) => {
     try {
-      console.log('更新时间段请求数据:', slotData);
       const response = await apiClient.patch(`/api/events/time-slots/${slotId}/`, {
         start_time: slotData.start_time,
         end_time: slotData.end_time,

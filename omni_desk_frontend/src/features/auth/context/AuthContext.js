@@ -44,7 +44,6 @@ export function AuthProvider({ children }) {
               // Permissions should be fetched from the backend, not from localStorage.
               // Assuming res.data contains user info including permissions.
               setUser(res.data);
-              console.log('AuthContext User State (on init):', res.data);
               setIsGuest(false);
               await fetchPageConfigs();
             } catch (error) {
@@ -90,15 +89,9 @@ export function AuthProvider({ children }) {
       const userData = userRes.data;
 
       setUser(userData);
-      console.log('AuthContext User State (on login):', userData);
       setIsGuest(false);
       await fetchPageConfigs();
       
-      console.log('Login successful - auth state updated:', {
-        user: userData,
-        isAuthenticated: true,
-        isGuest: false
-      });
       
       return { 
         success: true,

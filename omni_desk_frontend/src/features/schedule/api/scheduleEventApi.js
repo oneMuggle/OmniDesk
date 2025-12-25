@@ -6,13 +6,6 @@ export const scheduleEventApi = {
   createCalendarEvent: async (eventData) => {
     try {
       console.error('[API Request] createCalendarEvent:', eventData);
-      console.log('[API Request] createCalendarEvent payload:', JSON.stringify({
-        ...eventData,
-        time_slots: eventData.time_slots?.map(s => ({ 
-          start: s.start?.toISOString(), 
-          end: s.end?.toISOString() 
-        }))
-      }, null, 2));
       
       // 统一时间格式处理函数
       const normalizeDate = (date) => {
