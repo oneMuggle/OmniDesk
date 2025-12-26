@@ -398,6 +398,7 @@ class BookImportView(APIView):
 
                         try:
                             # Resolve path and ensure it's a file within the temp directory
+                            original_path_str = original_path_str.replace('\\', '/')
                             src_image_path = (base_path_for_images / original_path_str).resolve(strict=True)
                             
                             if not str(src_image_path).startswith(str(base_path_for_images.resolve())):
