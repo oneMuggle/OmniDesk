@@ -4,8 +4,6 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.views import APIView # For BookImportView
 import tempfile # 导入 tempfile 来创建临时目录
-import logging
-import traceback
 
 import markdown
 from .file_processing import process_uploaded_file # 导入我们新创建的函数
@@ -466,8 +464,6 @@ class BookImportView(APIView):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            logging.error(f"An unexpected error occurred during book import: {e}")
-            logging.error(traceback.format_exc())
             return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
             if temp_dir_obj:

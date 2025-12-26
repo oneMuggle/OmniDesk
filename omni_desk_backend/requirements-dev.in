@@ -10,3 +10,4 @@ coverage
 # Dependency Management
 pip-tools
 pytest-django
+pymdown-extensions
