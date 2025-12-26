@@ -23,10 +23,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         )
         return user
 
-class UserLoginSerializer(serializers.Serializer):
-    username = serializers.CharField()
-    password = serializers.CharField(write_only=True)
-
 class CalendarEventSerializer(serializers.ModelSerializer):
     class Meta:
         model = CalendarEvent

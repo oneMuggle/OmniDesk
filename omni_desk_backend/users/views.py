@@ -95,30 +95,6 @@ class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
 
-    def post(self, request, *args, **kwargs):
-        serializer = self.get_serializer(data=request.data)
-        try:
-            serializer.is_valid(raise_exception=True)
-            user = serializer.user
-            print(f"User authenticated in UserLoginView: {user.username}") # <-- 新增日志
-            token = serializer.validated_data
-            
-            response_data = {
-                "success": True,
-                "user": UserDetailSerializer(user).data,
-                "access": token['access'],
-                "refresh": token['refresh'],
-                "redirect_to": "/home",
-                "permissions": token['permissions'] # Get permissions from the token
-            }
-            print(f"Login Response Data: {response_data}") # <-- 新增日志
-            return Response(response_data)
-        except exceptions.ValidationError as e:
-            return Response({
-                "success": False,
-                "error": "invalid_credentials",
-                "message": "用户名或密码错误"
-            }, status=status.HTTP_401_UNAUTHORIZED)
 
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
