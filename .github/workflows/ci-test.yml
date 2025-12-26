@@ -27,17 +27,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: ./omni_desk_backend
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements-dev.txt
-
-      - name: List installed packages
-        working-directory: ./omni_desk_backend
-        run: pip list
-
-      - name: Check pytest plugins
-        working-directory: ./omni_desk_backend
-        run: pytest --version
+        run: pip install -r requirements-dev.txt
 
       - name: Run tests
         working-directory: ./omni_desk_backend
