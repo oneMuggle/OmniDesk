@@ -13,7 +13,7 @@ from .serializers import MeetingRoomSerializer, MeetingRoomBookingSerializer, Me
 from users.permissions import IsAdminOrManager # 假设users应用中有IsAdminOrManager权限类
 
 class MeetingRoomViewSet(viewsets.ModelViewSet):
-    queryset = MeetingRoom.objects.all()
+    queryset = MeetingRoom.objects.all().order_by('id')
     serializer_class = MeetingRoomSerializer
     permission_classes = [IsAuthenticated] # 允许所有认证用户管理会议室，包括查看
 
