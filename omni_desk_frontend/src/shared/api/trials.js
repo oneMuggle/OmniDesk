@@ -7,7 +7,7 @@ const api = apiClient;
 // 试验管理API（与后端trials端点保持一致）
 // 获取试验列表（与后端接口保持一致）
 export const getTrials = (params) => {
-  return api.get('/events/trials/', { params })
+  return api.get('/api/events/trials/', { params })
     .then(handleResponse)
     .catch(handleError);
 };
@@ -16,13 +16,13 @@ export const getTrials = (params) => {
 export const fetchTrials = getTrials;
 
 export const createTrial = (data) => {
-  return api.post('/events/trials/', data)
+  return api.post('/api/events/trials/', data)
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const updateTrial = (id, data) => {
-  return api.patch(`/events/trials/${id}/`, {
+  return api.patch(`/api/events/trials/${id}/`, {
     ...data,
     equipment_ids: data.equipment_ids // 保持字段名称一致性
   })
@@ -31,14 +31,14 @@ export const updateTrial = (id, data) => {
 };
 
 export const deleteTrial = (id) => {
-  return api.delete(`/events/trials/${id}/`)
+  return api.delete(`/api/events/trials/${id}/`)
     .then(handleResponse)
     .catch(handleError);
 };
 
 export const getTrialById = async (id) => {
   try {
-    const response = await api.get(`/events/trials/${id}/`);
+    const response = await api.get(`/api/events/trials/${id}/`);
     return { 
       data: handleResponse(response) 
     };
@@ -51,7 +51,7 @@ export const getTrialById = async (id) => {
 // 获取关联资源（与设备/人员管理一致）
 // 设备列表接口（保持命名一致性）
 export const getEquipmentOptions = async (params) => {
-  const response = await api.get('/events/equipments/', { params })
+  const response = await api.get('/api/events/equipments/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
       throw err;
@@ -68,7 +68,7 @@ export const getEquipmentOptions = async (params) => {
 };
 
 export const getPersonnelOptions = async (params) => {
-  const response = await api.get('/events/personnel/', { params })
+  const response = await api.get('/api/events/personnel/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;
