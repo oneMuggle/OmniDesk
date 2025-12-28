@@ -122,7 +122,18 @@ yarn start
 
 ## 部署
 
-该项目包括多种部署选项：
+### 自动化部署 (Windows 服务器) - 推荐
+
+本项目采用 GitHub Actions 进行持续集成与持续部署 (CI/CD)。任何推送到 `main` 分支的操作都会触发以下自动化流程：
+
+1.  **自动构建**: [` .github/workflows/build-and-push-images.yml `](.github/workflows/build-and-push-images.yml) 工作流会自动构建后端的 Docker 镜像并将其推送到 GitHub Container Registry (GHCR)。
+2.  **自动部署**: 镜像构建成功后，[` .github/workflows/deploy-ssh-windows.yml `](.github/workflows/deploy-ssh-windows.yml) 工作流将通过 SSH 连接到目标 Windows 服务器，自动拉取最新的代码和 Docker 镜像，并使用 `docker-compose` 重新启动服务。
+
+这是推荐的部署方法，因为它简化了流程并减少了手动错误。
+
+### 手动部署选项
+
+如果您需要手动部署或在不同的环境（如 Linux）中部署，可以使用以下传统方法。
 
 -   **Docker**: 部署应用程序最简单的方法是使用 `deployment/docker/` 目录中提供的 Docker Compose 配置。只需运行 `docker-compose up` 即可构建并启动容器。
 -   **Gunicorn/Unit**: 对于更传统的部署，您可以使用 Gunicorn 来为 Django 应用程序提供服务，并使用像 Nginx 这样的 Web 服务器。`deployment/source/` 目录中提供了配置示例和脚本。

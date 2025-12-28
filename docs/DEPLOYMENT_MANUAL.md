@@ -1,3 +1,9 @@
+# 部署手册 - Ubuntu / Linux
+
+> **注意**: 本部分描述的是在 Ubuntu/Linux 环境下的手动部署流程。对于 Windows 服务器，我们强烈推荐使用新的自动化部署流程。
+>
+> **[跳转到自动化部署手册 - Windows 服务器](#自动化部署手册---windows-服务器)**
+
 # 项目部署手册 - 基于 Docker Compose (Ubuntu 22.04 LTS)
 
 ## 1. 概述
@@ -460,3 +466,97 @@ docker run --rm --volumes-from project_db_1 -v ~/db_backups:/backup ubuntu tar c
 *   **无服务器 (Serverless):** 将应用程序拆分为按需执行的功能。优点是极高的伸缩性，按需付费；缺点是架构设计复杂，调试困难，对长运行任务不友好。
 
 **总结：** 对于本项目，基于 Docker Compose 的部署方案是高效且易于管理的，充分利用了容器化带来的便利性。在未来，如果项目规模和复杂性显著增加，可以考虑向 Kubernetes 等更高级的容器编排平台迁移。
+
+---
+
+# 自动化部署手册 - Windows 服务器
+
+## 1. 概述
+
+本部分详细介绍了在 Windows 服务器上设置和利用自动化部署流程的方法。该流程通过 GitHub Actions 实现，极大地简化了从代码提交到线上更新的全过程。
+
+## 2. 部署架构
+
+自动化部署流程依赖于 GitHub Actions 与目标 Windows 服务器之间的 SSH 通信。
+
+```mermaid
+graph TD
+    subgraph 开发者
+        A[推送代码到 main 分支]
+    end
+
+    subgraph GitHub Actions
+        B(触发 deploy-ssh-windows.yml)
+        C{构建与推送镜像}
+        D{SSH 连接到 Windows 服务器}
+        E{执行部署脚本}
+    end
+
+    subgraph Windows 服务器
+        F(运行 Docker Desktop)
+        G[项目目录: C:\projects\omni-desk]
+        H(执行 git pull)
+        I(执行 docker-compose up)
+    end
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> H
+    H --> I
+```
+
+## 3. 服务器环境准备
+
+### 3.1. 先决条件
+
+在目标 Windows 服务器上，请确保已安装以下软件：
+
+*   **Git**: 用于从仓库拉取最新的代码。 [下载地址](https://git-scm.com/download/win)
+*   **Docker Desktop**: 用于运行项目所需的容器化服务。 [下载地址](https://www.docker.com/products/docker-desktop/)
+
+在安装过程中，请确保将 `git` 和 `docker` 的可执行文件路径添加到了系统的 `PATH` 环境变量中，以便在任何命令行窗口中都能直接调用它们。
+
+### 3.2. 一次性设置
+
+1.  **创建项目目录**:
+    在您的 Windows 服务器上，创建一个用于存放项目的目录。推荐使用 `C:\projects`。
+
+    ```powershell
+    New-Item -Path C:\ -Name "projects" -ItemType "directory"
+    ```
+
+2.  **克隆项目仓库**:
+    打开 Git Bash 或 PowerShell，导航到新创建的目录，并克隆项目仓库。
+
+    ```bash
+    cd C:\projects
+    git clone your_project_repository_url.git omni-desk
+    cd omni-desk
+    ```
+    *请将 `your_project_repository_url.git` 替换为您的实际仓库地址。*
+
+3.  **配置初始 `.env` 文件**:
+    自动化部署依赖于一个 `.env` 文件来获取 Docker Compose 所需的配置。请在 `C:\projects\omni-desk` 目录下创建一个 `.env` 文件，并填入必要的环境变量，例如数据库密码和 Django 的 `SECRET_KEY`。
+
+    **重要提示**: GitHub Actions 工作流需要配置 `SSH_PRIVATE_KEY`, `SSH_HOST`, `SSH_USER` 等 secrets 才能连接到您的服务器。请确保已在项目的 GitHub Secrets 中正确设置这些值。
+
+## 4. 自动化部署流程说明
+
+完成上述一次性设置后，所有的部署都将自动进行，无需任何手动干预。
+
+1.  **触发条件**:
+    当任何代码被推送到 `main` 分支时，[` .github/workflows/deploy-ssh-windows.yml `](.github/workflows/deploy-ssh-windows.yml) 工作流会自动触发。
+
+2.  **执行过程**:
+    *   GitHub Actions Runner 会使用预先配置的 SSH 密钥安全地连接到您的 Windows 服务器。
+    *   连接成功后，工作流会在 `C:\projects\omni-desk` 目录下自动执行以下命令：
+        1.  `git pull`: 拉取 `main` 分支的最新代码。
+        2.  `docker-compose pull`: 拉取由 CI 流程构建并推送到 GHCR 的最新 Docker 镜像。
+        3.  `docker-compose up -d`: 根据最新的代码和镜像，以分离模式启动或更新所有服务。
+
+3.  **完成**:
+    服务更新完成后，您的应用程序将运行最新版本。您可以通过查看 GitHub Actions 的运行日志来监控部署过程。
+
+这个自动化流程确保了部署的一致性和高效性，使开发团队能够更专注于功能开发。

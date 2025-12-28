@@ -1,3 +1,13 @@
+&gt; **注意：这是一个替代部署方案**
+&gt;
+&gt; 本文档描述了使用 Nginx Unit 进行源代码部署的方法，这是一种替代方案。
+&gt;
+&gt; 为了获得最佳实践和简化的管理，我们强烈建议您采用项目主要的、基于 Docker 和 GitHub Actions 的自动化部署流程。
+&gt;
+&gt; **请参阅主要的部署文档：**
+&gt; - **[CI/CD 与自动化部署指南](../../../docs/CICD_GUIDE.md)**
+&gt; - **[部署手册](../../../docs/DEPLOYMENT_MANUAL.md)**
+
 # Omni Desk 源代码部署指南 (Nginx Unit)
 
 本文档将指导您如何在 Ubuntu 22.04 服务器上，使用 Nginx Unit 通过源代码部署 Omni Desk 应用。Nginx Unit 提供了一个一体化的解决方案，可以同时作为 Web 服务器和应用服务器。

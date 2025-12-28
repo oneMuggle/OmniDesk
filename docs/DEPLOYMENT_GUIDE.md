@@ -1,72 +1,59 @@
-# Docker 镜像自动化构建和部署指南
+# Docker 部署指南 (手动/遗留流程)
 
-## 配置说明
+> ⚠️ **警告：这是一个遗留的部署指南**
+>
+> 本文档描述的流程是手动的，已被新的自动化 CI/CD 工作流取代。镜像构建和部署现在由 GitHub Actions 自动处理。
+>
+> - **自动化构建**: 镜像由 [`.github/workflows/build-and-push-images.yml`](../.github/workflows/build-and-push-images.yml) 自动构建并推送到 GitHub Container Registry (GHCR)。
+> - **自动化部署**: 部署由 [`.github/workflows/deploy-ssh-windows.yml`](../.github/workflows/deploy-ssh-windows.yml) 自动执行。
+>
+> **建议您查阅最新的自动化部署文档：**
+> - 了解完整的 CI/CD 流程，请参阅 [`docs/CICD_GUIDE.md`](./CICD_GUIDE.md)。
+> - 了解详细的部署步骤，请参阅 [`docs/DEPLOYMENT_MANUAL.md`](./DEPLOYMENT_MANUAL.md)。
 
-### 文件结构
-```
-.
-├── build.sh            # 镜像构建脚本
-├── .env                # 环境变量配置
-├── docker-compose.yml  # 服务编排配置
-└── DEPLOYMENT_GUIDE.md # 本指南
-```
+## 概述
 
-### 环境变量配置 (.env)
+本文档描述了如何手动使用 Docker Compose 在本地或服务器上部署 OmniDesk。这个流程在以下场景中可能仍然有用：
+- 在没有 CI/CD 环境的情况下进行本地测试。
+- 需要对特定版本进行调试。
+
+## 手动部署流程
+
+### 1. 拉取预构建的镜像
+
+自动化 CI 流程会构建镜像并将其推送到 GHCR。您可以直接拉取这些镜像，而无需手动构建。
+
 ```bash
-# Docker镜像配置
-DOCKER_USER=oneMuggle           # Docker Hub用户名
-FRONTEND_VERSION=1.0.0          # 前端镜像版本 
-BACKEND_VERSION=1.0.0           # 后端镜像版本
+# 登录到 GitHub Container Registry
+docker login ghcr.io -u YOUR_GITHUB_USERNAME -p YOUR_PERSONAL_ACCESS_TOKEN
+
+# 从 docker-compose.prod.yml 拉取服务镜像
+docker-compose -f deployment/docker/docker-compose.prod.yml pull
 ```
 
-## 使用流程
+### 2. 启动服务
+
+拉取镜像后，您可以使用 `docker-compose` 启动服务。
+
+```bash
+# 使用生产环境配置启动服务
+docker-compose -f deployment/docker/docker-compose.prod.yml up -d
+```
+
+## (已归档) 手动构建镜像
+
+以下是原始的手动构建流程，现已归档，不推荐使用。
 
 ### 1. 初始设置
 ```bash
-# 添加执行权限
+# (已废弃) 添加执行权限
 chmod +x build.sh
 
-# 登录Docker Hub
+# (已废弃) 登录Docker Hub
 docker login
 ```
 
 ### 2. 构建和推送镜像
 ```bash
-# 构建并推送镜像到Docker Hub
-./build.sh [版本号] oneMuggle
-
-# 示例: 构建v1.1.0版本
-./build.sh 1.1.0 oneMuggle
-```
-
-### 3. 更新部署
-```bash
-# 更新.env文件中的版本号
-vim .env  # 修改FRONTEND_VERSION和BACKEND_VERSION
-
-# 启动/更新服务
-docker-compose up -d
-```
-
-## 维护说明
-
-### 版本更新流程
-1. 开发并测试新功能
-2. 确定新版本号(遵循语义化版本)
-3. 执行构建脚本推送新镜像
-4. 更新.env文件版本号
-5. 重新部署服务
-
-### 回滚操作
-```bash
-# 修改.env文件回退到旧版本
-vim .env
-
-# 重新部署
-docker-compose up -d
-```
-
-## 注意事项
-1. 确保构建前已提交所有代码变更
-2. 版本号变更后务必更新.env文件
-3. 生产环境建议使用特定版本号而非latest
+# (已废弃) 构建并推送镜像到Docker Hub
+./build.sh [版本号] [Docker Hub 用户名]
