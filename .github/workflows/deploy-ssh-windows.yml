@@ -2,8 +2,11 @@ name: Deploy to Windows Server via SSH
 
 on:
   workflow_run:
-    workflows: [build-and-push-images]
-    types: [completed]
+    workflows: ["Run Tests, Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
 
 jobs:
   deploy:

@@ -13,6 +13,9 @@
 - **阶段 2: 持续部署 (CD)**
   - **自动化部署**: CI 成功后，由 [`.github/workflows/deploy-ssh-windows.yml`](../.github/workflows/deploy-ssh-windows.yml) 工作流自动接管，通过 SSH 连接到目标服务器并部署更新。
 
+    > [!NOTE]
+    > 请注意，此部署工作流并非由代码推送直接触发。它采用`workflow_run`事件，**仅在`build-and-push-images.yml`工作流成功完成之后**才会被自动触发。这种链式反应确保了只有在构建和推送镜像成功后，部署才会进行。
+
 这个端到端的流程确保了代码的快速、可靠交付，并将开发人员从繁琐的手动部署任务中解放出来。
 
 ## 2. 完整自动化流程 (生产/预发环境)
