@@ -87,7 +87,7 @@ class UserAuthTests(TestCase):
     def test_protected_endpoint_access(self):
         # 未认证用户访问
         response = self.client.get(self.profile_url)
-        self.assertEqual(response.status_code, 403) # Or 401, depending on default auth class
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED) # Or 401, depending on default auth class
 
         # 认证用户访问
         self.client.force_authenticate(user=self.user)

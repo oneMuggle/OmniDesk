@@ -36,6 +36,12 @@ from .serializers import (
 from django_filters.rest_framework import DjangoFilterBackend
 
 
+class EquipmentViewSet(viewsets.ModelViewSet):
+    queryset = Equipment.objects.all()
+    serializer_class = EquipmentSerializer
+    permission_classes = [IsAdminOrManagerOrReadOnly]
+
+
 class TimeSlotViewSet(viewsets.ModelViewSet):
     queryset = TimeSlot.objects.all()
     serializer_class = TimeSlotSerializer

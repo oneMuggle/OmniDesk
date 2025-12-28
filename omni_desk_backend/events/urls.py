@@ -11,6 +11,7 @@ from .views import (
     LeaderSequenceViewSet,
     HolidayViewSet,
     PositionViewSet,
+    EquipmentViewSet,
 )
 
 router = DefaultRouter()
@@ -23,6 +24,7 @@ router.register(r'personnel-sequences', PersonnelSequenceViewSet, basename='pers
 router.register(r'leader-sequences', LeaderSequenceViewSet, basename='leader-sequences')
 router.register(r'holidays', HolidayViewSet, basename='holidays')
 router.register(r'positions', PositionViewSet, basename='positions')
+router.register(r'equipments', EquipmentViewSet, basename='equipments')
 
 urlpatterns = [
     path('', include(router.urls)),

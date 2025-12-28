@@ -197,7 +197,7 @@ class PersonnelPermissionTest(TestCase):
     def test_unauthenticated_access(self):
         """Test that unauthenticated users cannot access the API."""
         response = self.client.get('/api/personnel/personnel/')
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     def test_regular_user_read_access(self):
         """Test that regular users have read-only access."""
@@ -289,7 +289,7 @@ class ProfessionalQualificationAPITest(BaseAPITestCase):
         """Test unauthenticated users cannot access the endpoint."""
         self.client.logout()
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
 
 class FamilyMemberAPITest(BaseAPITestCase):
@@ -347,7 +347,7 @@ class FamilyMemberAPITest(BaseAPITestCase):
         """Test unauthenticated users cannot access the endpoint."""
         self.client.logout()
         response = self.client.get(self.url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 class PersonnelViewSetTest(BaseAPITestCase):
     def setUp(self):
         super().setUp()

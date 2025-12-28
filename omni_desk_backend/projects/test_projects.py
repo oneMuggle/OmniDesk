@@ -117,4 +117,4 @@ class ProjectViewSetTests(APITestCase):
         self.client.force_authenticate(user=None)
         url = reverse('project-list')
         response = self.client.get(url)
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
