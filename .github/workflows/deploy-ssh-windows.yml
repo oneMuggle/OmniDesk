@@ -24,4 +24,4 @@ jobs:
             if not exist "%PROJECT_DIR%" (
               git clone https://github.com/onemuggle/calendar.git "%PROJECT_DIR%"
             )
-            cd /d "%PROJECT_DIR%" && git pull && set BACKEND_IMAGE_TAG=${{ github.sha }} && set FRONTEND_IMAGE_TAG=${{ github.sha }} && docker-compose -f deployment/docker/docker-compose.prod.yml pull && docker-compose -f deployment/docker/docker-compose.prod.yml up -d
+            cd /d "%PROJECT_DIR%" && git pull && (echo BACKEND_IMAGE_TAG=${{ github.sha }} & echo FRONTEND_IMAGE_TAG=${{ github.sha }}) > .env && docker-compose -f deployment/docker/docker-compose.prod.yml pull && docker-compose -f deployment/docker/docker-compose.prod.yml up -d
