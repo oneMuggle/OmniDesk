@@ -12,7 +12,7 @@ services:
     image: redis:6-alpine
 
   omni_desk_backend:
-    image: ghcr.io/your-username/omni_desk_backend:${BACKEND_IMAGE_TAG:-latest}
+    image: ghcr.io/onemuggle/omni_desk_backend:${BACKEND_IMAGE_TAG:-latest}
     depends_on:
       - db
       - redis
@@ -20,7 +20,7 @@ services:
       - .env.production
 
   omni_desk_frontend:
-    image: ghcr.io/your-username/omni_desk_frontend:${FRONTEND_IMAGE_TAG:-latest}
+    image: ghcr.io/onemuggle/omni_desk_frontend:${FRONTEND_IMAGE_TAG:-latest}
     ports:
       - "80:80"
 
