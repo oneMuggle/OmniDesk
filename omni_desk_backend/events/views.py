@@ -23,7 +23,6 @@ from .models import (
 )
 from .serializers import (
     TrialSerializer,
-    EquipmentSerializer,
     DocumentTemplateSerializer,
     TimeSlotSerializer,
     ScheduleSerializer,
@@ -115,13 +114,6 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
-
-class EquipmentViewSet(viewsets.ModelViewSet):
-    queryset = Equipment.objects.all()
-    serializer_class = EquipmentSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name']
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.select_related('duty_person', 'duty_leader')

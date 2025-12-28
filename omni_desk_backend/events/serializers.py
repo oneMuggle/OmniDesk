@@ -10,9 +10,15 @@ class TimeSlotSerializer(serializers.ModelSerializer):
         model = TimeSlot
         fields = '__all__'
 
+class EquipmentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Equipment
+        fields = ['id', 'name']
+
 class TrialSerializer(serializers.ModelSerializer):
     time_slots = TimeSlotSerializer(many=True, read_only=True)
     responsible_persons = PersonnelSerializer(many=True, read_only=True)
+    equipments = EquipmentSerializer(many=True, read_only=True)
     time_slots_data = serializers.ListField(
         child=serializers.DictField(), write_only=True, required=False
     )
@@ -40,10 +46,6 @@ class TrialSerializer(serializers.ModelSerializer):
                     TimeSlot.objects.create(trial=instance, **slot_data)
         return instance
 
-class EquipmentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Equipment
-        fields = '__all__'
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):
     class Meta:
