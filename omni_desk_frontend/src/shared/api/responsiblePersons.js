@@ -2,7 +2,7 @@ import axios from 'axios';
 
 export const saveResponsiblePersons = async (persons) => {
   try {
-    const response = await axios.post('/events/responsible_persons/', {
+    const response = await axios.post('events/responsible_persons/', {
       responsibles: persons
     });
     return response.data;

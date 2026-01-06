@@ -13,7 +13,7 @@ const ollamaClient = axios.create({
 // 初始化配置
 (async function initOllamaConfig() {
   try {
-    const response = await axios.get('/api/config/');
+    const response = await axios.get('config/');
     if (response.data.OLLAMA_ENDPOINT) {
       ollamaClient.defaults.baseURL = response.data.OLLAMA_ENDPOINT;
     }
@@ -22,10 +22,10 @@ const ollamaClient = axios.create({
   }
 })();
 
-export const getOllamaConfigs = () => apiClient.get('/api/config/ollama-configs/');
-export const addOllamaConfig = (config) => apiClient.post('/api/config/ollama-configs/', config);
-export const updateOllamaConfig = (id, config) => apiClient.put(`/api/config/ollama-configs/${id}/`, config);
-export const deleteOllamaConfig = (id) => apiClient.delete(`/api/config/ollama-configs/${id}/`);
+export const getOllamaConfigs = () => apiClient.get('config/ollama-configs/');
+export const addOllamaConfig = (config) => apiClient.post('config/ollama-configs/', config);
+export const updateOllamaConfig = (id, config) => apiClient.put(`config/ollama-configs/${id}/`, config);
+export const deleteOllamaConfig = (id) => apiClient.delete(`config/ollama-configs/${id}/`);
 
 export const chatCompletion = async (config, messages, onUpdate) => {
   const ollamaClient = axios.create({
@@ -37,7 +37,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
     const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
 
     // 修改为流式请求
-    await ollamaClient.post('/api/generate', {
+    await ollamaClient.post('generate', {
       model: config.model,
       prompt: prompt,
       stream: true, // 开启流式传输
@@ -99,7 +99,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
 
 export const getModels = async () => {
   try {
-    const response = await ollamaClient.get('/api/tags');
+    const response = await ollamaClient.get('tags');
     return response.data.models.map(model => model.name);
   } catch (error) {
     console.error('获取模型列表失败:', error);
@@ -113,7 +113,7 @@ export const setApiProvider = (config) => {
 
 export const getConfig = async () => {
   try {
-    const response = await apiClient.get('/api/config/');
+    const response = await apiClient.get('config/');
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {
@@ -126,7 +126,7 @@ export const getConfig = async () => {
 
 export const setConfig = async (config) => {
   try {
-    const response = await apiClient.post('/api/config/', config);
+    const response = await apiClient.post('config/', config);
     return response.data;
   } catch (error) {
     if (error.response?.status === 401) {

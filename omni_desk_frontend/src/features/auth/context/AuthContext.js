@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import apiClient from '../../../shared/api/apiClient';
+import apiClient from '../../../shared/api/axiosConfig.js';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
 
 export const AuthContext = createContext({
@@ -40,7 +40,7 @@ export function AuthProvider({ children }) {
           const { access } = JSON.parse(storedTokens);
           if (access) {
             try {
-              const res = await apiClient.get('/api/users/me/');
+              const res = await apiClient.get('users/me/');
               // Permissions should be fetched from the backend, not from localStorage.
               // Assuming res.data contains user info including permissions.
               setUser(res.data);
@@ -66,7 +66,7 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password, rememberMe = false) => {
     try {
-      const res = await apiClient.post('/api/auth/login/', {
+      const res = await apiClient.post('auth/login/', {
         username,
         password,
         remember_me: rememberMe
@@ -84,7 +84,7 @@ export function AuthProvider({ children }) {
         // DO NOT store permissions in sessionStorage.
       }
       
-      const userRes = await apiClient.get('/api/users/me/');
+      const userRes = await apiClient.get('users/me/');
       // The user data from /users/me/ should be the source of truth.
       const userData = userRes.data;
 
@@ -105,7 +105,7 @@ export function AuthProvider({ children }) {
 
   const register = async ({ username, password, password_confirmation }) => {
     try {
-      const res = await apiClient.post('/api/auth/registration/', {
+      const res = await apiClient.post('auth/registration/', {
         username,
         password,
         password_confirmation

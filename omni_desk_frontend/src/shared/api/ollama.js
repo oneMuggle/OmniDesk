@@ -2,7 +2,7 @@ import apiClient from './apiClient';
 
 export const chatCompletion = async (apiConfig, messages, onData) => {
   try {
-    const response = await fetch('/api/ollama/chat/', {
+    const response = await fetch('ollama/chat/', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,23 +62,23 @@ export const chatCompletion = async (apiConfig, messages, onData) => {
 };
 
 export const getOllamaConfigs = () => {
-  return apiClient.get('/api/ollama/configs/');
+  return apiClient.get('ollama/configs/');
 };
 
 export const addOllamaConfig = (config) => {
-  return apiClient.post('/api/ollama/configs/', config);
+  return apiClient.post('ollama/configs/', config);
 };
 
 export const updateOllamaConfig = (id, config) => {
-  return apiClient.put(`/api/ollama/configs/${id}/`, config);
+  return apiClient.put(`ollama/configs/${id}/`, config);
 };
 
 export const deleteOllamaConfig = (id) => {
-  return apiClient.delete(`/api/ollama/configs/${id}/`);
+  return apiClient.delete(`ollama/configs/${id}/`);
 };
 
 export const getOllamaModelsFromEndpoint = (apiEndpoint) => {
-  return apiClient.post('/api/ollama/fetch-models/', { api_endpoint: apiEndpoint });
+  return apiClient.post('ollama/fetch-models/', { api_endpoint: apiEndpoint });
 };
 
 export const getModels = () => {

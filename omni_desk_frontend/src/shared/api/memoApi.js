@@ -2,16 +2,16 @@ import apiClient from './apiClient';
 
 const memoApi = {
   getAllMemos: () => {
-    return apiClient.get('/api/memos/');
+    return apiClient.get('memos/');
   },
   createMemo: (data) => {
-    return apiClient.post('/api/memos/', data);
+    return apiClient.post('memos/', data);
   },
   patchMemo: (id, data) => {
-    return apiClient.patch(`/api/memos/${id}/`, data);
+    return apiClient.patch(`memos/${id}/`, data);
   },
   deleteMemo: (id) => {
-    return apiClient.delete(`/api/memos/${id}/`);
+    return apiClient.delete(`memos/${id}/`);
   },
 };
 

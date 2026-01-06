@@ -9,8 +9,8 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     # Authentication endpoints
     # Authentication & User endpoints
-    path('api/sensor-management/', include('sensor_management.urls')),
     path('api/', include([
+        path('sensor-management/', include('sensor_management.urls')),
         path('users/', include('users.urls')),     # 用户个人资料路由
         path('auth/', include('users.auth_urls', namespace='users_auth')), # 认证路由
         path('events/', include('events.urls')),  # 事件相关路由

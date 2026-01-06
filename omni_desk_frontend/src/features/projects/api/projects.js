@@ -1,12 +1,12 @@
 import apiClient from '../../../shared/api/apiClient';
 
 const projectsApi = {
-    getAllProjects: () => apiClient.get('/api/projects/'),
-    getProjectById: (id) => apiClient.get(`/api/projects/${id}/`),
-    createProject: (projectData) => apiClient.post('/api/projects/', projectData),
-    updateProject: (id, projectData) => apiClient.put(`/api/projects/${id}/`, projectData),
-    partialUpdateProject: (id, projectData) => apiClient.patch(`/api/projects/${id}/`, projectData),
-    deleteProject: (id) => apiClient.delete(`/api/projects/${id}/`),
+    getAllProjects: () => apiClient.get('projects/'),
+    getProjectById: (id) => apiClient.get(`projects/${id}/`),
+    createProject: (projectData) => apiClient.post('projects/', projectData),
+    updateProject: (id, projectData) => apiClient.put(`projects/${id}/`, projectData),
+    partialUpdateProject: (id, projectData) => apiClient.patch(`projects/${id}/`, projectData),
+    deleteProject: (id) => apiClient.delete(`projects/${id}/`),
 };
 
 export default projectsApi;

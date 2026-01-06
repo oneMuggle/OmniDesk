@@ -43,7 +43,7 @@ const DocumentProcessor = () => {
     setResult(null);
 
     try {
-      const response = await axios.post('/api/office-assistant/process-document/', formData, {
+      const response = await axios.post('office-assistant/process-document/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

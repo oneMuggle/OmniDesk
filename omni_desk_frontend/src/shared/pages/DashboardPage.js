@@ -18,7 +18,7 @@ const DashboardPage = () => {
     const fetchWeeklyData = async () => {
       // Fetch weekly trials
       try {
-        const trialsResponse = await apiClient.get('/api/events/trials/this-week/');
+        const trialsResponse = await apiClient.get('events/trials/this-week/');
         setWeeklyTrials(trialsResponse.data);
       } catch (error) {
         message.error('获取本周试验日程失败！');
@@ -33,7 +33,7 @@ const DashboardPage = () => {
         const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1))); // Monday
         const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 7)); // Sunday
         
-        const schedulesResponse = await apiClient.get('/api/events/schedules/by-date-range/', {
+        const schedulesResponse = await apiClient.get('events/schedules/by-date-range/', {
           params: {
             start_date: startOfWeek.toISOString().split('T')[0],
             end_date: endOfWeek.toISOString().split('T')[0]
@@ -49,7 +49,7 @@ const DashboardPage = () => {
 
       // Fetch weekly meeting room bookings
       try {
-        const bookingsResponse = await apiClient.get('/api/meeting-rooms/meeting-room-bookings/this-week/');
+        const bookingsResponse = await apiClient.get('meeting-rooms/meeting-room-bookings/this-week/');
         setWeeklyBookings(bookingsResponse.data);
       } catch (error) {
         message.error('获取本周会议室预约失败！');

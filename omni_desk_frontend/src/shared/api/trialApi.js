@@ -5,7 +5,7 @@ import { toServerFormat } from '../utils/dateUtils';
 export const trialApi = {
   fetchTrialEvents: async () => {
     try {
-      const response = await apiClient.get('/api/events/trials/');
+      const response = await apiClient.get('events/trials/');
       // 确保返回的是包含试验事件的数组
       return response.data.results || [];
     } catch (error) {
@@ -17,7 +17,7 @@ export const trialApi = {
 
   createTrial: async (trialData) => {
     try {
-      const response = await apiClient.post('/api/events/trials/', {
+      const response = await apiClient.post('events/trials/', {
         ...trialData,
         equipment_ids: trialData.equipmentIds || [],
         responsible_person_ids: trialData.responsiblePersonIds || [],
@@ -48,7 +48,7 @@ export const trialApi = {
 
   updateTrial: async (trialId, trialData) => {
     try {
-      const response = await apiClient.patch(`/api/events/trials/${trialId}/`, {
+      const response = await apiClient.patch(`events/trials/${trialId}/`, {
         ...trialData,
         equipment_ids: trialData.equipmentIds,
         responsible_person_ids: trialData.responsiblePersonIds,
@@ -66,13 +66,13 @@ export const trialApi = {
     }
   },
 
-  fetchCalendarEvents: () => apiClient.get('/api/events/trials/'),
-  updateCalendarEvent: (id, eventData) => apiClient.put(`/api/events/trials/${id}/`, eventData),
-  deleteCalendarEvent: (id) => apiClient.delete(`/api/events/trials/${id}/`),
+  fetchCalendarEvents: () => apiClient.get('events/trials/'),
+  updateCalendarEvent: (id, eventData) => apiClient.put(`events/trials/${id}/`, eventData),
+  deleteCalendarEvent: (id) => apiClient.delete(`events/trials/${id}/`),
 
   getTrialDetails: async (trialId) => {
     try {
-      const response = await apiClient.get(`/api/events/trials/${trialId}/`);
+      const response = await apiClient.get(`events/trials/${trialId}/`);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -82,7 +82,7 @@ export const trialApi = {
 
   fetchTimeSlotsByTrial: async (trialId) => {
     try {
-      const response = await apiClient.get(`/api/events/time-slots/?trial=${trialId}`);
+      const response = await apiClient.get(`events/time-slots/?trial=${trialId}`);
       return response.data.results || [];
     } catch (error) {
       handleError(error);
@@ -92,7 +92,7 @@ export const trialApi = {
 
   bulkCreateTimeSlots: async (trialId, timeSlots) => {
     try {
-      const response = await apiClient.post('/api/events/time-slots/bulk-create/', {
+      const response = await apiClient.post('events/time-slots/bulk-create/', {
         trial: trialId,
         time_slots: timeSlots.map(slot => ({
           start_time: slot.start_time,

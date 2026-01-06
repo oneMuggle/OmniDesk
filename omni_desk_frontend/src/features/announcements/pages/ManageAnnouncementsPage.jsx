@@ -10,7 +10,7 @@ const ManageAnnouncementsPage = () => {
 
   const fetchAnnouncements = async () => {
     try {
-      const response = await apiClient.get('/api/events/announcements/');
+      const response = await apiClient.get('events/announcements/');
       setAnnouncements(response.data.results); // 提取 results 字段
     } catch (e) {
       setError(e.message);
