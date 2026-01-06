@@ -27,7 +27,7 @@ describe('personnelApi', () => {
 
       const result = await getPersonnel(params);
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params });
+      expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params });
       expect(result).toEqual({
         data: [{ id: 1, name: 'John Doe' }],
         pagination: { current: 1, total: 1, pageSize: 10 },
@@ -42,7 +42,7 @@ describe('personnelApi', () => {
 
       const result = await getAllPersonnel();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params: { page_size: 1000 } });
+      expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params: { page_size: 1000 } });
       expect(result).toEqual(response.data.results);
     });
   });
@@ -55,7 +55,7 @@ describe('personnelApi', () => {
 
       await getPersonnelDetails(id);
 
-      expect(apiClient.get).toHaveBeenCalledWith(`/api/personnel/personnel/${id}/`);
+      expect(apiClient.get).toHaveBeenCalledWith(`personnel/personnel/${id}/`);
     });
   });
 
@@ -67,7 +67,7 @@ describe('personnelApi', () => {
 
       await createPersonnel(data);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/personnel/personnel/', data);
+      expect(apiClient.post).toHaveBeenCalledWith('personnel/personnel/', data);
     });
   });
 
@@ -80,7 +80,7 @@ describe('personnelApi', () => {
 
       await updatePersonnel(id, data);
 
-      expect(apiClient.put).toHaveBeenCalledWith(`/api/personnel/personnel/${id}/`, data);
+      expect(apiClient.put).toHaveBeenCalledWith(`personnel/personnel/${id}/`, data);
     });
   });
 
@@ -91,7 +91,7 @@ describe('personnelApi', () => {
 
       await deletePersonnel(id);
 
-      expect(apiClient.delete).toHaveBeenCalledWith(`/api/personnel/personnel/${id}/`);
+      expect(apiClient.delete).toHaveBeenCalledWith(`personnel/personnel/${id}/`);
     });
   });
 
@@ -102,7 +102,7 @@ describe('personnelApi', () => {
 
       const result = await getPositions();
 
-      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/positions/', { "params": {} });
+      expect(apiClient.get).toHaveBeenCalledWith('personnel/positions/', { "params": {} });
       expect(result).toEqual({
         data: [{ id: 1, name: 'Manager' }],
         pagination: { current: 1, total: 1, pageSize: 10 },
@@ -118,7 +118,7 @@ describe('personnelApi', () => {
 
       await createPosition(data);
 
-      expect(apiClient.post).toHaveBeenCalledWith('/api/personnel/positions/', data);
+      expect(apiClient.post).toHaveBeenCalledWith('personnel/positions/', data);
     });
   });
 
@@ -131,7 +131,7 @@ describe('personnelApi', () => {
 
       await updatePosition(id, data);
 
-      expect(apiClient.put).toHaveBeenCalledWith(`/api/personnel/positions/${id}/`, data);
+      expect(apiClient.put).toHaveBeenCalledWith(`personnel/positions/${id}/`, data);
     });
   });
 
@@ -142,7 +142,7 @@ describe('personnelApi', () => {
 
       await deletePosition(id);
 
-      expect(apiClient.delete).toHaveBeenCalledWith(`/api/personnel/positions/${id}/`);
+      expect(apiClient.delete).toHaveBeenCalledWith(`personnel/positions/${id}/`);
     });
   });
 });
