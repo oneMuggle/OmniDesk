@@ -1,3 +1,5 @@
+import apiClient from './apiClient';
+
 // Helper to get CSRF token from cookies
 const getCookie = (name) => {
   let cookieValue = null;
@@ -41,9 +43,7 @@ export const permissionsApi = {
    * Fetches all user groups.
    * GET /permissions/groups/
    */
-  getGroups: () => {
-    return request('/permissions/groups/');
-  },
+  getGroups: () => apiClient.get('/permissions/groups/'),
 
   /**
    * Creates a new user group.
