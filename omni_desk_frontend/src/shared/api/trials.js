@@ -68,7 +68,7 @@ export const getEquipmentOptions = async (params) => {
 };
 
 export const getPersonnelOptions = async (params) => {
-  const response = await api.get('events/personnel/', { params })
+  const response = await api.get('personnel/personnel/', { params })
     .catch(err => {
       console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;

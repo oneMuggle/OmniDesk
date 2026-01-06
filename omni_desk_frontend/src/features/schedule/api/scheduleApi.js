@@ -138,7 +138,7 @@ export const scheduleApi = {
 
   getPersonnel: async () => {
     try {
-      const response = await apiClient.get('events/personnel/');
+      const response = await apiClient.get('personnel/personnel/');
       return response.data.results || [];
     } catch (error) {
       handleError(error);
@@ -158,7 +158,7 @@ export const scheduleApi = {
 
   createPersonnel: async (personnelData) => {
     try {
-      const response = await apiClient.post('events/personnel/', personnelData);
+      const response = await apiClient.post('personnel/personnel/', personnelData);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -168,7 +168,7 @@ export const scheduleApi = {
 
   updatePersonnel: async (personnelId, personnelData) => {
     try {
-      const response = await apiClient.patch(`events/personnel/${personnelId}/`, personnelData);
+      const response = await apiClient.patch(`personnel/personnel/${personnelId}/`, personnelData);
       return response.data;
     } catch (error) {
       handleError(error);
@@ -178,7 +178,7 @@ export const scheduleApi = {
 
   deletePersonnel: async (personnelId) => {
     try {
-      await apiClient.delete(`events/personnel/${personnelId}/`);
+      await apiClient.delete(`personnel/personnel/${personnelId}/`);
     } catch (error) {
       handleError(error);
       throw error;

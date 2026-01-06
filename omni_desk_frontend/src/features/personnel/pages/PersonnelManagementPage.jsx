@@ -97,7 +97,7 @@ const PersonnelManagementPage = () => {
   useEffect(() => {
     fetchData(pagination.current, pagination.pageSize);
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions, pagination]);
+  }, [fetchData, fetchPositions, pagination.current, pagination.pageSize]);
 
   const handleTableChange = (newPagination) => {
     fetchData(newPagination.current, newPagination.pageSize);
