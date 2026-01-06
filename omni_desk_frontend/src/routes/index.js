@@ -203,8 +203,8 @@ import NewPostPage from '../features/communication/pages/NewPostPage';
         element: <ProtectedRoute pagePath="/control-panel/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
       },
       {
-        path: "personnel/edit/:id",
-        element: <ProtectedRoute pagePath="/control-panel/personnel/edit/:id" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
+        path: "personnel/:id/edit",
+        element: <ProtectedRoute pagePath="/control-panel/personnel/:id/edit" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
       },
       {
         path: "schedules",
