@@ -27,6 +27,7 @@ const allAdminMenuItems = [
   { to: "/control-panel/ebook-management", icon: faBook, text: "电子书管理", permission: "documents.view_ebook" },
   { to: "/control-panel/documents", icon: faFileWord, text: "文档管理", permission: "documents.view_documenttemplate" },
   { to: "/control-panel/equipment", icon: faFlask, text: "设备管理", permission: "events.view_equipment" },
+  { to: "/control-panel/sensor", icon: faFlask, text: "传感器管理", permission: "sensors.view_sensor" },
   { to: "/control-panel/settings", icon: faCog, text: "设置", permission: "config.view_page" },
   { to: "/control-panel/announcements", icon: faBullhorn, text: "公告管理", permission: "events.view_announcement" },
   { to: "/control-panel/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: "dify_apps.view_difyapp" },
