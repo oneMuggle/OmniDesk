@@ -4,7 +4,7 @@ import TrialScheduleContainer from '../components/TrialScheduleContainer';
 import ShiftScheduleContainer from '../components/ShiftScheduleContainer';
 import '../../../shared/components/CalendarPage.css';
 
-const SchedulePage = ({ scheduleType }) => {
+const SchedulePage = ({ scheduleType = 'shift' }) => {
   return (
     <div className="schedule-page">
       <div className="schedule-container">
@@ -17,7 +17,7 @@ const SchedulePage = ({ scheduleType }) => {
 };
 
 SchedulePage.propTypes = {
-  scheduleType: PropTypes.string.isRequired,
+  scheduleType: PropTypes.string,
 };
 
 export default SchedulePage;

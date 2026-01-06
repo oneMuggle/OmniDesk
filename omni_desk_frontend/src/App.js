@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import './App.css';
 import 'react-toastify/dist/ReactToastify.css';
@@ -9,15 +10,24 @@ import { ToastContainer } from 'react-toastify';
 import { RefreshProvider } from './shared/context/RefreshContext';
 
 function App() {
+  const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  const toggleMobileMenu = () => {
+    setMobileMenuOpen(!isMobileMenuOpen);
+  };
+
   return (
     <AuthProvider>
       <ApiProvider>
         <RefreshProvider>
           <div className="app-container">
-          <Sidebar />
-          <div className="main-content">
-            <div className="content-wrapper">
-              <Outlet />
+            <Sidebar
+              isMobileMenuOpen={isMobileMenuOpen}
+              toggleMobileMenu={toggleMobileMenu}
+            />
+            <div className="main-content">
+              <div className="content-wrapper">
+                <Outlet />
             </div>
           </div>
           <ToastContainer

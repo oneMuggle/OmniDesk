@@ -32,7 +32,7 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
   }, [calendarRef, weeklyLeaders]);
 
   return (
-    <Card title="本月值班领导" size="small" style={{ width: 180, marginLeft: 10 }} bodyStyle={{ padding: '4px' }}>
+    <Card title="本月值班领导" size="small" style={{ width: 180, marginLeft: 10 }} styles={{ body: { padding: '4px' } }}>
       <StrictModeDroppable droppableId="leader-list">
         {(provided) => (
           <div {...provided.droppableProps} ref={provided.innerRef}>

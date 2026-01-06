@@ -69,7 +69,7 @@ const PostDetail = () => {
             <Button onClick={() => navigate('/communication')} style={{ marginBottom: '1rem' }}>
                 返回列表
             </Button>
-            <Card bordered={false}>
+            <Card variant="borderless">
                 <div className="post-header">
                     <h1 className="post-title">{post.title}</h1>
                     <div className="post-meta">

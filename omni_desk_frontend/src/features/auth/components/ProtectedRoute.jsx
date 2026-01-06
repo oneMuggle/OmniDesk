@@ -2,7 +2,7 @@ import PropTypes from 'prop-types';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, permissions }) => {
+const ProtectedRoute = ({ children, permissions = null }) => {
   const { isAuthenticated, isInitializing, hasPermission } = useAuth();
 
   if (isInitializing) {
@@ -26,7 +26,7 @@ ProtectedRoute.propTypes = {
   permissions: PropTypes.oneOfType([
     PropTypes.string,
     PropTypes.arrayOf(PropTypes.string),
-  ]).isRequired,
+  ]),
 };
 
 export default ProtectedRoute;

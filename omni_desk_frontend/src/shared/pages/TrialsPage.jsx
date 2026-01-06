@@ -267,7 +267,7 @@ const TrialsPage = () => {
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        destroyOnClose
+        destroyOnHidden
       >
         <Form
           form={form}

@@ -266,8 +266,13 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 };
 
 Sidebar.propTypes = {
-  isMobileMenuOpen: PropTypes.bool.isRequired,
-  toggleMobileMenu: PropTypes.func.isRequired,
+  isMobileMenuOpen: PropTypes.bool,
+  toggleMobileMenu: PropTypes.func,
+};
+
+Sidebar.defaultProps = {
+  isMobileMenuOpen: false,
+  toggleMobileMenu: () => {},
 };
 
 export default Sidebar;

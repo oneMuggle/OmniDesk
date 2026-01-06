@@ -39,7 +39,7 @@ export const getPersonnel = async (params = {}) => {
 export const getAllPersonnel = async () => {
   try {
     const response = await apiClient.get('personnel/personnel/', { params: { page_size: 1000 } });
-    return response.data.results;
+    return response.data.results || [];
   } catch (error) {
     return handleError(error, '获取所有人员信息失败');
   }
@@ -94,7 +94,7 @@ export const getPositions = async (params = {}) => {
 export const getAllPositions = async () => {
   try {
     const response = await apiClient.get('personnel/positions/', { params: { page_size: 1000 } });
-    return response.data.results;
+    return response.data.results || [];
   } catch (error) {
     return handleError(error, '获取所有职位信息失败');
   }
@@ -131,7 +131,7 @@ export const deletePosition = async (id) => {
 export const getQualifications = async (personnelId) => {
   try {
     const response = await apiClient.get(`personnel/qualifications/?personnel=${personnelId}`);
-    return response.data;
+    return response.data || [];
   } catch (error) {
     return handleError(error, '获取专业资格失败');
   }
@@ -168,7 +168,7 @@ export const deleteQualification = async (id) => {
 export const getFamilyMembers = async (personnelId) => {
   try {
     const response = await apiClient.get(`personnel/family-members/?personnel=${personnelId}`);
-    return response.data;
+    return response.data || [];
   } catch (error) {
     return handleError(error, '获取家庭成员失败');
   }
