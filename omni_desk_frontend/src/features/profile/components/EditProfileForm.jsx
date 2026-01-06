@@ -42,7 +42,7 @@ const EditProfileForm = ({ userData = null, setUserData }) => {
     }
 
     try {
-      const response = await apiClient.patch('/api/users/me/profile/', formData, {
+      const response = await apiClient.patch('users/me/profile/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
