@@ -16,7 +16,8 @@ import {
   faCaretDown, // For dropdown indicator
   faCaretRight, // For dropdown indicator
   faCalendarAlt,
-  faNewspaper
+  faNewspaper,
+  faFileAlt
 } from '@fortawesome/free-solid-svg-icons';
 
 const allAdminMenuItems = [
@@ -35,7 +36,9 @@ const allAdminMenuItems = [
   { to: "/control-panel/meeting-room-management", icon: faCog, text: "会议室管理", permission: "meeting_rooms.view_meetingroom" },
   { to: "/control-panel/holidays", icon: faCalendarAlt, text: "节假日管理", permission: "events.view_holiday" },
   { to: "/control-panel/news-stats", icon: faNewspaper, text: "新闻统计", permission: "news.view_news" },
-  { to: "/control-panel/news-management", icon: faNewspaper, text: "新闻管理", permission: "news.view_news" }
+  { to: "/control-panel/news-management", icon: faNewspaper, text: "新闻管理", permission: "news.view_news" },
+  { to: "/docs/cdepsio6", icon: faFileAlt, text: "文档", permission: "admin" },
+  { to: "/library", icon: faBook, text: "书库", permission: "admin" }
 ];
 
 const AdminLayout = () => {

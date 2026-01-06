@@ -77,8 +77,6 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
         { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
       ]
     },
-    { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: 'admin' },
-    { to: "/library", icon: BookOutlined, text: "书库", permission: 'admin' },
     { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
     { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
     { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
