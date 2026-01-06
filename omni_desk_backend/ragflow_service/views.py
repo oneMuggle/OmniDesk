@@ -5,6 +5,7 @@ from .models import RagflowConfig
 from .serializers import RagflowConfigSerializer
 import requests
 import os
+from django.http import JsonResponse
 
 class RagflowConfigViewSet(viewsets.ModelViewSet):
     queryset = RagflowConfig.objects.all()
@@ -48,3 +49,9 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             return Response(response.json(), status=status.HTTP_200_OK)
         except requests.exceptions.RequestException as e:
             return Response({"detail": f"Ragflow API 请求失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+def ragflow_configs_view(request):
+   """
+   一个简单的视图，返回一个固定的 JSON 响应。
+   """
+   return JsonResponse({'status': 'ok'})

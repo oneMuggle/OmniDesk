@@ -35,7 +35,7 @@ const SystemSettingsPage = () => {
     // 加载 Ragflow 配置
     const fetchRagflowConfigs = async () => {
       try {
-        const response = await apiClient.get('/api/ragflow-service/configs/');
+        const response = await apiClient.get('ragflow-service/configs/');
         setRagflowConfigs(response.data.results || []);
       } catch (error) {
         message.error('加载 Ragflow 配置失败。');
@@ -197,9 +197,9 @@ const SystemSettingsPage = () => {
 
   const handleDeleteRagflowConfig = async (id) => {
     try {
-      await apiClient.delete(`/api/ragflow-service/configs/${id}/`);
+      await apiClient.delete(`ragflow-service/configs/${id}/`);
       message.success('Ragflow 配置删除成功。');
-      const response = await apiClient.get('/api/ragflow-service/configs/');
+      const response = await apiClient.get('ragflow-service/configs/');
       setRagflowConfigs(response.data.results || []);
       setSelectedRagflowConfig(null);
       ragflowForm.resetFields();
@@ -213,13 +213,13 @@ const SystemSettingsPage = () => {
   const handleSaveRagflowConfig = async (values) => {
     try {
       if (selectedRagflowConfig) {
-        await apiClient.put(`/api/ragflow-service/configs/${selectedRagflowConfig.id}/`, values);
+        await apiClient.put(`ragflow-service/configs/${selectedRagflowConfig.id}/`, values);
         message.success('Ragflow 配置更新成功。');
       } else {
-        await apiClient.post('/api/ragflow-service/configs/', values);
+        await apiClient.post('ragflow-service/configs/', values);
         message.success('Ragflow 配置新增成功。');
       }
-      const response = await apiClient.get('/api/ragflow-service/configs/');
+      const response = await apiClient.get('ragflow-service/configs/');
       setRagflowConfigs(response.data.results || []);
       setSelectedRagflowConfig(null);
       ragflowForm.resetFields();

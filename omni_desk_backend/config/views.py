@@ -8,6 +8,9 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from users.permissions import IsAdminOrReadOnly
 
+from django.http import JsonResponse
+
+
 @api_view(['GET'])
 @permission_classes([AllowAny])
 def get_ollama_config(request):
@@ -83,3 +86,10 @@ class OllamaConfigViewSet(viewsets.ModelViewSet):
     queryset = OllamaConfig.objects.all()
     serializer_class = OllamaConfigSerializer
     permission_classes = [IsAdminOrReadOnly]
+
+
+def ollama_configs_view(request):
+   """
+   一个简单的视图，返回一个固定的 JSON 响应。
+   """
+   return JsonResponse({'status': 'ok'})

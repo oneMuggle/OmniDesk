@@ -7,6 +7,7 @@ class Position(models.Model):
     class Meta:
         verbose_name = "职位"
         verbose_name_plural = "职位管理"
+        ordering = ['name']
 
     def __str__(self):
         return self.name

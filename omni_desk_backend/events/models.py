@@ -234,6 +234,7 @@ class PersonnelSequence(models.Model):
     holiday_sequence = models.JSONField(default=list, verbose_name="节假日人员ID顺序列表", blank=True)
 
     class Meta:
+        ordering = ['id']
         verbose_name = "人员顺序"
         verbose_name_plural = "人员顺序管理"
 
@@ -246,6 +247,7 @@ class LeaderSequence(models.Model):
     sequence = models.JSONField(default=list, verbose_name="领导ID顺序列表")
 
     class Meta:
+        ordering = ['id']
         verbose_name = "领导顺序"
         verbose_name_plural = "领导顺序管理"
 
