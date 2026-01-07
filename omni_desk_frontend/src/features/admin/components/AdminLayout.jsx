@@ -32,7 +32,7 @@ const allAdminMenuItems = [
   { to: "/control-panel/settings", icon: faCog, text: "设置", permission: "config.view_page" },
   { to: "/control-panel/announcements", icon: faBullhorn, text: "公告管理", permission: "events.view_announcement" },
   { to: "/control-panel/dify-app-management", icon: faCog, text: "Dify 应用管理", permission: "dify_apps.view_difyapp" },
-  { to: "/control-panel/schedule-settings", icon: faCog, text: "排班设置", permission: "events.view_schedulesetting" },
+  { to: "/control-panel/schedule-settings", icon: faCog, text: "排班设置", permission: "events.view_personnelsequence" },
   { to: "/control-panel/meeting-room-management", icon: faCog, text: "会议室管理", permission: "meeting_rooms.view_meetingroom" },
   { to: "/control-panel/holidays", icon: faCalendarAlt, text: "节假日管理", permission: "events.view_holiday" },
   { to: "/control-panel/news-stats", icon: faNewspaper, text: "新闻统计", permission: "news.view_news" },
