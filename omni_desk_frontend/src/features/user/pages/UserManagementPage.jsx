@@ -68,7 +68,7 @@ const GroupPermissionManager = ({ groups, fetchGroups }) => {
         setLoading(true);
         try {
             const res = await userManagementApi.getGroupPermissions(groupId);
-            setCheckedKeys(res.data);
+            setCheckedKeys(res.data.permissions || []);
         } catch (error) {
             message.error('获取用户组权限失败');
         } finally {
@@ -309,7 +309,7 @@ const UserManagementPage = () => {
     const fetchGroups = async () => {
         try {
             const res = await permissionsApi.getGroups();
-            setGroups(res.results || []);
+            setGroups(res.data.results || []);
         } catch (error) {
             message.error('获取用户组列表失败');
         }
