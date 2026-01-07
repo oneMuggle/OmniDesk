@@ -5,7 +5,6 @@ import { useAuth } from '../../features/auth/context/AuthContext';
 import {
   AppstoreOutlined,
   BellOutlined,
-  BookOutlined,
   CalendarOutlined,
   CommentOutlined,
   DownOutlined,
