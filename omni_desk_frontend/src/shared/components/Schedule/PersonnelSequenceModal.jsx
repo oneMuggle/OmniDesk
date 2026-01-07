@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs } from 'antd';
+import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs, message } from 'antd';
 import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';
 import apiClient from '../../api/apiClient';
 import { DragDropContext, Draggable } from 'react-beautiful-dnd';
 import StrictModeDroppable from './StrictModeDroppable';
 
 const { Option } = Select;
-const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {} }) => {
+const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null }) => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
@@ -17,31 +17,41 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
   const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState([]);
   const [activeTab, setActiveTab] = useState('workday');
 
-  // Fetch positions from API
   useEffect(() => {
-    getPositions()
-      .then(response => {
-        // The API returns a paginated response, so we need to extract the `results` array.
-        setPositions(response.data || []);
-      })
-      .catch(error => {
-        console.error('Error fetching positions:', error);
-        // Mock data for development
-        setPositions([
-          { id: 1, name: 'Manager' },
-          { id: 2, name: 'Developer' },
-          { id: 3, name: 'Designer' },
-        ]);
-      });
-  }, []);
+    if (open) {
+      getPositions()
+        .then(response => setPositions(response.data || []))
+        .catch(error => {
+          console.error('Error fetching positions:', error);
+          setPositions([
+            { id: 1, name: 'Manager' },
+            { id: 2, name: 'Developer' },
+            { id: 3, name: 'Designer' },
+          ]);
+        });
 
-  // Fetch personnel based on search and filter
+      if (sequence) {
+        form.setFieldsValue({ name: sequence.name });
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+      } else {
+        form.resetFields();
+      }
+    }
+  }, [open, sequence, form]);
+
+  useEffect(() => {
+    if (sequence) {
+      setSelectedPersonnel(sequence.personnel_details || []);
+      setSelectedHolidayPersonnel(sequence.holiday_personnel_details || []);
+    } else {
+      setSelectedPersonnel([]);
+      setSelectedHolidayPersonnel([]);
+    }
+  }, [sequence]);
+
   useEffect(() => {
     const fetchPersonnel = async () => {
-      const params = {
-        search: searchTerm,
-        position_id: selectedPosition,
-      };
+      const params = { search: searchTerm, position_id: selectedPosition };
       try {
         const data = await getPersonnel(params);
         setPersonnel(data.data);
@@ -50,7 +60,6 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
         setPersonnel([]);
       }
     };
-
     fetchPersonnel();
   }, [searchTerm, selectedPosition]);
 
@@ -58,46 +67,49 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
     const isWorkday = activeTab === 'workday';
     const targetList = isWorkday ? selectedPersonnel : selectedHolidayPersonnel;
     const setTargetList = isWorkday ? setSelectedPersonnel : setSelectedHolidayPersonnel;
-
     if (!targetList.find(p => p.id === person.id)) {
       setTargetList([...targetList, person]);
     }
   };
 
   const handleRemovePersonnel = (personId, type) => {
-    if (type === 'workday') {
-      setSelectedPersonnel(selectedPersonnel.filter(p => p.id !== personId));
-    } else {
-      setSelectedHolidayPersonnel(selectedHolidayPersonnel.filter(p => p.id !== personId));
-    }
+    const setList = type === 'workday' ? setSelectedPersonnel : setSelectedHolidayPersonnel;
+    setList(prevList => prevList.filter(p => p.id !== personId));
   };
 
   const onDragEnd = (result, type) => {
-    if (!result.destination) {
-      return;
-    }
-
+    if (!result.destination) return;
     const list = type === 'workday' ? selectedPersonnel : selectedHolidayPersonnel;
     const setList = type === 'workday' ? setSelectedPersonnel : setSelectedHolidayPersonnel;
-
     const items = Array.from(list);
     const [reorderedItem] = items.splice(result.source.index, 1);
     items.splice(result.destination.index, 0, reorderedItem);
-
     setList(items);
   };
 
   const handleSave = () => {
     form.validateFields().then(values => {
-      const personnelIds = selectedPersonnel.map(p => p.id);
+      if (selectedPersonnel.length === 0) {
+        message.error('“工作日人员”不能为空，请至少添加一名人员。');
+        return;
+      }
+
+      const sequenceIds = selectedPersonnel.map(p => p.id);
       const holidayPersonnelIds = selectedHolidayPersonnel.map(p => p.id);
-      // This part seems to be posting to a different endpoint, which is correct.
-      // We will leave it as is.
-      apiClient.post('/api/events/personnel-sequences/', {
-        ...values,
-        personnel_ids: personnelIds,
-        holiday_personnel_ids: holidayPersonnelIds,
-      })
+      const allPersonnelIds = [...new Set([...sequenceIds, ...holidayPersonnelIds])];
+
+      const payload = {
+        name: values.name,
+        sequence: sequenceIds,
+        holiday_personnel: holidayPersonnelIds,
+        personnel: allPersonnelIds,
+      };
+
+      const request = sequence
+        ? apiClient.put(`/api/events/personnel-sequences/${sequence.id}/`, payload)
+        : apiClient.post('/api/events/personnel-sequences/', payload);
+
+      request
         .then(() => {
           onOk();
           form.resetFields();
@@ -106,6 +118,8 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
         })
         .catch(error => {
           console.error('Error saving personnel sequence:', error);
+          const errorMessage = error.response?.data?.personnel?.[0] || error.response?.data?.detail || '保存失败，请检查数据。';
+          message.error(errorMessage);
         });
     });
   };
@@ -171,11 +185,12 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
 
   return (
     <Modal
-      title="新建人员顺序"
+      title={sequence ? "编辑人员顺序" : "新建人员顺序"}
       open={open}
       onOk={handleSave}
       onCancel={onCancel}
       width={1000}
+      destroyOnClose
       footer={[
         <Button key="back" onClick={onCancel}>
           取消
@@ -195,7 +210,6 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
         </Form.Item>
       </Form>
       <Row gutter={16}>
-        {/* Left Column: Select Personnel */}
         <Col span={12}>
           <h3>选择人员</h3>
           <Input
@@ -231,8 +245,6 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
             style={{ height: '350px', overflowY: 'auto' }}
           />
         </Col>
-
-        {/* Right Column: Drag to Sort */}
         <Col span={12}>
           <Tabs activeKey={activeTab} onChange={setActiveTab} items={tabItems} />
         </Col>
@@ -245,6 +257,7 @@ PersonnelSequenceModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onCancel: PropTypes.func.isRequired,
   onOk: PropTypes.func.isRequired,
+  sequence: PropTypes.object,
 };
 
 export default PersonnelSequenceModal;

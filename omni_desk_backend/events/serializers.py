@@ -81,7 +81,7 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
         ]
 
     def get_personnel_details(self, obj):
-        return [{'id': p.user.id, 'real_name': p.user.real_name} for p in obj.personnel.all() if p.user]
+        return [{'id': p.customuser.id, 'real_name': p.customuser.real_name} for p in obj.personnel.all() if hasattr(p, 'customuser') and p.customuser]
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
     class Meta:

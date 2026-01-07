@@ -346,6 +346,7 @@ const ScheduleManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
   const [isPersonnelSequenceModalVisible, setIsPersonnelSequenceModalVisible] = useState(false);
+  const [currentSequence, setCurrentSequence] = useState(null);
   const [currentSchedule, setCurrentSchedule] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
   const calendarRef = useRef(null);
@@ -525,12 +526,14 @@ const ScheduleManagementPage = () => {
 
   const handlePersonnelSequenceModalOk = () => {
     setIsPersonnelSequenceModalVisible(false);
+    setCurrentSequence(null);
     queryClient.invalidateQueries({ queryKey: ['personnelSequences', 'leaderSequences'] });
     message.success('人员顺序已成功保存');
   };
 
   const handlePersonnelSequenceModalCancel = () => {
     setIsPersonnelSequenceModalVisible(false);
+    setCurrentSequence(null);
   };
 
   const handleGenerateModalOk = (values) => {
@@ -771,6 +774,7 @@ const ScheduleManagementPage = () => {
           <Space>
             <Button type="primary" onClick={handleAdd} data-testid="add-schedule-button">新增排班</Button>
             <Button type="default" onClick={() => setIsGenerateModalVisible(true)} data-testid="generate-schedule-button">生成排班</Button>
+            <Button type="default" onClick={() => setIsPersonnelSequenceModalVisible(true)} data-testid="manage-personnel-sequence-button">管理人员顺序</Button>
           </Space>
           <Space>
            <Radio.Group value={viewMode} onChange={(e) => setViewMode(e.target.value)}>
@@ -870,6 +874,7 @@ const ScheduleManagementPage = () => {
           onOk={handlePersonnelSequenceModalOk}
           onCancel={handlePersonnelSequenceModalCancel}
           personnelList={personnelList}
+          sequence={currentSequence}
         />
       )}
     </div>

@@ -301,7 +301,29 @@ const SequenceManager = () => {
       : (isUpdate ? updatePersonnelSequence : createPersonnelSequence);
 
     try {
-      isUpdate ? await apiCall(values.id, values) : await apiCall(values);
+      let payload = values;
+      if (!isEditingLeader) { // It's a personnel sequence
+        if (isUpdate) {
+          // For UPDATE, add the combined `personnel` field.
+          const personnelIds = [...new Set([
+            ...(values.sequence || []),
+            ...(values.holiday_sequence || [])
+          ])];
+          payload = { ...values, personnel: personnelIds };
+        } else {
+          // For CREATE, rename `sequence` to `personnel`.
+          const { sequence, ...rest } = values;
+          payload = { ...rest, personnel: sequence };
+        }
+      }
+      // For leader sequences, payload remains `values`.
+
+      if (isUpdate) {
+        await apiCall(values.id, payload);
+      } else {
+        await apiCall(payload);
+      }
+
       message.success('保存成功');
       setIsModalVisible(false);
       fetchData();
