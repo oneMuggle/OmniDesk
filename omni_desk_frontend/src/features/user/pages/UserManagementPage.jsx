@@ -8,7 +8,6 @@ import { permissionsApi } from '../../../shared/api/permissionsApi';
 import { useAuth } from '../../auth/context/AuthContext';
 
 const { Option } = Select;
-const { TabPane } = Tabs;
 const { Search } = Input;
 
 // Helper function to get all keys from the tree data
@@ -434,6 +433,26 @@ const UserManagementPage = () => {
         },
     ];
 
+    const tabItems = [
+        {
+            key: '1',
+            label: '用户列表',
+            children: (
+                <Table
+                    columns={userColumns}
+                    dataSource={users}
+                    rowKey="id"
+                    pagination={{ pageSize: 10 }}
+                />
+            ),
+        },
+        {
+            key: '2',
+            label: '用户组与权限',
+            children: <GroupPermissionManager groups={groups} fetchGroups={fetchGroups} />,
+        },
+    ];
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
@@ -446,19 +465,7 @@ const UserManagementPage = () => {
         <div style={{ padding: '24px' }}>
             <h1>管理员面板</h1>
             <Card>
-                <Tabs defaultActiveKey="1">
-                    <TabPane tab="用户列表" key="1">
-                        <Table
-                            columns={userColumns}
-                            dataSource={users}
-                            rowKey="id"
-                            pagination={{ pageSize: 10 }}
-                        />
-                    </TabPane>
-                    <TabPane tab="用户组与权限" key="2">
-                        <GroupPermissionManager groups={groups} fetchGroups={fetchGroups} />
-                    </TabPane>
-                </Tabs>
+                <Tabs defaultActiveKey="1" items={tabItems} />
             </Card>
         </div>
     );
