@@ -71,9 +71,17 @@ class UploadedImageSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
+    personnel_details = serializers.SerializerMethodField()
+
     class Meta:
         model = PersonnelSequence
-        fields = '__all__'
+        fields = [
+            'id', 'name', 'personnel', 'sequence',
+            'holiday_personnel', 'holiday_sequence', 'personnel_details'
+        ]
+
+    def get_personnel_details(self, obj):
+        return [{'id': p.user.id, 'real_name': p.user.real_name} for p in obj.personnel.all() if p.user]
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
     class Meta:

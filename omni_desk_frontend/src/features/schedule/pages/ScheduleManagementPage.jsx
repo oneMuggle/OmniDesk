@@ -237,7 +237,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
   const handleSequenceChange = (type, sequenceId) => {
     if (type === 'workday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedPersonnel((sequence && sequence.personnel_details) || []);
+      setSelectedPersonnel(sequence.personnel_details || []);
       form.setFieldsValue({ start_personnel_id: null });
     } else if (type === 'holiday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
@@ -288,7 +288,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
           <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" popupClassName="start-personnel-select-dropdown">
             {selectedPersonnel.map(p => (
-              <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.name}</Option>
+              <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.real_name}</Option>
             ))}
           </Select>
         </Form.Item>
@@ -306,7 +306,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
           <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" popupClassName="start-holiday-personnel-select-dropdown">
             {selectedHolidayPersonnel.map(p => (
-              <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.name}</Option>
+              <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.real_name}</Option>
             ))}
           </Select>
         </Form.Item>
