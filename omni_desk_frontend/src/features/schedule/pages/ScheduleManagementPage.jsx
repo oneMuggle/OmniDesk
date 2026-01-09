@@ -237,15 +237,15 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
   const handleSequenceChange = (type, sequenceId) => {
     if (type === 'workday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedPersonnel(sequence.personnel_details || []);
+      setSelectedPersonnel(sequence?.personnel_details || []);
       form.setFieldsValue({ start_personnel_id: null });
     } else if (type === 'holiday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedHolidayPersonnel((sequence && sequence.holiday_personnel_details) || []);
+      setSelectedHolidayPersonnel(sequence?.holiday_personnel_details || []);
       form.setFieldsValue({ start_holiday_personnel_id: null });
     } else if (type === 'leader') {
       const sequence = leaderSequences.find(s => s.id === sequenceId);
-      setSelectedLeaders((sequence && sequence.personnel_details) || []);
+      setSelectedLeaders(sequence?.personnel_details || []);
       form.setFieldsValue({ start_leader_id: null });
     }
   };

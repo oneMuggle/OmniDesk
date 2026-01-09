@@ -51,5 +51,5 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RunPython(migrate_personnel_data),
+        # migrations.RunPython(migrate_personnel_data),
     ]

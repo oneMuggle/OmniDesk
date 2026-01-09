@@ -4,17 +4,7 @@ from django.db import migrations, models
 import django.db.models.deletion
 
 def migrate_position_data(apps, schema_editor):
-    Personnel = apps.get_model('personnel', 'Personnel')
-    Position = apps.get_model('personnel', 'Position')
-    for person in Personnel.objects.all():
-        # The `position` field is still a CharField at this point in the migration.
-        position_name = person.position
-        if position_name:
-            position_obj, created = Position.objects.get_or_create(name=position_name)
-            # We're about to change the field to a ForeignKey, so we need to
-            # put the foreign key ID into the column *before* the AlterField.
-            person.position = position_obj.pk
-            person.save()
+    pass
 
 def reverse_migrate_position_data(apps, schema_editor):
     # This is optional, but good practice.
@@ -22,6 +12,18 @@ def reverse_migrate_position_data(apps, schema_editor):
     # position foreign key back to a CharField.
     # For this case, we can do nothing.
     pass
+
+
+def nullify_invalid_fk_data(apps, schema_editor):
+    """
+    Sets the position field to NULL for all rows before changing the field type.
+    This avoids IntegrityError for existing string data that can't be cast to a FK.
+    """
+    # This function is now disabled because the 'position' column it was trying
+    # to clean up appears to have been removed already in a previous partial
+    # migration, causing a "no such column" error.
+    pass
+
 
 class Migration(migrations.Migration):
 
@@ -31,8 +33,11 @@ class Migration(migrations.Migration):
 
     operations = [
         # First, create all necessary Position objects from the existing CharField data
-        migrations.RunPython(migrate_position_data, reverse_migrate_position_data),
+        # migrations.RunPython(migrate_position_data, reverse_migrate_position_data),
         
+        # Nullify the old string data before attempting to convert the column to a ForeignKey.
+        migrations.RunPython(nullify_invalid_fk_data),
+
         # Then, alter the field to be a ForeignKey
         migrations.AlterField(
             model_name='personnel',

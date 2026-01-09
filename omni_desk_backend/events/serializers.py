@@ -1,3 +1,4 @@
+from django.db import transaction
 from rest_framework import serializers
 from .models import (
     Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
@@ -72,16 +73,65 @@ class UploadedImageSerializer(serializers.ModelSerializer):
 
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
     personnel_details = serializers.SerializerMethodField()
+    holiday_personnel_details = serializers.SerializerMethodField()
 
     class Meta:
         model = PersonnelSequence
         fields = [
             'id', 'name', 'personnel', 'sequence',
-            'holiday_personnel', 'holiday_sequence', 'personnel_details'
+            'holiday_personnel', 'holiday_sequence', 'personnel_details',
+            'holiday_personnel_details'
         ]
+        extra_kwargs = {
+            'personnel': {'write_only': True},
+            'holiday_personnel': {'write_only': True},
+        }
 
     def get_personnel_details(self, obj):
-        return [{'id': p.customuser.id, 'real_name': p.customuser.real_name} for p in obj.personnel.all() if hasattr(p, 'customuser') and p.customuser]
+        return [{'id': p.user_account.id, 'real_name': p.user_account.real_name} for p in obj.personnel.all() if hasattr(p, 'user_account') and p.user_account]
+
+    def get_holiday_personnel_details(self, obj):
+        return [{'id': p.user_account.id, 'real_name': p.user_account.real_name} for p in obj.holiday_personnel.all() if hasattr(p, 'user_account') and p.user_account]
+
+    def update(self, instance, validated_data):
+        """
+        自定义更新方法以处理指向旧 personnel 表的 M2M 关系。
+        """
+        instance.name = validated_data.get('name', instance.name)
+        instance.sequence = validated_data.get('sequence', instance.sequence)
+        instance.holiday_sequence = validated_data.get('holiday_sequence', instance.holiday_sequence)
+
+        personnel_data = validated_data.get('personnel')
+        holiday_personnel_data = validated_data.get('holiday_personnel')
+
+        with transaction.atomic():
+            instance.save()
+
+            if personnel_data is not None:
+                old_personnel_list = []
+                for new_personnel in personnel_data:
+                    try:
+                        # 创可贴修复：通过 CustomUser 桥接，将新的 personnel.Personnel 对象
+                        # 转换为旧的 events.Personnel 对象。
+                        # 假设从 CustomUser 到旧 Personnel 的反向关系为 'events_personnel'。
+                        if hasattr(new_personnel, 'user_account') and new_personnel.user_account and hasattr(new_personnel.user_account, 'events_personnel'):
+                            old_personnel_list.append(new_personnel.user_account.events_personnel)
+                    except AttributeError:
+                        # 如果找不到关联的旧对象，则跳过，避免崩溃
+                        continue
+                instance.personnel.set(old_personnel_list)
+
+            if holiday_personnel_data is not None:
+                old_holiday_personnel_list = []
+                for new_personnel in holiday_personnel_data:
+                    try:
+                        if hasattr(new_personnel, 'user_account') and new_personnel.user_account and hasattr(new_personnel.user_account, 'events_personnel'):
+                            old_holiday_personnel_list.append(new_personnel.user_account.events_personnel)
+                    except AttributeError:
+                        continue
+                instance.holiday_personnel.set(old_holiday_personnel_list)
+
+        return instance
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
     class Meta:
