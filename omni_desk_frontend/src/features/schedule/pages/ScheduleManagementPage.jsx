@@ -69,7 +69,6 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
         form.resetFields();
       })
       .catch(info => {
-        console.log('Validate Failed:', info);
       });
   };
 
@@ -230,14 +229,14 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         setSelectedLeaders([]);
       })
       .catch(info => {
-        console.log('Validate Failed:', info);
       });
   };
 
   const handleSequenceChange = (type, sequenceId) => {
     if (type === 'workday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
-      setSelectedPersonnel(sequence?.personnel_details || []);
+      const personnelDetails = sequence?.personnel_details;
+      setSelectedPersonnel(personnelDetails || []);
       form.setFieldsValue({ start_personnel_id: null });
     } else if (type === 'holiday') {
       const sequence = personnelSequences.find(s => s.id === sequenceId);
@@ -287,9 +286,20 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
 
         <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
           <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" popupClassName="start-personnel-select-dropdown">
-            {selectedPersonnel.map(p => (
-              <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.real_name}</Option>
-            ))}
+            {
+              (() => {
+                if (!Array.isArray(selectedPersonnel)) {
+                  return null;
+                }
+                const filteredPersonnel = selectedPersonnel.filter(p => p && p.id != null);
+                
+                const weekdayPersonnelOptions = filteredPersonnel.map(p => (
+                  <Option key={p.id} value={p.id} data-testid={`start-personnel-option-${p.id}`}>{p.name}</Option>
+                ));
+                
+                return weekdayPersonnelOptions;
+              })()
+            }
           </Select>
         </Form.Item>
 
@@ -305,8 +315,8 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
 
         <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
           <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" popupClassName="start-holiday-personnel-select-dropdown">
-            {selectedHolidayPersonnel.map(p => (
-              <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.real_name}</Option>
+            {selectedHolidayPersonnel.filter(p => p && p.id != null).map(p => (
+              <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
           </Select>
         </Form.Item>
@@ -367,12 +377,12 @@ const ScheduleManagementPage = () => {
 
   const personnelQuery = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => getAllPersonnel().then(data => data.results),
+    queryFn: () => getAllPersonnel().then(res => res.data.results),
   });
 
   const positionsQuery = useQuery({
     queryKey: ['positions'],
-    queryFn: () => getPositions().then(data => data.results),
+    queryFn: () => getPositions().then(res => res.data.results),
   });
 
   const personnelSequencesQuery = useQuery({

@@ -5,6 +5,7 @@ from .models import (
     PersonnelSequence, LeaderSequence, Holiday, Position
 )
 from personnel.serializers import PersonnelSerializer
+from personnel.models import Personnel
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -71,6 +72,12 @@ class UploadedImageSerializer(serializers.ModelSerializer):
         model = UploadedImage
         fields = '__all__'
 
+class PersonnelSimpleSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Personnel
+        fields = ('id', 'name')
+
+
 class PersonnelSequenceSerializer(serializers.ModelSerializer):
     personnel_details = serializers.SerializerMethodField()
     holiday_personnel_details = serializers.SerializerMethodField()
@@ -88,10 +95,32 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
         }
 
     def get_personnel_details(self, obj):
-        return [{'id': p.user_account.id, 'real_name': p.user_account.real_name} for p in obj.personnel.all() if hasattr(p, 'user_account') and p.user_account]
+        """
+        Fetches details for each personnel in the sequence, skipping any invalid IDs.
+        """
+        personnel_ids = obj.sequence
+        if not personnel_ids:
+            return []
+
+        # Fetch all valid personnel objects in one query, optimizing for user_account access.
+        valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
+        
+        # Create a dictionary for quick lookups
+        personnel_map = {p.id: p for p in valid_personnel}
+        
+        # Build the result list, preserving the original order and skipping invalid IDs
+        result_list = []
+        for person_id in personnel_ids:
+            if person_id in personnel_map:
+                personnel = personnel_map[person_id]
+                serializer = PersonnelSimpleSerializer(personnel)
+                result_list.append(serializer.data)
+        
+        return result_list
 
     def get_holiday_personnel_details(self, obj):
-        return [{'id': p.user_account.id, 'real_name': p.user_account.real_name} for p in obj.holiday_personnel.all() if hasattr(p, 'user_account') and p.user_account]
+        personnel_list = obj.holiday_personnel.all()
+        return PersonnelSimpleSerializer(personnel_list, many=True).data
 
     def update(self, instance, validated_data):
         """

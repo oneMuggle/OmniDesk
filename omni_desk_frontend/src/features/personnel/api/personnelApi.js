@@ -36,13 +36,8 @@ export const getPersonnel = async (params = {}) => {
   }
 };
 
-export const getAllPersonnel = async () => {
-  try {
-    const response = await apiClient.get('personnel/personnel/', { params: { page_size: 1000 } });
-    return response.data.results || [];
-  } catch (error) {
-    return handleError(error, '获取所有人员信息失败');
-  }
+export const getAllPersonnel = () => {
+  return apiClient.get('personnel/personnel/', { params: { page_size: 1000 } });
 };
 
 export const getPersonnelDetails = async (id) => {
@@ -82,13 +77,8 @@ export const deletePersonnel = async (id) => {
 };
 
 // Position API
-export const getPositions = async (params = {}) => {
-  try {
-    const response = await apiClient.get('personnel/positions/', { params });
-    return handlePaginatedResponse(response);
-  } catch (error) {
-    return handleError(error, '获取职位列表失败');
-  }
+export const getPositions = (params = {}) => {
+  return apiClient.get('personnel/positions/', { params });
 };
 
 export const getAllPositions = async () => {
