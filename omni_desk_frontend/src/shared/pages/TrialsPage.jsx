@@ -113,12 +113,6 @@ const TrialsPage = () => {
     },
   };
 
-  if (trialsQuery.isLoading) return (
-    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-      <Spin tip="加载试验数据中..." />
-    </div>
-  );
-
   if (trialsQuery.error) return <div style={{ padding: 20 }}><Alert
     message="数据加载错误"
     description={`错误详情：${trialsQuery.error.message}`}
@@ -127,7 +121,8 @@ const TrialsPage = () => {
   /></div>;
 
   return (
-    <div className="trials-container">
+    <Spin spinning={trialsQuery.isLoading} tip="加载试验数据中...">
+      <div className="trials-container">
       {console.log('Trials Data Structure:', trials)}
       {console.log('API Response Sample:', trials?.[0])}
       <div className="header-section">
@@ -395,7 +390,8 @@ const TrialsPage = () => {
           </Form.Item>
         </Form>
       </Modal>
-    </div>
+      </div>
+    </Spin>
   );
 };
 
