@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Draggable } from 'react-beautiful-dnd';
+import { Draggable } from '@hello-pangea/dnd';
 import { Card, List } from 'antd';
 import moment from 'moment';
 import StrictModeDroppable from './StrictModeDroppable';

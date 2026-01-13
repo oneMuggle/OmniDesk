@@ -13,7 +13,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import PersonnelSequenceModal from '../../../shared/components/Schedule/PersonnelSequenceModal';
 import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
-import { DragDropContext } from 'react-beautiful-dnd';
+import { DragDropContext } from '@hello-pangea/dnd';
 
 const { Option } = Select;
 

@@ -14,7 +14,7 @@ jest.mock('../api/sequenceApi');
 jest.mock('../../features/personnel/api/personnelApi');
 
 // Mock react-beautiful-dnd
-jest.mock('react-beautiful-dnd', () => {
+jest.mock('@hello-pangea/dnd', () => {
   const PropTypes = require('prop-types');
   const DragDropContext = ({ children }) => <div>{children}</div>;
   DragDropContext.propTypes = { children: PropTypes.node.isRequired };
@@ -26,7 +26,7 @@ jest.mock('react-beautiful-dnd', () => {
   Draggable.propTypes = { children: PropTypes.func.isRequired };
 
   return {
-    ...jest.requireActual('react-beautiful-dnd'),
+    ...jest.requireActual('@hello-pangea/dnd'),
     DragDropContext,
     Droppable,
     Draggable,

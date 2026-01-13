@@ -7,7 +7,7 @@ import ShiftSchedule from './ShiftSchedule';
 import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import moment from 'moment';
-import { DragDropContext } from 'react-beautiful-dnd';
+import { DragDropContext } from '@hello-pangea/dnd';
 import { scheduleApi } from '../api/schedule';
 
 const ShiftScheduleContainer = () => {
