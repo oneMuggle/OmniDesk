@@ -74,7 +74,7 @@ const DashboardPage = () => {
         <Row gutter={[16, 16]}>
           {/* 本周试验日程 */}
           <Col xs={24} sm={24} md={8}>
-            <Card title="本周试验日程" bordered={false}>
+            <Card title="本周试验日程" variant="borderless">
               {loadingTrials ? (
                 <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />
@@ -104,7 +104,7 @@ const DashboardPage = () => {
 
           {/* 本周排班日程 */}
           <Col xs={24} sm={24} md={8}>
-            <Card title="本周排班日程" bordered={false}>
+            <Card title="本周排班日程" variant="borderless">
               {loadingSchedules ? (
                 <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />
@@ -134,7 +134,7 @@ const DashboardPage = () => {
 
           {/* 本周会议室预约 */}
           <Col xs={24} sm={24} md={8}>
-            <Card title="本周会议室预约" bordered={false}>
+            <Card title="本周会议室预约" variant="borderless">
               {loadingBookings ? (
                 <div className="welcome-page-loading-container">
                   <Spin indicator={antIcon} />

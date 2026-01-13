@@ -25,7 +25,7 @@ import {
 import complianceApi from '../../features/compliance/api/compliance';
 import { Badge, Tooltip } from 'antd';
 
-const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
+const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [expandedSubMenu, setExpandedSubMenu] = useState({});
   const { isAuthenticated, logout, hasPermission } = useAuth();
@@ -267,11 +267,6 @@ const Sidebar = ({ isMobileMenuOpen, toggleMobileMenu }) => {
 Sidebar.propTypes = {
   isMobileMenuOpen: PropTypes.bool,
   toggleMobileMenu: PropTypes.func,
-};
-
-Sidebar.defaultProps = {
-  isMobileMenuOpen: false,
-  toggleMobileMenu: () => {},
 };
 
 export default Sidebar;
