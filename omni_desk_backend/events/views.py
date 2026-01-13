@@ -32,7 +32,8 @@ from .serializers import (
     LeaderSequenceSerializer,
     HolidaySerializer,
     PositionSerializer,
-    EquipmentSerializer
+    EquipmentSerializer,
+    GenerateScheduleSerializer
 )
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -334,16 +335,18 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         支持指定起始人员和领导。
         区分工作日和节假日进行排班。
         """
-        personnel_sequence_id = request.data.get('personnel_sequence_id')
-        leader_sequence_id = request.data.get('leader_sequence_id')
-        start_personnel_id = request.data.get('start_personnel_id')
-        start_leader_id = request.data.get('start_leader_id')
-        target_month = request.data.get('target_month')  # e.g., "2025-09"
-        duration_days = request.data.get('duration_days')
-        start_date_str = request.data.get('start_date')
+        serializer = GenerateScheduleSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        validated_data = serializer.validated_data
 
-        if not personnel_sequence_id or not leader_sequence_id:
-            return Response({'error': 'personnel_sequence_id and leader_sequence_id are required'}, status=status.HTTP_400_BAD_REQUEST)
+        workday_personnel_sequence_id = validated_data['workday_personnel_sequence_id']
+        holiday_personnel_sequence_id = validated_data.get('holiday_personnel_sequence_id')
+        leader_sequence_id = validated_data['leader_sequence_id']
+        start_personnel_id = validated_data.get('start_personnel_id')
+        start_leader_id = validated_data.get('start_leader_id')
+        target_month = validated_data.get('target_month')
+        duration_days = validated_data.get('duration_days')
+        start_date = validated_data.get('start_date')
 
         if target_month:
             try:
@@ -353,30 +356,23 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 duration_days = num_days
             except ValueError:
                 return Response({'error': 'Invalid month format. Use YYYY-MM.'}, status=status.HTTP_400_BAD_REQUEST)
-        elif duration_days and start_date_str:
-            try:
-                start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
-                duration_days = int(duration_days)
-            except (ValueError, TypeError):
-                return Response({'error': 'Invalid date or duration format.'}, status=status.HTTP_400_BAD_REQUEST)
-        else:
-            return Response({'error': 'Either target_month or both start_date and duration_days are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            personnel_sequence = PersonnelSequence.objects.get(id=personnel_sequence_id)
+            workday_sequence = PersonnelSequence.objects.get(id=workday_personnel_sequence_id)
+            holiday_sequence = None
+            if holiday_personnel_sequence_id:
+                holiday_sequence = PersonnelSequence.objects.get(id=holiday_personnel_sequence_id)
             leader_sequence = LeaderSequence.objects.get(id=leader_sequence_id)
         except (PersonnelSequence.DoesNotExist, LeaderSequence.DoesNotExist):
             return Response({'error': 'Invalid sequence ID'}, status=status.HTTP_404_NOT_FOUND)
 
-        workday_personnel_order = personnel_sequence.sequence
-        # 如果节假日序列未配置，则使用工作日序列
-        holiday_personnel_order = personnel_sequence.holiday_sequence if personnel_sequence.holiday_sequence else workday_personnel_order
+        workday_personnel_order = workday_sequence.sequence
+        holiday_personnel_order = holiday_sequence.sequence if holiday_sequence and holiday_sequence.sequence else workday_personnel_order
         leader_order = leader_sequence.sequence
 
         if not workday_personnel_order or not leader_order:
             return Response({'error': 'Sequence cannot be empty.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        # 获取时间范围内的所有节假日
         end_date = start_date + timedelta(days=duration_days - 1)
         holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=start_date)
         holiday_dates = set()
@@ -428,7 +424,6 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                     duty_person_id = workday_personnel_order[personnel_idx]
                     workday_count += 1
                 
-                # Weekly rotation for leaders remains unchanged
                 weeks_passed = (current_date - start_date).days // 7
                 leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
                 duty_leader_id = leader_order[leader_idx]

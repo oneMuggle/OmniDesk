@@ -201,3 +201,24 @@ class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
         fields = ['id', 'name']
+
+
+class GenerateScheduleSerializer(serializers.Serializer):
+    """
+    Serializer for validating schedule generation parameters.
+    """
+    workday_personnel_sequence_id = serializers.IntegerField()
+    holiday_personnel_sequence_id = serializers.IntegerField(required=False, allow_null=True)
+    leader_sequence_id = serializers.IntegerField()
+    start_personnel_id = serializers.IntegerField(required=False, allow_null=True)
+    start_leader_id = serializers.IntegerField(required=False, allow_null=True)
+    target_month = serializers.CharField(required=False, allow_null=True, max_length=7)
+    duration_days = serializers.IntegerField(required=False, allow_null=True)
+    start_date = serializers.DateField(required=False, allow_null=True)
+
+    def validate(self, data):
+        if not data.get('target_month') and not (data.get('start_date') and data.get('duration_days')):
+            raise serializers.ValidationError(
+                "Either 'target_month' or both 'start_date' and 'duration_days' are required."
+            )
+        return data
