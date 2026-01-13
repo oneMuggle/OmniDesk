@@ -20,7 +20,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
   useEffect(() => {
     if (open) {
       getPositions()
-        .then(response => setPositions(response.data || []))
+        .then(response => setPositions(response.data.results || []))
         .catch(error => {
           console.error('Error fetching positions:', error);
           setPositions([
@@ -53,8 +53,8 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
     const fetchPersonnel = async () => {
       const params = { search: searchTerm, position_id: selectedPosition };
       try {
-        const data = await getPersonnel(params);
-        setPersonnel(data.data);
+        const response = await getPersonnel(params);
+        setPersonnel(response.data);
       } catch (error) {
         console.error('Error fetching personnel:', error);
         setPersonnel([]);

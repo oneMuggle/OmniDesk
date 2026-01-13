@@ -23,6 +23,7 @@ const PersonnelEditPage = ({ formRef }) => {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [positions, setPositions] = useState([]);
+    const [error, setError] = useState(null);
 
     useEffect(() => {
         const fetchDetailsAndPositions = async () => {
@@ -49,6 +50,7 @@ const PersonnelEditPage = ({ formRef }) => {
                     bank_accounts: record.bank_accounts || [],
                 });
             } catch (error) {
+                setError('获取页面数据失败');
                 message.error('获取页面数据失败');
             } finally {
                 setLoading(false);
@@ -85,7 +87,7 @@ const PersonnelEditPage = ({ formRef }) => {
     const renderDynamicList = (name, singular, fields) => (
         <Form.List name={name}>
             {(formFields, { add, remove }) => (
-                <Card title={`${singular}信息`} className="mb-4">
+                <Card title={`${singular}信息`} className="mb-4" role="region" aria-label={`${singular}信息`}>
                     {formFields.map(({ key, name: fieldName, ...restField }) => (
                         <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
                             {fields.map(field => (
@@ -107,7 +109,11 @@ const PersonnelEditPage = ({ formRef }) => {
     );
 
     if (loading) {
-        return <div className="flex justify-center items-center h-screen"><Spin size="large" /></div>;
+        return <div className="flex justify-center items-center h-screen" role="status"><Spin size="large" /></div>;
+    }
+
+    if (error) {
+        return <div className="flex justify-center items-center h-screen">{error}</div>;
     }
 
     return (

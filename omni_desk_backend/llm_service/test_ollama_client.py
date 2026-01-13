@@ -4,7 +4,8 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 import os
-from omni_desk_backend.llm_service.ollama_client import OllamaClient
+import requests
+from .ollama_client import OllamaClient
 
 class TestOllamaClient(unittest.TestCase):
 

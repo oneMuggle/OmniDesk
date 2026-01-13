@@ -268,7 +268,7 @@ class ScheduleViewSetTest(BaseTestCase):
         url = '/api/events/schedules/generate-schedules/'
         start_date = self.today
         data = {
-            'personnel_sequence_id': personnel_sequence.id,
+            'workday_personnel_sequence_id': personnel_sequence.id,
             'leader_sequence_id': leader_sequence.id,
             'start_date': start_date.strftime('%Y-%m-%d'),
             'duration_days': 14

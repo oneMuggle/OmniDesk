@@ -1,6 +1,6 @@
 import React from 'react';
 import moment from 'moment';
-import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import { Form } from 'antd';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
@@ -73,10 +73,10 @@ describe('PersonnelEditPage', () => {
 
   test('shows loading spinner initially and then displays data', async () => {
     renderWithRouter(<PersonnelEditPage />);
-    expect(screen.getByRole('spinbutton')).toBeInTheDocument();
+    expect(screen.getByRole('status')).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
-    expect(screen.queryByRole('spinbutton')).not.toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   test('shows error message if fetching data fails', async () => {
@@ -107,11 +107,37 @@ describe('PersonnelEditPage', () => {
     renderWithRouter(<PersonnelEditPage />);
     await screen.findByDisplayValue('Jane Doe'); // Wait for load
 
-    await userEvent.click(screen.getByRole('button', { name: /添加合同/i }));
+    const addButton = screen.getByRole('button', { name: /添加合同/i });
+    await userEvent.click(addButton);
 
-    const contractNumberInput = await screen.findByPlaceholderText('合同编号');
-    await userEvent.type(contractNumberInput, 'C002');
+    // After adding, there will be a new set of input fields for the new contract.
+    // We find them by their placeholder text. The last one in the list is the new one.
+    const contractNumberInputs = await screen.findAllByPlaceholderText('合同编号');
+    const startDateInputs = await screen.findAllByPlaceholderText('开始日期');
+    const endDateInputs = await screen.findAllByPlaceholderText('结束日期');
+
+    // Wait for the new inputs to appear
+    await waitFor(() => {
+      expect(contractNumberInputs).toHaveLength(2);
+      expect(startDateInputs).toHaveLength(2);
+      expect(endDateInputs).toHaveLength(2);
+    });
+
+    const newContractNumberInput = contractNumberInputs[1];
+    const newStartDateInput = startDateInputs[1];
+    const newEndDateInput = endDateInputs[1];
+
+    // Fill in the new contract details
+    await userEvent.type(newContractNumberInput, 'C002');
     
+    await userEvent.click(newStartDateInput);
+    await userEvent.type(newStartDateInput, '2025-01-01');
+    await userEvent.keyboard('{enter}');
+
+    await userEvent.click(newEndDateInput);
+    await userEvent.type(newEndDateInput, '2026-01-01');
+    await userEvent.keyboard('{enter}');
+
     // Note: antd DatePicker inputs are complex. We'll just check the submission data.
     await userEvent.click(screen.getByRole('button', { name: /保存更改/i }));
 
@@ -119,7 +145,11 @@ describe('PersonnelEditPage', () => {
       expect(personnelApi.updatePersonnel).toHaveBeenCalledWith('1', expect.objectContaining({
         contracts: expect.arrayContaining([
           expect.objectContaining({ contract_number: 'C001' }),
-          expect.objectContaining({ contract_number: 'C002' }),
+          expect.objectContaining({
+            contract_number: 'C002',
+            start_date: '2025-01-01',
+            end_date: '2026-01-01',
+          }),
         ]),
       }));
     });

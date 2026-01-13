@@ -102,7 +102,11 @@ const PersonnelManagementPage = () => {
   }, [fetchData, fetchPositions, current, pageSize]);
 
   const handleTableChange = (newPagination) => {
-    fetchData(newPagination.current, newPagination.pageSize);
+    setPagination(prev => ({
+      ...prev,
+      current: newPagination.current,
+      pageSize: newPagination.pageSize,
+    }));
   };
 
   const showCreateModal = () => {
@@ -114,12 +118,8 @@ const PersonnelManagementPage = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      // Directly use 'position' field from form, which will be the ID
-      const dataToSend = {
-        ...values,
-      };
-      // No need for position_id mapping or deletion
-
+      const dataToSend = { ...values };
+  
       if (editingId) {
         await updatePersonnel(editingId, dataToSend);
         message.success('更新成功');
@@ -127,11 +127,21 @@ const PersonnelManagementPage = () => {
         await createPersonnel(dataToSend);
         message.success('创建成功');
       }
+      
       setIsModalVisible(false);
-      fetchData(1, pagination.pageSize);
-    } catch (error) {
-      console.error('操作失败:', error); // Log error for debugging
-      message.error('操作失败');
+      // Reset pagination to the first page and fetch data
+      await fetchData(1, pagination.pageSize);
+  
+    } catch (errorInfo) {
+      // The error could be from form validation or the API call.
+      // The form validation error is an object with `errorFields`, while API errors are typically other objects.
+      if (errorInfo.errorFields) {
+        console.error('表单验证失败:', errorInfo);
+        message.error('表单验证失败，请检查输入。');
+      } else {
+        console.error('操作失败:', errorInfo);
+        message.error('操作失败，请稍后重试。');
+      }
     }
   };
 
@@ -146,7 +156,10 @@ const PersonnelManagementPage = () => {
         try {
           await deletePersonnel(id);
           message.success('删除成功');
-          fetchData();
+          // If the deleted item is the last one on the current page (and it's not the first page),
+          // fetch the previous page. Otherwise, fetch the current page.
+          const newPage = data.length === 1 && pagination.current > 1 ? pagination.current - 1 : pagination.current;
+          await fetchData(newPage, pagination.pageSize);
         } catch (error) {
           message.error('删除失败');
         }
@@ -166,7 +179,7 @@ const PersonnelManagementPage = () => {
     const fetchPositionData = useCallback(async () => {
       try {
         const response = await getPositions();
-        setPositionData(response.data || []);
+        setPositionData([...(response.data || [])]);
       } catch (error) {
         message.error('获取职位数据失败');
         setPositionData([]);
@@ -174,7 +187,10 @@ const PersonnelManagementPage = () => {
     }, []);
 
     useEffect(() => {
-      fetchPositionData();
+      const loadData = async () => {
+        await fetchPositionData();
+      };
+      loadData();
     }, [fetchPositionData]);
 
     const positionColumns = [
@@ -230,7 +246,7 @@ const PersonnelManagementPage = () => {
           message.success('职位创建成功');
         }
         setIsPositionModalVisible(false);
-        fetchPositionData();
+        await fetchPositionData();
       } catch (error) {
         message.error('职位操作失败');
       }
@@ -247,7 +263,7 @@ const PersonnelManagementPage = () => {
           try {
             await deletePosition(id);
             message.success('职位删除成功');
-            fetchPositionData();
+            await fetchPositionData();
           } catch (error) {
             message.error('职位删除失败');
           }

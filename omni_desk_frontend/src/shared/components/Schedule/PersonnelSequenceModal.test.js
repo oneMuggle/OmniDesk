@@ -3,9 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import apiClient from '../../api/apiClient';
+import * as personnelApi from '../../../features/personnel/api/personnelApi';
 import PersonnelSequenceModal from './PersonnelSequenceModal';
 
 jest.mock('../../api/apiClient');
+jest.mock('../../../features/personnel/api/personnelApi');
 
 const mockPositions = [
   { id: 1, name: 'Manager' },
@@ -22,32 +24,37 @@ const mockPersonnel = {
 
 describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
-    apiClient.get.mockImplementation((url, config = {}) => {
-      const params = config.params || {};
-      if (url.includes('/api/personnel/positions')) {
-        return Promise.resolve({ data: mockPositions });
+    personnelApi.getPositions.mockResolvedValue({ data: { results: mockPositions } });
+
+    personnelApi.getPersonnel.mockImplementation(params => {
+      const { search, position_id } = params;
+      let filteredPersonnel = [...mockPersonnel.results];
+
+      if (search) {
+        filteredPersonnel = filteredPersonnel.filter(p =>
+          p.name.toLowerCase().includes(search.toLowerCase())
+        );
       }
-      if (url.includes('/api/personnel/personnel')) {
-        const { search, position_id } = params;
-        let filteredPersonnel = [...mockPersonnel.results];
-        if (search) {
-          filteredPersonnel = filteredPersonnel.filter(p =>
-            p.name.toLowerCase().includes(search.toLowerCase())
-          );
+      if (position_id) {
+        const position = mockPositions.find(p => p.id === position_id);
+        if (position) {
+          filteredPersonnel = filteredPersonnel.filter(p => p.position === position.name);
+        } else {
+          filteredPersonnel = [];
         }
-        if (position_id) {
-          const position = mockPositions.find(p => p.id === position_id);
-          if (position) {
-            filteredPersonnel = filteredPersonnel.filter(p => p.position === position.name);
-          } else {
-            filteredPersonnel = [];
-          }
-        }
-        return Promise.resolve({ data: filteredPersonnel });
       }
-      return Promise.reject(new Error('not found'));
+      return Promise.resolve({
+        data: filteredPersonnel,
+        pagination: {
+          current: 1,
+          total: filteredPersonnel.length,
+          pageSize: 10,
+        },
+      });
     });
+
     apiClient.post.mockResolvedValue({ data: {} });
+    apiClient.put.mockResolvedValue({ data: {} });
   });
 
   afterEach(() => {
@@ -120,7 +127,7 @@ describe('PersonnelSequenceModal', () => {
     await user.type(screen.getByPlaceholderText('按姓名拼音搜索'), 'Ali');
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params: { search: 'Ali', position_id: null } });
+      expect(personnelApi.getPersonnel).toHaveBeenCalledWith({ search: 'Ali', position_id: null });
     });
 
     // Filter by position
@@ -129,7 +136,7 @@ describe('PersonnelSequenceModal', () => {
     await user.click(await screen.findByText('Manager'));
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params: { search: 'Ali', position_id: 1 } });
+      expect(personnelApi.getPersonnel).toHaveBeenCalledWith({ search: 'Ali', position_id: 1 });
     });
   });
 
