@@ -158,3 +158,140 @@ class BookImportViewTests(APITestCase):
             self.assertIn('Test Zip Book', chapter.title)
             # Check if image path was correctly updated in the content
             self.assertIn(f'{settings.MEDIA_URL}book_images/My_Zip_Imported_Book/test_image.png', chapter.content_md)
+
+
+from unittest.mock import patch, MagicMock
+from pathlib import Path
+import pypdf
+from docx import Document as DocxDocument
+from .file_processing import (
+    process_uploaded_file,
+    extract_text_from_pdf,
+    extract_text_from_docx,
+    call_mineru_ocr,
+)
+
+
+class FileProcessingTests(TestCase):
+    def setUp(self):
+        # Create a temporary directory
+        self.temp_dir_obj = tempfile.TemporaryDirectory()
+        self.temp_dir = self.temp_dir_obj.name
+
+    def tearDown(self):
+        # Cleanup the directory
+        self.temp_dir_obj.cleanup()
+
+    @patch('documents.file_processing.extract_text_from_docx')
+    def test_process_uploaded_file_docx_success(self, mock_extract):
+        """Test processing a DOCX file successfully."""
+        mock_extract.return_value = "Hello from DOCX"
+        file_content = b"dummy docx"
+        uploaded_file = SimpleUploadedFile("test.docx", file_content)
+        
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+        
+        self.assertTrue(os.path.exists(os.path.join(self.temp_dir, "test.docx")))
+        mock_extract.assert_called_once()
+        self.assertEqual(text, "Hello from DOCX")
+
+    @patch('documents.file_processing.extract_text_from_pdf')
+    @patch('documents.file_processing.call_mineru_ocr')
+    def test_process_uploaded_file_pdf_fallback(self, mock_ocr, mock_extract_pdf):
+        """Test PDF processing falls back to OCR on failure."""
+        mock_extract_pdf.return_value = None
+        mock_ocr.return_value = "Hello from OCR"
+        file_content = b"dummy pdf"
+        uploaded_file = SimpleUploadedFile("test.pdf", file_content)
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+
+        mock_extract_pdf.assert_called_once()
+        mock_ocr.assert_called_once()
+        self.assertEqual(text, "Hello from OCR")
+
+    @patch('documents.file_processing.call_mineru_ocr')
+    def test_process_uploaded_file_image(self, mock_ocr):
+        """Test image file processing calls OCR."""
+        mock_ocr.return_value = "Hello from Image OCR"
+        file_content = b"dummy image"
+        uploaded_file = SimpleUploadedFile("test.png", file_content)
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+        mock_ocr.assert_called_once()
+        self.assertEqual(text, "Hello from Image OCR")
+
+    def test_process_uploaded_file_unknown_type_text(self):
+        """Test processing an unknown file type as text."""
+        file_content = "Just a text file".encode('utf-8')
+        uploaded_file = SimpleUploadedFile("test.txt", file_content)
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+        self.assertEqual(text, "Just a text file")
+
+    def test_process_uploaded_file_unknown_type_binary(self):
+        """Test processing a binary file that cannot be decoded."""
+        file_content = b'\x80\x81\x82' # Invalid utf-8
+        uploaded_file = SimpleUploadedFile("test.bin", file_content)
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+        self.assertEqual(text, "")
+
+    def test_extract_text_from_pdf_success(self):
+        """Test successful text extraction from PDF."""
+        with patch('pypdf.PdfReader') as mock_reader:
+            mock_page = MagicMock()
+            mock_page.extract_text.return_value = "PDF page text. "
+            mock_instance = mock_reader.return_value
+            mock_instance.pages = [mock_page, mock_page]
+            
+            dummy_path = os.path.join(self.temp_dir, 'dummy.pdf')
+            Path(dummy_path).touch()
+            
+            text = extract_text_from_pdf(dummy_path)
+            self.assertEqual(text, "PDF page text. PDF page text. ")
+
+    def test_extract_text_from_pdf_error(self):
+        """Test text extraction failure from PDF."""
+        with patch('pypdf.PdfReader', side_effect=pypdf.errors.PdfReadError):
+            dummy_path = os.path.join(self.temp_dir, 'dummy.pdf')
+            Path(dummy_path).touch()
+            text = extract_text_from_pdf(dummy_path)
+            self.assertIsNone(text)
+
+    def test_extract_text_from_docx_success(self):
+        """Test successful text extraction from DOCX."""
+        doc = DocxDocument()
+        doc.add_paragraph("DOCX paragraph.")
+        doc.add_paragraph("Another paragraph.")
+        dummy_path = os.path.join(self.temp_dir, 'dummy.docx')
+        doc.save(dummy_path)
+
+        text = extract_text_from_docx(dummy_path)
+        self.assertEqual(text, "DOCX paragraph.\nAnother paragraph.\n")
+
+    @patch('requests.post')
+    def test_call_mineru_ocr_success(self, mock_post):
+        """Test successful call to Mineru OCR."""
+        mock_response = MagicMock()
+        mock_response.raise_for_status.return_value = None
+        mock_response.json.return_value = {'text': 'ocr text'}
+        mock_post.return_value = mock_response
+
+        dummy_path = os.path.join(self.temp_dir, 'dummy.png')
+        Path(dummy_path).touch()
+
+        with self.settings(MINERU_API_URL='http://fake.url', MINERU_API_KEY='fake-key'):
+            text = call_mineru_ocr(dummy_path)
+        
+        self.assertEqual(text, 'ocr text')
+        mock_post.assert_called_once()
+
+    def test_call_mineru_ocr_no_settings(self):
+        """Test Mineru OCR call raises error if settings are missing."""
+        dummy_path = os.path.join(self.temp_dir, 'dummy.png')
+        Path(dummy_path).touch()
+
+        with self.settings(MINERU_API_URL=None):
+            with self.assertRaises(ValueError):
+                call_mineru_ocr(dummy_path)

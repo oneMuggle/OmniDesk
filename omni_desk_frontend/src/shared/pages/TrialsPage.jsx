@@ -20,8 +20,9 @@ const { Option } = Select;
 const TrialsPage = () => {
   const [form] = Form.useForm();
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [currentRecord, setCurrentRecord] = useState(null);
+  const [editingTrial, setEditingTrial] = useState(null);
   const queryClient = useQueryClient();
+
 
   // 获取数据 (已重构为 v5 API)
   const trialsQuery = useQuery({
@@ -49,15 +50,6 @@ const TrialsPage = () => {
   });
   const { data: responsiblePersons } = responsiblePersonsQuery;
 
-  // 调试设备数据加载状态
-  useEffect(() => {
-    console.log('[MCP_DEBUG] 当前设备选项数据:', equipments);
-  }, [equipments]);
-
-  // 调试人员数据加载状态
-  useEffect(() => {
-    console.log('[MCP_DEBUG] 当前人员选项数据:', responsiblePersons);
-  }, [responsiblePersons]);
 
   // 创建/更新操作 (已重构为 v5 API)
   const trialMutation = useMutation({
@@ -71,8 +63,8 @@ const TrialsPage = () => {
         status: values.status || 'planned',
         _legacy_related_equipment: values.related_equipment
       };
-      const action = currentRecord
-        ? updateTrial(currentRecord.id, processedValues)
+      const action = editingTrial
+        ? updateTrial(editingTrial.id, processedValues)
         : createTrial(processedValues);
       return action;
     },
@@ -123,19 +115,12 @@ const TrialsPage = () => {
   return (
     <Spin spinning={trialsQuery.isLoading} tip="加载试验数据中...">
       <div className="trials-container">
-      {console.log('Trials Data Structure:', trials)}
-      {console.log('API Response Sample:', trials?.[0])}
       <div className="header-section">
         <Button
           type="primary"
           onClick={() => {
-            setCurrentRecord(null);
-            form.resetFields();
-            form.setFieldsValue({
-              start_date: dayjs(),
-              end_date: dayjs().add(1, 'day'),
-              status: 'planned'
-            });
+            setEditingTrial(null);
+            form.resetFields(); // 确保在打开新建模态框时表单是干净的
             setIsModalVisible(true);
           }}
         >
@@ -223,14 +208,14 @@ const TrialsPage = () => {
               <Button
                 type="link"
                 onClick={() => {
-                  setCurrentRecord(record);
-                  form.setFieldsValue({
+                  const processedRecord = {
                     ...record,
-                    equipment_ids: record.equipments?.map(e => e.id),
-                    responsible_persons: record.responsible_persons?.map(p => p.id),
                     start_date: record.start_date ? dayjs(record.start_date) : null,
                     end_date: record.end_date ? dayjs(record.end_date) : null,
-                  });
+                    equipment_ids: record.equipments?.map(e => e.id),
+                    responsible_persons: record.responsible_persons?.map(p => p.id),
+                  };
+                  setEditingTrial(processedRecord);
                   setIsModalVisible(true);
                 }}
                 style={{ padding: '0 8px' }}
@@ -258,14 +243,16 @@ const TrialsPage = () => {
       </Table>
 
       <Modal
-        title={currentRecord ? '编辑试验' : '新建试验'}
+        title={editingTrial ? '编辑试验' : '新建试验'}
         open={isModalVisible}
         onCancel={() => setIsModalVisible(false)}
         footer={null}
-        destroyOnHidden
+        destroyOnHidden // 使用 destroyOnHidden 确保每次关闭时销毁子元素
       >
         <Form
+          key={editingTrial ? editingTrial.id : 'new'}
           form={form}
+          initialValues={editingTrial}
           onFinish={trialMutation.mutate}
           layout="vertical"
         >
@@ -385,7 +372,7 @@ const TrialsPage = () => {
 
           <Form.Item>
             <Button type="primary" htmlType="submit" loading={trialMutation.isPending}>
-              {currentRecord ? '更新' : '创建'}
+              {editingTrial ? '更新' : '创建'}
             </Button>
           </Form.Item>
         </Form>

@@ -22,7 +22,7 @@ jest.mock('@hello-pangea/dnd', () => {
   const Droppable = ({ children }) => <div>{children( { innerRef: jest.fn(), droppableProps: {}, placeholder: null } )}</div>;
   Droppable.propTypes = { children: PropTypes.func.isRequired };
 
-  const Draggable = ({ children }) => <div>{children( { innerRef: jest.fn(), draggableProps: {}, dragHandleProps: {} }, {} )}</div>;
+  const Draggable = ({ children }) => <div>{children( { innerRef: jest.fn(), draggableProps: { style: {} }, dragHandleProps: {} }, {} )}</div>;
   Draggable.propTypes = { children: PropTypes.func.isRequired };
 
   return {
@@ -37,13 +37,15 @@ jest.mock('@hello-pangea/dnd', () => {
 const mockPersonnelSequences = { data: { results: [{ id: 1, name: 'Personnel Seq 1', sequence: [1, 2] }] } };
 const mockLeaderSequences = { data: { results: [{ id: 1, name: 'Leader Seq 1', sequence: [3] }] } };
 const mockAllPersonnel = {
-  results: [
-    { id: 1, name: 'Alice', position: 1, position_name: 'Dev' },
-    { id: 2, name: 'Bob', position: 1, position_name: 'Dev' },
-    { id: 3, name: 'Charlie', position: 2, position_name: 'Manager' },
-  ],
+  data: {
+    results: [
+      { id: 1, name: 'Alice', position: 1, position_name: 'Dev' },
+      { id: 2, name: 'Bob', position: 1, position_name: 'Dev' },
+      { id: 3, name: 'Charlie', position: 2, position_name: 'Manager' },
+    ],
+  },
 };
-const mockPositions = { results: [{ id: 1, name: 'Dev' }, { id: 2, name: 'Manager' }] };
+const mockPositions = { data: { results: [{ id: 1, name: 'Dev' }, { id: 2, name: 'Manager' }] } };
 
 describe('SequenceManager', () => {
   beforeEach(() => {
@@ -130,7 +132,6 @@ describe('SequenceManager', () => {
   });
 
   test('adds and removes personnel in the modal', async () => {
-    getAllPersonnel.mockResolvedValue(mockAllPersonnel.results); // Correctly return the array
     render(<SequenceManager />);
 
     await screen.findByText('Personnel Seq 1');

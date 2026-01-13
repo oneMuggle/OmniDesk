@@ -13,20 +13,33 @@ import {
   getPositions,
   getAllPositions,
   createPosition,
+  updatePosition,
+  deletePosition,
 } from '../api/personnelApi';
+import { message } from 'antd';
 
 jest.mock('antd', () => {
   const antd = jest.requireActual('antd');
-  return {
-    ...antd,
-    message: {
-      success: jest.fn(),
-      error: jest.fn(),
-      warning: jest.fn(),
-      info: jest.fn(),
-    },
+  const message = {
+    success: jest.fn(),
+    error: jest.fn(),
+    warning: jest.fn(),
+    info: jest.fn(),
   };
+  // Mock Modal.confirm to automatically call onOk
+  const Modal = {
+    ...antd.Modal,
+    confirm: jest.fn(({ onOk }) => {
+      if (onOk) {
+        // We wrap onOk in a promise resolve to simulate the async nature
+        // of user interaction and subsequent API calls.
+        return Promise.resolve(onOk());
+      }
+    }),
+  };
+  return { ...antd, message, Modal };
 });
+
 
 jest.mock('../api/personnelApi');
 
@@ -47,10 +60,10 @@ const mockPositions = {
 
 describe('PersonnelManagementPage', () => {
   let container;
+  let mutablePersonnel;
+  let mutablePositions;
 
   const renderWithProvider = (ui) => {
-    // By rendering into a container and telling antd to use that container for popups,
-    // we can reliably find elements within those popups.
     return render(
       <MemoryRouter>
         <ConfigProvider getPopupContainer={() => container}>
@@ -62,52 +75,32 @@ describe('PersonnelManagementPage', () => {
   };
 
   beforeEach(() => {
-    // eslint-disable-next-line testing-library/no-node-access
     container = document.createElement('div');
-    // eslint-disable-next-line testing-library/no-node-access
     document.body.appendChild(container);
 
-    // Use a mutable list to simulate backend state changes across API calls in a single test
-    const mutablePersonnel = JSON.parse(JSON.stringify(mockPersonnel.results));
+    mutablePersonnel = JSON.parse(JSON.stringify(mockPersonnel.results));
+    mutablePositions = JSON.parse(JSON.stringify(mockPositions.results));
 
-    getPersonnel.mockImplementation(params => {
-      const { search, position } = params || {};
-      let results = [...mutablePersonnel];
-      if (search) {
-        results = results.filter(p =>
-          p.name.toLowerCase().includes(search.toLowerCase()) ||
-          (p.phone_numbers && p.phone_numbers.some(ph => ph.number.includes(search)))
-        );
-      }
-      if (position) {
-        // Ensure position is treated as a number for comparison
-        results = results.filter(p => p.position === parseInt(String(position), 10));
-      }
-      return Promise.resolve({ data: results, pagination: { total: results.length } });
+    getPersonnel.mockImplementation(({ page = 1, page_size = 10 } = {}) => {
+      const start = (page - 1) * page_size;
+      const end = start + page_size;
+      const paginatedData = mutablePersonnel.slice(start, end);
+      return Promise.resolve({ data: paginatedData, pagination: { total: mutablePersonnel.length } });
     });
 
-    getPositions.mockResolvedValue({ data: mockPositions.results });
-    getAllPositions.mockResolvedValue(mockPositions.results);
+    getPositions.mockImplementation(() => Promise.resolve({ data: mutablePositions }));
+    getAllPositions.mockResolvedValue(mutablePositions);
 
     createPersonnel.mockImplementation(newData => {
-      const position = mockPositions.results.find(p => p.id === newData.position);
+      const position = mutablePositions.find(p => p.id === newData.position);
       const newPerson = {
         ...newData,
-        id: Date.now(), // Simple unique ID for testing
+        id: Date.now(),
         position_name: position ? position.name : '',
         phone_numbers: newData.phone_numbers || [],
       };
       mutablePersonnel.push(newPerson);
       return Promise.resolve(newPerson);
-    });
-
-    updatePersonnel.mockImplementation((id, updatedData) => {
-      const index = mutablePersonnel.findIndex(p => p.id === id);
-      if (index > -1) {
-        mutablePersonnel[index] = { ...mutablePersonnel[index], ...updatedData };
-        return Promise.resolve(mutablePersonnel[index]);
-      }
-      return Promise.reject(new Error('Personnel not found'));
     });
 
     deletePersonnel.mockImplementation(id => {
@@ -119,13 +112,34 @@ describe('PersonnelManagementPage', () => {
       return Promise.reject(new Error('Personnel not found'));
     });
 
-    createPosition.mockResolvedValue({});
+    createPosition.mockImplementation(newData => {
+      const newPosition = { ...newData, id: Date.now() };
+      mutablePositions.push(newPosition);
+      return Promise.resolve(newPosition);
+    });
+
+    updatePosition.mockImplementation((id, updatedData) => {
+      const index = mutablePositions.findIndex(p => p.id === id);
+      if (index > -1) {
+        mutablePositions[index] = { ...mutablePositions[index], ...updatedData };
+        return Promise.resolve(mutablePositions[index]);
+      }
+      return Promise.reject(new Error('Position not found'));
+    });
+
+    deletePosition.mockImplementation(id => {
+      const index = mutablePositions.findIndex(p => p.id === id);
+      if (index > -1) {
+        mutablePositions.splice(index, 1);
+        return Promise.resolve({});
+      }
+      return Promise.reject(new Error('Position not found'));
+    });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
     if (container) {
-      // eslint-disable-next-line testing-library/no-node-access
       document.body.removeChild(container);
       container = null;
     }
@@ -140,70 +154,155 @@ describe('PersonnelManagementPage', () => {
     });
   });
 
+  test('shows error message when fetching personnel fails', async () => {
+    getPersonnel.mockRejectedValue(new Error('Failed to fetch'));
+    renderWithProvider(<PersonnelManagementPage />);
+    await waitFor(() => {
+      expect(message.error).toHaveBeenCalledWith('获取人员数据失败');
+    });
+  });
+
   describe('Personnel Management', () => {
-    test('adds a new person', async () => {
+    test('adds a new person with dynamic phone numbers', async () => {
       renderWithProvider(<PersonnelManagementPage />);
-      await screen.findByText('John Doe'); // Wait for initial data
+      await screen.findByText('John Doe');
 
       await userEvent.click(screen.getByRole('button', { name: /新增人员/i }));
-      await screen.findByRole('dialog');
-
-      await userEvent.type(screen.getByLabelText('姓名'), 'Peter Pan');
-      
-      const positionSelect = screen.getByLabelText('职位');
-      await userEvent.click(positionSelect);
-      await screen.findByRole('listbox');
-      // The first option is 'Developer' with id 1
-      await userEvent.keyboard('{enter}');
-
-      await userEvent.click(screen.getByRole('button', { name: 'OK' }));
-
-      // Wait for the new person to appear and pagination to update.
-      await waitFor(() => {
-        expect(screen.getByText('Peter Pan')).toBeInTheDocument();
-        expect(screen.getByText(/共 3 条/)).toBeInTheDocument();
-      });
-
-      // Verify the API call was made correctly.
-      expect(createPersonnel).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'Peter Pan',
-        position: 1,
-      }));
-    });
-
-    test('edits an existing person', async () => {
-      renderWithProvider(<PersonnelManagementPage />);
-      await screen.findByText('John Doe'); // Wait for initial data
-
-      await userEvent.click(screen.getAllByRole('link', { name: /编辑/i })[0]);
-      // Since this is a navigation, we don't expect a dialog.
-      // The test should now assert something about the new page.
-      // For now, let's just verify the navigation was attempted.
-      // A more complete test would involve the PersonnelEditPage.
-      await waitFor(() => {
-        expect(screen.getByText('John Doe')).toBeInTheDocument();
-      });
-    });
-
-    test('deletes an existing person', async () => {
-      renderWithProvider(<PersonnelManagementPage />);
-      await screen.findByText('John Doe'); // Wait for initial data
-
-      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]);
-
       const dialog = await screen.findByRole('dialog');
-      const confirmButton = await within(dialog).findByRole('button', { name: /确\s*认/ });
-      await userEvent.click(confirmButton);
 
-      // Wait for the person to be removed and pagination to update.
+      await userEvent.type(within(dialog).getByLabelText('姓名'), 'Peter Pan');
+      await userEvent.click(within(dialog).getByLabelText('职位'));
+      await userEvent.click(await screen.findByText('Developer'));
+
+      // Add a phone number
+      await userEvent.click(within(dialog).getByRole('button', { name: /添加电话号码/i }));
+      await userEvent.type(within(dialog).getAllByPlaceholderText('电话号码')[0], '12345678901');
+
+      // Add another phone number and then remove it
+      await userEvent.click(within(dialog).getByRole('button', { name: /添加电话号码/i }));
+      await userEvent.type(within(dialog).getAllByPlaceholderText('电话号码')[1], '111');
+      await userEvent.click(within(dialog).getAllByRole('img', { name: /minus-circle/i })[1]);
+
+
+      await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+
       await waitFor(() => {
-        expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
-        expect(screen.getByText(/共 1 条/)).toBeInTheDocument();
+        expect(createPersonnel).toHaveBeenCalledWith(expect.objectContaining({
+          name: 'Peter Pan',
+          position: 1,
+          phone_numbers: [{ number: '12345678901' }],
+        }));
+        expect(message.success).toHaveBeenCalledWith('创建成功');
       });
-
-      // Verify the API call.
-      expect(deletePersonnel).toHaveBeenCalledWith(1);
     });
 
+    test('deletes an existing person and handles API failure', async () => {
+      renderWithProvider(<PersonnelManagementPage />);
+      await screen.findByText('John Doe');
+
+      // Test successful deletion
+      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]);
+      await waitFor(() => {
+        expect(deletePersonnel).toHaveBeenCalledWith(1);
+        expect(message.success).toHaveBeenCalledWith('删除成功');
+        expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+      });
+
+      // Test failed deletion
+      deletePersonnel.mockRejectedValueOnce(new Error('Deletion failed'));
+      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]); // Delete Jane Smith
+      await waitFor(() => {
+        expect(deletePersonnel).toHaveBeenCalledWith(2);
+        expect(message.error).toHaveBeenCalledWith('删除失败');
+      });
+    });
+
+    test('handles pagination change', async () => {
+      // Add more mock data to test pagination
+      for (let i = 3; i <= 15; i++) {
+        mutablePersonnel.push({ id: i, name: `Person ${i}`, position: 1, position_name: 'Developer', phone_numbers: [] });
+      }
+      renderWithProvider(<PersonnelManagementPage />);
+      await screen.findByText('John Doe');
+
+      // Navigate to the next page
+      await userEvent.click(screen.getByTitle('Next Page'));
+
+      await waitFor(() => {
+        // Wait for the second page's content to appear
+        expect(screen.getByText('Person 11')).toBeInTheDocument();
+      });
+      // Assert API calls after waiting
+      expect(getPersonnel).toHaveBeenCalledTimes(2);
+      expect(getPersonnel).toHaveBeenCalledWith({ page: 2, page_size: 10 });
+    });
+  });
+
+  describe('Position Management Tab', () => {
+    test('renders position data and allows creating a new position', async () => {
+      renderWithProvider(<PersonnelManagementPage />);
+      const positionTab = await screen.findByRole('tab', { name: /职位管理/i });
+      await userEvent.click(positionTab);
+
+      await screen.findByText('职位管理'); // Header for the tab content
+      expect(screen.getByText('Developer')).toBeInTheDocument();
+
+      await userEvent.click(screen.getByRole('button', { name: /新增职位/i }));
+      const dialog = await screen.findByRole('dialog', { name: /新增职位/i });
+
+      await userEvent.type(within(dialog).getByLabelText('职位名称'), 'QA Tester');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+
+      await waitFor(() => {
+        expect(createPosition).toHaveBeenCalledWith({ name: 'QA Tester' });
+        expect(message.success).toHaveBeenCalledWith('职位创建成功');
+        expect(screen.getByText('QA Tester')).toBeInTheDocument();
+      });
+    });
+
+    test('allows editing an existing position', async () => {
+      renderWithProvider(<PersonnelManagementPage />);
+      const positionTab = await screen.findByRole('tab', { name: /职位管理/i });
+      await userEvent.click(positionTab);
+
+      await screen.findByText('Developer');
+      await userEvent.click(screen.getAllByRole('button', { name: /编辑/i })[0]);
+
+      const dialog = await screen.findByRole('dialog', { name: /编辑职位/i });
+      const input = within(dialog).getByLabelText('职位名称');
+      await userEvent.clear(input);
+      await userEvent.type(input, 'Senior Developer');
+      await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
+
+      await waitFor(() => {
+        expect(updatePosition).toHaveBeenCalledWith(1, { name: 'Senior Developer' });
+        expect(message.success).toHaveBeenCalledWith('职位更新成功');
+        expect(screen.getByText('Senior Developer')).toBeInTheDocument();
+      });
+    });
+
+    test('allows deleting a position and handles API failure', async () => {
+      renderWithProvider(<PersonnelManagementPage />);
+      const positionTab = await screen.findByRole('tab', { name: /职位管理/i });
+      await userEvent.click(positionTab);
+
+      await screen.findByText('Developer');
+
+      // Successful deletion
+      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[1]); // Delete 'Manager'
+      await waitFor(() => {
+        expect(deletePosition).toHaveBeenCalledWith(2);
+        expect(message.success).toHaveBeenCalledWith('职位删除成功');
+        expect(screen.queryByText('Manager')).not.toBeInTheDocument();
+      });
+
+      // Failed deletion
+      deletePosition.mockRejectedValueOnce(new Error('Deletion failed'));
+      await userEvent.click(screen.getAllByRole('button', { name: /删除/i })[0]); // Delete 'Developer'
+      await waitFor(() => {
+        expect(deletePosition).toHaveBeenCalledWith(1);
+        expect(message.error).toHaveBeenCalledWith('职位删除失败');
+      });
+    });
   });
 });

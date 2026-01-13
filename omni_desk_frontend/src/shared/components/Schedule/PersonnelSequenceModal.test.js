@@ -22,22 +22,28 @@ const mockPersonnel = {
 
 describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
-    apiClient.get.mockImplementation((url, { params } = {}) => {
-      if (url.includes('personnel/positions')) {
-        return Promise.resolve({ data: { results: mockPositions } });
+    apiClient.get.mockImplementation((url, config = {}) => {
+      const params = config.params || {};
+      if (url.includes('/api/personnel/positions')) {
+        return Promise.resolve({ data: mockPositions });
       }
-      if (url.includes('personnel/personnel')) {
-        const { search, position_id } = params || {};
-        let results = [...mockPersonnel.results];
+      if (url.includes('/api/personnel/personnel')) {
+        const { search, position_id } = params;
+        let filteredPersonnel = [...mockPersonnel.results];
         if (search) {
-          results = results.filter(p =>
+          filteredPersonnel = filteredPersonnel.filter(p =>
             p.name.toLowerCase().includes(search.toLowerCase())
           );
         }
         if (position_id) {
-          results = results.filter(p => p.position === 'Manager');
+          const position = mockPositions.find(p => p.id === position_id);
+          if (position) {
+            filteredPersonnel = filteredPersonnel.filter(p => p.position === position.name);
+          } else {
+            filteredPersonnel = [];
+          }
         }
-        return Promise.resolve({ data: { results } });
+        return Promise.resolve({ data: filteredPersonnel });
       }
       return Promise.reject(new Error('not found'));
     });
@@ -114,7 +120,7 @@ describe('PersonnelSequenceModal', () => {
     await user.type(screen.getByPlaceholderText('按姓名拼音搜索'), 'Ali');
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params: { search: 'Ali', position_id: null } });
+      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params: { search: 'Ali', position_id: null } });
     });
 
     // Filter by position
@@ -123,7 +129,7 @@ describe('PersonnelSequenceModal', () => {
     await user.click(await screen.findByText('Manager'));
 
     await waitFor(() => {
-      expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params: { search: 'Ali', position_id: 1 } });
+      expect(apiClient.get).toHaveBeenCalledWith('/api/personnel/personnel/', { params: { search: 'Ali', position_id: 1 } });
     });
   });
 
@@ -151,8 +157,9 @@ describe('PersonnelSequenceModal', () => {
     await waitFor(() => {
       expect(apiClient.post).toHaveBeenCalledWith('/api/events/personnel-sequences/', {
         name: 'Test Sequence',
-        personnel_ids: [1],
-        holiday_personnel_ids: [2],
+        sequence: [1],
+        holiday_personnel: [2],
+        personnel: [1, 2],
       });
     });
     

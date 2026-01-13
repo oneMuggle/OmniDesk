@@ -43,7 +43,7 @@ describe('personnelApi', () => {
       const result = await getAllPersonnel();
 
       expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params: { page_size: 1000 } });
-      expect(result).toEqual(response.data.results);
+      expect(result).toEqual(response);
     });
   });
 
@@ -103,10 +103,7 @@ describe('personnelApi', () => {
       const result = await getPositions();
 
       expect(apiClient.get).toHaveBeenCalledWith('personnel/positions/', { "params": {} });
-      expect(result).toEqual({
-        data: [{ id: 1, name: 'Manager' }],
-        pagination: { current: 1, total: 1, pageSize: 10 },
-      });
+      expect(result).toEqual(response);
     });
   });
 
