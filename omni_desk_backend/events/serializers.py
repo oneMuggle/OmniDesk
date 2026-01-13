@@ -163,9 +163,34 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
         return instance
 
 class LeaderSequenceSerializer(serializers.ModelSerializer):
+    personnel_details = serializers.SerializerMethodField()
+
     class Meta:
         model = LeaderSequence
-        fields = '__all__'
+        fields = ['id', 'name', 'personnel', 'sequence', 'personnel_details']
+        extra_kwargs = {
+            'personnel': {'write_only': True},
+        }
+
+    def get_personnel_details(self, obj):
+        """
+        Fetches details for each personnel in the sequence, skipping any invalid IDs.
+        """
+        personnel_ids = obj.sequence
+        if not personnel_ids:
+            return []
+
+        valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
+        personnel_map = {p.id: p for p in valid_personnel}
+        
+        result_list = []
+        for person_id in personnel_ids:
+            if person_id in personnel_map:
+                personnel = personnel_map[person_id]
+                serializer = PersonnelSimpleSerializer(personnel)
+                result_list.append(serializer.data)
+        
+        return result_list
 
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
