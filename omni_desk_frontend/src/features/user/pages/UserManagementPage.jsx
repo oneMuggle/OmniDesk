@@ -318,7 +318,7 @@ const UserManagementPage = () => {
     const fetchPersonnel = async () => {
         try {
             const response = await getAllPersonnel();
-            setPersonnel(response || []);
+            setPersonnel(response.data.results || []);
         } catch (error) {
             message.error('获取人员数据失败');
         }

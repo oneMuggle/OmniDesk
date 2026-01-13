@@ -167,7 +167,7 @@ const PersonnelEditPage = ({ formRef }) => {
 
                     <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
                     <Form.Item name="professional_qualifications">
-                        <ProfessionalQualificationTable isEditing={true} />
+                        <ProfessionalQualificationTable isEditing={true} personnelId={parseInt(id, 10)} />
                     </Form.Item>
 
                     <h2 className="text-xl font-semibold mt-8 mb-4">公积金信息</h2>
