@@ -68,7 +68,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
         onOk(submitData);
         form.resetFields();
       })
-      .catch(info => {
+      .catch(() => {
       });
   };
 
@@ -228,7 +228,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         setSelectedHolidayPersonnel([]);
         setSelectedLeaders([]);
       })
-      .catch(info => {
+      .catch(() => {
       });
   };
 
