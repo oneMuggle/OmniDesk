@@ -126,7 +126,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             placeholder="选择值班人员"
             showSearch
             data-testid="schedule-modal-duty-person-select"
-            popupClassName="duty-person-select-dropdown"
+            classNames={{ popup: { root: 'duty-person-select-dropdown' } }}
             filterOption={(input, option) =>
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
@@ -172,7 +172,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
             placeholder="选择值班领导"
             showSearch
             data-testid="schedule-modal-duty-leader-select"
-            popupClassName="duty-leader-select-dropdown"
+            classNames={{ popup: { root: 'duty-leader-select-dropdown' } }}
             filterOption={(input, option) =>
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
@@ -275,7 +275,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         )}
 
         <Form.Item name="workday_personnel_sequence_id" label="人员顺序 (工作日)" rules={[{ required: true, message: '请选择工作日人员顺序!' }]}>
-          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" popupClassName="workday-sequence-select-dropdown">
+          <Select placeholder="选择工作日人员顺序" onChange={(value) => handleSequenceChange('workday', value)} data-testid="generate-schedule-workday-personnel-sequence" classNames={{ popup: { root: 'workday-sequence-select-dropdown' } }}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`workday-sequence-option-${seq.id}`}>
                 {seq.name} (工作日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -285,7 +285,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_personnel_id" label="起始人员 (工作日)">
-          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" popupClassName="start-personnel-select-dropdown">
+          <Select placeholder="选择工作日起始人员" allowClear data-testid="generate-schedule-start-personnel" classNames={{ popup: { root: 'start-personnel-select-dropdown' } }}>
             {
               (() => {
                 if (!Array.isArray(selectedPersonnel)) {
@@ -304,7 +304,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="holiday_personnel_sequence_id" label="人员顺序 (节假日)" rules={[{ required: true, message: '请选择节假日人员顺序!' }]}>
-          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" popupClassName="holiday-sequence-select-dropdown">
+          <Select placeholder="选择节假日人员顺序" onChange={(value) => handleSequenceChange('holiday', value)} data-testid="generate-schedule-holiday-personnel-sequence" classNames={{ popup: { root: 'holiday-sequence-select-dropdown' } }}>
             {Array.isArray(personnelSequences) && personnelSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`holiday-sequence-option-${seq.id}`}>
                 {seq.name} (节假日: {Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -314,7 +314,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_holiday_personnel_id" label="起始人员 (节假日)">
-          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" popupClassName="start-holiday-personnel-select-dropdown">
+          <Select placeholder="选择节假日起始人员" allowClear data-testid="generate-schedule-start-holiday-personnel" classNames={{ popup: { root: 'start-holiday-personnel-select-dropdown' } }}>
             {selectedHolidayPersonnel.filter(p => p && p.id != null).map(p => (
               <Option key={p.id} value={p.id} data-testid={`start-holiday-personnel-option-${p.id}`}>{p.name}</Option>
             ))}
@@ -322,7 +322,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="leader_sequence_id" label="领导顺序" rules={[{ required: true, message: '请选择领导顺序!' }]}>
-          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" popupClassName="leader-sequence-select-dropdown">
+          <Select placeholder="选择领导顺序" onChange={(value) => handleSequenceChange('leader', value)} data-testid="generate-schedule-leader-sequence" classNames={{ popup: { root: 'leader-sequence-select-dropdown' } }}>
             {Array.isArray(leaderSequences) && leaderSequences.map(seq => (
               <Option key={seq.id} value={seq.id} data-testid={`leader-sequence-option-${seq.id}`}>
                 {seq.name} ({Array.isArray(seq.personnel_details) ? seq.personnel_details.map(p => p.name).join(', ') : ''})
@@ -332,7 +332,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
         </Form.Item>
 
         <Form.Item name="start_leader_id" label="起始领导">
-          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" popupClassName="start-leader-select-dropdown">
+          <Select placeholder="选择起始领导" allowClear data-testid="generate-schedule-start-leader" classNames={{ popup: { root: 'start-leader-select-dropdown' } }}>
             {selectedLeaders.map(p => (
               <Option key={p.id} value={p.id}>{p.name}</Option>
             ))}
