@@ -179,7 +179,7 @@ const PersonnelManagementPage = () => {
     const fetchPositionData = useCallback(async () => {
       try {
         const response = await getPositions();
-        setPositionData([...(response.data || [])]);
+        setPositionData(response.data.results || []);
       } catch (error) {
         message.error('获取职位数据失败');
         setPositionData([]);
