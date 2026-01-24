@@ -40,11 +40,6 @@ const PersonnelManagementPage = () => {
       key: 'position_name',
     },
     {
-      title: '联系电话',
-      dataIndex: 'phone_number',
-      key: 'phone_number',
-    },
-    {
       title: '操作',
       key: 'action',
       render: (_, record) => (
@@ -117,17 +112,11 @@ const PersonnelManagementPage = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const dataToSend = {
-        ...values,
-        date_of_birth: values.date_of_birth ? values.date_of_birth.format('YYYY-MM-DD') : null,
-        hire_date: values.hire_date ? values.hire_date.format('YYYY-MM-DD') : null,
-      };
-  
       if (editingId) {
-        await updatePersonnel(editingId, dataToSend);
+        await updatePersonnel(editingId, values);
         message.success('更新成功');
       } else {
-        await createPersonnel(dataToSend);
+        await createPersonnel(values);
         message.success('创建成功');
       }
       
@@ -362,53 +351,6 @@ const PersonnelManagementPage = () => {
 
 
 
-              <Form.Item
-                label="身份证号"
-                name="id_card_number"
-                rules={[{ required: true, message: '请输入身份证号' }]}
-              >
-                <Input placeholder="请输入身份证号" />
-              </Form.Item>
-
-              <Form.Item
-                label="出生日期"
-                name="date_of_birth"
-                rules={[{ required: true, message: '请选择出生日期' }]}
-              >
-                <DatePicker style={{ width: '100%' }} placeholder="请选择出生日期" />
-              </Form.Item>
-
-              <Form.Item
-                label="电话号码"
-                name="phone_number"
-                rules={[{ required: true, message: '请输入电话号码' }]}
-              >
-                <Input placeholder="请输入电话号码" />
-              </Form.Item>
-
-              <Form.Item
-                label="地址"
-                name="address"
-                rules={[{ required: true, message: '请输入地址' }]}
-              >
-                <Input placeholder="请输入地址" />
-              </Form.Item>
-
-              <Form.Item
-                label="入职日期"
-                name="hire_date"
-                rules={[{ required: true, message: '请选择入职日期' }]}
-              >
-                <DatePicker style={{ width: '100%' }} placeholder="请选择入职日期" />
-              </Form.Item>
-
-              <Form.Item
-                label="部门"
-                name="department"
-                rules={[{ required: true, message: '请输入部门' }]}
-              >
-                <Input placeholder="请输入部门" />
-              </Form.Item>
 
               <Form.Item
                 label="职位"
@@ -422,17 +364,6 @@ const PersonnelManagementPage = () => {
                 </Select>
               </Form.Item>
 
-              <Form.Item
-                label="状态"
-                name="status"
-                rules={[{ required: true, message: '请选择状态' }]}
-              >
-                <Select placeholder="请选择状态">
-                  <Option value="active">在职</Option>
-                  <Option value="on_leave">休假</Option>
-                  <Option value="terminated">离职</Option>
-                </Select>
-              </Form.Item>
             </Form>
           </Modal>
         </>
