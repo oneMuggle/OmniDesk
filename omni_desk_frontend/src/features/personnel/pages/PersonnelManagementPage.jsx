@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
+import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space, DatePicker } from 'antd'; // Add Select, Tabs, Space, DatePicker
 import {
   getPersonnel,
   createPersonnel,
@@ -41,9 +41,8 @@ const PersonnelManagementPage = () => {
     },
     {
       title: '联系电话',
-      dataIndex: 'phone_numbers',
-      key: 'phone_numbers',
-      render: (phone_numbers) => (phone_numbers || []).map(p => p.number).join(', '),
+      dataIndex: 'phone_number',
+      key: 'phone_number',
     },
     {
       title: '操作',
@@ -118,7 +117,11 @@ const PersonnelManagementPage = () => {
   const handleSubmit = async () => {
     try {
       const values = await form.validateFields();
-      const dataToSend = { ...values };
+      const dataToSend = {
+        ...values,
+        date_of_birth: values.date_of_birth ? values.date_of_birth.format('YYYY-MM-DD') : null,
+        hire_date: values.hire_date ? values.hire_date.format('YYYY-MM-DD') : null,
+      };
   
       if (editingId) {
         await updatePersonnel(editingId, dataToSend);
@@ -360,8 +363,56 @@ const PersonnelManagementPage = () => {
 
 
               <Form.Item
+                label="身份证号"
+                name="id_card_number"
+                rules={[{ required: true, message: '请输入身份证号' }]}
+              >
+                <Input placeholder="请输入身份证号" />
+              </Form.Item>
+
+              <Form.Item
+                label="出生日期"
+                name="date_of_birth"
+                rules={[{ required: true, message: '请选择出生日期' }]}
+              >
+                <DatePicker style={{ width: '100%' }} placeholder="请选择出生日期" />
+              </Form.Item>
+
+              <Form.Item
+                label="电话号码"
+                name="phone_number"
+                rules={[{ required: true, message: '请输入电话号码' }]}
+              >
+                <Input placeholder="请输入电话号码" />
+              </Form.Item>
+
+              <Form.Item
+                label="地址"
+                name="address"
+                rules={[{ required: true, message: '请输入地址' }]}
+              >
+                <Input placeholder="请输入地址" />
+              </Form.Item>
+
+              <Form.Item
+                label="入职日期"
+                name="hire_date"
+                rules={[{ required: true, message: '请选择入职日期' }]}
+              >
+                <DatePicker style={{ width: '100%' }} placeholder="请选择入职日期" />
+              </Form.Item>
+
+              <Form.Item
+                label="部门"
+                name="department"
+                rules={[{ required: true, message: '请输入部门' }]}
+              >
+                <Input placeholder="请输入部门" />
+              </Form.Item>
+
+              <Form.Item
                 label="职位"
-                name="position" // Changed to 'position'
+                name="position"
                 rules={[{ required: true, message: '请选择职位' }]}
               >
                 <Select placeholder="请选择职位" allowClear>
@@ -371,33 +422,17 @@ const PersonnelManagementPage = () => {
                 </Select>
               </Form.Item>
 
-              <Form.List name="phone_numbers">
-                {(fields, { add, remove }) => (
-                  <>
-                    {fields.map(({ key, name, fieldKey, ...restField }) => (
-                      <Space key={key} style={{ display: 'flex', marginBottom: 8 }} align="baseline">
-                        <Form.Item
-                          {...restField}
-                          name={[name, 'number']}
-                          fieldKey={[fieldKey, 'number']}
-                          rules={[
-                            { required: true, message: '请输入电话号码' },
-                            { pattern: /^(\d{5}|\d{6}|1[3-9]\d{9})$/, message: '请输入有效的电话号码（5位、6位短号或11位手机号）' }
-                          ]}
-                        >
-                          <Input placeholder="电话号码" />
-                        </Form.Item>
-                        <MinusCircleOutlined onClick={() => remove(name)} />
-                      </Space>
-                    ))}
-                    <Form.Item>
-                      <Button type="dashed" onClick={() => add()} block icon={<PlusCircleOutlined />}>
-                        添加电话号码
-                      </Button>
-                    </Form.Item>
-                  </>
-                )}
-              </Form.List>
+              <Form.Item
+                label="状态"
+                name="status"
+                rules={[{ required: true, message: '请选择状态' }]}
+              >
+                <Select placeholder="请选择状态">
+                  <Option value="active">在职</Option>
+                  <Option value="on_leave">休假</Option>
+                  <Option value="terminated">离职</Option>
+                </Select>
+              </Form.Item>
             </Form>
           </Modal>
         </>
