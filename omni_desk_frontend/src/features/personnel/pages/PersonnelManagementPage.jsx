@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space, DatePicker } from 'antd'; // Add Select, Tabs, Space, DatePicker
+import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
 import {
   getPersonnel,
   createPersonnel,
@@ -352,9 +352,10 @@ const PersonnelManagementPage = () => {
 
 
 
-              <Form.Item
-                label="职位"
-                name="position"
+
+             <Form.Item
+               label="职位"
+               name="position"
                 rules={[{ required: true, message: '请选择职位' }]}
               >
                 <Select placeholder="请选择职位" allowClear>

@@ -38,9 +38,18 @@ class PersonnelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Personnel
         fields = [
-            'id', 'name', 'id_card_number', 'date_of_birth', 'phone_number', 
+            'id', 'name', 'id_card_number', 'date_of_birth', 'phone_number',
             'address', 'hire_date', 'department', 'position', 'status'
         ]
+        extra_kwargs = {
+            'id_card_number': {'required': False, 'allow_null': True},
+            'date_of_birth': {'required': False, 'allow_null': True},
+            'phone_number': {'required': False, 'allow_null': True},
+            'address': {'required': False, 'allow_null': True},
+            'hire_date': {'required': False, 'allow_null': True},
+            'department': {'required': False, 'allow_null': True},
+            'status': {'required': False, 'allow_null': True},
+        }
 
     def to_representation(self, instance):
         representation = super().to_representation(instance)
