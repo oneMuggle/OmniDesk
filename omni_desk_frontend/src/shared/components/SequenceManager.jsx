@@ -315,8 +315,11 @@ const SequenceManager = () => {
           const { sequence, ...rest } = values;
           payload = { ...rest, personnel: sequence };
         }
+      } else if (isEditingLeader) {
+        // For leader sequences, add the `personnel` field.
+        payload = { ...values, personnel: values.sequence };
       }
-      // For leader sequences, payload remains `values`.
+      // For leader sequences on update, payload remains `values`.
 
       if (isUpdate) {
         await apiCall(values.id, payload);
