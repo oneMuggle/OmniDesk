@@ -18,7 +18,7 @@ class Personnel(models.Model):
     """
     # Basic Info
     name = models.CharField(max_length=100, verbose_name="姓名")
-    id_card_number = models.CharField(max_length=18, unique=True, verbose_name="身份证号")
+    id_card_number = models.CharField(max_length=18, null=True, blank=True, verbose_name='身份证号')
     date_of_birth = models.DateField(verbose_name="出生年月", null=True, blank=True)
     phone_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
     address = models.TextField(verbose_name="家庭住址", blank=True)

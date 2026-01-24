@@ -1,4 +1,5 @@
-from rest_framework import viewsets, permissions
+from django.db import IntegrityError
+from rest_framework import viewsets, permissions, serializers
 from rest_framework.filters import SearchFilter
 from users.permissions import IsAdminOrReadOnly
 from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
@@ -31,6 +32,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if self.action == 'retrieve':
             return PersonnelDetailSerializer
         return PersonnelSerializer
+
 
 class ContractViewSet(viewsets.ModelViewSet):
     """

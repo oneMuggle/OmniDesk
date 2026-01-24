@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework.validators import UniqueValidator
 from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
 
 class PositionSerializer(serializers.ModelSerializer):
@@ -35,6 +36,11 @@ class PersonnelSerializer(serializers.ModelSerializer):
     """
     用于人员列表的核心序列化器 (不包含详细的关联信息)
     """
+    id_card_number = serializers.CharField(
+        allow_null=True,
+        required=False,
+    )
+
     class Meta:
         model = Personnel
         fields = [
@@ -42,7 +48,6 @@ class PersonnelSerializer(serializers.ModelSerializer):
             'address', 'hire_date', 'department', 'position', 'status'
         ]
         extra_kwargs = {
-            'id_card_number': {'required': False, 'allow_null': True},
             'date_of_birth': {'required': False, 'allow_null': True},
             'phone_number': {'required': False, 'allow_null': True},
             'address': {'required': False, 'allow_null': True},
