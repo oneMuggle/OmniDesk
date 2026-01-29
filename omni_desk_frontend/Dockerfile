@@ -1,29 +1,23 @@
-# 构建阶段
+# Development stage
+FROM node:18-alpine AS development
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm install
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
+
+# Production stage
+# Builder part
 FROM node:18-alpine AS builder
 WORKDIR /app
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN npm install
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
-COPY --chown=appuser:appgroup . .
-ENV NODE_ENV=production
-RUN DISABLE_ESLINT_PLUGIN=true npm run build
-RUN npm cache clean --force
+COPY . .
+RUN npm run build
 
-# 生产阶段
-FROM nginx:alpine
-RUN apk --no-cache add curl
+# Final image part
+FROM nginx:stable-alpine
 COPY --from=builder /app/build /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/nginx.conf
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup && \
-    mkdir -p /var/cache/nginx /var/log/nginx /var/run/nginx && \
-    chown -R appuser:appgroup \
-        /usr/share/nginx/html \
-        /var/cache/nginx \
-        /var/log/nginx \
-        /var/run/nginx && \
-    chmod -R 755 /var/run/nginx
-
-USER appuser
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 CMD curl --fail http://127.0.0.1:80 || exit 1
-CMD ["nginx", "-g", "daemon off;"]

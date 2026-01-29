@@ -2,15 +2,12 @@
 services:
   db:
     image: postgres:14-alpine
-    container_name: omni_desk_db
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-omni_desk}
       - POSTGRES_USER=${POSTGRES_USER:-user}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-password}
-    ports:
-      - "5433:5432" # Changed host port to avoid conflict
     command: postgres -c listen_addresses='*'
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-omni_desk}"]
@@ -21,9 +18,6 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: omni_desk_redis
-    ports:
-      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -32,12 +26,7 @@ services:
     restart: unless-stopped
 
   backend:
-    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
-    build:
-      context: ../..
-      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
-      target: production
-    container_name: omni_desk_backend
+    image: ${REGISTRY:-local}/omni-desk-backend:${TAG:-latest}
     command: /bin/sh -c "python manage.py migrate && python init_superuser.py && gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000"
     volumes:
       - static_volume:/usr/src/app/staticfiles
@@ -49,19 +38,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    env_file:
-      - ./.env.production
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
     restart: unless-stopped
 
   frontend:
-    image: ${DOCKER_USER:-defaultuser}/omni-desk-frontend:${FRONTEND_VERSION:-latest}
-    build:
-      context: ../../omni_desk_frontend
-      dockerfile: Dockerfile
-    container_name: omni_desk_frontend
+    image: ${REGISTRY:-local}/omni-desk-frontend:${TAG:-latest}
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
@@ -70,16 +53,13 @@ services:
     restart: unless-stopped
 
   worker:
-    image: ${DOCKER_USER:-defaultuser}/omni-desk-backend:${BACKEND_VERSION:-latest}
-    container_name: omni_desk_worker
+    image: ${REGISTRY:-local}/omni-desk-backend:${TAG:-latest}
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       redis:
         condition: service_healthy
       db:
         condition: service_healthy
-    env_file:
-      - ./.env.production
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
@@ -87,11 +67,6 @@ services:
   
   nginx:
     image: nginx:latest
-    container_name: omni_desk_nginx
-    ports:
-      - "80:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
       - backend
       - frontend
