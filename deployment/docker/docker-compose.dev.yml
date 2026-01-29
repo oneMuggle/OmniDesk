@@ -28,6 +28,10 @@ services:
       - redis
 
   worker:
+    build:
+      context: ../../
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+      target: development
     working_dir: /usr/src/app/omni_desk_backend
     environment:
       - POSTGRES_USER=devuser

@@ -94,21 +94,21 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
         """更新时间段并自动更新关联试验的时间范围"""
         try:
             with transaction.atomic():
-                print(f"Starting update for time slot {serializer.instance.id}")  # 调试日志
+                logger.debug(f"Starting update for time slot {serializer.instance.id}")
                 # 保存时间段
                 instance = serializer.save(update_fields=['start_time', 'end_time', 'description'])
-                print(f"Updated time slot: {instance.start_time} to {instance.end_time}")  # 调试日志
+                logger.debug(f"Updated time slot: {instance.start_time} to {instance.end_time}")
                 
                 # 显式更新关联试验的时间范围
                 trial = instance.trial
-                print(f"Updating time range for trial {trial.id}")  # 调试日志
+                logger.debug(f"Updating time range for trial {trial.id}")
                 trial.update_time_range()
-                print(f"Finished updating trial {trial.id} time range")  # 调试日志
+                logger.debug(f"Finished updating trial {trial.id} time range")
                 
                 # 确保数据已提交到数据库
                 transaction.on_commit(lambda: None)
         except Exception as e:
-            print(f"Error updating time slot: {str(e)}")
+            logger.error(f"Error updating time slot: {str(e)}")
             raise
 
     def perform_destroy(self, instance):
@@ -348,6 +348,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         holiday_personnel_sequence_id = validated_data.get('holiday_personnel_sequence_id')
         leader_sequence_id = validated_data['leader_sequence_id']
         start_personnel_id = validated_data.get('start_personnel_id')
+        start_holiday_personnel_id = validated_data.get('start_holiday_personnel_id')
         start_leader_id = validated_data.get('start_leader_id')
         target_month = validated_data.get('target_month')
         duration_days = validated_data.get('duration_days')
@@ -395,7 +396,6 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
 
                 if all_personnel_ids:
-                    logger.debug(f"Verifying personnel IDs: {all_personnel_ids}")
                     
                     # 使用 select_for_update 锁定行，防止在检查和创建之间删除人员
                     existing_personnel_ids = set(
@@ -404,7 +404,6 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                     
                     missing_ids = all_personnel_ids - existing_personnel_ids
                     if missing_ids:
-                        logger.error(f"Missing personnel IDs found in sequences: {missing_ids}")
                         missing_ids_str = ", ".join(map(str, sorted(list(missing_ids))))
                         raise ValidationError(
                             f"排班序列中的部分人员ID无效，请检查配置: {missing_ids_str}"
@@ -423,7 +422,6 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
                 workday_start_index = 0
                 holiday_start_index = 0
-                is_start_day_holiday = start_date in holiday_dates
 
                 if start_personnel_id:
                     try:
@@ -433,14 +431,23 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                     if start_personnel_id_int not in existing_personnel_ids:
                         raise ValidationError({'start_personnel_id': f'Start personnel ID {start_personnel_id_int} is not a valid or existing personnel.'})
                     try:
-                        if is_start_day_holiday:
-                            if not holiday_personnel_order:
-                                raise ValidationError({'holiday_personnel_sequence_id': 'A starting holiday personnel is specified, but no holiday sequence is configured or it is empty.'})
-                            holiday_start_index = holiday_personnel_order.index(start_personnel_id_int)
-                        else:
-                            workday_start_index = workday_personnel_order.index(start_personnel_id_int)
+                        workday_start_index = workday_personnel_order.index(start_personnel_id_int)
                     except ValueError:
-                        raise ValidationError({'start_personnel_id': f'Start personnel ID {start_personnel_id_int} not found in the corresponding sequence.'})
+                        raise ValidationError({'start_personnel_id': f'Start personnel ID {start_personnel_id_int} not found in the workday sequence.'})
+
+                if start_holiday_personnel_id:
+                    try:
+                        start_holiday_personnel_id_int = int(start_holiday_personnel_id)
+                    except (ValueError, TypeError):
+                        raise ValidationError({'start_holiday_personnel_id': f'Invalid start holiday personnel ID: "{start_holiday_personnel_id}". Must be an integer.'})
+                    if start_holiday_personnel_id_int not in existing_personnel_ids:
+                        raise ValidationError({'start_holiday_personnel_id': f'Start holiday personnel ID {start_holiday_personnel_id_int} is not a valid or existing personnel.'})
+                    try:
+                        if not holiday_personnel_order:
+                            raise ValidationError({'holiday_personnel_sequence_id': 'A starting holiday personnel is specified, but no holiday sequence is configured or it is empty.'})
+                        holiday_start_index = holiday_personnel_order.index(start_holiday_personnel_id_int)
+                    except ValueError:
+                        raise ValidationError({'start_holiday_personnel_id': f'Start holiday personnel ID {start_holiday_personnel_id_int} not found in the holiday sequence.'})
 
                 leader_start_index = 0
                 if start_leader_id:
@@ -461,11 +468,13 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 
                 for i in range(duration_days):
                     current_date = start_date + timedelta(days=i)
-                    is_holiday = current_date in holiday_dates
+                    is_holiday = current_date in holiday_dates or current_date.weekday() >= 5
 
                     if is_holiday:
                         if not holiday_personnel_order:
                             raise ValidationError({'holiday_personnel_sequence_id': 'Holiday sequence is required for dates identified as holidays but is not configured.'})
+                        
+                        # 确保节假日排班使用节假日序列和计数器
                         personnel_idx = (holiday_start_index + holiday_count) % len(holiday_personnel_order)
                         duty_person_id = holiday_personnel_order[personnel_idx]
                         holiday_count += 1
