@@ -15,10 +15,10 @@ const SensorDetailPage = () => {
     const fetchSensorDetails = useCallback(async () => {
         try {
             setLoading(true);
-            const sensorRes = await apiClient.get(`/api/sensors/${id}/`);
-            const calibrationsRes = await apiClient.get(`/api/sensors/${id}/calibrations/`);
+            const sensorRes = await apiClient.get(`/sensor-management/sensors/${id}/`);
+            const calibrationsRes = await apiClient.get(`/sensor-management/sensor-calibrations/?sensor=${id}`);
             setSensor(sensorRes);
-            setCalibrations(calibrationsRes);
+            setCalibrations(calibrationsRes.results);
             setError(null);
         } catch (err) {
             setError('无法加载传感器详情。');
@@ -42,7 +42,7 @@ const SensorDetailPage = () => {
 
     const handleFormSubmit = async (values) => {
         try {
-            await apiClient.post(`/api/sensors/${id}/calibrations/`, values);
+            await apiClient.post(`/sensor-management/sensor-calibrations/`, { ...values, sensor: id });
             setIsModalVisible(false);
             fetchSensorDetails(); // Refresh details
         } catch (error) {

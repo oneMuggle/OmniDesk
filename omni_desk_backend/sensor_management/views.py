@@ -99,7 +99,7 @@ class SensorCalibrationViewSet(viewsets.ModelViewSet):
     serializer_class = SensorCalibrationSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看校准记录
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['sensor', 'calibration_date', 'calibrator', 'reviewer']
+    filterset_fields = ['sensor', 'calibration_date', 'calibrated_by', 'reviewed_by']
     ordering_fields = ['calibration_date', 'sensor__serial_number']
 
 class StorageLocationViewSet(viewsets.ModelViewSet):
