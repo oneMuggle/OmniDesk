@@ -31,8 +31,8 @@ export const createCalibrationRecord = (data) => {
 };
 
 // SensorCategory API
-export const getSensorCategories = () => {
-  return apiClient.get('sensor-management/categories/');
+export const getSensorCategories = (params) => {
+  return apiClient.get('sensor-management/categories/', { params });
 };
 
 export const createSensorCategory = (data) => {
@@ -48,8 +48,8 @@ export const deleteSensorCategory = (id) => {
 };
 
 // StorageLocation API
-export const getStorageLocations = () => {
-  return apiClient.get('sensor-management/storage-locations/');
+export const getStorageLocations = (params) => {
+  return apiClient.get('sensor-management/storage-locations/', { params });
 };
 
 export const createStorageLocation = (data) => {

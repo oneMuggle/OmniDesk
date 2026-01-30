@@ -7,8 +7,16 @@ import { getSensorCategories, getStorageLocations } from '../api/sensorApi';
 const { Option } = Select;
 
 const SensorForm = ({ form, initialValues }) => {
-  const { data: categories = [], isPending: categoriesPending } = useQuery({ queryKey: ['sensorCategories'], queryFn: getSensorCategories });
-  const { data: locations = [], isPending: locationsPending } = useQuery({ queryKey: ['storageLocations'], queryFn: getStorageLocations, select: data => data.data });
+  const { data: categories = [], isPending: categoriesPending } = useQuery({
+    queryKey: ['sensorCategories'],
+    queryFn: () => getSensorCategories({ page_size: 1000 }),
+    select: (data) => data.data.results,
+  });
+  const { data: locations = [], isPending: locationsPending } = useQuery({
+    queryKey: ['storageLocations'],
+    queryFn: () => getStorageLocations({ page_size: 1000 }),
+    select: (data) => data.data.results,
+  });
 
   useEffect(() => {
     if (initialValues) {
@@ -18,12 +26,20 @@ const SensorForm = ({ form, initialValues }) => {
     }
   }, [form, initialValues]);
 
+
   return (
     <Form form={form} layout="vertical" name="sensor_form">
       <Form.Item
         name="name"
         label="名称"
         rules={[{ required: true, message: '请输入传感器名称!' }]}
+      >
+        <Input />
+      </Form.Item>
+      <Form.Item
+        name="sensor_number"
+        label="传感器编号"
+        rules={[{ required: true, message: '请输入传感器编号!' }]}
       >
         <Input />
       </Form.Item>
@@ -55,9 +71,10 @@ const SensorForm = ({ form, initialValues }) => {
         rules={[{ required: true, message: '请选择传感器状态!' }]}
       >
         <Select placeholder="选择状态">
-          <Option value="正常">正常</Option>
-          <Option value="需校准">需校准</Option>
-          <Option value="维修中">维修中</Option>
+          <Option value="in_stock">在库</Option>
+          <Option value="in_use">在用</Option>
+          <Option value="under_calibration">校准中</Option>
+          <Option value="retired">退役</Option>
         </Select>
       </Form.Item>
     </Form>

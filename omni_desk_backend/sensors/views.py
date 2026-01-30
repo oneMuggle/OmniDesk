@@ -1,6 +1,9 @@
+import logging
 from rest_framework import viewsets
 from .models import Sensor, CalibrationRecord
 from .serializers import SensorSerializer, CalibrationRecordSerializer
+
+logger = logging.getLogger(__name__)
 
 class SensorViewSet(viewsets.ModelViewSet):
     """
@@ -15,3 +18,4 @@ class CalibrationRecordViewSet(viewsets.ModelViewSet):
     """
     queryset = CalibrationRecord.objects.all()
     serializer_class = CalibrationRecordSerializer
+

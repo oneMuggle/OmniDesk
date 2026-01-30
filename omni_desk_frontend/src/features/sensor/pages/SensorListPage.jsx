@@ -12,7 +12,7 @@ const SensorListPage = () => {
   const queryClient = useQueryClient();
 
   const sensorsQuery = useQuery({ queryKey: ['sensors'], queryFn: getSensors });
-  const sensors = sensorsQuery.data?.results || [];
+  const sensors = sensorsQuery.data?.data?.results || [];
 
   const createMutation = useMutation({
     mutationFn: createSensor,
