@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import { Table, Button } from 'antd';
 
-const BankAccountTable = ({ data, isEditing }) => {
+const BankAccountTable = ({ data = [], isEditing = false }) => {
   const columns = [
     { title: '开户行', dataIndex: 'bank_name', key: 'bank_name' },
     { title: '账号', dataIndex: 'account_number', key: 'account_number' },
@@ -41,11 +41,6 @@ const BankAccountTable = ({ data, isEditing }) => {
 BankAccountTable.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object),
   isEditing: PropTypes.bool,
-};
-
-BankAccountTable.defaultProps = {
-  data: [],
-  isEditing: false,
 };
 
 export default BankAccountTable;

@@ -24,6 +24,7 @@ const PersonnelEditPage = ({ formRef }) => {
     const [saving, setSaving] = useState(false);
     const [positions, setPositions] = useState([]);
     const [error, setError] = useState(null);
+    const [initialData, setInitialData] = useState(null);
 
     useEffect(() => {
         const fetchDetailsAndPositions = async () => {
@@ -33,23 +34,10 @@ const PersonnelEditPage = ({ formRef }) => {
                     getPersonnelDetails(id),
                     getAllPositions()
                 ]);
-                
-                const record = detailsResponse.data;
                 setPositions(positionsResponse || []);
-
-                form.setFieldsValue({
-                    ...record,
-                    position: record.position ? record.position.id : null,
-                    date_of_birth: record.date_of_birth ? moment(record.date_of_birth) : null,
-                    hire_date: record.hire_date ? moment(record.hire_date) : null,
-                    contracts: record.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
-                    educations: record.educations?.map(e => ({ ...e, start_date: moment(e.start_date), end_date: moment(e.end_date) })) || [],
-                    work_experiences: record.work_experiences?.map(w => ({ ...w, start_date: moment(w.start_date), end_date: moment(w.end_date) })) || [],
-                    professional_qualifications: record.professional_qualifications || [],
-                    public_housing_info: record.public_housing_info || [],
-                    bank_accounts: record.bank_accounts || [],
-                });
+                setInitialData(detailsResponse);
             } catch (error) {
+                console.error("获取人员详情失败:", error);
                 setError('获取页面数据失败');
                 message.error('获取页面数据失败');
             } finally {
@@ -57,7 +45,24 @@ const PersonnelEditPage = ({ formRef }) => {
             }
         };
         fetchDetailsAndPositions();
-    }, [id, form]);
+    }, [id]);
+
+    useEffect(() => {
+        if (initialData) {
+            form.setFieldsValue({
+                ...initialData,
+                position: initialData.position ? initialData.position.id : null,
+                date_of_birth: initialData.date_of_birth ? moment(initialData.date_of_birth) : null,
+                hire_date: initialData.hire_date ? moment(initialData.hire_date) : null,
+                contracts: initialData.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
+                educations: initialData.educations?.map(e => ({ ...e, start_date: moment(e.start_date), end_date: moment(e.end_date) })) || [],
+                work_experiences: initialData.work_experiences?.map(w => ({ ...w, start_date: moment(w.start_date), end_date: moment(w.end_date) })) || [],
+                professional_qualifications: initialData.professional_qualifications || [],
+                public_housing_info: initialData.public_housing_info || [],
+                bank_accounts: initialData.bank_accounts || [],
+            });
+        }
+    }, [initialData, form]);
 
     const handleSubmit = async (values) => {
         try {
@@ -128,7 +133,7 @@ const PersonnelEditPage = ({ formRef }) => {
                 <Form data-testid="personnel-edit-form" form={form} layout="vertical" onFinish={handleSubmit}>
                     <Row gutter={16}>
                         <Col span={8}><Form.Item label="姓名" name="name" rules={[{ required: true }]}><Input /></Form.Item></Col>
-                        <Col span={8}><Form.Item label="身份证号" name="id_card_number" rules={[{ required: true }]}><Input /></Form.Item></Col>
+                        <Col span={8}><Form.Item label="身份证号" name="id_card_number"><Input /></Form.Item></Col>
                         <Col span={8}><Form.Item label="出生年月" name="date_of_birth"><DatePicker style={{ width: '100%' }} /></Form.Item></Col>
                         <Col span={8}><Form.Item label="联系电话" name="phone_number"><Input /></Form.Item></Col>
                         <Col span={16}><Form.Item label="家庭住址" name="address"><Input /></Form.Item></Col>

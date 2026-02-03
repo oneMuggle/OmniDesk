@@ -1,7 +1,7 @@
 import PropTypes from 'prop-types';
 import { Table, Button } from 'antd';
 
-const PublicHousingInfoTable = ({ data, isEditing }) => {
+const PublicHousingInfoTable = ({ data = [], isEditing = false }) => {
   const columns = [
     { title: '门牌号', dataIndex: 'house_number', key: 'house_number' },
     { title: '房屋地址', dataIndex: 'address', key: 'address' },
@@ -42,11 +42,6 @@ const PublicHousingInfoTable = ({ data, isEditing }) => {
 PublicHousingInfoTable.propTypes = {
   data: PropTypes.arrayOf(PropTypes.object),
   isEditing: PropTypes.bool,
-};
-
-PublicHousingInfoTable.defaultProps = {
-  data: [],
-  isEditing: false,
 };
 
 export default PublicHousingInfoTable;
