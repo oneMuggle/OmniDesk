@@ -1,4 +1,3 @@
-import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Form, Input, Select } from 'antd';
 import { useQuery } from '@tanstack/react-query';
@@ -18,17 +17,8 @@ const SensorForm = ({ form, initialValues }) => {
     select: (data) => data.data.results,
   });
 
-  useEffect(() => {
-    if (initialValues) {
-      form.setFieldsValue(initialValues);
-    } else {
-      form.resetFields();
-    }
-  }, [form, initialValues]);
-
-
   return (
-    <Form form={form} layout="vertical" name="sensor_form">
+    <Form form={form} layout="vertical" name="sensor_form" initialValues={initialValues}>
       <Form.Item
         name="name"
         label="名称"
@@ -44,7 +34,7 @@ const SensorForm = ({ form, initialValues }) => {
         <Input />
       </Form.Item>
       <Form.Item
-        name="category"
+        name="category_id"
         label="类别"
         rules={[{ required: true, message: '请选择传感器类别!' }]}
       >
@@ -55,7 +45,7 @@ const SensorForm = ({ form, initialValues }) => {
         </Select>
       </Form.Item>
       <Form.Item
-        name="storage_location"
+        name="storage_location_id"
         label="存放地点"
         rules={[{ required: true, message: '请选择存放地点!' }]}
       >

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button, Table, Modal, Form, message, Space } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
@@ -20,7 +20,6 @@ const SensorListPage = () => {
       queryClient.invalidateQueries({ queryKey: ['sensors'] });
       message.success('传感器创建成功');
       setIsModalVisible(false);
-      form.resetFields();
     },
     onError: () => {
       message.error('传感器创建失败');
@@ -34,7 +33,6 @@ const SensorListPage = () => {
       message.success('传感器更新成功');
       setIsModalVisible(false);
       setEditingSensor(null);
-      form.resetFields();
     },
     onError: () => {
       message.error('传感器更新失败');
@@ -53,19 +51,18 @@ const SensorListPage = () => {
 
   const handleAdd = () => {
     setEditingSensor(null);
-    form.resetFields();
     setIsModalVisible(true);
   };
 
   const handleEdit = (record) => {
-    setEditingSensor(record);
-    form.setFieldsValue({
+    setEditingSensor({
       ...record,
-      category: record.category.id,
-      storage_location: record.storage_location.id,
+      category_id: record.sensor_category_name,
+      storage_location_id: record.location_name,
     });
     setIsModalVisible(true);
   };
+
 
   const handleDelete = (id) => {
     Modal.confirm({
@@ -90,7 +87,6 @@ const SensorListPage = () => {
   const handleCancel = () => {
     setIsModalVisible(false);
     setEditingSensor(null);
-    form.resetFields();
   };
 
   const statusMap = {
@@ -142,6 +138,7 @@ const SensorListPage = () => {
         onOk={handleOk}
         onCancel={handleCancel}
         confirmLoading={createMutation.isPending || updateMutation.isPending}
+        destroyOnClose
       >
         <SensorForm form={form} initialValues={editingSensor} />
       </Modal>
