@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Form, Input, Button, DatePicker, Table, Space, InputNumber } from 'antd';
+import { Form, Input, Button, DatePicker, Table, Space, InputNumber, Tabs } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 
 const SensorCalibrationForm = ({ onSubmit, onCancel }) => {
@@ -100,53 +100,58 @@ const SensorCalibrationForm = ({ onSubmit, onCancel }) => {
 
     return (
         <Form form={form} layout="vertical" onFinish={handleFinish}>
-            <Form.Item name="calibration_instrument" label="校准仪器" rules={[{ required: true, message: '请输入校准仪器' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item name="calibration_range" label="校准范围" rules={[{ required: true, message: '请输入校准范围' }]}>
-                <Input />
-            </Form.Item>
-            <Form.Item name="calibration_date" label="校准日期" rules={[{ required: true, message: '请选择校准日期' }]}>
-                <DatePicker style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="non_linearity" label="非线性度">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="hysteresis" label="迟滞">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="resonant_frequency" label="共振频率">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="repeatability" label="重复性">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="accuracy" label="精度">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="rise_time" label="上升时间">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="sensitivity" label="灵敏度">
-                <InputNumber style={{ width: '100%' }} />
-            </Form.Item>
-            <Form.Item name="calibration_equation" label="校准方程">
-                <Input.TextArea />
-            </Form.Item>
-            <Form.Item name="remarks" label="备注">
-                <Input.TextArea />
-            </Form.Item>
-
-            <h3>校准数据点</h3>
-            <Table
-                dataSource={dataPoints}
-                columns={dataPointColumns}
-                pagination={false}
-                bordered
-            />
-            <Button type="dashed" onClick={addDataPoint} style={{ width: '100%', marginTop: '10px' }} icon={<PlusOutlined />}>
-                添加数据点
-            </Button>
+            <Tabs defaultActiveKey="1">
+                <Tabs.TabPane tab="基本信息" key="1">
+                    <Form.Item name="calibration_instrument" label="校准仪器" rules={[{ required: true, message: '请输入校准仪器' }]}>
+                        <Input />
+                    </Form.Item>
+                    <Form.Item name="calibration_range" label="校准范围" rules={[{ required: true, message: '请输入校准范围' }]}>
+                        <Input />
+                    </Form.Item>
+                    <Form.Item name="calibration_date" label="校准日期" rules={[{ required: true, message: '请选择校准日期' }]}>
+                        <DatePicker style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="non_linearity" label="非线性度">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="hysteresis" label="迟滞">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="resonant_frequency" label="共振频率">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="repeatability" label="重复性">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="accuracy" label="精度">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="rise_time" label="上升时间">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="sensitivity" label="灵敏度">
+                        <InputNumber style={{ width: '100%' }} />
+                    </Form.Item>
+                    <Form.Item name="calibration_equation" label="校准方程">
+                        <Input.TextArea />
+                    </Form.Item>
+                    <Form.Item name="remarks" label="备注">
+                        <Input.TextArea />
+                    </Form.Item>
+                </Tabs.TabPane>
+                <Tabs.TabPane tab="校准数据点" key="2">
+                    <Table
+                        dataSource={dataPoints}
+                        columns={dataPointColumns}
+                        pagination={false}
+                        bordered
+                        scroll={{ x: 'max-content' }}
+                    />
+                    <Button type="dashed" onClick={addDataPoint} style={{ width: '100%', marginTop: '10px' }} icon={<PlusOutlined />}>
+                        添加数据点
+                    </Button>
+                </Tabs.TabPane>
+            </Tabs>
 
             <Form.Item style={{ marginTop: '20px' }}>
                 <Space>

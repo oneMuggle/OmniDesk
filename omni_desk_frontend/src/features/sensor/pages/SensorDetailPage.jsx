@@ -17,7 +17,7 @@ const SensorDetailPage = () => {
             setLoading(true);
             const sensorRes = await apiClient.get(`/sensor-management/sensors/${id}/`);
             const calibrationsRes = await apiClient.get(`/sensor-management/sensor-calibrations/?sensor=${id}`);
-            setSensor(sensorRes);
+            setSensor(sensorRes.data);
             setCalibrations(calibrationsRes.results);
             setError(null);
         } catch (err) {
@@ -78,7 +78,7 @@ const SensorDetailPage = () => {
             <Card title={`传感器详情: ${sensor?.name}`}>
                 <p><strong>传感器编号:</strong> {sensor?.sensor_number}</p>
                 <p><strong>序列号:</strong> {sensor?.serial_number}</p>
-                <p><strong>状态:</strong> {sensor?.status}</p>
+                <p><strong>状态:</strong> {sensor?.status_display}</p>
             </Card>
 
             <Card title="校准记录" style={{ marginTop: '20px' }} extra={<Button type="primary" onClick={handleAddCalibration}>添加校准记录</Button>}>

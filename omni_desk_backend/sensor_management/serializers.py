@@ -51,6 +51,7 @@ class SensorSerializer(serializers.ModelSerializer):
         source='sensor_category',  # 确保 source 指向模型的 'sensor_category' 字段
         write_only=True  # 仅用于写入
     )
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
     storage_location = serializers.PrimaryKeyRelatedField(
         queryset=StorageLocation.objects.all(),
         source='location',  # 确保 source 指向模型的 'location' 字段
@@ -63,7 +64,7 @@ class SensorSerializer(serializers.ModelSerializer):
             'id', 'serial_number', 'name', 'sensor_number', 'manufacturer',
             'calibration_accuracy', 'production_date', 'purchase_date',
             'last_calibration_date', 'calibration_interval_days', 'current_quantity',
-            'status', 'created_at', 'updated_at',
+            'status', 'status_display', 'created_at', 'updated_at',
             'next_calibration_date', 'sensor_category_name', 'location_name',
             'room_temperature', 'relative_humidity', 'calibrations', 'category', 'storage_location'
         ]
