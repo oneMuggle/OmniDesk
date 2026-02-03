@@ -95,8 +95,8 @@ const SensorListPage = () => {
 
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
-    { title: '类别', dataIndex: ['category', 'name'], key: 'category' },
-    { title: '存放地点', dataIndex: ['storage_location', 'name'], key: 'storage_location' },
+    { title: '类别', dataIndex: 'sensor_category_name', key: 'category' },
+    { title: '存放地点', dataIndex: 'location_name', key: 'storage_location' },
     { title: '状态', dataIndex: 'status', key: 'status' },
     {
       title: '操作',

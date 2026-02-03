@@ -46,6 +46,16 @@ class SensorSerializer(serializers.ModelSerializer):
     sensor_category_name = serializers.CharField(source='sensor_category.name', read_only=True)
     location_name = serializers.CharField(source='location.name', read_only=True)
     calibrations = SensorCalibrationSerializer(many=True, read_only=True)
+    category = serializers.PrimaryKeyRelatedField(
+        queryset=SensorCategory.objects.all(),
+        source='sensor_category',  # 确保 source 指向模型的 'sensor_category' 字段
+        write_only=True  # 仅用于写入
+    )
+    storage_location = serializers.PrimaryKeyRelatedField(
+        queryset=StorageLocation.objects.all(),
+        source='location',  # 确保 source 指向模型的 'location' 字段
+        write_only=True  # 仅用于写入
+    )
 
     class Meta:
         model = Sensor
@@ -53,11 +63,12 @@ class SensorSerializer(serializers.ModelSerializer):
             'id', 'serial_number', 'name', 'sensor_number', 'manufacturer',
             'calibration_accuracy', 'production_date', 'purchase_date',
             'last_calibration_date', 'calibration_interval_days', 'current_quantity',
-            'status', 'sensor_category', 'location', 'created_at', 'updated_at',
+            'status', 'created_at', 'updated_at',
             'next_calibration_date', 'sensor_category_name', 'location_name',
-            'room_temperature', 'relative_humidity', 'calibrations'
+            'room_temperature', 'relative_humidity', 'calibrations', 'category', 'storage_location'
         ]
         read_only_fields = ('created_at', 'updated_at')
+
 
 class SensorMovementSerializer(serializers.ModelSerializer):
     operator_username = serializers.CharField(source='operator.username', read_only=True)
