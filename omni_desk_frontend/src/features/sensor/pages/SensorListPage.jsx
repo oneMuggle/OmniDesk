@@ -93,11 +93,23 @@ const SensorListPage = () => {
     form.resetFields();
   };
 
+  const statusMap = {
+    in_stock: '在库',
+    in_use: '使用中',
+    retired: '已报废',
+    // 根据需要添加其他状态
+  };
+
   const columns = [
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: '类别', dataIndex: 'sensor_category_name', key: 'category' },
     { title: '存放地点', dataIndex: 'location_name', key: 'storage_location' },
-    { title: '状态', dataIndex: 'status', key: 'status' },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => statusMap[status] || status
+    },
     {
       title: '操作',
       key: 'action',
