@@ -20,41 +20,20 @@ const { Option } = Select;
 
 import PropTypes from 'prop-types';
 
-const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelList: users, positions }) => {
+const ScheduleFormModal = ({ open, onCancel, onOk, initialValues, personnelList, positions }) => {
   const [form] = Form.useForm();
-  const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
-  const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
-
-  useEffect(() => {
-    if (open) {
-      const personPosition = initialData.duty_person?.position || null;
-      const leaderPosition = initialData.duty_leader?.position || null;
-      form.setFieldsValue({
-        date: initialData.duty_date ? moment(initialData.duty_date) : null,
-        duty_person: initialData.duty_person ? initialData.duty_person.id : null,
-        duty_leader: initialData.duty_leader ? initialData.duty_leader.id : null,
-        person_position_filter: personPosition,
-        leader_position_filter: leaderPosition,
-      });
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedPersonPositionId(personPosition);
-      setSelectedLeaderPositionId(leaderPosition);
-    } else {
-      form.resetFields();
-      setSelectedPersonPositionId(null);
-      setSelectedLeaderPositionId(null);
-    }
-  }, [open, initialData, form]);
+  const selectedPersonPositionId = Form.useWatch('person_position_filter', form);
+  const selectedLeaderPositionId = Form.useWatch('leader_position_filter', form);
 
   const filteredDutyPersonList = useMemo(() => {
-    if (!selectedPersonPositionId) return users;
-    return users.filter(p => p.position === selectedPersonPositionId);
-  }, [users, selectedPersonPositionId]);
+    if (!selectedPersonPositionId) return personnelList;
+    return personnelList.filter(p => p.position === selectedPersonPositionId);
+  }, [personnelList, selectedPersonPositionId]);
 
   const filteredDutyLeaderList = useMemo(() => {
-    if (!selectedLeaderPositionId) return users;
-    return users.filter(p => p.position === selectedLeaderPositionId);
-  }, [users, selectedLeaderPositionId]);
+    if (!selectedLeaderPositionId) return personnelList;
+    return personnelList.filter(p => p.position === selectedLeaderPositionId);
+  }, [personnelList, selectedLeaderPositionId]);
 
 
   const handleOk = () => {
@@ -75,7 +54,7 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
 
   return (
     <Modal
-      title={initialData.id ? "编辑排班" : "新增排班"}
+      title={initialValues.id ? "编辑排班" : "新增排班"}
       open={open}
       onOk={handleOk}
       onCancel={onCancel}
@@ -90,7 +69,12 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
         </Button>,
       ]}
     >
-      <Form form={form} layout="vertical">
+      <Form
+        form={form}
+        layout="vertical"
+        key={initialValues.id || 'new'}
+        initialValues={initialValues}
+      >
         <Form.Item
           name="date"
           label="值班日期"
@@ -105,11 +89,6 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
           <Select
             placeholder="按职务筛选值班人员"
             allowClear
-            onChange={(value) => {
-              setSelectedPersonPositionId(value);
-              form.setFieldsValue({ duty_person: null });
-            }}
-            value={selectedPersonPositionId}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -132,16 +111,16 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
           >
-            {filteredDutyPersonList.map(person => (
-              <Option key={person.id} value={person.id} data-testid={`duty-person-option-${person.id}`}>
-                {person.name} ({person.position_name})
-              </Option>
+            {filteredDutyPersonList.map(user => (
+              <Select.Option key={user.id} value={user.id} data-testid={`duty-person-option-${user.id}`}>
+                {user.position?.name ? `${user.name} (${user.position.name})` : user.name}
+              </Select.Option>
             ))}
           </Select>
         </Form.Item>
-        {initialData.duty_person && initialData.duty_person.phone_numbers && initialData.duty_person.phone_numbers.length > 0 && (
+        {initialValues?.duty_person_phone && (
           <Form.Item label="值班人员电话">
-            <Input value={initialData.duty_person.phone_numbers.map(p => p.number).join(', ')} readOnly data-testid="schedule-modal-duty-person-phone" />
+            <Input value={initialValues.duty_person_phone} readOnly data-testid="schedule-modal-duty-person-phone" />
           </Form.Item>
         )}
         <Form.Item
@@ -151,11 +130,6 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
           <Select
             placeholder="按职务筛选值班领导"
             allowClear
-            onChange={(value) => {
-              setSelectedLeaderPositionId(value);
-              form.setFieldsValue({ duty_leader: null });
-            }}
-            value={selectedLeaderPositionId}
           >
             {positions.map(position => (
               <Option key={position.id} value={position.id}>
@@ -178,16 +152,16 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
               (option?.children ?? []).join('').toLowerCase().includes(input.toLowerCase())
             }
           >
-            {filteredDutyLeaderList.map(person => (
-              <Option key={person.id} value={person.id} data-testid={`duty-leader-option-${person.id}`}>
-                {person.name} ({person.position_name})
-              </Option>
+            {filteredDutyLeaderList.map(user => (
+              <Select.Option key={user.id} value={user.id} data-testid={`duty-leader-option-${user.id}`}>
+                {user.position?.name ? `${user.name} (${user.position.name})` : user.name}
+              </Select.Option>
             ))}
           </Select>
         </Form.Item>
-        {initialData.duty_leader && initialData.duty_leader.phone_numbers && initialData.duty_leader.phone_numbers.length > 0 && (
+        {initialValues?.duty_leader_phone && (
           <Form.Item label="值班领导电话">
-            <Input value={initialData.duty_leader.phone_numbers.map(p => p.number).join(', ')} readOnly data-testid="schedule-modal-duty-leader-phone" />
+            <Input value={initialValues.duty_leader_phone} readOnly data-testid="schedule-modal-duty-leader-phone" />
           </Form.Item>
         )}
       </Form>
@@ -199,9 +173,13 @@ ScheduleFormModal.propTypes = {
   open: PropTypes.bool.isRequired,
   onCancel: PropTypes.func.isRequired,
   onOk: PropTypes.func.isRequired,
-  initialData: PropTypes.object,
-  personnelList: PropTypes.array.isRequired, // Renamed to 'users' in destructuring
+  initialValues: PropTypes.object,
+  personnelList: PropTypes.array.isRequired,
   positions: PropTypes.array.isRequired,
+};
+
+ScheduleFormModal.defaultProps = {
+  initialValues: {},
 };
 
 
@@ -358,7 +336,7 @@ const ScheduleManagementPage = () => {
   const [isGenerateModalVisible, setIsGenerateModalVisible] = useState(false);
   const [isPersonnelSequenceModalVisible, setIsPersonnelSequenceModalVisible] = useState(false);
   const [currentSequence, setCurrentSequence] = useState(null);
-  const [currentSchedule, setCurrentSchedule] = useState(null);
+  const [formInitialValues, setFormInitialValues] = useState({});
   const [isExporting, setIsExporting] = useState(false);
   const calendarRef = useRef(null);
   const calendarContainerRef = useRef(null);
@@ -377,9 +355,9 @@ const ScheduleManagementPage = () => {
   });
 
 
-  const usersQuery = useQuery({
-    queryKey: ['users'],
-    queryFn: () => apiClient.get('users/').then(res => res.data.results),
+  const personnelQuery = useQuery({
+    queryKey: ['personnel'],
+    queryFn: () => getAllPersonnel().then(res => res.data.results)
   });
 
   const positionsQuery = useQuery({
@@ -398,13 +376,14 @@ const ScheduleManagementPage = () => {
   });
 
   const schedules = useMemo(() => schedulesQuery.data || [], [schedulesQuery.data]);
-  const users = usersQuery.data || [];
+  const personnel = personnelQuery.data || [];
   const positions = positionsQuery.data || [];
   const personnelSequences = personnelSequencesQuery.data || [];
   const leaderSequences = leaderSequencesQuery.data || [];
 
   const isDataPending =
     schedulesQuery.isPending ||
+    personnelQuery.isPending ||
     positionsQuery.isPending ||
     personnelSequencesQuery.isPending ||
     leaderSequencesQuery.isPending;
@@ -415,11 +394,11 @@ const ScheduleManagementPage = () => {
 
   const createOrUpdateMutation = useMutation({
     mutationFn: (values) =>
-      currentSchedule
-        ? scheduleApi.updateSchedule(currentSchedule.id, values)
+      formInitialValues.id
+        ? scheduleApi.updateSchedule(formInitialValues.id, values)
         : scheduleApi.createSchedule(values),
     onSuccess: () => {
-      message.success(currentSchedule ? '排班更新成功' : '排班创建成功');
+      message.success(formInitialValues.id ? '排班更新成功' : '排班创建成功');
       invalidateSchedules();
       setIsModalVisible(false);
     },
@@ -510,12 +489,22 @@ const ScheduleManagementPage = () => {
   }, []);
 
   const handleAdd = () => {
-    setCurrentSchedule(null);
+    setFormInitialValues({ id: null });
     setIsModalVisible(true);
   };
 
   const handleEdit = (record) => {
-    setCurrentSchedule(record);
+    const initialValues = {
+      id: record.id,
+      date: record.duty_date ? moment(record.duty_date) : null,
+      duty_person: record.duty_person?.id,
+      duty_leader: record.duty_leader?.id,
+      person_position_filter: record.duty_person?.position,
+      leader_position_filter: record.duty_leader?.position,
+      duty_person_phone: record.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
+      duty_leader_phone: record.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || '',
+    };
+    setFormInitialValues(initialValues);
     setIsModalVisible(true);
   };
 
@@ -872,11 +861,15 @@ const ScheduleManagementPage = () => {
       </Card>
       {isModalVisible && (
         <ScheduleFormModal
+          key={formInitialValues.id || 'new-schedule'}
           open={isModalVisible}
-          onCancel={() => setIsModalVisible(false)}
+          onCancel={() => {
+            setIsModalVisible(false);
+            setFormInitialValues({});
+          }}
           onOk={handleModalOk}
-          initialData={currentSchedule || {}}
-          personnelList={users}
+          initialValues={formInitialValues}
+          personnelList={personnel}
           positions={positions}
         />
       )}
@@ -894,7 +887,7 @@ const ScheduleManagementPage = () => {
           open={isPersonnelSequenceModalVisible}
           onOk={handlePersonnelSequenceModalOk}
           onCancel={handlePersonnelSequenceModalCancel}
-          personnelList={users}
+          personnelList={personnel}
           sequence={currentSequence}
           positions={positions}
         />
