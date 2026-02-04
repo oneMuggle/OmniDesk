@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs, message } from 'antd';
 import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';
@@ -7,61 +7,35 @@ import { DragDropContext, Draggable } from '@hello-pangea/dnd';
 import StrictModeDroppable from './StrictModeDroppable';
 
 const { Option } = Select;
-const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null }) => {
+const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null, personnelList = [], positions = [] }) => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const [positions, setPositions] = useState([]);
-  const [personnel, setPersonnel] = useState([]);
-  const [selectedPersonnel, setSelectedPersonnel] = useState([]);
-  const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState([]);
+  const personnel = useMemo(() => {
+    let filteredPersonnel = personnelList;
+    if (searchTerm) {
+      filteredPersonnel = filteredPersonnel.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
+    }
+    if (selectedPosition) {
+      filteredPersonnel = filteredPersonnel.filter(p => p.position === selectedPosition);
+    }
+    return filteredPersonnel;
+  }, [searchTerm, selectedPosition, personnelList]);
+  const [selectedPersonnel, setSelectedPersonnel] = useState(sequence?.personnel_details || []);
+  const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState(sequence?.holiday_personnel_details || []);
   const [activeTab, setActiveTab] = useState('workday');
 
   useEffect(() => {
     if (open) {
-      getPositions()
-        .then(response => setPositions(response.data.results || []))
-        .catch(error => {
-          console.error('Error fetching positions:', error);
-          setPositions([
-            { id: 1, name: 'Manager' },
-            { id: 2, name: 'Developer' },
-            { id: 3, name: 'Designer' },
-          ]);
-        });
-
       if (sequence) {
         form.setFieldsValue({ name: sequence.name });
-        // eslint-disable-next-line react-hooks/exhaustive-deps
       } else {
         form.resetFields();
       }
     }
   }, [open, sequence, form]);
 
-  useEffect(() => {
-    if (sequence) {
-      setSelectedPersonnel(sequence.personnel_details || []);
-      setSelectedHolidayPersonnel(sequence.holiday_personnel_details || []);
-    } else {
-      setSelectedPersonnel([]);
-      setSelectedHolidayPersonnel([]);
-    }
-  }, [sequence]);
 
-  useEffect(() => {
-    const fetchPersonnel = async () => {
-      const params = { search: searchTerm, position_id: selectedPosition };
-      try {
-        const response = await getPersonnel(params);
-        setPersonnel(response.data);
-      } catch (error) {
-        console.error('Error fetching personnel:', error);
-        setPersonnel([]);
-      }
-    };
-    fetchPersonnel();
-  }, [searchTerm, selectedPosition]);
 
   const handleAddPersonnel = (person) => {
     const isWorkday = activeTab === 'workday';
@@ -258,6 +232,8 @@ PersonnelSequenceModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onOk: PropTypes.func.isRequired,
   sequence: PropTypes.object,
+  personnelList: PropTypes.array,
+  positions: PropTypes.array,
 };
 
 export default PersonnelSequenceModal;

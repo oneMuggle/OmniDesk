@@ -67,17 +67,25 @@ const PersonnelEditPage = ({ formRef }) => {
     const handleSubmit = async (values) => {
         try {
             setSaving(true);
+            const {
+                contracts,
+                educations,
+                work_experiences,
+                professional_qualifications,
+                bank_accounts,
+                public_housing_info,
+                ...payload
+            } = values;
+
             const dataToSend = {
-                ...values,
-                date_of_birth: values.date_of_birth?.format('YYYY-MM-DD'),
-                hire_date: values.hire_date?.format('YYYY-MM-DD'),
-                contracts: values.contracts?.map(c => ({ ...c, start_date: c.start_date.format('YYYY-MM-DD'), end_date: c.end_date.format('YYYY-MM-DD') })),
-                educations: values.educations?.map(e => ({ ...e, start_date: e.start_date.format('YYYY-MM-DD'), end_date: e.end_date.format('YYYY-MM-DD') })),
-                work_experiences: values.work_experiences?.map(w => ({ ...w, start_date: w.start_date.format('YYYY-MM-DD'), end_date: w.end_date.format('YYYY-MM-DD') })),
-                professional_qualifications: values.professional_qualifications,
-                public_housing_info: values.public_housing_info,
-                bank_accounts: values.bank_accounts,
+                ...payload,
+                date_of_birth: values.date_of_birth ? values.date_of_birth.format('YYYY-MM-DD') : null,
+                hire_date: values.hire_date ? values.hire_date.format('YYYY-MM-DD') : null,
             };
+
+           if (dataToSend.id_card_number === '') {
+               delete dataToSend.id_card_number;
+           }
             await updatePersonnel(id, dataToSend);
             message.success('更新成功');
             navigate('/control-panel/personnel');

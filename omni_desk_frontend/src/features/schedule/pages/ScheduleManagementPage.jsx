@@ -6,6 +6,7 @@ import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
 import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
+import apiClient from '../../../shared/api/apiClient';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -19,7 +20,7 @@ const { Option } = Select;
 
 import PropTypes from 'prop-types';
 
-const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelList, positions }) => {
+const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelList: users, positions }) => {
   const [form] = Form.useForm();
   const [selectedPersonPositionId, setSelectedPersonPositionId] = useState(null);
   const [selectedLeaderPositionId, setSelectedLeaderPositionId] = useState(null);
@@ -46,14 +47,14 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialData = {}, personnelLi
   }, [open, initialData, form]);
 
   const filteredDutyPersonList = useMemo(() => {
-    if (!selectedPersonPositionId) return personnelList;
-    return personnelList.filter(p => p.position === selectedPersonPositionId);
-  }, [personnelList, selectedPersonPositionId]);
+    if (!selectedPersonPositionId) return users;
+    return users.filter(p => p.position === selectedPersonPositionId);
+  }, [users, selectedPersonPositionId]);
 
   const filteredDutyLeaderList = useMemo(() => {
-    if (!selectedLeaderPositionId) return personnelList;
-    return personnelList.filter(p => p.position === selectedLeaderPositionId);
-  }, [personnelList, selectedLeaderPositionId]);
+    if (!selectedLeaderPositionId) return users;
+    return users.filter(p => p.position === selectedLeaderPositionId);
+  }, [users, selectedLeaderPositionId]);
 
 
   const handleOk = () => {
@@ -199,7 +200,7 @@ ScheduleFormModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onOk: PropTypes.func.isRequired,
   initialData: PropTypes.object,
-  personnelList: PropTypes.array.isRequired,
+  personnelList: PropTypes.array.isRequired, // Renamed to 'users' in destructuring
   positions: PropTypes.array.isRequired,
 };
 
@@ -375,9 +376,10 @@ const ScheduleManagementPage = () => {
     queryFn: scheduleApi.getSchedules,
   });
 
-  const personnelQuery = useQuery({
-    queryKey: ['personnel'],
-    queryFn: () => getAllPersonnel().then(res => res.data.results),
+
+  const usersQuery = useQuery({
+    queryKey: ['users'],
+    queryFn: () => apiClient.get('users/').then(res => res.data.results),
   });
 
   const positionsQuery = useQuery({
@@ -396,14 +398,13 @@ const ScheduleManagementPage = () => {
   });
 
   const schedules = useMemo(() => schedulesQuery.data || [], [schedulesQuery.data]);
-  const personnelList = personnelQuery.data || [];
+  const users = usersQuery.data || [];
   const positions = positionsQuery.data || [];
   const personnelSequences = personnelSequencesQuery.data || [];
   const leaderSequences = leaderSequencesQuery.data || [];
 
   const isDataPending =
     schedulesQuery.isPending ||
-    personnelQuery.isPending ||
     positionsQuery.isPending ||
     personnelSequencesQuery.isPending ||
     leaderSequencesQuery.isPending;
@@ -634,15 +635,25 @@ const ScheduleManagementPage = () => {
   };
 
   const calendarEvents = useMemo(() => {
-    return schedules.map(schedule => ({
-      id: String(schedule.id),
-      start: schedule.duty_date,
-      allDay: true,
-      extendedProps: {
-        duty_person: schedule.duty_person,
-        duty_leader: schedule.duty_leader,
-      }
-    }));
+    return schedules.map(schedule => {
+      const dutyPerson = schedule.duty_person;
+      const dutyLeader = schedule.duty_leader;
+      return {
+        id: String(schedule.id),
+        start: schedule.duty_date,
+        allDay: true,
+        extendedProps: {
+          duty_person: {
+            ...dutyPerson,
+            name: dutyPerson?.username || dutyPerson?.name,
+          },
+          duty_leader: {
+            ...dutyLeader,
+            name: dutyLeader?.username || dutyLeader?.name,
+          },
+        }
+      };
+    });
   }, [schedules]);
 
   const renderEventContent = (eventInfo) => {
@@ -865,7 +876,7 @@ const ScheduleManagementPage = () => {
           onCancel={() => setIsModalVisible(false)}
           onOk={handleModalOk}
           initialData={currentSchedule || {}}
-          personnelList={personnelList}
+          personnelList={users}
           positions={positions}
         />
       )}
@@ -883,8 +894,9 @@ const ScheduleManagementPage = () => {
           open={isPersonnelSequenceModalVisible}
           onOk={handlePersonnelSequenceModalOk}
           onCancel={handlePersonnelSequenceModalCancel}
-          personnelList={personnelList}
+          personnelList={users}
           sequence={currentSequence}
+          positions={positions}
         />
       )}
     </div>
