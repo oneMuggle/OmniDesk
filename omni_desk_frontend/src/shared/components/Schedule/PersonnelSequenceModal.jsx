@@ -1,38 +1,67 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useLayoutEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs, message } from 'antd';
 import apiClient from '../../api/apiClient';
 import { DragDropContext, Draggable } from '@hello-pangea/dnd';
 import StrictModeDroppable from './StrictModeDroppable';
+import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';
 
 const { Option } = Select;
-const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null, personnelList = [], positions = [] }) => {
+const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null }) => {
   const [form] = Form.useForm();
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedPosition, setSelectedPosition] = useState(null);
-  const personnel = useMemo(() => {
-    let filteredPersonnel = personnelList;
-    if (searchTerm) {
-      filteredPersonnel = filteredPersonnel.filter(p => p.name.toLowerCase().includes(searchTerm.toLowerCase()));
-    }
-    if (selectedPosition) {
-      filteredPersonnel = filteredPersonnel.filter(p => p.position === selectedPosition);
-    }
-    return filteredPersonnel;
-  }, [searchTerm, selectedPosition, personnelList]);
+  const [personnel, setPersonnel] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [positions, setPositions] = useState([]);
   const [selectedPersonnel, setSelectedPersonnel] = useState(sequence?.personnel_details || []);
   const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState(sequence?.holiday_personnel_details || []);
   const [activeTab, setActiveTab] = useState('workday');
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (open) {
       if (sequence) {
         form.setFieldsValue({ name: sequence.name });
+        setSelectedPersonnel(sequence.personnel_details || []);
+        setSelectedHolidayPersonnel(sequence.holiday_personnel_details || []);
       } else {
         form.resetFields();
+        setSelectedPersonnel([]);
+        setSelectedHolidayPersonnel([]);
       }
+      setSearchTerm('');
+      setSelectedPosition(null);
+
+      getPositions()
+        .then(response => {
+          setPositions(response.data.results || []);
+        })
+        .catch(() => {
+          message.error('获取职位列表失败');
+        });
     }
   }, [open, sequence, form]);
+
+  useEffect(() => {
+    if (!open) {
+      setPersonnel([]);
+      return;
+    }
+
+    const handler = setTimeout(() => {
+      setLoading(true);
+      getPersonnel({ search: searchTerm, position_id: selectedPosition })
+        .then(response => {
+          setPersonnel(response.data.results || []);
+        })
+        .catch(() => {
+          message.error('获取人员列表失败');
+        })
+        .finally(() => setLoading(false));
+    }, 300);
+
+    return () => clearTimeout(handler);
+  }, [searchTerm, selectedPosition, open]);
 
 
 
@@ -162,7 +191,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
       onOk={handleSave}
       onCancel={onCancel}
       width={1000}
-      destroyOnClose
+      destroyOnHidden
       footer={[
         <Button key="back" onClick={onCancel}>
           取消
@@ -206,6 +235,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
             header={<div>人员列表</div>}
             bordered
             dataSource={personnel}
+            loading={loading}
             renderItem={item => (
               <List.Item
                 key={item.id}
@@ -230,8 +260,6 @@ PersonnelSequenceModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onOk: PropTypes.func.isRequired,
   sequence: PropTypes.object,
-  personnelList: PropTypes.array,
-  positions: PropTypes.array,
 };
 
 export default PersonnelSequenceModal;

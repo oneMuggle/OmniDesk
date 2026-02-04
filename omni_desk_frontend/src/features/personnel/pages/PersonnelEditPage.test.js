@@ -72,7 +72,8 @@ describe('PersonnelEditPage', () => {
   });
 
   test('shows loading spinner initially and then displays data', async () => {
-    renderWithRouter(<PersonnelEditPage />);
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />);
     expect(screen.getByRole('status')).toBeInTheDocument();
     expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
     expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
@@ -81,12 +82,14 @@ describe('PersonnelEditPage', () => {
 
   test('shows error message if fetching data fails', async () => {
     personnelApi.getPersonnelDetails.mockRejectedValue(new Error('Failed to fetch'));
-    renderWithRouter(<PersonnelEditPage />);
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />);
     expect(await screen.findByText('获取页面数据失败')).toBeInTheDocument();
   });
 
   test('allows user to edit a field and submit the form', async () => {
-    renderWithRouter(<PersonnelEditPage />);
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />);
     const nameInput = await screen.findByDisplayValue('Jane Doe');
     
     await userEvent.clear(nameInput);
@@ -104,7 +107,8 @@ describe('PersonnelEditPage', () => {
   });
 
   test('allows adding a new contract and submitting', async () => {
-    renderWithRouter(<PersonnelEditPage />);
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />);
     await screen.findByDisplayValue('Jane Doe'); // Wait for load
 
     const addButton = screen.getByRole('button', { name: /添加合同/i });
@@ -157,7 +161,8 @@ describe('PersonnelEditPage', () => {
 
   test('shows error message on submission failure', async () => {
     personnelApi.updatePersonnel.mockRejectedValue(new Error('Update failed'));
-    renderWithRouter(<PersonnelEditPage />);
+    const formRef = React.createRef();
+    renderWithRouter(<PersonnelEditPage formRef={formRef} />);
     await screen.findByDisplayValue('Jane Doe');
 
     const submitButton = screen.getByRole('button', { name: /保存更改/i });

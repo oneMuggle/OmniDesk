@@ -49,6 +49,7 @@ const PersonnelEditPage = ({ formRef }) => {
 
     useEffect(() => {
         if (initialData) {
+            console.log('Setting form fields with:', JSON.stringify(initialData));
             form.setFieldsValue({
                 ...initialData,
                 position: initialData.position ? initialData.position.id : null,
@@ -61,6 +62,7 @@ const PersonnelEditPage = ({ formRef }) => {
                 public_housing_info: initialData.public_housing_info || [],
                 bank_accounts: initialData.bank_accounts || [],
             });
+            console.log('Form values after set:', JSON.stringify(form.getFieldsValue()));
         }
     }, [initialData, form]);
 
@@ -77,8 +79,8 @@ const PersonnelEditPage = ({ formRef }) => {
                 hire_date: values.hire_date ? values.hire_date.format('YYYY-MM-DD') : null,
                 contracts: values.contracts?.map(c => ({
                     ...c,
-                    start_date: c.start_date ? moment(c.start_date).format('YYYY-MM-DD') : null,
-                    end_date: c.end_date ? moment(c.end_date).format('YYYY-MM-DD') : null,
+                    start_date: c.start_date ? c.start_date.format('YYYY-MM-DD') : null,
+                    end_date: c.end_date ? c.end_date.format('YYYY-MM-DD') : null,
                 })) || [],
             };
 

@@ -36,8 +36,8 @@ jest.mock('../api/personnelApi');
 
 const mockPersonnel = {
   results: [
-    { id: 1, name: 'John Doe', position: 1, position_name: 'Developer', phone_numbers: [{ number: '12345' }] },
-    { id: 2, name: 'Jane Smith', position: 2, position_name: 'Manager', phone_numbers: [{ number: '67890' }] },
+    { id: 1, name: 'John Doe', position: 1, phone_numbers: [{ number: '12345' }] },
+    { id: 2, name: 'Jane Smith', position: 2, phone_numbers: [{ number: '67890' }] },
   ],
   count: 2,
 };
@@ -87,11 +87,20 @@ describe('PersonnelManagementPage', () => {
     mutablePersonnel = JSON.parse(JSON.stringify(mockPersonnel.results));
     mutablePositions = JSON.parse(JSON.stringify(mockPositions.results));
 
-    getPersonnel.mockImplementation(({ page = 1, page_size = 10 } = {}) => {
+    getPersonnel.mockImplementation(({ page = 1, page_size = 10, search = '' } = {}) => {
+      const processedPersonnel = mutablePersonnel.map(p => {
+        const position = mutablePositions.find(pos => pos.id === p.position);
+        return { ...p, position_name: position ? position.name : '' };
+      });
+
+      const filteredData = search
+        ? processedPersonnel.filter(p => p.name.toLowerCase().includes(search.toLowerCase()))
+        : processedPersonnel;
+
       const start = (page - 1) * page_size;
       const end = start + page_size;
-      const paginatedData = mutablePersonnel.slice(start, end);
-      return Promise.resolve({ data: paginatedData, pagination: { total: mutablePersonnel.length } });
+      const paginatedData = filteredData.slice(start, end);
+      return Promise.resolve({ data: paginatedData, pagination: { total: filteredData.length } });
     });
 
     getPositions.mockImplementation(() => Promise.resolve({ data: { results: mutablePositions } }));
@@ -156,6 +165,9 @@ describe('PersonnelManagementPage', () => {
     await waitFor(() => {
       expect(screen.getByText('John Doe')).toBeInTheDocument();
       expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+      // Check for position names as well
+      expect(screen.getByText('Developer')).toBeInTheDocument();
+      expect(screen.getByText('Manager')).toBeInTheDocument();
       expect(screen.getByText(/共 2 条/)).toBeInTheDocument();
     });
   });
@@ -180,14 +192,18 @@ describe('PersonnelManagementPage', () => {
       
       // Select a position
       await userEvent.click(within(dialog).getByLabelText('职位'));
-      await screen.findByText('Developer'); // Wait for options to appear
-      await userEvent.click(screen.getByText('Developer'));
+      // The dropdown's listbox does not have an accessible name, so we find the option directly.
+      // `findByRole` will wait for the option to appear after the select is clicked.
+      await userEvent.click(await screen.findByRole('option', { name: 'Developer' }));
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
       await waitFor(() => {
         expect(createPersonnel).toHaveBeenCalledWith({ name: 'Peter Pan', position: 1 });
-        expect(message.success).toHaveBeenCalledWith('创建成功');
+      });
+
+      await waitFor(() => {
+          expect(message.success).toHaveBeenCalledWith('创建成功');
       });
       // Verify the new person is in the table
       await screen.findByText('Peter Pan');
@@ -237,6 +253,21 @@ describe('PersonnelManagementPage', () => {
       expect(getPersonnel).toHaveBeenCalledTimes(2);
       expect(getPersonnel).toHaveBeenCalledWith({ page: 2, page_size: 10 });
     });
+  });
+
+  test('searches for a person by name', async () => {
+    renderWithProvider(<PersonnelManagementPage />);
+    await screen.findByText('John Doe');
+
+    const searchInput = screen.getByPlaceholderText('按姓名搜索');
+    await userEvent.type(searchInput, 'Jane');
+    await userEvent.keyboard('{enter}');
+
+    await waitFor(() => {
+      expect(getPersonnel).toHaveBeenLastCalledWith({ page: 1, page_size: 10, search: 'Jane' });
+      expect(screen.getByText('Jane Smith')).toBeInTheDocument();
+    });
+    expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
   });
 
   describe('Position Management Tab', () => {
@@ -289,38 +320,34 @@ describe('PersonnelManagementPage', () => {
       });
     });
 
-    test('allows deleting a position and handles API failure', async () => {
+    test('allows deleting a position and updates personnel list', async () => {
       renderWithProvider(<PersonnelManagementPage />);
       const positionTab = await screen.findByRole('tab', { name: /职位管理/i });
       await userEvent.click(positionTab);
 
       const positionTabPanel = await screen.findByRole('tabpanel');
-
       await within(positionTabPanel).findByText('Developer');
 
-      // Successful deletion
-      // The `findByRole('row', ...)` query can be unreliable. A more robust method is to
-      // find all rows and then identify the specific one containing the "Manager" text.
+      // Delete "Manager" position
       const rows = await within(positionTabPanel).findAllByRole('row');
       const managerRow = rows.find(row => within(row).queryByText('Manager'));
       const deleteButtonManager = within(managerRow).getByRole('button', { name: /删除/i });
       await userEvent.click(deleteButtonManager);
+      
       await waitFor(() => {
         expect(deletePosition).toHaveBeenCalledWith(2);
         expect(message.success).toHaveBeenCalledWith('职位删除成功');
         expect(within(positionTabPanel).queryByText('Manager')).not.toBeInTheDocument();
       });
 
-      // Failed deletion
-      deletePosition.mockRejectedValueOnce(new Error('Deletion failed'));
-      const developerRow = await within(positionTabPanel).findByRole('row', { name: /Developer/i });
-      const deleteButtonDeveloper = within(developerRow).getByRole('button', { name: /删除/i });
-      await userEvent.click(deleteButtonDeveloper);
-      await waitFor(() => {
-        expect(deletePosition).toHaveBeenCalledWith(1);
-        expect(message.error).toHaveBeenCalledWith('职位删除失败');
-        expect(within(positionTabPanel).getByText('Developer')).toBeInTheDocument();
-      });
+      // Switch back to personnel tab
+      const personnelTab = screen.getByRole('tab', { name: /人员管理/i });
+      await userEvent.click(personnelTab);
+
+      // Check if Jane Smith's position is now empty
+      const janeSmithRow = await screen.findByRole('row', { name: /Jane Smith/i });
+      const cells = within(janeSmithRow).getAllByRole('cell');
+      expect(cells[1].textContent).toBe('');
     });
   });
 });

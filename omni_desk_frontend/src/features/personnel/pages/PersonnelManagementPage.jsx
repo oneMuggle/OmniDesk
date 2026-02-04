@@ -22,6 +22,7 @@ const PersonnelManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [positions, setPositions] = useState([]); // New state for positions
+  const [searchParams, setSearchParams] = useState({});
   const [pagination, setPagination] = useState({
     current: 1,
     pageSize: 10,
@@ -36,7 +37,7 @@ const PersonnelManagementPage = () => {
     },
     {
       title: '职位',
-      dataIndex: ['position', 'name'],
+      dataIndex: 'position_name',
       key: 'position_name',
     },
     {
@@ -58,11 +59,12 @@ const PersonnelManagementPage = () => {
     },
   ];
 
-  const fetchData = useCallback(async (page, pageSize) => {
+  const fetchData = useCallback(async (page, pageSize, params) => {
     try {
       const response = await getPersonnel({
         page,
-        page_size: pageSize
+        page_size: pageSize,
+        ...params,
       });
       
       setData(response.data || []); // Adjust for pagination structure
@@ -91,9 +93,9 @@ const PersonnelManagementPage = () => {
   const { current, pageSize } = pagination;
 
   useEffect(() => {
-    fetchData(current, pageSize);
+    fetchData(current, pageSize, searchParams);
     fetchPositions(); // Fetch positions on component mount
-  }, [fetchData, fetchPositions, current, pageSize]);
+  }, [fetchData, fetchPositions, current, pageSize, searchParams]);
 
   const handleTableChange = (newPagination) => {
     setPagination(prev => ({
@@ -109,9 +111,16 @@ const PersonnelManagementPage = () => {
     setIsModalVisible(true);
   };
 
+  const handleSearch = (value) => {
+    setPagination(prev => ({ ...prev, current: 1 }));
+    setSearchParams({ search: value });
+  };
+
   const handleSubmit = async () => {
+    console.log('handleSubmit called');
     try {
       const values = await form.validateFields();
+      console.log('Form validated, values:', values);
       if (editingId) {
         await updatePersonnel(editingId, values);
         message.success('更新成功');
@@ -125,6 +134,7 @@ const PersonnelManagementPage = () => {
       await fetchData(1, pagination.pageSize);
   
     } catch (errorInfo) {
+      console.error('handleSubmit error:', errorInfo);
       // The error could be from form validation or the API call.
       // The form validation error is an object with `errorFields`, while API errors are typically other objects.
       if (errorInfo.errorFields) {
@@ -256,6 +266,8 @@ const PersonnelManagementPage = () => {
             await deletePosition(id);
             message.success('职位删除成功');
             await fetchPositionData();
+            await fetchData(1, pagination.pageSize, searchParams);
+            await fetchPositions();
           } catch (error) {
             message.error('职位删除失败');
           }
@@ -309,7 +321,13 @@ const PersonnelManagementPage = () => {
       label: '人员管理',
       children: (
         <>
-          <div className='mb-4 flex justify-end'> {/* Adjusted flex for button alignment */}
+          <div className='mb-4 flex justify-between'>
+            <Input.Search
+              placeholder="按姓名搜索"
+              onSearch={handleSearch}
+              style={{ width: 200 }}
+              allowClear
+            />
             <Button
               type="primary"
               icon={<PlusOutlined />}
