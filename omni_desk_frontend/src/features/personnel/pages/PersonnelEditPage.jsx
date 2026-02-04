@@ -68,12 +68,6 @@ const PersonnelEditPage = ({ formRef }) => {
         try {
             setSaving(true);
             const {
-                contracts,
-                educations,
-                work_experiences,
-                professional_qualifications,
-                bank_accounts,
-                public_housing_info,
                 ...payload
             } = values;
 

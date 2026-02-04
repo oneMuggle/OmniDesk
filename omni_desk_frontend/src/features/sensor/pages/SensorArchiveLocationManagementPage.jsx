@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Table, Button, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { getStorageLocations, createStorageLocation, updateStorageLocation, deleteStorageLocation } from '../api/sensorApi';
 

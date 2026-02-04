@@ -146,7 +146,7 @@
   },
   {
     "name": "编辑人员",
-    "path": "/control-panel/personnel/edit/:id",
+    "path": "/control-panel/personnel/:id/edit",
     "component": "PersonnelEditPage"
   },
   {

@@ -12,7 +12,7 @@ import {
   updatePosition,
   deletePosition
 } from '../api/personnelApi';
-import { PlusOutlined, EditOutlined, DeleteOutlined, MinusCircleOutlined, PlusCircleOutlined } from '@ant-design/icons';
+import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 const { Option } = Select; // Destructure Option from Select
 

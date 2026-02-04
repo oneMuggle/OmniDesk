@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button, Table, Modal, Form, message, Space } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
