@@ -90,7 +90,6 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
           setSelectedHolidayPersonnel([]);
         })
         .catch(error => {
-          console.error('Error saving personnel sequence:', error);
           const errorMessage = error.response?.data?.personnel?.[0] || error.response?.data?.detail || '保存失败，请检查数据。';
           message.error(errorMessage);
         });

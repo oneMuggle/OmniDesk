@@ -26,12 +26,14 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialValues, personnelList,
 
   const filteredDutyPersonList = useMemo(() => {
     if (!selectedPersonPositionId) return personnelList;
-    return personnelList.filter(p => p.position === selectedPersonPositionId);
+    const filteredPersonnel = personnelList.filter(p => p.position?.id === selectedPersonPositionId?.id);
+    return filteredPersonnel;
   }, [personnelList, selectedPersonPositionId]);
 
   const filteredDutyLeaderList = useMemo(() => {
     if (!selectedLeaderPositionId) return personnelList;
-    return personnelList.filter(p => p.position === selectedLeaderPositionId);
+    const filteredLeaders = personnelList.filter(p => p.position?.id === selectedLeaderPositionId?.id);
+    return filteredLeaders;
   }, [personnelList, selectedLeaderPositionId]);
 
 
@@ -356,7 +358,9 @@ const ScheduleManagementPage = () => {
 
   const personnelQuery = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => getAllPersonnel().then(res => res.data.results)
+    queryFn: () => getAllPersonnel().then(res => {
+      return res.data.results;
+    })
   });
 
   const positionsQuery = useQuery({
