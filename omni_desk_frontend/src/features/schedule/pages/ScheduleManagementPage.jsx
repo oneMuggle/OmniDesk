@@ -6,7 +6,6 @@ import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
 import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
-import apiClient from '../../../shared/api/apiClient';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';

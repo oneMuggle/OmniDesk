@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs, message } from 'antd';
-import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';
 import apiClient from '../../api/apiClient';
 import { DragDropContext, Draggable } from '@hello-pangea/dnd';
 import StrictModeDroppable from './StrictModeDroppable';
