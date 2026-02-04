@@ -15,7 +15,7 @@ const mockPersonnelDetail = {
     phone_number: '555-1234',
     address: '123 Main St',
     department: 'Engineering',
-    position: 'Senior Developer',
+    position: { id: 1, name: 'Senior Developer' },
     hire_date: '2020-03-15',
     status: 'active',
     contracts: [{ id: 1, contract_number: 'C001', contract_type: 'permanent', start_date: '2020-03-15', end_date: '2025-03-14' }],

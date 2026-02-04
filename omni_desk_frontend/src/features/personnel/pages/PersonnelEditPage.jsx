@@ -75,6 +75,11 @@ const PersonnelEditPage = ({ formRef }) => {
                 ...payload,
                 date_of_birth: values.date_of_birth ? values.date_of_birth.format('YYYY-MM-DD') : null,
                 hire_date: values.hire_date ? values.hire_date.format('YYYY-MM-DD') : null,
+                contracts: values.contracts?.map(c => ({
+                    ...c,
+                    start_date: c.start_date ? moment(c.start_date).format('YYYY-MM-DD') : null,
+                    end_date: c.end_date ? moment(c.end_date).format('YYYY-MM-DD') : null,
+                })) || [],
             };
 
            if (dataToSend.id_card_number === '') {

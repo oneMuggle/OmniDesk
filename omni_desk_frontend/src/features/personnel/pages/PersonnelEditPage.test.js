@@ -66,7 +66,7 @@ const renderWithRouter = (ui) => {
 describe('PersonnelEditPage', () => {
   beforeEach(() => {
     jest.clearAllMocks();
-    personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
+    personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail.data);
     personnelApi.updatePersonnel.mockResolvedValue({ data: {} });
     personnelApi.getAllPositions.mockResolvedValue(mockPositions);
   });
@@ -131,11 +131,11 @@ describe('PersonnelEditPage', () => {
     await userEvent.type(newContractNumberInput, 'C002');
     
     await userEvent.click(newStartDateInput);
-    await userEvent.type(newStartDateInput, '2025-01-01');
+    await userEvent.type(newStartDateInput, moment('2025-01-01').format('YYYY-MM-DD'));
     await userEvent.keyboard('{enter}');
 
     await userEvent.click(newEndDateInput);
-    await userEvent.type(newEndDateInput, '2026-01-01');
+    await userEvent.type(newEndDateInput, moment('2026-01-01').format('YYYY-MM-DD'));
     await userEvent.keyboard('{enter}');
 
     // Note: antd DatePicker inputs are complex. We'll just check the submission data.

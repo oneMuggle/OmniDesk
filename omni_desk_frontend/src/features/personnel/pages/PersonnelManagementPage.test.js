@@ -94,7 +94,7 @@ describe('PersonnelManagementPage', () => {
       return Promise.resolve({ data: paginatedData, pagination: { total: mutablePersonnel.length } });
     });
 
-    getPositions.mockImplementation(() => Promise.resolve({ data: mutablePositions }));
+    getPositions.mockImplementation(() => Promise.resolve({ data: { results: mutablePositions } }));
     getAllPositions.mockResolvedValue(mutablePositions);
 
     createPersonnel.mockImplementation(newData => {
@@ -137,7 +137,7 @@ describe('PersonnelManagementPage', () => {
       const index = mutablePositions.findIndex(p => p.id === id);
       if (index > -1) {
         mutablePositions.splice(index, 1);
-        return Promise.resolve({});
+        return Promise.resolve({ data: { results: mutablePositions } });
       }
       return Promise.reject(new Error('Position not found'));
     });
@@ -169,7 +169,7 @@ describe('PersonnelManagementPage', () => {
   });
 
   describe('Personnel Management', () => {
-    test('adds a new person with dynamic phone numbers', async () => {
+    test('adds a new person', async () => {
       renderWithProvider(<PersonnelManagementPage />);
       await screen.findByText('John Doe');
 
@@ -177,26 +177,20 @@ describe('PersonnelManagementPage', () => {
       const dialog = await screen.findByRole('dialog');
 
       await userEvent.type(within(dialog).getByLabelText('姓名'), 'Peter Pan');
-      // Bypassing the problematic Select interaction in the test environment.
-      // The form validation will fail for the 'position' field,
-      // but we can confirm the submission attempt.
-
-      // Add a phone number
-      await userEvent.click(within(dialog).getByRole('button', { name: /添加电话号码/i }));
-      await userEvent.type(within(dialog).getAllByPlaceholderText('电话号码')[0], '13800138000');
-
-      // Add another phone number and then remove it
-      await userEvent.click(within(dialog).getByRole('button', { name: /添加电话号码/i }));
-      await userEvent.type(within(dialog).getAllByPlaceholderText('电话号码')[1], '111');
-      await userEvent.click(within(dialog).getAllByRole('img', { name: /minus-circle/i })[1]);
-
+      
+      // Select a position
+      await userEvent.click(within(dialog).getByLabelText('职位'));
+      await screen.findByText('Developer'); // Wait for options to appear
+      await userEvent.click(screen.getByText('Developer'));
 
       await userEvent.click(within(dialog).getByRole('button', { name: 'OK' }));
 
       await waitFor(() => {
-        expect(createPersonnel).not.toHaveBeenCalled();
-        expect(message.error).toHaveBeenCalledWith('表单验证失败，请检查输入。');
+        expect(createPersonnel).toHaveBeenCalledWith({ name: 'Peter Pan', position: 1 });
+        expect(message.success).toHaveBeenCalledWith('创建成功');
       });
+      // Verify the new person is in the table
+      await screen.findByText('Peter Pan');
     });
 
     test('deletes an existing person and handles API failure', async () => {

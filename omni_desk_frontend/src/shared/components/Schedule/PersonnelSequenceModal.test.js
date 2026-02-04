@@ -16,9 +16,9 @@ const mockPositions = [
 
 const mockPersonnel = {
   results: [
-    { id: 1, name: 'Alice', position: 'Developer' },
-    { id: 2, name: 'Bob', position: 'Manager' },
-    { id: 3, name: 'Charlie', position: 'Designer' },
+    { id: 1, name: 'Alice', position: { name: 'Developer' } },
+    { id: 2, name: 'Bob', position: { name: 'Manager' } },
+    { id: 3, name: 'Charlie', position: { name: 'Designer' } },
   ],
 };
 
@@ -26,7 +26,7 @@ describe('PersonnelSequenceModal', () => {
   beforeEach(() => {
     personnelApi.getPositions.mockResolvedValue({ data: { results: mockPositions } });
 
-    personnelApi.getPersonnel.mockImplementation(params => {
+    personnelApi.getPersonnel.mockImplementation((params = {}) => {
       const { search, position_id } = params;
       let filteredPersonnel = [...mockPersonnel.results];
 
@@ -38,13 +38,13 @@ describe('PersonnelSequenceModal', () => {
       if (position_id) {
         const position = mockPositions.find(p => p.id === position_id);
         if (position) {
-          filteredPersonnel = filteredPersonnel.filter(p => p.position === position.name);
+          filteredPersonnel = filteredPersonnel.filter(p => p.position.name === position.name);
         } else {
           filteredPersonnel = [];
         }
       }
       return Promise.resolve({
-        data: filteredPersonnel,
+        data: { results: filteredPersonnel },
         pagination: {
           current: 1,
           total: filteredPersonnel.length,
@@ -62,7 +62,7 @@ describe('PersonnelSequenceModal', () => {
   });
 
   test('renders the modal and fetches initial data', async () => {
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
+    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} personnelList={mockPersonnel.results} />);
 
     expect(screen.getByText('新建人员顺序')).toBeInTheDocument();
     expect(await screen.findByText('Alice')).toBeInTheDocument();
@@ -71,7 +71,7 @@ describe('PersonnelSequenceModal', () => {
 
   test('allows adding and removing personnel for workday and holiday', async () => {
     const user = userEvent;
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
+    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} personnelList={mockPersonnel.results} />);
 
     // Wait for personnel to load
     await screen.findByText('Alice');
@@ -118,7 +118,7 @@ describe('PersonnelSequenceModal', () => {
 
   test('allows searching and filtering personnel', async () => {
     const user = userEvent;
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} />);
+    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={() => {}} personnelList={mockPersonnel.results} />);
 
     // Wait for initial data to load
     await screen.findByText('Alice');
@@ -143,7 +143,7 @@ describe('PersonnelSequenceModal', () => {
   test('saves the personnel sequence', async () => {
     const user = userEvent;
     const onOk = jest.fn();
-    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} />);
+    render(<PersonnelSequenceModal open={true} onCancel={() => {}} onOk={onOk} personnelList={mockPersonnel.results} />);
 
     await screen.findByText('Alice');
 
