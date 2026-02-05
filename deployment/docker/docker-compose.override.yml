@@ -3,13 +3,13 @@ services:
     build:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
-      target: development
     volumes:
       - ../../omni_desk_backend:/app
     ports:
       - "8000:8000"
     env_file:
       - ./.env
+    command: python manage.py runserver 0.0.0.0:8000
 
   frontend:
     build:

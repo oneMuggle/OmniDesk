@@ -27,7 +27,6 @@ services:
 
   backend:
     image: ${REGISTRY:-local}/omni-desk-backend:${TAG:-latest}
-    command: /bin/sh -c "python manage.py migrate && python init_superuser.py && gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000"
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media

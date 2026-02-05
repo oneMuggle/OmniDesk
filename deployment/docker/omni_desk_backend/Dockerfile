@@ -76,11 +76,13 @@ COPY omni_desk_backend/requirements-prod.txt .
 # Install Python dependencies from the local wheelhouse
 RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requirements-prod.txt
 
-# Copy the application code
+# 复制 entrypoint 脚本
 COPY --chown=app:app omni_desk_backend/ .
 
-# Collect static files as root user
-RUN python manage.py collectstatic --no-input --clear
+RUN chmod +x ./entrypoint.sh
+
+# Create staticfiles directory and set permissions
+RUN mkdir -p /usr/src/app/staticfiles && chown -R app:app /usr/src/app/staticfiles
 
 # Switch to the non-root user
 USER app
@@ -88,5 +90,7 @@ USER app
 # Expose the port Gunicorn will listen on
 EXPOSE 8000
 
+ENTRYPOINT ["./entrypoint.sh"]
+
 # Define the command to run the application
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "omni_desk_backend.wsgi:application"]
+CMD ["gunicorn", "omni_desk_backend.wsgi:application", "--bind", "0.0.0.0:8000"]
