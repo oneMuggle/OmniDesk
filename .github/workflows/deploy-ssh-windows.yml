@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - name: Debug: Print Runner IP
+      - name: Print Runner IP
         run: curl ifconfig.me
 
       - name: Deploy to Server
