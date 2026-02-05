@@ -1,4 +1,4 @@
-import { useState, useEffect, useLayoutEffect } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Select, List, Button, Row, Col, Tabs, message } from 'antd';
 import apiClient from '../../api/apiClient';
