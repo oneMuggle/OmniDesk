@@ -18,20 +18,14 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
   const [selectedHolidayPersonnel, setSelectedHolidayPersonnel] = useState(sequence?.holiday_personnel_details || []);
   const [activeTab, setActiveTab] = useState('workday');
 
-  useLayoutEffect(() => {
+  useEffect(() => {
     if (open) {
       if (sequence) {
         form.setFieldsValue({ name: sequence.name });
-        setSelectedPersonnel(sequence.personnel_details || []);
-        setSelectedHolidayPersonnel(sequence.holiday_personnel_details || []);
       } else {
         form.resetFields();
-        setSelectedPersonnel([]);
-        setSelectedHolidayPersonnel([]);
       }
-      setSearchTerm('');
-      setSelectedPosition(null);
-
+      
       getPositions()
         .then(response => {
           setPositions(response.data.results || []);
@@ -44,7 +38,6 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
 
   useEffect(() => {
     if (!open) {
-      setPersonnel([]);
       return;
     }
 
