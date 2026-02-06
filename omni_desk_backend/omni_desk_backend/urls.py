@@ -5,12 +5,19 @@ from django.conf import settings
 from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 from users.views import UserRegistrationView, UserDetailView
 from config.views import ollama_configs_view
+from sensor_management.views import SensorCategoryViewSet, StorageLocationViewSet
+from rest_framework.routers import DefaultRouter
+
+router = DefaultRouter()
+router.register(r'categories', SensorCategoryViewSet, basename='sensor-category')
+router.register(r'storage-locations', StorageLocationViewSet, basename='storage-location')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     # Authentication endpoints
     # Authentication & User endpoints
     path('api/', include([
+        path('', include(router.urls)),
         path('sensor-management/', include('sensor_management.urls')),
         path('ollama/configs/', ollama_configs_view, name='ollama-configs-simple'),
         path('users/', include('users.urls')),     # 用户个人资料路由
