@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { scheduleEventApi as scheduleApi } from '../api/scheduleEventApi';
+import { scheduleApi } from '../api/scheduleApi';
 import { getTrials } from '../../../shared/api/trials';
 
 export const useScheduleData = () => {
