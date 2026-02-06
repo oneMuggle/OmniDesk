@@ -22,6 +22,7 @@ jobs:
           host: ${{ secrets.SSH_HOST }}
           username: ${{ secrets.SSH_USERNAME }}
           password: ${{ secrets.SSH_PASSWORD }}
+          debug: true
           script: |
             set "PROJECT_DIR=C:\projects\omni-desk"
             if not exist "%PROJECT_DIR%" (
