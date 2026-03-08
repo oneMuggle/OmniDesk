@@ -47,8 +47,9 @@ describe('AnnouncementsPage', () => {
     apiClient.get.mockResolvedValue(mockAnnouncements);
     render(<AnnouncementsPage />);
 
-    // 使用 findByText 断言元素最终会出现在屏幕上
-    expect(await screen.findByText('First Announcement')).toBeInTheDocument();
-    expect(await screen.findByText('Second Announcement')).toBeInTheDocument();
+    // react-slick 可能会渲染幻灯片的多个实例，因此我们使用 findAllByText
+    // 并断言文本至少出现一次，以确保测试的健壮性。
+    expect((await screen.findAllByText('First Announcement'))[0]).toBeInTheDocument();
+    expect((await screen.findAllByText('Second Announcement'))[0]).toBeInTheDocument();
   });
 });
