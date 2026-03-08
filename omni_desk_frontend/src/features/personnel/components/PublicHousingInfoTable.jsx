@@ -3,10 +3,13 @@ import { Table, Button } from 'antd';
 
 const PublicHousingInfoTable = ({ data = [], isEditing = false }) => {
   const columns = [
-    { title: '门牌号', dataIndex: 'house_number', key: 'house_number' },
+    { title: '门牌号', dataIndex: 'door_number', key: 'door_number' },
     { title: '房屋地址', dataIndex: 'address', key: 'address' },
     { title: '房屋类型', dataIndex: 'house_type', key: 'house_type' },
     { title: '房屋面积', dataIndex: 'area', key: 'area' },
+    { title: '租金', dataIndex: 'rent', key: 'rent' },
+    { title: '合同开始日期', dataIndex: 'contract_start_date', key: 'contract_start_date' },
+    { title: '合同结束日期', dataIndex: 'contract_end_date', key: 'contract_end_date' },
   ];
 
   if (isEditing) {
