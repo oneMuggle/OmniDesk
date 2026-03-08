@@ -1,7 +1,8 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useNavigate } from 'react-router-dom';
 import Register from './Register';
 import { useAuth } from '../context/AuthContext';
 
@@ -9,18 +10,29 @@ jest.mock('../context/AuthContext', () => ({
   useAuth: jest.fn(),
 }));
 
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: jest.fn(),
+}));
+
 describe('Register Component', () => {
   let register;
+  let navigate;
+  let user;
 
   beforeEach(() => {
     register = jest.fn();
+    navigate = jest.fn();
     useAuth.mockReturnValue({ register });
+    useNavigate.mockReturnValue(navigate);
+    user = userEvent.setup();
   });
 
   it('should render registration form', () => {
     render(<MemoryRouter><Register /></MemoryRouter>);
-    expect(screen.getByPlaceholderText('用户名')).toBeInTheDocument();
-    expect(screen.getByPlaceholderText('密码')).toBeInTheDocument();
+    expect(screen.getByLabelText('用户名')).toBeInTheDocument();
+    expect(screen.getByLabelText('密码')).toBeInTheDocument();
+    expect(screen.getByLabelText('确认密码')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /注册/i })).toBeInTheDocument();
   });
 
@@ -28,25 +40,27 @@ describe('Register Component', () => {
     register.mockResolvedValue({ success: false, errors: { username: ['A user with that username already exists.'] } });
     render(<MemoryRouter><Register /></MemoryRouter>);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'existinguser' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.change(screen.getByPlaceholderText('确认密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /注册/i }));
+    await user.type(screen.getByLabelText('用户名'), 'existinguser');
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.type(screen.getByLabelText('确认密码'), 'password');
+    await user.click(screen.getByRole('button', { name: /注册/i }));
 
     expect(await screen.findByText('A user with that username already exists.')).toBeInTheDocument();
   });
 
-  it('should show success message on successful registration', async () => {
+  it('should navigate to login page on successful registration', async () => {
     register.mockResolvedValue({ success: true });
     render(<MemoryRouter><Register /></MemoryRouter>);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'newuser' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.change(screen.getByPlaceholderText('确认密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /注册/i }));
+    await user.type(screen.getByLabelText('用户名'), 'newuser');
+    await user.type(screen.getByLabelText('密码'), 'password');
+    await user.type(screen.getByLabelText('确认密码'), 'password');
+    await user.click(screen.getByRole('button', { name: /注册/i }));
 
     await waitFor(() => {
-      expect(register).toHaveBeenCalled();
+      expect(navigate).toHaveBeenCalledWith('/login', {
+        state: { registeredUsername: 'newuser' },
+      });
     });
   });
 });

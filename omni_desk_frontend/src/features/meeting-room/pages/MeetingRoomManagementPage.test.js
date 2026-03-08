@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react';
+import { render, screen, waitFor, within, act, fireEvent } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import PropTypes from 'prop-types';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
@@ -9,6 +10,8 @@ import meetingRoomApi from '../api/meetingRoomApi';
 import { AuthContext } from '../../auth/context/AuthContext';
 
 jest.mock('../api/meetingRoomApi');
+
+const mockedMeetingRoomApi = jest.mocked(meetingRoomApi);
 
 const mockMeetingRooms = {
   data: {
@@ -49,95 +52,99 @@ const renderWithAuth = (ui, { providerProps, ...renderOptions }) => {
 
 describe('MeetingRoomManagementPage', () => {
   beforeEach(() => {
-    meetingRoomApi.getMeetingRooms.mockResolvedValue(mockMeetingRooms);
-    meetingRoomApi.getMeetingRoomMaintenances.mockResolvedValue(mockMaintenances);
-    meetingRoomApi.getMeetingRoomStats.mockResolvedValue(mockStats);
-    meetingRoomApi.createMeetingRoom.mockResolvedValue({ success: true });
-    meetingRoomApi.updateMeetingRoom.mockResolvedValue({ success: true });
-    meetingRoomApi.deleteMeetingRoom.mockResolvedValue({ success: true });
-    meetingRoomApi.createMeetingRoomMaintenance.mockResolvedValue({ success: true });
-    meetingRoomApi.updateMeetingRoomMaintenance.mockResolvedValue({ success: true });
-    meetingRoomApi.deleteMeetingRoomMaintenance.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.getMeetingRooms.mockResolvedValue(mockMeetingRooms);
+    mockedMeetingRoomApi.getMeetingRoomMaintenances.mockResolvedValue(mockMaintenances);
+    mockedMeetingRoomApi.getMeetingRoomStats.mockResolvedValue(mockStats);
+    mockedMeetingRoomApi.createMeetingRoom.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.updateMeetingRoom.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.deleteMeetingRoom.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.createMeetingRoomMaintenance.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.updateMeetingRoomMaintenance.mockResolvedValue({ success: true });
+    mockedMeetingRoomApi.deleteMeetingRoomMaintenance.mockResolvedValue({ success: true });
   });
 
   afterEach(() => {
     jest.clearAllMocks();
   });
 
-  test('renders the component and fetches data', async () => {
+  it('should render the component and fetch initial data', async () => {
     renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
     expect(screen.getByRole('heading', { name: /会议室管理/i })).toBeInTheDocument();
     await waitFor(() => {
-      expect(meetingRoomApi.getMeetingRooms).toHaveBeenCalled();
+      expect(mockedMeetingRoomApi.getMeetingRooms).toHaveBeenCalledTimes(1);
     });
-    expect(meetingRoomApi.getMeetingRoomMaintenances).toHaveBeenCalled();
-    expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalled();
+    expect(mockedMeetingRoomApi.getMeetingRoomMaintenances).toHaveBeenCalledTimes(1);
+    expect(mockedMeetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(1);
 
     // Check if data is rendered
     const roomAElements = await screen.findAllByText('Room A');
     expect(roomAElements.length).toBeGreaterThan(0);
-    await screen.findByText('Projector issue');
-    await screen.findByText('总预约数量');
+    expect(await screen.findByText('Projector issue')).toBeInTheDocument();
+    expect(await screen.findByText('总预约数量')).toBeInTheDocument();
   });
 
   describe('Meeting Room CRUD', () => {
-    test('adds a new meeting room', async () => {
+    it('should allow adding a new meeting room', async () => {
+      const user = userEvent.setup();
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
       const addRoomButton = await screen.findByRole('button', { name: /添加会议室/i });
-      fireEvent.click(addRoomButton);
+      await user.click(addRoomButton);
       
       const dialog = await screen.findByRole('dialog', { name: /添加会议室/i });
       
-      const nameInput = await within(dialog).findByLabelText('名称');
-      fireEvent.change(nameInput, { target: { value: 'Room C' } });
+      const nameInput = within(dialog).getByLabelText('名称');
+      await user.type(nameInput, 'Room C');
       
-      const okButton = await within(dialog).findByRole('button', { name: 'OK' });
-      fireEvent.click(okButton);
+      const okButton = within(dialog).getByRole('button', { name: 'OK' });
+      await user.click(okButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.createMeetingRoom).toHaveBeenCalledWith(expect.objectContaining({ name: 'Room C' }));
+        expect(mockedMeetingRoomApi.createMeetingRoom).toHaveBeenCalledWith(expect.objectContaining({ name: 'Room C' }));
       });
     });
 
-    test('edits an existing meeting room', async () => {
+    it('should allow editing an existing meeting room', async () => {
+      const user = userEvent.setup();
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
       const editButton = await screen.findByLabelText('edit-room-1');
-      fireEvent.click(editButton);
+      await user.click(editButton);
 
       const dialog = await screen.findByRole('dialog', { name: /编辑会议室/i });
       
-      const nameInput = await within(dialog).findByLabelText('名称');
+      const nameInput = within(dialog).getByLabelText('名称');
       expect(nameInput).toHaveValue('Room A');
-      fireEvent.change(nameInput, { target: { value: 'Room A Updated' } });
+      await user.clear(nameInput);
+      await user.type(nameInput, 'Room A Updated');
       
-      const okButton = await within(dialog).findByRole('button', { name: 'OK' });
-      fireEvent.click(okButton);
+      const okButton = within(dialog).getByRole('button', { name: 'OK' });
+      await user.click(okButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.updateMeetingRoom).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Room A Updated' }));
+        expect(mockedMeetingRoomApi.updateMeetingRoom).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Room A Updated' }));
       });
     });
 
-    test('deletes an existing meeting room', async () => {
+    it('should allow deleting a meeting room', async () => {
+      const user = userEvent.setup();
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
       const deleteButton = await screen.findByLabelText('delete-room-1');
-      fireEvent.click(deleteButton);
+      await user.click(deleteButton);
 
       const confirmButton = await screen.findByRole('button', { name: /ok/i });
-      fireEvent.click(confirmButton);
+      await user.click(confirmButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.deleteMeetingRoom).toHaveBeenCalledWith(1);
+        expect(mockedMeetingRoomApi.deleteMeetingRoom).toHaveBeenCalledWith(1);
       });
     });
   });
 
   describe('Maintenance CRUD', () => {
-    test('adds a new maintenance record', async () => {
+    it('should allow adding a new maintenance record', async () => {
         const TestWrapper = ({ formRef }) => {
             const [form] = Form.useForm();
             React.useImperativeHandle(formRef, () => form);
@@ -170,7 +177,7 @@ describe('MeetingRoomManagementPage', () => {
         await waitFor(() => {
             const expectedStartTime = '2025-12-20T10:00:00.000Z';
             const expectedEndTime = '2025-12-20T11:00:00.000Z';
-            expect(meetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalledWith(expect.objectContaining({
+            expect(mockedMeetingRoomApi.createMeetingRoomMaintenance).toHaveBeenCalledWith(expect.objectContaining({
                 meeting_room: 1,
                 reason: 'Cleaning',
                 start_time: expectedStartTime,
@@ -181,22 +188,23 @@ describe('MeetingRoomManagementPage', () => {
   });
 
   describe('Stats Filtering', () => {
-    test('refreshes stats when filter changes', async () => {
+    it('should refetch stats when filters are applied', async () => {
+      const user = userEvent.setup();
       renderWithAuth(<MeetingRoomManagementPage />, { providerProps: { user: mockUser, isAuthenticated: true } });
 
       await screen.findByText('总预约数量');
+      expect(mockedMeetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(1);
       
-      // Change the filter to trigger a refresh, which aligns with the test name
-      const roomSelect = screen.getByText('选择会议室');
-      fireEvent.mouseDown(roomSelect);
+      const roomSelect = screen.getByRole('combobox');
+      await user.click(roomSelect);
       const roomAOption = await screen.findByRole('option', { name: 'Room A' });
-      fireEvent.click(roomAOption);
+      await user.click(roomAOption);
 
       const refreshButton = await screen.findByRole('button', { name: /刷新统计/i });
-      fireEvent.click(refreshButton);
+      await user.click(refreshButton);
 
       await waitFor(() => {
-        expect(meetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2); // Initial fetch + fetch on filter change
+        expect(mockedMeetingRoomApi.getMeetingRoomStats).toHaveBeenCalledTimes(2);
       });
     });
   });

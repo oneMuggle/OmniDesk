@@ -14,7 +14,7 @@ export const scheduleApi = {
     }
   },
 
-  getSchedules: async () => {
+  fetchSchedules: async () => {
     try {
       let allSchedules = [];
       let url = 'events/schedules/';
@@ -32,12 +32,11 @@ export const scheduleApi = {
         url = response.data.next;
       }
 
-
       return allSchedules.map(schedule => ({
         id: schedule.id,
-        duty_date: schedule.duty_date,
-        duty_person: schedule.duty_person,
-        duty_leader: schedule.duty_leader,
+        title: `值班: ${schedule.duty_person}, 组长: ${schedule.duty_leader}`,
+        start: schedule.duty_date,
+        allDay: true,
         type: 'SCHEDULE'
       }));
     } catch (error) {

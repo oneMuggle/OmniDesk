@@ -37,10 +37,10 @@ describe('PositionManagementTab', () => {
     render(<PositionManagementTab />);
     await screen.findByText('Developer');
 
-    fireEvent.click(screen.getByTestId('add-position-button'));
-    await screen.findByTestId('position-modal');
+    fireEvent.click(screen.getByRole('button', { name: /新增职位/i }));
+    await screen.findByRole('dialog');
 
-    fireEvent.change(screen.getByTestId('position-modal-name-input'), { target: { value: 'Tester' } });
+    fireEvent.change(screen.getByLabelText('职位名称'), { target: { value: 'Tester' } });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
@@ -52,10 +52,10 @@ describe('PositionManagementTab', () => {
     render(<PositionManagementTab />);
     await screen.findByText('Developer');
 
-    fireEvent.click(screen.getByTestId('edit-position-button-1'));
-    await screen.findByTestId('position-modal');
+    fireEvent.click(screen.getAllByRole('button', { name: /edit/i })[0]);
+    await screen.findByRole('dialog');
 
-    fireEvent.change(screen.getByTestId('position-modal-name-input'), { target: { value: 'Developer Updated' } });
+    fireEvent.change(screen.getByLabelText('职位名称'), { target: { value: 'Developer Updated' } });
     fireEvent.click(screen.getByRole('button', { name: 'OK' }));
 
     await waitFor(() => {
@@ -67,7 +67,7 @@ describe('PositionManagementTab', () => {
     render(<PositionManagementTab />);
     await screen.findByText('Developer');
 
-    fireEvent.click(screen.getByTestId('delete-position-button-1'));
+    fireEvent.click(screen.getAllByRole('button', { name: /delete/i })[0]);
     
     await screen.findByText('确定要删除该职位吗？');
     await userEvent.click(screen.getByRole('button', { name: '确 认' }));

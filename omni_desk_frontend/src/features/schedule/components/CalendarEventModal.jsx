@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
@@ -26,6 +26,7 @@ const CalendarEventModal = ({
   const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
   const { personnel } = useScheduleData(); // 获取人员数据
   const { trials } = useTrialScheduleData(); // 获取试验数据
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   useEffect(() => {
     if (currentEvent) {
@@ -238,6 +239,9 @@ const CalendarEventModal = ({
                     format="YYYY-MM-DD HH:mm"
                     getPopupContainer={() => document.body}
                     disabled={!canEdit}
+                    open={pickerOpen}
+                    onOpenChange={setPickerOpen}
+                    onOk={() => setPickerOpen(false)}
                   />
                 </Form.Item>
                 {canEdit && ( // 只有管理员和经理可以删除时间段

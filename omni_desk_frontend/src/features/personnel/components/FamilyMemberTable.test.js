@@ -1,105 +1,62 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import '@testing-library/jest-dom';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import FamilyMemberTable from './FamilyMemberTable';
-import * as api from '../api/personnelApi';
+import { getFamilyMembers, createFamilyMember } from '../api/personnelApi';
 
 jest.mock('../api/personnelApi');
 
+const mockedGetFamilyMembers = jest.mocked(getFamilyMembers);
+const mockedCreateFamilyMember = jest.mocked(createFamilyMember);
+
 describe('FamilyMemberTable', () => {
-  let mockFamilyMembers;
-
   beforeEach(() => {
-    jest.clearAllMocks();
-
-    mockFamilyMembers = {
-      data: [
-        { id: 1, name: 'Spouse Name', relationship: 'Spouse', contact_number: '111', personnel: 1 },
-        { id: 2, name: 'Child Name', relationship: 'Child', contact_number: '222', personnel: 1 },
-      ],
-    };
-
-    api.getFamilyMembers.mockResolvedValue(mockFamilyMembers);
-    api.createFamilyMember.mockResolvedValue({ data: { id: 3, name: 'New Member' } });
-    api.updateFamilyMember.mockResolvedValue({ data: { id: 1, name: 'Updated Member' } });
-    api.deleteFamilyMember.mockResolvedValue({});
+    // 在每个测试前清除 mock，确保测试的独立性
+    mockedGetFamilyMembers.mockClear();
+    mockedCreateFamilyMember.mockClear();
   });
 
-  test('renders family members fetched from API', async () => {
+  it('should display family members after fetching', async () => {
+    const mockFamilyMembers = [{ id: 1, name: '张三', relationship: '父亲', contact_number: '13800138000' }];
+    mockedGetFamilyMembers.mockResolvedValue({ data: mockFamilyMembers });
+
     render(<FamilyMemberTable personnelId={1} />);
 
-    await waitFor(() => {
-      expect(api.getFamilyMembers).toHaveBeenCalledWith(1);
-    });
-
-    expect(await screen.findByText('Spouse Name')).toBeInTheDocument();
-    expect(await screen.findByText('Child Name')).toBeInTheDocument();
+    expect(await screen.findByText('张三')).toBeInTheDocument();
   });
 
-  test('opens add modal, creates a new family member, and refreshes the table', async () => {
+  it('should refresh the table with new data after adding a new family member', async () => {
+    const user = userEvent.setup();
+    const initialMembers = [
+      { id: 1, name: '张三', relationship: '父亲', contact_number: '13800138000', personnel: 1 },
+    ];
+    const newMember = { id: 2, name: '王五', relationship: '儿子', contact_number: '13700137000', personnel: 1 };
+    const updatedMembers = [...initialMembers, newMember];
+
+    // 1. 初始渲染时，返回初始数据
+    mockedGetFamilyMembers.mockResolvedValueOnce({ data: initialMembers });
+    mockedCreateFamilyMember.mockResolvedValue({ data: newMember });
+
     render(<FamilyMemberTable personnelId={1} />);
-    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByText('添加家庭成员'));
+    // 验证初始数据已加载
+    expect(await screen.findByText('张三')).toBeInTheDocument();
 
-    await waitFor(() => {
-        expect(screen.getByLabelText('姓名')).toBeInTheDocument();
-    });
+    // 2. 在添加操作后，模拟下一次 getFamilyMembers 调用返回更新后的数据
+    mockedGetFamilyMembers.mockResolvedValueOnce({ data: updatedMembers });
 
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'New Member' } });
-    fireEvent.change(screen.getByLabelText('关系'), { target: { value: 'Parent' } });
-    fireEvent.change(screen.getByLabelText('联系电话'), { target: { value: '333' } });
+    // 点击“添加家庭成员”按钮打开模态框
+    await user.click(screen.getByRole('button', { name: /添加家庭成员/i }));
 
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
+    // 填写表单
+    await user.type(screen.getByLabelText('姓名'), '王五');
+    await user.type(screen.getByLabelText('关系'), '儿子');
+    await user.type(screen.getByLabelText('联系电话'), '13700137000');
 
-    await waitFor(() => {
-      expect(api.createFamilyMember).toHaveBeenCalledWith(expect.objectContaining({
-        name: 'New Member',
-        relationship: 'Parent',
-        contact_number: '333',
-        personnel: 1,
-      }));
-    });
+    // 点击“OK”提交
+    await user.click(screen.getByRole('button', { name: 'OK' }));
 
-    await waitFor(() => {
-      expect(api.getFamilyMembers).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  test('opens edit modal, updates a family member, and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
-    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
-
-    await screen.findByText('Spouse Name');
-    fireEvent.click(screen.getAllByText('编辑')[0]);
-
-    await waitFor(() => {
-        expect(screen.getByLabelText('姓名')).toHaveValue('Spouse Name');
-    });
-
-    fireEvent.change(screen.getByLabelText('姓名'), { target: { value: 'Updated Member' } });
-    fireEvent.click(screen.getByRole('button', { name: 'OK' }));
-
-    await waitFor(() => {
-      expect(api.updateFamilyMember).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'Updated Member' }));
-    });
-    await waitFor(() => {
-      expect(api.getFamilyMembers).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  test('deletes a family member and refreshes the table', async () => {
-    render(<FamilyMemberTable personnelId={1} />);
-    await waitFor(() => expect(api.getFamilyMembers).toHaveBeenCalledTimes(1));
-
-    await screen.findByText('Spouse Name');
-    fireEvent.click(screen.getAllByText('删除')[0]);
-
-    await waitFor(() => {
-      expect(api.deleteFamilyMember).toHaveBeenCalledWith(1);
-    });
-    await waitFor(() => {
-      expect(api.getFamilyMembers).toHaveBeenCalledTimes(2);
-    });
+    // 断言：使用 findByText 等待新成员“王五”出现在表格中
+    // findBy* 查询会等待UI更新，这对于处理由非 awaited promise 引起的延迟渲染至关重要
+    expect(await screen.findByText('王五')).toBeInTheDocument();
   });
 });

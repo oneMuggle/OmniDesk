@@ -9,7 +9,7 @@ jest.mock('antd', () => {
     },
   };
 });
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import EBookManagementPage from './EBookManagementPage';
 import axios from 'axios';
@@ -48,9 +48,14 @@ test('uploads a new book and displays it in the list', async () => {
   await screen.findByText('React 入门指南'); // Wait for initial data
 
   const file = new File(['hello'], 'hello.md', { type: 'text/markdown' });
-  const input = screen.getByTestId('upload-input');
+  const uploadButton = screen.getByRole('button', { name: /导入/i });
+  await userEvent.click(uploadButton);
 
-  await userEvent.upload(input, file);
+  const fileInput = screen.getByLabelText(/选择文件/i, { selector: 'input[type="file"]' });
+  await userEvent.upload(fileInput, file);
+
+  const confirmButton = screen.getByRole('button', { name: /开始导入/i });
+  await userEvent.click(confirmButton);
 
   await screen.findByText('hello');
   await waitFor(() => {
@@ -61,7 +66,9 @@ test('uploads a new book and displays it in the list', async () => {
 test('opens the edit form with the correct book data', async () => {
   render(<EBookManagementPage />);
 
-  const editButton = await screen.findByTestId('edit-book-1');
+  const rowsAfterLoad = await screen.findAllByRole('row');
+  const targetRowForEdit = rowsAfterLoad.find(row => within(row).queryByText('React 入门指南'));
+  const editButton = within(targetRowForEdit).getByRole('button', { name: /编辑/i });
   await userEvent.click(editButton);
 
   const titleInput = await screen.findByLabelText(/书名/i);
@@ -74,8 +81,10 @@ test('opens the edit form with the correct book data', async () => {
 test('edits a book and updates the list', async () => {
   render(<EBookManagementPage />);
 
-  const editButton = await screen.findByTestId('edit-book-1');
-  await userEvent.click(editButton);
+  const rowsForEdit = await screen.findAllByRole('row');
+  const targetRowToEdit = rowsForEdit.find(row => within(row).queryByText('React 入门指南'));
+  const editButtonToClick = within(targetRowToEdit).getByRole('button', { name: /编辑/i });
+  await userEvent.click(editButtonToClick);
 
   const titleInput = await screen.findByLabelText(/书名/i);
   const authorInput = await screen.findByLabelText(/作者/i);
@@ -120,7 +129,9 @@ test('searches for books by title and author', async () => {
 test('deletes a book and removes it from the list', async () => {
   render(<EBookManagementPage />);
 
-  const deleteButton = await screen.findByTestId('delete-book-1');
+  const rowsForDelete = await screen.findAllByRole('row');
+  const targetRowToDelete = rowsForDelete.find(row => within(row).queryByText('React 入门指南'));
+  const deleteButton = within(targetRowToDelete).getByRole('button', { name: /删除/i });
   await userEvent.click(deleteButton);
 
   // Wait for the confirmation dialog and confirm

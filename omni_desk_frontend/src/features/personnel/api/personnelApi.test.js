@@ -28,10 +28,11 @@ describe('personnelApi', () => {
       const result = await getPersonnel(params);
 
       expect(apiClient.get).toHaveBeenCalledWith('personnel/personnel/', { params });
-      expect(result).toEqual({
-        data: [{ id: 1, name: 'John Doe' }],
-        pagination: { current: 1, total: 1, pageSize: 10 },
-      });
+      // 验证数据转换
+      expect(result.data).toEqual(response.data.results);
+      expect(result.pagination.total).toBe(response.data.count);
+      expect(result.pagination.current).toBe(response.data.current_page);
+      expect(result.pagination.pageSize).toBe(response.data.page_size);
     });
   });
 

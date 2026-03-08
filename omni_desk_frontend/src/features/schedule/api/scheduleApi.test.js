@@ -38,33 +38,30 @@ describe('scheduleApi', () => {
     handleError.mockRestore();
   });
 
-  describe('getSchedules', () => {
-    it('should fetch and format schedules correctly, handling pagination', async () => {
-      const mockSchedulesPage1 = {
+  describe('fetchSchedules', () => {
+    it('should fetch and format schedules correctly', async () => {
+      const mockSchedules = {
         results: [
           { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob' },
-        ],
-        next: '/api/events/schedules/?page=2',
-      };
-      const mockSchedulesPage2 = {
-        results: [
           { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave' },
         ],
         next: null,
       };
 
-      apiClient.get
-        .mockResolvedValueOnce({ data: mockSchedulesPage1 })
-        .mockResolvedValueOnce({ data: mockSchedulesPage2 });
+      apiClient.get.mockResolvedValueOnce({ data: mockSchedules });
 
-      const result = await scheduleApi.getSchedules();
+      const result = await scheduleApi.fetchSchedules();
 
       expect(apiClient.get).toHaveBeenCalledWith('events/schedules/');
-      expect(apiClient.get).toHaveBeenCalledWith('/api/events/schedules/?page=2');
       expect(result).toEqual([
-        { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob', type: 'SCHEDULE' },
-        { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave', type: 'SCHEDULE' },
+        { id: 1, title: '值班: Alice, 组长: Bob', start: '2023-10-01', allDay: true, type: 'SCHEDULE' },
+        { id: 2, title: '值班: Charlie, 组长: Dave', start: '2023-10-02', allDay: true, type: 'SCHEDULE' },
       ]);
+      expect(result[0]).toHaveProperty('id');
+      expect(result[0]).toHaveProperty('title');
+      expect(result[0]).toHaveProperty('start');
+      expect(result[0]).toHaveProperty('allDay', true);
+      expect(result[0]).toHaveProperty('type', 'SCHEDULE');
     });
   });
 

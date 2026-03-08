@@ -8,6 +8,11 @@ import apiClient from '../../../shared/api/apiClient';
 jest.mock('../../../shared/api/apiClient');
 
 describe('AnnouncementsPage', () => {
+  beforeEach(() => {
+    // 在每个测试用例运行前重置 mock
+    apiClient.get.mockReset();
+  });
+
   test('renders the announcements page title', async () => {
     apiClient.get.mockResolvedValue({ data: { results: [] } });
     render(<AnnouncementsPage />);
@@ -29,6 +34,7 @@ describe('AnnouncementsPage', () => {
     // 断言消息存在于文档中
     expect(noAnnouncementsMessage).toBeInTheDocument();
   });
+
   test('displays announcements when API call is successful', async () => {
     const mockAnnouncements = {
       data: {
@@ -41,10 +47,8 @@ describe('AnnouncementsPage', () => {
     apiClient.get.mockResolvedValue(mockAnnouncements);
     render(<AnnouncementsPage />);
 
-    await waitFor(() => {
-      expect(screen.getAllByText('First Announcement').length).toBeGreaterThan(0);
-    });
-    
-    expect(screen.getAllByText('Second Announcement').length).toBeGreaterThan(0);
+    // 使用 findByText 断言元素最终会出现在屏幕上
+    expect(await screen.findByText('First Announcement')).toBeInTheDocument();
+    expect(await screen.findByText('Second Announcement')).toBeInTheDocument();
   });
 });

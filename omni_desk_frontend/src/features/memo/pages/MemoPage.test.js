@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { BrowserRouter as Router } from 'react-router-dom';
 import moment from 'moment';
 import MemoPage from './MemoPage';
@@ -15,6 +16,7 @@ describe('MemoPage Component', () => {
   let mockMemos;
   let mockUseMemoData;
   let mockUseCalendar;
+  let user;
 
   beforeAll(() => {
     dateNowSpy = jest.spyOn(Date, 'now').mockImplementation(() => MOCK_DATE_NOW);
@@ -25,6 +27,7 @@ describe('MemoPage Component', () => {
   });
 
   beforeEach(() => {
+    user = userEvent.setup();
     const today = moment(MOCK_DATE_NOW);
     const tomorrow = moment(MOCK_DATE_NOW).add(1, 'day');
     mockMemos = [
@@ -40,25 +43,26 @@ describe('MemoPage Component', () => {
       deleteMemo: jest.fn(),
     };
 
-    useMemoData.mockReturnValue(mockUseMemoData);
-
     mockUseCalendar = {
       selectedDate: moment(MOCK_DATE_NOW),
       handleSelectDate: jest.fn(),
     };
+
+    useMemoData.mockReturnValue(mockUseMemoData);
     useCalendar.mockReturnValue(mockUseCalendar);
+  });
+
+  afterEach(() => {
     jest.clearAllMocks();
   });
 
   test('renders loading state initially', () => {
     useMemoData.mockReturnValue({ ...mockUseMemoData, isLoading: true, memos: [] });
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
     render(<Router><MemoPage /></Router>);
     expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
   });
 
-  test('renders memo page with memos', () => {
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
+  test('renders memo page with memos for the selected date', () => {
     render(<Router><MemoPage /></Router>);
     expect(screen.getByText('我的备忘录')).toBeInTheDocument();
     
@@ -69,71 +73,78 @@ describe('MemoPage Component', () => {
     expect(within(selectedDateMemosCard).getByText('Test Memo 1')).toBeInTheDocument();
   });
 
-  test('opens create memo modal when "新建备忘录" button is clicked', () => {
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
+  test('opens and closes create memo modal', async () => {
     render(<Router><MemoPage /></Router>);
-    fireEvent.click(screen.getByText('新建备忘录'));
-    // In a real app, you might have a more robust way to test modals.
+    await user.click(screen.getByRole('button', { name: /新建备忘录/i }));
+    const modal = await screen.findByRole('dialog', { name: /新建备忘录/i });
+    expect(modal).toBeInTheDocument();
+
+    await user.click(within(modal).getByRole('button', { name: /取 消/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /新建备忘录/i })).not.toBeInTheDocument();
+    });
   });
 
-  test('opens edit memo modal when edit button is clicked', async () => {
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
+  test('opens and closes edit memo modal', async () => {
     render(<Router><MemoPage /></Router>);
     const editButtons = await screen.findAllByLabelText('edit');
-    fireEvent.click(editButtons[0]);
-    // Similar to the create modal, we'll assume the state is set correctly.
+    await user.click(editButtons[0]);
+    
+    const modal = await screen.findByRole('dialog', { name: /编辑备忘录/i });
+    expect(modal).toBeInTheDocument();
+
+    await user.click(within(modal).getByRole('button', { name: /取 消/i }));
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog', { name: /编辑备忘录/i })).not.toBeInTheDocument();
+    });
   });
 
-  test('calls deleteMemo when delete button is clicked', async () => {
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
+  test('calls deleteMemo when delete confirmation is accepted', async () => {
     render(<Router><MemoPage /></Router>);
     const deleteButtons = await screen.findAllByLabelText('delete');
-    fireEvent.click(deleteButtons[0]);
+    await user.click(deleteButtons[0]);
 
-    // The Popconfirm has okText="是"
-    fireEvent.click(await screen.findByText('是'));
+    const confirmButton = await screen.findByRole('button', { name: '是' });
+    await user.click(confirmButton);
 
     await waitFor(() => expect(mockUseMemoData.deleteMemo).toHaveBeenCalledWith(1, expect.any(Object)));
   });
 
   test('calls updateMemo when checkbox is toggled', async () => {
-    useCalendar.mockReturnValue({ selectedDate: moment(MOCK_DATE_NOW), handleSelectDate: jest.fn() });
     render(<Router><MemoPage /></Router>);
     const checkboxes = await screen.findAllByRole('checkbox');
-    fireEvent.click(checkboxes[0]);
+    await user.click(checkboxes[0]);
     expect(mockUseMemoData.updateMemo).toHaveBeenCalledWith({ id: 1, data: { is_completed: true } }, expect.any(Object));
   });
 
-  test('filters memos by selected date', async () => {
-    // Initial render with the mocked date
-    useCalendar.mockReturnValue({
-      selectedDate: moment(MOCK_DATE_NOW),
-      handleSelectDate: jest.fn(),
-    });
-    const { rerender } = render(<Router><MemoPage /></Router>);
-
-    // Check for the memo of the initial date
+  test('filters memos when a different date is selected', async () => {
+    render(<Router><MemoPage /></Router>);
     const selectedDateCard = screen.getByTestId('selected-date-memos-card');
     expect(within(selectedDateCard).getByText('Test Memo 1')).toBeInTheDocument();
     expect(within(selectedDateCard).queryByText('Test Memo 2')).not.toBeInTheDocument();
 
-    // --- Simulate date change ---
+    // Simulate user selecting a different date by calling the handler from the hook
     const nextDay = moment(MOCK_DATE_NOW).add(1, 'day');
     
-    // Update the mock to return the new date
+    // To simulate the component re-rendering with the new date,
+    // we first update the mock to what it should be after the date change.
     useCalendar.mockReturnValue({
+      ...mockUseCalendar,
       selectedDate: nextDay,
-      handleSelectDate: jest.fn(),
     });
 
-    // Rerender the component to apply the new mock value
-    rerender(<Router><MemoPage /></Router>);
+    // Then, we call the function that would trigger this change.
+    // In the real app, this is called by the MiniCalendar component.
+    mockUseCalendar.handleSelectDate(nextDay);
 
-    // Assert that the content has updated
+    // Re-render the component to reflect the state update from the hook
+    render(<Router><MemoPage /></Router>);
+
     await waitFor(() => {
-      // The title of the card should update
+      // The title of the card should update to reflect the new date
       expect(screen.getByText(`选定日期备忘录 (${nextDay.format('YYYY年MM月DD日')})`)).toBeInTheDocument();
       // The list should now show the memo for the next day
+      const selectedDateCard = screen.getByTestId('selected-date-memos-card');
       expect(within(selectedDateCard).getByText('Test Memo 2')).toBeInTheDocument();
       expect(within(selectedDateCard).queryByText('Test Memo 1')).not.toBeInTheDocument();
     });

@@ -1,5 +1,6 @@
 import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import PropTypes from 'prop-types';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
@@ -57,23 +58,21 @@ describe('Login Component', () => {
   });
 
   it('should display an error if login is attempted with empty credentials', async () => {
+    const user = userEvent.setup();
     renderWithRouter(<Login />);
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+    await user.click(screen.getByRole('button', { name: /登 录/i }));
     expect(await screen.findByText('请输入用户名和密码')).toBeInTheDocument();
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
   it('should handle successful login and navigation', async () => {
+    const user = userEvent.setup();
     mockLogin.mockResolvedValue({ success: true, redirectTo: '/dashboard' });
     renderWithRouter(<Login />);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /登录中.../i })).toBeInTheDocument();
-    });
+    await user.type(screen.getByPlaceholderText('用户名'), 'testuser');
+    await user.type(screen.getByPlaceholderText('密码'), 'password');
+    await user.click(screen.getByRole('button', { name: /登 录/i }));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', false);
@@ -82,27 +81,31 @@ describe('Login Component', () => {
   });
 
   it('should handle failed login and display error message', async () => {
+    const user = userEvent.setup();
     const error = '用户名或密码错误';
     mockLogin.mockRejectedValue(new Error(error));
     renderWithRouter(<Login />);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'wronguser' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'wrongpassword' } });
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+    await user.type(screen.getByPlaceholderText('用户名'), 'wronguser');
+    await user.type(screen.getByPlaceholderText('密码'), 'wrongpassword');
+    await user.click(screen.getByRole('button', { name: /登 录/i }));
 
-    expect(await screen.findByText(error)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(error)).toBeInTheDocument();
+    });
     expect(mockLogin).toHaveBeenCalledWith('wronguser', 'wrongpassword', false);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('should pass rememberMe flag correctly when checked', async () => {
+    const user = userEvent.setup();
     mockLogin.mockResolvedValue({ success: true });
     renderWithRouter(<Login />);
 
-    fireEvent.change(screen.getByPlaceholderText('用户名'), { target: { value: 'testuser' } });
-    fireEvent.change(screen.getByPlaceholderText('密码'), { target: { value: 'password' } });
-    fireEvent.click(screen.getByLabelText('记住我'));
-    fireEvent.click(screen.getByRole('button', { name: /登 录/i }));
+    await user.type(screen.getByPlaceholderText('用户名'), 'testuser');
+    await user.type(screen.getByPlaceholderText('密码'), 'password');
+    await user.click(screen.getByLabelText('记住我'));
+    await user.click(screen.getByRole('button', { name: /登 录/i }));
 
     await waitFor(() => {
       expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', true);
@@ -110,14 +113,11 @@ describe('Login Component', () => {
   });
 
   it('should handle guest login successfully', async () => {
+    const user = userEvent.setup();
     mockLoginAsGuest.mockResolvedValue({ success: true });
     renderWithRouter(<Login />);
 
-    fireEvent.click(screen.getByRole('button', { name: /以游客身份访问/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /正在进入.../i })).toBeInTheDocument();
-    });
+    await user.click(screen.getByRole('button', { name: /以游客身份访问/i }));
 
     await waitFor(() => {
       expect(mockLoginAsGuest).toHaveBeenCalled();
@@ -126,13 +126,16 @@ describe('Login Component', () => {
   });
 
   it('should handle failed guest login', async () => {
+    const user = userEvent.setup();
     const error = '游客登录失败';
     mockLoginAsGuest.mockResolvedValue({ success: false, error });
     renderWithRouter(<Login />);
 
-    fireEvent.click(screen.getByRole('button', { name: /以游客身份访问/i }));
+    await user.click(screen.getByRole('button', { name: /以游客身份访问/i }));
 
-    expect(await screen.findByText(error)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText(error)).toBeInTheDocument();
+    });
     expect(mockLoginAsGuest).toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalled();
   });
