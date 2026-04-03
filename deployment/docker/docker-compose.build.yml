@@ -1,0 +1,14 @@
+# deployment/docker/docker-compose.build.yml
+# This file is used to build production-ready images locally.
+services:
+  backend:
+    build:
+      context: ../../ # Set context to project root
+      dockerfile: deployment/docker/omni_desk_backend/Dockerfile # Path to Dockerfile from root
+      target: production # Build the production stage
+    image: omni-desk-backend-prod:latest # Tag with a specific name for export
+  frontend:
+    build:
+      context: ../../omni_desk_frontend # Set context to the frontend directory
+      dockerfile: Dockerfile # Dockerfile is in the context root
+    image: omni-desk-frontend-prod:latest # Tag with a specific name for export

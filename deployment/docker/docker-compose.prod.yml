@@ -2,14 +2,14 @@ version: '3.8'
 
 services:
   backend:
-    image: ghcr.io/onemuggle/omni_desk_backend:latest
+    image: omni-desk-backend-prod:latest
     env_file:
       - ./.env.production
 
   frontend:
-    image: ghcr.io/onemuggle/omni_desk_frontend:latest
+    image: omni-desk-frontend-prod:latest
 
   worker:
-    image: ghcr.io/onemuggle/omni_desk_backend:latest
+    image: omni-desk-backend-prod:latest
     env_file:
       - ./.env.production

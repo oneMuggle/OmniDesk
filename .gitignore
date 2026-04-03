@@ -9,3 +9,5 @@ __pycache__/
 /omni_desk_backend/db.sqlite3
 /exported_images/
 /temp_packages/
+/node_modules/
+/deployment/docker/exported_images/
