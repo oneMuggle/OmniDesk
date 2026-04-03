@@ -64,6 +64,7 @@ jobs:
       with:
         name: DesktopNotifier-Windows-Release
         path: desktop_notifier/dist/
+        retention-days: 7
 
     - name: Upload Test Artifact (test)
       if: github.ref_name == 'test'
@@ -71,3 +72,4 @@ jobs:
       with:
         name: DesktopNotifier-Windows-Test
         path: desktop_notifier/dist/
+        retention-days: 7
