@@ -79,6 +79,8 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requiremen
 # 复制 entrypoint 脚本
 COPY --chown=app:app omni_desk_backend/ .
 
+# Ensure the entrypoint script has correct line endings and is executable
+RUN sed -i 's/\r$//' ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
 
 # Create staticfiles directory and set permissions
