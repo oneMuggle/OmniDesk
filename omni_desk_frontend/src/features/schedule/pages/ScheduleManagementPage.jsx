@@ -352,7 +352,8 @@ const ScheduleManagementPage = () => {
 
   const schedulesQuery = useQuery({
     queryKey: ['schedules'],
-    queryFn: scheduleApi.getSchedules,
+    queryFn: scheduleApi.fetchSchedules,
+    select: (data) => data.data.results,
   });
 
 
@@ -811,6 +812,7 @@ const ScheduleManagementPage = () => {
              <div ref={calendarContainerRef} style={{ flex: 1 }}>
                {currentView === 'dayGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
                <FullCalendar
+                 data-testid="full-calendar"
                  ref={calendarRef}
                  plugins={[dayGridPlugin, interactionPlugin]}
                  initialView="dayGridMonth"

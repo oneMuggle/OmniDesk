@@ -426,8 +426,8 @@ const UserManagementPage = () => {
             key: 'action',
             render: (text, record) => (
                 <Space size="middle">
-                    {record.permissions?.can_change && <Button type="primary" icon={<EditOutlined />} onClick={() => console.log('Edit user', record.id)}>编辑</Button>}
-                    {record.permissions?.can_delete && <Button type="danger" icon={<DeleteOutlined />} onClick={() => console.log('Delete user', record.id)}>删除</Button>}
+                    {record.permissions?.can_change && <Button data-testid="edit-user-button" type="primary" icon={<EditOutlined />} onClick={() => console.log('Edit user', record.id)}>编辑</Button>}
+                    {record.permissions?.can_delete && <Button data-testid="delete-user-button" type="danger" icon={<DeleteOutlined />} onClick={() => console.log('Delete user', record.id)}>删除</Button>}
                 </Space>
             ),
         },

@@ -118,35 +118,25 @@ describe('MemoPage Component', () => {
   });
 
   test('filters memos when a different date is selected', async () => {
-    render(<Router><MemoPage /></Router>);
-    const selectedDateCard = screen.getByTestId('selected-date-memos-card');
-    expect(within(selectedDateCard).getByText('Test Memo 1')).toBeInTheDocument();
-    expect(within(selectedDateCard).queryByText('Test Memo 2')).not.toBeInTheDocument();
+    const { rerender } = render(<Router><MemoPage /></Router>);
+    const selectedDateCard1 = screen.getByTestId('selected-date-memos-card');
+    expect(within(selectedDateCard1).getByText('Test Memo 1')).toBeInTheDocument();
+    expect(within(selectedDateCard1).queryByText('Test Memo 2')).not.toBeInTheDocument();
 
-    // Simulate user selecting a different date by calling the handler from the hook
     const nextDay = moment(MOCK_DATE_NOW).add(1, 'day');
     
-    // To simulate the component re-rendering with the new date,
-    // we first update the mock to what it should be after the date change.
     useCalendar.mockReturnValue({
       ...mockUseCalendar,
       selectedDate: nextDay,
     });
-
-    // Then, we call the function that would trigger this change.
-    // In the real app, this is called by the MiniCalendar component.
-    mockUseCalendar.handleSelectDate(nextDay);
-
-    // Re-render the component to reflect the state update from the hook
-    render(<Router><MemoPage /></Router>);
+    
+    rerender(<Router><MemoPage /></Router>);
 
     await waitFor(() => {
-      // The title of the card should update to reflect the new date
+      const selectedDateCard2 = screen.getByTestId('selected-date-memos-card');
       expect(screen.getByText(`选定日期备忘录 (${nextDay.format('YYYY年MM月DD日')})`)).toBeInTheDocument();
-      // The list should now show the memo for the next day
-      const selectedDateCard = screen.getByTestId('selected-date-memos-card');
-      expect(within(selectedDateCard).getByText('Test Memo 2')).toBeInTheDocument();
-      expect(within(selectedDateCard).queryByText('Test Memo 1')).not.toBeInTheDocument();
-    });
+      expect(within(selectedDateCard2).getByText('Test Memo 2')).toBeInTheDocument();
+      expect(within(selectedDateCard2).queryByText('Test Memo 1')).not.toBeInTheDocument();
+    }, { timeout: 2000 });
   });
 });

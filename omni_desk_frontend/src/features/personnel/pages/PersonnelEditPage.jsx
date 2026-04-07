@@ -14,12 +14,11 @@ import {
 
 const { Option } = Select;
 
-const PersonnelEditPage = ({ formRef }) => {
+const PersonnelEditPage = ({ form: providedForm }) => {
     const { id } = useParams();
-    const [form] = Form.useForm();
+    const [internalForm] = Form.useForm();
+    const form = providedForm || internalForm;
     const navigate = useNavigate();
-
-    useImperativeHandle(formRef, () => form);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [positions, setPositions] = useState([]);
@@ -215,7 +214,7 @@ const PersonnelEditPage = ({ formRef }) => {
 };
 
 PersonnelEditPage.propTypes = {
-    formRef: PropTypes.object,
+    form: PropTypes.object,
 };
 
 export default PersonnelEditPage;

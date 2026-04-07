@@ -85,7 +85,8 @@
     "eslint-plugin-jest": "^25.3.0",
     "eslint-plugin-react": "latest",
     "eslint-plugin-react-hooks": "latest",
-    "eslint-plugin-testing-library": "latest"
+    "eslint-plugin-testing-library": "latest",
+    "flush-promises": "^1.0.2"
   },
   "proxy": "http://127.0.0.1:8000",
   "jest": {

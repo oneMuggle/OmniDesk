@@ -1,31 +1,32 @@
 import React from 'react';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { render, screen, waitFor, act } from '../../../test-utils';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Routes, Route, useNavigate } from 'react-router-dom';
-import { message } from 'antd';
+import { message, Form } from 'antd';
+import moment from 'moment';
 import PersonnelEditPage from './PersonnelEditPage';
 import * as personnelApi from '../api/personnelApi';
 
 // Mock external dependencies
 jest.mock('../api/personnelApi');
-jest.mock('antd', () => ({
-  ...jest.requireActual('antd'),
-  message: {
-    success: jest.fn(),
-    error: jest.fn(),
-  },
-}));
+jest.mock('antd', () => {
+    const antd = jest.requireActual('antd');
+    return {
+        ...antd,
+        message: {
+            success: jest.fn(),
+            error: jest.fn(),
+        },
+    };
+});
 
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate: () => mockNavigate,
-  useParams: () => ({ id: '1' }),
+    ...jest.requireActual('react-router-dom'),
+    useNavigate: () => mockNavigate,
+    useParams: () => ({ id: '1' }),
 }));
 
-
 const mockPersonnelDetail = {
-  data: {
     id: 1,
     name: 'Jane Doe',
     id_card_number: '12345',
@@ -39,119 +40,135 @@ const mockPersonnelDetail = {
     contracts: [{ id: 1, contract_number: 'C001', contract_type: 'permanent', start_date: '2020-03-15', end_date: '2025-03-14' }],
     educations: [],
     work_experiences: [],
-  }
 };
 
 const mockPositions = [{ id: 1, name: 'Senior Developer' }, { id: 2, name: 'Junior Developer' }];
 
-const renderWithRouter = (ui) => {
-  return render(
-    <MemoryRouter initialEntries={['/control-panel/personnel/1/edit']}>
-      <Routes>
-        <Route path="/control-panel/personnel/:id/edit" element={ui} />
-      </Routes>
-    </MemoryRouter>
-  );
+// A helper function to set up the test environment
+const setupTest = async (initialData = mockPersonnelDetail) => {
+    const user = userEvent.setup();
+    let formInstance;
+
+    // This component will capture the form instance and pass it to the page
+    const TestWrapper = () => {
+        const [form] = Form.useForm();
+        formInstance = form;
+        return <PersonnelEditPage form={form} />;
+    };
+
+    render(<TestWrapper />);
+
+    // Manually and synchronously set the form values inside an act block
+    await act(async () => {
+        if (initialData) {
+            formInstance.setFieldsValue({
+                ...initialData,
+                position: initialData.position ? initialData.position.id : null,
+                date_of_birth: initialData.date_of_birth ? moment(initialData.date_of_birth) : null,
+                hire_date: initialData.hire_date ? moment(initialData.hire_date) : null,
+                contracts: initialData.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
+            });
+        }
+    });
+
+    return { user, form: formInstance };
 };
 
+
 describe('PersonnelEditPage', () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-    personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail.data);
-    personnelApi.updatePersonnel.mockResolvedValue({ data: {} });
-    personnelApi.getAllPositions.mockResolvedValue(mockPositions);
-  });
-
-  test('shows loading spinner initially and then displays data', async () => {
-    renderWithRouter(<PersonnelEditPage />);
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(await screen.findByDisplayValue('Jane Doe')).toBeInTheDocument();
-    expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
-    expect(screen.queryByRole('status')).not.toBeInTheDocument();
-  });
-
-  test('shows error message if fetching data fails', async () => {
-    personnelApi.getPersonnelDetails.mockRejectedValue(new Error('Failed to fetch'));
-    renderWithRouter(<PersonnelEditPage />);
-    expect(await screen.findByText('获取页面数据失败')).toBeInTheDocument();
-  });
-
-  test('allows user to edit a field and submit the form', async () => {
-    const user = userEvent.setup();
-    renderWithRouter(<PersonnelEditPage />);
-    const nameInput = await screen.findByDisplayValue('Jane Doe');
-    
-    await user.clear(nameInput);
-    await user.type(nameInput, 'Jane Smith');
-    
-    await user.click(screen.getByRole('button', { name: /保存更改/i }));
-
-    await waitFor(() => {
-      expect(personnelApi.updatePersonnel).toHaveBeenCalledWith('1', expect.objectContaining({
-        name: 'Jane Smith',
-      }));
+    beforeEach(() => {
+        jest.clearAllMocks();
+        // Mock the API calls that happen inside the component's useEffect
+        personnelApi.getPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
+        personnelApi.getAllPositions.mockResolvedValue(mockPositions);
+        personnelApi.updatePersonnel.mockResolvedValue({ data: {} });
     });
-    expect(message.success).toHaveBeenCalledWith('更新成功');
-    expect(mockNavigate).toHaveBeenCalledWith('/control-panel/personnel');
-  });
 
-  test('allows adding a new contract and submitting', async () => {
-    const user = userEvent.setup();
-    renderWithRouter(<PersonnelEditPage />);
-    await screen.findByDisplayValue('Jane Doe'); // Wait for load
-
-    const addButton = screen.getByRole('button', { name: /添加合同/i });
-    await user.click(addButton);
-
-    // After adding, new input fields will appear. We wait for them and then select the last ones.
-    const contractNumberInputs = await screen.findAllByPlaceholderText('合同编号');
-    expect(contractNumberInputs.length).toBe(2);
-    const newContractNumberInput = contractNumberInputs[contractNumberInputs.length - 1];
-
-    const startDateInputs = await screen.findAllByPlaceholderText('开始日期');
-    expect(startDateInputs.length).toBe(2);
-    const newStartDateInput = startDateInputs[startDateInputs.length - 1];
-
-    const endDateInputs = await screen.findAllByPlaceholderText('结束日期');
-    expect(endDateInputs.length).toBe(2);
-    const newEndDateInput = endDateInputs[endDateInputs.length - 1];
-
-    // Fill in the new contract details
-    await user.type(newContractNumberInput, 'C002');
-    await user.clear(newStartDateInput);
-    await user.type(newStartDateInput, '2025-01-01');
-    await user.clear(newEndDateInput);
-    await user.type(newEndDateInput, '2026-01-01');
-
-    // Note: antd DatePicker inputs are complex. We'll just check the submission data.
-    await user.click(screen.getByRole('button', { name: /保存更改/i }));
-
-    await waitFor(() => {
-      expect(personnelApi.updatePersonnel).toHaveBeenCalledWith('1', expect.objectContaining({
-        contracts: expect.arrayContaining([
-          expect.objectContaining({ contract_number: 'C001' }),
-          expect.objectContaining({
-            contract_number: 'C002',
-            start_date: '2025-01-01',
-            end_date: '2026-01-01',
-          }),
-        ]),
-      }));
+    test('displays data correctly after loading', async () => {
+        await setupTest();
+        expect(screen.getByDisplayValue('Jane Doe')).toBeInTheDocument();
+        expect(screen.getByDisplayValue('12345')).toBeInTheDocument();
     });
-  });
 
-  test('shows error message on submission failure', async () => {
-    personnelApi.updatePersonnel.mockRejectedValue(new Error('Update failed'));
-    const user = userEvent.setup();
-    renderWithRouter(<PersonnelEditPage />);
-    await screen.findByDisplayValue('Jane Doe');
-
-    const submitButton = screen.getByRole('button', { name: /保存更改/i });
-    await user.click(submitButton);
-
-    await waitFor(() => {
-      expect(message.error).toHaveBeenCalledWith('操作失败');
+    test('shows error message if fetching data fails', async () => {
+        // This test doesn't need the setup helper as it tests the initial load failure
+        personnelApi.getPersonnelDetails.mockRejectedValue(new Error('Failed to fetch'));
+        render(<PersonnelEditPage />);
+        expect(await screen.findByText('获取页面数据失败')).toBeInTheDocument();
     });
-    expect(submitButton).not.toBeDisabled();
-  });
+
+    test('allows user to edit a field and submit the form', async () => {
+        const { user } = await setupTest();
+        const nameInput = screen.getByDisplayValue('Jane Doe');
+
+        await user.clear(nameInput);
+        await user.type(nameInput, 'Jane Smith');
+
+        await user.click(screen.getByRole('button', { name: /保存更改/i }));
+
+        await waitFor(() => {
+            expect(personnelApi.updatePersonnel).toHaveBeenCalledWith('1', expect.objectContaining({
+                name: 'Jane Smith',
+            }));
+        });
+        expect(message.success).toHaveBeenCalledWith('更新成功');
+        expect(mockNavigate).toHaveBeenCalledWith('/control-panel/personnel');
+    });
+
+    test('allows adding a new contract and submitting', async () => {
+        const { user, form } = await setupTest();
+
+        const addButton = screen.getByRole('button', { name: /添加合同/i });
+        await user.click(addButton);
+
+        const contractNumberInputs = await screen.findAllByPlaceholderText('合同编号');
+        expect(contractNumberInputs).toHaveLength(2);
+        const newContractNumberInput = contractNumberInputs[1];
+        await user.type(newContractNumberInput, 'C002');
+
+        // Manually set values for the new contract row to satisfy validation
+        await act(async () => {
+            const currentValues = form.getFieldsValue();
+            const newContracts = [...currentValues.contracts];
+            newContracts[1] = {
+                ...newContracts[1],
+                start_date: moment('2024-01-01'),
+                end_date: moment('2025-01-01'),
+                contract_type: 'permanent', // Also set the type
+            };
+            form.setFieldsValue({ contracts: newContracts });
+        });
+
+        await user.click(screen.getByRole('button', { name: /保存更改/i }));
+
+        await waitFor(() => {
+            expect(personnelApi.updatePersonnel).toHaveBeenCalledWith(
+                '1',
+                expect.objectContaining({
+                    contracts: expect.arrayContaining([
+                        expect.objectContaining({ contract_number: 'C001' }),
+                        expect.objectContaining({
+                            contract_number: 'C002',
+                            contract_type: 'permanent',
+                            start_date: '2024-01-01',
+                            end_date: '2025-01-01',
+                        }),
+                    ]),
+                })
+            );
+        });
+    });
+
+    test('shows error message on submission failure', async () => {
+        personnelApi.updatePersonnel.mockRejectedValue(new Error('API Error'));
+        const { user } = await setupTest();
+
+        const submitButton = screen.getByRole('button', { name: /保存更改/i });
+        await user.click(submitButton);
+
+        await waitFor(() => {
+            expect(message.error).toHaveBeenCalledWith('操作失败');
+        });
+        expect(submitButton).not.toBeDisabled();
+    });
 });

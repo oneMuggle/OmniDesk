@@ -43,7 +43,7 @@ describe('PersonnelDetailPage', () => {
     mockedGetPersonnelDetails.mockResolvedValue(mockPersonnelDetail);
     renderComponent();
 
-    expect(screen.getByRole('status')).toBeInTheDocument(); // Assuming a loading spinner has a role of 'status'
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
 
     await waitFor(() => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
@@ -60,11 +60,11 @@ describe('PersonnelDetailPage', () => {
     mockedGetPersonnelDetails.mockRejectedValue(new Error(errorMessage));
     renderComponent();
 
-    expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument();
 
-    await waitFor(() => {
+    await waitFor(async () => {
       expect(screen.queryByRole('status')).not.toBeInTheDocument();
-      expect(screen.getByRole('alert')).toHaveTextContent(errorMessage);
+      expect(await screen.findByText('获取人员详细信息失败')).toBeInTheDocument();
     });
   });
 });
