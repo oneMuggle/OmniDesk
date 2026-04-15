@@ -13,7 +13,7 @@ NGINX_IMAGE="nginx:latest"
 mkdir -p $EXPORT_DIR
 
 echo "Building production images locally..."
-docker-compose -f docker-compose.build.yml build
+docker compose -f docker-compose.build.yml build
 
 echo "Pulling required service images..."
 docker pull $POSTGRES_IMAGE
