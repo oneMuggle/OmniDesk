@@ -14,7 +14,7 @@ docker load -i "$IMPORT_DIR/nginx.tar"
 echo "Images loaded successfully."
 
 echo "Starting production services..."
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
 
 echo "Deployment complete."
 echo "You may need to run database migrations and collect static files if this is the first deployment."

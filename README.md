@@ -122,22 +122,53 @@ yarn start
 
 ## 部署
 
-### 自动化部署 (Windows 服务器) - 推荐
+### 自动化部署 (CI/CD) - 推荐
 
-本项目采用 GitHub Actions 进行持续集成与持续部署 (CI/CD)。任何推送到 `main` 分支的操作都会触发以下自动化流程：
+本项目采用 GitHub Actions 进行持续集成与持续部署 (CI/CD)。
 
-1.  **自动构建**: [` .github/workflows/build-and-push-images.yml `](.github/workflows/build-and-push-images.yml) 工作流会自动构建后端的 Docker 镜像并将其推送到 GitHub Container Registry (GHCR)。
-2.  **自动部署**: 镜像构建成功后，[` .github/workflows/deploy-ssh-windows.yml `](.github/workflows/deploy-ssh-windows.yml) 工作流将通过 SSH 连接到目标 Windows 服务器，自动拉取最新的代码和 Docker 镜像，并使用 `docker-compose` 重新启动服务。
+**推送流程 (推送到 `main` 分支):**
 
-这是推荐的部署方法，因为它简化了流程并减少了手动错误。
-
-### 手动部署
-
-使用 Docker 手动部署：
-
-```bash
-cd deployment/docker
-docker-compose up -d
+```
+Push → 构建镜像 → 运行测试 → 推送至 GHCR → SSH 部署到服务器
 ```
 
-这将构建并启动所有容器。
+**详细步骤:**
+1. **自动构建**: [`.github/workflows/build-and-push-images.yml`](.github/workflows/build-and-push-images.yml) 自动构建 Docker 镜像并推送到 GitHub Container Registry (GHCR)
+2. **自动部署**: [`.github/workflows/deploy-ssh-windows.yml`](.github/workflows/deploy-ssh-windows.yml) 通过 SSH 部署到 Windows 服务器
+
+### Docker 部署
+
+项目提供完整的 Docker 部署方案，详见 [部署指南](deployment/docker/DEPLOYMENT_GUIDE.md)。
+
+**快速启动:**
+```bash
+cd deployment/docker
+./deploy_docker.sh up          # 开发环境
+docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d  # 生产环境
+```
+
+**部署脚本功能:**
+| 命令 | 说明 |
+|------|------|
+| `./deploy_docker.sh up` | 构建并启动所有服务 |
+| `./deploy_docker.sh down` | 停止所有服务 |
+| `./deploy_docker.sh logs [service]` | 查看日志 |
+| `./deploy_docker.sh migrate` | 执行数据库迁移 |
+| `./deploy_docker.sh collectstatic` | 收集静态文件 |
+
+### 离线/内网部署
+
+对于无法访问互联网的内网服务器:
+
+```bash
+# 1. 在有网环境打包镜像
+cd deployment/docker
+./build_and_export.sh
+
+# 2. 传输 exported_images/ 目录到内网服务器
+
+# 3. 在内网服务器部署
+./deploy_offline.sh
+```
+
+详细说明请参考 [完整部署指南](deployment/docker/DEPLOYMENT_GUIDE.md)。
