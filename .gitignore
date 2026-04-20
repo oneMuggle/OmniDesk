@@ -11,3 +11,21 @@ __pycache__/
 /temp_packages/
 /node_modules/
 /deployment/docker/exported_images/
+
+# IDE
+.idea/
+.vscode/
+.roo/
+.trae/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+*.egg-info/
+venv/
+.venv/
+*.log
+.pytest_cache/
