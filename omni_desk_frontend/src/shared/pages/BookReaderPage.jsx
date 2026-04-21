@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
+import { Typography } from 'antd';
 import api from '../api/axiosConfig';
 import TableOfContents from '../components/TableOfContents';
 import ChapterView from '../components/ChapterView';
-import complianceApi from '../api/compliance'; // 导入合规API
-import './BookReaderPage.css'; // Use a dedicated CSS file for the independent reader page
-import { Typography } from '@mui/material'; // 导入 Typography
+import complianceApi from '../api/compliance';
+import './BookReaderPage.css';
+
+const { Title, Text } = Typography;
 
 const BookReaderPage = () => {
     const { bookId } = useParams();
@@ -55,20 +57,14 @@ const BookReaderPage = () => {
     }
 
     return (
-        <div className="book-reader-page"> {/* New class for the independent reader page */}
+        <div className="book-reader-page">
             <div className="book-header">
-                <Typography variant="h4" component="h1" gutterBottom>
-                    {book.title}
-                </Typography>
+                <Title level={2}>{book.title}</Title>
                 {book.author && (
-                    <Typography variant="subtitle1" color="textSecondary">
-                        作者: {book.author}
-                    </Typography>
+                    <Text type="secondary">作者: {book.author}</Text>
                 )}
-                {book.project_name && ( // 显示所属项目信息
-                    <Typography variant="subtitle1" color="textSecondary">
-                        所属项目: {book.project_name}
-                    </Typography>
+                {book.project_name && (
+                    <Text type="secondary" style={{ display: 'block' }}>所属项目: {book.project_name}</Text>
                 )}
             </div>
             <div className="book-content-layout">
