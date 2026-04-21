@@ -1,0 +1,105 @@
+schema: spec-driven
+
+# Project context
+context: |
+  ## Tech Stack
+  - Backend: Django 3.2, DRF, PostgreSQL, Redis (Celery), JWT (simplejwt)
+  - Frontend: React (CRA), React Router v6, TanStack Query, Ant Design, MUI, axios
+  - Auth: JWT stored in localStorage
+
+  ## Project Structure
+  - omni_desk_backend/ - Django REST API (port 8000)
+  - omni_desk_frontend/ - React SPA (port 3000, proxied to 8000)
+  - Database: PostgreSQL (Docker at db:5432), Test: in-memory SQLite
+  - Cache/Queue: Redis
+
+  ## Django Apps (16 apps)
+  personnel, events, documents, config, memos, dify_apps, office_assistant,
+  projects, compliance, ragflow_service, meeting_rooms, sensor_management,
+  communication, news, permissions, sensors
+
+  ## Conventions
+  - Backend: pip-compile (edit .in files only)
+    - requirements.in → requirements-prod.txt
+    - requirements-dev.in → requirements.txt
+  - Frontend: npm, route auto-generation via scripts/generate-routes.js
+  - Test: pytest --ds=omni_desk_backend.settings.test
+  - Linting: npm run lint (frontend)
+
+  ## Settings Modules
+  - base.py (shared), development.py (dev), production.py, test.py (SQLite)
+
+  ## CI/CD
+  - Main: build-and-push-images.yml → deploy-ssh-windows.yml (Windows SSH)
+  - Test: ci-test.yml (parallel backend pytest + frontend jest)
+
+  ## Anti-Patterns
+  - No "DO NOT"/"NEVER"/"TODO" markers in code comments
+  - No type suppression (@ts-ignore, as any, @ts-expect-error)
+  - No empty catch blocks
+  - No deleting failing tests to "pass"
+
+# Per-artifact rules
+rules:
+  proposal:
+    - Keep proposals under 800 words
+    - Always include "Non-goals" section
+    - Include code structure changes (new files, modified files)
+    - Reference backend apps: personnel, events, documents, config, memos,
+      dify_apps, office_assistant, projects, compliance, ragflow_service,
+      meeting_rooms, sensor_management, communication, news, permissions, sensors
+    - Reference frontend: src/routes/ (auto-generated)
+    - Include verification requirements (tests, build, lint)
+
+  design:
+    - Show data flow for backend/frontend changes
+    - Include API endpoints if changed
+    - Reference 2-3 similar files for pattern consistency
+    - Consider security implications (auth, permissions)
+
+  tasks:
+    - Break tasks into independent units
+    - Prefer backend/frontend parallel execution when independent
+    - Always verify: lsp_diagnostics, build (if applicable), test (if applicable)
+    - Use deep category for complex tasks
+    - Use visual-engineering category for UI/UX tasks
+    - Never leave code in broken state after failures
+
+  implementation:
+    - Match existing patterns (check 2-3 similar files first)
+    - Never use type suppression (@ts-ignore, as any, @ts-expect-error)
+    - Never commit unless explicitly requested
+    - Test settings uses in-memory SQLite, fast password hasher (MD5), logging disabled
+    - Bugfix rule: fix minimally, no refactoring while fixing
+
+  review:
+    - Verify against original proposal requirements
+    - Check code quality (no AI slop, no empty catch blocks)
+    - Check security (auth, permissions, input validation)
+    - Hands-on QA: run backend + frontend tests
+    - Verify: lsp_diagnostics clean, build passes
+
+# Schema configuration
+schema_config:
+  changes_dir: openspec/changes
+
+  artifacts:
+    proposal:
+      required_sections:
+        - Summary
+        - Problem
+        - Solution
+        - Non-goals
+        - Code changes
+        - Verification
+
+    design:
+      required_sections:
+        - Architecture
+        - Data flow
+        - API design (if applicable)
+        - Security considerations
+
+    tasks:
+      format: markdown
+      include_verification: true
