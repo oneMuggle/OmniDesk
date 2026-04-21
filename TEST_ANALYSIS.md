@@ -1,5 +1,7 @@
 # 测试文件合理性分析报告
 
+> **快速入口**: 运行 `./run_tests.sh` 或 `./run_tests.sh help` 快速执行所有测试
+
 ## 项目概述
 
 - **后端**: Django 3.2 + DRF + PostgreSQL + Redis
@@ -242,5 +244,40 @@ filterwarnings =
 
 ---
 
+---
+
+## 配置位置索引
+
+### 统一测试入口
+
+| 位置 | 说明 |
+|------|------|
+| `run_tests.sh` (项目根目录) | 统一测试运行脚本 |
+
+**脚本用法**:
+```bash
+./run_tests.sh all       # 运行所有测试 (默认)
+./run_tests.sh backend  # 只运行后端 pytest
+./run_tests.sh frontend # 只运行前端 jest
+```
+
+**脚本功能**:
+- 自动检测依赖并提示安装
+- 运行测试并生成覆盖率报告
+- 输出报告文件位置
+- 支持彩色终端输出
+
+### 配置文件位置
+
+| 配置项 | 文件位置 |
+|--------|---------|
+| Backend pytest 配置 | `omni_desk_backend/pytest.ini` |
+| Backend 测试 settings | `omni_desk_backend/omni_desk_backend/settings/test.py` |
+| Backend 依赖 | `omni_desk_backend/requirements-dev.in` |
+| Frontend Jest 配置 | `omni_desk_frontend/package.json` (jest 字段) |
+| Frontend 测试脚本 | `omni_desk_frontend/package.json` (scripts.test) |
+
+---
+
 *生成时间: 2026-04-20*
-*更新时间: 2026-04-20 (添加配置说明)*
+*更新时间: 2026-04-20 (添加配置索引)*
