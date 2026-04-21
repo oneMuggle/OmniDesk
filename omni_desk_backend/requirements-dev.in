@@ -2,6 +2,7 @@
 
 # Testing
 pytest
+pytest-cov
 coverage
 
 # Linting & Formatting

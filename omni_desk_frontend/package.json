@@ -59,6 +59,7 @@
     "start": "react-scripts start",
     "build": "cross-env CI=false node scripts/generate-routes.js && react-scripts build",
     "test": "react-scripts test --testTimeout=60000",
+    "test:coverage": "react-scripts test --coverage --testTimeout=60000",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
     "lint": "eslint ."
@@ -92,6 +93,26 @@
   "jest": {
     "transformIgnorePatterns": [
       "/node_modules/(?!axios)/"
-    ]
+    ],
+    "collectCoverageFrom": [
+      "src/**/*.{js,jsx,ts,tsx}",
+      "!src/**/*.test.{js,jsx,ts,tsx}",
+      "!src/**/index.{js,ts}",
+      "!src/reportWebVitals.{js,ts}"
+    ],
+    "coverageReporters": [
+      "html",
+      "text",
+      "lcov",
+      "json"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 50,
+        "functions": 50,
+        "lines": 50,
+        "statements": 50
+      }
+    }
   }
 }
