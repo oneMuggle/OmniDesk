@@ -26,6 +26,7 @@
     "animate.css": "^4.1.1",
     "antd": "^5.24.4",
     "axios": "^1.8.4",
+    "core-js": "^3.49.0",
     "date-fns": "^4.1.0",
     "dayjs-plugin-utc": "^0.1.2",
     "docxtemplater": "^3.60.1",
@@ -49,7 +50,8 @@
     "react-tooltip": "^5.28.0",
     "slick-carousel": "^1.8.1",
     "tippy.js": "^6.3.7",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "whatwg-fetch": "^3.6.20"
   },
   "scripts": {
     "start": "react-scripts start",
@@ -64,12 +66,13 @@
     "production": [
       ">0.2%",
       "not dead",
-      "not op_mini all"
+      "not op_mini all",
+      "chrome >= 86",
+      "firefox >= 115"
     ],
     "development": [
       "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
+      "last 1 firefox version"
     ]
   },
   "devDependencies": {

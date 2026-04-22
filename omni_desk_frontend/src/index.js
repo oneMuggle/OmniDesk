@@ -1,3 +1,6 @@
+import 'core-js/stable';
+import 'whatwg-fetch';
+
 import ReactDOM from 'react-dom/client';
 
 // 第三方库导入
