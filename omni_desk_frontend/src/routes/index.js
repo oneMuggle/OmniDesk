@@ -1,312 +1,312 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
-import UnauthorizedPage from '../features/auth/pages/UnauthorizedPage';
 import App from '../App';
-import SchedulePage from '../features/schedule/pages/SchedulePage';
-import SystemSettingsPage from '../shared/pages/SystemSettingsPage';
-import IntelligentChatPage from '../shared/pages/IntelligentChatPage';
-import RagflowChatPage from '../shared/pages/RagflowChatPage';
-import EventsPage from '../shared/pages/EventsPage';
-import AdminLayout from '../features/admin/components/AdminLayout';
-import ProfilePage from '../features/profile/pages/ProfilePage';
-import PersonnelDetailPage from '../features/personnel/pages/PersonnelDetailPage';
-import Login from '../features/auth/pages/Login';
-import Register from '../features/auth/pages/Register';
-import DocumentsPage from '../features/documents/pages/DocumentsPage';
-import AnnouncementsPage from '../features/announcements/pages/AnnouncementsPage';
-import EquipmentPage from '../features/equipment/pages/EquipmentPage';
-import FileAnalysisPage from '../shared/pages/FileAnalysisPage';
-import DocsPage from '../shared/pages/DocsPage';
-import BookPage from '../shared/pages/BookPage';
-import BookReaderPage from '../shared/pages/BookReaderPage';
-import LibraryPage from '../shared/pages/LibraryPage';
-import ChapterEditorPage from '../shared/pages/ChapterEditorPage'; // 导入 ChapterEditorPage
-import TrialsPage from '../shared/pages/TrialsPage';
-import PersonnelManagementPage from '../features/personnel/pages/PersonnelManagementPage';
-import PersonnelEditPage from '../features/personnel/pages/PersonnelEditPage';
-import TrialScheduleContainer from '../features/schedule/components/TrialScheduleContainer';
-import ShiftScheduleContainer from '../features/schedule/components/ShiftScheduleContainer';
-import DashboardPage from '../shared/pages/DashboardPage'; // 导入 DashboardPage
-import MemoPage from '../features/memo/pages/MemoPage'; // 导入 MemoPage
-import ManageAnnouncementsPage from '../features/announcements/pages/ManageAnnouncementsPage';
-import AnnouncementForm from '../features/announcements/components/AnnouncementForm';
-import DifyAppList from '../features/dify-apps/pages/DifyAppList';
-import DifyAppViewer from '../features/dify-apps/pages/DifyAppViewer';
-import DifyAppManagementPage from '../features/dify-apps/pages/DifyAppManagementPage';
-import ScheduleManagementPage from '../features/schedule/pages/ScheduleManagementPage';
-import ScheduleSettingsPage from '../features/schedule/pages/ScheduleSettingsPage';
-import OfficeAssistant from '../features/office-assistant/pages/OfficeAssistant';
-import ProjectsPage from '../features/projects/pages/ProjectsPage'; // Import ProjectsPage
-// import CompliancePage from '../features/compliance/pages/CompliancePage'; // Import CompliancePage
-// import NotificationsPage from '../features/notifications/pages/NotificationsPage'; // Import NotificationsPage
-import MeetingRoomBookingPage from '../features/meeting-room/pages/MeetingRoomBookingPage.jsx'; // Import MeetingRoomBookingPage
-import MeetingRoomManagementPage from '../features/meeting-room/pages/MeetingRoomManagementPage'; // Import MeetingRoomManagementPage
-import UserManagementPage from '../features/user/pages/UserManagementPage'; // Import UserManagementPage
-import SensorManagementPage from '../features/sensor/pages/SensorManagementPage';
-import SensorListPage from '../features/sensor/pages/SensorListPage';
-import SensorCategoryManagementPage from '../features/sensor/pages/SensorCategoryManagementPage.jsx'; // 导入 SensorCategoryManagementPage
-import SensorArchiveLocationManagementPage from '../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'; // Corrected path
-import SensorCalibrationManagementPage from '../features/sensor/pages/SensorCalibrationManagementPage'; // 导入 SensorCalibrationManagementPage
-import SensorDetailPage from '../features/sensor/pages/SensorDetailPage'; // 导入 SensorDetailPage
-import EBookManagementPage from '../features/ebook/pages/EBookManagementPage'; // 导入 EBookManagementPage
-import HolidayManagementPage from '../features/schedule/pages/HolidayManagementPage'; // 导入 HolidayManagementPage
-import CommunicationPage from '../features/communication/pages/CommunicationPage';
-import PostDetailPage from '../shared/pages/PostDetailPage';
-import NewsStatsPage from '../features/news/pages/NewsStatsPage';
-import NewsManagementPage from '../features/news/pages/NewsManagementPage';
-import AddCalibrationRecordPage from '../features/sensor/pages/AddCalibrationRecordPage';
-import SensorCalibrationHistoryPage from '../features/sensor/pages/SensorCalibrationHistoryPage';
-import NewPostPage from '../features/communication/pages/NewPostPage';
- 
- const router = createBrowserRouter([
- {
+
+// Lazy load all page components for code splitting
+const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
+const SchedulePage = lazy(() => import('../features/schedule/pages/SchedulePage'));
+const SystemSettingsPage = lazy(() => import('../shared/pages/SystemSettingsPage'));
+const IntelligentChatPage = lazy(() => import('../shared/pages/IntelligentChatPage'));
+const RagflowChatPage = lazy(() => import('../shared/pages/RagflowChatPage'));
+const EventsPage = lazy(() => import('../shared/pages/EventsPage'));
+const AdminLayout = lazy(() => import('../features/admin/components/AdminLayout'));
+const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage'));
+const PersonnelDetailPage = lazy(() => import('../features/personnel/pages/PersonnelDetailPage'));
+const Login = lazy(() => import('../features/auth/pages/Login'));
+const Register = lazy(() => import('../features/auth/pages/Register'));
+const DocumentsPage = lazy(() => import('../features/documents/pages/DocumentsPage'));
+const AnnouncementsPage = lazy(() => import('../features/announcements/pages/AnnouncementsPage'));
+const EquipmentPage = lazy(() => import('../features/equipment/pages/EquipmentPage'));
+const FileAnalysisPage = lazy(() => import('../shared/pages/FileAnalysisPage'));
+const DocsPage = lazy(() => import('../shared/pages/DocsPage'));
+const BookPage = lazy(() => import('../shared/pages/BookPage'));
+const BookReaderPage = lazy(() => import('../shared/pages/BookReaderPage'));
+const LibraryPage = lazy(() => import('../shared/pages/LibraryPage'));
+const ChapterEditorPage = lazy(() => import('../shared/pages/ChapterEditorPage'));
+const TrialsPage = lazy(() => import('../shared/pages/TrialsPage'));
+const PersonnelManagementPage = lazy(() => import('../features/personnel/pages/PersonnelManagementPage'));
+const PersonnelEditPage = lazy(() => import('../features/personnel/pages/PersonnelEditPage'));
+const TrialScheduleContainer = lazy(() => import('../features/schedule/components/TrialScheduleContainer'));
+const ShiftScheduleContainer = lazy(() => import('../features/schedule/components/ShiftScheduleContainer'));
+const MemoPage = lazy(() => import('../features/memo/pages/MemoPage'));
+const ManageAnnouncementsPage = lazy(() => import('../features/announcements/pages/ManageAnnouncementsPage'));
+const AnnouncementForm = lazy(() => import('../features/announcements/components/AnnouncementForm'));
+const DifyAppList = lazy(() => import('../features/dify-apps/pages/DifyAppList'));
+const DifyAppViewer = lazy(() => import('../features/dify-apps/pages/DifyAppViewer'));
+const DifyAppManagementPage = lazy(() => import('../features/dify-apps/pages/DifyAppManagementPage'));
+const ScheduleManagementPage = lazy(() => import('../features/schedule/pages/ScheduleManagementPage'));
+const ScheduleSettingsPage = lazy(() => import('../features/schedule/pages/ScheduleSettingsPage'));
+const OfficeAssistant = lazy(() => import('../features/office-assistant/pages/OfficeAssistant'));
+const ProjectsPage = lazy(() => import('../features/projects/pages/ProjectsPage'));
+const MeetingRoomBookingPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomBookingPage.jsx'));
+const MeetingRoomManagementPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomManagementPage'));
+const UserManagementPage = lazy(() => import('../features/user/pages/UserManagementPage'));
+const SensorManagementPage = lazy(() => import('../features/sensor/pages/SensorManagementPage'));
+const SensorListPage = lazy(() => import('../features/sensor/pages/SensorListPage'));
+const SensorCategoryManagementPage = lazy(() => import('../features/sensor/pages/SensorCategoryManagementPage.jsx'));
+const SensorArchiveLocationManagementPage = lazy(() => import('../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'));
+const SensorCalibrationManagementPage = lazy(() => import('../features/sensor/pages/SensorCalibrationManagementPage'));
+const SensorDetailPage = lazy(() => import('../features/sensor/pages/SensorDetailPage'));
+const EBookManagementPage = lazy(() => import('../features/ebook/pages/EBookManagementPage'));
+const HolidayManagementPage = lazy(() => import('../features/schedule/pages/HolidayManagementPage'));
+const CommunicationPage = lazy(() => import('../features/communication/pages/CommunicationPage'));
+const PostDetailPage = lazy(() => import('../shared/pages/PostDetailPage'));
+const NewsStatsPage = lazy(() => import('../features/news/pages/NewsStatsPage'));
+const NewsManagementPage = lazy(() => import('../features/news/pages/NewsManagementPage'));
+const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/AddCalibrationRecordPage'));
+const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
+const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));
+
+const LoadingFallback = () => (
+  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
+    加载中...
+  </div>
+);
+
+const LazyComponent = ({ component: Component, ...props }) => (
+  <Suspense fallback={<LoadingFallback />}>
+    <Component {...props} />
+  </Suspense>
+);
+
+const router = createBrowserRouter([
+  {
     path: "/",
     element: <App />,
     children: [
       {
         index: true,
         element: (
-          <ProtectedRoute pageName="仪表盘"> {/* 使用 ProtectedRoute 判断登录状态 */}
-            <DashboardPage />
+          <ProtectedRoute pageName="仪表盘">
+            <LazyComponent component={DashboardPage} />
           </ProtectedRoute>
         ),
       },
       {
         path: "meeting-rooms",
-        element: <ProtectedRoute pageName="会议室预定"><MeetingRoomBookingPage /></ProtectedRoute>
+        element: <ProtectedRoute pageName="会议室预定"><LazyComponent component={MeetingRoomBookingPage} /></ProtectedRoute>
       },
-      { path: "schedule", element: <GuestRoute><SchedulePage /></GuestRoute> },
-      { path: "trial-schedule", element: <GuestRoute><TrialScheduleContainer /></GuestRoute> },
-      { path: "shift-schedule", element: <GuestRoute><ShiftScheduleContainer /></GuestRoute> },
+      { path: "schedule", element: <GuestRoute><LazyComponent component={SchedulePage} /></GuestRoute> },
+      { path: "trial-schedule", element: <GuestRoute><LazyComponent component={TrialScheduleContainer} /></GuestRoute> },
+      { path: "shift-schedule", element: <GuestRoute><LazyComponent component={ShiftScheduleContainer} /></GuestRoute> },
       {
         path: "events",
-        element: <ProtectedRoute pagePath="/events" pageName="事件管理"><EventsPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/events" pageName="事件管理"><LazyComponent component={EventsPage} /></ProtectedRoute>
       },
       {
         path: "equipment",
-        element: <ProtectedRoute pagePath="/equipment" pageName="设备管理"><EquipmentPage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/equipment" pageName="设备管理"><LazyComponent component={EquipmentPage} /></ProtectedRoute>
       },
       {
         path: "profile",
-        element: <ProtectedRoute pagePath="/profile" pageName="个人资料"><ProfilePage /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/profile" pageName="个人资料"><LazyComponent component={ProfilePage} /></ProtectedRoute>
       },
       {
-        path: "library", // 新增书库路由
-        element: <LibraryPage />
+        path: "library",
+        element: <LazyComponent component={LibraryPage} />
       },
       {
-        path: "books/:bookId", // 动态书籍详情路由
+        path: "books/:bookId",
         element: <BookPage />
       },
       {
-        path: "announcements",
-        element: <ProtectedRoute pagePath="/announcements" pageName="公告"><AnnouncementsPage /></ProtectedRoute>
+        path: "books/:bookId/reader",
+        element: <BookReaderPage />
+      },
+      {
+        path: "books/:bookId/editor",
+        element: <ChapterEditorPage />
       },
       {
         path: "intelligent-chat",
-        element: <ProtectedRoute pagePath="/intelligent-chat" pageName="智能聊天"><IntelligentChatPage /></ProtectedRoute>
+        element: <ProtectedRoute pageName="智能问答"><LazyComponent component={IntelligentChatPage} /></ProtectedRoute>
       },
       {
         path: "ragflow-chat",
-        element: <ProtectedRoute pagePath="/ragflow-chat" pageName="Ragflow 聊天"><RagflowChatPage /></ProtectedRoute>
-      },
-      {
-        path: "file-analysis",
-        element: <ProtectedRoute pagePath="/file-analysis" pageName="文件分析"><FileAnalysisPage /></ProtectedRoute>
-      },
-      {
-        path: "docs/cdepsio6",
-        element: <ProtectedRoute pagePath="/docs/cdepsio6" pageName="文档"><DocsPage /></ProtectedRoute>
-      },
-      {
-        path: "books/:bookId/:chapterId/edit", // 新增章节编辑路由
-        element: <ProtectedRoute pageName="章节编辑器"><ChapterEditorPage /></ProtectedRoute> // 只有管理员可以访问
-      },
-      {
-        path: "memos", // 新增备忘录路由
-        element: <ProtectedRoute pagePath="/memos" pageName="备忘录"><MemoPage /></ProtectedRoute>
+        element: <ProtectedRoute pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
       },
       {
         path: "dify-apps",
-        element: <ProtectedRoute pagePath="/dify-apps" pageName="Dify 应用列表"><DifyAppList /></ProtectedRoute>
+        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
       },
       {
         path: "dify-apps/:appId",
-        element: <ProtectedRoute pagePath="/dify-apps/:appId" pageName="Dify 应用查看器"><DifyAppViewer /></ProtectedRoute>
+        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
       },
       {
         path: "office-assistant",
-        element: <ProtectedRoute pagePath="/office-assistant" pageName="办公室助理"><OfficeAssistant /></ProtectedRoute>
+        element: <ProtectedRoute pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
       },
       {
-        path: "projects", // Move ProjectsPage to root level
-        element: <ProtectedRoute pagePath="/projects" pageName="项目"><ProjectsPage /></ProtectedRoute>
+        path: "file-analysis",
+        element: <ProtectedRoute pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
       },
       {
-        // path: "notifications", // Add NotificationsPage to root level
-        // element: <ProtectedRoute pagePath="/notifications" pageName="通知"><NotificationsPage /></ProtectedRoute>
-      },
-      {
-        path: "documents", // 将 DocumentsPage 移动到主页面路由
-        element: <ProtectedRoute pagePath="/documents" pageName="文档管理"><DocumentsPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor-calibration/:id", // 新增传感器校准管理路由，:id 为动态参数
-        element: <ProtectedRoute pagePath="/sensor-calibration/:id" pageName="传感器校准管理"><SensorCalibrationManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "sensors/:id", // 新增传感器详情路由
-        element: <ProtectedRoute pagePath="/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor-management",
-        element: <ProtectedRoute pagePath="/sensor-management" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>
+        path: "memos",
+        element: <ProtectedRoute pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>
       },
       {
         path: "communication",
-        element: <ProtectedRoute pagePath="/communication" pageName="交流"><CommunicationPage /></ProtectedRoute>
-      },
-      {
-        path: "communication/post/:postId",
-        element: <ProtectedRoute pagePath="/communication/post/:postId" pageName="帖子详情"><PostDetailPage /></ProtectedRoute>
+        element: <ProtectedRoute pageName="交流"><LazyComponent component={CommunicationPage} /></ProtectedRoute>
       },
       {
         path: "communication/new",
-        element: <ProtectedRoute pagePath="/communication/new" pageName="新帖子"><NewPostPage /></ProtectedRoute>
+        element: <ProtectedRoute pageName="新建帖子"><LazyComponent component={NewPostPage} /></ProtectedRoute>
       },
       {
-        path: "sensor-management/add-record",
-        element: <ProtectedRoute pagePath="/sensor-management/add-record" pageName="添加校准记录"><AddCalibrationRecordPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor-management/history/:sensorId",
-        element: <ProtectedRoute pagePath="/sensor-management/history/:sensorId" pageName="传感器校准历史"><SensorCalibrationHistoryPage /></ProtectedRoute>
-      },
-    ]
-  },
-  {
-    path: "/control-panel",
-    element: <ProtectedRoute roles={['admin', 'manager']} pageName="管理后台"><AdminLayout /></ProtectedRoute>,
-    children: [
-      { index: true, element: <Navigate to="trials" replace /> },
-      {
-        path: "trials",
-        element: <ProtectedRoute pagePath="/control-panel/trials" pageName="试验管理"><TrialsPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel",
-        element: <ProtectedRoute pagePath="/control-panel/personnel" pageName="人员管理"><PersonnelManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel/:id",
-        element: <ProtectedRoute pagePath="/control-panel/personnel/:id" pageName="人员详情"><PersonnelDetailPage /></ProtectedRoute>
-      },
-      {
-        path: "personnel/:id/edit",
-        element: <ProtectedRoute pagePath="/control-panel/personnel/:id/edit" pageName="编辑人员"><PersonnelEditPage /></ProtectedRoute>
-      },
-      {
-        path: "schedules",
-        element: <ProtectedRoute pagePath="/control-panel/schedules" pageName="排班管理"><ScheduleManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "equipment",
-        element: <ProtectedRoute pagePath="/control-panel/equipment" pageName="设备管理 (Admin)"><EquipmentPage /></ProtectedRoute>
-      },
-      {
-        path: "settings",
-        element: <ProtectedRoute pagePath="/control-panel/settings" pageName="系统设置"><SystemSettingsPage /></ProtectedRoute>
+        path: "communication/:postId",
+        element: <LazyComponent component={PostDetailPage} />
       },
       {
         path: "announcements",
-        element: <ProtectedRoute pagePath="/control-panel/announcements" pageName="管理公告"><ManageAnnouncementsPage /></ProtectedRoute>
+        element: <LazyComponent component={AnnouncementsPage} />
       },
       {
-        path: "announcements/new",
-        element: <ProtectedRoute pagePath="/control-panel/announcements/new" pageName="新公告"><AnnouncementForm /></ProtectedRoute>
+        path: "system-settings",
+        element: <ProtectedRoute pageName="系统设置"><LazyComponent component={SystemSettingsPage} /></ProtectedRoute>
       },
       {
-        path: "announcements/edit/:id",
-        element: <ProtectedRoute pagePath="/control-panel/announcements/edit/:id" pageName="编辑公告"><AnnouncementForm /></ProtectedRoute>
+        path: "trials",
+        element: <ProtectedRoute pageName="试验管理"><LazyComponent component={TrialsPage} /></ProtectedRoute>
       },
       {
-        path: "dify-app-management",
-        element: <ProtectedRoute pagePath="/control-panel/dify-app-management" pageName="Dify 应用管理"><DifyAppManagementPage /></ProtectedRoute>
+        path: "docs/:docId",
+        element: <DocsPage />
       },
       {
-        path: "schedule-settings",
-        element: <ProtectedRoute pagePath="/control-panel/schedule-settings" pageName="排班设置"><ScheduleSettingsPage /></ProtectedRoute>
-      },
-      {
-        // path: "compliance", // Add CompliancePage route under /control-panel
-        // element: <ProtectedRoute pagePath="/control-panel/compliance" pageName="合规性"><CompliancePage /></ProtectedRoute>
-      },
-      {
-        path: "meeting-room-management",
-        element: <ProtectedRoute pagePath="/control-panel/meeting-room-management" pageName="会议室管理"><MeetingRoomManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "user-management",
-        element: <ProtectedRoute pagePath="/control-panel/user-management" pageName="用户管理"><UserManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "ebook-management",
-        element: <ProtectedRoute pagePath="/control-panel/ebook-management" pageName="电子书管理"><EBookManagementPage /></ProtectedRoute>
-      },
-      {
-       path: "holidays",
-       element: <ProtectedRoute pagePath="/control-panel/holidays" pageName="假期管理"><HolidayManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "news-stats",
-        element: <ProtectedRoute pagePath="/control-panel/news-stats" pageName="新闻统计"><NewsStatsPage /></ProtectedRoute>
-      },
-      {
-        path: "news-management",
-        element: <ProtectedRoute pagePath="/control-panel/news-management" pageName="新闻管理"><NewsManagementPage /></ProtectedRoute>
-      },
-      {
-        path: "sensor",
-        element: <ProtectedRoute pagePath="/control-panel/sensor" pageName="传感器管理"><SensorManagementPage /></ProtectedRoute>,
+        path: "control-panel",
+        element: <ProtectedRoute pageName="控制面板"><AdminLayout /></ProtectedRoute>,
         children: [
           {
             index: true,
-            element: <SensorListPage />,
+            element: <Navigate to="personnel" replace />
           },
           {
-            path: "categories",
-            element: <SensorCategoryManagementPage />,
+            path: "personnel",
+            element: <LazyComponent component={PersonnelManagementPage} />
           },
           {
-            path: "storage-locations",
-            element: <SensorArchiveLocationManagementPage />,
+            path: "personnel/add",
+            element: <LazyComponent component={PersonnelEditPage} />
           },
+          {
+            path: "personnel/:personnelId",
+            element: <LazyComponent component={PersonnelDetailPage} />
+          },
+          {
+            path: "personnel/:personnelId/edit",
+            element: <LazyComponent component={PersonnelEditPage} />
+          },
+          {
+            path: "documents",
+            element: <LazyComponent component={DocumentsPage} />
+          },
+          {
+            path: "announcements/manage",
+            element: <LazyComponent component={ManageAnnouncementsPage} />
+          },
+          {
+            path: "announcements/create",
+            element: <LazyComponent component={AnnouncementForm} />
+          },
+          {
+            path: "announcements/:announcementId/edit",
+            element: <LazyComponent component={AnnouncementForm} />
+          },
+          {
+            path: "dify-apps",
+            element: <LazyComponent component={DifyAppManagementPage} />
+          },
+          {
+            path: "schedule",
+            element: <LazyComponent component={ScheduleManagementPage} />
+          },
+          {
+            path: "schedule/settings",
+            element: <LazyComponent component={ScheduleSettingsPage} />
+          },
+          {
+            path: "schedule/holiday",
+            element: <LazyComponent component={HolidayManagementPage} />
+          },
+          {
+            path: "projects",
+            element: <LazyComponent component={ProjectsPage} />
+          },
+          {
+            path: "meeting-rooms",
+            element: <LazyComponent component={MeetingRoomManagementPage} />
+          },
+          {
+            path: "users",
+            element: <LazyComponent component={UserManagementPage} />
+          },
+          {
+            path: "sensors",
+            element: <LazyComponent component={SensorManagementPage} />
+          },
+          {
+            path: "sensors/list",
+            element: <LazyComponent component={SensorListPage} />
+          },
+          {
+            path: "sensors/categories",
+            element: <LazyComponent component={SensorCategoryManagementPage} />
+          },
+          {
+            path: "sensors/archive-locations",
+            element: <LazyComponent component={SensorArchiveLocationManagementPage} />
+          },
+          {
+            path: "sensors/calibration",
+            element: <LazyComponent component={SensorCalibrationManagementPage} />
+          },
+          {
+            path: "sensors/:sensorId",
+            element: <LazyComponent component={SensorDetailPage} />
+          },
+          {
+            path: "sensors/:sensorId/calibration/add",
+            element: <LazyComponent component={AddCalibrationRecordPage} />
+          },
+          {
+            path: "sensors/:sensorId/calibration/history",
+            element: <LazyComponent component={SensorCalibrationHistoryPage} />
+          },
+          {
+            path: "ebooks",
+            element: <LazyComponent component={EBookManagementPage} />
+          },
+          {
+            path: "news",
+            element: <LazyComponent component={NewsManagementPage} />
+          },
+          {
+            path: "news/stats",
+            element: <LazyComponent component={NewsStatsPage} />
+          }
         ]
       },
       {
-        path: "sensor/sensors/:id",
-        element: <ProtectedRoute pagePath="/control-panel/sensor/sensors/:id" pageName="传感器详情"><SensorDetailPage /></ProtectedRoute>
+        path: "login",
+        element: <GuestRoute><LazyComponent component={Login} /></GuestRoute>
       },
+      {
+        path: "register",
+        element: <GuestRoute><LazyComponent component={Register} /></GuestRoute>
+      },
+      {
+        path: "unauthorized",
+        element: <LazyComponent component={lazy(() => import('../features/auth/pages/UnauthorizedPage'))} />
+      },
+      {
+        path: "*",
+        element: <Navigate to="/" replace />
+      }
     ]
-  },
-  {
-    path: "/read-book/:bookId", // 新增独立书籍阅读路由
-    element: <BookReaderPage />
-  },
-  {
-    path: "/login",
-    element: <Login />
-  },
-  {
-    path: "/register",
-    element: <Register />
-  },
-  {
-    path: "/unauthorized",
-    element: <UnauthorizedPage />
-  },
-], { basename: "/" });
+  }
+]);
 
 export default router;
-

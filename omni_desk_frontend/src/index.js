@@ -10,7 +10,7 @@ import utc from 'dayjs-plugin-utc';
 import 'dayjs/locale/zh-cn'; // 导入中文语言包
 import { RouterProvider } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, theme } from 'antd';
 import { library, config } from '@fortawesome/fontawesome-svg-core'; // 导入 config
 import React from 'react';
 import {
@@ -59,6 +59,13 @@ const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>
     <ConfigProvider
+      theme={{
+        token: {
+          colorPrimary: '#1890ff',
+          borderRadius: 2,
+        },
+        algorithm: theme.defaultAlgorithm,
+      }}
       modal={{
         getContainer: () => document.getElementById('modal-root'),
         zIndexBase: 1000
