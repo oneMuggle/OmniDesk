@@ -77,16 +77,16 @@ npm run build
 ## 实施任务
 
 ### 任务 1: 更新 Browserslist 配置
-- [ ] 1.1 修改 `package.json` browserslist，添加 `chrome >= 86` 和 `firefox >= 115`
-- [ ] 1.2 验证配置正确性：`npx browserslist`
+- [x] 1.1 修改 `package.json` browserslist，添加 `chrome >= 86` 和 `firefox >= 115`
+- [x] 1.2 验证配置正确性：`npx browserslist`
 
 ### 任务 2: 添加 Polyfill 依赖
-- [ ] 2.1 安装 core-js 和 whatwg-fetch
-- [ ] 2.2 在 `src/index.js` 导入 polyfills
+- [x] 2.1 安装 core-js 和 whatwg-fetch
+- [x] 2.2 在 `src/index.js` 导入 polyfills
 
 ### 任务 3: 构建验证
-- [ ] 3.1 运行 `npm run build`
-- [ ] 3.2 确认构建成功，无报错
+- [x] 3.1 运行 `npm run build`
+- [x] 3.2 确认构建成功，无报错
 
 ### 任务 4: 兼容性测试
 - [ ] 4.1 在 360 浏览器（Chromium 86）中测试
@@ -94,6 +94,81 @@ npm run build
 - [ ] 4.3 在 Firefox 115 ESR 中测试（或模拟）
 - [ ] 4.4 验证 UI 组件正常显示
 - [ ] 4.5 修复发现的问题
+
+## 兼容性测试方法
+
+### 方法一：浏览器开发者工具模拟
+
+1. **360 浏览器 / Chrome**
+   - 按 `F12` 打开开发者工具
+   - 点击右上角三个点 → **更多工具** → **网络条件**
+   - 取消勾选 "使用浏览器默认" → 手动选择 User-Agent 或自定义
+
+2. **Chrome 模拟旧版浏览器**
+   - `F12` 打开开发者工具
+   - `Ctrl+Shift+P` (Mac: `Cmd+Shift+P`)
+   - 输入 "Show Rendering"
+   - 选择 "Emulate CSS media type" 测试不同渲染模式
+
+### 方法二：Lighthouse 审计
+
+1. 打开开发者工具 → **Lighthouse** 标签
+2. 在设备下拉选择目标设备或手动设置 User-Agent
+3. 点击 "Analyze page load"
+4. 检查报告中的 "Best Practices" 和 "Accessibility"
+
+### 方法三：在线云测试平台
+
+| 平台 | 网址 | 特点 |
+|------|------|------|
+| BrowserStack | browserstack.com | 真实浏览器，直接操作 |
+| LambdaTest | lambdatest.com | 支持自动化测试 |
+| CrossBrowserTesting | crossbrowsertesting.com | 截图对比功能 |
+
+### 方法四：本地安装测试
+
+下载并安装目标浏览器进行真实测试：
+
+| 浏览器 | 下载地址 |
+|--------|---------|
+| Chrome 109 | chromium.cytxdigital.com |
+| Firefox 115 ESR | mozilla.org/firefox/enterprise/ |
+| 360 极速浏览器 | browser.360.cn |
+
+### 方法五：检查构建输出
+
+验证构建是否生成了兼容代码：
+
+```bash
+# 查看构建产物
+ls -la omni_desk_frontend/build/static/js/
+
+# 检查是否包含 ES5 语法（箭头函数应该被转译）
+grep -o "function" omni_desk_frontend/build/static/js/main.*.js | head -3
+
+# 检查是否有 polyfill
+grep -o "core-js" omni_desk_frontend/build/static/js/*.js
+```
+
+### 测试检查清单
+
+- [ ] 页面正常加载，无白屏
+- [ ] 登录功能正常
+- [ ] 导航菜单可点击
+- [ ] 表单提交正常
+- [ ] 文件上传/下载正常
+- [ ] 图表/日历等组件正常显示
+- [ ] 无控制台报错
+- [ ] 网络请求正常发送
+
+### 常见兼容性问题
+
+| 问题 | 解决方案 |
+|------|---------|
+| 白屏/空白页面 | 检查 JS 语法错误，确认 polyfill 已加载 |
+| 样式错乱 | 检查 CSS 前缀，添加 Autoprefixer 配置 |
+| API 请求失败 | 检查 fetch/polyfill 是否正确导入 |
+| 组件不显示 | 检查 ES Modules 语法是否被正确转译 |
 
 ## 技术说明
 
