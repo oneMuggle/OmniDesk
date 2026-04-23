@@ -25,12 +25,28 @@ import {
 import complianceApi from '../../features/compliance/api/compliance';
 import { Badge, Tooltip } from 'antd';
 
+const STORAGE_KEY = 'sidebar_collapsed';
+
 const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(STORAGE_KEY) === 'true';
+    } catch {
+      return false;
+    }
+  });
   const [expandedSubMenu, setExpandedSubMenu] = useState({});
   const { isAuthenticated, logout, hasPermission } = useAuth();
   const location = useLocation();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, String(isCollapsed));
+    } catch (e) {
+      console.warn('Failed to save sidebar state:', e);
+    }
+  }, [isCollapsed]);
 
   useEffect(() => {
     const fetchUnreadCount = async () => {
