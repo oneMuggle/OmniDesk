@@ -3,6 +3,7 @@ import PropTypes from 'prop-types';
 import Slider from 'react-slick';
 import apiClient from '../../../shared/api/apiClient'; // 修正导入路径
 import './AnnouncementsPage.css';
+import { sanitizeHtml } from '../../../shared/utils/sanitizeHtml';
 
 const AnnouncementsPage = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -101,9 +102,9 @@ const AnnouncementsPage = () => {
               <div
                 className="announcement-html-content"
                 dangerouslySetInnerHTML={{
-                  __html: expanded[announcements[0].id] || announcements[0].content.length <= 150
+                  __html: sanitizeHtml(expanded[announcements[0].id] || announcements[0].content.length <= 150
                     ? announcements[0].content
-                    : `${announcements[0].content.replace(/<[^>]+>/g, '').substring(0, 100)}...`
+                    : `${announcements[0].content.replace(/<[^>]+>/g, '').substring(0, 100)}...`)
                 }}
               />
               {announcements[0].content.replace(/<[^>]+>/g, '').length > 100 && (
@@ -128,9 +129,9 @@ const AnnouncementsPage = () => {
                   <div
                     className="announcement-html-content"
                     dangerouslySetInnerHTML={{
-                      __html: expanded[item.id] || item.content.length <= 150
+                      __html: sanitizeHtml(expanded[item.id] || item.content.length <= 150
                         ? item.content
-                        : `${item.content.replace(/<[^>]+>/g, '').substring(0, 100)}...`
+                        : `${item.content.replace(/<[^>]+>/g, '').substring(0, 100)}...`)
                     }}
                   />
                   {item.content.replace(/<[^>]+>/g, '').length > 100 && (

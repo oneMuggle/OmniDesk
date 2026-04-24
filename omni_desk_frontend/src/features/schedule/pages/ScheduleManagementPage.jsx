@@ -14,6 +14,7 @@ import PersonnelSequenceModal from '../../../shared/components/Schedule/Personne
 import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { DragDropContext } from '@hello-pangea/dnd';
+import { logger } from '../../../shared/utils/logger';
 
 const { Option } = Select;
 
@@ -455,7 +456,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新排班失败');
-      context.revert();
+      context?.revert?.();
     },
   });
 
@@ -467,7 +468,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新排班失败');
-      context.revert();
+      context?.revert?.();
     },
   });
   
@@ -479,7 +480,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新值班领导顺序失败');
-      setWeeklyLeaders(context.previousWeeklyLeaders);
+      setWeeklyLeaders(context?.previousWeeklyLeaders ?? weeklyLeaders);
     },
   });
 
@@ -727,7 +728,7 @@ const ScheduleManagementPage = () => {
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('schedule.pdf');
     } catch (error) {
-      console.error("导出PDF时出错:", error);
+      logger.error("导出PDF时出错:", error);
       message.error('导出PDF失败');
     } finally {
       calendarEl.style.width = originalWidth;

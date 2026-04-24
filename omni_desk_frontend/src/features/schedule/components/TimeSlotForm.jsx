@@ -3,6 +3,7 @@ import { Button, Form, Input, DatePicker, Modal } from 'antd';
 import CustomTimeRangePicker from './CustomTimeRangePicker'; // Changed relative path
 import { MinusCircleOutlined, PlusOutlined, ExclamationCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { logger } from '../../../shared/utils/logger';
 
 const TimeSlotForm = ({
   form,
@@ -33,13 +34,13 @@ const TimeSlotForm = ({
   // 删除时间段
   const handleDeleteConfirm = async () => {
     if (!slotToDelete || typeof indexToDelete !== 'number' || !removeFunction) {
-      console.error('删除信息不完整', { slotToDelete, indexToDelete, removeFunction });
+      logger.error('删除信息不完整', { slotToDelete, indexToDelete, removeFunction });
       return;
     }
 
     try {
       if (slotToDelete.id) {
-        console.log('[DEBUG] 删除时间段，原始ID:', slotToDelete.id);
+        logger.debug(' 删除时间段，原始ID:', slotToDelete.id);
         
         // 验证ID格式
         const idStr = String(slotToDelete.id);
@@ -50,7 +51,7 @@ const TimeSlotForm = ({
 
         // 调试日志 - 删除前检查表单状态
         const beforeSlots = form.getFieldValue('time_slots') || [];
-        console.log('[DEBUG] 删除前时间段:', 
+        logger.debug(' 删除前时间段:', 
           beforeSlots.map(s => ({ 
             id: s.id, 
             start_time: s.start_time, 
@@ -58,7 +59,7 @@ const TimeSlotForm = ({
             type: typeof s.id
           }))
         );
-        console.log('[DEBUG] 删除前 modifiedSlots:', modifiedSlots);
+        logger.debug(' 删除前 modifiedSlots:', modifiedSlots);
         
         // 删除时间段
         await scheduleApi.deleteTimeSlot(slotToDelete.id);
@@ -66,15 +67,15 @@ const TimeSlotForm = ({
         // 从被修改的时间段列表中删除当前时间段
         if (modifiedSlots.some(s => s.id === slotToDelete.id)) {
           const newModifiedSlots = modifiedSlots.filter(s => s.id !== slotToDelete.id);
-          console.log('[DEBUG] 从 modifiedSlots 中移除 ID:', slotToDelete.id);
-          console.log('[DEBUG] 新的 modifiedSlots:', newModifiedSlots);
+          logger.debug(' 从 modifiedSlots 中移除 ID:', slotToDelete.id);
+          logger.debug(' 新的 modifiedSlots:', newModifiedSlots);
           setModifiedSlots(newModifiedSlots);
         }
         
         queryClient.invalidateQueries(['trials']);
-        console.log('[DEBUG] 删除成功，ID:', slotToDelete.id);
+        logger.debug(' 删除成功，ID:', slotToDelete.id);
       } else {
-        console.log('删除新添加的时间段');
+        logger.info('删除新添加的时间段');
       }
       
       // 调用删除函数
@@ -83,14 +84,14 @@ const TimeSlotForm = ({
       // 删除后检查表单状态
       setTimeout(() => {
         const afterSlots = form.getFieldValue('time_slots') || [];
-        console.log('[DEBUG] 删除后时间段:', 
+        logger.debug(' 删除后时间段:', 
           afterSlots.map(s => ({ id: s.id, start_time: s.start_time, end_time: s.end_time }))
         );
       }, 0);
       
       setDeleteConfirmVisible(false);
     } catch (error) {
-      console.error('删除时间段失败:', error);
+      logger.error('删除时间段失败:', error);
       Modal.error({
         title: '删除失败',
         content: error.message,
@@ -110,7 +111,7 @@ const TimeSlotForm = ({
   useEffect(() => {
     const initializeTimeSlots = () => {
   const timeSlots = form.getFieldValue('time_slots') || [];
-  console.log('[DEBUG] TimeSlotForm (useEffect) - timeSlots from form:', JSON.stringify(timeSlots, (key, value) => {
+  logger.debug(' TimeSlotForm (useEffect) - timeSlots from form:', JSON.stringify(timeSlots, (key, value) => {
     if (value && typeof value === 'object' && typeof value.isValid === 'function' && value.isValid()) {
       return value.format(); // Convert dayjs objects to string for logging
     }
@@ -122,7 +123,7 @@ if (timeSlots.length === 0) {
 }
     if (timeSlots.length > 0) {
       const updatedTimeSlots = timeSlots.map(slot => {
-        console.log('[DEBUG] TimeSlotForm (Initializing) - Processing slot:', slot);
+        logger.debug(' TimeSlotForm (Initializing) - Processing slot:', slot);
         try {
           const startDayjs = slot?.start_time ? dayjs(slot.start_time) : (slot?.start ? dayjs(slot.start) : null);
           const endDayjs = slot?.end_time ? dayjs(slot.end_time) : (slot?.end ? dayjs(slot.end) : null);
@@ -135,11 +136,11 @@ if (timeSlots.length === 0) {
             end_time: endDayjs ? endDayjs.format('YYYY-MM-DD HH:mm') : null,
           };
         } catch (error) {
-          console.error('Error processing time slot:', error);
+          logger.error('Error processing time slot:', error);
           return slot;
         }
       });
-      console.log('Updated time slots for separate pickers:', updatedTimeSlots);
+      logger.info('Updated time slots for separate pickers:', updatedTimeSlots);
       form.setFieldsValue({ time_slots: updatedTimeSlots });
     }
   };
@@ -159,14 +160,14 @@ if (timeSlots.length === 0) {
       // 兼容其他表单库的watch方法
       unsubscribe = form.watch('time_slots', initializeTimeSlots);
     } else {
-      console.warn('Form instance does not support field change listening');
+      logger.warn('Form instance does not support field change listening');
     }
     
     return unsubscribe;
   }, [form]);
 
 const handleTimeSlotChange = (index, field, value) => {
-  console.log('Time slot changed - index:', index, 'field:', field, 'value:', value);
+  logger.info('Time slot changed - index:', index, 'field:', field, 'value:', value);
   const timeSlots = form.getFieldValue('time_slots') || [];
   const currentSlot = { ...timeSlots[index] };
 
@@ -196,18 +197,18 @@ const handleTimeSlotChange = (index, field, value) => {
   const newSlots = [...timeSlots];
   newSlots[index] = currentSlot;
   form.setFieldsValue({ time_slots: newSlots });
-  console.log('After update:', newSlots);
+  logger.info('After update:', newSlots);
 
   // 对于已有时间段(id不为null)，标记为修改
   if (currentSlot.id) {
     const slotId = currentSlot.id;
-    console.log('[DEBUG] 检查时间段更新:', {
+    logger.debug(' 检查时间段更新:', {
       slotId,
       modifiedSlots
     });
     if (!modifiedSlots.includes(slotId)) {
       setModifiedSlots([...modifiedSlots, slotId]);
-      console.log('[DEBUG] 添加到modifiedSlots:', slotId);
+      logger.debug(' 添加到modifiedSlots:', slotId);
     }
   }
 };
@@ -220,7 +221,7 @@ const handleTimeSlotChange = (index, field, value) => {
             <>
               {fields.map(({ key, name, ...restField }) => {
                 const slot = form.getFieldValue(['time_slots', name]);
-                console.log(`[DEBUG] TimeSlotForm (Render) - Slot ${name} data:`, slot);
+                logger.debug(`TimeSlotForm (Render) - Slot ${name} data:`, slot);
                 
                 const startTime = slot?.start_time ? dayjs(slot.start_time) : null;
                 const endTime = slot?.end_time ? dayjs(slot.end_time) : null;
@@ -229,7 +230,7 @@ const handleTimeSlotChange = (index, field, value) => {
                 const validEndTime = endTime && dayjs.isDayjs(endTime) && endTime.isValid() ? endTime : null;
 
                 const timeRange = slot?.timeRange || [validStartTime, validEndTime];
-                console.log(`[DEBUG] TimeSlotForm (Render) - Slot ${name} timeRange:`, JSON.stringify(timeRange, (key, value) => {
+                logger.debug(`TimeSlotForm (Render) - Slot ${name} timeRange:`, JSON.stringify(timeRange, (key, value) => {
                   if (value && typeof value === 'object' && typeof value.isValid === 'function' && value.isValid()) {
                     return value.format(); // Convert dayjs objects to string for logging
                   }

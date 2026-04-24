@@ -4,6 +4,7 @@ import { Link, useLocation } from 'react-router-dom';
 import { Alert, Typography, Collapse, Button } from 'antd';
 import api from '../api/axiosConfig';
 import './ChapterView.css';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 import Commenting from './Commenting';
 import AnnotationHandler from './AnnotationHandler';
 
@@ -93,7 +94,7 @@ const ChapterView = ({ chapter, complianceIssues = [] }) => {
                 <div
                     ref={contentRef}
                     className="chapter-content"
-                    dangerouslySetInnerHTML={{ __html: chapterDetails.content_html || '' }}
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(chapterDetails.content_html || '') }}
                 />
             </AnnotationHandler>
             <Commenting chapterId={chapterDetails.id} comments={chapterDetails.comments} />

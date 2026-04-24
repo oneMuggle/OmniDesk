@@ -28,6 +28,7 @@
     "date-fns": "^4.1.0",
     "dayjs-plugin-utc": "^0.1.2",
     "docxtemplater": "^3.60.1",
+    "dompurify": "^3.4.1",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.2",

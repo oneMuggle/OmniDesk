@@ -5,7 +5,13 @@ import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
 import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification } from 'antd';
 import { useAuth } from '../../auth/context/AuthContext';
-import meetingRoomApi from '../api/meetingRoomApi';
+import {
+    useMeetingRooms,
+    useMeetingRoomBookings,
+    useCreateMeetingRoomBooking,
+    useUpdateMeetingRoomBooking,
+    useDeleteMeetingRoomBooking,
+} from '../hooks/useMeetingRoomData';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
 import '../../../shared/components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
 
@@ -80,6 +86,74 @@ CustomToolbar.propTypes = {
   view: PropTypes.string.isRequired,
 };
 
+const EventComponent = ({ event }) => {
+    const eventRef = useRef(null);
+    const [showDetails, setShowDetails] = useState(true);
+
+    useEffect(() => {
+        if (!eventRef.current) return;
+
+        const observer = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const minHeightForDetails = 35;
+                setShowDetails(entry.contentRect.height > minHeightForDetails);
+            }
+        });
+
+        observer.observe(eventRef.current);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    return (
+        <div
+            ref={eventRef}
+            style={{
+                height: '100%',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                textAlign: 'center',
+                fontSize: '0.8em',
+                lineHeight: '1.2',
+            }}
+        >
+            <div style={{ fontWeight: 'bold' }}>{event.title}</div>
+            {showDetails && (
+                <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    {event.meeting_room_name}
+                </div>
+            )}
+        </div>
+    );
+};
+
+EventComponent.propTypes = {
+    event: PropTypes.object.isRequired,
+};
+
+const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
+    <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
+        <h4>会议室颜色图例</h4>
+        {meetingRooms.map(room => (
+            <div key={room.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
+                <Tag color={roomColorMap.get(room.id)} style={{ marginRight: '8px' }}>
+                    {room.name}
+                </Tag>
+            </div>
+        ))}
+    </div>
+);
+
+MeetingRoomLegend.propTypes = {
+    meetingRooms: PropTypes.array.isRequired,
+    roomColorMap: PropTypes.instanceOf(Map).isRequired,
+};
+
 const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
@@ -88,9 +162,11 @@ const MeetingRoomBookingPage = () => {
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [currentBooking, setCurrentBooking] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [meetingRooms, setMeetingRooms] = useState([]);
-    const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const { data: meetingRooms = [] } = useMeetingRooms();
+    const { data: bookings = [] } = useMeetingRoomBookings();
+    const createBookingMutation = useCreateMeetingRoomBooking();
+    const updateBookingMutation = useUpdateMeetingRoomBooking();
+    const deleteBookingMutation = useDeleteMeetingRoomBooking();
 
     const minTime = new Date();
     minTime.setHours(8, 0, 0);
@@ -114,40 +190,6 @@ const MeetingRoomBookingPage = () => {
     const isAdminOrManager = useMemo(() => {
         return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
     }, [isAuthenticated, user]);
-
-    const fetchMeetingRooms = useCallback(async () => {
-        try {
-            const response = await meetingRoomApi.getMeetingRooms();
-            setMeetingRooms(response.data.results || []);
-        } catch (error) {
-            message.error('获取会议室列表失败。');
-            console.error('Failed to fetch meeting rooms:', error.response || error);
-        }
-    }, []);
-
-    const fetchBookings = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await meetingRoomApi.getMeetingRoomBookings();
-            const bookingsData = response.data.results || [];
-            setBookings(bookingsData.map(booking => ({
-                ...booking,
-                start: new Date(booking.start_time),
-                end: new Date(booking.end_time),
-            })));
-        } catch (error) {
-            message.error('获取预约信息失败。');
-            console.error('Failed to fetch bookings:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchMeetingRooms();
-        fetchBookings();
-    }, [fetchMeetingRooms, fetchBookings]);
-
 
     const handleSelectSlot = ({ start, end }) => {
         if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
@@ -233,31 +275,19 @@ const MeetingRoomBookingPage = () => {
             };
 
             if (currentBooking) {
-                await meetingRoomApi.updateMeetingRoomBooking(currentBooking.id, bookingData);
-                message.success('预约更新成功！');
+                await updateBookingMutation.mutateAsync({ id: currentBooking.id, data: bookingData });
             } else {
-                await meetingRoomApi.createMeetingRoomBooking(bookingData);
-                message.success('预约创建成功！');
+                await createBookingMutation.mutateAsync(bookingData);
             }
             setIsModalVisible(false);
-            fetchBookings(); // Refresh bookings
         } catch (error) {
-            const errorMsg = error.response?.data?.detail || error.response?.data?.non_field_errors?.[0] || '操作失败，请重试。';
-            message.error(errorMsg);
-            console.error('Failed to save booking:', error);
+            // 表单验证错误，hooks 已处理 API 错误
         }
     };
 
     const handleDelete = async (bookingId) => {
-        try {
-            await meetingRoomApi.deleteMeetingRoomBooking(bookingId);
-            message.success('预约删除成功！');
-            setIsModalVisible(false);
-            fetchBookings(); // Refresh bookings
-        } catch (error) {
-            message.error('删除预约失败。');
-            console.error('Failed to delete booking:', error);
-        }
+        await deleteBookingMutation.mutateAsync(bookingId);
+        setIsModalVisible(false);
     };
 
     const eventPropGetter = useCallback((event) => {
@@ -276,58 +306,7 @@ const MeetingRoomBookingPage = () => {
         };
     }, [roomColorMap]);
 
-    const EventComponent = ({ event }) => {
-        const eventRef = useRef(null);
-        const [showDetails, setShowDetails] = useState(true);
-
-        useEffect(() => {
-            if (!eventRef.current) return;
-
-            const observer = new ResizeObserver(entries => {
-                // Use a loop in case there are multiple observations, though we expect one.
-                for (const entry of entries) {
-                    const minHeightForDetails = 35; // Height threshold in pixels
-                    setShowDetails(entry.contentRect.height > minHeightForDetails);
-                }
-            });
-
-            observer.observe(eventRef.current);
-
-            return () => {
-                observer.disconnect();
-            };
-        }, []);
-
-        return (
-            <div
-                ref={eventRef}
-                style={{
-                    height: '100%',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    fontSize: '0.8em',
-                    lineHeight: '1.2',
-                }}
-            >
-                <div style={{ fontWeight: 'bold' }}>{event.title}</div>
-                {showDetails && (
-                    <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
-                        {event.meeting_room_name}
-                    </div>
-                )}
-            </div>
-        );
-    };
-    
-    EventComponent.propTypes = {
-      event: PropTypes.object.isRequired,
-    };
-
-    const MeetingRoomLegend = () => (
+    const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
         <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
             <h4>会议室颜色图例</h4>
             {meetingRooms.map(room => (
@@ -378,7 +357,7 @@ const MeetingRoomBookingPage = () => {
                     />
                 </div>
                 <div style={{ flex: '0 0 200px' }}>
-                    <MeetingRoomLegend />
+                    <MeetingRoomLegend meetingRooms={meetingRooms} roomColorMap={roomColorMap} />
                 </div>
             </div>
 
@@ -404,7 +383,7 @@ const MeetingRoomBookingPage = () => {
                             </Button>
                         </Popconfirm>
                     ),
-                    <Button key="submit" type="primary" loading={loading} onClick={handleOk}>
+                    <Button key="submit" type="primary" loading={createBookingMutation.isPending || updateBookingMutation.isPending} onClick={handleOk}>
                         {currentBooking ? "更新" : "创建"}
                     </Button>,
                 ]}

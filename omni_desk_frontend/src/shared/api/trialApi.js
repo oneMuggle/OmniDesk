@@ -10,7 +10,7 @@ export const trialApi = {
       return response.data.results || [];
     } catch (error) {
       console.error('Failed to fetch trial events:', error);
-      handleError(error);
+      handleError(error, false);
       throw error;
     }
   },
@@ -41,7 +41,7 @@ export const trialApi = {
           start: trialData.start,
           end: trialData.end
         }
-      });
+      }, false);
       throw new Error(`事件创建失败: ${error.message}`);
     }
   },
@@ -61,7 +61,7 @@ export const trialApi = {
       });
       return response.data;
     } catch (error) {
-      handleError(error);
+      handleError(error, false);
       throw error;
     }
   },
@@ -75,7 +75,7 @@ export const trialApi = {
       const response = await apiClient.get(`events/trials/${trialId}/`);
       return response.data;
     } catch (error) {
-      handleError(error);
+      handleError(error, false);
       throw error;
     }
   },
@@ -85,7 +85,7 @@ export const trialApi = {
       const response = await apiClient.get(`events/time-slots/?trial=${trialId}`);
       return response.data.results || [];
     } catch (error) {
-      handleError(error);
+      handleError(error, false);
       throw error;
     }
   },
@@ -102,7 +102,7 @@ export const trialApi = {
       });
       return response.data;
     } catch (error) {
-      handleError(error);
+      handleError(error, false);
       throw error;
     }
   },

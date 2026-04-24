@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Card, Spin, List, Form, Input, Button, Avatar, Alert } from 'antd';
 import { getPost, createComment } from '../../../features/communication/api/communicationApi';
 import './Communication.css';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 const { TextArea } = Input;
 
@@ -77,7 +78,7 @@ const PostDetail = () => {
                         <span className="post-date"><strong>发布于:</strong> {new Date(post.created_at).toLocaleString()}</span>
                     </div>
                 </div>
-                <div className="post-content" dangerouslySetInnerHTML={{ __html: post.content }} />
+                <div className="post-content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }} />
             </Card>
 
             <Card className="comments-section" title={`${comments.length} 条评论`}>

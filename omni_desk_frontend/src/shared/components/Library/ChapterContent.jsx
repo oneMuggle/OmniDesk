@@ -2,6 +2,7 @@ import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Spin, Typography } from 'antd';
 import axios from 'axios';
+import { sanitizeHtml } from '../../utils/sanitizeHtml';
 
 const { Title } = Typography;
 
@@ -65,7 +66,7 @@ const ChapterContent = () => {
     return (
         <div className="chapter-content">
             <Title level={1}>{chapter.title}</Title>
-            <div dangerouslySetInnerHTML={{ __html: chapter.content_html }} />
+            <div dangerouslySetInnerHTML={{ __html: sanitizeHtml(chapter.content_html) }} />
         </div>
     );
 };

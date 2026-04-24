@@ -9,7 +9,7 @@ export const handleResponse = (response) => {
   throw error;
 };
 
-export const handleError = (error) => {
+export const handleError = (error, showToast = true) => {
   console.error('API call failed:', {
     message: error.message,
     stack: error.stack,
@@ -41,7 +41,7 @@ export const handleError = (error) => {
     errorMessage = `数据处理失败: ${errorMessage}`;
   }
 
-  message.error(errorMessage); // 显示错误提示
+  if (showToast) message.error(errorMessage); // 显示错误提示
 
   // 确保错误对象有必要的属性
   const enhancedError = new Error(errorMessage);
