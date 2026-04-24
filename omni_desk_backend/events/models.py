@@ -2,7 +2,7 @@ from django.db import models
 from django.db.models import JSONField
 from users.models import CustomUser
 # 导入新的 personnel 模型
-from personnel.models import Personnel, Position
+from personnel.models import Personnel
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100)

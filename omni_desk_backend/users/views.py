@@ -1,11 +1,10 @@
 from rest_framework.decorators import action
 from rest_framework import generics, permissions, status, exceptions
-from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
+from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
-from rest_framework.response import Response
-from rest_framework import status
 from django.contrib.auth import authenticate
+from ratelimit.decorators import ratelimit
 from .serializers import (
     UserRegistrationSerializer,
     UserLoginSerializer,
@@ -15,6 +14,7 @@ from .serializers import (
     UserAdminSerializer, # 导入 UserAdminSerializer
     ChangePasswordSerializer
 )
+from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
 
 
 
@@ -33,11 +33,26 @@ from .serializers import (
     PositionSerializer
 )
 
+RATELIMIT_CONFIG = {
+    'group': 'auth',
+    'key': 'ip',
+    'rate': '5/15m',
+    'method': 'POST',
+    'block': False,
+}
+
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
 
+    @ratelimit(**RATELIMIT_CONFIG)
     def post(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            return Response({
+                "success": False,
+                "error": "rate_limit",
+                "message": "请求过于频繁，请稍后再试"
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -95,6 +110,16 @@ class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
 
+    @ratelimit(**RATELIMIT_CONFIG)
+    def post(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            return Response({
+                "success": False,
+                "error": "rate_limit",
+                "message": "请求过于频繁，请稍后再试"
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        return super().post(request, *args, **kwargs)
+
 
 from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
@@ -124,7 +149,7 @@ class ChangePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserAdminListView(generics.ListAPIView):
-    queryset = CustomUser.objects.all().order_by('id') # 按照id排序
+    queryset = CustomUser.objects.select_related('personnel').prefetch_related('phone_numbers').order_by('id') # 按照id排序
     serializer_class = UserAdminSerializer
     permission_classes = [IsAdmin] # 只有管理员可以访问
 
@@ -197,7 +222,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
             return queryset
         return CustomUser.objects.filter(id=self.request.user.id)
 
-from events.models import Position
+from personnel.models import Position
 
 class PositionListView(generics.ListAPIView):
     queryset = Position.objects.all()

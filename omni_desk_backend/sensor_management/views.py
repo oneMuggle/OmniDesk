@@ -14,7 +14,7 @@ from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假
 logger = logging.getLogger(__name__)
 
 class SensorViewSet(viewsets.ModelViewSet):
-    queryset = Sensor.objects.all()
+    queryset = Sensor.objects.select_related('sensor_category', 'location')
     serializer_class = SensorSerializer
     permission_classes = [permissions.AllowAny] # <--- 添加这一行
 class SensorMovementViewSet(viewsets.ModelViewSet):

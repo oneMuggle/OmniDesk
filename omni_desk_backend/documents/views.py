@@ -169,7 +169,7 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
         return Response({'status': 'document finalized'})
 
 class BookViewSet(viewsets.ModelViewSet):
-    queryset = Book.objects.all()
+    queryset = Book.objects.prefetch_related('tags', 'chapters')
     serializer_class = BookSerializer
     permission_classes = []
 

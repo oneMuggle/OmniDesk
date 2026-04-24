@@ -22,8 +22,9 @@ from personnel.models import Personnel
 
 from .models import (
     Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Holiday, Position
+    PersonnelSequence, LeaderSequence, Holiday
 )
+from personnel.models import Position
 from .serializers import (
     TrialSerializer,
     DocumentTemplateSerializer,
@@ -690,7 +691,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
     serializer_class = HolidaySerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['date']
+    filterset_fields = ['name', 'start_date', 'end_date']
 
     def get_queryset(self):
         """
@@ -700,15 +701,8 @@ class HolidayViewSet(viewsets.ModelViewSet):
         queryset = Holiday.objects.all()
         year = self.request.query_params.get('year')
         if year is not None:
-            queryset = queryset.filter(date__year=year)
+            queryset = queryset.filter(start_date__year=year)
         return queryset
-
-class HolidayViewSet(viewsets.ModelViewSet):
-    queryset = Holiday.objects.all()
-    serializer_class = HolidaySerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'start_date', 'end_date']
 
 
 class PositionViewSet(viewsets.ReadOnlyModelViewSet):
