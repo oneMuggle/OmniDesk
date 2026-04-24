@@ -2,8 +2,9 @@ from django.db import transaction
 from rest_framework import serializers
 from .models import (
     Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Holiday, Position
+    PersonnelSequence, LeaderSequence, Holiday
 )
+from personnel.models import Position
 from personnel.serializers import PersonnelSerializer
 from personnel.models import Personnel
 

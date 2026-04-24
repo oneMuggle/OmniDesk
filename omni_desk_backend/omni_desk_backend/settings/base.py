@@ -22,7 +22,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
+_SECRET_KEY = os.getenv('SECRET_KEY')
+if not _SECRET_KEY:
+    import warnings
+    warnings.warn(
+        'SECRET_KEY not set. Generating a random key for this session. '
+        'This will invalidate all existing sessions on restart.',
+        RuntimeWarning,
+    )
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(50)
+else:
+    SECRET_KEY = _SECRET_KEY
+del _SECRET_KEY
 
 # Application definition
 

@@ -26,7 +26,7 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run tests
-        run: pytest
+        run: pytest --ds=omni_desk_backend.settings.test
 
   build-frontend:
     runs-on: ubuntu-latest

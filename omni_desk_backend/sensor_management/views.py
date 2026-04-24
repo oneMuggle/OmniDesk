@@ -1,4 +1,4 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from django_filters.rest_framework import DjangoFilterBackend
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class SensorViewSet(viewsets.ModelViewSet):
     queryset = Sensor.objects.select_related('sensor_category', 'location')
     serializer_class = SensorSerializer
-    permission_classes = [permissions.AllowAny] # <--- 添加这一行
+    permission_classes = [IsAdminOrManagerOrReadOnly]  # 之前为 AllowAny，已收紧
 class SensorMovementViewSet(viewsets.ModelViewSet):
     queryset = SensorMovement.objects.all()
     serializer_class = SensorMovementSerializer

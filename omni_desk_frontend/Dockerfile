@@ -1,5 +1,5 @@
 # Development stage
-FROM node:18-alpine AS development
+FROM node:20-alpine AS development
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install
@@ -9,7 +9,7 @@ CMD ["npm", "start"]
 
 # Production stage
 # Builder part
-FROM node:18-alpine AS builder
+FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm install

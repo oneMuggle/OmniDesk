@@ -1,9 +1,14 @@
-from rest_framework.decorators import action
-from rest_framework import generics, permissions, status, exceptions
+from rest_framework import generics, permissions, status, exceptions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authtoken.models import Token
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.views import TokenObtainPairView
+from rest_framework.filters import SearchFilter
 from django.contrib.auth import authenticate
+from django.db import transaction
+from django.db.models import Q
+from django_filters.rest_framework import DjangoFilterBackend
 from ratelimit.decorators import ratelimit
 from .serializers import (
     UserRegistrationSerializer,
@@ -11,27 +16,14 @@ from .serializers import (
     UserDetailSerializer,
     CustomTokenObtainPairSerializer,
     PersonnelSerializer,
-    UserAdminSerializer, # 导入 UserAdminSerializer
-    ChangePasswordSerializer
+    UserAdminSerializer,
+    ChangePasswordSerializer,
+    UserPersonnelSerializer,
+    PositionSerializer,
 )
-from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
-
-
-
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework.response import Response
-from rest_framework_simplejwt.views import TokenObtainPairView
+from .permissions import IsAdminOrManager, IsAdmin
 from .models import CustomUser
 from personnel.models import Personnel, Position
-from .serializers import (
-    UserRegistrationSerializer,
-    UserLoginSerializer,
-    UserDetailSerializer,
-    CustomTokenObtainPairSerializer,
-    PersonnelSerializer,
-    UserPersonnelSerializer,
-    PositionSerializer
-)
 
 RATELIMIT_CONFIG = {
     'group': 'auth',
@@ -121,10 +113,6 @@ class UserLoginView(TokenObtainPairView):
         return super().post(request, *args, **kwargs)
 
 
-from django.db.models import Q
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter
-from django.db import transaction
 
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -177,7 +165,6 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
 
         return super().partial_update(request, *args, **kwargs)
 
-from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all().order_by('username')
     serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
@@ -222,7 +209,6 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
             return queryset
         return CustomUser.objects.filter(id=self.request.user.id)
 
-from personnel.models import Position
 
 class PositionListView(generics.ListAPIView):
     queryset = Position.objects.all()

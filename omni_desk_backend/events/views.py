@@ -1,23 +1,21 @@
-from rest_framework import viewsets, permissions, status
+from rest_framework import viewsets, generics, permissions, status, serializers
 from rest_framework.response import Response
 from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.views import APIView
-from rest_framework import viewsets, generics
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
-from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly
-from rest_framework.views import APIView
 from rest_framework.filters import SearchFilter
-from rest_framework.response import Response
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
 from django.db import transaction, IntegrityError
+from django.db.models import Min, Max
+from django.db.models.functions import TruncDate
+from django.conf import settings
 import calendar
 import logging
 from datetime import datetime, timedelta
-from django.db.models import Min, Max
-from django.db.models.functions import TruncDate
-from rest_framework.exceptions import ValidationError
 from personnel.models import Personnel
+from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly
 
 
 from .models import (
@@ -611,7 +609,6 @@ class TrialViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         """原子化更新试验及其时间段"""
-        # 乐观锁检查
         # 乐观锁检查
         current_version = serializer.instance.version
         if 'version' in self.request.data:

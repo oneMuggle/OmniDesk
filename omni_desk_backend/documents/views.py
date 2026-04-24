@@ -28,7 +28,7 @@ from django.http import HttpResponse # For file export
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
     serializer_class = DocumentTemplateSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser]  # 添加文件上传支持
 
     def get_queryset(self):
@@ -152,7 +152,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.all()
     serializer_class = GeneratedDocumentSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = None  # 禁用分页
 
     def get_queryset(self):
@@ -171,7 +171,7 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
 class BookViewSet(viewsets.ModelViewSet):
     queryset = Book.objects.prefetch_related('tags', 'chapters')
     serializer_class = BookSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -207,7 +207,7 @@ class BookViewSet(viewsets.ModelViewSet):
 class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Chapter.objects.all()
     serializer_class = ChapterSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def add_comment(self, request, pk=None):
@@ -472,7 +472,7 @@ class BookImportView(APIView):
 class EBookViewSet(viewsets.ModelViewSet):
     queryset = EBook.objects.all()
     serializer_class = EBookSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     @action(detail=False, methods=['post'])

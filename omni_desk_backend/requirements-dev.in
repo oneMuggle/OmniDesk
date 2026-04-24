@@ -6,7 +6,7 @@ pytest-cov
 coverage
 
 # Linting & Formatting
-# (Add any linting/formatting tools here if needed in the future)
+ruff
 
 # Dependency Management
 pip-tools
