@@ -1,8 +1,7 @@
 # =====================================================================
 # Base Stage
 # =====================================================================
-# Define a common base stage for all environments
-FROM python:3.11-slim-bullseye AS base
+FROM python:3.11-slim-bookworm AS base
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
@@ -10,13 +9,9 @@ ENV PYTHONUNBUFFERED 1
 ENV PIP_NO_CACHE_DIR=off
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 
-# Install essential OS packages
+# Install runtime library for psycopg2
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-    # libpq5 is the runtime dependency for psycopg2-binary
-    libpq5 \
-    # build-essential and other -dev packages are needed for building some Python packages
-    build-essential libpq-dev && \
+    apt-get install -y --no-install-recommends libpq5 && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -25,8 +20,12 @@ WORKDIR /usr/src/app
 # =====================================================================
 # Builder Stage
 # =====================================================================
-# This stage builds the production wheelhouse
 FROM base AS builder
+
+# Install build dependencies (only in builder)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends build-essential libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
 
 WORKDIR /wheelhouse
 

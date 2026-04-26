@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
@@ -65,7 +65,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     }
   }, [isAuthenticated]);
 
-  const menuItems = [
+  const menuItems = useMemo(() => [
     { to: "/", icon: HomeOutlined, text: "首页", permission: null },
     { to: "/announcements", icon: SoundOutlined, text: "公告栏", permission: null },
     {
@@ -109,9 +109,9 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     },
     { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
     { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
-  ];
+  ], [logout, unreadNotificationCount]);
 
-  const renderMenuItem = (item, index) => {
+  const renderMenuItem = useCallback((item, index) => {
     if (item.type === 'button') {
       const Icon = item.icon;
       const buttonContent = (
@@ -234,7 +234,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         )}
       </li>
     );
-  };
+  }, [isCollapsed, isMobileMenuOpen, toggleMobileMenu, location, hasPermission, expandedSubMenu]);
 
   return (
     <>

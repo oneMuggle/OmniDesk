@@ -36,9 +36,9 @@ services:
       - "8000:8000"
     depends_on:
       db:
-        condition: service_started
+        condition: service_healthy
       redis:
-        condition: service_started
+        condition: service_healthy
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
@@ -63,9 +63,9 @@ services:
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       redis:
-        condition: service_started
+        condition: service_healthy
       db:
-        condition: service_started
+        condition: service_healthy
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings
       - DJANGO_ENV=production
