@@ -1,6 +1,9 @@
 from rest_framework import serializers
+
+from users.serializers import UserDetailSerializer  # 使用UserDetailSerializer来显示用户信息
+
 from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
-from users.serializers import UserDetailSerializer # 使用UserDetailSerializer来显示用户信息
+
 
 class MeetingRoomSerializer(serializers.ModelSerializer):
     class Meta:

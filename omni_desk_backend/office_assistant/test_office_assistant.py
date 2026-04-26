@@ -1,9 +1,8 @@
-from django.test import TestCase, override_settings
 from rest_framework.test import APIClient, APITestCase
 from django.urls import reverse
 from rest_framework import status
 from users.models import CustomUser
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 import docx
 from io import BytesIO
 

@@ -1,18 +1,20 @@
-from django.db import IntegrityError
-from rest_framework import viewsets, permissions, serializers
+from rest_framework import permissions, viewsets
 from rest_framework.filters import SearchFilter
+
 from users.permissions import IsAdminOrReadOnly
-from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
+
+from .models import Contract, Education, FamilyMember, Personnel, Position, ProfessionalQualification, WorkExperience
 from .serializers import (
-    PositionSerializer,
-    PersonnelSerializer,
-    PersonnelDetailSerializer,
     ContractSerializer,
     EducationSerializer,
-    WorkExperienceSerializer,
+    FamilyMemberSerializer,
+    PersonnelDetailSerializer,
+    PersonnelSerializer,
+    PositionSerializer,
     ProfessionalQualificationSerializer,
-    FamilyMemberSerializer
+    WorkExperienceSerializer,
 )
+
 
 class PersonnelViewSet(viewsets.ModelViewSet):
     """

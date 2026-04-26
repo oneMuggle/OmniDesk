@@ -1,5 +1,6 @@
-from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db import models
+
 
 class CustomUser(AbstractUser):
     # 显式定义email字段覆盖默认设置
@@ -22,7 +23,7 @@ class CustomUser(AbstractUser):
         related_name='user_account',
         verbose_name='关联人员'
     )
-    
+
     # 使用用户名作为唯一标识
     USERNAME_FIELD = 'username'
     REQUIRED_FIELDS = []
@@ -36,8 +37,8 @@ class CustomUser(AbstractUser):
         related_name="custom_user_groups",
         related_query_name="user",
     )
-    
-    
+
+
     class Meta:
         verbose_name = '用户'
         verbose_name_plural = '用户'

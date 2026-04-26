@@ -1,7 +1,9 @@
 from django.db import models
 from django.db.models import JSONField
+
+from projects.models import Project  # Import the Project model
 from users.models import CustomUser
-from projects.models import Project # Import the Project model
+
 
 class DocumentTemplate(models.Model):
     project = models.ForeignKey(
@@ -18,7 +20,7 @@ class DocumentTemplate(models.Model):
         ('meeting_minutes', '会议纪要'),
         ('progress_report', '项目进度报告'),
     ]
-    
+
     name = models.CharField(max_length=200, verbose_name="模板名称")
     template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPES, verbose_name="模板类型")
     content = models.TextField(verbose_name="模板内容")

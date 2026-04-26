@@ -1,7 +1,15 @@
 from rest_framework import serializers
-from rest_framework import serializers
-from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation, SensorCalibration, CalibrationDataPoint
-from users.models import CustomUser
+
+from .models import (
+    CalibrationDataPoint,
+    CalibrationReminder,
+    Sensor,
+    SensorCalibration,
+    SensorCategory,
+    SensorMovement,
+    StorageLocation,
+)
+
 
 class SensorCategorySerializer(serializers.ModelSerializer):
     class Meta:

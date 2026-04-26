@@ -1,9 +1,12 @@
-from celery import shared_task
-from django.utils import timezone
 from datetime import timedelta
-from django.db.models import Q, F
-from .models import Sensor, CalibrationReminder
-from users.models import CustomUser # 假设需要关联到用户
+
+from celery import shared_task
+from django.db.models import F, Q
+from django.utils import timezone
+
+from users.models import CustomUser  # 假设需要关联到用户
+
+from .models import CalibrationReminder, Sensor
 
 # 导入Django的User模型，如果需要发送邮件给特定用户
 # from django.contrib.auth import get_user_model
@@ -28,13 +31,13 @@ def check_and_create_calibration_reminders():
     检查即将到期或已过期的传感器，并创建校准提醒。
     """
     today = timezone.now().date()
-    
+
     # 定义提醒的提前天数
     remind_days = [5, 1, 0] # 提前5天，提前1天，当天
 
     for days_before in remind_days:
         remind_date = today + timedelta(days=days_before)
-        
+
         # 查找符合条件的传感器
         sensors_due = Sensor.objects.filter(
             Q(last_calibration_date__isnull=False) &
@@ -62,7 +65,7 @@ def check_and_create_calibration_reminders():
                 # 例如：可以遍历所有管理员或特定角色用户并添加到 reminded_users
                 admin_users = CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name__in=['Admin', 'Manager'])) # 示例：获取管理员和经理角色用户
                 reminder.reminded_users.set(admin_users)
-                
+
                 print(f"为传感器 {sensor.serial_number} 创建了校准提醒，提醒日期：{today}")
 
                 # 发送通知给相关用户

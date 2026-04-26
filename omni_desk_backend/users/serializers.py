@@ -1,13 +1,14 @@
-from datetime import timedelta
-from rest_framework import serializers
-from django.core.validators import RegexValidator
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
+from django.core.validators import RegexValidator
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from permissions.models import GroupPagePermission
 from personnel.models import Personnel, Position
 from personnel.serializers import PersonnelSerializer
+
 from .models import PhoneNumber
-from permissions.models import GroupPagePermission
 
 CustomUser = get_user_model()
 
@@ -18,7 +19,7 @@ def get_user_permissions(user):
     permissions = set(user.get_all_permissions())
     if user.is_staff or user.is_superuser:
         permissions.add('admin')
-    
+
     # 获取用户通过组获得的页面路由权限
     user_groups = user.groups.all()
     group_names = set(user_groups.values_list('name', flat=True))
@@ -32,7 +33,7 @@ def get_user_permissions(user):
     if 'Manager' in group_names:
         permissions.add('manager')
         permissions.add('events.manage_personnel')
-        
+
     return list(permissions)
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
@@ -72,7 +73,7 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         }
     )
     password_confirmation = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
-    
+
     class Meta:
         model = CustomUser
         fields = ('username', 'password', 'password_confirmation', 'email')
@@ -97,7 +98,6 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
             email=validated_data.get('email', '')
         )
 
-from django.contrib.auth import authenticate
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
@@ -107,7 +107,7 @@ class UserLoginSerializer(serializers.Serializer):
     def validate(self, data):
         username = data.get('username')
         password = data.get('password')
-        
+
         try:
             user = CustomUser.objects.get(username=username)
         except CustomUser.DoesNotExist:
@@ -115,10 +115,10 @@ class UserLoginSerializer(serializers.Serializer):
 
         if not user.check_password(password):
             raise serializers.ValidationError("用户名或密码不正确")
-            
+
         if not user.is_active:
             raise serializers.ValidationError("用户账户已被禁用")
-            
+
         data['user'] = user
         return data
 
@@ -153,10 +153,10 @@ class UserDetailSerializer(serializers.ModelSerializer):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.personnel:
             self.fields['real_name'].read_only = True
-    
+
     def update(self, instance, validated_data):
         phone_numbers_data = validated_data.pop('phone_numbers', None)
-        
+
         # Update user instance using the default update logic
         instance = super().update(instance, validated_data)
 
@@ -234,7 +234,7 @@ class UserAdminSerializer(serializers.ModelSerializer):
         instance.username = validated_data.get('username', instance.username)
         instance.real_name = validated_data.get('real_name', instance.real_name)
         instance.personnel = validated_data.get('personnel', instance.personnel)
-        
+
         if groups_data is not None:
             instance.groups.set(groups_data)
 

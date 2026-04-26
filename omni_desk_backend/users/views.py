@@ -1,29 +1,23 @@
-from rest_framework import generics, permissions, status, exceptions, viewsets
-from rest_framework.response import Response
-from rest_framework.views import APIView
-from rest_framework.authtoken.models import Token
-from rest_framework_simplejwt.authentication import JWTAuthentication
-from rest_framework_simplejwt.views import TokenObtainPairView
-from rest_framework.filters import SearchFilter
-from django.contrib.auth import authenticate
-from django.db import transaction
-from django.db.models import Q
 from django_filters.rest_framework import DjangoFilterBackend
 from ratelimit.decorators import ratelimit
-from .serializers import (
-    UserRegistrationSerializer,
-    UserLoginSerializer,
-    UserDetailSerializer,
-    CustomTokenObtainPairSerializer,
-    PersonnelSerializer,
-    UserAdminSerializer,
-    ChangePasswordSerializer,
-    UserPersonnelSerializer,
-    PositionSerializer,
-)
-from .permissions import IsAdminOrManager, IsAdmin
-from .models import CustomUser
+from rest_framework import exceptions, generics, permissions, status, viewsets
+from rest_framework.filters import SearchFilter
+from rest_framework.response import Response
+from rest_framework_simplejwt.views import TokenObtainPairView
+
 from personnel.models import Personnel, Position
+
+from .models import CustomUser
+from .permissions import IsAdmin, IsAdminOrManager
+from .serializers import (
+    ChangePasswordSerializer,
+    CustomTokenObtainPairSerializer,
+    PositionSerializer,
+    UserAdminSerializer,
+    UserDetailSerializer,
+    UserPersonnelSerializer,
+    UserRegistrationSerializer,
+)
 
 RATELIMIT_CONFIG = {
     'group': 'auth',
@@ -49,7 +43,7 @@ class UserRegistrationView(generics.CreateAPIView):
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
-            
+
             return Response({
                 "success": True,
                 "message": "注册成功，请登录",
@@ -64,7 +58,7 @@ class UserRegistrationView(generics.CreateAPIView):
                 "message": "注册验证失败",
                 "validation_errors": e.detail
             }, status=e.status_code)
-        except Exception as e:
+        except Exception:
             import traceback
             traceback.print_exc()
             error_data = {
@@ -78,14 +72,14 @@ class UserRegistrationView(generics.CreateAPIView):
 class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user
 class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
@@ -189,10 +183,10 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
                     instance.real_name = personnel.name  # 强制设置为人员名称
                 except Personnel.DoesNotExist:
                     return Response({"detail": "人员不存在。"}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # 不论 personnel_id 是否提供，都保存实例
         instance.save()
-        
+
         # 在保存后序列化并返回
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -205,7 +199,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
 
             if position:
                 queryset = queryset.filter(personnel__position_id=position)
-            
+
             return queryset
         return CustomUser.objects.filter(id=self.request.user.id)
 

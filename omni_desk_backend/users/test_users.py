@@ -201,7 +201,6 @@ class UserProfileManagementTests(APITestCase):
     def test_user_can_update_profile(self):
         data = {
             'real_name': 'New Name',
-            'real_name': 'New Name',
             'phone_numbers': [{'number': '0987654321'}]
         }
         response = self.client.patch(self.profile_update_url, data, format='json')

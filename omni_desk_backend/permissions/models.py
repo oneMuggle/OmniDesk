@@ -1,5 +1,5 @@
-from django.db import models
 from django.contrib.auth.models import Group
+from django.db import models
 
 # Create your models here.
 
@@ -8,7 +8,7 @@ class PageRoute(models.Model):
     path = models.CharField(max_length=255, unique=True, verbose_name='路由路径')
     component = models.CharField(max_length=255, verbose_name='前端组件')
     parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='children', verbose_name='父级页面')
-    
+
     class Meta:
         verbose_name = '页面路由'
         verbose_name_plural = '页面路由'

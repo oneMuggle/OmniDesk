@@ -96,7 +96,7 @@ class TrialModelTest(TestCase):
 from rest_framework.test import APIClient
 from rest_framework import status
 from users.models import CustomUser
-from .models import Personnel, Schedule, PersonnelSequence, LeaderSequence
+from .models import Schedule, PersonnelSequence, LeaderSequence
 from personnel.models import Position
 from datetime import date, timedelta, datetime
 from django.contrib.auth.models import Group

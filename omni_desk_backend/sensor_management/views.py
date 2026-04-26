@@ -1,15 +1,23 @@
-from rest_framework import viewsets, permissions, status, serializers
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
-from django.utils import timezone
-from datetime import timedelta
 import logging
 
-from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation, SensorCalibration
-from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer, SensorCategorySerializer, StorageLocationSerializer, SensorCalibrationSerializer
-from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假设有这些权限类
+from django.db import transaction
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly  # 假设有这些权限类
+
+from .models import CalibrationReminder, Sensor, SensorCalibration, SensorCategory, SensorMovement, StorageLocation
+from .serializers import (
+    CalibrationReminderSerializer,
+    SensorCalibrationSerializer,
+    SensorCategorySerializer,
+    SensorMovementSerializer,
+    SensorSerializer,
+    StorageLocationSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +77,7 @@ class SensorMovementViewSet(viewsets.ModelViewSet):
                 if sensor.current_quantity < new_quantity:
                     raise serializers.ValidationError("出库数量不能大于当前库存数量。")
                 sensor.current_quantity -= new_quantity
-            
+
             # Update status based on new quantity and movement type
             if sensor.current_quantity == 0:
                 sensor.status = 'retired'

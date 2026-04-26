@@ -1,7 +1,9 @@
+from datetime import timedelta
+
 from django.db import models
-from django.db.models import JSONField
+
 from users.models import CustomUser
-from datetime import date, timedelta
+
 
 class Sensor(models.Model):
     STATUS_CHOICES = [
@@ -24,7 +26,7 @@ class Sensor(models.Model):
     last_calibration_date = models.DateField(verbose_name="上次校准日期", null=True, blank=True)
     calibration_interval_days = models.IntegerField(default=365, verbose_name="校准周期（天）")
     current_quantity = models.IntegerField(default=0, verbose_name="当前数量")
-    
+
     @property
     def next_calibration_date(self):
         if self.last_calibration_date and self.calibration_interval_days:

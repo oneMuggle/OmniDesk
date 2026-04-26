@@ -1,6 +1,7 @@
 from rest_framework import serializers
-from rest_framework.validators import UniqueValidator
-from .models import Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember, Position
+
+from .models import Contract, Education, FamilyMember, Personnel, Position, ProfessionalQualification, WorkExperience
+
 
 class PositionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -79,7 +80,7 @@ class PersonnelDetailSerializer(serializers.ModelSerializer):
             'address', 'hire_date', 'department', 'position', 'status',
             'contracts', 'educations', 'work_experiences', 'qualifications', 'family_members'
         ]
-    
+
     def to_representation(self, instance):
         representation = super().to_representation(instance)
         if instance.position:

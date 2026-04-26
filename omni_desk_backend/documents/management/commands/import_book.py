@@ -1,23 +1,24 @@
+import html  # Import the html module for unescaping HTML entities
 import re
-import markdown
-import os
 import shutil
 from pathlib import Path
-from django.core.management.base import BaseCommand
-from django.conf import settings
+
 import django
-import html # Import the html module for unescaping HTML entities
-from bs4 import BeautifulSoup # Import BeautifulSoup
-from unidecode import unidecode # Import unidecode
+import markdown
+from bs4 import BeautifulSoup  # Import BeautifulSoup
+from django.conf import settings
+from django.core.management.base import BaseCommand
+from unidecode import unidecode  # Import unidecode
+
 
 # Helper to normalize heading text for robust comparison and clean display
 def normalize_heading_text(text_input):
     # Ensure input is a string, handle potential None or non-string inputs gracefully
     if not isinstance(text_input, str):
         return ""
-    
+
     text = str(text_input).strip() # Convert to string and strip initial whitespace
-    
+
     # Decode HTML entities first, as markdown processors might convert characters to entities
     text = html.unescape(text)
 
@@ -27,21 +28,21 @@ def normalize_heading_text(text_input):
 
     # Remove Markdown heading syntax (e.g., '### ')
     text = re.sub(r'^\s*#+\s*', '', text).strip()
-    
+
     # Remove MathJax delimiters and content (more robust regex for various forms)
     # Matches $...$, \(...\), \[...\]
     text = re.sub(r'\$(.*?)\$', '', text) # Inline MathJax $...$
     text = re.sub(r'\\\((.*?)\\\)', '', text) # Escaped parens MathJax \(...\)
     text = re.sub(r'\\\[(.*?)\\\]', '', text) # Escaped brackets MathJax \[...\]
-    
+
     # Remove common LaTeX commands and their arguments (e.g., \command, \command{arg}, \alpha)
     # This regex is more general and tries to catch various LaTeX constructs.
     # It attempts to remove \command or \command{argument} or \command*
     text = re.sub(r'\\[a-zA-Z]+\s*(\{[^}]*\})?|\\[a-zA-Z]+\*', '', text)
-    
+
     # Remove special characters that might be part of the original heading but not useful for comparison
     # Added colon (:) to the list of characters to remove if they are not part of meaningful text
-    text = re.sub(r'[．·:]', '', text) 
+    text = re.sub(r'[．·:]', '', text)
 
     # Replace multiple spaces with a single space and strip leading/trailing spaces
     text = re.sub(r'\s+', ' ', text).strip()
@@ -55,16 +56,16 @@ def clean_text_for_id(text_input, chapter_order=None, item_index=None):
 
     # First, normalize the text to remove markdown, mathjax, and common LaTeX commands
     normalized_text = normalize_heading_text(text_input)
-    
+
     # Convert non-ASCII characters to their closest ASCII equivalents
     ascii_text = unidecode(normalized_text)
-    
+
     # Replace spaces with hyphens, convert to lowercase
     sanitized_id = re.sub(r'\s+', '-', ascii_text).strip()
-    
+
     # Remove any remaining non-alphanumeric characters except hyphens
     sanitized_id = re.sub(r'[^\w-]', '', sanitized_id)
-    
+
     # Ensure ID is not empty. If it is, create a fallback ID.
     if not sanitized_id:
         if chapter_order is not None and item_index is not None:
@@ -89,7 +90,7 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # Ensure Django is set up before importing models
         django.setup()
-        
+
         input_title = options['title']
         file_path = Path(options['file_path'])
 
@@ -100,7 +101,7 @@ class Command(BaseCommand):
             return
 
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content = f.read()
         except Exception as e: # Catch any exception during file read
             self.stderr.write(self.style.ERROR(f"Error reading file {file_path}: {e}"))
@@ -142,7 +143,7 @@ class Command(BaseCommand):
                 media_root = Path(settings.MEDIA_ROOT)
                 cover_dest_dir = media_root / 'covers'
                 cover_dest_dir.mkdir(parents=True, exist_ok=True)
-                
+
                 cover_filename = original_cover_path.name
                 dest_path = cover_dest_dir / cover_filename
                 shutil.copy(original_cover_path, dest_path)
@@ -160,7 +161,7 @@ class Command(BaseCommand):
         Book = apps.get_model('documents', 'Book')
         Chapter = apps.get_model('documents', 'Chapter')
         Tag = apps.get_model('documents', 'Tag')
-        
+
         book_obj, created = Book.objects.update_or_create(
             title=metadata['title'],
             defaults={
@@ -207,7 +208,7 @@ class Command(BaseCommand):
 
         # --- 4. Define Chapters based on H1 headings ---
         chapters_data = []
-        
+
         # Find all H1 heading positions and their content
         h1_regex = r'^(#\s*(.+))' # Capture the full H1 line and its text content
         h1_matches = list(re.finditer(h1_regex, content, re.MULTILINE))
@@ -221,19 +222,19 @@ class Command(BaseCommand):
                 'content_md_raw': preamble_content,
                 'is_preamble': True
             })
-        
+
         # Process chapters based on H1 headings
         for i, h1_match in enumerate(h1_matches):
             chapter_start_pos = h1_match.start()
             chapter_title = h1_match.group(2).strip() # Extract only the text, not '#'
-            
+
             chapter_end_pos = len(content)
             if i + 1 < len(h1_matches):
                 chapter_end_pos = h1_matches[i+1].start()
-            
+
             # Get the content for this chapter (from this H1 to the next H1 or end of doc)
             chapter_raw_md = content[chapter_start_pos:chapter_end_pos].strip()
-            
+
             chapters_data.append({
                 'title': chapter_title, # Use the clean text as title
                 'content_md_raw': chapter_raw_md,
@@ -254,26 +255,26 @@ class Command(BaseCommand):
             )
             # Convert this chapter's raw Markdown to HTML
             chapter_content_html = chapter_md_processor.convert(current_chapter_md_raw)
-            
+
             chapter_heading_structure = []
             if hasattr(chapter_md_processor, 'toc_tokens'):
                 chapter_heading_structure = chapter_md_processor.toc_tokens
-            
+
             # Post-process chapter_heading_structure to clean 'text' fields and ensure ID
             for i, item in enumerate(chapter_heading_structure):
                 # Prefer 'name' if available, otherwise use 'text' for cleaning
                 source_text = item.get('name', item.get('text', ''))
-                
+
                 # Always update 'text' field to be cleaned for display/comparison
                 item['text'] = normalize_heading_text(source_text)
 
                 # Ensure ID is also cleaned and not empty
                 original_id_from_toc = item.get('id', '')
                 cleaned_id = clean_text_for_id(original_id_from_toc, chapter_order, i)
-                
+
                 if not cleaned_id: # If original ID from TOC resulted in empty after cleaning, try cleaning the source text
                     cleaned_id = clean_text_for_id(source_text, chapter_order, i)
-                
+
                 item['id'] = cleaned_id
 
                 # If after all attempts ID is still empty, use a final unique fallback
@@ -290,14 +291,14 @@ class Command(BaseCommand):
                     if item.get('level') == 1 and item.get('text') == normalized_chapter_title:
                         found_matching_h1 = True
                         break
-                
+
                 if not found_matching_h1:
                     # Filter out any existing H1s that do not match the normalized chapter title if we are inserting a new one
                     chapter_heading_structure = [item for item in chapter_heading_structure if not (item.get('level') == 1 and item.get('text') != normalized_chapter_title)]
 
                     # Sanitize the chapter_title for a valid ID
                     sanitized_id = clean_text_for_id(chapter_title, chapter_order) # Use clean_text_for_id for ID generation
-                    
+
                     # Insert at the beginning to ensure it's the primary heading
                     chapter_heading_structure.insert(0, {
                         'level': 1,
@@ -339,20 +340,20 @@ class Command(BaseCommand):
                     return match.group(0)
 
                 image_abs_path = file_path.parent / original_path
-                
+
                 if image_abs_path.exists():
                     media_root_path = Path(settings.MEDIA_ROOT)
                     sanitized_book_title = re.sub(r'[^\w\-_\. ]', '_', book_obj.title)
                     book_images_dir = media_root_path / 'book_images' / sanitized_book_title
                     book_images_dir.mkdir(parents=True, exist_ok=True)
-                    
+
                     image_filename = image_abs_path.name
                     dest_path = book_images_dir / image_filename
                     shutil.copy(image_abs_path, dest_path)
-                    
+
                     relative_media_path = dest_path.relative_to(media_root_path).as_posix()
                     image_url = f"{settings.MEDIA_URL}{relative_media_path}"
-                    
+
                     image_metadata_list.append({
                         'original_path': original_path,
                         'processed_url': image_url,

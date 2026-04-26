@@ -1,11 +1,12 @@
-from rest_framework import viewsets, status
-from rest_framework.response import Response
+import requests
+from django.http import JsonResponse
+from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.response import Response
+
 from .models import RagflowConfig
 from .serializers import RagflowConfigSerializer
-import requests
-import os
-from django.http import JsonResponse
+
 
 class RagflowConfigViewSet(viewsets.ModelViewSet):
     queryset = RagflowConfig.objects.all()
@@ -29,7 +30,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             "Authorization": f"Bearer {config.api_key}",
             "Content-Type": "application/json"
         }
-        
+
         # 根据 Ragflow 的实际 API 文档调整请求体
         # 假设 Ragflow 的 API 接收 JSON 格式的 { "question": "...", "conversation_id": "..." }
         payload = {
@@ -48,7 +49,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
 
             return Response(response.json(), status=status.HTTP_200_OK)
         except requests.exceptions.RequestException as e:
-            return Response({"detail": f"Ragflow API 请求失败: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"detail": f"Ragflow API 请求失败: {e!s}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 def ragflow_configs_view(request):
    """

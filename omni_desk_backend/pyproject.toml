@@ -1,0 +1,15 @@
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+exclude = ["*/migrations/*", "*/test_*.py", "*/tests.py"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+ignore = [
+    "E501",      # line length handled by formatter
+    "F403",      # star imports from settings (intentional)
+    "F405",      # undefined from star imports
+]
+
+[tool.ruff.lint.per-file-ignores]
+"omni_desk_backend/settings/*.py" = ["F403", "F405", "E402"]

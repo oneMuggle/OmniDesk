@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class Sensor(models.Model):
     """
     传感器模型
@@ -20,10 +21,10 @@ class CalibrationRecord(models.Model):
     relative_humidity = models.FloatField(verbose_name="相对湿度 (%RH)")
     calibration_instrument = models.CharField(max_length=255, verbose_name="校准用仪器")
     calibration_date = models.DateField(verbose_name="校准日期")
-    
+
     # Main table data for calibration points
     main_table_data = models.JSONField(default=dict, verbose_name="主要表格数据")
-    
+
     # Performance indicators
     performance_indicators = models.JSONField(default=dict, verbose_name="性能指标")
 

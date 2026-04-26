@@ -1,6 +1,7 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import SensorViewSet, CalibrationRecordViewSet
+
+from .views import CalibrationRecordViewSet, SensorViewSet
 
 router = DefaultRouter()
 router.register(r'sensors', SensorViewSet)

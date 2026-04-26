@@ -1,12 +1,11 @@
-from django.contrib import admin
-from django.urls import path, include
-from django.conf.urls.static import static
 from django.conf import settings
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from users.views import UserRegistrationView, UserDetailView
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
 from config.views import ollama_configs_view
 from sensor_management.views import SensorCategoryViewSet, StorageLocationViewSet
-from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'categories', SensorCategoryViewSet, basename='sensor-category')

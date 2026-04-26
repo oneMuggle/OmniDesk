@@ -1,13 +1,13 @@
 # omni_desk_backend/documents/file_processing.py
 
+import mimetypes  # 新增导入
 import os
 from pathlib import Path
+
+import pypdf
 import requests
 from django.conf import settings
-import pypdf
 from docx import Document as DocxDocument
-from PIL import Image
-import mimetypes # 新增导入
 
 # Mineru OCR API 配置
 MINERU_API_URL = getattr(settings, 'MINERU_API_URL', None)
@@ -24,7 +24,7 @@ def call_mineru_ocr(file_path):
     headers = {
         "Authorization": f"Bearer {MINERU_API_KEY}"
     }
-    
+
     # 尝试根据文件扩展名猜测 MIME 类型
     mime_type, _ = mimetypes.guess_type(file_path)
     if not mime_type:

@@ -1,7 +1,9 @@
 import logging
+
 from rest_framework import viewsets
-from .models import Sensor, CalibrationRecord
-from .serializers import SensorSerializer, CalibrationRecordSerializer
+
+from .models import CalibrationRecord, Sensor
+from .serializers import CalibrationRecordSerializer, SensorSerializer
 
 logger = logging.getLogger(__name__)
 

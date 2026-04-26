@@ -306,19 +306,6 @@ const MeetingRoomBookingPage = () => {
         };
     }, [roomColorMap]);
 
-    const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
-        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
-            <h4>会议室颜色图例</h4>
-            {meetingRooms.map(room => (
-                <div key={room.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-                    <Tag color={roomColorMap.get(room.id)} style={{ marginRight: '8px' }}>
-                        {room.name}
-                    </Tag>
-                </div>
-            ))}
-        </div>
-    );
-
     return (
         <div className="calendar-page-container">
             <h1>会议室预约</h1>

@@ -1,5 +1,6 @@
-from django.db import models
 from django.conf import settings
+from django.db import models
+
 
 class Project(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="项目名称")
@@ -7,16 +8,16 @@ class Project(models.Model):
     start_date = models.DateField(null=True, blank=True, verbose_name="开始日期")
     end_date = models.DateField(null=True, blank=True, verbose_name="结束日期")
     manager = models.ForeignKey(
-        settings.AUTH_USER_MODEL, 
-        on_delete=models.SET_NULL, 
-        null=True, 
-        blank=True, 
-        related_name='managed_projects', 
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='managed_projects',
         verbose_name="项目负责人"
     )
     status = models.CharField(
-        max_length=50, 
-        default='进行中', 
+        max_length=50,
+        default='进行中',
         choices=[
             ('进行中', '进行中'),
             ('已完成', '已完成'),

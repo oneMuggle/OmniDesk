@@ -1,5 +1,6 @@
 from django.db import models
 
+
 class RagflowConfig(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="配置名称")
     api_endpoint = models.URLField(max_length=500, verbose_name="Ragflow API 端点")

@@ -1,14 +1,15 @@
-from rest_framework import viewsets
-from rest_framework import permissions
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.response import Response
-from rest_framework.filters import SearchFilter, OrderingFilter
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.decorators import action # 导入 action 装饰器
+from rest_framework import permissions, viewsets
+from rest_framework.decorators import action  # 导入 action 装饰器
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.filters import OrderingFilter, SearchFilter
+from rest_framework.response import Response
+
+from projects.models import Project
+
 from .models import ComplianceIssue
 from .serializers import ComplianceIssueSerializer
-from documents.models import Book, DocumentTemplate
-from projects.models import Project
+
 
 class ComplianceIssueViewSet(viewsets.ModelViewSet):
     queryset = ComplianceIssue.objects.all()
@@ -23,7 +24,7 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
         # 管理员可以查看所有问题，非管理员只能查看与自己负责项目相关的问题
         if self.request.user.is_staff:
             return ComplianceIssue.objects.all()
-        
+
         # 筛选与用户负责项目相关的问题
         user_projects = Project.objects.filter(manager=self.request.user)
         return ComplianceIssue.objects.filter(project__in=user_projects)

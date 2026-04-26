@@ -1,5 +1,6 @@
-import sqlite3
 import os
+import sqlite3
+
 
 def find_all_foreign_keys():
     """

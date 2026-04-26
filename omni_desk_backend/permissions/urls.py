@@ -1,6 +1,7 @@
-from django.urls import path, include
+from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import GroupViewSet, PageRouteViewSet, GroupPermissionView, UserPermissionView, GroupedPermissionsView
+
+from .views import GroupedPermissionsView, GroupPermissionView, GroupViewSet, PageRouteViewSet, UserPermissionView
 
 router = DefaultRouter()
 router.register(r'groups', GroupViewSet)

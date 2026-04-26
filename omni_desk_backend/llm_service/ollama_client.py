@@ -1,8 +1,10 @@
 # omni_desk_backend/llm_service/ollama_client.py
 
-import requests
 import json
 import os
+
+import requests
+
 
 class OllamaClient:
     def __init__(self, base_url=None, model_name=None):

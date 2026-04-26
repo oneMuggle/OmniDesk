@@ -1,7 +1,9 @@
-from rest_framework import viewsets, permissions, exceptions
+from rest_framework import exceptions, permissions, viewsets
+
 from .models import Project
-from .serializers import ProjectSerializer
 from .permissions import IsProjectOwnerOrAdmin
+from .serializers import ProjectSerializer
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
@@ -16,7 +18,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
             return Project.objects.all()
         elif user.groups.filter(name='Manager').exists():
             return Project.objects.filter(manager=user)
-        
+
         # Regular users should not see any projects directly
         # They might access them through other relations, but not list them.
         return Project.objects.none()

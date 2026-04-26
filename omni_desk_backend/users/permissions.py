@@ -1,4 +1,5 @@
-from rest_framework.permissions import BasePermission, SAFE_METHODS
+from rest_framework.permissions import SAFE_METHODS, BasePermission
+
 
 class IsAdmin(BasePermission):
     """
@@ -62,5 +63,5 @@ class HasPermission(BasePermission):
         for perm in required_permissions:
             if not request.user.has_perm(perm):
                 return False
-        
+
         return True

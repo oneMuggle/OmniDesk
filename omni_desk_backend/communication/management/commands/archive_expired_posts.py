@@ -1,6 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+
 from communication.models import Post
+
 
 class Command(BaseCommand):
     help = 'Archives posts that have expired.'

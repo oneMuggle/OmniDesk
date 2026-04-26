@@ -1,6 +1,8 @@
 from rest_framework.generics import CreateAPIView
+
 from .models import CalendarEvent
 from .serializers import CalendarEventSerializer, UserRegistrationSerializer
+
 
 class CalendarEventCreateView(CreateAPIView):
     permission_classes = []
