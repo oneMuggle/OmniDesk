@@ -24,6 +24,7 @@ import {
 } from '@ant-design/icons';
 import complianceApi from '../../features/compliance/api/compliance';
 import { Avatar, Badge, Dropdown, Tooltip } from 'antd';
+import ThemeSelector from './ThemeSelector';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -285,6 +286,8 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
               </div>
             </Dropdown>
           )}
+
+          {isAuthenticated && !isCollapsed && <ThemeSelector />}
 
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>

@@ -73,6 +73,24 @@
   transition: transform var(--transition-fast);
 }
 
+.sidebar-header .sidebar-theme {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 4px 16px;
+  margin: 0 12px;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  color: var(--color-text-secondary-dark);
+  font-size: var(--font-size-xs);
+  transition: background var(--transition-fast);
+}
+
+.sidebar-header .sidebar-theme:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .sidebar-header h2 {
   margin: 0;
   font-size: 1.5rem;

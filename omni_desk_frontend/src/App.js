@@ -12,17 +12,24 @@ import { AuthProvider } from './features/auth/context/AuthContext';
 import { ApiProvider } from './shared/context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
 import { RefreshProvider } from './shared/context/RefreshContext';
+import { ThemeProvider, useTheme } from './shared/context/ThemeContext';
+import { getAntdThemeToken } from './shared/theme/themeSchemes';
 
-const theme = {
-  token: {
-    colorPrimary: '#6366f1',
-    colorSuccess: '#52c41a',
-    colorError: '#f5222d',
-    colorWarning: '#faad14',
-    borderRadius: 8,
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
-  },
-};
+function ThemeAwareConfigProvider({ children }) {
+  const { scheme } = useTheme();
+  const theme = {
+    token: {
+      ...getAntdThemeToken(scheme),
+      colorSuccess: '#52c41a',
+      colorError: '#f5222d',
+      colorWarning: '#faad14',
+      borderRadius: 8,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    },
+  };
+
+  return <ConfigProvider theme={theme}>{children}</ConfigProvider>;
+}
 
 function App() {
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -32,41 +39,43 @@ function App() {
   };
 
   return (
-    <ConfigProvider theme={theme}>
-      <AuthProvider>
-        <ApiProvider>
-          <RefreshProvider>
-            <div className="app-container">
-              {isMobileMenuOpen && (
-                <div className="mobile-overlay" onClick={toggleMobileMenu} />
-              )}
-              <Sidebar
-                isMobileMenuOpen={isMobileMenuOpen}
-                toggleMobileMenu={toggleMobileMenu}
-              />
-              <div className="main-content">
-                <ErrorBoundary>
-                  <div className="content-wrapper">
-                    <Outlet />
-                  </div>
-                </ErrorBoundary>
+    <ThemeProvider>
+      <ThemeAwareConfigProvider>
+        <AuthProvider>
+          <ApiProvider>
+            <RefreshProvider>
+              <div className="app-container">
+                {isMobileMenuOpen && (
+                  <div className="mobile-overlay" onClick={toggleMobileMenu} />
+                )}
+                <Sidebar
+                  isMobileMenuOpen={isMobileMenuOpen}
+                  toggleMobileMenu={toggleMobileMenu}
+                />
+                <div className="main-content">
+                  <ErrorBoundary>
+                    <div className="content-wrapper">
+                      <Outlet />
+                    </div>
+                  </ErrorBoundary>
+                </div>
+                <ToastContainer
+                  position="top-right"
+                  autoClose={5000}
+                  hideProgressBar={false}
+                  newestOnTop={false}
+                  closeOnClick
+                  rtl={false}
+                  pauseOnFocusLoss
+                  draggable
+                  pauseOnHover
+                />
               </div>
-              <ToastContainer
-                position="top-right"
-                autoClose={5000}
-                hideProgressBar={false}
-                newestOnTop={false}
-                closeOnClick
-                rtl={false}
-                pauseOnFocusLoss
-                draggable
-                pauseOnHover
-              />
-            </div>
-          </RefreshProvider>
-        </ApiProvider>
-      </AuthProvider>
-    </ConfigProvider>
+            </RefreshProvider>
+          </ApiProvider>
+        </AuthProvider>
+      </ThemeAwareConfigProvider>
+    </ThemeProvider>
   );
 }
 
