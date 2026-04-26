@@ -69,11 +69,6 @@ const ProjectsPage = () => {
         });
     };
 
-    const handleChange = (e) => {
-        const { name, value } = e.target;
-        setFormValues({ ...formValues, [name]: value });
-    };
-
     const handleSubmit = async (values) => {
         try {
             const data = {

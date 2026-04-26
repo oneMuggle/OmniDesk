@@ -37,6 +37,12 @@ instance.interceptors.response.use(
     async error => {
         const originalRequest = error.config;
 
+        // 登录请求的 401 不应该触发 token 刷新，直接返回错误
+        const isLoginRequest = originalRequest.url?.includes('auth/login');
+        if (error.response?.status === 401 && isLoginRequest) {
+            return Promise.reject(error);
+        }
+
         if (error.response?.status !== 401 || originalRequest._retry) {
             return Promise.reject(error);
         }

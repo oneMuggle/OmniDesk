@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
+import PropTypes from 'prop-types';
 import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
@@ -71,7 +72,27 @@ const LazyComponent = ({ component: Component, ...props }) => (
   </Suspense>
 );
 
+LazyComponent.propTypes = {
+  component: PropTypes.elementType.isRequired,
+};
+
+const UnauthorizedPage = lazy(() => import('../features/auth/pages/UnauthorizedPage'));
+
 const router = createBrowserRouter([
+  // 认证相关路由 - 不使用 App 布局（无侧边栏）
+  {
+    path: "/login",
+    element: <GuestRoute><LazyComponent component={Login} /></GuestRoute>
+  },
+  {
+    path: "/register",
+    element: <GuestRoute><LazyComponent component={Register} /></GuestRoute>
+  },
+  {
+    path: "/unauthorized",
+    element: <LazyComponent component={UnauthorizedPage} />
+  },
+  // 主应用路由 - 使用 App 布局（含侧边栏）
   {
     path: "/",
     element: <App />,
@@ -288,18 +309,6 @@ const router = createBrowserRouter([
             element: <LazyComponent component={NewsStatsPage} />
           }
         ]
-      },
-      {
-        path: "login",
-        element: <GuestRoute><LazyComponent component={Login} /></GuestRoute>
-      },
-      {
-        path: "register",
-        element: <GuestRoute><LazyComponent component={Register} /></GuestRoute>
-      },
-      {
-        path: "unauthorized",
-        element: <LazyComponent component={lazy(() => import('../features/auth/pages/UnauthorizedPage'))} />
       },
       {
         path: "*",

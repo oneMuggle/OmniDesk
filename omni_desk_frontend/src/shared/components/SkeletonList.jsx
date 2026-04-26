@@ -1,5 +1,5 @@
-import React from 'react';
 import { Skeleton } from 'antd';
+import PropTypes from 'prop-types';
 
 const SkeletonList = ({ count = 3, active = true }) => {
   if (!active) return null;
@@ -13,6 +13,11 @@ const SkeletonList = ({ count = 3, active = true }) => {
       ))}
     </>
   );
+};
+
+SkeletonList.propTypes = {
+  count: PropTypes.number,
+  active: PropTypes.bool,
 };
 
 export default SkeletonList;

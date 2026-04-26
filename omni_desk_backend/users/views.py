@@ -1,5 +1,6 @@
+from django.utils.decorators import method_decorator
 from django_filters.rest_framework import DjangoFilterBackend
-from ratelimit.decorators import ratelimit
+from django_ratelimit.decorators import ratelimit
 from rest_framework import exceptions, generics, permissions, status, viewsets
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
@@ -31,14 +32,17 @@ class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
 
-    @ratelimit(**RATELIMIT_CONFIG)
-    def post(self, request, *args, **kwargs):
+    @method_decorator(ratelimit(**RATELIMIT_CONFIG))
+    def dispatch(self, request, *args, **kwargs):
         if getattr(request, 'limited', False):
             return Response({
                 "success": False,
                 "error": "rate_limit",
                 "message": "请求过于频繁，请稍后再试"
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        return super().dispatch(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
@@ -48,7 +52,7 @@ class UserRegistrationView(generics.CreateAPIView):
                 "success": True,
                 "message": "注册成功，请登录",
                 "username": user.username,
-                "user": UserDetailSerializer(user).data # 返回 user 对象
+                "user": UserDetailSerializer(user).data
             }, status=status.HTTP_201_CREATED)
         except exceptions.APIException as e:
             error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else 'validation_error'
@@ -96,15 +100,15 @@ class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
 
-    @ratelimit(**RATELIMIT_CONFIG)
-    def post(self, request, *args, **kwargs):
+    @method_decorator(ratelimit(**RATELIMIT_CONFIG))
+    def dispatch(self, request, *args, **kwargs):
         if getattr(request, 'limited', False):
             return Response({
                 "success": False,
                 "error": "rate_limit",
                 "message": "请求过于频繁，请稍后再试"
             }, status=status.HTTP_429_TOO_MANY_REQUESTS)
-        return super().post(request, *args, **kwargs)
+        return super().dispatch(request, *args, **kwargs)
 
 
 

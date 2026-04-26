@@ -5,7 +5,7 @@ import ReactDOM from 'react-dom/client';
 
 // 第三方库导入
 import dayjs from 'dayjs';
-import utc from 'dayjs-plugin-utc';
+import utc from 'dayjs/plugin/utc';
 // import timezone from 'dayjs/plugin/timezone'; // 禁用时区插件，用于排查问题
 import 'dayjs/locale/zh-cn'; // 导入中文语言包
 import { RouterProvider } from 'react-router-dom';
