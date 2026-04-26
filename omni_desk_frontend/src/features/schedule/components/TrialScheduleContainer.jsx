@@ -74,7 +74,6 @@ const TrialScheduleContainer = () => {
         }],
       },
     };
-    console.log('TrialScheduleContainer - handleEventClick: updatedCurrentEvent', updatedCurrentEvent);
     setCurrentEvent(updatedCurrentEvent);
   };
 

@@ -22,7 +22,6 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
   slotMinTime,
   slotMaxTime,
 }) => {
-  console.log('BaseSchedule received events:', events); // Add this line
   return (
     <FullCalendar
       ref={calendarRef}
@@ -43,7 +42,6 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       events={events}
       dateClick={onDateClick}
       eventClick={(clickInfo) => {
-        console.log('BaseSchedule - onEventClick:', clickInfo);
         onEventClick(clickInfo);
       }}
       datesSet={onDatesSet}
@@ -60,9 +58,35 @@ const BaseSchedule = ({ // Changed BaseCalendar to BaseSchedule
       slotMinTime={slotMinTime}
       slotMaxTime={slotMaxTime}
       eventContent={(eventInfo) => {
+        const { extendedProps, allDay } = eventInfo.event;
+        const details = extendedProps?.scheduleDetails;
+
+        if (details) {
+          return (
+            <div className="calendar-event-card">
+              <div className="event-card-row">
+                <span className="event-card-name">{details.duty_person?.name || details.staff?.name || ''}</span>
+              </div>
+              <div className="event-card-row event-card-muted">
+                <span>{details.duty_leader?.name || details.leader?.name || ''}</span>
+              </div>
+            </div>
+          );
+        }
+
+        if (allDay) {
+          return (
+            <div className="calendar-event-card">
+              <div className="event-card-title">{eventInfo.event.title}</div>
+            </div>
+          );
+        }
+
+        const startTime = eventInfo.timeText;
         return (
-          <div style={{ textAlign: 'center' }}>
-            <div>{eventInfo.event.title}</div>
+          <div className="calendar-event-card calendar-event-card--with-time">
+            {startTime && <span className="event-card-time">{startTime}</span>}
+            <span className="event-card-title">{eventInfo.event.title}</span>
           </div>
         );
       }}

@@ -10,11 +10,14 @@ import {
   RightOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
+import dayjs from 'dayjs';
 import apiClient from '../api/apiClient';
 import SkeletonList from '../components/SkeletonList';
 import './DashboardPage.css';
 
 const { Title, Text } = Typography;
+
+const DATE_FORMAT = 'YYYY-MM-DD';
 
 const quickActions = [
   { to: '/announcements', icon: <BellOutlined />, title: '查看公告', color: '#6366f1' },
@@ -174,8 +177,8 @@ const DashboardPage = () => {
                         description={
                           <div className="list-item-description">
                             <Text type="secondary">
-                              {item.start_date ? new Date(item.start_date).toLocaleDateString() : 'N/A'}
-                              {item.end_date ? ` - ${new Date(item.end_date).toLocaleDateString()}` : ''}
+                              {item.start_date ? dayjs(item.start_date).format(DATE_FORMAT) : 'N/A'}
+                              {item.end_date ? ` - ${dayjs(item.end_date).format(DATE_FORMAT)}` : ''}
                             </Text>
                             <Text type="secondary">负责人: {item.responsible_persons?.map(p => p.name).join(', ') || 'N/A'}</Text>
                           </div>
@@ -216,7 +219,7 @@ const DashboardPage = () => {
                   renderItem={item => (
                     <List.Item className="dashboard-list-item">
                       <List.Item.Meta
-                        title={<Text strong>{item.duty_date}</Text>}
+                        title={<Text strong>{dayjs(item.duty_date).format(DATE_FORMAT)}</Text>}
                         description={
                           <div className="list-item-description">
                             <Text type="secondary">值班人员: {item.duty_person ? item.duty_person.name : 'N/A'}</Text>

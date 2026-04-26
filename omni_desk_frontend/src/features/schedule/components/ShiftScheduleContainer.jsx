@@ -56,8 +56,8 @@ const ShiftScheduleContainer = () => {
     return Object.values(leadersByWeek).sort((a, b) => a.id - b.id);
   }, [schedules, calendarViewInfo]);
 
-  const handleScheduleDateClick = (arg) => {
-    console.log("Date clicked:", arg.dateStr);
+  const handleScheduleDateClick = (_arg) => {
+    // Date click handler - reserved for future use
   };
 
   const updateScheduleEvent = async (scheduleId, newDate) => {
