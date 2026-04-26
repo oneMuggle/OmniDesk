@@ -13,7 +13,7 @@ import {
     useDeleteMeetingRoomBooking,
 } from '../hooks/useMeetingRoomData';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import '../../../shared/components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
+import './MeetingRoomBookingPage.css';
 
 const localizer = dayjsLocalizer(dayjs);
 const { RangePicker } = DatePicker;
@@ -137,15 +137,21 @@ EventComponent.propTypes = {
 };
 
 const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
-    <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
+    <div className="meeting-room-legend">
         <h4>会议室颜色图例</h4>
-        {meetingRooms.map(room => (
-            <div key={room.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-                <Tag color={roomColorMap.get(room.id)} style={{ marginRight: '8px' }}>
-                    {room.name}
-                </Tag>
-            </div>
-        ))}
+        <div className="legend-items">
+            {meetingRooms.map(room => (
+                <div key={room.id} className="legend-item">
+                    <span
+                        className="legend-color-dot"
+                        style={{ backgroundColor: roomColorMap.get(room.id) }}
+                    />
+                    <Tag color={roomColorMap.get(room.id)}>
+                        {room.name}
+                    </Tag>
+                </div>
+            ))}
+        </div>
     </div>
 );
 
@@ -174,9 +180,9 @@ const MeetingRoomBookingPage = () => {
     maxTime.setHours(22, 0, 0);
 
     const roomColors = useMemo(() => [
-        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FED766', '#2AB7CA',
-        '#F0B7A4', '#F18C8E', '#A8D8EA', '#AA96DA', '#FCBAD3',
-        '#FFFFD2', '#A2D5F2', '#FFC3A0', '#D4A5A5', '#392F5A'
+        '#f87171', '#2dd4bf', '#38bdf8', '#fbbf24', '#22d3ee',
+        '#fb923c', '#f472b6', '#93c5fd', '#c084fc', '#f9a8d4',
+        '#fde68a', '#7dd3fc', '#fdba74', '#fca5a5', '#8b5cf6'
     ], []);
 
     const roomColorMap = useMemo(() => {
@@ -294,11 +300,12 @@ const MeetingRoomBookingPage = () => {
         const backgroundColor = roomColorMap.get(event.meeting_room) || '#6c757d';
         const style = {
             backgroundColor: backgroundColor,
-            borderRadius: '0px',
-            opacity: 0.8,
+            borderRadius: '6px',
+            opacity: 0.9,
             color: 'white',
-            border: '0px',
-            display: 'block'
+            border: 'none',
+            display: 'block',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
         };
         return {
             style: style,
@@ -308,9 +315,11 @@ const MeetingRoomBookingPage = () => {
 
     return (
         <div className="calendar-page-container">
-            <h1>会议室预约</h1>
-            <div style={{ display: 'flex', gap: '20px' }}>
-                <div style={{ flex: 1, height: 700 }}>
+            <div className="calendar-page-header">
+                <h1>会议室预约</h1>
+            </div>
+            <div className="calendar-page-content">
+                <div className="calendar-wrapper">
                     <Calendar
                         localizer={localizer}
                     events={bookings}
@@ -343,7 +352,7 @@ const MeetingRoomBookingPage = () => {
                     }}
                     />
                 </div>
-                <div style={{ flex: '0 0 200px' }}>
+                <div className="calendar-sidebar">
                     <MeetingRoomLegend meetingRooms={meetingRooms} roomColorMap={roomColorMap} />
                 </div>
             </div>

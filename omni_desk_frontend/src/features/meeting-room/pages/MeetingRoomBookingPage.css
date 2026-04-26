@@ -1,0 +1,169 @@
+.calendar-page-container {
+  padding: var(--spacing-lg);
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.calendar-page-header {
+  margin-bottom: var(--spacing-lg);
+}
+
+.calendar-page-header h1 {
+  font-size: 1.75rem;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text);
+  margin: 0;
+}
+
+.calendar-page-content {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+.calendar-wrapper {
+  flex: 1;
+  min-height: 700px;
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.calendar-sidebar {
+  flex: 0 0 220px;
+}
+
+.meeting-room-legend {
+  background: var(--color-bg);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 20px;
+}
+
+.meeting-room-legend h4 {
+  margin: 0 0 12px;
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.legend-items {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-color-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* react-big-calendar overrides */
+.rbc-calendar {
+  height: auto;
+  min-height: 650px;
+}
+
+.rbc-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  gap: 8px;
+}
+
+.rbc-toolbar .rbc-btn-group > button {
+  padding: 6px 12px;
+  font-size: 13px;
+  margin: 2px;
+  border-radius: var(--radius-base);
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  color: var(--color-text);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.rbc-toolbar .rbc-btn-group > button:hover {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.rbc-toolbar .rbc-btn-group > button.rbc-active {
+  background-color: var(--color-primary);
+  color: white;
+  border-color: var(--color-primary);
+}
+
+.rbc-toolbar-label {
+  font-size: 1.1rem;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text);
+}
+
+.rbc-event {
+  border-radius: 6px !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.rbc-today {
+  background-color: rgba(99, 102, 241, 0.06) !important;
+}
+
+.rbc-day-bg {
+  background-color: var(--color-bg-light);
+}
+
+.rbc-off-range-bg {
+  background-color: var(--color-bg);
+  opacity: 0.5;
+}
+
+.rbc-header {
+  padding: 8px 4px;
+  font-weight: var(--font-weight-medium);
+}
+
+@media (max-width: 1024px) {
+  .calendar-page-content {
+    flex-direction: column;
+  }
+
+  .calendar-sidebar {
+    flex: none;
+    width: 100%;
+  }
+
+  .meeting-room-legend {
+    position: static;
+  }
+}
+
+@media (max-width: 768px) {
+  .calendar-page-container {
+    padding: var(--spacing-md);
+  }
+
+  .calendar-wrapper {
+    padding: 12px;
+  }
+
+  .calendar-page-header h1 {
+    font-size: 1.35rem;
+  }
+}

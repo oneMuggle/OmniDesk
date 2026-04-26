@@ -15,11 +15,11 @@ import { RefreshProvider } from './shared/context/RefreshContext';
 
 const theme = {
   token: {
-    colorPrimary: '#1890ff',
+    colorPrimary: '#6366f1',
     colorSuccess: '#52c41a',
     colorError: '#f5222d',
     colorWarning: '#faad14',
-    borderRadius: 2,
+    borderRadius: 8,
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
   },
 };
@@ -37,6 +37,9 @@ function App() {
         <ApiProvider>
           <RefreshProvider>
             <div className="app-container">
+              {isMobileMenuOpen && (
+                <div className="mobile-overlay" onClick={toggleMobileMenu} />
+              )}
               <Sidebar
                 isMobileMenuOpen={isMobileMenuOpen}
                 toggleMobileMenu={toggleMobileMenu}

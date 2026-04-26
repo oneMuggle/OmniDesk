@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Form, Input, Button, Checkbox, Card, message } from 'antd';
+import { Form, Input, Button, Checkbox, message } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import './Login.css';
 
 const Login = () => {
@@ -56,34 +57,55 @@ const Login = () => {
 
   return (
     <div className="login-container">
-      <Card className="login-card" title="登录">
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="brand-logo">OmniDesk</div>
+          <div className="brand-subtitle">智能办公桌面管理系统</div>
+        </div>
+
         <Form
           form={form}
           name="login"
           onFinish={handleSubmit}
           layout="vertical"
           initialValues={{ username: initialUsername }}
+          size="large"
         >
           <Form.Item
             name="username"
             rules={[{ required: true, message: '请输入用户名' }]}
           >
-            <Input placeholder="用户名" size="large" />
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="用户名"
+              size="large"
+            />
           </Form.Item>
 
           <Form.Item
             name="password"
             rules={[{ required: true, message: '请输入密码' }]}
           >
-            <Input.Password placeholder="密码" size="large" />
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="密码"
+              size="large"
+            />
           </Form.Item>
 
           <Form.Item name="remember" valuePropName="checked">
             <Checkbox>记住我</Checkbox>
           </Form.Item>
 
-          <Form.Item>
-            <Button type="primary" htmlType="submit" loading={loading} block size="large">
+          <Form.Item style={{ marginBottom: 16 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              block
+              size="large"
+              className="login-button"
+            >
               登录
             </Button>
           </Form.Item>
@@ -94,10 +116,16 @@ const Login = () => {
           <Link to="/register">立即注册</Link>
         </div>
 
-        <Button block size="large" onClick={handleGuestLogin} loading={loading}>
+        <Button
+          block
+          size="large"
+          onClick={handleGuestLogin}
+          loading={loading}
+          className="guest-button"
+        >
           以游客身份访问
         </Button>
-      </Card>
+      </div>
     </div>
   );
 };

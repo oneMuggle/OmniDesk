@@ -5,10 +5,16 @@
 
 :root {
   /* ===== 主色调 ===== */
-  --color-primary: #1890ff;
-  --color-primary-hover: #40a9ff;
-  --color-primary-active: #096dd9;
-  --color-primary-outline: rgba(24, 144, 255, 0.2);
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-active: #4f46e5;
+  --color-primary-outline: rgba(99, 102, 241, 0.2);
+
+  /* ===== 品牌色 ===== */
+  --color-brand: #6366f1;
+  --color-brand-hover: #818cf8;
+  --color-brand-active: #4f46e5;
+  --color-brand-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
 
   /* ===== 语义色 ===== */
   --color-success: #52c41a;
@@ -26,12 +32,12 @@
 
   /* ===== 背景色 ===== */
   --color-bg: #ffffff;
-  --color-bg-light: #f0f2f5;
-  --color-bg-dark: #001529;
-  --color-bg-hover: #f5f5f5;
+  --color-bg-light: #f5f7fa;
+  --color-bg-dark: #0f172a;
+  --color-bg-hover: #f0f2f5;
 
   /* ===== 边框色 ===== */
-  --color-border: #d9d9d9;
+  --color-border: #e5e7eb;
   --color-border-split: #f0f0f0;
 
   /* ===== 字体 ===== */
@@ -41,6 +47,15 @@
   --font-size-xs: 12px;
   --font-size-base: 14px;
   --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+
+  /* ===== 字重 ===== */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
 
   /* ===== 标题字号 ===== */
   --font-size-h1: 38px;
@@ -61,23 +76,23 @@
   --spacing-xxl: 48px;
 
   /* ===== 圆角 ===== */
-  --radius-sm: 0px;
-  --radius-base: 2px;
-  --radius-lg: 4px;
-  --radius-xl: 8px;
+  --radius-sm: 4px;
+  --radius-base: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
 
   /* ===== 阴影 ===== */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03), 0 1px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px 0 rgba(0, 0, 0, 0.02);
-  --shadow-base: 0 3px 6px -4px rgba(0, 0, 0, 0.12), 0 6px 16px 0 rgba(0, 0, 0, 0.08),
-    0 9px 28px 8px rgba(0, 0, 0, 0.05);
-  --shadow-card: 0 1px 2px -2px rgba(0, 0, 0, 0.16), 0 3px 6px 0 rgba(0, 0, 0, 0.12),
-    0 5px 12px 4px rgba(0, 0, 0, 0.09);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-base: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
 
   /* ===== 管理后台 ===== */
-  --admin-bg-dark: #2c3e50;
-  --admin-text-light: #ecf0f1;
-  --admin-hover-bg: #34495e;
-  --admin-accent-blue: #3498db;
+  --admin-bg-dark: #1e293b;
+  --admin-text-light: #f1f5f9;
+  --admin-hover-bg: #334155;
+  --admin-accent-blue: #3b82f6;
 
   /* ===== 过渡动画 ===== */
   --transition-fast: 0.15s ease;
@@ -88,6 +103,7 @@
   --z-index-dropdown: 1050;
   --z-index-sticky: 1020;
   --z-index-fixed: 1030;
+  --z-index-overlay: 1040;
   --z-index-modal-backdrop: 1050;
   --z-index-modal: 1060;
   --z-index-popover: 1070;

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import {
   AppstoreOutlined,
@@ -23,7 +23,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import complianceApi from '../../features/compliance/api/compliance';
-import { Badge, Tooltip } from 'antd';
+import { Avatar, Badge, Dropdown, Tooltip } from 'antd';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -36,8 +36,9 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     }
   });
   const [expandedSubMenu, setExpandedSubMenu] = useState({});
-  const { isAuthenticated, logout, hasPermission } = useAuth();
+  const { isAuthenticated, user, logout, hasPermission } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
   useEffect(() => {
@@ -236,21 +237,55 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     );
   }, [isCollapsed, isMobileMenuOpen, toggleMobileMenu, location, hasPermission, expandedSubMenu]);
 
+  const userDropdownItems = useMemo(() => [
+    {
+      key: 'profile',
+      icon: <UserOutlined />,
+      label: '个人资料',
+      onClick: () => navigate('/profile'),
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: '设置',
+      onClick: () => navigate('/control-panel'),
+    },
+    { type: 'divider' },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: '退出登录',
+      danger: true,
+      onClick: () => {
+        logout();
+        navigate('/login');
+      },
+    },
+  ], [navigate, logout]);
+
   return (
     <>
       <div className={`sidebar ${isMobileMenuOpen ? 'active' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
         <div className="sidebar-header">
-          <div className="user-info">
-            {isAuthenticated ? (
+          <div className="sidebar-brand">
+            {!isCollapsed && (
               <>
-                <UserOutlined className="user-icon" />
-                {!isCollapsed && <span className="username">已登录</span>}
+                <div className="brand-name">OmniDesk</div>
+                <div className="brand-subtitle">智能办公系统</div>
               </>
-            ) : (
-              !isCollapsed && <span className="login-hint">请登录</span>
             )}
           </div>
-          {!isCollapsed && <h2><CalendarOutlined /> 智能办公系统</h2>}
+
+          {isAuthenticated && !isCollapsed && (
+            <Dropdown menu={{ items: userDropdownItems }} placement="bottomRight" trigger={['click']}>
+              <div className="user-dropdown-trigger">
+                <Avatar size="small" icon={<UserOutlined />} className="user-avatar" />
+                <span className="username">{user?.username || '用户'}</span>
+                <DownOutlined className="dropdown-arrow" />
+              </div>
+            </Dropdown>
+          )}
+
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>
               &times;
