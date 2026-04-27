@@ -1,6 +1,6 @@
 /* Schedule specific styles */
 .fc-event {
-  border-left: 4px solid #4CAF50;
+  border-left: 4px solid var(--color-success);
   padding: 2px 5px;
   margin: 1px 2px;
 }
@@ -12,15 +12,15 @@
 
 .fc-event-time {
   font-size: 0.8em;
-  color: #666;
+  color: var(--color-text-secondary);
 }
 
 .fc-event-schedule {
-  background-color: rgba(76, 175, 80, 0.1);
+  background-color: rgba(82, 196, 26, 0.1);
 }
 
 .fc-event-schedule:hover {
-  background-color: rgba(76, 175, 80, 0.2);
+  background-color: rgba(82, 196, 26, 0.2);
 }
 
 /* Event card layout */
@@ -48,7 +48,7 @@
 }
 
 .event-card-muted {
-  color: #888;
+  color: var(--color-text-secondary);
   font-size: 0.75em;
 }
 
@@ -73,6 +73,6 @@
 
 .event-card-time {
   font-size: 0.75em;
-  color: #888;
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }

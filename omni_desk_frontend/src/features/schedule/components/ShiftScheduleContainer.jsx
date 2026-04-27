@@ -9,9 +9,10 @@ import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeade
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { scheduleApi } from '../api/schedule';
 import { logger } from '../../../shared/utils/logger';
-import { Spin, Empty } from 'antd';
+import { Spin } from 'antd';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
+import '../../../shared/components/styles/CalendarPageLayout.css';
 
 const ShiftScheduleContainer = () => {
   const { isGuest } = useAuth();
@@ -82,7 +83,11 @@ const ShiftScheduleContainer = () => {
   };
 
   return (
-    <>
+    <div className="calendar-page-container">
+      <div className="calendar-page-header">
+        <h1>排班日程</h1>
+      </div>
+      <div className="calendar-page-content">
       <DragDropContext onDragEnd={handleLeaderDragEnd}>
         <div style={{ display: 'flex' }}>
           <div style={{ flex: 1 }}>
@@ -130,18 +135,13 @@ const ShiftScheduleContainer = () => {
       </div>
     </DragDropContext>
 
-      {schedules.length === 0 && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-          <Empty description="暂无排班数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-        </div>
-      )}
-
       <PersonnelScheduleModal
         open={scheduleModalOpen}
         onCancel={() => setScheduleModalOpen(false)}
         scheduleData={currentSchedule}
       />
-    </>
+      </div>
+    </div>
   );
 };
 

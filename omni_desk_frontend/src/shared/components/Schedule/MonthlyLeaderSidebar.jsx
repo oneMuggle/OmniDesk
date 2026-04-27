@@ -4,6 +4,7 @@ import { Draggable } from '@hello-pangea/dnd';
 import { Card, List } from 'antd';
 import moment from 'moment';
 import StrictModeDroppable from './StrictModeDroppable';
+import '../../../shared/components/styles/ScheduleSidebar.css';
 
 const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = false }) => {
   const [weekRowHeights, setWeekRowHeights] = useState({});
@@ -32,7 +33,7 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
   }, [calendarRef, weeklyLeaders]);
 
   return (
-    <Card title="本月值班领导" size="small" style={{ width: 180, marginLeft: 10 }} styles={{ body: { padding: '4px' } }}>
+    <Card title="本月值班领导" size="small" className="schedule-sidebar" styles={{ body: { padding: '4px' } }}>
       <StrictModeDroppable droppableId="leader-list">
         {(provided) => (
           <div {...provided.droppableProps} ref={provided.innerRef}>
@@ -59,16 +60,16 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
                           marginBottom: '8px',
                         }}
                       >
-                        <div style={{ textAlign: 'center', fontSize: '12px', color: '#888', marginBottom: '4px' }}>{`第 ${weekNumber} 周`}</div>
+                        <div style={{ textAlign: 'center', fontSize: '12px', color: 'var(--color-text-secondary)', marginBottom: '4px' }}>{`第 ${weekNumber} 周`}</div>
                         <div style={{
                           flexGrow: 1,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          border: `1px solid #1890ff`,
+                          border: '1px solid var(--color-primary)',
                           borderRadius: '4px',
-                          backgroundColor: snapshot.isDragging ? '#40a9ff' : '#1890ff',
-                          color: '#ffffff',
+                          backgroundColor: snapshot.isDragging ? 'var(--color-primary-hover)' : 'var(--color-primary)',
+                          color: 'var(--color-text-inverse)',
                           padding: '2px 4px',
                           textAlign: 'center',
                           fontWeight: '500'

@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Form, Spin, Empty } from 'antd';
+import { Form, Spin } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
 import CalendarEventModal from './CalendarEventModal';
 import TrialSchedule from './TrialSchedule';
 import { logger } from '../../../shared/utils/logger';
+import '../../../shared/components/styles/CalendarPageLayout.css';
 
 const TrialScheduleContainer = () => {
   const [form] = Form.useForm();
@@ -99,7 +100,11 @@ const TrialScheduleContainer = () => {
   }
 
   return (
-    <>
+    <div className="calendar-page-container">
+      <div className="calendar-page-header">
+        <h1>试验日程</h1>
+      </div>
+      <div className="calendar-page-content">
       <TrialSchedule
         trials={trials}
         trialEvents={trialEvents}
@@ -107,12 +112,6 @@ const TrialScheduleContainer = () => {
         select={handleDateSelect}
         onEventClick={handleEventClick}
       />
-
-      {trialEvents.length === 0 && (
-        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
-          <Empty description="暂无试验日程" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-        </div>
-      )}
 
       {currentEvent && (
         <CalendarEventModal
@@ -134,7 +133,8 @@ const TrialScheduleContainer = () => {
         />
       )}
 
-    </>
+      </div>
+    </div>
   );
 };
 

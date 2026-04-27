@@ -330,7 +330,13 @@ const CalendarEventModal = ({
 
   return (
     <Modal
-      title={currentEvent && currentEvent.id ? "编辑日程" : "新增日程"}
+      title={
+        !currentEvent || !currentEvent.id
+          ? '新增日程'
+          : isEditing
+            ? '编辑日程'
+            : '查看日程'
+      }
       open={!!currentEvent}
       onOk={handleOk}
       onCancel={onCancel}

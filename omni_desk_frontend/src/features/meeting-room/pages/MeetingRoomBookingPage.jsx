@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification, Spin, Descriptions } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, notification, Spin, Descriptions } from 'antd';
 import { CalendarOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useAuth } from '../../auth/context/AuthContext';
 import {
@@ -139,7 +139,7 @@ EventComponent.propTypes = {
 
 const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
     <div className="meeting-room-legend">
-        <h4>会议室颜色图例</h4>
+        <h4>会议室图例</h4>
         <div className="legend-items">
             {meetingRooms.map(room => (
                 <div key={room.id} className="legend-item">
@@ -147,9 +147,7 @@ const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
                         className="legend-color-dot"
                         style={{ backgroundColor: roomColorMap.get(room.id) }}
                     />
-                    <Tag color={roomColorMap.get(room.id)}>
-                        {room.name}
-                    </Tag>
+                    <span className="legend-room-name">{room.name}</span>
                 </div>
             ))}
         </div>

@@ -61,7 +61,7 @@
 .legend-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--spacing-sm);
 }
 
 .legend-color-dot {
@@ -69,6 +69,11 @@
   height: 10px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.legend-room-name {
+  font-size: var(--font-size-base);
+  color: var(--color-text);
 }
 
 /* react-big-calendar overrides */

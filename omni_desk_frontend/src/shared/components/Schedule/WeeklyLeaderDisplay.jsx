@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { Card } from 'antd';
+import { UserOutlined } from '@ant-design/icons';
+import '../../../shared/components/styles/WeeklyLeaderDisplay.css';
 
 const WeeklyLeaderDisplay = ({ leaders }) => {
   if (!leaders || leaders.length === 0) {
@@ -7,9 +8,17 @@ const WeeklyLeaderDisplay = ({ leaders }) => {
   }
 
   return (
-    <Card size="small" style={{ marginBottom: '16px', textAlign: 'center' }}>
-      <strong>本周值班领导:</strong> {leaders.map(leader => leader.name).join(', ')}
-    </Card>
+    <div className="weekly-leader-banner">
+      <div className="weekly-leader-banner__icon">
+        <UserOutlined />
+      </div>
+      <div className="weekly-leader-banner__content">
+        <span className="weekly-leader-banner__label">本周值班领导</span>
+        <span className="weekly-leader-banner__names">
+          {leaders.map(leader => leader.name).join(' / ')}
+        </span>
+      </div>
+    </div>
   );
 };
 
