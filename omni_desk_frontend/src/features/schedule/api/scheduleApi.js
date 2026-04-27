@@ -16,14 +16,7 @@ export const scheduleApi = {
 
   fetchSchedules: async () => {
     try {
-      const allSchedules = await scheduleApi.getSchedules();
-      return allSchedules.map(schedule => ({
-        id: schedule.id,
-        title: `值班: ${schedule.duty_person?.name || schedule.duty_person}, 组长: ${schedule.duty_leader?.name || schedule.duty_leader}`,
-        start: schedule.duty_date,
-        allDay: true,
-        type: 'SCHEDULE'
-      }));
+      return await scheduleApi.getSchedules();
     } catch (error) {
       handleError(error);
       return [];

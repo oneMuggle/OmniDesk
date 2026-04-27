@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Form } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
-import { useAuth } from '../../auth/context/AuthContext';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
 import CalendarEventModal from './CalendarEventModal';
 import TrialSchedule from './TrialSchedule';
@@ -9,7 +8,6 @@ import { logger } from '../../../shared/utils/logger';
 
 const TrialScheduleContainer = () => {
   const [form] = Form.useForm();
-  const { isGuest } = useAuth();
   const [currentEvent, setCurrentEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedTrial, setSelectedTrial] = useState(null);
@@ -101,7 +99,6 @@ const TrialScheduleContainer = () => {
       <TrialSchedule
         trials={trials}
         trialEvents={trialEvents}
-        isGuest={isGuest}
         onDateClick={handleDateSelect}
         select={handleDateSelect}
         onEventClick={handleEventClick}
@@ -114,8 +111,7 @@ const TrialScheduleContainer = () => {
           isVisible={!!currentEvent}
           form={form}
           currentEvent={currentEvent}
-          trials={trials}
-          isGuest={isGuest}
+          passedTrials={trials}
           isEditing={isEditing}
           setIsEditing={setIsEditing}
           selectedTrial={selectedTrial}

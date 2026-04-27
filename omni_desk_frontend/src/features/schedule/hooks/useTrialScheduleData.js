@@ -7,7 +7,7 @@ export const useTrialScheduleData = () => {
 
   const trialQuery = useQuery({
     queryKey: ['trials'],
-    queryFn: () => trialApi.fetchTrialEvents(),
+    queryFn: trialApi.fetchTrialEvents,
     gcTime: 600000,
     staleTime: 300000,
     refetchOnWindowFocus: false,

@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleApi } from '../api/scheduleApi';
-import { getTrials } from '../../../shared/api/trials';
+import { trialApi } from '../../../shared/api/trialApi';
 import { logger } from '../../../shared/utils/logger';
 
 export const useScheduleData = () => {
@@ -12,11 +12,14 @@ export const useScheduleData = () => {
   const [currentEvent, setCurrentEvent] = useState(null);
   const [selectedTrial, setSelectedTrial] = useState(null);
 
+  // Shared trials query — uses same queryKey/queryFn as useTrialScheduleData
+  // so React Query deduplicates the request across both hooks
   const trialsQuery = useQuery({
     queryKey: ['trials'],
-    queryFn: () => getTrials().then(res => Array.isArray(res?.results) ? res.results : []),
+    queryFn: trialApi.fetchTrialEvents,
     gcTime: 600000,
-    staleTime: 300000
+    staleTime: 300000,
+    refetchOnWindowFocus: false,
   });
   const trials = useMemo(() => trialsQuery.data ?? [], [trialsQuery.data]);
   const isTrialsLoading = trialsQuery.isLoading;

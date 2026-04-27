@@ -3,8 +3,7 @@ import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } fro
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../auth/context/AuthContext';
-import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
-import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
+import { useScheduleData } from '../hooks/useScheduleData';
 import { trialApi } from '../../../shared/api/trialApi';
 import { scheduleApi } from '../api/scheduleApi';
 import { MinusCircleOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
@@ -23,11 +22,12 @@ const CalendarEventModal = ({
   isEditing,
   setIsEditing,
   isProcessing,
+  trials: passedTrials,
 }) => {
-  const { user } = useAuth(); // 获取 user 对象
-  const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
-  const { personnel } = useScheduleData(); // 获取人员数据
-  const { trials } = useTrialScheduleData(); // 获取试验数据
+  const { user } = useAuth();
+  const canEdit = user?.role === 'admin' || user?.role === 'manager';
+  const { personnel } = useScheduleData();
+  const trials = passedTrials || [];
   const [pickerOpen, setPickerOpen] = useState(false);
   const [equipment, setEquipment] = useState([]);
 
@@ -356,8 +356,8 @@ CalendarEventModal.propTypes = {
   form: PropTypes.object.isRequired,
   isEditing: PropTypes.bool.isRequired,
   setIsEditing: PropTypes.func.isRequired,
-  selectedTrial: PropTypes.object,
   isProcessing: PropTypes.bool,
+  trials: PropTypes.array,
 };
 
 export default CalendarEventModal;
