@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Form } from 'antd';
+import { Form, Spin, Empty } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
 import CalendarEventModal from './CalendarEventModal';
@@ -91,7 +91,11 @@ const TrialScheduleContainer = () => {
   };
 
   if (isTrialsLoading) {
-    return <div>正在加载试验日程...</div>;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+        <Spin size="large" tip="正在加载试验日程..." />
+      </div>
+    );
   }
 
   return (
@@ -102,9 +106,13 @@ const TrialScheduleContainer = () => {
         onDateClick={handleDateSelect}
         select={handleDateSelect}
         onEventClick={handleEventClick}
-        slotMinTime="08:00:00"
-        slotMaxTime="23:00:00"
       />
+
+      {trialEvents.length === 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+          <Empty description="暂无试验日程" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        </div>
+      )}
 
       {currentEvent && (
         <CalendarEventModal

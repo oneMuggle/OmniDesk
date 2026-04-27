@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
+import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space, message } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../auth/context/AuthContext';
@@ -32,7 +32,10 @@ const CalendarEventModal = ({
   const [equipment, setEquipment] = useState([]);
 
   useEffect(() => {
-    scheduleApi.fetchEquipment().then(setEquipment).catch(() => setEquipment([]));
+    scheduleApi.fetchEquipment().then(setEquipment).catch(() => {
+      message.error('设备信息获取失败');
+      setEquipment([]);
+    });
   }, []);
 
   useEffect(() => {
@@ -103,7 +106,7 @@ const CalendarEventModal = ({
           }));
           form.setFieldsValue({ time_ranges: mappedTimeRanges });
         } catch (error) {
-          // 移除日志：console.error('Failed to fetch trial time slots:', error);
+          message.error('获取试验时间段失败');
         }
       }
     }
@@ -152,6 +155,7 @@ const CalendarEventModal = ({
         onSave(processedValues);
       })
       .catch(() => {
+        message.error('表单验证失败，请检查输入内容');
       });
   };
 

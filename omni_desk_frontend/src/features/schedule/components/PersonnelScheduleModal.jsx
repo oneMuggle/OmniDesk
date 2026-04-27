@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import '../../../shared/components/styles/PersonnelScheduleModal.css'; // Assuming this will be renamed to PersonnelScheduleModal.css
 import { Modal, Form, Button } from 'antd';
+import { PhoneOutlined } from '@ant-design/icons';
 
 /**
  * 人员排班模态框组件 - 专门用于展示人员排班信息
@@ -54,7 +55,7 @@ const PersonnelScheduleModal = ({
                 </div>
                 <div className="schedule-modal__person-name">{scheduleData?.staffName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
-                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <PhoneOutlined style={{ marginRight: '6px', color: '#8c8c8c' }} />
                   <span>{scheduleData?.staffPhone || '无电话'}</span>
                 </div>
               </div>
@@ -66,7 +67,7 @@ const PersonnelScheduleModal = ({
                 </div>
                 <div className="schedule-modal__person-name">{scheduleData?.leaderName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
-                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <PhoneOutlined style={{ marginRight: '6px', color: '#8c8c8c' }} />
                   <span>{scheduleData?.leaderPhone || '无电话'}</span>
                 </div>
               </div>

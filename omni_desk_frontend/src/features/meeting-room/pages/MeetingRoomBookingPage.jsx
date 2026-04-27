@@ -3,7 +3,8 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification, Spin, Empty, Descriptions } from 'antd';
+import { CalendarOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useAuth } from '../../auth/context/AuthContext';
 import {
     useMeetingRooms,
@@ -168,8 +169,9 @@ const MeetingRoomBookingPage = () => {
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [currentBooking, setCurrentBooking] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const { data: meetingRooms = [] } = useMeetingRooms();
-    const { data: bookings = [] } = useMeetingRoomBookings();
+    const { data: meetingRooms = [], isLoading: isRoomsLoading } = useMeetingRooms();
+    const { data: bookings = [], isLoading: isBookingsLoading } = useMeetingRoomBookings();
+    const isLoading = isRoomsLoading || isBookingsLoading;
     const createBookingMutation = useCreateMeetingRoomBooking();
     const updateBookingMutation = useUpdateMeetingRoomBooking();
     const deleteBookingMutation = useDeleteMeetingRoomBooking();
@@ -287,7 +289,7 @@ const MeetingRoomBookingPage = () => {
             }
             setIsModalVisible(false);
         } catch (error) {
-            // 表单验证错误，hooks 已处理 API 错误
+            message.error('操作失败，请重试');
         }
     };
 
@@ -318,8 +320,14 @@ const MeetingRoomBookingPage = () => {
             <div className="calendar-page-header">
                 <h1>会议室预约</h1>
             </div>
-            <div className="calendar-page-content">
-                <div className="calendar-wrapper">
+            <Spin spinning={isLoading} tip="正在加载会议室数据...">
+                <div className="calendar-page-content">
+                    {bookings.length === 0 && !isLoading && (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                            <Empty description="暂无会议室预约" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+                        </div>
+                    )}
+                    <div className="calendar-wrapper">
                     <Calendar
                         localizer={localizer}
                     events={bookings}
@@ -445,17 +453,18 @@ const MeetingRoomBookingPage = () => {
                 ]}
             >
                 {selectedEvent && (
-                    <div>
-                        <p><strong>主题:</strong> {selectedEvent.title}</p>
-                        <p><strong>会议室:</strong> {selectedEvent.meeting_room_name}</p>
-                        <p><strong>时间:</strong> {`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</p>
-                        <p><strong>发布人:</strong> {selectedEvent.user.real_name || selectedEvent.user.username}</p>
-                        <p><strong>联系电话:</strong> {selectedEvent.user.phone_numbers?.[0]?.number || '未提供'}</p>
-                        <p><strong>参与人员:</strong> {selectedEvent.participants || '无'}</p>
-                        <p><strong>描述:</strong> {selectedEvent.description || '无'}</p>
-                    </div>
+                    <Descriptions bordered column={1} size="small">
+                        <Descriptions.Item label="主题">{selectedEvent.title}</Descriptions.Item>
+                        <Descriptions.Item label="会议室">{selectedEvent.meeting_room_name}</Descriptions.Item>
+                        <Descriptions.Item label="时间">{`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</Descriptions.Item>
+                        <Descriptions.Item label={<><UserOutlined /> 发布人</>}>{selectedEvent.user.real_name || selectedEvent.user.username}</Descriptions.Item>
+                        <Descriptions.Item label={<><PhoneOutlined /> 联系电话</>}>{selectedEvent.user.phone_numbers?.[0]?.number || '未提供'}</Descriptions.Item>
+                        <Descriptions.Item label="参与人员">{selectedEvent.participants || '无'}</Descriptions.Item>
+                        <Descriptions.Item label={<><CalendarOutlined /> 描述</>}>{selectedEvent.description || '无'}</Descriptions.Item>
+                    </Descriptions>
                 )}
             </Modal>
+            </Spin>
         </div>
     );
 };

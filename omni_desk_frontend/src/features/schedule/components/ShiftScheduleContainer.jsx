@@ -9,6 +9,7 @@ import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeade
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { scheduleApi } from '../api/schedule';
 import { logger } from '../../../shared/utils/logger';
+import { Spin, Empty } from 'antd';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
 
@@ -26,6 +27,7 @@ const ShiftScheduleContainer = () => {
 
   const {
     schedules,
+    isSchedulesLoading,
     queryClient: scheduleQueryClient
   } = useScheduleData(dateRange);
 
@@ -50,10 +52,6 @@ const ShiftScheduleContainer = () => {
     });
   };
 
-  const handleScheduleDateClick = () => {
-    // Date click handler - reserved for future use
-  };
-
   const updateScheduleEvent = async (scheduleId, newDate) => {
     const targetSchedule = schedules.find(s => s.date === newDate);
     if (targetSchedule) {
@@ -70,6 +68,14 @@ const ShiftScheduleContainer = () => {
     (error) => { logger.error('排班事件拖放失败:', error); }
   );
 
+  if (isSchedulesLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+        <Spin size="large" tip="正在加载排班数据..." />
+      </div>
+    );
+  }
+
   const handleDatesSet = (viewInfo) => {
     setCalendarViewInfo(viewInfo);
     setCurrentView(viewInfo.view.type);
@@ -85,7 +91,6 @@ const ShiftScheduleContainer = () => {
               calendarRef={calendarRef}
               schedules={schedules}
               isGuest={isGuest}
-              onDateClick={handleScheduleDateClick}
               onDatesSet={handleDatesSet}
               onEventClick={(clickInfo) => {
                 const { event } = clickInfo;
@@ -124,6 +129,12 @@ const ShiftScheduleContainer = () => {
         )}
       </div>
     </DragDropContext>
+
+      {schedules.length === 0 && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+          <Empty description="暂无排班数据" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+        </div>
+      )}
 
       <PersonnelScheduleModal
         open={scheduleModalOpen}
