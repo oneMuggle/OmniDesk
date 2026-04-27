@@ -23,7 +23,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import complianceApi from '../../features/compliance/api/compliance';
-import { Avatar, Badge, Dropdown, Tooltip } from 'antd';
+import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
 
 const STORAGE_KEY = 'sidebar_collapsed';
@@ -37,11 +37,13 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     }
   });
   const [expandedSubMenu, setExpandedSubMenu] = useState({});
+  const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(null);
   const { isAuthenticated, user, logout, hasPermission } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
 
+  // Persist collapse state
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, String(isCollapsed));
@@ -50,6 +52,13 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     }
   }, [isCollapsed]);
 
+  // Prevent body scroll when mobile menu is open
+  useEffect(() => {
+    document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [isMobileMenuOpen]);
+
+  // Notification polling — pause when sidebar is collapsed
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
@@ -60,12 +69,12 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       }
     };
 
-    if (isAuthenticated) {
+    if (isAuthenticated && !isCollapsed) {
       fetchUnreadCount();
       const interval = setInterval(fetchUnreadCount, 60000);
       return () => clearInterval(interval);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, isCollapsed]);
 
   const menuItems = useMemo(() => [
     { to: "/", icon: HomeOutlined, text: "首页", permission: null },
@@ -113,6 +122,11 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
   ], [logout, unreadNotificationCount]);
 
+  const toggleSubMenu = useCallback((text) => {
+    setExpandedSubMenu(prev => ({ ...prev, [text]: !prev[text] }));
+  }, []);
+
+  // Optimized: only location.pathname in deps, not full location object
   const renderMenuItem = useCallback((item, index) => {
     if (item.type === 'button') {
       const Icon = item.icon;
@@ -125,6 +139,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       const button = (
         <button
           className="menu-item"
+          role="menuitem"
           onClick={() => {
             item.action();
             if (isMobileMenuOpen) toggleMobileMenu();
@@ -135,7 +150,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       );
 
       return (
-        <li key={index}>
+        <li key={index} role="none">
           {isCollapsed ? (
             <Tooltip title={item.text} placement="right">
               {button}
@@ -152,10 +167,28 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       const isSubMenuActive = item.subItems.some(sub => location.pathname === sub.to);
       const isSubMenuExpanded = expandedSubMenu[item.text] || false;
 
+      const handleToggle = () => {
+        if (isCollapsed) {
+          setCollapsedPopoverOpen(prev => prev === item.text ? null : item.text);
+        } else {
+          toggleSubMenu(item.text);
+        }
+      };
+
       const subMenuHeader = (
         <div
           className={`menu-item ${isSubMenuActive ? 'active' : ''}`}
-          onClick={() => setExpandedSubMenu(prev => ({ ...prev, [item.text]: !prev[item.text] }))}
+          role="menuitem"
+          aria-expanded={isCollapsed ? undefined : isSubMenuExpanded}
+          aria-haspopup={isCollapsed ? 'true' : undefined}
+          tabIndex={0}
+          onClick={handleToggle}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              handleToggle();
+            }
+          }}
         >
           <div className="menu-item-content">
             <Icon className="icon" />
@@ -169,26 +202,79 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         </div>
       );
 
-      return (
-        <li key={index}>
-          {isCollapsed ? (
+      // Floating submenu for collapsed state
+      if (isCollapsed) {
+        const filteredSubItems = item.subItems.filter(subItem => hasPermission(subItem.permission));
+        if (filteredSubItems.length === 0) {
+          return (
+            <li key={index} role="none">
+              <Tooltip title={item.text} placement="right">
+                {subMenuHeader}
+              </Tooltip>
+            </li>
+          );
+        }
+        return (
+          <li key={index} role="none">
             <Tooltip title={item.text} placement="right">
               {subMenuHeader}
             </Tooltip>
-          ) : (
-            subMenuHeader
-          )}
-          {!isCollapsed && (
-            <ul className={`submenu ${isSubMenuExpanded ? 'expanded' : ''}`}>
-              {item.subItems
-                .filter(subItem => hasPermission(subItem.permission))
-                .map((subItem, subIndex) => {
+            <Popover
+              open={collapsedPopoverOpen === item.text}
+              placement="rightTop"
+              trigger="click"
+              title={null}
+              content={
+                <ul className="submenu popover-submenu" role="menu">
+                  {filteredSubItems.map((subItem, subIndex) => {
+                    const SubIcon = subItem.icon;
+                    return (
+                      <li key={subIndex} role="none">
+                        <Link
+                          to={subItem.to}
+                          className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                          onClick={() => {
+                            setCollapsedPopoverOpen(null);
+                            if (isMobileMenuOpen) toggleMobileMenu();
+                          }}
+                        >
+                          <div className="menu-item-content">
+                            {SubIcon && <SubIcon className="icon" />}
+                            <span>{subItem.text}</span>
+                            {subItem.badgeCount !== undefined && subItem.badgeCount > 0 && (
+                              <Badge count={subItem.badgeCount} size="small" />
+                            )}
+                          </div>
+                        </Link>
+                      </li>
+                    );
+                  })}
+                </ul>
+              }
+            />
+          </li>
+        );
+      }
+
+      // Normal expanded submenu with CSS grid animation
+      return (
+        <li key={index} role="none">
+          {subMenuHeader}
+          <ul
+            className={`submenu ${isSubMenuExpanded ? 'expanded' : ''}`}
+            role="menu"
+          >
+            {item.subItems
+              .filter(subItem => hasPermission(subItem.permission))
+              .map((subItem, subIndex) => {
                 const SubIcon = subItem.icon;
                 return (
-                  <li key={subIndex}>
+                  <li key={subIndex} role="none">
                     <Link
                       to={subItem.to}
                       className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                      role="menuitem"
+                      aria-current={location.pathname === subItem.to ? 'page' : undefined}
                       onClick={() => isMobileMenuOpen && toggleMobileMenu()}
                     >
                       <div className="menu-item-content">
@@ -202,8 +288,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
                   </li>
                 );
               })}
-            </ul>
-          )}
+          </ul>
         </li>
       );
     }
@@ -219,6 +304,8 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       <Link
         to={item.to}
         className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+        role="menuitem"
+        aria-current={location.pathname === item.to ? 'page' : undefined}
         onClick={() => isMobileMenuOpen && toggleMobileMenu()}
       >
         {linkContent}
@@ -226,7 +313,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     );
 
     return (
-      <li key={index}>
+      <li key={index} role="none">
         {isCollapsed ? (
           <Tooltip title={item.text} placement="right">
             {link}
@@ -236,7 +323,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         )}
       </li>
     );
-  }, [isCollapsed, isMobileMenuOpen, toggleMobileMenu, location, hasPermission, expandedSubMenu]);
+  }, [collapsedPopoverOpen, isCollapsed, isMobileMenuOpen, toggleMobileMenu, location.pathname, hasPermission, expandedSubMenu, toggleSubMenu]);
 
   const userDropdownItems = useMemo(() => [
     {
@@ -298,12 +385,13 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
             <button
               className="collapse-toggle"
               onClick={() => setIsCollapsed(!isCollapsed)}
+              aria-label={isCollapsed ? '展开侧边栏' : '收起侧边栏'}
             >
               <LeftOutlined className={`collapse-icon ${isCollapsed ? 'rotate' : ''}`} />
             </button>
           )}
         </div>
-        <nav className="sidebar-menu">
+        <nav className="sidebar-menu" role="menu" aria-label="主导航菜单">
           <ul>
             {menuItems.filter(item => hasPermission(item.permission)).map(renderMenuItem)}
           </ul>

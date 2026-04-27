@@ -1,7 +1,7 @@
-import React from 'react';
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../features/auth/context/AuthContext';
+import { ThemeProvider } from '../../shared/context/ThemeContext';
 import Sidebar from './Sidebar';
 import complianceApi from '../../features/compliance/api/compliance';
 
@@ -12,55 +12,60 @@ const mockAuthContext = {
   user: null,
   isAuthenticated: false,
   logout: jest.fn(),
-  hasPermission: () => false,
+  hasPermission: () => true,
   isInitializing: false,
 };
 
 const renderSidebar = (authContext = mockAuthContext) => {
   return render(
-    <AuthContext.Provider value={authContext}>
-      <MemoryRouter>
-        <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
-      </MemoryRouter>
-    </AuthContext.Provider>
+    <ThemeProvider>
+      <AuthContext.Provider value={authContext}>
+        <MemoryRouter>
+          <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
+        </MemoryRouter>
+      </AuthContext.Provider>
+    </ThemeProvider>
   );
 };
 
 describe('Sidebar', () => {
   beforeEach(() => {
-    // Reset mocks before each test
     complianceApi.getUnreadCount.mockClear();
-    jest.useFakeTimers();
   });
 
-  afterEach(() => {
-    jest.clearAllTimers();
+  it('renders the sidebar with brand', () => {
+    renderSidebar();
+    expect(screen.getByText(/OmniDesk/i)).toBeInTheDocument();
   });
 
-  it('renders the sidebar with title', () => {
+  it('shows subtitle when not collapsed', () => {
     renderSidebar();
     expect(screen.getByText(/智能办公系统/i)).toBeInTheDocument();
   });
 
-  it('shows login hint when not authenticated', () => {
+  it('does not call notification API when not authenticated', () => {
     renderSidebar();
-    expect(screen.getByText(/请登录/i)).toBeInTheDocument();
     expect(complianceApi.getUnreadCount).not.toHaveBeenCalled();
   });
 
-  it('shows user info and fetches notifications when authenticated', async () => {
+  it('fetches notifications when authenticated', async () => {
     complianceApi.getUnreadCount.mockResolvedValue({ data: { unread_count: 5 } });
     const authenticatedContext = {
       ...mockAuthContext,
       isAuthenticated: true,
-      user: { role: 'user' },
+      user: { username: 'testuser', role: 'user' },
     };
     renderSidebar(authenticatedContext);
-    expect(screen.getByText(/已登录/i)).toBeInTheDocument();
-    
-    // The API call is asynchronous, so we wait for it to be called.
+
     await waitFor(() => {
       expect(complianceApi.getUnreadCount).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it('renders menu items visible', () => {
+    renderSidebar();
+    expect(screen.getByText(/首页/i)).toBeInTheDocument();
+    expect(screen.getByText(/公告栏/i)).toBeInTheDocument();
+    expect(screen.getByText(/日历/i)).toBeInTheDocument();
   });
 });

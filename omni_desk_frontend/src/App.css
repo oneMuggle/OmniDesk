@@ -244,18 +244,35 @@
   width: 100%;
 }
 
-/* 子菜单样式 */
+/* 子菜单样式 — 使用 grid-template-rows 实现自适应高度动画 */
 .submenu {
   list-style: none;
   padding-left: 0;
   margin: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease-in-out;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease-in-out;
 }
 
 .submenu.expanded {
-  max-height: 500px;
+  grid-template-rows: 1fr;
+}
+
+.submenu > li {
+  overflow: hidden;
+}
+
+/* Popover 子菜单样式（折叠状态） */
+.popover-submenu {
+  padding: 4px 0;
+  margin: 0;
+}
+
+.popover-submenu .menu-item {
+  padding: 8px 12px;
+  margin: 0;
+  border-radius: 4px;
+  min-width: 160px;
 }
 
 .submenu .menu-item {
@@ -283,6 +300,18 @@
   padding: 20px;
   background-color: var(--color-bg-light);
   transition: margin-left 0.3s ease;
+}
+
+.main-content.full-width {
+  margin-left: 0;
+}
+
+/* Admin app container — no sidebar offset, no max-width constraint */
+.admin-app-container {
+  min-height: 100vh;
+  width: 100%;
+  margin: 0;
+  padding: 0;
 }
 
 .sidebar.collapsed ~ .main-content {
@@ -431,32 +460,37 @@
   width: 100%;
 }
 
-.sidebar.collapsed .collapse-toggle {
-  right: -35px;
-  padding: 8px;
-}
-
-.sidebar.collapsed .collapse-toggle:hover {
-  background: #334155;
-  transform: scale(1.1);
-}
-
 .collapse-toggle {
   position: absolute;
-  right: -40px;
+  right: -12px;
   top: 20px;
   background: var(--admin-bg-dark);
-  border: none;
+  border: 2px solid rgba(255, 255, 255, 0.1);
   color: var(--text-color-inverse);
-  padding: 10px;
-  border-radius: var(--radius-base);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   cursor: pointer;
-  z-index: 1000;
+  z-index: 1001;
   transition: all 0.3s ease;
 }
 
 .collapse-toggle:hover {
   background: #334155;
+  transform: scale(1.1);
+}
+
+.collapse-icon {
+  font-size: 0.75rem !important;
+  transition: transform 0.3s ease;
+}
+
+.collapse-icon.rotate {
+  transform: rotate(180deg);
 }
 
 /* ===== 日程样式 ===== */

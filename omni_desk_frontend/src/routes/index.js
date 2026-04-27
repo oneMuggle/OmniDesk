@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
+import AdminAppWrapper from '../AdminAppWrapper';
 
 // Lazy load all page components for code splitting
 const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
@@ -92,113 +93,15 @@ const router = createBrowserRouter([
     path: "/unauthorized",
     element: <LazyComponent component={UnauthorizedPage} />
   },
-  // 主应用路由 - 使用 App 布局（含侧边栏）
+  // 管理中心路由 - 使用独立 AdminAppWrapper 布局（无主侧边栏，全屏显示）
   {
-    path: "/",
-    element: <App />,
+    path: "/control-panel",
+    element: (
+      <ProtectedRoute pageName="控制面板"><AdminAppWrapper /></ProtectedRoute>
+    ),
     children: [
       {
-        index: true,
-        element: (
-          <ProtectedRoute pageName="仪表盘">
-            <LazyComponent component={DashboardPage} />
-          </ProtectedRoute>
-        ),
-      },
-      {
-        path: "meeting-rooms",
-        element: <ProtectedRoute pageName="会议室预定"><LazyComponent component={MeetingRoomBookingPage} /></ProtectedRoute>
-      },
-      { path: "schedule", element: <GuestRoute><LazyComponent component={SchedulePage} /></GuestRoute> },
-      { path: "trial-schedule", element: <GuestRoute><LazyComponent component={TrialScheduleContainer} /></GuestRoute> },
-      { path: "shift-schedule", element: <GuestRoute><LazyComponent component={ShiftScheduleContainer} /></GuestRoute> },
-      {
-        path: "events",
-        element: <ProtectedRoute pagePath="/events" pageName="事件管理"><LazyComponent component={EventsPage} /></ProtectedRoute>
-      },
-      {
-        path: "equipment",
-        element: <ProtectedRoute pagePath="/equipment" pageName="设备管理"><LazyComponent component={EquipmentPage} /></ProtectedRoute>
-      },
-      {
-        path: "profile",
-        element: <ProtectedRoute pagePath="/profile" pageName="个人资料"><LazyComponent component={ProfilePage} /></ProtectedRoute>
-      },
-      {
-        path: "library",
-        element: <LazyComponent component={LibraryPage} />
-      },
-      {
-        path: "books/:bookId",
-        element: <BookPage />
-      },
-      {
-        path: "books/:bookId/reader",
-        element: <BookReaderPage />
-      },
-      {
-        path: "books/:bookId/editor",
-        element: <ChapterEditorPage />
-      },
-      {
-        path: "intelligent-chat",
-        element: <ProtectedRoute pageName="智能问答"><LazyComponent component={IntelligentChatPage} /></ProtectedRoute>
-      },
-      {
-        path: "ragflow-chat",
-        element: <ProtectedRoute pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
-      },
-      {
-        path: "dify-apps",
-        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
-      },
-      {
-        path: "dify-apps/:appId",
-        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
-      },
-      {
-        path: "office-assistant",
-        element: <ProtectedRoute pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
-      },
-      {
-        path: "file-analysis",
-        element: <ProtectedRoute pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
-      },
-      {
-        path: "memos",
-        element: <ProtectedRoute pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>
-      },
-      {
-        path: "communication",
-        element: <ProtectedRoute pageName="交流"><LazyComponent component={CommunicationPage} /></ProtectedRoute>
-      },
-      {
-        path: "communication/new",
-        element: <ProtectedRoute pageName="新建帖子"><LazyComponent component={NewPostPage} /></ProtectedRoute>
-      },
-      {
-        path: "communication/:postId",
-        element: <LazyComponent component={PostDetailPage} />
-      },
-      {
-        path: "announcements",
-        element: <LazyComponent component={AnnouncementsPage} />
-      },
-      {
-        path: "system-settings",
-        element: <ProtectedRoute pageName="系统设置"><LazyComponent component={SystemSettingsPage} /></ProtectedRoute>
-      },
-      {
-        path: "trials",
-        element: <ProtectedRoute pageName="试验管理"><LazyComponent component={TrialsPage} /></ProtectedRoute>
-      },
-      {
-        path: "docs/:docId",
-        element: <DocsPage />
-      },
-      {
-        path: "control-panel",
-        element: <ProtectedRoute pageName="控制面板"><AdminLayout /></ProtectedRoute>,
+        element: <AdminLayout />,
         children: [
           {
             index: true,
@@ -309,6 +212,112 @@ const router = createBrowserRouter([
             element: <LazyComponent component={NewsStatsPage} />
           }
         ]
+      }
+    ]
+  },
+  // 主应用路由 - 使用 App 布局（含侧边栏）
+  {
+    path: "/",
+    element: <App />,
+    children: [
+      {
+        index: true,
+        element: (
+          <ProtectedRoute pageName="仪表盘">
+            <LazyComponent component={DashboardPage} />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: "meeting-rooms",
+        element: <ProtectedRoute pageName="会议室预定"><LazyComponent component={MeetingRoomBookingPage} /></ProtectedRoute>
+      },
+      { path: "schedule", element: <GuestRoute><LazyComponent component={SchedulePage} /></GuestRoute> },
+      { path: "trial-schedule", element: <GuestRoute><LazyComponent component={TrialScheduleContainer} /></GuestRoute> },
+      { path: "shift-schedule", element: <GuestRoute><LazyComponent component={ShiftScheduleContainer} /></GuestRoute> },
+      {
+        path: "events",
+        element: <ProtectedRoute pagePath="/events" pageName="事件管理"><LazyComponent component={EventsPage} /></ProtectedRoute>
+      },
+      {
+        path: "equipment",
+        element: <ProtectedRoute pagePath="/equipment" pageName="设备管理"><LazyComponent component={EquipmentPage} /></ProtectedRoute>
+      },
+      {
+        path: "profile",
+        element: <ProtectedRoute pagePath="/profile" pageName="个人资料"><LazyComponent component={ProfilePage} /></ProtectedRoute>
+      },
+      {
+        path: "library",
+        element: <LazyComponent component={LibraryPage} />
+      },
+      {
+        path: "books/:bookId",
+        element: <BookPage />
+      },
+      {
+        path: "books/:bookId/reader",
+        element: <BookReaderPage />
+      },
+      {
+        path: "books/:bookId/editor",
+        element: <ChapterEditorPage />
+      },
+      {
+        path: "intelligent-chat",
+        element: <ProtectedRoute pageName="智能问答"><LazyComponent component={IntelligentChatPage} /></ProtectedRoute>
+      },
+      {
+        path: "ragflow-chat",
+        element: <ProtectedRoute pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
+      },
+      {
+        path: "dify-apps",
+        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
+      },
+      {
+        path: "dify-apps/:appId",
+        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
+      },
+      {
+        path: "office-assistant",
+        element: <ProtectedRoute pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
+      },
+      {
+        path: "file-analysis",
+        element: <ProtectedRoute pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
+      },
+      {
+        path: "memos",
+        element: <ProtectedRoute pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>
+      },
+      {
+        path: "communication",
+        element: <ProtectedRoute pageName="交流"><LazyComponent component={CommunicationPage} /></ProtectedRoute>
+      },
+      {
+        path: "communication/new",
+        element: <ProtectedRoute pageName="新建帖子"><LazyComponent component={NewPostPage} /></ProtectedRoute>
+      },
+      {
+        path: "communication/:postId",
+        element: <LazyComponent component={PostDetailPage} />
+      },
+      {
+        path: "announcements",
+        element: <LazyComponent component={AnnouncementsPage} />
+      },
+      {
+        path: "system-settings",
+        element: <ProtectedRoute pageName="系统设置"><LazyComponent component={SystemSettingsPage} /></ProtectedRoute>
+      },
+      {
+        path: "trials",
+        element: <ProtectedRoute pageName="试验管理"><LazyComponent component={TrialsPage} /></ProtectedRoute>
+      },
+      {
+        path: "docs/:docId",
+        element: <DocsPage />
       },
       {
         path: "*",
