@@ -36,7 +36,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       return false;
     }
   });
-  const [expandedSubMenu, setExpandedSubMenu] = useState({});
+  const [expandedSubMenu, setExpandedSubMenu] = useState({ '日历': true });
   const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(null);
   const { isAuthenticated, user, logout, hasPermission } = useAuth();
   const location = useLocation();
@@ -51,6 +51,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       console.warn('Failed to save sidebar state:', e);
     }
   }, [isCollapsed]);
+
 
   // Prevent body scroll when mobile menu is open
   useEffect(() => {
@@ -165,7 +166,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     if (item.type === 'submenu') {
       const Icon = item.icon;
       const isSubMenuActive = item.subItems.some(sub => location.pathname === sub.to);
-      const isSubMenuExpanded = expandedSubMenu[item.text] || false;
+      const isSubMenuExpanded = expandedSubMenu[item.text] ?? item.subItems.some(sub => location.pathname === sub.to);
 
       const handleToggle = () => {
         if (isCollapsed) {

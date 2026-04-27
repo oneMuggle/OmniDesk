@@ -244,18 +244,18 @@
   width: 100%;
 }
 
-/* 子菜单样式 — 使用 grid-template-rows 实现自适应高度动画 */
+/* 子菜单样式 — 使用 max-height 实现自适应高度动画 */
 .submenu {
   list-style: none;
   padding-left: 0;
   margin: 0;
-  display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.3s ease-in-out;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.3s ease-in-out;
 }
 
 .submenu.expanded {
-  grid-template-rows: 1fr;
+  max-height: 500px;
 }
 
 .submenu > li {

@@ -77,6 +77,7 @@ export const getModels = async () => {
   return res.data.models.map(model => model.name);
 };
 
+// eslint-disable-next-line no-unused-vars
 export const setApiProvider = (config) => {
   // Used by ApiProvider to sync config
 };

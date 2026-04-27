@@ -6,6 +6,7 @@ import { Modal, Button, Form } from 'antd';
 import TrialSelector from './TrialSelector';
 import TimeSlotForm from './TimeSlotForm';
 import TrialDetails from './TrialDetails';
+import { logger } from '../../../../../shared/utils/logger';
 
 const EventModalContainer = ({
   currentEvent,
@@ -36,7 +37,7 @@ const EventModalContainer = ({
       setModifiedSlots([]);
     },
     onError: (error) => {
-      console.error('更新时间段失败:', error);
+      logger.error('更新时间段失败:', error);
       Modal.error({ title: '更新失败', content: '无法保存时间段更改。' });
     }
   });
@@ -68,7 +69,7 @@ const EventModalContainer = ({
         }))
       });
     } catch (error) {
-      console.error('获取时间段失败:', error);
+      logger.error('获取时间段失败:', error);
       Modal.warning({
         title: '获取时间段失败',
         content: `无法获取试验 ${trial.title} 的时间段数据`,
@@ -150,7 +151,7 @@ const EventModalContainer = ({
       setIsEditing(false);
     } catch (error) {
       // Error is handled by useMutation's onError or handleEventSubmit's own try/catch
-      console.error('保存事件失败:', error);
+      logger.error('保存事件失败:', error);
     }
   };
 

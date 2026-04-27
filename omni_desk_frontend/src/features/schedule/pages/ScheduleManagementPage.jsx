@@ -15,6 +15,7 @@ import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeade
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { DragDropContext } from '@hello-pangea/dnd';
 import { logger } from '../../../shared/utils/logger';
+import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
 
 const { Option } = Select;
 
@@ -251,7 +252,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
           </>
         ) : (
           <Form.Item name="target_month" label="选择月份" rules={[{ required: true, message: '请选择月份!' }]}>
-            <DatePicker.MonthPicker style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
+            <DatePicker picker="month" style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
           </Form.Item>
         )}
 
@@ -577,32 +578,8 @@ const ScheduleManagementPage = () => {
   };
 
   useEffect(() => {
-    if (!calendarViewInfo || !schedules || schedules.length === 0) {
-      setWeeklyLeaders([]);
-      return;
-    }
-    const start = moment(calendarViewInfo.start);
-    const end = moment(calendarViewInfo.end);
-    const leadersByWeek = {};
-    schedules.forEach(schedule => {
-      const scheduleDate = moment(schedule.duty_date);
-      if (scheduleDate.isBetween(start, end, 'day', '[]')) {
-        const week = scheduleDate.week();
-        if (!leadersByWeek[week]) {
-          leadersByWeek[week] = {
-            id: week,
-            start: scheduleDate.clone().startOf('week').format('YYYY-MM-DD'),
-            leaders: [],
-            schedules: []
-          };
-        }
-        if (schedule.duty_leader && !leadersByWeek[week].leaders.some(l => l.id === schedule.duty_leader.id)) {
-          leadersByWeek[week].leaders.push(schedule.duty_leader);
-        }
-        leadersByWeek[week].schedules.push(schedule);
-      }
-    });
-    setWeeklyLeaders(Object.values(leadersByWeek).sort((a, b) => a.id - b.id));
+    const leaders = computeWeeklyLeaders(schedules, calendarViewInfo);
+    setWeeklyLeaders(leaders);
   }, [schedules, calendarViewInfo]);
 
   const handleDatesSet = (viewInfo) => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { scheduleApi } from '../api/scheduleApi';
 import { getTrials } from '../../../shared/api/trials';
+import { logger } from '../../../shared/utils/logger';
 
 export const useScheduleData = () => {
   const queryClient = useQueryClient();
@@ -27,7 +28,7 @@ export const useScheduleData = () => {
         const response = await scheduleApi.getSchedules();
         return Array.isArray(response) ? response : [];
       } catch (error) {
-        console.error('获取排班数据失败:', error);
+        logger.error('获取排班数据失败:', error);
         return [];
       }
     },
@@ -62,7 +63,7 @@ export const useScheduleData = () => {
                 end: slot.end
               }));
             } catch (error) {
-              console.error(`Error fetching slots for trial ${trial.id}:`, error);
+              logger.error(`Error fetching slots for trial ${trial.id}:`, error);
               return [];
             }
           })
@@ -70,7 +71,7 @@ export const useScheduleData = () => {
         const flattened = events.flat();
         return flattened;
       } catch (error) {
-        console.error('Error loading time slots:', error);
+        logger.error('Error loading time slots:', error);
         return [];
       }
     };

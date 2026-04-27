@@ -3,8 +3,9 @@ import { Form } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
-import CalendarEventModal from './CalendarEventModal'; // 使用新的通用模态框
+import CalendarEventModal from './CalendarEventModal';
 import TrialSchedule from './TrialSchedule';
+import { logger } from '../../../shared/utils/logger';
 
 const TrialScheduleContainer = () => {
   const [form] = Form.useForm();
@@ -30,7 +31,7 @@ const TrialScheduleContainer = () => {
     const targetTrialId = values.trial_id;
 
     if (!targetTrialId) {
-      console.error('无法确定要更新的试验项目。');
+      logger.error('无法确定要更新的试验项目。');
       return;
     }
 
@@ -49,7 +50,7 @@ const TrialScheduleContainer = () => {
       trialQueryClient.invalidateQueries(['trials']); // 刷新数据
       setCurrentEvent(null); // 关闭模态框
     } catch (error) {
-      console.error('保存试验失败:', error);
+      logger.error('保存试验失败:', error);
     }
   };
 
@@ -120,8 +121,12 @@ const TrialScheduleContainer = () => {
           selectedTrial={selectedTrial}
           onSave={handleSaveTrial} // 将试验保存逻辑传递给 CalendarEventModal
           onCancel={() => setCurrentEvent(null)}
-          onDelete={() => console.log('onDelete called')} // 临时空函数
-          onSwap={() => console.log('onSwap called')}     // 临时空函数
+          onDelete={() => {
+            trialQueryClient.invalidateQueries(['trials']);
+          }}
+          onSwap={() => {
+            trialQueryClient.invalidateQueries(['trials']);
+          }}
         />
       )}
 

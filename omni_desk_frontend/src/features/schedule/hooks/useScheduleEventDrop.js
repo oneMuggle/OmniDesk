@@ -1,4 +1,5 @@
 import { Modal } from 'antd';
+import { logger } from '../../../shared/utils/logger';
 
 export const useScheduleEventDrop = (updateEventApi, queryClient, onDropSuccess, onDropError) => {
   const handleEventDrop = async (info) => {
@@ -14,23 +15,21 @@ export const useScheduleEventDrop = (updateEventApi, queryClient, onDropSuccess,
         maskClosable: false
       });
 
-      // 调用传入的API更新事件
       await updateEventApi(eventId, newStart, oldStart);
 
-      await queryClient.invalidateQueries(); // 使相关查询失效
+      loading.destroy();
+      await queryClient.invalidateQueries();
 
-      loading.update({
-        type: 'success',
+      Modal.success({
         title: '更新成功',
         content: '事件日期已更新',
-        okButtonProps: { type: 'primary' }
       });
       if (onDropSuccess) {
         onDropSuccess();
       }
     } catch (error) {
-      console.error('更新事件日期失败:', error);
-      info.revert(); // 回滚事件到原位置
+      logger.error('更新事件日期失败:', error);
+      info.revert();
       Modal.error({
         title: '更新失败',
         content: `无法更新事件日期: ${error.message}`,

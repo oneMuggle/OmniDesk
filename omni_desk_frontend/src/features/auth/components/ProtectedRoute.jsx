@@ -27,6 +27,7 @@ ProtectedRoute.propTypes = {
     PropTypes.string,
     PropTypes.arrayOf(PropTypes.string),
   ]),
+  allowGuest: PropTypes.bool,
 };
 
 export default ProtectedRoute;

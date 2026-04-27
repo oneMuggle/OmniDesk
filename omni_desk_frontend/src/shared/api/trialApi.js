@@ -1,6 +1,7 @@
 import apiClient from './apiClient';
 import { handleError } from './responseHandler';
 import { toServerFormat } from '../utils/dateUtils';
+import { logger } from '../utils/logger';
 
 export const trialApi = {
   fetchTrialEvents: async () => {
@@ -9,7 +10,7 @@ export const trialApi = {
       // 确保返回的是包含试验事件的数组
       return response.data.results || [];
     } catch (error) {
-      console.error('Failed to fetch trial events:', error);
+      logger.error('Failed to fetch trial events:', error);
       handleError(error, false);
       throw error;
     }
@@ -69,6 +70,14 @@ export const trialApi = {
   fetchCalendarEvents: () => apiClient.get('events/trials/'),
   updateCalendarEvent: (id, eventData) => apiClient.put(`events/trials/${id}/`, eventData),
   deleteCalendarEvent: (id) => apiClient.delete(`events/trials/${id}/`),
+  deleteTrial: async (trialId) => {
+    try {
+      await apiClient.delete(`events/trials/${trialId}/`);
+    } catch (error) {
+      handleError(error, false);
+      throw error;
+    }
+  },
 
   getTrialDetails: async (trialId) => {
     try {

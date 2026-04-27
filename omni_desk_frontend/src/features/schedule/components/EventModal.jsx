@@ -2,10 +2,11 @@ import React from 'react';
 import { Form } from 'antd';
 import PropTypes from 'prop-types';
 import CalendarEventModal from './CalendarEventModal';
-import { scheduleApi } from '../api/schedule'; // 引入 scheduleApi
-import { trialApi } from '../api/trialApi'; // 引入 trialApi
+import { scheduleApi } from '../api/schedule';
+import { trialApi } from '../../../shared/api/trialApi';
 import { toServerFormat } from '../utils/dateUtils';
 import { useQueryClient, useMutation } from '@tanstack/react-query';
+import { logger } from '../../../shared/utils/logger';
 
 const EventModal = ({
   form,
@@ -42,8 +43,7 @@ const EventModal = ({
       handleCancel();
     },
     onError: (error) => {
-      console.error('提交排班失败:', error);
-      // TODO: Add error notification
+      logger.error('提交排班失败:', error);
     },
   });
 
@@ -53,7 +53,8 @@ const EventModal = ({
         return scheduleApi.deleteSchedule(id.replace('schedule-', ''));
       }
       if (currentEvent.type === 'TRIAL') {
-        return trialApi.deleteTimeSlot(id.replace('slot_', ''));
+        // 删除整个试验，而不是单个时间槽
+        return trialApi.deleteTrial(id.replace('trial_', ''));
       }
       return Promise.reject(new Error('Unknown event type for deletion'));
     },
@@ -63,8 +64,7 @@ const EventModal = ({
       handleCancel();
     },
     onError: (error) => {
-      console.error(`删除 ${currentEvent.type} 事件失败:`, error);
-      // TODO: Add error notification
+      logger.error(`删除 ${currentEvent.type} 事件失败:`, error);
     },
   });
 
@@ -87,8 +87,27 @@ const EventModal = ({
 
   const handleSwap = async (id) => {
     if (!currentEvent) return;
-    // TODO: Implement swap logic for both SCHEDULE and TRIAL
-    console.log('Swap functionality not yet implemented.');
+
+    if (currentEvent.type === 'SCHEDULE') {
+      const targetDate = prompt('请输入要调换的目标日期 (YYYY-MM-DD):');
+      if (!targetDate) return;
+
+      const schedules = queryClient.getQueryData(['schedules']) || [];
+      const targetSchedule = schedules.find(s => s.duty_date === targetDate || s.start === targetDate);
+      if (targetSchedule) {
+        try {
+          await scheduleApi.swapScheduleDates(id.replace('schedule-', ''), targetSchedule.id);
+          queryClient.invalidateQueries({ queryKey: ['schedules'] });
+          handleCancel();
+        } catch (error) {
+          logger.error('调换排班日期失败:', error);
+        }
+      } else {
+        logger.warn(`未找到日期为 ${targetDate} 的排班记录`);
+      }
+    } else if (currentEvent.type === 'TRIAL') {
+      logger.warn('试验日程调换功能暂未实现');
+    }
   };
 
   return (

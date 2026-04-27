@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
@@ -14,6 +15,10 @@ import { ToastContainer } from 'react-toastify';
 import { RefreshProvider } from './shared/context/RefreshContext';
 import { ThemeProvider, useTheme } from './shared/context/ThemeContext';
 import { getAntdThemeToken } from './shared/theme/themeSchemes';
+
+ThemeAwareConfigProvider.propTypes = {
+  children: PropTypes.node.isRequired,
+};
 
 function ThemeAwareConfigProvider({ children }) {
   const { scheme } = useTheme();

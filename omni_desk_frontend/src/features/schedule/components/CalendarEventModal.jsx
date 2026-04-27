@@ -6,7 +6,8 @@ import { useAuth } from '../../auth/context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
 import { trialApi } from '../../../shared/api/trialApi';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { scheduleApi } from '../api/scheduleApi';
+import { MinusCircleOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -17,6 +18,7 @@ const CalendarEventModal = ({
   onCancel,
   onSave,
   onDelete,
+  onSwap,
   form,
   isEditing,
   setIsEditing,
@@ -27,6 +29,11 @@ const CalendarEventModal = ({
   const { personnel } = useScheduleData(); // 获取人员数据
   const { trials } = useTrialScheduleData(); // 获取试验数据
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [equipment, setEquipment] = useState([]);
+
+  useEffect(() => {
+    scheduleApi.fetchEquipment().then(setEquipment).catch(() => setEquipment([]));
+  }, []);
 
   useEffect(() => {
     if (currentEvent) {
@@ -142,7 +149,6 @@ const CalendarEventModal = ({
         processedValues.time_slots_data = finalTimeSlotsData;
         delete processedValues.time_ranges; // 移除原始的 time_ranges 字段
 
-        console.log('CalendarEventModal - handleOk: processedValues', processedValues);
         onSave(processedValues);
       })
       .catch(() => {
@@ -182,7 +188,14 @@ const CalendarEventModal = ({
       </Form.Item>
       {isEditing && (
         <Form.Item>
-          <Button type="primary" danger onClick={() => onDelete(currentEvent.id)}>删除排班</Button>
+          <Space>
+            <Button type="primary" danger onClick={() => onDelete(currentEvent.id)}>删除排班</Button>
+            {onSwap && (
+              <Button type="default" icon={<SwapOutlined />} onClick={() => onSwap(currentEvent.id)}>
+                调换日期
+              </Button>
+            )}
+          </Space>
         </Form.Item>
       )}
     </>
@@ -280,9 +293,9 @@ const CalendarEventModal = ({
             label="相关设备"
           >
             <Select mode="multiple" placeholder="选择相关设备" disabled={!canEdit}>
-              {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
-              <Option value="1">设备 A</Option>
-              <Option value="2">设备 B</Option>
+              {equipment.map(e => (
+                <Option key={e.id} value={e.id}>{e.name}</Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item
@@ -339,6 +352,7 @@ CalendarEventModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onSwap: PropTypes.func,
   form: PropTypes.object.isRequired,
   isEditing: PropTypes.bool.isRequired,
   setIsEditing: PropTypes.func.isRequired,
