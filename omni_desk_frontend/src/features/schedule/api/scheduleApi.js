@@ -23,6 +23,25 @@ export const scheduleApi = {
     }
   },
 
+  fetchSchedulesByDateRange: async (startDate, endDate) => {
+    try {
+      const response = await apiClient.get('events/schedules/by-date-range/', {
+        params: { start_date: startDate, end_date: endDate }
+      });
+      const results = Array.isArray(response.data.results) ? response.data.results : [];
+      return results.map(schedule => ({
+        id: schedule.id,
+        title: `值班: ${schedule.duty_person}, 组长: ${schedule.duty_leader}`,
+        start: schedule.duty_date,
+        allDay: true,
+        type: 'SCHEDULE'
+      }));
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
   getSchedules: async () => {
     try {
       let allSchedules = [];
