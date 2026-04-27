@@ -355,7 +355,6 @@ const ScheduleManagementPage = () => {
   const schedulesQuery = useQuery({
     queryKey: ['schedules'],
     queryFn: scheduleApi.fetchSchedules,
-    select: (data) => data.data.results,
   });
 
 

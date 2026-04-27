@@ -28,6 +28,23 @@ const ShiftScheduleContainer = () => {
     return computeWeeklyLeaders(schedules, calendarViewInfo);
   }, [schedules, calendarViewInfo]);
 
+  const handleLeaderDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const sourceWeek = weeklyLeaders[result.source.index];
+    const destinationWeek = weeklyLeaders[result.destination.index];
+    if (!sourceWeek || !destinationWeek) return;
+
+    scheduleApi.swapWeeklyLeaders({
+      source_week_start_date: sourceWeek.start,
+      destination_week_start_date: destinationWeek.start,
+    }).then(() => {
+      scheduleQueryClient.invalidateQueries({ queryKey: ['schedules'] });
+    }).catch(() => {
+      logger.error('值班领导顺序交换失败');
+    });
+  };
+
   const handleScheduleDateClick = () => {
     // Date click handler - reserved for future use
   };
@@ -55,7 +72,7 @@ const ShiftScheduleContainer = () => {
 
   return (
     <>
-      <DragDropContext onDragEnd={() => {}}>
+      <DragDropContext onDragEnd={handleLeaderDragEnd}>
         <div style={{ display: 'flex' }}>
           <div style={{ flex: 1 }}>
             {currentView === 'timeGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
@@ -97,7 +114,7 @@ const ShiftScheduleContainer = () => {
           <MonthlyLeaderSidebar
             weeklyLeaders={weeklyLeaders}
             calendarRef={calendarRef}
-            isDragDisabled={true}
+            isDragDisabled={false}
           />
         )}
       </div>
