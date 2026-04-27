@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification, Spin, Empty, Descriptions } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification, Spin, Descriptions } from 'antd';
 import { CalendarOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useAuth } from '../../auth/context/AuthContext';
 import {
@@ -322,11 +322,6 @@ const MeetingRoomBookingPage = () => {
             </div>
             <Spin spinning={isLoading} tip="正在加载会议室数据...">
                 <div className="calendar-page-content">
-                    {bookings.length === 0 && !isLoading && (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
-                            <Empty description="暂无会议室预约" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                        </div>
-                    )}
                     <div className="calendar-wrapper">
                     <Calendar
                         localizer={localizer}
