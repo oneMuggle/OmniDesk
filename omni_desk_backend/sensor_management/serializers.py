@@ -30,6 +30,8 @@ class CalibrationDataPointSerializer(serializers.ModelSerializer):
 
 class SensorCalibrationSerializer(serializers.ModelSerializer):
     data_points = CalibrationDataPointSerializer(many=True)
+    calibrated_by_username = serializers.CharField(source='calibrated_by.username', read_only=True)
+    reviewed_by_username = serializers.CharField(source='reviewed_by.username', read_only=True)
 
     class Meta:
         model = SensorCalibration
@@ -37,7 +39,8 @@ class SensorCalibrationSerializer(serializers.ModelSerializer):
             'id', 'sensor', 'calibration_instrument', 'calibration_range',
             'calibration_date', 'non_linearity', 'hysteresis',
             'resonant_frequency', 'repeatability', 'accuracy', 'rise_time',
-            'sensitivity', 'calibration_equation', 'calibrated_by', 'reviewed_by',
+            'sensitivity', 'calibration_equation', 'calibrated_by', 'calibrated_by_username',
+            'reviewed_by', 'reviewed_by_username',
             'remarks', 'created_at', 'updated_at', 'data_points'
         ]
         read_only_fields = ('created_at', 'updated_at')
