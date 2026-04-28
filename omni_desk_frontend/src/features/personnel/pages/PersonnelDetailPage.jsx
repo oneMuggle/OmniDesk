@@ -11,7 +11,7 @@ import {
 } from '../components';
 
 const PersonnelDetailPage = () => {
-    const { id } = useParams();
+    const { personnelId } = useParams();
     const [personnel, setPersonnel] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -19,7 +19,7 @@ const PersonnelDetailPage = () => {
         const fetchDetails = async () => {
             try {
                 setLoading(true);
-                const personnelRes = await getPersonnelDetails(id);
+                const personnelRes = await getPersonnelDetails(personnelId);
                 setPersonnel(personnelRes);
             } catch (error) {
                 message.error('获取人员详细信息失败');
@@ -28,7 +28,7 @@ const PersonnelDetailPage = () => {
             }
         };
         fetchDetails();
-    }, [id]);
+    }, [personnelId]);
 
     const contractColumns = [
         { title: '合同编号', dataIndex: 'contract_number', key: 'contract_number' },
@@ -96,7 +96,7 @@ const PersonnelDetailPage = () => {
                 <ProfessionalQualificationTable data={personnel.professional_qualifications || []} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
-                <FamilyMemberTable personnelId={parseInt(id, 10)} />
+                <FamilyMemberTable personnelId={parseInt(personnelId, 10)} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">公积金信息</h2>
                 <PublicHousingInfoTable data={personnel.public_housing_info || []} />

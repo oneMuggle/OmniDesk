@@ -38,8 +38,9 @@ const PersonnelManagementPage = () => {
     },
     {
       title: '职位',
-      dataIndex: 'position_name',
-      key: 'position_name',
+      dataIndex: 'position',
+      key: 'position',
+      render: (position) => position?.name || '未分配',
     },
     {
       title: '操作',

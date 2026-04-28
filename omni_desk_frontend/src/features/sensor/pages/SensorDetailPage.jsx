@@ -5,7 +5,7 @@ import apiClient from '../../../shared/api/apiClient';
 import SensorCalibrationForm from '../components/SensorCalibrationForm';
 
 const SensorDetailPage = () => {
-    const { id } = useParams();
+    const { sensorId } = useParams();
     const [sensor, setSensor] = useState(null);
     const [calibrations, setCalibrations] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -15,8 +15,8 @@ const SensorDetailPage = () => {
     const fetchSensorDetails = useCallback(async () => {
         try {
             setLoading(true);
-            const sensorRes = await apiClient.get(`/sensor-management/sensors/${id}/`);
-            const calibrationsRes = await apiClient.get(`/sensor-management/sensor-calibrations/?sensor=${id}`);
+            const sensorRes = await apiClient.get(`/sensor-management/sensors/${sensorId}/`);
+            const calibrationsRes = await apiClient.get(`/sensor-management/sensor-calibrations/?sensor=${sensorId}`);
             setSensor(sensorRes.data);
             setCalibrations(calibrationsRes.results);
             setError(null);
@@ -26,7 +26,7 @@ const SensorDetailPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [id]);
+    }, [sensorId]);
 
     useEffect(() => {
         fetchSensorDetails();
@@ -42,7 +42,7 @@ const SensorDetailPage = () => {
 
     const handleFormSubmit = async (values) => {
         try {
-            await apiClient.post(`/sensor-management/sensor-calibrations/`, { ...values, sensor: id });
+            await apiClient.post(`/sensor-management/sensor-calibrations/`, { ...values, sensor: sensorId });
             setIsModalVisible(false);
             fetchSensorDetails(); // Refresh details
         } catch (error) {
