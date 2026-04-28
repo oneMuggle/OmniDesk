@@ -68,6 +68,7 @@ INSTALLED_APPS = [
     'news',
     'sensors',
     'permissions.apps.PermissionsConfig',
+    'ebooks.apps.EbooksConfig',
 ]
 
 MIDDLEWARE = [

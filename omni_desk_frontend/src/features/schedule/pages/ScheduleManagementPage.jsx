@@ -728,9 +728,9 @@ const ScheduleManagementPage = () => {
     },
     {
       title: '值班人员电话',
-      dataIndex: ['duty_person', 'phone_numbers'],
+      dataIndex: ['duty_person', 'phone_number'],
       key: 'duty_person_phone',
-      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+      render: (phone_number) => phone_number || 'N/A',
     },
     {
       title: '值班领导',
@@ -739,9 +739,9 @@ const ScheduleManagementPage = () => {
     },
     {
       title: '值班领导电话',
-      dataIndex: ['duty_leader', 'phone_numbers'],
+      dataIndex: ['duty_leader', 'phone_number'],
       key: 'duty_leader_phone',
-      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+      render: (phone_number) => phone_number || 'N/A',
     },
     {
       title: '操作',
