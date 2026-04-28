@@ -8,20 +8,20 @@ const SensorManagementPage = () => {
   const getActiveKey = () => {
     const path = location.pathname.split('/').pop();
     if (path === 'categories') return 'categories';
-    if (path === 'storage-locations') return 'storage-locations';
+    if (path === 'archive-locations' || path === 'storage-locations') return 'storage-locations';
     return 'list';
   };
 
   const handleTabChange = (key) => {
     switch (key) {
       case 'list':
-        navigate('/control-panel/sensor');
+        navigate('/control-panel/sensors/list');
         break;
       case 'categories':
-        navigate('/control-panel/sensor/categories');
+        navigate('/control-panel/sensors/categories');
         break;
       case 'storage-locations':
-        navigate('/control-panel/sensor/storage-locations');
+        navigate('/control-panel/sensors/archive-locations');
         break;
       default:
         break;

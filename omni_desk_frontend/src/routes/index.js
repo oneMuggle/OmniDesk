@@ -169,35 +169,38 @@ const router = createBrowserRouter([
           },
           {
             path: "sensors",
-            element: <LazyComponent component={SensorManagementPage} />
-          },
-          {
-            path: "sensors/list",
-            element: <LazyComponent component={SensorListPage} />
-          },
-          {
-            path: "sensors/categories",
-            element: <LazyComponent component={SensorCategoryManagementPage} />
-          },
-          {
-            path: "sensors/archive-locations",
-            element: <LazyComponent component={SensorArchiveLocationManagementPage} />
-          },
-          {
-            path: "sensors/calibration",
-            element: <LazyComponent component={SensorCalibrationManagementPage} />
-          },
-          {
-            path: "sensors/:sensorId",
-            element: <LazyComponent component={SensorDetailPage} />
-          },
-          {
-            path: "sensors/:sensorId/calibration/add",
-            element: <LazyComponent component={AddCalibrationRecordPage} />
-          },
-          {
-            path: "sensors/:sensorId/calibration/history",
-            element: <LazyComponent component={SensorCalibrationHistoryPage} />
+            element: <LazyComponent component={SensorManagementPage} />,
+            children: [
+              { index: true, element: <Navigate to="list" /> },
+              {
+                path: "list",
+                element: <LazyComponent component={SensorListPage} />
+              },
+              {
+                path: "categories",
+                element: <LazyComponent component={SensorCategoryManagementPage} />
+              },
+              {
+                path: "archive-locations",
+                element: <LazyComponent component={SensorArchiveLocationManagementPage} />
+              },
+              {
+                path: "calibration",
+                element: <LazyComponent component={SensorCalibrationManagementPage} />
+              },
+              {
+                path: ":sensorId",
+                element: <LazyComponent component={SensorDetailPage} />
+              },
+              {
+                path: ":sensorId/calibration/add",
+                element: <LazyComponent component={AddCalibrationRecordPage} />
+              },
+              {
+                path: ":sensorId/calibration/history",
+                element: <LazyComponent component={SensorCalibrationHistoryPage} />
+              },
+            ]
           },
           {
             path: "ebooks",

@@ -28,14 +28,18 @@ export const scheduleApi = {
       const response = await apiClient.get('events/schedules/by-date-range/', {
         params: { start_date: startDate, end_date: endDate }
       });
-      const results = Array.isArray(response.data.results) ? response.data.results : [];
-      return results.map(schedule => ({
-        id: schedule.id,
-        title: `值班: ${schedule.duty_person}, 组长: ${schedule.duty_leader}`,
-        start: schedule.duty_date,
-        allDay: true,
-        type: 'SCHEDULE'
-      }));
+      const raw = response.data;
+      const results = Array.isArray(raw) ? raw : (Array.isArray(raw.results) ? raw.results : []);
+      return results.map(schedule => {
+        const dutyPerson = schedule.duty_person || {};
+        const dutyLeader = schedule.duty_leader || {};
+        return {
+          id: schedule.id,
+          duty_date: schedule.duty_date,
+          duty_person: dutyPerson,
+          duty_leader: dutyLeader,
+        };
+      });
     } catch (error) {
       handleError(error);
       return [];
@@ -60,13 +64,16 @@ export const scheduleApi = {
         url = response.data.next;
       }
 
-      return allSchedules.map(schedule => ({
-        id: schedule.id,
-        title: `值班: ${schedule.duty_person}, 组长: ${schedule.duty_leader}`,
-        start: schedule.duty_date,
-        allDay: true,
-        type: 'SCHEDULE'
-      }));
+      return allSchedules.map(schedule => {
+        const dutyPerson = schedule.duty_person || {};
+        const dutyLeader = schedule.duty_leader || {};
+        return {
+          id: schedule.id,
+          duty_date: schedule.duty_date,
+          duty_person: dutyPerson,
+          duty_leader: dutyLeader,
+        };
+      });
     } catch (error) {
       handleError(error);
       return [];
