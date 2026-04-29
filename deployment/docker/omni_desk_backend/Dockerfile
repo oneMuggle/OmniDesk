@@ -75,7 +75,7 @@ COPY omni_desk_backend/requirements-prod.txt .
 # Install Python dependencies from the local wheelhouse
 RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requirements-prod.txt
 
-# 复制 entrypoint 脚本
+# Copy application source
 COPY --chown=app:app omni_desk_backend/ .
 
 # Ensure the entrypoint script has correct line endings and is executable
@@ -93,5 +93,5 @@ EXPOSE 8000
 
 ENTRYPOINT ["./entrypoint.sh"]
 
-# Define the command to run the application
-CMD ["gunicorn", "omni_desk_backend.wsgi:application", "--bind", "0.0.0.0:8000"]
+# Run Gunicorn WSGI server
+CMD ["gunicorn", "omni_desk_backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]

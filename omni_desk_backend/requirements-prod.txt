@@ -4,9 +4,6 @@
 #
 #    pip-compile --output-file=requirements-prod.txt requirements.in
 #
---extra-index-url https://pypi.ngc.nvidia.com
---trusted-host pypi.ngc.nvidia.com
-
 amqp==5.3.1
     # via kombu
 asgiref==3.7.2

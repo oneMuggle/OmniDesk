@@ -27,9 +27,20 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
+# Playwright MCP debug output
+.playwright-mcp/
+*.playwright-mcp/
+*-schedule.png
+*-schedule-*.png
+trial-schedule*.png
+shift-schedule*.png
+
 # Python
 *.egg-info/
 venv/
 .venv/
 *.log
 .pytest_cache/
+
+# Secrets
+deployment/docker/.env.production
