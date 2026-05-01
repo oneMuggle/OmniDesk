@@ -61,7 +61,10 @@ describe('Login Component', () => {
     const user = userEvent.setup();
     renderWithRouter(<Login />);
     await user.click(screen.getByRole('button', { name: /登 录/i }));
-    expect(await screen.findByText('请输入用户名和密码')).toBeInTheDocument();
+    // Ant Design Form shows individual field validation errors
+    await waitFor(() => {
+      expect(screen.getByText('请输入用户名')).toBeInTheDocument();
+    });
     expect(mockLogin).not.toHaveBeenCalled();
   });
 
@@ -75,7 +78,7 @@ describe('Login Component', () => {
     await user.click(screen.getByRole('button', { name: /登 录/i }));
 
     await waitFor(() => {
-      expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', false);
+      expect(mockLogin).toHaveBeenCalledWith('testuser', 'password', undefined);
       expect(mockNavigate).toHaveBeenCalledWith('/dashboard');
     });
   });
@@ -93,7 +96,7 @@ describe('Login Component', () => {
     await waitFor(() => {
       expect(screen.getByText(error)).toBeInTheDocument();
     });
-    expect(mockLogin).toHaveBeenCalledWith('wronguser', 'wrongpassword', false);
+    expect(mockLogin).toHaveBeenCalledWith('wronguser', 'wrongpassword', undefined);
     expect(mockNavigate).not.toHaveBeenCalled();
   });
 

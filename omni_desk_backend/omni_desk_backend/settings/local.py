@@ -16,14 +16,18 @@ DATABASES = {
 }
 
 # CSRF and CORS settings for development
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+# CORS: regex allows any localhost port — no config changes needed when frontend port changes
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://localhost:\d+$",
+    r"^https?://127\.0\.0\.1:\d+$",
 ]
 
+# CSRF: frontend uses JWT (not cookies), so CSRF is mainly for Django admin access
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
 ]
 
 # In a non-HTTPS environment, SAMESITE='None' is rejected by browsers, and SECURE must be False

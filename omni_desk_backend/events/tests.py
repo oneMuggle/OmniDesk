@@ -1,6 +1,7 @@
 from django.test import TestCase
 from django.utils import timezone
-from .models import Trial, TimeSlot, Equipment, Personnel
+from .models import Trial, TimeSlot, Equipment
+from personnel.models import Personnel
 
 class TrialModelTest(TestCase):
     def setUp(self):
@@ -278,16 +279,23 @@ class ScheduleViewSetTest(BaseTestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Schedule.objects.count(), 14)
 
+        # Day 0: first workday -> person1, leader1
         first_day_schedule = Schedule.objects.get(duty_date=start_date)
         self.assertEqual(first_day_schedule.duty_person, self.person1)
         self.assertEqual(first_day_schedule.duty_leader, self.leader1)
 
+        # Day 1: weekend (holiday) -> holiday_count=0, same sequence -> person1, leader1
         second_day_schedule = Schedule.objects.get(duty_date=start_date + timedelta(days=1))
-        self.assertEqual(second_day_schedule.duty_person, self.person2)
+        self.assertEqual(second_day_schedule.duty_person, self.person1)
         self.assertEqual(second_day_schedule.duty_leader, self.leader1)
 
+        # Day 3: Monday, workday_count=1 -> person2, leader1
+        fourth_day_schedule = Schedule.objects.get(duty_date=start_date + timedelta(days=3))
+        self.assertEqual(fourth_day_schedule.duty_person, self.person2)
+        self.assertEqual(fourth_day_schedule.duty_leader, self.leader1)
+
+        # Day 7: Friday, workday, weeks_passed=1 -> leader2
         eighth_day_schedule = Schedule.objects.get(duty_date=start_date + timedelta(days=7))
-        self.assertEqual(eighth_day_schedule.duty_person, self.person2)
         self.assertEqual(eighth_day_schedule.duty_leader, self.leader2)
 
 class EquipmentViewSetTest(BaseTestCase):

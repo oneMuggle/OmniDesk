@@ -174,6 +174,116 @@ jobs:
 - **代码覆盖率:** 建议引入代码覆盖率检查（如 `pytest-cov` for backend, `Jest --coverage` for frontend），并设定一个最低阈值（例如70%），未达到阈值的 PR 将无法合并。
 - **静态代码分析:** 集成 `ESLint` (前端) 和 `Flake8` 或 `Black` (后端) 到CI流程中，强制执行代码风格和规范。
 
-## 5. 总结
+## 5. 测试现状（截至 2026-05-01）
 
-此测试方案为 Omni-Desk 项目提供了一个从单元、集成到E2E的完整测试框架，并将其与CI/CD流程紧密结合。实施此方案将显著提高代码质量和开发团队的信心，是项目走向成熟和稳定的关键一步。
+### 5.1 后端测试覆盖情况
+
+| Django App | 测试状态 | 覆盖率估计 | 说明 |
+|---|---|---|---|
+| personnel | 有测试 | ~40% | Model完整，API有覆盖，缺serializer和边界条件 |
+| events | 有测试 | ~45% | Model较好，Schedule API完整，缺时区和冲突边界 |
+| documents | 有测试 | ~35% | Model和基础CRUD，缺zip导入和权限过滤 |
+| compliance | 有测试 | ~50% | 权限三级控制好，缺批量操作和状态流转 |
+| users | 有测试 | ~55% | 注册/登录/权限有测试，缺JWT刷新/黑名单完整测试 |
+| permissions | 有测试 | ~20% | 仅自定义permission class测试，ViewSet无测试 |
+| config/memos/dify_apps/office_assistant/news/sensor_management/sensors/meeting_rooms/ebooks/projects/llm_service | **无测试** | 0% | 11个模块完全无测试 |
+
+### 5.2 前端测试覆盖情况
+
+- **0% 覆盖率** — 无任何 `.test.js` / `.test.jsx` 文件
+- Jest + Testing Library 已安装，`setupTests.js` 有 matchMedia/ResizeObserver mock
+
+### 5.3 API 端点覆盖
+
+78 个端点中约 25 个有测试，**覆盖率约 32%**
+
+---
+
+## 6. 分阶段实施计划
+
+### Phase 1: 关键路径快速覆盖（~67小时）
+
+**后端基础设施：**
+- [x] 创建 `conftest.py` 共享 fixtures（api_client, admin_user, regular_user）
+- [x] `pytest.ini` 添加 `--cov-fail-under=60`
+- [x] `requirements-dev.in` 添加 `factory_boy`、`model_bakery`、`pytest-mock`
+
+**后端高优先级测试：**
+- [x] `permissions/tests/test_views.py` — ViewSet CRUD + 权限隔离 (23 测试)
+- [x] `sensor_management/tests/test_views.py` — 传感器管理 CRUD (12 测试)
+- [x] `projects/tests/test_views.py` — 项目管理 CRUD (6 测试)
+- [x] `config/tests/test_views.py` — 系统配置 CRUD (11 测试)
+- [x] `memos/tests/test_views.py` — 备忘录 CRUD (7 测试)
+- [ ] `users/` 补充 JWT 刷新、黑名单、token 过期测试
+- [ ] `personnel/tests/test_serializers.py` — 数据验证
+- [ ] `events/tests/test_edge_cases.py` — 时区、冲突边界
+
+**前端基础设施：**
+- [ ] 创建 `src/test-utils/test-utils.jsx` — QueryClient + MemoryRouter wrapper
+- [ ] 创建 `src/test-utils/mocks.js` — axios mock
+- [ ] 安装 `msw`（Mock Service Worker）
+
+**前端高优先级测试：**
+- [ ] `shared/api/axiosConfig.test.js` — JWT 拦截器、token 刷新
+- [ ] `features/auth/components/ProtectedRoute.test.jsx` — 路由守卫
+- [ ] `features/auth/pages/Login.test.jsx` — 登录表单
+- [ ] `shared/components/communication/PostList.test.js` — 列表渲染
+- [ ] `shared/components/communication/PostDetail.test.js` — 详情展示
+
+**E2E 基础：**
+- [ ] 安装 Playwright
+- [ ] `e2e/tests/auth.spec.js` — 登录/登出流程
+
+### Phase 2: 核心业务逻辑补充（~63小时）
+
+- [ ] `news/tests/test_views.py`
+- [ ] `dify_apps/tests/test_views.py`
+- [ ] `office_assistant/tests/test_views.py`
+- [ ] `ebooks/tests/test_views.py`
+- [ ] `sensors/tests/test_views.py`
+- [ ] `meeting_rooms/tests/test_views.py`
+- [ ] 前端所有表单组件测试（约10个文件）
+- [ ] 前端所有页面组件测试（约15个文件）
+- [ ] 前端 custom hooks 测试（约5个文件）
+- [ ] 已有测试模块边缘情况补充
+
+### Phase 3: E2E 全覆盖 + 边缘情况（~42小时）
+
+- [ ] `e2e/tests/personnel.spec.js` — 人员管理流程
+- [ ] `e2e/tests/events.spec.js` — 排班管理流程
+- [ ] `e2e/tests/documents.spec.js` — 文档管理流程
+- [ ] `e2e/tests/permissions.spec.js` — 权限隔离验证
+- [ ] 后端各模块边缘情况测试
+- [ ] 大数据量查询性能测试
+
+### Phase 4: 性能基线 + 回归检测（~20小时）
+
+- [ ] 安装 `pytest-benchmark`
+- [ ] API 响应时间基准测试
+- [ ] N+1 查询检测
+- [ ] 前端渲染性能测试
+- [ ] 覆盖率门槛从 60% 提升至 80%
+
+---
+
+## 7. 工具链
+
+| 工具 | 用途 | 添加位置 |
+|---|---|---|
+| `factory_boy` + `pytest-factoryboy` | 后端测试数据工厂 | `requirements-dev.in` |
+| `model_bakery` | Django model 测试数据生成 | `requirements-dev.in` |
+| `pytest-mock` | pytest mock 插件 | `requirements-dev.in` |
+| `msw` | 前端 API mock 拦截 | `package.json` devDependencies |
+| `playwright` | E2E 测试框架 | `package.json` devDependencies |
+| `pytest-benchmark` | 性能基准测试 | `requirements-dev.in` |
+
+---
+
+## 8. 成功标准
+
+- [ ] 后端 API 测试覆盖率 80%+（约 62/78 端点有测试）
+- [ ] 前端语句覆盖率 50%+（当前 0%）
+- [ ] users、permissions 安全模块 100% 覆盖
+- [ ] E2E 覆盖 5 个核心用户流程
+- [ ] CI 测试失败自动拦截合并（`--cov-fail-under=60`）
+- [ ] 无 CRITICAL 安全漏洞的测试用例缺失

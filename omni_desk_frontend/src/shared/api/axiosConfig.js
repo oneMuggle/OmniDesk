@@ -1,7 +1,11 @@
 import axios from 'axios';
 
+const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api';
+// Ensure baseURL ends with /
+const baseURL = API_BASE_URL.endsWith('/') ? API_BASE_URL : API_BASE_URL + '/';
+
 const instance = axios.create({
-    baseURL: '/api/',
+    baseURL,
     timeout: 10000,
     headers: {
         'Content-Type': 'application/json',

@@ -1,68 +1,97 @@
-/* AdminLayout.css */
+/* AdminLayout.css — Refactored to match main sidebar layout */
 
 .admin-layout {
   display: flex;
-  height: 100vh; /* Full viewport height */
-  overflow: hidden; /* Prevent body scroll */
+  height: 100vh;
+  overflow: hidden;
 }
 
 .admin-sidebar {
-  width: 250px; /* Default width */
-  background-color: #2C3E50; /* Softer, modern dark blue-gray */
-  color: #ECF0F1; /* Off-white for better readability */
+  width: 250px;
+  background-color: var(--admin-bg-dark);
+  color: var(--admin-text-light);
   display: flex;
   flex-direction: column;
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); /* Smoother animation */
-  flex-shrink: 0; /* Prevent shrinking */
+  transition: width 0.3s ease;
+  flex-shrink: 0;
 }
 
 .admin-sidebar.collapsed {
-  width: 80px; /* Collapsed width */
-  padding: 20px 10px;
+  width: 80px;
+  padding: 0;
 }
 
+/* Header */
 .admin-sidebar-header {
+  padding: 20px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
-  padding: 20px 20px 0 20px;
+  flex-shrink: 0;
 }
 
 .admin-sidebar-header h2 {
   margin: 0;
-  font-size: 1.5em;
-  white-space: nowrap; /* Prevent text wrapping */
+  padding: 0 16px;
+  font-size: 1.35rem;
+  font-weight: var(--font-weight-bold);
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  color: var(--text-color-inverse);
 }
 
 .admin-sidebar.collapsed .admin-sidebar-header h2 {
-  display: none; /* Hide text when collapsed */
+  display: none;
 }
 
+.admin-sidebar.collapsed .admin-sidebar-header {
+  padding: 20px 0 10px;
+}
+
+/* Collapse toggle */
 .collapse-toggle {
-  background: none;
-  border: none;
-  color: white;
-  font-size: 1.2em;
+  position: absolute;
+  right: -24px;
+  top: 20px;
+  background: var(--admin-bg-dark);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  color: var(--text-color-inverse);
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
   cursor: pointer;
-  padding: 5px;
+  z-index: 1001;
+  transition: all 0.3s ease;
+}
+
+.collapse-toggle:hover {
+  background: var(--admin-hover-bg);
+  transform: scale(1.1);
+}
+
+.collapse-icon {
+  font-size: 0.75rem !important;
   transition: transform 0.3s ease;
 }
 
-.collapse-toggle .collapse-icon {
-  transform: rotate(0deg);
-}
-
-.collapse-toggle .collapse-icon.rotate {
+.collapse-icon.rotate {
   transform: rotate(180deg);
 }
 
+/* Menu container */
 .admin-sidebar-menu {
   overflow-y: auto;
+  overflow-x: hidden;
   flex-grow: 1;
-  padding: 0 20px;
+  padding: 20px 0;
+  list-style: none;
+  margin: 0;
 }
 
 .admin-sidebar-menu ul {
@@ -72,84 +101,106 @@
 }
 
 .admin-sidebar-menu li {
-  margin-bottom: 10px;
+  margin: 8px 12px;
 }
 
+/* Menu items */
 .admin-sidebar-menu .menu-item {
   display: flex;
   align-items: center;
-  padding: 15px 20px; /* Increased padding for better spacing */
-  color: #ECF0F1; /* Off-white text */
+  color: var(--text-color-secondary-dark);
   text-decoration: none;
-  border-radius: 5px;
-  font-size: 16px; /* Main menu item font size */
-  font-weight: 600; /* Semi-bold for emphasis */
-  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out; /* Smooth transition */
-  position: relative; /* For active indicator */
+  padding: 10px 16px;
+  margin: 2px auto;
+  border-radius: var(--radius-base);
+  font-size: 0.9375rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  width: calc(100% - 24px);
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  position: relative;
 }
 
 .admin-sidebar-menu .menu-item:hover {
-  background-color: #34495E; /* Slightly lighter background on hover */
-  color: #FFFFFF; /* Pure white text on hover */
+  color: var(--text-color-inverse);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .admin-sidebar-menu .menu-item.active {
-  background-color: #34495E; /* Consistent background with hover */
-  color: #FFFFFF; /* Pure white text for active state */
+  background: transparent;
+  color: var(--text-color-inverse);
+  font-weight: var(--font-weight-medium);
 }
 
 .admin-sidebar-menu .menu-item.active::before {
   content: '';
   position: absolute;
   left: 0;
-  top: 0;
-  height: 100%;
+  top: 50%;
+  transform: translateY(-50%);
   width: 3px;
-  background-color: #3498DB; /* Bright blue indicator */
+  height: 60%;
+  background-color: var(--color-brand);
   border-radius: 0 2px 2px 0;
 }
 
+.admin-sidebar-menu .menu-item:hover::before {
+  width: 3px;
+  background: rgba(255, 255, 255, 0.3);
+}
+
+.admin-sidebar-menu .menu-item.active:hover::before {
+  background: var(--color-brand);
+}
+
+/* Icons */
 .admin-sidebar-menu .icon {
-  margin-right: 15px;
-  font-size: 1.2em; /* Slightly larger for better visibility */
-  color: #BDC3C7; /* Slightly muted icon color */
-  width: 24px; /* Explicitly set icon width */
-  height: 24px; /* Explicitly set icon height */
-  flex-shrink: 0; /* Prevent icon from shrinking */
+  margin-right: 6px;
+  font-size: 1.1rem;
+  color: var(--text-color-secondary-dark);
+  flex-shrink: 0;
 }
 
 .admin-sidebar.collapsed .admin-sidebar-menu .icon {
   margin-right: 0;
+  font-size: 1.4rem;
+  display: inline-flex !important;
 }
 
 .admin-sidebar-menu .menu-item span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  flex: 0 0 auto;
+  min-width: 0;
 }
 
-.admin-sidebar.collapsed .admin-sidebar-menu .menu-item span {
-  display: none; /* Hide text when collapsed */
-  opacity: 0; /* Fade out text */
-  transition: opacity 0.2s ease;
-}
-
-.admin-sidebar.collapsed .menu-item-content {
-  justify-content: center;
+/* Hide text labels in collapsed state — direct child of menu-item-content only */
+.admin-sidebar.collapsed .admin-sidebar-menu .menu-item-content > span {
+  display: none;
 }
 
 .menu-item-content {
   display: flex;
   align-items: center;
-  width: 100%;
+  width: auto;
 }
 
+.submenu-caret {
+  margin-left: auto;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+/* Content area */
 .admin-content {
-  flex-grow: 1; /* Take remaining space */
+  flex-grow: 1;
   padding: 20px;
-  overflow-y: auto; /* Enable scrolling for content */
-  background-color: #f4f7f6;
-  color: #333;
+  overflow-y: auto;
+  background-color: var(--color-bg-light);
+  color: var(--color-text);
 }
 
 /* Submenu styles */
@@ -157,77 +208,105 @@
   list-style: none;
   padding: 0;
   margin: 0;
-  background-color: transparent; /* Submenu background matches sidebar */
-  overflow: hidden; /* Ensures smooth collapse/expand */
+  background-color: transparent;
+  overflow: hidden;
   transition: max-height 0.3s ease-out;
 }
 
 .submenu li .submenu-item {
   display: flex;
   align-items: center;
-  padding: 10px 15px 10px 35px; /* Increased indent for better hierarchy */
-  color: #ECF0F1;
+  padding: 10px 15px 10px 35px;
+  color: var(--text-color-secondary-dark);
   text-decoration: none;
-  border-radius: 5px;
+  border-radius: var(--radius-sm);
   transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
-  font-size: 15px; /* Submenu item font size */
-  font-weight: 400; /* Normal font weight */
+  font-size: 0.875rem;
+  font-weight: var(--font-weight-normal);
 }
 
 .submenu li .submenu-item:hover {
-  background-color: #34495E;
-  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-color-inverse);
 }
 
 .submenu li .submenu-item.active {
-  background-color: #34495E; /* Consistent active background */
-  color: #FFFFFF;
+  background-color: rgba(255, 255, 255, 0.06);
+  color: var(--text-color-inverse);
 }
 
-.submenu-toggle-icon {
-  margin-left: auto; /* Push arrow to the right */
-  transition: transform 0.2s ease-in-out;
+/* Collapsed state — shared between .sidebar and .admin-sidebar */
+:is(.sidebar, .admin-sidebar).collapsed .menu-item {
+  justify-content: center;
+  padding: 12px 0;
+  margin: 8px auto;
+  border-radius: var(--radius-base);
 }
 
-.submenu.open .submenu-toggle-icon {
-  transform: rotate(90deg);
+:is(.sidebar, .admin-sidebar).collapsed .menu-item .icon {
+  margin-right: 0;
+  font-size: 1.4rem;
 }
 
-/* Responsive adjustments for smaller screens */
+:is(.sidebar, .admin-sidebar).collapsed .menu-item-content > span:not(.icon),
+:is(.sidebar, .admin-sidebar).collapsed .submenu-arrow {
+  display: none;
+}
+
+:is(.sidebar, .admin-sidebar).collapsed .submenu {
+  display: none;
+}
+
+:is(.sidebar, .admin-sidebar).collapsed .menu-item:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+:is(.sidebar, .admin-sidebar).collapsed .menu-item-content {
+  justify-content: center;
+  width: 100%;
+}
+
+/* Reset list item margins in collapsed state */
+.admin-sidebar.admin-sidebar.collapsed .admin-sidebar-menu li {
+  margin: 8px 0;
+}
+
+/* Responsive adjustments */
 @media (max-width: 768px) {
   .admin-sidebar {
     position: fixed;
-    left: -250px; /* Hide by default */
+    left: -250px;
     height: 100%;
     z-index: 1000;
   }
 
   .admin-sidebar.active {
-    left: 0; /* Show when active */
+    left: 0;
   }
 
   .admin-sidebar.collapsed {
-    width: 0; /* Fully collapse on mobile */
+    width: 0;
     padding: 0;
   }
 
   .admin-sidebar-header h2,
-  .admin-sidebar-menu .menu-item span {
-    display: block; /* Show text on mobile */
+  .admin-sidebar-menu .menu-item-content > span:not(.icon) {
+    display: block;
   }
 
   .admin-sidebar.collapsed .admin-sidebar-header h2,
-  .admin-sidebar.collapsed .admin-sidebar-menu .menu-item span {
-    display: none; /* Hide text when collapsed */
+  .admin-sidebar.collapsed .admin-sidebar-menu .menu-item-content > span:not(.icon) {
+    display: none;
   }
 
   .admin-content {
-    margin-left: 0; /* No margin when sidebar is hidden */
+    margin-left: 0;
   }
 }
+
 /* Custom scrollbar for admin sidebar menu */
 .admin-sidebar-menu::-webkit-scrollbar {
-  width: 8px;
+  width: 6px;
 }
 
 .admin-sidebar-menu::-webkit-scrollbar-track {
@@ -236,9 +315,7 @@
 
 .admin-sidebar-menu::-webkit-scrollbar-thumb {
   background-color: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  border-radius: 3px;
 }
 
 .admin-sidebar-menu::-webkit-scrollbar-thumb:hover {

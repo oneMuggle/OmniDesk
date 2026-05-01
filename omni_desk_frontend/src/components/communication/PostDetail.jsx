@@ -1,11 +1,19 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, Spin, List, Form, Input, Button, Avatar, Alert } from 'antd';
+import { Card, Spin, List, Form, Input, Button, Avatar, Alert, Tag, Divider, Typography } from 'antd';
+import {
+  ArrowLeftOutlined,
+  UserOutlined,
+  ClockCircleOutlined,
+  MessageOutlined,
+  SendOutlined,
+} from '@ant-design/icons';
 import { getPost, createComment } from '../../api/communicationApi';
 import './Communication.css';
 import { sanitizeHtml } from '../../shared/utils/sanitizeHtml';
 
 const { TextArea } = Input;
+const { Title, Paragraph } = Typography;
 
 const PostDetail = () => {
     const { postId: urlPostId } = useParams();
@@ -28,7 +36,7 @@ const PostDetail = () => {
                 setComments([]);
             }
         } catch (err) {
-            setError('Failed to fetch post. Please try again later.');
+            setError('获取帖子失败，请稍后重试。');
             console.error('Failed to fetch post:', err);
         } finally {
             setLoading(false);
@@ -54,59 +62,187 @@ const PostDetail = () => {
     };
 
     if (loading) {
-        return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}><Spin size="large" /></div>;
+        return (
+            <div className="post-detail-loading">
+                <Spin size="large" tip="加载中..." />
+            </div>
+        );
     }
 
     if (error) {
-        return <Alert message="Error" description={error} type="error" showIcon />;
+        return (
+            <div className="post-detail-error">
+                <Alert
+                    message="错误"
+                    description={error}
+                    type="error"
+                    showIcon
+                    action={
+                        <Button size="small" onClick={fetchPost}>
+                            重试
+                        </Button>
+                    }
+                />
+            </div>
+        );
     }
 
     if (!post) {
-        return <Alert message="Info" description="Post not found." type="info" showIcon />;
+        return (
+            <div className="post-detail-empty">
+                <Alert
+                    message="帖子不存在"
+                    description="该帖子可能已被删除或您没有访问权限。"
+                    type="info"
+                    showIcon
+                    action={
+                        <Button size="small" onClick={() => navigate('/communication')}>
+                            返回列表
+                        </Button>
+                    }
+                />
+            </div>
+        );
     }
 
+    const authorInitial = post.author ? post.author[0] : '?';
+
     return (
-        <div className="post-detail-container">
-            <Button onClick={() => navigate('/communication')} style={{ marginBottom: '1rem' }}>
-                返回列表
-            </Button>
-            <Card variant="borderless">
-                <div className="post-header">
-                    <h1 className="post-title">{post.title}</h1>
-                    <div className="post-meta">
-                        <span className="post-author"><strong>作者:</strong> {post.author || 'Unknown'}</span>
-                        <span className="post-date"><strong>发布于:</strong> {new Date(post.created_at).toLocaleString()}</span>
+        <div className="post-detail-wrapper">
+            <div className="post-detail-breadcrumb">
+                <Button
+                    type="text"
+                    icon={<ArrowLeftOutlined />}
+                    onClick={() => navigate('/communication')}
+                    className="back-btn"
+                >
+                    返回交流
+                </Button>
+            </div>
+
+            <Card className="post-detail-card" variant="borderless">
+                <div className="post-detail-header">
+                    <Title level={3} className="post-detail-title">
+                        {post.title}
+                    </Title>
+                    <div className="post-detail-meta">
+                        <Avatar size="large" style={{ backgroundColor: '#1677ff' }}>
+                            {authorInitial}
+                        </Avatar>
+                        <div className="meta-info">
+                            <div className="meta-author">
+                                <UserOutlined /> {post.author || '未知用户'}
+                            </div>
+                            <div className="meta-date">
+                                <ClockCircleOutlined />
+                                {new Date(post.created_at).toLocaleString('zh-CN', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                })}
+                            </div>
+                        </div>
+                        {post.tags && post.tags.length > 0 && (
+                            <div className="post-tags">
+                                {post.tags.map((tag) => (
+                                    <Tag key={tag} color="blue">{tag}</Tag>
+                                ))}
+                            </div>
+                        )}
                     </div>
                 </div>
-                <div className="post-content" dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }} />
+
+                <Divider className="post-divider" />
+
+                <div
+                    className="post-detail-content prose"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(post.content) }}
+                />
             </Card>
 
-            <Card className="comments-section" title={`${comments.length} 条评论`}>
+            <Card className="comments-card" variant="borderless">
+                <div className="comments-header">
+                    <MessageOutlined className="comments-icon" />
+                    <Title level={5} className="comments-title">
+                        {comments.length} 条评论
+                    </Title>
+                </div>
+
                 {comments.length > 0 ? (
                     <List
                         dataSource={comments}
+                        renderItem={(item, index) => {
+                            const itemAuthor = item.author || '匿名用户';
+                            const itemInitial = itemAuthor[0];
+                            return (
+                                <List.Item className="comment-item" key={item.id || index}>
+                                    <List.Item.Meta
+                                        avatar={
+                                            <Avatar
+                                                style={{
+                                                    backgroundColor: index % 2 === 0 ? '#722ed1' : '#13c2c2',
+                                                }}
+                                            >
+                                                {itemInitial}
+                                            </Avatar>
+                                        }
+                                        title={
+                                            <span className="comment-author-name">
+                                                {itemAuthor}
+                                            </span>
+                                        }
+                                        description={
+                                            <>
+                                                <div className="comment-text">{item.content}</div>
+                                                <div className="comment-date">
+                                                    {new Date(item.created_at).toLocaleString('zh-CN', {
+                                                        year: 'numeric',
+                                                        month: '2-digit',
+                                                        day: '2-digit',
+                                                        hour: '2-digit',
+                                                        minute: '2-digit',
+                                                    })}
+                                                </div>
+                                            </>
+                                        }
+                                    />
+                                </List.Item>
+                            );
+                        }}
                         itemLayout="horizontal"
-                        renderItem={item => (
-                            <List.Item className="comment-item">
-                                <List.Item.Meta
-                                    avatar={<Avatar>{item.author ? item.author[0] : 'U'}</Avatar>}
-                                    title={<span className="comment-author">{item.author}</span>}
-                                    description={<div className="comment-content">{item.content}</div>}
-                                />
-                                <div className="comment-date">{new Date(item.created_at).toLocaleString()}</div>
-                            </List.Item>
-                        )}
                     />
                 ) : (
-                    <div className="no-comments">暂无评论</div>
+                    <div className="no-comments">
+                        <MessageOutlined style={{ fontSize: 32, color: '#bfbfbf', marginBottom: 8 }} />
+                        <Paragraph type="secondary">暂无评论，快来抢沙发吧！</Paragraph>
+                    </div>
                 )}
-                <div className="comment-form">
+
+                <Divider />
+
+                <div className="comment-form-section">
+                    <Title level={5}>发表评论</Title>
                     <Form form={form} onFinish={handleSubmitComment} layout="vertical">
-                        <Form.Item name="comment" label="你的评论" rules={[{ required: true, message: '请输入评论内容!' }]}>
-                            <TextArea rows={4} placeholder="添加你的评论..." />
+                        <Form.Item
+                            name="comment"
+                            rules={[{ required: true, message: '请输入评论内容！' }]}
+                        >
+                            <TextArea
+                                rows={4}
+                                placeholder="写下你的想法..."
+                                className="comment-textarea"
+                            />
                         </Form.Item>
                         <Form.Item>
-                            <Button htmlType="submit" loading={submitting} type="primary">
+                            <Button
+                                htmlType="submit"
+                                loading={submitting}
+                                type="primary"
+                                icon={<SendOutlined />}
+                                className="submit-comment-btn"
+                            >
                                 提交评论
                             </Button>
                         </Form.Item>

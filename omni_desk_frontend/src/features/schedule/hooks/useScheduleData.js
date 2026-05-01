@@ -43,7 +43,7 @@ export const useScheduleData = (dateRange) => {
 
   const personnelQuery = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => scheduleApi.getPersonnel().then(res => res.results || []),
+    queryFn: () => scheduleApi.getPersonnel(),
     gcTime: 600000,
     staleTime: 300000
   });

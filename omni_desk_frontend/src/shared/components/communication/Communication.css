@@ -153,3 +153,251 @@
     color: #999;
     padding: 20px 0;
 }
+
+/* ===== PostDetail polished styles ===== */
+.post-detail-wrapper {
+    padding: 16px 24px 48px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.post-detail-breadcrumb {
+    margin-bottom: 16px;
+}
+
+.post-detail-breadcrumb .back-btn {
+    color: #595959;
+    font-size: 14px;
+    padding: 4px 8px;
+}
+
+.post-detail-breadcrumb .back-btn:hover {
+    color: #1677ff;
+    background-color: #f0f5ff;
+}
+
+.post-detail-loading,
+.post-detail-error,
+.post-detail-empty {
+    padding: 24px;
+    max-width: 960px;
+    margin: 0 auto;
+}
+
+.post-detail-loading {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 60vh;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.post-detail-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+    margin-bottom: 24px;
+    overflow: hidden;
+}
+
+.post-detail-header {
+    padding: 24px 24px 0;
+}
+
+.post-detail-title {
+    margin-bottom: 16px !important;
+    line-height: 1.4 !important;
+    color: #1a1a1a;
+}
+
+.post-detail-meta {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+    padding-bottom: 16px;
+}
+
+.meta-info {
+    flex: 1;
+    min-width: 200px;
+}
+
+.meta-author {
+    font-size: 15px;
+    font-weight: 600;
+    color: #262626;
+    margin-bottom: 2px;
+}
+
+.meta-author .anticon {
+    margin-right: 4px;
+    color: #1677ff;
+}
+
+.meta-date {
+    font-size: 13px;
+    color: #8c8c8c;
+}
+
+.meta-date .anticon {
+    margin-right: 4px;
+}
+
+.post-tags {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.post-divider {
+    margin: 0 24px;
+}
+
+.post-detail-content {
+    padding: 24px;
+    line-height: 1.9;
+    font-size: 16px;
+    color: #333;
+}
+
+.post-detail-content img {
+    max-width: 100%;
+    border-radius: 8px;
+    margin: 16px 0;
+}
+
+.post-detail-content pre {
+    background: #f6f8fa;
+    border-radius: 8px;
+    padding: 16px;
+    overflow-x: auto;
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.post-detail-content code {
+    background: #f0f0f0;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.post-detail-content pre code {
+    background: none;
+    padding: 0;
+}
+
+.post-detail-content blockquote {
+    border-left: 4px solid #1677ff;
+    margin: 16px 0;
+    padding: 12px 20px;
+    background: #f0f5ff;
+    border-radius: 0 8px 8px 0;
+    color: #595959;
+}
+
+.post-detail-content h1,
+.post-detail-content h2,
+.post-detail-content h3,
+.post-detail-content h4 {
+    margin-top: 24px;
+    margin-bottom: 12px;
+    color: #1a1a1a;
+}
+
+.post-detail-content ul,
+.post-detail-content ol {
+    padding-left: 24px;
+}
+
+.post-detail-content a {
+    color: #1677ff;
+    text-decoration: none;
+}
+
+.post-detail-content a:hover {
+    text-decoration: underline;
+}
+
+/* Comments section */
+.comments-card {
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
+}
+
+.comments-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 20px 24px 0;
+}
+
+.comments-icon {
+    font-size: 20px;
+    color: #1677ff;
+}
+
+.comments-title {
+    margin: 0 !important;
+    color: #262626;
+}
+
+.comment-item {
+    padding: 16px 24px;
+    transition: background-color 0.2s;
+}
+
+.comment-item:hover {
+    background-color: #fafafa;
+    border-radius: 8px;
+}
+
+.comment-author-name {
+    font-weight: 600;
+    font-size: 14px;
+    color: #262626;
+}
+
+.comment-text {
+    margin-top: 8px;
+    color: #434343;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.comment-date {
+    font-size: 12px;
+    color: #8c8c8c;
+    margin-top: 4px;
+}
+
+.no-comments {
+    text-align: center;
+    padding: 32px 0;
+}
+
+.comment-form-section {
+    padding: 0 24px 24px;
+}
+
+.comment-form-section .ant-typography {
+    margin-bottom: 16px !important;
+    color: #262626;
+}
+
+.comment-textarea {
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.comment-textarea:focus {
+    border-color: #1677ff;
+    box-shadow: 0 0 0 2px rgba(22, 119, 255, 0.1);
+}
+
+.submit-comment-btn {
+    border-radius: 8px;
+    padding: 6px 24px;
+}

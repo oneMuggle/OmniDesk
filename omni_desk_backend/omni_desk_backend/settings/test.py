@@ -20,3 +20,6 @@ LOGGING = {}
 
 MEDIA_ROOT = tempfile.mkdtemp()
 STATIC_ROOT = tempfile.mkdtemp()
+
+# Disable rate limiting during tests
+RATELIMIT_ENABLE = False
