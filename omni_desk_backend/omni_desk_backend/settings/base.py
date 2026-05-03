@@ -69,6 +69,7 @@ INSTALLED_APPS = [
     'sensors',
     'permissions.apps.PermissionsConfig',
     'ebooks.apps.EbooksConfig',
+    'smart_assistant.apps.SmartAssistantConfig',
 ]
 
 MIDDLEWARE = [

@@ -60,6 +60,7 @@ const NewsManagementPage = lazy(() => import('../features/news/pages/NewsManagem
 const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/AddCalibrationRecordPage'));
 const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
 const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));
+const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -265,6 +266,10 @@ const router = createBrowserRouter([
       {
         path: "books/:bookId/editor",
         element: <ChapterEditorPage />
+      },
+      {
+        path: "smart-assistant",
+        element: <ProtectedRoute pageName="智能助手"><LazyComponent component={SmartChatPage} /></ProtectedRoute>
       },
       {
         path: "intelligent-chat",

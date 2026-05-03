@@ -37,6 +37,7 @@ urlpatterns = [
         path('', include('news.urls')), # 新闻发布相关路由
         path('sensors/', include('sensors.urls')), # 传感器管理相关路由
         path('', include('ebooks.urls')), # 电子书管理相关路由
+        path('smart-assistant/', include('smart_assistant.urls')), # 智能助手相关路由
     ])),
 ]
 

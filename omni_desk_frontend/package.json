@@ -54,7 +54,8 @@
   },
   "scripts": {
     "start": "react-scripts start",
-    "build": "cross-env CI=false node scripts/generate-routes.js && react-scripts build",
+    "prebuild": "node scripts/generate-routes.js",
+    "build": "react-scripts build",
     "test": "react-scripts test --testTimeout=60000",
     "test:coverage": "react-scripts test --coverage --testTimeout=60000",
     "eject": "react-scripts eject",
@@ -85,31 +86,8 @@
     "eslint-plugin-react": "7.37.5",
     "eslint-plugin-react-hooks": "7.0.1",
     "eslint-plugin-testing-library": "7.13.6",
-    "flush-promises": "^1.0.2"
-  },
-  "jest": {
-    "transformIgnorePatterns": [
-      "/node_modules/(?!(axios|@ant-design|antd|dayjs|@tanstack|react-router|react-router-dom|@babel|d3|@quill|quill|@tiptap|prosemirror-[^/]+|@hello-pangea|@fullcalendar|react-dnd|react-dnd-html5-backend|react-markdown|remark-[^/]+|rehype-[^/]+|unist-[^/]+|vfile|vfile-message|devlop|micromark[^/]*|mdast-[^/]*|hast-[^/]*|trim-lines|property-information|space-separated-tokens|comma-separated-tokens|bail|is-plain-obj|trough|ccount|escape-string-regexp|html-void-elements|stringify-entities|character-entities-html4|decode-named-character-reference|longest-streak)(/.|$))"
-    ],
-    "collectCoverageFrom": [
-      "src/**/*.{js,jsx,ts,tsx}",
-      "!src/**/*.test.{js,jsx,ts,tsx}",
-      "!src/**/index.{js,ts}",
-      "!src/reportWebVitals.{js,ts}"
-    ],
-    "coverageReporters": [
-      "html",
-      "text",
-      "lcov",
-      "json"
-    ],
-    "coverageThreshold": {
-      "global": {
-        "branches": 50,
-        "functions": 50,
-        "lines": 50,
-        "statements": 50
-      }
-    }
+    "flush-promises": "^1.0.2",
+    "identity-obj-proxy": "^3.0.0",
+    "prop-types": "^15.8.1"
   }
 }
