@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react';
-import { Typography, Card, Row, Col, List, Empty, Statistic } from 'antd';
+import { useState, useEffect } from 'react';
+import { Typography, Card, Row, Col, List, Empty, Statistic, Tag, Skeleton } from 'antd';
 import {
   ExperimentOutlined,
   CalendarOutlined,
@@ -8,6 +8,8 @@ import {
   FileTextOutlined,
   ProjectOutlined,
   RightOutlined,
+  ClockCircleOutlined,
+  NotificationOutlined,
 } from '@ant-design/icons';
 import { Link } from 'react-router-dom';
 import dayjs from 'dayjs';
@@ -34,6 +36,10 @@ const DashboardPage = () => {
   const [weeklySchedules, setWeeklySchedules] = useState([]);
   const [weeklyBookings, setWeeklyBookings] = useState([]);
   const [errors, setErrors] = useState({});
+
+  // 新增：仪表盘聚合数据
+  const [dashboardStats, setDashboardStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
 
   useEffect(() => {
     const fetchWeeklyData = async () => {
@@ -84,6 +90,22 @@ const DashboardPage = () => {
     fetchWeeklyData();
   }, []);
 
+  // 获取仪表盘聚合数据
+  useEffect(() => {
+    const fetchDashboardStats = async () => {
+      try {
+        const response = await apiClient.get('dashboard/stats/');
+        setDashboardStats(response.data);
+      } catch (err) {
+        console.error('Error fetching dashboard stats:', err);
+      } finally {
+        setStatsLoading(false);
+      }
+    };
+
+    fetchDashboardStats();
+  }, []);
+
   return (
     <div className="dashboard-page-container">
       <div className="dashboard-header">
@@ -91,6 +113,122 @@ const DashboardPage = () => {
         <Text type="secondary">这里是您的智能办公中心，高效管理您的日常工作。</Text>
       </div>
 
+      {/* 通知 + 今日排班 + 待办行 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        {/* 未读通知 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" hoverable>
+            <Statistic
+              title="未读通知"
+              value={statsLoading ? undefined : dashboardStats?.unread_notifications ?? 0}
+              prefix={<NotificationOutlined />}
+              valueStyle={{ color: '#ef4444' }}
+            />
+            {statsLoading ? <Skeleton.Button active style={{ marginTop: 8, width: 80 }} /> : null}
+          </Card>
+        </Col>
+
+        {/* 进行中项目 */}
+        <Col xs={24} sm={12} lg={6}>
+          <Card className="stat-card" hoverable>
+            <Statistic
+              title="进行中项目"
+              value={statsLoading ? undefined : dashboardStats?.projects?.active_count ?? 0}
+              prefix={<ProjectOutlined />}
+              valueStyle={{ color: '#ec4899' }}
+            />
+          </Card>
+        </Col>
+
+        {/* 今日值班 */}
+        <Col xs={24} sm={24} lg={12}>
+          <Card className="stat-card" title={
+            <span><CalendarOutlined style={{ marginRight: 8 }} />今日值班</span>
+          }>
+            {statsLoading ? (
+              <Skeleton paragraph={{ rows: 1 }} active />
+            ) : dashboardStats?.today_schedule?.length > 0 ? (
+              <div style={{ display: 'flex', gap: 24 }}>
+                {dashboardStats.today_schedule.map((s, i) => (
+                  <span key={i}>
+                    {s.duty_person && <Tag color="blue">值班：{s.duty_person}</Tag>}
+                    {s.duty_leader && <Tag color="orange">领导：{s.duty_leader}</Tag>}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <Text type="secondary">今日暂无排班</Text>
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 待办事项 + 最新公告 */}
+      <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+        <Col xs={24} md={12}>
+          <Card title={
+            <span><ClockCircleOutlined style={{ marginRight: 8 }} />待办事项</span>
+          } extra={<Link to="/memos" style={{ fontSize: 12 }}>查看全部 <RightOutlined /></Link>}>
+            {statsLoading ? (
+              <SkeletonList count={3} />
+            ) : dashboardStats?.memos_due?.length > 0 ? (
+              <List
+                size="small"
+                dataSource={dashboardStats.memos_due}
+                renderItem={item => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={<Text strong>{item.title}</Text>}
+                      description={
+                        <Text type="secondary">
+                          {item.reminder_time ? `截止：${dayjs(item.reminder_time).format('YYYY-MM-DD HH:mm')}` : '无截止时间'}
+                        </Text>
+                      }
+                    />
+                    <Tag color={item.is_completed ? 'green' : 'orange'}>
+                      {item.is_completed ? '已完成' : '进行中'}
+                    </Tag>
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="暂无待办事项" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </Card>
+        </Col>
+
+        <Col xs={24} md={12}>
+          <Card title={
+            <span><BellOutlined style={{ marginRight: 8 }} />最新公告</span>
+          } extra={<Link to="/announcements" style={{ fontSize: 12 }}>查看全部 <RightOutlined /></Link>}>
+            {statsLoading ? (
+              <SkeletonList count={3} />
+            ) : dashboardStats?.recent_announcements?.length > 0 ? (
+              <List
+                size="small"
+                dataSource={dashboardStats.recent_announcements}
+                renderItem={item => (
+                  <List.Item>
+                    <List.Item.Meta
+                      title={<Text strong>{item.title}</Text>}
+                      description={
+                        <Text type="secondary">
+                          {item.author__username ? `发布人：${item.author__username}` : ''}
+                          {item.created_at ? ` · ${dayjs(item.created_at).fromNow()}` : ''}
+                        </Text>
+                      }
+                    />
+                  </List.Item>
+                )}
+              />
+            ) : (
+              <Empty description="暂无公告" image={Empty.PRESENTED_IMAGE_SIMPLE} />
+            )}
+          </Card>
+        </Col>
+      </Row>
+
+      {/* 统计卡片行 */}
       <Row gutter={[16, 16]} className="stat-cards-row">
         <Col xs={24} sm={12} lg={6}>
           <Card className="stat-card" hoverable>
@@ -142,6 +280,7 @@ const DashboardPage = () => {
         </Col>
       </Row>
 
+      {/* 本周概览 */}
       <div className="welcome-page-overview">
         <Title level={4} className="section-title">本周概览</Title>
         <Row gutter={[16, 16]}>

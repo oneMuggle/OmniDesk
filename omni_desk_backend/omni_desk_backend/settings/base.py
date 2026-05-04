@@ -70,6 +70,8 @@ INSTALLED_APPS = [
     'permissions.apps.PermissionsConfig',
     'ebooks.apps.EbooksConfig',
     'smart_assistant.apps.SmartAssistantConfig',
+    'notifications.apps.NotificationsConfig',
+    'dashboard.apps.DashboardConfig',
 ]
 
 MIDDLEWARE = [

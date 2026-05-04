@@ -10,6 +10,7 @@ from .serializers import (
     KnowledgeBaseDocumentSerializer,
     SmartAssistantSessionSerializer,
     SmartChatRequestSerializer,
+    AgentLogSerializer,
 )
 from .agent.orchestrator import AgentOrchestrator
 from .tasks import process_document_embedding
@@ -69,7 +70,7 @@ class SmartChatViewSet(viewsets.ViewSet):
             intent=result['intent'],
             tool_used=result.get('tool_used') or '',
             tool_input={'query': query},
-            tool_output=result.get('tool_result'),
+            tool_output=result.get('tool_result') or {},
             llm_response=result['answer'],
         )
 

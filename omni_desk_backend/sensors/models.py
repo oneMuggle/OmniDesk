@@ -1,8 +1,17 @@
 from django.db import models
+import warnings
+
+warnings.warn(
+    'The sensors app is deprecated and will be removed in a future release. '
+    'Use sensor_management instead.',
+    DeprecationWarning,
+    stacklevel=2
+)
 
 
 class Sensor(models.Model):
     """
+    [已弃用] 请使用 sensor_management.Sensor
     传感器模型
     """
     name = models.CharField(max_length=255, verbose_name="传感器名称")

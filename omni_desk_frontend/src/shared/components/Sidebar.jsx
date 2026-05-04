@@ -22,7 +22,7 @@ import {
   SoundOutlined,
   UserOutlined,
 } from '@ant-design/icons';
-import complianceApi from '../../features/compliance/api/compliance';
+import notificationApi from '../../features/notifications/api/notificationApi';
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
 
@@ -63,7 +63,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
   useEffect(() => {
     const fetchUnreadCount = async () => {
       try {
-        const response = await complianceApi.getUnreadCount();
+        const response = await notificationApi.getUnreadCount();
         setUnreadNotificationCount(response.data.unread_count);
       } catch (error) {
         console.error('Error fetching unread notification count:', error);

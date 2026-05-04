@@ -138,6 +138,10 @@ class Annotation(models.Model):
 
 
 class EBook(models.Model):
+    """
+    [已弃用] 请使用 ebooks.Ebook 替代。
+    本模型将在未来版本中移除。
+    """
     title = models.CharField(max_length=200, verbose_name="书名")
     author = models.CharField(max_length=100, blank=True, verbose_name="作者")
     content = models.TextField(verbose_name="Markdown内容")

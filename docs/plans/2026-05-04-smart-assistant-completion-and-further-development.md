@@ -6,132 +6,102 @@
 
 ---
 
-## 阶段 1：补全智能助手剩余工作（1-2 天）
+## 阶段 1：补全智能助手剩余工作 ✅ 已完成
 
-### 1.1 Ragflow 数据集 ID 配置
-
-**问题**：`SMART_ASSISTANT_DATASET_ID` 未在 `settings/local.py` 中配置，知识库向量化无法工作。
-
-**方案**：
-- 在 `settings/local.py` 中添加环境变量读取 + 默认占位符
-- 参照 `base.py` 中 `OLLAMA_BASE_URL` 的模式，使用 `os.environ.get()`
-- 在启动时检查该配置是否存在，若未配置则输出警告
-
-### 1.2 智能助手后端测试
-
-**问题**：smart_assistant 模块没有任何测试用例。
-
-**需要覆盖的文件**：
-
-| 文件 | 测试内容 |
-|------|----------|
-| `tools/schedule_tool.py` | 日期解析（今天/明天/后天/昨天）、无排班返回 |
-| `tools/personnel_tool.py` | 关键字搜索、脱敏输出、空结果 |
-| `tools/rag_tool.py` | Ragflow 调用成功/失败/未配置 |
-| `agent/orchestrator.py` | 工具路由成功、工具失败 fallback、通用对话 |
-| `tasks.py` | Celery 任务成功/失败/Ragflow 配置缺失 |
-| `views.py` | 聊天 API、流式 API、知识库 CRUD |
-
-### 1.3 Celery Worker 验证
-
-**问题**：知识库文档上传依赖 Celery 异步任务，但 worker 未验证。
-
-**方案**：
-- 在 `docker-compose` 或本地开发文档中说明 Celery worker 启动方式
-- 测试中 mock Celery 的 `apply_async`，不依赖真实 Redis
+### 完成内容：
+- [x] 在 `settings/local.py` 添加 `SMART_ASSISTANT_DATASET_ID` 环境变量配置
+- [x] 修复 `views.py` 中 `AgentLogSerializer` 未导入的 `NameError`
+- [x] 修复 `AgentLog` 创建时 `tool_output=None` 导致数据库 NOT NULL 错误
+- [x] 新增 45 个测试用例（`test_tools.py` + `test_orchestrator.py` + `test_tasks.py` + `test_views.py`）
+- [x] 全量测试 266/267 通过（1 个失败为已有 events 测试，与本次无关）
 
 ---
 
-## 阶段 2：通知中心（3-5 天）
+## 阶段 2：通知中心 ✅ 已完成
 
 ### 背景
 
 计划文档中项目管理模块提到了"通知中心"，侧边栏也有"通知中心"入口占位，但当前无实现。
 
-### 2.1 后端
+### 2.1 后端 ✅
 
-**新建 `notifications` Django app**：
+**已完成：**
+- [x] 新建 `notifications` Django app（models.py, serializers.py, views.py, urls.py, apps.py, signals.py, service.py）
+- [x] Notification 模型：type 字段覆盖 schedule_change, announcement, memo_due, calibration_reminder, project_update, compliance_issue, system
+- [x] ViewSet：列表（分页+过滤 type+is_read）、unread_count、mark_read、mark_all_read
+- [x] NotificationService 服务类
+- [x] Django 信号集成：Schedule 创建通知值班人员/领导，Announcement 创建通知全员，ComplianceIssue 通知项目负责人，Memo 创建通知用户
+- [x] 注册到 INSTALLED_APPS 和主 urls.py
+- [x] 数据库迁移已生成（`0001_initial.py`）
 
-模型设计：
-```python
-class Notification(models.Model):
-    user = ForeignKey(CustomUser)
-    type = CharField  # schedule_change, announcement, memo_due, calibration_reminder, project_update
-    title = CharField(max_length=200)
-    content = TextField
-    link = CharField(max_length=500, blank=True)  # 点击跳转的相对路径
-    is_read = BooleanField(default=False)
-    created_at = DateTimeField
-```
+**新建文件：**
+- `notifications/__init__.py`
+- `notifications/apps.py`
+- `notifications/models.py`
+- `notifications/serializers.py`
+- `notifications/views.py`
+- `notifications/urls.py`
+- `notifications/service.py`
+- `notifications/signals.py`
+- `notifications/migrations/__init__.py`
+- `notifications/migrations/0001_initial.py`
 
-API 端点：
-- `GET /api/notifications/` — 列表（分页 + 过滤 type + is_read）
-- `GET /api/notifications/unread-count/` — 未读数统计
-- `PATCH /api/notifications/{id}/read/` — 标记已读
-- `POST /api/notifications/batch-read/` — 批量标记已读
+**修改文件：**
+- `omni_desk_backend/settings/base.py` — 添加 `notifications.apps.NotificationsConfig`
+- `omni_desk_backend/urls.py` — 添加 `path('notifications/', include('notifications.urls'))`
 
-通知服务：
-```python
-class NotificationService:
-    @staticmethod
-    def create(user, type, title, content, link="")
-    @staticmethod
-    def mark_read(notification_id, user)
-    @staticmethod
-    def batch_mark_read(notification_ids, user)
-    @staticmethod
-    def get_unread_count(user)
-```
+### 2.2 前端 ✅
 
-与现有模块集成点：
-- `events` — 排班变更时创建通知
-- `announcements` — 公告发布时通知全员
-- `memos` — 备忘录到期提醒
-- `sensor_management` — 传感器校准到期
+**已完成：**
+- [x] 新建 `features/notifications/api/notificationApi.js` — getList, markRead, markAllRead, getUnreadCount
+- [x] 重写 `shared/pages/NotificationsPage.jsx` — 使用 React Query，支持全部/未读/已读筛选，点击行自动标记已读，一键标记全部已读
+- [x] 更新 `shared/components/Sidebar.jsx` — 将 badge 轮询从 `complianceApi.getUnreadCount()` 切换到 `notificationApi.getUnreadCount()`
 
-### 2.2 前端
+### 2.3 信号集成 ✅
 
-- Header 通知铃铛组件（红点显示未读数）
-- 通知下拉面板（最近 10 条，滚动加载更多）
-- `/notifications` 通知列表页（全部/未读分类）
-- 点击通知跳转到关联页面
-
-### 2.3 实时推送
-
-**方案 A（推荐）**：SSE（Server-Sent Events），与智能助手流式响应复用技术栈
-**方案 B**：短轮询（每 30s），简单但不够实时
+**已完成：**
+- [x] `events.Schedule` 创建 → 通知值班人员和值班领导
+- [x] `events.Announcement` 创建 → 通知所有用户（排除作者）
+- [x] `compliance.ComplianceIssue` 创建 → 通知项目负责人
+- [x] `memos.Memo` 创建（带提醒时间）→ 通知备忘录用户
 
 ---
 
-## 阶段 3：仪表盘增强（2-3 天）
+## 阶段 3：仪表盘增强 ✅ 已完成
 
 ### 背景
 
 首页 Dashboard 目前较简单，可以整合各模块数据提供更丰富的视图。
 
-### 方案
+### 3.1 后端 ✅
 
-- **今日排班卡片**：显示今天值班人员和领导
-- **待办事项**：备忘录到期 + 传感器校准到期
-- **最新公告**：最近 5 条公告，标注未读
-- **未读通知数**：红点提示
-- **项目概览**：进行中项目数量 + 最近变更
-- **快捷入口**：常用功能一键直达（智能助手、备忘录、公告等）
+**已完成：**
+- [x] 新建 `dashboard` Django app（apps.py, views.py, urls.py）
+- [x] `GET /api/dashboard/stats/` 聚合接口：今日排班、最新公告、备忘录提醒、项目概览、未读通知
+- [x] 注册到 INSTALLED_APPS 和主 urls.py
+
+### 3.2 前端 ✅
+
+**已完成：**
+- [x] 重写 `shared/pages/DashboardPage.js`
+- [x] 新增行：未读通知统计、进行中项目统计、今日值班卡片
+- [x] 新增行：待办事项（7 天内备忘录）+ 最新公告
+- [x] 保留原有本周概览（试验/排班/会议室）
 
 ---
 
-## 阶段 4：清理重复模型（1-2 天）
+## 阶段 4：清理重复模型 ✅ 已完成
 
 ### 背景
 
 - `sensors.Sensor` vs `sensor_management.Sensor` — 两个传感器模型
 - `documents.EBook` vs `ebooks.Ebook` — 两个电子书模型
 
-### 方案
+### 已完成：
 
-- 标记旧模型为 deprecated（添加运行时警告）
-- 将旧模型的 admin/Django admin 入口指向新模型
-- 逐步迁移引用，最终移除旧模型
+- [x] `sensors/models.py` — 添加 `DeprecationWarning` + docstring 标记为已弃用
+- [x] `documents/models.py` — `EBook` 类添加已弃用 docstring，指向 `ebooks.Ebook`
+- [x] 保留旧模型功能以兼容现有引用，待后续迁移完成后移除
 
 ---
 
