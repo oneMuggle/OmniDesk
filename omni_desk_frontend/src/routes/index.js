@@ -61,6 +61,8 @@ const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/Add
 const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
 const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));
 const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
+const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
+const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -208,12 +210,12 @@ const router = createBrowserRouter([
             element: <LazyComponent component={EBookManagementPage} />
           },
           {
-            path: "news",
-            element: <LazyComponent component={NewsManagementPage} />
-          },
-          {
             path: "news/stats",
             element: <LazyComponent component={NewsStatsPage} />
+          },
+          {
+            path: "smart-assistant/audit",
+            element: <LazyComponent component={AgentAuditPanel} />
           }
         ]
       }
@@ -270,6 +272,10 @@ const router = createBrowserRouter([
       {
         path: "smart-assistant",
         element: <ProtectedRoute pageName="智能助手"><LazyComponent component={SmartChatPage} /></ProtectedRoute>
+      },
+      {
+        path: "knowledge-base",
+        element: <ProtectedRoute pageName="知识库管理"><LazyComponent component={KnowledgeBasePage} /></ProtectedRoute>
       },
       {
         path: "intelligent-chat",

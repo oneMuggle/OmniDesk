@@ -37,3 +37,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
 CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
 SESSION_COOKIE_HTTPONLY = True
+
+# Smart Assistant Configuration
+# Ragflow dataset ID for knowledge base document upload and vectorization.
+# Obtain from Ragflow admin panel: Datasets -> select dataset -> copy ID.
+SMART_ASSISTANT_DATASET_ID = os.environ.get('SMART_ASSISTANT_DATASET_ID', '')

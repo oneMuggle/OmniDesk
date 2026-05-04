@@ -47,42 +47,42 @@
 - [x] `views.py` KnowledgeBaseViewSet.perform_create 触发 Celery 任务
 - [x] `settings/local.py` 添加 `SMART_ASSISTANT_DATASET_ID` 配置占位
 
-### 前端 🔄 进行中
+### 前端 ✅ 已完成
 - [x] `KnowledgeBasePage.jsx` 已创建（文档上传/列表/删除/状态轮询）
-- [ ] `KnowledgeBasePage.css` 样式文件（代码已准备好，待写入）
-- [ ] `routes/index.js` 注册 `/knowledge-base` 路由
-- [ ] `AdminLayout.jsx` 侧边栏添加"知识库管理"菜单项
+- [x] `KnowledgeBasePage.css` 样式文件
+- [x] `routes/index.js` 注册 `/knowledge-base` 路由
+- [x] `Sidebar.jsx` 侧边栏添加"知识库管理"菜单项
 
-### 待配置
+### 待配置 🔄 进行中
 - [ ] `settings/local.py` 中填入真实的 `SMART_ASSISTANT_DATASET_ID`
 - [ ] 确保 Celery worker 已启动
 
 ---
 
-## Phase 3：流式响应 + 对话历史 ❌ 未开始
+## Phase 3：流式响应 + 对话历史 ✅ 已完成
 
-### SSE 流式响应
-- [ ] 后端：改用 `StreamingHttpResponse`，按 chunk 推送 LLM 输出
-- [ ] 前端：使用 `fetch` + `ReadableStream` 逐段渲染，加载状态改为流式打字效果
+### SSE 流式响应 ✅
+- [x] 后端：改用 `StreamingHttpResponse`，按 chunk 推送 LLM 输出
+- [x] 前端：使用 `fetch` + `ReadableStream` 逐段渲染，加载状态改为流式打字效果
 
-### 对话历史持久化
-- [ ] 后端：SmartAssistantSession 表增加 messages JSON 字段
-- [ ] 后端：每次交互追加到对话历史，支持按 conversation_id 恢复上下文
-- [ ] 前端：会话列表侧边栏 + 新建/切换会话
+### 对话历史持久化 ✅
+- [x] 后端：SmartAssistantSession 表增加 messages JSON 字段
+- [x] 后端：每次交互追加到对话历史，支持按 conversation_id 恢复上下文
+- [x] 前端：会话列表侧边栏 + 新建/切换会话
 
 ---
 
-## Phase 4：审计面板 + 错误处理 ❌ 未开始
+## Phase 4：审计面板 + 错误处理 ✅ 已完成
 
-### AgentLog 审计面板
-- [ ] 后端：AgentLog 列表 API（支持按用户/时间/意图过滤）
-- [ ] 后端：AgentLog 详情 API（完整工具输入输出 + LLM 响应）
-- [ ] 前端：管理面板审计页面（表格 + 详情弹窗）
+### AgentLog 审计面板 ✅
+- [x] 后端：AgentLog 列表 API（支持按用户/时间/意图/关键词过滤）
+- [x] 后端：AgentLog 详情 API（完整工具输入输出 + LLM 响应）
+- [x] 前端：管理面板审计页面（表格 + 详情弹窗 + 过滤搜索）
 
-### 错误处理与缓存
-- [ ] 工具调用失败时优雅降级（Ragflow 不可用时 fallback 到通用回答）
-- [ ] 相同问题短时间内的缓存（避免重复调用 Ollama/Ragflow）
-- [ ] 用户友好的错误提示（区分网络错误/配置错误/服务不可用）
+### 错误处理与缓存 ✅
+- [x] 工具调用失败时优雅降级（Ragflow 不可用时 fallback 到通用回答）
+- [x] 用户友好的错误提示（区分网络错误/认证错误/服务不可用）
+- [ ] 相同问题短时间内的缓存（暂不实现，优先级低）
 
 ---
 
@@ -165,9 +165,9 @@ REACT_APP_OLLAMA_MODEL=deepseek-r1:1.5b
 | 阶段 | 状态 | 进度 |
 |------|------|------|
 | Phase 1 核心聊天 + 基础工具 | ✅ 完成 | 100% |
-| Phase 2 知识库集成 | 🔄 进行中 | 70% |
-| Phase 3 流式响应 + 对话历史 | ❌ 未开始 | 0% |
-| Phase 4 审计 + 错误处理 | ❌ 未开始 | 0% |
+| Phase 2 知识库集成 | ✅ 完成 | 100% |
+| Phase 3 流式响应 + 对话历史 | ✅ 完成 | 100% |
+| Phase 4 审计 + 错误处理 | ✅ 完成 | 95% |
 | Phase 5 文献搜索 | 📝 仅设计 | 0% |
 
-**整体进度：约 35%**
+**整体进度：约 75%**

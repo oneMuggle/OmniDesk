@@ -39,6 +39,25 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
         return f'回答生成失败: {str(e)}'
 
 
+def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict):
+    """流式版本：逐步 yield LLM 输出 chunk"""
+    result_text = str(tool_result) if tool_result else '无结果'
+
+    prompt = SYSTEM_PROMPT.format(
+        user_query=user_query,
+        intent=intent,
+        tool_name=tool_name,
+        tool_result=result_text,
+    )
+
+    client = OllamaClient()
+    try:
+        for chunk in client.generate(prompt=prompt, stream=True):
+            yield chunk
+    except Exception as e:
+        yield f'[错误] 回答生成失败: {str(e)}'
+
+
 def generate_general_answer(query: str, history: list = None) -> str:
     """通用对话回答"""
     client = OllamaClient()

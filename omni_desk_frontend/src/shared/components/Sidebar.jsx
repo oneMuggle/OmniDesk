@@ -98,6 +98,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       permission: null,
       subItems: [
         { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
+        { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
         { to: "/intelligent-chat", icon: CommentOutlined, text: "智能问答", permission: null },
         { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
         { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },

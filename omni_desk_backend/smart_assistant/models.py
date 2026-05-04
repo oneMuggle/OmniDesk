@@ -40,6 +40,7 @@ class SmartAssistantSession(models.Model):
         related_name='assistant_sessions',
     )
     title = models.CharField(max_length=255, verbose_name="会话标题")
+    messages = models.JSONField(default=list, verbose_name="对话消息历史")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

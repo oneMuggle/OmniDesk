@@ -33,6 +33,7 @@ const allAdminMenuItems = [
   { to: "/control-panel/meeting-rooms", icon: SettingOutlined, text: "会议室管理", permission: "meeting_rooms.view_meetingroom" },
   { to: "/control-panel/schedule/holiday", icon: CalendarOutlined, text: "节假日管理", permission: "events.view_holiday" },
   { to: "/control-panel/projects", icon: ProjectOutlined, text: "项目管理", permission: "admin" },
+  { to: "/control-panel/smart-assistant/audit", icon: FileTextOutlined, text: "Agent 审计", permission: "admin" },
   { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: "admin" },
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];

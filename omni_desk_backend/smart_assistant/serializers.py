@@ -14,9 +14,11 @@ class KnowledgeBaseDocumentSerializer(serializers.ModelSerializer):
 
 
 class SmartAssistantSessionSerializer(serializers.ModelSerializer):
+    messages = serializers.JSONField(required=False)
+
     class Meta:
         model = SmartAssistantSession
-        fields = ['id', 'title', 'created_at', 'updated_at']
+        fields = ['id', 'title', 'messages', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
