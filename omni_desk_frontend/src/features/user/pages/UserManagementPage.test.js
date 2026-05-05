@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import flushPromises from 'flush-promises';
 import userEvent from '@testing-library/user-event';
 import UserManagementPage from './UserManagementPage';
@@ -66,10 +66,8 @@ describe('UserManagementPage', () => {
 
   it('should render the initial list of users', async () => {
     setupMocks();
-    await act(async () => {
-      renderPage();
-      await flushPromises();
-    });
+    renderPage();
+    await flushPromises();
     expect(screen.getByText('user.one')).toBeInTheDocument();
     expect(screen.getByText('user.two')).toBeInTheDocument();
   });
@@ -78,10 +76,8 @@ describe('UserManagementPage', () => {
   it('should call the edit user function when the edit button is clicked', async () => {
     setupMocks();
     console.log = jest.fn(); // Mock console.log
-    await act(async () => {
-      renderPage();
-      await flushPromises();
-    });
+    renderPage();
+    await flushPromises();
     const user = userEvent.setup();
 
     expect(screen.getByText('user.one')).toBeInTheDocument();
@@ -95,10 +91,8 @@ describe('UserManagementPage', () => {
   it('should call the delete user function when the delete button is clicked', async () => {
     setupMocks();
     console.log = jest.fn(); // Mock console.log
-    await act(async () => {
-      renderPage();
-      await flushPromises();
-    });
+    renderPage();
+    await flushPromises();
     const user = userEvent.setup();
 
     expect(screen.getByText('user.one')).toBeInTheDocument();

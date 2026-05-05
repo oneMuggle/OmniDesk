@@ -63,8 +63,11 @@ test('uploads a new book and displays it in the list', async () => {
 test('opens the edit form with the correct book data', async () => {
   render(<EBookManagementPage />);
 
-  const bookTitle = await screen.findByText('React 入门指南');
-  const targetRowForEdit = bookTitle.closest('tr');
+  await screen.findByText('React 入门指南'); // Wait for data to load
+  // Use within() on the table to avoid direct Node access
+  const tableBody = screen.getByRole('table');
+  const rows = within(tableBody).getAllByRole('row');
+  const targetRowForEdit = rows.find(row => row.textContent.includes('React 入门指南'));
   const editButton = within(targetRowForEdit).getByRole('button', { name: /编\s*辑/i });
   await userEvent.click(editButton);
 
@@ -78,8 +81,9 @@ test('opens the edit form with the correct book data', async () => {
 test('edits a book and updates the list', async () => {
   render(<EBookManagementPage />);
 
-  const bookTitleToEdit = await screen.findByText('React 入门指南');
-  const targetRowToEdit = bookTitleToEdit.closest('tr');
+  const tableBody = screen.getByRole('table');
+  const rows = within(tableBody).getAllByRole('row');
+  const targetRowToEdit = rows.find(row => row.textContent.includes('React 入门指南'));
   const editButtonToClick = within(targetRowToEdit).getByRole('button', { name: /编\s*辑/i });
   await userEvent.click(editButtonToClick);
 
@@ -126,8 +130,9 @@ test('searches for books by title and author', async () => {
 test('deletes a book and removes it from the list', async () => {
   render(<EBookManagementPage />);
 
-  const bookTitleToDelete = await screen.findByText('React 入门指南');
-  const targetRowToDelete = bookTitleToDelete.closest('tr');
+  const tableBody = screen.getByRole('table');
+  const rows = within(tableBody).getAllByRole('row');
+  const targetRowToDelete = rows.find(row => row.textContent.includes('React 入门指南'));
   const deleteButton = within(targetRowToDelete).getByRole('button', { name: /删\s*除/i });
   await userEvent.click(deleteButton);
 

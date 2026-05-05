@@ -47,20 +47,29 @@ const mockPositions = [{ id: 1, name: 'Senior Developer' }, { id: 2, name: 'Juni
 // A helper function to set up the test environment
 const setupTest = async (initialData = mockPersonnelDetail) => {
     const user = userEvent.setup();
-    let formInstance;
+    let formInstance = null;
 
-    // This component will capture the form instance and pass it to the page
+    // This component will capture the form instance via callback ref
     const TestWrapper = () => {
         const [form] = Form.useForm();
-        formInstance = form;
-        return <PersonnelEditPage form={form} />;
+        // eslint-disable-next-line react-hooks/rules-of-hooks
+        const setFormRef = React.useCallback((node) => {
+            if (node !== null) {
+                formInstance = form;
+            }
+        }, [form]);
+        return (
+            <div ref={setFormRef}>
+                <PersonnelEditPage form={form} />
+            </div>
+        );
     };
 
     render(<TestWrapper />);
 
     // Manually and synchronously set the form values inside an act block
     await act(async () => {
-        if (initialData) {
+        if (initialData && formInstance) {
             formInstance.setFieldsValue({
                 ...initialData,
                 position: initialData.position ? initialData.position.id : null,
