@@ -18,7 +18,9 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑人员信息的ViewSet。
     """
-    queryset = Personnel.objects.all()
+    queryset = Personnel.objects.select_related('position').prefetch_related(
+        'contracts', 'educations', 'work_experiences', 'qualifications', 'family_members'
+    )
     permission_classes = [IsAdminOrReadOnly]
     filter_backends = [SearchFilter]
     search_fields = ['name', 'id_card_number']

@@ -124,7 +124,7 @@ class ChangePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserAdminListView(generics.ListAPIView):
-    queryset = CustomUser.objects.all().order_by('id') # 按照id排序
+    queryset = CustomUser.objects.prefetch_related('phone_numbers').all().order_by('id') # 按照id排序
     serializer_class = UserAdminSerializer
     permission_classes = [IsAdmin] # 只有管理员可以访问
 
@@ -154,7 +154,7 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
 
 from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.all().order_by('username')
+    queryset = CustomUser.objects.prefetch_related('phone_numbers').all().order_by('username')
     serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
     lookup_field = 'id'
     pagination_class = None

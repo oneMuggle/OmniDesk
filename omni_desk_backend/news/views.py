@@ -11,7 +11,7 @@ class NewsTypeViewSet(viewsets.ModelViewSet):
     serializer_class = NewsTypeSerializer
 
 class NewsArticleViewSet(viewsets.ModelViewSet):
-    queryset = NewsArticle.objects.all()
+    queryset = NewsArticle.objects.select_related('personnel', 'news_type').all()
     serializer_class = NewsArticleSerializer
 
     def get_queryset(self):

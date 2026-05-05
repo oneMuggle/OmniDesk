@@ -533,7 +533,9 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             )
 
 class TrialViewSet(viewsets.ModelViewSet):
-    queryset = Trial.objects.all()
+    queryset = Trial.objects.prefetch_related(
+        'equipments', 'responsible_persons', 'time_slots'
+    )
     serializer_class = TrialSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
@@ -649,7 +651,7 @@ class TrialViewSet(viewsets.ModelViewSet):
         return Response(serializer.data, status=201)
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
-    queryset = Announcement.objects.all().order_by('-created_at')
+    queryset = Announcement.objects.select_related('author').all().order_by('-created_at')
     serializer_class = AnnouncementSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
 
