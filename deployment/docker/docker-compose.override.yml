@@ -3,6 +3,7 @@ services:
     build:
       context: ../..
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
+      target: development
     volumes:
       - ../../omni_desk_backend:/app
     ports:
