@@ -11,3 +11,7 @@ __pycache__/
 /temp_packages/
 /node_modules/
 /deployment/docker/exported_images/
+
+# Root-level duplicate package files (frontend has its own)
+/package.json
+/package-lock.json
