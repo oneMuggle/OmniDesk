@@ -1,55 +1,157 @@
-import { Tabs } from 'antd';
-import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { Button, Table, Modal, Form, message, Space } from 'antd';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
+import SensorForm from '../components/SensorForm';
+import { Link, useNavigate } from 'react-router-dom';
 
 const SensorManagementPage = () => {
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [editingSensor, setEditingSensor] = useState(null);
+  const [form] = Form.useForm();
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
-  const location = useLocation();
 
-  const getActiveKey = () => {
-    const path = location.pathname.split('/').pop();
-    if (path === 'categories') return 'categories';
-    if (path === 'storage-locations') return 'storage-locations';
-    return 'list';
+  const sensorsQuery = useQuery({
+    queryKey: ['sensors'],
+    queryFn: getSensors,
+  });
+  const sensors = sensorsQuery.data?.data?.results || [];
+
+  const createMutation = useMutation({
+    mutationFn: createSensor,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
+      message.success('传感器创建成功');
+      setIsModalVisible(false);
+    },
+    onError: () => {
+      message.error('传感器创建失败');
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }) => updateSensor(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
+      message.success('传感器更新成功');
+      setIsModalVisible(false);
+      setEditingSensor(null);
+    },
+    onError: () => {
+      message.error('传感器更新失败');
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: deleteSensor,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['sensors'] });
+      message.success('传感器删除成功');
+    },
+    onError: () => {
+      message.error('传感器删除失败');
+    },
+  });
+
+  const handleAdd = () => {
+    setEditingSensor(null);
+    setIsModalVisible(true);
   };
 
-  const handleTabChange = (key) => {
-    switch (key) {
-      case 'list':
-        navigate('/control-panel/sensor');
-        break;
-      case 'categories':
-        navigate('/control-panel/sensor/categories');
-        break;
-      case 'storage-locations':
-        navigate('/control-panel/sensor/storage-locations');
-        break;
-      default:
-        break;
-    }
+  const handleEdit = (record) => {
+    setEditingSensor({
+      ...record,
+      category_id: record.sensor_category_name,
+      storage_location_id: record.location_name,
+    });
+    setIsModalVisible(true);
   };
 
-  const items = [
+  const handleDelete = (id) => {
+    Modal.confirm({
+      title: '确认删除',
+      content: '你确定要删除这个传感器吗？',
+      onOk: () => {
+        deleteMutation.mutate(id);
+      },
+    });
+  };
+
+  const handleOk = () => {
+    form.validateFields().then((values) => {
+      if (editingSensor) {
+        updateMutation.mutate({ id: editingSensor.id, data: values });
+      } else {
+        createMutation.mutate(values);
+      }
+    });
+  };
+
+  const handleCancel = () => {
+    setIsModalVisible(false);
+    setEditingSensor(null);
+  };
+
+  const statusMap = {
+    in_stock: '在库',
+    in_use: '使用中',
+    under_calibration: '需校准',
+    in_maintenance: '维修中',
+    retired: '已报废',
+  };
+
+  const columns = [
+    { title: '名称', dataIndex: 'name', key: 'name' },
+    { title: '类别', dataIndex: 'sensor_category_name', key: 'category' },
+    { title: '存放地点', dataIndex: 'location_name', key: 'storage_location' },
     {
-      key: 'list',
-      label: '传感器列表',
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status) => statusMap[status] || status,
     },
     {
-      key: 'categories',
-      label: '传感器类别',
-    },
-    {
-      key: 'storage-locations',
-      label: '存档位置',
+      title: '操作',
+      key: 'action',
+      render: (_, record) => (
+        <Space size="middle">
+          <Link to={`/control-panel/sensor/sensors/${record.id}`}>查看详情</Link>
+          <Button type="link" onClick={() => handleEdit(record)}>
+            编辑
+          </Button>
+          <Button type="link" danger onClick={() => handleDelete(record.id)}>
+            删除
+          </Button>
+        </Space>
+      ),
     },
   ];
 
   return (
     <div>
       <h1>传感器管理</h1>
-      <Tabs activeKey={getActiveKey()} onChange={handleTabChange} items={items} />
-      <div style={{ padding: '20px' }}>
-        <Outlet />
+      <div style={{ marginBottom: 16 }}>
+        <Button type="primary" onClick={handleAdd}>
+          新增传感器
+        </Button>
       </div>
+      <Table
+        columns={columns}
+        dataSource={sensors}
+        loading={sensorsQuery.isLoading}
+        rowKey="id"
+      />
+      <Modal
+        title={editingSensor ? '编辑传感器' : '新增传感器'}
+        open={isModalVisible}
+        onOk={handleOk}
+        onCancel={handleCancel}
+        confirmLoading={createMutation.isPending || updateMutation.isPending}
+        destroyOnClose
+      >
+        <SensorForm form={form} initialValues={editingSensor} />
+      </Modal>
     </div>
   );
 };
