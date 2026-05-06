@@ -1,5 +1,7 @@
 from django.db import models
+
 from users.models import CustomUser
+
 
 class Post(models.Model):
     title = models.CharField(max_length=255)

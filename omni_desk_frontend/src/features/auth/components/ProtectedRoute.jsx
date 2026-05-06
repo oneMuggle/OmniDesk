@@ -2,14 +2,14 @@ import PropTypes from 'prop-types';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, permissions = null }) => {
+const ProtectedRoute = ({ children, permissions = null, allowGuest = false }) => {
   const { isAuthenticated, isInitializing, hasPermission } = useAuth();
 
   if (isInitializing) {
     return <div>Loading...</div>;
   }
 
-  if (!isAuthenticated) {
+  if (!allowGuest && !isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 
@@ -27,6 +27,7 @@ ProtectedRoute.propTypes = {
     PropTypes.string,
     PropTypes.arrayOf(PropTypes.string),
   ]),
+  allowGuest: PropTypes.bool,
 };
 
 export default ProtectedRoute;

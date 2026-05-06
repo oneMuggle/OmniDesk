@@ -1,10 +1,28 @@
 import os
+
+from django.core.exceptions import ImproperlyConfigured
+
 from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+# Ensure PostgreSQL is configured in production — fail loudly if not set
+if not os.getenv('POSTGRES_DB'):
+    raise ImproperlyConfigured(
+        'Production settings require POSTGRES_DB environment variable. '
+        'Running on SQLite in production is not allowed.'
+    )
+
 ALLOWED_HOSTS = os.environ.get('DJANGO_ALLOWED_HOSTS', '').split(',')
+
+# Disable Browsable API in production
+REST_FRAMEWORK = {
+    **REST_FRAMEWORK,
+    'DEFAULT_RENDERER_CLASSES': (
+        'rest_framework.renderers.JSONRenderer',
+    ),
+}
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases

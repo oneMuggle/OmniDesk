@@ -1,0 +1,26 @@
+- generic [ref=e4]:
+  - generic [ref=e5]:
+    - generic [ref=e6]: OmniDesk
+    - generic [ref=e7]: 智能办公桌面管理系统
+  - generic [ref=e8]:
+    - generic [ref=e14]:
+      - img "user" [ref=e16]:
+        - img [ref=e17]
+      - textbox "用户名" [ref=e19]
+    - generic [ref=e25]:
+      - img "lock" [ref=e27]:
+        - img [ref=e28]
+      - textbox "密码" [ref=e30]
+      - img "eye-invisible" [ref=e32] [cursor=pointer]:
+        - img [ref=e33]
+    - generic [ref=e41] [cursor=pointer]:
+      - checkbox "记住我" [ref=e43]
+      - generic [ref=e45]: 记住我
+    - button "登 录" [ref=e51] [cursor=pointer]:
+      - generic [ref=e52]: 登 录
+  - generic [ref=e53]:
+    - text: 没有账号？
+    - link "立即注册" [ref=e54] [cursor=pointer]:
+      - /url: /register
+  - button "以游客身份访问" [ref=e55] [cursor=pointer]:
+    - generic [ref=e56]: 以游客身份访问

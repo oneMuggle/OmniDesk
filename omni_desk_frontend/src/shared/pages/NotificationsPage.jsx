@@ -1,100 +1,133 @@
-import React, { useState, useEffect } from 'react';
-import { Container, Typography, Table, TableBody, TableCell, TableHead, TableRow, Paper, Chip } from '@mui/material';
+import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Table, Tag, Typography, Button, Space } from 'antd';
 import { format } from 'date-fns';
-import complianceApi from '../api/compliance'; // 导入合规API
+import { CheckOutlined } from '@ant-design/icons';
+import notificationApi from '../../features/notifications/api/notificationApi';
+
+const { Title } = Typography;
+
+const TYPE_TAG = {
+  schedule_change: { color: 'blue', label: '排班变更' },
+  announcement: { color: 'green', label: '公告发布' },
+  memo_due: { color: 'orange', label: '备忘录到期' },
+  calibration_reminder: { color: 'purple', label: '校准提醒' },
+  project_update: { color: 'cyan', label: '项目更新' },
+  compliance_issue: { color: 'red', label: '合规问题' },
+  system: { color: 'default', label: '系统通知' },
+};
 
 const NotificationsPage = () => {
-    const [notifications, setNotifications] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+  const [filter, setFilter] = useState('all');
+  const queryClient = useQueryClient();
 
-    useEffect(() => {
-        const fetchNotifications = async () => {
-            try {
-                setLoading(true);
-                const response = await complianceApi.getAllComplianceIssues();
-                setNotifications(response.data.results || response.data); // 假设返回的数据结构
-                setLoading(false);
-            } catch (err) {
-                setError('无法加载通知，请稍后再试。');
-                console.error('Error fetching notifications:', err);
-                setLoading(false);
-            }
-        };
+  const notificationsQuery = useQuery({
+    queryKey: ['notifications', filter],
+    queryFn: () => {
+      const params = filter !== 'all' ? { is_read: filter === 'read' ? 'true' : 'false' } : {};
+      return notificationApi.getList(params);
+    },
+    select: (res) => res.data.results || res.data || [],
+  });
 
-        fetchNotifications();
-    }, []);
+  const markReadMutation = useMutation({
+    mutationFn: (id) => notificationApi.markRead(id),
+    onSuccess: () => queryClient.invalidateQueries(['notifications']),
+  });
 
-    if (loading) {
-        return <Container><Typography>正在加载通知...</Typography></Container>;
+  const markAllReadMutation = useMutation({
+    mutationFn: () => notificationApi.markAllRead(),
+    onSuccess: () => queryClient.invalidateQueries(['notifications']),
+  });
+
+  const handleRowClick = (record) => {
+    if (!record.is_read) {
+      markReadMutation.mutate(record.id);
     }
-
-    if (error) {
-        return <Container><Typography color="error">{error}</Typography></Container>;
+    if (record.link) {
+      window.location.hash = record.link;
     }
+  };
 
-    return (
-        <Container>
-            <Typography variant="h4" component="h1" gutterBottom>
-                通知中心
-            </Typography>
-            <Paper style={{ marginTop: '20px' }}>
-                <Table>
-                    <TableHead>
-                        <TableRow>
-                            <TableCell>问题类型</TableCell>
-                            <TableCell>描述</TableCell>
-                            <TableCell>项目</TableCell>
-                            <TableCell>关联文档</TableCell>
-                            <TableCell>位置</TableCell>
-                            <TableCell>严重程度</TableCell>
-                            <TableCell>状态</TableCell>
-                            <TableCell>截止日期</TableCell>
-                            <TableCell>创建时间</TableCell>
-                        </TableRow>
-                    </TableHead>
-                    <TableBody>
-                        {notifications.length > 0 ? (
-                            notifications.map((notification) => (
-                                <TableRow key={notification.id}>
-                                    <TableCell>{notification.issue_type}</TableCell>
-                                    <TableCell>{notification.description}</TableCell>
-                                    <TableCell>{notification.project_name}</TableCell>
-                                    <TableCell>
-                                        {notification.document_book_title || notification.document_template_name || 'N/A'}
-                                    </TableCell>
-                                    <TableCell>{notification.location}</TableCell>
-                                    <TableCell>
-                                        <Chip
-                                            label={notification.severity}
-                                            color={
-                                                notification.severity === '紧急' ? 'error' :
-                                                notification.severity === '高' ? 'warning' :
-                                                'default'
-                                            }
-                                        />
-                                    </TableCell>
-                                    <TableCell>{notification.status}</TableCell>
-                                    <TableCell>
-                                        {notification.due_date ? format(new Date(notification.due_date), 'yyyy-MM-dd') : 'N/A'}
-                                    </TableCell>
-                                    <TableCell>
-                                        {format(new Date(notification.created_at), 'yyyy-MM-dd HH:mm')}
-                                    </TableCell>
-                                </TableRow>
-                            ))
-                        ) : (
-                            <TableRow>
-                                <TableCell colSpan={9} align="center">
-                                    暂无通知。
-                                </TableCell>
-                            </TableRow>
-                        )}
-                    </TableBody>
-                </Table>
-            </Paper>
-        </Container>
-    );
+  const columns = [
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      width: 120,
+      render: (type) => {
+        const info = TYPE_TAG[type] || TYPE_TAG.system;
+        return <Tag color={info.color}>{info.label}</Tag>;
+      },
+    },
+    {
+      title: '标题',
+      dataIndex: 'title',
+      key: 'title',
+      render: (text, record) => (
+        <Space>
+          {!record.is_read && <Tag color="red" style={{ marginRight: 0 }}>未读</Tag>}
+          {text}
+        </Space>
+      ),
+    },
+    {
+      title: '内容',
+      dataIndex: 'content',
+      key: 'content',
+      ellipsis: true,
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'created_at',
+      key: 'created_at',
+      width: 180,
+      render: (date) => format(new Date(date), 'yyyy-MM-dd HH:mm'),
+    },
+  ];
+
+  return (
+    <div style={{ padding: '24px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <Title level={2} style={{ margin: 0 }}>通知中心</Title>
+        <Space>
+          <Button
+            type={filter === 'all' ? 'primary' : 'default'}
+            onClick={() => setFilter('all')}
+          >
+            全部
+          </Button>
+          <Button
+            type={filter === 'unread' ? 'primary' : 'default'}
+            onClick={() => setFilter('unread')}
+          >
+            未读
+          </Button>
+          <Button
+            type={filter === 'read' ? 'primary' : 'default'}
+            onClick={() => setFilter('read')}
+          >
+            已读
+          </Button>
+          <Button
+            icon={<CheckOutlined />}
+            onClick={() => markAllReadMutation.mutate()}
+            loading={markAllReadMutation.isPending}
+          >
+            全部标记已读
+          </Button>
+        </Space>
+      </div>
+      <Table
+        columns={columns}
+        dataSource={notificationsQuery.data?.map(n => ({ ...n, key: n.id })) || []}
+        loading={notificationsQuery.isLoading}
+        pagination={{ pageSize: 10 }}
+        rowClassName={(record) => record.is_read ? '' : 'notification-unread'}
+        onRow={(record) => ({ onClick: () => handleRowClick(record) })}
+      />
+    </div>
+  );
 };
 
 export default NotificationsPage;

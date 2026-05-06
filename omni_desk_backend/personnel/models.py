@@ -1,5 +1,5 @@
 from django.db import models
-from django.conf import settings
+
 
 class Position(models.Model):
     name = models.CharField(max_length=100, unique=True, verbose_name="职位名称")
@@ -33,7 +33,7 @@ class Personnel(models.Model):
         blank=True,
         verbose_name="职位"
     )
-    
+
     STATUS_CHOICES = [
         ('active', '在职'),
         ('inactive', '离职'),
@@ -60,13 +60,13 @@ class Contract(models.Model):
     contract_number = models.CharField(max_length=100, verbose_name="合同编号")
     start_date = models.DateField(verbose_name="合同开始日期")
     end_date = models.DateField(verbose_name="合同结束日期")
-    
+
     CONTRACT_TYPE_CHOICES = [
         ('permanent', '长期合同'),
         ('fixed-term', '固定期限合同'),
     ]
     contract_type = models.CharField(max_length=20, choices=CONTRACT_TYPE_CHOICES, verbose_name="合同类型")
-    
+
     def __str__(self):
         return f"{self.personnel.name} - {self.contract_number}"
 

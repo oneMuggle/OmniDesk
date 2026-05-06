@@ -1,6 +1,9 @@
 from rest_framework import serializers
-from .models import NewsType, NewsArticle
+
 from users.serializers import UserSerializer
+
+from .models import NewsArticle, NewsType
+
 
 class NewsTypeSerializer(serializers.ModelSerializer):
     class Meta:

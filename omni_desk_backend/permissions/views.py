@@ -1,13 +1,15 @@
-from rest_framework import viewsets, status
+import logging
+
+from django.contrib.auth.models import Group, Permission
+from rest_framework import status, viewsets
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.permissions import IsAuthenticated
+
 from users.permissions import IsAdminOrReadOnly
-from django.contrib.auth.models import Group, Permission
-from django.db import transaction
-from .models import PageRoute, GroupPagePermission
+
+from .models import GroupPagePermission, PageRoute
 from .serializers import GroupSerializer, PageRouteSerializer
-import logging
 
 logger = logging.getLogger(__name__)
 
@@ -69,7 +71,7 @@ class UserPermissionView(APIView):
             groups = user.groups.all()
             page_ids = GroupPagePermission.objects.filter(group__in=groups).values_list('page_id', flat=True).distinct()
             pages = PageRoute.objects.filter(id__in=page_ids)
-        
+
         serializer = PageRouteSerializer(pages, many=True)
         return Response(serializer.data)
 
@@ -83,7 +85,7 @@ class GroupedPermissionsView(APIView):
     def get(self, request, *args, **kwargs):
         # Eagerly fetch content types to reduce database queries
         permissions = Permission.objects.select_related('content_type').all()
-        
+
         grouped_permissions = {}
         for perm in permissions:
             # Use model_class() to get the verbose_name of the model if available
@@ -95,11 +97,11 @@ class GroupedPermissionsView(APIView):
 
             if group_name not in grouped_permissions:
                 grouped_permissions[group_name] = []
-            
+
             grouped_permissions[group_name].append({
                 'id': perm.id,
                 'name': perm.name,
                 'codename': perm.codename
             })
-            
+
         return Response(grouped_permissions)

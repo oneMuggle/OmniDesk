@@ -1,9 +1,9 @@
-# Dependabot 配置 - 依赖安全扫描
-# 请在 GitHub 仓库设置中启用 Dependabot
+# Dependabot 配置
+# 自动检查依赖更新和安全漏洞
 
 version: 2
 updates:
-  # 启用 npm 依赖安全扫描
+  # npm 前端依赖
   - package-ecosystem: "npm"
     directory: "/omni_desk_frontend"
     schedule:
@@ -11,22 +11,31 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "npm"
     commit-message:
       prefix: "deps"
-    groups:
-      production-dependencies:
-        dependency-type: "production"
-        update-types:
-          - "minor"
-          - "patch"
-      development-dependencies:
-        dependency-type: "development"
-        update-types:
-          - "minor"
-          - "patch"
+      include: "scope"
 
-  # 启用 GitHub Actions 更新
+  # pip 后端依赖
+  - package-ecosystem: "pip"
+    directory: "/omni_desk_backend"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "Asia/Shanghai"
+    open-pull-requests-limit: 10
+    labels:
+      - "dependencies"
+      - "python"
+    commit-message:
+      prefix: "deps"
+      include: "scope"
+
+  # GitHub Actions
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -34,18 +43,27 @@ updates:
       day: "monday"
       time: "09:00"
       timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "github-actions"
     commit-message:
       prefix: "ci"
+      include: "scope"
 
-  # 启用 Docker 依赖扫描
-  - package-ecosystem: "docker"
-    directory: "/deployment/docker/omni_desk_backend"
+# 安全更新
+security-updates:
+  - package-ecosystem: "npm"
+    directory: "/omni_desk_frontend"
     schedule:
-      interval: "weekly"
-      day: "monday"
-      time: "09:00"
-      timezone: "Asia/Shanghai"
-    open-pull-requests-limit: 2
-    commit-message:
-      prefix: "docker"
+      interval: "daily"
+    labels:
+      - "security"
+      - "npm"
+
+  - package-ecosystem: "pip"
+    directory: "/omni_desk_backend"
+    schedule:
+      interval: "daily"
+    labels:
+      - "security"
+      - "python"

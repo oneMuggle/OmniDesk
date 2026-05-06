@@ -1,13 +1,13 @@
 from django.db import models
-from django.db.models import JSONField
+
 from users.models import CustomUser
+
 # 导入新的 personnel 模型
-from personnel.models import Personnel, Position
 
 class Equipment(models.Model):
     name = models.CharField(max_length=100)
     description = models.TextField()
-    
+
     class Meta:
         ordering = ['id']  # 设置默认排序字段
         verbose_name = '试验'
@@ -28,7 +28,7 @@ class TimeSlot(models.Model):
     start_time = models.DateTimeField(verbose_name="开始时间")
     end_time = models.DateTimeField(verbose_name="结束时间")
     description = models.TextField(verbose_name="时间段描述", blank=True)
-    
+
     class Meta:
         ordering = ['start_time']
         verbose_name = '试验时间段'
@@ -66,13 +66,13 @@ class Trial(models.Model):
 
     title = models.CharField(max_length=200, verbose_name="试验名称")
     version = models.IntegerField(default=0, verbose_name="版本号")
-    client = models.CharField(max_length=200, verbose_name="客户单位") 
+    client = models.CharField(max_length=200, verbose_name="客户单位")
     description = models.TextField(verbose_name="试验描述")
     start_date = models.DateTimeField(verbose_name="主开始时间", null=True, blank=True)
     end_date = models.DateTimeField(verbose_name="主结束时间", null=True, blank=True)
     equipments = models.ManyToManyField(
-        Equipment, 
-        blank=True, 
+        Equipment,
+        blank=True,
         related_name='trials',
         verbose_name="相关设备"
     )
@@ -82,8 +82,8 @@ class Trial(models.Model):
         verbose_name="责任人"
     )
     status = models.CharField(
-        max_length=20, 
-        choices=STATUS_CHOICES, 
+        max_length=20,
+        choices=STATUS_CHOICES,
         default='planned',
         verbose_name="试验状态"
     )
@@ -102,8 +102,8 @@ class Trial(models.Model):
         """
         Calculates and updates the Trial's start_date and end_date based on its associated TimeSlots.
         """
-        from django.db.models import Min, Max
-        
+        from django.db.models import Max, Min
+
         time_slots = self.time_slots.all()
         if time_slots.exists():
             time_range = time_slots.aggregate(
@@ -141,13 +141,13 @@ class DocumentTemplate(models.Model):
         ('biological', '生物实验'),
         ('physical', '物理实验'),
     ]
-    
+
     name = models.CharField(max_length=100)
     experiment_type = models.CharField(max_length=20, choices=EXPERIMENT_TYPES)
     template_file = models.FileField(upload_to='templates/')
     created_at = models.DateTimeField(auto_now_add=True)
     owner = models.ForeignKey('users.CustomUser', on_delete=models.CASCADE, related_name='event_templates')
-    
+
     def __str__(self):
         return f"{self.name} ({self.get_experiment_type_display()})"
 
@@ -167,7 +167,7 @@ class Schedule(models.Model):
         related_name='leader_schedules',
         verbose_name="值班领导"
     )
-    
+
     class Meta:
         ordering = ['duty_date']
         verbose_name = '排班表'
@@ -178,11 +178,11 @@ class Schedule(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                fields=['duty_date'], 
+                fields=['duty_date'],
                 name='unique_duty_date'
             )
         ]
-    
+
     def __str__(self):
         return f"{self.duty_date}: {self.duty_person.name} (值班), {self.duty_leader.name} (领导)"
 
@@ -190,8 +190,8 @@ class Announcement(models.Model):
     title = models.CharField(max_length=200, verbose_name="公告标题")
     content = models.TextField(verbose_name="公告内容")
     author = models.ForeignKey(
-        CustomUser, 
-        on_delete=models.SET_NULL, 
+        CustomUser,
+        on_delete=models.SET_NULL,
         null=True,
         related_name='announcements',
         verbose_name="发布者"
@@ -224,7 +224,7 @@ class PersonnelSequence(models.Model):
         verbose_name="工作日人员"
     )
     sequence = models.JSONField(default=list, verbose_name="工作日人员ID顺序列表")
-    
+
     holiday_personnel = models.ManyToManyField(
         'personnel.Personnel',
         related_name='holiday_personnel_sequences',
@@ -258,6 +258,7 @@ class LeaderSequence(models.Model):
 
 
 from django.utils import timezone
+
 
 class Holiday(models.Model):
     name = models.CharField(max_length=100)

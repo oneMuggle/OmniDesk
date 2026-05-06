@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Form } from 'antd';
+import { Form, Spin } from 'antd';
 import { trialApi } from '../../../shared/api/trialApi';
-import { useAuth } from '../../auth/context/AuthContext';
 import { useTrialScheduleData } from '../hooks/useTrialScheduleData';
-import CalendarEventModal from './CalendarEventModal'; // 使用新的通用模态框
+import CalendarEventModal from './CalendarEventModal';
 import TrialSchedule from './TrialSchedule';
+import { logger } from '../../../shared/utils/logger';
+import '../../../shared/components/styles/CalendarPageLayout.css';
 
 const TrialScheduleContainer = () => {
   const [form] = Form.useForm();
-  const { isGuest } = useAuth();
   const [currentEvent, setCurrentEvent] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [selectedTrial, setSelectedTrial] = useState(null);
@@ -30,7 +30,7 @@ const TrialScheduleContainer = () => {
     const targetTrialId = values.trial_id;
 
     if (!targetTrialId) {
-      console.error('无法确定要更新的试验项目。');
+      logger.error('无法确定要更新的试验项目。');
       return;
     }
 
@@ -49,7 +49,7 @@ const TrialScheduleContainer = () => {
       trialQueryClient.invalidateQueries(['trials']); // 刷新数据
       setCurrentEvent(null); // 关闭模态框
     } catch (error) {
-      console.error('保存试验失败:', error);
+      logger.error('保存试验失败:', error);
     }
   };
 
@@ -74,7 +74,6 @@ const TrialScheduleContainer = () => {
         }],
       },
     };
-    console.log('TrialScheduleContainer - handleEventClick: updatedCurrentEvent', updatedCurrentEvent);
     setCurrentEvent(updatedCurrentEvent);
   };
 
@@ -93,20 +92,25 @@ const TrialScheduleContainer = () => {
   };
 
   if (isTrialsLoading) {
-    return <div>正在加载试验日程...</div>;
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+        <Spin size="large" tip="正在加载试验日程..." />
+      </div>
+    );
   }
 
   return (
-    <>
+    <div className="calendar-page-container">
+      <div className="calendar-page-header">
+        <h1>试验日程</h1>
+      </div>
+      <div className="calendar-page-content">
       <TrialSchedule
         trials={trials}
         trialEvents={trialEvents}
-        isGuest={isGuest}
         onDateClick={handleDateSelect}
         select={handleDateSelect}
         onEventClick={handleEventClick}
-        slotMinTime="08:00:00"
-        slotMaxTime="23:00:00"
       />
 
       {currentEvent && (
@@ -114,19 +118,23 @@ const TrialScheduleContainer = () => {
           isVisible={!!currentEvent}
           form={form}
           currentEvent={currentEvent}
-          trials={trials}
-          isGuest={isGuest}
+          passedTrials={trials}
           isEditing={isEditing}
           setIsEditing={setIsEditing}
           selectedTrial={selectedTrial}
           onSave={handleSaveTrial} // 将试验保存逻辑传递给 CalendarEventModal
           onCancel={() => setCurrentEvent(null)}
-          onDelete={() => console.log('onDelete called')} // 临时空函数
-          onSwap={() => console.log('onSwap called')}     // 临时空函数
+          onDelete={() => {
+            trialQueryClient.invalidateQueries(['trials']);
+          }}
+          onSwap={() => {
+            trialQueryClient.invalidateQueries(['trials']);
+          }}
         />
       )}
 
-    </>
+      </div>
+    </div>
   );
 };
 

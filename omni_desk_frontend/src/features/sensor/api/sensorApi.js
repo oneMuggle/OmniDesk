@@ -20,14 +20,29 @@ export const deleteSensor = (id) => {
 };
 
 
-// 根据参数获取校准记录列表
+// 获取校准记录列表
 export const getCalibrationRecords = (params) => {
-  return apiClient.get('calibration-records/', { params });
+  return apiClient.get('sensor-management/sensor-calibrations/', { params });
+};
+
+// 获取单个校准记录详情
+export const getCalibrationRecord = (id) => {
+  return apiClient.get(`sensor-management/sensor-calibrations/${id}/`);
 };
 
 // 创建一条新的校准记录
 export const createCalibrationRecord = (data) => {
-  return apiClient.post('calibration-records/', data);
+  return apiClient.post('sensor-management/sensor-calibrations/', data);
+};
+
+// 更新校准记录
+export const updateCalibrationRecord = (id, data) => {
+  return apiClient.put(`sensor-management/sensor-calibrations/${id}/`, data);
+};
+
+// 删除校准记录
+export const deleteCalibrationRecord = (id) => {
+  return apiClient.delete(`sensor-management/sensor-calibrations/${id}/`);
 };
 
 // SensorCategory API

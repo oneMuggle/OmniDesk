@@ -1,16 +1,19 @@
-from rest_framework import viewsets, status
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
-from rest_framework.views import APIView
-from rest_framework.decorators import action # 导入 action 装饰器
-from django.db.models import Sum, F, ExpressionWrapper, fields, Count
-from django.utils import timezone
 from datetime import timedelta
-from rest_framework.exceptions import PermissionDenied # 导入 PermissionDenied
+
+from django.db.models import Count, ExpressionWrapper, F, Sum, fields
+from django.utils import timezone
+from rest_framework import status, viewsets
+from rest_framework.decorators import action  # 导入 action 装饰器
+from rest_framework.exceptions import PermissionDenied  # 导入 PermissionDenied
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from users.permissions import IsAdminOrManager  # 假设users应用中有IsAdminOrManager权限类
 
 from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
-from .serializers import MeetingRoomSerializer, MeetingRoomBookingSerializer, MeetingRoomMaintenanceSerializer
-from users.permissions import IsAdminOrManager # 假设users应用中有IsAdminOrManager权限类
+from .serializers import MeetingRoomBookingSerializer, MeetingRoomMaintenanceSerializer, MeetingRoomSerializer
+
 
 class MeetingRoomViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoom.objects.all().order_by('id')

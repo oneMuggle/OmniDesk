@@ -1,0 +1,105 @@
+schema: spec-driven
+
+# Project context
+context: |
+  ## Tech Stack
+  - Backend: Django 3.2, DRF, PostgreSQL, Redis (Celery), JWT (simplejwt)
+  - Frontend: React (CRA), React Router v6, TanStack Query, Ant Design, MUI, axios
+  - Auth: JWT stored in localStorage
+
+  ## Project Structure
+  - omni_desk_backend/ - Django REST API (port 8000)
+  - omni_desk_frontend/ - React SPA (port 3000, proxied to 8000)
+  - Database: PostgreSQL (Docker at db:5432), Test: in-memory SQLite
+  - Cache/Queue: Redis
+
+  ## Django Apps (16 apps)
+  personnel, events, documents, config, memos, dify_apps, office_assistant,
+  projects, compliance, ragflow_service, meeting_rooms, sensor_management,
+  communication, news, permissions, sensors
+
+  ## Conventions
+  - Backend: pip-compile (edit .in files only)
+    - requirements.in → requirements-prod.txt
+    - requirements-dev.in → requirements.txt
+  - Frontend: npm, route auto-generation via scripts/generate-routes.js
+  - Test: pytest --ds=omni_desk_backend.settings.test
+  - Linting: npm run lint (frontend)
+
+  ## Settings Modules
+  - base.py (shared), development.py (dev), production.py, test.py (SQLite)
+
+  ## CI/CD
+  - Main: build-and-push-images.yml → deploy-ssh-windows.yml (Windows SSH)
+  - Test: ci-test.yml (parallel backend pytest + frontend jest)
+
+  ## Anti-Patterns
+  - No "DO NOT"/"NEVER"/"TODO" markers in code comments
+  - No type suppression (@ts-ignore, as any, @ts-expect-error)
+  - No empty catch blocks
+  - No deleting failing tests to "pass"
+
+# Per-artifact rules
+rules:
+  proposal:
+    - 提案控制在 800 字以内
+    - 必须包含"非目标"部分
+    - 包含代码结构变更（新文件、修改的文件）
+    - 参考后端应用：personnel, events, documents, config, memos,
+      dify_apps, office_assistant, projects, compliance, ragflow_service,
+      meeting_rooms, sensor_management, communication, news, permissions, sensors
+    - 参考前端：src/routes/（自动生成）
+    - 包含验证要求（测试、构建、lint）
+
+  design:
+    - 展示后端/前端变更的数据流
+    - 包含 API 端点变更（若适用）
+    - 参考 2-3 个相似文件以保持模式一致性
+    - 考虑安全影响（认证、权限）
+
+  tasks:
+    - 将任务拆分为独立单元
+    - 独立时优先后端/前端并行执行
+    - 始终验证：lsp_diagnostics、build（若适用）、test（若适用）
+    - 复杂任务使用 deep 类别
+    - UI/UX 任务使用 visual-engineering 类别
+    - 失败后绝不留代码在损坏状态
+
+  implementation:
+    - 匹配现有模式（先检查 2-3 个相似文件）
+    - 绝不使用类型抑制（@ts-ignore, as any, @ts-expect-error）
+    - 除非明确要求，否则不提交
+    - 测试设置使用内存 SQLite、快速密码哈希（MD5）、禁用日志
+    - Bugfix 规则：最小化修复，修复时不重构
+
+  review:
+    - 根据原始提案要求验证
+    - 检查��码质量（无 AI slop、无空 catch 块）
+    - 检查安全（认证、权限、输入验证）
+    - 手动 QA：运行后端和前端测试
+    - 验证：lsp_diagnostics 干净、build 通过
+
+# Schema configuration
+schema_config:
+  changes_dir: openspec/changes
+
+  artifacts:
+    proposal:
+      required_sections:
+        - 概述
+        - 问题
+        - 解决方案
+        - 非目标
+        - 代码变更
+        - 验证
+
+    design:
+      required_sections:
+        - 架构
+        - 数据流
+        - API 设计（若适用）
+        - 安全考虑
+
+    tasks:
+      format: markdown
+      include_verification: true

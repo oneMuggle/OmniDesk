@@ -3,11 +3,18 @@ import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import { Calendar, dayjsLocalizer } from 'react-big-calendar';
 import dayjs from 'dayjs';
-import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, Tag, notification } from 'antd';
+import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, notification, Spin, Descriptions } from 'antd';
+import { CalendarOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
 import { useAuth } from '../../auth/context/AuthContext';
-import meetingRoomApi from '../api/meetingRoomApi';
+import {
+    useMeetingRooms,
+    useMeetingRoomBookings,
+    useCreateMeetingRoomBooking,
+    useUpdateMeetingRoomBooking,
+    useDeleteMeetingRoomBooking,
+} from '../hooks/useMeetingRoomData';
 import 'react-big-calendar/lib/css/react-big-calendar.css';
-import '../../../shared/components/CalendarPage.css'; // 假设你有一个通用的日历样式文件
+import './MeetingRoomBookingPage.css';
 
 const localizer = dayjsLocalizer(dayjs);
 const { RangePicker } = DatePicker;
@@ -80,6 +87,78 @@ CustomToolbar.propTypes = {
   view: PropTypes.string.isRequired,
 };
 
+const EventComponent = ({ event }) => {
+    const eventRef = useRef(null);
+    const [showDetails, setShowDetails] = useState(true);
+
+    useEffect(() => {
+        if (!eventRef.current) return;
+
+        const observer = new ResizeObserver(entries => {
+            for (const entry of entries) {
+                const minHeightForDetails = 35;
+                setShowDetails(entry.contentRect.height > minHeightForDetails);
+            }
+        });
+
+        observer.observe(eventRef.current);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
+
+    return (
+        <div
+            ref={eventRef}
+            style={{
+                height: '100%',
+                overflow: 'hidden',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
+                textAlign: 'center',
+                fontSize: '0.8em',
+                lineHeight: '1.2',
+            }}
+        >
+            <div style={{ fontWeight: 'bold' }}>{event.title}</div>
+            {showDetails && (
+                <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
+                    {event.meeting_room_name}
+                </div>
+            )}
+        </div>
+    );
+};
+
+EventComponent.propTypes = {
+    event: PropTypes.object.isRequired,
+};
+
+const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
+    <div className="meeting-room-legend">
+        <h4>会议室图例</h4>
+        <div className="legend-items">
+            {meetingRooms.map(room => (
+                <div key={room.id} className="legend-item">
+                    <span
+                        className="legend-color-dot"
+                        style={{ backgroundColor: roomColorMap.get(room.id) }}
+                    />
+                    <span className="legend-room-name">{room.name}</span>
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
+MeetingRoomLegend.propTypes = {
+    meetingRooms: PropTypes.array.isRequired,
+    roomColorMap: PropTypes.instanceOf(Map).isRequired,
+};
+
 const MeetingRoomBookingPage = () => {
     const { user, isAuthenticated } = useAuth();
     const navigate = useNavigate();
@@ -88,9 +167,12 @@ const MeetingRoomBookingPage = () => {
     const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
     const [currentBooking, setCurrentBooking] = useState(null);
     const [selectedEvent, setSelectedEvent] = useState(null);
-    const [meetingRooms, setMeetingRooms] = useState([]);
-    const [bookings, setBookings] = useState([]);
-    const [loading, setLoading] = useState(false);
+    const { data: meetingRooms = [], isLoading: isRoomsLoading } = useMeetingRooms();
+    const { data: bookings = [], isLoading: isBookingsLoading } = useMeetingRoomBookings();
+    const isLoading = isRoomsLoading || isBookingsLoading;
+    const createBookingMutation = useCreateMeetingRoomBooking();
+    const updateBookingMutation = useUpdateMeetingRoomBooking();
+    const deleteBookingMutation = useDeleteMeetingRoomBooking();
 
     const minTime = new Date();
     minTime.setHours(8, 0, 0);
@@ -98,9 +180,9 @@ const MeetingRoomBookingPage = () => {
     maxTime.setHours(22, 0, 0);
 
     const roomColors = useMemo(() => [
-        '#FF6B6B', '#4ECDC4', '#45B7D1', '#FED766', '#2AB7CA',
-        '#F0B7A4', '#F18C8E', '#A8D8EA', '#AA96DA', '#FCBAD3',
-        '#FFFFD2', '#A2D5F2', '#FFC3A0', '#D4A5A5', '#392F5A'
+        '#f87171', '#2dd4bf', '#38bdf8', '#fbbf24', '#22d3ee',
+        '#fb923c', '#f472b6', '#93c5fd', '#c084fc', '#f9a8d4',
+        '#fde68a', '#7dd3fc', '#fdba74', '#fca5a5', '#8b5cf6'
     ], []);
 
     const roomColorMap = useMemo(() => {
@@ -114,40 +196,6 @@ const MeetingRoomBookingPage = () => {
     const isAdminOrManager = useMemo(() => {
         return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
     }, [isAuthenticated, user]);
-
-    const fetchMeetingRooms = useCallback(async () => {
-        try {
-            const response = await meetingRoomApi.getMeetingRooms();
-            setMeetingRooms(response.data.results || []);
-        } catch (error) {
-            message.error('获取会议室列表失败。');
-            console.error('Failed to fetch meeting rooms:', error.response || error);
-        }
-    }, []);
-
-    const fetchBookings = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await meetingRoomApi.getMeetingRoomBookings();
-            const bookingsData = response.data.results || [];
-            setBookings(bookingsData.map(booking => ({
-                ...booking,
-                start: new Date(booking.start_time),
-                end: new Date(booking.end_time),
-            })));
-        } catch (error) {
-            message.error('获取预约信息失败。');
-            console.error('Failed to fetch bookings:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchMeetingRooms();
-        fetchBookings();
-    }, [fetchMeetingRooms, fetchBookings]);
-
 
     const handleSelectSlot = ({ start, end }) => {
         if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
@@ -233,42 +281,31 @@ const MeetingRoomBookingPage = () => {
             };
 
             if (currentBooking) {
-                await meetingRoomApi.updateMeetingRoomBooking(currentBooking.id, bookingData);
-                message.success('预约更新成功！');
+                await updateBookingMutation.mutateAsync({ id: currentBooking.id, data: bookingData });
             } else {
-                await meetingRoomApi.createMeetingRoomBooking(bookingData);
-                message.success('预约创建成功！');
+                await createBookingMutation.mutateAsync(bookingData);
             }
             setIsModalVisible(false);
-            fetchBookings(); // Refresh bookings
         } catch (error) {
-            const errorMsg = error.response?.data?.detail || error.response?.data?.non_field_errors?.[0] || '操作失败，请重试。';
-            message.error(errorMsg);
-            console.error('Failed to save booking:', error);
+            message.error('操作失败，请重试');
         }
     };
 
     const handleDelete = async (bookingId) => {
-        try {
-            await meetingRoomApi.deleteMeetingRoomBooking(bookingId);
-            message.success('预约删除成功！');
-            setIsModalVisible(false);
-            fetchBookings(); // Refresh bookings
-        } catch (error) {
-            message.error('删除预约失败。');
-            console.error('Failed to delete booking:', error);
-        }
+        await deleteBookingMutation.mutateAsync(bookingId);
+        setIsModalVisible(false);
     };
 
     const eventPropGetter = useCallback((event) => {
         const backgroundColor = roomColorMap.get(event.meeting_room) || '#6c757d';
         const style = {
             backgroundColor: backgroundColor,
-            borderRadius: '0px',
-            opacity: 0.8,
+            borderRadius: '6px',
+            opacity: 0.9,
             color: 'white',
-            border: '0px',
-            display: 'block'
+            border: 'none',
+            display: 'block',
+            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
         };
         return {
             style: style,
@@ -276,75 +313,14 @@ const MeetingRoomBookingPage = () => {
         };
     }, [roomColorMap]);
 
-    const EventComponent = ({ event }) => {
-        const eventRef = useRef(null);
-        const [showDetails, setShowDetails] = useState(true);
-
-        useEffect(() => {
-            if (!eventRef.current) return;
-
-            const observer = new ResizeObserver(entries => {
-                // Use a loop in case there are multiple observations, though we expect one.
-                for (const entry of entries) {
-                    const minHeightForDetails = 35; // Height threshold in pixels
-                    setShowDetails(entry.contentRect.height > minHeightForDetails);
-                }
-            });
-
-            observer.observe(eventRef.current);
-
-            return () => {
-                observer.disconnect();
-            };
-        }, []);
-
-        return (
-            <div
-                ref={eventRef}
-                style={{
-                    height: '100%',
-                    overflow: 'hidden',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    textAlign: 'center',
-                    fontSize: '0.8em',
-                    lineHeight: '1.2',
-                }}
-            >
-                <div style={{ fontWeight: 'bold' }}>{event.title}</div>
-                {showDetails && (
-                    <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
-                        {event.meeting_room_name}
-                    </div>
-                )}
-            </div>
-        );
-    };
-    
-    EventComponent.propTypes = {
-      event: PropTypes.object.isRequired,
-    };
-
-    const MeetingRoomLegend = () => (
-        <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #e8e8e8', borderRadius: '4px' }}>
-            <h4>会议室颜色图例</h4>
-            {meetingRooms.map(room => (
-                <div key={room.id} style={{ display: 'flex', alignItems: 'center', marginBottom: '5px' }}>
-                    <Tag color={roomColorMap.get(room.id)} style={{ marginRight: '8px' }}>
-                        {room.name}
-                    </Tag>
-                </div>
-            ))}
-        </div>
-    );
-
     return (
         <div className="calendar-page-container">
-            <h1>会议室预约</h1>
-            <div style={{ display: 'flex', gap: '20px' }}>
-                <div style={{ flex: 1, height: 700 }}>
+            <div className="calendar-page-header">
+                <h1>会议室预约</h1>
+            </div>
+            <Spin spinning={isLoading} tip="正在加载会议室数据...">
+                <div className="calendar-page-content">
+                    <div className="calendar-wrapper">
                     <Calendar
                         localizer={localizer}
                     events={bookings}
@@ -377,8 +353,8 @@ const MeetingRoomBookingPage = () => {
                     }}
                     />
                 </div>
-                <div style={{ flex: '0 0 200px' }}>
-                    <MeetingRoomLegend />
+                <div className="calendar-sidebar">
+                    <MeetingRoomLegend meetingRooms={meetingRooms} roomColorMap={roomColorMap} />
                 </div>
             </div>
 
@@ -404,7 +380,7 @@ const MeetingRoomBookingPage = () => {
                             </Button>
                         </Popconfirm>
                     ),
-                    <Button key="submit" type="primary" loading={loading} onClick={handleOk}>
+                    <Button key="submit" type="primary" loading={createBookingMutation.isPending || updateBookingMutation.isPending} onClick={handleOk}>
                         {currentBooking ? "更新" : "创建"}
                     </Button>,
                 ]}
@@ -470,17 +446,18 @@ const MeetingRoomBookingPage = () => {
                 ]}
             >
                 {selectedEvent && (
-                    <div>
-                        <p><strong>主题:</strong> {selectedEvent.title}</p>
-                        <p><strong>会议室:</strong> {selectedEvent.meeting_room_name}</p>
-                        <p><strong>时间:</strong> {`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</p>
-                        <p><strong>发布人:</strong> {selectedEvent.user.real_name || selectedEvent.user.username}</p>
-                        <p><strong>联系电话:</strong> {selectedEvent.user.phone_numbers?.[0]?.number || '未提供'}</p>
-                        <p><strong>参与人员:</strong> {selectedEvent.participants || '无'}</p>
-                        <p><strong>描述:</strong> {selectedEvent.description || '无'}</p>
-                    </div>
+                    <Descriptions bordered column={1} size="small">
+                        <Descriptions.Item label="主题">{selectedEvent.title}</Descriptions.Item>
+                        <Descriptions.Item label="会议室">{selectedEvent.meeting_room_name}</Descriptions.Item>
+                        <Descriptions.Item label="时间">{`${dayjs(selectedEvent.start).format('YYYY-MM-DD HH:mm')} - ${dayjs(selectedEvent.end).format('HH:mm')}`}</Descriptions.Item>
+                        <Descriptions.Item label={<><UserOutlined /> 发布人</>}>{selectedEvent.user.real_name || selectedEvent.user.username}</Descriptions.Item>
+                        <Descriptions.Item label={<><PhoneOutlined /> 联系电话</>}>{selectedEvent.user.phone_numbers?.[0]?.number || '未提供'}</Descriptions.Item>
+                        <Descriptions.Item label="参与人员">{selectedEvent.participants || '无'}</Descriptions.Item>
+                        <Descriptions.Item label={<><CalendarOutlined /> 描述</>}>{selectedEvent.description || '无'}</Descriptions.Item>
+                    </Descriptions>
                 )}
             </Modal>
+            </Spin>
         </div>
     );
 };

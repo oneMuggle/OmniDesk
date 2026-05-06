@@ -1,22 +1,30 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from rest_framework.decorators import action
-from django_filters.rest_framework import DjangoFilterBackend
-from django.db import transaction
-from django.utils import timezone
-from datetime import timedelta
 import logging
 
-from .models import Sensor, SensorMovement, CalibrationReminder, SensorCategory, StorageLocation, SensorCalibration
-from .serializers import SensorSerializer, SensorMovementSerializer, CalibrationReminderSerializer, SensorCategorySerializer, StorageLocationSerializer, SensorCalibrationSerializer
-from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly # 假设有这些权限类
+from django.db import transaction
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+
+from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly  # 假设有这些权限类
+
+from .models import CalibrationReminder, Sensor, SensorCalibration, SensorCategory, SensorMovement, StorageLocation
+from .serializers import (
+    CalibrationReminderSerializer,
+    SensorCalibrationSerializer,
+    SensorCategorySerializer,
+    SensorMovementSerializer,
+    SensorSerializer,
+    StorageLocationSerializer,
+)
 
 logger = logging.getLogger(__name__)
 
 class SensorViewSet(viewsets.ModelViewSet):
-    queryset = Sensor.objects.all()
+    queryset = Sensor.objects.select_related('sensor_category', 'location')
     serializer_class = SensorSerializer
-    permission_classes = [permissions.AllowAny] # <--- 添加这一行
+    permission_classes = [IsAdminOrManagerOrReadOnly]  # 之前为 AllowAny，已收紧
 class SensorMovementViewSet(viewsets.ModelViewSet):
     queryset = SensorMovement.objects.all()
     serializer_class = SensorMovementSerializer
@@ -69,7 +77,7 @@ class SensorMovementViewSet(viewsets.ModelViewSet):
                 if sensor.current_quantity < new_quantity:
                     raise serializers.ValidationError("出库数量不能大于当前库存数量。")
                 sensor.current_quantity -= new_quantity
-            
+
             # Update status based on new quantity and movement type
             if sensor.current_quantity == 0:
                 sensor.status = 'retired'

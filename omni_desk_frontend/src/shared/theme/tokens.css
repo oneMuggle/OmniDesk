@@ -1,0 +1,168 @@
+/**
+ * Design Tokens - CSS Variables
+ * 统一的设计系统变量
+ */
+
+:root {
+  /* ===== 主色调 (默认 Teal) ===== */
+  --color-primary: #0d9488;
+  --color-primary-hover: #14b8a6;
+  --color-primary-active: #0f766e;
+  --color-primary-outline: rgba(13, 148, 136, 0.2);
+
+  /* ===== 品牌色 ===== */
+  --color-brand: #0d9488;
+  --color-brand-hover: #14b8a6;
+  --color-brand-active: #0f766e;
+  --color-brand-gradient: linear-gradient(135deg, #0d9488, #059669);
+
+  /* ===== 语义色 ===== */
+  --color-success: #52c41a;
+  --color-error: #f5222d;
+  --color-warning: #faad14;
+  --color-info: #1890ff;
+  --color-danger: #f5222d;
+
+  /* ===== 文本色 ===== */
+  --color-text: rgba(0, 0, 0, 0.85);
+  --color-text-secondary: rgba(0, 0, 0, 0.45);
+  --color-text-inverse: #ffffff;
+  --color-text-dark: rgba(255, 255, 255, 0.85);
+  --color-text-secondary-dark: rgba(255, 255, 255, 0.65);
+
+  /* ===== 背景色 ===== */
+  --color-bg: #ffffff;
+  --color-bg-light: #f5f7fa;
+  --color-bg-dark: #0f172a;
+  --color-bg-hover: #f0f2f5;
+
+  /* ===== 边框色 ===== */
+  --color-border: #e5e7eb;
+  --color-border-split: #f0f0f0;
+
+  /* ===== 字体 ===== */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+    'Noto Sans', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol',
+    'Noto Color Emoji';
+  --font-size-xs: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 20px;
+  --font-size-2xl: 24px;
+  --font-size-3xl: 30px;
+
+  /* ===== 字重 ===== */
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* ===== 标题字号 ===== */
+  --font-size-h1: 38px;
+  --font-size-h2: 30px;
+  --font-size-h3: 24px;
+  --font-size-h4: 20px;
+  --font-size-h5: 16px;
+
+  /* ===== 行高 ===== */
+  --line-height: 1.5715;
+
+  /* ===== 间距 ===== */
+  --spacing-xs: 4px;
+  --spacing-sm: 8px;
+  --spacing-md: 16px;
+  --spacing-lg: 24px;
+  --spacing-xl: 32px;
+  --spacing-xxl: 48px;
+
+  /* ===== 圆角 ===== */
+  --radius-sm: 4px;
+  --radius-base: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 24px;
+
+  /* ===== 阴影 ===== */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-base: 0 2px 8px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12);
+
+  /* ===== 管理后台 ===== */
+  --admin-bg-dark: #1e293b;
+  --admin-text-light: #f1f5f9;
+  --admin-hover-bg: #334155;
+  --admin-accent-blue: #3b82f6;
+
+  /* ===== 过渡动画 ===== */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.3s ease;
+  --transition-slow: 0.5s ease;
+
+  /* ===== Z-Index层级 ===== */
+  --z-index-dropdown: 1050;
+  --z-index-sticky: 1020;
+  --z-index-fixed: 1030;
+  --z-index-overlay: 1040;
+  --z-index-modal-backdrop: 1050;
+  --z-index-modal: 1060;
+  --z-index-popover: 1070;
+  --z-index-tooltip: 1080;
+}
+
+/* ===== 配色方案覆盖 ===== */
+
+/* 靛蓝紫 (当前/历史方案) */
+[data-theme="indigo"] {
+  --color-primary: #6366f1;
+  --color-primary-hover: #818cf8;
+  --color-primary-active: #4f46e5;
+  --color-primary-outline: rgba(99, 102, 241, 0.2);
+  --color-brand: #6366f1;
+  --color-brand-hover: #818cf8;
+  --color-brand-active: #4f46e5;
+  --color-brand-gradient: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+/* 青翠绿 (默认) */
+[data-theme="teal"] {
+  --color-primary: #0d9488;
+  --color-primary-hover: #14b8a6;
+  --color-primary-active: #0f766e;
+  --color-primary-outline: rgba(13, 148, 136, 0.2);
+  --color-brand: #0d9488;
+  --color-brand-hover: #14b8a6;
+  --color-brand-active: #0f766e;
+  --color-brand-gradient: linear-gradient(135deg, #0d9488, #059669);
+}
+
+/* 琥珀橙 */
+[data-theme="amber"] {
+  --color-primary: #d97706;
+  --color-primary-hover: #f59e0b;
+  --color-primary-active: #b45309;
+  --color-primary-outline: rgba(217, 119, 6, 0.2);
+  --color-brand: #d97706;
+  --color-brand-hover: #f59e0b;
+  --color-brand-active: #b45309;
+  --color-brand-gradient: linear-gradient(135deg, #d97706, #e11d48);
+}
+
+/* 天蓝色 */
+[data-theme="skyblue"] {
+  --color-primary: #0284c7;
+  --color-primary-hover: #38bdf8;
+  --color-primary-active: #0369a1;
+  --color-primary-outline: rgba(2, 132, 199, 0.2);
+  --color-brand: #0284c7;
+  --color-brand-hover: #38bdf8;
+  --color-brand-active: #0369a1;
+  --color-brand-gradient: linear-gradient(135deg, #0284c7, #f43f5e);
+}
+
+/* ===== Ant Design 主题覆盖 ===== */
+.ant-theme {
+  --ant-primary-color: var(--color-primary);
+  --ant-primary-color-hover: var(--color-primary-hover);
+  --ant-primary-color-active: var(--color-primary-active);
+}

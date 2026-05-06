@@ -19,8 +19,9 @@ const EBookManagementPage = () => {
       setIsLoading(true);
       try {
         const response = await axios.get('/api/ebooks');
-        setBooks(response.data);
-        setFilteredBooks(response.data);
+        const booksList = response.data.results || response.data;
+        setBooks(booksList);
+        setFilteredBooks(booksList);
       } catch (error) {
         message.error('获取电子书列表失败');
       } finally {

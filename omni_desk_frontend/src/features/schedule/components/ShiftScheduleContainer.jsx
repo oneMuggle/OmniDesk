@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import moment from 'moment';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData';
 import { useScheduleEventDrop } from '../hooks/useScheduleEventDrop';
@@ -6,58 +7,50 @@ import PersonnelScheduleModal from './PersonnelScheduleModal';
 import ShiftSchedule from './ShiftSchedule';
 import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
-import moment from 'moment';
-import { DragDropContext } from '@hello-pangea/dnd';
 import { scheduleApi } from '../api/schedule';
+import { logger } from '../../../shared/utils/logger';
+import { Spin } from 'antd';
+import { DragDropContext } from '@hello-pangea/dnd';
+import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
+import '../../../shared/components/styles/CalendarPageLayout.css';
 
 const ShiftScheduleContainer = () => {
   const { isGuest } = useAuth();
   const [scheduleModalOpen, setScheduleModalOpen] = useState(false);
   const [currentSchedule, setCurrentSchedule] = useState(null);
-  const [scheduleModalMode, setScheduleModalMode] = useState('edit');
   const calendarRef = useRef(null);
   const [currentView, setCurrentView] = useState('dayGridMonth');
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
 
+  const dateRange = calendarViewInfo
+    ? { start: moment(calendarViewInfo.start).format('YYYY-MM-DD'), end: moment(calendarViewInfo.end).format('YYYY-MM-DD') }
+    : null;
+
   const {
     schedules,
-    personnel,
+    isSchedulesLoading,
     queryClient: scheduleQueryClient
-  } = useScheduleData();
+  } = useScheduleData(dateRange);
 
   const weeklyLeaders = React.useMemo(() => {
-    if (!calendarViewInfo || !schedules || schedules.length === 0) {
-      return [];
-    }
-
-    const start = moment(calendarViewInfo.start);
-    const end = moment(calendarViewInfo.end);
-    const leadersByWeek = {};
-
-    schedules.forEach(schedule => {
-      const scheduleDate = moment(schedule.duty_date);
-      if (scheduleDate.isBetween(start, end, 'day', '[]')) {
-        const week = scheduleDate.week();
-        if (!leadersByWeek[week]) {
-          leadersByWeek[week] = {
-            id: week,
-            start: scheduleDate.clone().startOf('week').format('YYYY-MM-DD'),
-            leaders: [],
-            schedules: []
-          };
-        }
-        if (schedule.duty_leader && !leadersByWeek[week].leaders.some(l => l.id === schedule.duty_leader.id)) {
-          leadersByWeek[week].leaders.push(schedule.duty_leader);
-        }
-        leadersByWeek[week].schedules.push(schedule);
-      }
-    });
-
-    return Object.values(leadersByWeek).sort((a, b) => a.id - b.id);
+    return computeWeeklyLeaders(schedules, calendarViewInfo);
   }, [schedules, calendarViewInfo]);
 
-  const handleScheduleDateClick = (arg) => {
-    console.log("Date clicked:", arg.dateStr);
+  const handleLeaderDragEnd = (result) => {
+    if (!result.destination) return;
+
+    const sourceWeek = weeklyLeaders[result.source.index];
+    const destinationWeek = weeklyLeaders[result.destination.index];
+    if (!sourceWeek || !destinationWeek) return;
+
+    scheduleApi.swapWeeklyLeaders({
+      source_week_start_date: sourceWeek.start,
+      destination_week_start_date: destinationWeek.start,
+    }).then(() => {
+      scheduleQueryClient.invalidateQueries({ queryKey: ['schedules'] });
+    }).catch(() => {
+      logger.error('值班领导顺序交换失败');
+    });
   };
 
   const updateScheduleEvent = async (scheduleId, newDate) => {
@@ -73,8 +66,16 @@ const ShiftScheduleContainer = () => {
     updateScheduleEvent,
     scheduleQueryClient,
     () => { /* onDropSuccess callback */ },
-    (error) => { console.error('排班事件拖放失败:', error); }
+    (error) => { logger.error('排班事件拖放失败:', error); }
   );
+
+  if (isSchedulesLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+        <Spin size="large" tip="正在加载排班数据..." />
+      </div>
+    );
+  }
 
   const handleDatesSet = (viewInfo) => {
     setCalendarViewInfo(viewInfo);
@@ -82,17 +83,19 @@ const ShiftScheduleContainer = () => {
   };
 
   return (
-    <>
-      <DragDropContext onDragEnd={() => {}}>
+    <div className="calendar-page-container">
+      <div className="calendar-page-header">
+        <h1>排班日程</h1>
+      </div>
+      <div className="calendar-page-content">
+      <DragDropContext onDragEnd={handleLeaderDragEnd}>
         <div style={{ display: 'flex' }}>
           <div style={{ flex: 1 }}>
             {currentView === 'timeGridWeek' && <WeeklyLeaderDisplay leaders={weeklyLeaders.length > 0 ? weeklyLeaders[0].leaders : []} />}
             <ShiftSchedule
               calendarRef={calendarRef}
-              personnel={personnel}
               schedules={schedules}
               isGuest={isGuest}
-              onDateClick={handleScheduleDateClick}
               onDatesSet={handleDatesSet}
               onEventClick={(clickInfo) => {
                 const { event } = clickInfo;
@@ -108,7 +111,6 @@ const ShiftScheduleContainer = () => {
                     staffPhone: extendedProps.scheduleDetails.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
                     leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || ''
                   });
-                  setScheduleModalMode('view');
                   setScheduleModalOpen(true);
                 }
               }}
@@ -122,32 +124,24 @@ const ShiftScheduleContainer = () => {
                 info.el.style.boxShadow = 'none';
               }}
             />
-          </div>
-          {currentView === 'dayGridMonth' && (
-            <MonthlyLeaderSidebar
-              weeklyLeaders={weeklyLeaders}
-              calendarRef={calendarRef}
-              isDragDisabled={true}
-            />
-          )}
         </div>
-      </DragDropContext>
+        {currentView === 'dayGridMonth' && (
+          <MonthlyLeaderSidebar
+            weeklyLeaders={weeklyLeaders}
+            calendarRef={calendarRef}
+            isDragDisabled={false}
+          />
+        )}
+      </div>
+    </DragDropContext>
 
       <PersonnelScheduleModal
         open={scheduleModalOpen}
         onCancel={() => setScheduleModalOpen(false)}
         scheduleData={currentSchedule}
-        mode={scheduleModalMode}
-        personnelList={personnel}
-        onSave={(mode) => {
-          if (mode === 'edit') {
-            setScheduleModalMode('edit');
-          }
-          scheduleQueryClient.invalidateQueries(['schedules']);
-        }}
-        onDelete={() => scheduleQueryClient.invalidateQueries(['schedules'])}
       />
-    </>
+      </div>
+    </div>
   );
 };
 

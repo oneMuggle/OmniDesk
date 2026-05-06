@@ -1,5 +1,7 @@
 from rest_framework import serializers
+
 from .models import ComplianceIssue
+
 
 class ComplianceIssueSerializer(serializers.ModelSerializer):
     project_name = serializers.CharField(source='project.name', read_only=True)
@@ -9,8 +11,8 @@ class ComplianceIssueSerializer(serializers.ModelSerializer):
     class Meta:
         model = ComplianceIssue
         fields = [
-            'id', 'project', 'project_name', 'document_book', 'document_book_title', 
-            'document_template', 'document_template_name', 'issue_type', 'description', 
+            'id', 'project', 'project_name', 'document_book', 'document_book_title',
+            'document_template', 'document_template_name', 'issue_type', 'description',
             'location', 'status', 'severity', 'due_date', 'created_at', 'updated_at'
         ]
         read_only_fields = ['created_at', 'updated_at']

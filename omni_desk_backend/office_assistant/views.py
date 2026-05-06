@@ -1,16 +1,14 @@
-import os
-import requests
-from django.conf import settings
-from django.http import StreamingHttpResponse
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
-
 import docx
 import pypdf
+from django.http import StreamingHttpResponse
+from rest_framework import status
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 from llm_service.ollama_client import OllamaClient
-from rest_framework.parsers import MultiPartParser, FormParser
+
 
 class OfficeAssistantProcessView(APIView):
     permission_classes = [IsAuthenticated]
@@ -35,7 +33,7 @@ class OfficeAssistantProcessView(APIView):
         try:
             client = OllamaClient()
             system_message = system_prompts[action]
-            
+
             if stream:
                 response_stream = client.generate(prompt=text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type='text/event-stream')
@@ -57,7 +55,7 @@ class ProcessDocumentView(APIView):
         file_obj = request.FILES['file']
         action = request.data.get('action', 'proofread')
         stream = request.data.get('stream', 'true').lower() == 'true'
-        
+
         file_name = file_obj.name
         original_text = ""
 
@@ -105,4 +103,4 @@ class ProcessDocumentView(APIView):
                 return Response(response_data, status=status.HTTP_200_OK)
 
         except Exception as e:
-            return Response({'status': 'error', 'message': f'Failed to process document: {str(e)}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'status': 'error', 'message': f'Failed to process document: {e!s}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

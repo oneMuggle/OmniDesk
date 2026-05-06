@@ -1,86 +1,91 @@
+import axios from 'axios';
 import apiClient from './apiClient';
 
-export const chatCompletion = async (apiConfig, messages, onData) => {
+export const getOllamaConfigs = () => apiClient.get('config/ollama-configs/');
+export const addOllamaConfig = (config) => apiClient.post('config/ollama-configs/', config);
+export const updateOllamaConfig = (id, config) => apiClient.put(`config/ollama-configs/${id}/`, config);
+export const deleteOllamaConfig = (id) => apiClient.delete(`config/ollama-configs/${id}/`);
+
+export const chatCompletion = async (config, messages, onUpdate) => {
+  const client = axios.create({
+    baseURL: config.api_endpoint,
+    headers: { 'Content-Type': 'application/json' },
+  });
+
   try {
-    const response = await fetch('ollama/chat/', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
+    const prompt = messages.map(m => `${m.role}: ${m.content}`).join('\n\n');
+
+    await client.post('generate', {
+      model: config.model,
+      prompt,
+      stream: true,
+      context: config.context || null,
+      options: {
+        temperature: config.temperature,
+        top_p: config.top_p,
       },
-      body: JSON.stringify({
-        config: apiConfig,
-        messages: messages,
-      }),
+    }, {
+      onDownloadProgress: (progressEvent) => {
+        const data = progressEvent.event.currentTarget.response;
+        const lines = data.split('\n');
+        let latestContent = '';
+        let latestContext = null;
+
+        for (const line of lines) {
+          if (line.trim() === '') continue;
+          try {
+            const json = JSON.parse(line);
+            if (json.response) {
+              latestContent += json.response;
+            }
+            if (json.context) {
+              latestContext = json.context;
+            }
+            if (onUpdate) {
+              onUpdate({
+                content: latestContent,
+                context: latestContext,
+                done: json.done || false,
+              });
+            }
+          } catch (e) {
+            console.error('Error parsing stream data:', e, 'Line:', line);
+          }
+        }
+      },
     });
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    if (!response.body) {
-      throw new Error('Response body is null');
-    }
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
-    let fullContent = '';
-
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) {
-        break;
-      }
-
-      buffer += decoder.decode(value, { stream: true });
-      const lines = buffer.split('\n');
-      buffer = lines.pop(); 
-
-      for (const line of lines) {
-        if (line.trim() === '') continue;
-        try {
-          const json = JSON.parse(line);
-          fullContent = json.content; 
-          onData({
-            content: fullContent,
-            context: json.context,
-            done: json.done,
-          });
-          if (json.done) {
-            return;
-          }
-        } catch (e) {
-          console.error('Failed to parse JSON line from stream:', line, e);
-        }
-      }
-    }
+    return {
+      role: 'assistant',
+      content: '',
+      context: null,
+      usage: { prompt_tokens: 0, completion_tokens: 0 },
+    };
   } catch (error) {
-    console.error('Error during chat completion:', error);
-    throw error;
+    throw new Error(`Ollama API请求失败: ${error.message}`);
   }
 };
 
-export const getOllamaConfigs = () => {
-  return apiClient.get('ollama/configs/');
+export const getModels = async () => {
+  const response = await apiClient.get('config/');
+  const endpoint = response.data.OLLAMA_ENDPOINT;
+  if (!endpoint) {
+    throw new Error('Ollama endpoint未配置');
+  }
+  const client = axios.create({ baseURL: endpoint });
+  const res = await client.get('tags');
+  return res.data.models.map(model => model.name);
 };
 
-export const addOllamaConfig = (config) => {
-  return apiClient.post('ollama/configs/', config);
+// eslint-disable-next-line no-unused-vars
+export const setApiProvider = (config) => {
+  // Used by ApiProvider to sync config
 };
 
-export const updateOllamaConfig = (id, config) => {
-  return apiClient.put(`ollama/configs/${id}/`, config);
-};
-
-export const deleteOllamaConfig = (id) => {
-  return apiClient.delete(`ollama/configs/${id}/`);
-};
-
-export const getOllamaModelsFromEndpoint = (apiEndpoint) => {
-  return apiClient.post('ollama/fetch-models/', { api_endpoint: apiEndpoint });
-};
-
-export const getModels = () => {
-  return getOllamaConfigs();
+export const getOllamaModelsFromEndpoint = async (apiEndpoint) => {
+  const fullApiEndpoint = apiEndpoint.startsWith('http://') || apiEndpoint.startsWith('https://')
+    ? apiEndpoint
+    : `http://${apiEndpoint}`;
+  const response = await axios.get(`${fullApiEndpoint}/v1/models`);
+  return response.data;
 };

@@ -8,16 +8,12 @@ const ShiftSchedule = ({
   onDateClick,
   onEventClick,
   onScheduleSelect = () => {},
-  personnel, // 接收 personnel prop
   calendarRef,
   onDatesSet,
 }) => {
-  // console.log('ScheduleCalendar接收到的排班数据:', schedules); // 添加调试日志
-  // console.log('ScheduleCalendar接收到的人员数据:', personnel); // 添加调试日志
-
   const events = React.useMemo(() => {
-    return transformScheduleToEvents(schedules, personnel);
-  }, [schedules, personnel]);
+    return transformScheduleToEvents(schedules);
+  }, [schedules]);
 
   return (
     <BaseSchedule
@@ -41,7 +37,6 @@ ShiftSchedule.propTypes = {
   onDateClick: PropTypes.func,
   onEventClick: PropTypes.func,
   onScheduleSelect: PropTypes.func,
-  personnel: PropTypes.array.isRequired,
   calendarRef: PropTypes.object.isRequired,
   onDatesSet: PropTypes.func.isRequired,
 };

@@ -1,11 +1,22 @@
 from django.db import transaction
 from rest_framework import serializers
-from .models import (
-    Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Holiday, Position
-)
+
+from personnel.models import Personnel, Position
 from personnel.serializers import PersonnelSerializer
-from personnel.models import Personnel
+
+from .models import (
+    Announcement,
+    DocumentTemplate,
+    Equipment,
+    Holiday,
+    LeaderSequence,
+    PersonnelSequence,
+    Schedule,
+    TimeSlot,
+    Trial,
+    UploadedImage,
+)
+
 
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
@@ -104,10 +115,10 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
 
         # Fetch all valid personnel objects in one query, optimizing for user_account access.
         valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
-        
+
         # Create a dictionary for quick lookups
         personnel_map = {p.id: p for p in valid_personnel}
-        
+
         # Build the result list, preserving the original order and skipping invalid IDs
         result_list = []
         for person_id in personnel_ids:
@@ -115,7 +126,7 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
                 personnel = personnel_map[person_id]
                 serializer = PersonnelSimpleSerializer(personnel)
                 result_list.append(serializer.data)
-        
+
         return result_list
 
     def get_holiday_personnel_details(self, obj):
@@ -182,14 +193,14 @@ class LeaderSequenceSerializer(serializers.ModelSerializer):
 
         valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
         personnel_map = {p.id: p for p in valid_personnel}
-        
+
         result_list = []
         for person_id in personnel_ids:
             if person_id in personnel_map:
                 personnel = personnel_map[person_id]
                 serializer = PersonnelSimpleSerializer(personnel)
                 result_list.append(serializer.data)
-        
+
         return result_list
 
 class HolidaySerializer(serializers.ModelSerializer):

@@ -1,4 +1,4 @@
-import { useState, useEffect, useImperativeHandle } from 'react';
+import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space, Spin } from 'antd';
@@ -15,7 +15,7 @@ import {
 const { Option } = Select;
 
 const PersonnelEditPage = ({ form: providedForm }) => {
-    const { id } = useParams();
+    const { personnelId } = useParams();
     const [internalForm] = Form.useForm();
     const form = providedForm || internalForm;
     const navigate = useNavigate();
@@ -30,7 +30,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
             try {
                 setLoading(true);
                 const [detailsResponse, positionsResponse] = await Promise.all([
-                    getPersonnelDetails(id),
+                    getPersonnelDetails(personnelId),
                     getAllPositions()
                 ]);
                 setPositions(positionsResponse || []);
@@ -44,7 +44,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
             }
         };
         fetchDetailsAndPositions();
-    }, [id]);
+    }, [personnelId]);
 
     useEffect(() => {
         if (initialData) {
@@ -86,7 +86,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
            if (dataToSend.id_card_number === '') {
                delete dataToSend.id_card_number;
            }
-            await updatePersonnel(id, dataToSend);
+            await updatePersonnel(personnelId, dataToSend);
             message.success('更新成功');
             navigate('/control-panel/personnel');
         } catch (error) {
@@ -186,7 +186,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
 
                     <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
                     <Form.Item name="professional_qualifications">
-                        <ProfessionalQualificationTable isEditing={true} personnelId={parseInt(id, 10)} />
+                        <ProfessionalQualificationTable isEditing={true} personnelId={parseInt(personnelId, 10)} />
                     </Form.Item>
 
                     <h2 className="text-xl font-semibold mt-8 mb-4">公积金信息</h2>
@@ -200,7 +200,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
                     </Form.Item>
 
                     <h2 className="text-xl font-semibold mt-8 mb-4">家庭成员</h2>
-                    <FamilyMemberTable personnelId={parseInt(id, 10)} isEditing={true} />
+                    <FamilyMemberTable personnelId={parseInt(personnelId, 10)} isEditing={true} />
 
                     <Form.Item>
                         <Button type="primary" htmlType="submit" loading={saving}>

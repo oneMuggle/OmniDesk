@@ -1,31 +1,21 @@
 import { useState, useEffect, useRef } from 'react';
 import PropTypes from 'prop-types';
-import { Link, useLocation } from 'react-router-dom'; // Import Link and useLocation
+import { Link, useLocation } from 'react-router-dom';
+import { Alert, Typography, Collapse, Button } from 'antd';
 import api from '../api/axiosConfig';
 import './ChapterView.css';
+import { sanitizeHtml } from '../utils/sanitizeHtml';
 import Commenting from './Commenting';
 import AnnotationHandler from './AnnotationHandler';
-import { Alert, Typography, List, ListItem, ListItemText, Collapse, IconButton } from '@mui/material';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { styled } from '@mui/system';
 
-const ExpandMore = styled((props) => {
-    const { ...other } = props;
-    return <IconButton {...other} />;
-})(({ theme, expand }) => ({
-    transform: !expand ? 'rotate(0deg)' : 'rotate(180deg)',
-    marginLeft: 'auto',
-    transition: theme.transitions.create('transform', {
-        duration: theme.transitions.duration.shortest,
-    }),
-}));
+const { Text } = Typography;
+const { Panel } = Collapse;
 
-const ChapterView = ({ chapter, complianceIssues = [] }) => { // 接收 complianceIssues
+const ChapterView = ({ chapter, complianceIssues = [] }) => {
     const [chapterDetails, setChapterDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [expandedIssueId, setExpandedIssueId] = useState(null); // 用于控制展开/折叠
-    const contentRef = useRef(null); // Ref for the content div
+    const contentRef = useRef(null);
     const location = useLocation();
 
     useEffect(() => {
@@ -46,19 +36,15 @@ const ChapterView = ({ chapter, complianceIssues = [] }) => { // 接收 complian
         fetchChapterDetails();
     }, [chapter]);
 
-    // Effect to trigger MathJax typesetting
     useEffect(() => {
         if (contentRef.current && window.MathJax) {
-            // Ensure MathJax is ready and then typeset the content
             window.MathJax.typesetPromise([contentRef.current]).catch((err) => console.error("MathJax typesetting failed:", err));
         }
-    }, [chapterDetails]); // Re-run when chapterDetails change
+    }, [chapterDetails]);
 
-    // Effect to handle scrolling to headings based on URL hash
     useEffect(() => {
         if (location.hash && !loading) {
             const id = location.hash.replace('#', '');
-            // We need to find the element within the rendered HTML
             const element = contentRef.current ? contentRef.current.querySelector(`#${id}`) : null;
             if (element) {
                 element.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -81,51 +67,42 @@ const ChapterView = ({ chapter, complianceIssues = [] }) => { // 接收 complian
     return (
         <div className="chapter-view">
             {complianceIssues && complianceIssues.length > 0 && (
-                <Alert severity="warning" className="compliance-alert">
-                    <Typography variant="h6">本章存在合规问题：</Typography>
-                    <List dense>
+                <Alert
+                    message="本章存在合规问题"
+                    type="warning"
+                    className="compliance-alert"
+                >
+                    <Collapse accordion>
                         {complianceIssues.map((issue) => (
-                            <div key={issue.id}>
-                                <ListItem>
-                                    <ListItemText
-                                        primary={`问题类型: ${issue.issue_type} - ${issue.description}`}
-                                        secondary={`位置: ${issue.location} | 严重程度: ${issue.severity} | 状态: ${issue.status}`}
-                                    />
-                                    <ExpandMore
-                                        expand={expandedIssueId === issue.id}
-                                        onClick={() => setExpandedIssueId(expandedIssueId === issue.id ? null : issue.id)}
-                                        aria-expanded={expandedIssueId === issue.id}
-                                        aria-label="show more"
-                                    >
-                                        <ExpandMoreIcon />
-                                    </ExpandMore>
-                                </ListItem>
-                                <Collapse in={expandedIssueId === issue.id} timeout="auto" unmountOnExit>
-                                    <Typography variant="body2" color="textSecondary" style={{ marginLeft: '16px', marginBottom: '8px' }}>
-                                        建议修改: {issue.suggested_fix || '无'}
-                                    </Typography>
-                                </Collapse>
-                            </div>
+                            <Panel
+                                header={`${issue.issue_type} - ${issue.description}`}
+                                key={issue.id}
+                                extra={
+                                    <Text type="secondary">
+                                        {issue.location} | {issue.severity} | {issue.status}
+                                    </Text>
+                                }
+                            >
+                                <Text>建议修改: {issue.suggested_fix || '无'}</Text>
+                            </Panel>
                         ))}
-                    </List>
+                    </Collapse>
                 </Alert>
             )}
 
             <AnnotationHandler chapterId={chapterDetails.id}>
-                {/* Render content directly, MathJax will process it */}
                 <div
-                    ref={contentRef} // Attach ref here
+                    ref={contentRef}
                     className="chapter-content"
-                    dangerouslySetInnerHTML={{ __html: chapterDetails.content_html || '' }} // Ensure it's a string
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(chapterDetails.content_html || '') }}
                 />
             </AnnotationHandler>
             <Commenting chapterId={chapterDetails.id} comments={chapterDetails.comments} />
-            {/* Add Edit Chapter button */}
             <Link
                 to={`/books/${chapterDetails.book}/chapters/${chapterDetails.id}/edit`}
                 className="edit-chapter-button"
             >
-                编辑章节
+                <Button type="primary">编辑章节</Button>
             </Link>
         </div>
     );
@@ -145,6 +122,5 @@ ChapterView.propTypes = {
     suggested_fix: PropTypes.string,
   })),
 };
-
 
 export default ChapterView;

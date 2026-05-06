@@ -1,6 +1,7 @@
-from rest_framework import serializers
 from django.contrib.auth.models import Group
-from .models import Page, PageVisibility, OllamaConfig
+from rest_framework import serializers
+
+from .models import OllamaConfig, Page, PageVisibility
 
 
 class GroupSerializer(serializers.ModelSerializer):

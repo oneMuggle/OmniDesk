@@ -45,7 +45,7 @@ const PostList = () => {
                 dataSource={posts}
                 renderItem={post => (
                     <List.Item>
-                        <Card hoverable title={post.title} onClick={() => navigate(`/communication/post/${post.id}`)}>
+                        <Card hoverable title={post.title} onClick={() => navigate(`/communication/${post.id}`)}>
                             <div className="post-content-summary">
                                 {post.content.replace(/<[^>]*>?/gm, '').substring(0, 200)}...
                             </div>

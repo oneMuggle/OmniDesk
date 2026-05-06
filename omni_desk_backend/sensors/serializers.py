@@ -1,5 +1,7 @@
 from rest_framework import serializers
-from .models import Sensor, CalibrationRecord
+
+from .models import CalibrationRecord, Sensor
+
 
 class SensorSerializer(serializers.ModelSerializer):
     status_display = serializers.SerializerMethodField()

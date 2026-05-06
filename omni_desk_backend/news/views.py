@@ -1,10 +1,12 @@
-from rest_framework import viewsets, status
+from django.db.models import Count
+from django.db.models.functions import TruncMonth
+from rest_framework import viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from .models import NewsType, NewsArticle
-from .serializers import NewsTypeSerializer, NewsArticleSerializer
-from django.db.models.functions import TruncMonth
-from django.db.models import Count
+
+from .models import NewsArticle, NewsType
+from .serializers import NewsArticleSerializer, NewsTypeSerializer
+
 
 class NewsTypeViewSet(viewsets.ModelViewSet):
     queryset = NewsType.objects.all()
@@ -26,7 +28,7 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
             queryset = queryset.filter(publication_date__year=month.split('-')[0], publication_date__month=month.split('-')[1])
         if type_id:
             queryset = queryset.filter(news_type_id=type_id)
-            
+
         return queryset
 
     def perform_create(self, serializer):
@@ -35,7 +37,7 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
 class NewsStatsView(APIView):
     def get(self, request, *args, **kwargs):
         total_articles = NewsArticle.objects.count()
-        
+
         by_person_monthly = (
             NewsArticle.objects
             .annotate(month=TruncMonth('publication_date'))
@@ -43,25 +45,25 @@ class NewsStatsView(APIView):
             .annotate(count=Count('id'))
             .order_by('personnel__username', 'month')
         )
-        
+
         stats = {
             'total_articles': total_articles,
             'by_person': {}
         }
-        
+
         # Process monthly data and calculate totals simultaneously
         for item in by_person_monthly:
             person = item['personnel__username']
             month_str = item['month'].strftime('%Y-%m')
             count = item['count']
-            
+
             if person not in stats['by_person']:
                 stats['by_person'][person] = {
                     'total': 0,
                     'monthly': {}
                 }
-            
+
             stats['by_person'][person]['monthly'][month_str] = count
             stats['by_person'][person]['total'] += count
-            
+
         return Response(stats)

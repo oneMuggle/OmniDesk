@@ -3,7 +3,7 @@ from rest_framework.test import APIClient, APITestCase
 from django.urls import reverse
 from rest_framework import status # 导入 status
 from .models import CustomUser, PhoneNumber
-from events.models import Personnel # 导入 Personnel 模型
+from personnel.models import Personnel  # 导入 Personnel 模型
 from django.contrib.auth.models import Group
 
 class UserRegistrationTests(TestCase):
@@ -200,7 +200,6 @@ class UserProfileManagementTests(APITestCase):
 
     def test_user_can_update_profile(self):
         data = {
-            'real_name': 'New Name',
             'real_name': 'New Name',
             'phone_numbers': [{'number': '0987654321'}]
         }

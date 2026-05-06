@@ -9,9 +9,8 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
-import django
-from datetime import timedelta
 import os
+from datetime import timedelta
 from pathlib import Path
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -22,7 +21,19 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-!@#your-secret-key#@!')
+_SECRET_KEY = os.getenv('SECRET_KEY')
+if not _SECRET_KEY:
+    import warnings
+    warnings.warn(
+        'SECRET_KEY not set. Generating a random key for this session. '
+        'This will invalidate all existing sessions on restart.',
+        RuntimeWarning,
+    )
+    import secrets
+    SECRET_KEY = secrets.token_urlsafe(50)
+else:
+    SECRET_KEY = _SECRET_KEY
+del _SECRET_KEY
 
 # Application definition
 
@@ -37,6 +48,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'rest_framework_simplejwt',
+    'rest_framework_simplejwt.token_blacklist',
     'personnel.apps.PersonnelConfig',
     'users',
     'events',
@@ -56,6 +68,10 @@ INSTALLED_APPS = [
     'news',
     'sensors',
     'permissions.apps.PermissionsConfig',
+    'ebooks.apps.EbooksConfig',
+    'smart_assistant.apps.SmartAssistantConfig',
+    'notifications.apps.NotificationsConfig',
+    'dashboard.apps.DashboardConfig',
 ]
 
 MIDDLEWARE = [
@@ -101,6 +117,13 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    }
+}
+
+# Cache (used by django-ratelimit for rate limiting)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
     }
 }
 
@@ -193,8 +216,8 @@ REST_FRAMEWORK = {
 
 # JWT配置
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(days=7),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=30),
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
     'AUTH_HEADER_TYPES': ('Bearer',),

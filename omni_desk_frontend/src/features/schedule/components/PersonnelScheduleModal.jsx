@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import '../../../shared/components/styles/PersonnelScheduleModal.css'; // Assuming this will be renamed to PersonnelScheduleModal.css
 import { Modal, Form, Button } from 'antd';
+import { PhoneOutlined } from '@ant-design/icons';
 
 /**
  * 人员排班模态框组件 - 专门用于展示人员排班信息
@@ -50,11 +51,11 @@ const PersonnelScheduleModal = ({
               <div className="schedule-modal__person-card">
                 <div className="schedule-modal__person-title">
                   <span className="schedule-modal__status-dot schedule-modal__status-dot--staff"></span>
-                  <span style={{ fontWeight: '600', color: '#262626' }}>值班人员</span>
+                  <span style={{ fontWeight: '600', color: 'var(--color-text)' }}>值班人员</span>
                 </div>
                 <div className="schedule-modal__person-name">{scheduleData?.staffName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
-                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <PhoneOutlined style={{ marginRight: '6px', color: 'var(--color-text-secondary)' }} />
                   <span>{scheduleData?.staffPhone || '无电话'}</span>
                 </div>
               </div>
@@ -62,11 +63,11 @@ const PersonnelScheduleModal = ({
               <div className="schedule-modal__person-card">
                 <div className="schedule-modal__person-title">
                   <span className="schedule-modal__status-dot schedule-modal__status-dot--leader"></span>
-                  <span style={{ fontWeight: '600', color: '#262626' }}>值班领导</span>
+                  <span style={{ fontWeight: '600', color: 'var(--color-text)' }}>值班领导</span>
                 </div>
                 <div className="schedule-modal__person-name">{scheduleData?.leaderName || '未知人员'}</div>
                 <div className="schedule-modal__phone-info">
-                  <span style={{ marginRight: '6px' }}>📞</span>
+                  <PhoneOutlined style={{ marginRight: '6px', color: 'var(--color-text-secondary)' }} />
                   <span>{scheduleData?.leaderPhone || '无电话'}</span>
                 </div>
               </div>

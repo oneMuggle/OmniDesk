@@ -13,6 +13,7 @@ import {
   deletePosition
 } from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { logger } from '../../../shared/utils/logger';
 
 const { Option } = Select; // Destructure Option from Select
 
@@ -37,8 +38,9 @@ const PersonnelManagementPage = () => {
     },
     {
       title: '职位',
-      dataIndex: 'position_name',
-      key: 'position_name',
+      dataIndex: 'position',
+      key: 'position',
+      render: (position) => position?.name || '未分配',
     },
     {
       title: '操作',
@@ -117,10 +119,10 @@ const PersonnelManagementPage = () => {
   };
 
   const handleSubmit = async () => {
-    console.log('handleSubmit called');
+    logger.info('handleSubmit called');
     try {
       const values = await form.validateFields();
-      console.log('Form validated, values:', values);
+      logger.info('Form validated, values:', values);
       if (editingId) {
         await updatePersonnel(editingId, values);
         message.success('更新成功');
@@ -134,14 +136,14 @@ const PersonnelManagementPage = () => {
       await fetchData(1, pagination.pageSize);
   
     } catch (errorInfo) {
-      console.error('handleSubmit error:', errorInfo);
+      logger.error('handleSubmit error:', errorInfo);
       // The error could be from form validation or the API call.
       // The form validation error is an object with `errorFields`, while API errors are typically other objects.
       if (errorInfo.errorFields) {
-        console.error('表单验证失败:', errorInfo);
+        logger.error('表单验证失败:', errorInfo);
         message.error('表单验证失败，请检查输入。');
       } else {
-        console.error('操作失败:', errorInfo);
+        logger.error('操作失败:', errorInfo);
         message.error('操作失败，请稍后重试。');
       }
     }

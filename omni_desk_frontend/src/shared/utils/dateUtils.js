@@ -1,4 +1,5 @@
 import dayjs from 'dayjs';
+import { logger } from './logger';
 // import utc from 'dayjs-plugin-utc'; // 禁用 utc 插件，用于排查问题
 // import timezone from 'dayjs/plugin/timezone'; // 禁用 timezone 插件，用于排查问题
 
@@ -64,7 +65,7 @@ export const fromServerFormat = (dateInput) => {
         // 直接解析，不进行时区转换
         return dayjs(d);
       } catch (e) {
-        console.error('Invalid date format in array:', d);
+        logger.error('Invalid date format in array:', d);
         return null;
       }
     });
@@ -75,7 +76,7 @@ export const fromServerFormat = (dateInput) => {
     // 直接解析，不进行时区转换
     return dayjs(dateInput);
   } catch (e) {
-    console.error('Invalid date format:', dateInput);
+    logger.error('Invalid date format:', dateInput);
     return null;
   }
 };

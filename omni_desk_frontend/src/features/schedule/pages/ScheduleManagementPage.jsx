@@ -14,6 +14,8 @@ import PersonnelSequenceModal from '../../../shared/components/Schedule/Personne
 import WeeklyLeaderDisplay from '../../../shared/components/Schedule/WeeklyLeaderDisplay';
 import MonthlyLeaderSidebar from '../../../shared/components/Schedule/MonthlyLeaderSidebar';
 import { DragDropContext } from '@hello-pangea/dnd';
+import { logger } from '../../../shared/utils/logger';
+import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
 
 const { Option } = Select;
 
@@ -250,7 +252,7 @@ const GenerateScheduleModal = ({ open, onCancel, onOk, personnelSequences, leade
           </>
         ) : (
           <Form.Item name="target_month" label="选择月份" rules={[{ required: true, message: '请选择月份!' }]}>
-            <DatePicker.MonthPicker style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
+            <DatePicker picker="month" style={{ width: '100%' }} data-testid="generate-schedule-target-month" />
           </Form.Item>
         )}
 
@@ -353,7 +355,6 @@ const ScheduleManagementPage = () => {
   const schedulesQuery = useQuery({
     queryKey: ['schedules'],
     queryFn: scheduleApi.fetchSchedules,
-    select: (data) => data.data.results,
   });
 
 
@@ -455,7 +456,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新排班失败');
-      context.revert();
+      context?.revert?.();
     },
   });
 
@@ -467,7 +468,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新排班失败');
-      context.revert();
+      context?.revert?.();
     },
   });
   
@@ -479,7 +480,7 @@ const ScheduleManagementPage = () => {
     },
     onError: (error, variables, context) => {
       message.error('更新值班领导顺序失败');
-      setWeeklyLeaders(context.previousWeeklyLeaders);
+      setWeeklyLeaders(context?.previousWeeklyLeaders ?? weeklyLeaders);
     },
   });
 
@@ -576,32 +577,8 @@ const ScheduleManagementPage = () => {
   };
 
   useEffect(() => {
-    if (!calendarViewInfo || !schedules || schedules.length === 0) {
-      setWeeklyLeaders([]);
-      return;
-    }
-    const start = moment(calendarViewInfo.start);
-    const end = moment(calendarViewInfo.end);
-    const leadersByWeek = {};
-    schedules.forEach(schedule => {
-      const scheduleDate = moment(schedule.duty_date);
-      if (scheduleDate.isBetween(start, end, 'day', '[]')) {
-        const week = scheduleDate.week();
-        if (!leadersByWeek[week]) {
-          leadersByWeek[week] = {
-            id: week,
-            start: scheduleDate.clone().startOf('week').format('YYYY-MM-DD'),
-            leaders: [],
-            schedules: []
-          };
-        }
-        if (schedule.duty_leader && !leadersByWeek[week].leaders.some(l => l.id === schedule.duty_leader.id)) {
-          leadersByWeek[week].leaders.push(schedule.duty_leader);
-        }
-        leadersByWeek[week].schedules.push(schedule);
-      }
-    });
-    setWeeklyLeaders(Object.values(leadersByWeek).sort((a, b) => a.id - b.id));
+    const leaders = computeWeeklyLeaders(schedules, calendarViewInfo);
+    setWeeklyLeaders(leaders);
   }, [schedules, calendarViewInfo]);
 
   const handleDatesSet = (viewInfo) => {
@@ -727,7 +704,7 @@ const ScheduleManagementPage = () => {
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('schedule.pdf');
     } catch (error) {
-      console.error("导出PDF时出错:", error);
+      logger.error("导出PDF时出错:", error);
       message.error('导出PDF失败');
     } finally {
       calendarEl.style.width = originalWidth;
@@ -751,9 +728,9 @@ const ScheduleManagementPage = () => {
     },
     {
       title: '值班人员电话',
-      dataIndex: ['duty_person', 'phone_numbers'],
+      dataIndex: ['duty_person', 'phone_number'],
       key: 'duty_person_phone',
-      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+      render: (phone_number) => phone_number || 'N/A',
     },
     {
       title: '值班领导',
@@ -762,9 +739,9 @@ const ScheduleManagementPage = () => {
     },
     {
       title: '值班领导电话',
-      dataIndex: ['duty_leader', 'phone_numbers'],
+      dataIndex: ['duty_leader', 'phone_number'],
       key: 'duty_leader_phone',
-      render: (phone_numbers) => phone_numbers?.map(p => p.number).join(', ') || 'N/A',
+      render: (phone_number) => phone_number || 'N/A',
     },
     {
       title: '操作',

@@ -1,13 +1,14 @@
 import os
 import re
 from pathlib import Path
-import markdown
 
-from django.core.management.base import BaseCommand
+import markdown
 from django.conf import settings
+from django.core.management.base import BaseCommand
 from django.db import transaction
 
 from documents.models import Book, Chapter
+
 
 class Command(BaseCommand):
     help = 'Imports books and chapters from Markdown files in the specified directories.'
@@ -66,7 +67,7 @@ class Command(BaseCommand):
         """
         self.stdout.write(f"    Processing file: {file_path.name}")
         try:
-            with open(file_path, 'r', encoding='utf-8') as f:
+            with open(file_path, encoding='utf-8') as f:
                 content_md = f.read()
 
             # Extract headings
@@ -115,7 +116,7 @@ class Command(BaseCommand):
                 slug = re.sub(r'[^\w\s-]', '', title).strip().lower()
                 slug = re.sub(r'[-\s]+', '-', slug)
                 headings.append({'level': level, 'title': title, 'id': slug, 'children': []})
-        
+
         # Build the nested structure
         if not headings:
             return []
@@ -125,7 +126,7 @@ class Command(BaseCommand):
 
         for heading in headings:
             level = heading['level']
-            
+
             # Go up the stack to find the correct parent
             while stack and stack[-1]['level'] >= level:
                 stack.pop()
@@ -136,10 +137,10 @@ class Command(BaseCommand):
             else:
                 # This is a child of the node at the top of the stack
                 stack[-1]['children'].append(heading)
-            
+
             # Push the current heading onto the stack
             stack.append(heading)
-            
+
         return root_nodes
 
     def handle_images(self, markdown_content, book_slug, base_file_path):
@@ -151,7 +152,7 @@ class Command(BaseCommand):
         media_root = Path(settings.MEDIA_ROOT)
         image_dest_dir = media_root / 'book_images' / book_slug
         image_dest_dir.mkdir(parents=True, exist_ok=True)
-        
+
         # Regex to find markdown image syntax
         # ![alt text](path/to/image.jpg)
         img_pattern = re.compile(r'!\[(.*?)\]\((.*?)\)')
@@ -165,7 +166,7 @@ class Command(BaseCommand):
                 return match.group(0)
 
             src_image_path = base_file_path / original_path
-            
+
             if not src_image_path.is_file():
                 self.stderr.write(self.style.WARNING(f"      Image not found: {src_image_path}"))
                 return match.group(0) # Keep original if not found
@@ -174,7 +175,7 @@ class Command(BaseCommand):
             dest_image_path = image_dest_dir / src_image_path.name
             try:
                 shutil.copy(src_image_path, dest_image_path)
-                
+
                 # New path for markdown content (URL path)
                 new_path = f"{settings.MEDIA_URL}book_images/{book_slug}/{src_image_path.name}"
                 self.stdout.write(f"      Copied image to: {new_path}")

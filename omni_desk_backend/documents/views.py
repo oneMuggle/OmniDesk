@@ -1,34 +1,41 @@
-from rest_framework import viewsets, permissions, parsers
-from rest_framework.decorators import action
-from rest_framework.response import Response
-from rest_framework import status
-from rest_framework.views import APIView # For BookImportView
-import tempfile # 导入 tempfile 来创建临时目录
+import json  # 确保已导入
+import posixpath
+import re
+import shutil
+import tempfile  # 导入 tempfile 来创建临时目录
+from pathlib import Path
 
 import markdown
-from .file_processing import process_uploaded_file # 导入我们新创建的函数
-
-from .models import DocumentTemplate, GeneratedDocument, Book, Chapter, Comment, Annotation, Tag, EBook
-from .serializers import DocumentTemplateSerializer, GeneratedDocumentSerializer, BookSerializer, ChapterSerializer, CommentSerializer, AnnotationSerializer, TagSerializer, EBookSerializer
-from compliance.models import ComplianceIssue # 导入 ComplianceIssue 模型
-from compliance.serializers import ComplianceIssueSerializer # 导入 ComplianceIssue 序列化器
-from llm_service.ollama_client import OllamaClient # 导入 OllamaClient
-
-import json # 确保已导入
-import re
-import os
-import shutil
-import posixpath
-from pathlib import Path
 from django.conf import settings
 from django.db import transaction
-from django.http import HttpResponse # For file export
+from django.http import HttpResponse  # For file export
+from rest_framework import parsers, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.response import Response
+from rest_framework.views import APIView  # For BookImportView
+
+from compliance.models import ComplianceIssue  # 导入 ComplianceIssue 模型
+from compliance.serializers import ComplianceIssueSerializer  # 导入 ComplianceIssue 序列化器
+from llm_service.ollama_client import OllamaClient  # 导入 OllamaClient
+from projects.models import Project
+
+from .file_processing import process_uploaded_file  # 导入我们新创建的函数
+from .models import Book, Chapter, DocumentTemplate, EBook, GeneratedDocument, Tag
+from .serializers import (
+    AnnotationSerializer,
+    BookSerializer,
+    ChapterSerializer,
+    CommentSerializer,
+    DocumentTemplateSerializer,
+    EBookSerializer,
+    GeneratedDocumentSerializer,
+)
 
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
     queryset = DocumentTemplate.objects.all()
     serializer_class = DocumentTemplateSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser]  # 添加文件上传支持
 
     def get_queryset(self):
@@ -46,7 +53,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
         file_obj = request.FILES.get('template')
         if not file_obj:
             return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
-        
+
         # 使用临时目录处理文件
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
@@ -83,7 +90,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                 return Response({'error': 'Document not associated with a project. Cannot analyze compliance issues.'}, status=status.HTTP_400_BAD_REQUEST)
 
             ollama_client = OllamaClient()
-            
+
             # 优化后的系统消息和提示词
             system_message = """你是一名专业的文档合规性审查员，专注于识别文档中的不规范、时间冲突、内容缺失或内容与规定不符的问题。
             你的输出必须是严格的 JSON 数组格式，每个元素代表一个发现的问题。
@@ -103,7 +110,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
             prompt = f"请严格按照系统消息的JSON格式要求，分析以下文档内容，识别其中存在的合规性问题：\n\n文档内容：\n{extracted_text}\n\n请输出JSON数组："
 
             ollama_response_json = ollama_client.generate(prompt=prompt, system_message=system_message)
-            
+
             try:
                 compliance_issues_data = json.loads(ollama_response_json)
                 if not isinstance(compliance_issues_data, list):
@@ -142,7 +149,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                     # 如果需要保存 suggested_fix，需要先在 ComplianceIssue 模型中添加此字段
                 )
                 created_issues.append(ComplianceIssueSerializer(issue).data)
-            
+
             return Response({'message': f'Analysis complete. Found {len(created_issues)} compliance issues.', 'issues': created_issues}, status=status.HTTP_200_OK)
         except DocumentTemplate.DoesNotExist:
             return Response({'error': 'DocumentTemplate not found'}, status=status.HTTP_404_NOT_FOUND)
@@ -150,9 +157,9 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
             return Response({'error': f'文件分析失败: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
-    queryset = GeneratedDocument.objects.all()
+    queryset = GeneratedDocument.objects.select_related('generated_by')
     serializer_class = GeneratedDocumentSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     pagination_class = None  # 禁用分页
 
     def get_queryset(self):
@@ -169,9 +176,9 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
         return Response({'status': 'document finalized'})
 
 class BookViewSet(viewsets.ModelViewSet):
-    queryset = Book.objects.prefetch_related('tags').all()
+    queryset = Book.objects.prefetch_related('tags', 'chapters')
     serializer_class = BookSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
@@ -184,7 +191,7 @@ class BookViewSet(viewsets.ModelViewSet):
     def export_markdown(self, request, pk=None):
         book = self.get_object()
         chapters = book.chapters.order_by('order')
-        
+
         full_markdown_content = f"# {book.title}\n\n"
         if book.author:
             full_markdown_content += f"- 作者：{book.author}\n"
@@ -199,15 +206,15 @@ class BookViewSet(viewsets.ModelViewSet):
 
         for chapter in chapters:
             full_markdown_content += f"{chapter.content_md}\n\n"
-        
+
         response = HttpResponse(full_markdown_content, content_type='text/markdown')
         response['Content-Disposition'] = f'attachment; filename="{book.title}.md"'
         return response
 
 class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Chapter.objects.all()
+    queryset = Chapter.objects.prefetch_related('comments', 'annotations')
     serializer_class = ChapterSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
 
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAuthenticated])
     def add_comment(self, request, pk=None):
@@ -231,7 +238,7 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
     def update_content(self, request, pk=None):
         chapter = self.get_object()
         new_content_md = request.data.get('content_md')
-        
+
         if new_content_md is None:
             return Response({"error": "content_md field is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -274,7 +281,7 @@ def extract_headings(markdown_content):
             slug = re.sub(r'[^\w\s-]', '', title).strip().lower()
             slug = re.sub(r'[-\s]+', '-', slug)
             headings.append({'level': level, 'title': title, 'id': slug, 'children': []})
-    
+
     if not headings:
         return []
 
@@ -283,17 +290,17 @@ def extract_headings(markdown_content):
 
     for heading in headings:
         level = heading['level']
-        
+
         while stack and stack[-1]['level'] >= level:
             stack.pop()
-            
+
         if not stack:
             root_nodes.append(heading)
         else:
             stack[-1]['children'].append(heading)
-        
+
         stack.append(heading)
-        
+
     return root_nodes
 
 class BookImportView(APIView):
@@ -301,8 +308,8 @@ class BookImportView(APIView):
     permission_classes = [permissions.IsAdminUser] # 只有管理员可以导入
 
     def post(self, request, format=None):
-        import zipfile
         import tempfile
+        import zipfile
         from urllib.parse import unquote
 
         uploaded_file = request.FILES.get('file')
@@ -325,19 +332,19 @@ class BookImportView(APIView):
             if uploaded_file.name.endswith('.zip'):
                 temp_dir_obj = tempfile.TemporaryDirectory()
                 temp_dir = Path(temp_dir_obj.name)
-                
+
                 zip_path = temp_dir / uploaded_file.name
                 with open(zip_path, 'wb+') as destination:
                     for chunk in uploaded_file.chunks():
                         destination.write(chunk)
-                
+
                 with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                     zip_ref.extractall(temp_dir)
-                
+
                 md_files = list(temp_dir.glob('**/*.md'))
                 if not md_files:
                     return Response({"error": "No markdown file found in the zip archive."}, status=status.HTTP_400_BAD_REQUEST)
-                
+
                 markdown_file_path = md_files[0]
                 base_path_for_images = markdown_file_path.parent
                 content = markdown_file_path.read_text(encoding='utf-8')
@@ -353,7 +360,7 @@ class BookImportView(APIView):
                     title = title_match.group(1).strip()
                 else:
                     title = Path(uploaded_file.name).stem
-            
+
             if not title:
                 return Response({"error": "Book title is required."}, status=status.HTTP_400_BAD_REQUEST)
 
@@ -363,10 +370,10 @@ class BookImportView(APIView):
                     media_root = Path(settings.MEDIA_ROOT)
                     cover_dest_dir = media_root / 'covers'
                     cover_dest_dir.mkdir(parents=True, exist_ok=True)
-                    
+
                     cover_filename = cover_image_file.name
                     dest_path = cover_dest_dir / cover_filename
-                    
+
                     with open(dest_path, 'wb+') as destination:
                         for chunk in cover_image_file.chunks():
                             destination.write(chunk)
@@ -400,7 +407,7 @@ class BookImportView(APIView):
                             # Resolve path and ensure it's a file within the temp directory
                             original_path_str = original_path_str.replace('\\', '/')
                             src_image_path = (base_path_for_images / original_path_str).resolve(strict=True)
-                            
+
                             if not str(src_image_path).startswith(str(base_path_for_images.resolve())):
                                 return match.group(0)
 
@@ -409,9 +416,9 @@ class BookImportView(APIView):
                             image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
                             image_dest_dir.mkdir(parents=True, exist_ok=True)
                             dest_image_path = image_dest_dir / image_filename
-                            
+
                             shutil.move(str(src_image_path), str(dest_image_path))
-                            
+
                             new_path = posixpath.join(settings.MEDIA_URL, 'book_images', sanitized_title, image_filename)
                             return f'![{alt_text}]({new_path})'
                         except (FileNotFoundError, ValueError):
@@ -426,7 +433,7 @@ class BookImportView(APIView):
                 book_obj.chapters.all().delete()
 
                 chapters_md = re.split(r'(?m)^# (?!#)', content)
-                
+
                 md_extensions = ['fenced_code', 'tables', 'nl2br', 'pymdownx.arithmatex']
                 md_extension_configs = {'pymdownx.arithmatex': {'generic': True}}
 
@@ -459,12 +466,12 @@ class BookImportView(APIView):
                         order=chapter_order
                     )
                     chapter_order += 1
-            
+
             serializer = BookSerializer(book_obj)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
 
         except Exception as e:
-            return Response({"error": f"An unexpected error occurred: {str(e)}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"An unexpected error occurred: {e!s}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
             if temp_dir_obj:
                 temp_dir_obj.cleanup()
@@ -472,7 +479,7 @@ class BookImportView(APIView):
 class EBookViewSet(viewsets.ModelViewSet):
     queryset = EBook.objects.all()
     serializer_class = EBookSerializer
-    permission_classes = []
+    permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
     @action(detail=False, methods=['post'])

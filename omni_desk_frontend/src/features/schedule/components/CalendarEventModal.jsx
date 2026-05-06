@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space } from 'antd';
+import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space, message } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
 import { useAuth } from '../../auth/context/AuthContext';
-import { useScheduleData } from '../hooks/useScheduleData'; // 引入 useScheduleData
-import { useTrialScheduleData } from '../hooks/useTrialScheduleData'; // 引入 useTrialScheduleData
+import { useScheduleData } from '../hooks/useScheduleData';
 import { trialApi } from '../../../shared/api/trialApi';
-import { MinusCircleOutlined, PlusOutlined } from '@ant-design/icons';
+import { scheduleApi } from '../api/scheduleApi';
+import { MinusCircleOutlined, PlusOutlined, SwapOutlined } from '@ant-design/icons';
 
 const { Option } = Select;
 const { RangePicker } = DatePicker;
@@ -17,16 +17,26 @@ const CalendarEventModal = ({
   onCancel,
   onSave,
   onDelete,
+  onSwap,
   form,
   isEditing,
   setIsEditing,
   isProcessing,
+  trials: passedTrials,
 }) => {
-  const { user } = useAuth(); // 获取 user 对象
-  const canEdit = user?.role === 'admin' || user?.role === 'manager'; // 判断是否有编辑权限
-  const { personnel } = useScheduleData(); // 获取人员数据
-  const { trials } = useTrialScheduleData(); // 获取试验数据
+  const { user } = useAuth();
+  const canEdit = user?.role === 'admin' || user?.role === 'manager';
+  const { personnel } = useScheduleData();
+  const trials = passedTrials || [];
   const [pickerOpen, setPickerOpen] = useState(false);
+  const [equipment, setEquipment] = useState([]);
+
+  useEffect(() => {
+    scheduleApi.fetchEquipment().then(setEquipment).catch(() => {
+      message.error('设备信息获取失败');
+      setEquipment([]);
+    });
+  }, []);
 
   useEffect(() => {
     if (currentEvent) {
@@ -96,7 +106,7 @@ const CalendarEventModal = ({
           }));
           form.setFieldsValue({ time_ranges: mappedTimeRanges });
         } catch (error) {
-          // 移除日志：console.error('Failed to fetch trial time slots:', error);
+          message.error('获取试验时间段失败');
         }
       }
     }
@@ -142,10 +152,10 @@ const CalendarEventModal = ({
         processedValues.time_slots_data = finalTimeSlotsData;
         delete processedValues.time_ranges; // 移除原始的 time_ranges 字段
 
-        console.log('CalendarEventModal - handleOk: processedValues', processedValues);
         onSave(processedValues);
       })
       .catch(() => {
+        message.error('表单验证失败，请检查输入内容');
       });
   };
 
@@ -182,7 +192,14 @@ const CalendarEventModal = ({
       </Form.Item>
       {isEditing && (
         <Form.Item>
-          <Button type="primary" danger onClick={() => onDelete(currentEvent.id)}>删除排班</Button>
+          <Space>
+            <Button type="primary" danger onClick={() => onDelete(currentEvent.id)}>删除排班</Button>
+            {onSwap && (
+              <Button type="default" icon={<SwapOutlined />} onClick={() => onSwap(currentEvent.id)}>
+                调换日期
+              </Button>
+            )}
+          </Space>
         </Form.Item>
       )}
     </>
@@ -280,9 +297,9 @@ const CalendarEventModal = ({
             label="相关设备"
           >
             <Select mode="multiple" placeholder="选择相关设备" disabled={!canEdit}>
-              {/* 这里需要提供设备的选项，目前假设没有设备API，需要根据实际情况补充 */}
-              <Option value="1">设备 A</Option>
-              <Option value="2">设备 B</Option>
+              {equipment.map(e => (
+                <Option key={e.id} value={e.id}>{e.name}</Option>
+              ))}
             </Select>
           </Form.Item>
           <Form.Item
@@ -313,7 +330,13 @@ const CalendarEventModal = ({
 
   return (
     <Modal
-      title={currentEvent && currentEvent.id ? "编辑日程" : "新增日程"}
+      title={
+        !currentEvent || !currentEvent.id
+          ? '新增日程'
+          : isEditing
+            ? '编辑日程'
+            : '查看日程'
+      }
       open={!!currentEvent}
       onOk={handleOk}
       onCancel={onCancel}
@@ -339,11 +362,12 @@ CalendarEventModal.propTypes = {
   onCancel: PropTypes.func.isRequired,
   onSave: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onSwap: PropTypes.func,
   form: PropTypes.object.isRequired,
   isEditing: PropTypes.bool.isRequired,
   setIsEditing: PropTypes.func.isRequired,
-  selectedTrial: PropTypes.object,
   isProcessing: PropTypes.bool,
+  trials: PropTypes.array,
 };
 
 export default CalendarEventModal;

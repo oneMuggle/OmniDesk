@@ -1,12 +1,15 @@
 from rest_framework import serializers
-from .models import DocumentTemplate, GeneratedDocument
+
 from users.serializers import UserSerializer
+
+from .models import DocumentTemplate, GeneratedDocument
+
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):
     owner = serializers.StringRelatedField(read_only=True)
     template_type_display = serializers.CharField(source='get_template_type_display', read_only=True)
     project_name = serializers.CharField(source='project.name', read_only=True, allow_null=True) # 新增
-    
+
     class Meta:
         model = DocumentTemplate
         fields = '__all__'
@@ -16,7 +19,7 @@ class GeneratedDocumentSerializer(serializers.ModelSerializer):
     template = serializers.PrimaryKeyRelatedField(queryset=DocumentTemplate.objects.all())
     generated_by = UserSerializer(read_only=True)
     content_preview = serializers.SerializerMethodField()
-    
+
     class Meta:
         model = GeneratedDocument
         fields = '__all__'
@@ -25,7 +28,8 @@ class GeneratedDocumentSerializer(serializers.ModelSerializer):
     def get_content_preview(self, obj):
         return obj.content[:100] + '...' if len(obj.content) > 100 else obj.content
 
-from .models import Book, Chapter, Comment, Annotation, Tag
+from .models import Annotation, Book, Chapter, Comment, Tag
+
 
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
@@ -66,6 +70,7 @@ class BookSerializer(serializers.ModelSerializer):
         fields = ('id', 'title', 'author', 'description', 'cover_image', 'publication_date', 'tags', 'chapters', 'project_name') # 添加 'project_name'
 
 from .models import EBook
+
 
 class EBookSerializer(serializers.ModelSerializer):
     class Meta:

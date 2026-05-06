@@ -1,7 +1,12 @@
 import { scheduleApi } from './scheduleApi';
 import apiClient from '../../../shared/api/apiClient';
 
-jest.mock('../../../shared/api/apiClient');
+jest.mock('../../../shared/api/apiClient', () => ({
+  get: jest.fn(),
+  post: jest.fn(),
+  patch: jest.fn(),
+  delete: jest.fn(),
+}));
 
 describe('scheduleApi', () => {
   afterEach(() => {
@@ -54,14 +59,9 @@ describe('scheduleApi', () => {
 
       expect(apiClient.get).toHaveBeenCalledWith('events/schedules/');
       expect(result).toEqual([
-        { id: 1, title: '值班: Alice, 组长: Bob', start: '2023-10-01', allDay: true, type: 'SCHEDULE' },
-        { id: 2, title: '值班: Charlie, 组长: Dave', start: '2023-10-02', allDay: true, type: 'SCHEDULE' },
+        { id: 1, duty_date: '2023-10-01', duty_person: 'Alice', duty_leader: 'Bob' },
+        { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave' },
       ]);
-      expect(result[0]).toHaveProperty('id');
-      expect(result[0]).toHaveProperty('title');
-      expect(result[0]).toHaveProperty('start');
-      expect(result[0]).toHaveProperty('allDay', true);
-      expect(result[0]).toHaveProperty('type', 'SCHEDULE');
     });
   });
 

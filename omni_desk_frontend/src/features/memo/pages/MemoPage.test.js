@@ -9,6 +9,15 @@ import { useCalendar } from '../../schedule/hooks/useCalendar';
 
 jest.mock('../hooks/useMemoData');
 jest.mock('../../schedule/hooks/useCalendar');
+jest.mock('../components/MiniCalendar', () => {
+  const MockMiniCalendar = ({ memos }) => (
+    <div data-testid="mini-calendar">
+      {memos?.map(m => <div key={m.id}>{m.title}</div>)}
+    </div>
+  );
+  MockMiniCalendar.displayName = 'MiniCalendar';
+  return MockMiniCalendar;
+});
 
 describe('MemoPage Component', () => {
   const MOCK_DATE_NOW = new Date('2025-10-27T10:00:00.000Z').getTime();

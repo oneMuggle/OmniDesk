@@ -1,53 +1,58 @@
-from rest_framework.decorators import action
-from rest_framework import generics, permissions, status, exceptions
-from .permissions import IsAdminOrManager, IsAdmin # 导入 IsAdmin
-from rest_framework.views import APIView
-from rest_framework.authtoken.models import Token
-from rest_framework.response import Response
-from rest_framework import status
-from django.contrib.auth import authenticate
-from .serializers import (
-    UserRegistrationSerializer,
-    UserLoginSerializer,
-    UserDetailSerializer,
-    CustomTokenObtainPairSerializer,
-    PersonnelSerializer,
-    UserAdminSerializer, # 导入 UserAdminSerializer
-    ChangePasswordSerializer
-)
-
-
-
-from rest_framework_simplejwt.authentication import JWTAuthentication
+from django.utils.decorators import method_decorator
+from django_filters.rest_framework import DjangoFilterBackend
+from django_ratelimit.decorators import ratelimit
+from rest_framework import exceptions, generics, permissions, status, viewsets
+from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import CustomUser
+
 from personnel.models import Personnel, Position
+
+from .models import CustomUser
+from .permissions import IsAdmin, IsAdminOrManager
 from .serializers import (
-    UserRegistrationSerializer,
-    UserLoginSerializer,
-    UserDetailSerializer,
+    ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
-    PersonnelSerializer,
+    PositionSerializer,
+    UserAdminSerializer,
+    UserDetailSerializer,
     UserPersonnelSerializer,
-    PositionSerializer
+    UserRegistrationSerializer,
 )
+
+RATELIMIT_CONFIG = {
+    'group': 'auth',
+    'key': 'ip',
+    'rate': '5/15m',
+    'method': 'POST',
+    'block': False,
+}
 
 class UserRegistrationView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
     permission_classes = [permissions.AllowAny]
 
-    def post(self, request, *args, **kwargs):
+    @method_decorator(ratelimit(**RATELIMIT_CONFIG))
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            return Response({
+                "success": False,
+                "error": "rate_limit",
+                "message": "请求过于频繁，请稍后再试"
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        return super().dispatch(request, *args, **kwargs)
+
+    def create(self, request, *args, **kwargs):
         try:
             serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
-            
+
             return Response({
                 "success": True,
                 "message": "注册成功，请登录",
                 "username": user.username,
-                "user": UserDetailSerializer(user).data # 返回 user 对象
+                "user": UserDetailSerializer(user).data
             }, status=status.HTTP_201_CREATED)
         except exceptions.APIException as e:
             error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else 'validation_error'
@@ -57,7 +62,7 @@ class UserRegistrationView(generics.CreateAPIView):
                 "message": "注册验证失败",
                 "validation_errors": e.detail
             }, status=e.status_code)
-        except Exception as e:
+        except Exception:
             import traceback
             traceback.print_exc()
             error_data = {
@@ -71,14 +76,14 @@ class UserRegistrationView(generics.CreateAPIView):
 class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
-    
+
     def get_object(self):
         return self.request.user
 class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
@@ -95,11 +100,17 @@ class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
     permission_classes = [permissions.AllowAny]
 
+    @method_decorator(ratelimit(**RATELIMIT_CONFIG))
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            return Response({
+                "success": False,
+                "error": "rate_limit",
+                "message": "请求过于频繁，请稍后再试"
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        return super().dispatch(request, *args, **kwargs)
 
-from django.db.models import Q
-from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework.filters import SearchFilter
-from django.db import transaction
+
 
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -124,7 +135,7 @@ class ChangePasswordView(generics.UpdateAPIView):
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserAdminListView(generics.ListAPIView):
-    queryset = CustomUser.objects.prefetch_related('phone_numbers').all().order_by('id') # 按照id排序
+    queryset = CustomUser.objects.select_related('personnel').prefetch_related('phone_numbers').order_by('id') # 按照id排序
     serializer_class = UserAdminSerializer
     permission_classes = [IsAdmin] # 只有管理员可以访问
 
@@ -152,7 +163,6 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
 
         return super().partial_update(request, *args, **kwargs)
 
-from rest_framework import viewsets
 class UserPersonnelViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.prefetch_related('phone_numbers').all().order_by('username')
     serializer_class = UserPersonnelSerializer # 使用 UserPersonnelSerializer
@@ -177,10 +187,10 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
                     instance.real_name = personnel.name  # 强制设置为人员名称
                 except Personnel.DoesNotExist:
                     return Response({"detail": "人员不存在。"}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # 不论 personnel_id 是否提供，都保存实例
         instance.save()
-        
+
         # 在保存后序列化并返回
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
@@ -193,11 +203,10 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
 
             if position:
                 queryset = queryset.filter(personnel__position_id=position)
-            
+
             return queryset
         return CustomUser.objects.filter(id=self.request.user.id)
 
-from events.models import Position
 
 class PositionListView(generics.ListAPIView):
     queryset = Position.objects.all()

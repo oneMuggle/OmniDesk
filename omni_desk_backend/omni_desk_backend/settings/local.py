@@ -17,14 +17,18 @@ DATABASES = {
 }
 
 # CSRF and CORS settings for development
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
+# CORS: regex allows any localhost port — no config changes needed when frontend port changes
+CORS_ALLOWED_ORIGIN_REGEXES = [
+    r"^https?://localhost:\d+$",
+    r"^https?://127\.0\.0\.1:\d+$",
 ]
 
-CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',') if os.environ.get('CSRF_TRUSTED_ORIGINS') else [
+# CSRF: frontend uses JWT (not cookies), so CSRF is mainly for Django admin access
+CSRF_TRUSTED_ORIGINS = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
+    "http://localhost:3002",
+    "http://127.0.0.1:3002",
 ]
 
 # In a non-HTTPS environment, SAMESITE='None' is rejected by browsers, and SECURE must be False
@@ -34,3 +38,8 @@ SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
 CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
 SESSION_COOKIE_HTTPONLY = True
+
+# Smart Assistant Configuration
+# Ragflow dataset ID for knowledge base document upload and vectorization.
+# Obtain from Ragflow admin panel: Datasets -> select dataset -> copy ID.
+SMART_ASSISTANT_DATASET_ID = os.environ.get('SMART_ASSISTANT_DATASET_ID', '')

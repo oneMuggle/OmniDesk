@@ -1,53 +1,44 @@
-// 模拟后端数据
-let holidays = [
-  { id: 1, name: '元旦', start_date: '2024-01-01', end_date: '2024-01-01' },
-  { id: 2, name: '春节', start_date: '2024-02-10', end_date: '2024-02-17' },
-  { id: 3, name: '劳动节', start_date: '2024-05-01', end_date: '2024-05-03' },
-  { id: 4, name: '国庆节', start_date: '2024-10-01', end_date: '2024-10-07' },
-];
-
-let nextId = 5;
+import apiClient from '../../../shared/api/apiClient';
+import { handleError } from '../../../shared/api/responseHandler';
 
 export const holidayApi = {
-  getHolidays: () => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve([...holidays]);
-      }, 500);
-    });
+  getHolidays: async (year) => {
+    try {
+      const params = year ? { year } : {};
+      const response = await apiClient.get('events/holidays/', { params });
+      return response.data.results || [];
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   },
 
-  createHoliday: (holidayData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const newHoliday = {
-          id: nextId++,
-          ...holidayData,
-        };
-        holidays.push(newHoliday);
-        resolve(newHoliday);
-      }, 500);
-    });
+  createHoliday: async (holidayData) => {
+    try {
+      const response = await apiClient.post('events/holidays/', holidayData);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   },
 
-  deleteHoliday: (holidayId) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        holidays = holidays.filter(h => h.id !== holidayId);
-        resolve();
-      }, 500);
-    });
+  updateHoliday: async (holidayId, holidayData) => {
+    try {
+      const response = await apiClient.patch(`events/holidays/${holidayId}/`, holidayData);
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   },
 
-  updateHoliday: (holidayId, holidayData) => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const index = holidays.findIndex(h => h.id === holidayId);
-        if (index !== -1) {
-          holidays[index] = { ...holidays[index], ...holidayData };
-          resolve(holidays[index]);
-        }
-      }, 500);
-    });
+  deleteHoliday: async (holidayId) => {
+    try {
+      await apiClient.delete(`events/holidays/${holidayId}/`);
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
   },
 };

@@ -1,3 +1,7 @@
+# Environment files (never commit secrets)
+.env
+!.env.example
+
 /omni_desk_frontend/node_modules
 DRFForVue/db.sqlite3
 
@@ -11,6 +15,35 @@ __pycache__/
 /temp_packages/
 /node_modules/
 /deployment/docker/exported_images/
+
+# IDE
+.idea/
+.vscode/
+.roo/
+.trae/
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Playwright MCP debug output
+.playwright-mcp/
+*.playwright-mcp/
+*-schedule.png
+*-schedule-*.png
+trial-schedule*.png
+shift-schedule*.png
+
+# Python
+*.egg-info/
+venv/
+.venv/
+*.log
+.pytest_cache/
+
+# Secrets
+deployment/docker/.env.production
 
 # Root-level duplicate package files (frontend has its own)
 /package.json

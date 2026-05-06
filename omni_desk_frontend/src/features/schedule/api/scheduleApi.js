@@ -16,6 +16,38 @@ export const scheduleApi = {
 
   fetchSchedules: async () => {
     try {
+      return await scheduleApi.getSchedules();
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
+  fetchSchedulesByDateRange: async (startDate, endDate) => {
+    try {
+      const response = await apiClient.get('events/schedules/by-date-range/', {
+        params: { start_date: startDate, end_date: endDate }
+      });
+      const raw = response.data;
+      const results = Array.isArray(raw) ? raw : (Array.isArray(raw.results) ? raw.results : []);
+      return results.map(schedule => {
+        const dutyPerson = schedule.duty_person || {};
+        const dutyLeader = schedule.duty_leader || {};
+        return {
+          id: schedule.id,
+          duty_date: schedule.duty_date,
+          duty_person: dutyPerson,
+          duty_leader: dutyLeader,
+        };
+      });
+    } catch (error) {
+      handleError(error);
+      return [];
+    }
+  },
+
+  getSchedules: async () => {
+    try {
       let allSchedules = [];
       let url = 'events/schedules/';
       
@@ -32,13 +64,16 @@ export const scheduleApi = {
         url = response.data.next;
       }
 
-      return allSchedules.map(schedule => ({
-        id: schedule.id,
-        title: `值班: ${schedule.duty_person}, 组长: ${schedule.duty_leader}`,
-        start: schedule.duty_date,
-        allDay: true,
-        type: 'SCHEDULE'
-      }));
+      return allSchedules.map(schedule => {
+        const dutyPerson = schedule.duty_person || {};
+        const dutyLeader = schedule.duty_leader || {};
+        return {
+          id: schedule.id,
+          duty_date: schedule.duty_date,
+          duty_person: dutyPerson,
+          duty_leader: dutyLeader,
+        };
+      });
     } catch (error) {
       handleError(error);
       return [];
@@ -65,6 +100,18 @@ export const scheduleApi = {
         duty_date: scheduleData.date,
         duty_person_id: scheduleData.duty_person_id, // 修改为 duty_person_id
         duty_leader_id: scheduleData.duty_leader_id  // 修改为 duty_leader_id
+      });
+      return response.data;
+    } catch (error) {
+      handleError(error);
+      throw error;
+    }
+  },
+
+  updateScheduleDate: async (scheduleId, newDate) => {
+    try {
+      const response = await apiClient.patch(`events/schedules/${scheduleId}/`, {
+        duty_date: newDate,
       });
       return response.data;
     } catch (error) {
@@ -132,6 +179,16 @@ export const scheduleApi = {
     } catch (error) {
       handleError(error);
       throw error;
+    }
+  },
+
+  fetchEquipment: async () => {
+    try {
+      const response = await apiClient.get('events/equipments/');
+      return response.data.results || [];
+    } catch (error) {
+      handleError(error);
+      return [];
     }
   },
 

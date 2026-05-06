@@ -1,44 +1,45 @@
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
-from rest_framework.parsers import MultiPartParser, FormParser
-from rest_framework.views import APIView
-from rest_framework import viewsets, generics
-from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated, DjangoModelPermissions
-from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly
-from rest_framework.views import APIView
-from rest_framework.filters import SearchFilter
-from rest_framework.response import Response
-from django.utils import timezone
-from django.db import transaction, IntegrityError
 import calendar
 import logging
 from datetime import datetime, timedelta
-from django.db.models import Min, Max
-from django.db.models.functions import TruncDate
-from rest_framework.exceptions import ValidationError
-from personnel.models import Personnel
 
+from django.db import transaction
+from django.utils import timezone
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from personnel.models import Personnel, Position
+from users.permissions import IsAdminOrManagerOrReadOnly
 
 from .models import (
-    Trial, TimeSlot, Equipment, DocumentTemplate, Schedule, Announcement, UploadedImage,
-    PersonnelSequence, LeaderSequence, Holiday, Position
+    Announcement,
+    DocumentTemplate,
+    Equipment,
+    Holiday,
+    LeaderSequence,
+    PersonnelSequence,
+    Schedule,
+    TimeSlot,
+    Trial,
 )
 from .serializers import (
-    TrialSerializer,
-    DocumentTemplateSerializer,
-    TimeSlotSerializer,
-    ScheduleSerializer,
     AnnouncementSerializer,
-    UploadedImageSerializer,
-    PersonnelSequenceSerializer,
-    LeaderSequenceSerializer,
-    HolidaySerializer,
-    PositionSerializer,
+    DocumentTemplateSerializer,
     EquipmentSerializer,
-    GenerateScheduleSerializer
+    GenerateScheduleSerializer,
+    HolidaySerializer,
+    LeaderSequenceSerializer,
+    PersonnelSequenceSerializer,
+    PositionSerializer,
+    ScheduleSerializer,
+    TimeSlotSerializer,
+    TrialSerializer,
+    UploadedImageSerializer,
 )
-from django_filters.rest_framework import DjangoFilterBackend
 
 logger = logging.getLogger(__name__)
 
@@ -61,10 +62,10 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
         """批量创建时间段"""
         trial_id = request.data.get('trial')
         time_slots = request.data.get('time_slots', [])
-        
+
         if not trial_id:
             return Response({'error': 'trial is required'}, status=400)
-        
+
         try:
             trial = Trial.objects.get(pk=trial_id)
         except Trial.DoesNotExist:
@@ -98,17 +99,17 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
                 # 保存时间段
                 instance = serializer.save(update_fields=['start_time', 'end_time', 'description'])
                 logger.debug(f"Updated time slot: {instance.start_time} to {instance.end_time}")
-                
+
                 # 显式更新关联试验的时间范围
                 trial = instance.trial
                 logger.debug(f"Updating time range for trial {trial.id}")
                 trial.update_time_range()
                 logger.debug(f"Finished updating trial {trial.id} time range")
-                
+
                 # 确保数据已提交到数据库
                 transaction.on_commit(lambda: None)
         except Exception as e:
-            logger.error(f"Error updating time slot: {str(e)}")
+            logger.error(f"Error updating time slot: {e!s}")
             raise
 
     def perform_destroy(self, instance):
@@ -136,12 +137,12 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     def upsert(self, request):
         """创建或更新排班记录"""
         data = request.data
-        if 'id' in data and data['id']:
+        if data.get('id'):
             instance = self.get_object()
             serializer = self.get_serializer(instance, data=data, partial=True)
         else:
             serializer = self.get_serializer(data=data)
-        
+
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data, status=status.HTTP_200_OK)
@@ -155,15 +156,15 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         """按日期范围查询排班"""
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        
+
         if not start_date or not end_date:
             return Response({'error': 'start_date and end_date are required'}, status=400)
-            
+
         queryset = self.queryset.filter(
             duty_date__gte=start_date,
             duty_date__lte=end_date
         ).order_by('duty_date')
-        
+
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
 
@@ -171,21 +172,21 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     def bulk_update(self, request):
         """批量更新排班"""
         schedules_data = request.data.get('schedules', [])
-        
+
         with transaction.atomic():
             # 先删除原有排班
             if request.data.get('clear_existing', False):
                 Schedule.objects.all().delete()
-            
+
             # 创建新排班
             new_schedules = []
             for schedule_data in schedules_data:
                 serializer = self.get_serializer(data=schedule_data)
                 serializer.is_valid(raise_exception=True)
                 new_schedules.append(Schedule(**serializer.validated_data))
-            
+
             Schedule.objects.bulk_create(new_schedules)
-        
+
         return Response({'status': 'success'}, status=201)
 
     def create(self, request, *args, **kwargs):
@@ -228,7 +229,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             duty_leader_val = request.data.get('duty_leader_id') or request.data.get('duty_leader')
             if duty_leader_val:
                 save_kwargs['duty_leader_id'] = duty_leader_val
-            
+
             serializer.save(**save_kwargs)
 
             headers = self.get_success_headers(serializer.data)
@@ -237,12 +238,12 @@ class ScheduleViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """更新排班时检查日期是否冲突，并确保外键字段正确更新。"""
         duty_date = serializer.validated_data.get('duty_date', serializer.instance.duty_date)
-        
+
         # 检查日期冲突
         if Schedule.objects.filter(duty_date=duty_date).exclude(pk=serializer.instance.pk).exists():
             from rest_framework.exceptions import ValidationError
             raise ValidationError({'duty_date': '该日期已有排班'})
-        
+
         # 显式传递 duty_person_id 和 duty_leader_id 以确保更新
         # 这是为了解决测试中发现的 PUT 请求未更新这些字段的问题
         update_kwargs = {}
@@ -258,15 +259,15 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         """交换两个排班的日期"""
         schedule_id_1 = request.data.get('schedule_id_1')
         schedule_id_2 = request.data.get('schedule_id_2')
-        
+
         if not schedule_id_1 or not schedule_id_2:
             return Response({'error': 'schedule_id_1 and schedule_id_2 are required'}, status=400)
-        
+
         try:
             with transaction.atomic():
                 schedule1 = Schedule.objects.get(pk=schedule_id_1)
                 schedule2 = Schedule.objects.get(pk=schedule_id_2)
-                
+
                 # 交换人员和领导，而不是日期，以避免违反UNIQUE约束
                 temp_person = schedule1.duty_person
                 temp_leader = schedule1.duty_leader
@@ -276,11 +277,11 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
                 schedule2.duty_person = temp_person
                 schedule2.duty_leader = temp_leader
-                
+
                 # 保存并验证
                 schedule1.save()
                 schedule2.save()
-                
+
                 return Response({
                     'status': 'success',
                     'schedule1': ScheduleSerializer(schedule1).data,
@@ -375,13 +376,13 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 # 2. 提取ID列表
                 # 清洗并转换ID为整数，过滤掉无效条目，如 None、空字符串 ""
                 workday_personnel_order = [int(pid) for pid in workday_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
-                
+
                 # 如果提供了节假日序列，同样进行清洗；否则，复用已清洗的工作日序列
                 if holiday_sequence and holiday_sequence.sequence:
                     holiday_personnel_order = [int(pid) for pid in holiday_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
                 else:
                     holiday_personnel_order = workday_personnel_order
-                
+
                 leader_order = [int(pid) for pid in leader_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
 
                 if not workday_personnel_order or not leader_order:
@@ -396,12 +397,12 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
 
                 if all_personnel_ids:
-                    
+
                     # 使用 select_for_update 锁定行，防止在检查和创建之间删除人员
                     existing_personnel_ids = set(
                         Personnel.objects.select_for_update().filter(id__in=all_personnel_ids).values_list('id', flat=True)
                     )
-                    
+
                     missing_ids = all_personnel_ids - existing_personnel_ids
                     if missing_ids:
                         missing_ids_str = ", ".join(map(str, sorted(list(missing_ids))))
@@ -465,7 +466,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 schedules_to_create = []
                 workday_count = 0
                 holiday_count = 0
-                
+
                 for i in range(duration_days):
                     current_date = start_date + timedelta(days=i)
                     is_holiday = current_date in holiday_dates or current_date.weekday() >= 5
@@ -473,7 +474,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                     if is_holiday:
                         if not holiday_personnel_order:
                             raise ValidationError({'holiday_personnel_sequence_id': 'Holiday sequence is required for dates identified as holidays but is not configured.'})
-                        
+
                         # 确保节假日排班使用节假日序列和计数器
                         personnel_idx = (holiday_start_index + holiday_count) % len(holiday_personnel_order)
                         duty_person_id = holiday_personnel_order[personnel_idx]
@@ -482,7 +483,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                         personnel_idx = (workday_start_index + workday_count) % len(workday_personnel_order)
                         duty_person_id = workday_personnel_order[personnel_idx]
                         workday_count += 1
-                    
+
                     weeks_passed = (current_date - start_date).days // 7
                     leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
                     duty_leader_id = leader_order[leader_idx]
@@ -497,7 +498,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
                 # 5. 数据库写入
                 Schedule.objects.filter(duty_date__gte=start_date, duty_date__lte=end_date).delete()
-                
+
                 Schedule.objects.bulk_create(schedules_to_create)
                 created_schedules = list(Schedule.objects.filter(duty_date__gte=start_date, duty_date__lte=end_date))
 
@@ -526,7 +527,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
             with transaction.atomic():
                 Schedule.objects.filter(pk__in=schedule_ids).delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        except Exception as e:
+        except Exception:
             return Response(
                 {'error': 'An internal server error occurred.'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
@@ -589,15 +590,15 @@ class TrialViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         """原子化创建试验及其时间段"""
         time_periods = self.request.data.get('time_periods', [])
-        
+
         with transaction.atomic():
             # 创建试验基础信息
             instance = serializer.save()
-            
+
             # 处理关联关系
             instance.equipments.set(self.request.data.get('equipment_ids', []))
             instance.responsible_persons.set(self.request.data.get('responsible_person_ids', []))
-            
+
             # 直接创建时间段（已通过外键关联）
             if time_periods:
                 TimeSlot.objects.bulk_create([
@@ -613,14 +614,13 @@ class TrialViewSet(viewsets.ModelViewSet):
     def perform_update(self, serializer):
         """原子化更新试验及其时间段"""
         # 乐观锁检查
-        # 乐观锁检查
         current_version = serializer.instance.version
         if 'version' in self.request.data:
             if self.request.data['version'] != current_version:
                 raise serializers.ValidationError(
                     {'version': '数据已被其他用户修改，请刷新后重试'}
                 )
-        
+
         # 更新试验基本信息并增加版本号
         serializer.save(version=current_version + 1)
         # 关联关系的更新由serializer的update方法处理
@@ -631,11 +631,11 @@ class TrialViewSet(viewsets.ModelViewSet):
         """原子化更新时间段"""
         trial = self.get_object()
         time_periods = request.data
-        
+
         with transaction.atomic():
             # 删除原有时间段
             trial.time_slots.all().delete()
-            
+
             # 创建新时间段
             new_slots = TimeSlot.objects.bulk_create([
                 TimeSlot(
@@ -646,12 +646,12 @@ class TrialViewSet(viewsets.ModelViewSet):
                 ) for period in time_periods
             ])
             trial.update_time_range()
-        
+
         serializer = TimeSlotSerializer(new_slots, many=True)
         return Response(serializer.data, status=201)
 
 class AnnouncementViewSet(viewsets.ModelViewSet):
-    queryset = Announcement.objects.select_related('author').all().order_by('-created_at')
+    queryset = Announcement.objects.select_related('author').order_by('-created_at')
     serializer_class = AnnouncementSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
 
@@ -692,7 +692,7 @@ class HolidayViewSet(viewsets.ModelViewSet):
     serializer_class = HolidaySerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['date']
+    filterset_fields = ['name', 'start_date', 'end_date']
 
     def get_queryset(self):
         """
@@ -702,15 +702,8 @@ class HolidayViewSet(viewsets.ModelViewSet):
         queryset = Holiday.objects.all()
         year = self.request.query_params.get('year')
         if year is not None:
-            queryset = queryset.filter(date__year=year)
+            queryset = queryset.filter(start_date__year=year)
         return queryset
-
-class HolidayViewSet(viewsets.ModelViewSet):
-    queryset = Holiday.objects.all()
-    serializer_class = HolidaySerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'start_date', 'end_date']
 
 
 class PositionViewSet(viewsets.ReadOnlyModelViewSet):

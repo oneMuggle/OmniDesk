@@ -1,12 +1,11 @@
-from django.contrib import admin
-from django.urls import path, include
-from django.conf.urls.static import static
 from django.conf import settings
-from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
-from users.views import UserRegistrationView, UserDetailView
+from django.conf.urls.static import static
+from django.contrib import admin
+from django.urls import include, path
+from rest_framework.routers import DefaultRouter
+
 from config.views import ollama_configs_view
 from sensor_management.views import SensorCategoryViewSet, StorageLocationViewSet
-from rest_framework.routers import DefaultRouter
 
 router = DefaultRouter()
 router.register(r'categories', SensorCategoryViewSet, basename='sensor-category')
@@ -37,6 +36,10 @@ urlpatterns = [
         path('communication/', include('communication.urls')), # 用户交流相关路由
         path('', include('news.urls')), # 新闻发布相关路由
         path('sensors/', include('sensors.urls')), # 传感器管理相关路由
+        path('', include('ebooks.urls')), # 电子书管理相关路由
+        path('smart-assistant/', include('smart_assistant.urls')), # 智能助手相关路由
+        path('notifications/', include('notifications.urls')), # 通知中心相关路由
+        path('dashboard/', include('dashboard.urls')), # 仪表盘数据接口
     ])),
 ]
 

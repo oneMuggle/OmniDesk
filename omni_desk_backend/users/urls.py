@@ -1,7 +1,12 @@
-from django.urls import path, include
+from django.urls import path
+
 from .views import (
-    ChangePasswordView, CurrentUserView, UserAdminDetailView,
-    UserAdminListView, UserPersonnelViewSet, UserProfileUpdateView
+    ChangePasswordView,
+    CurrentUserView,
+    UserAdminDetailView,
+    UserAdminListView,
+    UserPersonnelViewSet,
+    UserProfileUpdateView,
 )
 
 app_name = 'users'  # 定义应用命名空间

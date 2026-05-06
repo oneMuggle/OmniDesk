@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - test
+  pull_request:
+    branches:
+      - test
 
 jobs:
   test-backend:
@@ -53,7 +56,7 @@ jobs:
           cache-dependency-path: omni_desk_frontend/package-lock.json
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run tests
         run: npm test -- --watchAll=false

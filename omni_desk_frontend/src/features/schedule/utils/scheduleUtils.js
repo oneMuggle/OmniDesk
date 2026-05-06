@@ -1,6 +1,7 @@
 /**
  * 日历工具函数
  */
+import { logger } from '../../../shared/utils/logger';
 
 // 基于trialId生成HSL颜色 (改进版)
 export const getTrialColor = (trialId) => {
@@ -86,6 +87,6 @@ export const extractSlotId = (compositeId) => {
     return { slotId: id };
   }
   
-  console.error('[ERROR] 无法解析ID:', compositeId);
+  logger.error('[ERROR] 无法解析ID:', compositeId);
   throw new Error(`无效的时间段ID格式: ${compositeId}`);
 };

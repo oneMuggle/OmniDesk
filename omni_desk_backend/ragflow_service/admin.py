@@ -1,5 +1,7 @@
 from django.contrib import admin
+
 from .models import RagflowConfig
+
 
 @admin.register(RagflowConfig)
 class RagflowConfigAdmin(admin.ModelAdmin):

@@ -1,127 +1,131 @@
 import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Button } from 'antd';
+import { Form, Input, Button, Checkbox, message } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import './Login.css';
 
 const Login = () => {
   const location = useLocation();
-  const [username, setUsername] = useState(location.state?.registeredUsername || '');
-  const [password, setPassword] = useState('');
-  const [rememberMe, setRememberMe] = useState(false);
+  const [form] = Form.useForm();
+  const [loading, setLoading] = useState(false);
   const { login, loginAsGuest } = useAuth();
   const navigate = useNavigate();
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const initialUsername = location.state?.registeredUsername || '';
+  if (initialUsername && form) {
+    form.setFieldsValue({ username: initialUsername });
+  }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (values) => {
+    const { username, password, remember } = values;
+
     if (!username || !password) {
-      setError('请输入用户名和密码');
+      message.error('请输入用户名和密码');
       return;
     }
-    
-    try {
-      setIsLoading(true);
-      setError('');
 
-      const result = await login(username.trim(), password.trim(), rememberMe);
+    try {
+      setLoading(true);
+      const result = await login(username.trim(), password.trim(), remember);
       if (!result.success) throw new Error(result.error);
-      
-      // 添加微小延迟确保状态完全更新
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
+      message.success('登录成功');
       navigate(result.redirectTo || '/');
     } catch (err) {
-      setError(err.message || '登录失败，请重试');
+      message.error(err.message || '登录失败，请重试');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
+    }
+  };
+
+  const handleGuestLogin = async () => {
+    try {
+      setLoading(true);
+      const result = await loginAsGuest();
+      if (result.success) {
+        message.success('欢迎访问');
+        navigate('/');
+      } else {
+        message.error(result.error || '游客登录失败');
+      }
+    } catch (err) {
+      message.error('游客登录失败，请重试');
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <div className="login-container">
-      <form onSubmit={handleSubmit}>
-        <h2>登录</h2>
-        {error && <div className="error-message">{error}</div>}
-        <div className="form-group">
-          <label htmlFor="username">用户名</label>
-          <input
-            id="username"
-            type="text"
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            placeholder="用户名"
-            required
-          />
-        </div>
-        <div className="form-group">
-          <label htmlFor="password">密码</label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="密码"
-            required
-          />
+      <div className="login-card">
+        <div className="login-brand">
+          <div className="brand-logo">OmniDesk</div>
+          <div className="brand-subtitle">智能办公桌面管理系统</div>
         </div>
 
-        <div className="form-group remember-me">
-          <label>
-            <input
-              type="checkbox"
-              checked={rememberMe}
-              onChange={(e) => setRememberMe(e.target.checked)}
+        <Form
+          form={form}
+          name="login"
+          onFinish={handleSubmit}
+          layout="vertical"
+          initialValues={{ username: initialUsername }}
+          size="large"
+        >
+          <Form.Item
+            name="username"
+            rules={[{ required: true, message: '请输入用户名' }]}
+          >
+            <Input
+              prefix={<UserOutlined />}
+              placeholder="用户名"
+              size="large"
             />
-            记住我
-          </label>
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            rules={[{ required: true, message: '请输入密码' }]}
+          >
+            <Input.Password
+              prefix={<LockOutlined />}
+              placeholder="密码"
+              size="large"
+            />
+          </Form.Item>
+
+          <Form.Item name="remember" valuePropName="checked">
+            <Checkbox>记住我</Checkbox>
+          </Form.Item>
+
+          <Form.Item style={{ marginBottom: 16 }}>
+            <Button
+              type="primary"
+              htmlType="submit"
+              loading={loading}
+              block
+              size="large"
+              className="login-button"
+            >
+              登录
+            </Button>
+          </Form.Item>
+        </Form>
+
+        <div className="login-footer">
+          <span>没有账号？</span>
+          <Link to="/register">立即注册</Link>
         </div>
-        
+
         <Button
-          type="primary"
-          htmlType="submit"
-          loading={isLoading}
-          disabled={isLoading}
           block
-          className="login-button"
+          size="large"
+          onClick={handleGuestLogin}
+          loading={loading}
+          className="guest-button"
         >
-          {isLoading ? '登录中...' : '登录'}
+          以游客身份访问
         </Button>
-        
-        <p className="toggle-mode">
-          没有账号？
-          <Link to="/register" className="link-button">
-            立即注册
-          </Link>
-        </p>
-        <Button
-          type="default"
-          onClick={async () => {
-            try {
-              setIsLoading(true);
-              setError('');
-              const result = await loginAsGuest();
-              if (result.success) {
-                navigate('/');
-              } else {
-                setError(result.error || '游客登录失败');
-              }
-            } catch (err) {
-              setError('游客登录失败，请重试');
-            } finally {
-              setIsLoading(false);
-            }
-          }}
-          loading={isLoading}
-          disabled={isLoading}
-          style={{ marginTop: '16px', width: '100%' }}
-          className="login-button"
-        >
-          {isLoading ? '正在进入...' : '以游客身份访问'}
-        </Button>
-      </form>
+      </div>
     </div>
   );
 };

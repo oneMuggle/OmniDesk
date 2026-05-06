@@ -1,9 +1,9 @@
 from django.urls import path
 from rest_framework_simplejwt.views import (
-    TokenObtainPairView,
     TokenRefreshView,
 )
-from .views import UserRegistrationView, UserLoginView
+
+from .views import UserLoginView, UserRegistrationView
 
 app_name = 'users_auth' # 定义应用命名空间
 

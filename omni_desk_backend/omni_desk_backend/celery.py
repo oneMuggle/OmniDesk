@@ -1,6 +1,7 @@
 # omni_desk_backend/omni_desk_backend/celery.py
 
 import os
+
 from celery import Celery
 
 # Set the default Django settings module for the 'celery' program.

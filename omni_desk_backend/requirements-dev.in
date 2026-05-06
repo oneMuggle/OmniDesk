@@ -2,12 +2,17 @@
 
 # Testing
 pytest
+pytest-cov
 coverage
+pytest-django
+pytest-mock
+factory_boy
+pytest-factoryboy
+model_bakery
 
 # Linting & Formatting
-# (Add any linting/formatting tools here if needed in the future)
+ruff
 
 # Dependency Management
 pip-tools
-pytest-django
 pymdown-extensions

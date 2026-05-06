@@ -1,13 +1,9 @@
-import { trialApi } from '../../../shared/api/trialApi';
 import { timeSlotApi } from './timeSlotApi';
 import * as personnelApi from '../../personnel/api/personnelApi';
-import { scheduleEventApi } from './scheduleEventApi';
-import { scheduleApi as coreScheduleApi } from './scheduleApi'; // 导入原始的 scheduleApi 并重命名
+import { scheduleApi as coreScheduleApi } from './scheduleApi';
 
 export const scheduleApi = {
-  // 试验相关API - 使用trialApi模块
-  createTrialEvent: trialApi.createTrialEvent,
-  updateTrialEvent: trialApi.updateTrialEvent,
+  // 试验相关API - 使用timeSlotApi模块
   fetchTimeSlotsByTrial: timeSlotApi.fetchTimeSlotsByTrial,
   bulkCreateTimeSlots: timeSlotApi.bulkCreateTimeSlots,
   updateTimeSlot: timeSlotApi.updateTimeSlot,
@@ -15,7 +11,8 @@ export const scheduleApi = {
 
   // 排班相关API - 使用coreScheduleApi模块
   getSchedules: coreScheduleApi.getSchedules,
-  createOrUpdateSchedule: coreScheduleApi.createOrUpdateSchedule,
+  createSchedule: coreScheduleApi.createSchedule,
+  updateSchedule: coreScheduleApi.updateSchedule,
   deleteSchedule: coreScheduleApi.deleteSchedule,
   swapScheduleDates: coreScheduleApi.swapScheduleDates,
   updateScheduleDate: coreScheduleApi.updateScheduleDate,
@@ -23,6 +20,6 @@ export const scheduleApi = {
   // 人员相关API - 使用personnelApi模块
   getPersonnel: personnelApi.getPersonnel,
 
-  // 通用日程事件API
-  createScheduleEvent: scheduleEventApi.createScheduleEvent,
+  // 设备相关API - 使用coreScheduleApi模块
+  fetchEquipment: coreScheduleApi.fetchEquipment,
 };

@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import meetingRoomApi from '../api/meetingRoomApi';
 import dayjs from 'dayjs';
+import { logger } from '../../../shared/utils/logger';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -34,7 +35,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             setMeetingRooms(response.data.results);
         } catch (error) {
             message.error('获取会议室列表失败。');
-            console.error('Failed to fetch meeting rooms:', error.response || error);
+            logger.error('Failed to fetch meeting rooms:', error.response || error);
         } finally {
             setLoading(false);
         }
@@ -51,7 +52,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             })));
         } catch (error) {
             message.error('获取维护记录失败。');
-            console.error('Failed to fetch maintenances:', error);
+            logger.error('Failed to fetch maintenances:', error);
         } finally {
             setLoading(false);
         }
@@ -71,7 +72,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             setStats(response.data);
         } catch (error) {
             message.error('获取统计数据失败。');
-            console.error('Failed to fetch stats:', error);
+            logger.error('Failed to fetch stats:', error);
         } finally {
             setLoading(false);
         }
@@ -111,7 +112,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         } catch (error) {
             const errorMsg = error.response?.data?.name?.[0] || '操作失败，请重试。';
             message.error(errorMsg);
-            console.error('Failed to save room:', error);
+            logger.error('Failed to save room:', error);
         }
     };
 
@@ -122,7 +123,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             fetchMeetingRooms();
         } catch (error) {
             message.error('删除会议室失败。');
-            console.error('Failed to delete room:', error);
+            logger.error('Failed to delete room:', error);
         }
     };
 
@@ -185,7 +186,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         } catch (error) {
             const errorMsg = error.response?.data?.non_field_errors?.[0] || '操作失败，请重试。';
             message.error(errorMsg);
-            console.error('Failed to save maintenance:', error);
+            logger.error('Failed to save maintenance:', error);
         }
     };
 
@@ -196,7 +197,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             fetchMaintenances();
         } catch (error) {
             message.error('删除维护记录失败。');
-            console.error('Failed to delete maintenance:', error);
+            logger.error('Failed to delete maintenance:', error);
         }
     };
 

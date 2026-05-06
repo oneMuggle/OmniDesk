@@ -1,8 +1,11 @@
-import os
 import json
-from django.core.management.base import BaseCommand
+import os
+
 from django.conf import settings
+from django.core.management.base import BaseCommand
+
 from permissions.models import PageRoute
+
 
 class Command(BaseCommand):
     help = 'Sync routes from frontend to database'
@@ -15,7 +18,7 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Routes JSON file not found at {routes_json_path}'))
             return
 
-        with open(routes_json_path, 'r', encoding='utf-8') as f:
+        with open(routes_json_path, encoding='utf-8') as f:
             try:
                 routes_data = json.load(f)
             except json.JSONDecodeError:
@@ -40,7 +43,7 @@ class Command(BaseCommand):
             )
             synced_paths.add(path)
             count += 1
-            
+
             if created:
                 self.stdout.write(self.style.SUCCESS(f'Created new route: {name} ({path})'))
             else:
@@ -51,7 +54,7 @@ class Command(BaseCommand):
         # Clean up old routes
         all_db_paths = set(PageRoute.objects.values_list('path', flat=True))
         paths_to_delete = all_db_paths - synced_paths
-        
+
         if paths_to_delete:
             PageRoute.objects.filter(path__in=paths_to_delete).delete()
             self.stdout.write(self.style.WARNING(f'Deleted {len(paths_to_delete)} old routes.'))

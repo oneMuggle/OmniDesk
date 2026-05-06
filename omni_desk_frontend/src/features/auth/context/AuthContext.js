@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import apiClient from '../../../shared/api/axiosConfig.js';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
@@ -64,7 +64,7 @@ export function AuthProvider({ children }) {
     initializeAuth();
   }, [fetchPageConfigs]);
 
-  const login = async (username, password, rememberMe = false) => {
+  const login = useCallback(async (username, password, rememberMe = false) => {
     try {
       const res = await apiClient.post('auth/login/', {
         username,
@@ -75,25 +75,19 @@ export function AuthProvider({ children }) {
         access: res.data.access,
         refresh: res.data.refresh
       };
-      
+
       if (rememberMe) {
         localStorage.setItem('authTokens', JSON.stringify(authTokens));
-        // DO NOT store permissions in localStorage. This is a major security flaw.
       } else {
         sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
-        // DO NOT store permissions in sessionStorage.
       }
-      
-      const userRes = await apiClient.get('users/me/');
-      // The user data from /users/me/ should be the source of truth.
-      const userData = userRes.data;
 
-      setUser(userData);
+      const userRes = await apiClient.get('users/me/');
+      setUser(userRes.data);
       setIsGuest(false);
       await fetchPageConfigs();
-      
-      
-      return { 
+
+      return {
         success: true,
         redirectTo: '/'
       };
@@ -101,9 +95,9 @@ export function AuthProvider({ children }) {
       console.error('Login failed:', err);
       return { success: false, error: err.response?.data?.detail || '登录失败' };
     }
-  };
+  }, [fetchPageConfigs]);
 
-  const register = async ({ username, password, password_confirmation }) => {
+  const register = useCallback(async ({ username, password, password_confirmation }) => {
     try {
       const res = await apiClient.post('auth/registration/', {
         username,
@@ -112,7 +106,7 @@ export function AuthProvider({ children }) {
       });
 
       if (res.status === 201) {
-        return { 
+        return {
           success: true,
           data: res.data,
           message: '注册成功，请登录'
@@ -123,25 +117,25 @@ export function AuthProvider({ children }) {
         errors: res.data || { non_field_errors: ['注册失败'] }
       };
     } catch (err) {
-      return { 
+      return {
         success: false,
         errors: err.response?.data || { non_field_errors: ['服务器错误'] }
       };
     }
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('authTokens');
     sessionStorage.removeItem('authTokens');
-    localStorage.removeItem('userPermissions'); // Clean up old insecure data
-    sessionStorage.removeItem('userPermissions'); // Clean up old insecure data
+    localStorage.removeItem('userPermissions');
+    sessionStorage.removeItem('userPermissions');
     setUser(null);
     setIsGuest(false);
     setPageConfigs([]);
     window.location.href = '/';
-  };
+  }, []);
 
-  const loginAsGuest = async () => {
+  const loginAsGuest = useCallback(async () => {
     try {
       localStorage.removeItem('authTokens');
       sessionStorage.removeItem('authTokens');
@@ -154,7 +148,7 @@ export function AuthProvider({ children }) {
       console.error('Guest login failed:', error);
       return { success: false, error: '游客登录失败' };
     }
-  };
+  }, []);
 
   const hasPermission = useCallback((requiredPermissions) => {
     // 1. Superusers have all permissions.
@@ -179,7 +173,7 @@ export function AuthProvider({ children }) {
     return false;
   }, [user]);
 
-  const value = {
+  const value = useMemo(() => ({
     user,
     setUser,
     isAuthenticated: !!user,
@@ -191,7 +185,7 @@ export function AuthProvider({ children }) {
     loginAsGuest,
     hasPermission,
     pageConfigs,
-  };
+  }), [user, isGuest, isInitializing, login, logout, register, loginAsGuest, hasPermission, pageConfigs]);
 
   return (
     <AuthContext.Provider value={value}>

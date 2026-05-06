@@ -1,10 +1,12 @@
 from django.db import models
+
 from users.models import CustomUser
+
 
 class Memo(models.Model):
     user = models.ForeignKey(
-        CustomUser, 
-        on_delete=models.CASCADE, 
+        CustomUser,
+        on_delete=models.CASCADE,
         related_name='memos',
         verbose_name="用户"
     )
