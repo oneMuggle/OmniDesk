@@ -38,7 +38,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
   });
   const [expandedSubMenu, setExpandedSubMenu] = useState({ '日历': true });
   const [collapsedPopoverOpen, setCollapsedPopoverOpen] = useState(null);
-  const { isAuthenticated, user, logout, hasPermission } = useAuth();
+  const { isAuthenticated, user, logout, hasPermission, isGuest } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
@@ -375,6 +375,19 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
                 <DownOutlined className="dropdown-arrow" />
               </div>
             </Dropdown>
+          )}
+
+          {isGuest && !isCollapsed && (
+            <div className="guest-info">
+              <Avatar size="small" icon={<UserOutlined />} className="user-avatar" />
+              <span className="guest-label">游客</span>
+              <button
+                className="guest-login-btn"
+                onClick={() => navigate('/login')}
+              >
+                登录/注册
+              </button>
+            </div>
           )}
 
           {isAuthenticated && !isCollapsed && <ThemeSelector />}

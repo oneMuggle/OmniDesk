@@ -275,6 +275,11 @@ CELERY_BEAT_SCHEDULE = {
         'schedule': timedelta(days=1), # 每天执行一次
         'args': (),
     },
+    'cleanup-expired-guest-users': {
+        'task': 'users.tasks.cleanup_expired_guest_users',
+        'schedule': timedelta(days=1),  # 每天执行一次
+        'args': (),
+    },
 }
 
 # Mineru OCR API 配置

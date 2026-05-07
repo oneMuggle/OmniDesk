@@ -4,6 +4,7 @@ from django_ratelimit.decorators import ratelimit
 from rest_framework import exceptions, generics, permissions, status, viewsets
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from personnel.models import Personnel, Position
@@ -13,6 +14,7 @@ from .permissions import IsAdmin, IsAdminOrManager
 from .serializers import (
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
+    GuestLoginSerializer,
     PositionSerializer,
     UserAdminSerializer,
     UserDetailSerializer,
@@ -222,3 +224,24 @@ class PositionViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理职位
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ['name']
+
+
+class GuestLoginView(generics.CreateAPIView):
+    """游客登录端点：创建临时游客用户并返回 JWT token。"""
+    serializer_class = GuestLoginSerializer
+    permission_classes = [permissions.AllowAny]
+
+    def create(self, request, *args, **kwargs):
+        user = self.perform_create()
+        refresh = RefreshToken.for_user(user)
+        data = {
+            'access': str(refresh.access_token),
+            'refresh': str(refresh),
+            'permissions': [],  # Guest 权限由组配置决定，前端通过 /users/me/ 获取
+            'is_guest': True,
+        }
+        return Response(data, status=status.HTTP_200_OK)
+
+    def perform_create(self):
+        serializer = self.get_serializer()
+        return serializer.create({})

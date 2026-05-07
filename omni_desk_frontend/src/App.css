@@ -73,6 +73,37 @@
   transition: transform var(--transition-fast);
 }
 
+.guest-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  margin: 0 12px;
+  border-radius: var(--radius-base);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.guest-info .guest-label {
+  font-size: 0.875rem;
+  color: var(--color-text-secondary-dark);
+  flex: 1;
+}
+
+.guest-info .guest-login-btn {
+  padding: 4px 12px;
+  border-radius: var(--radius-base);
+  background: var(--color-brand);
+  color: var(--text-color-inverse);
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: background var(--transition-fast);
+}
+
+.guest-info .guest-login-btn:hover {
+  background: var(--color-brand-hover, var(--color-brand));
+}
+
 .sidebar-header .sidebar-theme {
   display: flex;
   align-items: center;

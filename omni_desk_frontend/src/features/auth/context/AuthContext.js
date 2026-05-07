@@ -41,11 +41,12 @@ export function AuthProvider({ children }) {
           if (access) {
             try {
               const res = await apiClient.get('users/me/');
-              // Permissions should be fetched from the backend, not from localStorage.
-              // Assuming res.data contains user info including permissions.
+              const isGuestUser = res.data.username?.startsWith('guest_');
               setUser(res.data);
-              setIsGuest(false);
-              await fetchPageConfigs();
+              setIsGuest(isGuestUser);
+              if (!isGuestUser) {
+                await fetchPageConfigs();
+              }
             } catch (error) {
               console.error('Failed to fetch user data:', error);
               localStorage.removeItem('authTokens');
@@ -132,23 +133,35 @@ export function AuthProvider({ children }) {
     setUser(null);
     setIsGuest(false);
     setPageConfigs([]);
-    window.location.href = '/';
-  }, []);
+    window.location.href = isGuest ? '/login' : '/';
+  }, [isGuest]);
 
   const loginAsGuest = useCallback(async () => {
     try {
       localStorage.removeItem('authTokens');
       sessionStorage.removeItem('authTokens');
       setUser(null);
+
+      const res = await apiClient.post('auth/guest-login/', {});
+      const authTokens = {
+        access: res.data.access,
+        refresh: res.data.refresh,
+      };
+      sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
+
+      const userRes = await apiClient.get('users/me/');
+      const guestUser = { ...userRes.data, is_guest: true };
+      setUser(guestUser);
       setIsGuest(true);
-      setPageConfigs([]);
-      await new Promise(resolve => setTimeout(resolve, 50));
+      await fetchPageConfigs();
+
       return { success: true };
     } catch (error) {
       console.error('Guest login failed:', error);
+      setIsGuest(true);
       return { success: false, error: '游客登录失败' };
     }
-  }, []);
+  }, [fetchPageConfigs]);
 
   const hasPermission = useCallback((requiredPermissions) => {
     // 1. Superusers have all permissions.
@@ -169,9 +182,16 @@ export function AuthProvider({ children }) {
       return required.some(p => userPermissions.includes(p));
     }
 
-    // 4. If no user permissions are found, deny access.
+    // 4. Guest users can access pages whose required permissions match their group permissions.
+    if (isGuest && user?.permissions) {
+      const userPermissions = Array.isArray(user.permissions) ? user.permissions : [user.permissions];
+      const required = Array.isArray(requiredPermissions) ? requiredPermissions : [requiredPermissions];
+      return required.some(p => userPermissions.includes(p));
+    }
+
+    // 5. Deny access if no user permissions found.
     return false;
-  }, [user]);
+  }, [user, isGuest]);
 
   const value = useMemo(() => ({
     user,

@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.validators import RegexValidator
@@ -289,3 +291,26 @@ class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
         fields = '__all__'
+
+
+def ensure_guest_group():
+    """获取或创建 Guest 组，确保其存在。"""
+    group, _ = Group.objects.get_or_create(name='Guest')
+    return group
+
+
+class GuestLoginSerializer(serializers.Serializer):
+    """游客登录序列化器，创建临时游客用户并返回 JWT token。"""
+
+    def create(self, validated_data):
+        guest_group = ensure_guest_group()
+        username = f"guest_{uuid.uuid4().hex[:12]}"
+        password = uuid.uuid4().hex
+
+        user = CustomUser.objects.create_user(
+            username=username,
+            password=password,
+            is_active=True,
+        )
+        user.groups.add(guest_group)
+        return user
