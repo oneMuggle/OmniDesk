@@ -48,6 +48,7 @@ const AgentAuditPanel = () => {
 
   useEffect(() => {
     fetchLogs();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page]);
 
   const handleSearch = () => {

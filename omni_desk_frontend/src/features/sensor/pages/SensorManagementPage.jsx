@@ -3,14 +3,13 @@ import { Button, Table, Modal, Form, message, Space } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
 import SensorForm from '../components/SensorForm';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const SensorManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingSensor, setEditingSensor] = useState(null);
   const [form] = Form.useForm();
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
 
   const sensorsQuery = useQuery({
     queryKey: ['sensors'],

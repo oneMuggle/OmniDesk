@@ -56,7 +56,6 @@ const HolidayManagementPage = lazy(() => import('../features/schedule/pages/Holi
 const CommunicationPage = lazy(() => import('../features/communication/pages/CommunicationPage'));
 const PostDetailPage = lazy(() => import('../shared/pages/PostDetailPage'));
 const NewsStatsPage = lazy(() => import('../features/news/pages/NewsStatsPage'));
-const NewsManagementPage = lazy(() => import('../features/news/pages/NewsManagementPage'));
 const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/AddCalibrationRecordPage'));
 const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
 const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));

@@ -30,6 +30,16 @@
     "component": "LazyComponent"
   },
   {
+    "name": "智能助手",
+    "path": "/smart-assistant",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "知识库管理",
+    "path": "/knowledge-base",
+    "component": "LazyComponent"
+  },
+  {
     "name": "智能问答",
     "path": "/intelligent-chat",
     "component": "LazyComponent"

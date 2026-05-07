@@ -108,6 +108,7 @@ const SmartChatPage = () => {
       const decoder = new TextDecoder();
       let buffer = '';
 
+      // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -160,6 +161,7 @@ const SmartChatPage = () => {
       setStreamingAnswer('');
       setStreamingMeta(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, streamingAnswer, streamingMeta]);
 
   return (

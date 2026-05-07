@@ -1,4 +1,5 @@
 import { Card, Descriptions, Tag, Badge } from 'antd';
+import PropTypes from 'prop-types';
 import './ToolResult.css';
 
 const ToolResult = ({ intent, result, sources }) => {
@@ -69,3 +70,27 @@ const ToolResult = ({ intent, result, sources }) => {
 };
 
 export default ToolResult;
+
+ToolResult.propTypes = {
+  intent: PropTypes.string,
+  result: PropTypes.shape({
+    found: PropTypes.bool,
+    schedules: PropTypes.arrayOf(PropTypes.shape({
+      duty_date: PropTypes.string,
+      duty_person: PropTypes.string,
+      duty_leader: PropTypes.string,
+    })),
+    personnel: PropTypes.arrayOf(PropTypes.shape({
+      name: PropTypes.string,
+      department: PropTypes.string,
+      position: PropTypes.string,
+      status: PropTypes.string,
+      phone_number: PropTypes.string,
+    })),
+    message: PropTypes.string,
+  }),
+  sources: PropTypes.arrayOf(PropTypes.shape({
+    document: PropTypes.string,
+    score: PropTypes.number,
+  })),
+};
