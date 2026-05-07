@@ -39,7 +39,12 @@ SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
 CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
 SESSION_COOKIE_HTTPONLY = True
 
-# Smart Assistant Configuration
-# Ragflow dataset ID for knowledge base document upload and vectorization.
+# Smart Assistant - LLM Configuration
+# Uses OpenAI-compatible API endpoint (e.g. gcli.ggchan.dev)
+SMART_ASSISTANT_LLM_ENDPOINT = os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT', 'https://gcli.ggchan.dev')
+SMART_ASSISTANT_LLM_API_KEY = os.environ.get('SMART_ASSISTANT_LLM_API_KEY', '')
+SMART_ASSISTANT_LLM_MODEL = os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
+
+# Smart Assistant - Ragflow dataset ID for knowledge base document upload and vectorization.
 # Obtain from Ragflow admin panel: Datasets -> select dataset -> copy ID.
 SMART_ASSISTANT_DATASET_ID = os.environ.get('SMART_ASSISTANT_DATASET_ID', '')
