@@ -7,6 +7,7 @@ import './shared/styles/global.css';
 import './shared/theme/tokens.css';
 import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from './shared/components/Sidebar';
+import QuickAssistant from './shared/components/QuickAssistant';
 import ErrorBoundary from './shared/components/ErrorBoundary';
 import 'animate.css';
 import { AuthProvider } from './features/auth/context/AuthContext';
@@ -75,6 +76,7 @@ function App() {
                   draggable
                   pauseOnHover
                 />
+                <QuickAssistant />
               </div>
             </RefreshProvider>
           </ApiProvider>

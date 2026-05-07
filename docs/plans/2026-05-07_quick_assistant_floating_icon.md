@@ -79,31 +79,31 @@ QuickAssistant (shared/components/QuickAssistant.jsx)
 
 ### Phase 1: 创建 QuickAssistant 组件
 
-- [ ] 创建 `src/shared/components/QuickAssistant.jsx`
+- [x] 创建 `src/shared/components/QuickAssistant.jsx`
   - FloatButton 触发器
   - Drawer 聊天面板
   - Header（标题 + 关闭按钮 + 跳转完整页面链接）
   - 消息列表渲染（复用 SmartChatPage 的消息展示逻辑）
   - 输入框 + 发送按钮
-- [ ] 创建 `src/shared/components/QuickAssistant.css`
+- [x] 创建 `src/shared/components/QuickAssistant.css`
   - 面板布局样式
   - 消息气泡样式（可引用/复用 SmartChatPage.css 的样式类）
   - 输入区域样式
 
 ### Phase 2: 集成聊天逻辑
 
-- [ ] 接入 `smartAssistantApi.js` 的 API
+- [x] 接入 `smartAssistantApi.js` 的 API
   - createSession（首次打开时）
   - sendSmartChatStream（消息发送，SSE 流式）
   - 处理流式响应，更新消息状态
-- [ ] 集成 `ToolResult` 组件渲染工具结果
-- [ ] 处理加载/流式状态指示器
+- [x] 集成 `ToolResult` 组件渲染工具结果
+- [x] 处理加载/流式状态指示器
 
 ### Phase 3: 全局挂载
 
-- [ ] 修改 `src/App.js`，在 layout 中添加 `<QuickAssistant />`
-- [ ] 验证在所有带 Sidebar 的页面中均可使用
-- [ ] 验证移动端响应式表现
+- [x] 修改 `src/App.js`，在 layout 中添加 `<QuickAssistant />`
+- [x] 验证在所有带 Sidebar 的页面中均可使用
+- [x] 验证移动端响应式表现（CSS 包含 @media 响应式规则）
 
 ### Phase 4: 测试与优化
 

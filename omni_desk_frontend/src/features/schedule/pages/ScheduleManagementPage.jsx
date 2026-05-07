@@ -4,8 +4,10 @@ import { Card, Table, Button, Modal, Form, Input, DatePicker, Select, message, S
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { scheduleApi } from '../api/scheduleApi';
-import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
+import { getPositions } from '../../personnel/api/personnelApi';
+import axiosInstance from '../../../shared/api/axiosConfig';
 import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
+import '../../../shared/components/styles/Schedule.css';
 import moment from 'moment';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -26,17 +28,43 @@ const ScheduleFormModal = ({ open, onCancel, onOk, initialValues, personnelList,
   const selectedPersonPositionId = Form.useWatch('person_position_filter', form);
   const selectedLeaderPositionId = Form.useWatch('leader_position_filter', form);
 
+  // Use initialValues as fallback when Form.useWatch hasn't picked up the value yet
+  const effectivePersonPositionId = selectedPersonPositionId ?? initialValues?.person_position_filter;
+  const effectiveLeaderPositionId = selectedLeaderPositionId ?? initialValues?.leader_position_filter;
+
+  // Get currently selected person/leader IDs to ensure they're always in the options
+  const selectedPersonId = Form.useWatch('duty_person', form);
+  const selectedLeaderId = Form.useWatch('duty_leader', form);
+
   const filteredDutyPersonList = useMemo(() => {
-    if (!selectedPersonPositionId) return personnelList;
-    const filteredPersonnel = personnelList.filter(p => p.position?.id === selectedPersonPositionId?.id);
+    if (!effectivePersonPositionId) return personnelList;
+    const filteredPersonnel = personnelList.filter(p => {
+      // Always include the currently selected person
+      if (selectedPersonId != null && Number(p.id) === Number(selectedPersonId)) return true;
+      return Number(p.position?.id) === Number(effectivePersonPositionId);
+    });
     return filteredPersonnel;
-  }, [personnelList, selectedPersonPositionId]);
+  }, [personnelList, effectivePersonPositionId, selectedPersonId]);
 
   const filteredDutyLeaderList = useMemo(() => {
-    if (!selectedLeaderPositionId) return personnelList;
-    const filteredLeaders = personnelList.filter(p => p.position?.id === selectedLeaderPositionId?.id);
+    if (!effectiveLeaderPositionId) return personnelList;
+    const filteredLeaders = personnelList.filter(p => {
+      // Always include the currently selected leader
+      if (selectedLeaderId != null && Number(p.id) === Number(selectedLeaderId)) return true;
+      return Number(p.position?.id) === Number(effectiveLeaderPositionId);
+    });
     return filteredLeaders;
-  }, [personnelList, selectedLeaderPositionId]);
+  }, [personnelList, effectiveLeaderPositionId, selectedLeaderId]);
+
+  // Sync form values when modal opens with new initialValues
+  useEffect(() => {
+    if (open) {
+      // Set form values explicitly
+      form.setFieldsValue(initialValues || {});
+    } else {
+      form.resetFields();
+    }
+  }, [open]);
 
 
   const handleOk = () => {
@@ -360,9 +388,19 @@ const ScheduleManagementPage = () => {
 
   const personnelQuery = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => getAllPersonnel().then(res => {
-      return res.data.results;
-    })
+    queryFn: async () => {
+      // Load all personnel by fetching all pages
+      let allResults = [];
+      let page = 1;
+      let hasMore = true;
+      while (hasMore) {
+        const res = await axiosInstance.get('personnel/personnel/', { params: { page, page_size: 1000 } });
+        allResults = allResults.concat(res.data.results || []);
+        hasMore = !!res.data.next;
+        if (!hasMore || res.data.results?.length < 1000) break;
+      }
+      return allResults;
+    }
   });
 
   const positionsQuery = useQuery({
@@ -454,7 +492,7 @@ const ScheduleManagementPage = () => {
       message.success('排班交换成功');
       invalidateSchedules();
     },
-    onError: (error, variables, context) => {
+    onError: (_error, _variables, context) => {
       message.error('更新排班失败');
       context?.revert?.();
     },
@@ -466,19 +504,19 @@ const ScheduleManagementPage = () => {
       message.success('排班日期更新成功');
       invalidateSchedules();
     },
-    onError: (error, variables, context) => {
+    onError: (_error, _variables, context) => {
       message.error('更新排班失败');
       context?.revert?.();
     },
   });
-  
+
   const swapLeadersMutation = useMutation({
     mutationFn: (data) => scheduleApi.swapWeeklyLeaders(data),
     onSuccess: () => {
       message.success('值班领导顺序更新成功');
       invalidateSchedules();
     },
-    onError: (error, variables, context) => {
+    onError: (_error, _variables, context) => {
       message.error('更新值班领导顺序失败');
       setWeeklyLeaders(context?.previousWeeklyLeaders ?? weeklyLeaders);
     },
@@ -504,8 +542,8 @@ const ScheduleManagementPage = () => {
       date: record.duty_date ? moment(record.duty_date) : null,
       duty_person: record.duty_person?.id,
       duty_leader: record.duty_leader?.id,
-      person_position_filter: record.duty_person?.position,
-      leader_position_filter: record.duty_leader?.position,
+      person_position_filter: record.duty_person?.position?.id,
+      leader_position_filter: record.duty_leader?.position?.id,
       duty_person_phone: record.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
       duty_leader_phone: record.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || '',
     };
@@ -627,24 +665,15 @@ const ScheduleManagementPage = () => {
   }, [schedules]);
 
   const renderEventContent = (eventInfo) => {
-    const { duty_person } = eventInfo.event.extendedProps;
+    const { duty_person, duty_leader } = eventInfo.event.extendedProps;
     return (
-      <div style={{
-        height: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#1890ff',
-        borderColor: '#1890ff',
-        color: '#ffffff',
-        borderRadius: '4px',
-        borderWidth: '1px',
-        borderStyle: 'solid',
-        textAlign: 'center',
-        padding: '2px 4px',
-        fontWeight: '500'
-      }}>
-        {duty_person.name}
+      <div className="calendar-event-card">
+        <div className="event-card-row">
+          <span className="event-card-name">{duty_person?.name || ''}</span>
+        </div>
+        <div className="event-card-row event-card-muted">
+          <span>{duty_leader?.name || ''}</span>
+        </div>
       </div>
     );
   };
