@@ -432,29 +432,44 @@
 }
 
 .sidebar.collapsed .sidebar-header {
-  padding: 20px 0 10px;
+  padding: 12px 0 8px;
 }
 
 .sidebar.collapsed .sidebar-brand,
 .sidebar.collapsed .user-dropdown-trigger,
 .sidebar.collapsed .username,
-.sidebar.collapsed .login-hint {
+.sidebar.collapsed .login-hint,
+.sidebar.collapsed .sidebar-theme {
   display: none;
 }
 
+/* Ensure collapse toggle is positioned correctly in collapsed state */
+.sidebar.collapsed .collapse-toggle {
+  top: 12px;
+  right: -12px;
+}
+
+.sidebar.collapsed .sidebar-menu {
+  padding: 8px 0;
+  overflow-y: auto;
+  flex-grow: 1;
+}
+
+/* Menu items in collapsed state */
 .sidebar.collapsed .menu-item {
   justify-content: center;
-  padding: 12px 0;
-  margin: 8px 0;
+  padding: 10px 0;
+  margin: 4px 8px;
   border-radius: var(--radius-base);
+  width: calc(100% - 16px);
 }
 
 .sidebar.collapsed .menu-item .icon {
   margin-right: 0;
-  font-size: 1.4rem;
+  font-size: 1.2rem;
 }
 
-.sidebar.collapsed .menu-item span,
+.sidebar.collapsed .menu-item-content > span:not(.icon),
 .sidebar.collapsed .submenu-arrow {
   display: none;
 }
@@ -489,6 +504,17 @@
   align-items: center;
   justify-content: center;
   width: 100%;
+  height: 24px;
+}
+
+/* Fix list item spacing in collapsed state */
+.sidebar.collapsed .sidebar-menu li {
+  margin: 2px 0;
+}
+
+/* Ensure submenu items don't show in collapsed state */
+.sidebar.collapsed .popover-submenu {
+  display: none;
 }
 
 .collapse-toggle {
