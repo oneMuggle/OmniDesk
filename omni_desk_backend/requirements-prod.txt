@@ -74,6 +74,8 @@ django-js-asset==3.1.2
     # via
     #   -r requirements.in
     #   django-ckeditor
+django-ratelimit==4.1.0
+    # via -r requirements.in
 django-timezone-field==7.1
     # via
     #   -r requirements.in
