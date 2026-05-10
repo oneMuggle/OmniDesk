@@ -1,6 +1,7 @@
 # omni_desk_backend/documents/file_processing.py
 
-import mimetypes  # 新增导入
+import logging
+import mimetypes
 import os
 from pathlib import Path
 
@@ -8,6 +9,8 @@ import pypdf
 import requests
 from django.conf import settings
 from docx import Document as DocxDocument
+
+logger = logging.getLogger(__name__)
 
 # Mineru OCR API 配置
 MINERU_API_URL = getattr(settings, 'MINERU_API_URL', None)
@@ -49,10 +52,10 @@ def extract_text_from_pdf(file_path):
                 text += page.extract_text() or ""
         return text
     except pypdf.errors.PdfReadError:
-        print(f"PDFReadError: Could not read text directly from {file_path}. Will try Mineru OCR.")
+        logger.warning("Could not read text directly from %s. Will try Mineru OCR.", file_path)
         return None
     except Exception as e:
-        print(f"Error extracting text from PDF {file_path}: {e}")
+        logger.error("Error extracting text from PDF %s: %s", file_path, e)
         return None
 
 def extract_text_from_docx(file_path):
@@ -66,7 +69,7 @@ def extract_text_from_docx(file_path):
             text += paragraph.text + "\n"
         return text
     except Exception as e:
-        print(f"Error extracting text from DOCX {file_path}: {e}")
+        logger.error("Error extracting text from DOCX %s: %s", file_path, e)
         return None
 
 def process_uploaded_file(file_obj, temp_dir):
@@ -89,9 +92,9 @@ def process_uploaded_file(file_obj, temp_dir):
         if not extracted_text: # 如果直接提取失败，尝试 Mineru OCR
             try:
                 extracted_text = call_mineru_ocr(temp_file_path)
-                print(f"Text extracted from PDF via Mineru OCR: {len(extracted_text)} characters.")
+                logger.info("Text extracted from PDF via Mineru OCR: %d characters", len(extracted_text))
             except Exception as e:
-                print(f"Error calling Mineru OCR for PDF {file_obj.name}: {e}")
+                logger.error("Error calling Mineru OCR for PDF %s: %s", file_obj.name, e)
                 extracted_text = ""
     elif file_extension in ['.doc', '.docx']:
         extracted_text = extract_text_from_docx(temp_file_path)
@@ -99,9 +102,9 @@ def process_uploaded_file(file_obj, temp_dir):
         if not extracted_text:
             try:
                 extracted_text = call_mineru_ocr(temp_file_path)
-                print(f"Text extracted from DOCX via Mineru OCR: {len(extracted_text)} characters.")
+                logger.info("Text extracted from DOCX via Mineru OCR: %d characters", len(extracted_text))
             except Exception as e:
-                print(f"Error calling Mineru OCR for DOCX {file_obj.name}: {e}")
+                logger.error("Error calling Mineru OCR for DOCX %s: %s", file_obj.name, e)
                 extracted_text = ""
     elif file_extension in ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.tiff']:
         extracted_text = call_mineru_ocr(temp_file_path)
@@ -110,10 +113,10 @@ def process_uploaded_file(file_obj, temp_dir):
         try:
             extracted_text = Path(temp_file_path).read_text(encoding='utf-8')
         except UnicodeDecodeError:
-            print(f"Warning: Could not decode text from {file_obj.name}. Returning empty string.")
+            logger.warning("Could not decode text from %s. Returning empty string.", file_obj.name)
             extracted_text = ""
         except Exception as e:
-            print(f"Error processing unknown file type {file_obj.name}: {e}")
+            logger.error("Error processing unknown file type %s: %s", file_obj.name, e)
             extracted_text = ""
 
     return extracted_text

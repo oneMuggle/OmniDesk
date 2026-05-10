@@ -1,9 +1,12 @@
 # omni_desk_backend/llm_service/ollama_client.py
 
 import json
+import logging
 import os
 
 import requests
+
+logger = logging.getLogger(__name__)
 
 
 class OllamaClient:
@@ -76,13 +79,13 @@ class OllamaClient:
             "name": model_name,
             "stream": False # Pulling usually doesn't stream progress in this simple client
         }
-        print(f"Attempting to pull Ollama model: {model_name}. This may take some time.")
+        logger.info("Attempting to pull Ollama model: %s. This may take some time.", model_name)
         try:
             response = self._make_request("api/pull", data)
-            print(f"Ollama model pull response: {response}")
+            logger.info("Ollama model pull response: %s", response)
             return response
         except Exception as e:
-            print(f"Failed to pull Ollama model {model_name}: {e}")
+            logger.error("Failed to pull Ollama model %s: %s", model_name, e)
             raise
 
     def list_models(self):

@@ -5,6 +5,7 @@ from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
 from config.views import ollama_configs_view
+from omni_desk_backend.health import health_check
 from sensor_management.views import SensorCategoryViewSet, StorageLocationViewSet
 
 router = DefaultRouter()
@@ -13,6 +14,7 @@ router.register(r'storage-locations', StorageLocationViewSet, basename='storage-
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/health/', health_check, name='health-check'),
     # Authentication endpoints
     # Authentication & User endpoints
     path('api/', include([

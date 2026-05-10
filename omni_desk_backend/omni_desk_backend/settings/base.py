@@ -121,9 +121,11 @@ DATABASES = {
 }
 
 # Cache (used by django-ratelimit for rate limiting)
+# Uses Redis (shared with Celery) for cross-process cache
 CACHES = {
     'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.environ.get('CACHE_REDIS_URL', 'redis://localhost:6379/1'),
     }
 }
 
@@ -204,7 +206,6 @@ REST_FRAMEWORK = {
     'PAGE_SIZE': 10,
     'DEFAULT_RENDERER_CLASSES': (
         'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
     ),
     'DEFAULT_PARSER_CLASSES': (
         'rest_framework.parsers.JSONParser',

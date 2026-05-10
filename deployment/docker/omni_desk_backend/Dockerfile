@@ -94,4 +94,4 @@ EXPOSE 8000
 ENTRYPOINT ["./entrypoint.sh"]
 
 # Run Gunicorn WSGI server
-CMD ["gunicorn", "omni_desk_backend.wsgi:application", "--bind", "0.0.0.0:8000", "--workers", "3", "--timeout", "120"]
+CMD ["sh", "-c", "gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --timeout 120"]
