@@ -1,6 +1,5 @@
-# Offline deployment compose override
-# Used with: docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file .env.production up -d
-# Image names MUST match what docker load produces (see deploy_offline.sh)
+# Standalone offline deployment compose — no merge with override.yml
+# Used with: docker compose -f docker-compose.offline-standalone.yml --env-file .env.production up -d
 
 x-common-env: &common-env
   env_file:
@@ -59,18 +58,12 @@ services:
     networks:
       - omni_desk
 
-  # Frontend serves as the single HTTP entry point (:80)
-  # Its built-in nginx.conf already handles:
-  #   - React SPA routing
-  #   - API proxy to backend:8000
-  #   - Django admin proxy
-  #   - Static/media file serving
-  #   - Gzip compression & security headers
-  # NOTE: No volume mounts needed — static/media are served via proxy_pass to backend
   frontend:
     image: omni-desk-frontend-prod:latest
     ports:
       - "80:80"
+    # Explicitly set nginx command to ensure it stays running
+    command: ["nginx", "-g", "daemon off;"]
     depends_on:
       - backend
     restart: unless-stopped

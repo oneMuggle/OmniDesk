@@ -29,9 +29,10 @@ docker save -o "$EXPORT_DIR/nginx.tar" $NGINX_IMAGE
 
 echo "Image export complete. Files are in the '$EXPORT_DIR' directory."
 
-# Generate .env.production from defaults with auto-filled secrets
-if [ -f ".env.production.defaults" ]; then
-    echo "Generating .env.production with secure defaults..."
+# Generate .env.production ONLY if it doesn't already exist
+# This prevents overwriting custom passwords on subsequent builds
+if [ ! -f ".env.production" ] && [ -f ".env.production.defaults" ]; then
+    echo "Generating .env.production from defaults (first-time setup)..."
     cp .env.production.defaults .env.production
 
     python3 -c "
@@ -46,6 +47,8 @@ with open('.env.production', 'w') as f:
 
     echo ".env.production generated successfully."
     echo "IMPORTANT: Review and change secrets before deploying to production."
+elif [ -f ".env.production" ]; then
+    echo ".env.production already exists, keeping existing configuration."
 fi
 
 echo "Next steps:"

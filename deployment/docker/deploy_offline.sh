@@ -1,11 +1,35 @@
 #!/bin/bash
 set -e
 
-COMPOSE_FILES="-f docker-compose.yml -f docker-compose.offline.yml"
+# Use standalone compose file to avoid merge with docker-compose.override.yml
+COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
 
 compose() {
-    docker compose $COMPOSE_FILES $ENV_FILE "$@"
+    docker compose $COMPOSE_FILE $ENV_FILE "$@"
+}
+
+# 检查是否需要首次部署初始化（数据库中没有迁移记录）
+check_first_deploy() {
+    if docker compose $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py showmigrations 2>/dev/null | grep -q "\[ \]"; then
+        echo ""
+        echo "========================================"
+        echo "  FIRST-TIME DEPLOYMENT DETECTED"
+        echo "========================================"
+        echo ""
+        echo "Run these commands to initialize the database:"
+        echo ""
+        echo "  # 1. Run database migrations"
+        echo "  ./deploy_offline.sh exec backend python manage.py migrate"
+        echo ""
+        echo "  # 2. Collect static files"
+        echo "  ./deploy_offline.sh exec backend python manage.py collectstatic --noinput"
+        echo ""
+        echo "  # 3. Create admin user (interactive)"
+        echo "  ./deploy_offline.sh exec backend python manage.py createsuperuser"
+        echo ""
+        echo "========================================"
+    fi
 }
 
 case "${1:-start}" in
@@ -27,9 +51,11 @@ case "${1:-start}" in
         echo "Starting production services..."
         compose up -d
         echo "Deployment complete."
+        check_first_deploy
+        echo ""
         echo "Run database migrations if first deploy:"
-        echo "  ./deploy_offline.sh exec -- backend python manage.py migrate"
-        echo "  ./deploy_offline.sh exec -- backend python manage.py collectstatic --noinput"
+        echo "  ./deploy_offline.sh exec backend python manage.py migrate"
+        echo "  ./deploy_offline.sh exec backend python manage.py collectstatic --noinput"
         ;;
     debug)
         if [ ! -f ".env.production" ]; then
