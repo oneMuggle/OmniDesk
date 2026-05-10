@@ -13,7 +13,7 @@ NGINX_IMAGE="nginx:latest"
 mkdir -p $EXPORT_DIR
 
 echo "Building production images locally..."
-docker compose -f docker-compose.build.yml build
+BUILD_TARGET=production docker compose build backend frontend
 
 echo "Pulling required service images..."
 docker pull $POSTGRES_IMAGE
@@ -53,5 +53,5 @@ fi
 
 echo "Next steps:"
 echo "1. Copy the '$EXPORT_DIR' directory to your offline server."
-echo "2. Copy 'docker-compose.yml', 'docker-compose.offline.yml', '.env.production', and 'nginx' directory to your offline server."
+echo "2. Copy 'docker-compose.yml', 'docker-compose.offline.yml', '.env.production' to your offline server."
 echo "3. On the offline server, run the deployment script."

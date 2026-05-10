@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-# Use standalone compose file to avoid merge with docker-compose.override.yml
+# Use standalone compose file (no merge with docker-compose.yml)
 COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
 

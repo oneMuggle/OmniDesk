@@ -12,16 +12,18 @@ IMAGE_TAG=$1
 
 echo "正在部署版本: $IMAGE_TAG"
 
+COMPOSE_DIR="$(cd "$(dirname "$0")/docker" && pwd)"
+cd "$COMPOSE_DIR"
+
 # 设置环境变量，以便 docker-compose.prod.yml 可以使用它们
-export BACKEND_IMAGE_TAG=${IMAGE_TAG}
-export FRONTEND_IMAGE_TAG=${IMAGE_TAG}
+export REGISTRY=ghcr.io/onemuggle
+export TAG=${IMAGE_TAG}
 
 # 拉取最新的镜像
-docker-compose -f deployment/docker/docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml --env-file .env.production pull
 
 # 以分离模式重新创建并启动服务
 # --no-deps 防止重新创建依赖的服务（如数据库）
-# --build 在此不需要，因为我们拉取预构建的镜像
-docker-compose -f deployment/docker/docker-compose.prod.yml up -d --no-deps omni_desk_backend omni_desk_frontend
+docker compose -f docker-compose.prod.yml --env-file .env.production up -d --no-deps backend frontend
 
 echo "部署完成。"

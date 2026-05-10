@@ -1,10 +1,4 @@
-# Production compose for OmniDesk
-# Requires: .env.production with all secrets filled in
-#
-# Usage: docker compose -f docker-compose.prod.yml --env-file .env.production up -d
-#
-# Note: If you use managed PostgreSQL/Redis, remove the db/redis services
-# and update DB_HOST/REDIS_HOST in .env.production accordingly.
+# Production override — use with: docker compose -f docker-compose.yml -f docker-compose.prod.yml --env-file .env.production up -d
 
 x-common-env: &common-env
   env_file:
@@ -14,60 +8,47 @@ services:
   # ── PostgreSQL ──────────────────────────────────────────────────
   db:
     image: postgres:14-alpine
-    restart: always
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 30s
+    ports: []
     networks:
       - omni_desk
 
   # ── Redis ───────────────────────────────────────────────────────
   redis:
-    image: redis:7-alpine
-    restart: always
     command: redis-server --requirepass ${REDIS_PASSWORD}
+    ports: []
     volumes:
       - redis_data:/data
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
     networks:
       - omni_desk
 
   # ── Backend (Django/Gunicorn) ──────────────────────────────────
   backend:
     image: ghcr.io/onemuggle/omni-desk-backend:latest
-    restart: always
-    <<: *common-env
     ports:
       - "8000:8000"
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
+      - DJANGO_ENV=production
+    command: gunicorn omni_desk_backend.wsgi:application --bind 0.0.0.0:8000 --workers ${GUNICORN_WORKERS:-3} --access-logfile -
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - omni_desk
+    <<: *common-env
 
   # ── Frontend (Nginx) ───────────────────────────────────────────
   frontend:
     image: ghcr.io/onemuggle/omni-desk-frontend:latest
-    restart: always
     ports:
       - "80:80"
     depends_on:
@@ -78,8 +59,6 @@ services:
   # ── Celery Worker ──────────────────────────────────────────────
   worker:
     image: ghcr.io/onemuggle/omni-desk-backend:latest
-    restart: always
-    <<: *common-env
     command: celery -A omni_desk_backend worker -l info
     volumes:
       - static_volume:/usr/src/app/staticfiles
@@ -89,14 +68,10 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - omni_desk
+    <<: *common-env
 
 volumes:
-  postgres_data:
   redis_data:
-  static_volume:
-  media_volume:
 
 networks:
   omni_desk:

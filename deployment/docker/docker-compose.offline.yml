@@ -1,12 +1,12 @@
-# Offline deployment compose override
-# Used with: docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file .env.production up -d
-# Image names MUST match what docker load produces (see deploy_offline.sh)
+# Offline deployment override — use with: docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file .env.production up -d
+# Image names match what docker load produces (see deploy_offline.sh)
 
 x-common-env: &common-env
   env_file:
     - ./.env.production
 
 services:
+  # ── PostgreSQL ──────────────────────────────────────────────────
   db:
     image: postgres:14.2
     command: postgres -c listen_addresses='*'
@@ -14,8 +14,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data/
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -23,50 +21,40 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
+    ports: []
     networks:
       - omni_desk
 
+  # ── Redis ───────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
-    restart: unless-stopped
+    ports: []
     networks:
       - omni_desk
 
+  # ── Backend ────────────────────────────────────────────────────
   backend:
     image: omni-desk-backend-prod:latest
-    <<: *common-env
-    environment:
-      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
-      - DJANGO_ENV=production
     ports:
       - "8000:8000"
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
+    environment:
+      - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
+      - DJANGO_ENV=production
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - omni_desk
+    <<: *common-env
 
-  # Frontend serves as the single HTTP entry point (:80)
-  # Its built-in nginx.conf already handles:
-  #   - React SPA routing
-  #   - API proxy to backend:8000
-  #   - Django admin proxy
-  #   - Static/media file serving
-  #   - Gzip compression & security headers
-  # NOTE: No volume mounts needed — static/media are served via proxy_pass to backend
+  # ── Frontend (Nginx, single HTTP entry point :80) ─────────────
   frontend:
     image: omni-desk-frontend-prod:latest
     ports:
@@ -77,9 +65,9 @@ services:
     networks:
       - omni_desk
 
+  # ── Celery Worker ──────────────────────────────────────────────
   worker:
     image: omni-desk-backend-prod:latest
-    <<: *common-env
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       db:
@@ -87,13 +75,9 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    networks:
-      - omni_desk
+    <<: *common-env
 
 volumes:
-  postgres_data:
-  static_volume:
-  media_volume:
   redis_data:
 
 networks:

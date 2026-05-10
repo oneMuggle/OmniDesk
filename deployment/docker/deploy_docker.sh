@@ -2,9 +2,13 @@
 
 # deploy_docker.sh
 # A script to manage the Docker deployment of the Omni Desk application.
+# Uses the unified docker-compose.yml (development mode).
 
 # Stop on first error
 set -e
+
+COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$COMPOSE_DIR"
 
 # Function to display help message
 usage() {
@@ -22,36 +26,36 @@ usage() {
 case "$1" in
     up)
         echo "Ensuring clean environment before starting services..."
-        docker-compose down --volumes --remove-orphans || true # Add this line to clean up previous runs
+        docker compose down --volumes --remove-orphans || true
         echo "Starting all services..."
-        docker-compose up -d --build
+        docker compose up -d --build
         echo "Services are up and running."
         ;;
     down)
         echo "Stopping all services..."
-        docker-compose down
+        docker compose down
         echo "Services have been stopped."
         ;;
     build)
         echo "Building services..."
-        docker-compose build
+        docker compose build
         echo "Build complete."
         ;;
     logs)
         if [ -z "$2" ]; then
-            docker-compose logs -f
+            docker compose logs -f
         else
-            docker-compose logs -f "$2"
+            docker compose logs -f "$2"
         fi
         ;;
     migrate)
         echo "Running database migrations..."
-        docker-compose exec backend python manage.py migrate
+        docker compose exec backend python manage.py migrate
         echo "Migrations complete."
         ;;
     collectstatic)
         echo "Collecting static files..."
-        docker-compose exec backend python manage.py collectstatic --no-input
+        docker compose exec backend python manage.py collectstatic --no-input
         echo "Static files collected."
         ;;
     *)
