@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import api from '../api/axiosConfig';
 import './BookImportPage.css';
+import { logger } from '../utils/logger';
 
 const BookImportPage = () => {
     // State for book import form
@@ -58,7 +59,7 @@ const BookImportPage = () => {
             document.getElementById('markdownFileInput').value = '';
             document.getElementById('coverImageInput').value = '';
         } catch (err) {
-            console.error('导入失败:', err.response || err);
+            logger.error('导入失败:', err.response || err);
             setError(err.response?.data?.error || '书籍导入失败，请检查文件和输入。');
         }
     };

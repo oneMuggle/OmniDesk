@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api/axiosConfig';
+import { logger } from '../utils/logger';
 
 const BookManageExportPage = () => {
     // State for managing existing books
@@ -39,7 +40,7 @@ const BookManageExportPage = () => {
             URL.revokeObjectURL(link.href);
             alert(`书籍 "${bookTitle}" 导出成功！`);
         } catch (error) {
-            console.error('Error exporting markdown:', error);
+            logger.error('Error exporting markdown:', error);
             alert('导出Markdown失败，请稍后再试。');
         }
     };
@@ -51,7 +52,7 @@ const BookManageExportPage = () => {
                 alert(`书籍 "${bookTitle}" 删除成功！`);
                 fetchBooks(); // Refresh book list after delete
             } catch (error) {
-                console.error('Error deleting book:', error);
+                logger.error('Error deleting book:', error);
                 alert('删除书籍失败，请稍后再试。');
             }
         }

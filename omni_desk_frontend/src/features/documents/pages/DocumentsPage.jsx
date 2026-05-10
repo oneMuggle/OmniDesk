@@ -6,6 +6,7 @@ import ChatInterface from '../../../shared/components/ChatInterface';
 import projectsApi from '../../projects/api/projects'; // Add projectsApi
 import '../../../shared/pages/DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
+import { logger } from '../../../shared/utils/logger';
 
 const { Option } = Select;
 
@@ -25,7 +26,7 @@ const DocumentsPage = () => {
       setTemplates(response.data.results || []); // 确保返回的是数组
     } catch (error) {
       message.error('加载模板列表失败');
-      console.error('Error loading templates:', error);
+      logger.error('Error loading templates:', error);
     }
   };
 
@@ -46,7 +47,7 @@ const DocumentsPage = () => {
         }
       } catch (error) {
         message.error('加载项目数据失败');
-        console.error('Error loading projects:', error);
+        logger.error('Error loading projects:', error);
       }
     };
     loadInitialData();
@@ -66,7 +67,7 @@ const DocumentsPage = () => {
       loadTemplates(selectedProject); // 重新加载模板列表
     } catch (error) {
       message.error('上传失败');
-      console.error('Upload error:', error);
+      logger.error('Upload error:', error);
     }
   };
 
@@ -85,7 +86,7 @@ const DocumentsPage = () => {
       }
     } catch (error) {
       message.error({ content: '分析失败，请检查后端服务。', key: 'analyzing' });
-      console.error('Analysis error:', error);
+      logger.error('Analysis error:', error);
     }
   };
 

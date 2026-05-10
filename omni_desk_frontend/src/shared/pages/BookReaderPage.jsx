@@ -6,6 +6,7 @@ import TableOfContents from '../components/TableOfContents';
 import ChapterView from '../components/ChapterView';
 import complianceApi from '../api/compliance';
 import './BookReaderPage.css';
+import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -36,7 +37,7 @@ const BookReaderPage = () => {
             } catch (err) {
                 setError('Failed to load data.');
                 setLoading(false);
-                console.error('Error fetching data:', err);
+                logger.error('Error fetching data:', err);
             }
         };
 

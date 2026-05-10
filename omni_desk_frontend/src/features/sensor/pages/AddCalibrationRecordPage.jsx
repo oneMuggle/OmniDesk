@@ -14,6 +14,7 @@ import {
   InputNumber,
 } from 'antd';
 import { getSensors, createCalibrationRecord } from '../api/sensorApi';
+import { logger } from '../../../shared/utils/logger';
 
 const { Option } = Select;
 
@@ -48,7 +49,7 @@ const AddCalibrationRecordPage = () => {
         setSensors(Array.isArray(response.data) ? response.data : response.data?.results || []);
       } catch (error) {
         message.error('获取传感器列表失败');
-        console.error('Failed to fetch sensors:', error);
+        logger.error('Failed to fetch sensors:', error);
       }
     };
     fetchSensors();
@@ -181,7 +182,7 @@ const AddCalibrationRecordPage = () => {
       ]);
     } catch (error) {
       message.error('创建校准记录失败');
-      console.error('Failed to create calibration record:', error);
+      logger.error('Failed to create calibration record:', error);
     }
   };
 

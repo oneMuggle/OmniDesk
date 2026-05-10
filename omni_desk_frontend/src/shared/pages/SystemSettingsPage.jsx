@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getOllamaConfigs, addOllamaConfig, updateOllamaConfig, deleteOllamaConfig, getOllamaModelsFromEndpoint } from '../api/ollama';
 import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Select, Space, Typography, message } from 'antd';
 import apiClient from '../api/apiClient'; // 导入 apiClient
+import { logger } from '../utils/logger';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -25,7 +26,7 @@ const SystemSettingsPage = () => {
       setConfigs(response.data.results || []);
     } catch (error) {
       message.error('加载配置失败。');
-      console.error("加载 Ollama 配置失败:", error);
+      logger.error("加载 Ollama 配置失败:", error);
     }
   }, []);
 
@@ -39,7 +40,7 @@ const SystemSettingsPage = () => {
         setRagflowConfigs(response.data.results || []);
       } catch (error) {
         message.error('加载 Ragflow 配置失败。');
-        console.error('Error fetching Ragflow configs:', error);
+        logger.error('Error fetching Ragflow configs:', error);
       }
     };
     fetchRagflowConfigs();
@@ -78,7 +79,7 @@ const SystemSettingsPage = () => {
       setAvailableModels(models);
     } catch (error) {
       message.error('获取模型列表失败，请检查 API 地址是否正确。');
-      console.error("Failed to fetch models:", error);
+      logger.error("Failed to fetch models:", error);
     }
   };
 
@@ -89,7 +90,7 @@ const SystemSettingsPage = () => {
       loadConfigs();
     } catch (error) {
       message.error('删除配置失败。');
-      console.error("删除 Ollama 配置失败:", error);
+      logger.error("删除 Ollama 配置失败:", error);
     }
   };
 
@@ -118,7 +119,7 @@ const SystemSettingsPage = () => {
       loadConfigs();
     } catch (error) {
       message.error('保存配置失败。');
-      console.error("保存 Ollama 配置失败:", error);
+      logger.error("保存 Ollama 配置失败:", error);
     }
   };
 
@@ -142,7 +143,7 @@ const SystemSettingsPage = () => {
         message.success('模型列表获取成功。');
       } catch (error) {
         message.error('获取模型列表失败，请检查 API 地址是否正确。');
-        console.error("Failed to fetch models:", error);
+        logger.error("Failed to fetch models:", error);
       }
     } else {
       message.warning('请输入 API 地址。');
@@ -206,7 +207,7 @@ const SystemSettingsPage = () => {
       ragflowForm.setFieldsValue({ is_active: true });
     } catch (error) {
       message.error('删除 Ragflow 配置失败。');
-      console.error('删除 Ragflow 配置失败:', error);
+      logger.error('删除 Ragflow 配置失败:', error);
     }
   };
 
@@ -226,7 +227,7 @@ const SystemSettingsPage = () => {
       ragflowForm.setFieldsValue({ is_active: true });
     } catch (error) {
       message.error(`保存 Ragflow 配置失败: ${error.response?.data?.detail || error.message}`);
-      console.error('保存 Ragflow 配置失败:', error);
+      logger.error('保存 Ragflow 配置失败:', error);
     }
   };
 

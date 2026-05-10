@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, Space, Collapse } from 'antd';
 import axios from 'axios';
+import { logger } from '../../../shared/utils/logger';
 
 const SensorCalibrationManagementPage = () => {
     const { sensorId } = useParams();
@@ -18,7 +19,7 @@ const SensorCalibrationManagementPage = () => {
             setCalibrations(response.data);
         } catch (error) {
             message.error('Failed to fetch sensor calibrations.');
-            console.error('Error fetching calibrations:', error);
+            logger.error('Error fetching calibrations:', error);
         } finally {
             setLoading(false);
         }
@@ -49,7 +50,7 @@ const SensorCalibrationManagementPage = () => {
             fetchCalibrations();
         } catch (error) {
             message.error('Failed to delete calibration.');
-            console.error('Error deleting calibration:', error);
+            logger.error('Error deleting calibration:', error);
         }
     };
 
@@ -67,7 +68,7 @@ const SensorCalibrationManagementPage = () => {
             fetchCalibrations();
         } catch (error) {
             message.error('Failed to save calibration.');
-            console.error('Error saving calibration:', error);
+            logger.error('Error saving calibration:', error);
         }
     };
 

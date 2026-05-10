@@ -1,5 +1,6 @@
 import apiClient from '../../../shared/api/apiClient';
 import { handleError } from '../../../shared/api/responseHandler';
+import { logger } from '../../../shared/utils/logger';
 
 export const timeSlotApi = {
   fetchTimeSlotsByTrial: async (trialId) => {
@@ -11,13 +12,13 @@ export const timeSlotApi = {
         : response.data?.results || [];
 
       if (!Array.isArray(slots)) {
-        console.error('Invalid time slot data format:', response.data);
+        logger.error('Invalid time slot data format:', response.data);
         return [];
       }
 
       return slots.map(slot => {
         if (!slot || !slot.start_time || !slot.end_time) {
-          console.warn('Invalid time slot data:', slot);
+          logger.warn('Invalid time slot data:', slot);
           return null;
         }
         

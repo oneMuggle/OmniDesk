@@ -25,6 +25,7 @@ import {
 import notificationApi from '../../features/notifications/api/notificationApi';
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
+import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'sidebar_collapsed';
 
@@ -48,7 +49,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     try {
       localStorage.setItem(STORAGE_KEY, String(isCollapsed));
     } catch (e) {
-      console.warn('Failed to save sidebar state:', e);
+      logger.warn('Failed to save sidebar state:', e);
     }
   }, [isCollapsed]);
 
@@ -66,7 +67,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         const response = await notificationApi.getUnreadCount();
         setUnreadNotificationCount(response.data.unread_count);
       } catch (error) {
-        console.error('Error fetching unread notification count:', error);
+        logger.error('Error fetching unread notification count:', error);
       }
     };
 

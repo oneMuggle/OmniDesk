@@ -12,8 +12,8 @@ class Memo(models.Model):
     )
     title = models.CharField(max_length=200, verbose_name="标题")
     content = models.TextField(verbose_name="内容", blank=True)
-    reminder_time = models.DateTimeField(verbose_name="提醒时间", null=True, blank=True)
-    is_completed = models.BooleanField(default=False, verbose_name="是否完成")
+    reminder_time = models.DateTimeField(verbose_name="提醒时间", null=True, blank=True, db_index=True)
+    is_completed = models.BooleanField(default=False, verbose_name="是否完成", db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Upload, Button, message, Card, Spin, Row, Col, Select } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
 import axios from 'axios';
+import { logger } from '../../../shared/utils/logger';
 
 const { Dragger } = Upload;
 const { Option } = Select;
@@ -57,7 +58,7 @@ const DocumentProcessor = () => {
       }
     } catch (error) {
       message.error('处理文档时发生错误。');
-      console.error('Processing error:', error);
+      logger.error('Processing error:', error);
     } finally {
       setProcessing(false);
     }

@@ -2,6 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useMemo } 
 import PropTypes from 'prop-types';
 import apiClient from '../../../shared/api/axiosConfig.js';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
+import { logger } from '../../../shared/utils/logger';
 
 export const AuthContext = createContext({
   user: null,
@@ -27,7 +28,7 @@ export function AuthProvider({ children }) {
       const response = await pageConfigApi.getAllPageConfigs();
       setPageConfigs(response.data);
     } catch (error) {
-      console.error('Failed to fetch page configurations:', error);
+      logger.error('Failed to fetch page configurations:', error);
       setPageConfigs([]);
     }
   }, []);
@@ -48,13 +49,13 @@ export function AuthProvider({ children }) {
                 await fetchPageConfigs();
               }
             } catch (error) {
-              console.error('Failed to fetch user data:', error);
+              logger.error('Failed to fetch user data:', error);
               localStorage.removeItem('authTokens');
               sessionStorage.removeItem('authTokens');
             }
           }
         } catch (error) {
-          console.error('Error parsing authTokens:', error);
+          logger.error('Error parsing authTokens:', error);
           localStorage.removeItem('authTokens');
           sessionStorage.removeItem('authTokens');
         }
@@ -93,7 +94,7 @@ export function AuthProvider({ children }) {
         redirectTo: '/'
       };
     } catch (err) {
-      console.error('Login failed:', err);
+      logger.error('Login failed:', err);
       return { success: false, error: err.response?.data?.detail || '登录失败' };
     }
   }, [fetchPageConfigs]);
@@ -157,7 +158,7 @@ export function AuthProvider({ children }) {
 
       return { success: true };
     } catch (error) {
-      console.error('Guest login failed:', error);
+      logger.error('Guest login failed:', error);
       setIsGuest(true);
       return { success: false, error: '游客登录失败' };
     }

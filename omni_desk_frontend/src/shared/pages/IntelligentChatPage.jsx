@@ -3,6 +3,7 @@ import { chatCompletion, getOllamaConfigs } from '../api/ollama';
 import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from '../components/ThinkContent';
 import './IntelligentChatPage.css';
+import { logger } from '../utils/logger';
 
 const parseThinkContent = (content) => {
   if (!content) return { mainContent: '', thinkContent: '' };
@@ -43,7 +44,7 @@ const IntelligentChatPage = () => {
         const defaultConfig = configsData.find(c => c.is_default);
         setSelectedConfig(defaultConfig || (configsData.length > 0 ? configsData[0] : null));
       } catch (error) {
-        console.error('Failed to load configs:', error);
+        logger.error('Failed to load configs:', error);
         setConfigs([]);
       }
     };
@@ -93,7 +94,7 @@ const IntelligentChatPage = () => {
         }
       );
     } catch (error) {
-      console.error('API Error:', error);
+      logger.error('API Error:', error);
       setIsLoading(false); // 发生错误时停止加载
       setMessages(prev => {
         const current = Array.isArray(prev) ? prev : [];

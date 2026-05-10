@@ -10,6 +10,13 @@ DATABASES = {
     }
 }
 
+# Use in-memory cache for tests (Redis may not be available)
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    }
+}
+
 # To speed up tests
 PASSWORD_HASHERS = [
     'django.contrib.auth.hashers.MD5PasswordHasher',

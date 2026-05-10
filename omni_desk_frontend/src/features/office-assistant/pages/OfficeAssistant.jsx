@@ -7,6 +7,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faMagic, faLanguage, faSpellCheck } from '@fortawesome/free-solid-svg-icons';
 import { processText } from '../api/officeAssistantApi';
 import { toast } from 'react-toastify';
+import { logger } from '../../../shared/utils/logger';
 
 
 const OfficeAssistant = () => {
@@ -39,7 +40,7 @@ const OfficeAssistant = () => {
         toast.warn('AI未能返回有效内容。');
       }
     } catch (error) {
-      console.error(`Error during ${action}:`, error);
+      logger.error(`Error during ${action}:`, error);
       toast.error(`处理失败: ${error.response?.data?.error || error.message}`);
     } finally {
       setIsProcessing(false);

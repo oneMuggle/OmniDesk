@@ -4,6 +4,7 @@ import apiClient from '../../../shared/api/apiClient';
 import './DifyAppManagementPage.css';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faEdit, faTrash, faPlus, faTimes } from '@fortawesome/free-solid-svg-icons';
+import { logger } from '../../../shared/utils/logger';
 
 const DifyAppManagementPage = () => {
     const [difyApps, setDifyApps] = useState([]);
@@ -24,7 +25,7 @@ const DifyAppManagementPage = () => {
             setDifyApps(response.data.results || response.data); // Adjust based on API response structure
         } catch (err) {
             setError('Failed to fetch Dify applications.');
-            console.error('Error fetching Dify apps:', err);
+            logger.error('Error fetching Dify apps:', err);
         } finally {
             setLoading(false);
         }
@@ -62,7 +63,7 @@ const DifyAppManagementPage = () => {
                 fetchDifyApps(); // Refresh list
             } catch (err) {
                 setError('Failed to delete Dify application.');
-                console.error('Error deleting Dify app:', err);
+                logger.error('Error deleting Dify app:', err);
             }
         }
     };
@@ -81,9 +82,9 @@ const DifyAppManagementPage = () => {
             fetchDifyApps(); // Refresh list
         } catch (err) {
             setError('Failed to save Dify application.');
-            console.error('Error saving Dify app:', err);
+            logger.error('Error saving Dify app:', err);
             if (err.response && err.response.data) {
-                console.error('Backend error details:', err.response.data);
+                logger.error('Backend error details:', err.response.data);
             }
         }
     };

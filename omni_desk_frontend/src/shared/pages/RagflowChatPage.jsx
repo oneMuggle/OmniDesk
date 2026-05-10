@@ -3,6 +3,7 @@ import { ApiContext } from '../context/ApiProvider';
 import ThinkContent from '../components/ThinkContent';
 import './RagflowChatPage.css'; // 稍后创建此CSS文件
 import apiClient from '../api/apiClient'; // 假设你有一个通用的API客户端
+import { logger } from '../utils/logger';
 
 const parseThinkContent = (content) => {
   if (!content) return { mainContent: '', thinkContent: '' };
@@ -53,7 +54,7 @@ const RagflowChatPage = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching Ragflow configs:', error);
+        logger.error('Error fetching Ragflow configs:', error);
       }
     };
     fetchRagflowConfigs();
@@ -93,7 +94,7 @@ const RagflowChatPage = () => {
       setConversationHistory([...conversationHistory, newMessage, aiMessage]);
       setInputMessage('');
     } catch (error) {
-      console.error('Ragflow API Error:', error);
+      logger.error('Ragflow API Error:', error);
       setMessages(prev => {
         const current = Array.isArray(prev) ? prev : [];
         return [...current, { 

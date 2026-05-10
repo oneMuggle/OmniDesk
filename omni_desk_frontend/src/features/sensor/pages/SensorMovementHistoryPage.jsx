@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, Table, message, Space, Tag } from 'antd';
 import moment from 'moment';
 import apiClient from '../api/apiClient';
+import { logger } from '../../../shared/utils/logger';
 
 const SensorMovementHistoryPage = () => {
   const [movements, setMovements] = useState([]);
@@ -18,7 +19,7 @@ const SensorMovementHistoryPage = () => {
       setMovements(Array.isArray(response.data.results) ? response.data.results : []);
     } catch (error) {
       message.error('获取传感器出入库记录失败!');
-      console.error('Error fetching sensor movements:', error);
+      logger.error('Error fetching sensor movements:', error);
     } finally {
       setLoading(false);
     }

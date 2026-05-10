@@ -21,6 +21,7 @@ dayjs.locale('zh-cn');
 import apiClient from '../api/apiClient';
 import SkeletonList from '../components/SkeletonList';
 import './DashboardPage.css';
+import { logger } from '../utils/logger';
 
 const { Title, Text } = Typography;
 
@@ -71,21 +72,21 @@ const DashboardPage = () => {
       if (trialsResult.status === 'fulfilled') {
         setWeeklyTrials(trialsResult.value.data);
       } else {
-        console.error('Error fetching weekly trials:', trialsResult.reason);
+        logger.error('Error fetching weekly trials:', trialsResult.reason);
         setErrors(prev => ({ ...prev, trials: true }));
       }
 
       if (schedulesResult.status === 'fulfilled') {
         setWeeklySchedules(schedulesResult.value.data);
       } else {
-        console.error('Error fetching weekly schedules:', schedulesResult.reason);
+        logger.error('Error fetching weekly schedules:', schedulesResult.reason);
         setErrors(prev => ({ ...prev, schedules: true }));
       }
 
       if (bookingsResult.status === 'fulfilled') {
         setWeeklyBookings(bookingsResult.value.data);
       } else {
-        console.error('Error fetching weekly bookings:', bookingsResult.reason);
+        logger.error('Error fetching weekly bookings:', bookingsResult.reason);
         setErrors(prev => ({ ...prev, bookings: true }));
       }
 
@@ -102,7 +103,7 @@ const DashboardPage = () => {
         const response = await apiClient.get('dashboard/stats/');
         setDashboardStats(response.data);
       } catch (err) {
-        console.error('Error fetching dashboard stats:', err);
+        logger.error('Error fetching dashboard stats:', err);
       } finally {
         setStatsLoading(false);
       }

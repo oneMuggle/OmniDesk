@@ -2,6 +2,7 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import api from '../api/axiosConfig';
 import './AnnotationHandler.css';
+import { logger } from '../utils/logger';
 
 const AnnotationHandler = ({ chapterId, children }) => {
     const [selection, setSelection] = useState(null);
@@ -30,7 +31,7 @@ const AnnotationHandler = ({ chapterId, children }) => {
             setSelection(null);
             setNote('');
         } catch (error) {
-            console.error('Failed to save annotation:', error);
+            logger.error('Failed to save annotation:', error);
         }
     };
 

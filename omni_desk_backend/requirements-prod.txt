@@ -146,6 +146,8 @@ pyyaml==6.0.2
     # via -r requirements.in
 redis==4.6.0
     # via -r requirements.in
+django-redis==6.0.0
+    # via -r requirements.in
 requests==2.32.4
     # via -r requirements.in
 six==1.17.0

@@ -4,6 +4,7 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faFileAlt, faUpload } from '@fortawesome/free-solid-svg-icons';
 import documentsApi from '../../features/documents/api/documents';
 import './FileAnalysisPage.css';
+import { logger } from '../utils/logger';
 
 function FileAnalysisPage() {
   const { isAuthenticated } = useAuth();
@@ -37,7 +38,7 @@ function FileAnalysisPage() {
       }
     } catch (err) {
       setError('文件分析失败，请重试');
-      console.error('分析错误:', err);
+      logger.error('分析错误:', err);
     } finally {
       setIsLoading(false);
     }

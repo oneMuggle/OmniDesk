@@ -17,7 +17,7 @@ class Personnel(models.Model):
     核心人员信息模型
     """
     # Basic Info
-    name = models.CharField(max_length=100, verbose_name="姓名")
+    name = models.CharField(max_length=100, verbose_name="姓名", db_index=True)
     id_card_number = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name='身份证号')
     date_of_birth = models.DateField(verbose_name="出生年月", null=True, blank=True)
     phone_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)

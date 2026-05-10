@@ -23,7 +23,7 @@ class Notification(models.Model):
     title = models.CharField(max_length=200, verbose_name='标题')
     content = models.TextField(verbose_name='内容')
     link = models.CharField(max_length=500, blank=True, verbose_name='跳转链接')
-    is_read = models.BooleanField(default=False, verbose_name='是否已读')
+    is_read = models.BooleanField(default=False, verbose_name='是否已读', db_index=True)
     is_system = models.BooleanField(default=False, verbose_name='系统通知')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_at = models.DateTimeField(auto_now=True, verbose_name='更新时间')

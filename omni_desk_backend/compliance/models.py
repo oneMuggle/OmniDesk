@@ -57,7 +57,8 @@ class ComplianceIssue(models.Model):
         max_length=50,
         choices=STATUS_CHOICES,
         default='待处理',
-        verbose_name="处理状态"
+        verbose_name="处理状态",
+        db_index=True,
     )
 
     SEVERITY_CHOICES = [
@@ -76,7 +77,8 @@ class ComplianceIssue(models.Model):
     due_date = models.DateField(
         null=True,
         blank=True,
-        verbose_name="截止日期"
+        verbose_name="截止日期",
+        db_index=True,
     ) # 针对有时间要求的规范
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

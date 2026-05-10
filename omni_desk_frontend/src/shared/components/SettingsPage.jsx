@@ -4,6 +4,7 @@ import { setApiProvider } from '../../features/intelligent-chat/api/deepseek';
 import { saveResponsiblePersons } from '../api/responsiblePersons';
 import { getConfig, setConfig } from '../api/ollama';
 import apiClient from '../api/apiClient'; // 导入 apiClient
+import { logger } from '../utils/logger';
 
 function SystemSettingsPage() {
   const { apiConfig, setApiConfig, getModels } = useApi();
@@ -21,7 +22,7 @@ function SystemSettingsPage() {
         const config = await getConfig();
         setOllamaEndpoint(config.OLLAMA_ENDPOINT || '');
       } catch (error) {
-        console.error('获取OLLAMA配置失败:', error);
+        logger.error('获取OLLAMA配置失败:', error);
       }
     };
     fetchOllamaConfig();
@@ -32,7 +33,7 @@ function SystemSettingsPage() {
         const response = await apiClient.get('ragflow-service/configs/');
         setRagflowConfigs(response.data.results || []);
       } catch (error) {
-        console.error('Error fetching Ragflow configs:', error);
+        logger.error('Error fetching Ragflow configs:', error);
       }
     };
     fetchRagflowConfigs();
@@ -66,7 +67,7 @@ function SystemSettingsPage() {
       setResponsiblePersons([]);
       alert('保存成功');
     } catch (error) {
-      console.error('保存失败:', error);
+      logger.error('保存失败:', error);
       alert(error.message);
     }
   };
@@ -81,7 +82,7 @@ function SystemSettingsPage() {
           setModels(modelList);
         } catch (error) {
           setModelError('无法加载模型列表，请检查服务器连接');
-          console.error(error);
+          logger.error(error);
         } finally {
           setIsLoadingModels(false);
         }
@@ -203,7 +204,7 @@ function SystemSettingsPage() {
                 setOllamaEndpoint(formData.apiEndpoint);
                 alert('OLLAMA端点配置已保存');
               } catch (error) {
-                console.error('保存OLLAMA配置失败:', error);
+                logger.error('保存OLLAMA配置失败:', error);
                 alert('保存失败: ' + error.message);
               }
             }}
@@ -252,7 +253,7 @@ function SystemSettingsPage() {
               setSelectedRagflowConfig(null);
               setNewRagflowConfig({ name: '', api_endpoint: '', api_key: '', is_active: true });
             } catch (error) {
-              console.error('保存 Ragflow 配置失败:', error);
+              logger.error('保存 Ragflow 配置失败:', error);
               alert(`保存 Ragflow 配置失败: ${error.response?.data?.detail || error.message}`);
             }
           }}>
@@ -306,7 +307,7 @@ function SystemSettingsPage() {
                       setSelectedRagflowConfig(null);
                       setNewRagflowConfig({ name: '', api_endpoint: '', api_key: '', is_active: true });
                     } catch (error) {
-                      console.error('删除 Ragflow 配置失败:', error);
+                      logger.error('删除 Ragflow 配置失败:', error);
                       alert(`删除 Ragflow 配置失败: ${error.response?.data?.detail || error.message}`);
                     }
                   }

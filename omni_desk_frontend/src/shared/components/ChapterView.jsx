@@ -7,6 +7,7 @@ import './ChapterView.css';
 import { sanitizeHtml } from '../utils/sanitizeHtml';
 import Commenting from './Commenting';
 import AnnotationHandler from './AnnotationHandler';
+import { logger } from '../utils/logger';
 
 const { Text } = Typography;
 const { Panel } = Collapse;
@@ -38,7 +39,7 @@ const ChapterView = ({ chapter, complianceIssues = [] }) => {
 
     useEffect(() => {
         if (contentRef.current && window.MathJax) {
-            window.MathJax.typesetPromise([contentRef.current]).catch((err) => console.error("MathJax typesetting failed:", err));
+            window.MathJax.typesetPromise([contentRef.current]).catch((err) => logger.error("MathJax typesetting failed:", err));
         }
     }, [chapterDetails]);
 

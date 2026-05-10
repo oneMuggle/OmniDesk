@@ -7,6 +7,7 @@ import {
 } from '../api/sequenceApi';
 import { getAllPersonnel, getPositions } from '../../features/personnel/api/personnelApi';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import { logger } from '../utils/logger';
 
 const { Option } = Select;
 
@@ -261,7 +262,7 @@ const SequenceManager = () => {
       setPositions(positionsRes?.data?.results || []);
     } catch (error) {
       message.error("数据加载失败，请刷新页面重试。");
-      console.error("Failed to fetch data", error);
+      logger.error("Failed to fetch data", error);
     }
   }, []);
 
@@ -290,7 +291,7 @@ const SequenceManager = () => {
       fetchData();
     } catch (error) {
       message.error('删除失败');
-      console.error("Failed to delete sequence", error);
+      logger.error("Failed to delete sequence", error);
     }
   };
 
@@ -332,7 +333,7 @@ const SequenceManager = () => {
       fetchData();
     } catch (error) {
       message.error('保存失败');
-      console.error("Failed to save sequence", error);
+      logger.error("Failed to save sequence", error);
     }
   };
 

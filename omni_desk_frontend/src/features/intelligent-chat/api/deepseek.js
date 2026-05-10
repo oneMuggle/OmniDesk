@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { API_BASE_URL, DEEPSEEK_API_KEY, DEEPSEEK_API_URL } from '../../../config/config';
+import { logger } from '../../../shared/utils/logger';
 
 const API_URL = API_BASE_URL;
 
@@ -37,7 +38,7 @@ export const generateDocument = async (templateId, variables) => {
     };
     
   } catch (error) {
-    console.error('文档生成失败:', error);
+    logger.error('文档生成失败:', error);
     throw new Error(`文档生成失败: ${error.response?.data?.detail || error.message}`);
   }
 };
@@ -51,7 +52,7 @@ export const uploadTemplate = async (formData) => {
     });
     return response.data;
   } catch (error) {
-    console.error('模板上传失败:', error);
+    logger.error('模板上传失败:', error);
     throw new Error(`模板上传失败: ${error.response?.data?.detail || error.message}`);
   }
 };
@@ -65,7 +66,7 @@ export const getDocumentTemplates = async (projectId = null) => {
     const response = await axios.get(url);
     return response.data;
   } catch (error) {
-    console.error('获取模板失败:', error);
+    logger.error('获取模板失败:', error);
     throw new Error(`获取模板失败: ${error.response?.data?.detail || error.message}`);
   }
 };
@@ -73,7 +74,7 @@ export const getDocumentTemplates = async (projectId = null) => {
 export const createClient = (withContext = false) => {
   // 验证配置完整性（改为可选配置）
   if (!currentConfig.apiEndpoint || !currentConfig.apiKey) {
-    console.warn('Deepseek API配置不完整，相关功能将被禁用');
+    logger.warn('Deepseek API配置不完整，相关功能将被禁用');
     return { 
       chat: { 
         completions: { 

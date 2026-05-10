@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Table, Button, Card, Spin, Alert, Modal, message, Descriptions, Tag, Divider } from 'antd';
 import apiClient from '../../../shared/api/apiClient';
 import SensorCalibrationForm from '../components/SensorCalibrationForm';
+import { logger } from '../../../shared/utils/logger';
 
 const SensorDetailPage = () => {
     const { sensorId } = useParams();
@@ -23,7 +24,7 @@ const SensorDetailPage = () => {
             setError(null);
         } catch (err) {
             setError('无法加载传感器详情。');
-            console.error(err);
+            logger.error(err);
         } finally {
             setLoading(false);
         }
@@ -48,7 +49,7 @@ const SensorDetailPage = () => {
             setIsModalVisible(false);
             fetchSensorDetails(); // Refresh details
         } catch (error) {
-            console.error('Failed to add calibration record', error);
+            logger.error('Failed to add calibration record', error);
         }
     };
 
@@ -71,7 +72,7 @@ const SensorDetailPage = () => {
                     fetchSensorDetails();
                 } catch (error) {
                     message.error('删除失败');
-                    console.error('Failed to delete calibration record:', error);
+                    logger.error('Failed to delete calibration record:', error);
                 }
             },
         });

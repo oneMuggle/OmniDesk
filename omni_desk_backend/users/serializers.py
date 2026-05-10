@@ -1,4 +1,5 @@
 import uuid
+from functools import lru_cache
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
@@ -14,6 +15,7 @@ from .models import PhoneNumber
 
 CustomUser = get_user_model()
 
+
 def get_user_permissions(user):
     """
     获取用户的所有权限，包括标准的Django权限和自定义页面权限。
@@ -22,11 +24,14 @@ def get_user_permissions(user):
     if user.is_staff or user.is_superuser:
         permissions.add('admin')
 
-    # 获取用户通过组获得的页面路由权限
+    # 获取用户通过组获得的页面路由权限（使用 values_list 避免全对象加载）
     user_groups = user.groups.all()
     group_names = set(user_groups.values_list('name', flat=True))
-    page_permissions = GroupPagePermission.objects.filter(group__in=user_groups).select_related('page').values_list('page__path', flat=True)
-    permissions.update(page_permissions)
+    group_ids = list(user_groups.values_list('id', flat=True))
+
+    if group_ids:
+        for gid in group_ids:
+            permissions.update(_get_group_page_permissions(gid))
 
     if 'Admin' in group_names:
         permissions.add('events.manage_schedule')
@@ -37,6 +42,19 @@ def get_user_permissions(user):
         permissions.add('events.manage_personnel')
 
     return list(permissions)
+
+
+def clear_user_permissions_cache():
+    """清除权限缓存，在修改组权限后调用"""
+    get_user_permissions.cache_clear()
+
+
+@lru_cache(maxsize=256)
+def _get_group_page_permissions(group_id):
+    """缓存单个组的页面权限"""
+    return set(
+        GroupPagePermission.objects.filter(group_id=group_id).values_list('page__path', flat=True)
+    )
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
     class Meta:

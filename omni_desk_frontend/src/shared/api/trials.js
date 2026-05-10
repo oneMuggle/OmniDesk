@@ -1,5 +1,6 @@
 import apiClient from './apiClient';
 import { handleResponse, handleError } from './responseHandler';
+import { logger } from '../utils/logger';
 
 // 使用统一的apiClient实例
 const api = apiClient;
@@ -43,7 +44,7 @@ export const getTrialById = async (id) => {
       data: handleResponse(response) 
     };
   } catch (error) {
-    console.error('[MCP_ERROR] 获取试验详情失败:', error);
+    logger.error('[MCP_ERROR] 获取试验详情失败:', error);
     throw handleError(error);
   }
 };
@@ -53,7 +54,7 @@ export const getTrialById = async (id) => {
 export const getEquipmentOptions = async (params) => {
   const response = await api.get('events/equipments/', { params })
     .catch(err => {
-      console.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
+      logger.error('[MCP_ERROR] 设备选项请求失败:', err.response?.data || err.message);
       throw err;
     });
   return {
@@ -70,7 +71,7 @@ export const getEquipmentOptions = async (params) => {
 export const getPersonnelOptions = async (params) => {
   const response = await api.get('personnel/personnel/', { params })
     .catch(err => {
-      console.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
+      logger.error('[MCP_ERROR] 人员选项请求失败:', err.response?.data || err.message);
       throw err;
     });
   return {

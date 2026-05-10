@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { getFamilyMembers, createFamilyMember, updateFamilyMember, deleteFamilyMember } from '../api/personnelApi';
 import { Button, Table, Modal, Form, Input } from 'antd';
+import { logger } from '../../../shared/utils/logger';
 
 const FamilyMemberTable = ({ personnelId }) => {
   const [familyMembers, setFamilyMembers] = useState([]);
@@ -38,14 +39,14 @@ const FamilyMemberTable = ({ personnelId }) => {
           const response = await getFamilyMembers(personnelId);
           setFamilyMembers(response.data || []);
         } catch (error) {
-          console.error('Error re-fetching family members:', error);
+          logger.error('Error re-fetching family members:', error);
         }
       };
       fetch();
       setIsModalVisible(false);
       setEditingFamilyMember(null);
     } catch (error) {
-      console.error('Failed to save family member:', error);
+      logger.error('Failed to save family member:', error);
     }
   };
 
@@ -59,12 +60,12 @@ const FamilyMemberTable = ({ personnelId }) => {
           const response = await getFamilyMembers(personnelId);
           setFamilyMembers(response.data || []);
         } catch (error) {
-          console.error('Error re-fetching family members after delete:', error);
+          logger.error('Error re-fetching family members after delete:', error);
         }
       };
       fetch();
     } catch (error) {
-      console.error('Failed to delete family member:', error);
+      logger.error('Failed to delete family member:', error);
     }
   };
 

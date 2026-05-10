@@ -4,6 +4,7 @@ import { RefreshContext } from '../../shared/context/RefreshContext';
 import { List, Card, Button, Spin } from 'antd';
 import { getPosts } from '../../features/communication/api/communicationApi';
 import './Communication.css';
+import { logger } from '../../shared/utils/logger';
 
 const PostList = () => {
     const [posts, setPosts] = useState([]);
@@ -18,7 +19,7 @@ const PostList = () => {
                 const response = await getPosts();
                 setPosts([...(response.data.results || [])]);
             } catch (error) {
-                console.error('Failed to fetch posts:', error);
+                logger.error('Failed to fetch posts:', error);
                 setPosts([]);
             } finally {
                 setLoading(false);

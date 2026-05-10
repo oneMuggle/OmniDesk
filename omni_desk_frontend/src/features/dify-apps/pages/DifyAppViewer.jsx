@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import './DifyApps.css'; // 稍后创建此CSS文件
+import { logger } from '../../../shared/utils/logger';
 
 const DifyAppViewer = () => {
     const { appId } = useParams();
@@ -25,7 +26,7 @@ const DifyAppViewer = () => {
                 setEmbedUrl(response.data.embed_url);
             } catch (err) {
                 setError('Failed to load Dify application.');
-                console.error('Error fetching Dify app details:', err);
+                logger.error('Error fetching Dify app details:', err);
             } finally {
                 setLoading(false);
             }

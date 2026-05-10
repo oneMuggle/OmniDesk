@@ -6,6 +6,7 @@ import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-desig
 import moment from 'moment';
 import { getPersonnelDetails, updatePersonnel, getAllPositions } from '../api/personnelApi';
 import {
+import { logger } from '../../../shared/utils/logger';
     ProfessionalQualificationTable,
     PublicHousingInfoTable,
     BankAccountTable,
@@ -36,7 +37,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
                 setPositions(positionsResponse || []);
                 setInitialData(detailsResponse);
             } catch (error) {
-                console.error("获取人员详情失败:", error);
+                logger.error("获取人员详情失败:", error);
                 setError('获取页面数据失败');
                 message.error('获取页面数据失败');
             } finally {
@@ -90,7 +91,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
             message.success('更新成功');
             navigate('/control-panel/personnel');
         } catch (error) {
-            console.error('操作失败:', error);
+            logger.error('操作失败:', error);
             message.error('操作失败');
         } finally {
             setSaving(false);

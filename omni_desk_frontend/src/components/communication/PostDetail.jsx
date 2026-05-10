@@ -11,6 +11,7 @@ import {
 import { getPost, createComment } from '../../api/communicationApi';
 import './Communication.css';
 import { sanitizeHtml } from '../../shared/utils/sanitizeHtml';
+import { logger } from '../../shared/utils/logger';
 
 const { TextArea } = Input;
 const { Title, Paragraph } = Typography;
@@ -37,7 +38,7 @@ const PostDetail = () => {
             }
         } catch (err) {
             setError('获取帖子失败，请稍后重试。');
-            console.error('Failed to fetch post:', err);
+            logger.error('Failed to fetch post:', err);
         } finally {
             setLoading(false);
         }
@@ -55,7 +56,7 @@ const PostDetail = () => {
             form.resetFields();
             await fetchPost();
         } catch (error) {
-            console.error('Failed to submit comment:', error.response ? error.response.data : error);
+            logger.error('Failed to submit comment:', error.response ? error.response.data : error);
         } finally {
             setSubmitting(false);
         }

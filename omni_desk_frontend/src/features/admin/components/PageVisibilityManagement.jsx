@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { logger } from '../../../shared/utils/logger';
 
 const PageVisibilityManagement = () => {
   const [pages, setPages] = useState([]);
@@ -16,7 +17,7 @@ const PageVisibilityManagement = () => {
         setGroups(groups);
         setVisibility(visibility);
       } catch (error) {
-        console.error('Error fetching page visibility data:', error);
+        logger.error('Error fetching page visibility data:', error);
       } finally {
         setLoading(false);
       }
@@ -42,7 +43,7 @@ const PageVisibilityManagement = () => {
         is_visible: newIsVisible,
       });
     } catch (error) {
-      console.error('Error updating page visibility:', error);
+      logger.error('Error updating page visibility:', error);
       // Revert the change if the API call fails
       setVisibility(prev => ({
         ...prev,

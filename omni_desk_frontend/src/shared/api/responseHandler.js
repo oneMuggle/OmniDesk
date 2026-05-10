@@ -1,4 +1,5 @@
 import { message } from 'antd'; // 引入 Ant Design 的 message 组件
+import { logger } from '../utils/logger';
 
 export const handleResponse = (response) => {
   if (response.status >= 200 && response.status < 300) {
@@ -10,7 +11,7 @@ export const handleResponse = (response) => {
 };
 
 export const handleError = (error, showToast = true) => {
-  console.error('API call failed:', {
+  logger.error('API call failed:', {
     message: error.message,
     stack: error.stack,
     config: error.config,

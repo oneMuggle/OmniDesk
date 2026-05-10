@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, message, Spin, Card, Descriptions, Tag, Divider } from 'antd';
 import { getCalibrationRecords, deleteCalibrationRecord } from '../api/sensorApi';
 import moment from 'moment';
+import { logger } from '../../../shared/utils/logger';
 
 const SensorCalibrationHistoryPage = () => {
   const { sensorId } = useParams();
@@ -18,7 +19,7 @@ const SensorCalibrationHistoryPage = () => {
       setRecords(response.data);
     } catch (error) {
       message.error('获取校准记录失败');
-      console.error('Failed to fetch calibration records:', error);
+      logger.error('Failed to fetch calibration records:', error);
     } finally {
       setLoading(false);
     }
@@ -44,7 +45,7 @@ const SensorCalibrationHistoryPage = () => {
           fetchRecords();
         } catch (error) {
           message.error('删除失败');
-          console.error('Failed to delete calibration record:', error);
+          logger.error('Failed to delete calibration record:', error);
         }
       },
     });

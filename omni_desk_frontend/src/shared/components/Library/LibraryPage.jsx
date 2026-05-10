@@ -6,6 +6,7 @@ import TableOfContents from './TableOfContents';
 import ChapterContent from './ChapterContent';
 import projectsApi from '../../api/projects'; // 导入 projectsApi
 import { useLocation } from 'react-router-dom'; // 导入 useLocation
+import { logger } from '../../utils/logger';
 
 const { Sider, Content } = Layout;
 const { Option } = Select; // 解构 Option
@@ -30,7 +31,7 @@ const LibraryPage = () => {
             setBooks(response.data); // 假设后端返回的是书籍列表
         } catch (err) {
             setError('Failed to load books.');
-            console.error(err);
+            logger.error(err);
         } finally {
             setLoading(false);
         }
@@ -53,7 +54,7 @@ const LibraryPage = () => {
                 }
             } catch (error) {
                 setError('Failed to load project data.');
-                console.error('Error loading projects:', error);
+                logger.error('Error loading projects:', error);
             }
         };
         loadInitialData();

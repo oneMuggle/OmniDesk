@@ -4,6 +4,7 @@ import { EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons'
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import projectsApi from '../api/projects';
+import { logger } from '../../../shared/utils/logger';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -26,7 +27,7 @@ const ProjectsPage = () => {
             const response = await projectsApi.getAllProjects();
             setProjects(response.data.results || []); // Ensure projects is an array
         } catch (error) {
-            console.error('Error fetching projects:', error);
+            logger.error('Error fetching projects:', error);
         }
     }, []);
 
@@ -84,7 +85,7 @@ const ProjectsPage = () => {
             fetchProjects();
             handleCloseDialog();
         } catch (error) {
-            console.error('Error saving project:', error);
+            logger.error('Error saving project:', error);
         }
     };
 
@@ -93,7 +94,7 @@ const ProjectsPage = () => {
             await projectsApi.deleteProject(id);
             fetchProjects();
         } catch (error) {
-            console.error('Error deleting project:', error);
+            logger.error('Error deleting project:', error);
         }
     };
 

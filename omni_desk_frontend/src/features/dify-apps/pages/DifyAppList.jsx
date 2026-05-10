@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import apiClient from '../../../shared/api/apiClient';
 import './DifyApps.css'; // 稍后创建此CSS文件
+import { logger } from '../../../shared/utils/logger';
 
 const DifyAppList = () => {
     const [difyApps, setDifyApps] = useState([]);
@@ -18,7 +19,7 @@ const DifyAppList = () => {
                 setDifyApps(response.data.results || []);
             } catch (err) {
                 setError('Failed to fetch Dify applications.');
-                console.error('Error fetching Dify apps:', err);
+                logger.error('Error fetching Dify apps:', err);
             } finally {
                 setLoading(false);
             }

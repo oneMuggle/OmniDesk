@@ -1,6 +1,7 @@
 import axios from 'axios';
 import apiClient from '../../../api/apiClient';
 import { OLLAMA_API_URL } from '../../../config/config';
+import { logger } from '../../../shared/utils/logger';
 
 // 创建独立的Ollama客户端
 const ollamaClient = axios.create({
@@ -73,7 +74,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
               });
             }
           } catch (e) {
-            console.error("Error parsing stream data:", e, "Line:", line);
+            logger.error("Error parsing stream data:", e, "Line:", line);
           }
         }
       }
@@ -92,7 +93,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
     };
 
   } catch (error) {
-    console.error('Ollama API error:', error);
+    logger.error('Ollama API error:', error);
     throw new Error(`Ollama API请求失败: ${error.message}`);
   }
 };
@@ -102,7 +103,7 @@ export const getModels = async () => {
     const response = await ollamaClient.get('tags');
     return response.data.models.map(model => model.name);
   } catch (error) {
-    console.error('获取模型列表失败:', error);
+    logger.error('获取模型列表失败:', error);
     throw new Error(`无法获取模型列表: ${error.message}`);
   }
 };
@@ -146,7 +147,7 @@ export const getOllamaModelsFromEndpoint = async (apiEndpoint) => {
     const response = await axios.get(`${fullApiEndpoint}/v1/models`);
     return response.data;
   } catch (error) {
-    console.error('Failed to fetch models from endpoint:', error);
+    logger.error('Failed to fetch models from endpoint:', error);
     throw error;
   }
 };

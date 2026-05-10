@@ -6,6 +6,7 @@ import userManagementApi from '../api/userManagementApi';
 import { getAllPersonnel } from '../../personnel/api/personnelApi';
 import { permissionsApi } from '../../../shared/api/permissionsApi';
 import { useAuth } from '../../auth/context/AuthContext';
+import { logger } from '../../../shared/utils/logger';
 
 const { Option } = Select;
 const { Search } = Input;
@@ -330,7 +331,7 @@ const UserManagementPage = () => {
             try {
                 await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);
             } catch (error) {
-                console.error("An error occurred during initial data fetch:", error);
+                logger.error("An error occurred during initial data fetch:", error);
             } finally {
                 setLoading(false);
             }

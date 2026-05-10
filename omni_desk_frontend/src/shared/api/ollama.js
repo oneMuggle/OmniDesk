@@ -1,5 +1,6 @@
 import axios from 'axios';
 import apiClient from './apiClient';
+import { logger } from '../utils/logger';
 
 export const getOllamaConfigs = () => apiClient.get('config/ollama-configs/');
 export const addOllamaConfig = (config) => apiClient.post('config/ollama-configs/', config);
@@ -49,7 +50,7 @@ export const chatCompletion = async (config, messages, onUpdate) => {
               });
             }
           } catch (e) {
-            console.error('Error parsing stream data:', e, 'Line:', line);
+            logger.error('Error parsing stream data:', e, 'Line:', line);
           }
         }
       },

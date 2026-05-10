@@ -3,6 +3,7 @@ import { useParams, useLocation } from 'react-router-dom';
 import { Spin, Typography } from 'antd';
 import axios from 'axios';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
+import { logger } from '../../utils/logger';
 
 const { Title } = Typography;
 
@@ -28,7 +29,7 @@ const ChapterContent = () => {
                 setChapter(response.data);
             } catch (err) {
                 setError('Failed to load chapter content.');
-                console.error(err);
+                logger.error(err);
             } finally {
                 setLoading(false);
             }

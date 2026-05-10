@@ -4,6 +4,7 @@ import api from '../api/axiosConfig';
 import TableOfContents from '../components/TableOfContents';
 import ChapterView from '../components/ChapterView';
 import './BookPage.css';
+import { logger } from '../utils/logger';
 
 const BookPage = () => {
     const { bookId } = useParams();
@@ -56,7 +57,7 @@ const BookPage = () => {
             document.body.removeChild(link);
             URL.revokeObjectURL(link.href);
         } catch (error) {
-            console.error('Error exporting markdown:', error);
+            logger.error('Error exporting markdown:', error);
             alert('导出Markdown失败，请稍后再试。');
         }
     };

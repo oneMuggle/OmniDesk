@@ -3,6 +3,7 @@ import { Table, Tag, Select, Typography, Space } from 'antd';
 import { useLocation, useNavigate } from 'react-router-dom';
 import complianceApi from '../api/compliance';
 import projectsApi from '../api/projects';
+import { logger } from '../utils/logger';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -22,7 +23,7 @@ const CompliancePage = () => {
                 const response = await projectsApi.getAllProjects();
                 setProjects(response.data.results || []);
             } catch (error) {
-                console.error('Error fetching projects:', error);
+                logger.error('Error fetching projects:', error);
             }
         };
         fetchProjects();
@@ -45,7 +46,7 @@ const CompliancePage = () => {
                 const response = await complianceApi.getAllComplianceIssues(params);
                 setComplianceIssues(response.data.results || []);
             } catch (error) {
-                console.error('Error fetching compliance issues:', error);
+                logger.error('Error fetching compliance issues:', error);
             }
         };
         
