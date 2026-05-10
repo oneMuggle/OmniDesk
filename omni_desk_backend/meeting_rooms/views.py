@@ -26,7 +26,7 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # 所有认证用户都可以看到所有预约
-        return MeetingRoomBooking.objects.all().order_by('start_time')
+        return MeetingRoomBooking.objects.select_related('user', 'meeting_room').order_by('start_time')
 
     @action(detail=False, methods=['get'], url_path='this-week')
     def get_this_week_bookings(self, request):
@@ -67,7 +67,7 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
             raise PermissionDenied("您没有权限删除此预约。")
 
 class MeetingRoomMaintenanceViewSet(viewsets.ModelViewSet):
-    queryset = MeetingRoomMaintenance.objects.all().order_by('start_time')
+    queryset = MeetingRoomMaintenance.objects.select_related('meeting_room').order_by('start_time')
     serializer_class = MeetingRoomMaintenanceSerializer
     permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理维护时间
 

@@ -26,7 +26,7 @@ class SensorViewSet(viewsets.ModelViewSet):
     serializer_class = SensorSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]  # 之前为 AllowAny，已收紧
 class SensorMovementViewSet(viewsets.ModelViewSet):
-    queryset = SensorMovement.objects.all()
+    queryset = SensorMovement.objects.select_related('operator', 'sensor')
     serializer_class = SensorMovementSerializer
     permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理出入库
     filter_backends = [DjangoFilterBackend]
@@ -94,7 +94,7 @@ class SensorCategoryViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看类别
 
 class SensorCalibrationViewSet(viewsets.ModelViewSet):
-    queryset = SensorCalibration.objects.all()
+    queryset = SensorCalibration.objects.select_related('calibrated_by', 'reviewed_by')
     serializer_class = SensorCalibrationSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看校准记录
     filter_backends = [DjangoFilterBackend]
@@ -107,7 +107,7 @@ class StorageLocationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrManagerOrReadOnly] # 允许非管理员查看位置
 
 class CalibrationReminderViewSet(viewsets.ModelViewSet):
-    queryset = CalibrationReminder.objects.all()
+    queryset = CalibrationReminder.objects.select_related('sensor')
     serializer_class = CalibrationReminderSerializer
     permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理提醒
     filter_backends = [DjangoFilterBackend]

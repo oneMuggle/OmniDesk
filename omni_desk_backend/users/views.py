@@ -200,7 +200,7 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
-            queryset = CustomUser.objects.all().order_by('username')
+            queryset = CustomUser.objects.prefetch_related('phone_numbers').order_by('username')
             position = self.request.query_params.get('personnel__position', None)
 
             if position:

@@ -23,11 +23,13 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 管理员可以查看所有问题，非管理员只能查看与自己负责项目相关的问题
         if self.request.user.is_staff:
-            return ComplianceIssue.objects.all()
+            return ComplianceIssue.objects.select_related('project', 'document_book', 'document_template')
 
         # 筛选与用户负责项目相关的问题
         user_projects = Project.objects.filter(manager=self.request.user)
-        return ComplianceIssue.objects.filter(project__in=user_projects)
+        return ComplianceIssue.objects.filter(
+            project__in=user_projects
+        ).select_related('project', 'document_book', 'document_template')
 
     def perform_create(self, serializer):
         # 确保创建问题时，关联的项目是当前用户负责的，或者用户是管理员

@@ -17,7 +17,7 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
     serializer_class = NewsArticleSerializer
 
     def get_queryset(self):
-        queryset = NewsArticle.objects.all()
+        queryset = NewsArticle.objects.select_related('personnel', 'news_type')
         personnel_id = self.request.query_params.get('personnel_id')
         month = self.request.query_params.get('month')
         type_id = self.request.query_params.get('type_id')

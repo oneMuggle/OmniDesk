@@ -48,7 +48,7 @@ class ContractViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑合同信息的ViewSet。
     """
-    queryset = Contract.objects.all()
+    queryset = Contract.objects.select_related('personnel')
     serializer_class = ContractSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -56,7 +56,7 @@ class EducationViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑教育背景的ViewSet。
     """
-    queryset = Education.objects.all()
+    queryset = Education.objects.select_related('personnel')
     serializer_class = EducationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -64,7 +64,7 @@ class WorkExperienceViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑工作经历的ViewSet。
     """
-    queryset = WorkExperience.objects.all()
+    queryset = WorkExperience.objects.select_related('personnel')
     serializer_class = WorkExperienceSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -72,7 +72,7 @@ class ProfessionalQualificationViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑职业资质的ViewSet。
     """
-    queryset = ProfessionalQualification.objects.all()
+    queryset = ProfessionalQualification.objects.select_related('personnel')
     serializer_class = ProfessionalQualificationSerializer
     permission_classes = [permissions.IsAuthenticated]
 
@@ -80,7 +80,7 @@ class FamilyMemberViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑家庭成员的ViewSet。
     """
-    queryset = FamilyMember.objects.all()
+    queryset = FamilyMember.objects.select_related('personnel')
     serializer_class = FamilyMemberSerializer
     permission_classes = [permissions.IsAuthenticated]
 
