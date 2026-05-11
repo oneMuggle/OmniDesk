@@ -1,12 +1,35 @@
-#!/bin/sh
+#!/bin/bash
+set -e
 
-# 执行数据库迁移
+echo "Waiting for database..."
+until python -c "
+import psycopg2
+import os
+try:
+    conn = psycopg2.connect(
+        host=os.environ.get('POSTGRES_HOST', 'db'),
+        port=os.environ.get('POSTGRES_PORT', '5432'),
+        dbname=os.environ.get('POSTGRES_DB', 'omnidesk'),
+        user=os.environ.get('POSTGRES_USER', 'omnidesk'),
+        password=os.environ.get('POSTGRES_PASSWORD', ''),
+        connect_timeout=5
+    )
+    conn.close()
+    print('Database is ready!')
+except psycopg2.OperationalError:
+    print('Database not ready yet, retrying...')
+    exit(1)
+"; do
+    sleep 2
+done
+
 echo "Running database migrations..."
-python manage.py migrate
+python manage.py migrate --noinput
 
-# 收集静态文件
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+if [ -n "${COLLECT_STATIC}" ] && [ "${COLLECT_STATIC}" = "true" ]; then
+    echo "Collecting static files..."
+    python manage.py collectstatic --noinput
+fi
 
-# 执行容器的 CMD
+echo "Starting application..."
 exec "$@"

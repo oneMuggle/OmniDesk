@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: windows-latest
+    runs-on: windows-2019
 
     steps:
     - name: Checkout code
@@ -35,11 +35,19 @@ jobs:
   build:
     if: github.ref_name == 'test' || github.ref_name == 'main'
     needs: test
-    runs-on: windows-latest
+    runs-on: windows-2019
 
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Read version
+      id: version
+      run: |
+        $ver = Get-Content deployment/docker/VERSION | Select-Object -First 1
+        Write-Host "Version: $ver"
+        echo "APP_VERSION=$ver" >> $env:GITHUB_OUTPUT
+      shell: pwsh
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -55,14 +63,24 @@ jobs:
     - name: Run PyInstaller
       run: |
         cd desktop_notifier
-        pyinstaller --onefile --windowed --name OmniDeskNotifier --add-data "theme_dark.qss;." --add-data "theme_light.qss;." main.py
+        pyinstaller main.spec
+
+    - name: Verify build artifact
+      run: |
+        if (-Not (Test-Path "desktop_notifier\dist\OmniDeskNotifier.exe")) {
+          Write-Error "Build artifact OmniDeskNotifier.exe not found!"
+          exit 1
+        }
+        $size = (Get-Item "desktop_notifier\dist\OmniDeskNotifier.exe").Length
+        Write-Host "OmniDeskNotifier.exe size: $([math]::Round($size / 1MB, 2)) MB"
+      shell: pwsh
 
     - name: Upload Release Artifact (main)
       if: github.ref_name == 'main'
       uses: actions/upload-artifact@v4
       with:
         name: OmniDeskNotifier-Windows-Release
-        path: desktop_notifier/dist/
+        path: desktop_notifier/dist/OmniDeskNotifier.exe
         retention-days: 30
 
     - name: Upload Test Artifact (test)
@@ -70,5 +88,18 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: OmniDeskNotifier-Windows-Test
-        path: desktop_notifier/dist/
+        path: desktop_notifier/dist/OmniDeskNotifier.exe
         retention-days: 7
+
+    - name: Create GitHub Release (main)
+      if: github.ref_name == 'main'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: notifier-v${{ steps.version.outputs.APP_VERSION }}
+        name: Desktop Notifier v${{ steps.version.outputs.APP_VERSION }}
+        body_path: deployment/docker/CHANGELOG.md
+        files: desktop_notifier/dist/OmniDeskNotifier.exe
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
