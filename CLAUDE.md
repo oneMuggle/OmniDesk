@@ -95,3 +95,112 @@ Uses environment variables for PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POST
 ## Agent Instructions
 
 See `AGENTS.md` for comprehensive AI agent instructions including stack details, conventions, anti-patterns, and CI/CD details.
+
+## Version Update System
+
+This project has a version management and safe update system located in the `core` Django app and deployment scripts.
+
+### Version Numbering
+- Uses **Semantic Versioning** (`MAJOR.MINOR.PATCH`) defined in `deployment/docker/VERSION`
+- The `core/version.py` module reads this file at Django startup and exposes `APP_VERSION` in settings
+- **Never** use `:latest` Docker image tags in production — use semantic version tags (e.g., `v1.0.0`)
+- **Always** update `VERSION` and `deployment/docker/CHANGELOG.md` when adding new features or making breaking changes
+
+### Django Management Commands (core app)
+| Command | Purpose |
+|---------|---------|
+| `python manage.py check_migrations` | Pre-check pending migrations; warns about destructive changes (DROP TABLE/COLUMN) |
+| `python manage.py backup_db` | Backup database (pg_dump + gzip) and media files; auto-cleans old backups (keeps 10) |
+| `python manage.py restore_db <file>` | Restore database from a `.sql.gz` backup file |
+| `python manage.py list_versions` | Show current version and migration history summary |
+
+### API Endpoints
+| Endpoint | Auth | Returns |
+|----------|------|---------|
+| `GET /api/system/version/` | Authenticated | `{version, build_time, django_version}` |
+| `GET /api/system/changelog/` | Authenticated | `{changelog: "markdown content"}` |
+| `GET /api/system/migrations/` | Authenticated | `{applied: [], pending: [], has_destructive: bool}` |
+
+### Frontend
+- **System Update Page**: `/control-panel/system-update` (admin menu, requires `admin` permission)
+- Component: `omni_desk_frontend/src/shared/pages/SystemUpdatePage.jsx`
+- Displays version info, rendered changelog, and migration status with destructive change warnings
+
+### Deployment Scripts
+| Script | Purpose |
+|--------|---------|
+| `deployment/docker/upgrade.sh` | Safe 10-step upgrade: check → load images → pre-check migrations → confirm → backup → update → migrate → health check |
+| `deployment/docker/rollback.sh` | Rollback to previous version with optional DB restore |
+| `deployment/docker/backup.sh` | Manual backup wrapper around `backup_db` command |
+| `deploy_offline.sh` | Added sub-commands: `version`, `backup`, `upgrade`, `rollback`, `migrate` |
+
+### Update Rules
+1. **Backup before every update** — run `backup_db` or `./backup.sh` before `migrate`
+2. **Pre-check migrations** — always run `check_migrations` first; if destructive changes are detected, require manual review
+3. **Major version upgrades** (`1.x → 2.x`) must NOT use `upgrade.sh` — they require a manual migration plan
+4. **CHANGELOG.md** must be updated for every released version
+5. Migration safety: Django migrations are NOT auto-applied on app startup; they must be run explicitly via `migrate`
+
+## Development Workflow
+
+### Plan-First Rule
+**ALL** feature additions and significant code changes MUST follow this workflow:
+
+1. **Write a plan document first** — output to `docs/plans/` with filename format: `YYYY-MM-DD_short-description.md`
+2. **Wait for approval** — do NOT start coding until the plan is confirmed by the user
+3. **Implement step by step** — follow the plan's phases/tasks sequentially
+4. **Update progress in the plan** — mark each step as `[x]` when completed
+5. **Finalize** — when all steps are done, the plan document serves as a record
+
+### Plan Document Structure
+Each plan must include:
+- Background & objectives
+- Affected files and modules
+- Technical approach (architecture, interfaces, data flow)
+- Implementation steps (checkbox list, phased)
+- Risks and dependencies
+
+### Exceptions (no plan needed)
+- Bug fixes (single file, obvious fix)
+- Style/formatting changes
+- Documentation-only updates
+- Dependency version bumps (non-breaking)
+
+### Archive Completed Plans
+When a feature is fully implemented, move its plan from `docs/plans/` to `docs/technical/` or keep in `docs/plans/` with all steps checked.
+
+## Intranet & Compatibility Requirements
+
+This project is deployed on isolated internal networks and must be accessible from Windows 7 machines.
+
+### Offline-First Rule
+**ALL** build artifacts and dependencies MUST be fully self-contained — no external network access is available in production.
+
+- **No CDN references** — all libraries (Ant Design, React, etc.) must be bundled locally via npm/yarn
+- **No external API calls** — all data must come from the backend or internal services
+- **No external resource loading** — fonts, icons, images, scripts must all be bundled
+- **Docker images must be exportable** — use `docker save` to produce `.tar` files for offline transfer
+- **Dependency installation happens on the build machine, not the target server**
+
+### Windows 7 Compatibility
+The site must work correctly on Windows 7 browsers (Chrome 109 / Edge 109 max, possibly IE11):
+
+- **Do NOT drop IE11 support** — avoid using features that break in IE11 unless explicitly approved
+- **React build target** — ensure `package.json` browserslist includes Windows 7 compatible browsers
+- **Avoid modern JS features** not supported in Chrome 109: check ES2022+ features before use
+- **Avoid CSS features** not supported in older browsers (e.g., `:has()`, container queries) without fallbacks
+- **Test with Chrome 109** when possible, or use polyfills for missing features
+- **Frontend build config** — verify CRA output does not emit syntax unsupported by target browsers
+
+## Language
+
+**All conversation and documentation MUST use Chinese (中文).**
+
+This includes:
+- Progress reports and summaries
+- Plan documents and technical descriptions
+- Commit messages and PR descriptions
+- Code comments (when needed)
+- UI text and error messages
+
+**Exceptions:** Code identifiers, technical terms (API, TypeScript, React, etc.), and command output may remain in their original language.
