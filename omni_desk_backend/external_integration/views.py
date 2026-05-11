@@ -1,9 +1,27 @@
+import json
+import logging
+import os
+import tempfile
+import zipfile
+from pathlib import Path
+
 import requests
-from rest_framework import viewsets, permissions, status
+from django.conf import settings
+from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from .models import ExternalLink, IntegrationService
-from .serializers import ExternalLinkSerializer, IntegrationServiceSerializer
+from rest_framework.parsers import MultiPartParser, FormParser
+from .models import ExternalLink, IntegrationService, Plugin, PluginVersion, PluginCallLog
+from .serializers import (
+    ExternalLinkSerializer, IntegrationServiceSerializer,
+    PluginSerializer, PluginVersionSerializer, PluginUploadSerializer,
+)
+from .plugin_loader import (
+    compute_file_hash, extract_plugin_zip, validate_manifest,
+)
+from .plugin_sandbox import execute_plugin_safely
+
+logger = logging.getLogger(__name__)
 
 
 class ExternalLinkViewSet(viewsets.ModelViewSet):
@@ -88,3 +106,169 @@ class IntegrationServiceViewSet(viewsets.ModelViewSet):
             return Response({'error': '外部服务响应超时'}, status=status.HTTP_504_GATEWAY_TIMEOUT)
         except requests.exceptions.ConnectionError:
             return Response({'error': '无法连接到外部服务'}, status=status.HTTP_502_BAD_GATEWAY)
+
+
+class PluginViewSet(viewsets.ModelViewSet):
+    """插件 CRUD + 上传 + 审核 + 执行"""
+    queryset = Plugin.objects.all().prefetch_related('versions')
+    serializer_class = PluginSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    lookup_field = 'id'
+
+    @action(detail=False, methods=['get'])
+    def template(self, request):
+        """返回插件开发模板信息"""
+        templates = [
+            {
+                'language': 'C',
+                'files': ['main.c', 'plugin_sdk.h'],
+                'description': 'C 语言插件模板，使用 stdin/stdout JSON 协议',
+            },
+            {
+                'language': 'C++',
+                'files': ['main.cpp', 'plugin_sdk.hpp'],
+                'description': 'C++ 语言插件模板',
+            },
+            {
+                'language': 'Fortran',
+                'files': ['main.f90', 'plugin_sdk.f90'],
+                'description': 'Fortran 插件模板',
+            },
+            {
+                'language': 'Python',
+                'files': ['main.py', 'plugin_sdk.py'],
+                'description': 'Python 语言插件模板',
+            },
+            {
+                'language': 'Go',
+                'files': ['main.go', 'go.mod'],
+                'description': 'Go 语言插件模板',
+            },
+            {
+                'language': 'Rust',
+                'files': ['main.rs', 'Cargo.toml'],
+                'description': 'Rust 语言插件模板',
+            },
+        ]
+        return Response({'templates': templates})
+
+    @action(detail=True, methods=['post'], parser_classes=[MultiPartParser, FormParser])
+    def upload_version(self, request, id=None):
+        """上传插件新版本"""
+        plugin = self.get_object()
+        serializer = PluginUploadSerializer(request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        uploaded_file = serializer.validated_data['file']
+        file_hash = compute_file_hash(uploaded_file)
+
+        # 检查重复版本
+        if PluginVersion.objects.filter(plugin=plugin, file_hash=file_hash).exists():
+            return Response({'error': '该版本已上传过'}, status=status.HTTP_409_CONFLICT)
+
+        # 保存文件
+        version_obj = PluginVersion.objects.create(
+            plugin=plugin,
+            version=request.data.get('version', '1.0.0'),
+            upload_file=uploaded_file,
+            file_hash=file_hash,
+            uploaded_by=request.user,
+        )
+
+        # 尝试读取 manifest.json
+        try:
+            with zipfile.ZipFile(version_obj.upload_file.path, 'r') as zf:
+                if 'manifest.json' in zf.namelist():
+                    manifest_data = json.loads(zf.read('manifest.json'))
+                    validate_manifest(manifest_data)
+                    version_obj.manifest = manifest_data
+                    version_obj.save()
+        except Exception as e:
+            logger.warning('插件 manifest 解析失败: %s', e)
+
+        return Response(
+            {'id': version_obj.id, 'version': version_obj.version, 'file_hash': file_hash},
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'])
+    def execute(self, request, id=None):
+        """执行插件功能"""
+        plugin = self.get_object()
+        active_version = plugin.versions.filter(is_active=True).first()
+        if not active_version:
+            return Response({'error': '没有已激活的插件版本'}, status=status.HTTP_400_BAD_REQUEST)
+
+        # 解压并执行
+        try:
+            tmp_dir = extract_plugin_zip(active_version.upload_file)
+            manifest = active_version.manifest or {'entry_point': 'executable', 'timeout_seconds': 30}
+            result = execute_plugin_safely(tmp_dir, manifest, request.data)
+
+            # 记录调用日志
+            PluginCallLog.objects.create(
+                plugin_version=active_version,
+                user=request.user,
+                method='execute',
+                args_summary=str(request.data)[:500],
+                status='success' if result['success'] else 'error',
+                execution_time_ms=result.get('execution_time_ms'),
+                error_message=result.get('error'),
+            )
+
+            return Response(result)
+        except Exception as e:
+            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'])
+    def review(self, request, id=None):
+        """审核插件"""
+        plugin = self.get_object()
+        action_type = request.data.get('action')  # 'approve' or 'reject'
+        notes = request.data.get('notes', '')
+
+        if action_type == 'approve':
+            plugin.status = 'approved'
+        elif action_type == 'reject':
+            plugin.status = 'rejected'
+        else:
+            return Response({'error': '无效的审核操作'}, status=status.HTTP_400_BAD_REQUEST)
+
+        plugin.save()
+        return Response({'status': plugin.status, 'notes': notes})
+
+    @action(detail=True, methods=['get'])
+    def logs(self, request, id=None):
+        """查看插件调用日志"""
+        plugin = self.get_object()
+        logs = PluginCallLog.objects.filter(plugin_version__plugin=plugin)[:50]
+        data = [
+            {
+                'user': log.user.username if log.user else None,
+                'status': log.status,
+                'execution_time_ms': log.execution_time_ms,
+                'error_message': log.error_message,
+                'created_at': log.created_at,
+            }
+            for log in logs
+        ]
+        return Response(data)
+
+
+class PluginTemplateView(viewsets.ViewSet):
+    """提供多语言 SDK 模板下载"""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def list(self, request):
+        """返回可用模板列表"""
+        template_dir = Path(__file__).parent / 'templates' / 'sdk'
+        templates = []
+        for lang_dir in template_dir.iterdir():
+            if lang_dir.is_dir():
+                files = [f.name for f in lang_dir.iterdir() if f.is_file()]
+                templates.append({
+                    'language': lang_dir.name,
+                    'files': files,
+                })
+        return Response({'templates': templates})

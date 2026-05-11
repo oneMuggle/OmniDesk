@@ -5,6 +5,21 @@
     "component": "AdminAppWrapper"
   },
   {
+    "name": "快捷外链",
+    "path": "/control-panel/external-links",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "集成中心",
+    "path": "/control-panel/integration-hub",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "插件市场",
+    "path": "/control-panel/plugin-market",
+    "component": "LazyComponent"
+  },
+  {
     "name": "仪表盘",
     "path": "/",
     "component": "LazyComponent"

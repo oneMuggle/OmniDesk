@@ -57,8 +57,10 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     subItems: [
       { to: "/external-links", text: "快捷外链", permission: null },
       { to: "/integration-hub", text: "集成中心", permission: null },
+      { to: "/plugin-market", text: "插件市场", permission: null },
       { to: "/control-panel/external-links/manage", text: "外链管理", permission: 'admin' },
       { to: "/control-panel/integration-hub/manage", text: "集成服务管理", permission: 'admin' },
+      { to: "/control-panel/plugin-market/manage", text: "插件管理", permission: 'admin' },
     ]
   },
   { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },

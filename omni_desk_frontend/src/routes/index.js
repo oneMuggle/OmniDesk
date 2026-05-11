@@ -67,6 +67,8 @@ const ExternalLinksPage = lazy(() => import('../features/external-links/pages/Ex
 const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
 const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
 const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
+const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
+const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -244,6 +246,14 @@ const router = createBrowserRouter([
           {
             path: "integration-hub/manage",
             element: <LazyComponent component={IntegrationManagementPage} />
+          },
+          {
+            path: "plugin-market",
+            element: <ProtectedRoute pageName="插件市场"><LazyComponent component={PluginMarketPage} /></ProtectedRoute>
+          },
+          {
+            path: "plugin-market/manage",
+            element: <LazyComponent component={PluginManagementPage} />
           }
         ]
       }
