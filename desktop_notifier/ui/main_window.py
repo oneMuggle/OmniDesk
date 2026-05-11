@@ -1,14 +1,17 @@
 import os
-from PyQt6.QtWidgets import (
+import requests
+from PyQt5.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QListWidget, QStackedWidget,
-    QPushButton, QSpacerItem, QSizePolicy
+    QPushButton, QSpacerItem, QSizePolicy, QLabel, QFrame, QSystemTrayIcon, QMenu
 )
-from PyQt6.QtCore import Qt, QPropertyAnimation, QPoint, QEasingCurve, QTimer, QDate, QDateTime
-from PyQt6.QtGui import QScreen
+from PyQt5.QtCore import Qt, QPropertyAnimation, QPoint, QEasingCurve, QTimer, QDate, QDateTime
+from PyQt5.QtGui import QScreen, QIcon
 
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.ui.dialogs import SettingsDialog
-from desktop_notifier.utils.config import save_theme
+from desktop_notifier.utils.config import save_theme, load_server_address
+from desktop_notifier.utils.cache import save as cache_save, load as cache_load
+from desktop_notifier.utils.browser import open_frontend
 
 
 class MainWindow(QWidget):
@@ -16,73 +19,218 @@ class MainWindow(QWidget):
         super().__init__()
         self.api_client = api_client
         self.access_token = access_token
-        self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+
+        # 系统托盘
+        self.tray_icon = None
+        self._setup_tray()
+
         self.initUI()
-        self.apply_theme(theme_name)  # Apply initial theme
-        self.dock_location = "none"  # Can be "none", "right", "top"
+        self.apply_theme(theme_name)
+        self.dock_location = "none"
         self.drag_position = QPoint()
 
-        # Set up data fetching
+        # 连接状态
+        self.is_online = False
+
+        # 数据获取定时器（5 秒）
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.fetch_data)
-        self.timer.start(5000)  # Fetch every 5 seconds
-        self.fetch_data()  # Initial fetch
+        self.timer.start(5000)
 
-    def fetch_data(self):
-        """Fetches data from multiple API endpoints and populates the tabs."""
-        if not self.api_client:
+        # 健康检查定时器（30 秒）
+        self.health_timer = QTimer(self)
+        self.health_timer.timeout.connect(self.check_health)
+        self.health_timer.start(30000)
+
+        # 首次启动：健康检查 + 数据获取
+        self.check_health()
+        self.fetch_data()
+
+    # ─── 系统托盘 ──────────────────────────────────────
+    def _setup_tray(self):
+        if not QSystemTrayIcon.isSystemTrayAvailable():
             return
-        self.schedule_list.clear()
+        self.tray_icon = QSystemTrayIcon(self)
+        self.tray_icon.setToolTip("OmniDesk 桌面助手")
+
+        tray_menu = QMenu()
+        action_open = tray_menu.addAction("打开管理页面")
+        action_open.triggered.connect(self._open_frontend)
+        action_notify = tray_menu.addAction("查看通知")
+        action_notify.triggered.connect(self._show_notify_tab)
+        action_settings = tray_menu.addAction("设置")
+        action_settings.triggered.connect(self.open_settings_dialog)
+        tray_menu.addSeparator()
+        action_quit = tray_menu.addAction("退出")
+        action_quit.triggered.connect(QApplication.instance().quit)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.activated.connect(self._tray_activated)
+        self.tray_icon.show()
+
+    def _tray_activated(self, reason):
+        if reason == QSystemTrayIcon.DoubleClick:
+            self.show()
+            self.raise_()
+
+    def _open_frontend(self):
+        server_url = load_server_address()
+        open_frontend(server_url)
+
+    def _show_notify_tab(self):
+        self.nav_list.setCurrentRow(3)
+        self.show()
+        self.raise_()
+
+    def _show_system_notification(self, title, message):
+        if self.tray_icon:
+            self.tray_icon.showMessage(title, message, QSystemTrayIcon.Information, 3000)
+
+    # ─── 健康检查 ──────────────────────────────────────
+    def check_health(self):
+        """调用 /api/health/ 检测后端连通性"""
+        base_url = self.api_client.base_url.replace("/api", "")
+        try:
+            resp = requests.get(f"{base_url}/api/health/", timeout=5)
+            if resp.status_code == 200:
+                self.is_online = True
+                self.status_indicator.setText("✅ 已连接")
+                self.status_indicator.setStyleSheet("color: #4caf50;")
+                return
+        except Exception:
+            pass
+        self.is_online = False
+        self.status_indicator.setText("❌ 连接断开")
+        self.status_indicator.setStyleSheet("color: #f44336;")
+
+    # ─── 数据获取 ──────────────────────────────────────
+    def fetch_data(self):
+        """从 API 获取数据，失败时回退到离线缓存"""
+        if not self.api_client:
+            self._load_from_cache_all()
+            return
+
+        # 排班
         schedules = self.api_client.get_schedules(self.access_token)
-        schedules_list = schedules.get('results', []) if isinstance(schedules, dict) else schedules
-        for item in schedules_list:
-            if isinstance(item, dict):
-                display_text = f"{item.get('duty_person_name', 'N/A')} - {item.get('duty_leader_name', 'N/A')}"
-            elif isinstance(item, str):
-                display_text = item
-            else:
-                display_text = "Invalid schedule data"
-            self.schedule_list.addItem(display_text)
+        if schedules:
+            cache_save("schedules", schedules)
+            self._populate_list(self.schedule_list, schedules, "schedule")
+        else:
+            self._load_from_cache("schedules", self.schedule_list, "schedule")
 
-        self.experiment_list.clear()
+        # 试验
         experiments = self.api_client.get_experiments(self.access_token)
-        experiments_list = experiments.get('results', []) if isinstance(experiments, dict) else experiments
-        for item in experiments_list:
-            if isinstance(item, dict):
-                display_text = item.get("name", "N/A")
-            elif isinstance(item, str):
-                display_text = item
-            else:
-                display_text = "Invalid experiment data"
-            self.experiment_list.addItem(display_text)
+        if experiments:
+            cache_save("experiments", experiments)
+            self._populate_list(self.experiment_list, experiments, "experiment")
+        else:
+            self._load_from_cache("experiments", self.experiment_list, "experiment")
 
-        self.booking_list.clear()
+        # 会议室
         bookings = self.api_client.get_bookings(self.access_token)
-        bookings_list = bookings.get('results', []) if isinstance(bookings, dict) else bookings
-        for item in bookings_list:
+        if bookings:
+            cache_save("bookings", bookings)
+            self._populate_list(self.booking_list, bookings, "booking")
+        else:
+            self._load_from_cache("bookings", self.booking_list, "booking")
+
+        # 通知
+        notifications = self._fetch_notifications()
+        if notifications:
+            cache_save("notifications", notifications)
+            self._populate_notifications(notifications)
+        else:
+            cached = cache_load("notifications")
+            if cached:
+                self._populate_notifications(cached)
+
+    def _fetch_notifications(self):
+        """从后端拉取未读通知"""
+        try:
+            url = f"{self.api_client.base_url}/notifications/"
+            headers = {'Authorization': f'Bearer {self.access_token}'}
+            resp = requests.get(url, headers=headers, timeout=5, params={"is_read": "false"})
+            if resp.status_code == 200:
+                data = resp.json()
+                return data.get("results", data) if isinstance(data, dict) else data
+        except Exception:
+            pass
+        return []
+
+    def _populate_list(self, list_widget, data, data_type):
+        list_widget.clear()
+        items = data if isinstance(data, list) else data.get("results", [])
+        for item in items:
             if isinstance(item, dict):
-                display_text = f"{item.get('meeting_room_name', 'N/A')} by {item.get('user_name', 'N/A')} for {item.get('purpose', 'N/A')}"
+                if data_type == "schedule":
+                    text = f"{item.get('duty_person_name', 'N/A')} - {item.get('duty_leader_name', 'N/A')}"
+                elif data_type == "experiment":
+                    text = item.get("name", "N/A")
+                elif data_type == "booking":
+                    text = f"{item.get('meeting_room_name', 'N/A')} by {item.get('user_name', 'N/A')} for {item.get('purpose', 'N/A')}"
+                else:
+                    text = "Unknown"
             elif isinstance(item, str):
-                display_text = item
+                text = item
             else:
-                display_text = "Invalid booking data"
-            self.booking_list.addItem(display_text)
+                text = "无效数据"
+            list_widget.addItem(text)
+        if not items:
+            list_widget.addItem("暂无数据")
 
+    def _load_from_cache_all(self):
+        self._load_from_cache("schedules", self.schedule_list, "schedule")
+        self._load_from_cache("experiments", self.experiment_list, "experiment")
+        self._load_from_cache("bookings", self.booking_list, "booking")
+        cached = cache_load("notifications")
+        if cached:
+            self._populate_notifications(cached)
+
+    def _load_from_cache(self, key, list_widget, data_type):
+        cached = cache_load(key)
+        if cached:
+            self._populate_list(list_widget, cached, data_type)
+            list_widget.addItem("（离线缓存数据）")
+        else:
+            list_widget.clear()
+            list_widget.addItem("无法连接服务器，无缓存数据")
+
+    def _populate_notifications(self, notifications):
+        self.notification_list.clear()
+        items = notifications if isinstance(notifications, list) else notifications.get("results", [])
+        for item in items:
+            if isinstance(item, dict):
+                title = item.get("title", "无标题")
+                time_str = item.get("created_at", "")
+                text = f"{title}\n  {time_str[:16] if time_str else ''}"
+            else:
+                text = str(item)
+            self.notification_list.addItem(text)
+
+        # 新通知检测（对比上一次数量）
+        prev_count = getattr(self, "_last_notification_count", 0)
+        current_count = len(items)
+        if current_count > prev_count and prev_count > 0:
+            self._show_system_notification("新通知", f"您有 {current_count - prev_count} 条新通知")
+        self._last_notification_count = current_count
+
+        if not items:
+            self.notification_list.addItem("暂无通知")
+
+    # ─── UI 初始化 ─────────────────────────────────────
     def initUI(self):
-        self.setWindowTitle('Desktop Notifier')
+        self.setWindowTitle('OmniDesk 桌面助手')
 
-        # Get screen geometry
         screen = QApplication.primaryScreen()
         screen_geometry = screen.geometry()
         screen_width = screen_geometry.width()
         screen_height = screen_geometry.height()
 
-        # Set window size
         self.window_width = 320
         self.window_height = 700
         self.resize(self.window_width, self.window_height)
 
-        # Define docking positions
         self.w = self.window_width
         self.h = self.window_height
         self.visible_x_right = screen_width - self.w
@@ -90,21 +238,19 @@ class MainWindow(QWidget):
         self.visible_y_top = 0
         self.hidden_y_top = 2 - self.h
 
-        # Center window on startup
         start_x = (screen_width - self.window_width) // 2
         start_y = (screen_height - self.window_height) // 2
         self.move(start_x, start_y)
 
-        # Top-level layout
         top_layout = QVBoxLayout()
 
-        # Close button layout
+        # 顶部按钮
         close_button_layout = QHBoxLayout()
-        close_button_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Minimum))
-        
+        close_button_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
         self.settings_button = QPushButton("S")
         self.settings_button.setObjectName("settingsButton")
-        self.settings_button.clicked.connect(self.open_settings)
+        self.settings_button.clicked.connect(self.open_settings_dialog)
         close_button_layout.addWidget(self.settings_button)
 
         self.close_button = QPushButton("X")
@@ -113,47 +259,62 @@ class MainWindow(QWidget):
         close_button_layout.addWidget(self.close_button)
         top_layout.addLayout(close_button_layout)
 
-        # Main content layout
+        # 主内容
         content_layout = QHBoxLayout()
 
-        # Left-side List Widget (Navigation)
+        # 左侧导航（4个Tab）
         self.nav_list = QListWidget()
         self.nav_list.setObjectName("navList")
         self.nav_list.setMaximumWidth(80)
-        self.nav_list.addItems(["排班", "试验", "会议室"])
+        self.nav_list.addItems(["排班", "试验", "会议室", "通知"])
 
-        # Right-side Stacked Widget (Content)
+        # 右侧内容区
         self.stacked_widget = QStackedWidget()
         self.schedule_list = QListWidget()
         self.experiment_list = QListWidget()
         self.booking_list = QListWidget()
+        self.notification_list = QListWidget()
         self.stacked_widget.addWidget(self.schedule_list)
         self.stacked_widget.addWidget(self.experiment_list)
         self.stacked_widget.addWidget(self.booking_list)
+        self.stacked_widget.addWidget(self.notification_list)
 
-        # Connect navigation list to stacked widget
         self.nav_list.currentRowChanged.connect(self.stacked_widget.setCurrentIndex)
-        self.nav_list.setCurrentRow(0)  # Set initial selection
+        self.nav_list.setCurrentRow(0)
 
-        # Add widgets to content layout
         content_layout.addWidget(self.nav_list)
         content_layout.addWidget(self.stacked_widget)
 
-        # Add content layout and settings button to main layout
         top_layout.addLayout(content_layout)
-        self.settings_button = QPushButton("设置")
-        self.settings_button.clicked.connect(self.open_settings_dialog)
-        top_layout.addWidget(self.settings_button)
+
+        # 底部状态栏
+        status_bar = QFrame()
+        status_bar.setObjectName("statusBar")
+        status_layout = QHBoxLayout(status_bar)
+        status_layout.setContentsMargins(8, 4, 8, 4)
+
+        self.status_indicator = QLabel("检测中...")
+        self.status_indicator.setStyleSheet("color: #999;")
+        status_layout.addWidget(self.status_indicator)
+
+        status_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Expanding, QSizePolicy.Minimum))
+
+        open_btn = QPushButton("打开前端")
+        open_btn.setObjectName("openFrontendBtn")
+        open_btn.clicked.connect(self._open_frontend)
+        status_layout.addWidget(open_btn)
+
+        top_layout.addWidget(status_bar)
 
         self.setLayout(top_layout)
 
-        # Set up animation
+        # 动画
         self.animation = QPropertyAnimation(self, b"pos")
-        self.animation.setEasingCurve(QEasingCurve.Type.InOutCubic)
+        self.animation.setEasingCurve(QEasingCurve.InOutCubic)
         self.animation.setDuration(300)
 
+    # ─── 鼠标事件 ──────────────────────────────────────
     def enterEvent(self, event):
-        """Show window when mouse enters if docked."""
         if self.dock_location == "right":
             self.animation.setStartValue(self.pos())
             self.animation.setEndValue(QPoint(self.visible_x_right, self.pos().y()))
@@ -165,7 +326,6 @@ class MainWindow(QWidget):
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        """Hide window when mouse leaves if docked."""
         if self.dock_location == "right":
             self.animation.setStartValue(self.pos())
             self.animation.setEndValue(QPoint(self.hidden_x_right, self.pos().y()))
@@ -177,31 +337,26 @@ class MainWindow(QWidget):
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        """Handle mouse press for dragging."""
-        if event.button() == Qt.MouseButton.LeftButton:
-            self.dock_location = "none"  # Undock when dragging starts
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+        if event.button() == Qt.LeftButton:
+            self.dock_location = "none"
+            self.drag_position = event.globalPos() - self.frameGeometry().topLeft()
             event.accept()
 
     def mouseMoveEvent(self, event):
-        """Handle window dragging."""
-        if event.buttons() == Qt.MouseButton.LeftButton:
-            self.move(event.globalPosition().toPoint() - self.drag_position)
+        if event.buttons() == Qt.LeftButton:
+            self.move(event.globalPos() - self.drag_position)
             event.accept()
 
     def mouseReleaseEvent(self, event):
-        """Handle mouse release to check for docking."""
-        if event.button() == Qt.MouseButton.LeftButton:
+        if event.button() == Qt.LeftButton:
             screen = QApplication.primaryScreen().geometry()
             pos = self.pos()
 
-            # Check for top docking first
             if pos.y() < 30:
                 self.dock_location = "top"
                 self.animation.setStartValue(pos)
                 self.animation.setEndValue(QPoint(pos.x(), self.hidden_y_top))
                 self.animation.start()
-            # Check for right docking
             elif pos.x() + self.width() > screen.width() - 50:
                 self.dock_location = "right"
                 self.animation.setStartValue(pos)
@@ -212,10 +367,7 @@ class MainWindow(QWidget):
 
             event.accept()
 
-
-    def open_settings(self):
-        pass
-
+    # ─── 设置/主题/登出 ────────────────────────────────
     def open_settings_dialog(self):
         dialog = SettingsDialog(self)
         dialog.theme_changed.connect(self.handle_theme_change)
@@ -226,6 +378,7 @@ class MainWindow(QWidget):
     def handle_server_address_change(self, new_address):
         self.api_client = ApiClient(new_address)
         self.fetch_data()
+        self.check_health()
 
     def handle_theme_change(self, theme_name):
         self.apply_theme(theme_name)
@@ -235,7 +388,6 @@ class MainWindow(QWidget):
         QApplication.instance().quit()
 
     def apply_theme(self, theme_name):
-        """Loads and applies a theme from a QSS file."""
         app = QApplication.instance()
         try:
             style_sheet_path = os.path.join(os.path.dirname(__file__), "..", f"theme_{theme_name}.qss")
@@ -243,3 +395,8 @@ class MainWindow(QWidget):
                 app.setStyleSheet(f.read())
         except FileNotFoundError:
             print(f"Warning: Theme file theme_{theme_name}.qss not found. Using default style.")
+
+    def closeEvent(self, event):
+        """关闭窗口时隐藏到托盘而非退出"""
+        event.ignore()
+        self.hide()

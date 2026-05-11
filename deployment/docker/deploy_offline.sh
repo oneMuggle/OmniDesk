@@ -151,23 +151,67 @@ case "${1:-start}" in
             echo "Migrations skipped."
         fi
         ;;
+    install-desktop)
+        DEST_DIR="${2:-/opt/OmniDesk}"
+        EXE_FILE="${3:-offline-packages/OmniDeskNotifier.exe}"
+        if [ ! -f "$EXE_FILE" ]; then
+            echo "ERROR: Desktop executable not found: $EXE_FILE"
+            echo "Place the PyInstaller-built .exe file in offline-packages/"
+            exit 1
+        fi
+        echo "Installing OmniDesk Desktop Notifier to $DEST_DIR ..."
+        mkdir -p "$DEST_DIR"
+        cp "$EXE_FILE" "$DEST_DIR/OmniDeskNotifier.exe"
+        chmod +x "$DEST_DIR/OmniDeskNotifier.exe"
+
+        # Create desktop shortcut
+        DESKTOP="$HOME/Desktop"
+        if [ -d "$DESKTOP" ]; then
+            cat > "$DESKTOP/OmniDesk.desktop" << 'DESKTOP_EOF'
+[Desktop Entry]
+Name=OmniDesk 桌面助手
+Exec=/opt/OmniDesk/OmniDeskNotifier.exe
+Icon=application-x-executable
+Type=Application
+Comment=消息提醒和快速访问
+DESKTOP_EOF
+            chmod +x "$DESKTOP/OmniDesk.desktop"
+            echo "Desktop shortcut created."
+        fi
+
+        # Create autostart entry
+        AUTOSTART="$HOME/.config/autostart"
+        mkdir -p "$AUTOSTART"
+        cat > "$AUTOSTART/OmniDesk.desktop" << 'AUTOSTART_EOF'
+[Desktop Entry]
+Name=OmniDesk 桌面助手
+Exec=/opt/OmniDesk/OmniDeskNotifier.exe
+Icon=application-x-executable
+Type=Application
+Comment=消息提醒和快速访问
+X-GNOME-Autostart-enabled=true
+AUTOSTART_EOF
+        echo "Autostart entry created."
+        echo "Installation complete."
+        ;;
     *)
-        echo "Usage: $0 {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate}"
+        echo "Usage: $0 {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate|install-desktop}"
         echo ""
         echo "Commands:"
-        echo "  start     Load images and start services in background (default)"
-        echo "  debug     Load images and start services in foreground (Ctrl+C to stop)"
-        echo "  stop      Stop and remove all containers"
-        echo "  clean     Stop containers and DELETE all volumes (including database data)"
-        echo "  restart   Stop and start services"
-        echo "  status    Show running containers"
-        echo "  logs      Show service logs"
-        echo "  exec      Execute command in a service"
-        echo "  version   Show current version and migration history"
-        echo "  backup    Create database and media backup"
-        echo "  upgrade   Safe version upgrade with backup"
-        echo "  rollback  Rollback to a previous version"
-        echo "  migrate   Pre-check and run database migrations"
+        echo "  start             Load images and start services in background (default)"
+        echo "  debug             Load images and start services in foreground (Ctrl+C to stop)"
+        echo "  stop              Stop and remove all containers"
+        echo "  clean             Stop containers and DELETE all volumes (including database data)"
+        echo "  restart           Stop and start services"
+        echo "  status            Show running containers"
+        echo "  logs              Show service logs"
+        echo "  exec              Execute command in a service"
+        echo "  version           Show current version and migration history"
+        echo "  backup            Create database and media backup"
+        echo "  upgrade           Safe version upgrade with backup"
+        echo "  rollback          Rollback to a previous version"
+        echo "  migrate           Pre-check and run database migrations"
+        echo "  install-desktop   Install desktop notifier (usage: install-desktop [DEST_DIR] [EXE_FILE])"
         exit 1
         ;;
 esac

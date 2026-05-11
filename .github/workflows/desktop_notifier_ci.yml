@@ -19,14 +19,13 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
-
+        python-version: '3.8'
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r desktop_notifier/requirements.txt
-        pip install -r desktop_notifier/requirements-dev.txt
+        pip install pytest pytest-qt
 
     - name: Run tests
       run: |
@@ -45,31 +44,31 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-version: '3.11'
+        python-version: '3.8'
 
     - name: Install Python dependencies
       run: |
         python -m pip install --upgrade pip
         pip install -r desktop_notifier/requirements.txt
-        pip install -r desktop_notifier/requirements-dev.txt
+        pip install pyinstaller<6.0
 
     - name: Run PyInstaller
       run: |
         cd desktop_notifier
-        pyinstaller --onefile --windowed --add-data "theme_dark.qss;." --add-data "theme_light.qss;." main.py
+        pyinstaller --onefile --windowed --name OmniDeskNotifier --add-data "theme_dark.qss;." --add-data "theme_light.qss;." main.py
 
     - name: Upload Release Artifact (main)
       if: github.ref_name == 'main'
       uses: actions/upload-artifact@v4
       with:
-        name: DesktopNotifier-Windows-Release
+        name: OmniDeskNotifier-Windows-Release
         path: desktop_notifier/dist/
-        retention-days: 7
+        retention-days: 30
 
     - name: Upload Test Artifact (test)
       if: github.ref_name == 'test'
       uses: actions/upload-artifact@v4
       with:
-        name: DesktopNotifier-Windows-Test
+        name: OmniDeskNotifier-Windows-Test
         path: desktop_notifier/dist/
         retention-days: 7

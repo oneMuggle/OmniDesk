@@ -1,7 +1,7 @@
 import sys
 import os
 import pytest
-from PyQt6.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication
 
 # Ensure the project root is in the Python path
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))

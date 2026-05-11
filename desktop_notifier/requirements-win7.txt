@@ -1,0 +1,10 @@
+# Win7 兼容依赖 - Python 3.8 专用
+# 用于在 Windows 7 上打包桌面端
+# 使用方法: pip install -r requirements-win7.txt
+
+PyQt5==5.15.10
+requests==2.31.0
+pywin32==305; sys_platform == 'win32'
+
+# PyInstaller 打包（Python 3.8 兼容）
+pyinstaller==5.13.2

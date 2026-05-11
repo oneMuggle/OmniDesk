@@ -1,5 +1,5 @@
 import requests
-from PyQt6.QtCore import QDate, QDateTime, Qt
+from PyQt5.QtCore import QDate, QDateTime, Qt
 
 
 class ApiClient:
@@ -81,7 +81,7 @@ class ApiClient:
             today = QDate.currentDate()
             today_bookings = []
             for item in response.json():
-                start_time = QDateTime.fromString(item.get('start_time', ''), Qt.DateFormat.ISODate)
+                start_time = QDateTime.fromString(item.get('start_time', ''), Qt.ISODate)
                 if start_time.date() == today:
                     today_bookings.append(item)
             return today_bookings

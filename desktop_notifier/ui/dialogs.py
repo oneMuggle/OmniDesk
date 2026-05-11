@@ -1,9 +1,9 @@
 import requests
-from PyQt6.QtWidgets import (
+from PyQt5.QtWidgets import (
     QDialog, QVBoxLayout, QHBoxLayout, QLineEdit, QLabel, QPushButton,
     QMessageBox, QCheckBox, QDialogButtonBox, QComboBox
 )
-from PyQt6.QtCore import pyqtSignal, Qt
+from PyQt5.QtCore import pyqtSignal, Qt
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.utils.config import is_autostart_enabled, set_autostart, save_refresh_token, save_theme, \
     load_theme, remove_refresh_token, save_server_address, load_server_address, load_stay_on_top, save_stay_on_top
@@ -29,7 +29,7 @@ class LoginDialog(QDialog):
         # Password
         self.password_label = QLabel("密码:")
         self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.password_label)
         layout.addWidget(self.password_input)
 
@@ -105,14 +105,14 @@ class RegisterDialog(QDialog):
         # Password
         self.password_label = QLabel("密码:")
         self.password_input = QLineEdit()
-        self.password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.password_label)
         layout.addWidget(self.password_input)
 
         # Confirm Password
         self.confirm_password_label = QLabel("确认密码:")
         self.confirm_password_input = QLineEdit()
-        self.confirm_password_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.confirm_password_input.setEchoMode(QLineEdit.Password)
         layout.addWidget(self.confirm_password_label)
         layout.addWidget(self.confirm_password_input)
 
@@ -196,7 +196,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(self.logout_button)
 
         # Dialog buttons
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
+        button_box = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
         button_box.accepted.connect(self.save_settings)
         button_box.rejected.connect(self.reject)
         layout.addWidget(button_box)
@@ -211,7 +211,7 @@ class SettingsDialog(QDialog):
         self.accept()
 
     def toggle_autostart(self, state):
-        enabled = state == Qt.CheckState.Checked.value
+        enabled = state == Qt.Checked
         set_autostart(enabled)
 
     def on_theme_changed(self, text):

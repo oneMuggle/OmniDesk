@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { Card, Tabs, Spin, Tag, Descriptions, Table, Alert, Typography } from 'antd';
+import { Card, Tabs, Spin, Tag, Descriptions, Table, Alert, Typography, Button } from 'antd';
+import { DownloadOutlined, WindowsOutlined } from '@ant-design/icons';
 import axios from 'axios';
 import ReactMarkdown from 'react-markdown';
 
@@ -83,6 +84,33 @@ function SystemUpdatePage() {
             <Descriptions.Item label="构建时间">{versionData?.build_time || '未知'}</Descriptions.Item>
             <Descriptions.Item label="Django 版本">{versionData?.django_version || '未知'}</Descriptions.Item>
           </Descriptions>
+        </Card>
+      ),
+    },
+    {
+      key: 'desktop',
+      label: '桌面客户端',
+      children: (
+        <Card>
+          <div style={{ textAlign: 'center', padding: '24px' }}>
+            <WindowsOutlined style={{ fontSize: 48, color: '#1890ff', marginBottom: 16 }} />
+            <Title level={4}>OmniDesk 桌面助手</Title>
+            <p style={{ color: '#8c8c8c', marginBottom: 24 }}>
+              Win7 兼容 · 消息提醒 · 快速访问 · 离线缓存
+            </p>
+            <Button
+              type="primary"
+              size="large"
+              icon={<DownloadOutlined />}
+              href="/static/downloads/OmniDeskNotifier.exe"
+            >
+              下载桌面客户端
+            </Button>
+            <div style={{ marginTop: 16, fontSize: 12, color: '#999' }}>
+              <p>版本: {versionData?.version || '未知'}</p>
+              <p>适用系统: Windows 7 / 8 / 10 / 11</p>
+            </div>
+          </div>
         </Card>
       ),
     },

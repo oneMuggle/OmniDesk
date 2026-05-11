@@ -5,8 +5,8 @@ import os
 project_root = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
-from PyQt6.QtWidgets import QApplication, QDialog
-from PyQt6.QtCore import QSettings
+from PyQt5.QtWidgets import QApplication, QDialog
+from PyQt5.QtCore import QSettings
 
 from desktop_notifier.api.client import ApiClient
 from desktop_notifier.ui.dialogs import LoginDialog
@@ -38,7 +38,7 @@ def main():
 
     if not (access_token and api_client):
         login_dialog = LoginDialog()
-        if login_dialog.exec() == QDialog.DialogCode.Accepted:
+        if login_dialog.exec() == QDialog.Accepted:
             access_token = login_dialog.access_token
             api_client = login_dialog.api_client
         else:
