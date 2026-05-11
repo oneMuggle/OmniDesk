@@ -54,3 +54,6 @@ SESSION_COOKIE_HTTPONLY = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Migration safety — migrations must be run explicitly via management commands
+# and are not auto-applied on app startup.

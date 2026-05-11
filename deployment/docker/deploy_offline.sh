@@ -107,18 +107,67 @@ case "${1:-start}" in
     logs)
         compose logs -f "${@:2}"
         ;;
+    version)
+        echo "Current version:"
+        compose exec -T backend python manage.py list_versions 2>/dev/null || echo "Unable to connect to backend."
+        ;;
+    backup)
+        if [ ! -f ".env.production" ]; then
+            echo "ERROR: .env.production not found."
+            exit 1
+        fi
+        echo "Running backup..."
+        ./backup.sh "${@:2}"
+        ;;
+    upgrade)
+        if [ ! -f ".env.production" ]; then
+            echo "ERROR: .env.production not found."
+            exit 1
+        fi
+        ./upgrade.sh "${2:-.}"
+        ;;
+    rollback)
+        if [ ! -f ".env.production" ]; then
+            echo "ERROR: .env.production not found."
+            exit 1
+        fi
+        ./rollback.sh
+        ;;
+    migrate)
+        if [ ! -f ".env.production" ]; then
+            echo "ERROR: .env.production not found."
+            exit 1
+        fi
+        echo "Running pre-migration check..."
+        compose exec -T backend python manage.py check_migrations 2>/dev/null || true
+        echo ""
+        read -p "Run migrations? (yes/no): " confirm
+        if [ "$confirm" = "yes" ]; then
+            echo "Creating backup first..."
+            ./backup.sh --db-only
+            compose exec -T backend python manage.py migrate
+            echo "Migrations complete."
+        else
+            echo "Migrations skipped."
+        fi
+        ;;
     *)
-        echo "Usage: $0 {start|debug|stop|clean|restart|status|logs|exec}"
+        echo "Usage: $0 {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate}"
         echo ""
         echo "Commands:"
-        echo "  start   Load images and start services in background (default)"
-        echo "  debug   Load images and start services in foreground (Ctrl+C to stop)"
-        echo "  stop    Stop and remove all containers"
-        echo "  clean   Stop containers and DELETE all volumes (including database data)"
-        echo "  restart Stop and start services"
-        echo "  status  Show running containers"
-        echo "  logs    Show service logs (e.g., ./deploy_offline.sh logs backend)"
-        echo "  exec    Execute command in a service (e.g., ./deploy_offline.sh exec backend bash)"
+        echo "  start     Load images and start services in background (default)"
+        echo "  debug     Load images and start services in foreground (Ctrl+C to stop)"
+        echo "  stop      Stop and remove all containers"
+        echo "  clean     Stop containers and DELETE all volumes (including database data)"
+        echo "  restart   Stop and start services"
+        echo "  status    Show running containers"
+        echo "  logs      Show service logs"
+        echo "  exec      Execute command in a service"
+        echo "  version   Show current version and migration history"
+        echo "  backup    Create database and media backup"
+        echo "  upgrade   Safe version upgrade with backup"
+        echo "  rollback  Rollback to a previous version"
+        echo "  migrate   Pre-check and run database migrations"
         exit 1
         ;;
 esac

@@ -16,6 +16,14 @@ from pathlib import Path
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
+# Application version
+try:
+    from core.version import get_version
+    APP_VERSION = get_version()
+except ImportError:
+    APP_VERSION = '0.0.0-dev'
+BUILD_TIME = os.getenv('BUILD_TIME', 'unknown')
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
@@ -70,6 +78,7 @@ INSTALLED_APPS = [
     'permissions.apps.PermissionsConfig',
     'ebooks.apps.EbooksConfig',
     'smart_assistant.apps.SmartAssistantConfig',
+    'core.apps.CoreConfig',
     'notifications.apps.NotificationsConfig',
     'dashboard.apps.DashboardConfig',
 ]

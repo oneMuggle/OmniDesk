@@ -62,6 +62,7 @@ const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPa
 const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
 const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
 const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
+const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -215,6 +216,10 @@ const router = createBrowserRouter([
           {
             path: "smart-assistant/audit",
             element: <LazyComponent component={AgentAuditPanel} />
+          },
+          {
+            path: "system-update",
+            element: <LazyComponent component={SystemUpdatePage} />
           }
         ]
       }

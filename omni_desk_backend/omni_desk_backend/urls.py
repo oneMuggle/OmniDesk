@@ -42,6 +42,7 @@ urlpatterns = [
         path('smart-assistant/', include('smart_assistant.urls')), # 智能助手相关路由
         path('notifications/', include('notifications.urls')), # 通知中心相关路由
         path('dashboard/', include('dashboard.urls')), # 仪表盘数据接口
+        path('system/', include('core.urls')), # 系统信息（版本等）
     ])),
 ]
 
