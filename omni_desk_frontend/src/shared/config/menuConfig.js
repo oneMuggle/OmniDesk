@@ -14,6 +14,7 @@ import {
   SoundOutlined,
   UserOutlined,
   LogoutOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 import { Badge } from 'antd';
 
@@ -46,6 +47,18 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
       { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
       { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
       { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
+    ]
+  },
+  {
+    type: 'submenu',
+    text: '外部集成',
+    icon: LinkOutlined,
+    permission: null,
+    subItems: [
+      { to: "/external-links", text: "快捷外链", permission: null },
+      { to: "/integration-hub", text: "集成中心", permission: null },
+      { to: "/control-panel/external-links/manage", text: "外链管理", permission: 'admin' },
+      { to: "/control-panel/integration-hub/manage", text: "集成服务管理", permission: 'admin' },
     ]
   },
   { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },

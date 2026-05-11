@@ -81,6 +81,7 @@ INSTALLED_APPS = [
     'core.apps.CoreConfig',
     'notifications.apps.NotificationsConfig',
     'dashboard.apps.DashboardConfig',
+    'external_integration.apps.ExternalIntegrationConfig',
 ]
 
 MIDDLEWARE = [
