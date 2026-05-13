@@ -25,6 +25,7 @@ from .models import (
     TimeSlot,
     Trial,
 )
+from .schedule_generator import ScheduleGenerator
 from .serializers import (
     AnnouncementSerializer,
     EquipmentSerializer,
@@ -333,168 +334,37 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         validated_data = serializer.validated_data
 
-        workday_personnel_sequence_id = validated_data['workday_personnel_sequence_id']
-        holiday_personnel_sequence_id = validated_data.get('holiday_personnel_sequence_id')
-        leader_sequence_id = validated_data['leader_sequence_id']
-        start_personnel_id = validated_data.get('start_personnel_id')
-        start_holiday_personnel_id = validated_data.get('start_holiday_personnel_id')
-        start_leader_id = validated_data.get('start_leader_id')
+        start_date = validated_data.get('start_date')
         target_month = validated_data.get('target_month')
         duration_days = validated_data.get('duration_days')
-        start_date = validated_data.get('start_date')
 
         if target_month:
             try:
                 month_date = datetime.strptime(target_month, '%Y-%m').date()
                 start_date = month_date.replace(day=1)
-                _, num_days = calendar.monthrange(start_date.year, start_date.month)
-                duration_days = num_days
+                _, duration_days = calendar.monthrange(start_date.year, start_date.month)
             except ValueError:
                 return Response({'error': 'Invalid month format. Use YYYY-MM.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        try:
-            with transaction.atomic():
-                # 1. 获取序列
-                workday_sequence = PersonnelSequence.objects.get(id=workday_personnel_sequence_id)
-                holiday_sequence = None
-                if holiday_personnel_sequence_id:
-                    holiday_sequence = PersonnelSequence.objects.get(id=holiday_personnel_sequence_id)
-                leader_sequence = LeaderSequence.objects.get(id=leader_sequence_id)
+        workday_sequence = PersonnelSequence.objects.get(id=validated_data['workday_personnel_sequence_id'])
+        holiday_sequence = None
+        if validated_data.get('holiday_personnel_sequence_id'):
+            holiday_sequence = PersonnelSequence.objects.get(id=validated_data['holiday_personnel_sequence_id'])
+        leader_sequence = LeaderSequence.objects.get(id=validated_data['leader_sequence_id'])
 
-                # 2. 提取ID列表
-                # 清洗并转换ID为整数，过滤掉无效条目，如 None、空字符串 ""
-                workday_personnel_order = [int(pid) for pid in workday_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
+        with transaction.atomic():
+            generated_schedules, _, _ = ScheduleGenerator(
+                workday_sequence=workday_sequence,
+                leader_sequence=leader_sequence,
+                start_date=start_date,
+                duration_days=duration_days,
+                holiday_sequence=holiday_sequence,
+                start_personnel_id=validated_data.get('start_personnel_id'),
+                start_holiday_personnel_id=validated_data.get('start_holiday_personnel_id'),
+                start_leader_id=validated_data.get('start_leader_id'),
+            ).generate()
 
-                # 如果提供了节假日序列，同样进行清洗；否则，复用已清洗的工作日序列
-                if holiday_sequence and holiday_sequence.sequence:
-                    holiday_personnel_order = [int(pid) for pid in holiday_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
-                else:
-                    holiday_personnel_order = workday_personnel_order
-
-                leader_order = [int(pid) for pid in leader_sequence.sequence if pid is not None and str(pid).strip().isdigit()]
-
-                if not workday_personnel_order or not leader_order:
-                    raise ValidationError('Sequence cannot be empty.')
-
-                # 3. 验证所有人员ID是否存在
-                # 将所有需要用到的ID收集到一个集合中，以去重
-                all_personnel_ids = set(workday_personnel_order)
-                all_personnel_ids.update(leader_order)
-                # holiday_personnel_order 可能与 workday_personnel_order 相同，但 update 会处理好
-                all_personnel_ids.update(holiday_personnel_order)
-
-
-                if all_personnel_ids:
-
-                    # 使用 select_for_update 锁定行，防止在检查和创建之间删除人员
-                    existing_personnel_ids = set(
-                        Personnel.objects.select_for_update().filter(id__in=all_personnel_ids).values_list('id', flat=True)
-                    )
-
-                    missing_ids = all_personnel_ids - existing_personnel_ids
-                    if missing_ids:
-                        missing_ids_str = ", ".join(map(str, sorted(list(missing_ids))))
-                        raise ValidationError(
-                            f"排班序列中的部分人员ID无效，请检查配置: {missing_ids_str}"
-                        )
-
-                # 4. 准备排班生成的其余逻辑
-                end_date = start_date + timedelta(days=duration_days - 1)
-                holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=start_date)
-                holiday_dates = set()
-                for holiday in holidays:
-                    current_day = holiday.start_date
-                    while current_day <= holiday.end_date:
-                        if start_date <= current_day <= end_date:
-                            holiday_dates.add(current_day)
-                        current_day += timedelta(days=1)
-
-                workday_start_index = 0
-                holiday_start_index = 0
-
-                if start_personnel_id:
-                    try:
-                        start_personnel_id_int = int(start_personnel_id)
-                    except (ValueError, TypeError):
-                        raise ValidationError({'start_personnel_id': f'Invalid start personnel ID: "{start_personnel_id}". Must be an integer.'})
-                    if start_personnel_id_int not in existing_personnel_ids:
-                        raise ValidationError({'start_personnel_id': f'Start personnel ID {start_personnel_id_int} is not a valid or existing personnel.'})
-                    try:
-                        workday_start_index = workday_personnel_order.index(start_personnel_id_int)
-                    except ValueError:
-                        raise ValidationError({'start_personnel_id': f'Start personnel ID {start_personnel_id_int} not found in the workday sequence.'})
-
-                if start_holiday_personnel_id:
-                    try:
-                        start_holiday_personnel_id_int = int(start_holiday_personnel_id)
-                    except (ValueError, TypeError):
-                        raise ValidationError({'start_holiday_personnel_id': f'Invalid start holiday personnel ID: "{start_holiday_personnel_id}". Must be an integer.'})
-                    if start_holiday_personnel_id_int not in existing_personnel_ids:
-                        raise ValidationError({'start_holiday_personnel_id': f'Start holiday personnel ID {start_holiday_personnel_id_int} is not a valid or existing personnel.'})
-                    try:
-                        if not holiday_personnel_order:
-                            raise ValidationError({'holiday_personnel_sequence_id': 'A starting holiday personnel is specified, but no holiday sequence is configured or it is empty.'})
-                        holiday_start_index = holiday_personnel_order.index(start_holiday_personnel_id_int)
-                    except ValueError:
-                        raise ValidationError({'start_holiday_personnel_id': f'Start holiday personnel ID {start_holiday_personnel_id_int} not found in the holiday sequence.'})
-
-                leader_start_index = 0
-                if start_leader_id:
-                    try:
-                        start_leader_id_int = int(start_leader_id)
-                    except (ValueError, TypeError):
-                        raise ValidationError({'start_leader_id': f'Invalid start leader ID: "{start_leader_id}". Must be an integer.'})
-                    if start_leader_id_int not in existing_personnel_ids:
-                        raise ValidationError({'start_leader_id': f'Start leader ID {start_leader_id_int} is not a valid or existing personnel.'})
-                    try:
-                        leader_start_index = leader_order.index(start_leader_id_int)
-                    except ValueError:
-                        raise ValidationError({'start_leader_id': f'Start leader ID {start_leader_id_int} not found in the leader sequence.'})
-
-                schedules_to_create = []
-                workday_count = 0
-                holiday_count = 0
-
-                for i in range(duration_days):
-                    current_date = start_date + timedelta(days=i)
-                    is_holiday = current_date in holiday_dates or current_date.weekday() >= 5
-
-                    if is_holiday:
-                        if not holiday_personnel_order:
-                            raise ValidationError({'holiday_personnel_sequence_id': 'Holiday sequence is required for dates identified as holidays but is not configured.'})
-
-                        # 确保节假日排班使用节假日序列和计数器
-                        personnel_idx = (holiday_start_index + holiday_count) % len(holiday_personnel_order)
-                        duty_person_id = holiday_personnel_order[personnel_idx]
-                        holiday_count += 1
-                    else:
-                        personnel_idx = (workday_start_index + workday_count) % len(workday_personnel_order)
-                        duty_person_id = workday_personnel_order[personnel_idx]
-                        workday_count += 1
-
-                    weeks_passed = (current_date - start_date).days // 7
-                    leader_idx = (leader_start_index + weeks_passed) % len(leader_order)
-                    duty_leader_id = leader_order[leader_idx]
-
-                    schedules_to_create.append(
-                        Schedule(
-                            duty_date=current_date,
-                            duty_person_id=duty_person_id,
-                            duty_leader_id=duty_leader_id
-                        )
-                    )
-
-                # 5. 数据库写入
-                Schedule.objects.filter(duty_date__gte=start_date, duty_date__lte=end_date).delete()
-
-                Schedule.objects.bulk_create(schedules_to_create)
-                created_schedules = list(Schedule.objects.filter(duty_date__gte=start_date, duty_date__lte=end_date))
-
-        except (PersonnelSequence.DoesNotExist, LeaderSequence.DoesNotExist):
-            return Response({'error': 'Invalid sequence ID'}, status=status.HTTP_404_NOT_FOUND)
-
-        serializer = ScheduleSerializer(created_schedules, many=True)
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
+        return Response(ScheduleSerializer(generated_schedules, many=True).data, status=status.HTTP_201_CREATED)
 
     @action(detail=False, methods=['post'], url_path='bulk_destroy')
     def bulk_delete(self, request):

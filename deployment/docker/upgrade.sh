@@ -40,6 +40,25 @@ compare_major() {
     fi
 }
 
+wait_for_backend() {
+    echo "Waiting for backend to be ready..."
+    local max_retries=30
+    local retry=0
+    while [ $retry -lt $max_retries ]; do
+        local http_code
+        http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ 2>/dev/null || echo "000")
+        if [ "$http_code" = "200" ]; then
+            echo "Backend is ready."
+            return 0
+        fi
+        retry=$((retry + 1))
+        echo "  Waiting... ($retry/$max_retries, HTTP $http_code)"
+        sleep 2
+    done
+    echo "WARNING: Backend did not become ready after $((max_retries * 2)) seconds"
+    return 1
+}
+
 get_current_version() {
     compose exec -T backend python manage.py shell -c "from django.conf import settings; print(settings.APP_VERSION)" 2>/dev/null || echo "unknown"
 }
@@ -100,7 +119,7 @@ echo ""
 # Step 4: Pre-check migrations
 echo "Step 4: Checking pending migrations..."
 compose up -d backend --no-recreate 2>/dev/null || true
-sleep 3
+wait_for_backend
 
 MIGRATION_OUTPUT=$(compose exec -T backend python manage.py check_migrations 2>/dev/null || true)
 echo "$MIGRATION_OUTPUT"
@@ -142,7 +161,7 @@ echo ""
 
 # Step 9: Health check
 echo "Step 9: Running health check..."
-sleep 5
+wait_for_backend
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ 2>/dev/null || echo "000")
 VERSION_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/system/version/ 2>/dev/null || echo "000")
 

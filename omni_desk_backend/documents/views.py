@@ -1,8 +1,5 @@
 import json  # 确保已导入
-import posixpath
 import re
-import shutil
-import tempfile  # 导入 tempfile 来创建临时目录
 from pathlib import Path
 
 import markdown
@@ -305,12 +302,10 @@ def extract_headings(markdown_content):
 
 class BookImportView(APIView):
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
-    permission_classes = [permissions.IsAdminUser] # 只有管理员可以导入
+    permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, format=None):
-        import tempfile
-        import zipfile
-        from urllib.parse import unquote
+        from .book_import import import_book_from_file
 
         uploaded_file = request.FILES.get('file')
         cover_image_file = request.FILES.get('cover_image')
@@ -323,158 +318,17 @@ class BookImportView(APIView):
         if not uploaded_file:
             return Response({"error": "A markdown or zip file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        content = ""
-        base_path_for_images = None
-        temp_dir_obj = None
-        book_obj = None
-
         try:
-            if uploaded_file.name.endswith('.zip'):
-                temp_dir_obj = tempfile.TemporaryDirectory()
-                temp_dir = Path(temp_dir_obj.name)
-
-                zip_path = temp_dir / uploaded_file.name
-                with open(zip_path, 'wb+') as destination:
-                    for chunk in uploaded_file.chunks():
-                        destination.write(chunk)
-
-                with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                    zip_ref.extractall(temp_dir)
-
-                md_files = list(temp_dir.glob('**/*.md'))
-                if not md_files:
-                    return Response({"error": "No markdown file found in the zip archive."}, status=status.HTTP_400_BAD_REQUEST)
-
-                markdown_file_path = md_files[0]
-                base_path_for_images = markdown_file_path.parent
-                content = markdown_file_path.read_text(encoding='utf-8')
-
-            elif uploaded_file.name.endswith('.md'):
-                content = uploaded_file.read().decode('utf-8')
-            else:
-                return Response({"error": "Unsupported file type. Please upload a .md or .zip file."}, status=status.HTTP_400_BAD_REQUEST)
-
-            if not title:
-                title_match = re.search(r'^#\s*(.+)', content, re.MULTILINE)
-                if title_match:
-                    title = title_match.group(1).strip()
-                else:
-                    title = Path(uploaded_file.name).stem
-
-            if not title:
-                return Response({"error": "Book title is required."}, status=status.HTTP_400_BAD_REQUEST)
-
-            with transaction.atomic():
-                cover_image_path = None
-                if cover_image_file:
-                    media_root = Path(settings.MEDIA_ROOT)
-                    cover_dest_dir = media_root / 'covers'
-                    cover_dest_dir.mkdir(parents=True, exist_ok=True)
-
-                    cover_filename = cover_image_file.name
-                    dest_path = cover_dest_dir / cover_filename
-
-                    with open(dest_path, 'wb+') as destination:
-                        for chunk in cover_image_file.chunks():
-                            destination.write(chunk)
-                    cover_image_path = f"covers/{cover_filename}"
-
-                book_obj, created = Book.objects.update_or_create(
-                    title=title,
-                    defaults={
-                        'author': author,
-                        'description': description,
-                        'cover_image': cover_image_path,
-                        'publication_date': publication_date,
-                    }
-                )
-
-                tags_list = [t.strip() for t in tags_str.split(',') if t.strip()]
-                book_obj.tags.clear()
-                for tag_name in tags_list:
-                    tag, _ = Tag.objects.get_or_create(name=tag_name)
-                    book_obj.tags.add(tag)
-
-                if base_path_for_images:
-                    def replace_image_path(match):
-                        alt_text = match.group(1)
-                        original_path_str = unquote(match.group(2))
-
-                        if original_path_str.startswith(('http://', 'https://', 'data:')):
-                            return match.group(0)
-
-                        try:
-                            # Resolve path and ensure it's a file within the temp directory
-                            original_path_str = original_path_str.replace('\\', '/')
-                            src_image_path = (base_path_for_images / original_path_str).resolve(strict=True)
-
-                            if not str(src_image_path).startswith(str(base_path_for_images.resolve())):
-                                return match.group(0)
-
-                            sanitized_title = re.sub(r'[^\w\-_\.]', '_', book_obj.title)
-                            image_filename = src_image_path.name
-                            image_dest_dir = Path(settings.MEDIA_ROOT) / 'book_images' / sanitized_title
-                            image_dest_dir.mkdir(parents=True, exist_ok=True)
-                            dest_image_path = image_dest_dir / image_filename
-
-                            shutil.move(str(src_image_path), str(dest_image_path))
-
-                            new_path = posixpath.join(settings.MEDIA_URL, 'book_images', sanitized_title, image_filename)
-                            return f'![{alt_text}]({new_path})'
-                        except (FileNotFoundError, ValueError):
-                            # This will catch resolution errors or if the file doesn't exist
-                            return match.group(0)
-                        except Exception:
-                            # Catch any other error during file move or path creation
-                            return match.group(0)
-
-                    content = re.sub(r'!\[(.*?)\]\((.*?)\)', replace_image_path, content)
-
-                book_obj.chapters.all().delete()
-
-                chapters_md = re.split(r'(?m)^# (?!#)', content)
-
-                md_extensions = ['fenced_code', 'tables', 'nl2br', 'pymdownx.arithmatex']
-                md_extension_configs = {'pymdownx.arithmatex': {'generic': True}}
-
-                chapter_order = 0
-                preamble = chapters_md[0].strip()
-                if preamble and not re.fullmatch(r'\s*', preamble):
-                    Chapter.objects.create(
-                        book=book_obj,
-                        title="前言",
-                        content_md=preamble,
-                        content_html=markdown.markdown(preamble, extensions=md_extensions, extension_configs=md_extension_configs),
-                        order=chapter_order
-                    )
-                    chapter_order += 1
-
-                for i in range(1, len(chapters_md)):
-                    chapter_full_content = chapters_md[i]
-                    if not chapter_full_content.strip():
-                        continue
-                    parts = chapter_full_content.split('\n', 1)
-                    chapter_title = parts[0].strip()
-                    chapter_content_md = "# " + chapter_full_content.strip()
-
-                    Chapter.objects.create(
-                        book=book_obj,
-                        title=chapter_title,
-                        content_md=chapter_content_md,
-                        content_html=markdown.markdown(chapter_content_md, extensions=md_extensions, extension_configs=md_extension_configs),
-                        heading_structure=extract_headings(chapter_content_md),
-                        order=chapter_order
-                    )
-                    chapter_order += 1
-
+            book_obj = import_book_from_file(
+                uploaded_file, cover_image_file, title,
+                author, description, publication_date, tags_str,
+            )
             serializer = BookSerializer(book_obj)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
-
+        except ValueError as e:
+            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"error": f"An unexpected error occurred: {e!s}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        finally:
-            if temp_dir_obj:
-                temp_dir_obj.cleanup()
 
 class EBookViewSet(viewsets.ModelViewSet):
     queryset = EBook.objects.all()
