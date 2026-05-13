@@ -3,10 +3,10 @@ import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../features/auth/context/AuthContext';
 import { ThemeProvider } from '../../shared/context/ThemeContext';
 import Sidebar from './Sidebar';
-import complianceApi from '../../features/compliance/api/compliance';
+import notificationApi from '../../features/notifications/api/notificationApi';
 
-// Mock the complianceApi module
-jest.mock('../../features/compliance/api/compliance');
+// Mock the notificationApi module
+jest.mock('../../features/notifications/api/notificationApi');
 
 const mockAuthContext = {
   user: null,
@@ -30,7 +30,7 @@ const renderSidebar = (authContext = mockAuthContext) => {
 
 describe('Sidebar', () => {
   beforeEach(() => {
-    complianceApi.getUnreadCount.mockClear();
+    notificationApi.getUnreadCount.mockClear();
   });
 
   it('renders the sidebar with brand', () => {
@@ -45,11 +45,11 @@ describe('Sidebar', () => {
 
   it('does not call notification API when not authenticated', () => {
     renderSidebar();
-    expect(complianceApi.getUnreadCount).not.toHaveBeenCalled();
+    expect(notificationApi.getUnreadCount).not.toHaveBeenCalled();
   });
 
   it('fetches notifications when authenticated', async () => {
-    complianceApi.getUnreadCount.mockResolvedValue({ data: { unread_count: 5 } });
+    notificationApi.getUnreadCount.mockResolvedValue({ data: { unread_count: 5 } });
     const authenticatedContext = {
       ...mockAuthContext,
       isAuthenticated: true,
@@ -58,7 +58,7 @@ describe('Sidebar', () => {
     renderSidebar(authenticatedContext);
 
     await waitFor(() => {
-      expect(complianceApi.getUnreadCount).toHaveBeenCalledTimes(1);
+      expect(notificationApi.getUnreadCount).toHaveBeenCalledTimes(1);
     });
   });
 

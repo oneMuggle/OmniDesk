@@ -5,8 +5,8 @@ import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
 import moment from 'moment';
 import { getPersonnelDetails, updatePersonnel, getAllPositions } from '../api/personnelApi';
-import {
 import { logger } from '../../../shared/utils/logger';
+import {
     ProfessionalQualificationTable,
     PublicHousingInfoTable,
     BankAccountTable,

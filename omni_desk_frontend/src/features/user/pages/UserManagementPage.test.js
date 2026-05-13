@@ -67,40 +67,37 @@ describe('UserManagementPage', () => {
   it('should render the initial list of users', async () => {
     setupMocks();
     renderPage();
-    await flushPromises();
-    expect(screen.getByText('user.one')).toBeInTheDocument();
+    await screen.findByText('user.one');
     expect(screen.getByText('user.two')).toBeInTheDocument();
   });
 
 
   it('should call the edit user function when the edit button is clicked', async () => {
     setupMocks();
-    console.log = jest.fn(); // Mock console.log
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
     renderPage();
-    await flushPromises();
+    await screen.findByText('user.one');
     const user = userEvent.setup();
-
-    expect(screen.getByText('user.one')).toBeInTheDocument();
 
     const editButtons = screen.getAllByTestId('edit-user-button');
     await user.click(editButtons[0]);
 
-    expect(console.log).toHaveBeenCalledWith('Edit user', 1);
+    expect(spy).toHaveBeenCalledWith('Edit user', 1);
+    spy.mockRestore();
   });
 
   it('should call the delete user function when the delete button is clicked', async () => {
     setupMocks();
-    console.log = jest.fn(); // Mock console.log
+    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
     renderPage();
-    await flushPromises();
+    await screen.findByText('user.one');
     const user = userEvent.setup();
-
-    expect(screen.getByText('user.one')).toBeInTheDocument();
 
     const deleteButtons = screen.getAllByTestId('delete-user-button');
     await user.click(deleteButtons[0]);
 
-    expect(console.log).toHaveBeenCalledWith('Delete user', 1);
+    expect(spy).toHaveBeenCalledWith('Delete user', 1);
+    spy.mockRestore();
   });
 
 });

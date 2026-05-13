@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import PostDetail from './PostDetail';
 
-jest.mock('../../api/communicationApi', () => ({
+jest.mock('../../features/communication/api/communicationApi', () => ({
   getPost: jest.fn(),
   createComment: jest.fn(),
 }));
@@ -28,14 +28,14 @@ describe('PostDetail', () => {
   });
 
   it('shows loading spinner initially', () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockReturnValue(new Promise(() => {}));
     renderWithRouter(<PostDetail />);
     expect(document.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('renders post content when loaded', async () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockResolvedValue({
       data: {
         id: 1,
@@ -56,7 +56,7 @@ describe('PostDetail', () => {
   });
 
   it('shows error alert when fetch fails', async () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockRejectedValue(new Error('Failed'));
     renderWithRouter(<PostDetail />);
     await waitFor(() => {
@@ -66,7 +66,7 @@ describe('PostDetail', () => {
   });
 
   it('shows error alert when post data is null', async () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockResolvedValue({ data: null });
     renderWithRouter(<PostDetail />);
     await waitFor(() => {
@@ -75,7 +75,7 @@ describe('PostDetail', () => {
   });
 
   it('renders comments when present', async () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockResolvedValue({
       data: {
         id: 1,
@@ -96,7 +96,7 @@ describe('PostDetail', () => {
   });
 
   it('shows no comments message when comments empty', async () => {
-    const { getPost } = require('../../api/communicationApi');
+    const { getPost } = require('../../features/communication/api/communicationApi');
     getPost.mockResolvedValue({
       data: {
         id: 1,

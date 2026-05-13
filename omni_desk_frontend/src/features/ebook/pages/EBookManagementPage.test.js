@@ -81,6 +81,7 @@ test('opens the edit form with the correct book data', async () => {
 test('edits a book and updates the list', async () => {
   render(<EBookManagementPage />);
 
+  await screen.findByText('React 入门指南'); // 等待异步数据加载
   const tableBody = screen.getByRole('table');
   const rows = within(tableBody).getAllByRole('row');
   const targetRowToEdit = rows.find(row => row.textContent.includes('React 入门指南'));
@@ -130,6 +131,7 @@ test('searches for books by title and author', async () => {
 test('deletes a book and removes it from the list', async () => {
   render(<EBookManagementPage />);
 
+  await screen.findByText('React 入门指南'); // 等待异步数据加载
   const tableBody = screen.getByRole('table');
   const rows = within(tableBody).getAllByRole('row');
   const targetRowToDelete = rows.find(row => row.textContent.includes('React 入门指南'));
