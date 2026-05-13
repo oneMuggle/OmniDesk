@@ -1,6 +1,12 @@
 #!/bin/bash
 set -e
 
+# deploy_offline.sh — 离线部署管理脚本
+# 使用方法: ./deploy_offline.sh {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate|install-desktop}
+
+COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$COMPOSE_DIR"
+
 # Use standalone compose file (no merge with docker-compose.yml)
 COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
@@ -9,7 +15,150 @@ compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
 
-# 检查是否需要首次部署初始化（数据库中没有迁移记录）
+# ─── 预部署检查 ──────────────────────────────────────────────
+pre_deploy_check() {
+    local errors=0
+
+    echo "=========================================="
+    echo "  预部署检查"
+    echo "=========================================="
+    echo ""
+
+    # 检查 Docker 可用
+    if ! command -v docker >/dev/null 2>&1; then
+        echo "  FAIL: docker not found"
+        errors=$((errors + 1))
+    else
+        echo "  PASS: Docker available ($(docker --version))"
+    fi
+
+    if ! docker compose version >/dev/null 2>&1; then
+        echo "  FAIL: docker compose plugin not found"
+        errors=$((errors + 1))
+    else
+        echo "  PASS: Docker Compose available"
+    fi
+
+    # 检查 .env.production
+    if [ ! -f ".env.production" ]; then
+        echo "  FAIL: .env.production not found"
+        errors=$((errors + 1))
+    else
+        echo "  PASS: .env.production exists"
+        # 检查关键变量不为空
+        for var in POSTGRES_PASSWORD SECRET_KEY REDIS_PASSWORD; do
+            val=$(grep "^${var}=" .env.production | cut -d= -f2-)
+            if [ -z "$val" ] || echo "$val" | grep -qi "<.*>"; then
+                echo "  FAIL: $var is empty or placeholder"
+                errors=$((errors + 1))
+            else
+                echo "  PASS: $var is set"
+            fi
+        done
+    fi
+
+    # 检查端口占用
+    for port in 80 8000; do
+        if command -v lsof >/dev/null 2>&1; then
+            if lsof -i ":$port" >/dev/null 2>&1; then
+                echo "  WARN: Port $port is in use"
+            else
+                echo "  PASS: Port $port is free"
+            fi
+        elif command -v ss >/dev/null 2>&1; then
+            if ss -tlnp | grep -q ":$port "; then
+                echo "  WARN: Port $port is in use"
+            else
+                echo "  PASS: Port $port is free"
+            fi
+        fi
+    done
+
+    echo ""
+    if [ "$errors" -gt 0 ]; then
+        echo "  $errors check(s) failed. Aborting."
+        return 1
+    fi
+    echo "  All checks passed."
+    echo ""
+    return 0
+}
+
+# ─── 等待所有服务健康 ────────────────────────────────────────
+wait_for_healthy() {
+    local max_wait="${1:-120}"
+    local interval=5
+    local elapsed=0
+
+    echo "Waiting for all services to be healthy (max ${max_wait}s)..."
+
+    while [ "$elapsed" -lt "$max_wait" ]; do
+        all_healthy=true
+        for service in db redis backend frontend worker; do
+            CONTAINER_ID=$(compose ps -q "$service" 2>/dev/null || true)
+            if [ -n "$CONTAINER_ID" ]; then
+                HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
+                if [ "$HEALTH" != "healthy" ]; then
+                    all_healthy=false
+                fi
+            else
+                all_healthy=false
+            fi
+        done
+
+        if [ "$all_healthy" = true ]; then
+            echo "All services are healthy (waited ${elapsed}s)."
+            return 0
+        fi
+
+        sleep "$interval"
+        elapsed=$((elapsed + interval))
+    done
+
+    echo "WARNING: Not all services are healthy after ${max_wait}s."
+    echo "Unhealthy services:"
+    for service in db redis backend frontend worker; do
+        CONTAINER_ID=$(compose ps -q "$service" 2>/dev/null || true)
+        if [ -n "$CONTAINER_ID" ]; then
+            HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
+            if [ "$HEALTH" != "healthy" ]; then
+                echo "  - $service: $HEALTH"
+            fi
+        else
+            echo "  - $service: not running"
+        fi
+    done
+    return 1
+}
+
+# ─── 加载镜像 ───────────────────────────────────────────────
+load_images() {
+    echo "Loading images from .tar files..."
+    local errors=0
+
+    for tar_file in "exported_images/omni_desk_backend.tar" "exported_images/omni_desk_frontend.tar" "exported_images/postgres.tar" "exported_images/redis.tar" "exported_images/nginx.tar"; do
+        if [ -f "$tar_file" ]; then
+            echo "  Loading: $(basename "$tar_file")"
+            if docker load -i "$tar_file"; then
+                echo "    OK"
+            else
+                echo "    FAIL"
+                errors=$((errors + 1))
+            fi
+        else
+            echo "  WARN: $tar_file not found"
+            errors=$((errors + 1))
+        fi
+    done
+
+    if [ "$errors" -gt 0 ]; then
+        echo "ERROR: $errors image(s) failed to load."
+        return 1
+    fi
+    echo "All images loaded successfully."
+}
+
+# ─── 首次部署检查 ────────────────────────────────────────────
 check_first_deploy() {
     if docker compose $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py showmigrations 2>/dev/null | grep -q "\[ \]"; then
         echo ""
@@ -32,24 +181,32 @@ check_first_deploy() {
     fi
 }
 
+# ─── 主命令 ─────────────────────────────────────────────────
 case "${1:-start}" in
     start)
-        echo "Loading images from .tar files..."
-        docker load -i "exported_images/omni_desk_backend.tar"
-        docker load -i "exported_images/omni_desk_frontend.tar"
-        docker load -i "exported_images/postgres.tar"
-        docker load -i "exported_images/redis.tar"
-        docker load -i "exported_images/nginx.tar"
-        echo "Images loaded successfully."
+        # 预部署检查
+        if ! pre_deploy_check; then
+            exit 1
+        fi
 
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            echo "Copy .env.production from the build machine before deploying."
+        # 加载镜像
+        if ! load_images; then
             exit 1
         fi
 
         echo "Starting production services..."
         compose up -d
+
+        # 等待服务健康
+        wait_for_healthy 120 || true
+
+        # 运行冒烟测试
+        echo ""
+        if [ -x "smoke_tests.sh" ]; then
+            echo "Running smoke tests..."
+            ./smoke_tests.sh || echo "Smoke tests had failures. Check output above."
+        fi
+
         echo "Deployment complete."
         check_first_deploy
         echo ""
@@ -63,12 +220,7 @@ case "${1:-start}" in
             exit 1
         fi
         echo "Loading images from .tar files..."
-        docker load -i "exported_images/omni_desk_backend.tar"
-        docker load -i "exported_images/omni_desk_frontend.tar"
-        docker load -i "exported_images/postgres.tar"
-        docker load -i "exported_images/redis.tar"
-        docker load -i "exported_images/nginx.tar"
-        echo "Images loaded successfully."
+        load_images || exit 1
         echo "Running in debug mode (foreground, press Ctrl+C to stop)..."
         compose up
         ;;
@@ -91,6 +243,7 @@ case "${1:-start}" in
         echo "Restarting production services..."
         compose down
         compose up -d
+        wait_for_healthy 120 || true
         echo "Services restarted."
         ;;
     status)
@@ -198,7 +351,7 @@ AUTOSTART_EOF
         echo "Usage: $0 {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate|install-desktop}"
         echo ""
         echo "Commands:"
-        echo "  start             Load images and start services in background (default)"
+        echo "  start             Load images and start services (with pre-check, smoke test)"
         echo "  debug             Load images and start services in foreground (Ctrl+C to stop)"
         echo "  stop              Stop and remove all containers"
         echo "  clean             Stop containers and DELETE all volumes (including database data)"
