@@ -1,15 +1,14 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 
+from personnel.views import PositionViewSet
 from .views import (
     AnnouncementViewSet,
-    DocumentTemplateViewSet,
     EquipmentViewSet,
     HolidayViewSet,
     ImageUploadView,
     LeaderSequenceViewSet,
     PersonnelSequenceViewSet,
-    PositionViewSet,
     ScheduleViewSet,
     TimeSlotViewSet,
     TrialViewSet,
@@ -17,7 +16,6 @@ from .views import (
 
 router = DefaultRouter()
 router.register(r'trials', TrialViewSet, basename='trials')
-router.register(r'document-templates', DocumentTemplateViewSet, basename='document-templates')
 router.register(r'time-slots', TimeSlotViewSet, basename='time-slots')
 router.register(r'schedules', ScheduleViewSet, basename='schedules')
 router.register(r'announcements', AnnouncementViewSet, basename='announcements')

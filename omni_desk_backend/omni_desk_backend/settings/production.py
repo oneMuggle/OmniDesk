@@ -7,6 +7,21 @@ from .base import *
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+# Ensure SECRET_KEY is set in production — fail loudly if not set
+if not os.getenv('SECRET_KEY'):
+    raise ImproperlyConfigured(
+        'Production settings require SECRET_KEY environment variable. '
+        'Set a strong, fixed SECRET_KEY for production.'
+    )
+
+# Ensure Mineru API Key is not left as default placeholder
+_MINERU_KEY = os.getenv('MINERU_API_KEY', '')
+if not _MINERU_KEY or _MINERU_KEY == 'YOUR_MINERU_API_KEY':
+    raise ImproperlyConfigured(
+        'Production settings require a valid MINERU_API_KEY. '
+        'Set it in your environment, do not use the default placeholder.'
+    )
+
 # Ensure PostgreSQL is configured in production — fail loudly if not set
 if not os.getenv('POSTGRES_DB'):
     raise ImproperlyConfigured(
@@ -48,7 +63,7 @@ CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_HTTPONLY = False
+CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
 
 # Static files (CSS, JavaScript, Images)

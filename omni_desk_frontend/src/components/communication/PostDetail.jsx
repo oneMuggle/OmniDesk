@@ -8,7 +8,7 @@ import {
   MessageOutlined,
   SendOutlined,
 } from '@ant-design/icons';
-import { getPost, createComment } from '../../api/communicationApi';
+import { getPost, createComment } from '../../features/communication/api/communicationApi';
 import './Communication.css';
 import { sanitizeHtml } from '../../shared/utils/sanitizeHtml';
 import { logger } from '../../shared/utils/logger';

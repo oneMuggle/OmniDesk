@@ -17,7 +17,6 @@ from users.permissions import IsAdminOrManagerOrReadOnly
 
 from .models import (
     Announcement,
-    DocumentTemplate,
     Equipment,
     Holiday,
     LeaderSequence,
@@ -28,7 +27,6 @@ from .models import (
 )
 from .serializers import (
     AnnouncementSerializer,
-    DocumentTemplateSerializer,
     EquipmentSerializer,
     GenerateScheduleSerializer,
     HolidaySerializer,
@@ -118,16 +116,6 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
             trial = instance.trial
             instance.delete()
             trial.update_time_range()
-
-class DocumentTemplateViewSet(viewsets.ModelViewSet):
-    queryset = DocumentTemplate.objects.all()
-    serializer_class = DocumentTemplateSerializer
-    permission_classes = [IsAdminOrManagerOrReadOnly]
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name', 'experiment_type', 'created_at']
-
-    def perform_create(self, serializer):
-        serializer.save(owner=self.request.user)
 
 class ScheduleViewSet(viewsets.ModelViewSet):
     queryset = Schedule.objects.select_related('duty_person', 'duty_leader')
@@ -704,9 +692,3 @@ class HolidayViewSet(viewsets.ModelViewSet):
         if year is not None:
             queryset = queryset.filter(start_date__year=year)
         return queryset
-
-
-class PositionViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Position.objects.all()
-    serializer_class = PositionSerializer
-    permission_classes = [permissions.IsAuthenticated]

@@ -15,7 +15,6 @@ from .serializers import (
     ChangePasswordSerializer,
     CustomTokenObtainPairSerializer,
     GuestLoginSerializer,
-    PositionSerializer,
     UserAdminSerializer,
     UserDetailSerializer,
     UserPersonnelSerializer,
@@ -208,22 +207,6 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
 
             return queryset
         return CustomUser.objects.filter(id=self.request.user.id)
-
-
-class PositionListView(generics.ListAPIView):
-    queryset = Position.objects.all()
-    serializer_class = PositionSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-
-
-
-class PositionViewSet(viewsets.ModelViewSet):
-    queryset = Position.objects.all()
-    serializer_class = PositionSerializer
-    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理职位
-    filter_backends = [DjangoFilterBackend]
-    filterset_fields = ['name']
 
 
 class GuestLoginView(generics.CreateAPIView):

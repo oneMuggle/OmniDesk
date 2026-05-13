@@ -240,10 +240,6 @@ const router = createBrowserRouter([
             element: <ProtectedRoute pageName="集成中心"><LazyComponent component={IntegrationHubPage} /></ProtectedRoute>
           },
           {
-            path: "external-links/manage",
-            element: <LazyComponent component={ExternalLinkManagementPage} />
-          },
-          {
             path: "integration-hub/manage",
             element: <LazyComponent component={IntegrationManagementPage} />
           },

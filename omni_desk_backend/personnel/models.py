@@ -1,4 +1,40 @@
+import base64
+import hashlib
+
+from django.conf import settings
 from django.db import models
+
+
+def _encrypt_field(value, key):
+    """Simple XOR-based encryption for sensitive fields using SECRET_KEY."""
+    if not value:
+        return value
+    key_bytes = hashlib.sha256(key.encode()).digest()
+    value_bytes = value.encode('utf-8')
+    encrypted = bytes(v ^ key_bytes[i % len(key_bytes)] for i, v in enumerate(value_bytes))
+    return base64.b64encode(encrypted).decode('utf-8')
+
+
+def _decrypt_field(encoded_value, key):
+    """Decrypt a field encrypted by _encrypt_field."""
+    if not encoded_value:
+        return encoded_value
+    key_bytes = hashlib.sha256(key.encode()).digest()
+    encrypted = base64.b64decode(encoded_value.encode('utf-8'))
+    decrypted = bytes(e ^ key_bytes[i % len(key_bytes)] for i, e in enumerate(encrypted))
+    return decrypted.decode('utf-8')
+
+
+class EncryptedCharField(models.CharField):
+    """CharField that transparently encrypts values using Django's SECRET_KEY."""
+
+    def from_db_value(self, value, expression, connection):
+        return _decrypt_field(value, settings.SECRET_KEY)
+
+    def get_prep_value(self, value):
+        if value is None:
+            return None
+        return _encrypt_field(value, settings.SECRET_KEY)
 
 
 class Position(models.Model):
@@ -18,7 +54,7 @@ class Personnel(models.Model):
     """
     # Basic Info
     name = models.CharField(max_length=100, verbose_name="姓名", db_index=True)
-    id_card_number = models.CharField(max_length=18, unique=True, null=True, blank=True, verbose_name='身份证号')
+    id_card_number = EncryptedCharField(max_length=18, unique=True, null=True, blank=True, verbose_name='身份证号')
     date_of_birth = models.DateField(verbose_name="出生年月", null=True, blank=True)
     phone_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
     address = models.TextField(verbose_name="家庭住址", blank=True)
@@ -135,7 +171,7 @@ class FamilyMember(models.Model):
     personnel = models.ForeignKey(Personnel, on_delete=models.CASCADE, related_name='family_members', verbose_name="关联人员")
     name = models.CharField(max_length=100, verbose_name="姓名")
     relationship = models.CharField(max_length=50, verbose_name="与本人关系")
-    id_card_number = models.CharField(max_length=18, verbose_name="身份证号", blank=True)
+    id_card_number = EncryptedCharField(max_length=18, verbose_name="身份证号", blank=True)
     contact_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
 
     def __str__(self):
