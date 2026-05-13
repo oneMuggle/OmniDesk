@@ -56,8 +56,8 @@
     "start": "react-scripts start",
     "prebuild": "node scripts/generate-routes.js",
     "build": "react-scripts build",
-    "test": "react-scripts test --testTimeout=60000",
-    "test:coverage": "react-scripts test --coverage --testTimeout=60000",
+    "test": "jest --config jest.config.js --maxWorkers=2",
+    "test:coverage": "jest --config jest.config.js --maxWorkers=2 --coverage",
     "eject": "react-scripts eject",
     "dev": "react-scripts start",
     "lint": "eslint ."
@@ -87,6 +87,7 @@
     "eslint-plugin-testing-library": "7.13.6",
     "flush-promises": "^1.0.2",
     "identity-obj-proxy": "^3.0.0",
+    "jest": "^27.5.1",
     "prop-types": "^15.8.1"
   }
 }
