@@ -30,8 +30,9 @@ context: |
   - base.py (shared), development.py (dev), production.py, test.py (SQLite)
 
   ## CI/CD
-  - Main: build-and-push-images.yml → deploy-ssh-windows.yml (Windows SSH)
+  - Main: build-and-push-images.yml (Docker build + GHCR push)
   - Test: ci-test.yml (parallel backend pytest + frontend jest)
+  - Deploy: 手动执行本地部署脚本
 
   ## Anti-Patterns
   - No "DO NOT"/"NEVER"/"TODO" markers in code comments

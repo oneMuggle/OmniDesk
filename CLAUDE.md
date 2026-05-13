@@ -66,7 +66,7 @@ Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
 ### CI/CD
 
-- **main**: `build-and-push-images.yml` (Docker build + GHCR push) -> `deploy-ssh-windows.yml` (SSH deploy to Windows)
+- **main**: `build-and-push-images.yml` (Docker build + GHCR push)
 - **test**: `ci-test.yml` (backend pytest + frontend jest in parallel)
 - **develop**: `ci-develop.yml` (separate backend/frontend jobs)
 
