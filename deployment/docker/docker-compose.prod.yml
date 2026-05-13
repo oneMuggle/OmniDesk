@@ -29,7 +29,7 @@ services:
 
   # ── Backend (Django/Gunicorn) ──────────────────────────────────
   backend:
-    image: ghcr.io/onemuggle/omni-desk-backend:latest
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
     ports:
       - "8000:8000"
     volumes:
@@ -48,7 +48,7 @@ services:
 
   # ── Frontend (Nginx) ───────────────────────────────────────────
   frontend:
-    image: ghcr.io/onemuggle/omni-desk-frontend:latest
+    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:?FRONTEND_IMAGE_TAG is required}
     ports:
       - "80:80"
     depends_on:
@@ -58,7 +58,7 @@ services:
 
   # ── Celery Worker ──────────────────────────────────────────────
   worker:
-    image: ghcr.io/onemuggle/omni-desk-backend:latest
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
     command: celery -A omni_desk_backend worker -l info
     volumes:
       - static_volume:/usr/src/app/staticfiles

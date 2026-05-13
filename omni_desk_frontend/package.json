@@ -67,8 +67,7 @@
       ">0.2%",
       "not dead",
       "not op_mini all",
-      "chrome >= 86",
-      "firefox >= 115"
+      "chrome >= 109"
     ],
     "development": [
       "last 1 chrome version",
