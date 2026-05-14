@@ -42,7 +42,6 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: AppstoreOutlined,
     permission: null,
     subItems: [
-      { to: "/intelligent-chat", icon: CommentOutlined, text: "智能问答", permission: null },
       { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
       { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
       { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },

@@ -10,7 +10,6 @@ import AdminAppWrapper from '../AdminAppWrapper';
 const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
 const SchedulePage = lazy(() => import('../features/schedule/pages/SchedulePage'));
 const SystemSettingsPage = lazy(() => import('../shared/pages/SystemSettingsPage'));
-const IntelligentChatPage = lazy(() => import('../shared/pages/IntelligentChatPage'));
 const RagflowChatPage = lazy(() => import('../shared/pages/RagflowChatPage'));
 const EventsPage = lazy(() => import('../shared/pages/EventsPage'));
 const AdminLayout = lazy(() => import('../features/admin/components/AdminLayout'));
@@ -310,10 +309,6 @@ const router = createBrowserRouter([
       {
         path: "knowledge-base",
         element: <ProtectedRoute pageName="知识库管理"><LazyComponent component={KnowledgeBasePage} /></ProtectedRoute>
-      },
-      {
-        path: "intelligent-chat",
-        element: <ProtectedRoute pageName="智能问答"><LazyComponent component={IntelligentChatPage} /></ProtectedRoute>
       },
       {
         path: "ragflow-chat",

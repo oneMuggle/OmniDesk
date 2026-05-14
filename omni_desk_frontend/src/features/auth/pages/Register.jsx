@@ -1,28 +1,26 @@
 import { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import { Form, Input, Button, message } from 'antd';
+import { UserOutlined, LockOutlined } from '@ant-design/icons';
 import './Login.css';
 
 const Register = () => {
-    const [username, setUsername] = useState('');
-    const [password, setPassword] = useState('');
-    const [confirmPassword, setConfirmPassword] = useState('');
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
     const { register } = useAuth();
     const navigate = useNavigate();
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState('');
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async (values) => {
+        const { username, password, confirmPassword } = values;
 
         if (password !== confirmPassword) {
-            setError('密码和确认密码不一致');
+            message.error('密码和确认密码不一致');
             return;
         }
 
         try {
-            setIsLoading(true);
-            setError('');
+            setLoading(true);
             const result = await register({
                 username: username.trim(),
                 password: password.trim(),
@@ -35,72 +33,102 @@ const Register = () => {
                     || '注册失败';
                 throw new Error(errorMessage);
             }
-            // 注册成功后跳转到登录页面并传递用户名
-            navigate('/login', { 
+            message.success('注册成功，请登录');
+            navigate('/login', {
                 state: { registeredUsername: username.trim() }
             });
         } catch (err) {
-            setError(err.message);
+            message.error(err.message);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
     };
 
-
     return (
         <div className="login-container">
-            <form onSubmit={handleSubmit}>
-                <h2>注册</h2>
-                {error && <div className="error-message">{error}</div>}
-                <div className="form-group">
-                    <label htmlFor="username">用户名</label>
-                    <input
-                        id="username"
-                        type="text"
-                        value={username}
-                        onChange={(e) => setUsername(e.target.value)}
-                        placeholder="用户名"
-                        required
-                    />
+            <div className="login-card">
+                <div className="login-brand">
+                    <div className="brand-logo">OmniDesk</div>
+                    <div className="brand-subtitle">创建您的账号</div>
                 </div>
-                <div className="form-group">
-                    <label htmlFor="password">密码</label>
-                    <input
-                        id="password"
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="密码"
-                        required
-                    />
+
+                <Form
+                    form={form}
+                    name="register"
+                    onFinish={handleSubmit}
+                    layout="vertical"
+                    size="large"
+                >
+                    <Form.Item
+                        name="username"
+                        rules={[
+                            { required: true, message: '请输入用户名' },
+                        ]}
+                    >
+                        <Input
+                            prefix={<UserOutlined />}
+                            placeholder="用户名"
+                            size="large"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="password"
+                        rules={[
+                            { required: true, message: '请输入密码' },
+                            { min: 6, message: '密码至少6个字符' },
+                        ]}
+                    >
+                        <Input.Password
+                            prefix={<LockOutlined />}
+                            placeholder="密码"
+                            size="large"
+                        />
+                    </Form.Item>
+
+                    <Form.Item
+                        name="confirmPassword"
+                        dependencies={['password']}
+                        rules={[
+                            { required: true, message: '请确认密码' },
+                            ({ getFieldValue }) => ({
+                                validator(_, value) {
+                                    if (!value || getFieldValue('password') === value) {
+                                        return Promise.resolve();
+                                    }
+                                    return Promise.reject(new Error('密码不一致'));
+                                },
+                            }),
+                        ]}
+                    >
+                        <Input.Password
+                            prefix={<LockOutlined />}
+                            placeholder="确认密码"
+                            size="large"
+                        />
+                    </Form.Item>
+
+                    <Form.Item style={{ marginBottom: 16 }}>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            loading={loading}
+                            block
+                            size="large"
+                            className="login-button"
+                        >
+                            注册
+                        </Button>
+                    </Form.Item>
+                </Form>
+
+                <div className="login-footer">
+                    <span>已有账号？</span>
+                    <Link to="/login">立即登录</Link>
                 </div>
-                <div className="form-group">
-                    <label htmlFor="confirmPassword">确认密码</label>
-                    <input
-                        id="confirmPassword"
-                        type="password"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                        placeholder="确认密码"
-                        required
-                    />
-                </div>
-                <button type="submit" disabled={isLoading} className="login-button">
-                    {isLoading ? '注册中...' : '注册'}
-                </button>
-                <p className="toggle-mode">
-                    已有账号？<Link to="/login" className="link-button">立即登录</Link>
-                </p>
-            </form>
+            </div>
         </div>
     );
-
-
-
 };
-
-
-
-
 
 export default Register;

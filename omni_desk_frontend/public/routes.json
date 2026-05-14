@@ -55,11 +55,6 @@
     "component": "LazyComponent"
   },
   {
-    "name": "智能问答",
-    "path": "/intelligent-chat",
-    "component": "LazyComponent"
-  },
-  {
     "name": "Ragflow聊天",
     "path": "/ragflow-chat",
     "component": "LazyComponent"

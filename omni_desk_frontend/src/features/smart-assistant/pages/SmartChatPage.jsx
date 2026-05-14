@@ -1,7 +1,24 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, getSessions, createSession, deleteSession } from '../api/smartAssistantApi';
 import ToolResult from '../components/ToolResult';
+import ThinkContent from '../../../shared/components/ThinkContent';
 import './SmartChatPage.css';
+
+const parseThinkContent = (content) => {
+  if (!content) return { mainContent: '', thinkContent: '' };
+
+  const thinkStart = content.indexOf('<thinking>');
+  const thinkEnd = content.indexOf('</thinking>');
+
+  if (thinkStart === -1 || thinkEnd === -1) {
+    return { mainContent: content, thinkContent: '' };
+  }
+
+  const thinkContent = content.slice(thinkStart + 10, thinkEnd).trim();
+  const mainContent = (content.slice(0, thinkStart) + content.slice(thinkEnd + 11)).trim();
+
+  return { mainContent, thinkContent };
+};
 
 const SmartChatPage = () => {
   const [inputMessage, setInputMessage] = useState('');
@@ -207,18 +224,26 @@ const SmartChatPage = () => {
       )}
 
       <div className="smart-chat-messages">
-        {messages.map((msg, index) => (
-          <div key={index} className={`message ${msg.role}`}>
-            <div className="message-content">
-              {msg.content}
+        {messages.map((msg, index) => {
+          const { mainContent, thinkContent } = parseThinkContent(msg.content);
+          return (
+            <div key={index} className={`message ${msg.role}`}>
+              <div className="message-content">
+                {mainContent}
+                {thinkContent && <ThinkContent content={thinkContent} />}
+              </div>
               {msg.tool_result && <ToolResult intent={msg.intent} result={msg.tool_result} sources={msg.sources} />}
             </div>
-          </div>
-        ))}
-        {streamingAnswer && (
-          <div className="message assistant">
-            <div className="message-content">
-              {streamingAnswer}
+          );
+        })}
+        {streamingAnswer && (() => {
+          const { mainContent, thinkContent } = parseThinkContent(streamingAnswer);
+          return (
+            <div className="message assistant">
+              <div className="message-content">
+                {mainContent}
+                {thinkContent && <ThinkContent content={thinkContent} />}
+              </div>
               {streamingMeta?.tool_result && (
                 <ToolResult
                   intent={streamingMeta.intent}
@@ -227,8 +252,8 @@ const SmartChatPage = () => {
                 />
               )}
             </div>
-          </div>
-        )}
+          );
+        })()}
         {isLoading && !streamingAnswer && <div className="loading-indicator">思考中...</div>}
         <div ref={messagesEndRef} />
       </div>
