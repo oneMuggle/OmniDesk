@@ -8,7 +8,6 @@ from personnel.models import Personnel
 from personnel.serializers import PersonnelSerializer
 
 from .models import CustomUser, PhoneNumber
-from .serializers import get_user_permissions
 
 CustomUser = get_user_model()
 
@@ -44,6 +43,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
         extra_kwargs = {}
 
     def get_permissions(self, obj):
+        from .serializers import get_user_permissions
         return get_user_permissions(obj)
 
     def __init__(self, *args, **kwargs):

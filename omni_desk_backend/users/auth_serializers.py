@@ -9,7 +9,6 @@ from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import CustomUser
-from .serializers import get_user_permissions
 
 CustomUser = get_user_model()
 
@@ -103,12 +102,14 @@ class UserLoginSerializer(serializers.Serializer):
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
+        from .serializers import get_user_permissions
         data = super().validate(attrs)
         data['permissions'] = get_user_permissions(self.user)
         return data
 
     @classmethod
     def get_token(cls, user):
+        from .serializers import get_user_permissions
         token = super().get_token(user)
         token['username'] = user.username
         token['permissions'] = get_user_permissions(user)

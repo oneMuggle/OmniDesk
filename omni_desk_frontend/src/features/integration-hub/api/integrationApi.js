@@ -1,4 +1,4 @@
-import axiosInstance from '../../shared/api/axiosConfig';
+import axiosInstance from '../../../shared/api/axiosConfig.js';
 
 /**
  * 获取集成服务列表

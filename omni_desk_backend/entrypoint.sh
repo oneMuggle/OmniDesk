@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Ensure Django uses production settings in Docker
+export DJANGO_SETTINGS_MODULE="${DJANGO_SETTINGS_MODULE:-omni_desk_backend.settings.production}"
+export DJANGO_ENV="${DJANGO_ENV:-production}"
+
 echo "Waiting for database..."
 until python -c "
 import psycopg2
