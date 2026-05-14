@@ -174,8 +174,8 @@ check_first_deploy() {
         echo "  # 2. Collect static files"
         echo "  ./deploy_offline.sh exec backend python manage.py collectstatic --noinput"
         echo ""
-        echo "  # 3. Create admin user (interactive)"
-        echo "  ./deploy_offline.sh exec backend python manage.py createsuperuser"
+        echo "  # 3. Create admin user (non-interactive)"
+        echo "  ./deploy_offline.sh exec backend python manage.py create_admin --password '<your-password>'"
         echo ""
         echo "========================================"
     fi

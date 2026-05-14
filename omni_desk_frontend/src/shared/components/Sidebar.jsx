@@ -20,6 +20,7 @@ import {
   RobotOutlined,
   SettingOutlined,
   SoundOutlined,
+  ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
@@ -100,7 +101,6 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       subItems: [
         { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
         { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
-        { to: "/intelligent-chat", icon: CommentOutlined, text: "智能问答", permission: null },
         { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
         { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
         { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
@@ -123,6 +123,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       ]
     },
     { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
+    { to: "/django-admin/", icon: ToolOutlined, text: "Django 后台", permission: "admin" },
     { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
   ], [logout, unreadNotificationCount]);
 

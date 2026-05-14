@@ -103,6 +103,8 @@ class UserLoginSerializer(serializers.Serializer):
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         from .serializers import get_user_permissions
+        # Pop extra fields that the frontend sends but the parent serializer doesn't expect
+        attrs.pop('remember_me', None)
         data = super().validate(attrs)
         data['permissions'] = get_user_permissions(self.user)
         return data
