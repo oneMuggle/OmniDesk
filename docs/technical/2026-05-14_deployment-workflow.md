@@ -1,6 +1,6 @@
 # 部署流程 — 离线独立部署完整指南
 
-> 最后更新: 2026-05-14
+> 最后更新: 2026-05-14（安全加固 + 备份路径修复）
 > 适用版本: v0.1.0+
 > 目标环境: 无外网访问的内部网络（air-gapped）
 
@@ -31,7 +31,7 @@
                     │                                      │
   Port 80 ────────► │  ┌──────────┐    ┌──────────────┐    │
   (Nginx)          │  │ frontend │    │   backend    │    │
-                    │  │ :80      │    │   :8000      │    │
+                    │  │ :80      │    │   (内部)    │    │
                     │  └────┬─────┘    └──┬──┬──┬─────┘    │
                     │       │             │  │  │          │
                     │       │             │  │  │          │
@@ -46,7 +46,7 @@
                     │    └───────┘  └────────┘  └──────┘ │
                     └─────────────────────────────────────┘
 
-  数据卷: postgres_data, redis_data, static_volume, media_volume
+  数据卷: postgres_data, redis_data, static_volume, media_volume, backup_volume
 ```
 
 ### 服务清单
@@ -55,9 +55,11 @@
 |------|------|------|------|
 | `db` | `postgres:14.2` | 5432 (内部) | PostgreSQL 数据库 |
 | `redis` | `redis:7-alpine` | 6379 (内部) | 缓存 + Celery 消息队列 |
-| `backend` | `omni-desk-backend-prod:latest` | 8000 | Django 后端 API |
+| `backend` | `omni-desk-backend-prod:latest` | 8000 (仅内部，不对外暴露) | Django 后端 API |
 | `frontend` | `omni-desk-frontend-prod:latest` | 80 | Nginx 静态资源 + 反向代理 |
 | `worker` | `omni-desk-backend-prod:latest` | 无 | Celery 异步任务处理器 |
+
+> **安全说明**：后端端口 8000 不映射到宿主机，所有 API 请求通过 Nginx 反向代理（`http://server-ip/api/...`）转发到后端。
 
 ---
 
@@ -194,7 +196,7 @@ tar czf omni-desk-offline-package-v0.1.0.tar.gz \
 cd /tmp/omni-desk-deploy
 
 # 方法一: 使用一键部署脚本
-bash deploy_offline.sh deploy
+bash deploy_offline.sh start
 
 # 方法二: 手动部署
 # 1. 加载镜像
@@ -241,6 +243,8 @@ omni-desk-deploy-worker-1     omni-desk-backend-prod:latest      healthy
 ```bash
 bash deployment/docker/smoke_tests.sh http://<target-server-ip>
 ```
+
+> **注意**：所有 API 请求通过 Nginx 代理（`http://<ip>/api/...`）访问后端，不再需要单独的 `BACKEND_URL` 参数。
 
 测试项：
 
@@ -359,6 +363,18 @@ bash deploy_offline.sh rollback
 
 ## 常见问题排查
 
+### 后端端口暴露
+
+**症状**: `docker compose ps` 显示 `0.0.0.0:8000->8000/tcp`
+
+**原因**: 旧版本 `docker-compose.offline-standalone.yml` 中 backend 服务配置了 `ports: - "8000:8000"`
+
+**解决**: 当前版本已移除该配置，后端端口仅通过 Docker 内部网络 `omni_desk` 暴露，外部无法直接访问。所有 API 请求应通过前端 Nginx 代理（`http://server-ip/api/...`）。如果端口仍然暴露，执行：
+
+```bash
+docker compose -f docker-compose.offline-standalone.yml up -d --force-recreate backend
+```
+
 ### 后端启动失败
 
 **症状**: `docker compose logs backend` 显示 `sqlite3.OperationalError`
@@ -431,6 +447,21 @@ docker compose exec frontend wget -qO- http://backend:8000/api/health/
 docker compose exec frontend cat /var/log/nginx/error.log
 ```
 
+### 备份失败
+
+**症状**: 执行 `backup.sh` / `upgrade.sh` / `rollback.sh` 时出现 `FileNotFoundError: /opt/omnidesk/backups` 或 `PermissionError`
+
+**原因**: 旧版本使用硬编码的绝对路径 `/opt/omnidesk/backups`，容器内不存在该目录且 Django 进程无权限创建
+
+**解决**: 当前版本使用命名卷 `backup_volume` 挂载到 `/usr/src/app/backups`，脚本使用相对路径 `./backups` 访问。如果使用旧版本脚本，需手动创建目录或升级到最新脚本：
+
+```bash
+# 旧版本临时修复
+docker compose exec backend mkdir -p /usr/src/app/backups
+
+# 推荐：更新到最新部署脚本
+```
+
 ---
 
 ## 环境变量参考
@@ -459,6 +490,9 @@ deployment/docker/
 ├── validate_artifacts.sh        # Phase 2: 验证产物
 ├── smoke_tests.sh               # Phase 5: 冒烟测试
 ├── monitor.sh                   # Phase 6: 监控
+├── backup.sh                    # 手动备份（数据库 + media）
+├── upgrade.sh                   # 安全升级（备份 → 迁移 → 健康检查）
+├── rollback.sh                  # 版本回滚
 ├── deploy_offline.sh            # Phase 4/7: 部署/升级/回滚
 ├── docker-compose.offline-standalone.yml  # 服务编排
 ├── .env.production              # 环境变量模板

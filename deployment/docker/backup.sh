@@ -9,7 +9,12 @@ cd "$COMPOSE_DIR"
 
 COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
-BACKUP_DIR="${BACKUP_DIR:-/opt/omnidesk/backups}"
+
+# Use a relative backup directory on the host
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+
+# Path inside the container where the backup volume is mounted
+CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
@@ -23,7 +28,7 @@ echo ""
 mkdir -p "$BACKUP_DIR"
 
 ARGS="$*"
-compose exec -T backend python manage.py backup_db --output-dir "$BACKUP_DIR" $ARGS
+compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" $ARGS
 
 echo ""
 echo "Backup contents:"

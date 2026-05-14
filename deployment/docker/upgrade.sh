@@ -21,7 +21,11 @@ cd "$COMPOSE_DIR"
 
 COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
-BACKUP_DIR="/opt/omnidesk/backups"
+
+# Backup directory on the host (relative to script location)
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+# Path inside the container where the backup volume is mounted
+CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
@@ -45,14 +49,18 @@ wait_for_backend() {
     local max_retries=30
     local retry=0
     while [ $retry -lt $max_retries ]; do
-        local http_code
-        http_code=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ 2>/dev/null || echo "000")
-        if [ "$http_code" = "200" ]; then
-            echo "Backend is ready."
-            return 0
+        local container_id
+        container_id=$(compose ps -q backend 2>/dev/null || true)
+        if [ -n "$container_id" ]; then
+            local health
+            health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}starting{{end}}' "$container_id" 2>/dev/null || echo "unknown")
+            if [ "$health" = "healthy" ]; then
+                echo "Backend is ready."
+                return 0
+            fi
         fi
         retry=$((retry + 1))
-        echo "  Waiting... ($retry/$max_retries, HTTP $http_code)"
+        echo "  Waiting... ($retry/$max_retries)"
         sleep 2
     done
     echo "WARNING: Backend did not become ready after $((max_retries * 2)) seconds"
@@ -137,7 +145,7 @@ echo ""
 # Step 6: Backup
 echo "Step 6: Creating backup..."
 mkdir -p "$BACKUP_DIR"
-compose exec -T backend python manage.py backup_db --output-dir "$BACKUP_DIR" || {
+compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" || {
     echo "WARNING: Backup failed. Proceed with caution."
     read -p "Type 'yes' to continue without backup: " confirm2
     if [ "$confirm2" != "yes" ]; then
@@ -162,16 +170,6 @@ echo ""
 # Step 9: Health check
 echo "Step 9: Running health check..."
 wait_for_backend
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ 2>/dev/null || echo "000")
-VERSION_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/system/version/ 2>/dev/null || echo "000")
-
-if [ "$HTTP_CODE" = "200" ] && [ "$VERSION_CODE" = "200" ]; then
-    echo "Health check: PASSED"
-else
-    echo "WARNING: Health check returned HTTP $HTTP_CODE / $VERSION_CODE"
-    echo "Services may still be starting. Check manually."
-fi
-echo ""
 
 # Step 10: Record
 echo "Step 10: Recording upgrade..."

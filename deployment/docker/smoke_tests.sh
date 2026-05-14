@@ -3,12 +3,14 @@
 # smoke_tests.sh — 部署后冒烟测试
 # 使用方法: ./smoke_tests.sh [base_url]
 # 默认测试 http://localhost
+# 所有 API 请求通过 Nginx 代理 ($base_url/api/) 访问后端
 
 COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$COMPOSE_DIR"
 
 BASE_URL="${1:-http://localhost}"
-BACKEND_URL="${2:-http://localhost:8000}"
+# backend 不再暴露 8000 端口，所有 API 请求通过 Nginx 代理走 $BASE_URL
+# 非 API 端点（如 /admin/）通过 docker compose exec 直接访问容器
 
 PASS=0
 FAIL=0
@@ -27,8 +29,7 @@ result() {
 
 echo "=========================================="
 echo "  冒烟测试"
-echo "  Frontend: $BASE_URL"
-echo "  Backend:  $BACKEND_URL"
+echo "  Frontend/API: $BASE_URL"
 echo "=========================================="
 echo ""
 
@@ -63,11 +64,19 @@ for service in db redis backend frontend worker; do
                 if [ "$service" = "backend" ] || [ "$service" = "worker" ]; then
                     # 后端/worker：如果进程在运行但 healthcheck 失败，可能是旧镜像没有端点
                     if [ "$service" = "backend" ]; then
-                        RESP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 "$BACKEND_URL/" 2>/dev/null || echo "000")
-                        if [ "$RESP_CODE" != "000" ]; then
-                            echo "  NOTE: $service running (health: $HEALTH, but responding HTTP $RESP_CODE)"
+                        # 后端在运行但 healthcheck 失败，用容器内部检查
+                        HTTP_CODE_BACKEND=$(compose exec -T backend python -c "
+import urllib.request
+try:
+    r = urllib.request.urlopen('http://127.0.0.1:8000/')
+    print(r.getcode())
+except Exception:
+    print('000')
+" 2>/dev/null || echo "000")
+                        if [ "$HTTP_CODE_BACKEND" != "000" ]; then
+                            echo "  NOTE: $service running (health: $HEALTH, but responding HTTP $HTTP_CODE_BACKEND)"
                         else
-                            echo "  WARN: $service unhealthy (state=$state health=$health)"
+                            echo "  WARN: $service unhealthy (state=$STATE health=$HEALTH)"
                         fi
                     else
                         echo "  NOTE: $service running (health: $HEALTH)"
@@ -114,8 +123,8 @@ echo ""
 # ─── 阶段 3: 后端 API 连通性 ────────────────────────────────
 echo "阶段 3: 后端 API 连通性"
 
-# 首先尝试健康端点（新版镜像）
-HEALTH_RESPONSE=$(curl -s --max-time 10 "$BACKEND_URL/api/health/" 2>/dev/null || echo "")
+# 首先尝试健康端点（新版镜像）— 通过 Nginx 代理访问
+HEALTH_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/health/" 2>/dev/null || echo "")
 if [ -n "$HEALTH_RESPONSE" ] && echo "$HEALTH_RESPONSE" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
     result "PASS" "Backend /api/health/ returns JSON"
 else
@@ -124,11 +133,10 @@ else
     if [ -n "$BACKEND_PID" ]; then
         STATE=$(docker inspect --format='{{.State.Status}}' "$BACKEND_PID" 2>/dev/null || echo "unknown")
         if [ "$STATE" = "running" ]; then
-            # 尝试访问 Django admin 或任意 API 端点验证后端在响应
-            ADMIN_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BACKEND_URL/admin/login/" 2>/dev/null || echo "000")
-            AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BACKEND_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-            if [ "$ADMIN_CODE" != "000" ] || [ "$AUTH_CODE" != "000" ]; then
-                result "PASS" "Backend Gunicorn responding (HTTP $AUTH_CODE/$ADMIN_CODE)"
+            # 通过 Nginx 代理验证后端 API 在响应
+            AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
+            if [ "$AUTH_CODE" != "000" ]; then
+                result "PASS" "Backend Gunicorn responding (HTTP $AUTH_CODE)"
             else
                 result "FAIL" "Backend not responding" "Gunicorn may not be running"
             fi
@@ -140,8 +148,8 @@ else
     fi
 fi
 
-# 尝试版本端点
-VERSION_RESPONSE=$(curl -s --max-time 10 "$BACKEND_URL/api/system/version/" 2>/dev/null || echo "")
+# 尝试版本端点 — 通过 Nginx 代理访问
+VERSION_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/system/version/" 2>/dev/null || echo "")
 if echo "$VERSION_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'version' in d" 2>/dev/null; then
     VERSION=$(echo "$VERSION_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null)
     result "PASS" "Backend version endpoint (v${VERSION})"

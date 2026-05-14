@@ -59,6 +59,7 @@ services:
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
+      - backup_volume:/usr/src/app/backups
     depends_on:
       db:
         condition: service_healthy
@@ -130,6 +131,7 @@ volumes:
   redis_data:
   static_volume:
   media_volume:
+  backup_volume:
 
 networks:
   omni_desk:

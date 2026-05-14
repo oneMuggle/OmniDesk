@@ -18,7 +18,11 @@ cd "$COMPOSE_DIR"
 
 COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
 ENV_FILE="--env-file .env.production"
-BACKUP_DIR="/opt/omnidesk/backups"
+
+# Backup directory on the host (relative to script location)
+BACKUP_DIR="${BACKUP_DIR:-./backups}"
+# Path inside the container where the backup volume is mounted
+CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
@@ -57,10 +61,14 @@ read -p "Enter backup number to restore (or 0 to skip DB restore): " backup_num
 
 RESTORE_FILE=""
 if [ -n "$backup_num" ] && [ "$backup_num" != "0" ]; then
+    # Get the filename from the list
     RESTORE_FILE=$(ls -1t "$BACKUP_DIR"/backup_v*.sql.gz 2>/dev/null | sed -n "${backup_num}p")
     if [ -z "$RESTORE_FILE" ]; then
         echo "Invalid selection. Continuing without DB restore."
         RESTORE_FILE=""
+    else
+        # Convert host path to container path
+        RESTORE_FILE_CONTAINER="$CONTAINER_BACKUP_DIR/$(basename "$RESTORE_FILE")"
     fi
 fi
 echo ""
@@ -74,9 +82,9 @@ fi
 echo ""
 
 # Step 5: Restore database
-if [ -n "$RESTORE_FILE" ]; then
+if [ -n "$RESTORE_FILE_CONTAINER" ]; then
     echo "Step 5: Restoring database from $(basename "$RESTORE_FILE")..."
-    compose exec -T backend python manage.py restore_db "$RESTORE_FILE" --force
+    compose exec -T backend python manage.py restore_db "$RESTORE_FILE_CONTAINER" --force
     echo ""
 else
     echo "Step 5: Skipping database restore."
@@ -92,12 +100,17 @@ echo ""
 # Step 7: Health check
 echo "Step 7: Running health check..."
 sleep 5
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/api/health/ 2>/dev/null || echo "000")
-
-if [ "$HTTP_CODE" = "200" ]; then
-    echo "Health check: PASSED"
+CONTAINER_ID=$(compose ps -q backend 2>/dev/null || true)
+if [ -n "$CONTAINER_ID" ]; then
+    HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
+    if [ "$HEALTH" = "healthy" ]; then
+        echo "Health check: PASSED"
+    else
+        echo "WARNING: Backend health status: $HEALTH"
+        echo "Services may still be starting. Check manually."
+    fi
 else
-    echo "WARNING: Health check returned HTTP $HTTP_CODE"
+    echo "WARNING: Backend container not running."
 fi
 echo ""
 

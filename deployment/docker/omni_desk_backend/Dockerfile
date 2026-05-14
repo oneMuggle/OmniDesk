@@ -85,8 +85,8 @@ RUN chmod +x ./entrypoint.sh
 # Create staticfiles directory and set permissions
 RUN mkdir -p /usr/src/app/staticfiles && chown -R app:app /usr/src/app/staticfiles
 
-# Switch to the non-root user
-USER app
+# Note: Container runs as root for volume setup, then drops to 'app' user
+# for the main process (handled by entrypoint.sh)
 
 # Expose the port Gunicorn will listen on
 EXPOSE 8000
