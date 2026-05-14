@@ -3,10 +3,23 @@ Shared pytest fixtures for backend tests.
 Provides authenticated API clients, user factories, and group fixtures.
 """
 import pytest
+from django.conf import settings
 from django.contrib.auth.models import Group
 from rest_framework.test import APIClient
 
 from users.models import CustomUser
+
+
+@pytest.fixture(autouse=True)
+def clear_cache_between_tests():
+    """Clear Django cache between tests to prevent cross-test pollution.
+
+    The LocMemCache in test settings persists across tests within the same
+    process, which can cause stale group/permission data to leak between tests.
+    """
+    yield
+    from django.core.cache import cache
+    cache.clear()
 
 
 @pytest.fixture
