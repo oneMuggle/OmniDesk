@@ -2,7 +2,7 @@ import requests
 from django.http import JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminOrReadOnly
+from users.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 
 from .models import RagflowConfig

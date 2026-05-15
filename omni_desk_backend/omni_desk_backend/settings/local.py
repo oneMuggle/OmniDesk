@@ -22,6 +22,9 @@ CACHES = {
     }
 }
 
+# Silence django_ratelimit warnings about LocMemCache — acceptable for local dev
+SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
+
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 

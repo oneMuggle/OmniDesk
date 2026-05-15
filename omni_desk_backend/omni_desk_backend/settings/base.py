@@ -82,7 +82,7 @@ INSTALLED_APPS = [
     'notifications.apps.NotificationsConfig',
     'dashboard.apps.DashboardConfig',
     'external_integration.apps.ExternalIntegrationConfig',
-    'ratelimit',
+    'django_ratelimit',
 ]
 
 MIDDLEWARE = [

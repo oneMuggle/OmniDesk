@@ -6,9 +6,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import SmartAssistantSession, AgentLog
-from .serializers import SmartChatRequestSerializer
-from .agent.orchestrator import AgentOrchestrator
+from ..models import SmartAssistantSession, AgentLog
+from ..serializers import SmartChatRequestSerializer
+from ..agent.orchestrator import AgentOrchestrator
 
 
 class SmartChatViewSet(viewsets.ViewSet):

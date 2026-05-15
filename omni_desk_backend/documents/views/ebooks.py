@@ -4,8 +4,8 @@ from rest_framework import parsers, permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import EBook
-from .serializers import EBookSerializer
+from ..models import EBook
+from ..serializers import EBookSerializer
 
 
 class EBookViewSet(viewsets.ModelViewSet):

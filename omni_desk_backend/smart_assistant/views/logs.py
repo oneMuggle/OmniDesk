@@ -2,8 +2,8 @@ from django.db.models import Q
 from rest_framework import mixins, viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import AgentLog
-from .serializers import AgentLogSerializer
+from ..models import AgentLog
+from ..serializers import AgentLogSerializer
 
 
 class AgentLogViewSet(mixins.ListModelMixin,

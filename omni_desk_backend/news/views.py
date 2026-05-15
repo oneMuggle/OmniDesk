@@ -1,7 +1,7 @@
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from rest_framework import viewsets
-from rest_framework.permissions import IsAdminOrReadOnly
+from users.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 

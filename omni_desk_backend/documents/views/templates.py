@@ -10,9 +10,9 @@ from compliance.serializers import ComplianceIssueSerializer
 from llm_service.ollama_client import OllamaClient
 from projects.models import Project
 
-from .file_processing import process_uploaded_file
-from .models import DocumentTemplate
-from .serializers import DocumentTemplateSerializer
+from ..file_processing import process_uploaded_file
+from ..models import DocumentTemplate
+from ..serializers import DocumentTemplateSerializer
 
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):

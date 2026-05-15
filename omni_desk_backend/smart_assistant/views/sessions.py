@@ -1,8 +1,8 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
-from .models import SmartAssistantSession
-from .serializers import SmartAssistantSessionSerializer
+from ..models import SmartAssistantSession
+from ..serializers import SmartAssistantSessionSerializer
 
 
 class SessionViewSet(viewsets.ModelViewSet):

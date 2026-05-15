@@ -4,8 +4,8 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import LlmEndpoint, LlmAppConfig
-from .serializers import (
+from ..models import LlmEndpoint, LlmAppConfig
+from ..serializers import (
     LlmEndpointSerializer,
     LlmEndpointCreateSerializer,
     LlmAppConfigSerializer,

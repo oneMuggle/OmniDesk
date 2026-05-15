@@ -7,8 +7,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Book, Chapter
-from .serializers import AnnotationSerializer, BookSerializer, ChapterSerializer, CommentSerializer
+from ..models import Book, Chapter
+from ..serializers import AnnotationSerializer, BookSerializer, ChapterSerializer, CommentSerializer
 
 
 class BookViewSet(viewsets.ModelViewSet):

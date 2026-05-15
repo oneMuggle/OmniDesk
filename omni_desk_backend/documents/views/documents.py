@@ -2,8 +2,8 @@ from rest_framework import permissions, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import GeneratedDocument
-from .serializers import GeneratedDocumentSerializer
+from ..models import GeneratedDocument
+from ..serializers import GeneratedDocumentSerializer
 
 
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
