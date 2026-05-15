@@ -5,12 +5,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog
+from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmConfig
 from .serializers import (
     KnowledgeBaseDocumentSerializer,
     SmartAssistantSessionSerializer,
     SmartChatRequestSerializer,
     AgentLogSerializer,
+    LlmConfigSerializer,
 )
 from .agent.orchestrator import AgentOrchestrator
 from .tasks import process_document_embedding
@@ -224,3 +225,22 @@ class AgentLogViewSet(mixins.ListModelMixin,
             )
 
         return qs
+
+
+class LlmConfigViewSet(viewsets.ModelViewSet):
+    """LLM 配置管理：CRUD"""
+    serializer_class = LlmConfigSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return LlmConfig.objects.all().order_by('-created_at')
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        if instance.is_active:
+            LlmConfig.objects.exclude(id=instance.id).update(is_active=False)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        if instance.is_active:
+            LlmConfig.objects.exclude(id=instance.id).update(is_active=False)

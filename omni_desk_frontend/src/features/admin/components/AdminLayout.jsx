@@ -20,6 +20,7 @@ import {
   RightOutlined,
   CloudUploadOutlined,
   LinkOutlined,
+  RobotOutlined,
 } from '@ant-design/icons';
 
 const allAdminMenuItems = [
@@ -37,6 +38,7 @@ const allAdminMenuItems = [
   { to: "/control-panel/projects", icon: ProjectOutlined, text: "项目管理", permission: "admin" },
   { to: "/control-panel/smart-assistant/audit", icon: FileTextOutlined, text: "Agent 审计", permission: "admin" },
   { to: "/control-panel/system-update", icon: CloudUploadOutlined, text: "系统更新", permission: "admin" },
+  { to: "/control-panel/ai-apps", icon: RobotOutlined, text: "AI 应用管理", permission: "admin" },
   { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: "admin" },
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];

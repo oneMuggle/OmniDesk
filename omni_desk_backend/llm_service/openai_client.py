@@ -7,9 +7,27 @@ class OpenAIClient:
     """OpenAI 兼容的 LLM 客户端，支持 gcli 等 OpenAI-compatible API 网关。"""
 
     def __init__(self, base_url=None, api_key=None, model_name=None):
+        # 优先从数据库读取活跃配置
+        db_config = self._load_config_from_db()
+        if db_config:
+            base_url = base_url or db_config.api_endpoint
+            api_key = api_key or db_config.api_key
+            model_name = model_name or db_config.model_name
+
         self.base_url = (base_url or os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT', 'https://gcli.ggchan.dev')).rstrip('/')
         self.api_key = api_key or os.environ.get('SMART_ASSISTANT_LLM_API_KEY', '')
         self.model_name = model_name or os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
+
+    def _load_config_from_db(self):
+        """尝试从数据库加载活跃的 LLM 配置"""
+        try:
+            from smart_assistant.models import LlmConfig
+            config = LlmConfig.objects.filter(is_active=True).first()
+            if config:
+                return config
+        except Exception:
+            pass
+        return None
 
     def _make_request(self, data, stream=False):
         url = f"{self.base_url}/v1/chat/completions"

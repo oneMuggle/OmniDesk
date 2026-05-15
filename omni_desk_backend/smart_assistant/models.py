@@ -50,6 +50,24 @@ class SmartAssistantSession(models.Model):
         ordering = ['-created_at']
 
 
+class LlmConfig(models.Model):
+    """LLM 配置模型"""
+    name = models.CharField(max_length=100, verbose_name="配置名称")
+    api_endpoint = models.URLField(verbose_name="API 端点")
+    api_key = models.CharField(max_length=500, verbose_name="API 密钥")
+    model_name = models.CharField(max_length=100, verbose_name="模型名称")
+    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    temperature = models.FloatField(null=True, blank=True, default=0.7)
+    top_p = models.FloatField(null=True, blank=True, default=0.9)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "LLM 配置"
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+
 class AgentLog(models.Model):
     """Agent 执行日志（用于调试和审计）"""
     session = models.ForeignKey(

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog
+from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmConfig
 
 
 class KnowledgeBaseDocumentSerializer(serializers.ModelSerializer):
@@ -43,3 +43,12 @@ class SmartChatResponseSerializer(serializers.Serializer):
     tool_used = serializers.CharField(allow_null=True)
     tool_result = serializers.JSONField(allow_null=True)
     sources = serializers.ListField(child=serializers.DictField(), allow_null=True)
+
+
+class LlmConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = LlmConfig
+        fields = ['id', 'name', 'api_endpoint', 'api_key', 'model_name',
+                  'is_active', 'temperature', 'top_p', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+        extra_kwargs = {'api_key': {'write_only': True}}

@@ -100,3 +100,22 @@ export async function getKnowledgeDocs() {
 export async function deleteKnowledgeDoc(docId) {
   return apiClient.delete(`${BASE_URL}/knowledge-base/documents/${docId}/`);
 }
+
+/**
+ * LLM 配置管理
+ */
+export async function getLlmConfigs() {
+  return apiClient.get(`${BASE_URL}/llm-configs/`);
+}
+
+export async function addLlmConfig(data) {
+  return apiClient.post(`${BASE_URL}/llm-configs/`, data);
+}
+
+export async function updateLlmConfig(id, data) {
+  return apiClient.put(`${BASE_URL}/llm-configs/${id}/`, data);
+}
+
+export async function deleteLlmConfig(id) {
+  return apiClient.delete(`${BASE_URL}/llm-configs/${id}/`);
+}

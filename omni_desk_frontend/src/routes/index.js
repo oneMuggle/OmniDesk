@@ -62,6 +62,7 @@ const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/Smart
 const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
 const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
 const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
+const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
 const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
 const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
 const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
@@ -229,6 +230,10 @@ const router = createBrowserRouter([
           {
             path: "system-update",
             element: <LazyComponent component={SystemUpdatePage} />
+          },
+          {
+            path: "ai-apps",
+            element: <LazyComponent component={AiAppManagementPage} />
           },
           {
             path: "external-links",
