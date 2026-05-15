@@ -111,10 +111,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @classmethod
     def get_token(cls, user):
-        from .serializers import get_user_permissions
         token = super().get_token(user)
         token['username'] = user.username
-        token['permissions'] = get_user_permissions(user)
         return token
 
 

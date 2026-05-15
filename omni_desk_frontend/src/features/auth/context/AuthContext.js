@@ -84,6 +84,14 @@ export function AuthProvider({ children }) {
         sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
       }
 
+      if (res.data.permissions) {
+        if (rememberMe) {
+          localStorage.setItem('userPermissions', JSON.stringify(res.data.permissions));
+        } else {
+          sessionStorage.setItem('userPermissions', JSON.stringify(res.data.permissions));
+        }
+      }
+
       const userRes = await apiClient.get('users/me/');
       setUser(userRes.data);
       setIsGuest(false);

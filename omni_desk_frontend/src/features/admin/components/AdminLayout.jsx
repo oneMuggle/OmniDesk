@@ -19,6 +19,7 @@ import {
   DownOutlined,
   RightOutlined,
   CloudUploadOutlined,
+  LinkOutlined,
 } from '@ant-design/icons';
 
 const allAdminMenuItems = [
@@ -39,6 +40,8 @@ const allAdminMenuItems = [
   { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: "admin" },
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];
+
+const DJANGO_ADMIN_URL = '/admin/';
 
 const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -120,6 +123,19 @@ const AdminLayout = () => {
                 </li>
               );
             })}
+            <li>
+              <a
+                href={DJANGO_ADMIN_URL}
+                className="menu-item"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <div className="menu-item-content">
+                  <LinkOutlined className="icon" />
+                  {!isCollapsed && <span>Django 后台</span>}
+                </div>
+              </a>
+            </li>
             <li>
               <Link to="/" className="menu-item">
                 <HomeOutlined className="icon" />

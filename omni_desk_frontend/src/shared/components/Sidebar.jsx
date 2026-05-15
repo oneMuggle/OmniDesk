@@ -20,7 +20,6 @@ import {
   RobotOutlined,
   SettingOutlined,
   SoundOutlined,
-  ToolOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
@@ -123,7 +122,6 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
       ]
     },
     { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
-    { to: "/django-admin/", icon: ToolOutlined, text: "Django 后台", permission: "admin" },
     { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
   ], [logout, unreadNotificationCount]);
 

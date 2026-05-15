@@ -78,7 +78,6 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     ]
   },
   { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
-  { to: "/django-admin/", icon: SettingOutlined, text: "Django 后台", permission: "admin" },
   { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
 ];
 

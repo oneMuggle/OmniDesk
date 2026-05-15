@@ -18,8 +18,6 @@ RUN npm run build
 
 # Final image part
 FROM nginx:stable-alpine
-# Increase header buffer to handle large JWT tokens (14KB+ with permissions)
-RUN sed -i '/http {/a\    large_client_header_buffers 4 32k;' /etc/nginx/nginx.conf
 COPY --from=builder /app/build /usr/share/nginx/html
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 # Run nginx as non-root — create cache dirs and set permissions before switching user
