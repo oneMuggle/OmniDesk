@@ -1,7 +1,11 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, dayjsLocalizer } from 'react-big-calendar';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import timeGridPlugin from '@fullcalendar/timegrid';
+import interactionPlugin from '@fullcalendar/interaction';
+import listPlugin from '@fullcalendar/list';
 import dayjs from 'dayjs';
 import { Modal, Button, Form, Input, DatePicker, Select, message, Popconfirm, notification, Spin, Descriptions } from 'antd';
 import { CalendarOutlined, UserOutlined, PhoneOutlined } from '@ant-design/icons';
@@ -13,129 +17,12 @@ import {
     useUpdateMeetingRoomBooking,
     useDeleteMeetingRoomBooking,
 } from '../hooks/useMeetingRoomData';
-import 'react-big-calendar/lib/css/react-big-calendar.css';
+import '../../../shared/components/styles/Schedule.css';
 import './MeetingRoomBookingPage.css';
 
-const localizer = dayjsLocalizer(dayjs);
 const { RangePicker } = DatePicker;
 const { Option } = Select;
 const { TextArea } = Input;
-
-const CustomToolbar = ({ label, onNavigate, onView, view }) => {
-    const navigate = (action) => {
-        onNavigate(action);
-    };
-
-    const viewNames = {
-        month: '月',
-        week: '周',
-        day: '日',
-        agenda: '议程',
-    };
-
-    const getNavText = (direction, currentView) => {
-        switch (currentView) {
-            case 'month':
-                return direction === 'PREV' ? '上个月' : '下个月';
-            case 'week':
-                return direction === 'PREV' ? '上一周' : '下一周';
-            case 'day':
-                return direction === 'PREV' ? '上一天' : '下一天';
-            case 'agenda':
-                return direction === 'PREV' ? '上一页' : '下一页';
-            default:
-                return direction === 'PREV' ? '上一个' : '下一个';
-        }
-    };
-
-    return (
-        <div className="rbc-toolbar">
-            <span className="rbc-btn-group">
-                <button type="button" onClick={() => navigate('PREV')}>
-                    {getNavText('PREV', view)}
-                </button>
-                <button type="button" onClick={() => navigate('TODAY')}>
-                    今天
-                </button>
-                <button type="button" onClick={() => navigate('NEXT')}>
-                    {getNavText('NEXT', view)}
-                </button>
-            </span>
-
-            <span className="rbc-toolbar-label">{label}</span>
-
-            <span className="rbc-btn-group">
-                {Object.keys(viewNames).map((name) => (
-                    <button
-                        type="button"
-                        key={name}
-                        className={view === name ? 'rbc-active' : ''}
-                        onClick={() => onView(name)}
-                    >
-                        {viewNames[name]}
-                    </button>
-                ))}
-            </span>
-        </div>
-    );
-};
-
-CustomToolbar.propTypes = {
-  label: PropTypes.string.isRequired,
-  onNavigate: PropTypes.func.isRequired,
-  onView: PropTypes.func.isRequired,
-  view: PropTypes.string.isRequired,
-};
-
-const EventComponent = ({ event }) => {
-    const eventRef = useRef(null);
-    const [showDetails, setShowDetails] = useState(true);
-
-    useEffect(() => {
-        if (!eventRef.current) return;
-
-        const observer = new ResizeObserver(entries => {
-            for (const entry of entries) {
-                const minHeightForDetails = 35;
-                setShowDetails(entry.contentRect.height > minHeightForDetails);
-            }
-        });
-
-        observer.observe(eventRef.current);
-
-        return () => {
-            observer.disconnect();
-        };
-    }, []);
-
-    return (
-        <div
-            ref={eventRef}
-            style={{
-                height: '100%',
-                overflow: 'hidden',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                textAlign: 'center',
-                fontSize: '0.8em',
-                lineHeight: '1.2',
-            }}
-        >
-            <div style={{ fontWeight: 'bold' }}>{event.title}</div>
-            {showDetails && (
-                <div style={{ fontSize: '0.9em', color: 'rgba(255, 255, 255, 0.85)' }}>
-                    {event.meeting_room_name}
-                </div>
-            )}
-        </div>
-    );
-};
-
-EventComponent.propTypes = {
-    event: PropTypes.object.isRequired,
-};
 
 const MeetingRoomLegend = ({ meetingRooms, roomColorMap }) => (
     <div className="meeting-room-legend">
@@ -174,11 +61,6 @@ const MeetingRoomBookingPage = () => {
     const updateBookingMutation = useUpdateMeetingRoomBooking();
     const deleteBookingMutation = useDeleteMeetingRoomBooking();
 
-    const minTime = new Date();
-    minTime.setHours(8, 0, 0);
-    const maxTime = new Date();
-    maxTime.setHours(22, 0, 0);
-
     const roomColors = useMemo(() => [
         '#f87171', '#2dd4bf', '#38bdf8', '#fbbf24', '#22d3ee',
         '#fb923c', '#f472b6', '#93c5fd', '#c084fc', '#f9a8d4',
@@ -197,7 +79,7 @@ const MeetingRoomBookingPage = () => {
         return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
     }, [isAuthenticated, user]);
 
-    const handleSelectSlot = ({ start, end }) => {
+    const handleSelect = ({ start, end }) => {
         if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
             notification.error({
                 message: '信息不完整',
@@ -212,35 +94,34 @@ const MeetingRoomBookingPage = () => {
             });
             return;
         }
-        // 预约时间不能在当前时间之前
         if (dayjs(start).isBefore(dayjs())) {
             message.warning('无法预约过去的时间段。');
             return;
         }
-        setCurrentBooking(null); // Clear any previous selection
+        setCurrentBooking(null);
         form.resetFields();
         form.setFieldsValue({
             timeRange: [dayjs(start), dayjs(end)],
-            meeting_room: meetingRooms.length > 0 ? meetingRooms[0].id : undefined // 默认选择第一个会议室
+            meeting_room: meetingRooms.length > 0 ? meetingRooms[0].id : undefined
         });
         setIsModalVisible(true);
     };
 
-    const handleSelectEvent = (event) => {
-        setSelectedEvent(event);
+    const handleEventClick = (clickInfo) => {
+        const event = clickInfo.event;
+        setSelectedEvent(event.extendedProps.rawBooking);
         setIsDetailModalVisible(true);
     };
 
     const handleEditEvent = () => {
         if (!selectedEvent) return;
 
-        // Check for permission before opening edit modal
         if (!isAdminOrManager && selectedEvent.user.id !== user.id) {
             message.warning('您没有权限编辑此预约。');
             return;
         }
 
-        setIsDetailModalVisible(false); // Close detail modal
+        setIsDetailModalVisible(false);
         setCurrentBooking(selectedEvent);
         form.setFieldsValue({
             meeting_room: selectedEvent.meeting_room,
@@ -296,22 +177,48 @@ const MeetingRoomBookingPage = () => {
         setIsModalVisible(false);
     };
 
-    const eventPropGetter = useCallback((event) => {
-        const backgroundColor = roomColorMap.get(event.meeting_room) || '#6c757d';
-        const style = {
-            backgroundColor: backgroundColor,
-            borderRadius: '6px',
-            opacity: 0.9,
-            color: 'white',
-            border: 'none',
-            display: 'block',
-            boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12)',
-        };
-        return {
-            style: style,
-            'data-testid': `booking-event-${event.id}`,
-        };
-    }, [roomColorMap]);
+    const eventDidMount = useCallback((info) => {
+        const color = info.event.extendedProps.roomColor || '#6c757d';
+        info.el.style.backgroundColor = color;
+        info.el.style.borderRadius = '6px';
+        info.el.style.border = 'none';
+        info.el.style.boxShadow = '0 1px 3px rgba(0, 0, 0, 0.12)';
+        info.el.style.opacity = '0.9';
+    }, []);
+
+    const renderEventContent = (eventInfo) => {
+        const { title, meetingRoomName } = eventInfo.event.extendedProps;
+        return (
+            <div className="fc-event-content" style={{ padding: '2px 4px', textAlign: 'center', width: '100%' }}>
+                <div style={{ fontWeight: 'bold', fontSize: '0.85em', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    {title}
+                </div>
+                {meetingRoomName && (
+                    <div style={{ fontSize: '0.75em', color: 'rgba(255, 255, 255, 0.85)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        {meetingRoomName}
+                    </div>
+                )}
+            </div>
+        );
+    };
+
+    const calendarEvents = useMemo(() => {
+        return bookings.map(booking => {
+            const meetingRoom = meetingRooms.find(r => r.id === booking.meeting_room);
+            return {
+                id: String(booking.id),
+                title: booking.title,
+                start: booking.start,
+                end: booking.end,
+                allDay: false,
+                extendedProps: {
+                    roomColor: roomColorMap.get(booking.meeting_room) || '#6c757d',
+                    meetingRoomName: meetingRoom?.name || '',
+                    rawBooking: booking,
+                },
+            };
+        });
+    }, [bookings, meetingRooms, roomColorMap]);
 
     return (
         <div className="calendar-page-container">
@@ -321,42 +228,40 @@ const MeetingRoomBookingPage = () => {
             <Spin spinning={isLoading} tip="正在加载会议室数据...">
                 <div className="calendar-page-content">
                     <div className="calendar-wrapper">
-                    <Calendar
-                        localizer={localizer}
-                    events={bookings}
-                    startAccessor="start"
-                    endAccessor="end"
-                    selectable
-                    onSelectSlot={handleSelectSlot}
-                    onSelectEvent={handleSelectEvent}
-                    views={['month', 'week', 'day', 'agenda']}
-                    defaultView="week"
-                    min={minTime}
-                    max={maxTime}
-                    components={{
-                        toolbar: CustomToolbar,
-                        event: EventComponent,
-                    }}
-                    eventPropGetter={eventPropGetter}
-                    dayLayoutAlgorithm="no-overlap"
-                    culture="zh-CN"
-                    formats={{
-                        timeGutterFormat: 'HH:mm',
-                        eventTimeRangeFormat: () => '',
-                        dayFormat: 'M/D (ddd)',
-                        monthHeaderFormat: 'YYYY年M月',
-                        weekHeaderFormat: (date) => `${dayjs(date.start).format('YYYY年M月D日')} - ${dayjs(date.end).format('YYYY年M月D日')}`,
-                        dayHeaderFormat: 'YYYY年M月D日 (ddd)',
-                        agendaDateFormat: 'M/D (ddd)',
-                        agendaTimeFormat: 'HH:mm',
-                        agendaTimeRangeFormat: () => '',
-                    }}
-                    />
+                        <FullCalendar
+                            plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
+                            initialView="timeGridWeek"
+                            headerToolbar={{
+                                left: 'prev,next today',
+                                center: 'title',
+                                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek'
+                            }}
+                            locale="zh-cn"
+                            buttonText={{
+                                today: '今天',
+                                month: '月',
+                                week: '周',
+                                day: '日',
+                                list: '议程',
+                            }}
+                            slotMinTime="08:00:00"
+                            slotMaxTime="22:00:00"
+                            selectable={true}
+                            select={handleSelect}
+                            eventClick={handleEventClick}
+                            events={calendarEvents}
+                            eventDidMount={eventDidMount}
+                            eventContent={renderEventContent}
+                            firstDay={1}
+                            height="auto"
+                            dayMaxEvents={true}
+                        />
+                    </div>
+                    <div className="calendar-sidebar">
+                        <MeetingRoomLegend meetingRooms={meetingRooms} roomColorMap={roomColorMap} />
+                    </div>
                 </div>
-                <div className="calendar-sidebar">
-                    <MeetingRoomLegend meetingRooms={meetingRooms} roomColorMap={roomColorMap} />
-                </div>
-            </div>
+            </Spin>
 
             <Modal
                 title={currentBooking ? "编辑会议室预约" : "新建会议室预约"}
@@ -457,7 +362,6 @@ const MeetingRoomBookingPage = () => {
                     </Descriptions>
                 )}
             </Modal>
-            </Spin>
         </div>
     );
 };
