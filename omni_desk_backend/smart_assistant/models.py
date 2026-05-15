@@ -50,22 +50,50 @@ class SmartAssistantSession(models.Model):
         ordering = ['-created_at']
 
 
-class LlmConfig(models.Model):
-    """LLM 配置模型"""
+class LlmEndpoint(models.Model):
+    """LLM API 端点配置（一次配置，多处复用）"""
     name = models.CharField(max_length=100, verbose_name="配置名称")
     api_endpoint = models.URLField(verbose_name="API 端点")
     api_key = models.CharField(max_length=500, verbose_name="API 密钥")
-    model_name = models.CharField(max_length=100, verbose_name="模型名称")
     is_active = models.BooleanField(default=True, verbose_name="是否激活")
-    temperature = models.FloatField(null=True, blank=True, default=0.7)
-    top_p = models.FloatField(null=True, blank=True, default=0.9)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        verbose_name = "LLM 配置"
+        verbose_name = "LLM API 端点"
         verbose_name_plural = verbose_name
         ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.name} ({self.api_endpoint})"
+
+
+class LlmAppConfig(models.Model):
+    """LLM 应用配置（为每个应用分配端点+模型+参数）"""
+    APP_CHOICES = [
+        ('smart_assistant', '智能助手'),
+    ]
+    app_name = models.CharField(max_length=50, choices=APP_CHOICES, verbose_name="应用名称")
+    endpoint = models.ForeignKey(
+        LlmEndpoint,
+        on_delete=models.CASCADE,
+        related_name='app_configs',
+        verbose_name="API 端点",
+    )
+    model_name = models.CharField(max_length=100, verbose_name="模型名称")
+    temperature = models.FloatField(null=True, blank=True, default=0.7)
+    top_p = models.FloatField(null=True, blank=True, default=0.9)
+    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "LLM 应用配置"
+        verbose_name_plural = verbose_name
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.get_app_name_display()} - {self.model_name}"
 
 
 class AgentLog(models.Model):

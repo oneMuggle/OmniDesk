@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmConfig
+from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig
 
 
 class KnowledgeBaseDocumentSerializer(serializers.ModelSerializer):
@@ -45,10 +45,37 @@ class SmartChatResponseSerializer(serializers.Serializer):
     sources = serializers.ListField(child=serializers.DictField(), allow_null=True)
 
 
-class LlmConfigSerializer(serializers.ModelSerializer):
+class LlmEndpointSerializer(serializers.ModelSerializer):
     class Meta:
-        model = LlmConfig
-        fields = ['id', 'name', 'api_endpoint', 'api_key', 'model_name',
-                  'is_active', 'temperature', 'top_p', 'created_at', 'updated_at']
+        model = LlmEndpoint
+        fields = ['id', 'name', 'api_endpoint', 'is_active', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {'api_key': {'write_only': True}}
+
+
+class LlmEndpointCreateSerializer(serializers.ModelSerializer):
+    """创建/更新时包含 api_key"""
+    class Meta:
+        model = LlmEndpoint
+        fields = ['id', 'name', 'api_endpoint', 'api_key', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class LlmAppConfigSerializer(serializers.ModelSerializer):
+    endpoint_name = serializers.CharField(source='endpoint.name', read_only=True)
+    api_endpoint = serializers.CharField(source='endpoint.api_endpoint', read_only=True)
+
+    class Meta:
+        model = LlmAppConfig
+        fields = ['id', 'app_name', 'endpoint', 'endpoint_name', 'api_endpoint',
+                  'model_name', 'temperature', 'top_p', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']
+
+
+class LlmAppConfigCreateSerializer(serializers.ModelSerializer):
+    """创建/更新时的完整字段"""
+    class Meta:
+        model = LlmAppConfig
+        fields = ['id', 'app_name', 'endpoint', 'model_name', 'temperature',
+                  'top_p', 'is_active', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at']

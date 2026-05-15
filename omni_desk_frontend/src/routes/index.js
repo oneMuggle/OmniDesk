@@ -36,7 +36,6 @@ const ManageAnnouncementsPage = lazy(() => import('../features/announcements/pag
 const AnnouncementForm = lazy(() => import('../features/announcements/components/AnnouncementForm'));
 const DifyAppList = lazy(() => import('../features/dify-apps/pages/DifyAppList'));
 const DifyAppViewer = lazy(() => import('../features/dify-apps/pages/DifyAppViewer'));
-const DifyAppManagementPage = lazy(() => import('../features/dify-apps/pages/DifyAppManagementPage'));
 const ScheduleManagementPage = lazy(() => import('../features/schedule/pages/ScheduleManagementPage'));
 const ScheduleSettingsPage = lazy(() => import('../features/schedule/pages/ScheduleSettingsPage'));
 const OfficeAssistant = lazy(() => import('../features/office-assistant/pages/OfficeAssistant'));
@@ -147,10 +146,6 @@ const router = createBrowserRouter([
           {
             path: "announcements/:announcementId/edit",
             element: <LazyComponent component={AnnouncementForm} />
-          },
-          {
-            path: "dify-apps",
-            element: <LazyComponent component={DifyAppManagementPage} />
           },
           {
             path: "schedule",

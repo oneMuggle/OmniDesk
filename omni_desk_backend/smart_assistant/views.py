@@ -5,13 +5,16 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.decorators import action
 
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmConfig
+from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig
 from .serializers import (
     KnowledgeBaseDocumentSerializer,
     SmartAssistantSessionSerializer,
     SmartChatRequestSerializer,
     AgentLogSerializer,
-    LlmConfigSerializer,
+    LlmEndpointSerializer,
+    LlmEndpointCreateSerializer,
+    LlmAppConfigSerializer,
+    LlmAppConfigCreateSerializer,
 )
 from .agent.orchestrator import AgentOrchestrator
 from .tasks import process_document_embedding
@@ -227,42 +230,36 @@ class AgentLogViewSet(mixins.ListModelMixin,
         return qs
 
 
-class LlmConfigViewSet(viewsets.ModelViewSet):
-    """LLM 配置管理：CRUD"""
-    serializer_class = LlmConfigSerializer
+class LlmEndpointViewSet(viewsets.ModelViewSet):
+    """LLM API 端点管理：CRUD + fetch-models"""
     permission_classes = [IsAuthenticated]
 
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return LlmEndpointCreateSerializer
+        return LlmEndpointSerializer
+
     def get_queryset(self):
-        return LlmConfig.objects.all().order_by('-created_at')
+        return LlmEndpoint.objects.all().order_by('-created_at')
 
     def perform_create(self, serializer):
         instance = serializer.save()
         if instance.is_active:
-            LlmConfig.objects.exclude(id=instance.id).update(is_active=False)
+            LlmEndpoint.objects.exclude(id=instance.id).update(is_active=False)
 
     def perform_update(self, serializer):
         instance = serializer.save()
         if instance.is_active:
-            LlmConfig.objects.exclude(id=instance.id).update(is_active=False)
+            LlmEndpoint.objects.exclude(id=instance.id).update(is_active=False)
 
-    @action(detail=False, methods=['post'], url_path='fetch-models')
-    def fetch_models(self, request):
-        """根据 api_endpoint + api_key 调用上游 /v1/models 获取可用模型列表"""
+    @action(detail=True, methods=['post'], url_path='fetch-models')
+    def fetch_models(self, request, pk=None):
+        """根据端点配置调用上游 /v1/models 获取可用模型列表"""
         import requests as http_requests
 
-        api_endpoint = request.data.get('api_endpoint', '').rstrip('/')
-        api_key = request.data.get('api_key', '')
-
-        if not api_endpoint:
-            return Response(
-                {'error': 'api_endpoint 为必填项'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        if not api_key:
-            return Response(
-                {'error': 'api_key 为必填项'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        endpoint = self.get_object()
+        api_endpoint = endpoint.api_endpoint.rstrip('/')
+        api_key = endpoint.api_key
 
         try:
             resp = http_requests.get(
@@ -303,3 +300,26 @@ class LlmConfigViewSet(viewsets.ModelViewSet):
                 {'error': f'获取模型列表失败: {str(e)}'},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class LlmAppConfigViewSet(viewsets.ModelViewSet):
+    """LLM 应用配置管理：为每个应用分配端点+模型+参数"""
+    permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.action in ['create', 'update', 'partial_update']:
+            return LlmAppConfigCreateSerializer
+        return LlmAppConfigSerializer
+
+    def get_queryset(self):
+        return LlmAppConfig.objects.select_related('endpoint').all().order_by('-created_at')
+
+    def perform_create(self, serializer):
+        instance = serializer.save()
+        if instance.is_active:
+            LlmAppConfig.objects.filter(app_name=instance.app_name).exclude(id=instance.id).update(is_active=False)
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        if instance.is_active:
+            LlmAppConfig.objects.filter(app_name=instance.app_name).exclude(id=instance.id).update(is_active=False)

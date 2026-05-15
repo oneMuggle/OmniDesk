@@ -10,8 +10,8 @@ class OpenAIClient:
         # 优先从数据库读取活跃配置
         db_config = self._load_config_from_db()
         if db_config:
-            base_url = base_url or db_config.api_endpoint
-            api_key = api_key or db_config.api_key
+            base_url = base_url or db_config.endpoint.api_endpoint
+            api_key = api_key or db_config.endpoint.api_key
             model_name = model_name or db_config.model_name
 
         self.base_url = (base_url or os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT', 'https://gcli.ggchan.dev')).rstrip('/')
@@ -19,10 +19,10 @@ class OpenAIClient:
         self.model_name = model_name or os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
 
     def _load_config_from_db(self):
-        """尝试从数据库加载活跃的 LLM 配置"""
+        """尝试从数据库加载活跃的 LLM 应用配置"""
         try:
-            from smart_assistant.models import LlmConfig
-            config = LlmConfig.objects.filter(is_active=True).first()
+            from smart_assistant.models import LlmAppConfig
+            config = LlmAppConfig.objects.select_related('endpoint').filter(is_active=True).first()
             if config:
                 return config
         except Exception:

@@ -103,30 +103,107 @@ export async function deleteKnowledgeDoc(docId) {
 }
 
 /**
- * LLM 配置管理
+ * LLM 端点配置管理
  */
-export async function getLlmConfigs() {
-  return apiClient.get(`${BASE_URL}/llm-configs/`);
+export async function getEndpoints() {
+  return apiClient.get(`${BASE_URL}/endpoints/`);
 }
 
-export async function addLlmConfig(data) {
-  return apiClient.post(`${BASE_URL}/llm-configs/`, data);
+export async function addEndpoint(data) {
+  return apiClient.post(`${BASE_URL}/endpoints/`, data);
 }
 
-export async function updateLlmConfig(id, data) {
-  return apiClient.put(`${BASE_URL}/llm-configs/${id}/`, data);
+export async function updateEndpoint(id, data) {
+  return apiClient.put(`${BASE_URL}/endpoints/${id}/`, data);
 }
 
-export async function deleteLlmConfig(id) {
-  return apiClient.delete(`${BASE_URL}/llm-configs/${id}/`);
+export async function deleteEndpoint(id) {
+  return apiClient.delete(`${BASE_URL}/endpoints/${id}/`);
+}
+
+export async function fetchEndpointModels(endpointId) {
+  return apiClient.post(`${BASE_URL}/endpoints/${endpointId}/fetch-models/`);
 }
 
 /**
- * 根据 api_endpoint 和 api_key 获取上游可用模型列表
+ * LLM 应用配置管理
  */
+export async function getAppConfigs() {
+  return apiClient.get(`${BASE_URL}/app-configs/`);
+}
+
+export async function addAppConfig(data) {
+  return apiClient.post(`${BASE_URL}/app-configs/`, data);
+}
+
+export async function updateAppConfig(id, data) {
+  return apiClient.put(`${BASE_URL}/app-configs/${id}/`, data);
+}
+
+export async function deleteAppConfig(id) {
+  return apiClient.delete(`${BASE_URL}/app-configs/${id}/`);
+}
+
+/**
+ * 旧版 LLM 配置管理（已废弃，保留向后兼容）
+ */
+export async function getLlmConfigs() {
+  return apiClient.get(`${BASE_URL}/app-configs/`);
+}
+
+export async function addLlmConfig(data) {
+  return apiClient.post(`${BASE_URL}/app-configs/`, data);
+}
+
+export async function updateLlmConfig(id, data) {
+  return apiClient.put(`${BASE_URL}/app-configs/${id}/`, data);
+}
+
+export async function deleteLlmConfig(id) {
+  return apiClient.delete(`${BASE_URL}/app-configs/${id}/`);
+}
+
 export async function fetchLlmModels(apiEndpoint, apiKey) {
-  return apiClient.post(`${BASE_URL}/llm-configs/fetch-models/`, {
+  return apiClient.post(`${BASE_URL}/endpoints/fetch-models/`, {
     api_endpoint: apiEndpoint,
     api_key: apiKey,
   });
+}
+
+/**
+ * Dify 应用管理
+ */
+export async function getDifyApps() {
+  return apiClient.get('/api/dify-apps/');
+}
+
+export async function addDifyApp(data) {
+  return apiClient.post('/api/dify-apps/', data);
+}
+
+export async function updateDifyApp(id, data) {
+  return apiClient.put(`/api/dify-apps/${id}/`, data);
+}
+
+export async function deleteDifyApp(id) {
+  return apiClient.delete(`/api/dify-apps/${id}/`);
+}
+
+/**
+ * Ragflow 配置管理
+ */
+export async function getRagflowConfigs() {
+  return apiClient.get('ragflow-service/configs/');
+}
+
+export async function addRagflowConfig(data) {
+  return apiClient.post('ragflow-service/configs/', data);
+}
+
+export async function updateRagflowConfig(id, data) {
+  return apiClient.put(`ragflow-service/configs/${id}/`, data);
+}
+
+export async function deleteRagflowConfig(id) {
+  return apiClient.delete(`ragflow-service/configs/${id}/`);
 }
