@@ -1,6 +1,7 @@
 from django.db.models import Count
 from django.db.models.functions import TruncMonth
 from rest_framework import viewsets
+from rest_framework.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -11,10 +12,12 @@ from .serializers import NewsArticleSerializer, NewsTypeSerializer
 class NewsTypeViewSet(viewsets.ModelViewSet):
     queryset = NewsType.objects.all()
     serializer_class = NewsTypeSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
 class NewsArticleViewSet(viewsets.ModelViewSet):
     queryset = NewsArticle.objects.select_related('personnel', 'news_type').all()
     serializer_class = NewsArticleSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = NewsArticle.objects.select_related('personnel', 'news_type')

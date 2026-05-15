@@ -214,6 +214,16 @@ class GuestLoginView(generics.CreateAPIView):
     serializer_class = GuestLoginSerializer
     permission_classes = [permissions.AllowAny]
 
+    @method_decorator(ratelimit(**RATELIMIT_CONFIG))
+    def dispatch(self, request, *args, **kwargs):
+        if getattr(request, 'limited', False):
+            return Response({
+                "success": False,
+                "error": "rate_limit",
+                "message": "请求过于频繁，请稍后再试"
+            }, status=status.HTTP_429_TOO_MANY_REQUESTS)
+        return super().dispatch(request, *args, **kwargs)
+
     def create(self, request, *args, **kwargs):
         user = self.perform_create()
         refresh = RefreshToken.for_user(user)

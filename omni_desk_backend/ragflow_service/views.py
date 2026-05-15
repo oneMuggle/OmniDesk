@@ -2,6 +2,7 @@ import requests
 from django.http import JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 
 from .models import RagflowConfig
@@ -11,6 +12,7 @@ from .serializers import RagflowConfigSerializer
 class RagflowConfigViewSet(viewsets.ModelViewSet):
     queryset = RagflowConfig.objects.all()
     serializer_class = RagflowConfigSerializer
+    permission_classes = [IsAdminOrReadOnly]
 
     @action(detail=True, methods=['post'])
     def query(self, request, pk=None):

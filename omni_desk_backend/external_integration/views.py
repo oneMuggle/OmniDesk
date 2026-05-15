@@ -1,12 +1,9 @@
-import json
 import logging
 import os
 import tempfile
 import zipfile
 from pathlib import Path
 
-import requests
-from django.conf import settings
 from rest_framework import viewsets, permissions, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -19,7 +16,7 @@ from .serializers import (
 from .plugin_loader import (
     compute_file_hash, extract_plugin_zip, validate_manifest,
 )
-from .plugin_sandbox import execute_plugin_safely
+from .services.plugin_service import SsoService, ProxyService, PluginExecutionService
 
 logger = logging.getLogger(__name__)
 
@@ -91,21 +88,12 @@ class IntegrationServiceViewSet(viewsets.ModelViewSet):
                 {'error': '此服务不支持 API 代理'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        try:
-            headers = {}
-            if service.api_key:
-                headers['Authorization'] = f'Bearer {service.api_key}'
-            resp = requests.post(
-                service.endpoint_url,
-                json=request.data,
-                headers=headers,
-                timeout=30,
-            )
-            return Response(resp.json(), status=resp.status_code)
-        except requests.exceptions.Timeout:
-            return Response({'error': '外部服务响应超时'}, status=status.HTTP_504_GATEWAY_TIMEOUT)
-        except requests.exceptions.ConnectionError:
-            return Response({'error': '无法连接到外部服务'}, status=status.HTTP_502_BAD_GATEWAY)
+        result = ProxyService.forward_post(
+            service.endpoint_url, request.data, service.api_key
+        )
+        if 'error' in result:
+            return Response({'error': result['error']}, status=result['status_code'])
+        return Response(result['data'], status=result['status_code'])
 
 
 class PluginViewSet(viewsets.ModelViewSet):
@@ -163,80 +151,37 @@ class PluginViewSet(viewsets.ModelViewSet):
         uploaded_file = serializer.validated_data['file']
         file_hash = compute_file_hash(uploaded_file)
 
-        # 检查重复版本
         if PluginVersion.objects.filter(plugin=plugin, file_hash=file_hash).exists():
             return Response({'error': '该版本已上传过'}, status=status.HTTP_409_CONFLICT)
 
-        # 保存文件
-        version_obj = PluginVersion.objects.create(
-            plugin=plugin,
-            version=request.data.get('version', '1.0.0'),
-            upload_file=uploaded_file,
-            file_hash=file_hash,
-            uploaded_by=request.user,
+        result = PluginExecutionService.process_upload(
+            plugin, uploaded_file, file_hash,
+            request.data.get('version', '1.0.0'),
+            request,
         )
-
-        # 尝试读取 manifest.json
-        try:
-            with zipfile.ZipFile(version_obj.upload_file.path, 'r') as zf:
-                if 'manifest.json' in zf.namelist():
-                    manifest_data = json.loads(zf.read('manifest.json'))
-                    validate_manifest(manifest_data)
-                    version_obj.manifest = manifest_data
-                    version_obj.save()
-        except Exception as e:
-            logger.warning('插件 manifest 解析失败: %s', e)
-
-        return Response(
-            {'id': version_obj.id, 'version': version_obj.version, 'file_hash': file_hash},
-            status=status.HTTP_201_CREATED,
-        )
+        return Response(result, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'])
     def execute(self, request, id=None):
         """执行插件功能"""
         plugin = self.get_object()
-        active_version = plugin.versions.filter(is_active=True).first()
-        if not active_version:
-            return Response({'error': '没有已激活的插件版本'}, status=status.HTTP_400_BAD_REQUEST)
-
-        # 解压并执行
-        try:
-            tmp_dir = extract_plugin_zip(active_version.upload_file)
-            manifest = active_version.manifest or {'entry_point': 'executable', 'timeout_seconds': 30}
-            result = execute_plugin_safely(tmp_dir, manifest, request.data)
-
-            # 记录调用日志
-            PluginCallLog.objects.create(
-                plugin_version=active_version,
-                user=request.user,
-                method='execute',
-                args_summary=str(request.data)[:500],
-                status='success' if result['success'] else 'error',
-                execution_time_ms=result.get('execution_time_ms'),
-                error_message=result.get('error'),
-            )
-
-            return Response(result)
-        except Exception as e:
-            return Response({'success': False, 'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        result = PluginExecutionService.execute_plugin(plugin, request)
+        if not result['success']:
+            status_code = result.get('status_code', status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({'error': result['error']}, status=status_code)
+        return Response(result['data'])
 
     @action(detail=True, methods=['post'])
     def review(self, request, id=None):
         """审核插件"""
         plugin = self.get_object()
-        action_type = request.data.get('action')  # 'approve' or 'reject'
+        action_type = request.data.get('action')
         notes = request.data.get('notes', '')
 
-        if action_type == 'approve':
-            plugin.status = 'approved'
-        elif action_type == 'reject':
-            plugin.status = 'rejected'
-        else:
-            return Response({'error': '无效的审核操作'}, status=status.HTTP_400_BAD_REQUEST)
-
-        plugin.save()
-        return Response({'status': plugin.status, 'notes': notes})
+        result = PluginExecutionService.review_plugin(plugin, action_type, notes)
+        if not result['success']:
+            return Response({'error': result['error']}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'status': result['status'], 'notes': result['notes']})
 
     @action(detail=True, methods=['get'])
     def logs(self, request, id=None):

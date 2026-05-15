@@ -1,5 +1,6 @@
 from rest_framework import viewsets
 from rest_framework.pagination import PageNumberPagination
+from rest_framework.permissions import IsAuthenticated
 
 from .models import Ebook
 from .serializers import EbookSerializer
@@ -14,3 +15,4 @@ class EbookViewSet(viewsets.ModelViewSet):
     queryset = Ebook.objects.all()
     serializer_class = EbookSerializer
     pagination_class = EbookPagination
+    permission_classes = [IsAuthenticated]

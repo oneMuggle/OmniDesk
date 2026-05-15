@@ -92,3 +92,43 @@ def regular_client(api_client, regular_user_obj):
     """Return an APIClient authenticated as regular user."""
     api_client.force_authenticate(user=regular_user_obj)
     return api_client
+
+
+@pytest.fixture
+def mock_llm_response():
+    """Mock LLM API response for smart assistant tests."""
+    return {
+        'choices': [
+            {
+                'message': {
+                    'content': 'This is a mock LLM response.',
+                    'role': 'assistant',
+                },
+                'finish_reason': 'stop',
+            }
+        ],
+        'model': 'test-model',
+    }
+
+
+@pytest.fixture
+def sample_document_data():
+    """Sample document data for documents module tests."""
+    return {
+        'title': 'Test Document',
+        'content': 'This is the content of a test document.',
+        'template_name': 'default',
+        'metadata': {
+            'author': 'Test Author',
+            'version': '1.0',
+        },
+    }
+
+
+@pytest.fixture
+def celery_task_mock(mocker):
+    """Mock Celery task execution for async operation tests."""
+    mock_task = mocker.MagicMock()
+    mock_task.delay.return_value.id = 'test-task-id'
+    mock_task.apply_async.return_value.id = 'test-task-id'
+    return mock_task

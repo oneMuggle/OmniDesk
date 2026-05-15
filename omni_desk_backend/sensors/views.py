@@ -1,6 +1,7 @@
 import logging
 
 from rest_framework import viewsets
+from rest_framework.permissions import IsAuthenticated
 
 from .models import CalibrationRecord, Sensor
 from .serializers import CalibrationRecordSerializer, SensorSerializer
@@ -13,6 +14,7 @@ class SensorViewSet(viewsets.ModelViewSet):
     """
     queryset = Sensor.objects.all()
     serializer_class = SensorSerializer
+    permission_classes = [IsAuthenticated]
 
 class CalibrationRecordViewSet(viewsets.ModelViewSet):
     """
@@ -20,4 +22,5 @@ class CalibrationRecordViewSet(viewsets.ModelViewSet):
     """
     queryset = CalibrationRecord.objects.all()
     serializer_class = CalibrationRecordSerializer
+    permission_classes = [IsAuthenticated]
 

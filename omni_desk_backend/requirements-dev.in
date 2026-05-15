@@ -12,6 +12,10 @@ model_bakery
 
 # Linting & Formatting
 ruff
+mypy
+types-requests
+types-redis
+types-python-dateutil
 
 # Dependency Management
 pip-tools
