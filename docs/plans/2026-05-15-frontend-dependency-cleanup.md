@@ -53,7 +53,15 @@
   - [x] 移除 react-big-calendar
   - [x] 清理 CalendarPage.css 中 .rbc-* 死样式
   - [x] build 成功
-- [ ] Phase 3: Vite 迁移评估（可选，后续迭代）
+- [x] Phase 3: Vite 迁移
+  - [x] 移除 react-scripts，安装 Vite 5 + @vitejs/plugin-react
+  - [x] 新建 vite.config.js（含 API 代理、手动分块）
+  - [x] 新建 index.html 作为 Vite 入口
+  - [x] 9 个 .js 文件重命名为 .jsx
+  - [x] 新建 env.js 兼容 import.meta.env + process.env
+  - [x] 所有 .env 文件前缀 REACT_APP_* → VITE_*
+  - [x] npm run build 成功（~19s）
+  - [x] 318/321 测试通过（2 个为既有问题）
 
 ## 实施计划
 
