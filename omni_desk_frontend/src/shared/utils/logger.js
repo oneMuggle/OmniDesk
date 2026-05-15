@@ -1,5 +1,4 @@
-/* eslint-disable no-undef */
-const isDev = typeof process !== 'undefined' && typeof process.env !== 'undefined' && process.env.NODE_ENV === 'development';
+import { isDev } from './env';
 
 export const logger = {
   debug: (...args) => isDev && console.debug('[OmniDesk]', ...args),

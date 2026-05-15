@@ -1,8 +1,9 @@
 import axios from 'axios';
+import { getEnv } from '../utils/env';
 
 let currentConfig = {
-  apiKey: process.env.REACT_APP_DEEPSEEK_API_KEY || '',
-  apiEndpoint: process.env.REACT_APP_DEEPSEEK_ENDPOINT || 'https://api.deepseek.com/v1',
+  apiKey: getEnv('VITE_DEEPSEEK_API_KEY', ''),
+  apiEndpoint: getEnv('VITE_DEEPSEEK_ENDPOINT', 'https://api.deepseek.com/v1'),
   model: 'deepseek-chat',
 };
 

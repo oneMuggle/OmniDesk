@@ -1,6 +1,7 @@
 import axios from 'axios';
+import { getEnv } from '../utils/env';
 
-const API_BASE_URL = process.env.REACT_APP_API_BASE_URL || 'http://127.0.0.1:8000/api';
+const API_BASE_URL = getEnv('VITE_API_BASE_URL', 'http://127.0.0.1:8000/api');
 // Ensure baseURL ends with /
 const baseURL = API_BASE_URL.endsWith('/') ? API_BASE_URL : API_BASE_URL + '/';
 

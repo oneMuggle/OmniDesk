@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 // Make paths relative to the script file to avoid issues with CWD
-const routesFilePath = path.resolve(__dirname, '../src/routes/index.js');
+const routesFilePath = path.resolve(__dirname, '../src/routes/index.jsx');
 const outputFilePath = path.resolve(__dirname, '../public/routes.json');
 
 const code = fs.readFileSync(routesFilePath, 'utf-8');
