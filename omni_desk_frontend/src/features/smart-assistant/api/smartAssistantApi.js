@@ -1,6 +1,6 @@
 import apiClient from '../../../shared/api/apiClient';
 
-const BASE_URL = '/smart-assistant';
+const BASE_URL = 'smart-assistant';
 
 /**
  * 发送智能聊天（SSE 流式）
@@ -12,7 +12,8 @@ export async function sendSmartChatStream(query, conversationId = null) {
     body.conversation_id = conversationId;
   }
 
-  const token = localStorage.getItem('access_token') || sessionStorage.getItem('access_token');
+  const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
+  const token = authTokens.access;
   try {
     const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
       method: 'POST',

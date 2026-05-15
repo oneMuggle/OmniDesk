@@ -44,7 +44,8 @@ const SmartChatPage = () => {
     const loadSessions = async () => {
       try {
         const response = await getSessions();
-        setSessions(response.data || []);
+        const data = response.data.results || response.data;
+        setSessions(Array.isArray(data) ? data : []);
       } catch {
         // 静默失败
       }
