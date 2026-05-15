@@ -2,6 +2,16 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from pathlib import Path
+
+# Load environment variables from .env.local if it exists (local dev only)
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent / '.env.local'
+    if env_path.exists():
+        load_dotenv(dotenv_path=env_path)
+except ImportError:
+    pass
 
 
 def main():

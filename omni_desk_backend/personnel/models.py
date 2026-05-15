@@ -19,10 +19,15 @@ def _decrypt_field(encoded_value, key):
     """Decrypt a field encrypted by _encrypt_field."""
     if not encoded_value:
         return encoded_value
-    key_bytes = hashlib.sha256(key.encode()).digest()
-    encrypted = base64.b64decode(encoded_value.encode('utf-8'))
-    decrypted = bytes(e ^ key_bytes[i % len(key_bytes)] for i, e in enumerate(encrypted))
-    return decrypted.decode('utf-8')
+    try:
+        key_bytes = hashlib.sha256(key.encode()).digest()
+        encrypted = base64.b64decode(encoded_value.encode('utf-8'))
+        decrypted = bytes(e ^ key_bytes[i % len(key_bytes)] for i, e in enumerate(encrypted))
+        return decrypted.decode('utf-8')
+    except Exception:
+        # Data may be corrupted (e.g., encrypted with a different key).
+        # Return the raw value instead of crashing.
+        return encoded_value
 
 
 class EncryptedCharField(models.CharField):
