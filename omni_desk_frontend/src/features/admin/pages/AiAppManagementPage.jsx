@@ -1,10 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Typography, message } from 'antd';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Typography, message, Select, Spin } from 'antd';
+import { SearchOutlined } from '@ant-design/icons';
 import {
   getLlmConfigs,
   addLlmConfig,
   updateLlmConfig,
   deleteLlmConfig,
+  fetchLlmModels,
 } from '../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../shared/utils/logger';
 
@@ -15,6 +17,8 @@ const AiAppManagementPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [editingConfig, setEditingConfig] = useState(null);
   const [form] = Form.useForm();
+  const [modelOptions, setModelOptions] = useState([]);
+  const [fetchingModels, setFetchingModels] = useState(false);
 
   const loadConfigs = useCallback(async () => {
     try {
@@ -78,6 +82,39 @@ const AiAppManagementPage = () => {
     setIsModalVisible(false);
     setEditingConfig(null);
     form.resetFields();
+    setModelOptions([]);
+  };
+
+  const handleFetchModels = async () => {
+    const apiEndpoint = form.getFieldValue('api_endpoint');
+    const apiKey = form.getFieldValue('api_key');
+
+    if (!apiEndpoint) {
+      message.warning('请先填写 API 端点');
+      return;
+    }
+    if (!apiKey) {
+      message.warning('请先填写 API 密钥');
+      return;
+    }
+
+    setFetchingModels(true);
+    try {
+      const response = await fetchLlmModels(apiEndpoint, apiKey);
+      const models = response.data?.models || [];
+      if (models.length > 0) {
+        setModelOptions(models);
+        message.success(`获取到 ${models.length} 个可用模型`);
+      } else {
+        message.warning('未获取到任何模型，请检查端点和密钥是否正确');
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.error || error.message || '获取模型列表失败';
+      message.error(errorMsg);
+      logger.error('获取模型列表失败:', error);
+    } finally {
+      setFetchingModels(false);
+    }
   };
 
   const columns = [
@@ -162,9 +199,24 @@ const AiAppManagementPage = () => {
             <Form.Item
               label="模型名称"
               name="model_name"
-              rules={[{ required: true, message: '请输入模型名称!' }]}
+              rules={[{ required: true, message: '请输入或选择模型名称!' }]}
             >
-              <Input placeholder="gemini-2.5-pro" />
+              <Select
+                showSearch
+                placeholder="输入或选择模型名称"
+                options={modelOptions.map(m => ({ label: m, value: m }))}
+                notFoundContent="点击右侧按钮获取模型列表"
+                allowClear
+              />
+            </Form.Item>
+            <Form.Item>
+              <Button
+                icon={fetchingModels ? <Spin size="small" /> : <SearchOutlined />}
+                loading={fetchingModels}
+                onClick={handleFetchModels}
+              >
+                获取模型列表
+              </Button>
             </Form.Item>
             <Form.Item
               label="Temperature"

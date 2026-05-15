@@ -119,3 +119,13 @@ export async function updateLlmConfig(id, data) {
 export async function deleteLlmConfig(id) {
   return apiClient.delete(`${BASE_URL}/llm-configs/${id}/`);
 }
+
+/**
+ * 根据 api_endpoint 和 api_key 获取上游可用模型列表
+ */
+export async function fetchLlmModels(apiEndpoint, apiKey) {
+  return apiClient.post(`${BASE_URL}/llm-configs/fetch-models/`, {
+    api_endpoint: apiEndpoint,
+    api_key: apiKey,
+  });
+}

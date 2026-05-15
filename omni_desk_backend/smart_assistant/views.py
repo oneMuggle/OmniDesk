@@ -244,3 +244,62 @@ class LlmConfigViewSet(viewsets.ModelViewSet):
         instance = serializer.save()
         if instance.is_active:
             LlmConfig.objects.exclude(id=instance.id).update(is_active=False)
+
+    @action(detail=False, methods=['post'], url_path='fetch-models')
+    def fetch_models(self, request):
+        """根据 api_endpoint + api_key 调用上游 /v1/models 获取可用模型列表"""
+        import requests as http_requests
+
+        api_endpoint = request.data.get('api_endpoint', '').rstrip('/')
+        api_key = request.data.get('api_key', '')
+
+        if not api_endpoint:
+            return Response(
+                {'error': 'api_endpoint 为必填项'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not api_key:
+            return Response(
+                {'error': 'api_key 为必填项'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            resp = http_requests.get(
+                f'{api_endpoint}/v1/models',
+                headers={
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json',
+                },
+                timeout=10,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+
+            raw_models = data.get('data', [])
+            models = sorted([m['id'] for m in raw_models if 'id' in m])
+
+            return Response({
+                'models': models,
+                'count': len(models),
+            })
+        except http_requests.exceptions.Timeout:
+            return Response(
+                {'error': '请求超时，请检查端点是否可达'},
+                status=status.HTTP_504_GATEWAY_TIMEOUT,
+            )
+        except http_requests.exceptions.HTTPError as e:
+            return Response(
+                {'error': f'上游 API 返回错误: {e.response.status_code} {e.response.text[:200]}'},
+                status=e.response.status_code,
+            )
+        except http_requests.exceptions.ConnectionError:
+            return Response(
+                {'error': '无法连接到指定端点，请检查网络或端点地址'},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
+        except Exception as e:
+            return Response(
+                {'error': f'获取模型列表失败: {str(e)}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
