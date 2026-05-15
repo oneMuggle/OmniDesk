@@ -38,6 +38,7 @@ CLIENTS = [
 class TrialScheduleSeeder(BaseSeeder):
     name = "试验与排班"
     order = 20
+    models = [Equipment, Trial, TimeSlot, Schedule, Holiday, PersonnelSequence, LeaderSequence, Announcement]
 
     def seed(self):
         results = []

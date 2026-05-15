@@ -17,6 +17,7 @@ class BaseSeeder:
     """
     name = ""  # seeder 名称，子类必须设置
     order = 100  # 执行顺序，越小越先执行
+    models = []  # 此 seeder 创建的模型列表，子类应声明
 
     def __init__(self, context=None):
         self.context = context or {}

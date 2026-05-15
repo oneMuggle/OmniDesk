@@ -9,6 +9,7 @@ from events.management.seeders.base import BaseSeeder
 class ProjectSeeder(BaseSeeder):
     name = "项目与文档"
     order = 50
+    models = [Project, Tag, DocumentTemplate, Book, Chapter]
 
     def seed(self):
         user = self.context.get("user")

@@ -11,6 +11,7 @@ from events.management.seeders.base import BaseSeeder
 class MiscSeeder(BaseSeeder):
     name = "辅助数据"
     order = 60
+    models = [Post, CommComment, NewsType, NewsArticle, Memo, Config]
 
     def seed(self):
         user = self.context.get("user")

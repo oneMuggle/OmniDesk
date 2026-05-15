@@ -9,6 +9,7 @@ from events.management.seeders.base import BaseSeeder
 class MeetingRoomSeeder(BaseSeeder):
     name = "会议室管理"
     order = 30
+    models = [MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance]
 
     def seed(self):
         user = self.context.get("user")

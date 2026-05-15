@@ -11,6 +11,7 @@ from events.management.seeders.base import BaseSeeder
 class SensorSeeder(BaseSeeder):
     name = "传感器管理"
     order = 40
+    models = [SensorCategory, StorageLocation, Sensor, SensorMovement, CalibrationReminder, SensorCalibration, CalibrationDataPoint]
 
     def seed(self):
         user = self.context.get("user")

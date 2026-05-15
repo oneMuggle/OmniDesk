@@ -26,6 +26,7 @@ def _random_date(start_year=2018, end_year=2025):
 class PersonnelSeeder(BaseSeeder):
     name = "人员管理"
     order = 10
+    models = [Position, Personnel, Contract, Education, WorkExperience, ProfessionalQualification, FamilyMember]
 
     def seed(self):
         count = self.context.get("personnel_count", 15)
