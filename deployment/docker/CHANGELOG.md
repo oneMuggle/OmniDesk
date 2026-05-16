@@ -7,6 +7,28 @@
 
 ## [未发布]
 
+## [0.2.0] - 2026-05-16
+
+### 新增
+- **内网离线部署打包** — `package_offline_bundle.sh` 将构建产物打包为标准离线介质（镜像 + 脚本 + 配置 + 校验）
+- **离线包完整性校验** — `verify.sh` 支持 SHA256 checksum 校验、必需文件检查、镜像大小合理性验证
+- **一键部署入口** — 离线包内含 `scripts/deploy.sh`，支持 start/stop/status/logs/exec/migrate/verify
+- **环境变量模板** — `.env.production.template` 用于离线包中生成生产环境配置
+
+### 变更
+- 构建脚本 `build_and_export.sh` 增加 `--platform linux/amd64` 架构锁定
+- 构建后验证增加 `pip check` 依赖完整性检查
+- 前端 `nginx.conf` 添加 `X-UA-Compatible` 响应头
+
+### 修复
+- 前端 Win7 Chrome 109 兼容性：browserslist 锁定 `chrome >= 109`，Vite 构建目标设为 `chrome109`
+- MathJax SRE 语音引擎 CDN 回退问题：内网中禁用 SRE 避免 `cdn.jsdelivr.net` 请求失败
+
+### 兼容性说明
+- Windows 7 客户端：支持 Chrome 109 / Edge 109
+- **不支持 IE11**（React 18 已放弃支持）
+- 内网 HTTPS 需 Win7 安装 KB3140245 补丁（启用 TLS 1.2）
+
 ## [0.1.0] - 2026-05-11
 
 ### 新增

@@ -56,6 +56,7 @@ cd "$COMPOSE_DIR/../.."
 docker build \
     -f deployment/docker/omni_desk_backend/Dockerfile \
     --target production \
+    --platform linux/amd64 \
     -t "$BACKEND_IMAGE" \
     .
 
@@ -63,6 +64,7 @@ echo "Building frontend production image..."
 cd "$COMPOSE_DIR/../.."
 docker build \
     -f omni_desk_frontend/Dockerfile \
+    --platform linux/amd64 \
     -t "$FRONTEND_IMAGE" \
     omni_desk_frontend/
 
@@ -97,7 +99,8 @@ BACKEND_CHECK_OUTPUT=$(docker run --rm --entrypoint bash \
     python -c 'import django; print(\"Django version:\", django.__version__)' && \
     python -c 'import psycopg2; print(\"psycopg2 OK\")' && \
     python -c 'import celery; print(\"celery OK\")' && \
-    python -c 'import gunicorn; print(\"gunicorn OK\")'
+    python -c 'import gunicorn; print(\"gunicorn OK\")' && \
+    pip check 2>&1 && echo 'pip check OK'
     " 2>&1) || {
     echo "  FAIL: Backend image dependency check failed"
     echo "  $BACKEND_CHECK_OUTPUT"
@@ -231,6 +234,12 @@ docker save -o "$EXPORT_DIR/omni_desk_frontend.tar" "$FRONTEND_IMAGE"
 docker save -o "$EXPORT_DIR/postgres.tar" "$POSTGRES_IMAGE"
 docker save -o "$EXPORT_DIR/redis.tar" "$REDIS_IMAGE"
 docker save -o "$EXPORT_DIR/nginx.tar" "$NGINX_IMAGE"
+
+# Fix ownership: docker save creates files as root:root, change to current user
+CURRENT_USER=$(whoami)
+CURRENT_GROUP=$(id -gn)
+echo "Fixing file ownership to ${CURRENT_USER}:${CURRENT_GROUP}..."
+chown "${CURRENT_USER}:${CURRENT_GROUP}" "$EXPORT_DIR"/*.tar
 
 echo ""
 echo "Exported files:"

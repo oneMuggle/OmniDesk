@@ -35,6 +35,7 @@ export default defineConfig({
     },
   },
   build: {
+    target: 'chrome109',
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
