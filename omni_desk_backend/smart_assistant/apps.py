@@ -12,7 +12,17 @@ class SmartAssistantConfig(AppConfig):
         from .tools.schedule_tool import ScheduleTool
         from .tools.personnel_tool import PersonnelTool
         from .tools.rag_tool import RAGTool
+        from .tools.document_tool import DocumentTool
+        from .tools.event_tool import EventTool
+        from .tools.memo_tool import MemoTool
+        from .tools.project_tool import ProjectTool
+        from .tools.news_tool import NewsTool
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
         ToolRegistry.register(RAGTool())
+        ToolRegistry.register(DocumentTool())
+        ToolRegistry.register(EventTool())
+        ToolRegistry.register(MemoTool())
+        ToolRegistry.register(ProjectTool())
+        ToolRegistry.register(NewsTool())

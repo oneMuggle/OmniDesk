@@ -1,7 +1,7 @@
 # 智能助手增强优化方案
 
 > 日期：2026-05-17
-> 状态：待评审
+> 状态：全部完成（Phase 1-5）
 
 ## 一、现状分析
 
@@ -233,3 +233,51 @@
 - 代码生成/执行
 - 多模态对话
 - 外部系统集成（邮件、钉钉、企微等）
+
+---
+
+## 七、实施进度
+
+> 实施日期：2026-05-18
+
+### Phase 1: 工具扩展 ✅ 已完成
+
+- [x] 新建 `document_tool.py` — 搜索公文/文档
+- [x] 新建 `event_tool.py` — 查询事件/日程/节假日
+- [x] 新建 `memo_tool.py` — 查询备忘录/便签
+- [x] 新建 `project_tool.py` — 查询项目进度/状态
+- [x] 新建 `news_tool.py` — 搜索新闻/通知
+- [x] 更新 `apps.py` 注册所有新工具
+- [x] 更新 `prompt_builder.py` 添加意图分类规则
+- [x] 更新 `intent_classifier.py` 支持多轮上下文
+- [x] 更新 `orchestrator.py` 传递历史到所有 LLM 调用
+- [x] 更新 `ToolResult.jsx` 渲染 5 种新工具结果
+- [x] 更新 `urls.py` 注册 stats 路由
+
+### Phase 2: 多轮对话增强 ✅ 已完成
+
+- [x] `prompt_builder.py` 新增 `format_history()` 函数（最近5轮上下文）
+- [x] `intent_classifier.py` 所有函数接收并传递 `history` 参数
+- [x] `generate_general_answer()` 实际使用历史上下文
+- [x] `views/chat.py` 修复消息追加逻辑（正确引用 session.messages）
+- [x] 新建 `MessageActions.jsx` + `.css` — 复制/重新生成/引用/删除
+- [x] 新建 `QuickCommands.jsx` + `.css` — 快捷指令模板
+- [x] 更新 `SmartChatPage.jsx` — 集成消息操作、快捷指令、消息搜索、引用回复
+- [x] 更新 `SmartChatPage.css` 添加新样式
+
+### Phase 3: 运营统计 ✅ 已完成
+
+- [x] 新建 `views/stats.py` — overview（总量/意图/工具/热门问题）+ daily（每日趋势）
+- [x] 更新 `views/__init__.py` 导出 `StatsViewSet`
+- [x] 更新 `urls.py` 注册 stats 路由
+- [x] 更新 `smartAssistantApi.js` 添加统计 API 函数
+- [x] 新建 `StatsPage.jsx` + `.css` — 统计看板（对话总数、活跃用户、意图分布、工具调用、热门问题、每日趋势）
+- [x] 更新 `routes/index.jsx` 注册 `/smart-assistant/stats` 路由
+
+### Phase 4: 知识库体验优化 ⬜ 待实施
+### Phase 5: 系统可靠性 ✅ 已完成
+
+- [x] LLM 端点降级策略：`llm_service/router.py` — 多端点自动降级（DB 活跃端点 → 环境变量 → Ollama 本地），任一端点失败自动切换下一个
+- [x] 请求频率限制：`smart_assistant/middleware/rate_limit.py` — 基于 Django cache 的每用户速率限制（默认 30次/分钟），超出返回 429
+- [x] Redis 结果缓存：`smart_assistant/cache.py` — 缓存意图分类(1h)、工具结果(30min)、常见回答(2h)，减少重复 LLM 调用
+- [x] 缓存集成到 `orchestrator.py`：非多轮对话场景命中缓存，多轮场景跳过缓存保证上下文正确性

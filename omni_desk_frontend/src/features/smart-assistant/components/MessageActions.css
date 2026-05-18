@@ -1,0 +1,34 @@
+.message-actions {
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.message:hover .message-actions {
+  opacity: 1;
+}
+
+.message-action-btn {
+  padding: 2px 8px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  background: #fff;
+  color: #666;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.4;
+}
+
+.message-action-btn:hover {
+  background: #f0f0f0;
+  color: #333;
+  border-color: #999;
+}
+
+.message-action-btn--delete:hover {
+  background: #fff1f0;
+  color: #ff4d4f;
+  border-color: #ffa39e;
+}

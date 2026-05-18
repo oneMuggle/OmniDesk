@@ -26,26 +26,28 @@ class SmartChatViewSet(viewsets.ViewSet):
         conversation_id = serializer.validated_data.get('conversation_id')
 
         conversation_history = None
+        session = None
         if conversation_id:
             try:
                 session = SmartAssistantSession.objects.get(
                     id=conversation_id, user=request.user
                 )
-                messages = session.messages or []
-                conversation_history = messages
+                conversation_history = session.messages or []
             except SmartAssistantSession.DoesNotExist:
                 pass
 
         result = self.orchestrator.process(query, conversation_history)
 
-        if conversation_id:
-            session.messages = messages + [
+        if conversation_id and session:
+            existing_messages = session.messages or []
+            session.messages = existing_messages + [
                 {'role': 'user', 'content': query},
                 {'role': 'assistant', 'content': result['answer']},
             ]
             if not session.title:
                 session.title = query[:50]
             session.save()
+            result['conversation_id'] = session.id
         else:
             session = SmartAssistantSession.objects.create(
                 user=request.user,
@@ -58,7 +60,7 @@ class SmartChatViewSet(viewsets.ViewSet):
             result['conversation_id'] = session.id
 
         AgentLog.objects.create(
-            session_id=conversation_id,
+            session=session,
             user_query=query,
             intent=result['intent'],
             tool_used=result.get('tool_used') or '',

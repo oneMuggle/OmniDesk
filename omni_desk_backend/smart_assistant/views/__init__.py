@@ -3,6 +3,7 @@ from .sessions import SessionViewSet
 from .knowledge_base import KnowledgeBaseViewSet
 from .logs import AgentLogViewSet
 from .llm_config import LlmEndpointViewSet, LlmAppConfigViewSet
+from .stats import StatsViewSet
 
 __all__ = [
     'SmartChatViewSet',
@@ -11,4 +12,5 @@ __all__ = [
     'AgentLogViewSet',
     'LlmEndpointViewSet',
     'LlmAppConfigViewSet',
+    'StatsViewSet',
 ]

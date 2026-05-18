@@ -4,9 +4,23 @@ from django.conf import settings
 
 class KnowledgeBaseDocument(models.Model):
     """知识库文档"""
+    CATEGORY_CHOICES = [
+        ('general', '通用'),
+        ('technical', '技术'),
+        ('policy', '政策'),
+        ('procedure', '流程'),
+        ('faq', '常见问题'),
+    ]
     title = models.CharField(max_length=255, verbose_name="文档标题")
     file = models.FileField(upload_to='knowledge_base/', verbose_name="文档文件")
     content_text = models.TextField(blank=True, verbose_name="提取的文本内容")
+    category = models.CharField(
+        max_length=20,
+        choices=CATEGORY_CHOICES,
+        default='general',
+        verbose_name="文档分类",
+    )
+    tags = models.CharField(max_length=500, blank=True, verbose_name="标签（逗号分隔）")
     embedding_status = models.CharField(
         max_length=20,
         choices=[

@@ -207,3 +207,35 @@ export async function updateRagflowConfig(id, data) {
 export async function deleteRagflowConfig(id) {
   return apiClient.delete(`ragflow-service/configs/${id}/`);
 }
+
+/**
+ * 统计接口
+ */
+export async function getStatsOverview(days = 30) {
+  return apiClient.get(`${BASE_URL}/stats/overview/`, { params: { days } });
+}
+
+export async function getStatsDaily(days = 30) {
+  return apiClient.get(`${BASE_URL}/stats/daily/`, { params: { days } });
+}
+
+/**
+ * 知识库文档预览
+ */
+export async function previewDocument(docId) {
+  return apiClient.get(`${BASE_URL}/knowledge-base/documents/${docId}/preview/`);
+}
+
+/**
+ * 获取知识库文档分类列表
+ */
+export async function getDocCategories() {
+  return apiClient.get(`${BASE_URL}/knowledge-base/documents/categories/`);
+}
+
+/**
+ * 按分类获取知识库文档
+ */
+export async function getKnowledgeDocsByCategory(category) {
+  return apiClient.get(`${BASE_URL}/knowledge-base/documents/`, { params: { category } });
+}

@@ -192,3 +192,49 @@
   background: #d9d9d9;
   cursor: not-allowed;
 }
+
+/* 消息搜索栏 */
+.message-search-bar {
+  padding: 8px 16px;
+  background: #fafafa;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.message-search-input {
+  width: 100%;
+  padding: 6px 12px;
+  border: 1px solid #d9d9d9;
+  border-radius: 4px;
+  outline: none;
+  font-size: 13px;
+}
+
+.message-search-input:focus {
+  border-color: #1890ff;
+}
+
+/* 引用预览 */
+.quote-preview {
+  padding: 8px 16px;
+  background: #f0f5ff;
+  border-top: 1px solid #d9d9d9;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #666;
+}
+
+.quote-preview button {
+  border: none;
+  background: none;
+  font-size: 16px;
+  cursor: pointer;
+  color: #999;
+}
+
+.quote-input-hint {
+  font-size: 12px;
+  color: #999;
+  padding: 2px 0;
+}

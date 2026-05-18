@@ -58,6 +58,118 @@ const ToolResult = ({ intent, result, sources }) => {
     );
   }
 
+  if (intent === 'document_search' && result.found && result.documents) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="orange">文档搜索</Tag>}>
+          {result.documents.map((doc, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.documents.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="类型">{doc.type}</Descriptions.Item>
+              <Descriptions.Item label="标题">{doc.title}</Descriptions.Item>
+              {doc.experiment_type && <Descriptions.Item label="实验类型">{doc.experiment_type}</Descriptions.Item>}
+              {doc.client && <Descriptions.Item label="客户">{doc.client}</Descriptions.Item>}
+              {doc.status && <Descriptions.Item label="状态">{doc.status}</Descriptions.Item>}
+              {doc.owner && <Descriptions.Item label="创建人">{doc.owner}</Descriptions.Item>}
+              {doc.start_date && <Descriptions.Item label="开始日期">{doc.start_date}</Descriptions.Item>}
+              {doc.created_at && <Descriptions.Item label="创建时间">{doc.created_at}</Descriptions.Item>}
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'event_query' && result.found) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="magenta">事件/日程</Tag>}>
+          {result.schedules && result.schedules.length > 0 && (
+            <Descriptions size="small" column={2} title="排班信息" style={{ marginBottom: 8 }}>
+              <Descriptions.Item label="日期">{result.date}</Descriptions.Item>
+              {result.schedules.map((s, idx) => (
+                <>
+                  <Descriptions.Item label="值班人员" key={`person-${idx}`}>{s.duty_person}</Descriptions.Item>
+                  <Descriptions.Item label="值班领导" key={`leader-${idx}`}>{s.duty_leader}</Descriptions.Item>
+                </>
+              ))}
+            </Descriptions>
+          )}
+          {result.holidays && result.holidays.length > 0 && (
+            <Descriptions size="small" column={2} title="节假日">
+              {result.holidays.map((h, idx) => (
+                <>
+                  <Descriptions.Item label="名称" key={`name-${idx}`}>{h.name}</Descriptions.Item>
+                  <Descriptions.Item label="日期" key={`date-${idx}`}>{h.start_date} ~ {h.end_date}</Descriptions.Item>
+                </>
+              ))}
+            </Descriptions>
+          )}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'memo_query' && result.found && result.memos) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="cyan">备忘录</Tag>}>
+          {result.memos.map((m, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.memos.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="标题">{m.title}</Descriptions.Item>
+              <Descriptions.Item label="完成状态">
+                <Badge status={m.is_completed ? 'success' : 'default'} text={m.is_completed ? '已完成' : '未完成'} />
+              </Descriptions.Item>
+              <Descriptions.Item label="内容" span={2}>{m.content}</Descriptions.Item>
+              <Descriptions.Item label="创建人">{m.user}</Descriptions.Item>
+              <Descriptions.Item label="创建日期">{m.created_at}</Descriptions.Item>
+              {m.reminder_time !== '无提醒' && <Descriptions.Item label="提醒时间">{m.reminder_time}</Descriptions.Item>}
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'project_status' && result.found && result.projects) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="volcano">项目信息</Tag>}>
+          {result.projects.map((p, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.projects.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="项目名称">{p.name}</Descriptions.Item>
+              <Descriptions.Item label="负责人">{p.manager}</Descriptions.Item>
+              <Descriptions.Item label="状态">
+                <Badge status={p.status === '进行中' ? 'processing' : p.status === '已完成' ? 'success' : 'default'} text={p.status} />
+              </Descriptions.Item>
+              <Descriptions.Item label="描述">{p.description}</Descriptions.Item>
+              <Descriptions.Item label="开始日期">{p.start_date}</Descriptions.Item>
+              <Descriptions.Item label="结束日期">{p.end_date}</Descriptions.Item>
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'news_search' && result.found && result.articles) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="gold">新闻/通知</Tag>}>
+          {result.articles.map((a, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.articles.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="标题">
+                {a.link ? <a href={a.link} target="_blank" rel="noopener noreferrer">{a.title}</a> : a.title}
+              </Descriptions.Item>
+              <Descriptions.Item label="类型">{a.news_type}</Descriptions.Item>
+              <Descriptions.Item label="发布日期">{a.publication_date}</Descriptions.Item>
+              <Descriptions.Item label="发布人">{a.personnel}</Descriptions.Item>
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
   if (!result.found) {
     return (
       <div className="tool-result-card">
@@ -86,6 +198,44 @@ ToolResult.propTypes = {
       position: PropTypes.string,
       status: PropTypes.string,
       phone_number: PropTypes.string,
+    })),
+    documents: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      title: PropTypes.string,
+      experiment_type: PropTypes.string,
+      owner: PropTypes.string,
+      client: PropTypes.string,
+      status: PropTypes.string,
+      start_date: PropTypes.string,
+      created_at: PropTypes.string,
+    })),
+    holidays: PropTypes.arrayOf(PropTypes.shape({
+      name: PropTypes.string,
+      start_date: PropTypes.string,
+      end_date: PropTypes.string,
+    })),
+    memos: PropTypes.arrayOf(PropTypes.shape({
+      title: PropTypes.string,
+      content: PropTypes.string,
+      user: PropTypes.string,
+      is_completed: PropTypes.bool,
+      reminder_time: PropTypes.string,
+      created_at: PropTypes.string,
+    })),
+    projects: PropTypes.arrayOf(PropTypes.shape({
+      name: PropTypes.string,
+      description: PropTypes.string,
+      manager: PropTypes.string,
+      status: PropTypes.string,
+      start_date: PropTypes.string,
+      end_date: PropTypes.string,
+    })),
+    articles: PropTypes.arrayOf(PropTypes.shape({
+      title: PropTypes.string,
+      link: PropTypes.string,
+      publication_date: PropTypes.string,
+      news_type: PropTypes.string,
+      personnel: PropTypes.string,
     })),
     message: PropTypes.string,
   }),

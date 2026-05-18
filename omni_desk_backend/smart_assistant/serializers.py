@@ -4,13 +4,21 @@ from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmE
 
 class KnowledgeBaseDocumentSerializer(serializers.ModelSerializer):
     uploaded_by = serializers.StringRelatedField(read_only=True)
+    category_display = serializers.CharField(source='get_category_display', read_only=True)
+    tag_list = serializers.SerializerMethodField()
 
     class Meta:
         model = KnowledgeBaseDocument
-        fields = ['id', 'title', 'file', 'content_text', 'embedding_status',
+        fields = ['id', 'title', 'file', 'content_text', 'category', 'category_display',
+                  'tags', 'tag_list', 'embedding_status',
                   'ragflow_document_id', 'uploaded_by', 'created_at', 'updated_at']
         read_only_fields = ['content_text', 'embedding_status', 'ragflow_document_id',
                             'uploaded_by', 'created_at', 'updated_at']
+
+    def get_tag_list(self, obj):
+        if obj.tags:
+            return [t.strip() for t in obj.tags.split(',') if t.strip()]
+        return []
 
 
 class SmartAssistantSessionSerializer(serializers.ModelSerializer):
