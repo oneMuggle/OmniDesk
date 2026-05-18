@@ -136,7 +136,7 @@ load_images() {
     echo "Loading images from .tar files..."
     local errors=0
 
-    for tar_file in "exported_images/omni_desk_backend.tar" "exported_images/omni_desk_frontend.tar" "exported_images/postgres.tar" "exported_images/redis.tar" "exported_images/nginx.tar"; do
+    for tar_file in "exported_images/omni_desk_backend.tar" "exported_images/omni_desk_frontend.tar" "exported_images/postgres-14-alpine.tar" "exported_images/redis-7-alpine.tar" "exported_images/nginx-stable-alpine.tar"; do
         if [ -f "$tar_file" ]; then
             echo "  Loading: $(basename "$tar_file")"
             if docker load -i "$tar_file"; then

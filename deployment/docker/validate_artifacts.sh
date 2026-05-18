@@ -37,7 +37,7 @@ echo ""
 
 # ─── 1. 文件存在性检查 ─────────────────────────────────────
 echo "1. 文件存在性检查"
-REQUIRED_FILES=("omni_desk_backend.tar" "omni_desk_frontend.tar" "postgres.tar" "redis.tar" "nginx.tar")
+REQUIRED_FILES=("omni_desk_backend.tar" "omni_desk_frontend.tar" "postgres-14-alpine.tar" "redis-7-alpine.tar" "nginx-stable-alpine.tar")
 
 for f in "${REQUIRED_FILES[@]}"; do
     if [ -f "$IMAGE_DIR/$f" ]; then
@@ -53,9 +53,9 @@ echo "2. 文件大小检查"
 MIN_SIZES=(
     "omni_desk_backend.tar:50000000"
     "omni_desk_frontend.tar:5000000"
-    "postgres.tar:1000"
-    "redis.tar:1000"
-    "nginx.tar:1000"
+    "postgres-14-alpine.tar:1000"
+    "redis-7-alpine.tar:1000"
+    "nginx-stable-alpine.tar:1000"
 )
 
 for entry in "${MIN_SIZES[@]}"; do

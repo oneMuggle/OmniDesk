@@ -231,9 +231,9 @@ echo ""
 echo "Saving images to .tar files..."
 docker save -o "$EXPORT_DIR/omni_desk_backend.tar" "$BACKEND_IMAGE"
 docker save -o "$EXPORT_DIR/omni_desk_frontend.tar" "$FRONTEND_IMAGE"
-docker save -o "$EXPORT_DIR/postgres.tar" "$POSTGRES_IMAGE"
-docker save -o "$EXPORT_DIR/redis.tar" "$REDIS_IMAGE"
-docker save -o "$EXPORT_DIR/nginx.tar" "$NGINX_IMAGE"
+docker save -o "$EXPORT_DIR/postgres-14-alpine.tar" "$POSTGRES_IMAGE"
+docker save -o "$EXPORT_DIR/redis-7-alpine.tar" "$REDIS_IMAGE"
+docker save -o "$EXPORT_DIR/nginx-stable-alpine.tar" "$NGINX_IMAGE"
 
 # Fix ownership: docker save creates files as root:root, change to current user
 CURRENT_USER=$(whoami)

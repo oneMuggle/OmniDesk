@@ -61,18 +61,27 @@ for tar in omni_desk_backend.tar omni_desk_frontend.tar; do
 done
 
 # 基础镜像（优先从 exported_images 取，不存在则从本地导出）
-declare -A BASE_IMAGES=(
-    ["postgres-14-alpine.tar"]="postgres:14-alpine"
-    ["redis-7-alpine.tar"]="redis:7-alpine"
-    ["nginx-stable-alpine.tar"]="nginx:stable-alpine"
-)
+# 使用并行数组兼容 sh/bash
+BASE_IMAGE_NAMES="postgres-14-alpine.tar redis-7-alpine.tar nginx-stable-alpine.tar"
+BASE_IMAGE_TAGS="postgres:14-alpine redis:7-alpine nginx:stable-alpine"
 
-for name in "${!BASE_IMAGES[@]}"; do
+base_image_idx=0
+for name in $BASE_IMAGE_NAMES; do
+    # 获取对应的 tag
+    IMAGE=""
+    current_idx=0
+    for tag in $BASE_IMAGE_TAGS; do
+        if [ "$current_idx" -eq "$base_image_idx" ]; then
+            IMAGE="$tag"
+            break
+        fi
+        current_idx=$((current_idx + 1))
+    done
+
     if [ -f "$EXPORT_DIR/$name" ]; then
         cp "$EXPORT_DIR/$name" "$BUNDLE_DIR/images/"
         echo "  OK: $name (from exported_images)"
     else
-        IMAGE="${BASE_IMAGES[$name]}"
         if docker image inspect "$IMAGE" >/dev/null 2>&1; then
             echo "  Exporting: $IMAGE -> $name"
             docker save -o "$BUNDLE_DIR/images/$name" "$IMAGE"
@@ -80,6 +89,7 @@ for name in "${!BASE_IMAGES[@]}"; do
             echo "  MISSING: $IMAGE not found locally"
         fi
     fi
+    base_image_idx=$((base_image_idx + 1))
 done
 
 # Fix ownership on all exported .tar files
