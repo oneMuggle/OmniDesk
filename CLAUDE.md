@@ -112,6 +112,7 @@ This project has a version management and safe update system located in the `cor
 | `python manage.py check_migrations` | Pre-check pending migrations; warns about destructive changes (DROP TABLE/COLUMN) |
 | `python manage.py backup_db` | Backup database (pg_dump + gzip) and media files; auto-cleans old backups (keeps 10) |
 | `python manage.py restore_db <file>` | Restore database from a `.sql.gz` backup file |
+| `python manage.py generate_release` | 根据 git 提交自动生成版本号与 CHANGELOG（支持 --preview / --bump / --tag） |
 | `python manage.py list_versions` | Show current version and migration history summary |
 
 ### API Endpoints
