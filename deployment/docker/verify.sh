@@ -5,7 +5,8 @@ set -e
 # 使用方法: 将本脚本放入离线包根目录后执行 ./verify.sh
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$SCRIPT_DIR"
+# 脚本位于 scripts/ 子目录，需 cd 到离线包根目录
+cd "$SCRIPT_DIR/.."
 
 echo "=========================================="
 echo "  离线部署介质完整性校验"
@@ -31,8 +32,8 @@ fi
 echo ""
 echo "[2/3] 校验必需文件..."
 REQUIRED_FILES=(
-    "images/omni-desk-backend.tar"
-    "images/omni-desk-frontend.tar"
+    "images/omni_desk_backend.tar"
+    "images/omni_desk_frontend.tar"
     "images/postgres-14-alpine.tar"
     "images/redis-7-alpine.tar"
     "images/nginx-stable-alpine.tar"
@@ -57,8 +58,8 @@ done
 echo ""
 echo "[3/3] 校验镜像大小合理性..."
 
-BACKEND_TAR="images/omni-desk-backend.tar"
-FRONTEND_TAR="images/omni-desk-frontend.tar"
+BACKEND_TAR="images/omni_desk_backend.tar"
+FRONTEND_TAR="images/omni_desk_frontend.tar"
 
 if [ -f "$BACKEND_TAR" ]; then
     BACKEND_SIZE=$(stat -c%s "$BACKEND_TAR" 2>/dev/null || stat -f%z "$BACKEND_TAR" 2>/dev/null || echo "0")
