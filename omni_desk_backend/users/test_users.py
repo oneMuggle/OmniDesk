@@ -304,8 +304,13 @@ class PhoneNumberModelTests(TestCase):
 
 from .serializers import UserRegistrationSerializer, UserLoginSerializer, CustomTokenObtainPairSerializer, UserDetailSerializer
 from rest_framework import serializers
+from django.core.cache import cache
 
 class UserSerializerTests(TestCase):
+    def setUp(self):
+        # 清除权限缓存，防止前面测试的缓存污染
+        cache.clear()
+
     def test_registration_serializer_validate_username_whitespace(self):
         """Test that username validation strips whitespace."""
         serializer = UserRegistrationSerializer()

@@ -37,7 +37,7 @@ def import_book_from_file(uploaded_file, cover_image_file=None, title=None,
     返回 Book 实例。
     """
     if uploaded_file.name.endswith('.zip'):
-        content, base_path = _extract_zip(uploaded_file)
+        content, base_path, temp_dir_obj = _extract_zip(uploaded_file)
     elif uploaded_file.name.endswith('.md'):
         content = uploaded_file.read().decode('utf-8')
         base_path = None
@@ -78,7 +78,7 @@ def import_book_from_file(uploaded_file, cover_image_file=None, title=None,
 
 
 def _extract_zip(uploaded_file):
-    """解压 ZIP 文件并返回 markdown 内容和图片目录。"""
+    """解压 ZIP 文件并返回 markdown 内容、图片目录和临时目录对象。"""
     temp_dir_obj = tempfile.TemporaryDirectory()
     temp_dir = Path(temp_dir_obj.name)
 
@@ -96,7 +96,7 @@ def _extract_zip(uploaded_file):
 
     markdown_file_path = md_files[0]
     content = markdown_file_path.read_text(encoding='utf-8')
-    return content, markdown_file_path.parent
+    return content, markdown_file_path.parent, temp_dir_obj
 
 
 def _save_cover_image(cover_image_file):

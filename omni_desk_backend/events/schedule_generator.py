@@ -69,7 +69,7 @@ class ScheduleGenerator:
 
         # 4. 收集节假日
         from .models import Holiday
-        holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=start_date)
+        holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=self.start_date)
         holiday_dates = self._expand_holidays(holidays, self.start_date, end_date)
 
         # 5. 计算起始索引

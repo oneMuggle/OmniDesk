@@ -138,7 +138,8 @@ class BaseTestCase(TestCase):
 
 class ScheduleViewSetTest(BaseTestCase):
     def setUp(self):
-        self.today = date.today()
+        # 使用固定日期（2026-05-22 是星期五），使测试不依赖于运行日期
+        self.today = date(2026, 5, 22)
         super().setUp()
         self.schedule1 = Schedule.objects.create(
             duty_date=self.today,
