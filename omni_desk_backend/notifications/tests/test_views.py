@@ -53,8 +53,9 @@ class TestNotificationViewSet:
 
         response = regular_client.get(reverse('notification-list'))
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
-        assert response.data[0]['title'] == 'My notification'
+        # DRF returns paginated response with count/next/previous/results
+        assert response.data['count'] == 1
+        assert response.data['results'][0]['title'] == 'My notification'
 
     def test_list_unauthenticated(self, api_client):
         response = api_client.get(reverse('notification-list'))

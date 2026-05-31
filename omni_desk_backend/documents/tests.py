@@ -104,7 +104,13 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.conf import settings
 import os
 import shutil
+import importlib.util
+import unittest
 
+@unittest.skipIf(
+    importlib.util.find_spec('taggit') is None,
+    'django-taggit not installed (optional dependency)',
+)
 class BookImportViewTests(APITestCase):
     def setUp(self):
         self.user = get_user_model().objects.create_user(username='import_user', password='password', is_staff=True, is_superuser=True)
