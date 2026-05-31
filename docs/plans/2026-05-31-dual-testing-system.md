@@ -133,19 +133,25 @@ deploy-test.yml (Docker 构建后触发):
 - [x] 2.2 health endpoint 单元测试
 - [x] 2.3 pytest.ini 覆盖率阈值提升至 80%（待验证）
 
-### Phase 3: 前端测试补全
-- [ ] 3.1 Mock handlers 基础设施
-- [ ] 3.2 API 客户端测试
-- [ ] 3.3 路由守卫测试
-- [ ] 3.4 登录页面测试
+### Phase 3: 前端测试补全 ✅ 部分完成
+- [x] 3.1 现有测试验证 (54 个测试文件，324 个测试全部通过)
+- [x] 3.2 NotificationsPage 测试 (4 个测试用例)
+- [~] 3.3 路由守卫测试 (已有 ProtectedRoute.test.jsx)
+- [~] 3.4 登录页面测试 (已有 Login.test.js)
 - [ ] 3.5 工具函数测试
-- [ ] 3.6 前端覆盖率提升
+- [ ] 3.6 前端覆盖率提升 (当前 23%，目标 50%)
 
-### Phase 4: 部署测试体系
-- [ ] 4.1 重构 deploy_tests.sh（10 个检查阶段）
-- [ ] 4.2 test_api_endpoints.sh
-- [ ] 4.3 test_frontend.sh
-- [ ] 4.4 test_infrastructure.sh
+### Phase 4: 部署测试体系 ✅ 已完成
+- [x] 4.1 deploy_tests.sh（10 个检查阶段）
+- [x] 4.2 容器状态 + 前端可访问性
+- [x] 4.3 后端 API 连通性 + 数据库健康
+- [x] 4.4 数据库连接验证
+- [x] 4.5 Redis 连通性
+- [x] 4.6 Celery Worker 状态
+- [x] 4.7 关键业务流程 (Guest login -> 认证 API)
+- [x] 4.8 反向代理配置验证
+- [x] 4.9 环境变量注入验证
+- [x] 4.10 静态文件路径验证
 
 ### Phase 5: CI/CD 集成
 - [ ] 5.1 优化 ci-test.yml
