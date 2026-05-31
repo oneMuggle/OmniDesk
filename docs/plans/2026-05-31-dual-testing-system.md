@@ -117,21 +117,21 @@ deploy-test.yml (Docker 构建后触发):
 
 ## 实施步骤
 
-### Phase 1: 后端测试补全（9 个模块）
-- [ ] 1.1 events 模块测试
-- [ ] 1.2 documents 模块测试
-- [ ] 1.3 meeting_rooms 模块测试
-- [ ] 1.4 communication 模块测试
-- [ ] 1.5 news 模块测试
-- [ ] 1.6 sensors 模块测试
-- [ ] 1.7 ragflow_service 模块测试（mock 外部服务）
-- [ ] 1.8 office_assistant 模块测试
-- [ ] 1.9 dify_apps 模块测试
+### Phase 1: 后端测试补全（9 个模块） ✅ 已完成
+- [x] 1.1 events 模块测试
+- [x] 1.2 documents 模块测试
+- [x] 1.3 meeting_rooms 模块测试
+- [x] 1.4 communication 模块测试
+- [x] 1.5 news 模块测试
+- [x] 1.6 sensors 模块测试
+- [x] 1.7 ragflow_service 模块测试（mock 外部服务）
+- [x] 1.8 office_assistant 模块测试
+- [x] 1.9 dify_apps 模块测试
 
-### Phase 2: 后端基础设施
-- [ ] 2.1 conftest.py 扩展（通用 model factory）
-- [ ] 2.2 health endpoint 单元测试
-- [ ] 2.3 pytest.ini 覆盖率阈值提升至 80%
+### Phase 2: 后端基础设施 ✅ 已完成
+- [x] 2.1 conftest.py 扩展（14 个通用 model factory 函数）
+- [x] 2.2 health endpoint 单元测试
+- [x] 2.3 pytest.ini 覆盖率阈值提升至 80%（待验证）
 
 ### Phase 3: 前端测试补全
 - [ ] 3.1 Mock handlers 基础设施
