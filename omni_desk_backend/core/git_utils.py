@@ -91,7 +91,7 @@ def get_commits_since(commit_hash: str) -> list[CommitInfo]:
 
 def parse_commit_message(commit_hash: str, subject: str, body: str = '') -> CommitInfo:
     """解析 Conventional Commit 格式的提交信息."""
-    cleaned = re.sub(r'^[\U0001F300-\U0001F9FF\s]+', '', subject).strip()
+    cleaned = re.sub(r'^[\U0001F300-\U0001F9FF✀-➿☀-⛿️\s]+', '', subject).strip()
 
     pattern = r'^(\w+)(?:\(([^)]+)\))?(!)?\s*:\s*(.+)$'
     match = re.match(pattern, cleaned)

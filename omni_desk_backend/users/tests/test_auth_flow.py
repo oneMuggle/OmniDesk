@@ -14,6 +14,7 @@ class TestUserRegistration:
         data = {
             'username': 'newuser123',
             'password': 'SecurePass123!',
+            'password_confirmation': 'SecurePass123!',
             'real_name': 'Test User',
         }
         response = api_client.post(reverse('users_auth:auth-registration'), data, format='json')
@@ -22,7 +23,11 @@ class TestUserRegistration:
         assert CustomUser.objects.filter(username='newuser123').exists()
 
     def test_registration_duplicate_username(self, api_client):
-        data = {'username': 'newuser123', 'password': 'SecurePass123!'}
+        data = {
+            'username': 'newuser123',
+            'password': 'SecurePass123!',
+            'password_confirmation': 'SecurePass123!',
+        }
         api_client.post(reverse('users_auth:auth-registration'), data, format='json')
         response = api_client.post(reverse('users_auth:auth-registration'), data, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
