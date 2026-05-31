@@ -74,7 +74,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: 'npm'
           cache-dependency-path: omni_desk_frontend/package-lock.json
 
@@ -82,9 +82,7 @@ jobs:
         run: npm ci
 
       - name: Run tests with coverage
-        run: |
-          npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=clover
-          npm test -- --watchAll=false --coverage --coverageReporters=json --outputFile=coverage/coverage-summary.json
+        run: npm test -- --watchAll=false --coverage --coverageReporters=text --coverageReporters=clover --coverageReporters=json --coverageDirectory=coverage
 
       - name: Upload coverage report
         if: always()

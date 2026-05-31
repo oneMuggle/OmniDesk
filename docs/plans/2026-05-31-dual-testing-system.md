@@ -156,7 +156,7 @@ deploy-test.yml (Docker 构建后触发):
 ### Phase 5: CI/CD 集成 ✅ 已完成
 - [x] 5.1 优化 ci-test.yml (覆盖率报告 + JUnit 输出)
 - [x] 5.2 新增 deploy-test.yml (Docker 构建后自动部署测试)
-- [~] 5.3 优化 build-and-push-images.yml (已有测试环节，无需额外修改)
+- [x] 5.3 更新技术手册 docs/technical/testing_strategy.md
 
 ---
 
