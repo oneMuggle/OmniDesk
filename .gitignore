@@ -37,6 +37,17 @@ Thumbs.db
 trial-schedule*.png
 shift-schedule*.png
 
+# Test/E2E screenshots (Playwright, Puppeteer, etc.)
+*.screenshot.png
+*-screenshot.png
+screenshot-*.png
+snapshot-*.png
+*-snapshot.png
+page-*.png
+test-output/*.png
+playwright-report/
+test-results/
+
 # Python
 *.egg-info/
 venv/
