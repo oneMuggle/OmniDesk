@@ -21,7 +21,7 @@ class TestDifyAppViewSet:
         )
         response = api_client.get('/api/dify-apps/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 1
+        assert response.data['count'] == 1
 
     def test_create_dify_app(self, api_client, regular_user_obj):
         api_client.force_authenticate(user=regular_user_obj)

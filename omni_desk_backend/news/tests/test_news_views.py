@@ -8,7 +8,8 @@ from rest_framework import status
 
 @pytest.mark.django_db
 class TestNewsTypeViewSet:
-    def test_list_news_types(self, api_client):
+    def test_list_news_types(self, api_client, regular_user_obj):
+        api_client.force_authenticate(user=regular_user_obj)
         response = api_client.get('/api/news-types/')
         assert response.status_code == status.HTTP_200_OK
 
@@ -29,7 +30,8 @@ class TestNewsTypeViewSet:
 
 @pytest.mark.django_db
 class TestNewsArticleViewSet:
-    def test_list_articles(self, api_client):
+    def test_list_articles(self, api_client, regular_user_obj):
+        api_client.force_authenticate(user=regular_user_obj)
         response = api_client.get('/api/news-articles/')
         assert response.status_code == status.HTTP_200_OK
 
@@ -48,6 +50,7 @@ class TestNewsArticleViewSet:
 
     def test_list_articles_filter_by_personnel(self, api_client, regular_user_obj):
         from news.models import NewsArticle, NewsType
+        api_client.force_authenticate(user=regular_user_obj)
         news_type = NewsType.objects.create(name='Filter Type')
         NewsArticle.objects.create(
             title='Article A',
@@ -62,6 +65,7 @@ class TestNewsArticleViewSet:
 
     def test_list_articles_filter_by_type(self, api_client, regular_user_obj):
         from news.models import NewsArticle, NewsType
+        api_client.force_authenticate(user=regular_user_obj)
         news_type = NewsType.objects.create(name='Type Filter')
         NewsArticle.objects.create(
             title='Type Article',

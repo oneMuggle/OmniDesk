@@ -15,9 +15,8 @@ class TestEquipmentViewSet:
         response = api_client.get('/api/events/equipments/')
         assert response.status_code == status.HTTP_200_OK
 
-    def test_create_equipment(self, api_client, regular_user_obj):
-        api_client.force_authenticate(user=regular_user_obj)
-        response = api_client.post('/api/events/equipments/', {
+    def test_create_equipment(self, admin_client):
+        response = admin_client.post('/api/events/equipments/', {
             'name': 'Test Equipment',
             'description': 'Test equipment description',
         }, format='json')
@@ -153,8 +152,8 @@ class TestAnnouncementViewSet:
         response = api_client.get('/api/events/announcements/')
         assert response.status_code == status.HTTP_200_OK
 
-    def test_create_announcement(self, api_client, regular_user_obj):
-        api_client.force_authenticate(user=regular_user_obj)
+    def test_create_announcement(self, api_client, admin_user_obj):
+        api_client.force_authenticate(user=admin_user_obj)
         response = api_client.post('/api/events/announcements/', {
             'title': 'Test Announcement',
             'content': 'Announcement content',

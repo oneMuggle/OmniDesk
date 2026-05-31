@@ -85,4 +85,4 @@ class TestCommentViewSet:
         Comment.objects.create(post=post, author=regular_user_obj, content='Comment 2')
         response = api_client.get(f'/api/communication/posts/{post.pk}/comments/')
         assert response.status_code == status.HTTP_200_OK
-        assert len(response.data) == 2
+        assert response.data['count'] == 2

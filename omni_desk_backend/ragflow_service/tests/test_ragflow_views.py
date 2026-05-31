@@ -7,7 +7,8 @@ from rest_framework import status
 
 @pytest.mark.django_db
 class TestRagflowConfigViewSet:
-    def test_list_configs(self, api_client):
+    def test_list_configs(self, api_client, regular_user_obj):
+        api_client.force_authenticate(user=regular_user_obj)
         response = api_client.get('/api/ragflow-service/configs/')
         assert response.status_code == status.HTTP_200_OK
 
