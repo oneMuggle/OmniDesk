@@ -47,6 +47,7 @@ page-*.png
 test-output/*.png
 playwright-report/
 test-results/
+test-artifacts/
 
 # Python
 *.egg-info/

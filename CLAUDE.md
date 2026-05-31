@@ -170,6 +170,38 @@ Each plan must include:
 ### Archive Completed Plans
 When a feature is fully implemented, move its plan from `docs/plans/` to `docs/technical/` or keep in `docs/plans/` with all steps checked.
 
+## Screenshot Management
+
+### Centralized Screenshot Directory
+
+**所有测试截图、调试截图、E2E 截图必须统一存放在 `test-artifacts/screenshots/` 目录中。**
+
+- 禁止在项目根目录或其他位置生成截图文件
+- Playwright、Puppeteer 或其他截图工具的输出目录应指向此路径
+- 截图文件命名应包含时间戳或测试名称，如：`2026-05-31_login-test-screenshot.png`
+
+### Post-Task Cleanup
+
+**任务完成后必须清理截图：**
+
+- 调试过程中产生的临时截图：任务结束后立即删除
+- 用于验证测试结果的截图：在测试通过后删除
+- 需要保留作为文档的截图：移至 `docs/assets/` 目录
+
+### Implementation
+
+在 Playwright 配置文件或其他截图工具中，设置输出目录：
+
+```javascript
+// playwright.config.js 示例
+outputDir: 'test-artifacts/screenshots/',
+screenshot: 'only-on-failure',
+```
+
+### .gitignore Rule
+
+该目录已在 `.gitignore` 中配置，截图不会被提交到版本库。
+
 ## Intranet & Compatibility Requirements
 
 This project is deployed on isolated internal networks and must be accessible from Windows 7 machines.
