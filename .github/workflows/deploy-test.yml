@@ -1,0 +1,66 @@
+name: Deploy Test
+
+on:
+  workflow_run:
+    workflows: ["Run Tests, Build and Push Docker Images"]
+    types:
+      - completed
+    branches:
+      - main
+      - develop
+
+jobs:
+  deploy-test:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Compose
+        run: docker compose version
+
+      - name: Start services
+        working-directory: ./deployment/docker
+        run: |
+          docker compose -f docker-compose.offline-standalone.yml up -d
+          echo "Waiting for services to be healthy..."
+          timeout 300 bash -c '
+            while true; do
+              healthy=true
+              for svc in backend frontend; do
+                state=$(docker compose -f docker-compose.offline-standalone.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
+                if [ "$state" != "running" ]; then
+                  healthy=false
+                  break
+                fi
+              done
+              if [ "$healthy" = true ]; then
+                echo "All services are running"
+                break
+              fi
+              sleep 5
+            done
+          '
+
+      - name: Run deploy tests
+        working-directory: ./deployment/docker
+        run: |
+          chmod +x deploy_tests.sh
+          ./deploy_tests.sh http://localhost
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-test-results
+          path: deployment/docker/test-results/
+          retention-days: 14
+
+      - name: Cleanup
+        if: always()
+        working-directory: ./deployment/docker
+        run: |
+          docker compose -f docker-compose.offline-standalone.yml down -v
+          echo "Services stopped and volumes removed"
