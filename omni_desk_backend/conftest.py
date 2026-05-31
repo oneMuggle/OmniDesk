@@ -132,3 +132,233 @@ def celery_task_mock(mocker):
     mock_task.delay.return_value.id = 'test-task-id'
     mock_task.apply_async.return_value.id = 'test-task-id'
     return mock_task
+
+
+# =============================================================================
+# Model Factory Helpers
+# =============================================================================
+# Usage: call the factory function directly in tests.
+# Example: project = create_project(db, name='My Project')
+# These are plain functions, not pytest fixtures, so they can be called
+# with custom arguments from within test functions or other fixtures.
+
+def _import(model_name):
+    """Dynamically import a Django model."""
+    parts = model_name.split('.')
+    module_path = '.'.join(parts[:-1])
+    model_cls = parts[-1]
+    from importlib import import_module
+    mod = import_module(module_path)
+    return getattr(mod, model_cls)
+
+
+def create_project(db, name='Test Project', description='Test project description',
+                   status='active', manager=None, **kwargs):
+    """Create a Project instance."""
+    from projects.models import Project
+    return Project.objects.create(
+        name=name,
+        description=description,
+        status=status,
+        manager=manager,
+        **kwargs,
+    )
+
+
+def create_trial(db, title='Test Trial', client='Test Client',
+                 description='Test trial description', status='planned',
+                 version=0, **kwargs):
+    """Create a Trial instance."""
+    from events.models import Trial
+    return Trial.objects.create(
+        title=title,
+        client=client,
+        description=description,
+        status=status,
+        version=version,
+        **kwargs,
+    )
+
+
+def create_time_slot(db, trial, start_time, end_time, description='', **kwargs):
+    """Create a TimeSlot instance."""
+    from events.models import TimeSlot
+    return TimeSlot.objects.create(
+        trial=trial,
+        start_time=start_time,
+        end_time=end_time,
+        description=description,
+        **kwargs,
+    )
+
+
+def create_equipment(db, name='Test Equipment', description='Test equipment', **kwargs):
+    """Create an Equipment instance."""
+    from events.models import Equipment
+    return Equipment.objects.create(
+        name=name,
+        description=description,
+        **kwargs,
+    )
+
+
+def create_document_template(db, name='Test Template', template_type='tech_design',
+                             content='Template content', owner=None,
+                             project=None, variables=None, **kwargs):
+    """Create a DocumentTemplate instance."""
+    from documents.models import DocumentTemplate
+    return DocumentTemplate.objects.create(
+        name=name,
+        template_type=template_type,
+        content=content,
+        owner=owner,
+        project=project,
+        variables=variables or {},
+        **kwargs,
+    )
+
+
+def create_generated_document(db, template, content='Generated content',
+                              generated_by=None, variables_used=None, **kwargs):
+    """Create a GeneratedDocument instance."""
+    from documents.models import GeneratedDocument
+    return GeneratedDocument.objects.create(
+        template=template,
+        content=content,
+        generated_by=generated_by,
+        variables_used=variables_used or {},
+        **kwargs,
+    )
+
+
+def create_book(db, title='Test Book', author='Test Author', description='Test book',
+                project=None, **kwargs):
+    """Create a Book instance."""
+    from documents.models import Book
+    return Book.objects.create(
+        title=title,
+        author=author,
+        description=description,
+        project=project,
+        **kwargs,
+    )
+
+
+def create_chapter(db, book, title='Test Chapter', content_md='Chapter content',
+                   order=1, **kwargs):
+    """Create a Chapter instance."""
+    from documents.models import Chapter
+    return Chapter.objects.create(
+        book=book,
+        title=title,
+        content_md=content_md,
+        order=order,
+        **kwargs,
+    )
+
+
+def create_meeting_room(db, name='Test Room', description='Test meeting room',
+                        capacity=10, location='Building A', **kwargs):
+    """Create a MeetingRoom instance."""
+    from meeting_rooms.models import MeetingRoom
+    return MeetingRoom.objects.create(
+        name=name,
+        description=description,
+        capacity=capacity,
+        location=location,
+        **kwargs,
+    )
+
+
+def create_meeting_room_booking(db, meeting_room, user, start_time, end_time,
+                                title='Test Booking', participants='',
+                                description='Test booking', **kwargs):
+    """Create a MeetingRoomBooking instance."""
+    from meeting_rooms.models import MeetingRoomBooking
+    booking = MeetingRoomBooking(
+        meeting_room=meeting_room,
+        user=user,
+        start_time=start_time,
+        end_time=end_time,
+        title=title,
+        participants=participants,
+        description=description,
+        **kwargs,
+    )
+    booking.save()
+    return booking
+
+
+def create_post(db, title='Test Post', content='Test post content',
+                author=None, **kwargs):
+    """Create a Post instance."""
+    from communication.models import Post
+    return Post.objects.create(
+        title=title,
+        content=content,
+        author=author,
+        **kwargs,
+    )
+
+
+def create_comment(db, post, author, content='Test comment', **kwargs):
+    """Create a Comment instance."""
+    from communication.models import Comment
+    return Comment.objects.create(
+        post=post,
+        author=author,
+        content=content,
+        **kwargs,
+    )
+
+
+def create_news_type(db, name='Test News Type', **kwargs):
+    """Create a NewsType instance."""
+    from news.models import NewsType
+    return NewsType.objects.create(
+        name=name,
+        **kwargs,
+    )
+
+
+def create_news_article(db, title='Test News', link='https://example.com/news',
+                        publication_date=None, personnel=None, news_type=None, **kwargs):
+    """Create a NewsArticle instance."""
+    from datetime import date
+    from news.models import NewsArticle
+    return NewsArticle.objects.create(
+        title=title,
+        link=link,
+        publication_date=publication_date or date.today(),
+        personnel=personnel,
+        news_type=news_type,
+        **kwargs,
+    )
+
+
+def create_dify_app(db, name='Test Dify App', description='Test app',
+                    embed_url='https://example.com/embed/app',
+                    is_active=True, **kwargs):
+    """Create a DifyApp instance."""
+    from dify_apps.models import DifyApp
+    return DifyApp.objects.create(
+        name=name,
+        description=description,
+        embed_url=embed_url,
+        is_active=is_active,
+        **kwargs,
+    )
+
+
+def create_ragflow_config(db, name='Test Ragflow Config',
+                          api_endpoint='https://ragflow.example.com/api',
+                          api_key='test-api-key', is_active=True, **kwargs):
+    """Create a RagflowConfig instance."""
+    from ragflow_service.models import RagflowConfig
+    return RagflowConfig.objects.create(
+        name=name,
+        api_endpoint=api_endpoint,
+        api_key=api_key,
+        is_active=is_active,
+        **kwargs,
+    )
