@@ -21,6 +21,21 @@ jobs:
       - name: Set up Docker Compose
         run: docker compose version
 
+      - name: Create .env.production for CI
+        working-directory: ./deployment/docker
+        run: |
+          # Generate a temporary .env.production for CI testing
+          cp .env.production.example .env.production
+          SECRET_KEY=$(python3 -c "import secrets; print(secrets.token_urlsafe(50))")
+          sed -i "s/POSTGRES_USER=.*/POSTGRES_USER=testuser/" .env.production
+          sed -i "s/POSTGRES_PASSWORD=.*/POSTGRES_PASSWORD=testpass123/" .env.production
+          sed -i "s/SECRET_KEY=.*/SECRET_KEY=$SECRET_KEY/" .env.production
+          sed -i "s/REDIS_PASSWORD=.*/REDIS_PASSWORD=redispass123/" .env.production
+          sed -i "s/DJANGO_ALLOWED_HOSTS=.*/DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1/" .env.production
+          sed -i "s/CORS_ALLOWED_ORIGINS=.*/CORS_ALLOWED_ORIGINS=http:\/\/localhost/" .env.production
+          sed -i "s/CSRF_TRUSTED_ORIGINS=.*/CSRF_TRUSTED_ORIGINS=http:\/\/localhost/" .env.production
+          echo "Generated .env.production for CI"
+
       - name: Start services
         working-directory: ./deployment/docker
         run: |
@@ -52,11 +67,13 @@ jobs:
 
       - name: Upload test results
         if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v4
         with:
           name: deploy-test-results
           path: deployment/docker/test-results/
           retention-days: 14
+          if-no-files-found: ignore
 
       - name: Cleanup
         if: always()
