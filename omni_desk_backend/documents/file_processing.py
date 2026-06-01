@@ -36,7 +36,7 @@ def call_mineru_ocr(file_path):
     with open(file_path, 'rb') as f:
         # 使用更通用的参数名，并包含文件名和 MIME 类型
         files = {'document': (Path(file_path).name, f, mime_type)}
-        response = requests.post(MINERU_API_URL, headers=headers, files=files)
+        response = requests.post(MINERU_API_URL, headers=headers, files=files, timeout=30)
         response.raise_for_status()
         return response.json().get('text', '')
 

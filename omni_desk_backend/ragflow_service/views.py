@@ -45,7 +45,8 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             response = requests.post(
                 f"{config.api_endpoint}/v1/chat/completions", # 假设 Ragflow 的聊天 API 路径
                 headers=headers,
-                json=payload
+                json=payload,
+                timeout=30,
             )
             response.raise_for_status()  # 检查HTTP错误
 

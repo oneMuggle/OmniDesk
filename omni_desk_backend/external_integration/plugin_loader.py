@@ -58,7 +58,7 @@ def execute_plugin(extract_dir, entry_point, input_data, timeout=None, memory_li
     if not os.path.isfile(executable):
         raise FileNotFoundError(f'插件入口不存在: {executable}')
 
-    os.chmod(executable, 0o755)
+    os.chmod(executable, 0o750)  # B103: owner + group only, no world-execute
     input_json = json.dumps(input_data, ensure_ascii=False)
     env = os.environ.copy()
     env['PYTHONPATH'] = ''
