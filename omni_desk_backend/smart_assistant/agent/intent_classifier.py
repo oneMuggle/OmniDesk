@@ -73,8 +73,8 @@ def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_re
         yield f"[错误] 回答生成失败: {str(e)}"
 
 
-def generate_general_answer(query: str, history: list = None) -> str:
-    """通用对话回答，支持多轮上下文"""
+def generate_general_answer(query: str, history: list = None) -> tuple:
+    """通用对话回答，支持多轮上下文。返回 (answer, usage) 元组。"""
     client = get_router()
     try:
         if history and len(history) > 0:
@@ -84,9 +84,9 @@ def generate_general_answer(query: str, history: list = None) -> str:
                 user_content=query,
                 history=history,
             )
-            answer, _ = client.generate(messages=messages)
+            answer, usage = client.generate(messages=messages)
         else:
-            answer, _ = client.generate(prompt=query)
-        return answer.strip()
+            answer, usage = client.generate(prompt=query)
+        return answer.strip(), usage
     except Exception as e:
-        return f"回答生成失败: {str(e)}"
+        return f"回答生成失败: {str(e)}", None
