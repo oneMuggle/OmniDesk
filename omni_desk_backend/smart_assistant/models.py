@@ -2,6 +2,27 @@ from django.db import models
 from django.conf import settings
 
 
+class KnowledgeDataset(models.Model):
+    """知识库数据集（支持多个 Ragflow 数据集）"""
+    name = models.CharField(max_length=100, unique=True, verbose_name="数据集名称")
+    description = models.TextField(blank=True, default='', verbose_name="描述")
+    ragflow_dataset_id = models.CharField(max_length=100, verbose_name="Ragflow 数据集 ID")
+    is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    tags = models.JSONField(default=list, blank=True, verbose_name="标签（用于智能路由）")
+    document_count = models.IntegerField(default=0, verbose_name="文档数量")
+    priority = models.IntegerField(default=1, verbose_name="优先级")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "知识库数据集"
+        verbose_name_plural = verbose_name
+        ordering = ['priority', 'name']
+
+    def __str__(self):
+        return self.name
+
+
 class KnowledgeBaseDocument(models.Model):
     """知识库文档"""
     CATEGORY_CHOICES = [
@@ -21,6 +42,14 @@ class KnowledgeBaseDocument(models.Model):
         verbose_name="文档分类",
     )
     tags = models.CharField(max_length=500, blank=True, verbose_name="标签（逗号分隔）")
+    dataset = models.ForeignKey(
+        KnowledgeDataset,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='documents',
+        verbose_name="所属数据集",
+    )
     embedding_status = models.CharField(
         max_length=20,
         choices=[

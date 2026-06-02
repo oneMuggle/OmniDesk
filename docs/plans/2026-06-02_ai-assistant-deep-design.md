@@ -1,7 +1,7 @@
 # AI 应用助手深化设计方案
 
 > 日期：2026-06-02
-> 状态：Phase 1 + Phase 2 已完成
+> 状态：Phase 1 + 2 + 3 + 4 已完成
 >
 > **本文档是 `docs/plans/2026-05-17_smart-assistant-enhancement.md` 的深化补充**，
 > 在原有 5 个 Phase 的基础上，增加问题根因分析、详细组件设计和架构演进方案。

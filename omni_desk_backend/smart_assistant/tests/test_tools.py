@@ -139,7 +139,7 @@ class TestPersonnelTool(TestCase):
 
 
 class TestRAGTool(TestCase):
-    """RAGTool Ragflow 知识库查询测试."""
+    """RAGTool 知识库查询测试（使用 RAGRouter）。"""
 
     def setUp(self):
         self.tool = RAGTool()
@@ -151,36 +151,27 @@ class TestRAGTool(TestCase):
         schema = self.tool.get_schema()
         self.assertEqual(schema['name'], 'knowledge_qa')
 
-    @patch('smart_assistant.tools.rag_tool.RagflowConfig')
-    def test_no_config_returns_not_found(self, mock_config):
-        """Ragflow 配置未激活时返回 found=False."""
-        mock_config.objects.filter.return_value.first.return_value = None
+    @patch('smart_assistant.agent.rag_router.get_rag_router')
+    def test_no_results_returns_not_found(self, mock_get_router):
+        """RAGRouter 返回空时 found=False."""
+        mock_router = MagicMock()
+        mock_router.search_multi.return_value = []
+        mock_get_router.return_value = mock_router
         result = self.tool.execute('什么是OmniDesk')
         self.assertFalse(result['found'])
 
-    @patch('smart_assistant.tools.rag_tool.RagflowConfig')
-    @patch('smart_assistant.tools.rag_tool.requests')
-    def test_successful_retrieval(self, mock_requests, mock_config):
-        """Ragflow 成功返回时解析 chunks."""
-        mock_config_obj = MagicMock()
-        mock_config_obj.api_endpoint = 'http://ragflow:8000'
-        mock_config_obj.api_key = 'test-key'
-        mock_config.objects.filter.return_value.first.return_value = mock_config_obj
-
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {
-            'data': {
-                'chunks': [
-                    {
-                        'content': 'OmniDesk 是一个办公管理系统',
-                        'document_name': '手册.pdf',
-                        'similarity': 0.95,
-                    },
-                ]
-            }
-        }
-        mock_requests.post.return_value = mock_response
+    @patch('smart_assistant.agent.rag_router.get_rag_router')
+    def test_successful_retrieval(self, mock_get_router):
+        """RAGRouter 成功返回时解析 chunks."""
+        mock_router = MagicMock()
+        mock_router.search_multi.return_value = [
+            {
+                'content': 'OmniDesk 是一个办公管理系统',
+                'document_name': '手册.pdf',
+                'similarity': 0.95,
+            },
+        ]
+        mock_get_router.return_value = mock_router
 
         result = self.tool.execute('什么是OmniDesk')
         self.assertTrue(result['found'])
@@ -188,32 +179,22 @@ class TestRAGTool(TestCase):
         self.assertEqual(len(result['sources']), 1)
         self.assertEqual(result['sources'][0]['document'], '手册.pdf')
 
-    @patch('smart_assistant.tools.rag_tool.RagflowConfig')
-    @patch('smart_assistant.tools.rag_tool.requests')
-    def test_empty_chunks_returns_not_found(self, mock_requests, mock_config):
-        """Ragflow 返回空 chunks 时返回 found=False."""
-        mock_config_obj = MagicMock()
-        mock_config_obj.api_endpoint = 'http://ragflow:8000'
-        mock_config_obj.api_key = 'test-key'
-        mock_config.objects.filter.return_value.first.return_value = mock_config_obj
-
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {'data': {'chunks': []}}
-        mock_requests.post.return_value = mock_response
+    @patch('smart_assistant.agent.rag_router.get_rag_router')
+    def test_empty_chunks_returns_not_found(self, mock_get_router):
+        """RAGRouter 返回空 chunks 时 found=False."""
+        mock_router = MagicMock()
+        mock_router.search_multi.return_value = []
+        mock_get_router.return_value = mock_router
 
         result = self.tool.execute('未知问题')
         self.assertFalse(result['found'])
 
-    @patch('smart_assistant.tools.rag_tool.RagflowConfig')
-    @patch.object(RAGTool, 'execute')
-    def test_network_error_handled(self, mock_execute, mock_config):
-        """网络异常时返回 found=False (异常处理测试)."""
-        mock_execute.return_value = {
-            'found': False,
-            'message': '知识库查询失败: Connection refused',
-        }
+    @patch('smart_assistant.agent.rag_router.get_rag_router')
+    def test_router_error_returns_not_found(self, mock_get_router):
+        """RAGRouter 返回空（内部已处理异常）时 found=False."""
+        mock_router = MagicMock()
+        mock_router.search_multi.return_value = []  # RAGRouter 内部已捕获异常，返回空列表
+        mock_get_router.return_value = mock_router
 
-        result = RAGTool().execute('测试问题')
+        result = self.tool.execute('测试问题')
         self.assertFalse(result['found'])
-        self.assertIn('Connection refused', result['message'])

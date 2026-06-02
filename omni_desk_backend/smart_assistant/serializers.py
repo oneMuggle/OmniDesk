@@ -1,5 +1,13 @@
 from rest_framework import serializers
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig
+from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig, KnowledgeDataset
+
+
+class KnowledgeDatasetSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = KnowledgeDataset
+        fields = ['id', 'name', 'description', 'ragflow_dataset_id', 'is_active',
+                  'tags', 'document_count', 'priority', 'created_at', 'updated_at']
+        read_only_fields = ['created_at', 'updated_at', 'document_count']
 
 
 class KnowledgeBaseDocumentSerializer(serializers.ModelSerializer):
