@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Spin, Typography } from 'antd';
-import axios from 'axios';
+import axiosInstanceInstance from '../../api/axiosInstanceConfig';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import { logger } from '../../utils/logger';
 
@@ -25,7 +25,7 @@ const ChapterContent = () => {
             setLoading(true);
             try {
                 // Assuming API endpoint is /api/documents/chapters/<id>/
-                const response = await axios.get(`/api/documents/chapters/${chapterId}/`);
+                const response = await axiosInstance.get(`/api/documents/chapters/${chapterId}/`);
                 setChapter(response.data);
             } catch (err) {
                 setError('Failed to load chapter content.');

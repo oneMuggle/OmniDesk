@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Descriptions, Spin, Tag } from 'antd';
-import axios from 'axios';
+import axiosInstanceInstance from '../../shared/api/axiosInstanceConfig';
 
 /**
  * Version info display component.
@@ -11,7 +11,7 @@ function VersionInfo() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axios.get('/api/system/version/')
+    axiosInstance.get('/api/system/version/')
       .then(res => {
         setVersionData(res.data);
         setLoading(false);

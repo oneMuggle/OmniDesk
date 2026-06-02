@@ -4,6 +4,7 @@ import { Form, Input, Button, Upload, message } from 'antd';
 import { UploadOutlined, PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
 import apiClient from '../../../shared/api/apiClient';
 import { notifications } from '../../../shared/utils/notifications';
+import { logger } from '../../../shared/utils/logger';
 
 const EditProfileForm = ({ userData = null, setUserData }) => {
   const [form] = Form.useForm();
@@ -62,7 +63,7 @@ const EditProfileForm = ({ userData = null, setUserData }) => {
   };
 
   const onFinishFailed = (errorInfo) => {
-    console.log('Failed:', errorInfo);
+    logger.debug('Failed:', errorInfo);
     message.error('请检查表单输入。');
   };
 

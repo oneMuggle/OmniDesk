@@ -49,7 +49,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
 
     useEffect(() => {
         if (initialData) {
-            console.log('Setting form fields with:', JSON.stringify(initialData));
+            logger.debug('Setting form fields with:', JSON.stringify(initialData));
             form.setFieldsValue({
                 ...initialData,
                 position: initialData.position ? initialData.position.id : null,
@@ -62,7 +62,7 @@ const PersonnelEditPage = ({ form: providedForm }) => {
                 public_housing_info: initialData.public_housing_info || [],
                 bank_accounts: initialData.bank_accounts || [],
             });
-            console.log('Form values after set:', JSON.stringify(form.getFieldsValue()));
+            logger.debug('Form values after set:', JSON.stringify(form.getFieldsValue()));
         }
     }, [initialData, form]);
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Button, message, Card, Spin, Row, Col, Select } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
 import { logger } from '../../../shared/utils/logger';
 
 const { Dragger } = Upload;
@@ -44,7 +44,7 @@ const DocumentProcessor = () => {
     setResult(null);
 
     try {
-      const response = await axios.post('office-assistant/process-document/', formData, {
+      const response = await axiosInstance.post('office-assistant/process-document/', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

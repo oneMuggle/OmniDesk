@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, DatePicker, Switch, message } from 'antd';
 import dayjs from 'dayjs';
+import { logger } from '../../shared/utils/logger';
 
 const { TextArea } = Input;
 
@@ -30,7 +31,7 @@ const MemoModal = ({ open, onCancel, onSave, memoData = null, mode }) => {
         form.resetFields();
       })
       .catch(info => {
-        console.log('Validate Failed:', info);
+        logger.debug('Validate Failed:', info);
         message.error('请填写所有必填项');
       });
   };

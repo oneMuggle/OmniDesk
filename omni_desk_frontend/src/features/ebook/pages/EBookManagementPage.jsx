@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout, Input, Typography, message, Card, Row, Col, Space, Button } from 'antd';
-import axios from 'axios';
+import axiosInstanceInstance from '../../shared/api/axiosInstanceConfig';
+import { logger } from '../../shared/utils/logger';
 import FileUpload from '../components/FileUpload';
 import BookList from '../components/BookList';
 import BookForm from '../components/BookForm';
@@ -18,7 +19,7 @@ const EBookManagementPage = () => {
     const fetchBooks = async () => {
       setIsLoading(true);
       try {
-        const response = await axios.get('/api/ebooks');
+        const response = await axiosInstance.get('/api/ebooks');
         const booksList = response.data.results || response.data;
         setBooks(booksList);
         setFilteredBooks(booksList);
@@ -46,7 +47,7 @@ const EBookManagementPage = () => {
     formData.append('file', file);
 
     try {
-      const response = await axios.post('/api/ebooks/upload', formData, {
+      const response = await axiosInstance.post('/api/ebooks/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -65,7 +66,7 @@ const EBookManagementPage = () => {
   };
 
   const handleExport = (book) => {
-    console.log('Exporting book:', book);
+    logger.debug('Exporting book:', book);
     message.info(`正在导出 '${book.title}'...`);
     // Implement export logic here
   };
@@ -79,7 +80,7 @@ const EBookManagementPage = () => {
 
   const handleDelete = async (bookId) => {
     try {
-      await axios.delete(`/api/ebooks/${bookId}`);
+      await axiosInstance.delete(`/api/ebooks/${bookId}`);
       const updatedBooks = books.filter(book => book.id !== bookId);
       setBooks(updatedBooks);
       setFilteredBooks(updatedBooks);

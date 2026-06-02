@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Tabs, Spin, Tag, Descriptions, Table, Alert, Typography, Button } from 'antd';
 import { DownloadOutlined, WindowsOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosInstanceInstance from '../api/axiosInstanceConfig';
 import ReactMarkdown from 'react-markdown';
 
 const { Title } = Typography;
@@ -16,9 +16,9 @@ function SystemUpdatePage() {
     const fetchAll = async () => {
       try {
         const [versionRes, changelogRes, migrationRes] = await Promise.all([
-          axios.get('/api/system/version/'),
-          axios.get('/api/system/changelog/'),
-          axios.get('/api/system/migrations/'),
+          axiosInstance.get('/api/system/version/'),
+          axiosInstance.get('/api/system/changelog/'),
+          axiosInstance.get('/api/system/migrations/'),
         ]);
         setVersionData(versionRes.data);
         setChangelog(changelogRes.data.changelog);

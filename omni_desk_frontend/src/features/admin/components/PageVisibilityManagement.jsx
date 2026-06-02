@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
 import { logger } from '../../../shared/utils/logger';
 
 const PageVisibilityManagement = () => {
@@ -11,7 +11,7 @@ const PageVisibilityManagement = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axios.get('/api/config/page-visibility/');
+        const response = await axiosInstance.get('/api/config/page-visibility/');
         const { pages, groups, visibility } = response.data;
         setPages(pages);
         setGroups(groups);
@@ -37,7 +37,7 @@ const PageVisibilityManagement = () => {
     }));
 
     try {
-      await axios.post('/api/config/page-visibility/', {
+      await axiosInstance.post('/api/config/page-visibility/', {
         page_id: pageId,
         group_id: groupId,
         is_visible: newIsVisible,

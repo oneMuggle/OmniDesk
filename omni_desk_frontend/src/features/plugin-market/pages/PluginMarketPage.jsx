@@ -4,6 +4,7 @@ import { SearchOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPlugins, executePlugin } from '../api/pluginApi';
 import PluginDetailModal from '../components/PluginDetailModal';
+import { logger } from '../../shared/utils/logger';
 
 const { Search } = Input;
 
@@ -39,7 +40,7 @@ export default function PluginMarketPage() {
     try {
       const result = await executePlugin(pluginId);
       message.success('插件执行成功');
-      console.log('Plugin result:', result);
+      logger.debug('Plugin result:', result);
     } catch (error) {
       message.error('插件执行失败');
     }

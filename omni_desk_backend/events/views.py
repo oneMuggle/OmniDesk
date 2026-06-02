@@ -50,7 +50,7 @@ class EquipmentViewSet(viewsets.ModelViewSet):
 
 
 class TimeSlotViewSet(viewsets.ModelViewSet):
-    queryset = TimeSlot.objects.all()
+    queryset = TimeSlot.objects.select_related('trial').all()
     serializer_class = TimeSlotSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]

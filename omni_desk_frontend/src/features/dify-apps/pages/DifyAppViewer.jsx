@@ -1,7 +1,7 @@
 import './DifyApps.css';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axios from 'axios';
+import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
 import './DifyApps.css'; // 稍后创建此CSS文件
 import { logger } from '../../../shared/utils/logger';
 
@@ -22,7 +22,7 @@ const DifyAppViewer = () => {
                         Authorization: `Bearer ${token}` // 添加Authorization头
                     }
                 } : {};
-                const response = await axios.get(`/api/dify-apps/${appId}/`, config);
+                const response = await axiosInstance.get(`/api/dify-apps/${appId}/`, config);
                 setEmbedUrl(response.data.embed_url);
             } catch (err) {
                 setError('Failed to load Dify application.');

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Layout, Row, Col, Button, Spin, Typography, Space, Card, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import moment from 'moment';
+import { logger } from '../../shared/utils/logger';
 import { useMemoData } from '../hooks/useMemoData';
 import { useCalendar } from '../../schedule/hooks/useCalendar';
 import MiniCalendar from '../components/MiniCalendar';
@@ -23,26 +24,26 @@ const MemoPage = () => {
   const memosForSelectedDate = useMemo(() => {
     return (memos || []).filter(memo => {
       if (!memo.reminder_time) {
-        console.log(`Memo ID: ${memo.id} - reminder_time is null, skipping.`);
+        logger.debug(`Memo ID: ${memo.id} - reminder_time is null, skipping.`);
         return false;
       }
       const reminderDateString = moment(memo.reminder_time).format('YYYY-MM-DD');
       const selectedDateString = selectedDate.format('YYYY-MM-DD');
       const isSameDay = reminderDateString === selectedDateString;
-      console.log(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Selected Date: ${selectedDate.format()}, Is Same Day: ${isSameDay}`);
+      logger.debug(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Selected Date: ${selectedDate.format()}, Is Same Day: ${isSameDay}`);
       return isSameDay;
     });
   }, [memos, selectedDate]);
 
   useEffect(() => {
-    console.log("Selected Date (MemoPage):", selectedDate.format());
-    console.log("Memos Data (MemoPage):", memos);
+    logger.debug("Selected Date (MemoPage):", selectedDate.format());
+    logger.debug("Memos Data (MemoPage):", memos);
     if (memos && memos.length > 0) {
       memos.forEach(memo => {
-        console.log(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Type: ${typeof memo.reminder_time}`);
+        logger.debug(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Type: ${typeof memo.reminder_time}`);
       });
     }
-    console.log("Memos For Selected Date (MemoPage) Length:", memosForSelectedDate.length);
+    logger.debug("Memos For Selected Date (MemoPage) Length:", memosForSelectedDate.length);
 
     if (Notification.permission === 'granted') {
       (memos || []).forEach(memo => {

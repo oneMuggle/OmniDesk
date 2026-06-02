@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Spin, Select } from 'antd'; // 导入 Select
-import axios from 'axios';
+import { Layout, Spin, Select } from 'antd';
+import axiosInstanceInstance from '../../api/axiosInstanceConfig';
 
 import TableOfContents from './TableOfContents';
 import ChapterContent from './ChapterContent';
@@ -27,7 +27,7 @@ const LibraryPage = () => {
             if (projectId) {
                 url += `?project_id=${projectId}`;
             }
-            const response = await axios.get(url);
+            const response = await axiosInstance.get(url);
             setBooks(response.data); // 假设后端返回的是书籍列表
         } catch (err) {
             setError('Failed to load books.');

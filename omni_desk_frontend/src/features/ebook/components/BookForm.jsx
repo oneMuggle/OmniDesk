@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Button } from 'antd';
+import { logger } from '../../shared/utils/logger';
 
 const BookForm = ({ book = null, onSave, onCancel }) => {
   const [form] = Form.useForm();
@@ -19,7 +20,7 @@ const BookForm = ({ book = null, onSave, onCancel }) => {
         onSave({ ...book, ...values });
       })
       .catch(info => {
-        console.log('Validate Failed:', info);
+        logger.debug('Validate Failed:', info);
       });
   };
 
