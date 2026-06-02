@@ -1,4 +1,5 @@
 from django.contrib.auth import login as django_login
+from django.db import IntegrityError
 from django.http import HttpResponseRedirect
 from django.middleware.csrf import get_token
 from django.shortcuts import redirect
@@ -70,7 +71,7 @@ class UserRegistrationView(generics.CreateAPIView):
                 "message": "注册验证失败",
                 "validation_errors": e.detail
             }, status=e.status_code)
-        except Exception:
+        except IntegrityError:
             import traceback
             traceback.print_exc()
             error_data = {
