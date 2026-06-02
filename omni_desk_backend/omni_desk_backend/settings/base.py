@@ -74,7 +74,6 @@ INSTALLED_APPS = [
     'django_extensions',
     'communication',
     'news',
-    'sensors',
     'permissions.apps.PermissionsConfig',
     'ebooks.apps.EbooksConfig',
     'smart_assistant.apps.SmartAssistantConfig',

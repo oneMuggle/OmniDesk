@@ -23,11 +23,32 @@ __pycache__/
 .vscode/
 .roo/
 .trae/
+.sisyphus/
+.night-work/
+.opencode/
+.cospec/
 *.code-workspace
 
 # OS
 .DS_Store
 Thumbs.db
+
+# Python caches and test artifacts
+__pycache__/
+*.pyc
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+coverage.xml
+coverage/
+
+# Build outputs
+/omni_desk_frontend/build/
+
+# All db.sqlite3 files (anywhere in the project)
+**/db.sqlite3
 
 # Playwright MCP debug output
 .playwright-mcp/
