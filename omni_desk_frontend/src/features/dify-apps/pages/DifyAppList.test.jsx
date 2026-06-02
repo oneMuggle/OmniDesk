@@ -2,7 +2,6 @@ import React from 'react';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
-// eslint-disable-next-line jest/no-disabled-tests
 describe.skip('DifyAppList', () => {
   it('should render when imported', async () => {
     const { default: DifyAppList } = await import('./DifyAppList');

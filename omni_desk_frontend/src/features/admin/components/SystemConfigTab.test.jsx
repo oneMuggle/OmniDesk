@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 
 // Simple mock test for admin components that may have complex dependencies
-// eslint-disable-next-line jest/no-disabled-tests
 describe.skip('Admin Components', () => {
   it('AdminLayout should render navigation', async () => {
     const { default: AdminLayout } = await import('./AdminLayout');
