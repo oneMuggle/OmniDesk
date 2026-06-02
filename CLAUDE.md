@@ -167,6 +167,36 @@ Each plan must include:
 - Documentation-only updates
 - Dependency version bumps (non-breaking)
 
+### Document Organization
+
+**技术手册和用户手册必须采用"总览(README.md)+分章节"结构组织。**
+
+#### 技术手册 (`docs/technical/`)
+
+- 面向开发者，包含架构、API、部署、各功能模块实现细节
+- `README.md` 为总览，包含章节目录（表格形式，编号+链接+一句话简介）
+- 每个章节独立成文，文件名格式 `XX-topic-name.md`（如 `01-architecture-overview.md`）
+- 进行中的设计文档也放在此目录，文件名保持一致格式
+
+#### 用户手册 (`docs/user-manual/`)
+
+- 面向最终用户，仅包含功能说明和操作步骤
+- `README.md` 为总览，包含章节目录
+- 每个章节独立成文，文件名格式 `XX-topic-name.md`
+
+#### plans 目录 (`docs/plans/`)
+
+- **仅保留进行中/未完成的计划文档**
+- 功能实现后，将功能点并入技术手册/用户手册对应章节
+- 并入后**直接删除**计划文件，不归档、不保留历史版本
+
+#### 通用规则
+
+- 过时文档立即删除，不得保留历史版本
+- 总览文件必须包含章节目录和各章节一句话简介
+- 新增功能模块时同步创建对应章节文档
+- 参考：`docs/technical/README.md` 和 `docs/user-manual/README.md`
+
 ### Archive Completed Plans
 When a feature is fully implemented, move its plan from `docs/plans/` to `docs/technical/` or keep in `docs/plans/` with all steps checked.
 
