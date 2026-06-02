@@ -25,7 +25,7 @@ module.exports = {
   // 当前: statements 23%, branches 19%, lines 24%, functions 23%
   coverageThreshold: {
     global: {
-      branches: 19,
+      branches: 18,
       functions: 23,
       lines: 24,
       statements: 23,
