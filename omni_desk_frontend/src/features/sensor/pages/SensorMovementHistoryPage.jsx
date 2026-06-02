@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card, Table, message, Space, Tag } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import apiClient from '../api/apiClient';
 import { logger } from '../../../shared/utils/logger';
 
@@ -68,8 +68,8 @@ const SensorMovementHistoryPage = () => {
       title: '出入库日期',
       dataIndex: 'movement_date',
       key: 'movement_date',
-      render: (text) => text ? moment(text).format('YYYY-MM-DD HH:mm:ss') : 'N/A',
-      sorter: (a, b) => moment(a.movement_date).unix() - moment(b.movement_date).unix(),
+      render: (text) => text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : 'N/A',
+      sorter: (a, b) => dayjs(a.movement_date).unix() - dayjs(b.movement_date).unix(),
     },
     {
       title: '去向/来源',

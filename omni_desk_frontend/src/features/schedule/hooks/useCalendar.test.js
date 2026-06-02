@@ -1,12 +1,6 @@
 import { renderHook, act } from '@testing-library/react';
 import { useCalendar } from './useCalendar';
 
-jest.mock('moment', () => {
-  const mockMoment = () => ({ format: () => '2024-01-01' });
-  mockMoment.isMoment = () => true;
-  return mockMoment;
-});
-
 describe('useCalendar', () => {
   it('should initialize with default date', () => {
     const { result } = renderHook(() => useCalendar());

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, message, Spin, Card, Descriptions, Tag, Divider } from 'antd';
 import { getCalibrationRecords, deleteCalibrationRecord } from '../api/sensorApi';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { logger } from '../../../shared/utils/logger';
 
 const SensorCalibrationHistoryPage = () => {
@@ -71,7 +71,7 @@ const SensorCalibrationHistoryPage = () => {
       title: '校准日期',
       dataIndex: 'calibration_date',
       key: 'calibration_date',
-      render: (text) => moment(text).format('YYYY-MM-DD'),
+      render: (text) => dayjs(text).format('YYYY-MM-DD'),
     },
     {
       title: '校准仪器',
@@ -128,7 +128,7 @@ const SensorCalibrationHistoryPage = () => {
           ]}
         >
           <Descriptions title="基本信息" bordered column={2} size="small">
-            <Descriptions.Item label="校准日期">{moment(selectedRecord.calibration_date).format('YYYY-MM-DD')}</Descriptions.Item>
+            <Descriptions.Item label="校准日期">{dayjs(selectedRecord.calibration_date).format('YYYY-MM-DD')}</Descriptions.Item>
             <Descriptions.Item label="校准仪器">{selectedRecord.calibration_instrument || '无'}</Descriptions.Item>
             <Descriptions.Item label="校准人">{selectedRecord.calibrated_by_username || selectedRecord.calibrated_by || '无'}</Descriptions.Item>
             <Descriptions.Item label="审核人">{selectedRecord.reviewed_by_username || selectedRecord.reviewed_by || '无'}</Descriptions.Item>

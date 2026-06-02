@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, message, Popconfirm, Spin } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { holidayApi } from '../api/holidayApi';
 
 const HolidayManagementPage = () => {
@@ -36,7 +36,7 @@ const HolidayManagementPage = () => {
     setCurrentHoliday(holiday);
     form.setFieldsValue({
       name: holiday.name,
-      dateRange: [moment(holiday.start_date), moment(holiday.end_date)],
+      dateRange: [dayjs(holiday.start_date), dayjs(holiday.end_date)],
     });
     setIsModalVisible(true);
   };

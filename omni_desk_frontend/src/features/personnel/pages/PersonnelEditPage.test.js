@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, act } from '../../../test-utils';
 import userEvent from '@testing-library/user-event';
 import { message, Form } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import PersonnelEditPage from './PersonnelEditPage';
 import * as personnelApi from '../api/personnelApi';
 
@@ -73,9 +73,9 @@ const setupTest = async (initialData = mockPersonnelDetail) => {
             formInstance.setFieldsValue({
                 ...initialData,
                 position: initialData.position ? initialData.position.id : null,
-                date_of_birth: initialData.date_of_birth ? moment(initialData.date_of_birth) : null,
-                hire_date: initialData.hire_date ? moment(initialData.hire_date) : null,
-                contracts: initialData.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
+                date_of_birth: initialData.date_of_birth ? dayjs(initialData.date_of_birth) : null,
+                hire_date: initialData.hire_date ? dayjs(initialData.hire_date) : null,
+                contracts: initialData.contracts?.map(c => ({ ...c, start_date: dayjs(c.start_date), end_date: dayjs(c.end_date) })) || [],
             });
         }
     });
@@ -141,8 +141,8 @@ describe('PersonnelEditPage', () => {
             const newContracts = [...currentValues.contracts];
             newContracts[1] = {
                 ...newContracts[1],
-                start_date: moment('2024-01-01'),
-                end_date: moment('2025-01-01'),
+                start_date: dayjs('2024-01-01'),
+                end_date: dayjs('2025-01-01'),
                 contract_type: 'permanent', // Also set the type
             };
             form.setFieldsValue({ contracts: newContracts });

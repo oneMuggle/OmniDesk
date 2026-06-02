@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData';
 import { useScheduleEventDrop } from '../hooks/useScheduleEventDrop';
@@ -23,7 +23,7 @@ const ShiftScheduleContainer = () => {
   const [calendarViewInfo, setCalendarViewInfo] = useState(null);
 
   const dateRange = calendarViewInfo
-    ? { start: moment(calendarViewInfo.start).format('YYYY-MM-DD'), end: moment(calendarViewInfo.end).format('YYYY-MM-DD') }
+    ? { start: dayjs(calendarViewInfo.start).format('YYYY-MM-DD'), end: dayjs(calendarViewInfo.end).format('YYYY-MM-DD') }
     : null;
 
   const {

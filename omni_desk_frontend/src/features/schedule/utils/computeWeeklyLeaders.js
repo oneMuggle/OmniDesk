@@ -1,4 +1,4 @@
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 /**
  * 从排班数据中按周提取值班领导信息。
@@ -11,12 +11,12 @@ export const computeWeeklyLeaders = (schedules, calendarViewInfo) => {
     return [];
   }
 
-  const start = moment(calendarViewInfo.start);
-  const end = moment(calendarViewInfo.end);
+  const start = dayjs(calendarViewInfo.start);
+  const end = dayjs(calendarViewInfo.end);
   const leadersByWeek = {};
 
   schedules.forEach(schedule => {
-    const scheduleDate = moment(schedule.duty_date);
+    const scheduleDate = dayjs(schedule.duty_date);
     if (scheduleDate.isBetween(start, end, 'day', '[]')) {
       const week = scheduleDate.week();
       if (!leadersByWeek[week]) {

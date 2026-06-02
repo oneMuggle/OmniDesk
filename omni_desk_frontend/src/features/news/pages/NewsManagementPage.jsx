@@ -24,7 +24,7 @@ import {
   deleteNewsType,
 } from '../api/newsApi';
 import userManagementApi from '../../user/api/userManagementApi';
-import moment from 'moment';
+import dayjs from 'dayjs';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -74,7 +74,7 @@ const NewsManagementPage = () => {
     setEditingArticle(record);
     form.setFieldsValue({
       ...record,
-      publication_date: moment(record.publication_date),
+      publication_date: dayjs(record.publication_date),
       personnel_id: record.personnel.id,
       news_type_id: record.news_type.id,
     });

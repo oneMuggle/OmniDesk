@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Form, Input, Button, message, Select, DatePicker, Card, Row, Col, Space, Spin } from 'antd';
 import { PlusOutlined, MinusCircleOutlined, ArrowLeftOutlined } from '@ant-design/icons';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { getPersonnelDetails, updatePersonnel, getAllPositions } from '../api/personnelApi';
 import { logger } from '../../../shared/utils/logger';
 import {
@@ -53,11 +53,11 @@ const PersonnelEditPage = ({ form: providedForm }) => {
             form.setFieldsValue({
                 ...initialData,
                 position: initialData.position ? initialData.position.id : null,
-                date_of_birth: initialData.date_of_birth ? moment(initialData.date_of_birth) : null,
-                hire_date: initialData.hire_date ? moment(initialData.hire_date) : null,
-                contracts: initialData.contracts?.map(c => ({ ...c, start_date: moment(c.start_date), end_date: moment(c.end_date) })) || [],
-                educations: initialData.educations?.map(e => ({ ...e, start_date: moment(e.start_date), end_date: moment(e.end_date) })) || [],
-                work_experiences: initialData.work_experiences?.map(w => ({ ...w, start_date: moment(w.start_date), end_date: moment(w.end_date) })) || [],
+                date_of_birth: initialData.date_of_birth ? dayjs(initialData.date_of_birth) : null,
+                hire_date: initialData.hire_date ? dayjs(initialData.hire_date) : null,
+                contracts: initialData.contracts?.map(c => ({ ...c, start_date: dayjs(c.start_date), end_date: dayjs(c.end_date) })) || [],
+                educations: initialData.educations?.map(e => ({ ...e, start_date: dayjs(e.start_date), end_date: dayjs(e.end_date) })) || [],
+                work_experiences: initialData.work_experiences?.map(w => ({ ...w, start_date: dayjs(w.start_date), end_date: dayjs(w.end_date) })) || [],
                 professional_qualifications: initialData.professional_qualifications || [],
                 public_housing_info: initialData.public_housing_info || [],
                 bank_accounts: initialData.bank_accounts || [],

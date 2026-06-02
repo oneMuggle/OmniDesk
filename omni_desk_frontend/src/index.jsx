@@ -6,6 +6,8 @@ import ReactDOM from 'react-dom/client';
 // 第三方库导入
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
+import weekOfYear from 'dayjs/plugin/weekOfYear';
+import isBetween from 'dayjs/plugin/isBetween';
 // import timezone from 'dayjs/plugin/timezone'; // 禁用时区插件，用于排查问题
 import 'dayjs/locale/zh-cn'; // 导入中文语言包
 import { RouterProvider } from 'react-router-dom';
@@ -31,6 +33,8 @@ import { ApiProvider } from './shared/context/ApiProvider';
 
 // dayjs 全局配置
 dayjs.extend(utc);
+dayjs.extend(weekOfYear);
+dayjs.extend(isBetween);
 // dayjs.extend(timezone); // 禁用时区插件，用于排查问题
 dayjs.locale('zh-cn'); // 设置全局语言为中文
 // dayjs.tz.setDefault('Asia/Shanghai'); // 禁用时区设置，用于排查问题

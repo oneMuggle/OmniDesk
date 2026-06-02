@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Draggable } from '@hello-pangea/dnd';
 import { Card, List } from 'antd';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import StrictModeDroppable from './StrictModeDroppable';
 import '../../../shared/components/styles/ScheduleSidebar.css';
 
@@ -18,7 +18,7 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
       const weekElements = calendarEl.querySelectorAll('.fc-daygrid-week');
       const newHeights = {};
       weekElements.forEach((weekEl) => {
-        const weekNumber = moment(weekEl.dataset.date).week();
+        const weekNumber = dayjs(weekEl.dataset.date).week();
         newHeights[weekNumber] = weekEl.offsetHeight;
       });
       setWeekRowHeights(newHeights);
@@ -40,7 +40,7 @@ const MonthlyLeaderSidebar = ({ weeklyLeaders, calendarRef, isDragDisabled = fal
             <List
               dataSource={weeklyLeaders}
               renderItem={(week, index) => {
-                const weekNumber = moment(week.start).week();
+                const weekNumber = dayjs(week.start).week();
                 const height = weekRowHeights[weekNumber] ? `${weekRowHeights[weekNumber]}px` : 'auto';
                 return (
                   <Draggable key={week.id} draggableId={String(week.id)} index={index} isDragDisabled={isDragDisabled}>

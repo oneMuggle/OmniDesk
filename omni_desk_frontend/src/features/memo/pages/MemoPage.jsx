@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Layout, Row, Col, Button, Spin, Typography, Space, Card, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import { logger } from '../../shared/utils/logger';
 import { useMemoData } from '../hooks/useMemoData';
 import { useCalendar } from '../../schedule/hooks/useCalendar';
@@ -27,7 +27,7 @@ const MemoPage = () => {
         logger.debug(`Memo ID: ${memo.id} - reminder_time is null, skipping.`);
         return false;
       }
-      const reminderDateString = moment(memo.reminder_time).format('YYYY-MM-DD');
+      const reminderDateString = dayjs(memo.reminder_time).format('YYYY-MM-DD');
       const selectedDateString = selectedDate.format('YYYY-MM-DD');
       const isSameDay = reminderDateString === selectedDateString;
       logger.debug(`Memo ID: ${memo.id}, Reminder Time: ${memo.reminder_time}, Selected Date: ${selectedDate.format()}, Is Same Day: ${isSameDay}`);
@@ -48,8 +48,8 @@ const MemoPage = () => {
     if (Notification.permission === 'granted') {
       (memos || []).forEach(memo => {
         if (memo.reminder_time && !memo.is_completed) {
-          const reminderMoment = moment(memo.reminder_time);
-          const now = moment();
+          const reminderMoment = dayjs(memo.reminder_time);
+          const now = dayjs();
           if (reminderMoment.isBetween(now.clone().subtract(1, 'minutes'), now.clone().add(5, 'minutes'))) {
             new Notification('备忘录提醒', {
               body: `${memo.title}\n${memo.content}`,

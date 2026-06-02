@@ -8,7 +8,7 @@ import { getPositions } from '../../personnel/api/personnelApi';
 import axiosInstance from '../../../shared/api/axiosConfig';
 import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
 import '../../../shared/components/styles/Schedule.css';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import interactionPlugin from '@fullcalendar/interaction';
@@ -539,7 +539,7 @@ const ScheduleManagementPage = () => {
   const handleEdit = (record) => {
     const initialValues = {
       id: record.id,
-      date: record.duty_date ? moment(record.duty_date) : null,
+      date: record.duty_date ? dayjs(record.duty_date) : null,
       duty_person: record.duty_person?.id,
       duty_leader: record.duty_leader?.id,
       person_position_filter: record.duty_person?.position?.id,
@@ -585,9 +585,9 @@ const ScheduleManagementPage = () => {
 
   const handleEventDrop = (info) => {
     const { event: draggedEvent, revert } = info;
-    const newDate = moment(draggedEvent.start).format('YYYY-MM-DD');
+    const newDate = dayjs(draggedEvent.start).format('YYYY-MM-DD');
     const targetEvent = schedules.find(s =>
-      moment(s.duty_date).format('YYYY-MM-DD') === newDate && String(s.id) !== draggedEvent.id
+      dayjs(s.duty_date).format('YYYY-MM-DD') === newDate && String(s.id) !== draggedEvent.id
     );
     const draggedId = parseInt(draggedEvent.id, 10);
 
@@ -682,10 +682,10 @@ const ScheduleManagementPage = () => {
     if (!isCalendarFilterEnabled || !calendarViewInfo) {
       return schedules;
     }
-    const viewStart = moment(calendarViewInfo.start).startOf('day');
-    const viewEnd = moment(calendarViewInfo.end).endOf('day');
+    const viewStart = dayjs(calendarViewInfo.start).startOf('day');
+    const viewEnd = dayjs(calendarViewInfo.end).endOf('day');
     return schedules.filter(schedule => {
-      const dutyDate = moment(schedule.duty_date);
+      const dutyDate = dayjs(schedule.duty_date);
       return dutyDate.isBetween(viewStart, viewEnd, null, '[]');
     });
   }, [schedules, isCalendarFilterEnabled, calendarViewInfo]);
@@ -747,7 +747,7 @@ const ScheduleManagementPage = () => {
       title: '值班日期',
       dataIndex: 'duty_date',
       key: 'duty_date',
-      sorter: (a, b) => moment(a.duty_date).unix() - moment(b.duty_date).unix(),
+      sorter: (a, b) => dayjs(a.duty_date).unix() - dayjs(b.duty_date).unix(),
       sortOrder: 'ascend',
     },
     {

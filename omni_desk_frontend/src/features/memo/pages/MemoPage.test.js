@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter as Router } from 'react-router-dom';
-import moment from 'moment';
+import dayjs from 'dayjs';
 import MemoPage from './MemoPage';
 import { useMemoData } from '../hooks/useMemoData';
 import { useCalendar } from '../../schedule/hooks/useCalendar';
@@ -37,8 +37,8 @@ describe('MemoPage Component', () => {
 
   beforeEach(() => {
     user = userEvent.setup();
-    const today = moment(MOCK_DATE_NOW);
-    const tomorrow = moment(MOCK_DATE_NOW).add(1, 'day');
+    const today = dayjs(MOCK_DATE_NOW);
+    const tomorrow = dayjs(MOCK_DATE_NOW).add(1, 'day');
     mockMemos = [
       { id: 1, title: 'Test Memo 1', content: 'Content 1', reminder_time: today.toISOString(), is_completed: false },
       { id: 2, title: 'Test Memo 2', content: 'Content 2', reminder_time: tomorrow.toISOString(), is_completed: true },
@@ -53,7 +53,7 @@ describe('MemoPage Component', () => {
     };
 
     mockUseCalendar = {
-      selectedDate: moment(MOCK_DATE_NOW),
+      selectedDate: dayjs(MOCK_DATE_NOW),
       handleSelectDate: jest.fn(),
     };
 
@@ -132,7 +132,7 @@ describe('MemoPage Component', () => {
     expect(within(selectedDateCard1).getByText('Test Memo 1')).toBeInTheDocument();
     expect(within(selectedDateCard1).queryByText('Test Memo 2')).not.toBeInTheDocument();
 
-    const nextDay = moment(MOCK_DATE_NOW).add(1, 'day');
+    const nextDay = dayjs(MOCK_DATE_NOW).add(1, 'day');
     
     useCalendar.mockReturnValue({
       ...mockUseCalendar,
