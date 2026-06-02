@@ -68,7 +68,7 @@ const SequenceForm = ({
       onCancel={onCancel}
       onOk={() => {
        handleSave().catch(info => {
-         console.log('Validate Failed:', info);
+         logger.debug('Validate Failed:', info);
        });
      }}
       width={1000}
