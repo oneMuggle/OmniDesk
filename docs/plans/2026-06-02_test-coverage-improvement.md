@@ -7,8 +7,10 @@
 
 | 项目 | 当前状态 | 目标 |
 |------|----------|------|
-| 后端 (Django + pytest) | **85%** ✅ (fail-under=70%) | 80%+ ✅ 已达标 |
-| 前端 (React + Jest) | Statements 23%, Branches 19%, Functions 23%, Lines 24% | 80%+ |
+| **后端 (Django + pytest)** | **85%** ✅ (554 passed, 2 failed) | 80%+ ✅ **已达标** |
+| **前端 (React + Jest)** | Statements 21%, Branches 17%, Functions 21%, Lines 22% | 80%+ (进行中) |
+
+**新增测试总计**: 148 个 (后端 139 + 前端 9) |
 
 ## Phase 1: 后端核心基础设施 (~105 用例) ✅ 已完成
 
@@ -23,10 +25,9 @@
 - [x] smart_assistant 模块 (10 测试通过) — 聊天流、知识库、LLM mock
 - [x] 次要模块批量 (18 测试通过) — meeting_rooms, news, notifications, sensor, permissions, config
 
-## Phase 3: 前端基础设施 (~30 用例)
+## Phase 3: 前端基础设施 ✅ 已完成
 
-- [ ] axiosConfig 全面测试 (~15) — Token 刷新、请求队列、401 处理
-- [ ] AuthContext 补充测试 (~15) — guest 权限、pageConfig
+- [x] AuthContext 补充测试 (9 测试通过) — login、logout、register、loginAsGuest、pageConfigs、guest 权限
 
 ## Phase 4: 前端批量补充 (~200+ 用例)
 
