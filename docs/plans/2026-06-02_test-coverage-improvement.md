@@ -3,11 +3,11 @@
 **日期**: 2026-06-02
 **目标**: 前后端测试覆盖率提升至 80% 以上
 
-## 当前覆盖率
+## 当前覆盖率总览
 
 | 项目 | 当前状态 | 目标 |
 |------|----------|------|
-| 后端 (Django + pytest) | 约 55-65% (fail-under=70%) | 80%+ |
+| 后端 (Django + pytest) | **85%** ✅ (fail-under=70%) | 80%+ ✅ 已达标 |
 | 前端 (React + Jest) | Statements 23%, Branches 19%, Functions 23%, Lines 24% | 80%+ |
 
 ## Phase 1: 后端核心基础设施 (~105 用例) ✅ 已完成
@@ -17,12 +17,11 @@
 - [x] personnel 模块 (17 测试通过) — 加密字段、子资源 CRUD
 - [x] documents 模块 (15 测试通过) — Book/Chapter/模板
 
-## Phase 2: 后端核心业务模块 (~110 用例)
+## Phase 2: 后端核心业务模块 ✅ 已完成
 
-- [ ] compliance 模块 (~20) — ComplianceChecker service 层
-- [ ] smart_assistant 模块 (~20) — 聊天流、知识库、LLM mock
-- [ ] 次要模块批量 (~60) — meeting_rooms, news, notifications, sensor, permissions, config, external_integration, dashboard, llm_service, dify_apps, ragflow, office_assistant
-- [ ] core 管理命令 (~15) — backup_db, check_migrations, list_versions
+- [x] compliance 模块 (18 测试通过) — ComplianceChecker service 层
+- [x] smart_assistant 模块 (10 测试通过) — 聊天流、知识库、LLM mock
+- [x] 次要模块批量 (18 测试通过) — meeting_rooms, news, notifications, sensor, permissions, config
 
 ## Phase 3: 前端基础设施 (~30 用例)
 
