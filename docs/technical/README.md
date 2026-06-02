@@ -29,7 +29,7 @@
 | 14 | [项目与合规](14-project-compliance.md) | 项目管理、合规追踪模块 |
 | 15 | [用户交流模块](15-communication-module.md) | ⚠️ 前端未实现，仅后端 API |
 | 16 | [智能助手系统](16-smart-assistant.md) | 智能助手系统架构与实现 |
-| 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 🔄 进行中 |
+| 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 多轮对话、工具链、模型降级、成本监控 |
 | 18 | [外部集成架构](18-external-integration.md) | 🔄 进行中 |
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
 
