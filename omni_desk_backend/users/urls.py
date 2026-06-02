@@ -7,6 +7,7 @@ from .views import (
     UserAdminListView,
     UserPersonnelViewSet,
     UserProfileUpdateView,
+    django_admin_login,
 )
 
 app_name = 'users'  # 定义应用命名空间
@@ -17,6 +18,7 @@ urlpatterns = [
     path('me/', CurrentUserView.as_view(), name='current-user'),
     path('control-panel/', UserAdminListView.as_view(), name='user-admin-list'),
     path('control-panel/<int:id>/', UserAdminDetailView.as_view(), name='user-admin-detail'),
+    path('django-admin-login/', django_admin_login, name='django-admin-login'),
 
     # 为 UserPersonnelViewSet 显式定义 URL
     path('', UserPersonnelViewSet.as_view({'get': 'list'}), name='user-personnel-list'),

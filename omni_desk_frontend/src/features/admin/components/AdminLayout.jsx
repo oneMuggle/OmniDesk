@@ -41,8 +41,6 @@ const allAdminMenuItems = [
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];
 
-const DJANGO_ADMIN_URL = '/admin/';
-
 const AdminLayout = () => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [openSubmenu, setOpenSubmenu] = useState(null);
@@ -57,6 +55,16 @@ const AdminLayout = () => {
     }
     return [];
   }, [isAuthenticated, user, hasPermission]);
+
+  const handleDjangoAdminClick = () => {
+    const tokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
+    const accessToken = tokens.access;
+    if (accessToken) {
+      window.location.href = `/api/users/django-admin-login/?token=${encodeURIComponent(accessToken)}`;
+    } else {
+      window.location.href = '/admin/';
+    }
+  };
 
 
   return (
@@ -124,17 +132,15 @@ const AdminLayout = () => {
               );
             })}
             <li>
-              <a
-                href={DJANGO_ADMIN_URL}
+              <button
+                onClick={handleDjangoAdminClick}
                 className="menu-item"
-                target="_blank"
-                rel="noopener noreferrer"
               >
                 <div className="menu-item-content">
                   <LinkOutlined className="icon" />
                   {!isCollapsed && <span>Django 后台</span>}
                 </div>
-              </a>
+              </button>
             </li>
             <li>
               <Link to="/" className="menu-item">

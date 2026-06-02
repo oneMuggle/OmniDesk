@@ -1,10 +1,17 @@
+from django.contrib.auth import login as django_login
+from django.http import HttpResponseRedirect
+from django.middleware.csrf import get_token
+from django.shortcuts import redirect
 from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
 from django_filters.rest_framework import DjangoFilterBackend
 from django_ratelimit.decorators import ratelimit
 from rest_framework import exceptions, generics, permissions, status, viewsets
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
-from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.authentication import JWTAuthentication
+from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
 from personnel.models import Personnel, Position
@@ -238,3 +245,54 @@ class GuestLoginView(generics.CreateAPIView):
     def perform_create(self):
         serializer = self.get_serializer()
         return serializer.create({})
+
+
+@csrf_exempt
+@api_view(['GET'])
+def django_admin_login(request):
+    """
+    JWT → Session 转换端点。
+    接受 token 查询参数，验证 JWT 后建立 Django session，
+    然后重定向到 /admin/。
+
+    使用 @csrf_exempt 因为此端点通过 URL 参数认证而非 session。
+    """
+    from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
+
+    token_str = request.GET.get('token')
+    if not token_str:
+        return Response(
+            {"detail": "缺少 token 参数"},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        # 验证 JWT token
+        token = AccessToken(token_str)
+        user_id = token['user_id']
+        user = CustomUser.objects.get(id=user_id)
+    except (TokenError, InvalidToken):
+        return Response(
+            {"detail": "无效的 token"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+    except CustomUser.DoesNotExist:
+        return Response(
+            {"detail": "用户不存在"},
+            status=status.HTTP_401_UNAUTHORIZED
+        )
+
+    if not (user.is_staff or user.is_superuser):
+        return Response(
+            {"detail": "需要管理员权限才能访问 Django 后台"},
+            status=status.HTTP_403_FORBIDDEN
+        )
+
+    # 建立 Django session
+    django_login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+
+    # 获取 CSRF token 供 Django admin 后续使用
+    csrf_token = get_token(request)
+
+    # 重定向到 Django admin
+    return HttpResponseRedirect('/admin/')
