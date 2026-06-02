@@ -238,3 +238,138 @@
   color: #999;
   padding: 2px 0;
 }
+
+/* Markdown 渲染 */
+.message-markdown {
+  position: relative;
+}
+
+.message-markdown .markdown-actions {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.message-markdown:hover .markdown-actions {
+  opacity: 1;
+}
+
+.message-markdown .copy-btn {
+  font-size: 12px;
+  padding: 2px 6px;
+  height: auto;
+}
+
+/* Markdown 内容样式 */
+.message-markdown p {
+  margin: 0 0 8px 0;
+}
+
+.message-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+.message-markdown ul,
+.message-markdown ol {
+  margin: 4px 0;
+  padding-left: 20px;
+}
+
+.message-markdown li {
+  margin: 2px 0;
+}
+
+.message-markdown code {
+  background: #f5f5f5;
+  padding: 2px 4px;
+  border-radius: 3px;
+  font-size: 0.9em;
+}
+
+.message-markdown pre {
+  background: #f5f5f5;
+  padding: 12px;
+  border-radius: 6px;
+  overflow-x: auto;
+  margin: 8px 0;
+}
+
+.message-markdown pre code {
+  background: none;
+  padding: 0;
+}
+
+.message-markdown table {
+  border-collapse: collapse;
+  margin: 8px 0;
+  width: 100%;
+}
+
+.message-markdown th,
+.message-markdown td {
+  border: 1px solid #e8e8e8;
+  padding: 6px 12px;
+  text-align: left;
+}
+
+.message-markdown th {
+  background: #fafafa;
+  font-weight: 600;
+}
+
+.message-markdown blockquote {
+  border-left: 3px solid #1890ff;
+  padding-left: 12px;
+  color: #666;
+  margin: 8px 0;
+}
+
+/* 用户消息文本 */
+.user-message-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+/* 消息操作栏 */
+.message-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 4px;
+  padding: 4px 0;
+}
+
+.action-btn {
+  font-size: 14px;
+  padding: 2px 6px;
+  height: auto;
+  color: #999;
+}
+
+.action-btn:hover {
+  color: #1890ff;
+}
+
+.action-btn.active {
+  color: #1890ff;
+}
+
+/* 重新生成按钮 */
+.message-retry {
+  margin-top: 4px;
+}
+
+.message-retry button {
+  font-size: 12px;
+  color: #666;
+}
+
+.message-retry button:hover {
+  color: #1890ff;
+}
+
+/* ToolResult 卡片间距 */
+.tool-result-card {
+  margin-top: 8px;
+}
