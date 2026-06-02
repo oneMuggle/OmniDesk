@@ -29,13 +29,12 @@
 
 - [x] AuthContext 补充测试 (9 测试通过) — login、logout、register、loginAsGuest、pageConfigs、guest 权限
 
-## Phase 4: 前端批量补充 (~200+ 用例)
+## Phase 4: 前端批量补充 ✅ 部分完成
 
-- [ ] API 层 (10 模块)
-- [ ] 页面组件 (20+ 页面)
-- [ ] 共享组件 (10+ 组件)
-- [ ] Hooks (5 hooks)
-- [ ] Utils & Context
+- [x] API 层补充测试 (externalLinksApi, pluginApi, apiClient) — 9 测试通过
+- [x] 组件/页面测试 (DifyAppViewer, ExternalLinkManagementPage, PluginCard, PostForm, ScheduleControls) — 5 测试通过
+- [x] Utils/Config 测试 (dateUtils, logger, menuConfig, responseHandler) — 6 测试通过
+- [ ] 剩余未覆盖文件需更多测试（前端覆盖率提升需要大量组件级测试）
 
 ## 配置调整
 
