@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { Layout, Row, Col, Button, Spin, Typography, Space, Card, message } from 'antd';
 import { PlusOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
-import { logger } from '../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger';
 import { useMemoData } from '../hooks/useMemoData';
 import { useCalendar } from '../../schedule/hooks/useCalendar';
 import MiniCalendar from '../components/MiniCalendar';

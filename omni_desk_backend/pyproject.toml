@@ -54,10 +54,17 @@ ignore = [
     "RUF015",
     # Replace yield over for loop with yield from — minor
     "UP028",
+    # Unused unpacked variables (update_or_create returns)
+    "RUF059",
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "omni_desk_backend/settings/*.py" = ["F403", "F405", "E402"]
+# Re-export modules — imports are for public API, not internal use
+"users/serializers.py" = ["F401"]
+"users/user_serializers.py" = ["F401"]
+"events/views.py" = ["F401"]
+"events/serializers.py" = ["F401"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["omni_desk_backend"]
