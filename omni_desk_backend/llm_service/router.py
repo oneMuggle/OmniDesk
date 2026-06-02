@@ -1,5 +1,4 @@
 import logging
-import os
 
 import requests
 
@@ -9,30 +8,37 @@ logger = logging.getLogger(__name__)
 class LLMRouter:
     """多端点 LLM 路由器：按优先级尝试端点，自动降级。
 
-    降级链路：数据库活跃端点 → 环境变量端点 → Ollama 本地
+    降级链路：数据库 LlmAppConfig（按 priority 排序）→ Ollama 本地。
+    不再依赖环境变量。
     """
 
     OLLAMA_BASE = 'http://localhost:11434'
-    OLLAMA_MODEL = os.environ.get('SMART_ASSISTANT_OLLAMA_MODEL', 'qwen2.5:7b')
+    OLLAMA_MODEL = 'qwen2.5:7b'
     REQUEST_TIMEOUT = 120
 
     def __init__(self):
-        self._endpoints = []
-        self._load_endpoints()
+        self._configs = []
+        self._load_configs()
 
-    def _load_endpoints(self):
-        """从数据库加载所有活跃端点，按 created_at 降序（最新的优先）。"""
+    def _load_configs(self):
+        """从数据库加载所有活跃的 LlmAppConfig，按 priority 升序。"""
         try:
-            from smart_assistant.models import LlmEndpoint
-            self._endpoints = list(
-                LlmEndpoint.objects.filter(is_active=True).order_by('-created_at')
+            from smart_assistant.models import LlmAppConfig
+            self._configs = list(
+                LlmAppConfig.objects.select_related('endpoint').filter(
+                    is_active=True,
+                    app_name='smart_assistant',
+                ).order_by('endpoint__priority', 'endpoint__is_fallback')
             )
         except Exception as e:
-            logger.warning('无法从数据库加载 LLM 端点: %s', e)
-            self._endpoints = []
+            logger.warning('无法从数据库加载 LLM 应用配置: %s', e)
+            self._configs = []
 
     def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
         """生成回答，自动在多个端点间降级。
+
+        降级链路：数据库 LlmAppConfig（按 priority 排序，is_fallback 兜底）
+        → Ollama 本地兜底。
 
         Args:
             prompt: 用户提示（与 messages 二选一）
@@ -51,32 +57,17 @@ class LLMRouter:
                 final_messages.append({'role': 'system', 'content': system_message})
             final_messages.append({'role': 'user', 'content': prompt})
 
-        # 构建降级链路
-        candidates = list(self._endpoints)
-
-        # 环境变量端点
-        env_url = os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT')
-        env_key = os.environ.get('SMART_ASSISTANT_LLM_API_KEY', '')
-        env_model = os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
-        if env_url:
-            candidates.append({
-                'api_endpoint': env_url,
-                'api_key': env_key,
-                'model_name': env_model,
-                '_is_env': True,
-            })
+        # 构建降级链路：按 LlmAppConfig 顺序（主端点 → 备用端点）
+        candidates = list(self._configs)
 
         # Ollama 本地兜底
         candidates.append({
-            'api_endpoint': self.OLLAMA_BASE,
-            'api_key': '',
-            'model_name': self.OLLAMA_MODEL,
             '_is_ollama': True,
         })
 
         data = {
             'model': None,
-            'messages': messages,
+            'messages': final_messages,
             'stream': stream,
         }
         if options:
@@ -85,30 +76,20 @@ class LLMRouter:
         last_error = None
         for i, candidate in enumerate(candidates):
             is_ollama = candidate.get('_is_ollama', False)
-            is_env = candidate.get('_is_env', False)
 
             if is_ollama:
-                base_url = candidate['api_endpoint']
+                base_url = self.OLLAMA_BASE
                 api_key = ''
-                model_name = candidate['model_name']
+                model_name = self.OLLAMA_MODEL
                 label = f'Ollama ({model_name})'
-            elif is_env:
-                base_url = candidate['api_endpoint']
-                api_key = candidate['api_key']
-                model_name = candidate['model_name']
-                label = f'Env ({model_name})'
             else:
-                base_url = candidate.api_endpoint
-                api_key = candidate.api_key
-                try:
-                    from smart_assistant.models import LlmAppConfig
-                    config = LlmAppConfig.objects.select_related('endpoint').filter(
-                        endpoint=candidate, is_active=True
-                    ).first()
-                    model_name = config.model_name if config else 'gemini-2.5-pro'
-                except Exception:
-                    model_name = 'gemini-2.5-pro'
-                label = f'DB:{candidate.name} ({model_name})'
+                # LlmAppConfig 对象
+                config = candidate
+                endpoint = config.endpoint
+                base_url = endpoint.api_endpoint
+                api_key = endpoint.api_key
+                model_name = config.model_name
+                label = f'{endpoint.name} ({model_name})'
 
             data['model'] = model_name
             url = f"{base_url.rstrip('/')}/v1/chat/completions"
@@ -165,8 +146,8 @@ class LLMRouter:
                 continue
 
     def refresh(self):
-        """重新加载数据库端点配置。"""
-        self._load_endpoints()
+        """重新加载数据库 LlmAppConfig。"""
+        self._load_configs()
 
 
 # 单例

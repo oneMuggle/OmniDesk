@@ -110,7 +110,7 @@ const AiAppManagementPage = () => {
   const handleAddEndpoint = () => {
     setEditingEndpoint(null);
     endpointForm.resetFields();
-    endpointForm.setFieldsValue({ is_active: true });
+    endpointForm.setFieldsValue({ is_active: true, priority: 1, is_fallback: false });
     setEndpointModalVisible(true);
   };
 
@@ -120,6 +120,10 @@ const AiAppManagementPage = () => {
       name: record.name,
       api_endpoint: record.api_endpoint,
       is_active: record.is_active,
+      priority: record.priority || 1,
+      is_fallback: record.is_fallback || false,
+      model_capabilities: record.model_capabilities || [],
+      cost_per_1k_tokens: record.cost_per_1k_tokens,
     });
     setEndpointModalVisible(true);
   };
@@ -211,8 +215,16 @@ const AiAppManagementPage = () => {
     { title: '名称', dataIndex: 'name', key: 'name' },
     { title: 'API 端点', dataIndex: 'api_endpoint', key: 'api_endpoint' },
     {
+      title: '优先级', dataIndex: 'priority', key: 'priority',
+      render: (val) => val ?? 1,
+    },
+    {
       title: '状态', dataIndex: 'is_active', key: 'is_active',
       render: (text) => (text ? <Tag color="green">激活</Tag> : <Tag color="default">未激活</Tag>),
+    },
+    {
+      title: '备用', dataIndex: 'is_fallback', key: 'is_fallback',
+      render: (text) => (text ? <Tag color="orange">备用</Tag> : <span style={{ color: '#999' }}>—</span>),
     },
     {
       title: '操作', key: 'action',
@@ -519,8 +531,10 @@ const AiAppManagementPage = () => {
         open={endpointModalVisible}
         onCancel={() => { setEndpointModalVisible(false); setEditingEndpoint(null); endpointForm.resetFields(); }}
         footer={null}
+        width={520}
       >
-        <Form form={endpointForm} layout="vertical" onFinish={handleSaveEndpoint}>
+        <Form form={endpointForm} layout="vertical" onFinish={handleSaveEndpoint}
+          initialValues={{ is_active: true, priority: 1, is_fallback: false }}>
           <Form.Item label="配置名称" name="name" rules={[{ required: true, message: '请输入配置名称!' }]}>
             <Input placeholder="如：gcli网关" />
           </Form.Item>
@@ -533,8 +547,19 @@ const AiAppManagementPage = () => {
           <Form.Item label="API 密钥" name="api_key" rules={[{ required: !editingEndpoint, message: '请输入 API 密钥!' }]}>
             <Input.Password placeholder={editingEndpoint ? '留空则不修改' : ''} />
           </Form.Item>
+          <Form.Item label="优先级" name="priority"
+            tooltip="数字越小优先级越高，主端点设为 1，备用端点设为更大的数字">
+            <InputNumber min={1} max={100} style={{ width: '100%' }} />
+          </Form.Item>
           <Form.Item name="is_active" valuePropName="checked">
             <Checkbox>设为激活（同时只允许一个端点激活）</Checkbox>
+          </Form.Item>
+          <Form.Item name="is_fallback" valuePropName="checked">
+            <Checkbox>设为备用端点（主端点不可用时自动降级到此）</Checkbox>
+          </Form.Item>
+          <Form.Item label="每千 Token 费用（元）" name="cost_per_1k_tokens"
+            tooltip="用于成本核算，可选">
+            <InputNumber step={0.001} min={0} style={{ width: '100%' }} placeholder="如：0.01" />
           </Form.Item>
           <Form.Item>
             <Space>

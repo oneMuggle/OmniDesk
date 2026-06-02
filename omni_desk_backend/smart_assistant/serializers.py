@@ -56,16 +56,19 @@ class SmartChatResponseSerializer(serializers.Serializer):
 class LlmEndpointSerializer(serializers.ModelSerializer):
     class Meta:
         model = LlmEndpoint
-        fields = ['id', 'name', 'api_endpoint', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'api_endpoint', 'is_active', 'priority', 'is_fallback',
+                  'model_capabilities', 'cost_per_1k_tokens', 'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
         extra_kwargs = {'api_key': {'write_only': True}}
 
 
 class LlmEndpointCreateSerializer(serializers.ModelSerializer):
-    """创建/更新时包含 api_key"""
+    """创建/更新时包含 api_key 和降级相关字段"""
     class Meta:
         model = LlmEndpoint
-        fields = ['id', 'name', 'api_endpoint', 'api_key', 'is_active', 'created_at', 'updated_at']
+        fields = ['id', 'name', 'api_endpoint', 'api_key', 'is_active', 'priority',
+                  'is_fallback', 'model_capabilities', 'cost_per_1k_tokens',
+                  'created_at', 'updated_at']
         read_only_fields = ['created_at', 'updated_at']
 
 
