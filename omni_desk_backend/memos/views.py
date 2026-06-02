@@ -9,6 +9,7 @@ class MemoViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑用户备忘录的视图集。
     """
+
     serializer_class = MemoSerializer
     permission_classes = [IsAuthenticated]
 

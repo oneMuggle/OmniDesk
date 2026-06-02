@@ -23,7 +23,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         queryset = self.queryset.filter(owner=self.request.user)
-        project_id = self.request.query_params.get('project_id')
+        project_id = self.request.query_params.get("project_id")
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         return queryset
@@ -31,22 +31,22 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(owner=self.request.user)
 
-    @action(detail=False, methods=['post'], url_path='upload')
+    @action(detail=False, methods=["post"], url_path="upload")
     def upload_template(self, request):
-        file_obj = request.FILES.get('template')
+        file_obj = request.FILES.get("template")
         if not file_obj:
-            return Response({'error': 'No file uploaded'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No file uploaded"}, status=status.HTTP_400_BAD_REQUEST)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
                 extracted_text = process_uploaded_file(file_obj, temp_dir)
-                project_id = request.data.get('project')
+                project_id = request.data.get("project")
                 project_instance = None
                 if project_id:
                     try:
                         project_instance = Project.objects.get(id=project_id)
                     except Project.DoesNotExist:
-                        return Response({'error': 'Project not found'}, status=status.HTTP_404_NOT_FOUND)
+                        return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
                 template = DocumentTemplate.objects.create(
                     name=file_obj.name,
@@ -57,9 +57,9 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                 )
                 return Response(DocumentTemplateSerializer(template).data, status=status.HTTP_201_CREATED)
             except Exception as e:
-                return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+                return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
-    @action(detail=True, methods=['post'], url_path='analyze')
+    @action(detail=True, methods=["post"], url_path="analyze")
     def analyze_file(self, request, pk=None):
         try:
             document_template = self.get_object()
@@ -68,7 +68,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 
             if not project_instance:
                 return Response(
-                    {'error': 'Document not associated with a project. Cannot analyze compliance issues.'},
+                    {"error": "Document not associated with a project. Cannot analyze compliance issues."},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
@@ -99,33 +99,36 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 
             created_issues = []
             for issue_data in compliance_issues_data:
-                required_fields = ['issue_type', 'description', 'location', 'severity', 'suggested_fix']
+                required_fields = ["issue_type", "description", "location", "severity", "suggested_fix"]
                 if not all(field in issue_data and isinstance(issue_data[field], str) for field in required_fields):
                     continue
 
-                issue_type = issue_data.get('issue_type', '其他')
+                issue_type = issue_data.get("issue_type", "其他")
                 if issue_type not in [choice[0] for choice in ComplianceIssue.ISSUE_TYPES]:
-                    issue_type = '其他'
+                    issue_type = "其他"
 
-                severity = issue_data.get('severity', '中')
+                severity = issue_data.get("severity", "中")
                 if severity not in [choice[0] for choice in ComplianceIssue.SEVERITY_CHOICES]:
-                    severity = '中'
+                    severity = "中"
 
                 issue = ComplianceIssue.objects.create(
                     project=project_instance,
                     document_template=document_template,
                     issue_type=issue_type,
-                    description=issue_data['description'],
-                    location=issue_data['location'],
+                    description=issue_data["description"],
+                    location=issue_data["location"],
                     severity=severity,
                 )
                 created_issues.append(ComplianceIssueSerializer(issue).data)
 
             return Response(
-                {'message': f'Analysis complete. Found {len(created_issues)} compliance issues.', 'issues': created_issues},
+                {
+                    "message": f"Analysis complete. Found {len(created_issues)} compliance issues.",
+                    "issues": created_issues,
+                },
                 status=status.HTTP_200_OK,
             )
         except DocumentTemplate.DoesNotExist:
-            return Response({'error': 'DocumentTemplate not found'}, status=status.HTTP_404_NOT_FOUND)
+            return Response({"error": "DocumentTemplate not found"}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
-            return Response({'error': f'文件分析失败: {e}'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": f"文件分析失败: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

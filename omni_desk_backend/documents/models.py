@@ -11,32 +11,35 @@ class DocumentTemplate(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='document_templates_in_project',
-        verbose_name="所属项目"
+        related_name="document_templates_in_project",
+        verbose_name="所属项目",
     )
     TEMPLATE_TYPES = [
-        ('tech_design', '技术方案文档'),
-        ('test_case', '测试用例文档'),
-        ('meeting_minutes', '会议纪要'),
-        ('progress_report', '项目进度报告'),
+        ("tech_design", "技术方案文档"),
+        ("test_case", "测试用例文档"),
+        ("meeting_minutes", "会议纪要"),
+        ("progress_report", "项目进度报告"),
     ]
 
     name = models.CharField(max_length=200, verbose_name="模板名称")
     template_type = models.CharField(max_length=50, choices=TEMPLATE_TYPES, verbose_name="模板类型")
     content = models.TextField(verbose_name="模板内容")
-    extracted_text = models.TextField(blank=True, verbose_name="提取文本") # 新增字段
+    extracted_text = models.TextField(blank=True, verbose_name="提取文本")  # 新增字段
     variables = JSONField(default=dict, verbose_name="模板变量")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
-    owner = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="所属用户", related_name='document_templates')
+    owner = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, verbose_name="所属用户", related_name="document_templates"
+    )
 
     class Meta:
         verbose_name = "文档模板"
         verbose_name_plural = "文档模板"
-        ordering = ['-updated_at']
+        ordering = ["-updated_at"]
 
     def __str__(self):
         return f"{self.get_template_type_display()} - {self.name}"
+
 
 class GeneratedDocument(models.Model):
     template = models.ForeignKey(DocumentTemplate, on_delete=models.CASCADE, verbose_name="关联模板")
@@ -49,10 +52,11 @@ class GeneratedDocument(models.Model):
     class Meta:
         verbose_name = "生成文档"
         verbose_name_plural = "生成文档"
-        ordering = ['-generated_at']
+        ordering = ["-generated_at"]
 
     def __str__(self):
         return f"{self.template.name} - {self.generated_at.strftime('%Y-%m-%d %H:%M')}"
+
 
 class Tag(models.Model):
     name = models.CharField(max_length=50, unique=True, verbose_name="标签名")
@@ -64,33 +68,35 @@ class Tag(models.Model):
     def __str__(self):
         return self.name
 
+
 class Book(models.Model):
     project = models.ForeignKey(
         Project,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='books_in_project',
-        verbose_name="所属项目"
+        related_name="books_in_project",
+        verbose_name="所属项目",
     )
     title = models.CharField(max_length=200, verbose_name="书名")
     author = models.CharField(max_length=100, blank=True, verbose_name="作者")
     description = models.TextField(blank=True, verbose_name="简介")
-    cover_image = models.ImageField(upload_to='covers/', blank=True, null=True, verbose_name="封面图片")
+    cover_image = models.ImageField(upload_to="covers/", blank=True, null=True, verbose_name="封面图片")
     publication_date = models.DateField(blank=True, null=True, verbose_name="出版日期")
-    tags = models.ManyToManyField(Tag, blank=True, related_name='books', verbose_name="标签")
+    tags = models.ManyToManyField(Tag, blank=True, related_name="books", verbose_name="标签")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="添加时间")
 
     class Meta:
         verbose_name = "书籍"
         verbose_name_plural = "书籍"
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.title
 
+
 class Chapter(models.Model):
-    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name='chapters', verbose_name="所属书籍")
+    book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="chapters", verbose_name="所属书籍")
     title = models.CharField(max_length=200, verbose_name="章节标题")
     content_md = models.TextField(verbose_name="Markdown内容")
     content_html = models.TextField(verbose_name="HTML内容", blank=True)
@@ -102,13 +108,14 @@ class Chapter(models.Model):
     class Meta:
         verbose_name = "章节"
         verbose_name_plural = "章节"
-        ordering = ['book', 'order']
+        ordering = ["book", "order"]
 
     def __str__(self):
         return f"{self.book.title} - {self.order}. {self.title}"
 
+
 class Comment(models.Model):
-    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='comments', verbose_name="所属章节")
+    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name="comments", verbose_name="所属章节")
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="评论用户")
     content = models.TextField(verbose_name="评论内容")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="评论时间")
@@ -116,13 +123,14 @@ class Comment(models.Model):
     class Meta:
         verbose_name = "评论"
         verbose_name_plural = "评论"
-        ordering = ['created_at']
+        ordering = ["created_at"]
 
     def __str__(self):
         return f"Comment by {self.user} on {self.chapter}"
 
+
 class Annotation(models.Model):
-    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name='annotations', verbose_name="所属章节")
+    chapter = models.ForeignKey(Chapter, on_delete=models.CASCADE, related_name="annotations", verbose_name="所属章节")
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, verbose_name="批注用户")
     selected_text = models.TextField(verbose_name="选中文本")
     note = models.TextField(verbose_name="批注内容", blank=True)
@@ -131,7 +139,7 @@ class Annotation(models.Model):
     class Meta:
         verbose_name = "批注"
         verbose_name_plural = "批注"
-        ordering = ['created_at']
+        ordering = ["created_at"]
 
     def __str__(self):
         return f"Annotation by {self.user} on {self.chapter}"
@@ -142,6 +150,7 @@ class EBook(models.Model):
     [已弃用] 请使用 ebooks.Ebook 替代。
     本模型将在未来版本中移除。
     """
+
     title = models.CharField(max_length=200, verbose_name="书名")
     author = models.CharField(max_length=100, blank=True, verbose_name="作者")
     content = models.TextField(verbose_name="Markdown内容")
@@ -150,7 +159,7 @@ class EBook(models.Model):
     class Meta:
         verbose_name = "电子书"
         verbose_name_plural = "电子书"
-        ordering = ['-created_at']
+        ordering = ["-created_at"]
 
     def __str__(self):
         return self.title

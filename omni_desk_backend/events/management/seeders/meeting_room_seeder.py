@@ -1,7 +1,7 @@
 """会议室 Seeder：会议室、预约、维护"""
+
 import random
 from datetime import date, datetime, timedelta, timezone as dt_tz
-from django.conf import settings
 from meeting_rooms.models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
 from events.management.seeders.base import BaseSeeder
 
@@ -35,8 +35,16 @@ class MeetingRoomSeeder(BaseSeeder):
         if user:
             today = date.today()
             booking_titles = [
-                "项目周例会", "技术方案评审", "客户来访接待", "月度工作总结", "新员工培训",
-                "安全生产会议", "设备校准讨论", "质量问题分析", "年度计划讨论", "部门协调会议",
+                "项目周例会",
+                "技术方案评审",
+                "客户来访接待",
+                "月度工作总结",
+                "新员工培训",
+                "安全生产会议",
+                "设备校准讨论",
+                "质量问题分析",
+                "年度计划讨论",
+                "部门协调会议",
             ]
             for i in range(len(booking_titles)):
                 room = rooms[i % len(rooms)]
@@ -46,9 +54,15 @@ class MeetingRoomSeeder(BaseSeeder):
                 end_dt = start_dt + timedelta(hours=1)
                 try:
                     MeetingRoomBooking.objects.get_or_create(
-                        meeting_room=room, user=user, start_time=start_dt, end_time=end_dt,
-                        defaults={"title": booking_titles[i], "participants": "张三, 李四, 王五",
-                                  "description": f"{booking_titles[i]}的定期会议"},
+                        meeting_room=room,
+                        user=user,
+                        start_time=start_dt,
+                        end_time=end_dt,
+                        defaults={
+                            "title": booking_titles[i],
+                            "participants": "张三, 李四, 王五",
+                            "description": f"{booking_titles[i]}的定期会议",
+                        },
                     )
                     booking_count += 1
                 except Exception:
@@ -60,7 +74,9 @@ class MeetingRoomSeeder(BaseSeeder):
             start_dt = datetime.combine(day, datetime.min.time().replace(hour=8), tzinfo=dt_tz.utc)
             end_dt = start_dt + timedelta(hours=4)
             MeetingRoomMaintenance.objects.get_or_create(
-                meeting_room=room, start_time=start_dt, end_time=end_dt,
+                meeting_room=room,
+                start_time=start_dt,
+                end_time=end_dt,
                 defaults={"reason": random.choice(["设备检修", "系统升级", "环境改造"])},
             )
 

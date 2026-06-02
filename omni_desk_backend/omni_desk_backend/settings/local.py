@@ -4,34 +4,34 @@ import os
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ["*"]
 
 # Enable Browsable API in local development
 REST_FRAMEWORK = {
     **REST_FRAMEWORK,
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-        'rest_framework.renderers.BrowsableAPIRenderer',
+    "DEFAULT_RENDERER_CLASSES": (
+        "rest_framework.renderers.JSONRenderer",
+        "rest_framework.renderers.BrowsableAPIRenderer",
     ),
 }
 
 # Use local memory cache for development (Redis may not be available)
 CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
     }
 }
 
 # Silence django_ratelimit warnings about LocMemCache — acceptable for local dev
-SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']
+SILENCED_SYSTEM_CHECKS = ["django_ratelimit.E003", "django_ratelimit.W001"]
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
@@ -51,19 +51,19 @@ CSRF_TRUSTED_ORIGINS = [
 ]
 
 # In a non-HTTPS environment, SAMESITE='None' is rejected by browsers, and SECURE must be False
-CSRF_COOKIE_SAMESITE = 'Lax'
-CSRF_COOKIE_SECURE = False # Allow CSRF cookie over HTTP for development
-SESSION_COOKIE_SAMESITE = 'Lax'
-SESSION_COOKIE_SECURE = False # Allow session cookie over HTTP for development
-CSRF_COOKIE_HTTPONLY = False # Allow JS to read CSRF token for SPA
+CSRF_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SECURE = False  # Allow CSRF cookie over HTTP for development
+SESSION_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SECURE = False  # Allow session cookie over HTTP for development
+CSRF_COOKIE_HTTPONLY = False  # Allow JS to read CSRF token for SPA
 SESSION_COOKIE_HTTPONLY = True
 
 # Smart Assistant - LLM Configuration
 # Uses OpenAI-compatible API endpoint (e.g. gcli.ggchan.dev)
-SMART_ASSISTANT_LLM_ENDPOINT = os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT', 'https://gcli.ggchan.dev')
-SMART_ASSISTANT_LLM_API_KEY = os.environ.get('SMART_ASSISTANT_LLM_API_KEY', '')
-SMART_ASSISTANT_LLM_MODEL = os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
+SMART_ASSISTANT_LLM_ENDPOINT = os.environ.get("SMART_ASSISTANT_LLM_ENDPOINT", "https://gcli.ggchan.dev")
+SMART_ASSISTANT_LLM_API_KEY = os.environ.get("SMART_ASSISTANT_LLM_API_KEY", "")
+SMART_ASSISTANT_LLM_MODEL = os.environ.get("SMART_ASSISTANT_LLM_MODEL", "gemini-2.5-pro")
 
 # Smart Assistant - Ragflow dataset ID for knowledge base document upload and vectorization.
 # Obtain from Ragflow admin panel: Datasets -> select dataset -> copy ID.
-SMART_ASSISTANT_DATASET_ID = os.environ.get('SMART_ASSISTANT_DATASET_ID', '')
+SMART_ASSISTANT_DATASET_ID = os.environ.get("SMART_ASSISTANT_DATASET_ID", "")

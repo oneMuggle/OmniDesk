@@ -1,4 +1,5 @@
 """项目与文档 Seeder：项目、标签、文档模板、书籍/章节"""
+
 import random
 from datetime import date, timedelta
 from projects.models import Project
@@ -27,9 +28,9 @@ class ProjectSeeder(BaseSeeder):
             start = date(2025, 1, 1) + timedelta(days=random.randint(0, 180))
             end = start + timedelta(days=duration)
             obj, _ = self.safe_get_or_create(
-                Project, name=name,
-                defaults={"description": desc, "status": status, "start_date": start,
-                          "end_date": end, "manager": user},
+                Project,
+                name=name,
+                defaults={"description": desc, "status": status, "start_date": start, "end_date": end, "manager": user},
             )
             projects.append(obj)
 
@@ -49,17 +50,17 @@ class ProjectSeeder(BaseSeeder):
             ]
             for name, doc_type, content in doc_defs:
                 self.safe_get_or_create(
-                    DocumentTemplate, name=name,
-                    defaults={"template_type": doc_type, "content": content,
-                              "project": projects[0], "owner": user},
+                    DocumentTemplate,
+                    name=name,
+                    defaults={"template_type": doc_type, "content": content, "project": projects[0], "owner": user},
                 )
 
         # 书籍/章节
         if projects:
             book, _ = self.safe_get_or_create(
-                Book, title="传感器技术手册",
-                defaults={"author": "技术部", "description": "传感器相关技术知识的汇总手册",
-                          "project": projects[0]},
+                Book,
+                title="传感器技术手册",
+                defaults={"author": "技术部", "description": "传感器相关技术知识的汇总手册", "project": projects[0]},
             )
             book.tags.set(tag_objs[:3])
 
@@ -71,7 +72,8 @@ class ProjectSeeder(BaseSeeder):
             ]
             for i, (title, content) in enumerate(chapters):
                 Chapter.objects.get_or_create(
-                    book=book, title=title,
+                    book=book,
+                    title=title,
                     defaults={"content_md": content, "content_html": f"<p>{content}</p>", "order": i + 1},
                 )
 

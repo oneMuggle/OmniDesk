@@ -2,6 +2,6 @@ from django.apps import AppConfig
 
 
 class ExternalIntegrationConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'external_integration'
-    verbose_name = '外部集成管理'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "external_integration"
+    verbose_name = "外部集成管理"

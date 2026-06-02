@@ -12,8 +12,8 @@ class LLMRouter:
     不再依赖环境变量。
     """
 
-    OLLAMA_BASE = 'http://localhost:11434'
-    OLLAMA_MODEL = 'qwen2.5:7b'
+    OLLAMA_BASE = "http://localhost:11434"
+    OLLAMA_MODEL = "qwen2.5:7b"
     REQUEST_TIMEOUT = 120
 
     def __init__(self):
@@ -24,14 +24,17 @@ class LLMRouter:
         """从数据库加载所有活跃的 LlmAppConfig，按 priority 升序。"""
         try:
             from smart_assistant.models import LlmAppConfig
+
             self._configs = list(
-                LlmAppConfig.objects.select_related('endpoint').filter(
+                LlmAppConfig.objects.select_related("endpoint")
+                .filter(
                     is_active=True,
-                    app_name='smart_assistant',
-                ).order_by('endpoint__priority', 'endpoint__is_fallback')
+                    app_name="smart_assistant",
+                )
+                .order_by("endpoint__priority", "endpoint__is_fallback")
             )
         except Exception as e:
-            logger.warning('无法从数据库加载 LLM 应用配置: %s', e)
+            logger.warning("无法从数据库加载 LLM 应用配置: %s", e)
             self._configs = []
 
     def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
@@ -54,34 +57,36 @@ class LLMRouter:
         else:
             final_messages = []
             if system_message:
-                final_messages.append({'role': 'system', 'content': system_message})
-            final_messages.append({'role': 'user', 'content': prompt})
+                final_messages.append({"role": "system", "content": system_message})
+            final_messages.append({"role": "user", "content": prompt})
 
         # 构建降级链路：按 LlmAppConfig 顺序（主端点 → 备用端点）
         candidates = list(self._configs)
 
         # Ollama 本地兜底
-        candidates.append({
-            '_is_ollama': True,
-        })
+        candidates.append(
+            {
+                "_is_ollama": True,
+            }
+        )
 
         data = {
-            'model': None,
-            'messages': final_messages,
-            'stream': stream,
+            "model": None,
+            "messages": final_messages,
+            "stream": stream,
         }
         if options:
             data.update(options)
 
         last_error = None
         for i, candidate in enumerate(candidates):
-            is_ollama = candidate.get('_is_ollama', False)
+            is_ollama = candidate.get("_is_ollama", False)
 
             if is_ollama:
                 base_url = self.OLLAMA_BASE
-                api_key = ''
+                api_key = ""
                 model_name = self.OLLAMA_MODEL
-                label = f'Ollama ({model_name})'
+                label = f"Ollama ({model_name})"
             else:
                 # LlmAppConfig 对象
                 config = candidate
@@ -89,38 +94,36 @@ class LLMRouter:
                 base_url = endpoint.api_endpoint
                 api_key = endpoint.api_key
                 model_name = config.model_name
-                label = f'{endpoint.name} ({model_name})'
+                label = f"{endpoint.name} ({model_name})"
 
-            data['model'] = model_name
+            data["model"] = model_name
             url = f"{base_url.rstrip('/')}/v1/chat/completions"
             headers = {
-                'Content-Type': 'application/json',
-                'Authorization': f"Bearer {api_key}",
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
             }
 
             try:
-                response = requests.post(
-                    url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream
-                )
+                response = requests.post(url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream)
                 response.raise_for_status()
 
                 if stream:
                     return self._stream_generate(response)
                 else:
                     resp_data = response.json()
-                    choices = resp_data.get('choices', [])
-                    usage = resp_data.get('usage')
-                    if choices and 'message' in choices[0]:
+                    choices = resp_data.get("choices", [])
+                    usage = resp_data.get("usage")
+                    if choices and "message" in choices[0]:
                         if i > 0:
-                            logger.info('LLM 降级成功: 切换到 %s', label)
-                        return choices[0]['message']['content'], usage
-                    raise Exception('LLM API 响应结构异常')
+                            logger.info("LLM 降级成功: 切换到 %s", label)
+                        return choices[0]["message"]["content"], usage
+                    raise Exception("LLM API 响应结构异常")
             except Exception as e:
                 last_error = e
-                logger.warning('LLM 端点 %s 失败 (%s)，尝试下一个: %s', label, type(e).__name__, e)
+                logger.warning("LLM 端点 %s 失败 (%s)，尝试下一个: %s", label, type(e).__name__, e)
                 continue
 
-        raise Exception(f'所有 LLM 端点均不可用，最后错误: {last_error}')
+        raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}")
 
     def _stream_generate(self, response):
         """流式解析 SSE 响应。"""
@@ -129,17 +132,17 @@ class LLMRouter:
         for line in response.iter_lines():
             if not line:
                 continue
-            text = line.decode('utf-8')
-            if text.startswith('data: '):
+            text = line.decode("utf-8")
+            if text.startswith("data: "):
                 text = text[6:]
-            if text == '[DONE]':
+            if text == "[DONE]":
                 break
             try:
                 chunk = json.loads(text)
-                choices = chunk.get('choices', [])
+                choices = chunk.get("choices", [])
                 if choices:
-                    delta = choices[0].get('delta', {})
-                    content = delta.get('content')
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content")
                     if content:
                         yield content
             except Exception:

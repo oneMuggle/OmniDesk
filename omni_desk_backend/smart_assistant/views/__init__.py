@@ -6,11 +6,11 @@ from .llm_config import LlmEndpointViewSet, LlmAppConfigViewSet
 from .stats import StatsViewSet
 
 __all__ = [
-    'SmartChatViewSet',
-    'SessionViewSet',
-    'KnowledgeBaseViewSet',
-    'AgentLogViewSet',
-    'LlmEndpointViewSet',
-    'LlmAppConfigViewSet',
-    'StatsViewSet',
+    "SmartChatViewSet",
+    "SessionViewSet",
+    "KnowledgeBaseViewSet",
+    "AgentLogViewSet",
+    "LlmEndpointViewSet",
+    "LlmAppConfigViewSet",
+    "StatsViewSet",
 ]

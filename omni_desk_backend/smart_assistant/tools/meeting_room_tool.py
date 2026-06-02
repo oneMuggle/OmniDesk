@@ -27,37 +27,40 @@ class MeetingRoomTool(BaseTool):
 
         if not rooms.exists():
             return {
-                'found': False,
-                'message': '暂无可用的会议室',
+                "found": False,
+                "message": "暂无可用的会议室",
             }
 
         # 查询指定日期的预订
         bookings = MeetingRoomBooking.objects.filter(
             date=target_date,
-            status__in=['pending', 'confirmed'],
-        ).select_related('room', 'user')[:20]
+            status__in=["pending", "confirmed"],
+        ).select_related("room", "user")[:20]
 
         room_status = []
         for room in rooms:
             room_bookings = [
                 {
-                    'user': b.user.username if b.user else '未知',
-                    'start_time': str(b.start_time),
-                    'end_time': str(b.end_time),
-                    'topic': b.topic or '无主题',
+                    "user": b.user.username if b.user else "未知",
+                    "start_time": str(b.start_time),
+                    "end_time": str(b.end_time),
+                    "topic": b.topic or "无主题",
                 }
-                for b in bookings if b.room_id == room.id
+                for b in bookings
+                if b.room_id == room.id
             ]
-            room_status.append({
-                'name': room.name,
-                'capacity': room.capacity,
-                'floor': room.floor,
-                'is_available': len(room_bookings) == 0,
-                'bookings': room_bookings,
-            })
+            room_status.append(
+                {
+                    "name": room.name,
+                    "capacity": room.capacity,
+                    "floor": room.floor,
+                    "is_available": len(room_bookings) == 0,
+                    "bookings": room_bookings,
+                }
+            )
 
         return {
-            'found': True,
-            'date': str(target_date),
-            'rooms': room_status,
+            "found": True,
+            "date": str(target_date),
+            "rooms": room_status,
         }

@@ -1,3 +1,4 @@
+/* eslint-env node, jest */
 import { permissionsApi } from './permissionsApi';
 import apiClient from './apiClient';
 

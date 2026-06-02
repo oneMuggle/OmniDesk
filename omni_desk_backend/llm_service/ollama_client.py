@@ -11,12 +11,12 @@ logger = logging.getLogger(__name__)
 
 class OllamaClient:
     def __init__(self, base_url=None, model_name=None):
-        self.base_url = base_url or os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
-        self.model_name = model_name or os.environ.get('OLLAMA_MODEL_NAME', 'llama2') # 默认使用llama2模型
+        self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self.model_name = model_name or os.environ.get("OLLAMA_MODEL_NAME", "llama2")  # 默认使用llama2模型
 
     def _make_request(self, endpoint, data, stream=False):
         url = f"{self.base_url}/{endpoint}"
-        headers = {'Content-Type': 'application/json'}
+        headers = {"Content-Type": "application/json"}
         try:
             response = requests.post(url, headers=headers, data=json.dumps(data), timeout=120, stream=stream)
             response.raise_for_status()
@@ -36,8 +36,8 @@ class OllamaClient:
         for line in response.iter_lines():
             if line:
                 chunk = json.loads(line)
-                if 'message' in chunk and 'content' in chunk['message']:
-                    yield chunk['message']['content']
+                if "message" in chunk and "content" in chunk["message"]:
+                    yield chunk["message"]["content"]
 
     def generate(self, prompt, system_message=None, stream=False, options=None):
         """
@@ -57,7 +57,7 @@ class OllamaClient:
             "model": self.model_name,
             "messages": messages,
             "stream": stream,
-            "options": options if options is not None else {}
+            "options": options if options is not None else {},
         }
 
         if stream:
@@ -65,8 +65,8 @@ class OllamaClient:
             return self._stream_generate(response)
         else:
             response_data = self._make_request("api/chat", data)
-            if 'message' in response_data and 'content' in response_data['message']:
-                return response_data['message']['content']
+            if "message" in response_data and "content" in response_data["message"]:
+                return response_data["message"]["content"]
             else:
                 raise Exception(f"Unexpected Ollama API response structure: {response_data}")
 
@@ -77,7 +77,7 @@ class OllamaClient:
         """
         data = {
             "name": model_name,
-            "stream": False # Pulling usually doesn't stream progress in this simple client
+            "stream": False,  # Pulling usually doesn't stream progress in this simple client
         }
         logger.info("Attempting to pull Ollama model: %s. This may take some time.", model_name)
         try:
@@ -96,9 +96,10 @@ class OllamaClient:
         try:
             response = requests.get(url, timeout=30)
             response.raise_for_status()
-            return response.json().get('models', [])
+            return response.json().get("models", [])
         except Exception as e:
             raise Exception(f"Failed to list Ollama models: {e}")
+
 
 # Example Usage (can be used for testing)
 if __name__ == "__main__":
@@ -108,7 +109,7 @@ if __name__ == "__main__":
         print("Listing available Ollama models:")
         models = client.list_models()
         for model in models:
-            print(f"- {model['name']} ({model['size'] / (1024*1024*1024):.2f} GB)")
+            print(f"- {model['name']} ({model['size'] / (1024 * 1024 * 1024):.2f} GB)")
 
         # Example: Generate text (ensure llama2 is available or pull it first)
         # print("\nGenerating text with llama2:")

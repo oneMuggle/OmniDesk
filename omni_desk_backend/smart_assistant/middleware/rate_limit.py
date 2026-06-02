@@ -7,7 +7,7 @@ from django.http import JsonResponse
 logger = logging.getLogger(__name__)
 
 # 每用户每分钟最大请求数
-SMART_CHAT_RATE_LIMIT = int(os.environ.get('SMART_ASSISTANT_CHAT_RATE_LIMIT', '30'))
+SMART_CHAT_RATE_LIMIT = int(os.environ.get("SMART_ASSISTANT_CHAT_RATE_LIMIT", "30"))
 RATE_WINDOW = 60
 
 
@@ -17,7 +17,7 @@ def check_rate_limit(user_id):
     Returns:
         (allowed, remaining, retry_after)
     """
-    key = f'smart_assistant:rate_limit:{user_id}'
+    key = f"smart_assistant:rate_limit:{user_id}"
     current = cache.get(key, 0)
 
     if current >= SMART_CHAT_RATE_LIMIT:
@@ -40,24 +40,25 @@ class RateLimitMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if not request.path.startswith('/api/smart-assistant/chat/'):
+        if not request.path.startswith("/api/smart-assistant/chat/"):
             return self.get_response(request)
 
-        if not hasattr(request, 'user') or not request.user.is_authenticated:
+        if not hasattr(request, "user") or not request.user.is_authenticated:
             return self.get_response(request)
 
         allowed, remaining, retry_after = check_rate_limit(request.user.id)
 
         if not allowed:
-            logger.warning(
-                '智能助手速率限制: user_id=%d, 重试后=%ds', request.user.id, retry_after
+            logger.warning("智能助手速率限制: user_id=%d, 重试后=%ds", request.user.id, retry_after)
+            return JsonResponse(
+                {
+                    "error": "请求过于频繁，请稍后再试",
+                    "retry_after": retry_after,
+                },
+                status=429,
             )
-            return JsonResponse({
-                'error': '请求过于频繁，请稍后再试',
-                'retry_after': retry_after,
-            }, status=429)
 
         response = self.get_response(request)
-        response['X-RateLimit-Remaining'] = str(remaining)
-        response['X-RateLimit-Limit'] = str(SMART_CHAT_RATE_LIMIT)
+        response["X-RateLimit-Remaining"] = str(remaining)
+        response["X-RateLimit-Limit"] = str(SMART_CHAT_RATE_LIMIT)
         return response

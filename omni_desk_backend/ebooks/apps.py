@@ -2,6 +2,6 @@ from django.apps import AppConfig
 
 
 class EbooksConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'ebooks'
-    verbose_name = '电子书管理'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "ebooks"
+    verbose_name = "电子书管理"

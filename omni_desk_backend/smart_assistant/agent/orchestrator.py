@@ -1,9 +1,12 @@
 from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer
 from ..tools.registry import ToolRegistry
 from ..cache import (
-    get_cached_intent, cache_intent,
-    get_cached_tool_result, cache_tool_result,
-    get_cached_answer, cache_answer,
+    get_cached_intent,
+    cache_intent,
+    get_cached_tool_result,
+    cache_tool_result,
+    get_cached_answer,
+    cache_answer,
 )
 from .tool_chain_planner import generate_tool_chain_plan
 from .tool_chain_executor import execute_tool_chain, synthesize_answer as synthesize_chain_answer
@@ -46,22 +49,22 @@ class AgentOrchestrator:
                 tool_result = cached_result
             else:
                 try:
-                    tool_result = tool.execute(user_query, context={'history': conversation_history or []})
+                    tool_result = tool.execute(user_query, context={"history": conversation_history or []})
                 except Exception as e:
-                    tool_result = {'found': False, 'message': f'工具执行失败: {str(e)}'}
+                    tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
                 cache_tool_result(tool.name, user_query, tool_result)
 
             # 工具失败时优雅降级
-            if isinstance(tool_result, dict) and not tool_result.get('found'):
+            if isinstance(tool_result, dict) and not tool_result.get("found"):
                 answer, usage = generate_general_answer(user_query, conversation_history)
                 return {
-                    'answer': answer,
-                    'intent': intent,
-                    'tool_used': tool.name,
-                    'tool_result': tool_result,
-                    'sources': None,
-                    'tool_fallback': True,
-                    'usage': usage,
+                    "answer": answer,
+                    "intent": intent,
+                    "tool_used": tool.name,
+                    "tool_result": tool_result,
+                    "sources": None,
+                    "tool_fallback": True,
+                    "usage": usage,
                 }
 
             # Step 4: LLM 生成自然语言回答（先查缓存）
@@ -71,58 +74,54 @@ class AgentOrchestrator:
                     answer = cached_answer
                     usage = None
                 else:
-                    answer, usage = generate_answer(
-                        user_query, intent, tool.name, tool_result, conversation_history
-                    )
+                    answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
                     cache_answer(user_query, intent, answer)
             else:
-                answer, usage = generate_answer(
-                    user_query, intent, tool.name, tool_result, conversation_history
-                )
+                answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
             return {
-                'answer': answer,
-                'intent': intent,
-                'tool_used': tool.name,
-                'tool_result': tool_result,
-                'sources': tool_result.get('sources') if isinstance(tool_result, dict) else None,
-                'usage': usage,
+                "answer": answer,
+                "intent": intent,
+                "tool_used": tool.name,
+                "tool_result": tool_result,
+                "sources": tool_result.get("sources") if isinstance(tool_result, dict) else None,
+                "usage": usage,
             }
         else:
             # 通用对话
             answer, usage = generate_general_answer(user_query, conversation_history)
             return {
-                'answer': answer,
-                'intent': 'general_chat',
-                'tool_used': None,
-                'tool_result': None,
-                'sources': None,
-                'usage': usage,
+                "answer": answer,
+                "intent": "general_chat",
+                "tool_used": None,
+                "tool_result": None,
+                "sources": None,
+                "usage": usage,
             }
 
     def _process_chain(self, user_query: str, plan: list, conversation_history: list) -> dict:
         """多工具链式处理"""
-        tool_results = execute_tool_chain(plan, user_query, context={'history': conversation_history or []})
+        tool_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
         answer = synthesize_chain_answer(plan, tool_results, user_query)
 
         # 收集第一个工具的名称和所有 source
-        first_tool = plan[0].get('tool') if plan else None
+        first_tool = plan[0].get("tool") if plan else None
         all_sources = []
         for r in tool_results:
-            if r.get('result') and isinstance(r['result'], dict):
-                sources = r['result'].get('sources')
+            if r.get("result") and isinstance(r["result"], dict):
+                sources = r["result"].get("sources")
                 if sources:
                     all_sources.extend(sources)
 
         return {
-            'answer': answer,
-            'intent': 'multi_tool_chain',
-            'tool_used': first_tool,
-            'tool_result': {
-                'chain_results': tool_results,
+            "answer": answer,
+            "intent": "multi_tool_chain",
+            "tool_used": first_tool,
+            "tool_result": {
+                "chain_results": tool_results,
             },
-            'sources': all_sources if all_sources else None,
-            'tool_chain': plan,
+            "sources": all_sources if all_sources else None,
+            "tool_chain": plan,
         }
 
     def process_stream(self, user_query: str, conversation_history: list = None):
@@ -150,47 +149,54 @@ class AgentOrchestrator:
                 tool_result = cached_result
             else:
                 try:
-                    tool_result = tool.execute(user_query, context={'history': conversation_history or []})
+                    tool_result = tool.execute(user_query, context={"history": conversation_history or []})
                 except Exception as e:
-                    tool_result = {'found': False, 'message': f'工具执行失败: {str(e)}'}
+                    tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
                 cache_tool_result(tool.name, user_query, tool_result)
 
             # 工具失败时 fallback 到通用回答
-            if isinstance(tool_result, dict) and not tool_result.get('found'):
+            if isinstance(tool_result, dict) and not tool_result.get("found"):
                 tool_name = tool.name
                 tool_fallback = True
             else:
                 tool_name = tool.name
-                sources = tool_result.get('sources') if isinstance(tool_result, dict) else None
+                sources = tool_result.get("sources") if isinstance(tool_result, dict) else None
 
         # 先发送元数据
-        meta = json.dumps({
-            'type': 'meta',
-            'intent': intent,
-            'tool_used': tool_name,
-            'tool_result': tool_result,
-            'sources': sources,
-            'tool_fallback': tool_fallback,
-        }, ensure_ascii=False)
+        meta = json.dumps(
+            {
+                "type": "meta",
+                "intent": intent,
+                "tool_used": tool_name,
+                "tool_result": tool_result,
+                "sources": sources,
+                "tool_fallback": tool_fallback,
+            },
+            ensure_ascii=False,
+        )
         yield f"data: {meta}\n\n"
 
         # Step 3: 流式生成回答
         if tool_fallback:
             # fallback 到通用回答
             answer, _ = generate_general_answer(user_query, conversation_history)
+
             def _gen():
                 yield answer
+
             stream = _gen()
         elif tool:
             stream = generate_answer_stream(user_query, intent, tool_name, tool_result, conversation_history)
         else:
             answer, _ = generate_general_answer(user_query, conversation_history)
+
             def _gen2():
                 yield answer
+
             stream = _gen2()
 
         for chunk in stream:
-            data = json.dumps({'type': 'chunk', 'content': chunk}, ensure_ascii=False)
+            data = json.dumps({"type": "chunk", "content": chunk}, ensure_ascii=False)
             yield f"data: {data}\n\n"
 
         # 发送结束信号

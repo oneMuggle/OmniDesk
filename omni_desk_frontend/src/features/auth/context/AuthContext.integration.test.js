@@ -1,3 +1,4 @@
+/* eslint-disable testing-library/no-unnecessary-act */
 /**
  * AuthContext integration tests — full auth flows with mocked HTTP layer.
  *

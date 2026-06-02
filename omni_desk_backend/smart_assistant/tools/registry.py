@@ -3,6 +3,7 @@ from .base import BaseTool
 
 class ToolRegistry:
     """工具注册表"""
+
     _tools: dict = {}
 
     @classmethod

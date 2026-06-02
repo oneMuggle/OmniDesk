@@ -6,7 +6,6 @@ Seeder 自动注册机制
 2. 运行 python manage.py seed_data 即可自动执行
 """
 
-
 # ─── Seeder 注册列表 ───
 # 每个元组: (模块路径, seeder类名, 是否默认启用)
 # 当新增 seeder 时，在此处添加一行即可
@@ -52,6 +51,7 @@ def discover_seeders(context, enabled_names=None):
             seeders.append(seeder_cls(context=context))
         except ModuleNotFoundError as e:
             from django.utils.termcolors import colorize
+
             print(colorize(f"  跳过 {class_name}: 模块 {module_path} 不存在", fg="yellow"))
             print(colorize(f"    原因: {e}", fg="yellow"))
 

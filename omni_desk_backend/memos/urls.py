@@ -4,8 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import MemoViewSet
 
 router = DefaultRouter()
-router.register(r'', MemoViewSet, basename='memo')
+router.register(r"", MemoViewSet, basename="memo")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

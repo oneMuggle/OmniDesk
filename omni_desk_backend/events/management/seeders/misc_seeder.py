@@ -1,4 +1,5 @@
 """辅助数据 Seeder：沟通帖子、新闻、备忘录、配置"""
+
 import random
 from datetime import date, datetime, timedelta, timezone as dt_tz
 from communication.models import Post, Comment as CommComment
@@ -26,7 +27,8 @@ class MiscSeeder(BaseSeeder):
         posts = []
         for title in post_titles:
             obj, _ = self.safe_get_or_create(
-                Post, title=title,
+                Post,
+                title=title,
                 defaults={"content": f"这是一条关于{title}的内部通知，请大家及时关注。", "author": user},
             )
             posts.append(obj)
@@ -35,7 +37,8 @@ class MiscSeeder(BaseSeeder):
         if user and posts:
             for post in posts[:2]:
                 CommComment.objects.get_or_create(
-                    post=post, author=user,
+                    post=post,
+                    author=user,
                     defaults={"content": "收到，会按时参加。"},
                 )
 
@@ -53,9 +56,14 @@ class MiscSeeder(BaseSeeder):
         ]
         for title, link, ntype in news_items:
             self.safe_get_or_create(
-                NewsArticle, title=title,
-                defaults={"link": link, "publication_date": date.today() - timedelta(days=random.randint(1, 30)),
-                          "personnel": user, "news_type": ntype},
+                NewsArticle,
+                title=title,
+                defaults={
+                    "link": link,
+                    "publication_date": date.today() - timedelta(days=random.randint(1, 30)),
+                    "personnel": user,
+                    "news_type": ntype,
+                },
             )
 
         # 备忘录
@@ -72,7 +80,8 @@ class MiscSeeder(BaseSeeder):
                     tzinfo=dt_tz.utc,
                 )
                 Memo.objects.get_or_create(
-                    title=title, user=user,
+                    title=title,
+                    user=user,
                     defaults={"content": content, "reminder_time": reminder, "is_completed": False},
                 )
 

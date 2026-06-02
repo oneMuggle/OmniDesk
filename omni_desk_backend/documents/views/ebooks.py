@@ -14,19 +14,19 @@ class EBookViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser, parsers.FormParser]
 
-    @action(detail=False, methods=['post'])
+    @action(detail=False, methods=["post"])
     def upload(self, request, *args, **kwargs):
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
         if not file:
-            return Response({'error': 'No file provided'}, status=status.HTTP_400_BAD_REQUEST)
+            return Response({"error": "No file provided"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            content = file.read().decode('utf-8')
-            title_match = re.search(r'^#\s+(.*)', content, re.MULTILINE)
+            content = file.read().decode("utf-8")
+            title_match = re.search(r"^#\s+(.*)", content, re.MULTILINE)
             title = title_match.group(1).strip() if title_match else file.name
 
-            author_match = re.search(r'author:\s*(.*)', content, re.IGNORECASE)
-            author = author_match.group(1).strip() if author_match else ''
+            author_match = re.search(r"author:\s*(.*)", content, re.IGNORECASE)
+            author = author_match.group(1).strip() if author_match else ""
 
             ebook = EBook.objects.create(
                 title=title,
@@ -36,4 +36,4 @@ class EBookViewSet(viewsets.ModelViewSet):
             serializer = self.get_serializer(ebook)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except Exception as e:
-            return Response({'error': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response({"error": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

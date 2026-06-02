@@ -12,21 +12,21 @@ from ..serializers import AnnotationSerializer, BookSerializer, ChapterSerialize
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    queryset = Book.objects.prefetch_related('tags', 'chapters')
+    queryset = Book.objects.prefetch_related("tags", "chapters")
     serializer_class = BookSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        project_id = self.request.query_params.get('project_id')
+        project_id = self.request.query_params.get("project_id")
         if project_id:
             queryset = queryset.filter(project_id=project_id)
         return queryset
 
-    @action(detail=True, methods=['get'], url_path='export_markdown')
+    @action(detail=True, methods=["get"], url_path="export_markdown")
     def export_markdown(self, request, pk=None):
         book = self.get_object()
-        chapters = book.chapters.order_by('order')
+        chapters = book.chapters.order_by("order")
 
         full_markdown_content = f"# {book.title}\n\n"
         if book.author:
@@ -43,23 +43,23 @@ class BookViewSet(viewsets.ModelViewSet):
         for chapter in chapters:
             full_markdown_content += f"{chapter.content_md}\n\n"
 
-        response = HttpResponse(full_markdown_content, content_type='text/markdown')
-        response['Content-Disposition'] = f'attachment; filename="{book.title}.md"'
+        response = HttpResponse(full_markdown_content, content_type="text/markdown")
+        response["Content-Disposition"] = f'attachment; filename="{book.title}.md"'
         return response
 
 
 def extract_headings(markdown_content):
     """Extracts H1-H6 headings and builds a nested structure."""
     headings = []
-    lines = markdown_content.split('\n')
+    lines = markdown_content.split("\n")
     for line in lines:
-        match = re.match(r'^(#+)\s+(.*)', line)
+        match = re.match(r"^(#+)\s+(.*)", line)
         if match:
             level = len(match.group(1))
             title = match.group(2).strip()
-            slug = re.sub(r'[^\w\s-]', '', title).strip().lower()
-            slug = re.sub(r'[-\s]+', '-', slug)
-            headings.append({'level': level, 'title': title, 'id': slug, 'children': []})
+            slug = re.sub(r"[^\w\s-]", "", title).strip().lower()
+            slug = re.sub(r"[-\s]+", "-", slug)
+            headings.append({"level": level, "title": title, "id": slug, "children": []})
 
     if not headings:
         return []
@@ -68,33 +68,33 @@ def extract_headings(markdown_content):
     stack = []
 
     for heading in headings:
-        level = heading['level']
-        while stack and stack[-1]['level'] >= level:
+        level = heading["level"]
+        while stack and stack[-1]["level"] >= level:
             stack.pop()
         if not stack:
             root_nodes.append(heading)
         else:
-            stack[-1]['children'].append(heading)
+            stack[-1]["children"].append(heading)
         stack.append(heading)
 
     return root_nodes
 
 
 class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = Chapter.objects.prefetch_related('comments', 'annotations')
+    queryset = Chapter.objects.prefetch_related("comments", "annotations")
     serializer_class = ChapterSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def add_comment(self, request, pk=None):
         chapter = self.get_object()
-        serializer = CommentSerializer(data=request.data, context={'request': request})
+        serializer = CommentSerializer(data=request.data, context={"request": request})
         if serializer.is_valid():
             serializer.save(chapter=chapter, user=request.user)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def add_annotation(self, request, pk=None):
         chapter = self.get_object()
         serializer = AnnotationSerializer(data=request.data)
@@ -103,16 +103,16 @@ class ChapterViewSet(viewsets.ReadOnlyModelViewSet):
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    @action(detail=True, methods=['put'])
+    @action(detail=True, methods=["put"])
     def update_content(self, request, pk=None):
         chapter = self.get_object()
-        new_content_md = request.data.get('content_md')
+        new_content_md = request.data.get("content_md")
 
         if new_content_md is None:
             return Response({"error": "content_md field is required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        md_extensions = ['fenced_code', 'tables', 'nl2br', 'pymdownx.arithmatex']
-        md_extension_configs = {'pymdownx.arithmatex': {'generic': True}}
+        md_extensions = ["fenced_code", "tables", "nl2br", "pymdownx.arithmatex"]
+        md_extension_configs = {"pymdownx.arithmatex": {"generic": True}}
 
         new_content_html = markdown.markdown(
             new_content_md,
@@ -134,25 +134,32 @@ class BookImportView(APIView):
     def post(self, request, format=None):
         from ..book_import import import_book_from_file
 
-        uploaded_file = request.FILES.get('file')
-        cover_image_file = request.FILES.get('cover_image')
-        title = request.data.get('title')
-        author = request.data.get('author', '')
-        description = request.data.get('description', '')
-        publication_date = request.data.get('publication_date', None)
-        tags_str = request.data.get('tags', '')
+        uploaded_file = request.FILES.get("file")
+        cover_image_file = request.FILES.get("cover_image")
+        title = request.data.get("title")
+        author = request.data.get("author", "")
+        description = request.data.get("description", "")
+        publication_date = request.data.get("publication_date", None)
+        tags_str = request.data.get("tags", "")
 
         if not uploaded_file:
             return Response({"error": "A markdown or zip file is required."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             book_obj = import_book_from_file(
-                uploaded_file, cover_image_file, title,
-                author, description, publication_date, tags_str,
+                uploaded_file,
+                cover_image_file,
+                title,
+                author,
+                description,
+                publication_date,
+                tags_str,
             )
             serializer = BookSerializer(book_obj)
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         except ValueError as e:
             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"error": f"An unexpected error occurred: {e!s}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"error": f"An unexpected error occurred: {e!s}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

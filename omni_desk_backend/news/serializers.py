@@ -8,7 +8,8 @@ from .models import NewsArticle, NewsType
 class NewsTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsType
-        fields = '__all__'
+        fields = "__all__"
+
 
 class NewsArticleSerializer(serializers.ModelSerializer):
     personnel = UserSerializer(read_only=True)
@@ -18,4 +19,4 @@ class NewsArticleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = NewsArticle
-        fields = ('id', 'title', 'link', 'publication_date', 'personnel', 'news_type', 'personnel_id', 'news_type_id')
+        fields = ("id", "title", "link", "publication_date", "personnel", "news_type", "personnel_id", "news_type_id")

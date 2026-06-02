@@ -1,3 +1,4 @@
+/* eslint-env node */
 // Vite-compatible env helper, also works with Jest
 // Uses dynamic evaluation to avoid static import.meta syntax that breaks Jest
 

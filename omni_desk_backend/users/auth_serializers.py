@@ -15,7 +15,7 @@ CustomUser = get_user_model()
 
 def ensure_guest_group():
     """获取或创建 Guest 组，确保其存在。"""
-    group, _ = Group.objects.get_or_create(name='Guest')
+    group, _ = Group.objects.get_or_create(name="Guest")
     return group
 
 
@@ -23,38 +23,20 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
     username = serializers.CharField(
         required=True,
         min_length=4,
-        validators=[
-            RegexValidator(
-                regex=r'^[a-zA-Z0-9_]{4,20}$',
-                message='用户名只能包含4-20位字母、数字和下划线'
-            )
-        ],
-        error_messages={
-            'blank': '用户名不能为空',
-            'min_length': '用户名至少需要4个字符',
-            'invalid': '用户名格式无效'
-        }
+        validators=[RegexValidator(regex=r"^[a-zA-Z0-9_]{4,20}$", message="用户名只能包含4-20位字母、数字和下划线")],
+        error_messages={"blank": "用户名不能为空", "min_length": "用户名至少需要4个字符", "invalid": "用户名格式无效"},
     )
     password = serializers.CharField(
-        write_only=True,
-        required=True,
-        style={'input_type': 'password'},
-        error_messages={
-            'blank': '密码不能为空'
-        }
+        write_only=True, required=True, style={"input_type": "password"}, error_messages={"blank": "密码不能为空"}
     )
     email = serializers.EmailField(
-        required=False,
-        allow_blank=True,
-        error_messages={
-            'invalid': '请输入有效的电子邮件地址'
-        }
+        required=False, allow_blank=True, error_messages={"invalid": "请输入有效的电子邮件地址"}
     )
-    password_confirmation = serializers.CharField(write_only=True, required=True, style={'input_type': 'password'})
+    password_confirmation = serializers.CharField(write_only=True, required=True, style={"input_type": "password"})
 
     class Meta:
         model = CustomUser
-        fields = ('username', 'password', 'password_confirmation', 'email')
+        fields = ("username", "password", "password_confirmation", "email")
 
     def validate_username(self, value):
         value = value.strip()
@@ -63,27 +45,27 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         return value
 
     def validate(self, data):
-        if data['password'] != data['password_confirmation']:
+        if data["password"] != data["password_confirmation"]:
             raise serializers.ValidationError({"password": "Passwords must match."})
         return data
 
     def create(self, validated_data):
-        validated_data.pop('password_confirmation', None)
+        validated_data.pop("password_confirmation", None)
         return CustomUser.objects.create_user(
-            username=validated_data['username'],
-            password=validated_data['password'],
-            email=validated_data.get('email', '')
+            username=validated_data["username"],
+            password=validated_data["password"],
+            email=validated_data.get("email", ""),
         )
 
 
 class UserLoginSerializer(serializers.Serializer):
     username = serializers.CharField()
-    password = serializers.CharField(write_only=True, style={'input_type': 'password'})
+    password = serializers.CharField(write_only=True, style={"input_type": "password"})
     remember_me = serializers.BooleanField(default=False, required=False)
 
     def validate(self, data):
-        username = data.get('username')
-        password = data.get('password')
+        username = data.get("username")
+        password = data.get("password")
 
         try:
             user = CustomUser.objects.get(username=username)
@@ -96,23 +78,24 @@ class UserLoginSerializer(serializers.Serializer):
         if not user.is_active:
             raise serializers.ValidationError("用户账户已被禁用")
 
-        data['user'] = user
+        data["user"] = user
         return data
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         from .serializers import get_user_permissions
+
         # Pop extra fields that the frontend sends but the parent serializer doesn't expect
-        attrs.pop('remember_me', None)
+        attrs.pop("remember_me", None)
         data = super().validate(attrs)
-        data['permissions'] = get_user_permissions(self.user)
+        data["permissions"] = get_user_permissions(self.user)
         return data
 
     @classmethod
     def get_token(cls, user):
         token = super().get_token(user)
-        token['username'] = user.username
+        token["username"] = user.username
         return token
 
 

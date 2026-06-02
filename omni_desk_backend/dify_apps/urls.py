@@ -4,8 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import DifyAppViewSet
 
 router = DefaultRouter()
-router.register(r'', DifyAppViewSet)
+router.register(r"", DifyAppViewSet)
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

@@ -3,16 +3,18 @@ from abc import ABC, abstractmethod
 
 class ValidationResult:
     """工具结果验证"""
-    def __init__(self, is_valid: bool = True, reason: str = ''):
+
+    def __init__(self, is_valid: bool = True, reason: str = ""):
         self.is_valid = is_valid
         self.reason = reason
 
 
 class BaseTool(ABC):
     """工具基类"""
-    name: str = ''
-    description: str = ''
-    intent_type: str = ''  # 用于意图匹配
+
+    name: str = ""
+    description: str = ""
+    intent_type: str = ""  # 用于意图匹配
 
     @abstractmethod
     def execute(self, query: str, context: dict = None) -> dict:
@@ -22,9 +24,9 @@ class BaseTool(ABC):
     def get_schema(self) -> dict:
         """返回工具的描述 schema，用于意图识别"""
         return {
-            'name': self.name,
-            'description': self.description,
-            'intent_type': self.intent_type,
+            "name": self.name,
+            "description": self.description,
+            "intent_type": self.intent_type,
         }
 
     def get_examples(self) -> list:
@@ -41,17 +43,17 @@ class BaseTool(ABC):
         当工具返回 found=False 或数据不完整时返回无效。
         """
         if not isinstance(result, dict):
-            return ValidationResult(is_valid=False, reason='结果不是字典')
-        if not result.get('found'):
+            return ValidationResult(is_valid=False, reason="结果不是字典")
+        if not result.get("found"):
             return ValidationResult(
                 is_valid=False,
-                reason=result.get('message', '未找到相关信息'),
+                reason=result.get("message", "未找到相关信息"),
             )
         return ValidationResult(is_valid=True)
 
     def extract_keywords(self, query: str) -> list:
         """从用户查询中提取关键词。默认去除停用词。"""
-        stopwords = {'搜索', '查找', '查询', '请问', '帮我', '看看', '有没有', '的', '了', '吗', '呢'}
+        stopwords = {"搜索", "查找", "查询", "请问", "帮我", "看看", "有没有", "的", "了", "吗", "呢"}
         keywords = []
         for word in query:
             if word not in stopwords:

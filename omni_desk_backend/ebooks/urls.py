@@ -4,8 +4,8 @@ from rest_framework.routers import DefaultRouter
 from .views import EbookViewSet
 
 router = DefaultRouter()
-router.register(r'ebooks', EbookViewSet, basename='ebook')
+router.register(r"ebooks", EbookViewSet, basename="ebook")
 
 urlpatterns = [
-    path('', include(router.urls)),
+    path("", include(router.urls)),
 ]

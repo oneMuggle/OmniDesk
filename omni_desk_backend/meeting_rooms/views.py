@@ -16,9 +16,10 @@ from .serializers import MeetingRoomBookingSerializer, MeetingRoomMaintenanceSer
 
 
 class MeetingRoomViewSet(viewsets.ModelViewSet):
-    queryset = MeetingRoom.objects.all().order_by('id')
+    queryset = MeetingRoom.objects.all().order_by("id")
     serializer_class = MeetingRoomSerializer
-    permission_classes = [IsAuthenticated] # 允许所有认证用户管理会议室，包括查看
+    permission_classes = [IsAuthenticated]  # 允许所有认证用户管理会议室，包括查看
+
 
 class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingRoomBookingSerializer
@@ -26,9 +27,9 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # 所有认证用户都可以看到所有预约
-        return MeetingRoomBooking.objects.select_related('user', 'meeting_room').order_by('start_time')
+        return MeetingRoomBooking.objects.select_related("user", "meeting_room").order_by("start_time")
 
-    @action(detail=False, methods=['get'], url_path='this-week')
+    @action(detail=False, methods=["get"], url_path="this-week")
     def get_this_week_bookings(self, request):
         """
         获取本周的会议室预约。
@@ -39,10 +40,7 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
         # 计算本周的结束日期 (周日)
         end_of_week = start_of_week + timedelta(days=6)
 
-        queryset = self.get_queryset().filter(
-            start_time__date__lte=end_of_week,
-            end_time__date__gte=start_of_week
-        )
+        queryset = self.get_queryset().filter(start_time__date__lte=end_of_week, end_time__date__gte=start_of_week)
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
@@ -52,32 +50,44 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         # 只有预约创建者、管理员或经理才能修改
-        if self.request.user == serializer.instance.user or \
-           (self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.groups.filter(name__in=['Admin', 'Manager']).exists())):
+        if self.request.user == serializer.instance.user or (
+            self.request.user.is_authenticated
+            and (
+                self.request.user.is_superuser
+                or self.request.user.groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+        ):
             serializer.save()
         else:
             raise PermissionDenied("您没有权限修改此预约。")
 
     def perform_destroy(self, instance):
         # 只有预约创建者、管理员或经理才能删除
-        if self.request.user == instance.user or \
-           (self.request.user.is_authenticated and (self.request.user.is_superuser or self.request.user.groups.filter(name__in=['Admin', 'Manager']).exists())):
+        if self.request.user == instance.user or (
+            self.request.user.is_authenticated
+            and (
+                self.request.user.is_superuser
+                or self.request.user.groups.filter(name__in=["Admin", "Manager"]).exists()
+            )
+        ):
             instance.delete()
         else:
             raise PermissionDenied("您没有权限删除此预约。")
 
+
 class MeetingRoomMaintenanceViewSet(viewsets.ModelViewSet):
-    queryset = MeetingRoomMaintenance.objects.select_related('meeting_room').order_by('start_time')
+    queryset = MeetingRoomMaintenance.objects.select_related("meeting_room").order_by("start_time")
     serializer_class = MeetingRoomMaintenanceSerializer
-    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以管理维护时间
+    permission_classes = [IsAdminOrManager]  # 只有管理员和经理可以管理维护时间
+
 
 class MeetingRoomStatsAPIView(APIView):
-    permission_classes = [IsAdminOrManager] # 只有管理员和经理可以访问统计报告
+    permission_classes = [IsAdminOrManager]  # 只有管理员和经理可以访问统计报告
 
     def get(self, request, *args, **kwargs):
-        start_date_str = request.query_params.get('start_date')
-        end_date_str = request.query_params.get('end_date')
-        meeting_room_id = request.query_params.get('meeting_room_id')
+        start_date_str = request.query_params.get("start_date")
+        end_date_str = request.query_params.get("end_date")
+        meeting_room_id = request.query_params.get("meeting_room_id")
 
         # 默认时间范围为最近30天
         end_date = timezone.now().date()
@@ -85,19 +95,20 @@ class MeetingRoomStatsAPIView(APIView):
 
         if start_date_str:
             try:
-                start_date = timezone.datetime.strptime(start_date_str, '%Y-%m-%d').date()
+                start_date = timezone.datetime.strptime(start_date_str, "%Y-%m-%d").date()
             except ValueError:
-                return Response({"error": "Invalid start_date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Invalid start_date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST
+                )
         if end_date_str:
             try:
-                end_date = timezone.datetime.strptime(end_date_str, '%Y-%m-%d').date()
+                end_date = timezone.datetime.strptime(end_date_str, "%Y-%m-%d").date()
             except ValueError:
-                return Response({"error": "Invalid end_date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST)
+                return Response(
+                    {"error": "Invalid end_date format. Use YYYY-MM-DD."}, status=status.HTTP_400_BAD_REQUEST
+                )
 
-        bookings = MeetingRoomBooking.objects.filter(
-            start_time__date__gte=start_date,
-            end_time__date__lte=end_date
-        )
+        bookings = MeetingRoomBooking.objects.filter(start_time__date__gte=start_date, end_time__date__lte=end_date)
 
         if meeting_room_id:
             try:
@@ -107,41 +118,43 @@ class MeetingRoomStatsAPIView(APIView):
 
         # 计算总预约时长 (分钟)
         total_booking_duration_minutes = bookings.annotate(
-            duration=ExpressionWrapper(
-                F('end_time') - F('start_time'),
-                output_field=fields.DurationField()
-            )
-        ).aggregate(total_duration=Sum('duration'))['total_duration']
+            duration=ExpressionWrapper(F("end_time") - F("start_time"), output_field=fields.DurationField())
+        ).aggregate(total_duration=Sum("duration"))["total_duration"]
 
-        total_booking_minutes = total_booking_duration_minutes.total_seconds() / 60 if total_booking_duration_minutes else 0
+        total_booking_minutes = (
+            total_booking_duration_minutes.total_seconds() / 60 if total_booking_duration_minutes else 0
+        )
 
         # 按会议室统计
-        room_stats = bookings.values('meeting_room__name').annotate(
-            booking_count=Count('id'),
-            total_duration_minutes=Sum(
-                ExpressionWrapper(
-                    F('end_time') - F('start_time'),
-                    output_field=fields.DurationField()
-                )
+        room_stats = (
+            bookings.values("meeting_room__name")
+            .annotate(
+                booking_count=Count("id"),
+                total_duration_minutes=Sum(
+                    ExpressionWrapper(F("end_time") - F("start_time"), output_field=fields.DurationField())
+                ),
             )
-        ).order_by('meeting_room__name')
+            .order_by("meeting_room__name")
+        )
 
         # 格式化room_stats
         formatted_room_stats = []
         for stat in room_stats:
-            duration_seconds = stat['total_duration_minutes'].total_seconds() if stat['total_duration_minutes'] else 0
-            formatted_room_stats.append({
-                "meeting_room_name": stat['meeting_room__name'],
-                "booking_count": stat['booking_count'],
-                "total_duration_minutes": duration_seconds / 60
-            })
+            duration_seconds = stat["total_duration_minutes"].total_seconds() if stat["total_duration_minutes"] else 0
+            formatted_room_stats.append(
+                {
+                    "meeting_room_name": stat["meeting_room__name"],
+                    "booking_count": stat["booking_count"],
+                    "total_duration_minutes": duration_seconds / 60,
+                }
+            )
 
         response_data = {
-            "start_date": start_date.strftime('%Y-%m-%d'),
-            "end_date": end_date.strftime('%Y-%m-%d'),
+            "start_date": start_date.strftime("%Y-%m-%d"),
+            "end_date": end_date.strftime("%Y-%m-%d"),
             "total_bookings": bookings.count(),
             "total_booking_duration_minutes": total_booking_minutes,
-            "room_stats": formatted_room_stats
+            "room_stats": formatted_room_stats,
         }
 
         return Response(response_data, status=status.HTTP_200_OK)

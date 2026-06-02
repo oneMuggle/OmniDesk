@@ -1,7 +1,6 @@
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from events.management.seeders import discover_seeders, SEEDER_REGISTRY
-from events.management.seeders.base import BaseSeeder
 
 User = get_user_model()
 

@@ -15,6 +15,7 @@ class BaseSeeder:
     - 优雅降级（模型不存在时跳过）
     - 字段变更兼容（UnknownFieldError 处理）
     """
+
     name = ""  # seeder 名称，子类必须设置
     order = 100  # 执行顺序，越小越先执行
     models = []  # 此 seeder 创建的模型列表，子类应声明
@@ -31,22 +32,18 @@ class BaseSeeder:
         """
         from django.db import models as db_models
 
-        valid_fields = {f.name for f in model._meta.get_fields()
-                        if isinstance(f, db_models.Field)}
+        valid_fields = {f.name for f in model._meta.get_fields() if isinstance(f, db_models.Field)}
 
         # 过滤 defaults 中的无效字段
         defaults = kwargs.get("defaults", {})
         safe_defaults = {k: v for k, v in defaults.items() if k in valid_fields}
-        safe_kwargs = {k: v for k, v in kwargs.items()
-                       if k not in ("defaults",) and k in valid_fields}
+        safe_kwargs = {k: v for k, v in kwargs.items() if k not in ("defaults",) and k in valid_fields}
 
         dropped = set(defaults.keys()) - set(safe_defaults.keys())
         if dropped:
             from django.utils.termcolors import colorize
-            print(colorize(
-                f"    警告: {model.__name__} 已不存在字段 {dropped}，已跳过",
-                fg="yellow"
-            ))
+
+            print(colorize(f"    警告: {model.__name__} 已不存在字段 {dropped}，已跳过", fg="yellow"))
 
         return model.objects.get_or_create(**safe_kwargs, defaults=safe_defaults)
 

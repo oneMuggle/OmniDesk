@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
+
 import os
 import sys
 from pathlib import Path
@@ -7,7 +8,8 @@ from pathlib import Path
 # Load environment variables from .env.local if it exists (local dev only)
 try:
     from dotenv import load_dotenv
-    env_path = Path(__file__).parent / '.env.local'
+
+    env_path = Path(__file__).parent / ".env.local"
     if env_path.exists():
         load_dotenv(dotenv_path=env_path)
 except ImportError:
@@ -16,7 +18,7 @@ except ImportError:
 
 def main():
     """Run administrative tasks."""
-    os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'omni_desk_backend.settings.local')
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "omni_desk_backend.settings.local")
     try:
         from django.core.management import execute_from_command_line
     except ImportError as exc:
@@ -28,5 +30,5 @@ def main():
     execute_from_command_line(sys.argv)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

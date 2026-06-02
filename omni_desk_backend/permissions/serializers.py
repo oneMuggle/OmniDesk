@@ -7,14 +7,15 @@ from .models import PageRoute
 class GroupSerializer(serializers.ModelSerializer):
     class Meta:
         model = Group
-        fields = ['id', 'name']
+        fields = ["id", "name"]
+
 
 class PageRouteSerializer(serializers.ModelSerializer):
     children = serializers.SerializerMethodField()
 
     class Meta:
         model = PageRoute
-        fields = ['id', 'name', 'path', 'component', 'parent', 'children']
+        fields = ["id", "name", "path", "component", "parent", "children"]
 
     def get_children(self, obj):
         children = PageRoute.objects.filter(parent=obj)

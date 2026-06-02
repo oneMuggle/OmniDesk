@@ -12,6 +12,7 @@ class EbookPagination(PageNumberPagination):
 
 class EbookViewSet(viewsets.ModelViewSet):
     """电子书管理 ViewSet"""
+
     queryset = Ebook.objects.all()
     serializer_class = EbookSerializer
     pagination_class = EbookPagination

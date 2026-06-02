@@ -12,6 +12,7 @@ from .models import CalibrationReminder, Sensor
 # from django.contrib.auth import get_user_model
 # User = get_user_model()
 
+
 def send_notification(user, subject, message):
     """
     模拟发送通知的函数。
@@ -25,6 +26,7 @@ def send_notification(user, subject, message):
     # 或者创建站内信记录等
     pass
 
+
 @shared_task
 def check_and_create_calibration_reminders():
     """
@@ -33,37 +35,36 @@ def check_and_create_calibration_reminders():
     today = timezone.now().date()
 
     # 定义提醒的提前天数
-    remind_days = [5, 1, 0] # 提前5天，提前1天，当天
+    remind_days = [5, 1, 0]  # 提前5天，提前1天，当天
 
     for days_before in remind_days:
         remind_date = today + timedelta(days=days_before)
 
         # 查找符合条件的传感器
-        sensors_due = Sensor.objects.filter(
-            Q(last_calibration_date__isnull=False) &
-            Q(
-                last_calibration_date__date__lte=remind_date - timedelta(days=F('calibration_interval_days'))
+        sensors_due = (
+            Sensor.objects.filter(
+                Q(last_calibration_date__isnull=False)
+                & Q(last_calibration_date__date__lte=remind_date - timedelta(days=F("calibration_interval_days")))
             )
-        ).exclude(status__in=['under_calibration', 'retired']).distinct()
+            .exclude(status__in=["under_calibration", "retired"])
+            .distinct()
+        )
 
         for sensor in sensors_due:
             # 检查是否已经存在当天的提醒
-            existing_reminder = CalibrationReminder.objects.filter(
-                sensor=sensor,
-                remind_date=today
-            ).exists()
+            existing_reminder = CalibrationReminder.objects.filter(sensor=sensor, remind_date=today).exists()
 
             if not existing_reminder:
                 # 创建新的校准提醒
                 reminder = CalibrationReminder.objects.create(
-                    sensor=sensor,
-                    remind_date=today,
-                    notes=f"传感器 {sensor.serial_number} 即将或已到期校准。"
+                    sensor=sensor, remind_date=today, notes=f"传感器 {sensor.serial_number} 即将或已到期校准。"
                 )
                 # 假设有一个默认的管理用户或者通过某种逻辑分配提醒用户
                 # 这里可以根据业务逻辑，将提醒关联到特定的管理用户
                 # 例如：可以遍历所有管理员或特定角色用户并添加到 reminded_users
-                admin_users = CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name__in=['Admin', 'Manager'])) # 示例：获取管理员和经理角色用户
+                admin_users = CustomUser.objects.filter(
+                    Q(is_superuser=True) | Q(groups__name__in=["Admin", "Manager"])
+                )  # 示例：获取管理员和经理角色用户
                 reminder.reminded_users.set(admin_users)
 
                 print(f"为传感器 {sensor.serial_number} 创建了校准提醒，提醒日期：{today}")

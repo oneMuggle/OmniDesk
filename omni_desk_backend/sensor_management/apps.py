@@ -2,5 +2,5 @@ from django.apps import AppConfig
 
 
 class SensorManagementConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'sensor_management'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "sensor_management"

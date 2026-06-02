@@ -2,6 +2,7 @@
 
 根据查询关键词匹配最相关的知识库数据集，并行搜索后合并结果。
 """
+
 import logging
 
 import requests
@@ -14,6 +15,7 @@ def get_ragflow_config():
     """获取默认的 Ragflow 配置（兼容旧版单配置模式）"""
     try:
         from ragflow_service.models import RagflowConfig
+
         config = RagflowConfig.objects.filter(is_active=True).first()
         if not config:
             return None
@@ -29,9 +31,8 @@ class RAGRouter:
         """获取所有活跃的数据集。"""
         try:
             from smart_assistant.models import KnowledgeDataset
-            return list(
-                KnowledgeDataset.objects.filter(is_active=True).order_by('priority', 'name')
-            )
+
+            return list(KnowledgeDataset.objects.filter(is_active=True).order_by("priority", "name"))
         except Exception:
             return []
 
@@ -45,14 +46,16 @@ class RAGRouter:
             # 回退到旧版单配置
             config = get_ragflow_config()
             if config:
-                dataset_id = getattr(settings, 'SMART_ASSISTANT_DATASET_ID', '')
+                dataset_id = getattr(settings, "SMART_ASSISTANT_DATASET_ID", "")
                 if dataset_id:
-                    return [{
-                        'name': '默认知识库',
-                        'ragflow_dataset_id': dataset_id,
-                        'api_endpoint': config.api_endpoint,
-                        'api_key': config.api_key,
-                    }]
+                    return [
+                        {
+                            "name": "默认知识库",
+                            "ragflow_dataset_id": dataset_id,
+                            "api_endpoint": config.api_endpoint,
+                            "api_key": config.api_key,
+                        }
+                    ]
             return []
 
         # 基于标签匹配
@@ -74,58 +77,62 @@ class RAGRouter:
         result = []
         for _score, ds in scored[:2]:
             config = get_ragflow_config()
-            result.append({
-                'name': ds.name,
-                'ragflow_dataset_id': ds.ragflow_dataset_id,
-                'api_endpoint': config.api_endpoint if config else '',
-                'api_key': config.api_key if config else '',
-            })
+            result.append(
+                {
+                    "name": ds.name,
+                    "ragflow_dataset_id": ds.ragflow_dataset_id,
+                    "api_endpoint": config.api_endpoint if config else "",
+                    "api_key": config.api_key if config else "",
+                }
+            )
 
         # 如果没有匹配到任何标签，返回所有活跃数据集
         if not result:
             config = get_ragflow_config()
             for ds in datasets[:3]:  # 最多 3 个
-                result.append({
-                    'name': ds.name,
-                    'ragflow_dataset_id': ds.ragflow_dataset_id,
-                    'api_endpoint': config.api_endpoint if config else '',
-                    'api_key': config.api_key if config else '',
-                })
+                result.append(
+                    {
+                        "name": ds.name,
+                        "ragflow_dataset_id": ds.ragflow_dataset_id,
+                        "api_endpoint": config.api_endpoint if config else "",
+                        "api_key": config.api_key if config else "",
+                    }
+                )
 
         return result
 
     def search_dataset(self, query: str, dataset: dict, top_k: int = 5) -> list:
         """搜索单个数据集。"""
-        api_endpoint = dataset.get('api_endpoint', '').rstrip('/')
-        api_key = dataset.get('api_key', '')
-        dataset_id = dataset.get('ragflow_dataset_id', '')
+        api_endpoint = dataset.get("api_endpoint", "").rstrip("/")
+        api_key = dataset.get("api_key", "")
+        dataset_id = dataset.get("ragflow_dataset_id", "")
 
         if not all([api_endpoint, api_key, dataset_id]):
-            logger.warning('RAG 数据集配置不完整: %s', dataset.get('name'))
+            logger.warning("RAG 数据集配置不完整: %s", dataset.get("name"))
             return []
 
-        url = f'{api_endpoint}/api/v1/retrieval'
+        url = f"{api_endpoint}/api/v1/retrieval"
         headers = {
-            'Authorization': f'Bearer {api_key}',
-            'Content-Type': 'application/json',
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
         }
         data = {
-            'dataset_id': dataset_id,
-            'query': query,
-            'top_k': top_k,
+            "dataset_id": dataset_id,
+            "query": query,
+            "top_k": top_k,
         }
 
         try:
             resp = requests.post(url, headers=headers, json=data, timeout=15)
             resp.raise_for_status()
             result = resp.json()
-            chunks = result.get('chunks', [])
+            chunks = result.get("chunks", [])
             # 添加来源标记
             for chunk in chunks:
-                chunk['_source'] = dataset.get('name', '未知')
+                chunk["_source"] = dataset.get("name", "未知")
             return chunks
         except Exception as e:
-            logger.warning('RAG 数据集 %s 搜索失败: %s', dataset.get('name'), e)
+            logger.warning("RAG 数据集 %s 搜索失败: %s", dataset.get("name"), e)
             return []
 
     def search_multi(self, query: str, top_k: int = 5) -> list:
@@ -143,7 +150,7 @@ class RAGRouter:
         seen = set()
         unique_results = []
         for r in all_results:
-            content = r.get('content', r.get('text', ''))
+            content = r.get("content", r.get("text", ""))
             if content not in seen:
                 seen.add(content)
                 unique_results.append(r)

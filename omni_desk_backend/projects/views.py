@@ -14,9 +14,9 @@ class ProjectViewSet(viewsets.ModelViewSet):
         if user.is_anonymous:
             return Project.objects.none()
 
-        if user.is_superuser or user.groups.filter(name='Admin').exists():
+        if user.is_superuser or user.groups.filter(name="Admin").exists():
             return Project.objects.all()
-        elif user.groups.filter(name='Manager').exists():
+        elif user.groups.filter(name="Manager").exists():
             return Project.objects.filter(manager=user)
 
         # Regular users should not see any projects directly
@@ -25,14 +25,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Only managers can create projects, and they are set as the manager.
-        if self.request.user.groups.filter(name='Manager').exists():
+        if self.request.user.groups.filter(name="Manager").exists():
             serializer.save(manager=self.request.user)
-        elif self.request.user.is_superuser or self.request.user.groups.filter(name='Admin').exists():
+        elif self.request.user.is_superuser or self.request.user.groups.filter(name="Admin").exists():
             # Admins can create projects and must specify a manager.
             serializer.save()
         else:
             # This case should be blocked by permissions, but as a safeguard:
             from rest_framework.exceptions import PermissionDenied
+
             raise PermissionDenied("You do not have permission to create projects.")
 
     def check_permissions(self, request):

@@ -14,15 +14,18 @@ class OpenAIClient:
             api_key = api_key or db_config.endpoint.api_key
             model_name = model_name or db_config.model_name
 
-        self.base_url = (base_url or os.environ.get('SMART_ASSISTANT_LLM_ENDPOINT', 'https://gcli.ggchan.dev')).rstrip('/')
-        self.api_key = api_key or os.environ.get('SMART_ASSISTANT_LLM_API_KEY', '')
-        self.model_name = model_name or os.environ.get('SMART_ASSISTANT_LLM_MODEL', 'gemini-2.5-pro')
+        self.base_url = (base_url or os.environ.get("SMART_ASSISTANT_LLM_ENDPOINT", "https://gcli.ggchan.dev")).rstrip(
+            "/"
+        )
+        self.api_key = api_key or os.environ.get("SMART_ASSISTANT_LLM_API_KEY", "")
+        self.model_name = model_name or os.environ.get("SMART_ASSISTANT_LLM_MODEL", "gemini-2.5-pro")
 
     def _load_config_from_db(self):
         """尝试从数据库加载活跃的 LLM 应用配置"""
         try:
             from smart_assistant.models import LlmAppConfig
-            config = LlmAppConfig.objects.select_related('endpoint').filter(is_active=True).first()
+
+            config = LlmAppConfig.objects.select_related("endpoint").filter(is_active=True).first()
             if config:
                 return config
         except Exception:
@@ -32,8 +35,8 @@ class OpenAIClient:
     def _make_request(self, data, stream=False):
         url = f"{self.base_url}/v1/chat/completions"
         headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f"Bearer {self.api_key}",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {self.api_key}",
         }
         try:
             response = requests.post(url, headers=headers, json=data, timeout=120, stream=stream)
@@ -56,17 +59,17 @@ class OpenAIClient:
         for line in response.iter_lines():
             if not line:
                 continue
-            text = line.decode('utf-8')
-            if text.startswith('data: '):
+            text = line.decode("utf-8")
+            if text.startswith("data: "):
                 text = text[6:]
-            if text == '[DONE]':
+            if text == "[DONE]":
                 break
             try:
                 chunk = json.loads(text)
-                choices = chunk.get('choices', [])
+                choices = chunk.get("choices", [])
                 if choices:
-                    delta = choices[0].get('delta', {})
-                    content = delta.get('content')
+                    delta = choices[0].get("delta", {})
+                    content = delta.get("content")
                     if content:
                         yield content
             except Exception:
@@ -106,9 +109,9 @@ class OpenAIClient:
             return self._stream_generate(response)
         else:
             response_data = self._make_request(data)
-            choices = response_data.get('choices', [])
-            usage = response_data.get('usage')
-            if choices and 'message' in choices[0]:
-                return choices[0]['message']['content'], usage
+            choices = response_data.get("choices", [])
+            usage = response_data.get("usage")
+            if choices and "message" in choices[0]:
+                return choices[0]["message"]["content"], usage
             else:
                 raise Exception(f"LLM API 响应结构异常: {response_data}")

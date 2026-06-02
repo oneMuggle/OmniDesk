@@ -1,7 +1,7 @@
 """试验与排班 Seeder：设备、试验、时间段、排班、节假日、人员序列、公告"""
+
 import random
 from datetime import date, datetime, time, timedelta, timezone as dt_tz
-from personnel.models import Personnel
 from events.models import Equipment, Trial, TimeSlot, Schedule, Holiday, PersonnelSequence, LeaderSequence, Announcement
 from events.management.seeders.base import BaseSeeder
 
@@ -30,8 +30,14 @@ TRIAL_TITLES = [
 ]
 
 CLIENTS = [
-    "中国航天科技集团", "中航工业集团公司", "中国船舶重工集团", "中国电子科技集团",
-    "中国兵器工业集团", "国家航天局", "中科院物理研究所", "航天科工集团",
+    "中国航天科技集团",
+    "中航工业集团公司",
+    "中国船舶重工集团",
+    "中国电子科技集团",
+    "中国兵器工业集团",
+    "国家航天局",
+    "中科院物理研究所",
+    "航天科工集团",
 ]
 
 
@@ -64,7 +70,7 @@ class TrialScheduleSeeder(BaseSeeder):
                     "client": CLIENTS[i % len(CLIENTS)],
                     "description": f"本试验旨在验证{title}的相关性能指标是否满足设计要求。",
                     "status": status,
-                }
+                },
             )
             if created:
                 trial.equipments.set(random.sample(equipments, min(random.randint(2, 4), len(equipments))))
@@ -77,7 +83,9 @@ class TrialScheduleSeeder(BaseSeeder):
                     start = datetime.combine(day, time(8, 0), tzinfo=dt_tz.utc)
                     end = datetime.combine(day, time(17, 0), tzinfo=dt_tz.utc)
                     TimeSlot.objects.get_or_create(
-                        trial=trial, start_time=start, end_time=end,
+                        trial=trial,
+                        start_time=start,
+                        end_time=end,
                         defaults={"description": f"第{j + 1}阶段试验"},
                     )
                 trial.refresh_from_db()
@@ -121,7 +129,7 @@ class TrialScheduleSeeder(BaseSeeder):
                     defaults={
                         "duty_person": random.choice(personnel_list),
                         "duty_leader": random.choice(personnel_list),
-                    }
+                    },
                 )
                 count += 1
             d += timedelta(days=1)
@@ -150,7 +158,7 @@ class TrialScheduleSeeder(BaseSeeder):
             defaults={
                 "sequence": [p.id for p in personnel_list[:5]],
                 "holiday_sequence": [p.id for p in personnel_list[5:8]] if len(personnel_list) > 5 else [],
-            }
+            },
         )
         ps.personnel.set(personnel_list[:5])
         if len(personnel_list) > 5:
@@ -165,9 +173,18 @@ class TrialScheduleSeeder(BaseSeeder):
 
     def _seed_announcements(self, user):
         announcements = [
-            ("关于2026年五一劳动节放假安排", "根据国务院办公厅通知，结合我单位实际情况，现将2026年五一劳动节放假安排通知如下：\n1. 放假时间：5月1日至5月5日，共5天。\n2. 4月26日（星期日）、5月9日（星期六）上班。\n3. 节假日期间，请各部门安排好值班工作，确保安全。"),
-            ("关于开展安全生产大检查的通知", "为加强安全生产工作，防范各类事故发生，经研究决定，在全所范围内开展安全生产大检查活动。请各部门于4月30日前完成自查工作，并将自查报告报送安全部。"),
-            ("2026年度试验设备校准计划", "根据年度工作计划，现发布2026年度试验设备校准计划。所有计量设备需在规定时间内完成校准，请各使用部门积极配合。"),
+            (
+                "关于2026年五一劳动节放假安排",
+                "根据国务院办公厅通知，结合我单位实际情况，现将2026年五一劳动节放假安排通知如下：\n1. 放假时间：5月1日至5月5日，共5天。\n2. 4月26日（星期日）、5月9日（星期六）上班。\n3. 节假日期间，请各部门安排好值班工作，确保安全。",
+            ),
+            (
+                "关于开展安全生产大检查的通知",
+                "为加强安全生产工作，防范各类事故发生，经研究决定，在全所范围内开展安全生产大检查活动。请各部门于4月30日前完成自查工作，并将自查报告报送安全部。",
+            ),
+            (
+                "2026年度试验设备校准计划",
+                "根据年度工作计划，现发布2026年度试验设备校准计划。所有计量设备需在规定时间内完成校准，请各使用部门积极配合。",
+            ),
         ]
         for title, content in announcements:
             self.safe_get_or_create(

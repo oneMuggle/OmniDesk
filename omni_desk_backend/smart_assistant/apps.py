@@ -2,9 +2,9 @@ from django.apps import AppConfig
 
 
 class SmartAssistantConfig(AppConfig):
-    default_auto_field = 'django.db.models.BigAutoField'
-    name = 'smart_assistant'
-    verbose_name = '智能助手'
+    default_auto_field = "django.db.models.BigAutoField"
+    name = "smart_assistant"
+    verbose_name = "智能助手"
 
     def ready(self):
         """注册所有工具"""

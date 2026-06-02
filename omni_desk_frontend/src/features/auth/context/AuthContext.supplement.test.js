@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 /**
  * AuthContext 补充测试：login、logout、register、loginAsGuest、pageConfigs 等。
  */

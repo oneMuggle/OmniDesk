@@ -11,14 +11,12 @@ class ComplianceChecker:
         from projects.models import Project
 
         if user.is_staff:
-            return ComplianceIssue.objects.select_related(
-                'project', 'document_book', 'document_template'
-            )
+            return ComplianceIssue.objects.select_related("project", "document_book", "document_template")
 
         user_projects = Project.objects.filter(manager=user)
-        return ComplianceIssue.objects.filter(
-            project__in=user_projects
-        ).select_related('project', 'document_book', 'document_template')
+        return ComplianceIssue.objects.filter(project__in=user_projects).select_related(
+            "project", "document_book", "document_template"
+        )
 
     @staticmethod
     def can_modify_issue(user, issue) -> bool:
@@ -32,12 +30,7 @@ class ComplianceChecker:
         from projects.models import Project
 
         if user.is_staff:
-            return ComplianceIssue.objects.filter(
-                status__in=['待处理', '处理中']
-            ).count()
+            return ComplianceIssue.objects.filter(status__in=["待处理", "处理中"]).count()
 
         user_projects = Project.objects.filter(manager=user)
-        return ComplianceIssue.objects.filter(
-            project__in=user_projects,
-            status__in=['待处理', '处理中']
-        ).count()
+        return ComplianceIssue.objects.filter(project__in=user_projects, status__in=["待处理", "处理中"]).count()

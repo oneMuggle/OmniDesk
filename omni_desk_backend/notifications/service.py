@@ -6,26 +6,18 @@ class NotificationService:
 
     @staticmethod
     def create(user, type, title, content, link=""):
-        return Notification.objects.create(
-            user=user,
-            type=type,
-            title=title,
-            content=content,
-            link=link
-        )
+        return Notification.objects.create(user=user, type=type, title=title, content=content, link=link)
 
     @staticmethod
     def mark_read(notification_id, user):
         notification = Notification.objects.get(id=notification_id, user=user)
         notification.is_read = True
-        notification.save(update_fields=['is_read'])
+        notification.save(update_fields=["is_read"])
         return notification
 
     @staticmethod
     def batch_mark_read(notification_ids, user):
-        count = Notification.objects.filter(
-            id__in=notification_ids, user=user
-        ).update(is_read=True)
+        count = Notification.objects.filter(id__in=notification_ids, user=user).update(is_read=True)
         return count
 
     @staticmethod

@@ -9,6 +9,7 @@ from memos.models import Memo
 def _notify(user, type, title, content, link=""):
     """懒加载导入 NotificationService，避免循环依赖"""
     from notifications.service import NotificationService
+
     NotificationService.create(user=user, type=type, title=title, content=content, link=link)
 
 
@@ -24,17 +25,16 @@ def _get_user_from_personnel(personnel):
 def notify_schedule_created(sender, instance, created, **kwargs):
     if not created:
         return
-    from users.models import CustomUser
 
     if instance.duty_person:
         user = _get_user_from_personnel(instance.duty_person)
         if user:
             _notify(
                 user=user,
-                type='schedule_change',
-                title='排班通知',
-                content=f'您被安排为 {instance.duty_date} 的值班人员',
-                link=f'/events/schedule/{instance.id}'
+                type="schedule_change",
+                title="排班通知",
+                content=f"您被安排为 {instance.duty_date} 的值班人员",
+                link=f"/events/schedule/{instance.id}",
             )
 
     if instance.duty_leader:
@@ -42,10 +42,10 @@ def notify_schedule_created(sender, instance, created, **kwargs):
         if user:
             _notify(
                 user=user,
-                type='schedule_change',
-                title='排班通知',
-                content=f'您被安排为 {instance.duty_date} 的值班领导',
-                link=f'/events/schedule/{instance.id}'
+                type="schedule_change",
+                title="排班通知",
+                content=f"您被安排为 {instance.duty_date} 的值班领导",
+                link=f"/events/schedule/{instance.id}",
             )
 
 
@@ -60,10 +60,10 @@ def notify_announcement_created(sender, instance, created, **kwargs):
         if user.id != instance.author_id:
             _notify(
                 user=user,
-                type='announcement',
-                title=f'新公告：{instance.title}',
+                type="announcement",
+                title=f"新公告：{instance.title}",
                 content=instance.content[:200],
-                link='/announcements'
+                link="/announcements",
             )
 
 
@@ -74,10 +74,10 @@ def notify_compliance_issue_created(sender, instance, created, **kwargs):
     if instance.project and instance.project.manager:
         _notify(
             user=instance.project.manager,
-            type='compliance_issue',
-            title=f'合规问题：{instance.project.name}',
-            content=f'{instance.get_severity_display()} - {instance.description[:100]}',
-            link=f'/compliance/{instance.id}'
+            type="compliance_issue",
+            title=f"合规问题：{instance.project.name}",
+            content=f"{instance.get_severity_display()} - {instance.description[:100]}",
+            link=f"/compliance/{instance.id}",
         )
 
 
@@ -87,8 +87,8 @@ def notify_memo_due(sender, instance, created, **kwargs):
         return
     _notify(
         user=instance.user,
-        type='memo_due',
-        title=f'备忘录：{instance.title}',
-        content=instance.content[:200] if instance.content else '您有一条新的备忘录',
-        link='/memos'
+        type="memo_due",
+        title=f"备忘录：{instance.title}",
+        content=instance.content[:200] if instance.content else "您有一条新的备忘录",
+        link="/memos",
     )

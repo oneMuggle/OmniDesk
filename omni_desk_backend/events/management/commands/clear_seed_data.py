@@ -2,6 +2,7 @@
 
 按 seeder 反向依赖顺序删除测试数据，避免外键约束冲突。
 """
+
 from django.core.management.base import BaseCommand
 from django.contrib.auth import get_user_model
 from events.management.seeders import discover_seeders
@@ -14,7 +15,8 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument(
-            "--force", "-y",
+            "--force",
+            "-y",
             action="store_true",
             help="跳过确认提示",
         )
@@ -50,7 +52,7 @@ class Command(BaseCommand):
         deletion_plan = []
         for seeder in seeders:
             model_counts = []
-            for model in getattr(seeder, 'models', []):
+            for model in getattr(seeder, "models", []):
                 if model is not None:
                     count = model.objects.count()
                     if count > 0:

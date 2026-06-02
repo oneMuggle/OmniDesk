@@ -12,7 +12,7 @@ class RagflowConfig(models.Model):
     class Meta:
         verbose_name = "Ragflow 配置"
         verbose_name_plural = "Ragflow 配置"
-        ordering = ['name']
+        ordering = ["name"]
 
     def __str__(self):
         return self.name

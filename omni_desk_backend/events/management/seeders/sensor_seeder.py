@@ -1,9 +1,15 @@
 """传感器 Seeder：类别、位置、传感器、校准、出入库、校准提醒"""
+
 import random
 from datetime import date, timedelta
 from sensor_management.models import (
-    SensorCategory, StorageLocation, Sensor,
-    SensorMovement, CalibrationReminder, SensorCalibration, CalibrationDataPoint,
+    SensorCategory,
+    StorageLocation,
+    Sensor,
+    SensorMovement,
+    CalibrationReminder,
+    SensorCalibration,
+    CalibrationDataPoint,
 )
 from events.management.seeders.base import BaseSeeder
 
@@ -11,7 +17,15 @@ from events.management.seeders.base import BaseSeeder
 class SensorSeeder(BaseSeeder):
     name = "传感器管理"
     order = 40
-    models = [SensorCategory, StorageLocation, Sensor, SensorMovement, CalibrationReminder, SensorCalibration, CalibrationDataPoint]
+    models = [
+        SensorCategory,
+        StorageLocation,
+        Sensor,
+        SensorMovement,
+        CalibrationReminder,
+        SensorCalibration,
+        CalibrationDataPoint,
+    ]
 
     def seed(self):
         user = self.context.get("user")
@@ -62,7 +76,7 @@ class SensorSeeder(BaseSeeder):
                     "location": random.choice(location_objs),
                     "room_temperature": round(random.uniform(20, 26), 1),
                     "relative_humidity": round(random.uniform(40, 60), 1),
-                }
+                },
             )
             sensors.append(obj)
 
@@ -86,7 +100,7 @@ class SensorSeeder(BaseSeeder):
                     "calibrated_by": user,
                     "reviewed_by": user,
                     "remarks": "校准合格",
-                }
+                },
             )
             if cal:
                 cal_count += 1
@@ -102,7 +116,7 @@ class SensorSeeder(BaseSeeder):
                                 "negative_trip_voltage_1": round(pressure * 0.01 + random.uniform(-0.1, 0.1), 3),
                                 "negative_trip_voltage_2": round(pressure * 0.01 + random.uniform(-0.1, 0.1), 3),
                                 "negative_trip_voltage_3": round(pressure * 0.01 + random.uniform(-0.1, 0.1), 3),
-                            }
+                            },
                         )
                         dp_count += 1
 
@@ -111,18 +125,28 @@ class SensorSeeder(BaseSeeder):
             SensorMovement.objects.get_or_create(
                 sensor=sensor,
                 movement_type="in",
-                defaults={"quantity": random.randint(1, 5), "reason": "采购入库",
-                          "destination_source": "供应商发货", "operator": user},
+                defaults={
+                    "quantity": random.randint(1, 5),
+                    "reason": "采购入库",
+                    "destination_source": "供应商发货",
+                    "operator": user,
+                },
             )
 
         # 校准提醒
         for sensor in sensors[:2]:
-            remind = (sensor.last_calibration_date + timedelta(days=sensor.calibration_interval_days - 30)
-                      if sensor.last_calibration_date else date(2026, 6, 1))
+            remind = (
+                sensor.last_calibration_date + timedelta(days=sensor.calibration_interval_days - 30)
+                if sensor.last_calibration_date
+                else date(2026, 6, 1)
+            )
             CalibrationReminder.objects.get_or_create(
                 sensor=sensor,
-                defaults={"remind_date": remind, "is_sent": False,
-                          "notes": f"传感器 {sensor.sensor_number} 即将到期校准"},
+                defaults={
+                    "remind_date": remind,
+                    "is_sent": False,
+                    "notes": f"传感器 {sensor.sensor_number} 即将到期校准",
+                },
             )
 
         return [

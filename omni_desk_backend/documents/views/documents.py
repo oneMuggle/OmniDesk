@@ -7,7 +7,7 @@ from ..serializers import GeneratedDocumentSerializer
 
 
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
-    queryset = GeneratedDocument.objects.select_related('generated_by')
+    queryset = GeneratedDocument.objects.select_related("generated_by")
     serializer_class = GeneratedDocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None
@@ -18,9 +18,9 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(generated_by=self.request.user)
 
-    @action(detail=True, methods=['post'])
+    @action(detail=True, methods=["post"])
     def finalize(self, request, pk=None):
         document = self.get_object()
         document.is_final = True
         document.save()
-        return Response({'status': 'document finalized'})
+        return Response({"status": "document finalized"})

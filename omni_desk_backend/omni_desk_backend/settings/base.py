@@ -9,6 +9,7 @@ https://docs.djangoproject.com/en/3.2/topics/settings/
 For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.2/ref/settings/
 """
+
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -19,25 +20,28 @@ BASE_DIR = Path(__file__).resolve().parent.parent.parent
 # Application version
 try:
     from core.version import get_version
+
     APP_VERSION = get_version()
 except ImportError:
-    APP_VERSION = '0.0.0-dev'
-BUILD_TIME = os.getenv('BUILD_TIME', 'unknown')
+    APP_VERSION = "0.0.0-dev"
+BUILD_TIME = os.getenv("BUILD_TIME", "unknown")
 
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-_SECRET_KEY = os.getenv('SECRET_KEY')
+_SECRET_KEY = os.getenv("SECRET_KEY")
 if not _SECRET_KEY:
     import warnings
+
     warnings.warn(
-        'SECRET_KEY not set. Generating a random key for this session. '
-        'This will invalidate all existing sessions on restart.',
+        "SECRET_KEY not set. Generating a random key for this session. "
+        "This will invalidate all existing sessions on restart.",
         RuntimeWarning,
     )
     import secrets
+
     SECRET_KEY = secrets.token_urlsafe(50)
 else:
     SECRET_KEY = _SECRET_KEY
@@ -46,155 +50,155 @@ del _SECRET_KEY
 # Application definition
 
 INSTALLED_APPS = [
-    'corsheaders',
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
-    'rest_framework',
-    'rest_framework.authtoken',
-    'rest_framework_simplejwt',
-    'rest_framework_simplejwt.token_blacklist',
-    'personnel.apps.PersonnelConfig',
-    'users',
-    'events',
-    'documents.apps.DocumentsConfig',
-    'config',
-    'memos.apps.MemosConfig',
-    'dify_apps.apps.DifyAppsConfig',
-    'office_assistant.apps.OfficeAssistantConfig',
-    'projects', # Add the new projects app
-    'compliance', # Add the new compliance app
-    'django_celery_beat', # Add django-celery-beat
-    'ragflow_service', # Add the new ragflow_service app
-    'meeting_rooms', # Add the new meeting_rooms app
-    'sensor_management', # Add the new sensor_management app
-    'django_extensions',
-    'communication',
-    'news',
-    'permissions.apps.PermissionsConfig',
-    'ebooks.apps.EbooksConfig',
-    'smart_assistant.apps.SmartAssistantConfig',
-    'core.apps.CoreConfig',
-    'notifications.apps.NotificationsConfig',
-    'dashboard.apps.DashboardConfig',
-    'external_integration.apps.ExternalIntegrationConfig',
-    'django_ratelimit',
+    "corsheaders",
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    "rest_framework",
+    "rest_framework.authtoken",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "personnel.apps.PersonnelConfig",
+    "users",
+    "events",
+    "documents.apps.DocumentsConfig",
+    "config",
+    "memos.apps.MemosConfig",
+    "dify_apps.apps.DifyAppsConfig",
+    "office_assistant.apps.OfficeAssistantConfig",
+    "projects",  # Add the new projects app
+    "compliance",  # Add the new compliance app
+    "django_celery_beat",  # Add django-celery-beat
+    "ragflow_service",  # Add the new ragflow_service app
+    "meeting_rooms",  # Add the new meeting_rooms app
+    "sensor_management",  # Add the new sensor_management app
+    "django_extensions",
+    "communication",
+    "news",
+    "permissions.apps.PermissionsConfig",
+    "ebooks.apps.EbooksConfig",
+    "smart_assistant.apps.SmartAssistantConfig",
+    "core.apps.CoreConfig",
+    "notifications.apps.NotificationsConfig",
+    "dashboard.apps.DashboardConfig",
+    "external_integration.apps.ExternalIntegrationConfig",
+    "django_ratelimit",
 ]
 
 MIDDLEWARE = [
-    'corsheaders.middleware.CorsMiddleware',
-    'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'smart_assistant.middleware.rate_limit.RateLimitMiddleware',
-    'django.middleware.common.CommonMiddleware',
-    'django.middleware.csrf.CsrfViewMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    "corsheaders.middleware.CorsMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "smart_assistant.middleware.rate_limit.RateLimitMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
 # For Nginx proxy with HTTPS
-SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 
-ROOT_URLCONF = 'omni_desk_backend.urls'
+ROOT_URLCONF = "omni_desk_backend.urls"
 
 TEMPLATES = [
     {
-        'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
-        'APP_DIRS': True,
-        'OPTIONS': {
-            'context_processors': [
-                'django.template.context_processors.debug',
-                'django.template.context_processors.request',
-                'django.contrib.auth.context_processors.auth',
-                'django.contrib.messages.context_processors.messages',
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [BASE_DIR / "templates"],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
             ],
         },
     },
 ]
 
-WSGI_APPLICATION = 'omni_desk_backend.wsgi.application'
+WSGI_APPLICATION = "omni_desk_backend.wsgi.application"
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+    "default": {
+        "ENGINE": "django.db.backends.sqlite3",
+        "NAME": BASE_DIR / "db.sqlite3",
     }
 }
 
 # Cache (used by django-ratelimit for rate limiting)
 # Uses Redis (shared with Celery) for cross-process cache
 CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.environ.get('CACHE_REDIS_URL', 'redis://localhost:6379/1'),
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": os.environ.get("CACHE_REDIS_URL", "redis://localhost:6379/1"),
     }
 }
 
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     {
-        'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator',
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator',
+        "NAME": "django.contrib.auth.password_validation.MinimumLengthValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.CommonPasswordValidator",
     },
     {
-        'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator',
+        "NAME": "django.contrib.auth.password_validation.NumericPasswordValidator",
     },
 ]
 
 # Internationalization
-LANGUAGE_CODE = 'zh-hans'
-TIME_ZONE = 'Asia/Shanghai'
+LANGUAGE_CODE = "zh-hans"
+TIME_ZONE = "Asia/Shanghai"
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
 
 # 日志配置优化
 LOGGING = {
-    'version': 1,
-    'disable_existing_loggers': False,
-    'formatters': {
-        'verbose': {
-            'format': '{levelname} {asctime} {module} {message}',
-            'style': '{',
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "verbose": {
+            "format": "{levelname} {asctime} {module} {message}",
+            "style": "{",
         },
     },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'formatter': 'verbose',
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "verbose",
         },
     },
-    'loggers': {
-        'django': {
-            'handlers': ['console'],
-            'level': 'INFO', # 更改日志级别为 INFO
-            'propagate': True,
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": "INFO",  # 更改日志级别为 INFO
+            "propagate": True,
         },
     },
-    'root': {
-        'handlers': ['console'],
-        'level': 'INFO',
+    "root": {
+        "handlers": ["console"],
+        "level": "INFO",
     },
 }
 
 # Static files
-STATIC_URL = '/django-static/'
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+STATIC_URL = "/django-static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -203,100 +207,96 @@ STORAGES = {
         "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
     },
 }
-MEDIA_URL = '/media/'
-MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+MEDIA_URL = "/media/"
+MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 # REST Framework配置 - 更新权限相关设置
 REST_FRAMEWORK = {
-    'DEFAULT_AUTHENTICATION_CLASSES': (
-        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 10,
+    "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
+    "DEFAULT_PARSER_CLASSES": (
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
     ),
-    'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
-    'PAGE_SIZE': 10,
-    'DEFAULT_RENDERER_CLASSES': (
-        'rest_framework.renderers.JSONRenderer',
-    ),
-    'DEFAULT_PARSER_CLASSES': (
-        'rest_framework.parsers.JSONParser',
-        'rest_framework.parsers.FormParser',
-        'rest_framework.parsers.MultiPartParser',
-    ),
-    'TEST_REQUEST_DEFAULT_FORMAT': 'json',
+    "TEST_REQUEST_DEFAULT_FORMAT": "json",
 }
 
 # JWT配置
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=30),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
-    'ROTATE_REFRESH_TOKENS': True,
-    'BLACKLIST_AFTER_ROTATION': True,
-    'AUTH_HEADER_TYPES': ('Bearer',),
-    'USER_ID_FIELD': 'id',
-    'USER_ID_CLAIM': 'user_id',
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=30),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "USER_ID_FIELD": "id",
+    "USER_ID_CLAIM": "user_id",
 }
 
 # CORS configuration
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_METHODS = [
-    'DELETE',
-    'GET',
-    'HEAD',
-    'OPTIONS',
-    'PATCH',
-    'POST',
-    'PUT',
+    "DELETE",
+    "GET",
+    "HEAD",
+    "OPTIONS",
+    "PATCH",
+    "POST",
+    "PUT",
 ]
 
-CORS_EXPOSE_HEADERS = ['Content-Type', 'Authorization']
+CORS_EXPOSE_HEADERS = ["Content-Type", "Authorization"]
 CORS_ALLOW_HEADERS = [
-    'accept',
-    'accept-encoding',
-    'authorization',
-    'content-type',
-    'dnt',
-    'origin',
-    'user-agent',
-    'x-csrftoken',
-    'x-requested-with',
-    'x-request-source',
+    "accept",
+    "accept-encoding",
+    "authorization",
+    "content-type",
+    "dnt",
+    "origin",
+    "user-agent",
+    "x-csrftoken",
+    "x-requested-with",
+    "x-request-source",
 ]
 
 # 自定义用户模型
-AUTH_USER_MODEL = 'users.CustomUser'
+AUTH_USER_MODEL = "users.CustomUser"
 
 # 权限缓存设置
 PERMISSION_CACHE_TIMEOUT = 60 * 60  # 1小时
 
 # Celery Configuration
-CELERY_BROKER_URL = os.environ.get('CELERY_BROKER_URL', 'redis://localhost:6379/0')
-CELERY_RESULT_BACKEND = os.environ.get('CELERY_RESULT_BACKEND', 'redis://localhost:6379/0')
-CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-CELERY_RESULT_SERIALIZER = 'json'
-CELERY_TIMEZONE = 'Asia/Shanghai'
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/0")
+CELERY_ACCEPT_CONTENT = ["json"]
+CELERY_TASK_SERIALIZER = "json"
+CELERY_RESULT_SERIALIZER = "json"
+CELERY_TIMEZONE = "Asia/Shanghai"
 
 # Django-Celery-Beat Configuration
-CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
 CELERY_BEAT_SCHEDULE = {
-    'check-compliance-due-dates-every-day': {
-        'task': 'compliance.tasks.check_compliance_due_dates',
-        'schedule': timedelta(days=1), # 每天执行一次
-        'args': (),
+    "check-compliance-due-dates-every-day": {
+        "task": "compliance.tasks.check_compliance_due_dates",
+        "schedule": timedelta(days=1),  # 每天执行一次
+        "args": (),
     },
-    'cleanup-expired-guest-users': {
-        'task': 'users.tasks.cleanup_expired_guest_users',
-        'schedule': timedelta(days=1),  # 每天执行一次
-        'args': (),
+    "cleanup-expired-guest-users": {
+        "task": "users.tasks.cleanup_expired_guest_users",
+        "schedule": timedelta(days=1),  # 每天执行一次
+        "args": (),
     },
 }
 
 # Mineru OCR API 配置
 # 请替换为您的 Mineru API 地址和密钥
-MINERU_API_URL = os.environ.get('MINERU_API_URL', 'YOUR_MINERU_API_URL')
-MINERU_API_KEY = os.environ.get('MINERU_API_KEY', 'YOUR_MINERU_API_KEY')
+MINERU_API_URL = os.environ.get("MINERU_API_URL", "YOUR_MINERU_API_URL")
+MINERU_API_KEY = os.environ.get("MINERU_API_KEY", "YOUR_MINERU_API_KEY")
 
 # PDF 转图片工具的额外说明
 # 如果您需要处理不可直接提取文本的PDF，需要安装额外的库，例如 'pdf2image'，
@@ -305,7 +305,7 @@ MINERU_API_KEY = os.environ.get('MINERU_API_KEY', 'YOUR_MINERU_API_KEY')
 # 更多信息请参考：https://pypi.org/project/pdf2image/
 
 # Ollama 配置
-OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'http://localhost:11434')
-OLLAMA_MODEL_NAME = os.environ.get('OLLAMA_MODEL_NAME', 'llama2') # 默认模型可以根据需要调整
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+OLLAMA_MODEL_NAME = os.environ.get("OLLAMA_MODEL_NAME", "llama2")  # 默认模型可以根据需要调整
 
-ALLOWED_HOSTS = os.environ.get('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")

@@ -12,15 +12,14 @@ from .models import OllamaConfig, Page, PageVisibility
 from .serializers import GroupSerializer, OllamaConfigSerializer, PageSerializer
 
 
-@api_view(['GET'])
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def get_ollama_config(request):
     """
     返回Ollama配置。
     """
-    return Response({
-        'OLLAMA_ENDPOINT': settings.OLLAMA_BASE_URL
-    })
+    return Response({"OLLAMA_ENDPOINT": settings.OLLAMA_BASE_URL})
+
 
 class PageVisibilityViewSet(viewsets.ViewSet):
     """
@@ -42,55 +41,50 @@ class PageVisibilityViewSet(viewsets.ViewSet):
 
         visibility_dict = {f"{v.page.id}-{v.group.id}": v.is_visible for v in visibility}
 
-        return Response({
-            'pages': page_serializer.data,
-            'groups': group_serializer.data,
-            'visibility': visibility_dict,
-        })
+        return Response(
+            {
+                "pages": page_serializer.data,
+                "groups": group_serializer.data,
+                "visibility": visibility_dict,
+            }
+        )
 
     def create(self, request):
         """
         创建或更新一个页面的可见性设置。
         """
-        page_id = request.data.get('page_id')
-        group_id = request.data.get('group_id')
-        is_visible = request.data.get('is_visible')
+        page_id = request.data.get("page_id")
+        group_id = request.data.get("group_id")
+        is_visible = request.data.get("is_visible")
 
         if page_id is None or group_id is None or is_visible is None:
-            return Response(
-                {'error': 'Missing page_id, group_id, or is_visible'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            return Response({"error": "Missing page_id, group_id, or is_visible"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             page = Page.objects.get(pk=page_id)
             group = Group.objects.get(pk=group_id)
         except (Page.DoesNotExist, Group.DoesNotExist):
-            return Response(
-                {'error': 'Invalid page_id or group_id'},
-                status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "Invalid page_id or group_id"}, status=status.HTTP_404_NOT_FOUND)
 
         obj, created = PageVisibility.objects.update_or_create(
-            page=page,
-            group=group,
-            defaults={'is_visible': is_visible}
+            page=page, group=group, defaults={"is_visible": is_visible}
         )
 
-        return Response({'status': 'success'}, status=status.HTTP_200_OK)
+        return Response({"status": "success"}, status=status.HTTP_200_OK)
 
 
 class OllamaConfigViewSet(viewsets.ModelViewSet):
     """
     用于管理 Ollama 配置的 ViewSet。
     """
+
     queryset = OllamaConfig.objects.all()
     serializer_class = OllamaConfigSerializer
     permission_classes = [IsAdminOrReadOnly]
 
 
 def ollama_configs_view(request):
-   """
-   一个简单的视图，返回一个固定的 JSON 响应。
-   """
-   return JsonResponse({'status': 'ok'})
+    """
+    一个简单的视图，返回一个固定的 JSON 响应。
+    """
+    return JsonResponse({"status": "ok"})

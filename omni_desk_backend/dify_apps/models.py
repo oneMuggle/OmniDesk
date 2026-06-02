@@ -2,6 +2,7 @@ from django.db import models
 
 # Create your models here.
 
+
 class DifyApp(models.Model):
     name = models.CharField(max_length=255, unique=True, verbose_name="应用名称")
     description = models.TextField(blank=True, null=True, verbose_name="应用描述")
@@ -13,7 +14,7 @@ class DifyApp(models.Model):
     class Meta:
         verbose_name = "Dify 应用"
         verbose_name_plural = "Dify 应用"
-        ordering = ['name']
+        ordering = ["name"]
 
     def __str__(self):
         return self.name

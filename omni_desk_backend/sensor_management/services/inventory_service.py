@@ -15,14 +15,14 @@ class InventoryService:
             sensor = movement.sensor
             quantity = movement.quantity
 
-            if movement.movement_type == 'in':
+            if movement.movement_type == "in":
                 sensor.current_quantity += quantity
-                sensor.status = 'in_stock'
-            elif movement.movement_type == 'out':
+                sensor.status = "in_stock"
+            elif movement.movement_type == "out":
                 if sensor.current_quantity < quantity:
                     raise serializers.ValidationError("出库数量不能大于当前库存数量。")
                 sensor.current_quantity -= quantity
-                sensor.status = 'retired' if sensor.current_quantity == 0 else 'in_use'
+                sensor.status = "retired" if sensor.current_quantity == 0 else "in_use"
 
             sensor.save()
 
@@ -37,26 +37,26 @@ class InventoryService:
             new_type = new_instance.movement_type
 
             # Revert old quantity effect
-            if old_type == 'in':
+            if old_type == "in":
                 sensor.current_quantity -= old_quantity
-            elif old_type == 'out':
+            elif old_type == "out":
                 sensor.current_quantity += old_quantity
 
             # Apply new quantity effect
-            if new_type == 'in':
+            if new_type == "in":
                 sensor.current_quantity += new_quantity
-            elif new_type == 'out':
+            elif new_type == "out":
                 if sensor.current_quantity < new_quantity:
                     raise serializers.ValidationError("出库数量不能大于当前库存数量。")
                 sensor.current_quantity -= new_quantity
 
             # Update status
             if sensor.current_quantity == 0:
-                sensor.status = 'retired'
-            elif new_type == 'in':
-                sensor.status = 'in_stock'
-            elif new_type == 'out':
-                sensor.status = 'in_use'
+                sensor.status = "retired"
+            elif new_type == "in":
+                sensor.status = "in_stock"
+            elif new_type == "out":
+                sensor.status = "in_use"
 
             sensor.save()
 
@@ -71,5 +71,5 @@ class CalibrationService:
             reminder.is_sent = True
             reminder.sent_date = timezone.now()
             reminder.save()
-            return {'status': 'reminder marked as sent', 'is_sent': True}
-        return {'status': 'reminder already sent', 'is_sent': True}
+            return {"status": "reminder marked as sent", "is_sent": True}
+        return {"status": "reminder already sent", "is_sent": True}

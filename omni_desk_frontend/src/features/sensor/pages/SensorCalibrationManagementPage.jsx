@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, Space, Collapse } from 'antd';
-import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
+import axiosInstance from '../../../shared/api/axiosConfig';
 import { logger } from '../../../shared/utils/logger';
 
 const SensorCalibrationManagementPage = () => {

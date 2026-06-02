@@ -9,10 +9,10 @@ from .views import (
 )
 
 __all__ = [
-    'SmartChatViewSet',
-    'SessionViewSet',
-    'KnowledgeBaseViewSet',
-    'AgentLogViewSet',
-    'LlmEndpointViewSet',
-    'LlmAppConfigViewSet',
+    "SmartChatViewSet",
+    "SessionViewSet",
+    "KnowledgeBaseViewSet",
+    "AgentLogViewSet",
+    "LlmEndpointViewSet",
+    "LlmAppConfigViewSet",
 ]

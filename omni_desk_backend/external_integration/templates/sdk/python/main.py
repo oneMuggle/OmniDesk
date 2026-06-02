@@ -1,6 +1,7 @@
 """main.py - Python 插件示例
 所有 Python 插件通过 stdin/stdout JSON 协议通信
 """
+
 import sys
 import json
 

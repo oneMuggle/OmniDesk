@@ -9,10 +9,10 @@ from .views import (
 )
 
 __all__ = [
-    'DocumentTemplateViewSet',
-    'GeneratedDocumentViewSet',
-    'BookViewSet',
-    'BookImportView',
-    'ChapterViewSet',
-    'EBookViewSet',
+    "DocumentTemplateViewSet",
+    "GeneratedDocumentViewSet",
+    "BookViewSet",
+    "BookImportView",
+    "ChapterViewSet",
+    "EBookViewSet",
 ]

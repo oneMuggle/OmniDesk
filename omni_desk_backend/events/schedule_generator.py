@@ -2,10 +2,9 @@
 
 将排班生成的核心算法从 ScheduleViewSet 中分离，便于测试和复用。
 """
-import calendar
-from datetime import datetime, timedelta
 
-from django.db import transaction
+from datetime import timedelta
+
 from rest_framework.exceptions import ValidationError
 
 from personnel.models import Personnel
@@ -49,33 +48,28 @@ class ScheduleGenerator:
             holiday_ids = workday_ids
 
         if not workday_ids or not leader_ids:
-            raise ValidationError('排班序列不能为空')
+            raise ValidationError("排班序列不能为空")
 
         # 2. 验证所有人员 ID 有效
         all_ids = set(workday_ids) | set(leader_ids) | set(holiday_ids)
-        existing_ids = set(
-            Personnel.objects.select_for_update()
-            .filter(id__in=all_ids)
-            .values_list('id', flat=True)
-        )
+        existing_ids = set(Personnel.objects.select_for_update().filter(id__in=all_ids).values_list("id", flat=True))
         missing = all_ids - existing_ids
         if missing:
-            raise ValidationError(
-                f'排班序列中的部分人员ID无效，请检查配置: {", ".join(map(str, sorted(missing)))}'
-            )
+            raise ValidationError(f"排班序列中的部分人员ID无效，请检查配置: {', '.join(map(str, sorted(missing)))}")
 
         # 3. 计算日期范围
         end_date = self.start_date + timedelta(days=self.duration_days - 1)
 
         # 4. 收集节假日
         from .models import Holiday
+
         holidays = Holiday.objects.filter(start_date__lte=end_date, end_date__gte=self.start_date)
         holiday_dates = self._expand_holidays(holidays, self.start_date, end_date)
 
         # 5. 计算起始索引
-        workday_idx = self._find_index(workday_ids, self.start_personnel_id, 'workday')
-        holiday_idx = self._find_index(holiday_ids, self.start_holiday_personnel_id, 'holiday')
-        leader_idx = self._find_index(leader_ids, self.start_leader_id, 'leader')
+        workday_idx = self._find_index(workday_ids, self.start_personnel_id, "workday")
+        holiday_idx = self._find_index(holiday_ids, self.start_holiday_personnel_id, "holiday")
+        leader_idx = self._find_index(leader_ids, self.start_leader_id, "leader")
 
         # 6. 生成排班
         schedules = []
@@ -88,7 +82,7 @@ class ScheduleGenerator:
 
             if is_holiday:
                 if not holiday_ids:
-                    raise ValidationError('节假日日期需要配置节假日人员序列')
+                    raise ValidationError("节假日日期需要配置节假日人员序列")
                 personnel_id = holiday_ids[(holiday_idx + holiday_count) % len(holiday_ids)]
                 holiday_count += 1
             else:
@@ -99,6 +93,7 @@ class ScheduleGenerator:
             leader_id = leader_ids[(leader_idx + weeks_passed) % len(leader_ids)]
 
             from .models import Schedule
+
             schedules.append(
                 Schedule(
                     duty_date=current_date,
@@ -109,12 +104,15 @@ class ScheduleGenerator:
 
         # 7. 删除原排班并批量创建
         from .models import Schedule
+
         Schedule.objects.filter(duty_date__gte=self.start_date, duty_date__lte=end_date).delete()
         Schedule.objects.bulk_create(schedules)
 
-        return list(
-            Schedule.objects.filter(duty_date__gte=self.start_date, duty_date__lte=end_date)
-        ), self.start_date, end_date
+        return (
+            list(Schedule.objects.filter(duty_date__gte=self.start_date, duty_date__lte=end_date)),
+            self.start_date,
+            end_date,
+        )
 
     @staticmethod
     def _clean_sequence(raw_sequence):
@@ -141,8 +139,8 @@ class ScheduleGenerator:
         try:
             target_int = int(target_id)
         except (ValueError, TypeError):
-            raise ValidationError({f'start_{label}_id': f'起始{label}人员ID必须为整数'})
+            raise ValidationError({f"start_{label}_id": f"起始{label}人员ID必须为整数"})
         try:
             return id_list.index(target_int)
         except ValueError:
-            raise ValidationError({f'start_{label}_id': f'起始{label}人员ID不在序列中'})
+            raise ValidationError({f"start_{label}_id": f"起始{label}人员ID不在序列中"})

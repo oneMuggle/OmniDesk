@@ -26,18 +26,20 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
     tool_outputs = {}  # 存储每个工具的输出，供后续工具引用
 
     for step in plan:
-        tool_name = step.get('tool')
-        params = step.get('params', {})
-        depends_on = step.get('depends_on')
+        tool_name = step.get("tool")
+        params = step.get("params", {})
+        depends_on = step.get("depends_on")
 
         tool = ToolRegistry.get_tool(tool_name)
         if not tool:
-            logger.warning('工具不存在: %s', tool_name)
-            results.append({
-                'tool_name': tool_name,
-                'result': {'found': False, 'message': f'工具 {tool_name} 不存在'},
-                'success': False,
-            })
+            logger.warning("工具不存在: %s", tool_name)
+            results.append(
+                {
+                    "tool_name": tool_name,
+                    "result": {"found": False, "message": f"工具 {tool_name} 不存在"},
+                    "success": False,
+                }
+            )
             continue
 
         # 如果有依赖，注入前一个工具的结果到参数中
@@ -47,18 +49,20 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
 
         try:
             result = tool.execute(query, context=context)
-            success = result.get('found', False)
+            success = result.get("found", False)
         except Exception as e:
-            logger.error('工具执行失败: %s — %s', tool_name, e)
-            result = {'found': False, 'message': f'工具执行失败: {str(e)}'}
+            logger.error("工具执行失败: %s — %s", tool_name, e)
+            result = {"found": False, "message": f"工具执行失败: {str(e)}"}
             success = False
 
         tool_outputs[tool_name] = result
-        results.append({
-            'tool_name': tool_name,
-            'result': result,
-            'success': success,
-        })
+        results.append(
+            {
+                "tool_name": tool_name,
+                "result": result,
+                "success": success,
+            }
+        )
 
     return results
 
@@ -67,9 +71,9 @@ def _resolve_variables(params: dict, source_tool: str, source_result: dict) -> d
     """将参数中的 $tool_name.xxx 变量替换为实际值。"""
     resolved = {}
     for key, value in params.items():
-        if isinstance(value, str) and value.startswith('$'):
+        if isinstance(value, str) and value.startswith("$"):
             # 变量引用格式: $tool_name.field
-            parts = value[1:].split('.', 1)
+            parts = value[1:].split(".", 1)
             ref_tool = parts[0]
             ref_field = parts[1] if len(parts) > 1 else None
 
@@ -97,14 +101,14 @@ def synthesize_answer(plan: list, tool_results: list, query: str) -> str:
     # 收集所有结果
     all_results_text = []
     for r in tool_results:
-        tool_name = r['tool_name']
-        result = r['result']
-        status = '成功' if r['success'] else '失败'
+        tool_name = r["tool_name"]
+        result = r["result"]
+        status = "成功" if r["success"] else "失败"
         all_results_text.append(f"[{tool_name}] ({status}): {result}")
 
     synthesis_prompt = TOOL_CHAIN_SYNTHESIS_PROMPT.format(
         user_query=query,
-        tool_results='\n'.join(all_results_text),
+        tool_results="\n".join(all_results_text),
     )
 
     client = get_router()
@@ -112,4 +116,4 @@ def synthesize_answer(plan: list, tool_results: list, query: str) -> str:
         answer, _ = client.generate(prompt=synthesis_prompt)
         return answer.strip()
     except Exception as e:
-        return f'回答生成失败: {str(e)}'
+        return f"回答生成失败: {str(e)}"
