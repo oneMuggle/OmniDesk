@@ -5,6 +5,12 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/spec/v2.0.0.html)。
 
+### 如何发布新版本
+
+运行 `python manage.py generate_release --preview` 预览变更，确认后去掉 `--preview` 执行。
+系统会自动分析 git 提交、确定版本号并更新本文件。
+详见 [CLAUDE.md](../../CLAUDE.md) 中的 Version Update System 章节。
+
 ## [未发布]
 
 ## [0.2.0] - 2026-05-16

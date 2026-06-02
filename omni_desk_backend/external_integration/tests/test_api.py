@@ -42,13 +42,14 @@ class TestIntegrationServiceAPI:
     def test_list_services_empty(self, authenticated_client):
         resp = authenticated_client.get('/api/external/integrations/')
         assert resp.status_code == 200
-        assert resp.data == []
+        assert resp.data['results'] == []
 
     def test_list_services(self, authenticated_client, integration_service):
         resp = authenticated_client.get('/api/external/integrations/')
         assert resp.status_code == 200
-        assert len(resp.data) == 1
-        assert resp.data[0]['slug'] == 'test-dify'
+        assert resp.data['count'] == 1
+        assert len(resp.data['results']) == 1
+        assert resp.data['results'][0]['slug'] == 'test-dify'
 
     def test_get_service_by_slug(self, authenticated_client, integration_service):
         resp = authenticated_client.get(f'/api/external/integrations/{integration_service.slug}/')

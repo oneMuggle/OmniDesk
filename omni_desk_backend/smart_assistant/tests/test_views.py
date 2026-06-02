@@ -54,7 +54,7 @@ class TestSmartChatViewSet(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @patch('smart_assistant.views.AgentOrchestrator')
+    @patch('smart_assistant.agent.orchestrator.AgentOrchestrator')
     def test_chat_creates_session(self, mock_orchestrator_cls):
         """不带 conversation_id 时自动创建新会话."""
         mock_orchestrator = MagicMock()
@@ -76,7 +76,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('conversation_id', response.data)
 
-    @patch('smart_assistant.views.AgentOrchestrator')
+    @patch('smart_assistant.agent.orchestrator.AgentOrchestrator')
     def test_chat_with_conversation_id(self, mock_orchestrator_cls):
         """带 conversation_id 时复用已有会话."""
         session = SmartAssistantSession.objects.create(
@@ -179,7 +179,7 @@ class TestKnowledgeBaseViewSet(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    @patch('smart_assistant.views.process_document_embedding')
+    @patch('smart_assistant.views.knowledge_base.process_document_embedding')
     def test_upload_document_triggers_task(self, mock_task):
         """上传文档时触发异步向量化任务."""
         from io import BytesIO

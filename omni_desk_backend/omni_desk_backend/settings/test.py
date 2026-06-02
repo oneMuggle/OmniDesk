@@ -14,8 +14,12 @@ DATABASES = {
 CACHES = {
     'default': {
         'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
-    }
+    },
+    'ratelimit': {
+        'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+    },
 }
+RATELIMIT_USE_CACHE = 'ratelimit'
 
 # To speed up tests
 PASSWORD_HASHERS = [
@@ -30,3 +34,6 @@ STATIC_ROOT = tempfile.mkdtemp()
 
 # Disable rate limiting during tests
 RATELIMIT_ENABLE = False
+
+# Silence django-ratelimit cache backend checks (LocMemCache is fine for tests)
+SILENCED_SYSTEM_CHECKS = ['django_ratelimit.E003', 'django_ratelimit.W001']

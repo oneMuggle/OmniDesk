@@ -18,7 +18,7 @@ class TestEbookModel:
     def test_ebook_optional_fields(self):
         ebook = Ebook.objects.create(title='Minimal Book')
         assert ebook.author == ''
-        assert ebook.file is None
+        assert not ebook.file  # FieldFile is falsy when no file is attached
 
 
 @pytest.mark.django_db

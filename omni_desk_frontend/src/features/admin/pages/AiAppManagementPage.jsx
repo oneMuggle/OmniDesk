@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Typography, message, Select, Spin, Tabs, Tag } from 'antd';
-import { SearchOutlined, CloudServerOutlined, AppstoreOutlined, ApiOutlined, DatabaseOutlined } from '@ant-design/icons';
+import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Typography, message, Select, Tabs, Tag } from 'antd';
+import { CloudServerOutlined, AppstoreOutlined, ApiOutlined, DatabaseOutlined, CheckOutlined } from '@ant-design/icons';
 import {
   getEndpoints,
   addEndpoint,
   updateEndpoint,
   deleteEndpoint,
   fetchEndpointModels,
+  testEndpoint as apiTestEndpoint,
   getAppConfigs,
   addAppConfig,
   updateAppConfig,
@@ -35,7 +36,12 @@ const AiAppManagementPage = () => {
   const [endpointForm] = Form.useForm();
   const [appConfigForm] = Form.useForm();
   const [modelOptions, setModelOptions] = useState([]);
-  const [fetchingEndpointId, setFetchingEndpointId] = useState(null);
+  // 应用配置模态框中当前选中的端点 ID（用于联动获取模型列表）
+  const [selectedEndpointId, setSelectedEndpointId] = useState(null);
+  const [fetchingModels, setFetchingModels] = useState(false);
+  // 端点测试状态：记录正在测试或测试结果的端点 ID
+  const [testingEndpointId, setTestingEndpointId] = useState(null);
+  const [endpointTestResult, setEndpointTestResult] = useState(null);
 
   // ===== Dify 应用 =====
   const [difyApps, setDifyApps] = useState([]);
@@ -147,8 +153,17 @@ const AiAppManagementPage = () => {
     }
   };
 
-  const handleFetchEndpointModels = async (endpointId) => {
-    setFetchingEndpointId(endpointId);
+  // 应用配置模态框中：选择端点后自动获取模型列表
+  const handleEndpointChange = async (endpointId, preserveModelName = false) => {
+    setSelectedEndpointId(endpointId);
+    if (!preserveModelName) {
+      appConfigForm.setFieldValue('model_name', undefined); // 清空已选模型
+    }
+    if (!endpointId) {
+      setModelOptions([]);
+      return;
+    }
+    setFetchingModels(true);
     try {
       const response = await fetchEndpointModels(endpointId);
       const models = response.data?.models || [];
@@ -157,13 +172,38 @@ const AiAppManagementPage = () => {
         message.success(`获取到 ${models.length} 个可用模型`);
       } else {
         message.warning('未获取到任何模型，请检查端点和密钥是否正确');
+        setModelOptions([]);
       }
     } catch (error) {
       const errorMsg = error.response?.data?.error || error.message || '获取模型列表失败';
       message.error(errorMsg);
       logger.error('获取模型列表失败:', error);
+      setModelOptions([]);
     } finally {
-      setFetchingEndpointId(null);
+      setFetchingModels(false);
+    }
+  };
+
+  // 测试端点连通性
+  const handleTestEndpoint = async (endpointId) => {
+    setTestingEndpointId(endpointId);
+    setEndpointTestResult(null);
+    try {
+      const response = await apiTestEndpoint(endpointId);
+      const result = response.data;
+      setEndpointTestResult({ id: endpointId, status: result.status, message: result.message });
+      if (result.status === 'ok') {
+        message.success(result.message);
+      } else {
+        message.warning(result.message);
+      }
+    } catch (error) {
+      const errorMsg = error.response?.data?.message || error.message || '测试请求失败';
+      setEndpointTestResult({ id: endpointId, status: 'error', message: errorMsg });
+      message.error(errorMsg);
+      logger.error('测试端点失败:', error);
+    } finally {
+      setTestingEndpointId(null);
     }
   };
 
@@ -176,20 +216,31 @@ const AiAppManagementPage = () => {
     },
     {
       title: '操作', key: 'action',
-      render: (_, record) => (
-        <Space size="middle">
-          <Button
-            size="small"
-            icon={fetchingEndpointId === record.id ? <Spin size="small" /> : <SearchOutlined />}
-            loading={fetchingEndpointId === record.id}
-            onClick={() => handleFetchEndpointModels(record.id)}
-          >
-            获取模型
-          </Button>
-          <Button type="link" onClick={() => handleEditEndpoint(record)}>编辑</Button>
-          <Button type="link" danger onClick={() => handleDeleteEndpoint(record.id)}>删除</Button>
-        </Space>
-      ),
+      render: (_, record) => {
+        const isTesting = testingEndpointId === record.id;
+        const testResult = endpointTestResult?.id === record.id ? endpointTestResult : null;
+        return (
+          <Space size="middle">
+            <Button
+              size="small"
+              type="default"
+              icon={isTesting ? undefined : <CheckOutlined />}
+              loading={isTesting}
+              onClick={() => handleTestEndpoint(record.id)}
+            >
+              测试
+            </Button>
+            {testResult && testResult.status === 'ok' && (
+              <Tag color="green">正常</Tag>
+            )}
+            {testResult && testResult.status !== 'ok' && (
+              <Tag color="red">{testResult.message?.slice(0, 20)}...</Tag>
+            )}
+            <Button type="link" onClick={() => handleEditEndpoint(record)}>编辑</Button>
+            <Button type="link" danger onClick={() => handleDeleteEndpoint(record.id)}>删除</Button>
+          </Space>
+        );
+      },
     },
   ];
 
@@ -199,6 +250,8 @@ const AiAppManagementPage = () => {
     appConfigForm.resetFields();
     appConfigForm.setFieldsValue({ is_active: true, temperature: 0.7, top_p: 0.9 });
     setModelOptions([]);
+    setSelectedEndpointId(null);
+    setFetchingModels(false);
     setAppConfigModalVisible(true);
   };
 
@@ -212,6 +265,12 @@ const AiAppManagementPage = () => {
       top_p: record.top_p,
       is_active: record.is_active,
     });
+    // 预取当前关联端点的模型列表（编辑模式保留已选模型）
+    const endpointId = record.endpoint?.id ?? record.endpoint;
+    setSelectedEndpointId(endpointId);
+    if (endpointId) {
+      handleEndpointChange(endpointId, true);
+    }
     setAppConfigModalVisible(true);
   };
 
@@ -490,7 +549,7 @@ const AiAppManagementPage = () => {
       <Modal
         title={editingAppConfig ? '编辑应用配置' : '添加应用配置'}
         open={appConfigModalVisible}
-        onCancel={() => { setAppConfigModalVisible(false); setEditingAppConfig(null); appConfigForm.resetFields(); setModelOptions([]); }}
+        onCancel={() => { setAppConfigModalVisible(false); setEditingAppConfig(null); appConfigForm.resetFields(); setModelOptions([]); setSelectedEndpointId(null); setFetchingModels(false); }}
         footer={null}
       >
         <Form form={appConfigForm} layout="vertical" onFinish={handleSaveAppConfig}>
@@ -501,14 +560,16 @@ const AiAppManagementPage = () => {
             <Select
               options={endpoints.filter(e => e.is_active).map(e => ({ label: `${e.name} (${e.api_endpoint})`, value: e.id }))}
               placeholder="请选择已配置的 API 端点"
+              onChange={handleEndpointChange}
             />
           </Form.Item>
           <Form.Item label="模型名称" name="model_name" rules={[{ required: true, message: '请输入或选择模型名称!' }]}>
             <Select
               showSearch
-              placeholder="输入或选择模型名称"
+              placeholder={fetchingModels ? '正在获取模型列表...' : '选择端点后自动获取模型列表'}
+              loading={fetchingModels}
               options={modelOptions.map(m => ({ label: m, value: m }))}
-              notFoundContent="请先在端点管理中获取模型列表"
+              notFoundContent={fetchingModels ? '加载中...' : (selectedEndpointId ? '该端点无可用模型' : '请先选择关联端点')}
               allowClear
             />
           </Form.Item>
@@ -524,7 +585,7 @@ const AiAppManagementPage = () => {
           <Form.Item>
             <Space>
               <Button type="primary" htmlType="submit">保存</Button>
-              <Button onClick={() => { setAppConfigModalVisible(false); setEditingAppConfig(null); appConfigForm.resetFields(); setModelOptions([]); }}>取消</Button>
+              <Button onClick={() => { setAppConfigModalVisible(false); setEditingAppConfig(null); appConfigForm.resetFields(); setModelOptions([]); setSelectedEndpointId(null); setFetchingModels(false); }}>取消</Button>
             </Space>
           </Form.Item>
         </Form>

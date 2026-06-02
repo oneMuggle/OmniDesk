@@ -16,10 +16,11 @@ from rest_framework.response import Response
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def version_info(request):
+    import django
     return Response({
         'version': getattr(settings, 'APP_VERSION', '0.0.0-dev'),
         'build_time': getattr(settings, 'BUILD_TIME', 'unknown'),
-        'django_version': f'{settings.VERSION[0]}.{settings.VERSION[1]}.{settings.VERSION[2]}',
+        'django_version': f'{django.VERSION[0]}.{django.VERSION[1]}.{django.VERSION[2]}',
     })
 
 
@@ -41,7 +42,7 @@ def migration_status(request):
     loader.build_graph()
 
     applied_list = []
-    for app, name in sorted(loader.applied_migrations()):
+    for app, name in sorted(loader.applied_migrations):
         applied_list.append({'app': app, 'name': name})
 
     pending_list = []

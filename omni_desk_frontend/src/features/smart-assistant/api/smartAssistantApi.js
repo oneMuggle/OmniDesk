@@ -125,6 +125,10 @@ export async function fetchEndpointModels(endpointId) {
   return apiClient.post(`${BASE_URL}/endpoints/${endpointId}/fetch-models/`);
 }
 
+export async function testEndpoint(endpointId) {
+  return apiClient.post(`${BASE_URL}/endpoints/${endpointId}/test-endpoint/`);
+}
+
 /**
  * LLM 应用配置管理
  */

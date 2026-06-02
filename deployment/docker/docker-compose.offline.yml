@@ -28,6 +28,7 @@ services:
   # ── Redis ───────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
+    pull_policy: never
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
@@ -37,7 +38,8 @@ services:
 
   # ── Backend ────────────────────────────────────────────────────
   backend:
-    image: omni-desk-backend-prod:latest
+    image: omni-desk-backend-prod:v0.2.0
+    pull_policy: never
     ports:
       - "8000:8000"
     volumes:
@@ -56,7 +58,8 @@ services:
 
   # ── Frontend (Nginx, single HTTP entry point :80) ─────────────
   frontend:
-    image: omni-desk-frontend-prod:latest
+    image: omni-desk-frontend-prod:v0.2.0
+    pull_policy: never
     ports:
       - "80:80"
     depends_on:
@@ -67,7 +70,8 @@ services:
 
   # ── Celery Worker ──────────────────────────────────────────────
   worker:
-    image: omni-desk-backend-prod:latest
+    image: omni-desk-backend-prod:v0.2.0
+    pull_policy: never
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       db:

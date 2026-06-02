@@ -132,7 +132,7 @@ class BookImportView(APIView):
     permission_classes = [permissions.IsAdminUser]
 
     def post(self, request, format=None):
-        from .book_import import import_book_from_file
+        from ..book_import import import_book_from_file
 
         uploaded_file = request.FILES.get('file')
         cover_image_file = request.FILES.get('cover_image')

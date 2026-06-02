@@ -10,14 +10,14 @@ function getImportMeta() {
 }
 
 const meta = getImportMeta();
-const env = meta?.env || Object.fromEntries(
+const env = meta?.env || (typeof process !== 'undefined' ? Object.fromEntries(
   Object.entries(process.env || {})
     .filter(([key]) => key.startsWith('VITE_') || key.startsWith('REACT_APP_'))
     .map(([key, value]) => [key.replace(/^REACT_APP_/, 'VITE_'), value])
-);
+) : {});
 
 export function getEnv(key, defaultValue = '') {
   return env[key] ?? defaultValue;
 }
 
-export const isDev = meta?.DEV ?? process.env.NODE_ENV === 'development';
+export const isDev = meta?.DEV ?? (typeof process !== 'undefined' && process.env?.NODE_ENV === 'development');

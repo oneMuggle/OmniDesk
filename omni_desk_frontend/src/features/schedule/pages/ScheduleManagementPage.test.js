@@ -9,6 +9,9 @@ import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/s
 // Mock external libraries
 jest.mock('jspdf');
 jest.mock('html2canvas');
+jest.mock('@fullcalendar/react', () => () => null);
+jest.mock('@fullcalendar/daygrid', () => () => ({}));
+jest.mock('@fullcalendar/interaction', () => () => ({}));
 
 // Mock API modules at the top level
 jest.mock('../api/scheduleApi');
