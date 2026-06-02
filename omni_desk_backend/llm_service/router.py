@@ -31,15 +31,25 @@ class LLMRouter:
             logger.warning('无法从数据库加载 LLM 端点: %s', e)
             self._endpoints = []
 
-    def generate(self, prompt, system_message=None, stream=False, options=None):
+    def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
         """生成回答，自动在多个端点间降级。
 
-        非流式返回完整文本，流式返回 generator。
+        Args:
+            prompt: 用户提示（与 messages 二选一）
+            system_message: 可选的系统消息
+            stream: 是否流式返回
+            options: 模型选项（如 temperature, max_tokens）
+            messages: 可选的完整 messages 数组（优先于 prompt）
+
+        非流式返回 (content, usage) 元组，流式返回 generator。
         """
-        messages = []
-        if system_message:
-            messages.append({'role': 'system', 'content': system_message})
-        messages.append({'role': 'user', 'content': prompt})
+        if messages is not None:
+            final_messages = messages
+        else:
+            final_messages = []
+            if system_message:
+                final_messages.append({'role': 'system', 'content': system_message})
+            final_messages.append({'role': 'user', 'content': prompt})
 
         # 构建降级链路
         candidates = list(self._endpoints)
@@ -118,10 +128,11 @@ class LLMRouter:
                 else:
                     resp_data = response.json()
                     choices = resp_data.get('choices', [])
+                    usage = resp_data.get('usage')
                     if choices and 'message' in choices[0]:
                         if i > 0:
                             logger.info('LLM 降级成功: 切换到 %s', label)
-                        return choices[0]['message']['content']
+                        return choices[0]['message']['content'], usage
                     raise Exception('LLM API 响应结构异常')
             except Exception as e:
                 last_error = e

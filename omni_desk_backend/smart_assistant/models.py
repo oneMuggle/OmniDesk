@@ -55,6 +55,10 @@ class SmartAssistantSession(models.Model):
     )
     title = models.CharField(max_length=255, verbose_name="会话标题")
     messages = models.JSONField(default=list, verbose_name="对话消息历史")
+    # 多轮对话上下文管理
+    summary_text = models.TextField(blank=True, default='', verbose_name="早期对话摘要")
+    summary_token_count = models.IntegerField(null=True, blank=True, verbose_name="摘要 token 数")
+    turn_count = models.IntegerField(default=0, verbose_name="对话轮数")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -70,6 +74,14 @@ class LlmEndpoint(models.Model):
     api_endpoint = models.URLField(verbose_name="API 端点")
     api_key = models.CharField(max_length=500, verbose_name="API 密钥")
     is_active = models.BooleanField(default=True, verbose_name="是否激活")
+    # 降级与路由相关字段
+    priority = models.IntegerField(default=1, verbose_name="优先级（数字越小优先级越高）")
+    is_fallback = models.BooleanField(default=False, verbose_name="是否为备用端点")
+    model_capabilities = models.JSONField(default=list, blank=True, verbose_name="模型能力")
+    cost_per_1k_tokens = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True,
+        verbose_name="每千 token 费用（元）",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -123,6 +135,20 @@ class AgentLog(models.Model):
     tool_input = models.JSONField(default=dict, verbose_name="工具输入")
     tool_output = models.JSONField(default=dict, verbose_name="工具输出")
     llm_response = models.TextField(verbose_name="LLM 回答")
+    # 用量与成本追踪
+    model_name = models.CharField(max_length=100, blank=True, default='', verbose_name="使用的模型")
+    input_tokens = models.IntegerField(null=True, blank=True, verbose_name="输入 token 数")
+    output_tokens = models.IntegerField(null=True, blank=True, verbose_name="输出 token 数")
+    total_tokens = models.IntegerField(null=True, blank=True, verbose_name="总 token 数")
+    estimated_cost = models.DecimalField(
+        max_digits=10, decimal_places=6, null=True, blank=True,
+        verbose_name="预估费用（元）",
+    )
+    response_time_ms = models.IntegerField(null=True, blank=True, verbose_name="响应时间（ms）")
+    tool_success = models.BooleanField(null=True, blank=True, verbose_name="工具执行是否成功")
+    user_feedback = models.CharField(
+        max_length=20, blank=True, default='', verbose_name="用户反馈（up/down）",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

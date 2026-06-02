@@ -23,17 +23,19 @@ class TestSmartChatViewSet(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    @patch.object(AgentOrchestrator, 'process')
-    def test_chat_success(self, mock_process):
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_success(self, mock_orchestrator_cls):
         """POST /api/smart-assistant/chat/ 成功返回."""
-        mock_process.return_value = {
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
             'answer': '明天张三值班。',
             'intent': 'schedule_query',
             'tool_used': 'schedule_query',
             'tool_result': {'found': True},
             'sources': None,
+            'usage': None,
         }
-
+        mock_orchestrator_cls.return_value = mock_orchestrator
         response = self.client.post(
             '/api/smart-assistant/chat/',
             {'query': '明天谁值班？'},
@@ -64,6 +66,7 @@ class TestSmartChatViewSet(TestCase):
             'tool_used': None,
             'tool_result': None,
             'sources': None,
+            'usage': None,
         }
         mock_orchestrator_cls.return_value = mock_orchestrator
 
@@ -92,6 +95,7 @@ class TestSmartChatViewSet(TestCase):
             'tool_used': None,
             'tool_result': None,
             'sources': None,
+            'usage': None,
         }
         mock_orchestrator_cls.return_value = mock_orchestrator
 

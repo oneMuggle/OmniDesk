@@ -72,26 +72,30 @@ class OpenAIClient:
             except Exception:
                 continue
 
-    def generate(self, prompt, system_message=None, stream=False, options=None):
+    def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
         """生成回答
 
         Args:
-            prompt: 用户提示
+            prompt: 用户提示（与 messages 二选一）
             system_message: 可选的系统消息
             stream: 是否流式返回
             options: 模型选项（如 temperature, max_tokens）
+            messages: 可选的完整 messages 数组（优先于 prompt）
 
         Returns:
-            非流式时返回完整字符串，流式时返回 generator
+            非流式时返回 (content, usage) 元组，流式时返回 generator
         """
-        messages = []
-        if system_message:
-            messages.append({"role": "system", "content": system_message})
-        messages.append({"role": "user", "content": prompt})
+        if messages is not None:
+            final_messages = messages
+        else:
+            final_messages = []
+            if system_message:
+                final_messages.append({"role": "system", "content": system_message})
+            final_messages.append({"role": "user", "content": prompt})
 
         data = {
             "model": self.model_name,
-            "messages": messages,
+            "messages": final_messages,
             "stream": stream,
         }
         if options:
@@ -103,7 +107,8 @@ class OpenAIClient:
         else:
             response_data = self._make_request(data)
             choices = response_data.get('choices', [])
+            usage = response_data.get('usage')
             if choices and 'message' in choices[0]:
-                return choices[0]['message']['content']
+                return choices[0]['message']['content'], usage
             else:
                 raise Exception(f"LLM API 响应结构异常: {response_data}")

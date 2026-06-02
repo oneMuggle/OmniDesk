@@ -30,7 +30,7 @@ class TestAgentOrchestrator(TestCase):
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
 
-        mock_generate.return_value = '明天张三值班。'
+        mock_generate.return_value = ('明天张三值班。', None)
 
         result = self.orchestrator.process('明天谁值班？')
 
@@ -52,7 +52,7 @@ class TestAgentOrchestrator(TestCase):
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
 
-        mock_general.return_value = '抱歉，暂无排班信息。'
+        mock_general.return_value = ('抱歉，暂无排班信息。', None)
 
         result = self.orchestrator.process('明天谁值班？')
 
@@ -67,7 +67,7 @@ class TestAgentOrchestrator(TestCase):
         mock_classify.return_value = 'general_chat'
         mock_registry.get_tool.return_value = None
         mock_registry.get_all_schemas.return_value = []
-        mock_general.return_value = '你好！我是你的助手。'
+        mock_general.return_value = ('你好！我是你的助手。', None)
 
         result = self.orchestrator.process('你好')
 
@@ -88,7 +88,7 @@ class TestAgentOrchestrator(TestCase):
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'knowledge_qa', 'description': 'test'}]
 
-        mock_general.return_value = '抱歉，暂时无法回答。'
+        mock_general.return_value = ('抱歉，暂时无法回答。', None)
 
         result = self.orchestrator.process('查询文档')
 
@@ -111,7 +111,7 @@ class TestAgentOrchestrator(TestCase):
         }
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'knowledge_qa', 'description': 'test'}]
-        mock_generate.return_value = '根据知识库...'
+        mock_generate.return_value = ('根据知识库...', None)
 
         result = self.orchestrator.process('查询')
 
@@ -130,7 +130,7 @@ class TestAgentOrchestrator(TestCase):
         mock_tool.execute.return_value = {'found': True, 'schedules': []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
-        mock_generate.return_value = '回答'
+        mock_generate.return_value = ('回答', None)
 
         history = [{'role': 'user', 'content': '今天天气如何'}]
         result = self.orchestrator.process('明天谁值班？', conversation_history=history)
@@ -185,7 +185,7 @@ class TestAgentOrchestratorStream(TestCase):
         mock_classify.return_value = 'general_chat'
         mock_registry.get_tool.return_value = None
         mock_registry.get_all_schemas.return_value = []
-        mock_general.return_value = '通用回答'
+        mock_general.return_value = ('通用回答', None)
 
         chunks = list(self.orchestrator.process_stream('你好'))
 

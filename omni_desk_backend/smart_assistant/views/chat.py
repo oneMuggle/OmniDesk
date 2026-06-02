@@ -1,4 +1,5 @@
 import json
+import time
 
 from django.http import StreamingHttpResponse
 from rest_framework import status, viewsets
@@ -9,12 +10,12 @@ from rest_framework.response import Response
 from ..models import SmartAssistantSession, AgentLog
 from ..serializers import SmartChatRequestSerializer
 from ..agent.orchestrator import AgentOrchestrator
+from ..agent.conversation_context import count_turns, should_summarize
 
 
 class SmartChatViewSet(viewsets.ViewSet):
     """智能聊天接口"""
     permission_classes = [IsAuthenticated]
-    orchestrator = AgentOrchestrator()
 
     def create(self, request):
         """POST /api/smart-assistant/chat/"""
@@ -24,6 +25,7 @@ class SmartChatViewSet(viewsets.ViewSet):
 
         query = serializer.validated_data['query']
         conversation_id = serializer.validated_data.get('conversation_id')
+        orchestrator = AgentOrchestrator()
 
         conversation_history = None
         session = None
@@ -36,7 +38,9 @@ class SmartChatViewSet(viewsets.ViewSet):
             except SmartAssistantSession.DoesNotExist:
                 pass
 
-        result = self.orchestrator.process(query, conversation_history)
+        start_time = time.time()
+        result = orchestrator.process(query, conversation_history)
+        response_time_ms = int((time.time() - start_time) * 1000)
 
         if conversation_id and session:
             existing_messages = session.messages or []
@@ -44,6 +48,7 @@ class SmartChatViewSet(viewsets.ViewSet):
                 {'role': 'user', 'content': query},
                 {'role': 'assistant', 'content': result['answer']},
             ]
+            session.turn_count = count_turns(session.messages)
             if not session.title:
                 session.title = query[:50]
             session.save()
@@ -56,8 +61,19 @@ class SmartChatViewSet(viewsets.ViewSet):
                     {'role': 'user', 'content': query},
                     {'role': 'assistant', 'content': result['answer']},
                 ],
+                turn_count=1,
             )
             result['conversation_id'] = session.id
+
+        # 解析 token 信息
+        usage = result.get('usage')
+        input_tokens = None
+        output_tokens = None
+        total_tokens = None
+        if usage:
+            input_tokens = usage.get('prompt_tokens')
+            output_tokens = usage.get('completion_tokens')
+            total_tokens = usage.get('total_tokens')
 
         AgentLog.objects.create(
             session=session,
@@ -67,6 +83,12 @@ class SmartChatViewSet(viewsets.ViewSet):
             tool_input={'query': query},
             tool_output=result.get('tool_result') or {},
             llm_response=result['answer'],
+            model_name=result.get('model_name', ''),
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            response_time_ms=response_time_ms,
+            tool_success=result.get('tool_fallback') is not True,
         )
 
         return Response({
@@ -89,6 +111,7 @@ class SmartChatViewSet(viewsets.ViewSet):
         conversation_id = serializer.validated_data.get('conversation_id')
 
         conversation_history = None
+        session = None
         if conversation_id:
             try:
                 session = SmartAssistantSession.objects.get(
@@ -98,10 +121,14 @@ class SmartChatViewSet(viewsets.ViewSet):
             except SmartAssistantSession.DoesNotExist:
                 pass
 
+        start_time = time.time()
+
+        orchestrator = AgentOrchestrator()
+
         def event_stream():
             full_answer = []
 
-            for chunk in self.orchestrator.process_stream(query, conversation_history):
+            for chunk in orchestrator.process_stream(query, conversation_history):
                 yield chunk
                 try:
                     payload = chunk.split('data: ', 1)[1].rsplit('\n\n', 1)[0]
@@ -112,6 +139,8 @@ class SmartChatViewSet(viewsets.ViewSet):
                     pass
 
             answer = ''.join(full_answer)
+            response_time_ms = int((time.time() - start_time) * 1000)
+
             if conversation_id:
                 try:
                     session = SmartAssistantSession.objects.get(
@@ -122,6 +151,7 @@ class SmartChatViewSet(viewsets.ViewSet):
                         {'role': 'user', 'content': query},
                         {'role': 'assistant', 'content': answer},
                     ]
+                    session.turn_count = count_turns(session.messages)
                     if not session.title:
                         session.title = query[:50]
                     session.save()
@@ -136,6 +166,7 @@ class SmartChatViewSet(viewsets.ViewSet):
                         {'role': 'user', 'content': query},
                         {'role': 'assistant', 'content': answer},
                     ],
+                    turn_count=1,
                 )
                 cid = session.id
 

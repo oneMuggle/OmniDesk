@@ -1,6 +1,13 @@
 from abc import ABC, abstractmethod
 
 
+class ValidationResult:
+    """工具结果验证"""
+    def __init__(self, is_valid: bool = True, reason: str = ''):
+        self.is_valid = is_valid
+        self.reason = reason
+
+
 class BaseTool(ABC):
     """工具基类"""
     name: str = ''
@@ -19,3 +26,34 @@ class BaseTool(ABC):
             'description': self.description,
             'intent_type': self.intent_type,
         }
+
+    def get_examples(self) -> list:
+        """返回 few-shot 示例，帮助 LLM 理解工具用法。"""
+        return []
+
+    def validate_params(self, params: dict) -> ValidationResult:
+        """校验工具参数。子类可覆盖。"""
+        return ValidationResult(is_valid=True)
+
+    def validate_result(self, result: dict) -> ValidationResult:
+        """校验工具返回结果的有效性。子类可覆盖。
+
+        当工具返回 found=False 或数据不完整时返回无效。
+        """
+        if not isinstance(result, dict):
+            return ValidationResult(is_valid=False, reason='结果不是字典')
+        if not result.get('found'):
+            return ValidationResult(
+                is_valid=False,
+                reason=result.get('message', '未找到相关信息'),
+            )
+        return ValidationResult(is_valid=True)
+
+    def extract_keywords(self, query: str) -> list:
+        """从用户查询中提取关键词。默认去除停用词。"""
+        stopwords = {'搜索', '查找', '查询', '请问', '帮我', '看看', '有没有', '的', '了', '吗', '呢'}
+        keywords = []
+        for word in query:
+            if word not in stopwords:
+                keywords.append(word)
+        return keywords

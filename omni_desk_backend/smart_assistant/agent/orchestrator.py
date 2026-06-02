@@ -5,17 +5,22 @@ from ..cache import (
     get_cached_tool_result, cache_tool_result,
     get_cached_answer, cache_answer,
 )
+from .tool_chain_planner import generate_tool_chain_plan
+from .tool_chain_executor import execute_tool_chain, synthesize_answer as synthesize_chain_answer
 
 
 class AgentOrchestrator:
-    """Agent 编排器：意图分类 → 工具选择 → 回答生成"""
+    """Agent 编排器：意图分类 → 工具选择 → 回答生成
+
+    支持单工具执行和多工具链式执行。
+    """
 
     def process(self, user_query: str, conversation_history: list = None) -> dict:
         """处理用户问题"""
-        # Step 1: 意图分类（先查缓存）
         schemas = ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
 
+        # Step 1: 意图分类（先查缓存）
         if not has_history:
             cached_intent = get_cached_intent(user_query, schemas)
             if cached_intent:
@@ -24,10 +29,16 @@ class AgentOrchestrator:
                 intent = classify_intent(user_query, schemas, conversation_history)
                 cache_intent(user_query, schemas, intent)
         else:
-            # 有对话历史时跳过缓存（上下文相关）
             intent = classify_intent(user_query, schemas, conversation_history)
 
-        # Step 2: 工具路由（先查缓存）
+        # Step 2: 检测是否需要多工具
+        tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
+
+        if tool_chain:
+            # 多工具链式执行
+            return self._process_chain(user_query, tool_chain, conversation_history)
+
+        # Step 3: 单工具路由（保持现有路径）
         tool = ToolRegistry.get_tool(intent)
         if tool:
             cached_result = get_cached_tool_result(tool.name, user_query)
@@ -42,7 +53,7 @@ class AgentOrchestrator:
 
             # 工具失败时优雅降级
             if isinstance(tool_result, dict) and not tool_result.get('found'):
-                answer = generate_general_answer(user_query, conversation_history)
+                answer, usage = generate_general_answer(user_query, conversation_history)
                 return {
                     'answer': answer,
                     'intent': intent,
@@ -50,18 +61,24 @@ class AgentOrchestrator:
                     'tool_result': tool_result,
                     'sources': None,
                     'tool_fallback': True,
+                    'usage': usage,
                 }
 
-            # Step 3: LLM 生成自然语言回答（先查缓存）
+            # Step 4: LLM 生成自然语言回答（先查缓存）
             if not has_history:
                 cached_answer = get_cached_answer(user_query, intent)
                 if cached_answer:
                     answer = cached_answer
+                    usage = None
                 else:
-                    answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    answer, usage = generate_answer(
+                        user_query, intent, tool.name, tool_result, conversation_history
+                    )
                     cache_answer(user_query, intent, answer)
             else:
-                answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                answer, usage = generate_answer(
+                    user_query, intent, tool.name, tool_result, conversation_history
+                )
 
             return {
                 'answer': answer,
@@ -69,17 +86,44 @@ class AgentOrchestrator:
                 'tool_used': tool.name,
                 'tool_result': tool_result,
                 'sources': tool_result.get('sources') if isinstance(tool_result, dict) else None,
+                'usage': usage,
             }
         else:
             # 通用对话
-            answer = generate_general_answer(user_query, conversation_history)
+            answer, usage = generate_general_answer(user_query, conversation_history)
             return {
                 'answer': answer,
                 'intent': 'general_chat',
                 'tool_used': None,
                 'tool_result': None,
                 'sources': None,
+                'usage': usage,
             }
+
+    def _process_chain(self, user_query: str, plan: list, conversation_history: list) -> dict:
+        """多工具链式处理"""
+        tool_results = execute_tool_chain(plan, user_query, context={'history': conversation_history or []})
+        answer = synthesize_chain_answer(plan, tool_results, user_query)
+
+        # 收集第一个工具的名称和所有 source
+        first_tool = plan[0].get('tool') if plan else None
+        all_sources = []
+        for r in tool_results:
+            if r.get('result') and isinstance(r['result'], dict):
+                sources = r['result'].get('sources')
+                if sources:
+                    all_sources.extend(sources)
+
+        return {
+            'answer': answer,
+            'intent': 'multi_tool_chain',
+            'tool_used': first_tool,
+            'tool_result': {
+                'chain_results': tool_results,
+            },
+            'sources': all_sources if all_sources else None,
+            'tool_chain': plan,
+        }
 
     def process_stream(self, user_query: str, conversation_history: list = None):
         """流式处理：先发送元数据，再逐 chunk 发送 LLM 输出"""
@@ -133,14 +177,14 @@ class AgentOrchestrator:
         # Step 3: 流式生成回答
         if tool_fallback:
             # fallback 到通用回答
-            answer = generate_general_answer(user_query, conversation_history)
+            answer, _ = generate_general_answer(user_query, conversation_history)
             def _gen():
                 yield answer
             stream = _gen()
         elif tool:
             stream = generate_answer_stream(user_query, intent, tool_name, tool_result, conversation_history)
         else:
-            answer = generate_general_answer(user_query, conversation_history)
+            answer, _ = generate_general_answer(user_query, conversation_history)
             def _gen2():
                 yield answer
             stream = _gen2()
