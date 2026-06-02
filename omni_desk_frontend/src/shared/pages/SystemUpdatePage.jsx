@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Card, Tabs, Spin, Tag, Descriptions, Table, Alert, Typography, Button } from 'antd';
 import { DownloadOutlined, WindowsOutlined } from '@ant-design/icons';
-import axiosInstanceInstance from '../api/axiosConfig';
+import axiosInstance from '../api/axiosConfig';
 import ReactMarkdown from 'react-markdown';
 
 const { Title } = Typography;

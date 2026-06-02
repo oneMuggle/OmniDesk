@@ -9,13 +9,27 @@ jest.mock('antd', () => {
     },
   };
 });
+
+// Mock axiosConfig — the component uses it instead of raw axios
+jest.mock('../../../shared/api/axiosConfig', () => {
+  const mockInstance = {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn(), eject: jest.fn() },
+      response: { use: jest.fn(), eject: jest.fn() },
+    },
+  };
+  return { __esModule: true, default: mockInstance };
+});
+
 import { render, screen, waitFor, within } from '@testing-library/react';
 import EBookManagementPage from './EBookManagementPage';
 import userEvent from '@testing-library/user-event';
-import axios from 'axios';
+import axiosInstance from '../../../shared/api/axiosConfig';
 import { message } from 'antd';
-
-jest.mock('axios');
 
 const mockBooks = [
   { id: 1, title: 'React 入门指南', author: '张三', createdAt: '2023-10-01' },
@@ -24,14 +38,14 @@ const mockBooks = [
 ];
 
 beforeEach(() => {
-  axios.get.mockResolvedValue({ data: mockBooks });
-  axios.post.mockResolvedValue({
+  axiosInstance.get.mockResolvedValue({ data: mockBooks });
+  axiosInstance.post.mockResolvedValue({
     data: { id: 4, title: 'hello', author: 'Unknown', createdAt: '2023-10-04' },
   });
-  axios.put.mockImplementation(async (url, data) => {
+  axiosInstance.put.mockImplementation(async (url, data) => {
     return Promise.resolve({ data });
   });
-  axios.delete.mockResolvedValue({ status: 204 });
+  axiosInstance.delete.mockResolvedValue({ status: 204 });
 });
 
 test('renders without crashing', async () => {
@@ -146,5 +160,5 @@ test('deletes a book and removes it from the list', async () => {
     expect(screen.queryByText('React 入门指南')).not.toBeInTheDocument();
   });
 
-  expect(axios.delete).toHaveBeenCalledWith('/api/ebooks/1');
+  expect(axiosInstance.delete).toHaveBeenCalledWith('/api/ebooks/1');
 });

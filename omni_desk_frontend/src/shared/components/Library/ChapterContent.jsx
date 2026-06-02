@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useLayoutEffect } from 'react';
 import { useParams, useLocation } from 'react-router-dom';
 import { Spin, Typography } from 'antd';
-import axiosInstanceInstance from '../../api/axiosConfig';
+import axiosInstance from '../../api/axiosConfig';
 import { sanitizeHtml } from '../../utils/sanitizeHtml';
 import { logger } from '../../utils/logger';
 

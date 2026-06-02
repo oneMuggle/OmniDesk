@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Card, Descriptions, Spin, Tag } from 'antd';
-import axiosInstanceInstance from '../../shared/api/axiosConfig';
+import axiosInstance from '../../shared/api/axiosConfig';
 
 /**
  * Version info display component.

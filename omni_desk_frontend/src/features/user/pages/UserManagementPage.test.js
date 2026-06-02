@@ -8,6 +8,12 @@ import { getAllPersonnel } from '../../personnel/api/personnelApi';
 import { permissionsApi } from '../../../shared/api/permissionsApi';
 import { AuthContext } from '../../auth/context/AuthContext';
 
+// Mock the logger — component uses logger.warn for edit/delete
+jest.mock('../../../shared/utils/logger', () => ({
+  logger: { warn: jest.fn(), error: jest.fn(), info: jest.fn() },
+}));
+import { logger } from '../../../shared/utils/logger';
+
 // 1. 在文件顶部 Mock 整个 API 模块
 jest.mock('../api/userManagementApi');
 jest.mock('../../personnel/api/personnelApi');
@@ -72,9 +78,8 @@ describe('UserManagementPage', () => {
   });
 
 
-  it('should call the edit user function when the edit button is clicked', async () => {
+  it('should call the edit user logger when the edit button is clicked', async () => {
     setupMocks();
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
     renderPage();
     await screen.findByText('user.one');
     const user = userEvent.setup();
@@ -82,13 +87,11 @@ describe('UserManagementPage', () => {
     const editButtons = screen.getAllByTestId('edit-user-button');
     await user.click(editButtons[0]);
 
-    expect(spy).toHaveBeenCalledWith('Edit user', 1);
-    spy.mockRestore();
+    expect(logger.warn).toHaveBeenCalledWith('Edit user handler not implemented', 1);
   });
 
-  it('should call the delete user function when the delete button is clicked', async () => {
+  it('should call the delete user logger when the delete button is clicked', async () => {
     setupMocks();
-    const spy = jest.spyOn(console, 'log').mockImplementation(() => {});
     renderPage();
     await screen.findByText('user.one');
     const user = userEvent.setup();
@@ -96,8 +99,7 @@ describe('UserManagementPage', () => {
     const deleteButtons = screen.getAllByTestId('delete-user-button');
     await user.click(deleteButtons[0]);
 
-    expect(spy).toHaveBeenCalledWith('Delete user', 1);
-    spy.mockRestore();
+    expect(logger.warn).toHaveBeenCalledWith('Delete user handler not implemented', 1);
   });
 
 });

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axiosInstanceInstance from '../../../shared/api/axiosConfig';
+import axiosInstance from '../../../shared/api/axiosConfig';
 import { logger } from '../../../shared/utils/logger';
 
 const PageVisibilityManagement = () => {
