@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Upload, Button, message, Card, Spin, Row, Col, Select } from 'antd';
 import { InboxOutlined } from '@ant-design/icons';
-import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
+import axiosInstanceInstance from '../../../shared/api/axiosConfig';
 import { logger } from '../../../shared/utils/logger';
 
 const { Dragger } = Upload;

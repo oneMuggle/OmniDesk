@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Layout, Input, Typography, message, Card, Row, Col, Space, Button } from 'antd';
-import axiosInstanceInstance from '../../shared/api/axiosInstanceConfig';
-import { logger } from '../../shared/utils/logger';
+import axiosInstanceInstance from '../../../shared/api/axiosConfig';
+import { logger } from '../../../shared/utils/logger';
 import FileUpload from '../components/FileUpload';
 import BookList from '../components/BookList';
 import BookForm from '../components/BookForm';

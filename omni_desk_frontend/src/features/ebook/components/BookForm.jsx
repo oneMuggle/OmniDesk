@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, Button } from 'antd';
-import { logger } from '../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger';
 
 const BookForm = ({ book = null, onSave, onCancel }) => {
   const [form] = Form.useForm();

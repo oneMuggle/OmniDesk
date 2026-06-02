@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import PropTypes from 'prop-types';
 import { Modal, Form, Input, DatePicker, Switch, message } from 'antd';
 import dayjs from 'dayjs';
-import { logger } from '../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger';
 
 const { TextArea } = Input;
 

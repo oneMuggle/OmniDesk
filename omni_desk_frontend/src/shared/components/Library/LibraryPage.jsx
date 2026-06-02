@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Layout, Spin, Select } from 'antd';
-import axiosInstanceInstance from '../../api/axiosInstanceConfig';
+import axiosInstanceInstance from '../../api/axiosConfig';
 
 import TableOfContents from './TableOfContents';
 import ChapterContent from './ChapterContent';

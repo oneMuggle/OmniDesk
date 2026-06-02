@@ -50,6 +50,11 @@
     "component": "LazyComponent"
   },
   {
+    "name": "智能助手统计",
+    "path": "/smart-assistant/stats",
+    "component": "LazyComponent"
+  },
+  {
     "name": "知识库管理",
     "path": "/knowledge-base",
     "component": "LazyComponent"

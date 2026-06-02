@@ -1,7 +1,7 @@
 import './DifyApps.css';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
-import axiosInstanceInstance from '../../../shared/api/axiosInstanceConfig';
+import axiosInstanceInstance from '../../../shared/api/axiosConfig';
 import './DifyApps.css'; // 稍后创建此CSS文件
 import { logger } from '../../../shared/utils/logger';
 

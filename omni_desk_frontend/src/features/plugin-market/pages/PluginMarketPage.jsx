@@ -4,7 +4,7 @@ import { SearchOutlined, PlayCircleOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { fetchPlugins, executePlugin } from '../api/pluginApi';
 import PluginDetailModal from '../components/PluginDetailModal';
-import { logger } from '../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger';
 
 const { Search } = Input;
 
