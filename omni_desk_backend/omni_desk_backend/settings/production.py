@@ -14,12 +14,14 @@ if not os.getenv('SECRET_KEY'):
         'Set a strong, fixed SECRET_KEY for production.'
     )
 
-# Ensure Mineru API Key is not left as default placeholder
+# MINERU_API_KEY is OPTIONAL — document parsing feature degrades gracefully
+# when missing (see documents/file_processing.py for the runtime check).
+# 仅当用户显式设为占位符时才报错(防止"忘了改"),其他情况(未设置/已设真实值)均允许。
 _MINERU_KEY = os.getenv('MINERU_API_KEY', '')
-if not _MINERU_KEY or _MINERU_KEY == 'YOUR_MINERU_API_KEY':
+if _MINERU_KEY in ('YOUR_MINERU_API_KEY', '<YOUR_MINERU_API_KEY>'):
     raise ImproperlyConfigured(
-        'Production settings require a valid MINERU_API_KEY. '
-        'Set it in your environment, do not use the default placeholder.'
+        'MINERU_API_KEY is set to a placeholder value. '
+        'Either unset it (to disable document parsing) or provide a real key.'
     )
 
 # Ensure PostgreSQL is configured in production — fail loudly if not set
@@ -58,13 +60,25 @@ DATABASES = {
 CORS_ALLOWED_ORIGINS = os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
 CSRF_TRUSTED_ORIGINS = os.environ.get('CSRF_TRUSTED_ORIGINS', '').split(',')
 
-# HTTPS settings
-CSRF_COOKIE_SECURE = True
-SESSION_COOKIE_SECURE = True
+# ──────────────────────────────────────────────────────────────────────
+# HTTPS / Cookie security
+# ──────────────────────────────────────────────────────────────────────
+# USE_HTTPS 控制 cookie 的 secure 标志:
+#   - "true"  → 启用 HTTPS,cookie 仅在 https 下发(推荐用于外网/带 HTTPS 反向代理的内网)
+#   - "false" → 纯 HTTP 部署(默认),允许 cookie 在 HTTP 下传输,否则登录后会立即丢失会话
+# 注意:USE_HTTPS=true 时,必须确保 nginx/反代正确转发 X-Forwarded-Proto 头。
+USE_HTTPS = os.environ.get('USE_HTTPS', 'false').lower() == 'true'
+
+CSRF_COOKIE_SECURE = USE_HTTPS
+SESSION_COOKIE_SECURE = USE_HTTPS
 CSRF_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_SAMESITE = 'Lax'
 CSRF_COOKIE_HTTPONLY = True
 SESSION_COOKIE_HTTPONLY = True
+
+# 让 Django 通过 nginx/反代转发的 X-Forwarded-Proto 头识别原始协议,
+# 这样在 HTTPS 反向代理 + 内部 HTTP 容器架构下,Django 仍能正确判断 request.is_secure()。
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/3.2/howto/static-files/

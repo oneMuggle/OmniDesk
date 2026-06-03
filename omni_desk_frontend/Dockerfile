@@ -5,7 +5,9 @@ COPY package.json package-lock.json ./
 RUN npm ci
 COPY . .
 EXPOSE 3000
-CMD ["npm", "start"]
+# Vite dev server 需要显式绑定 0.0.0.0 才能在容器中接受外部连接。
+# vite.config.js 中的 server.host 也已设为 true,这里 CLI 参数作为兜底。
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "3000"]
 
 # Production stage
 # Builder part

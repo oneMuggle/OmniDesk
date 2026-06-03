@@ -14,6 +14,9 @@ export default defineConfig({
     },
   },
   server: {
+    // host: true 等价于 '0.0.0.0',允许容器外部访问 dev server。
+    // 本机直接 `npm run dev` 时仍可通过 localhost:3000 访问。
+    host: true,
     port: 3000,
     proxy: {
       '/api': {

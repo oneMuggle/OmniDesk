@@ -69,7 +69,9 @@ services:
       target: development
     volumes:
       - ../../omni_desk_frontend:/app
-      - node_modules_volume:/app/node_modules
+      # 匿名 volume:每次容器创建从 image 的 /app/node_modules 拷贝,
+      # 保证 image (npm ci) 与运行时一致,避免旧 named volume 导致"vite not found"。
+      - /app/node_modules
     ports:
       - "3000:3000"
     environment:
@@ -98,4 +100,3 @@ volumes:
   postgres_data:
   static_volume:
   media_volume:
-  node_modules_volume:

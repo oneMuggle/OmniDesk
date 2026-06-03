@@ -13,13 +13,15 @@ done
 set -e
 
 echo "Waiting for database..."
+# 环境变量名与 settings/production.py 和 .env.production 保持一致
+# (DB_HOST/DB_PORT,而非 POSTGRES_HOST/POSTGRES_PORT)
 until python -c "
 import psycopg2
 import os
 try:
     conn = psycopg2.connect(
-        host=os.environ.get('POSTGRES_HOST', 'db'),
-        port=os.environ.get('POSTGRES_PORT', '5432'),
+        host=os.environ.get('DB_HOST', 'db'),
+        port=os.environ.get('DB_PORT', '5432'),
         dbname=os.environ.get('POSTGRES_DB', 'omnidesk'),
         user=os.environ.get('POSTGRES_USER', 'omnidesk'),
         password=os.environ.get('POSTGRES_PASSWORD', ''),
