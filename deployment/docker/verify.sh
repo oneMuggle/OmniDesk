@@ -39,7 +39,7 @@ REQUIRED_FILES=(
     "images/nginx-stable-alpine.tar"
     "scripts/deploy.sh"
     "compose/docker-compose.offline.yml"
-    "config/.env.production.template"
+    "config/.env.production.example"
     "VERSION"
     "BUILD-MANIFEST.json"
 )

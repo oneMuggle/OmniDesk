@@ -263,9 +263,9 @@ echo "  Phase 3: 环境配置"
 echo "=========================================="
 echo ""
 
-if [ ! -f ".env.production" ] && [ -f ".env.production.defaults" ]; then
-    echo "Generating .env.production from defaults (first-time setup)..."
-    cp .env.production.defaults .env.production
+if [ ! -f ".env.production" ] && [ -f ".env.production.example" ]; then
+    echo "Generating .env.production from example template (first-time setup)..."
+    cp .env.production.example .env.production
 
     python3 -c "
 import secrets

@@ -133,13 +133,13 @@ generate_env() {
         return
     fi
 
-    if [ ! -f "config/.env.production.template" ]; then
-        echo "ERROR: config/.env.production.template 不存在"
+    if [ ! -f "config/.env.production.example" ]; then
+        echo "ERROR: config/.env.production.example 不存在"
         exit 1
     fi
 
     echo "从模板生成 .env.production..."
-    cp config/.env.production.template compose/.env.production
+    cp config/.env.production.example compose/.env.production
 
     # 自动生成密钥
     if command -v python3 >/dev/null 2>&1; then
@@ -313,12 +313,11 @@ echo "  OK: docker-compose.offline.yml"
 
 # ─── 复制配置模板 ──────────────────────────────────────────
 echo "复制配置模板..."
-if [ -f "$SCRIPT_DIR/.env.production.template" ]; then
-    cp "$SCRIPT_DIR/.env.production.template" "$BUNDLE_DIR/config/"
-    echo "  OK: .env.production.template"
-elif [ -f "$SCRIPT_DIR/.env.production.defaults" ]; then
-    cp "$SCRIPT_DIR/.env.production.defaults" "$BUNDLE_DIR/config/.env.production.template"
-    echo "  OK: .env.production.template (from defaults)"
+if [ -f "$SCRIPT_DIR/.env.production.example" ]; then
+    cp "$SCRIPT_DIR/.env.production.example" "$BUNDLE_DIR/config/"
+    echo "  OK: .env.production.example"
+else
+    echo "  WARN: .env.production.example 不存在,跳过配置模板复制"
 fi
 
 # 复制 nginx.conf
