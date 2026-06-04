@@ -65,13 +65,15 @@ jobs:
           # 让 deploy test runner 在本地无镜像时从 GHCR 拉取(已 login)
           # (本 job 已经在前面步骤本地 build 了镜像,所以会优先用本地)
           sed -i 's|pull_policy: never|pull_policy: missing|g' docker-compose.offline.yml
-          docker compose -f docker-compose.offline.yml up -d
+          # 显式 --env-file 避免 docker compose 自动加载 cwd 中的 .env 文件污染变量
+          # (deployment/docker/.env 是 dev 用,含 POSTGRES_USER=user 等值会覆盖 .env.production 的 testuser)
+          docker compose --env-file .env.production -f docker-compose.offline.yml up -d
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
             while true; do
               healthy=true
               for svc in backend frontend; do
-                state=$(docker compose -f docker-compose.offline.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
+                state=$(docker compose --env-file .env.production -f docker-compose.offline.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
                 if [ "$state" != "running" ]; then
                   healthy=false
                   break
