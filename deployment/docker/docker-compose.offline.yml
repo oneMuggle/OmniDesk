@@ -65,6 +65,10 @@ services:
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
       - DJANGO_ENV=production
+      # 触发 entrypoint.sh 跑 collectstatic 生成 staticfiles.json,
+      # 否则 WhiteNoise CompressedManifestStaticFilesStorage 找不到 admin 静态文件
+      # 报 'Missing staticfiles manifest entry' → 500
+      - COLLECT_STATIC=true
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
