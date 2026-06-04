@@ -1,12 +1,19 @@
-# Offline deployment override — use with: docker compose -f docker-compose.yml -f docker-compose.offline.yml --env-file .env.production up -d
-# Image names match what docker load produces (see deploy_offline.sh)
+# Offline deployment — self-contained compose, no merge with dev base
+# Used with: docker compose -f docker-compose.offline.yml --env-file .env.production up -d
+#
+# 镜像命名与 GHCR 一致 (ghcr.io/onemuggle/omni-desk-{backend,frontend})
+# 默认 tag v0.2.0 来自 .env.production.example,可被 BACKEND_IMAGE_TAG /
+# FRONTEND_IMAGE_TAG 环境变量覆盖。pull_policy: never 防止误去 docker hub 拉取。
+#
+# 离线包通过 build_and_export.sh 在 docker save/load 后用 docker tag 重命名:
+#   docker tag omni-desk-backend-prod:v0.2.0  ghcr.io/onemuggle/omni-desk-backend:v0.2.0
+#   docker tag omni-desk-frontend-prod:v0.2.0 ghcr.io/onemuggle/omni-desk-frontend:v0.2.0
 
 x-common-env: &common-env
   env_file:
     - ./.env.production
 
 services:
-  # ── PostgreSQL ──────────────────────────────────────────────────
   db:
     image: postgres:14.2
     command: postgres -c listen_addresses='*'
@@ -14,6 +21,8 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
       interval: 10s
@@ -21,68 +30,119 @@ services:
       retries: 5
       start_period: 60s
     restart: unless-stopped
-    ports: []
     networks:
       - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
-  # ── Redis ───────────────────────────────────────────────────────
   redis:
     image: redis:7-alpine
-    pull_policy: never
     command: redis-server --requirepass ${REDIS_PASSWORD}
     healthcheck:
       test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
-    ports: []
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
     networks:
       - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ── Backend ────────────────────────────────────────────────────
   backend:
-    image: omni-desk-backend-prod:v0.2.0
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
     pull_policy: never
-    ports:
-      - "8000:8000"
-    volumes:
-      - static_volume:/usr/src/app/staticfiles
-      - media_volume:/usr/src/app/media
+    <<: *common-env
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
       - DJANGO_ENV=production
+    volumes:
+      - static_volume:/usr/src/app/staticfiles
+      - media_volume:/usr/src/app/media
+      - backup_volume:/usr/src/app/backups
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
-    restart: unless-stopped
-    <<: *common-env
-
-  # ── Frontend (Nginx, single HTTP entry point :80) ─────────────
-  frontend:
-    image: omni-desk-frontend-prod:v0.2.0
-    pull_policy: never
-    ports:
-      - "80:80"
-    depends_on:
-      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health/')\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
     networks:
       - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
-  # ── Celery Worker ──────────────────────────────────────────────
-  worker:
-    image: omni-desk-backend-prod:v0.2.0
+  frontend:
+    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:-v0.2.0}
     pull_policy: never
+    ports:
+      - "80:80"
+    command: ["nginx", "-g", "daemon off;"]
+    depends_on:
+      - backend
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    networks:
+      - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  worker:
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
+    pull_policy: never
+    <<: *common-env
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       db:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import subprocess; subprocess.run(['celery', '-A', 'omni_desk_backend', 'status'], check=True, capture_output=True, timeout=10)\" || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
     restart: unless-stopped
-    <<: *common-env
+    networks:
+      - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
 
 volumes:
+  postgres_data:
   redis_data:
+  static_volume:
+  media_volume:
+  backup_volume:
 
 networks:
   omni_desk:

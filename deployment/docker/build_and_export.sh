@@ -29,9 +29,13 @@ fi
 
 echo "Building version: $BUILD_VERSION"
 
-# 定义镜像名称（使用版本标签，禁止 :latest）
+# 镜像命名 — 与 GHCR 全名保持一致 (ghcr.io/onemuggle/omni-desk-{backend,frontend})
+# 离线 compose (docker-compose.offline.yml) 引用 GHCR 全名,本地 docker save 源用简化名
 BACKEND_IMAGE="omni-desk-backend-prod:v${BUILD_VERSION}"
 FRONTEND_IMAGE="omni-desk-frontend-prod:v${BUILD_VERSION}"
+# GHCR 全名 — 离线包加载后由 deploy 流程 docker tag 添加,让 offline compose 能直接引用
+BACKEND_IMAGE_GHCR="ghcr.io/onemuggle/omni-desk-backend:v${BUILD_VERSION}"
+FRONTEND_IMAGE_GHCR="ghcr.io/onemuggle/omni-desk-frontend:v${BUILD_VERSION}"
 # 同时打一个 :latest 标签用于 compose 文件引用
 BACKEND_IMAGE_LATEST="omni-desk-backend-prod:latest"
 FRONTEND_IMAGE_LATEST="omni-desk-frontend-prod:latest"
@@ -73,11 +77,14 @@ cd "$COMPOSE_DIR"
 # 打 latest 标签（供 compose 文件引用）
 docker tag "$BACKEND_IMAGE" "$BACKEND_IMAGE_LATEST"
 docker tag "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_LATEST"
+# 同时打 GHCR 全名标签（让 offline compose 与 GHCR 引用一致,避免镜像名割裂）
+docker tag "$BACKEND_IMAGE" "$BACKEND_IMAGE_GHCR"
+docker tag "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_GHCR"
 
 echo ""
 echo "Build complete:"
-echo "  Backend:  $BACKEND_IMAGE -> $BACKEND_IMAGE_LATEST"
-echo "  Frontend: $FRONTEND_IMAGE -> $FRONTEND_IMAGE_LATEST"
+echo "  Backend:  $BACKEND_IMAGE -> $BACKEND_IMAGE_LATEST + $BACKEND_IMAGE_GHCR"
+echo "  Frontend: $FRONTEND_IMAGE -> $FRONTEND_IMAGE_LATEST + $FRONTEND_IMAGE_GHCR"
 
 # ─── Phase 1.3: 构建后验证 ──────────────────────────────────
 echo ""
