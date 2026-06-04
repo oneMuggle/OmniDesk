@@ -71,16 +71,17 @@ jobs:
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
             while true; do
-              healthy=true
-              for svc in backend frontend; do
-                state=$(docker compose --env-file .env.production -f docker-compose.offline.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
-                if [ "$state" != "running" ]; then
-                  healthy=false
-                  break
+              all_healthy=true
+              for svc in db redis backend frontend; do
+                cid=$(docker compose --env-file .env.production -f docker-compose.offline.yml ps -q $svc 2>/dev/null)
+                health=$(docker inspect --format="{{if .State.Health}}{{.State.Health.Status}}{{else}}running{{end}}" "$cid" 2>/dev/null || echo "unknown")
+                if [ "$health" != "healthy" ]; then
+                  echo "  $svc: $health"
+                  all_healthy=false
                 fi
               done
-              if [ "$healthy" = true ]; then
-                echo "All services are running"
+              if [ "$all_healthy" = true ]; then
+                echo "All services healthy"
                 break
               fi
               sleep 5
