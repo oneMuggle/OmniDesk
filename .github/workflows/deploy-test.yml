@@ -12,9 +12,6 @@ on:
 jobs:
   deploy-test:
     runs-on: ubuntu-latest
-    # Deploy Test requires GHCR authentication — allowed to fail
-    # TODO: Add GHCR access token and enable full deploy testing
-    continue-on-error: true
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:

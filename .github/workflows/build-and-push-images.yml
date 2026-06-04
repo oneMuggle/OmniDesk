@@ -121,6 +121,8 @@ jobs:
             type=sha
             type=raw,value=latest,enable={{is_default_branch}}
             type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
+            type=raw,value=v${{ steps.read_version.outputs.VERSION }},enable={{is_default_branch}}
+            type=raw,value=v${{ steps.read_version.outputs.VERSION }},enable={{is_default_branch}}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5
