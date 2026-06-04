@@ -47,7 +47,7 @@
     "react-router-dom": "^6.28.2",
     "react-slick": "^0.30.3",
     "react-toastify": "^11.0.5",
-    "react-tooltip": "^5.28.0",
+    "react-tooltip": "^6.0.5",
     "remark-gfm": "^4.0.1",
     "slick-carousel": "^1.8.1",
     "tippy.js": "^6.3.7",
