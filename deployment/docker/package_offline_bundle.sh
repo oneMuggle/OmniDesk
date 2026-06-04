@@ -308,7 +308,7 @@ done
 
 # ─── 复制 compose 配置 ─────────────────────────────────────
 echo "复制 docker-compose 配置..."
-cp "$SCRIPT_DIR/docker-compose.offline-standalone.yml" "$BUNDLE_DIR/compose/docker-compose.offline.yml"
+cp "$SCRIPT_DIR/docker-compose.offline.yml" "$BUNDLE_DIR/compose/docker-compose.offline.yml"
 echo "  OK: docker-compose.offline.yml"
 
 # ─── 复制配置模板 ──────────────────────────────────────────

@@ -39,13 +39,13 @@ jobs:
       - name: Start services
         working-directory: ./deployment/docker
         run: |
-          docker compose -f docker-compose.offline-standalone.yml up -d
+          docker compose -f docker-compose.offline.yml up -d
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
             while true; do
               healthy=true
               for svc in backend frontend; do
-                state=$(docker compose -f docker-compose.offline-standalone.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
+                state=$(docker compose -f docker-compose.offline.yml ps -q $svc 2>/dev/null | xargs -I{} docker inspect --format="{{.State.Status}}" {} 2>/dev/null)
                 if [ "$state" != "running" ]; then
                   healthy=false
                   break
@@ -79,5 +79,5 @@ jobs:
         if: always()
         working-directory: ./deployment/docker
         run: |
-          docker compose -f docker-compose.offline-standalone.yml down -v
+          docker compose -f docker-compose.offline.yml down -v
           echo "Services stopped and volumes removed"

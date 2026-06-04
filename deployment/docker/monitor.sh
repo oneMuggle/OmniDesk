@@ -10,7 +10,7 @@
 COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$COMPOSE_DIR"
 
-COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
+COMPOSE_FILE="-f docker-compose.offline.yml"
 ENV_FILE="--env-file .env.production"
 
 compose() {

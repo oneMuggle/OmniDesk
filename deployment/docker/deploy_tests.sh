@@ -27,7 +27,7 @@ result() {
     esac
 }
 
-COMPOSE_FILE="-f docker-compose.offline-standalone.yml"
+COMPOSE_FILE="-f docker-compose.offline.yml"
 ENV_FILE="--env-file .env.production"
 
 compose() {
