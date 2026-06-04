@@ -39,6 +39,9 @@ jobs:
       - name: Start services
         working-directory: ./deployment/docker
         run: |
+          # 临时把 backend/frontend 的 pull_policy 从 'never' 改为 'missing',
+          # 让 deploy test runner 在本地无镜像时从 GHCR 拉取(已 login)
+          sed -i 's|pull_policy: never|pull_policy: missing|g' docker-compose.offline.yml
           docker compose -f docker-compose.offline.yml up -d
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
