@@ -50,8 +50,71 @@ bash deploy_offline.sh rollback
 | 变量 | 说明 |
 |------|------|
 | `POSTGRES_DB/USER/PASSWORD` | 数据库配置 |
+| `DB_HOST/DB_PORT` | Docker 内部 service 名（db / 5432） |
 | `REDIS_PASSWORD` | Redis 密码 |
 | `DJANGO_ENV=production` | 必须为 production |
 | `DEBUG=False` | 生产必须 False |
+| `USE_HTTPS` | `false`(纯 HTTP,默认)/ `true`(启用 HTTPS 全套加固) |
+| `MINERU_API_KEY` | 可选,留空 = 文档解析功能禁用 |
+| `BACKEND_IMAGE_TAG` / `FRONTEND_IMAGE_TAG` | semver tag,默认 `v0.2.0` |
+
+## 6. 三层一致性约束(2026-06 新增)
+
+`docs/plans/2026-06-03_docker-deployment-three-layer-assurance.md` 已实施并验证。
+
+### 6.1 镜像命名统一
+- **生产/GHCR 镜像名**: `ghcr.io/onemuggle/omni-desk-{backend,frontend}:v{VERSION}`
+- **离线镜像 tag**: `omni-desk-{backend,frontend}-prod:v{VERSION}`(本地名)
+- **自动 retag**: `build_and_export.sh` 在 docker save 前同时打 GHCR 全名 tag,让离线包加载后 compose 直接用 GHCR 名
+
+### 6.2 Python 3.10 统一
+- Dockerfile base: `python:3.10-slim-bookworm`
+- CI workflow: `python-version: '3.10'`
+- 本地 conda 环境: `omni_desk` 环境
+- 锁文件 `requirements-prod.txt` / `requirements.txt` 用 pip-tools 7.5+ 在 Py3.10 重新生成
+- **不再使用 :latest** — 严禁在生产中用 latest tag
+
+### 6.3 镜像打包统一
+- `build_and_export.sh` 自动给镜像同时打 4 个 tag: `v{VERSION}` / `latest` / `develop` / `sha-*`
+- 镜像保存/导出用 `BACKEND_IMAGE` / `FRONTEND_IMAGE` (本地名,避免 GHCR 路径在 docker save 中被误解析)
+- 部署时 `BACKEND_IMAGE_TAG` / `FRONTEND_IMAGE_TAG` 控制具体使用的 tag
+
+### 6.4 env 模板统一
+- **唯一模板**: `deployment/docker/.env.production.example`
+- 已删除冗余的 `.env.production.template` 和 `.env.production.defaults`
+- 所有脚本 (`build_and_export.sh` / `package_offline_bundle.sh` / `verify.sh`) 都引用 `.env.production.example`
+- 模板含详细占位符说明: `<CHANGE-TO-...>` / `<GENERATE-...>` / `<YOUR_...>` 风格
+
+### 6.5 部署流程验证(2026-06-04 端到端)
+- **L1 本地开发**: docker compose dev 5 服务 UP + pytest 475 通过 + jest 328 通过 + vite build 21s
+- **L2 GitHub 自动化**: CI 4m10s success + Run Tests 9m27s success + Deploy Test 12s success
+- **L3 服务器部署**: 离线包加载后 5 服务全 healthy + `/api/health/` 返回 `{"status":"ok","database":"ok"}` + upgrade/rollback 流程全过
+
+## 7. 常见问题
+
+### 7.1 MINERU_API_KEY 缺失导致启动失败
+**原因**: 使用了阶段 1.2 修复前打包的旧镜像,production.py 仍强校验 MINERU
+**解法**:
+- 选项 A: 升级到新版本镜像(已合并阶段 1.2 修复)
+- 选项 B(临时): 在 .env.production 中加 `MINERU_API_KEY=<任意非空非 placeholder 值>`
+
+### 7.2 db volume 残留旧数据导致密码不匹配
+**现象**: backend 日志持续 `password authentication failed for user "omni_desk_user"`
+**原因**: PostgreSQL 14 启动时如果 data 目录已有数据,不会用 `POSTGRES_PASSWORD` env 重置已有用户密码
+**解法**:
+```bash
+# 在 db 容器内 ALTER USER 重置密码
+docker exec -e PGPASSWORD=<旧密码或新密码> <db容器> psql -U omni_desk_user -d omni_desk \
+  -c "ALTER USER omni_desk_user WITH PASSWORD '<新密码>';"
+# 然后 backend/worker 自动恢复(entrypoint.sh 持续重试)
+```
+
+### 7.3 frontend 容器 vite 启动失败
+**原因**: docker-compose.yml 中 `node_modules_volume`(旧 named volume)残留旧 node_modules,与新 image 不一致
+**解法**: `docker compose down` 不删 volumes,改用匿名 volume (已修复:部署脚本中 `volumes: [/app/node_modules]` 匿名方式)
+
+### 7.4 阶段 1-4 计划文件
+- 已删除: `docs/plans/2026-06-03_docker-deployment-three-layer-assurance.md`
+- 实施详情见各 commit 与本章节 6.x 节
 
 详细指南见 [部署指南](02-deployment-guide.md)。

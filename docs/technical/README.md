@@ -40,7 +40,7 @@
 | 20 | [桌面客户端](20-desktop-client.md) | 三部分架构中的桌面客户端实现 |
 | 21 | [游客模式](21-guest-mode.md) | 游客模式设计与实现 |
 | 22 | [Win7 兼容性](22-win7-compatibility.md) | Windows 7 / Chrome 109 兼容性方案 |
-| 23 | [离线部署](23-offline-deployment.md) | 内网无外网环境部署指南 |
+| 23 | [离线部署](23-offline-deployment.md) | 内网无外网环境部署指南,含三层一致性约束(2026-06 阶段 1-4 收尾) |
 
 ---
 
