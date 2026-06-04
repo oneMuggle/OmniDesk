@@ -90,6 +90,10 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Read version file
+        id: read_version
+        run: echo "VERSION=$(cat deployment/docker/VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
+
       - name: Extract metadata for backend image
         id: meta-backend
         uses: docker/metadata-action@v5
