@@ -21,6 +21,28 @@ jobs:
       - name: Set up Docker Compose
         run: docker compose version
 
+      - name: Build backend image locally
+        # deploy-test 在 workflow_run 触发的 job 中 GITHUB_TOKEN 没有 packages:read scope,
+        # 无法拉取 GHCR 镜像。改为本地 build + tag 成 GHCR 全名,
+        # 让 offline.yml 用本地镜像 (pull_policy: missing 允许 fallback)。
+        # 镜像 tag 锁死 v0.2.0(与 .env.production.example 的 BACKEND_IMAGE_TAG 默认值一致)
+        run: |
+          docker build \
+            -f deployment/docker/omni_desk_backend/Dockerfile \
+            --target production \
+            --platform linux/amd64 \
+            -t ghcr.io/onemuggle/omni-desk-backend:v0.2.0 \
+            .
+
+      - name: Build frontend image locally
+        run: |
+          docker build \
+            -f omni_desk_frontend/Dockerfile \
+            --target production \
+            --platform linux/amd64 \
+            -t ghcr.io/onemuggle/omni-desk-frontend:v0.2.0 \
+            omni_desk_frontend/
+
       - name: Create .env.production for CI
         working-directory: ./deployment/docker
         run: |
@@ -41,6 +63,7 @@ jobs:
         run: |
           # 临时把 backend/frontend 的 pull_policy 从 'never' 改为 'missing',
           # 让 deploy test runner 在本地无镜像时从 GHCR 拉取(已 login)
+          # (本 job 已经在前面步骤本地 build 了镜像,所以会优先用本地)
           sed -i 's|pull_policy: never|pull_policy: missing|g' docker-compose.offline.yml
           docker compose -f docker-compose.offline.yml up -d
           echo "Waiting for services to be healthy..."
