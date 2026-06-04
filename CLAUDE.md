@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-OmniDesk is a full-stack business management platform (Chinese-language UI) built with **Django 4.2** (backend) + **React 18.3** via CRA (frontend). Backend runs on port 8000, frontend on port 3000 (proxied).
+OmniDesk is a full-stack business management platform (Chinese-language UI) built with **Django 4.2** (backend) + **React 18.3** via Vite (frontend). Backend runs on port 8000, frontend on port 3000 (proxied).
 
 ## Essential Commands
 
@@ -25,8 +25,9 @@ pip-compile -o requirements.txt requirements-dev.in     # dev deps
 ### Frontend (`omni_desk_frontend/`)
 
 ```bash
-# Dev server (proxies /api to localhost:8000)
-npm start
+# Dev server (proxies /api to localhost:8000, listens on 0.0.0.0:3000 in Docker)
+npm start              # alias: vite
+npm run dev            # explicit
 
 # Run tests
 npm test
@@ -37,7 +38,7 @@ npm run test:coverage
 # Lint
 npm run lint
 
-# Build (auto-runs scripts/generate-routes.js first)
+# Build (auto-runs scripts/generate-routes.js first via prebuild hook)
 npm run build
 ```
 
@@ -66,19 +67,23 @@ Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
 ### CI/CD
 
-- **main**: `build-and-push-images.yml` (Docker build + GHCR push)
-- **test**: `ci-test.yml` (backend pytest + frontend jest in parallel)
-- **develop**: `ci-develop.yml` (separate backend/frontend jobs)
+- **main**: `build-and-push-images.yml` (Docker build + GHCR push, + Deploy Test via workflow_run)
+- **develop**: `ci.yml` (统一 CI: backend pytest + frontend jest + 静态检查 + mypy typecheck)
+- **test**: `ci-test.yml` (legacy, 已被 ci.yml 统一,仅保留作为历史引用)
 
 ## Key Conventions & Gotchas
 
 1. **Two UI libraries**: Ant Design and MUI coexist - check which is used in the module you're working on
-2. **Frontend proxy**: `package.json` has `"proxy": "http://127.0.0.1:8000"` - API calls to `/api` are proxied
-3. **Route auto-generation**: `npm run build` runs `scripts/generate-routes.js` via Babel AST parsing before building
+2. **Frontend proxy**: Vite 5.4 — `vite.config.js` 中 `server.proxy` 字段把 `/api` 等路径代理到 `http://127.0.0.1:8000`（CRA 时代的 `package.json` proxy 字段已废弃）
+3. **Route auto-generation**: `npm run build` 通过 npm `prebuild` 钩子运行 `scripts/generate-routes.js`(Babel AST 解析)
 4. **Test settings**: Uses in-memory SQLite with fast MD5 password hasher
 5. **Root package.json**: Has Vue dependencies (extraneous) - frontend has its own package.json
-6. **Django settings**: `manage.py` uses `settings.local` by default, NOT `settings.development`
+6. **Django settings**: `manage.py` uses `settings.local` by default; production 部署用 `DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production` 显式切换
 7. **Backend requires PostgreSQL + Redis** for full functionality (Celery tasks)
+8. **Python 3.10 统一**: Dockerfile base / CI workflow python-version / 本地 conda 环境 (`omni_desk` 环境) 全部为 3.10,requirements 锁文件由 pip-tools 7.5+ 在 3.10 重新生成
+9. **MINERU_API_KEY 可选**: `production.py` 不会因缺 KEY 启动失败(文档解析功能优雅降级);仅当 KEY 被设为占位符 `YOUR_MINERU_API_KEY` 才报错
+10. **USE_HTTPS=false 默认**: 纯 HTTP 内网部署下 `*_COOKIE_SECURE` 关闭,否则登录立即丢失会话;启用 HTTPS 时设 `USE_HTTPS=true` 并配置 nginx `X-Forwarded-Proto` 转发
+11. **Dockerfile 路径**: 后端 `deployment/docker/omni_desk_backend/Dockerfile`,前端 `omni_desk_frontend/Dockerfile`(多阶段:development / builder / production)
 
 ## Environment Variables
 
@@ -253,7 +258,7 @@ The site must work correctly on Windows 7 browsers (Chrome 109 / Edge 109 max, p
 - **Avoid modern JS features** not supported in Chrome 109: check ES2022+ features before use
 - **Avoid CSS features** not supported in older browsers (e.g., `:has()`, container queries) without fallbacks
 - **Test with Chrome 109** when possible, or use polyfills for missing features
-- **Frontend build config** — verify CRA output does not emit syntax unsupported by target browsers
+- **Frontend build config** — verify Vite output does not emit syntax unsupported by target browsers
 
 ## Language
 
