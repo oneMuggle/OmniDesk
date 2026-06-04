@@ -77,7 +77,7 @@ jobs:
 
     - name: Upload Release Artifact (main)
       if: github.ref_name == 'main'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: OmniDeskNotifier-Windows-Release
         path: desktop_notifier/dist/OmniDeskNotifier.exe
@@ -85,7 +85,7 @@ jobs:
 
     - name: Upload Test Artifact (test)
       if: github.ref_name == 'test'
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: OmniDeskNotifier-Windows-Test
         path: desktop_notifier/dist/OmniDeskNotifier.exe
