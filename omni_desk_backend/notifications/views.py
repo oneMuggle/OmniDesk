@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -30,10 +31,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
     def mark_read(self, request, pk=None):
         notification = self.get_object()
         notification.is_read = True
-        notification.save(update_fields=["is_read"])
+        notification.read_at = timezone.now()
+        notification.save(update_fields=["is_read", "read_at"])
         return Response({"status": "ok"})
 
     @action(detail=False, methods=["post"], url_path="mark_all_read")
     def mark_all_read(self, request):
-        self.get_queryset().update(is_read=True)
+        now = timezone.now()
+        self.get_queryset().update(is_read=True, read_at=now)
         return Response({"status": "ok"})
