@@ -291,3 +291,53 @@ def django_admin_login(request):
 
     # 重定向到 Django admin
     return HttpResponseRedirect("/admin/")
+
+
+class MyPersonnelView(generics.RetrieveUpdateAPIView):
+    """当前登录用户的人员信息自助维护端点。
+
+    P2-3 引入。提供三层防护中的 L1 + L2:
+    - L1:`PersonnelSelfSerializer` 字段白名单(可写:date_of_birth/phone_number/address)
+    - L2:`perform_update` 服务端白名单再次过滤,即使客户端绕过 L1 也无效
+    - 用户无关联 personnel → 404
+    - 改字段后发"信息更新"通知(P2-3 简化版:任何 PATCH 成功都发一条)
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+    serializer_class = None  # 在 get_serializer_class 中按需选择
+    queryset = Personnel.objects.all()  # DRF 要求,实际由 get_object 决定取哪条
+
+    # L2 服务端白名单(必须与 PersonnelSelfSerializer 一致,纵深防御)
+    L2_WRITABLE_FIELDS = {"date_of_birth", "phone_number", "address"}
+
+    def get_serializer_class(self):
+        from personnel.serializers import PersonnelSelfSerializer
+        return PersonnelSelfSerializer
+
+    def get_object(self):
+        personnel = getattr(self.request.user, "personnel", None)
+        if personnel is None:
+            from rest_framework.exceptions import NotFound
+            raise NotFound("当前用户尚未关联人员档案,请联系 HR")
+        return personnel
+
+    def perform_update(self, serializer):
+        # L2 防御:从 validated_data 中剔除不在白名单的字段
+        validated_data = serializer.validated_data
+        for field in list(validated_data.keys()):
+            if field not in self.L2_WRITABLE_FIELDS:
+                validated_data.pop(field)
+        super().perform_update(serializer)
+        # 发"信息更新"通知
+        try:
+            from notifications.service import NotificationService
+            NotificationService.create(
+                user=self.request.user,
+                type="system",
+                title="个人信息已更新",
+                content="您刚刚修改了个人信息的部分字段,如非本人操作请尽快联系 HR。",
+                link="/me/personnel",
+            )
+        except Exception:  # noqa: BLE001
+            # 通知失败不应阻塞主流程
+            pass

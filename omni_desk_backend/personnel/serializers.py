@@ -115,3 +115,48 @@ class PersonnelDetailSerializer(serializers.ModelSerializer):
         if instance.position:
             representation["position"] = PositionSerializer(instance.position).data
         return representation
+
+
+class PersonnelSelfSerializer(serializers.ModelSerializer):
+    """用户自助查看/编辑自己人员信息的序列化器(白名单字段)。
+
+    P2-1 引入。L1 防护层(详见 plan 文档 §4.2):
+    - 可写字段:date_of_birth, phone_number, address
+    - 只读字段:id, name, hire_date, department, position, status
+    - 隐藏字段:id_card_number(隐私,不出现在 schema 中)
+    - 嵌套子表(只读展示):educations, work_experiences, family_members
+    """
+
+    educations = EducationSerializer(many=True, read_only=True)
+    work_experiences = WorkExperienceSerializer(many=True, read_only=True)
+    family_members = FamilyMemberSerializer(many=True, read_only=True)
+
+    class Meta:
+        model = Personnel
+        fields = [
+            "id",
+            "name",
+            "date_of_birth",
+            "phone_number",
+            "address",
+            "hire_date",
+            "department",
+            "position",
+            "status",
+            "educations",
+            "work_experiences",
+            "family_members",
+        ]
+        read_only_fields = [
+            "id",
+            "name",
+            "hire_date",
+            "department",
+            "position",
+            "status",
+        ]
+        extra_kwargs = {
+            "date_of_birth": {"required": False, "allow_null": True},
+            "phone_number": {"required": False, "allow_null": True},
+            "address": {"required": False, "allow_null": True},
+        }
