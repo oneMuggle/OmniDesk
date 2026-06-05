@@ -128,9 +128,11 @@ OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python
 - [ ] 写 `docs/technical/24-security-checklist.md`
 
 ### 阶段 6:前端架构试点(1 周,可选)
-- [ ] 加 `tsconfig.json` 允许 `allowJs: true` 渐进
-- [ ] `src/shared/api/` 改写为 TypeScript
-- [ ] 选 1 个表单页试点 `antd Form + zod`
+- [x] 加 `tsconfig.json` 允许 `allowJs: true` 渐进(allowJs=true / checkJs=false / noEmit=true / strict=false)
+- [x] 试点 `src/shared/types/api.d.ts` — 6 个共享类型:`ApiResponse<T>` / `PaginatedResponse<T>` / `PaginationParams` / `ApiError` / `TimeRange` / `IdRef`
+- [x] 验证:`tsc --noEmit` 0 错误 + `npm run build` 通过(25.32s)
+- [ ] 后续:把 `src/shared/api/` 改写为 TypeScript(下次会话)
+- [ ] 后续:选 1 个表单页试点 `antd Form + zod`(下次会话)
 - [ ] 评估是否扩大范围
 
 ## 风险评估
