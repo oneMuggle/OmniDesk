@@ -13,6 +13,32 @@
 
 ## [未发布]
 
+## [0.3.0] - 2026-06-05
+
+### 新增
+- **后端 API 性能审计报告** — `docs/technical/25-api-performance-audit.md` 盘点 52 个 ViewSet
+- **结构化 JSON 日志** — 生产环境输出 JSON,`python-json-logger==2.0.7` 接入
+- **可观测性端点** — `/api/system/ready/`(GET, AllowAny),区分 liveness vs readiness,检查 DB / Redis / Celery
+- **安全检查清单** — `docs/technical/24-security-checklist.md`,6 个 CVE 详细分析 + OWASP Top 10 对照
+- **TypeScript 渐进支持** — `tsconfig.json` + `src/shared/types/api.d.ts`,不强制团队写 TS
+
+### 变更
+- **测试覆盖率 78% → 81%** — 新增 seeder 测试 21 个,CI 阈值 70% → 80%(`pytest.ini`)
+- **前端 Vite manualChunks 从 3 项扩到 13 项** — `ScheduleManagementPage` 610kB → 22kB(-96%),`index main` 420kB → 262kB(-38%)
+- **CI 安全门禁强化** — `safety` → `pip-audit --strict`,`npm audit --audit-level=high`,移除 `|| true`
+
+### 修复
+- **6 个依赖 CVE**:
+  - djangorestframework 3.15.0 → 3.15.2(CVE-2024-21520)
+  - djangorestframework-simplejwt 5.3.0 → 5.5.1(CVE-2024-22513)
+  - pyjwt 2.12.1 → 2.13.0(PYSEC-2026-175/177/178/179)
+- **3 个 N+1 查询** — `DocumentTemplateViewSet` / `BookViewSet` / `GeneratedDocumentViewSet`
+- **CLAUDE.md/AGENTS.md 4 处过时描述** — 双 UI 库、根 package.json Vue 依赖、Django 3.2 → 4.2、React CRA → Vite 5.4
+
+### 安全
+- 删除含明文生产密钥的 `.env.production.bak.1780558283` 备份文件
+- `bandit` 静态扫描已纳入 CI(原已存在)
+
 ## [0.2.0] - 2026-05-16
 
 ### 新增
