@@ -86,12 +86,16 @@ OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python
 - [ ] 后续:补 `smart_assistant/agent/*.py`(10-49% → 50%+,高复杂)
 
 ### 阶段 2:API 性能(1 周)
-- [ ] 用 `grep` 列出所有 `ListAPIView` / `ListCreateAPIView` / `ViewSet` 类
-- [ ] 用 `django-silk` 接入 dev,采样 5 个高频列表 API
-- [ ] 优化 N+1 查询(`select_related` / `prefetch_related`)
-- [ ] 补全缺失的 `pagination_class`
-- [ ] 关键列表加 `only()` 字段裁剪
-- [ ] 记录 P95 前后对比到 `docs/technical/25-api-performance-baseline.md`
+- [x] 用 `grep` 列出所有 `ListAPIView` / `ListCreateAPIView` / `ViewSet` 类(共 52 个)
+- [x] 审计全局分页配置(已默认 `PageNumberPagination`,PAGE_SIZE=10)
+- [x] 修复 3 个 N+1 风险:
+  - `documents/views/templates.py` — `DocumentTemplateViewSet` 加 `select_related("project", "owner")`
+  - `documents/views/books.py` — `BookViewSet` 加 `select_related("project")`(已有 prefetch)
+  - `documents/views/documents.py` — `GeneratedDocumentViewSet` 加 `select_related("template")`(已有 generated_by)
+- [x] 写审计报告 `docs/technical/25-api-performance-audit.md`(包含所有 ViewSet 状态、优先级、监控建议)
+- [x] 测试无回归:581 passed, 80.88% 覆盖率
+- [ ] 后续:接入 `django-silk` 到 dev 模式(可选)
+- [ ] 后续:为 `GeneratedDocumentViewSet` 恢复分页(当前 `pagination_class = None`)
 
 ### 阶段 3:前端构建优化(0.5 周)
 - [ ] 在 `vite.config.js` 配置 `manualChunks`
