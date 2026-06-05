@@ -133,7 +133,6 @@ def notify_personnel_position_or_department_changed(sender, instance, created, *
 
     body_parts = []
     if old_pos != new_pos:
-        old_name = Personnel.objects.filter(pk=instance.pk).first()  # noqa: F841 - 占位
         body_parts.append(f"职位: {instance.position.name if instance.position else '无'}")
     if (old_dept or "") != (new_dept or ""):
         body_parts.append(f"部门: {new_dept or '无'}")

@@ -1,7 +1,7 @@
 from rest_framework import permissions, viewsets
 from rest_framework.filters import SearchFilter
 
-from users.permissions import IsAdminOrManagerOrReadOnly, IsAdminOrReadOnly
+from users.permissions import IsAdminOrManagerOrReadOnly
 
 from .models import Contract, Education, FamilyMember, Personnel, Position, ProfessionalQualification, WorkExperience
 from .serializers import (
