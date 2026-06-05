@@ -98,10 +98,14 @@ OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python
 - [ ] 后续:为 `GeneratedDocumentViewSet` 恢复分页(当前 `pagination_class = None`)
 
 ### 阶段 3:前端构建优化(0.5 周)
-- [ ] 在 `vite.config.js` 配置 `manualChunks`
-- [ ] 审查 `React.lazy` 边界,合并过度细分
-- [ ] 调整 `axiosConfig.js` 周边或 `routes/index.js` 中的 React Query 配置
-- [ ] 跑 `npm run build` 对比 chunk 数量与体积
+- [x] 在 `vite.config.js` 配置 `manualChunks`(从 3 项扩到 13 项:vendor/http/datetime/data/antd/icons/dnd/editor/fullcalendar/docprocessing/notify/markdown/jwt)
+- [x] 跑 `npm run build` 对比 chunk 数量与体积
+- [x] **关键改进**:
+  - `ScheduleManagementPage`: 610 kB → **22 kB** (-96%)
+  - `index (main)`: 420 kB → **262 kB** (-38%)
+  - 拆出独立 vendor chunks:http(axios)36kB, data(react-query)38kB, notify 30kB, icons 71kB, markdown 156kB, docprocessing 614kB, editor 603kB
+- [ ] 后续:为 docprocessing / editor / markdown 的大 chunk 进一步按页面动态 import
+- [ ] 后续:`React.lazy` 边界审查(过度细分合并)
 
 ### 阶段 4:日志与可观测(0.5 周)
 - [ ] 在 `requirements.in` 加 `python-json-logger`

@@ -57,9 +57,32 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks: {
+          // 核心 React 生态(几乎所有页面都依赖)
           vendor: ['react', 'react-dom', 'react-router-dom'],
+          // HTTP 客户端(API 调用均依赖)
+          http: ['axios'],
+          // 时间处理
+          datetime: ['dayjs', 'dayjs-plugin-utc', 'date-fns'],
+          // 服务端状态管理
+          data: ['@tanstack/react-query', '@tanstack/react-query-devtools'],
+          // Ant Design 生态
           antd: ['antd', '@ant-design/icons'],
+          // 图标库
+          icons: ['@fortawesome/fontawesome-svg-core', '@fortawesome/free-solid-svg-icons', '@fortawesome/react-fontawesome'],
+          // 拖拽
+          dnd: ['@hello-pangea/dnd', 'react-dnd', 'react-dnd-html5-backend'],
+          // 富文本编辑器(quill / tiptap 二选一,合并到一个 chunk 避免重复)
+          editor: ['react-quill', 'quill', '@tiptap/react', '@tiptap/starter-kit'],
+          // 日历
           fullcalendar: ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/list'],
+          // 文档处理(Word/Excel 转 PDF/图片)
+          docprocessing: ['docxtemplater', 'mammoth', 'jspdf', 'html2canvas', 'file-saver', 'dompurify'],
+          // 通知
+          notify: ['react-toastify', 'react-tooltip', 'tippy.js'],
+          // Markdown 渲染
+          markdown: ['react-markdown', 'remark-gfm'],
+          // JWT 解析
+          jwt: ['jwt-decode'],
         },
       },
     },
