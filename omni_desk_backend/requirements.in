@@ -1,10 +1,13 @@
 # Core Frameworks
 Django>=4.2.30,<5.0
-djangorestframework==3.15.0
+djangorestframework==3.15.2
 gunicorn>=23.0.0
 
 # Authentication
-djangorestframework-simplejwt==5.3.0
+djangorestframework-simplejwt==5.5.1
+
+# JWT (transitive of simplejwt; pinned to avoid PYSEC-2026-175/177/178/179)
+PyJWT==2.13.0
 
 # Database & Cache
 psycopg2-binary
@@ -48,3 +51,6 @@ waitress
 
 # Rate Limiting
 django-ratelimit
+
+# Structured JSON logging (production)
+python-json-logger==2.0.7

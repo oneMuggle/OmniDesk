@@ -73,11 +73,11 @@ Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
 ## Key Conventions & Gotchas
 
-1. **Two UI libraries**: Ant Design and MUI coexist - check which is used in the module you're working on
+1. **UI library**: Frontend uses **Ant Design 5** exclusively (120 imports under `src/`); MUI was removed; check `package.json` if a new component is needed
 2. **Frontend proxy**: Vite 5.4 — `vite.config.js` 中 `server.proxy` 字段把 `/api` 等路径代理到 `http://127.0.0.1:8000`（CRA 时代的 `package.json` proxy 字段已废弃）
 3. **Route auto-generation**: `npm run build` 通过 npm `prebuild` 钩子运行 `scripts/generate-routes.js`(Babel AST 解析)
 4. **Test settings**: Uses in-memory SQLite with fast MD5 password hasher
-5. **Root package.json**: Has Vue dependencies (extraneous) - frontend has its own package.json
+5. **No root package.json**: 根目录 `package.json` / `package-lock.json` 已被 `.gitignore` 显式排除;若新成员看到说明"有 Vue 依赖"的历史信息,请忽略(该状态已在 2026-06 清理)
 6. **Django settings**: `manage.py` uses `settings.local` by default; production 部署用 `DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production` 显式切换
 7. **Backend requires PostgreSQL + Redis** for full functionality (Celery tasks)
 8. **Python 3.10 统一**: Dockerfile base / CI workflow python-version / 本地 conda 环境 (`omni_desk` 环境) 全部为 3.10,requirements 锁文件由 pip-tools 7.5+ 在 3.10 重新生成

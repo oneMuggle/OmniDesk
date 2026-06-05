@@ -58,18 +58,18 @@ Edit `.in` files first, then regenerate.
 
 ### Frontend - standard npm
 
-Uses react-scripts (CRA). Route generation happens at build time via `scripts/generate-routes.js`.
+Uses Vite 5.4 (the CRA-to-Vite migration is complete; `package.json` proxy field is obsolete). Route generation happens at build time via `scripts/generate-routes.js`.
 
 ## Key Tech Stack
 
-- **Backend**: Django 3.2, DRF, PostgreSQL, Redis (Celery), CORS headers, JWT (simplejwt)
-- **Frontend**: React (CRA), React Router, TanStack Query, Ant Design, MUI, axios
+- **Backend**: Django 4.2, DRF, PostgreSQL, Redis (Celery), CORS headers, JWT (simplejwt)
+- **Frontend**: React 18.3 + Vite 5.4, React Router v6.4, TanStack Query v5, Ant Design 5, axios
 - **Auth**: JWT stored in localStorage
 
 ## Non-Obvious Conventions
 
-1. **Two UI libraries**: Both Ant Design and MUI are used in the frontend
-2. **Frontend proxy**: `package.json` has `"proxy": "http://127.0.0.1:8000"` - API calls relative to `/api` work
+1. **UI library**: Ant Design 5 is the only UI library in use (120 imports under `src/`); MUI has been removed
+2. **Frontend proxy**: `vite.config.js` has `server.proxy` mapping `/api` to `http://127.0.0.1:8000`; the legacy `package.json` proxy field is deprecated
 3. **Route auto-generation**: `npm run build` runs `scripts/generate-routes.js` first
 4. **Test settings**: Uses in-memory SQLite, fast password hasher (MD5), logging disabled
 

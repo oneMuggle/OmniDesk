@@ -91,3 +91,43 @@ STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 
 # Migration safety — migrations must be run explicitly via management commands
 # and are not auto-applied on app startup.
+
+# ──────────────────────────────────────────────────────────────────────
+# Structured JSON logging (production)
+# ──────────────────────────────────────────────────────────────────────
+# 生产环境输出 JSON 格式日志,便于 ELK / Loki / 其它日志聚合系统消费。
+# 开发环境(test/local)保留 base.py 的 verbose 格式,便于人工阅读。
+# 依赖:python-json-logger==2.0.7(在 requirements.in)
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)s %(levelname)s %(name)s %(module)s %(message)s",
+            "rename_fields": {"asctime": "timestamp", "levelname": "level", "name": "logger"},
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console"],
+            "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+            "propagate": True,
+        },
+        "django.request": {
+            "handlers": ["console"],
+            "level": "WARNING",  # 4xx 不刷屏,5xx 一定记录
+            "propagate": False,
+        },
+    },
+    "root": {
+        "handlers": ["console"],
+        "level": os.getenv("DJANGO_LOG_LEVEL", "INFO"),
+    },
+}

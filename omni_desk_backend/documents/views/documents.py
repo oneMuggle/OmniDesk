@@ -7,7 +7,7 @@ from ..serializers import GeneratedDocumentSerializer
 
 
 class GeneratedDocumentViewSet(viewsets.ModelViewSet):
-    queryset = GeneratedDocument.objects.select_related("generated_by")
+    queryset = GeneratedDocument.objects.select_related("template", "generated_by")
     serializer_class = GeneratedDocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
     pagination_class = None

@@ -58,11 +58,11 @@ jobs:
         with:
           python-version: "3.10"
       - name: Install security tools
-        run: pip install bandit safety
-      - name: Bandit scan
+        run: pip install bandit pip-audit
+      - name: Bandit scan (Python code static analysis)
         run: bandit -r omni_desk_backend/ -ll --skip B101
-      - name: Dependency check
-        run: safety scan -r omni_desk_backend/requirements-prod.txt || true
+      - name: pip-audit (Python dependency vulnerability scan)
+        run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict
 
   # ─── Frontend ───
   lint-frontend:
@@ -82,7 +82,7 @@ jobs:
       - name: Run ESLint
         run: npm run lint
       - name: Run npm audit
-        run: npm audit --audit-level=moderate || true
+        run: npm audit --audit-level=high
 
   test-frontend:
     runs-on: ubuntu-latest
