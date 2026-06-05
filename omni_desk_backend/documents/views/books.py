@@ -12,7 +12,7 @@ from ..serializers import AnnotationSerializer, BookSerializer, ChapterSerialize
 
 
 class BookViewSet(viewsets.ModelViewSet):
-    queryset = Book.objects.prefetch_related("tags", "chapters")
+    queryset = Book.objects.select_related("project").prefetch_related("tags", "chapters")
     serializer_class = BookSerializer
     permission_classes = [permissions.IsAuthenticated]
 

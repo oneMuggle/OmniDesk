@@ -16,7 +16,7 @@ from ..serializers import DocumentTemplateSerializer
 
 
 class DocumentTemplateViewSet(viewsets.ModelViewSet):
-    queryset = DocumentTemplate.objects.all()
+    queryset = DocumentTemplate.objects.select_related("project", "owner")
     serializer_class = DocumentTemplateSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [parsers.MultiPartParser]
