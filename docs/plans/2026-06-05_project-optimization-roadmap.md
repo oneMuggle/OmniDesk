@@ -108,11 +108,17 @@ OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python
 - [ ] 后续:`React.lazy` 边界审查(过度细分合并)
 
 ### 阶段 4:日志与可观测(0.5 周)
-- [ ] 在 `requirements.in` 加 `python-json-logger`
-- [ ] 重新生成 `requirements-prod.txt`
-- [ ] 修改 `settings/production.py` 的 `LOGGING` 段
-- [ ] 补 `/api/system/ready/` 端点
-- [ ] 关键路径加 `logger.info/warning`(登录、权限失败、Celery 任务)
+- [x] 在 `requirements.in` 加 `python-json-logger==2.0.7`
+- [x] 重新生成 `requirements-prod.txt`(pip-compile 已写入锁文件)
+- [x] 修改 `settings/production.py` 的 `LOGGING` 段 — 使用 `pythonjsonlogger.jsonlogger.JsonFormatter` 输出 JSON
+  - 注意:v2.0.7 的类路径是 `pythonjsonlogger.jsonlogger.JsonFormatter`,v3+ 才改名 `.json.JsonFormatter`
+- [x] 补 `/api/system/ready/` 端点(`core/api.py` + `core/urls.py`)
+  - 检查 DB / Redis(Cache) / Celery 三个依赖
+  - Celery 检查使用 `inspect.ping(timeout=1.0)`,失败不阻塞
+  - 200 表示就绪,503 表示未就绪
+  - 4 个新测试覆盖(TestReadinessCheck)
+- [x] 测试无回归:585 passed, 80.85% 覆盖率
+- [ ] 后续:关键路径加 `logger.info/warning`(登录、权限失败、Celery 任务) — 需逐个功能加
 
 ### 阶段 5:安全与依赖扫描(0.5 周)
 - [ ] 在 `ci.yml` 加 `pip-audit` 步骤
