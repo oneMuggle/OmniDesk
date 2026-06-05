@@ -9,6 +9,8 @@ import {
   createPosition,
   updatePosition,
   deletePosition,
+  getMyPersonnel,
+  updateMyPersonnel,
 } from './personnelApi';
 import apiClient from '../../../shared/api/apiClient';
 
@@ -141,6 +143,39 @@ describe('personnelApi', () => {
       await deletePosition(id);
 
       expect(apiClient.delete).toHaveBeenCalledWith(`personnel/positions/${id}/`);
+    });
+  });
+
+  // P2-3: P4-1 新增 getMyPersonnel / updateMyPersonnel 测试
+  describe('getMyPersonnel', () => {
+    it('should fetch current user personnel', async () => {
+      const response = {
+        data: { id: 1, name: '测试人员', phone_number: '13800000000' },
+      };
+      apiClient.get.mockResolvedValue(response);
+
+      const result = await getMyPersonnel();
+
+      expect(apiClient.get).toHaveBeenCalledWith('users/me/personnel/');
+      expect(result).toEqual(response.data);
+    });
+
+    it('should throw network error when request fails', async () => {
+      apiClient.get.mockRejectedValue(new Error('Network error'));
+      await expect(getMyPersonnel()).rejects.toMatchObject({ message: /网络/ });
+    });
+  });
+
+  describe('updateMyPersonnel', () => {
+    it('should patch allowed fields', async () => {
+      const payload = { phone_number: '13911111111' };
+      const response = { data: { id: 1, ...payload } };
+      apiClient.patch.mockResolvedValue(response);
+
+      const result = await updateMyPersonnel(payload);
+
+      expect(apiClient.patch).toHaveBeenCalledWith('users/me/personnel/', payload);
+      expect(result).toEqual(response.data);
     });
   });
 });

@@ -232,7 +232,7 @@ class Command(BaseCommand):
                 ),
                 link="/me/profile",
             )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             # 通知发送失败不应阻塞主流程
             self.stderr.write(self.style.WARNING(
                 f"[Notification] 发送 ACCOUNT_LINKED 失败(忽略): user={user.username}, err={exc}"

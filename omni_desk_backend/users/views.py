@@ -338,6 +338,6 @@ class MyPersonnelView(generics.RetrieveUpdateAPIView):
                 content="您刚刚修改了个人信息的部分字段,如非本人操作请尽快联系 HR。",
                 link="/me/personnel",
             )
-        except Exception:  # noqa: BLE001
+        except Exception:
             # 通知失败不应阻塞主流程
             pass
