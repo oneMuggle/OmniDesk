@@ -48,3 +48,6 @@ waitress
 
 # Rate Limiting
 django-ratelimit
+
+# Structured JSON logging (production)
+python-json-logger==2.0.7
