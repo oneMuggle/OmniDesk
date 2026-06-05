@@ -312,12 +312,14 @@ class MyPersonnelView(generics.RetrieveUpdateAPIView):
 
     def get_serializer_class(self):
         from personnel.serializers import PersonnelSelfSerializer
+
         return PersonnelSelfSerializer
 
     def get_object(self):
         personnel = getattr(self.request.user, "personnel", None)
         if personnel is None:
             from rest_framework.exceptions import NotFound
+
             raise NotFound("当前用户尚未关联人员档案,请联系 HR")
         return personnel
 
@@ -331,6 +333,7 @@ class MyPersonnelView(generics.RetrieveUpdateAPIView):
         # 发"信息更新"通知
         try:
             from notifications.service import NotificationService
+
             NotificationService.create(
                 user=self.request.user,
                 type="system",

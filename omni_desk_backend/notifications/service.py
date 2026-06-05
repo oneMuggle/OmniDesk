@@ -57,9 +57,7 @@ class NotificationService:
     @staticmethod
     def batch_mark_read(notification_ids, user):
         now = timezone.now()
-        return Notification.objects.filter(id__in=notification_ids, user=user).update(
-            is_read=True, read_at=now
-        )
+        return Notification.objects.filter(id__in=notification_ids, user=user).update(is_read=True, read_at=now)
 
     @staticmethod
     def get_unread_count(user):

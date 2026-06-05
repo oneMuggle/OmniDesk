@@ -97,6 +97,7 @@ def notify_memo_due(sender, instance, created, **kwargs):
 
 # ---- P3-1: Personnel 岗位/部门变动信号 ----
 
+
 @receiver(pre_save, sender=Personnel)
 def capture_personnel_pre_save(sender, instance, **kwargs):
     """捕获 Personnel 更新前的 position_id / department 旧值。"""
@@ -148,6 +149,7 @@ def notify_personnel_position_or_department_changed(sender, instance, created, *
 
 
 # ---- P3-2: FamilyMember 紧急联系人变更信号 ----
+
 
 @receiver(post_save, sender=FamilyMember)
 def notify_family_member_changed(sender, instance, created, **kwargs):

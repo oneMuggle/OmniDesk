@@ -21,6 +21,7 @@
 - 绑定后发 ACCOUNT_LINKED 通知给用户
 - 默认 --dry-run 友好(必须显式 --batch 才正式生效的策略可选,此处保留 dry-run 显式开关)
 """
+
 import datetime
 
 from django.contrib.auth import get_user_model
@@ -167,9 +168,11 @@ class Command(BaseCommand):
             )
             skipped_no_link += 1
 
-        self.stdout.write(self.style.SUCCESS(
-            f"[Unlink] 完成 — 实际解绑: {unlinked}, 跳过(无关联): {skipped_no_link} (batch={batch_id})"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"[Unlink] 完成 — 实际解绑: {unlinked}, 跳过(无关联): {skipped_no_link} (batch={batch_id})"
+            )
+        )
 
     # ---- Rollback 模式 ----
     def _rollback(self, options):
@@ -200,9 +203,9 @@ class Command(BaseCommand):
                 restored += 1
             # ACTION_LINK_SKIPPED / ACTION_UNLINK_SKIPPED 不需要回滚
 
-        self.stdout.write(self.style.SUCCESS(
-            f"[Rollback] 批次 {batch_id} 已回滚,共恢复 {restored} 条 user.personnel 状态"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(f"[Rollback] 批次 {batch_id} 已回滚,共恢复 {restored} 条 user.personnel 状态")
+        )
 
     # ---- 内部工具 ----
     def _write_audit(self, *, user, action, old_pid, new_pid, batch_id, metadata, dry_run):
@@ -221,6 +224,7 @@ class Command(BaseCommand):
     def _send_account_linked_notification(self, user, personnel):
         try:
             from notifications.service import NotificationService
+
             NotificationService.create(
                 user=user,
                 type="account_linked",
@@ -234,15 +238,17 @@ class Command(BaseCommand):
             )
         except Exception as exc:
             # 通知发送失败不应阻塞主流程
-            self.stderr.write(self.style.WARNING(
-                f"[Notification] 发送 ACCOUNT_LINKED 失败(忽略): user={user.username}, err={exc}"
-            ))
+            self.stderr.write(
+                self.style.WARNING(f"[Notification] 发送 ACCOUNT_LINKED 失败(忽略): user={user.username}, err={exc}")
+            )
 
     def _print_summary(self, matched, skipped_linked, skipped_no_match, dry_run, batch_id):
         prefix = "[Dry Run] " if dry_run else ""
         self.stdout.write(self.style.SUCCESS("=" * 60))
-        self.stdout.write(self.style.SUCCESS(
-            f"{prefix}Link 完成 — 匹配绑定: {matched}, 跳过(已绑定): {skipped_linked}, "
-            f"跳过(无匹配): {skipped_no_match} (batch={batch_id})"
-        ))
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"{prefix}Link 完成 — 匹配绑定: {matched}, 跳过(已绑定): {skipped_linked}, "
+                f"跳过(无匹配): {skipped_no_match} (batch={batch_id})"
+            )
+        )
         self.stdout.write(self.style.SUCCESS("=" * 60))
