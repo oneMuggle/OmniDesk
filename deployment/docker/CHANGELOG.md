@@ -13,6 +13,38 @@
 
 ## [未发布]
 
+## [0.4.0] - 2026-06-05
+
+### 新增
+- **人员-用户关联方案** — `Personnel ↔ CustomUser` 1:1 可选关联,详见 `docs/technical/26-personnel-user-association.md`
+  - 新端点 `GET/PATCH /api/users/me/personnel/`(用户自助维护白名单字段)
+  - 新端点 `/api/notifications/{id}/mark_read/`、`mark_all_read/`、`unread_count/`(P1-3 增强)
+  - 新管理命令 `python manage.py link_user_personnel`(支持 link/unlink/dry-run/rollback + 审计日志)
+- **Notification 模型扩展** — 增字段 `priority`(LOW/NORMAL/HIGH/URGENT)、`dedupe_key`、`read_at`
+- **NotificationPreference 模型** — 用户通知偏好(免打扰时段、渠道设置)
+- **Personnel pre/post_save 信号** — 岗位/部门变更 → 通知本人(新增 `position_changed` 通知类型)
+- **FamilyMember post_save 信号** — 紧急联系人增/改 → 通知本人确认(新增 `emergency_contact` 通知类型)
+- **AuditLogEntry 模型** — 配套 link_user_personnel 命令的审计日志(可按 batch_id 回滚)
+- **IsHR + IsAdminOrManagerOrReadOnly 权限类** — 区分 HR(Manager 组)与 Admin
+- **前端组件** — `MyPersonnelInfo`、`NotificationBell`(5s 轮询)、`NotificationCenter`(分页 + 过滤)
+- **前端路由** — `/me/personnel`、`/notifications`
+
+### 变更
+- **PersonnelViewSet 权限放宽** ⚠️ — `IsAdminOrReadOnly` → `IsAdminOrManagerOrReadOnly`(HR 现可写,需 Admin 注意)
+- **NotificationService 增强** — `create()` 新增 `priority` + `dedupe_key` 参数(向后兼容,默认值不变)
+- **测试覆盖率** — 80.57% (Phase 1-3 新增 64 个测试用例,648 passed)
+
+### 修复
+- `NotificationViewSet.mark_read` / `mark_all_read` 现同步设置 `read_at` 字段
+
+### 数据库迁移
+- `notifications/0003_notificationpreference_notification_dedupe_key_and_more.py`
+- `users/0002_auditlogentry.py`
+
+### 升级注意
+- 升级前必跑 `python manage.py check_migrations` 确认无破坏性变更
+- `PersonnelViewSet` 权限变更:HR 现可写,如有定制工作流需复核
+
 ## [0.3.0] - 2026-06-05
 
 ### 新增

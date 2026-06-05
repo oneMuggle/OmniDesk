@@ -41,6 +41,9 @@
 | 21 | [游客模式](21-guest-mode.md) | 游客模式设计与实现 |
 | 22 | [Win7 兼容性](22-win7-compatibility.md) | Windows 7 / Chrome 109 兼容性方案 |
 | 23 | [离线部署](23-offline-deployment.md) | 内网无外网环境部署指南,含三层一致性约束(2026-06 阶段 1-4 收尾) |
+| 24 | [安全检查清单](24-security-checklist.md) | 6 个 CVE 详细分析 + OWASP Top 10 对照 |
+| 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
+| 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
 
 ---
 
