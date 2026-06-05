@@ -69,6 +69,10 @@ const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/
 const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
 const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
 const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
+// P2-3 / P3-3 引入
+const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
+const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
+const NotificationBell = lazy(() => import('../features/notifications/components/NotificationBell'));
 
 const LoadingFallback = () => (
   <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
@@ -286,6 +290,14 @@ const router = createBrowserRouter([
       {
         path: "profile",
         element: <ProtectedRoute pagePath="/profile" pageName="个人资料"><LazyComponent component={ProfilePage} /></ProtectedRoute>
+      },
+      {
+        path: "me/personnel",
+        element: <ProtectedRoute pagePath="/me/personnel" pageName="我的信息"><LazyComponent component={MyPersonnelInfo} /></ProtectedRoute>
+      },
+      {
+        path: "notifications",
+        element: <ProtectedRoute pagePath="/notifications" pageName="通知中心"><LazyComponent component={NotificationCenter} /></ProtectedRoute>
       },
       {
         path: "library",

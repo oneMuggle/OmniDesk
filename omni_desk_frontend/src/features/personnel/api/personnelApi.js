@@ -190,3 +190,22 @@ export const deleteFamilyMember = async (id) => {
     return handleError(error, '删除家庭成员失败');
   }
 };
+
+// My Personnel (P2-3) — 当前登录用户自助维护入口
+export const getMyPersonnel = async () => {
+  try {
+    const response = await apiClient.get('users/me/personnel/');
+    return response.data;
+  } catch (error) {
+    return handleError(error, '获取我的信息失败');
+  }
+};
+
+export const updateMyPersonnel = async (data) => {
+  try {
+    const response = await apiClient.patch('users/me/personnel/', data);
+    return response.data;
+  } catch (error) {
+    return handleError(error, '更新我的信息失败');
+  }
+};
