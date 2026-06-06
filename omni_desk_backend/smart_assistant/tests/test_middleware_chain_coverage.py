@@ -196,6 +196,41 @@ class TestToolChainExecutorCoverage:
         execute_tool_chain(plan, "test query")
         tool_b.execute.assert_called_once()
 
+    @patch("smart_assistant.agent.tool_chain_executor.ToolRegistry")
+    def test_circular_or_unknown_dependency_does_not_loop(
+        self, mock_registry, mock_llm_router
+    ):
+        """循环依赖(A 依赖 B,B 依赖 A)或 depends_on 指向不存在工具时,执行器按序跑完不无限循环."""
+        tool_a = MagicMock()
+        tool_a.name = "tool_a"
+        tool_a.execute.return_value = {"found": True, "data": "a_result"}
+        tool_b = MagicMock()
+        tool_b.name = "tool_b"
+        tool_b.execute.return_value = {"found": True, "data": "b_result"}
+
+        def get_tool(name):
+            return {"tool_a": tool_a, "tool_b": tool_b}.get(name)
+
+        mock_registry.get_tool.side_effect = get_tool
+
+        from smart_assistant.agent.tool_chain_executor import execute_tool_chain
+
+        # A 依赖不存在的 ghost_tool(依赖缺失);B 依赖 A 形成潜在循环引用风险。
+        # 执行器按 plan 顺序线性执行,缺失依赖时 _resolve_variables 保留原始字符串,
+        # 不会触发再次执行 tool_a,故不会死循环。
+        plan = [
+            {"tool": "tool_a", "params": {}, "depends_on": "ghost_tool"},
+            {"tool": "tool_b", "params": {"ref": "$tool_a.data"}, "depends_on": "tool_a"},
+        ]
+        results = execute_tool_chain(plan, "test query")
+
+        # 两个工具都执行一次
+        assert len(results) == 2
+        assert results[0]["success"] is True
+        assert results[1]["success"] is True
+        tool_a.execute.assert_called_once()
+        tool_b.execute.assert_called_once()
+
 
 # =============================================================================
 # agent/tool_chain_planner.py
