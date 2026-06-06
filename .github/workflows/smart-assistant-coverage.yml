@@ -56,11 +56,11 @@ jobs:
 
       # 关键:用 PostgreSQL 跑测试(走 settings.development),
       # 避免 settings/__init__.py:10 from .development import * 触发 202 errors。
-      # 显式指定 smart_assistant 路径 + 单独阈值 75%。
+      # 显式指定 smart_assistant 路径 + 单独阈值 85%。
       # --no-cov 强制关闭 pytest-cov,改用 coverage 命令单独处理,
       # 避免覆盖率模式下 settings 包的 import 链触发 202 errors。
-      # 当前纯生产代码覆盖率 78%(2026-06-06 实测),75% 留缓冲;
-      # W2 推 80%,W3+ 推 85%(路线图 §3.2)
+      # 当前纯生产代码覆盖率 91%(2026-06-06 实测),85% 留 6% 缓冲;
+      # P3-5 任务:门槛从 75% 提到 85%(2026-06-06,见 handoff-6 任务 P3-5)
       - name: Run smart_assistant tests with module coverage
         working-directory: omni_desk_backend
         env:
@@ -68,11 +68,11 @@ jobs:
           SECRET_KEY: ci-smart-assistant-coverage-secret
         run: |
           coverage run -m pytest smart_assistant/ --no-cov -q
-          # 单独的覆盖率报告,门槛 75%(W1 起步,W2 推 80%,W3+ 推 85%)
+          # 单独的覆盖率报告,门槛 85%(W1 75% → W2 80% → W3 85%,P3-5 完成)
           # 排除 tests/ 与 migrations/,只统计生产代码
           coverage report --include='smart_assistant/*' \
             --omit='smart_assistant/tests/*,smart_assistant/migrations/*' \
-            --fail-under=75 --show-missing
+            --fail-under=85 --show-missing
           # XML 报告给 artifact 用
           coverage xml -o smart_assistant_coverage.xml \
             -i --include='smart_assistant/*'
