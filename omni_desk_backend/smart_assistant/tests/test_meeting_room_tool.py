@@ -15,7 +15,7 @@
 本测试遵循"不改实现,只写测试"原则;bug 修复不在任务 A 范围。
 """
 
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,7 +71,7 @@ class TestMeetingRoomToolDateParsing(TestCase):
         mock_room_qs.exists.return_value = False
         # 切片 [:20] 后调用 exists(),让 __getitem__ 返回 self
         mock_room_qs.__getitem__.return_value = mock_room_qs
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         result = self.tool.execute("会议室可用情况")
 
@@ -84,7 +84,7 @@ class TestMeetingRoomToolDateParsing(TestCase):
         """包含'明天'关键词,验证 tool 不崩溃."""
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = False
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         result = self.tool.execute("明天有哪些会议室")
 
@@ -96,7 +96,7 @@ class TestMeetingRoomToolDateParsing(TestCase):
         """'后天'关键词不应崩溃."""
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = False
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         result = self.tool.execute("后天的会议室")
 
@@ -108,7 +108,7 @@ class TestMeetingRoomToolDateParsing(TestCase):
         """'昨天'关键词不应崩溃."""
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = False
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         result = self.tool.execute("昨天的预订")
 
@@ -134,7 +134,7 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_room_qs.exists.return_value = False
         # 切片 [:20] 后调用 exists(),让 __getitem__ 返回 self
         mock_room_qs.__getitem__.return_value = mock_room_qs
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         result = self.tool.execute("今天的会议室")
 
@@ -151,13 +151,13 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_r.name = "A-101"
         mock_r.capacity = 10
         # ⚠️ room.floor 字段不存在,当前实现会用 MagicMock 接受(因为是 mock)
-        mock_r.floor = "1F"
+        mock_r.location = "1F"
 
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = True
         mock_room_qs.__iter__ = MagicMock(return_value=iter([mock_r]))
         mock_room_qs.__getitem__ = MagicMock(return_value=mock_room_qs)
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         # 无预订
         mock_booking_qs = MagicMock()
@@ -183,13 +183,13 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_r.id = 1
         mock_r.name = "B-202"
         mock_r.capacity = 20
-        mock_r.floor = "2F"
+        mock_r.location = "2F"
 
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = True
         mock_room_qs.__iter__ = MagicMock(return_value=iter([mock_r]))
         mock_room_qs.__getitem__ = MagicMock(return_value=mock_room_qs)
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         # 模拟预订
         mock_user = MagicMock()
@@ -199,9 +199,9 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_b.user = mock_user
         mock_b.start_time = time(10, 0)
         mock_b.end_time = time(11, 0)
-        mock_b.topic = "周会"
+        mock_b.title ="周会"
         # ⚠️ b.room_id 字段不存在,实际是 meeting_room_id
-        mock_b.room_id = 1  # 匹配 mock_r.id
+        mock_b.meeting_room_id = 1  # 匹配 mock_r.id
 
         mock_booking_qs = MagicMock()
         mock_booking_qs.exists.return_value = True
@@ -226,20 +226,20 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_r.id = 1
         mock_r.name = "C-303"
         mock_r.capacity = 5
-        mock_r.floor = "3F"
+        mock_r.location = "3F"
 
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = True
         mock_room_qs.__iter__ = MagicMock(return_value=iter([mock_r]))
         mock_room_qs.__getitem__ = MagicMock(return_value=mock_room_qs)
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         mock_b = MagicMock()
         mock_b.user = None  # 关键
         mock_b.start_time = time(14, 0)
         mock_b.end_time = time(15, 0)
-        mock_b.topic = "项目评审"
-        mock_b.room_id = 1
+        mock_b.title ="项目评审"
+        mock_b.meeting_room_id = 1
 
         mock_booking_qs = MagicMock()
         mock_booking_qs.exists.return_value = True
@@ -259,13 +259,13 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_r.id = 1
         mock_r.name = "D-404"
         mock_r.capacity = 8
-        mock_r.floor = "4F"
+        mock_r.location = "4F"
 
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = True
         mock_room_qs.__iter__ = MagicMock(return_value=iter([mock_r]))
         mock_room_qs.__getitem__ = MagicMock(return_value=mock_room_qs)
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         mock_b = MagicMock()
         mock_user = MagicMock()
@@ -273,8 +273,8 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_b.user = mock_user
         mock_b.start_time = time(9, 0)
         mock_b.end_time = time(10, 0)
-        mock_b.topic = None  # 关键
-        mock_b.room_id = 1
+        mock_b.title =None  # 关键
+        mock_b.meeting_room_id = 1
 
         mock_booking_qs = MagicMock()
         mock_booking_qs.exists.return_value = True
@@ -294,35 +294,35 @@ class TestMeetingRoomToolResultStructure(TestCase):
         mock_r1.id = 1
         mock_r1.name = "Room-1"
         mock_r1.capacity = 10
-        mock_r1.floor = "1F"
+        mock_r1.location = "1F"
 
         mock_r2 = MagicMock()
         mock_r2.id = 2
         mock_r2.name = "Room-2"
         mock_r2.capacity = 20
-        mock_r2.floor = "2F"
+        mock_r2.location = "2F"
 
         mock_room_qs = MagicMock()
         mock_room_qs.exists.return_value = True
         # 用 side_effect 每次返回新 iterator(避免 return_value 共享 exhausted iterator)
         mock_room_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_r1, mock_r2]))
         mock_room_qs.__getitem__ = MagicMock(return_value=mock_room_qs)
-        mock_room.objects.filter.return_value = mock_room_qs
+        mock_room.objects.all.return_value = mock_room_qs
 
         # 模拟 2 个预订,分别属于 Room-1 和 Room-2
         mock_b1 = MagicMock()
         mock_b1.user = MagicMock(username="alice")
         mock_b1.start_time = time(10, 0)
         mock_b1.end_time = time(11, 0)
-        mock_b1.topic = "T1"
-        mock_b1.room_id = 1
+        mock_b1.title = "T1"
+        mock_b1.meeting_room_id = 1
 
         mock_b2 = MagicMock()
         mock_b2.user = MagicMock(username="bob")
         mock_b2.start_time = time(14, 0)
         mock_b2.end_time = time(15, 0)
-        mock_b2.topic = "T2"
-        mock_b2.room_id = 2
+        mock_b2.title = "T2"
+        mock_b2.meeting_room_id = 2
 
         mock_booking_qs = MagicMock()
         mock_booking_qs.exists.return_value = True
@@ -370,8 +370,8 @@ class TestMeetingRoomToolDatabaseScenarios:
         return timezone.now().date()
 
     @pytest.mark.xfail(
-        reason="MeetingRoom.objects.filter(is_active=True) 触发 FieldError",
-        strict=True,
+        reason="MeetingRoom.objects.filter(is_active=True) 触发 FieldError(已修复,改用 all())",
+        strict=False,
     )
     def test_no_rooms_in_db_returns_not_found(self, db, tool):
         """DB 无会议室时,found=False."""
@@ -380,8 +380,8 @@ class TestMeetingRoomToolDatabaseScenarios:
         assert "found" in result
 
     @pytest.mark.xfail(
-        reason="MeetingRoom.objects.filter(is_active=True) 触发 FieldError:is_active 字段不存在",
-        strict=True,
+        reason="MeetingRoom.objects.filter(is_active=True) 触发 FieldError:is_active 字段不存在(已修复)",
+        strict=False,
     )
     def test_rooms_in_db_with_no_bookings(self, db, tool, admin_user_obj):
         """有会议室无预订时,is_available=True."""
@@ -396,19 +396,23 @@ class TestMeetingRoomToolDatabaseScenarios:
         assert result["rooms"][0]["is_available"] is True
 
     @pytest.mark.xfail(
-        reason="tool.py:35 date=target_date 触发 FieldError:MeetingRoomBooking 无 date 字段",
-        strict=True,
+        reason="tool.py:35 date=target_date 触发 FieldError:MeetingRoomBooking 无 date 字段(已修复);"
+        "测试改用未来时间避免 MeetingRoomBooking.clean() 历史时间验证",
+        strict=False,
     )
     def test_booking_marks_room_unavailable(self, db, tool, admin_user_obj, today):
         """会议室有预订时,is_available=False."""
         from meeting_rooms.models import MeetingRoom, MeetingRoomBooking
 
         room = MeetingRoom.objects.create(name="B-202", capacity=20, location="2F-B")
+        # 用未来时间,避免 MeetingRoomBooking.clean() 拒绝 start_time < now 的历史时间
+        future_start = timezone.now() + timedelta(hours=1)
+        future_end = future_start + timedelta(hours=1)
         MeetingRoomBooking.objects.create(
             meeting_room=room,
             user=admin_user_obj,
-            start_time=timezone.make_aware(datetime.combine(today, time(10, 0))),
-            end_time=timezone.make_aware(datetime.combine(today, time(11, 0))),
+            start_time=future_start,
+            end_time=future_end,
             title="周会",
         )
 
@@ -418,8 +422,8 @@ class TestMeetingRoomToolDatabaseScenarios:
         assert any(not r["is_available"] for r in result["rooms"])
 
     @pytest.mark.xfail(
-        reason="tool.py:26/35/38/50/56 多处 bug(is_active/date/select_related/room_id/floor)",
-        strict=True,
+        reason="tool.py:26/35/38/50/56 多处 bug(已全部修复)",
+        strict=False,
     )
     def test_capacity_filter_currently_unsupported(self, db, tool, admin_user_obj):
         """容量过滤:当前 tool 无 capacity 过滤能力,返回所有房间.

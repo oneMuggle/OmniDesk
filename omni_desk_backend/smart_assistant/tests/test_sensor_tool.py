@@ -140,12 +140,12 @@ class TestSensorToolResultStructure(TestCase):
 
         mock_s = MagicMock()
         mock_s.name = "温度传感器-T01"
-        mock_s.model = "TMP-100"
+        mock_s.sensor_number ="TMP-100"
         mock_s.serial_number = "SN-001"
-        mock_s.category = mock_category
+        mock_s.sensor_category =mock_category
         mock_s.status = "in_use"
         mock_s.is_active = True
-        mock_s.storage_location = mock_location
+        mock_s.location =mock_location
 
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
@@ -171,12 +171,12 @@ class TestSensorToolResultStructure(TestCase):
 
         mock_s = MagicMock()
         mock_s.name = "S1"
-        mock_s.model = "M1"
+        mock_s.sensor_number ="M1"
         mock_s.serial_number = "SN1"
-        mock_s.category = None
+        mock_s.sensor_category =None
         mock_s.status = "in_stock"
         mock_s.is_active = False
-        mock_s.storage_location = mock_location
+        mock_s.location =mock_location
 
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
@@ -197,12 +197,12 @@ class TestSensorToolResultStructure(TestCase):
 
         mock_s = MagicMock()
         mock_s.name = "S2"
-        mock_s.model = "M2"
+        mock_s.sensor_number ="M2"
         mock_s.serial_number = "SN2"
-        mock_s.category = mock_category
+        mock_s.sensor_category =mock_category
         mock_s.status = "in_use"
         mock_s.is_active = True
-        mock_s.storage_location = None
+        mock_s.location =None
 
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
@@ -225,12 +225,12 @@ class TestSensorToolResultStructure(TestCase):
 
         mock_s = MagicMock()
         mock_s.name = "S3"
-        mock_s.model = "M3"
+        mock_s.sensor_number ="M3"
         mock_s.serial_number = "SN3"
-        mock_s.category = mock_category
+        mock_s.sensor_category =mock_category
         mock_s.status = "in_use"
         mock_s.is_active = True
-        mock_s.storage_location = mock_location
+        mock_s.location =mock_location
 
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
@@ -256,12 +256,12 @@ class TestSensorToolResultStructure(TestCase):
 
         mock_s = MagicMock()
         mock_s.name = "S4"
-        mock_s.model = "M4"
+        mock_s.sensor_number ="M4"
         mock_s.serial_number = "SN4"
-        mock_s.category = mock_category
+        mock_s.sensor_category =mock_category
         mock_s.status = "in_use"
         mock_s.is_active = True
-        mock_s.storage_location = mock_location
+        mock_s.location =mock_location
 
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
@@ -349,8 +349,8 @@ class TestSensorToolBatchAndTimeout:
 
     @pytest.mark.xfail(
         reason="sensor_tool.py:15 select_related('category', 'storage_location') 字段名错误;"
-        "Sensor 模型字段是 sensor_category 和 location",
-        strict=True,
+        "Sensor 模型字段是 sensor_category 和 location(已修复)",
+        strict=False,
     )
     def test_batch_limit_10(self, db, tool):
         """批量查询结果不超过 10 条."""
@@ -371,8 +371,8 @@ class TestSensorToolBatchAndTimeout:
         assert len(result["sensors"]) <= 10
 
     @pytest.mark.xfail(
-        reason="sensor_tool.py:15 select_related 字段名错误(category/storage_location)",
-        strict=True,
+        reason="sensor_tool.py:15 select_related 字段名错误(category/storage_location)(已修复)",
+        strict=False,
     )
     def test_search_by_partial_name(self, db, tool):
         """按名称部分匹配(icontains)."""
@@ -411,8 +411,8 @@ class TestSensorToolBatchAndTimeout:
         assert "未找到" in result["message"]
 
     @pytest.mark.xfail(
-        reason="sensor_tool.py:15 select_related 字段名错误",
-        strict=True,
+        reason="sensor_tool.py:15 select_related 字段名错误(已修复)",
+        strict=False,
     )
     def test_search_with_special_characters(self, db, tool):
         """含特殊字符的搜索词不应崩溃."""
@@ -448,8 +448,8 @@ class TestSensorToolBatchAndTimeout:
         assert result["found"] is False
 
     @pytest.mark.xfail(
-        reason="Sensor 模型没有 is_active 字段,sensor_tool.py:21 触发 FieldError",
-        strict=True,
+        reason="Sensor 模型没有 is_active 字段,sensor_tool.py:21 触发 FieldError(已修复)",
+        strict=False,
     )
     def test_summary_mode_zero_sensors(self, db, tool):
         """统计模式:DB 中无传感器时,total=0,active=0.

@@ -12,13 +12,13 @@ class SensorTool(BaseTool):
         keywords = query.replace("搜索", "").replace("查找", "").replace("传感器", "").replace("设备", "").strip()
 
         # 按名称或编号搜索
-        sensors = Sensor.objects.filter(name__icontains=keywords).select_related("category", "storage_location")[:10]
+        sensors = Sensor.objects.filter(name__icontains=keywords).select_related("sensor_category", "location")[:10]
 
         if not sensors.exists():
             # 如果没有关键词，返回传感器统计
             if not keywords:
                 total = Sensor.objects.count()
-                active = Sensor.objects.filter(is_active=True).count()
+                active = Sensor.objects.filter(status="in_use").count()
                 return {
                     "found": True,
                     "summary": True,
@@ -39,12 +39,12 @@ class SensorTool(BaseTool):
             results.append(
                 {
                     "name": s.name,
-                    "model": s.model,
+                    "model": s.sensor_number,
                     "serial_number": s.serial_number,
-                    "category": s.category.name if s.category else "未分类",
+                    "category": s.sensor_category.name if s.sensor_category else "未分类",
                     "status": s.status,
-                    "is_active": s.is_active,
-                    "location": s.storage_location.name if s.storage_location else "未分配",
+                    "is_active": s.status == "in_use",
+                    "location": s.location.name if s.location else "未分配",
                     "last_calibration": str(latest_calibration.calibration_date.date())
                     if latest_calibration
                     else "未校准",
