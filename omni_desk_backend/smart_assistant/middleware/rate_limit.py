@@ -21,13 +21,26 @@ def check_rate_limit(user_id):
     current = cache.get(key, 0)
 
     if current >= SMART_CHAT_RATE_LIMIT:
-        ttl = cache.ttl(key) or RATE_WINDOW
+        # 注意:cache.ttl 仅 Redis 等后端支持,locmem 没有。
+        # 取不到 TTL 时退化为默认窗口。
+        try:
+            ttl = cache.ttl(key) or RATE_WINDOW
+        except (AttributeError, NotImplementedError):
+            ttl = RATE_WINDOW
         return False, 0, ttl
 
-    cache.incr(key)
-    cache.set(key, current + 1, RATE_WINDOW)
-    remaining = SMART_CHAT_RATE_LIMIT - current - 1
-    return True, remaining, 0
+    # 注意:Django locmem cache 的 incr 在 key 不存在时抛 ValueError;
+    # 而 cache.get 默认值 0 不会创建 key。先 set 再 incr 以兼容两类 backend。
+    try:
+        new_value = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, RATE_WINDOW)
+        new_value = 1
+    else:
+        cache.set(key, new_value, RATE_WINDOW)
+
+    remaining = SMART_CHAT_RATE_LIMIT - new_value
+    return True, max(remaining, 0), 0
 
 
 class RateLimitMiddleware:

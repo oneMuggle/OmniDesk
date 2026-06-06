@@ -59,9 +59,9 @@ def mock_llm_router():
 
     with patch("llm_service.router.get_router", return_value=mock_client), \
          patch("smart_assistant.agent.intent_classifier.get_router", return_value=mock_client), \
-         patch("smart_assistant.agent.orchestrator.get_router", return_value=mock_client), \
-         patch("smart_assistant.agent.tool_chain_planner.get_router", return_value=mock_client), \
-         patch("smart_assistant.agent.tool_chain_executor.get_router", return_value=mock_client):
+         patch("smart_assistant.agent.tool_chain_planner.get_router", return_value=mock_client):
+        # 注:orchestrator.py 与 tool_chain_executor.py 都在函数内部 import get_router,
+        # 或通过其他模块(已被 patch)间接调用,无需单独 patch 模块顶层。
         yield mock_client
 
 
