@@ -12,6 +12,7 @@ from .models import (
     LeaderSequence,
     PersonnelSequence,
     Schedule,
+    ScheduleSwapRequest,
     TimeSlot,
     Trial,
     UploadedImage,
@@ -254,3 +255,111 @@ class GenerateScheduleSerializer(serializers.Serializer):
                 "Either 'target_month' or both 'start_date' and 'duration_days' are required."
             )
         return data
+
+
+# ---- SP2: ScheduleSwapRequest 序列化器(决策 1C:两人互认即生效,无 HR 审批) ----
+
+
+class _PersonnelMiniSerializer(serializers.ModelSerializer):
+    """换班申请列表/详情中 personnel 字段的精简展示(只 id+name,避免泄露隐私)。"""
+
+    class Meta:
+        from personnel.models import Personnel
+
+        model = Personnel
+        fields = ["id", "name"]
+
+
+class SwapRequestCreateSerializer(serializers.ModelSerializer):
+    """L1 防护:不暴露 requester/expires_at/status 字段,客户端无法传。"""
+
+    class Meta:
+        model = ScheduleSwapRequest
+        fields = [
+            "id",
+            "original_schedule",
+            "scope",
+            "target_personnel",
+            "target_schedule",
+            "reason",
+        ]
+        read_only_fields = ["id"]
+        # requester / status / expires_at / approver / *_at 全部不列出 → L1 拒绝任何写入
+
+
+class SwapRequestListSerializer(serializers.ModelSerializer):
+    """列表场景:浅嵌套 + 精简 personnel 展示。"""
+
+    requester = _PersonnelMiniSerializer(read_only=True)
+    target_personnel = _PersonnelMiniSerializer(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+
+    class Meta:
+        model = ScheduleSwapRequest
+        fields = [
+            "id",
+            "requester",
+            "target_personnel",
+            "original_schedule",
+            "target_schedule",
+            "scope",
+            "status",
+            "status_display",
+            "reason",
+            "expires_at",
+            "created_at",
+        ]
+
+
+class SwapRequestDetailSerializer(serializers.ModelSerializer):
+    """详情场景:含 audit_logs 嵌套。"""
+
+    requester = _PersonnelMiniSerializer(read_only=True)
+    target_personnel = _PersonnelMiniSerializer(read_only=True)
+    status_display = serializers.CharField(source="get_status_display", read_only=True)
+    audit_logs = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ScheduleSwapRequest
+        fields = [
+            "id",
+            "requester",
+            "target_personnel",
+            "original_schedule",
+            "target_schedule",
+            "scope",
+            "status",
+            "status_display",
+            "reason",
+            "target_decided_at",
+            "target_decision_note",
+            "approver",
+            "approved_at",
+            "approval_note",
+            "expires_at",
+            "created_at",
+            "updated_at",
+            "audit_logs",
+        ]
+
+    def get_audit_logs(self, obj):
+        return [
+            {
+                "id": log.id,
+                "from_status": log.from_status,
+                "to_status": log.to_status,
+                "actor_id": log.actor_id,
+                "note": log.note,
+                "created_at": log.created_at,
+            }
+            for log in obj.audit_logs.all()[:20]
+        ]
+
+
+class SwapRequestTargetActionSerializer(serializers.ModelSerializer):
+    """接收方动作序列化器:accept/reject 仅允许填 target_decision_note。"""
+
+    class Meta:
+        model = ScheduleSwapRequest
+        fields = ["target_decision_note"]
+        extra_kwargs = {"target_decision_note": {"required": False, "allow_blank": True}}
