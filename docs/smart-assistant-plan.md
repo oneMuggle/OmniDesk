@@ -1,3 +1,19 @@
+> ⚠️ **本文档已废弃(2026-06-06)**
+>
+> 本文件描述的"75% 完成"状态与代码实际进度严重不符:实际 smart_assistant 模块已包含 7 个 Agent 子模块、12 个工具、6 个视图、3 级缓存、限流中间件,远超本文档所述的 4 个阶段。
+>
+> **请改用以下文档(权威且与代码同步):**
+>
+> - 📐 架构与设计决策:[`docs/technical/26-smart-assistant-architecture.md`](./technical/26-smart-assistant-architecture.md)
+> - 🛠️ 工具清单与扩展指南:[`docs/technical/27-smart-assistant-tooling.md`](./technical/27-smart-assistant-tooling.md)
+> - 📈 覆盖率与质量路线图:[`docs/technical/28-smart-assistant-coverage-roadmap.md`](./technical/28-smart-assistant-coverage-roadmap.md)
+> - 📋 优化实施计划:[`docs/plans/2026-06-06_smart-assistant-optimization.md`](./plans/2026-06-06_smart-assistant-optimization.md)
+> - 👤 用户操作手册:[`docs/user-manual/04-smart-assistant-user-guide.md`](./user-manual/04-smart-assistant-user-guide.md)
+>
+> 本文件保留以提供历史脉络参考,但请勿据此判断模块状态。
+
+---
+
 # 智能助手（Smart Assistant）实现方案
 
 > 类似贾维斯的智能助手，通过聊天快速获取信息、知识库问答、文献搜索。
