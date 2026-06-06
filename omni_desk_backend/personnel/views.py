@@ -1,7 +1,7 @@
 from rest_framework import permissions, viewsets
 from rest_framework.filters import SearchFilter
 
-from users.permissions import IsAdminOrReadOnly
+from users.permissions import IsAdminOrManagerOrReadOnly
 
 from .models import Contract, Education, FamilyMember, Personnel, Position, ProfessionalQualification, WorkExperience
 from .serializers import (
@@ -29,7 +29,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
             )
         return queryset
 
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [SearchFilter]
     search_fields = ["name", "id_card_number"]
 
@@ -101,4 +101,4 @@ class PositionViewSet(viewsets.ModelViewSet):
 
     queryset = Position.objects.all()
     serializer_class = PositionSerializer
-    permission_classes = [IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrManagerOrReadOnly]

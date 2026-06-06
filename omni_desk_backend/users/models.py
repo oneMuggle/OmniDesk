@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 
@@ -61,3 +62,47 @@ class PhoneNumber(models.Model):
 
     def __str__(self):
         return self.number
+
+
+class AuditLogEntry(models.Model):
+    """用户-人员关联审计日志(配套 link_user_personnel 管理命令)
+
+    P1-5 引入。每一行记录一次 user.personnel 字段的变更(绑定/解绑),
+    包含 batch_id 用于按批次回滚。
+    """
+
+    ACTION_LINK = "link"
+    ACTION_UNLINK = "unlink"
+    ACTION_LINK_SKIPPED = "link_skipped"
+    ACTION_UNLINK_SKIPPED = "unlink_skipped"
+    ACTION_CHOICES = [
+        (ACTION_LINK, "绑定"),
+        (ACTION_UNLINK, "解绑"),
+        (ACTION_LINK_SKIPPED, "绑定跳过"),
+        (ACTION_UNLINK_SKIPPED, "解绑跳过"),
+    ]
+
+    batch_id = models.CharField(max_length=64, db_index=True, verbose_name="批次ID")
+    actor = models.CharField(max_length=100, blank=True, verbose_name="操作者")
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES, verbose_name="动作")
+    target_user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="audit_log_entries",
+        verbose_name="目标用户",
+    )
+    old_personnel_id = models.IntegerField(null=True, blank=True, verbose_name="原 personnel.id")
+    new_personnel_id = models.IntegerField(null=True, blank=True, verbose_name="新 personnel.id")
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="元数据")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        verbose_name = "用户-人员关联审计日志"
+        verbose_name_plural = "用户-人员关联审计日志"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["batch_id", "action"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.batch_id}] {self.action} user_id={self.target_user_id}"

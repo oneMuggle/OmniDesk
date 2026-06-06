@@ -2,6 +2,7 @@ import base64
 import hashlib
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -80,6 +81,18 @@ class Personnel(models.Model):
     # Timestamps
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    def clean(self):
+        """L3 数据完整性防护(P2-4):仅校验数据本身,不依赖用户上下文。"""
+        super().clean()
+        errors = {}
+        if not self.name or not self.name.strip():
+            errors["name"] = "姓名不能为空"
+        valid_statuses = {code for code, _ in self.STATUS_CHOICES}
+        if self.status not in valid_statuses:
+            errors["status"] = f"status 必须是 {valid_statuses} 之一"
+        if errors:
+            raise ValidationError(errors)
 
     def __str__(self):
         return self.name

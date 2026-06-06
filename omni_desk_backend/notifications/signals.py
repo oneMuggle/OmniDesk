@@ -1,9 +1,10 @@
-from django.db.models.signals import post_save
+from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from events.models import Schedule, Announcement
 from compliance.models import ComplianceIssue
 from memos.models import Memo
+from personnel.models import FamilyMember, Personnel
 
 
 def _notify(user, type, title, content, link=""):
@@ -91,4 +92,81 @@ def notify_memo_due(sender, instance, created, **kwargs):
         title=f"备忘录：{instance.title}",
         content=instance.content[:200] if instance.content else "您有一条新的备忘录",
         link="/memos",
+    )
+
+
+# ---- P3-1: Personnel 岗位/部门变动信号 ----
+
+
+@receiver(pre_save, sender=Personnel)
+def capture_personnel_pre_save(sender, instance, **kwargs):
+    """捕获 Personnel 更新前的 position_id / department 旧值。"""
+    if instance.pk:
+        try:
+            old = Personnel.objects.get(pk=instance.pk)
+            instance._pre_save_snapshot = {
+                "position_id": old.position_id,
+                "department": old.department,
+            }
+        except Personnel.DoesNotExist:
+            instance._pre_save_snapshot = {}
+    else:
+        instance._pre_save_snapshot = {}
+
+
+@receiver(post_save, sender=Personnel)
+def notify_personnel_position_or_department_changed(sender, instance, created, **kwargs):
+    """Personnel 岗位或部门变更 → 通知本人(若有 user 关联)。"""
+    if created:
+        return
+    snap = getattr(instance, "_pre_save_snapshot", {}) or {}
+    old_pos = snap.get("position_id")
+    old_dept = snap.get("department")
+    new_pos = instance.position_id
+    new_dept = instance.department
+
+    if old_pos == new_pos and (old_dept or "") == (new_dept or ""):
+        return  # 无变化
+
+    user = _get_user_from_personnel(instance)
+    if not user:
+        return
+
+    body_parts = []
+    if old_pos != new_pos:
+        body_parts.append(f"职位: {instance.position.name if instance.position else '无'}")
+    if (old_dept or "") != (new_dept or ""):
+        body_parts.append(f"部门: {new_dept or '无'}")
+
+    body = "; ".join(body_parts) if body_parts else "岗位/部门已更新"
+    _notify(
+        user=user,
+        type="position_changed",
+        title="岗位/部门变动通知",
+        content=body,
+        link="/me/personnel",
+    )
+
+
+# ---- P3-2: FamilyMember 紧急联系人变更信号 ----
+
+
+@receiver(post_save, sender=FamilyMember)
+def notify_family_member_changed(sender, instance, created, **kwargs):
+    """FamilyMember 新增或修改 → 通知 personnel 关联 user 确认。"""
+    personnel = instance.personnel
+    user = _get_user_from_personnel(personnel)
+    if not user:
+        return
+    action = "新增" if created else "更新"
+    _notify(
+        user=user,
+        type="emergency_contact",
+        title=f"紧急联系人{action}确认",
+        content=(
+            f"您的紧急联系人 {instance.name}({instance.relationship})"
+            f"{'已新增' if created else '信息已更新'},联系电话:{instance.contact_number or '无'}。"
+            f"如非本人操作请尽快联系 HR。"
+        ),
+        link="/me/personnel",
     )
