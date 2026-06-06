@@ -1,0 +1,86 @@
+name: smart_assistant_coverage_weekly
+
+# 智能助手模块专项覆盖率周报
+# 配套 docs/technical/28-smart-assistant-coverage-roadmap.md §3.3
+# 与 docs/notes/2026-06-06_smart-assistant-optimization-handoff-4.md
+
+on:
+  # 每周一 9:07 UTC(17:07 北京时间)避整点
+  schedule:
+    - cron: '7 9 * * 1'
+  # 允许手动触发(本地复现 / 临时验证)
+  workflow_dispatch:
+
+# 取消同 action 的旧 run,避免周报堆积
+concurrency:
+  group: smart-assistant-coverage
+  cancel-in-progress: true
+
+jobs:
+  coverage-report:
+    name: smart_assistant 专项覆盖率
+    runs-on: ubuntu-latest
+    # 必须有 PostgreSQL service,否则触发 omni_desk_backend.settings 的
+    # __init__.py:10 from .development import * 陷阱(详见 memory: smart-assistant-coverage-env-trap)
+    services:
+      postgres:
+        image: postgres:13
+        env:
+          POSTGRES_USER: testuser
+          POSTGRES_PASSWORD: testpassword
+          POSTGRES_DB: testdb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+          cache-dependency-path: omni_desk_backend/requirements-dev.txt
+
+      - name: Install Backend Dependencies
+        working-directory: omni_desk_backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      # 关键:用 PostgreSQL 跑测试(走 settings.development),
+      # 避免 settings/__init__.py:10 from .development import * 触发 202 errors。
+      # 显式指定 smart_assistant 路径 + 单独阈值 75%。
+      # --no-cov 强制关闭 pytest-cov,改用 coverage 命令单独处理,
+      # 避免覆盖率模式下 settings 包的 import 链触发 202 errors。
+      # 当前纯生产代码覆盖率 78%(2026-06-06 实测),75% 留缓冲;
+      # W2 推 80%,W3+ 推 85%(路线图 §3.2)
+      - name: Run smart_assistant tests with module coverage
+        working-directory: omni_desk_backend
+        env:
+          DATABASE_URL: postgres://testuser:testpassword@localhost:5432/testdb
+          SECRET_KEY: ci-smart-assistant-coverage-secret
+        run: |
+          coverage run -m pytest smart_assistant/ --no-cov -q
+          # 单独的覆盖率报告,门槛 75%(W1 起步,W2 推 80%,W3+ 推 85%)
+          # 排除 tests/ 与 migrations/,只统计生产代码
+          coverage report --include='smart_assistant/*' \
+            --omit='smart_assistant/tests/*,smart_assistant/migrations/*' \
+            --fail-under=75 --show-missing
+          # XML 报告给 artifact 用
+          coverage xml -o smart_assistant_coverage.xml \
+            -i --include='smart_assistant/*'
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smart-assistant-coverage-report
+          path: omni_desk_backend/smart_assistant_coverage.xml
+          retention-days: 90
