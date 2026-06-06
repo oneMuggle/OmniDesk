@@ -68,12 +68,12 @@ class TestAuditLogEntryModel:
             target_user=regular_user_obj,
             old_personnel_id=None,
             new_personnel_id=345,
-            metadata={"strategy": "manual", "csv": "/tmp/m.csv"},
+            metadata={"strategy": "manual", "csv": "/tmp/m.csv"},  # nosec B108 - 测试占位路径,非真实文件
         )
         assert entry.pk is not None
         assert entry.batch_id == "2026-06-05-001"
         assert entry.action == "link"
-        assert entry.metadata == {"strategy": "manual", "csv": "/tmp/m.csv"}
+        assert entry.metadata == {"strategy": "manual", "csv": "/tmp/m.csv"}  # nosec B108 - 测试占位路径
 
     def test_query_by_batch_id(self, regular_user_obj):
         """应能按 batch_id 查询所有相关日志。"""

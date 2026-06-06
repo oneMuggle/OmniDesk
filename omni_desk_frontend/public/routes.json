@@ -45,6 +45,16 @@
     "component": "LazyComponent"
   },
   {
+    "name": "我的信息",
+    "path": "/me/personnel",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "通知中心",
+    "path": "/notifications",
+    "component": "LazyComponent"
+  },
+  {
     "name": "智能助手",
     "path": "/smart-assistant",
     "component": "LazyComponent"
