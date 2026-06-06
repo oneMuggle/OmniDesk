@@ -56,7 +56,7 @@ class TestSmartChatViewSet(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @patch('smart_assistant.agent.orchestrator.AgentOrchestrator')
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
     def test_chat_creates_session(self, mock_orchestrator_cls):
         """不带 conversation_id 时自动创建新会话."""
         mock_orchestrator = MagicMock()
@@ -79,7 +79,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('conversation_id', response.data)
 
-    @patch('smart_assistant.agent.orchestrator.AgentOrchestrator')
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
     def test_chat_with_conversation_id(self, mock_orchestrator_cls):
         """带 conversation_id 时复用已有会话."""
         session = SmartAssistantSession.objects.create(
@@ -117,6 +117,199 @@ class TestSmartChatViewSet(TestCase):
         )
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_with_nonexistent_conversation_id_creates_new_session(self, mock_orchestrator_cls):
+        """conversation_id 不存在时,view 静默忽略并创建新会话."""
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
+            'answer': '新会话回答',
+            'intent': 'general_chat',
+            'tool_used': None,
+            'tool_result': None,
+            'sources': None,
+            'usage': None,
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        # conversation_id 99999 不存在
+        response = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': '你好', 'conversation_id': 99999},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 应创建了一个新会话
+        self.assertIn('conversation_id', response.data)
+        # 验证新会话存在
+        new_session = SmartAssistantSession.objects.get(id=response.data['conversation_id'])
+        self.assertEqual(new_session.user, self.user)
+        self.assertEqual(new_session.turn_count, 1)
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_turn_count_increments(self, mock_orchestrator_cls):
+        """同一会话连续多次对话,turn_count 应递增."""
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
+            'answer': '回答',
+            'intent': 'general_chat',
+            'tool_used': None,
+            'tool_result': None,
+            'sources': None,
+            'usage': None,
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        # 第一次对话
+        r1 = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': '问题1'},
+            format='json',
+        )
+        session_id = r1.data['conversation_id']
+
+        # 第二次对话(用 session_id)
+        r2 = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': '问题2', 'conversation_id': session_id},
+            format='json',
+        )
+
+        self.assertEqual(r2.status_code, status.HTTP_200_OK)
+        session = SmartAssistantSession.objects.get(id=session_id)
+        # count_turns 数 user 角色消息数,2 次对话 = 2 turns
+        self.assertEqual(session.turn_count, 2)
+        # messages 列表应有 4 条(2 user + 2 assistant)
+        self.assertEqual(len(session.messages), 4)
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_title_truncated_to_50_chars(self, mock_orchestrator_cls):
+        """超长 query(>50 字)作为 title 应被截断到 50 字."""
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
+            'answer': '回答',
+            'intent': 'general_chat',
+            'tool_used': None,
+            'tool_result': None,
+            'sources': None,
+            'usage': None,
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        # 100 字的 query
+        long_query = "查询" * 50  # 100 字
+        response = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': long_query},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        session = SmartAssistantSession.objects.get(id=response.data['conversation_id'])
+        # title 截断到 50 字
+        self.assertEqual(len(session.title), 50)
+        self.assertEqual(session.title, long_query[:50])
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_tool_fallback_marks_log_as_failure(self, mock_orchestrator_cls):
+        """orchestrator 返回 tool_fallback=True 时,AgentLog.tool_success=False."""
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
+            'answer': '工具失败,使用 fallback',
+            'intent': 'schedule_query',
+            'tool_used': 'schedule_query',
+            'tool_result': {'found': False, 'message': '查询失败'},
+            'sources': None,
+            'usage': None,
+            'tool_fallback': True,  # 关键
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        response = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': '明天谁值班'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # 验证 AgentLog 标记
+        log = AgentLog.objects.filter(user_query='明天谁值班').first()
+        self.assertIsNotNone(log)
+        self.assertFalse(log.tool_success, "tool_fallback=True 时,tool_success 应为 False")
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_usage_parsed_into_agent_log(self, mock_orchestrator_cls):
+        """usage 字典正确解析到 AgentLog 的 input/output/total_tokens 字段."""
+        mock_orchestrator = MagicMock()
+        mock_orchestrator.process.return_value = {
+            'answer': '回答',
+            'intent': 'general_chat',
+            'tool_used': None,
+            'tool_result': None,
+            'sources': None,
+            'usage': {
+                'prompt_tokens': 100,
+                'completion_tokens': 50,
+                'total_tokens': 150,
+            },
+            'model_name': 'deepseek-r1:1.5b',
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        response = self.client.post(
+            '/api/smart-assistant/chat/',
+            {'query': '测试用量追踪'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        log = AgentLog.objects.filter(user_query='测试用量追踪').first()
+        self.assertIsNotNone(log)
+        self.assertEqual(log.input_tokens, 100)
+        self.assertEqual(log.output_tokens, 50)
+        self.assertEqual(log.total_tokens, 150)
+        self.assertEqual(log.model_name, 'deepseek-r1:1.5b')
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_chat_stream_endpoint_yields_sse_chunks(self, mock_orchestrator_cls):
+        """流式 stream 端点产生 SSE 事件流."""
+        mock_orchestrator = MagicMock()
+        # ⚠️ MagicMock 的 __iter__ 默认返回空,需用 side_effect 让 process_stream 返回可迭代对象
+        stream_chunks = [
+            'data: {"type": "meta", "intent": "general_chat"}\n\n',
+            'data: {"type": "chunk", "content": "你好"}\n\n',
+            'data: {"type": "chunk", "content": "世界"}\n\n',
+            'data: {"type": "done"}\n\n',
+        ]
+        mock_orchestrator.process_stream.side_effect = lambda *args, **kwargs: iter(stream_chunks)
+        # 也设 process 返回,避免 patch 撤销后影响其他测试
+        mock_orchestrator.process.return_value = {
+            'answer': '你好世界',
+            'intent': 'general_chat',
+            'tool_used': None,
+            'tool_result': None,
+            'sources': None,
+            'usage': None,
+        }
+        mock_orchestrator_cls.return_value = mock_orchestrator
+
+        response = self.client.post(
+            '/api/smart-assistant/chat/stream/',
+            {'query': '流式测试'},
+            format='json',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        # ⚠️ Django client 对 StreamingHttpResponse 需要用 list() 强制消费
+        # 否则 view 内的 session 创建代码不执行(见交接文档坑 #6)
+        chunks = list(response.streaming_content)
+        # 验证 SSE 块
+        self.assertGreater(len(chunks), 0)
+        # 验证至少有一个 chunk 包含流式内容
+        full_response = b''.join(chunks).decode('utf-8')
+        self.assertIn('"type": "chunk"', full_response)
+        self.assertIn('"content": "你好"', full_response)
 
 
 class TestSessionViewSet(TestCase):
