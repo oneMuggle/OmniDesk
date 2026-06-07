@@ -20,6 +20,7 @@ class SmartAssistantConfig(AppConfig):
         from .tools.meeting_room_tool import MeetingRoomTool
         from .tools.sensor_tool import SensorTool
         from .tools.announcement_tool import AnnouncementTool
+        from .tools.compliance_tool import ComplianceTool
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
@@ -32,3 +33,4 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(MeetingRoomTool())
         ToolRegistry.register(SensorTool())
         ToolRegistry.register(AnnouncementTool())
+        ToolRegistry.register(ComplianceTool())
