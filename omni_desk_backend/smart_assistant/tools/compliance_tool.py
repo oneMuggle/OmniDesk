@@ -13,7 +13,7 @@
 from datetime import date, timedelta
 from typing import TYPE_CHECKING, List
 
-from django.db.models import Q
+from django.db.models import Case, IntegerField, Q, Value, When
 
 from compliance.models import ComplianceIssue
 
@@ -21,6 +21,18 @@ from .base import BaseTool
 
 if TYPE_CHECKING:
     from .tool_context import ToolContext
+
+# 按业务优先级定义 severity 排序:紧急 > 高 > 中 > 低
+# 不用字符串倒序是因为 CharField 的字典序与业务优先级不一致
+# (Unicode:高 U+9AD8 > 紧 U+7D27 > 低 U+4F4E > 中 U+4E2D)
+_SEVERITY_RANK = Case(
+    When(severity="紧急", then=Value(0)),
+    When(severity="高", then=Value(1)),
+    When(severity="中", then=Value(2)),
+    When(severity="低", then=Value(3)),
+    default=Value(4),
+    output_field=IntegerField(),
+)
 
 
 class ComplianceTool(BaseTool):
@@ -32,15 +44,17 @@ class ComplianceTool(BaseTool):
     required_auth = True
 
     def execute(self, query: str, context: "ToolContext") -> dict:
-        # 单字停用词集合(注意:字符级别 strip 必须用单字,见下)
-        stopwords = {"合", "规", "整", "改", "待", "已", "什", "么", "查", "看", "几", "条"}
+        # 字符级别 strip,故停用词也用单字。
+        # 注意:不在 stopwords 中放"改"/"整"等业务核心动词 —— "整改"是合规领域
+        # 的核心术语,必须保留作为关键词,否则用户说"整改"会被全 strip 掉。
+        stopwords = {"合", "规", "待", "已", "什", "么", "查", "看", "几", "条"}
         keywords = "".join(c for c in query if c not in stopwords).strip()
 
         qs = (
             ComplianceIssue.objects
             .filter(status__in=["待处理", "处理中"])
             .select_related("project", "document_book", "document_template")
-            .order_by("-severity", "due_date")
+            .order_by(_SEVERITY_RANK, "due_date")
         )
 
         # 关键词过滤(至少 2 字符,避免单字过宽)
@@ -61,9 +75,11 @@ class ComplianceTool(BaseTool):
 
         issues: List[dict] = []
         for i in qs[:10]:
+            raw_desc = i.description or ""
+            truncated = raw_desc[:200] + ("..." if len(raw_desc) > 200 else "")
             issues.append({
                 "issue_type": i.issue_type,
-                "description": i.description[:200],
+                "description": truncated,
                 "status": i.status,
                 "severity": i.severity,
                 "project": i.project.name if i.project else "无",
