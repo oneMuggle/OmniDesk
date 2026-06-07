@@ -21,6 +21,7 @@ class SmartAssistantConfig(AppConfig):
         from .tools.sensor_tool import SensorTool
         from .tools.announcement_tool import AnnouncementTool
         from .tools.compliance_tool import ComplianceTool
+        from .tools.external_link_tool import ExternalLinkTool
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
@@ -34,3 +35,4 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(SensorTool())
         ToolRegistry.register(AnnouncementTool())
         ToolRegistry.register(ComplianceTool())
+        ToolRegistry.register(ExternalLinkTool())
