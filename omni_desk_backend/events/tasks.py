@@ -51,7 +51,7 @@ def cleanup_expired_swap_requests():
                     swap.status,
                     swap.expires_at,
                 )
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             logger.warning(
                 "swap expired cleanup failed for pk=%s: %s", swap.pk, exc
             )
