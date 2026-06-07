@@ -29,8 +29,11 @@ class ExternalLinkTool(BaseTool):
     required_auth = True
 
     def execute(self, query: str, context: "ToolContext") -> dict:
-        # 字符级别 strip,故停用词也用单字
-        stopwords = {"怎", "么", "如", "何", "登", "录", "使", "用", "打", "开", "访", "问", "的", "什"}
+        # 字符级别 strip,故停用词也用单字。
+        # 业务核心词("登"/"录" 等 VPN/SSO 高频词)**不**放 stopwords —— 否则
+        # 用户说 "VPN 怎么登录" 会被退化为 list_all 模式(返回所有 active 链接),
+        # 而非精确匹配 name="公司VPN"。这与 compliance_tool 同类设计权衡一致。
+        stopwords = {"怎", "么", "如", "何", "使", "用", "打", "开", "访", "问", "的", "什"}
         keywords = "".join(c for c in query if c not in stopwords).strip()
 
         qs = ExternalLink.objects.filter(is_active=True)
@@ -46,14 +49,14 @@ class ExternalLinkTool(BaseTool):
             )
 
         links: List[dict] = []
-        for l in qs[:20]:
+        for link in qs[:20]:
             links.append({
-                "name": l.name,
-                "url": l.url,
-                "category": l.category,
-                "description": (l.description or "")[:150],
-                "sso_enabled": l.sso_enabled,
-                "sso_token_endpoint": l.sso_token_endpoint if l.sso_enabled else None,
+                "name": link.name,
+                "url": link.url,
+                "category": link.category,
+                "description": (link.description or "")[:150],
+                "sso_enabled": link.sso_enabled,
+                "sso_token_endpoint": link.sso_token_endpoint if link.sso_enabled else None,
             })
 
         if not links:
