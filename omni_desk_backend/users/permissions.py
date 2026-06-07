@@ -122,4 +122,32 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
         # 写操作:Admin 或 HR
         if not (request.user and request.user.is_authenticated):
             return False
+
+        return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)
+
+
+class IsRequester(BasePermission):
+    """对象级权限:仅 obj.requester 对应的 user 可操作(用于 cancel action)。
+
+    SP2 引入。必须配合 get_object() 或 get_queryset() 做行级过滤。
+    """
+
+    def has_object_permission(self, request, view, obj):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        personnel = getattr(request.user, "personnel", None)
+        return personnel is not None and obj.requester_id == personnel.id
+
+
+class IsTargetPersonnel(BasePermission):
+    """对象级权限:仅 obj.target_personnel 对应的 user 可操作(用于 accept/reject action)。
+
+    SP2 引入。
+    """
+
+    def has_object_permission(self, request, view, obj):
+        if not (request.user and request.user.is_authenticated):
+            return False
+        target_user = getattr(obj.target_personnel, "user_account", None)
+        return target_user is not None and target_user.id == request.user.id
         return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)

@@ -27,8 +27,8 @@ def classify_intent(query: str, schemas: list, history: list = None) -> str:
         return "general_chat"
 
 
-def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None) -> str:
-    """将工具结果转化为自然语言回答，支持多轮上下文"""
+def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None) -> tuple:
+    """将工具结果转化为自然语言回答，支持多轮上下文。返回 (answer, usage) 元组。"""
     result_text = str(tool_result) if tool_result else "无结果"
 
     # 使用 messages 数组方式，包含完整历史
@@ -44,10 +44,10 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
             user_content=user_query,
             history=history or [],
         )
-        answer, _ = client.generate(messages=messages)
-        return answer.strip()
+        answer, usage = client.generate(messages=messages)
+        return answer.strip(), usage
     except Exception as e:
-        return f"回答生成失败: {str(e)}"
+        return f"回答生成失败: {str(e)}", None
 
 
 def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None):

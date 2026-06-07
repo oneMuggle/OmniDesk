@@ -44,6 +44,7 @@
 | 24 | [安全检查清单](24-security-checklist.md) | 6 个 CVE 详细分析 + OWASP Top 10 对照 |
 | 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
 | 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
+| 28 | [智能助手覆盖率路线图](28-smart-assistant-coverage-roadmap.md) | smart_assistant 模块 63.25% → ≥85% 补齐方案、CI 守卫、+63 测试用例(2026-06 v0.6.0) |
 
 ---
 
@@ -53,3 +54,5 @@
 - 每个章节独立成文，文件名格式 `XX-topic-name.md`
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
+
+> 📅 最近更新:2026-06-06 — 智能助手相关文档全面同步(16 升级、28 新增),旧 [`docs/smart-assistant-plan.md`](../smart-assistant-plan.md) 已标为废弃。

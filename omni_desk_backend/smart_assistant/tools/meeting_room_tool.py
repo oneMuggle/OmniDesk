@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from django.utils import timezone
 from meeting_rooms.models import MeetingRoom, MeetingRoomBooking
 from .base import BaseTool
@@ -22,8 +22,8 @@ class MeetingRoomTool(BaseTool):
         elif "今天" in query:
             target_date = timezone.now().date()
 
-        # 查询所有会议室
-        rooms = MeetingRoom.objects.filter(is_active=True)[:20]
+        # 查询所有会议室（MeetingRoom 模型无 is_active 字段）
+        rooms = MeetingRoom.objects.all()[:20]
 
         if not rooms.exists():
             return {
@@ -32,10 +32,14 @@ class MeetingRoomTool(BaseTool):
             }
 
         # 查询指定日期的预订
+        # MeetingRoomBooking 无 date/status 字段,改用 start_time 范围;
+        # select_related 用 meeting_room(不是 room)
+        day_start = timezone.make_aware(datetime.combine(target_date, time.min))
+        day_end = timezone.make_aware(datetime.combine(target_date, time.max))
         bookings = MeetingRoomBooking.objects.filter(
-            date=target_date,
-            status__in=["pending", "confirmed"],
-        ).select_related("room", "user")[:20]
+            start_time__gte=day_start,
+            start_time__lte=day_end,
+        ).select_related("meeting_room", "user")[:50]
 
         room_status = []
         for room in rooms:
@@ -44,16 +48,16 @@ class MeetingRoomTool(BaseTool):
                     "user": b.user.username if b.user else "未知",
                     "start_time": str(b.start_time),
                     "end_time": str(b.end_time),
-                    "topic": b.topic or "无主题",
+                    "topic": b.title or "无主题",
                 }
                 for b in bookings
-                if b.room_id == room.id
+                if b.meeting_room_id == room.id
             ]
             room_status.append(
                 {
                     "name": room.name,
                     "capacity": room.capacity,
-                    "floor": room.floor,
+                    "floor": room.location or "未指定",
                     "is_available": len(room_bookings) == 0,
                     "bookings": room_bookings,
                 }

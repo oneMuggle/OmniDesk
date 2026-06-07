@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = ["*/migrations/*", "*/test_*.py", "*/tests/*", "*/tests.py"]
+exclude = ["*/migrations/*", "*/test_*.py", "*/tests/*", "*/tests.py", "*/legacy_django_testcase.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]

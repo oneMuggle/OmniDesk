@@ -8,8 +8,10 @@ from .views import (
     HolidayViewSet,
     ImageUploadView,
     LeaderSequenceViewSet,
+    MyScheduleView,
     PersonnelSequenceViewSet,
     ScheduleViewSet,
+    SwapRequestViewSet,
     TimeSlotViewSet,
     TrialViewSet,
 )
@@ -24,8 +26,11 @@ router.register(r"leader-sequences", LeaderSequenceViewSet, basename="leader-seq
 router.register(r"holidays", HolidayViewSet, basename="holidays")
 router.register(r"positions", PositionViewSet, basename="positions")
 router.register(r"equipments", EquipmentViewSet, basename="equipments")
+# SP2: 换班申请 + 个人排班自助
+router.register(r"swap-requests", SwapRequestViewSet, basename="swap-requests")
 
 urlpatterns = [
     path("", include(router.urls)),
     path("upload-image/", ImageUploadView.as_view(), name="upload-image"),
+    path("me/schedule/", MyScheduleView.as_view(), name="my-schedule"),
 ]

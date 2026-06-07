@@ -13,6 +13,25 @@
 
 ## [未发布]
 
+### 新增
+- **智能助手 3 个新工具(阶段 3)** — `AnnouncementTool` / `ComplianceTool` / `ExternalLinkTool`
+  - `announcement_query`:查询 `communication.Post`(未过期+未归档),关键词匹配 title/content,上限 10 条
+  - `compliance_query`:查询 `compliance.ComplianceIssue`(待处理+处理中),按业务优先级排序(紧急>高>中>低)
+  - `external_link_query`:查询 `external_integration.ExternalLink`(active),支持 SSO 链接
+  - 详情见 `docs/plans/2026-06-07_smart-assistant-stage3-new-tools.md` 与 `docs/technical/16-smart-assistant.md §2.2.1`
+- **`ToolContext` 类型化抽象** — 替代裸 dict,`frozen=True` dataclass 含 `user` / `request_id` / `history` 字段,`from_request()` 工厂方法
+- **`BaseTool.required_auth: bool = True` 字段** — fail-closed 默认值;`ToolRegistry.get_tool_for_user(intent_type, user)` 分发时校验,未授权返回 `None`
+- **前端 `ToolResult.jsx` 3 个新卡片** — AnnouncementCard(geekblue)/ComplianceCard(red 含严重程度 + 状态 tag)/LinkCard(cyan 含 SSO 标签)
+
+### 变更
+- **`BaseTool.execute` 签名升级**:`context: "ToolContext"` 替代 `context: dict = None`,10 个旧工具兼容(子类 override 允许签名偏离基类)
+- **覆盖率门槛 85% 维持**:模块总覆盖率 96%(1430 statements),`smart_assistant/tools/registry.py` 62%(Task 0.3 `get_tool_for_user` 部分未 E2E 覆盖,后续 Task 4.1 E2E 4 场景已部分覆盖)
+- **测试基线 392 passed + 11 xpassed**(smart_assistant 后端);371 passed(前端)
+
+### 修复
+- **ComplianceTool severity 排序** — 替换 `order_by("-severity")` 字典序错误(高>紧>低>中)为 `Case/When` 业务优先级(紧急=0/高=1/中=2/低=3)
+- **ComplianceTool `description[:200]` 加 `...` 后缀** — 与 `AnnouncementTool` 一致,LLM 可识别截断
+
 ## [0.4.0] - 2026-06-05
 
 ### 新增

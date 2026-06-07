@@ -151,6 +151,85 @@ const ToolResult = ({ intent, result, sources }) => {
     );
   }
 
+  if (intent === 'announcement_query' && result.found && result.posts) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="geekblue">公司公告</Tag>}>
+          {result.posts.map((post, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.posts.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="标题" span={2}>
+                {post.title}
+                {post.expires_at && <Tag color="orange" style={{ marginLeft: 8 }}>过期:{post.expires_at}</Tag>}
+              </Descriptions.Item>
+              <Descriptions.Item label="发布人">{post.author}</Descriptions.Item>
+              <Descriptions.Item label="发布日期">{post.created_at}</Descriptions.Item>
+              <Descriptions.Item label="内容" span={2}>{post.content}</Descriptions.Item>
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'compliance_query' && result.found && result.issues) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="red">合规问题</Tag>}>
+          {result.issues.map((issue, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.issues.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="问题类型" span={2}>
+                {issue.issue_type}
+                {issue.severity && (
+                  <Tag
+                    color={issue.severity === '紧急' ? 'red' : issue.severity === '高' ? 'volcano' : issue.severity === '中' ? 'orange' : 'default'}
+                    style={{ marginLeft: 8 }}
+                  >
+                    {issue.severity}
+                  </Tag>
+                )}
+                {issue.status && (
+                  <Tag color={issue.status === '已解决' ? 'green' : 'blue'} style={{ marginLeft: 4 }}>
+                    {issue.status}
+                  </Tag>
+                )}
+              </Descriptions.Item>
+              <Descriptions.Item label="所属项目">{issue.project}</Descriptions.Item>
+              <Descriptions.Item label="截止日期">{issue.due_date || '无'}</Descriptions.Item>
+              {issue.location && <Descriptions.Item label="问题位置" span={2}>{issue.location}</Descriptions.Item>}
+              <Descriptions.Item label="描述" span={2}>{issue.description}</Descriptions.Item>
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
+  if (intent === 'external_link_query' && result.found && result.links) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="cyan">内网外链</Tag>}>
+          {result.links.map((link, idx) => (
+            <Descriptions key={idx} size="small" column={2} style={{ marginBottom: idx < result.links.length - 1 ? 8 : 0 }}>
+              <Descriptions.Item label="名称" span={2}>
+                {link.sso_enabled && link.sso_token_endpoint ? (
+                  <a href={link.sso_token_endpoint} target="_blank" rel="noopener noreferrer">{link.name}</a>
+                ) : (
+                  <a href={link.url} target="_blank" rel="noopener noreferrer">{link.name}</a>
+                )}
+                {link.sso_enabled && <Tag color="purple" style={{ marginLeft: 8 }}>SSO</Tag>}
+              </Descriptions.Item>
+              <Descriptions.Item label="分类">{link.category}</Descriptions.Item>
+              <Descriptions.Item label="地址">
+                {link.sso_enabled && link.sso_token_endpoint ? link.sso_token_endpoint : link.url}
+              </Descriptions.Item>
+              {link.description && <Descriptions.Item label="说明" span={2}>{link.description}</Descriptions.Item>}
+            </Descriptions>
+          ))}
+        </Card>
+      </div>
+    );
+  }
+
   if (intent === 'news_search' && result.found && result.articles) {
     return (
       <div className="tool-result-card">
@@ -236,6 +315,30 @@ ToolResult.propTypes = {
       publication_date: PropTypes.string,
       news_type: PropTypes.string,
       personnel: PropTypes.string,
+    })),
+    posts: PropTypes.arrayOf(PropTypes.shape({
+      title: PropTypes.string,
+      content: PropTypes.string,
+      author: PropTypes.string,
+      created_at: PropTypes.string,
+      expires_at: PropTypes.string,
+    })),
+    issues: PropTypes.arrayOf(PropTypes.shape({
+      issue_type: PropTypes.string,
+      description: PropTypes.string,
+      status: PropTypes.string,
+      severity: PropTypes.string,
+      project: PropTypes.string,
+      due_date: PropTypes.string,
+      location: PropTypes.string,
+    })),
+    links: PropTypes.arrayOf(PropTypes.shape({
+      name: PropTypes.string,
+      url: PropTypes.string,
+      category: PropTypes.string,
+      description: PropTypes.string,
+      sso_enabled: PropTypes.bool,
+      sso_token_endpoint: PropTypes.string,
     })),
     message: PropTypes.string,
   }),

@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .tool_context import ToolContext
 
 
 class ValidationResult:
@@ -15,10 +21,25 @@ class BaseTool(ABC):
     name: str = ""
     description: str = ""
     intent_type: str = ""  # 用于意图匹配
+    required_auth: bool = True
+    """工具是否需要登录用户上下文。
+
+    默认 ``True``(fail-closed):新工具默认需要认证,仅当工具确实无需用户身份
+    (例如纯静态信息查询)时由子类显式覆盖为 ``False``。Registry 在分发时会据此
+    拒绝未授权请求。
+    """
 
     @abstractmethod
-    def execute(self, query: str, context: dict = None) -> dict:
-        """执行工具，返回结构化结果"""
+    def execute(self, query: str, context: ToolContext) -> dict:
+        """执行工具,返回结构化结果。
+
+        参数:
+            query: 用户的查询文本。
+            context: 工具执行上下文(ToolContext),包含 user / request_id / history。
+                必填 —— 调用方应在分发前从 DRF request 构造(参见
+                ``ToolContext.from_request``)。``history`` 列表应视为只读,
+                工具可读但不应原地修改;如需新历史请构造新 ToolContext 实例。
+        """
         pass
 
     def get_schema(self) -> dict:
