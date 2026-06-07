@@ -8,7 +8,7 @@
 - N+1 防护:select_related("author")
 """
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from django.db.models import Q
 from django.utils import timezone
@@ -47,7 +47,7 @@ class AnnouncementTool(BaseTool):
             # 关键词至少 2 字符,避免单字匹配过宽(如 "有" 在多数内容中都出现)
             qs = qs.filter(Q(title__icontains=keywords) | Q(content__icontains=keywords))
 
-        posts: List[dict] = []
+        posts: list[dict] = []
         for p in qs[:10]:
             raw_content = p.content or ""
             truncated = raw_content[:200] + ("..." if len(raw_content) > 200 else "")

@@ -11,7 +11,7 @@
 """
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from django.db.models import Case, IntegerField, Q, Value, When
 
@@ -73,7 +73,7 @@ class ComplianceTool(BaseTool):
         if "紧急" in query:
             qs = qs.filter(severity="紧急")
 
-        issues: List[dict] = []
+        issues: list[dict] = []
         for i in qs[:10]:
             raw_desc = i.description or ""
             truncated = raw_desc[:200] + ("..." if len(raw_desc) > 200 else "")

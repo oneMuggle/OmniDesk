@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any, List
+from typing import Any
 from uuid import uuid4
 
 
@@ -15,7 +15,7 @@ class ToolContext:
     """
     user: Any
     request_id: str = field(default_factory=lambda: str(uuid4()))
-    history: List[dict] = field(default_factory=list)
+    history: list[dict] = field(default_factory=list)
 
     @classmethod
     def from_request(cls, request: Any) -> "ToolContext":

@@ -8,7 +8,7 @@
 - SSO 信息按 sso_enabled 条件返回
 """
 
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from django.db.models import Q
 
@@ -48,7 +48,7 @@ class ExternalLinkTool(BaseTool):
                 Q(category__icontains=keywords)
             )
 
-        links: List[dict] = []
+        links: list[dict] = []
         for link in qs[:20]:
             links.append({
                 "name": link.name,

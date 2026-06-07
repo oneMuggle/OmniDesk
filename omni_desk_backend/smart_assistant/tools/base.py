@@ -30,7 +30,7 @@ class BaseTool(ABC):
     """
 
     @abstractmethod
-    def execute(self, query: str, context: "ToolContext") -> dict:
+    def execute(self, query: str, context: ToolContext) -> dict:
         """执行工具,返回结构化结果。
 
         参数:
