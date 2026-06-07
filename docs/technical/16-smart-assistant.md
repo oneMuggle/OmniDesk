@@ -54,7 +54,7 @@
 | `KnowledgeDataset` | name, ragflow_dataset_id, tags, is_active | 多数据集 RAG 路由 |
 | `LlmEndpoint` / `LlmAppConfig` | name, priority, is_fallback, model_capabilities | 多 LLM 端点配置 |
 
-### 2.2 工具系统(12 个)
+### 2.2 工具系统(13 个)
 
 | 工具 | 功能 | 数据源 |
 |------|------|--------|
@@ -68,11 +68,73 @@
 | `NewsTool` | 新闻/通知搜索 | `news.NewsArticle` |
 | `MeetingRoomTool` | 会议室可用性 | `meeting_rooms` |
 | `SensorTool` | 传感器数据/告警 | `sensor_management` |
-| `AnnouncementTool` | 公告查询(规划中) | `communication.Announcement` |
-| `ComplianceTool` | 合规检查(规划中) | `compliance.InspectionRecord` |
-| `ExternalLinkTool` | 外部链接/书签(规划中) | `external-links.Bookmark` |
+| `AnnouncementTool` | 公告查询 | `communication.Post` |
+| `ComplianceTool` | 合规问题/待整改查询 | `compliance.ComplianceIssue` |
+| `ExternalLinkTool` | 内网外链导航(VPN/Jira) | `external_integration.ExternalLink` |
 
-> ⚠️ 最后 3 个工具(Announcement/Compliance/ExternalLink)为本次优化方案 P1 阶段计划新增,详见 [优化方案 §维度 2](../plans/2026-06-06_smart-assistant-optimization.md)。
+最后 3 个工具(Announcement/Compliance/ExternalLink)为 2026-06 阶段 3 计划新增(详见
+[27-smart-assistant-stage3-new-tools](../plans/2026-06-07_smart-assistant-stage3-new-tools.md))。
+
+#### 2.2.1 新工具 API(阶段 3 增量)
+
+**AnnouncementTool**(`intent_type="announcement_query"`)
+
+- 数据源: `communication.Post`,过滤 `is_archived=False` AND (`expires_at IS NULL` OR `expires_at > now()`)
+- 关键词: 字符级 strip 停用词,`len >= 2` 时按 `title__icontains OR content__icontains` 过滤
+- 排序: `order_by("-created_at")`,限 10 条
+- 返回结构:
+  ```python
+  {"found": True, "count": int, "posts": [{"title", "content" (≤200+...), "author", "created_at", "expires_at"}]}
+  ```
+  或 `{"found": False, "count": 0, "posts": [], "message": "..."}`
+- 性能: `select_related("author")` 防 N+1
+
+**ComplianceTool**(`intent_type="compliance_query"`)
+
+- 数据源: `compliance.ComplianceIssue`,过滤 `status IN ("待处理", "处理中")`
+- 关键词: 同上策略(去除 `合/规/待/已/什么/查/看/几/条`,**不** strip `改/整` 因为是核心业务词)
+- 业务词触发:
+  - `"紧急" in query` → `severity="紧急"`
+  - `"即将到期" / "快到期" in query` → `due_date <= today + 7`
+- 排序: `Case/When` 业务优先级(紧急=0/高=1/中=2/低=3),然后 `due_date` 升序;**不用** `order_by("-severity")` 因为 CharField 字典序与业务优先级不一致
+- 性能: `select_related("project", "document_book", "document_template")` 防 N+1
+- 返回结构:
+  ```python
+  {"found": True, "count": int, "issues": [{"issue_type", "description" (≤200+...), "status", "severity", "project", "due_date", "location"}]}
+  ```
+
+**ExternalLinkTool**(`intent_type="external_link_query"`)
+
+- 数据源: `external_integration.ExternalLink`,过滤 `is_active=True`
+- 关键词: 三字段 OR(`name` / `description` / `category`),`"所有"/"全部"` 或无关键词时返回全部
+- 排序: 模型 Meta `ordering = ["category", "sort_order", "name"]`,限 20 条
+- 返回结构:
+  ```python
+  {"found": True, "count": int, "links": [{"name", "url", "category", "description" (≤150), "sso_enabled", "sso_token_endpoint" (仅 SSO 启用时)]}
+  ```
+
+#### 2.2.2 工具上下文抽象(`ToolContext`)
+
+新工具统一通过 `ToolContext` 接收上下文(替代裸 dict),由 Registry 在分发时构造:
+
+```python
+@dataclass(frozen=True)
+class ToolContext:
+    user: Any                                # CustomUser 实例(必填)
+    request_id: str = field(default_factory=lambda: str(uuid4()))
+    history: Optional[List[dict]] = field(default_factory=list)
+```
+
+`BaseTool.required_auth: bool = True` 默认值实现 fail-closed(新工具默认需登录);`ToolRegistry.get_tool_for_user(intent_type, user)` 在分发时校验,未授权返回 `None`(不抛异常)。
+
+#### 2.2.3 E2E 覆盖(阶段 3 增量)
+
+`smart_assistant/tests/test_e2e_smart_chat.py` 新增 4 个 E2E 场景:
+
+- `TestSmartChatE2EAnnouncementQuery` / `TestSmartChatE2EComplianceQuery` / `TestSmartChatE2EExternalLinkQuery`: 3 个新工具的 happy path(含 fixture 数据 + mock orchestrator + AgentLog 写入验证)
+- `TestSmartChatE2EUnauthToolRejection`: 未认证用户调用 chat 端点 → 401
+
+共 9 个 E2E 测试覆盖完整链路。
 
 ### 2.3 API 端点
 
