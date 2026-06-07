@@ -11,8 +11,12 @@
 - intent_type / name 验证
 """
 
-import pytest
+from datetime import timedelta
 
+import pytest
+from django.utils import timezone
+
+from communication.models import Post
 from smart_assistant.tools.tool_context import ToolContext
 from smart_assistant.tools.announcement_tool import AnnouncementTool
 
@@ -29,8 +33,6 @@ def user(db, admin_user_obj):
 
 @pytest.mark.django_db
 def test_basic_query_returns_recent_posts(tool, user):
-    from communication.models import Post
-
     Post.objects.create(title="本周例会通知", content="...", author=user)
     ctx = ToolContext(user=user)
     result = tool.execute("最近有什么公告", ctx)
@@ -40,12 +42,6 @@ def test_basic_query_returns_recent_posts(tool, user):
 
 @pytest.mark.django_db
 def test_filters_expired_posts(tool, user):
-    from datetime import timedelta
-
-    from django.utils import timezone
-
-    from communication.models import Post
-
     past = timezone.now() - timedelta(days=10)
     Post.objects.create(title="已过期", content="x", expires_at=past)
     Post.objects.create(title="未过期", content="y")
@@ -58,8 +54,6 @@ def test_filters_expired_posts(tool, user):
 
 @pytest.mark.django_db
 def test_filters_archived(tool, user):
-    from communication.models import Post
-
     Post.objects.create(title="归档", content="x", is_archived=True)
     Post.objects.create(title="活跃", content="y", is_archived=False)
     ctx = ToolContext(user=user)
@@ -70,8 +64,6 @@ def test_filters_archived(tool, user):
 
 @pytest.mark.django_db
 def test_keyword_in_title(tool, user):
-    from communication.models import Post
-
     Post.objects.create(title="安全检查通知", content="...")
     Post.objects.create(title="排班调整", content="...")
     ctx = ToolContext(user=user)
@@ -85,18 +77,29 @@ def test_empty_result_returns_not_found(tool, user):
     result = tool.execute("不存在的关键词xyz123", ctx)
     assert result["found"] is False
     assert "message" in result
+    # m3: 断言消息内容含"未找到"和原 query
+    assert "未找到" in result["message"]
+    assert "不存在的关键词xyz123" in result["message"]
 
 
 @pytest.mark.django_db
 def test_limit_to_10_results(tool, user):
-    from communication.models import Post
-
     for i in range(15):
         Post.objects.create(title=f"公告{i}", content="x")
     ctx = ToolContext(user=user)
     result = tool.execute("公告", ctx)
     assert result["count"] == 10
     assert len(result["posts"]) == 10
+
+
+@pytest.mark.django_db
+def test_author_none_fallback(tool, user):
+    """m7: Post.author 为 None 时,返回 author 字段应 fallback 为 "系统"。"""
+    Post.objects.create(title="无作者公告", content="x", author=None)
+    ctx = ToolContext(user=user)
+    result = tool.execute("无作者", ctx)
+    assert result["found"] is True
+    assert any(p["author"] == "系统" for p in result["posts"])
 
 
 def test_required_auth_true(tool):

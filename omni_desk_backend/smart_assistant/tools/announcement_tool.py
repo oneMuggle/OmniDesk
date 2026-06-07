@@ -13,6 +13,8 @@ from typing import TYPE_CHECKING, List
 from django.db.models import Q
 from django.utils import timezone
 
+from communication.models import Post
+
 from .base import BaseTool
 
 if TYPE_CHECKING:
@@ -34,8 +36,6 @@ class AnnouncementTool(BaseTool):
         keywords = "".join(c for c in query if c not in stopwords).strip()
 
         # 2. 构造查询(未过期 AND 未归档)
-        from communication.models import Post
-
         qs = (
             Post.objects.filter(is_archived=False)
             .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
