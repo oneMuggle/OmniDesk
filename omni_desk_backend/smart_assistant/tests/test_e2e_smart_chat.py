@@ -201,3 +201,184 @@ class TestSmartChatE2EValidation:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         mock_orch_cls.assert_not_called()
 
+
+@pytest.mark.django_db
+class TestSmartChatE2EAnnouncementQuery:
+    """E2E 场景 5:公告工具 happy path."""
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_e2e_announcement_query(
+        self, mock_orch_cls, admin_user_obj, admin_client,
+    ):
+        """用户问'这周有什么公告' → 走 announcement_tool → orchestrator 合成回答."""
+        from communication.models import Post
+        Post.objects.create(
+            title="本周例会通知", content="周三下午3点", author=admin_user_obj
+        )
+        mock_orch = MagicMock()
+        mock_orch.process.return_value = {
+            "answer": "本周有一条公告:本周例会通知。",
+            "intent": "announcement_query",
+            "tool_used": "announcement_query",
+            "tool_result": {
+                "found": True,
+                "count": 1,
+                "posts": [{"title": "本周例会通知", "content": "周三下午3点"}],
+            },
+            "sources": None,
+            "usage": {"prompt_tokens": 60, "completion_tokens": 20, "total_tokens": 80},
+        }
+        mock_orch_cls.return_value = mock_orch
+
+        response = admin_client.post(
+            "/api/smart-assistant/chat/",
+            {"query": "这周有什么公告"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["intent"] == "announcement_query"
+        assert response.data["tool_used"] == "announcement_query"
+        assert response.data["tool_result"]["found"] is True
+        assert "公告" in response.data["answer"]
+
+        # 验证 AgentLog
+        log = AgentLog.objects.filter(
+            user_query="这周有什么公告"
+        ).first()
+        assert log is not None
+        assert log.intent == "announcement_query"
+        assert log.tool_used == "announcement_query"
+        assert log.tool_success is True
+
+
+@pytest.mark.django_db
+class TestSmartChatE2EComplianceQuery:
+    """E2E 场景 6:合规工具 happy path."""
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_e2e_compliance_query(
+        self, mock_orch_cls, admin_user_obj, admin_client,
+    ):
+        """用户问'待整改' → 走 compliance_tool → orchestrator 合成回答."""
+        from compliance.models import ComplianceIssue
+        from documents.models import Book
+        from projects.models import Project
+        p = Project.objects.create(name="P1")
+        b = Book.objects.create(title="B1", project=p)
+        ComplianceIssue.objects.create(
+            project=p, document_book=b, issue_type="不规范",
+            description="缺少签字", status="待处理", severity="紧急"
+        )
+        mock_orch = MagicMock()
+        mock_orch.process.return_value = {
+            "answer": "有一条紧急待整改:缺少签字。",
+            "intent": "compliance_query",
+            "tool_used": "compliance_query",
+            "tool_result": {
+                "found": True,
+                "count": 1,
+                "issues": [
+                    {
+                        "issue_type": "不规范", "description": "缺少签字",
+                        "status": "待处理", "severity": "紧急",
+                        "project": "P1", "due_date": None, "location": "",
+                    }
+                ],
+            },
+            "sources": None,
+            "usage": {"prompt_tokens": 70, "completion_tokens": 25, "total_tokens": 95},
+        }
+        mock_orch_cls.return_value = mock_orch
+
+        response = admin_client.post(
+            "/api/smart-assistant/chat/",
+            {"query": "待整改"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["intent"] == "compliance_query"
+        assert response.data["tool_used"] == "compliance_query"
+        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
+
+        # 验证 AgentLog 写入
+        log = AgentLog.objects.filter(user_query="待整改").first()
+        assert log is not None
+        assert log.intent == "compliance_query"
+        assert log.tool_success is True
+
+
+@pytest.mark.django_db
+class TestSmartChatE2EExternalLinkQuery:
+    """E2E 场景 7:外链工具 happy path."""
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_e2e_external_link_query(
+        self, mock_orch_cls, admin_user_obj, admin_client,
+    ):
+        """用户问'公司 VPN 怎么登录' → 走 external_link_tool → orchestrator 合成回答."""
+        from external_integration.models import ExternalLink
+        ExternalLink.objects.create(
+            name="公司VPN", url="https://vpn.example.com",
+            category="网络", is_active=True
+        )
+        mock_orch = MagicMock()
+        mock_orch.process.return_value = {
+            "answer": "公司 VPN 登录地址:https://vpn.example.com",
+            "intent": "external_link_query",
+            "tool_used": "external_link_query",
+            "tool_result": {
+                "found": True,
+                "count": 1,
+                "links": [
+                    {
+                        "name": "公司VPN", "url": "https://vpn.example.com",
+                        "category": "网络", "description": "",
+                        "sso_enabled": False, "sso_token_endpoint": None,
+                    }
+                ],
+            },
+            "sources": None,
+            "usage": {"prompt_tokens": 50, "completion_tokens": 18, "total_tokens": 68},
+        }
+        mock_orch_cls.return_value = mock_orch
+
+        response = admin_client.post(
+            "/api/smart-assistant/chat/",
+            {"query": "公司 VPN 怎么登录"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["intent"] == "external_link_query"
+        assert response.data["tool_used"] == "external_link_query"
+        assert response.data["tool_result"]["found"] is True
+        assert "VPN" in response.data["answer"]
+
+        # 验证 AgentLog
+        log = AgentLog.objects.filter(
+            user_query="公司 VPN 怎么登录"
+        ).first()
+        assert log is not None
+        assert log.intent == "external_link_query"
+        assert log.tool_success is True
+
+
+@pytest.mark.django_db
+class TestSmartChatE2EUnauthToolRejection:
+    """E2E 场景 8:未认证用户被拒绝."""
+
+    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    def test_e2e_unauthenticated_request_rejected(
+        self, mock_orch_cls, admin_user_obj,
+    ):
+        """非授权用户访问 chat 端点 → 返回 401."""
+        client = APIClient()
+        # 不 force_authenticate
+        response = client.post(
+            "/api/smart-assistant/chat/",
+            {"query": "这周有什么公告"},
+            format="json",
+        )
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+        mock_orch_cls.assert_not_called()
+
