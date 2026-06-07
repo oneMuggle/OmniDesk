@@ -1,4 +1,11 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
 from .base import BaseTool
+
+if TYPE_CHECKING:
+    from django.contrib.auth.models import AbstractBaseUser
 
 
 class ToolRegistry:
@@ -14,7 +21,8 @@ class ToolRegistry:
             )
         if not tool.intent_type:
             raise ValueError(
-                f"Tool {tool.name or '<unnamed>'} missing intent_type"
+                f"Tool {tool.name or '<unnamed>'} must set non-empty "
+                f"intent_type (got {tool.intent_type!r})"
             )
         cls._tools[tool.intent_type] = tool
 
@@ -23,7 +31,11 @@ class ToolRegistry:
         return cls._tools.get(intent_type)
 
     @classmethod
-    def get_tool_for_user(cls, intent_type: str, user) -> BaseTool | None:
+    def get_tool_for_user(
+        cls,
+        intent_type: str,
+        user: "AbstractBaseUser | None | Any",
+    ) -> BaseTool | None:
         """按用户返回工具(权限校验)。
 
         若工具 ``required_auth=True`` 且用户未认证(``user`` 为 ``None`` 或
@@ -33,7 +45,9 @@ class ToolRegistry:
 
         参数:
             intent_type: 工具的 intent_type 标识
-            user: 当前请求用户(Django ``User`` 实例)或 ``None``
+            user: 当前请求用户(Django ``User`` 实例,或测试环境中的 mock
+                对象)。允许 ``Any`` 是为支持测试中用 ``Mock(is_authenticated=...)``
+                构造的对象。
 
         返回:
             对应工具实例,或当未找到 / 未授权时返回 ``None``。
