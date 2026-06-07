@@ -237,6 +237,13 @@ ToolResult.propTypes = {
       news_type: PropTypes.string,
       personnel: PropTypes.string,
     })),
+    posts: PropTypes.arrayOf(PropTypes.shape({
+      title: PropTypes.string,
+      content: PropTypes.string,
+      author: PropTypes.string,
+      created_at: PropTypes.string,
+      expires_at: PropTypes.string,
+    })),
     message: PropTypes.string,
   }),
   sources: PropTypes.arrayOf(PropTypes.shape({
