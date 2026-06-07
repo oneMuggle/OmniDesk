@@ -1,4 +1,10 @@
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .tool_context import ToolContext
 
 
 class ValidationResult:
@@ -15,10 +21,18 @@ class BaseTool(ABC):
     name: str = ""
     description: str = ""
     intent_type: str = ""  # 用于意图匹配
+    required_auth: bool = True  # 工具是否需要登录用户上下文(NEW 工具为 True)
 
     @abstractmethod
-    def execute(self, query: str, context: dict = None) -> dict:
-        """执行工具，返回结构化结果"""
+    def execute(self, query: str, context: "ToolContext") -> dict:
+        """执行工具,返回结构化结果。
+
+        参数:
+            query: 用户的查询文本。
+            context: 工具执行上下文(ToolContext),包含 user / request_id / history。
+                必填 —— 调用方应在分发前从 DRF request 构造(参见
+                ``ToolContext.from_request``)。
+        """
         pass
 
     def get_schema(self) -> dict:
