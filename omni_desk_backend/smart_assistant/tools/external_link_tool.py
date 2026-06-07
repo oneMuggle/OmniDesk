@@ -43,21 +43,21 @@ class ExternalLinkTool(BaseTool):
 
         if not list_all and keywords and len(keywords) >= 2:
             qs = qs.filter(
-                Q(name__icontains=keywords) |
-                Q(description__icontains=keywords) |
-                Q(category__icontains=keywords)
+                Q(name__icontains=keywords) | Q(description__icontains=keywords) | Q(category__icontains=keywords)
             )
 
         links: list[dict] = []
         for link in qs[:20]:
-            links.append({
-                "name": link.name,
-                "url": link.url,
-                "category": link.category,
-                "description": (link.description or "")[:150],
-                "sso_enabled": link.sso_enabled,
-                "sso_token_endpoint": link.sso_token_endpoint if link.sso_enabled else None,
-            })
+            links.append(
+                {
+                    "name": link.name,
+                    "url": link.url,
+                    "category": link.category,
+                    "description": (link.description or "")[:150],
+                    "sso_enabled": link.sso_enabled,
+                    "sso_token_endpoint": link.sso_token_endpoint if link.sso_enabled else None,
+                }
+            )
 
         if not links:
             return {

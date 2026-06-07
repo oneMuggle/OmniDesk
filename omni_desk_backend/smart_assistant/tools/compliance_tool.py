@@ -51,8 +51,7 @@ class ComplianceTool(BaseTool):
         keywords = "".join(c for c in query if c not in stopwords).strip()
 
         qs = (
-            ComplianceIssue.objects
-            .filter(status__in=["待处理", "处理中"])
+            ComplianceIssue.objects.filter(status__in=["待处理", "处理中"])
             .select_related("project", "document_book", "document_template")
             .order_by(_SEVERITY_RANK, "due_date")
         )
@@ -60,9 +59,9 @@ class ComplianceTool(BaseTool):
         # 关键词过滤(至少 2 字符,避免单字过宽)
         if keywords and len(keywords) >= 2:
             qs = qs.filter(
-                Q(description__icontains=keywords) |
-                Q(issue_type__icontains=keywords) |
-                Q(project__name__icontains=keywords)
+                Q(description__icontains=keywords)
+                | Q(issue_type__icontains=keywords)
+                | Q(project__name__icontains=keywords)
             )
 
         # 即将到期(7 天内)关键词
@@ -77,15 +76,17 @@ class ComplianceTool(BaseTool):
         for i in qs[:10]:
             raw_desc = i.description or ""
             truncated = raw_desc[:200] + ("..." if len(raw_desc) > 200 else "")
-            issues.append({
-                "issue_type": i.issue_type,
-                "description": truncated,
-                "status": i.status,
-                "severity": i.severity,
-                "project": i.project.name if i.project else "无",
-                "due_date": i.due_date.isoformat() if i.due_date else None,
-                "location": i.location,
-            })
+            issues.append(
+                {
+                    "issue_type": i.issue_type,
+                    "description": truncated,
+                    "status": i.status,
+                    "severity": i.severity,
+                    "project": i.project.name if i.project else "无",
+                    "due_date": i.due_date.isoformat() if i.due_date else None,
+                    "location": i.location,
+                }
+            )
 
         if not issues:
             return {"found": False, "message": f'未找到与 "{keywords or query}" 相关的合规问题'}

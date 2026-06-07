@@ -14,9 +14,9 @@ class DocumentTool(BaseTool):
         templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
 
         # GeneratedDocument 无 name 字段,改用 template__name 反查
-        generated_docs = GeneratedDocument.objects.filter(
-            template__name__icontains=keywords
-        ).select_related("template")[:10]
+        generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
+            "template"
+        )[:10]
 
         if not templates.exists() and not generated_docs.exists():
             return {

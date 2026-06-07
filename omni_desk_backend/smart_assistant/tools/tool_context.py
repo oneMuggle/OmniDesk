@@ -13,6 +13,7 @@ class ToolContext:
     - request_id 默认生成,用于日志关联
     - history 可选,工具内可读但不应改
     """
+
     user: Any
     request_id: str = field(default_factory=lambda: str(uuid4()))
     history: list[dict] = field(default_factory=list)

@@ -19,10 +19,10 @@ class Notification(models.Model):
         ("reward_punishment", "奖惩记录"),
         # ---- SP1-2 新增类型(2026-06-06 排班换班方案,决策 1C:两人互认即生效) ----
         ("schedule_swap_requested", "换班申请已发起"),
-        ("schedule_swap_approved",  "换班已生效(双方互认)"),
-        ("schedule_swap_rejected",  "换班被接收方拒绝"),
+        ("schedule_swap_approved", "换班已生效(双方互认)"),
+        ("schedule_swap_rejected", "换班被接收方拒绝"),
         ("schedule_swap_cancelled", "换班已撤销"),
-        ("schedule_swap_expired",   "换班申请已超时"),
+        ("schedule_swap_expired", "换班申请已超时"),
     ]
 
     PRIORITY_CHOICES = [

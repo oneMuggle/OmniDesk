@@ -5,6 +5,7 @@
 
 L3 防护:批量处理用 transaction.atomic 单条 update,失败仅 logger 不抛。
 """
+
 import logging
 
 from celery import shared_task
@@ -52,8 +53,6 @@ def cleanup_expired_swap_requests():
                     swap.expires_at,
                 )
         except Exception as exc:
-            logger.warning(
-                "swap expired cleanup failed for pk=%s: %s", swap.pk, exc
-            )
+            logger.warning("swap expired cleanup failed for pk=%s: %s", swap.pk, exc)
 
     return f"Cleaned {count} expired swap request(s)"

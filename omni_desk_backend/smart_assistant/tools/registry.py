@@ -16,13 +16,10 @@ class ToolRegistry:
     @classmethod
     def register(cls, tool: BaseTool) -> None:
         if not isinstance(tool, BaseTool):
-            raise TypeError(
-                f"{tool!r} is not a BaseTool instance (got {type(tool).__name__})"
-            )
+            raise TypeError(f"{tool!r} is not a BaseTool instance (got {type(tool).__name__})")
         if not tool.intent_type:
             raise ValueError(
-                f"Tool {tool.name or '<unnamed>'} must set non-empty "
-                f"intent_type (got {tool.intent_type!r})"
+                f"Tool {tool.name or '<unnamed>'} must set non-empty intent_type (got {tool.intent_type!r})"
             )
         cls._tools[tool.intent_type] = tool
 
