@@ -51,7 +51,8 @@
     "slick-carousel": "^1.8.1",
     "tippy.js": "^6.3.7",
     "web-vitals": "^2.1.4",
-    "whatwg-fetch": "^3.6.20"
+    "whatwg-fetch": "^3.6.20",
+    "zod": "^4.4.3"
   },
   "scripts": {
     "start": "vite",
