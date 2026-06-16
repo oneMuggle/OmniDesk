@@ -1,9 +1,23 @@
 """documents app 测试 factory。"""
+
 import factory
 from factory.django import DjangoModelFactory
 
 from documents.models import DocumentTemplate, GeneratedDocument
-from tests.factories import UserFactory  # 项目级共享 factory
+from users.models import CustomUser
+
+
+class UserFactory(DjangoModelFactory):
+    """CustomUser factory — username/email 唯一,使用 Sequence 自增。"""
+
+    class Meta:
+        model = CustomUser
+        django_get_or_create = ("username",)
+
+    username = factory.Sequence(lambda n: f"user_{n}")
+    email = factory.LazyAttribute(lambda obj: f"{obj.username}@example.com")
+    is_active = True
+    password = factory.PostGenerationMethodCall("set_password", "testpass123")
 
 
 class DocumentTemplateFactory(DjangoModelFactory):
