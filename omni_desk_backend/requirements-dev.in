@@ -20,3 +20,6 @@ types-python-dateutil
 # Dependency Management
 pip-tools
 pymdown-extensions
+
+# Performance profiling (dev only)
+django-silk
