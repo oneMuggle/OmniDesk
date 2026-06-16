@@ -1,5 +1,27 @@
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
+from observability import get_logger
+from observability.events import PermissionEvent
+
+logger = get_logger(__name__)
+
+
+def _log_permission_denied(request, view):
+    """权限拒绝时发结构化日志(PR-2 Task 2.5)。
+
+    字段:user_id / resource(view 类名) / action(HTTP 方法)。
+    统一由所有 permission class 在拒绝路径上调用。
+    """
+    logger.warning(
+        "权限校验失败",
+        extra={
+            "event": PermissionEvent.PERMISSION_DENIED,
+            "user_id": getattr(request.user, "id", None) if request.user else None,
+            "resource": view.__class__.__name__,
+            "action": request.method,
+        },
+    )
+
 
 class IsAdmin(BasePermission):
     """
@@ -7,11 +29,14 @@ class IsAdmin(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return (
+        if not (
             request.user
             and request.user.is_authenticated
             and (request.user.is_superuser or request.user.groups.filter(name="Admin").exists())
-        )
+        ):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class IsManager(BasePermission):
@@ -20,7 +45,12 @@ class IsManager(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return request.user and request.user.is_authenticated and request.user.groups.filter(name="Manager").exists()
+        if not (
+            request.user and request.user.is_authenticated and request.user.groups.filter(name="Manager").exists()
+        ):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class IsAdminOrManager(BasePermission):
@@ -29,11 +59,14 @@ class IsAdminOrManager(BasePermission):
     """
 
     def has_permission(self, request, view):
-        return (
+        if not (
             request.user
             and request.user.is_authenticated
             and (request.user.is_superuser or request.user.groups.filter(name__in=["Admin", "Manager"]).exists())
-        )
+        ):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class IsAdminOrManagerOrReadOnly(BasePermission):
@@ -44,12 +77,18 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
 
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
-            return request.user and request.user.is_authenticated
-        return (
+            if not (request.user and request.user.is_authenticated):
+                _log_permission_denied(request, view)
+                return False
+            return True
+        if not (
             request.user
             and request.user.is_authenticated
             and (request.user.is_superuser or request.user.groups.filter(name__in=["Admin", "Manager"]).exists())
-        )
+        ):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class IsAdminOrReadOnly(BasePermission):
@@ -60,12 +99,18 @@ class IsAdminOrReadOnly(BasePermission):
 
     def has_permission(self, request, view):
         if request.method in SAFE_METHODS:
-            return request.user and request.user.is_authenticated
-        return (
+            if not (request.user and request.user.is_authenticated):
+                _log_permission_denied(request, view)
+                return False
+            return True
+        if not (
             request.user
             and request.user.is_authenticated
             and (request.user.is_superuser or request.user.groups.filter(name="Admin").exists())
-        )
+        ):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class HasPermission(BasePermission):
@@ -89,6 +134,7 @@ class HasPermission(BasePermission):
         # Check if the user has all the required permissions
         for perm in required_permissions:
             if not request.user.has_perm(perm):
+                _log_permission_denied(request, view)
                 return False
 
         return True
@@ -103,8 +149,12 @@ class IsHR(BasePermission):
 
     def has_permission(self, request, view):
         if not (request.user and request.user.is_authenticated):
+            _log_permission_denied(request, view)
             return False
-        return request.user.is_superuser or request.user.groups.filter(name="Manager").exists()
+        if not (request.user.is_superuser or request.user.groups.filter(name="Manager").exists()):
+            _log_permission_denied(request, view)
+            return False
+        return True
 
 
 class IsAdminOrManagerOrReadOnly(BasePermission):
@@ -121,6 +171,7 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
             return bool(request.user and request.user.is_authenticated)
         # 写操作:Admin 或 HR
         if not (request.user and request.user.is_authenticated):
+            _log_permission_denied(request, view)
             return False
 
         return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)
@@ -134,9 +185,13 @@ class IsRequester(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         if not (request.user and request.user.is_authenticated):
+            _log_permission_denied(request, view)
             return False
         personnel = getattr(request.user, "personnel", None)
-        return personnel is not None and obj.requester_id == personnel.id
+        allowed = personnel is not None and obj.requester_id == personnel.id
+        if not allowed:
+            _log_permission_denied(request, view)
+        return allowed
 
 
 class IsTargetPersonnel(BasePermission):
@@ -147,7 +202,11 @@ class IsTargetPersonnel(BasePermission):
 
     def has_object_permission(self, request, view, obj):
         if not (request.user and request.user.is_authenticated):
+            _log_permission_denied(request, view)
             return False
         target_user = getattr(obj.target_personnel, "user_account", None)
-        return target_user is not None and target_user.id == request.user.id
+        allowed = target_user is not None and target_user.id == request.user.id
+        if not allowed:
+            _log_permission_denied(request, view)
+        return allowed
         return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)
