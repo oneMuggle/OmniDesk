@@ -12,6 +12,8 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from observability import get_logger
+from observability.events import AuthEvent
 from personnel.models import Personnel
 
 from .models import CustomUser
@@ -25,6 +27,8 @@ from .serializers import (
     UserPersonnelSerializer,
     UserRegistrationSerializer,
 )
+
+logger = get_logger(__name__)
 
 RATELIMIT_CONFIG = {
     "group": "auth",
@@ -121,6 +125,40 @@ class UserLoginView(TokenObtainPairView):
                 status=status.HTTP_429_TOO_MANY_REQUESTS,
             )
         return super().dispatch(request, *args, **kwargs)
+
+    def post(self, request, *args, **kwargs):
+        """登录端点,覆盖父类以发出结构化登录事件日志。
+
+        成功:auth.login.success(user_id, ip)
+        失败:auth.login.failure(username, reason, ip) — 不记密码
+        """
+        ip = request.META.get("REMOTE_ADDR")
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except exceptions.AuthenticationFailed:
+            username = request.data.get("username") if isinstance(request.data, dict) else None
+            logger.warning(
+                "用户登录失败",
+                extra={
+                    "event": AuthEvent.LOGIN_FAILURE,
+                    "username": username,
+                    "reason": "invalid_credentials",
+                    "ip": ip,
+                },
+            )
+            raise
+
+        logger.info(
+            "用户登录成功",
+            extra={
+                "event": AuthEvent.LOGIN_SUCCESS,
+                "user_id": serializer.user.id,
+                "ip": ip,
+            },
+        )
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class ChangePasswordView(generics.UpdateAPIView):
