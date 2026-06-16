@@ -336,7 +336,7 @@ class TestMyScheduleEndpoint:
         c.force_authenticate(user=u)
         response = c.get(ME_SCHEDULE_URL)
         assert response.status_code == status.HTTP_200_OK
-        ids = [item["id"] for item in response.data]
+        ids = [item["id"] for item in response.data["results"]]
         assert s_future.id in ids
         assert s_past.id not in ids
 
@@ -352,4 +352,4 @@ class TestMyScheduleEndpoint:
         c.force_authenticate(user=regular_user_obj)
         response = c.get(ME_SCHEDULE_URL)
         assert response.status_code == status.HTTP_200_OK
-        assert response.data == []
+        assert response.data["results"] == []

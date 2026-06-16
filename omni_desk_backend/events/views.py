@@ -761,7 +761,6 @@ class MyScheduleView(generics.ListAPIView):
     """
 
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None
     serializer_class = serializers.ModelSerializer  # 用 ScheduleSerializer,但为简洁不展开;fallback 到默认 dict
 
     def get_queryset(self):
