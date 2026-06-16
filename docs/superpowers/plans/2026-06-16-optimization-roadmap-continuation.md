@@ -1615,13 +1615,10 @@ git commit -m "build(frontend): 加 zod 依赖(表单 schema 校验)"
 ## Task 5.2:创建 LoginSchema (RED)
 
 **Files:**
-- Create: `omni_desk_frontend/src/features/auth/schemas/__init__.py`(空)
 - Create: `omni_desk_frontend/src/features/auth/schemas/loginSchema.ts`
 - Create: `omni_desk_frontend/src/features/auth/schemas/loginSchema.test.js`
 
-- [ ] **Step 1:** 创建 `__init__.py`(空文件,纯目录标识)
-
-- [ ] **Step 2:** 创建 `loginSchema.ts`:
+- [ ] **Step 1:** 创建 `loginSchema.ts`:
 
 ```typescript
 import { z } from 'zod';
@@ -1654,7 +1651,7 @@ export function zodToAntdErrors(error: z.ZodError): Record<string, { errors: str
 }
 ```
 
-- [ ] **Step 3:** 创建 `loginSchema.test.js`:
+- [ ] **Step 2:** 创建 `loginSchema.test.js`:
 
 ```javascript
 import { LoginSchema, zodToAntdErrors } from './loginSchema';
@@ -1696,7 +1693,7 @@ describe('LoginSchema', () => {
 });
 ```
 
-- [ ] **Step 4:** 跑测试 GREEN:
+- [ ] **Step 3:** 跑测试 GREEN:
 
 ```bash
 cd omni_desk_frontend
@@ -1705,7 +1702,7 @@ npm test -- --watchAll=false src/features/auth/schemas/loginSchema.test.js
 
 **Expected:** 5 个测试 PASS
 
-- [ ] **Step 5:** Commit:
+- [ ] **Step 4:** Commit:
 
 ```bash
 git add omni_desk_frontend/src/features/auth/schemas/
@@ -1753,24 +1750,6 @@ const onFinish = (values) => {
 ```
 
 (注:`setFields` 接受 `{name, errors}[]`,不是 record;上面 map 是修正)
-
-实际写法(修正):
-
-```javascript
-const onFinish = (values) => {
-    const result = LoginSchema.safeParse(values);
-    if (!result.success) {
-        const fieldErrors = zodToAntdErrors(result.error);
-        const antdErrors = Object.entries(fieldErrors).map(([name, err]) => ({
-            name,
-            errors: err.errors,
-        }));
-        form.setFields(antdErrors);
-        return;
-    }
-    authLogin(result.data);
-};
-```
 
 - [ ] **Step 5:** 跑测试:
 
