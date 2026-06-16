@@ -45,6 +45,7 @@
 | 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
 | 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
 | 28 | [智能助手覆盖率路线图](28-smart-assistant-coverage-roadmap.md) | smart_assistant 模块 63.25% → ≥85% 补齐方案、CI 守卫、+63 测试用例(2026-06 v0.6.0) |
+| 29 | [性能 Profiling](29-performance-profiling.md) | django-silk dev 接入与使用 |
 
 ---
 
