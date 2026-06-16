@@ -1,7 +1,7 @@
 import * as pluginApi from './pluginApi';
 import axiosInstance from '../../../shared/api/axiosConfig.js';
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   get: jest.fn(),
   post: jest.fn(),
 }));

@@ -140,8 +140,8 @@ export const getModels = async (): Promise<string[]> => {
 };
 
 // eslint-disable-next-line no-unused-vars
-export const setApiProvider = (config: OllamaConfig): void => {
-    // Used by ApiProvider to sync config
+export const setApiProvider = (_config: OllamaConfig): void => {
+    // Used by ApiProvider to sync config(签名保持兼容,实现留待后续 PR)
 };
 
 export const getOllamaModelsFromEndpoint = async (

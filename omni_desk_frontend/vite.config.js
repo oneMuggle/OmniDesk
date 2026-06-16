@@ -40,7 +40,8 @@ export default defineConfig({
   },
   esbuild: {
     jsx: 'automatic',
-    include: /\.jsx?$/,
+    // 包含 .ts/.tsx:与 refactor/shared-api-typescript 同步开启 TypeScript 编译
+    include: /\.(jsx?|tsx?)$/,
   },
   optimizeDeps: {
     esbuildOptions: {

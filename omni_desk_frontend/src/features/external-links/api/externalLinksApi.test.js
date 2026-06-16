@@ -1,7 +1,7 @@
 import * as externalLinksApi from './externalLinksApi';
 import axiosInstance from '../../../shared/api/axiosConfig.js';
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
