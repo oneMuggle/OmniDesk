@@ -210,6 +210,18 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    def list(self, request, *args, **kwargs):
+        # 显式封顶 1000,避免无界 queryset 触发内存问题
+        # 注意:不能在 get_queryset() 上直接 [:1000],因为 Django
+        # 禁止在 sliced queryset 上调用 .get() / .filter(),会破坏 retrieve
+        queryset = self.filter_queryset(self.get_queryset())[:1000]
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
