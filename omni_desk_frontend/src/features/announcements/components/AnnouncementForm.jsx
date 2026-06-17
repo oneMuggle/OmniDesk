@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css'; // 导入 Quill 的样式
+import RichTextEditor from '../../../shared/components/RichTextEditor';
 import apiClient from '../../../shared/api/apiClient'; // 导入 apiClient
 import './AnnouncementForm.css';
 
@@ -13,52 +12,10 @@ const AnnouncementForm = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
-  const quillRef = useRef(null);
 
-  // 图片上传处理器
-  const imageHandler = useCallback(() => {
-    const input = document.createElement('input');
-    input.setAttribute('type', 'file');
-    input.setAttribute('accept', 'image/*');
-    input.click();
-
-    input.onchange = async () => {
-      const file = input.files[0];
-      if (file) {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        try {
-          const response = await apiClient.post('/api/events/upload-image/', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          const imageUrl = response.data.url;
-          const quill = quillRef.current.getEditor();
-          const range = quill.getSelection(true);
-          quill.insertEmbed(range.index, 'image', imageUrl);
-        } catch (err) {
-          setError('图片上传失败: ' + (err.response?.data?.detail || err.message));
-        }
-      }
-    };
-  }, [setError, quillRef]); // 添加依赖项
-
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, false] }],
-        ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-        [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-        ['link', 'image'],
-        ['clean']
-      ],
-      handlers: {
-        image: imageHandler,
-      },
-    },
-  }), [imageHandler]); // 添加依赖项
+  // 注:原 quill 版本的 imageHandler / modules 工具栏已随 react-quill 一并移除。
+  // tiptap StarterKit 默认不包含图片扩展;如需图片上传,请在 RichTextEditor 中引入
+  // @tiptap/extension-image 并实现自定义 toolbar。
 
   useEffect(() => {
     if (isEditing) {
@@ -113,12 +70,9 @@ const AnnouncementForm = () => {
         </div>
         <div className="form-group">
           <label htmlFor="content">内容</label>
-          <ReactQuill
-            ref={quillRef}
-            theme="snow"
+          <RichTextEditor
             value={content}
             onChange={(value) => setContent(value)}
-            modules={modules}
             required
             style={{ height: '300px', marginBottom: '50px' }}
           />
