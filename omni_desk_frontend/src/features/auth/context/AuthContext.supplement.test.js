@@ -23,7 +23,7 @@ jest.mock('../../../shared/utils/logger', () => ({
   logger: { error: jest.fn() },
 }));
 
-import apiClient from '../../../shared/api/axiosConfig.js';
+import apiClient from '../../../shared/api/axiosConfig';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
 
 const apiClientMock = apiClient;

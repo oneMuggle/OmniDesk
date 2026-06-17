@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import PropTypes from 'prop-types';
-import apiClient from '../../../shared/api/axiosConfig.js';
+import apiClient from '../../../shared/api/axiosConfig';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
 import { logger } from '../../../shared/utils/logger';
 
