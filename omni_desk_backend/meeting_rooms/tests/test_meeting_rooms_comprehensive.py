@@ -1,7 +1,7 @@
 """meeting_rooms 模块补充测试。"""
 
 import pytest
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.utils import timezone
 
 from meeting_rooms.models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
@@ -32,11 +32,15 @@ class TestMeetingRoomBookingViewSet:
     def test_booking_crud(self, admin_client, admin_user_obj):
         """会议室预订 CRUD"""
         room = MeetingRoom.objects.create(name='预订会议室', capacity=8, location='3楼')
+        # 使用相对时间,避免硬编码日期随时间过期
+        # MeetingRoomBooking.clean() 会拒绝 start_time < timezone.now()
+        start = timezone.now() + timedelta(days=1)
+        end = start + timedelta(hours=1)
         resp = admin_client.post('/api/meeting-rooms/meeting-room-bookings/', {
             'meeting_room': room.id,
             'title': '测试预订',
-            'start_time': '2026-06-15T09:00:00+08:00',
-            'end_time': '2026-06-15T10:00:00+08:00',
+            'start_time': start.isoformat(),
+            'end_time': end.isoformat(),
         }, format='json')
         assert resp.status_code == 201, resp.data
         booking_id = resp.data['id']
