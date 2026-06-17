@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import RichTextEditor from '../../../shared/components/RichTextEditor';
 import apiClient from '../../../shared/api/apiClient'; // 导入 apiClient
@@ -9,13 +9,34 @@ const AnnouncementForm = () => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const editorRef = useRef(null);
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
 
-  // 注:原 quill 版本的 imageHandler / modules 工具栏已随 react-quill 一并移除。
-  // tiptap StarterKit 默认不包含图片扩展;如需图片上传,请在 RichTextEditor 中引入
-  // @tiptap/extension-image 并实现自定义 toolbar。
+  // 恢复 PR-27 移除的图片上传能力:
+  // file picker → POST /api/events/upload-image/ → editor.insertImage(url)
+  const handleImageUpload = useCallback(() => {
+    const input = document.createElement('input');
+    input.setAttribute('type', 'file');
+    input.setAttribute('accept', 'image/*');
+    input.click();
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const response = await apiClient.post('/api/events/upload-image/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const imageUrl = response.data.url;
+        editorRef.current?.insertImage(imageUrl);
+      } catch (err) {
+        setError('图片上传失败: ' + (err.response?.data?.detail || err.message));
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (isEditing) {
@@ -36,7 +57,7 @@ const AnnouncementForm = () => {
     setError(null);
 
     const payload = { title, content };
-    
+
     try {
       if (isEditing) {
         await apiClient.put(`/api/events/announcements/${id}/`, payload);
@@ -71,15 +92,26 @@ const AnnouncementForm = () => {
         <div className="form-group">
           <label htmlFor="content">内容</label>
           <RichTextEditor
+            ref={editorRef}
             value={content}
             onChange={(value) => setContent(value)}
             required
             style={{ height: '300px', marginBottom: '50px' }}
           />
         </div>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? '提交中...' : (isEditing ? '更新公告' : '发布公告')}
-        </button>
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleImageUpload}
+            disabled={loading}
+          >
+            插入图片
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? '提交中...' : (isEditing ? '更新公告' : '发布公告')}
+          </button>
+        </div>
       </form>
     </div>
   );
