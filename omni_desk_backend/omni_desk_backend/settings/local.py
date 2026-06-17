@@ -4,6 +4,9 @@ import os
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
+# django-silk (dev-only SQL profiling). Opt-in via env var AND DEBUG to prevent prod exposure.
+ENABLE_SILK = os.environ.get("ENABLE_SILK") == "1" and DEBUG
+
 ALLOWED_HOSTS = ["*"]
 
 # Enable Browsable API in local development
@@ -67,3 +70,20 @@ SMART_ASSISTANT_LLM_MODEL = os.environ.get("SMART_ASSISTANT_LLM_MODEL", "gemini-
 # Smart Assistant - Ragflow dataset ID for knowledge base document upload and vectorization.
 # Obtain from Ragflow admin panel: Datasets -> select dataset -> copy ID.
 SMART_ASSISTANT_DATASET_ID = os.environ.get("SMART_ASSISTANT_DATASET_ID", "")
+
+# ----------------------------------------------------------------------------
+# django-silk (dev-only SQL profiler). Only active when ENABLE_SILK=1 and DEBUG=True.
+# ----------------------------------------------------------------------------
+if ENABLE_SILK:
+    INSTALLED_APPS += [
+        "silk",
+    ]
+    MIDDLEWARE = ["silk.middleware.SilkyMiddleware"] + MIDDLEWARE
+
+    # Conservative defaults: limit body capture, exclude health checks, require auth.
+    SILKY_PYTHON_PROFILER = False
+    SILKY_AUTHENTICATION = True
+    SILKY_AUTHORISATION = True
+    SILKY_MAX_REQUEST_BODY_SIZE = 1024
+    SILKY_MAX_RESPONSE_BODY_SIZE = 1024
+    SILKY_EXCLUDE_PATHS = ["/health/", "/ready/"]
