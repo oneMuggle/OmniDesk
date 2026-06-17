@@ -3,6 +3,7 @@ import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Form, Input, Button, Checkbox, message } from 'antd';
 import { UserOutlined, LockOutlined } from '@ant-design/icons';
+import { LoginSchema, zodToAntdErrors } from '../schemas/loginSchema';
 import './Login.css';
 
 const Login = () => {
@@ -18,19 +19,28 @@ const Login = () => {
   }
 
   const handleSubmit = async (values) => {
-    const { username, password, remember } = values;
+    const { remember } = values;
 
-    if (!username || !password) {
-      message.error('请输入用户名和密码');
+    // zod 校验 (替代原 antd Form.Item rules)
+    const result = LoginSchema.safeParse(values);
+    if (!result.success) {
+      const fieldErrors = zodToAntdErrors(result.error);
+      const antdErrors = Object.entries(fieldErrors).map(([name, err]) => ({
+        name,
+        errors: err.errors,
+      }));
+      form.setFields(antdErrors);
       return;
     }
 
+    const { username, password } = result.data;
+
     try {
       setLoading(true);
-      const result = await login(username.trim(), password.trim(), remember);
-      if (!result.success) throw new Error(result.error);
+      const loginResult = await login(username.trim(), password.trim(), remember);
+      if (!loginResult.success) throw new Error(loginResult.error);
       message.success('登录成功');
-      navigate(result.redirectTo || '/');
+      navigate(loginResult.redirectTo || '/');
     } catch (err) {
       message.error(err.message || '登录失败，请重试');
     } finally {
@@ -71,10 +81,7 @@ const Login = () => {
           initialValues={{ username: initialUsername }}
           size="large"
         >
-          <Form.Item
-            name="username"
-            rules={[{ required: true, message: '请输入用户名' }]}
-          >
+          <Form.Item name="username">
             <Input
               prefix={<UserOutlined />}
               placeholder="用户名"
@@ -82,10 +89,7 @@ const Login = () => {
             />
           </Form.Item>
 
-          <Form.Item
-            name="password"
-            rules={[{ required: true, message: '请输入密码' }]}
-          >
+          <Form.Item name="password">
             <Input.Password
               prefix={<LockOutlined />}
               placeholder="密码"
