@@ -5,6 +5,7 @@ import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
 import AdminAppWrapper from '../AdminAppWrapper';
+import PageSuspenseFallback from '../shared/components/PageSuspenseFallback';
 
 // Lazy load all page components for code splitting
 const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
@@ -74,14 +75,8 @@ const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPe
 const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
 const NotificationBell = lazy(() => import('../features/notifications/components/NotificationBell'));
 
-const LoadingFallback = () => (
-  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '200px' }}>
-    加载中...
-  </div>
-);
-
 const LazyComponent = ({ component: Component, ...props }) => (
-  <Suspense fallback={<LoadingFallback />}>
+  <Suspense fallback={<PageSuspenseFallback />}>
     <Component {...props} />
   </Suspense>
 );
@@ -305,15 +300,15 @@ const router = createBrowserRouter([
       },
       {
         path: "books/:bookId",
-        element: <BookPage />
+        element: <LazyComponent component={BookPage} />
       },
       {
         path: "books/:bookId/reader",
-        element: <BookReaderPage />
+        element: <LazyComponent component={BookReaderPage} />
       },
       {
         path: "books/:bookId/editor",
-        element: <ChapterEditorPage />
+        element: <LazyComponent component={ChapterEditorPage} />
       },
       {
         path: "smart-assistant",
@@ -377,7 +372,7 @@ const router = createBrowserRouter([
       },
       {
         path: "docs/:docId",
-        element: <DocsPage />
+        element: <LazyComponent component={DocsPage} />
       },
       {
         path: "*",
