@@ -1,8 +1,7 @@
 import { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, DatePicker, Card, Space, message } from 'antd';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css';
+import RichTextEditor from '../../shared/components/RichTextEditor';
 import * as communicationApi from '../../features/communication/api/communicationApi';
 import { RefreshContext } from '../../shared/context/RefreshContext';
 
@@ -88,7 +87,7 @@ const PostForm = () => {
                         },
                     ]}
                 >
-                    <ReactQuill theme="snow" />
+                    <RichTextEditor />
                 </Form.Item>
 
                 <Form.Item

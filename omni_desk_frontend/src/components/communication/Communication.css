@@ -57,16 +57,12 @@
     height: 100%;
 }
 
-.post-content-item .ql-container {
+.post-content-item .ProseMirror {
     flex-grow: 1;
     min-height: 450px;
-    display: flex;
-    flex-direction: column;
-}
-
-.post-content-item .ql-editor {
-    height: 100%;
-    flex-grow: 1;
+    padding: 0.75rem;
+    border: 1px solid #d9d9d9;
+    border-radius: 4px;
 }
 .post-list-container .ant-card-body {
     padding: 16px 24px;
