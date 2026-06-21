@@ -10,8 +10,8 @@
 
 包结构:
 - roles.py: AgentRole 枚举 + RoleProfile + ROLE_PROFILES 注册表
-- task_packet.py: TaskPacket / SubTask 数据类(待实现)
-- shared_context.py: 跨 agent 共享上下文(待实现)
+- task_packet.py: TaskPacket / SubTask / ExecutionMode / FailureMode + TaskPacketValidator
+- shared_context.py: SharedContext 跨 agent 共享上下文 + Decision + ErrorRecord
 - executor.py: MultiAgentExecutor 主执行器(待实现)
 - pipeline.py / fanout.py / hierarchical.py: 三种执行模式(待实现)
 - quality_gate.py: 质量门禁(待实现)
@@ -20,10 +20,29 @@
 """
 
 from .roles import AgentRole, RoleProfile, ROLE_PROFILES, get_profile
+from .task_packet import (
+    ExecutionMode,
+    FailureMode,
+    SubTask,
+    TaskPacket,
+    TaskPacketValidator,
+)
+from .shared_context import Decision, ErrorRecord, SharedContext
 
 __all__ = [
+    # roles.py
     "AgentRole",
     "RoleProfile",
     "ROLE_PROFILES",
     "get_profile",
+    # task_packet.py
+    "ExecutionMode",
+    "FailureMode",
+    "SubTask",
+    "TaskPacket",
+    "TaskPacketValidator",
+    # shared_context.py
+    "Decision",
+    "ErrorRecord",
+    "SharedContext",
 ]
