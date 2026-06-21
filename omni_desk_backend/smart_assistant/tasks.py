@@ -2,7 +2,11 @@ import requests
 from celery import shared_task
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 3},
+)
 def process_document_embedding(document_id):
     """异步处理文档向量化：上传到 Ragflow 并触发解析"""
     from smart_assistant.models import KnowledgeBaseDocument
@@ -76,7 +80,13 @@ def process_document_embedding(document_id):
         raise
 
 
-@shared_task
+@shared_task(
+    autoretry_for=(requests.RequestException,),
+    retry_backoff=60,
+    retry_kwargs={"max_retries": 2},
+    task_time_limit=300,  # 硬超时 5 分钟
+    task_soft_time_limit=240,  # 软超时 4 分钟(触发 SoftTimeLimitExceeded)
+)
 def execute_agent_task(task_id: str):
     """异步执行多 Agent 协作任务
 
@@ -143,23 +153,27 @@ def execute_agent_task(task_id: str):
         )
         task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
 
-        # 更新每个 subtask 的状态
+        # 更新每个 subtask 的状态(批量查询替代循环 get,修复 N+1)
+        subtask_ids = [r.subtask_id for r in result.subtask_results]
+        subtask_objs = {
+            str(obj.subtask_id): obj for obj in AgentSubTask.objects.filter(task=task, subtask_id__in=subtask_ids)
+        }
+
         for subtask_result in result.subtask_results:
-            try:
-                subtask_obj = AgentSubTask.objects.get(task=task, subtask_id=subtask_result.subtask_id)
-                subtask_obj.status = subtask_result.status
-                subtask_obj.output = (
-                    subtask_result.output
-                    if isinstance(subtask_result.output, (dict, list))
-                    else {"raw": subtask_result.output}
-                )
-                subtask_obj.tokens_used = subtask_result.tokens_used
-                subtask_obj.completed_at = timezone.now()
-                subtask_obj.retry_count = subtask_result.retry_count
-                subtask_obj.error_message = subtask_result.error_message
-                subtask_obj.save()
-            except AgentSubTask.DoesNotExist:
-                pass
+            subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
+            if subtask_obj is None:
+                continue
+            subtask_obj.status = subtask_result.status
+            subtask_obj.output = (
+                subtask_result.output
+                if isinstance(subtask_result.output, (dict, list))
+                else {"raw": subtask_result.output}
+            )
+            subtask_obj.tokens_used = subtask_result.tokens_used
+            subtask_obj.completed_at = timezone.now()
+            subtask_obj.retry_count = subtask_result.retry_count
+            subtask_obj.error_message = subtask_result.error_message
+            subtask_obj.save()
 
         # 记录 task.completed / task.failed 事件
         event_type = (

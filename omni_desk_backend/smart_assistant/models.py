@@ -1,6 +1,8 @@
 from django.db import models
 from django.conf import settings
 
+from personnel.models import EncryptedCharField
+
 
 class KnowledgeDataset(models.Model):
     """知识库数据集（支持多个 Ragflow 数据集）"""
@@ -105,7 +107,7 @@ class LlmEndpoint(models.Model):
 
     name = models.CharField(max_length=100, verbose_name="配置名称")
     api_endpoint = models.URLField(verbose_name="API 端点")
-    api_key = models.CharField(max_length=500, verbose_name="API 密钥")
+    api_key = EncryptedCharField(max_length=500, verbose_name="API 密钥")
     is_active = models.BooleanField(default=True, verbose_name="是否激活")
     # 降级与路由相关字段
     priority = models.IntegerField(default=1, verbose_name="优先级（数字越小优先级越高）")

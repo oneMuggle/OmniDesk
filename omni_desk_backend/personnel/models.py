@@ -1,9 +1,12 @@
 import base64
 import hashlib
+import logging
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
+
+logger = logging.getLogger(__name__)
 
 
 def _encrypt_field(value, key):
@@ -28,6 +31,7 @@ def _decrypt_field(encoded_value, key):
     except Exception:
         # Data may be corrupted (e.g., encrypted with a different key).
         # Return the raw value instead of crashing.
+        logger.debug("字段解密失败，返回原始值（可能数据已损坏或使用不同密钥加密）")
         return encoded_value
 
 

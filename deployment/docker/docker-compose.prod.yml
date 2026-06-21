@@ -77,7 +77,7 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "python -c "import subprocess; subprocess.run(['celery', '-A', 'omni_desk_backend', 'status'], check=True, capture_output=True, timeout=10)" || exit 1"]
+      test: ["CMD-SHELL", "python -c \"import subprocess; subprocess.run(['celery', '-A', 'omni_desk_backend', 'status'], check=True, capture_output=True, timeout=10)\" || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 3
