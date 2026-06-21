@@ -1,4 +1,10 @@
-from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer, generate_tool_empty_answer
+from .intent_classifier import (
+    classify_intent,
+    generate_answer,
+    generate_answer_stream,
+    generate_general_answer,
+    generate_tool_empty_answer,
+)
 from ..tools.registry import ToolRegistry
 from ..cache import (
     get_cached_intent,
