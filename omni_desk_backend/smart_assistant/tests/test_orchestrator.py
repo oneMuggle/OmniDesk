@@ -41,9 +41,9 @@ class TestAgentOrchestrator(TestCase):
 
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
     def test_tool_fallback_to_general(self, mock_general, mock_classify, mock_registry):
-        """工具返回 found=False 时 fallback 到通用回答."""
+        """工具返回 found=False 时调用 generate_tool_empty_answer 生成友好回答."""
         mock_classify.return_value = 'schedule_query'
 
         mock_tool = MagicMock()
@@ -77,9 +77,9 @@ class TestAgentOrchestrator(TestCase):
 
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
     def test_tool_exception_fallback(self, mock_general, mock_classify, mock_registry):
-        """工具抛出异常时 fallback 到通用回答."""
+        """工具抛出异常时 fallback 到 generate_tool_empty_answer."""
         mock_classify.return_value = 'knowledge_qa'
 
         mock_tool = MagicMock()
@@ -258,7 +258,7 @@ class TestAgentOrchestrator(TestCase):
 
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
     def test_tool_fallback_response_structure(
         self, mock_general, mock_classify, mock_registry
     ):

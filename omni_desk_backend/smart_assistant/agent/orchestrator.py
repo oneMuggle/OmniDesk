@@ -1,4 +1,10 @@
-from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer
+from .intent_classifier import (
+    classify_intent,
+    generate_answer,
+    generate_answer_stream,
+    generate_general_answer,
+    generate_tool_empty_answer,
+)
 from ..tools.registry import ToolRegistry
 from ..cache import (
     get_cached_intent,
@@ -54,9 +60,9 @@ class AgentOrchestrator:
                     tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
                 cache_tool_result(tool.name, user_query, tool_result)
 
-            # 工具失败时优雅降级
+            # 工具执行成功但未找到结果时，带工具上下文告知 LLM
             if isinstance(tool_result, dict) and not tool_result.get("found"):
-                answer, usage = generate_general_answer(user_query, conversation_history)
+                answer, usage = generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
                 return {
                     "answer": answer,
                     "intent": intent,
@@ -178,8 +184,8 @@ class AgentOrchestrator:
 
         # Step 3: 流式生成回答
         if tool_fallback:
-            # fallback 到通用回答
-            answer, _ = generate_general_answer(user_query, conversation_history)
+            # 工具已执行但未找到结果，带工具上下文告知 LLM
+            answer, _ = generate_tool_empty_answer(user_query, tool_name, tool_result, conversation_history)
 
             def _gen():
                 yield answer
