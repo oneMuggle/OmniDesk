@@ -277,6 +277,11 @@ CELERY_TASK_SERIALIZER = "json"
 CELERY_RESULT_SERIALIZER = "json"
 CELERY_TIMEZONE = "Asia/Shanghai"
 
+# Celery 可靠性配置(Phase 2 优化)
+CELERY_TASK_ACKS_LATE = True  # 任务完成后才确认,worker 崩溃时任务会被重新投递
+CELERY_TASK_REJECT_ON_WORKER_LOST = True  # worker 异常退出时拒绝任务(触发重试)
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1  # 每次只预取 1 个任务,避免长任务阻塞
+
 # Django-Celery-Beat Configuration
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
 
@@ -289,6 +294,16 @@ CELERY_BEAT_SCHEDULE = {
     "cleanup-expired-guest-users": {
         "task": "users.tasks.cleanup_expired_guest_users",
         "schedule": timedelta(days=1),  # 每天执行一次
+        "args": (),
+    },
+    "cleanup-calibration-reminders": {
+        "task": "sensor_management.tasks.check_and_create_calibration_reminders",
+        "schedule": timedelta(days=1),  # 每天执行一次(传感器校准提醒)
+        "args": (),
+    },
+    "cleanup-expired-swap-requests": {
+        "task": "events.tasks.cleanup_expired_swap_requests",
+        "schedule": timedelta(hours=1),  # 每小时执行一次(换班申请过期清理,TTL 48h)
         "args": (),
     },
 }

@@ -1,10 +1,13 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+import logging
 
 from events.models import Schedule, Announcement
 from compliance.models import ComplianceIssue
 from memos.models import Memo
 from personnel.models import FamilyMember, Personnel
+
+logger = logging.getLogger(__name__)
 
 
 def _notify(user, type, title, content, link=""):
@@ -19,6 +22,7 @@ def _get_user_from_personnel(personnel):
     try:
         return personnel.user_account
     except Exception:
+        logger.debug("无法获取 Personnel(%s) 关联的 User 账户", personnel.pk)
         return None
 
 

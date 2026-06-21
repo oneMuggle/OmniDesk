@@ -63,7 +63,7 @@ export default defineConfig({
           // HTTP 客户端(API 调用均依赖)
           http: ['axios'],
           // 时间处理
-          datetime: ['dayjs', 'dayjs-plugin-utc', 'date-fns'],
+          datetime: ['dayjs', 'dayjs-plugin-utc'],
           // 服务端状态管理
           data: ['@tanstack/react-query', '@tanstack/react-query-devtools'],
           // Ant Design 生态

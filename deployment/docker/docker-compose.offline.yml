@@ -32,6 +32,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
     logging:
       driver: json-file
       options:
@@ -52,6 +57,11 @@ services:
       - redis_data:/data
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
@@ -59,15 +69,12 @@ services:
         max-file: "3"
 
   backend:
-    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     <<: *common-env
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
       - DJANGO_ENV=production
-      # 触发 entrypoint.sh 跑 collectstatic 生成 staticfiles.json,
-      # 否则 WhiteNoise CompressedManifestStaticFilesStorage 找不到 admin 静态文件
-      # 报 'Missing staticfiles manifest entry' → 500
       - COLLECT_STATIC=true
     volumes:
       - static_volume:/usr/src/app/staticfiles
@@ -87,6 +94,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.5'
     logging:
       driver: json-file
       options:
@@ -94,7 +106,7 @@ services:
         max-file: "3"
 
   frontend:
-    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     ports:
       - "80:80"
@@ -110,6 +122,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
@@ -117,7 +134,7 @@ services:
         max-file: "3"
 
   worker:
-    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     <<: *common-env
     command: celery -A omni_desk_backend worker -l info
@@ -135,6 +152,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
     logging:
       driver: json-file
       options:

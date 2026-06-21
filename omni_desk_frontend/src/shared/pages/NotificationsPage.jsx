@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Table, Tag, Typography, Button, Space } from 'antd';
-import { format } from 'date-fns';
+import dayjs from 'dayjs';
 import { CheckOutlined } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
 
@@ -82,7 +82,7 @@ const NotificationsPage = () => {
       dataIndex: 'created_at',
       key: 'created_at',
       width: 180,
-      render: (date) => format(new Date(date), 'yyyy-MM-dd HH:mm'),
+      render: (date) => dayjs(date).format('YYYY-MM-DD HH:mm'),
     },
   ];
 

@@ -393,4 +393,4 @@ class MyPersonnelView(generics.RetrieveUpdateAPIView):
             )
         except Exception:
             # 通知失败不应阻塞主流程
-            pass
+            logger.exception("个人信息更新通知发送失败")

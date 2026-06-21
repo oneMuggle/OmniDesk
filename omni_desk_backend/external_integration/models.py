@@ -1,5 +1,7 @@
 from django.db import models
 
+from personnel.models import EncryptedCharField
+
 
 class ExternalLink(models.Model):
     """第一层集成：内网工具的外链导航"""
@@ -39,7 +41,7 @@ class IntegrationService(models.Model):
     description = models.TextField(blank=True, default="", verbose_name="描述")
     integration_type = models.CharField(choices=INTEGRATION_TYPES, max_length=20, verbose_name="集成类型")
     endpoint_url = models.URLField(max_length=500, verbose_name="服务端点")
-    api_key = models.CharField(max_length=255, blank=True, default="", verbose_name="API 密钥")
+    api_key = EncryptedCharField(max_length=255, blank=True, default="", verbose_name="API 密钥")
     embed_path = models.CharField(max_length=500, blank=True, default="", verbose_name="嵌入路径/模板")
     config_schema = models.JSONField(default=dict, verbose_name="配置 Schema")
     metadata = models.JSONField(default=dict, verbose_name="元数据")

@@ -106,18 +106,18 @@ if __name__ == "__main__":
     client = OllamaClient()
     try:
         # Example: List models
-        print("Listing available Ollama models:")
+        logger.info("Listing available Ollama models:")
         models = client.list_models()
         for model in models:
-            print(f"- {model['name']} ({model['size'] / (1024 * 1024 * 1024):.2f} GB)")
+            logger.info("- %s (%.2f GB)", model["name"], model["size"] / (1024 * 1024 * 1024))
 
         # Example: Generate text (ensure llama2 is available or pull it first)
-        # print("\nGenerating text with llama2:")
+        # logger.info("\nGenerating text with llama2:")
         # response_text = client.generate(prompt="What is the capital of France?", model_name="llama2")
-        # print(response_text)
+        # logger.info(response_text)
 
         # Example: Pull a model (uncomment to run)
         # client.pull_model("llama2")
 
     except Exception as e:
-        print(f"Error: {e}")
+        logger.error("Error: %s", e)

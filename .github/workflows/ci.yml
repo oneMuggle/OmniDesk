@@ -43,7 +43,7 @@ jobs:
       - name: Run tests with coverage
         working-directory: omni_desk_backend
         run: |
-          pytest --cov=. --cov-fail-under=60 --cov-report=xml --cov-report=term-missing -v
+          pytest --cov=. --cov-fail-under=80 --cov-report=xml --cov-report=term-missing -v
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
