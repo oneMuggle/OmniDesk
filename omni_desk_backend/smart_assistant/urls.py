@@ -8,6 +8,7 @@ from .views import (
     LlmEndpointViewSet,
     LlmAppConfigViewSet,
     StatsViewSet,
+    AgentTaskViewSet,
 )
 
 router = DefaultRouter()
@@ -18,6 +19,7 @@ router.register(r"agent-logs", AgentLogViewSet, basename="agent-logs")
 router.register(r"endpoints", LlmEndpointViewSet, basename="llm-endpoints")
 router.register(r"app-configs", LlmAppConfigViewSet, basename="llm-app-configs")
 router.register(r"stats", StatsViewSet, basename="smart-stats")
+router.register(r"tasks", AgentTaskViewSet, basename="agent-tasks")
 
 urlpatterns = [
     path("", include(router.urls)),

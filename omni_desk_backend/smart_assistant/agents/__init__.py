@@ -35,6 +35,7 @@ from .executor import (
     SubTaskResult,
     TaskResult,
 )
+from .supervisor import Supervisor
 
 __all__ = [
     # roles.py
@@ -58,4 +59,6 @@ __all__ = [
     "MultiAgentExecutor",
     "SubTaskResult",
     "TaskResult",
+    # supervisor.py
+    "Supervisor",
 ]

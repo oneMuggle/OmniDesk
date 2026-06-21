@@ -1,6 +1,7 @@
 # Re-export from views/ package for backward compatibility
 from .views import (
     AgentLogViewSet,
+    AgentTaskViewSet,
     KnowledgeBaseViewSet,
     LlmAppConfigViewSet,
     LlmEndpointViewSet,
@@ -13,6 +14,7 @@ __all__ = [
     "SessionViewSet",
     "KnowledgeBaseViewSet",
     "AgentLogViewSet",
+    "AgentTaskViewSet",
     "LlmEndpointViewSet",
     "LlmAppConfigViewSet",
 ]
