@@ -22,7 +22,7 @@ from typing import Any, Protocol, runtime_checkable
 # ---------------------------------------------------------------------------
 
 
-class HookEvent(str, Enum):
+class HookEvent(str, Enum):  # noqa: UP042
     """Hook 触发时机
 
     - PRE_EXECUTE: 工具执行前,可修改输入或拒绝执行

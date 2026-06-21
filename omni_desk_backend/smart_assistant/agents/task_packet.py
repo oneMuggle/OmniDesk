@@ -27,7 +27,7 @@ from .roles import AgentRole, get_role_by_name
 # ---------------------------------------------------------------------------
 
 
-class ExecutionMode(str, Enum):
+class ExecutionMode(str, Enum):  # noqa: UP042
     """任务执行模式"""
 
     PIPELINE = "pipeline"  # 顺序执行(前一个输出是后一个输入)
@@ -35,7 +35,7 @@ class ExecutionMode(str, Enum):
     HIERARCHICAL = "hierarchical"  # 层级执行(Supervisor 动态调度)
 
 
-class FailureMode(str, Enum):
+class FailureMode(str, Enum):  # noqa: UP042
     """子任务失败处理策略"""
 
     SKIP = "skip"  # 失败跳过,继续下一步
@@ -278,7 +278,7 @@ class TaskPacket:
         cls,
         data: dict,
         task_id: str | None = None,
-    ) -> "TaskPacket":
+    ) -> TaskPacket:
         """从 dict 构造 TaskPacket(由 Supervisor LLM 生成的 JSON 反序列化)
 
         Args:

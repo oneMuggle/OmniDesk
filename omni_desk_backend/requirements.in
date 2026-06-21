@@ -29,7 +29,7 @@ django-js-asset
 django-timezone-field
 
 # Document & Data Handling
-pypdf>=6.12.0  # CVE-2026-48155, CVE-2026-48156
+pypdf>=6.13.3  # GHSA-jm82-fx9c-mx94
 python-docx
 docxcompose
 docxtpl

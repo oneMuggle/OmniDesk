@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 
 
-class AgentRole(str, Enum):
+class AgentRole(str, Enum):  # noqa: UP042 — Python 3.10 不支持 StrEnum(3.11+)
     """多 Agent 协作中的专业角色
 
     分为三层:
