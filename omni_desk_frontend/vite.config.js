@@ -21,19 +21,19 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/admin': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/django-static': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
       '/media': {
-        target: 'http://127.0.0.1:8000',
+        target: process.env.VITE_API_PROXY_TARGET || 'http://127.0.0.1:8000',
         changeOrigin: true,
       },
     },
@@ -42,17 +42,20 @@ export default defineConfig({
     jsx: 'automatic',
     // 包含 .ts/.tsx:与 refactor/shared-api-typescript 同步开启 TypeScript 编译
     include: /\.(jsx?|tsx?)$/,
+    // Windows 7 兼容:Chrome 109 是 Win7 支持的最高版本
+    target: 'chrome109',
   },
   optimizeDeps: {
     esbuildOptions: {
       jsx: 'automatic',
+      target: 'chrome109',
       loader: {
         '.js': 'jsx',
       },
     },
   },
   build: {
-    target: 'chrome86',
+    target: 'chrome109',
     outDir: 'build',
     sourcemap: true,
     rollupOptions: {
