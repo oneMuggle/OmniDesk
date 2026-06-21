@@ -80,9 +80,7 @@ class SubTask:
 
         # id 必须是合法的标识符(字母/数字/下划线/短横线)
         if not re.match(r"^[a-zA-Z0-9_-]+$", self.id):
-            raise ValueError(
-                f"SubTask.id 只能包含字母/数字/下划线/短横线,收到 {self.id!r}"
-            )
+            raise ValueError(f"SubTask.id 只能包含字母/数字/下划线/短横线,收到 {self.id!r}")
 
         # role 必须是 AgentRole 枚举
         if not isinstance(self.role, AgentRole):
@@ -90,9 +88,7 @@ class SubTask:
 
         # objective 必须是非空字符串
         if not self.objective or not isinstance(self.objective, str):
-            raise ValueError(
-                f"SubTask.objective 必须是非空字符串,收到 {self.objective!r}"
-            )
+            raise ValueError(f"SubTask.objective 必须是非空字符串,收到 {self.objective!r}")
 
         # inputs 必须是 dict
         if not isinstance(self.inputs, dict):
@@ -100,31 +96,21 @@ class SubTask:
 
         # failure_mode 必须是 FailureMode 枚举
         if not isinstance(self.failure_mode, FailureMode):
-            raise ValueError(
-                f"SubTask.failure_mode 必须是 FailureMode 枚举,收到 {self.failure_mode!r}"
-            )
+            raise ValueError(f"SubTask.failure_mode 必须是 FailureMode 枚举,收到 {self.failure_mode!r}")
 
         # depends_on 必须是 list[str]
         if not isinstance(self.depends_on, list):
-            raise ValueError(
-                f"SubTask.depends_on 必须是 list,收到 {type(self.depends_on)}"
-            )
+            raise ValueError(f"SubTask.depends_on 必须是 list,收到 {type(self.depends_on)}")
         for dep in self.depends_on:
             if not isinstance(dep, str):
-                raise ValueError(
-                    f"SubTask.depends_on 元素必须是字符串,收到 {type(dep)}"
-                )
+                raise ValueError(f"SubTask.depends_on 元素必须是字符串,收到 {type(dep)}")
 
         # quality_gate 必须是 list[str]
         if not isinstance(self.quality_gate, list):
-            raise ValueError(
-                f"SubTask.quality_gate 必须是 list,收到 {type(self.quality_gate)}"
-            )
+            raise ValueError(f"SubTask.quality_gate 必须是 list,收到 {type(self.quality_gate)}")
         for criterion in self.quality_gate:
             if not isinstance(criterion, str):
-                raise ValueError(
-                    f"SubTask.quality_gate 元素必须是字符串,收到 {type(criterion)}"
-                )
+                raise ValueError(f"SubTask.quality_gate 元素必须是字符串,收到 {type(criterion)}")
 
 
 # ---------------------------------------------------------------------------
@@ -186,9 +172,7 @@ class TaskPacket:
         for st in self.subtasks:
             for dep_id in st.depends_on:
                 if dep_id not in subtask_ids:
-                    raise ValueError(
-                        f"SubTask '{st.id}' 的 depends_on 引用了不存在的 id '{dep_id}'"
-                    )
+                    raise ValueError(f"SubTask '{st.id}' 的 depends_on 引用了不存在的 id '{dep_id}'")
             # 不能依赖自己
             if st.id in st.depends_on:
                 raise ValueError(f"SubTask '{st.id}' 不能依赖自己")
@@ -227,9 +211,7 @@ class TaskPacket:
         for st in self.subtasks:
             if st.id not in visited:
                 if dfs(st.id):
-                    raise ValueError(
-                        f"TaskPacket.subtasks 中存在循环依赖,涉及节点 '{st.id}'"
-                    )
+                    raise ValueError(f"TaskPacket.subtasks 中存在循环依赖,涉及节点 '{st.id}'")
 
     def get_subtask(self, subtask_id: str) -> SubTask | None:
         """根据 ID 获取子任务"""
@@ -315,24 +297,18 @@ class TaskPacket:
             if isinstance(role_raw, str):
                 role = get_role_by_name(role_raw)
                 if role is None:
-                    raise ValueError(
-                        f"subtasks[{i}].role='{role_raw}' 不是合法的 AgentRole"
-                    )
+                    raise ValueError(f"subtasks[{i}].role='{role_raw}' 不是合法的 AgentRole")
             elif isinstance(role_raw, AgentRole):
                 role = role_raw
             else:
-                raise ValueError(
-                    f"subtasks[{i}].role 必须是字符串或 AgentRole,收到 {type(role_raw)}"
-                )
+                raise ValueError(f"subtasks[{i}].role 必须是字符串或 AgentRole,收到 {type(role_raw)}")
 
             # 解析 failure_mode
             failure_mode_raw = st_data.get("failure_mode", "retry")
             try:
                 failure_mode = FailureMode(failure_mode_raw)
             except ValueError:
-                raise ValueError(
-                    f"subtasks[{i}].failure_mode='{failure_mode_raw}' 不是合法的 FailureMode"
-                )
+                raise ValueError(f"subtasks[{i}].failure_mode='{failure_mode_raw}' 不是合法的 FailureMode")
 
             subtask = SubTask(
                 id=st_data["id"],
@@ -355,9 +331,7 @@ class TaskPacket:
             if isinstance(role_raw, str):
                 role = get_role_by_name(role_raw)
                 if role is None:
-                    raise ValueError(
-                        f"final_synthesis.role='{role_raw}' 不是合法的 AgentRole"
-                    )
+                    raise ValueError(f"final_synthesis.role='{role_raw}' 不是合法的 AgentRole")
             elif isinstance(role_raw, AgentRole):
                 role = role_raw
             else:
@@ -367,9 +341,7 @@ class TaskPacket:
                 role=role,
                 objective=final_synthesis_data["objective"],
                 inputs=final_synthesis_data.get("inputs", {}),
-                failure_mode=FailureMode(
-                    final_synthesis_data.get("failure_mode", "retry")
-                ),
+                failure_mode=FailureMode(final_synthesis_data.get("failure_mode", "retry")),
                 depends_on=final_synthesis_data.get("depends_on", []),
                 quality_gate=final_synthesis_data.get("quality_gate", []),
             )
@@ -411,7 +383,9 @@ class TaskPacket:
                 "failure_mode": self.final_synthesis.failure_mode.value,
                 "depends_on": self.final_synthesis.depends_on,
                 "quality_gate": self.final_synthesis.quality_gate,
-            } if self.final_synthesis else None,
+            }
+            if self.final_synthesis
+            else None,
             "user_context": self.user_context,
             "global_budget": self.global_budget,
             "timeout_seconds": self.timeout_seconds,
@@ -457,9 +431,7 @@ class TaskPacketValidator:
                         "role": {"type": "string"},
                         "objective": {"type": "string", "minLength": 1},
                         "inputs": {"type": "object"},
-                        "failure_mode": {
-                            "enum": ["skip", "retry", "fallback", "abort"]
-                        },
+                        "failure_mode": {"enum": ["skip", "retry", "fallback", "abort"]},
                         "depends_on": {
                             "type": "array",
                             "items": {"type": "string"},
@@ -511,9 +483,7 @@ class TaskPacketValidator:
         # execution_mode 检查
         valid_modes = {"pipeline", "fanout", "hierarchical"}
         if data["execution_mode"] not in valid_modes:
-            errors.append(
-                f"execution_mode 必须是 {valid_modes} 之一,收到 {data['execution_mode']!r}"
-            )
+            errors.append(f"execution_mode 必须是 {valid_modes} 之一,收到 {data['execution_mode']!r}")
 
         # subtasks 检查
         if not isinstance(data["subtasks"], list) or len(data["subtasks"]) == 0:
@@ -533,12 +503,8 @@ class TaskPacketValidator:
 
             if "id" in st_data:
                 st_id = st_data["id"]
-                if not isinstance(st_id, str) or not re.match(
-                    r"^[a-zA-Z0-9_-]+$", st_id
-                ):
-                    errors.append(
-                        f"subtasks[{i}].id 必须是合法标识符(字母/数字/下划线/短横线)"
-                    )
+                if not isinstance(st_id, str) or not re.match(r"^[a-zA-Z0-9_-]+$", st_id):
+                    errors.append(f"subtasks[{i}].id 必须是合法标识符(字母/数字/下划线/短横线)")
                 elif st_id in subtask_ids:
                     errors.append(f"subtasks[{i}].id='{st_id}' 重复")
                 else:
@@ -547,17 +513,11 @@ class TaskPacketValidator:
             if "role" in st_data:
                 role_name = get_role_by_name(st_data["role"])
                 if role_name is None:
-                    errors.append(
-                        f"subtasks[{i}].role='{st_data['role']}' 不是合法的 AgentRole"
-                    )
+                    errors.append(f"subtasks[{i}].role='{st_data['role']}' 不是合法的 AgentRole")
 
             if "failure_mode" in st_data:
-                if st_data["failure_mode"] not in {
-                    "skip", "retry", "fallback", "abort"
-                }:
-                    errors.append(
-                        f"subtasks[{i}].failure_mode='{st_data['failure_mode']}' 不合法"
-                    )
+                if st_data["failure_mode"] not in {"skip", "retry", "fallback", "abort"}:
+                    errors.append(f"subtasks[{i}].failure_mode='{st_data['failure_mode']}' 不合法")
 
             if "depends_on" in st_data:
                 if not isinstance(st_data["depends_on"], list):
@@ -569,8 +529,6 @@ class TaskPacketValidator:
                 continue
             for dep_id in st_data.get("depends_on", []):
                 if dep_id not in subtask_ids:
-                    errors.append(
-                        f"subtasks[{i}].depends_on 引用了不存在的 id '{dep_id}'"
-                    )
+                    errors.append(f"subtasks[{i}].depends_on 引用了不存在的 id '{dep_id}'")
 
         return errors

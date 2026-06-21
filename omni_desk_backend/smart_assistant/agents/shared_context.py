@@ -131,9 +131,7 @@ class SharedContext:
             ValueError: 如果 artifact 不是 dict
         """
         if not isinstance(artifact, dict):
-            raise ValueError(
-                f"artifact 必须是 dict,收到 {type(artifact).__name__}"
-            )
+            raise ValueError(f"artifact 必须是 dict,收到 {type(artifact).__name__}")
         self.artifacts[subtask_id] = artifact
 
     def get_artifact(self, subtask_id: str) -> dict | None:
@@ -311,14 +309,10 @@ class SharedContext:
         for field_name in parts[1:]:
             if isinstance(value, dict):
                 if field_name not in value:
-                    raise KeyError(
-                        f"subtask '{subtask_id}' 的产物中不存在字段 '{field_name}'"
-                    )
+                    raise KeyError(f"subtask '{subtask_id}' 的产物中不存在字段 '{field_name}'")
                 value = value[field_name]
             else:
-                raise KeyError(
-                    f"引用路径 '{ref_path}' 无效:中间值不是 dict"
-                )
+                raise KeyError(f"引用路径 '{ref_path}' 无效:中间值不是 dict")
 
         return value
 
@@ -347,10 +341,12 @@ class SharedContext:
         # 注入依赖 subtask 的产物
         for dep_id in subtask.depends_on:
             if dep_id not in self.artifacts:
-                messages.append({
-                    "role": "user",
-                    "content": f"[前置任务 {dep_id} 未产出结果]",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"[前置任务 {dep_id} 未产出结果]",
+                    }
+                )
                 continue
 
             # 如果 subtask.inputs 指定了具体字段,只注入这些字段
@@ -361,38 +357,40 @@ class SharedContext:
                         try:
                             resolved = self.resolve_references(value_template)
                             if isinstance(resolved, (dict, list)):
-                                content = json.dumps(
-                                    resolved, ensure_ascii=False, indent=2
-                                )
+                                content = json.dumps(resolved, ensure_ascii=False, indent=2)
                             else:
                                 content = str(resolved)
-                            messages.append({
-                                "role": "user",
-                                "content": (
-                                    f"[前置任务 {dep_id} 的 {key} 字段]\n{content}"
-                                ),
-                            })
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": (f"[前置任务 {dep_id} 的 {key} 字段]\n{content}"),
+                                }
+                            )
                         except KeyError as e:
-                            messages.append({
-                                "role": "user",
-                                "content": (
-                                    f"[前置任务 {dep_id} 的 {key} 字段解析失败: {e}]"
-                                ),
-                            })
+                            messages.append(
+                                {
+                                    "role": "user",
+                                    "content": (f"[前置任务 {dep_id} 的 {key} 字段解析失败: {e}]"),
+                                }
+                            )
                     else:
                         # 非引用,直接使用
-                        messages.append({
-                            "role": "user",
-                            "content": f"[{key}]\n{value_template}",
-                        })
+                        messages.append(
+                            {
+                                "role": "user",
+                                "content": f"[{key}]\n{value_template}",
+                            }
+                        )
             else:
                 # 没指定 inputs,注入整个 artifact
                 artifact = self.artifacts[dep_id]
                 content = json.dumps(artifact, ensure_ascii=False, indent=2)
-                messages.append({
-                    "role": "user",
-                    "content": f"[前置任务 {dep_id} 的完整产出]\n{content}",
-                })
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": f"[前置任务 {dep_id} 的完整产出]\n{content}",
+                    }
+                )
 
         # 注入决策历史(让 subtask 知道已做出的决策)
         if self.decisions:
@@ -400,10 +398,12 @@ class SharedContext:
                 f"- [{d.made_by}] {d.decision}: {d.rationale}"
                 for d in self.decisions[-5:]  # 只注入最近 5 条
             )
-            messages.append({
-                "role": "user",
-                "content": f"[已做出的决策]\n{decisions_text}",
-            })
+            messages.append(
+                {
+                    "role": "user",
+                    "content": f"[已做出的决策]\n{decisions_text}",
+                }
+            )
 
         return messages
 

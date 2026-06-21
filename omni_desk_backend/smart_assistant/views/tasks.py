@@ -102,9 +102,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
-            return Response(
-                {"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
         serializer = AgentTaskSerializer(task)
         return Response(serializer.data)
 
@@ -124,9 +122,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             # 调用 Supervisor 生成 TaskPacket
             supervisor = Supervisor(llm_router=get_router())
-            task_packet = supervisor.generate_task_packet(
-                query=query, user_context=user_context
-            )
+            task_packet = supervisor.generate_task_packet(query=query, user_context=user_context)
 
             # 创建 AgentTask 记录
             task = AgentTask.objects.create(
@@ -180,9 +176,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
-            return Response(
-                {"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         if task.status != "pending":
             return Response(
@@ -206,9 +200,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
-            return Response(
-                {"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         action_type = request.data.get("action")
         if action_type not in ["pause", "resume", "cancel"]:
@@ -235,6 +227,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
             task.save()
             # 重新触发 Celery 任务
             from ..tasks import execute_agent_task
+
             execute_agent_task.delay(str(task.task_id))
         elif action_type == "cancel":
             task.status = "cancelled"
@@ -251,9 +244,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
-            return Response(
-                {"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         def event_stream():
             last_seq = 0
@@ -262,9 +253,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
             while time.time() - start_time < timeout:
                 # 查询新事件
-                events = AgentEvent.objects.filter(
-                    task=task, sequence__gt=last_seq
-                ).order_by("sequence")
+                events = AgentEvent.objects.filter(task=task, sequence__gt=last_seq).order_by("sequence")
 
                 for event in events:
                     data = {
@@ -288,9 +277,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
             # 超时
             yield f"data: {json.dumps({'type': 'timeout'})}\n\n"
 
-        response = StreamingHttpResponse(
-            event_stream(), content_type="text/event-stream"
-        )
+        response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache"
         response["X-Accel-Buffering"] = "no"  # 禁用 nginx 缓冲
         return response
@@ -304,15 +291,15 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
-            return Response(
-                {"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND
-            )
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         events = AgentEvent.objects.filter(task=task).order_by("sequence")
         subtasks = AgentSubTask.objects.filter(task=task).order_by("subtask_id")
 
-        return Response({
-            "task": AgentTaskSerializer(task).data,
-            "subtasks": AgentSubTaskSerializer(subtasks, many=True).data,
-            "timeline": AgentEventSerializer(events, many=True).data,
-        })
+        return Response(
+            {
+                "task": AgentTaskSerializer(task).data,
+                "subtasks": AgentSubTaskSerializer(subtasks, many=True).data,
+                "timeline": AgentEventSerializer(events, many=True).data,
+            }
+        )

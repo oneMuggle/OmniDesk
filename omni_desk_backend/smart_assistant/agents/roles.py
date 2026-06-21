@@ -359,8 +359,12 @@ ROLE_PROFILES: dict[AgentRole, RoleProfile] = {
             "如果需要,可以使用工具获取更多信息。"
         ),
         allowed_tools=[
-            "rag_tool", "document_tool", "personnel_tool",
-            "schedule_tool", "memo_tool", "news_tool",
+            "rag_tool",
+            "document_tool",
+            "personnel_tool",
+            "schedule_tool",
+            "memo_tool",
+            "news_tool",
         ],
         max_tokens=4000,
         temperature=0.7,

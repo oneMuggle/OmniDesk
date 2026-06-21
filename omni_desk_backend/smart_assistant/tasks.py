@@ -135,21 +135,18 @@ def execute_agent_task(task_id: str):
         task.tokens_used = result.total_tokens_used
         task.completed_at = timezone.now()
         task.final_output = (
-            result.final_output if isinstance(result.final_output, (dict, list))
+            result.final_output
+            if isinstance(result.final_output, (dict, list))
             else {"raw": result.final_output}
             if result.final_output
             else None
         )
-        task.save(update_fields=[
-            "status", "tokens_used", "completed_at", "final_output"
-        ])
+        task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
 
         # 更新每个 subtask 的状态
         for subtask_result in result.subtask_results:
             try:
-                subtask_obj = AgentSubTask.objects.get(
-                    task=task, subtask_id=subtask_result.subtask_id
-                )
+                subtask_obj = AgentSubTask.objects.get(task=task, subtask_id=subtask_result.subtask_id)
                 subtask_obj.status = subtask_result.status
                 subtask_obj.output = (
                     subtask_result.output
@@ -166,8 +163,10 @@ def execute_agent_task(task_id: str):
 
         # 记录 task.completed / task.failed 事件
         event_type = (
-            "task.completed" if result.status == "success"
-            else "task.failed" if result.status == "failed"
+            "task.completed"
+            if result.status == "success"
+            else "task.failed"
+            if result.status == "failed"
             else "task.completed"  # partial 也算完成
         )
         AgentEvent.objects.create(

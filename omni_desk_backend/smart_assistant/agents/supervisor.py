@@ -65,9 +65,7 @@ class Supervisor:
         for attempt in range(self.max_retries):
             try:
                 # 1. 调用 LLM 生成 JSON
-                llm_output = self._invoke_llm(
-                    query, user_context, previous_errors=last_error
-                )
+                llm_output = self._invoke_llm(query, user_context, previous_errors=last_error)
 
                 # 2. 解析 JSON
                 data = self._parse_json(llm_output)
@@ -88,8 +86,7 @@ class Supervisor:
 
         # 所有重试都失败
         raise ValueError(
-            f"Supervisor 在 {self.max_retries} 次尝试后仍无法生成合法的 TaskPacket。"
-            f"最后错误: {last_error}"
+            f"Supervisor 在 {self.max_retries} 次尝试后仍无法生成合法的 TaskPacket。最后错误: {last_error}"
         )
 
     def _invoke_llm(
@@ -195,15 +192,10 @@ class Supervisor:
         parts = [f"用户查询: {query}"]
 
         if user_context:
-            parts.append(
-                f"用户上下文: {json.dumps(user_context, ensure_ascii=False)}"
-            )
+            parts.append(f"用户上下文: {json.dumps(user_context, ensure_ascii=False)}")
 
         if previous_errors:
-            parts.append(
-                f"\n上一次尝试失败原因: {previous_errors}\n"
-                "请仔细检查 JSON 格式,避免同样的错误。"
-            )
+            parts.append(f"\n上一次尝试失败原因: {previous_errors}\n请仔细检查 JSON 格式,避免同样的错误。")
 
         return "\n".join(parts)
 
@@ -240,9 +232,7 @@ class Supervisor:
             data = json.loads(cleaned)
             if isinstance(data, dict):
                 return data
-            raise ValueError(
-                f"JSON 解析结果不是 dict,而是 {type(data).__name__}"
-            )
+            raise ValueError(f"JSON 解析结果不是 dict,而是 {type(data).__name__}")
         except json.JSONDecodeError:
             pass
 

@@ -204,9 +204,7 @@ class MultiAgentExecutor:
             # 最终合成(如果有)
             final_output = None
             if self.task_packet.final_synthesis:
-                synth_result = self._run_subtask_with_retry(
-                    self.task_packet.final_synthesis, self.context
-                )
+                synth_result = self._run_subtask_with_retry(self.task_packet.final_synthesis, self.context)
                 subtask_results.append(synth_result)
                 if synth_result.status == "success":
                     final_output = synth_result.output
@@ -232,21 +230,27 @@ class MultiAgentExecutor:
                 total_duration_ms=total_duration,
             )
 
-            self.event_bus.emit("task.completed", {
-                "task_id": self.task_packet.task_id,
-                "status": status,
-                "total_tokens": total_tokens,
-                "total_duration_ms": total_duration,
-            })
+            self.event_bus.emit(
+                "task.completed",
+                {
+                    "task_id": self.task_packet.task_id,
+                    "status": status,
+                    "total_tokens": total_tokens,
+                    "total_duration_ms": total_duration,
+                },
+            )
 
             return result
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
-            self.event_bus.emit("task.failed", {
-                "task_id": self.task_packet.task_id,
-                "error": str(e),
-            })
+            self.event_bus.emit(
+                "task.failed",
+                {
+                    "task_id": self.task_packet.task_id,
+                    "error": str(e),
+                },
+            )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",
@@ -268,17 +272,22 @@ class MultiAgentExecutor:
         for subtask in execution_order:
             # 检查 Token 预算
             if self.context.is_budget_exhausted():
-                self.event_bus.emit("subtask.skipped", {
-                    "subtask_id": subtask.id,
-                    "reason": "token_budget_exhausted",
-                })
-                results.append(SubTaskResult(
-                    subtask_id=subtask.id,
-                    role=subtask.role,
-                    output={},
-                    status="skipped",
-                    error_message="Token 预算已耗尽",
-                ))
+                self.event_bus.emit(
+                    "subtask.skipped",
+                    {
+                        "subtask_id": subtask.id,
+                        "reason": "token_budget_exhausted",
+                    },
+                )
+                results.append(
+                    SubTaskResult(
+                        subtask_id=subtask.id,
+                        role=subtask.role,
+                        output={},
+                        status="skipped",
+                        error_message="Token 预算已耗尽",
+                    )
+                )
                 continue
 
             # 检查依赖 subtask 是否成功
@@ -292,25 +301,31 @@ class MultiAgentExecutor:
             if deps_failed:
                 # 依赖失败,根据 failure_mode 决定行为
                 if subtask.failure_mode == FailureMode.ABORT:
-                    self.event_bus.emit("task.aborted", {
-                        "subtask_id": subtask.id,
-                        "reason": "dependency_failed",
-                    })
-                    raise RuntimeError(
-                        f"Subtask '{subtask.id}' 的依赖失败,任务终止"
+                    self.event_bus.emit(
+                        "task.aborted",
+                        {
+                            "subtask_id": subtask.id,
+                            "reason": "dependency_failed",
+                        },
                     )
+                    raise RuntimeError(f"Subtask '{subtask.id}' 的依赖失败,任务终止")
                 elif subtask.failure_mode == FailureMode.SKIP:
-                    self.event_bus.emit("subtask.skipped", {
-                        "subtask_id": subtask.id,
-                        "reason": "dependency_failed",
-                    })
-                    results.append(SubTaskResult(
-                        subtask_id=subtask.id,
-                        role=subtask.role,
-                        output={},
-                        status="skipped",
-                        error_message="依赖的 subtask 失败",
-                    ))
+                    self.event_bus.emit(
+                        "subtask.skipped",
+                        {
+                            "subtask_id": subtask.id,
+                            "reason": "dependency_failed",
+                        },
+                    )
+                    results.append(
+                        SubTaskResult(
+                            subtask_id=subtask.id,
+                            role=subtask.role,
+                            output={},
+                            status="skipped",
+                            error_message="依赖的 subtask 失败",
+                        )
+                    )
                     continue
                 # FALLBACK / RETRY: 继续执行,让 subtask 自己处理
 
@@ -324,9 +339,7 @@ class MultiAgentExecutor:
 
         return results
 
-    def _run_subtask_with_retry(
-        self, subtask: SubTask, ctx: SharedContext
-    ) -> SubTaskResult:
+    def _run_subtask_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask,支持重试
 
         根据 subtask.failure_mode 决定重试策略:
@@ -336,9 +349,7 @@ class MultiAgentExecutor:
         Returns:
             SubTaskResult
         """
-        max_retries = (
-            self.MAX_RETRIES if subtask.failure_mode == FailureMode.RETRY else 0
-        )
+        max_retries = self.MAX_RETRIES if subtask.failure_mode == FailureMode.RETRY else 0
         last_result: SubTaskResult | None = None
 
         for attempt in range(max_retries + 1):
@@ -356,11 +367,14 @@ class MultiAgentExecutor:
                 recovery_action=f"retry_attempt_{attempt + 1}",
             )
 
-            self.event_bus.emit("subtask.failed", {
-                "subtask_id": subtask.id,
-                "attempt": attempt + 1,
-                "error": result.error_message,
-            })
+            self.event_bus.emit(
+                "subtask.failed",
+                {
+                    "subtask_id": subtask.id,
+                    "attempt": attempt + 1,
+                    "error": result.error_message,
+                },
+            )
 
             # 如果还有重试机会,继续
             if attempt < max_retries:
@@ -406,10 +420,13 @@ class MultiAgentExecutor:
             SubTaskResult
         """
         start_time = time.time()
-        self.event_bus.emit("subtask.started", {
-            "subtask_id": subtask.id,
-            "role": subtask.role.value,
-        })
+        self.event_bus.emit(
+            "subtask.started",
+            {
+                "subtask_id": subtask.id,
+                "role": subtask.role.value,
+            },
+        )
 
         try:
             # 获取角色配置
@@ -425,18 +442,19 @@ class MultiAgentExecutor:
             output, artifacts = self._parse_llm_output(content, subtask)
 
             # 记录 Token 消耗
-            tokens_used = (
-                usage.get("total_tokens", 0) if isinstance(usage, dict) else 0
-            )
+            tokens_used = usage.get("total_tokens", 0) if isinstance(usage, dict) else 0
             ctx.consume_tokens(tokens_used)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
-            self.event_bus.emit("subtask.completed", {
-                "subtask_id": subtask.id,
-                "tokens_used": tokens_used,
-                "duration_ms": duration_ms,
-            })
+            self.event_bus.emit(
+                "subtask.completed",
+                {
+                    "subtask_id": subtask.id,
+                    "tokens_used": tokens_used,
+                    "duration_ms": duration_ms,
+                },
+            )
 
             return SubTaskResult(
                 subtask_id=subtask.id,
@@ -506,9 +524,7 @@ class MultiAgentExecutor:
 
         return content, usage
 
-    def _parse_llm_output(
-        self, content: str, subtask: SubTask
-    ) -> tuple[dict | str, dict]:
+    def _parse_llm_output(self, content: str, subtask: SubTask) -> tuple[dict | str, dict]:
         """解析 LLM 输出
 
         尝试将 LLM 输出解析为 JSON,如果失败则保留原始字符串。

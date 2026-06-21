@@ -212,9 +212,7 @@ class HookRegistry:
 
     def __init__(self) -> None:
         # {event: [(priority, hook), ...]}
-        self._hooks: dict[HookEvent, list[tuple[int, ToolHook]]] = {
-            event: [] for event in HookEvent
-        }
+        self._hooks: dict[HookEvent, list[tuple[int, ToolHook]]] = {event: [] for event in HookEvent}
         self._results: list[HookResult] = []  # 最近的执行结果(用于调试)
 
     def register(
@@ -248,9 +246,7 @@ class HookRegistry:
     def unregister(self, hook: ToolHook) -> None:
         """注销 Hook(从所有事件中移除)"""
         for event in HookEvent:
-            self._hooks[event] = [
-                (p, h) for p, h in self._hooks[event] if h is not hook
-            ]
+            self._hooks[event] = [(p, h) for p, h in self._hooks[event] if h is not hook]
 
     def list_hooks(self, event: HookEvent | None = None) -> list[ToolHook]:
         """列出已注册的 Hook
