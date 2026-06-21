@@ -4,44 +4,61 @@ const BASE_URL = 'smart-assistant';
 
 /**
  * 发送智能聊天（SSE 流式）
- * 返回 ReadableStream
+ * 返回 { bodyPromise, abort } 对象
+ * - bodyPromise: Promise<ReadableStream>，解析为响应体
+ * - abort: 取消请求的函数
  */
-export async function sendSmartChatStream(query, conversationId = null) {
-  const body = { query };
-  if (conversationId) {
-    body.conversation_id = conversationId;
-  }
+export function sendSmartChatStream(query, conversationId = null) {
+  const abortController = new AbortController();
 
-  const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
-  const token = authTokens.access;
-  try {
-    const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    });
-
-    if (response.status === 401) {
-      throw new Error('AUTH_ERROR');
-    }
-    if (!response.ok) {
-      throw new Error('NETWORK_ERROR');
+  const requestPromise = (async () => {
+    const body = { query };
+    if (conversationId) {
+      body.conversation_id = conversationId;
     }
 
-    return response.body;
-  } catch (error) {
-    if (error.message === 'AUTH_ERROR') {
-      throw new Error('认证已过期，请重新登录');
+    const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
+    const token = authTokens.access;
+
+    try {
+      const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        signal: abortController.signal,
+      });
+
+      if (response.status === 401) {
+        throw new Error('AUTH_ERROR');
+      }
+      if (!response.ok) {
+        throw new Error('NETWORK_ERROR');
+      }
+
+      return response.body;
+    } catch (error) {
+      if (error.name === 'AbortError') {
+        // 用户主动取消，不视为错误
+        return null;
+      }
+      if (error.message === 'AUTH_ERROR') {
+        throw new Error('认证已过期，请重新登录');
+      }
+      if (error.message === 'NETWORK_ERROR') {
+        throw new Error('网络连接失败，请检查网络');
+      }
+      // Fetch 错误通常是网络问题
+      throw new Error('服务不可用，请稍后再试');
     }
-    if (error.message === 'NETWORK_ERROR') {
-      throw new Error('网络连接失败，请检查网络');
-    }
-    // Fetch 错误通常是网络问题
-    throw new Error('服务不可用，请稍后再试');
-  }
+  })();
+
+  return {
+    bodyPromise: requestPromise,
+    abort: () => abortController.abort(),
+  };
 }
 
 /**

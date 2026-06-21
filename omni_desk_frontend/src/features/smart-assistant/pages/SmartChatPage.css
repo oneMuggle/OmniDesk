@@ -193,6 +193,14 @@
   cursor: not-allowed;
 }
 
+.smart-chat-input-form .stop-btn {
+  background: #ff4d4f;
+}
+
+.smart-chat-input-form .stop-btn:hover {
+  background: #ff7875;
+}
+
 /* 消息搜索栏 */
 .message-search-bar {
   padding: 8px 16px;

@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { FloatButton, Drawer, Input, Button, Spin } from 'antd';
-import { RobotOutlined, SendOutlined, FullscreenOutlined, CloseOutlined } from '@ant-design/icons';
+import { RobotOutlined, SendOutlined, FullscreenOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons';
 import { sendSmartChatStream, createSession } from '../../features/smart-assistant/api/smartAssistantApi';
 import ToolResult from '../../features/smart-assistant/components/ToolResult';
 import { useNavigate } from 'react-router-dom';
@@ -16,7 +16,9 @@ const QuickAssistant = () => {
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [streamingMeta, setStreamingMeta] = useState(null);
   const [sessionId, setSessionId] = useState(null);
+  const [isCancelled, setIsCancelled] = useState(false);
   const messagesEndRef = useRef(null);
+  const abortRef = useRef(null);
   const navigate = useNavigate();
 
   const scrollToBottom = () => {
@@ -67,9 +69,18 @@ const QuickAssistant = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
+    setIsCancelled(false);
 
     try {
-      const stream = await sendSmartChatStream(query, currentSessionId);
+      const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
+      abortRef.current = abort;
+      const stream = await bodyPromise;
+
+      if (!stream) {
+        // 用户取消或连接失败
+        return;
+      }
+
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -95,9 +106,20 @@ const QuickAssistant = () => {
         }
       }
     } catch (error) {
-      setStreamingAnswer(`[错误] ${error.message}`);
+      if (!isCancelled) {
+        setStreamingAnswer(`[错误] ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
+    }
+  };
+
+  const handleStop = () => {
+    if (abortRef.current) {
+      setIsCancelled(true);
+      abortRef.current();
+      abortRef.current = null;
     }
   };
 
@@ -220,13 +242,22 @@ const QuickAssistant = () => {
             autoSize={{ minRows: 1, maxRows: 4 }}
             className="qa-input"
           />
-          <Button
-            type="primary"
-            icon={<SendOutlined />}
-            onClick={handleSend}
-            disabled={isLoading || !inputMessage.trim()}
-            className="qa-send-btn"
-          />
+          {isLoading ? (
+            <Button
+              danger
+              icon={<StopOutlined />}
+              onClick={handleStop}
+              className="qa-stop-btn"
+            />
+          ) : (
+            <Button
+              type="primary"
+              icon={<SendOutlined />}
+              onClick={handleSend}
+              disabled={!inputMessage.trim()}
+              className="qa-send-btn"
+            />
+          )}
         </div>
       </Drawer>
     </>
