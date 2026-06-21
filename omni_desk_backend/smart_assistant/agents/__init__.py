@@ -12,8 +12,8 @@
 - roles.py: AgentRole 枚举 + RoleProfile + ROLE_PROFILES 注册表
 - task_packet.py: TaskPacket / SubTask / ExecutionMode / FailureMode + TaskPacketValidator
 - shared_context.py: SharedContext 跨 agent 共享上下文 + Decision + ErrorRecord
-- executor.py: MultiAgentExecutor 主执行器(待实现)
-- pipeline.py / fanout.py / hierarchical.py: 三种执行模式(待实现)
+- executor.py: MultiAgentExecutor 主执行器(Pipeline 模式已实现)+ SubTaskResult / TaskResult / EventBus
+- pipeline.py / fanout.py / hierarchical.py: 三种执行模式(待抽出)
 - quality_gate.py: 质量门禁(待实现)
 - recovery.py: Recovery Recipes 故障自愈(待实现)
 - supervisor.py: Supervisor LLM 任务分解(待实现)
@@ -28,6 +28,13 @@ from .task_packet import (
     TaskPacketValidator,
 )
 from .shared_context import Decision, ErrorRecord, SharedContext
+from .executor import (
+    EventBus,
+    Event,
+    MultiAgentExecutor,
+    SubTaskResult,
+    TaskResult,
+)
 
 __all__ = [
     # roles.py
@@ -45,4 +52,10 @@ __all__ = [
     "Decision",
     "ErrorRecord",
     "SharedContext",
+    # executor.py
+    "Event",
+    "EventBus",
+    "MultiAgentExecutor",
+    "SubTaskResult",
+    "TaskResult",
 ]
