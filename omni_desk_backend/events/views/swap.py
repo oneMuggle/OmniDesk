@@ -3,6 +3,7 @@
 拆分自原 events/views.py(Phase 3 优化)。包含:
 - SwapRequestViewSet: 排班换班申请(两人互认即生效,决策 1C)
 """
+
 import logging
 from datetime import timedelta
 

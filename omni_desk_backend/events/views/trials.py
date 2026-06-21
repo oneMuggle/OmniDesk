@@ -5,6 +5,7 @@
 - EquipmentViewSet: 设备 CRUD
 - TimeSlotViewSet: 时间段 CRUD + 批量创建
 """
+
 import logging
 from datetime import timedelta
 

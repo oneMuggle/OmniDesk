@@ -156,8 +156,7 @@ def execute_agent_task(task_id: str):
         # 更新每个 subtask 的状态(批量查询替代循环 get,修复 N+1)
         subtask_ids = [r.subtask_id for r in result.subtask_results]
         subtask_objs = {
-            str(obj.subtask_id): obj
-            for obj in AgentSubTask.objects.filter(task=task, subtask_id__in=subtask_ids)
+            str(obj.subtask_id): obj for obj in AgentSubTask.objects.filter(task=task, subtask_id__in=subtask_ids)
         }
 
         for subtask_result in result.subtask_results:

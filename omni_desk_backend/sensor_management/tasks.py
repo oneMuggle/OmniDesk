@@ -36,11 +36,7 @@ def check_and_create_calibration_reminders():
     today = timezone.now().date()
 
     # 预查询管理员用户(避免循环内重复查询,修复 N+1)
-    admin_users = list(
-        CustomUser.objects.filter(
-            Q(is_superuser=True) | Q(groups__name__in=["Admin", "Manager"])
-        )
-    )
+    admin_users = list(CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name__in=["Admin", "Manager"])))
 
     if not admin_users:
         logger.warning("无管理员用户，跳过校准提醒任务")

@@ -10,6 +10,7 @@ Phase 3 优化:将原 791 行 events/views.py 拆分为子模块。
 - sequences: PersonnelSequenceViewSet, LeaderSequenceViewSet, HolidayViewSet
 - swap: SwapRequestViewSet
 """
+
 from .announcements import AnnouncementViewSet, ImageUploadView
 from .schedules import MyScheduleView, ScheduleViewSet
 from .sequences import HolidayViewSet, LeaderSequenceViewSet, PersonnelSequenceViewSet
