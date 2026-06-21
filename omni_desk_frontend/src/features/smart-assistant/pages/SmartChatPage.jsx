@@ -68,7 +68,9 @@ const SmartChatPage = () => {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showSessionList, setShowSessionList] = useState(false);
+  const [isCancelled, setIsCancelled] = useState(false);
   const messagesEndRef = useRef(null);
+  const abortRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -158,9 +160,18 @@ const SmartChatPage = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
+    setIsCancelled(false);
 
     try {
-      const stream = await sendSmartChatStream(inputMessage, currentSessionId);
+      const { bodyPromise, abort } = sendSmartChatStream(inputMessage, currentSessionId);
+      abortRef.current = abort;
+      const stream = await bodyPromise;
+
+      if (!stream) {
+        // 用户取消或连接失败
+        return;
+      }
+
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -194,9 +205,12 @@ const SmartChatPage = () => {
         }
       }
     } catch (error) {
-      setStreamingAnswer(`[错误] ${error.message}`);
+      if (!isCancelled) {
+        setStreamingAnswer(`[错误] ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
   };
 
@@ -239,9 +253,18 @@ const SmartChatPage = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
+    setIsCancelled(false);
 
     try {
-      const stream = await sendSmartChatStream(lastUserMsg.content, currentSessionId);
+      const { bodyPromise, abort } = sendSmartChatStream(lastUserMsg.content, currentSessionId);
+      abortRef.current = abort;
+      const stream = await bodyPromise;
+
+      if (!stream) {
+        // 用户取消或连接失败
+        return;
+      }
+
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
@@ -273,11 +296,23 @@ const SmartChatPage = () => {
         }
       }
     } catch (error) {
-      setStreamingAnswer(`[错误] ${error.message}`);
+      if (!isCancelled) {
+        setStreamingAnswer(`[错误] ${error.message}`);
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
-  }, [messages, currentSessionId, parseSSE]);
+  }, [messages, currentSessionId, parseSSE, isCancelled]);
+
+  // 停止生成
+  const handleStop = useCallback(() => {
+    if (abortRef.current) {
+      setIsCancelled(true);
+      abortRef.current();
+      abortRef.current = null;
+    }
+  }, []);
 
   return (
     <div className="smart-chat-container">
@@ -389,9 +424,15 @@ const SmartChatPage = () => {
           placeholder="问我任何问题，例如：明天谁值班？"
           disabled={isLoading}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? '发送中...' : '发送'}
-        </button>
+        {isLoading ? (
+          <button type="button" onClick={handleStop} className="stop-btn">
+            停止
+          </button>
+        ) : (
+          <button type="submit" disabled={!inputMessage.trim()}>
+            发送
+          </button>
+        )}
       </form>
     </div>
   );
