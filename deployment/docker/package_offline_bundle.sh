@@ -123,6 +123,22 @@ load_images() {
         fi
     done
     echo "镜像加载完成。"
+
+    # 同步 GHCR 命名,使 compose 文件中的 ghcr.io/onemuggle/* 镜像引用能找到本地 tag
+    # (docker load 后镜像以源名 omni-desk-*-prod:vX.Y.Z 存在,需 alias 到 ghcr.io 全名)
+    local version
+    version=$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo "")
+    if [ -n "$version" ]; then
+        echo "同步 GHCR 镜像命名 (v${version})..."
+        docker tag "omni-desk-backend-prod:v${version}"  "ghcr.io/onemuggle/omni-desk-backend:v${version}"  2>/dev/null \
+            && echo "  tagged: ghcr.io/onemuggle/omni-desk-backend:v${version}" \
+            || echo "  WARN: backend retag 失败 (源镜像可能不存在)"
+        docker tag "omni-desk-frontend-prod:v${version}" "ghcr.io/onemuggle/omni-desk-frontend:v${version}" 2>/dev/null \
+            && echo "  tagged: ghcr.io/onemuggle/omni-desk-frontend:v${version}" \
+            || echo "  WARN: frontend retag 失败 (源镜像可能不存在)"
+    else
+        echo "WARN: VERSION 文件缺失或为空,跳过 GHCR 镜像重命名"
+    fi
 }
 
 # ─── 生成 .env.production ──────────────────────────────────
@@ -309,13 +325,20 @@ done
 # ─── 复制 compose 配置 ─────────────────────────────────────
 echo "复制 docker-compose 配置..."
 cp "$SCRIPT_DIR/docker-compose.offline.yml" "$BUNDLE_DIR/compose/docker-compose.offline.yml"
-echo "  OK: docker-compose.offline.yml"
+# 用 sed 把 bundle 内 compose 文件的 IMAGE_TAG default fallback 替换为当前构建版本
+# (源文件保持 v0.4.0 不动,只让 bundle 副本与本次构建版本对齐)
+sed -i "s/BACKEND_IMAGE_TAG:-v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG:-v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/docker-compose.offline.yml"
+sed -i "s/FRONTEND_IMAGE_TAG:-v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG:-v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/docker-compose.offline.yml"
+echo "  OK: docker-compose.offline.yml (IMAGE_TAG fallback → v${BUILD_VERSION})"
 
 # ─── 复制配置模板 ──────────────────────────────────────────
 echo "复制配置模板..."
 if [ -f "$SCRIPT_DIR/.env.production.example" ]; then
     cp "$SCRIPT_DIR/.env.production.example" "$BUNDLE_DIR/config/"
-    echo "  OK: .env.production.example"
+    # 用 sed 把 bundle 内 example env 的 IMAGE_TAG 默认值替换为当前构建版本
+    sed -i "s/^BACKEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
+    sed -i "s/^FRONTEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
+    echo "  OK: .env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
 else
     echo "  WARN: .env.production.example 不存在,跳过配置模板复制"
 fi

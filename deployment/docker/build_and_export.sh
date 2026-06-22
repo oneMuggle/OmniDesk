@@ -41,7 +41,7 @@ BACKEND_IMAGE_LATEST="omni-desk-backend-prod:latest"
 FRONTEND_IMAGE_LATEST="omni-desk-frontend-prod:latest"
 
 # 基础镜像（离线模式下使用本地已有镜像）
-POSTGRES_IMAGE="postgres:14.2"
+POSTGRES_IMAGE="postgres:14-alpine"
 REDIS_IMAGE="redis:7-alpine"
 NGINX_IMAGE="nginx:stable-alpine"
 
@@ -236,8 +236,10 @@ echo "=========================================="
 echo ""
 
 echo "Saving images to .tar files..."
-docker save -o "$EXPORT_DIR/omni_desk_backend.tar" "$BACKEND_IMAGE"
-docker save -o "$EXPORT_DIR/omni_desk_frontend.tar" "$FRONTEND_IMAGE"
+# 同时保存源名 + GHCR 全名 tag,使 tar 在新机器 docker load 后无需额外 docker tag
+# (经实测:多 tag save 不会重复 layer,体积不变,只 1 layer)
+docker save -o "$EXPORT_DIR/omni_desk_backend.tar" "$BACKEND_IMAGE" "$BACKEND_IMAGE_GHCR"
+docker save -o "$EXPORT_DIR/omni_desk_frontend.tar" "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_GHCR"
 docker save -o "$EXPORT_DIR/postgres-14-alpine.tar" "$POSTGRES_IMAGE"
 docker save -o "$EXPORT_DIR/redis-7-alpine.tar" "$REDIS_IMAGE"
 docker save -o "$EXPORT_DIR/nginx-stable-alpine.tar" "$NGINX_IMAGE"
