@@ -165,6 +165,8 @@ with open('compose/.env.production', 'r') as f:
     content = f.read()
 content = re.sub(r'<GENERATE-NEW-SECRET-KEY>', secrets.token_urlsafe(50), content)
 content = re.sub(r'<CHANGE-TO-STRONG-PASSWORD>', secrets.token_urlsafe(20), content)
+# DB 用户名不是密钥,使用固定默认值即可(密码才是密钥)
+content = re.sub(r'<CHANGE-TO-DB-USER>', 'omni_desk_user', content)
 with open('compose/.env.production', 'w') as f:
     f.write(content)
 "
