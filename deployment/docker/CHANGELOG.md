@@ -13,24 +13,35 @@
 
 ## [未发布]
 
+## [0.5.0] - 2026-06-22
+
 ### 新增
-- **智能助手 3 个新工具(阶段 3)** — `AnnouncementTool` / `ComplianceTool` / `ExternalLinkTool`
-  - `announcement_query`:查询 `communication.Post`(未过期+未归档),关键词匹配 title/content,上限 10 条
-  - `compliance_query`:查询 `compliance.ComplianceIssue`(待处理+处理中),按业务优先级排序(紧急>高>中>低)
-  - `external_link_query`:查询 `external_integration.ExternalLink`(active),支持 SSO 链接
-  - 详情见 `docs/plans/2026-06-07_smart-assistant-stage3-new-tools.md` 与 `docs/technical/16-smart-assistant.md §2.2.1`
-- **`ToolContext` 类型化抽象** — 替代裸 dict,`frozen=True` dataclass 含 `user` / `request_id` / `history` 字段,`from_request()` 工厂方法
-- **`BaseTool.required_auth: bool = True` 字段** — fail-closed 默认值;`ToolRegistry.get_tool_for_user(intent_type, user)` 分发时校验,未授权返回 `None`
-- **前端 `ToolResult.jsx` 3 个新卡片** — AnnouncementCard(geekblue)/ComplianceCard(red 含严重程度 + 状态 tag)/LinkCard(cyan 含 SSO 标签)
+- **智能助手 — 多 Agent 协作(里程碑 1.1–1.4)**
+  - 基础设施:`TaskPacket` 任务包、`SharedContext` 共享上下文、`MultiAgentExecutor` Pipeline 执行器
+  - `Supervisor` 任务分解 + `IntentClassifier` 分流、REST API + SSE 推送
+  - 工具未找到返回友好提示(rather than '无权限')
+  - 显示体验优化:添加取消功能、改进 `<think>` 内容展示
+- **前端 — 图片上传与表单校验**
+  - `RichTextEditor` 恢复图片上传(`@tiptap/extension-image`)
+  - `zod` 表单校验试点(登录页)+ 表单模式文档
+- **可观测性** — 关键路径结构化日志(登录 / 权限 / Celery)
+- **DevTools** — `django-silk` dev 模式接入(SQL profiling)
 
 ### 变更
-- **`BaseTool.execute` 签名升级**:`context: "ToolContext"` 替代 `context: dict = None`,10 个旧工具兼容(子类 override 允许签名偏离基类)
-- **覆盖率门槛 85% 维持**:模块总覆盖率 96%(1430 statements),`smart_assistant/tools/registry.py` 62%(Task 0.3 `get_tool_for_user` 部分未 E2E 覆盖,后续 Task 4.1 E2E 4 场景已部分覆盖)
-- **测试基线 392 passed + 11 xpassed**(smart_assistant 后端);371 passed(前端)
+- **前端构建** — `src/shared/api` 全部转 TypeScript(12 文件)
+- **前端性能** — `React.lazy` 拆分 editor / docprocessing / markdown 页面
+- **前端依赖** — `react-quill → tiptap` 迁移(修 quill XSS CVE);`npm audit` overrides 修 22→3 CVE
+- **Vite target** — build target 提升至 `chrome109`(兼容 Win7 Chrome 109 / Edge 109)
+- **后端重构** — 全面项目优化(四阶段)+ ruff format 规范化
+- **视图集分页** — 恢复 3 处 ViewSet 分页 + 2 处封顶 1000
 
 ### 修复
-- **ComplianceTool severity 排序** — 替换 `order_by("-severity")` 字典序错误(高>紧>低>中)为 `Case/When` 业务优先级(紧急=0/高=1/中=2/低=3)
-- **ComplianceTool `description[:200]` 加 `...` 后缀** — 与 `AnnouncementTool` 一致,LLM 可识别截断
+- 登录表单空值验证消息
+- 前端缺失的 `zod` 依赖
+- 前端依赖与 CI 配置
+- `events.trials.py` 未使用的 `status` import
+- CI:`deploy-test.yml` 镜像 tag `v0.2.0 → v0.4.0`、lint-backend / security 失败、调低 lint-frontend 阻塞阈值
+- ruff format 格式化新增和修改的文件
 
 ## [0.4.0] - 2026-06-05
 
