@@ -13,6 +13,12 @@
 
 ## [未发布]
 
+## [0.5.2] - 2026-06-22
+
+### 修复
+- **deploy.sh generate_env 漏替换 `<CHANGE-TO-DB-USER>` 占位符**: `package_offline_bundle.sh` heredoc 内 `generate_env()` 补上 `re.sub(r'<CHANGE-TO-DB-USER>', 'omni_desk_user', content)`,避免离线部署首次启动时 `POSTGRES_USER` 保留为字面值 `<CHANGE-TO-DB-USER>` 导致 backend 连不上 DB(运行时 entrypoint.sh 死循环 "Database not ready yet, retrying...")
+- 此问题由本次会话的离线包部署测试发现(在 `omnidesk-offline-v0.5.0` 复现)
+
 ## [0.5.1] - 2026-06-22
 
 ### 修复
