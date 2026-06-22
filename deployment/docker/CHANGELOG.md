@@ -13,6 +13,14 @@
 
 ## [未发布]
 
+## [0.5.1] - 2026-06-22
+
+### 修复
+- **离线部署包 .tar 镜像 RepoTags 缺 GHCR 全名**: `docker save` 改用 source + GHCR 双 tag,加载后无需额外 retag 即可被 compose 识别为 `ghcr.io/onemuggle/*` 镜像,避免部署兜底走 GHCR
+- **离线包内 compose/env 的 IMAGE_TAG 默认值不同步**: `package_offline_bundle.sh` 在复制 compose/env 到 bundle 后,用 `sed` 把默认 tag 替换为 `${BUILD_VERSION}`,下次打 v0.5.1+ 自动正确
+- **package_offline_bundle.sh heredoc 内 deploy.sh 缺 retag 逻辑**: 添加 11 行 retag,作为双保险(即便 tar 内 RepoTags 不全,部署时也能补)
+- **POSTGRES_IMAGE 变量与 tar/compose 不一致**: `postgres:14.2` → `postgres:14-alpine`(与 BUILD-MANIFEST.json / compose / 实际 tar 对齐)
+
 ## [0.5.0] - 2026-06-22
 
 ### 新增
