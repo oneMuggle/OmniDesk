@@ -78,6 +78,9 @@ RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requiremen
 # Copy application source
 COPY --chown=app:app omni_desk_backend/ .
 
+# Copy VERSION file so core/version.py can read the deployed version
+COPY deployment/docker/VERSION deployment/docker/VERSION
+
 # Ensure the entrypoint script has correct line endings and is executable
 RUN sed -i 's/\r$//' ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh
