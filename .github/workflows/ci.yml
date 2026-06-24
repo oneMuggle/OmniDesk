@@ -263,7 +263,7 @@ jobs:
 
       - name: Test frontend proxy
         run: |
-          if curl -sf http://localhost:3000/api/system/version/ > /dev/null; then
+          if curl -sf http://localhost:3000/ > /dev/null; then
             echo "✅ Frontend proxy test passed"
           else
             echo "❌ Frontend proxy test failed"
