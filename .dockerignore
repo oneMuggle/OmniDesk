@@ -5,6 +5,7 @@
 # Node.js / Frontend
 node_modules
 omni_desk_frontend/
+!omni_desk_frontend/public/routes.json
 package.json
 package-lock.json
 .npmignore
