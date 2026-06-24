@@ -54,10 +54,12 @@ class UserRegistrationView(generics.CreateAPIView):
             response = super().dispatch(request, *args, **kwargs)
             # 确保 DRF Response 有 accepted_renderer
             from rest_framework.response import Response
-            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
                 from rest_framework.renderers import JSONRenderer
+
                 response.accepted_renderer = JSONRenderer()
-                response.accepted_media_type = 'application/json'
+                response.accepted_media_type = "application/json"
             return response
         except ValidationError as e:
             # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
@@ -132,10 +134,12 @@ class UserLoginView(TokenObtainPairView):
             response = super().dispatch(request, *args, **kwargs)
             # 确保 DRF Response 有 accepted_renderer
             from rest_framework.response import Response
-            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
                 from rest_framework.renderers import JSONRenderer
+
                 response.accepted_renderer = JSONRenderer()
-                response.accepted_media_type = 'application/json'
+                response.accepted_media_type = "application/json"
             return response
         except ValidationError as e:
             # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
@@ -308,10 +312,12 @@ class GuestLoginView(generics.CreateAPIView):
             response = super().dispatch(request, *args, **kwargs)
             # 确保 DRF Response 有 accepted_renderer
             from rest_framework.response import Response
-            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
                 from rest_framework.renderers import JSONRenderer
+
                 response.accepted_renderer = JSONRenderer()
-                response.accepted_media_type = 'application/json'
+                response.accepted_media_type = "application/json"
             return response
         except ValidationError as e:
             # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
