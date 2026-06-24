@@ -1,12 +1,12 @@
 from django.contrib.auth import login as django_login
-from django.db import IntegrityError
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 from rest_framework import exceptions, generics, permissions, status, viewsets
 from rest_framework.decorators import api_view
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
@@ -46,44 +46,48 @@ class UserRegistrationView(generics.CreateAPIView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+                from rest_framework.renderers import JSONRenderer
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = 'application/json'
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
 
     def create(self, request, *args, **kwargs):
+        # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+        # 背景:DRF 的 exception_handler 返回的 Response 在某些条件下
+        # (例如 Django 内置 RegexValidator 触发时)未经过 finalize_response,
+        # 导致 accepted_renderer 未设置,触发 AssertionError → 500
+        serializer = self.get_serializer(data=request.data)
         try:
-            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            user = serializer.save()
+        except ValidationError as e:
+            return JsonResponse(e.detail, status=400, safe=False)
 
-            return Response(
-                {
-                    "success": True,
-                    "message": "注册成功，请登录",
-                    "username": user.username,
-                    "user": UserDetailSerializer(user).data,
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        except exceptions.APIException as e:
-            error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else "validation_error"
-            return Response(
-                {"success": False, "error": error_key, "message": "注册验证失败", "validation_errors": e.detail},
-                status=e.status_code,
-            )
-        except IntegrityError:
-            import traceback
+        user = serializer.save()
 
-            traceback.print_exc()
-            error_data = {
-                "success": False,
-                "error": "username_exists",
-                "detail": "用户名已被使用",
-                "validation_errors": serializer.errors if "serializer" in locals() else {},
-            }
-            return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "success": True,
+                "message": "注册成功,请登录",
+                "username": user.username,
+                "user": UserDetailSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -120,11 +124,25 @@ class UserLoginView(TokenObtainPairView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+                from rest_framework.renderers import JSONRenderer
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = 'application/json'
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
 
     def post(self, request, *args, **kwargs):
         """登录端点,覆盖父类以发出结构化登录事件日志。
@@ -282,11 +300,25 @@ class GuestLoginView(generics.CreateAPIView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+            if isinstance(response, Response) and not hasattr(response, 'accepted_renderer'):
+                from rest_framework.renderers import JSONRenderer
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = 'application/json'
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
 
     def create(self, request, *args, **kwargs):
         user = self.perform_create()
