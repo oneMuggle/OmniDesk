@@ -66,7 +66,8 @@ class Personnel(models.Model):
 
     # Basic Info
     name = models.CharField(max_length=100, verbose_name="姓名", db_index=True)
-    id_card_number = EncryptedCharField(max_length=18, unique=True, null=True, blank=True, verbose_name="身份证号")
+    id_card_number = EncryptedCharField(max_length=64, unique=True, null=True, blank=True, verbose_name="身份证号")
+    # max_length 调整为 64:18 字符明文 XOR+base64 加密后变 24 字符密文,18 长度不够
     date_of_birth = models.DateField(verbose_name="出生年月", null=True, blank=True)
     phone_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
     address = models.TextField(verbose_name="家庭住址", blank=True)
@@ -209,7 +210,8 @@ class FamilyMember(models.Model):
     )
     name = models.CharField(max_length=100, verbose_name="姓名")
     relationship = models.CharField(max_length=50, verbose_name="与本人关系")
-    id_card_number = EncryptedCharField(max_length=18, verbose_name="身份证号", blank=True)
+    id_card_number = EncryptedCharField(max_length=64, verbose_name="身份证号", blank=True)
+    # max_length 调整为 64:18 字符明文 XOR+base64 加密后变 24 字符密文,18 长度不够
     contact_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
 
     def __str__(self):
