@@ -176,7 +176,7 @@ jobs:
       - name: Health check - Backend
         run: |
           for i in {1..10}; do
-            if curl -sf http://localhost:8000/api/system/version/ > /dev/null; then
+            if curl -sf http://localhost:8000/api/health/ > /dev/null; then
               echo "✅ Backend is healthy"
               exit 0
             fi
