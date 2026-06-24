@@ -143,23 +143,27 @@ load_images() {
 
 # ─── 生成 .env.production ──────────────────────────────────
 generate_env() {
+    # 读取当前 VERSION(用于 IMAGE_TAG 同步)
+    local version=""
+    if [ -f "VERSION" ]; then
+        version=$(cat VERSION | tr -d '[:space:]')
+    fi
+
     if [ -f "config/.env.production" ]; then
         echo ".env.production 已存在，使用现有配置。"
         cp config/.env.production compose/.env.production
-        return
-    fi
+    else
+        if [ ! -f "config/.env.production.example" ]; then
+            echo "ERROR: config/.env.production.example 不存在"
+            exit 1
+        fi
 
-    if [ ! -f "config/.env.production.example" ]; then
-        echo "ERROR: config/.env.production.example 不存在"
-        exit 1
-    fi
+        echo "从模板生成 .env.production..."
+        cp config/.env.production.example compose/.env.production
 
-    echo "从模板生成 .env.production..."
-    cp config/.env.production.example compose/.env.production
-
-    # 自动生成密钥
-    if command -v python3 >/dev/null 2>&1; then
-        python3 -c "
+        # 自动生成密钥
+        if command -v python3 >/dev/null 2>&1; then
+            python3 -c "
 import secrets, re
 with open('compose/.env.production', 'r') as f:
     content = f.read()
@@ -170,10 +174,25 @@ content = re.sub(r'<CHANGE-TO-DB-USER>', 'omni_desk_user', content)
 with open('compose/.env.production', 'w') as f:
     f.write(content)
 "
-        echo ".env.production 已生成（含随机密钥）。"
-    else
-        echo "WARNING: python3 not found. Using template with placeholders."
-        echo "请手动编辑 compose/.env.production 替换所有 <...> 占位符。"
+            echo ".env.production 已生成（含随机密钥）。"
+        else
+            echo "WARNING: python3 not found. Using template with placeholders."
+            echo "请手动编辑 compose/.env.production 替换所有 <...> 占位符。"
+        fi
+    fi
+
+    # 自动同步 IMAGE_TAG 与 VERSION 一致(升级时 config/.env.production 仍是旧版本)
+    if [ -n "$version" ]; then
+        local expected_tag="v${version}"
+        local current_backend_tag=$(grep -E "^BACKEND_IMAGE_TAG=" compose/.env.production | cut -d= -f2)
+        local current_frontend_tag=$(grep -E "^FRONTEND_IMAGE_TAG=" compose/.env.production | cut -d= -f2)
+
+        if [ "$current_backend_tag" != "$expected_tag" ] || [ "$current_frontend_tag" != "$expected_tag" ]; then
+            echo "  IMAGE_TAG 与 VERSION 不一致(backend=$current_backend_tag, frontend=$current_frontend_tag, expected=$expected_tag)"
+            echo "  自动更新 IMAGE_TAG → $expected_tag"
+            sed -i "s/^BACKEND_IMAGE_TAG=.*/BACKEND_IMAGE_TAG=$expected_tag/" compose/.env.production
+            sed -i "s/^FRONTEND_IMAGE_TAG=.*/FRONTEND_IMAGE_TAG=$expected_tag/" compose/.env.production
+        fi
     fi
 }
 
