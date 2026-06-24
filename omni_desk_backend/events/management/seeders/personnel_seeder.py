@@ -104,9 +104,8 @@ class PersonnelSeeder(BaseSeeder):
                 Personnel,
                 name=name,
                 defaults={
-                    "id_card_number": f"110101{random.randint(19800101, 19991231):08d}{random.randint(1000, 9999):04d}"[
-                        :18
-                    ],
+                    # 18 字符真实身份证 — model 字段已改为 max_length=64,密文能放下
+                    "id_card_number": f"110101{random.randint(19800101, 19991231):08d}{random.randint(1000, 9999):04d}",
                     "date_of_birth": birth,
                     "phone_number": f"1{random.choice([3, 5, 7, 8, 9])}{random.randint(100000000, 999999999):09d}",
                     "address": f"北京市{random.choice(['朝阳区', '海淀区', '西城区', '东城区', '丰台区'])}某某街道{random.randint(1, 200)}号",
@@ -223,9 +222,7 @@ class PersonnelSeeder(BaseSeeder):
                         name=random.choice(FIRST_NAMES),
                         defaults={
                             "relationship": rel,
-                            "id_card_number": f"110101{random.randint(19600101, 20001231):08d}{random.randint(1000, 9999):04d}"[
-                                :18
-                            ],
+                            "id_card_number": f"110101{random.randint(19600101, 20001231):08d}{random.randint(1000, 9999):04d}",
                             "contact_number": f"1{random.choice([3, 5, 7, 8, 9])}{random.randint(100000000, 999999999):09d}",
                         },
                     )
