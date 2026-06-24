@@ -203,7 +203,7 @@ class TestUserRegistrationSerializer:
         assert not serializer.is_valid()
 
     def test_duplicate_username(self):
-        """重复用户名应在 create 时失败（数据库层唯一性验证）"""
+        """重复用户名应在 is_valid 阶段被检测（避免 DB IntegrityError）"""
         from users.auth_serializers import UserRegistrationSerializer
         CustomUser.objects.create_user(username='existing', password='pass123')
         data = {
@@ -212,13 +212,10 @@ class TestUserRegistrationSerializer:
             'password_confirmation': 'NewPass123',
         }
         serializer = UserRegistrationSerializer(data=data)
-        # serializer.is_valid() 通过（唯一性由 DB 约束保证）
-        assert serializer.is_valid(), serializer.errors
-        # create 时应因 IntegrityError 失败
-        import pytest
-        from django.db import IntegrityError
-        with pytest.raises(IntegrityError):
-            serializer.save()
+        # 修复后:validate_username 提前查 DB,is_valid() 阶段就返回 False
+        assert not serializer.is_valid()
+        assert 'username' in serializer.errors
+        assert '用户名已被使用' in str(serializer.errors['username'])
 
     def test_email_optional(self):
         """email 应为可选字段"""
