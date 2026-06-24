@@ -13,6 +13,45 @@
 
 ## [未发布]
 
+## [0.5.4] - 2026-06-24
+
+### 修复
+
+#### 人员管理
+- **EncryptedCharField max_length=18 → 64 修复 18 字符身份证存储**: `_encrypt_field` 用 XOR+base64 编码,18 字符明文 → 24 字符密文超 `varchar(18)` 限制。`max_length` 改为 64(已有数据保留),并生成 migration 0006。Personnel 和 FamilyMember 同时修改(039f555)
+- **Personnel seeder 用 18 字符真实身份证格式**: 配合 model 修复,seeder 恢复真实身份证格式(110101 + 8 位生日 + 4 位序号)而非短 fake 数据(c896d3e)
+
+#### 路由权限
+- **sync_routes 支持多路径**: backend 容器内找不到 routes.json,改为尝试多个路径(优先 `/usr/src/app/staticfiles/routes.json`,fallback 源码路径)。配合 Dockerfile 复制 routes.json,容器可同步 24 个前端路由(3ada87d + 4ff9460)
+
+#### 后端
+- **Llm Ollama 兜底 candidate 类型检查**: 直接调 `candidate.get("_is_ollama")` 在 candidate 不是 dict 时会抛 AttributeError,改为 `isinstance(candidate, dict) and ...`(e267baf)
+
+#### 前端
+- **登录请求不携带 Authorization 头**: 携带旧 token 可能导致后端用旧 token 验证而非 username/password。Login 检测到 `auth/login` 路径时跳过 Authorization 注入(878a226)
+
+#### 部署配置
+- **修正 postgres 镜像名 + 添加 VITE_API_PROXY_TARGET**: `postgres:14.2` → `postgres:14-alpine`(与 BUILD-MANIFEST.json 对齐);dev compose 添加 `VITE_API_PROXY_TARGET=http://backend:8000` 让 Vite dev server 代理 /api 请求到 backend(51411a1)
+- **backend Dockerfile build 时复制 routes.json**: `COPY omni_desk_frontend/public/routes.json /usr/src/app/staticfiles/routes.json`,让 sync_routes 在生产 backend 镜像中能读到 frontend 路由(4ff9460)
+- **.dockerignore 添加 routes.json negation**: `.dockerignore` 排除整个 `omni_desk_frontend/`,Dockerfile 复制 routes.json 失败。添加 `!omni_desk_frontend/public/routes.json` 让 build context 包含此文件(fc8f2f7)
+
+#### CI
+- **docker-integration job sed 分隔符 / 改 #**: `openssl rand -base64 32` 生成的字符串可能包含 `/` 字符,与 sed 表达式分隔符冲突,触发 `unknown option to 's'` 解析错误。改用 `#` 作为 sed 分隔符(base64 字符集不含 `#`)(e6688fc)
+- **移除对未追踪本地脚本的依赖**: `scripts/validate-config.sh` 和 `scripts/check-container-logs.sh` 是本地未追踪文件,CI runner checkout 时不存在 → `No such file or directory`(91dec57)
+- **所有 step 默认在 deployment/docker 工作目录**: 之前只有部分 step 有 `cd deployment/docker`,`Build Docker images` step 在 repo 根目录跑 `docker compose build` 找不到 compose 文件(c1ef5ff)
+- **健康检查用公开端点 /api/health/ 代替 /api/system/version/**: `/api/system/version/` 需要认证返回 401,改用公开端点 `/api/health/`(c60cd1d)
+- **测试登录 API 前先 migrate 数据库**: 直接 `python manage.py shell` 创建测试用户但数据库表没建 → `no such table: users_customuser`(6deb369)
+- **Test frontend proxy 测试前端根路径 /**: `/api/system/version/` 在 dev compose(vite dev server)需要认证,改测前端根路径 /(98734e6)
+
+### 验证
+- 本地部署 5 个容器全部 healthy
+- gunicorn Permission denied 错误 0,后端 500 错误 0
+- 注册 API 全场景:正常 201、重复用户 400、用户名太短 400、密码不一致 400、空用户名 400、非法字符 400
+- 登录 JWT 返回 access + refresh,refresh token 刷新正常
+- 离线包 v0.5.2 重新打包,backend 镜像重建(包含 14 个 fix)
+- 33+ 个表填充测试数据(15 personnel、89 子表、24 page routes)
+- CI 全绿(8/8 jobs success)
+
 ## [0.5.2] - 2026-06-22
 
 ### 修复
