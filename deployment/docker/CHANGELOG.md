@@ -13,6 +13,16 @@
 
 ## [未发布]
 
+## [0.5.5] - 2026-06-24
+
+### 修复
+- **deploy.sh generate_env 自动同步 IMAGE_TAG 与 VERSION 一致**: 升级时 `config/.env.production` 是上次部署的 IMAGE_TAG(例如 v0.5.2),deploy.sh 直接 cp 不会更新,导致容器还在跑旧版本镜像(本次 v0.5.2 → v0.5.4 升级踩坑)。`generate_env` 末尾增加同步逻辑:读 `VERSION` 与 `compose/.env.production` 当前 IMAGE_TAG 对比,不匹配自动 sed 更新到 `v$VERSION`(`config/.env.production` 保留原样,只更新 `compose/.env.production`)。
+
+### 验证
+- bash 语法 OK(2 文件)
+- 4 个场景逻辑测试通过(升级 v0.5.2→v0.5.4 / 首次部署 / 跨大版本 v0.3.0→v0.5.4 / IMAGE_TAG 缺失)
+- 升级流程:从 v0.5.2 升级到 v0.5.4 不用再手动 sed 改 IMAGE_TAG
+
 ## [0.5.4] - 2026-06-24
 
 ### 修复
