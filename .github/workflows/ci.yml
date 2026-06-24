@@ -221,6 +221,10 @@ jobs:
             exit 1
           fi
 
+      - name: Migrate database
+        run: |
+          docker compose exec -T backend python manage.py migrate
+
       - name: Test login API
         run: |
           # 创建测试用户
