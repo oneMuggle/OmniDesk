@@ -46,4 +46,6 @@ fi
 
 echo "Starting application as 'app' user..."
 # Drop privileges to non-root user for the main process
+# 关键:切换 HOME 到 app 用户的目录,避免 gunicorn 等工具回退到 /root 触发 Permission denied
+export HOME=/home/app
 exec setpriv --reuid=app --regid=app --init-groups "$@"

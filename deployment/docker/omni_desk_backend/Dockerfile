@@ -64,7 +64,9 @@ FROM base AS production
 ENV DJANGO_ENV=production
 
 # Create a non-root user to run the application
-RUN addgroup --system app && adduser --system --group app
+# 显式创建 HOME 目录,避免 gunicorn 等工具回退到 /root(切到 app 用户后无权限)
+RUN addgroup --system app && adduser --system --group app --home /home/app \
+    && mkdir -p /home/app && chown app:app /home/app
 
 # Copy the wheelhouse from the builder stage
 COPY --from=builder /wheelhouse /wheelhouse
