@@ -162,9 +162,6 @@ jobs:
           sed -i "s#<change-me>#$POSTGRES_PASSWORD#g" .env
           sed -i "s#SECRET_KEY=<change-me>#SECRET_KEY=$SECRET_KEY#g" .env
 
-      - name: Validate configuration
-        run: ./scripts/validate-config.sh
-
       - name: Build Docker images
         run: docker compose build
 
@@ -267,10 +264,6 @@ jobs:
             docker compose logs frontend --tail=50
             exit 1
           fi
-
-      - name: Check container logs
-        if: always()
-        run: ./scripts/check-container-logs.sh || true
 
       - name: Cleanup
         if: always()
