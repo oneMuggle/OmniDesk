@@ -90,6 +90,10 @@ RUN chmod +x ./entrypoint.sh
 # Create staticfiles directory and set permissions
 RUN mkdir -p /usr/src/app/staticfiles && chown -R app:app /usr/src/app/staticfiles
 
+# Copy frontend routes.json so sync_routes management command can find it
+# (sync_routes 优先从 /usr/src/app/staticfiles/routes.json 读)
+COPY --chown=app:app omni_desk_frontend/public/routes.json /usr/src/app/staticfiles/routes.json
+
 # Note: Container runs as root for volume setup, then drops to 'app' user
 # for the main process (handled by entrypoint.sh)
 
