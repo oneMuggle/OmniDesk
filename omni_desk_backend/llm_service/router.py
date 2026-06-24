@@ -80,7 +80,8 @@ class LLMRouter:
 
         last_error = None
         for i, candidate in enumerate(candidates):
-            is_ollama = candidate.get("_is_ollama", False)
+            # 检查是否是 Ollama 兜底配置（字典）
+            is_ollama = isinstance(candidate, dict) and candidate.get("_is_ollama", False)
 
             if is_ollama:
                 base_url = self.OLLAMA_BASE
