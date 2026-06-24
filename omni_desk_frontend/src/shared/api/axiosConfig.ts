@@ -39,9 +39,15 @@ const processQueue = (error: unknown, token: string | null = null): void => {
     failedQueue = [];
 };
 
-// Attach access token to every request
+// Attach access token to every request (except login)
 instance.interceptors.request.use(
     (config: InternalAxiosRequestConfig) => {
+        // 登录请求不应携带 Authorization 头
+        const isLoginRequest = config.url?.includes('auth/login');
+        if (isLoginRequest) {
+            return config;
+        }
+
         const authTokens = JSON.parse(
             localStorage.getItem('authTokens') ||
                 sessionStorage.getItem('authTokens') ||
