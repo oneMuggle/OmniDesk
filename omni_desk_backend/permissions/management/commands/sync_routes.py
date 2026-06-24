@@ -28,9 +28,9 @@ class Command(BaseCommand):
                 break
 
         if not routes_json_path:
-            self.stdout.write(self.style.ERROR(
-                f"Routes JSON file not found. Tried: {[str(p) for p in possible_paths]}"
-            ))
+            self.stdout.write(
+                self.style.ERROR(f"Routes JSON file not found. Tried: {[str(p) for p in possible_paths]}")
+            )
             return
 
         self.stdout.write(f"Using routes.json from: {routes_json_path}")
