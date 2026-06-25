@@ -1,16 +1,39 @@
 /**
- * Demo mode axios request interceptor
- * Intercepts specific URL patterns in demo mode and returns mock data.
- * Unmatched requests pass through transparently.
+ * Demo mode axios adapter
+ *
+ * Replaces axios's default XHR/HTTP adapter with one that returns mock
+ * data for whitelisted URLs when demo mode is enabled. Unmatched
+ * requests fall through to the real adapter.
+ *
+ * Why an adapter (not a request interceptor)?
+ * axios v1.x request interceptors CANNOT short-circuit the request —
+ * dispatchRequest is always called after the interceptor chain. We
+ * have to intercept at the adapter level, which is the only axios hook
+ * that controls whether the network call happens.
+ *
+ * Demo state is read from localStorage ('omnidesk:demo-mode') so the
+ * adapter and React Context never drift out of sync under Vite HMR.
  */
 
 import { MOCK_DIFY_APPS, MOCK_RAGFLOW_CONFIGS, pickMockResponse } from './demoMocks';
 import { logger } from '../utils/logger';
+import axios from 'axios';
+
+const STORAGE_KEY = 'omnidesk:demo-mode';
 
 /**
- * Normalize URL: strip optional /api/ prefix and ensure leading / since
- * config.url may be relative (when baseURL is set) or absolute (when
- * called directly).
+ * Read demo mode state directly from localStorage.
+ */
+function isDemoModeEnabled() {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Normalize URL: strip optional /api/ prefix and ensure leading /.
  */
 function normalizePath(url) {
   if (!url) return '';
@@ -22,96 +45,109 @@ function normalizePath(url) {
 }
 
 /**
- * 设置 demo 模式拦截器
- * @param {import('axios').AxiosInstance} axiosInstance - axios 实例
- * @param {() => boolean} getIsDemoMode - 获取当前 demo 模式的函数
+ * Match the request against demo URL patterns and return the mock
+ * response payload, or null if it should pass through.
  */
-export function setupDemoInterceptor(axiosInstance, getIsDemoMode) {
-  axiosInstance.interceptors.request.use(async (config) => {
-    if (!getIsDemoMode()) {
-      return config;
+function getMockPayload(config) {
+  const method = (config.method || 'get').toLowerCase();
+  const path = normalizePath(config.url);
+
+  // GET /dify-apps/
+  if (method === 'get' && /^\/dify-apps\/?$/.test(path)) {
+    return { status: 200, data: { results: MOCK_DIFY_APPS } };
+  }
+
+  // GET /dify-apps/:id/
+  const difyDetailMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
+  if (method === 'get' && difyDetailMatch) {
+    const id = parseInt(difyDetailMatch[1], 10);
+    const app = MOCK_DIFY_APPS.find((a) => a.id === id);
+    if (app) return { status: 200, data: app };
+    return { status: 404, data: { detail: 'Not found' } };
+  }
+
+  // POST /dify-apps/
+  if (method === 'post' && /^\/dify-apps\/?$/.test(path)) {
+    const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+    const newApp = {
+      ...payload,
+      id: Date.now(),
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+    return { status: 201, data: newApp };
+  }
+
+  // PUT /dify-apps/:id/
+  const difyUpdateMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
+  if (method === 'put' && difyUpdateMatch) {
+    const id = parseInt(difyUpdateMatch[1], 10);
+    const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+    const existing = MOCK_DIFY_APPS.find((a) => a.id === id);
+    return { status: 200, data: { ...existing, ...payload, id } };
+  }
+
+  // DELETE /dify-apps/:id/
+  const difyDeleteMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
+  if (method === 'delete' && difyDeleteMatch) {
+    return { status: 204, data: {} };
+  }
+
+  // GET /ragflow-service/configs/
+  if (method === 'get' && /^\/ragflow-service\/configs\/?$/.test(path)) {
+    return { status: 200, data: { results: MOCK_RAGFLOW_CONFIGS } };
+  }
+
+  // POST /ragflow-service/configs/:id/query/
+  const ragflowQueryMatch = path.match(/^\/ragflow-service\/configs\/(\d+)\/query\/?$/);
+  if (method === 'post' && ragflowQueryMatch) {
+    const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
+    return {
+      status: 200,
+      data: {
+        answer: pickMockResponse(payload.question),
+        conversation_id: `demo-conv-${Date.now()}`,
+      },
+    };
+  }
+
+  return null;
+}
+
+/**
+ * Set up the demo mode adapter. The original adapter is captured so
+ * we can fall through to it for non-mocked requests.
+ *
+ * @param {import('axios').AxiosInstance} axiosInstance
+ * @param {() => boolean} [_getIsDemoMode] - 已废弃：现在从 localStorage 读取，保留参数仅为向后兼容
+ */
+export function setupDemoInterceptor(axiosInstance, _getIsDemoMode) {
+  // Capture the current adapter (the default XHR one) so we can call
+  // it as a fallback.
+  const defaultAdapter = axiosInstance.defaults.adapter || axios.defaults.adapter;
+
+  axiosInstance.defaults.adapter = function demoAdapter(config) {
+    if (!isDemoModeEnabled()) {
+      return defaultAdapter(config);
     }
 
-    const { method, url } = config;
-    const lowerMethod = (method || 'get').toLowerCase();
-    const path = normalizePath(url);
-
-    // GET /dify-apps/
-    if (lowerMethod === 'get' && /^\/dify-apps\/?$/.test(path)) {
-      logger.debug('[demo] intercepted GET /api/dify-apps/', { url });
-      return Promise.resolve({ data: { results: MOCK_DIFY_APPS }, status: 200, config });
+    const mock = getMockPayload(config);
+    if (!mock) {
+      // Not a demo URL — pass through to real adapter
+      return defaultAdapter(config);
     }
 
-    // GET /dify-apps/:id/
-    const difyDetailMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
-    if (lowerMethod === 'get' && difyDetailMatch) {
-      const id = parseInt(difyDetailMatch[1], 10);
-      const app = MOCK_DIFY_APPS.find((a) => a.id === id);
-      if (app) {
-        logger.debug('[demo] intercepted GET /api/dify-apps/:id/', { id, url });
-        return Promise.resolve({ data: app, status: 200, config });
-      }
-      return Promise.resolve({ data: { detail: 'Not found' }, status: 404, config });
-    }
+    logger.debug('[demo] intercepted', { method: config.method, url: config.url });
 
-    // POST /dify-apps/
-    if (lowerMethod === 'post' && /^\/dify-apps\/?$/.test(path)) {
-      const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
-      const newApp = {
-        ...payload,
-        id: Date.now(),
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      };
-      logger.debug('[demo] intercepted POST /api/dify-apps/', { newApp, url });
-      return Promise.resolve({ data: newApp, status: 201, config });
-    }
-
-    // PUT /dify-apps/:id/
-    const difyUpdateMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
-    if (lowerMethod === 'put' && difyUpdateMatch) {
-      const id = parseInt(difyUpdateMatch[1], 10);
-      const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
-      const existing = MOCK_DIFY_APPS.find((a) => a.id === id);
-      const updated = { ...existing, ...payload, id };
-      logger.debug('[demo] intercepted PUT /api/dify-apps/:id/', { id, updated, url });
-      return Promise.resolve({ data: updated, status: 200, config });
-    }
-
-    // DELETE /dify-apps/:id/
-    const difyDeleteMatch = path.match(/^\/dify-apps\/(\d+)\/?$/);
-    if (lowerMethod === 'delete' && difyDeleteMatch) {
-      const id = parseInt(difyDeleteMatch[1], 10);
-      logger.debug('[demo] intercepted DELETE /api/dify-apps/:id/', { id, url });
-      return Promise.resolve({ data: {}, status: 204, config });
-    }
-
-    // GET /ragflow-service/configs/
-    if (lowerMethod === 'get' && /^\/ragflow-service\/configs\/?$/.test(path)) {
-      logger.debug('[demo] intercepted GET /api/ragflow-service/configs/', { url });
-      return Promise.resolve({ data: { results: MOCK_RAGFLOW_CONFIGS }, status: 200, config });
-    }
-
-    // POST /ragflow-service/configs/:id/query/
-    const ragflowQueryMatch = path.match(/^\/ragflow-service\/configs\/(\d+)\/query\/?$/);
-    if (lowerMethod === 'post' && ragflowQueryMatch) {
-      const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data;
-      const answer = pickMockResponse(payload.question);
-      logger.debug('[demo] intercepted POST /api/ragflow-service/configs/:id/query/', {
-        question: payload.question,
-        url,
-      });
-      return Promise.resolve({
-        data: {
-          answer,
-          conversation_id: `demo-conv-${Date.now()}`,
-        },
-        status: 200,
-        config,
-      });
-    }
-
-    // 未匹配，透传
-    return config;
-  });
+    // Build the response in the shape axios expects. This mirrors
+    // what the default adapter produces on a successful response.
+    return Promise.resolve({
+      data: mock.data,
+      status: mock.status,
+      statusText: mock.status >= 200 && mock.status < 300 ? 'OK' : 'Error',
+      headers: {},
+      config,
+      request: {},
+    });
+  };
 }
