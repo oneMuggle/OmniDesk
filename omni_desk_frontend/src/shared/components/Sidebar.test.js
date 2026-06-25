@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AuthContext } from '../../features/auth/context/AuthContext';
 import { ThemeProvider } from '../../shared/context/ThemeContext';
+import { DemoProvider } from '../../shared/context/DemoContext';
 import Sidebar from './Sidebar';
 import notificationApi from '../../features/notifications/api/notificationApi';
 
@@ -19,11 +20,13 @@ const mockAuthContext = {
 const renderSidebar = (authContext = mockAuthContext) => {
   return render(
     <ThemeProvider>
-      <AuthContext.Provider value={authContext}>
-        <MemoryRouter>
-          <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
-        </MemoryRouter>
-      </AuthContext.Provider>
+      <DemoProvider>
+        <AuthContext.Provider value={authContext}>
+          <MemoryRouter>
+            <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
+          </MemoryRouter>
+        </AuthContext.Provider>
+      </DemoProvider>
     </ThemeProvider>
   );
 };
