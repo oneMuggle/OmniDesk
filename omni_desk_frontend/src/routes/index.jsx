@@ -66,6 +66,7 @@ const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
 const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
 const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
 const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
+const AIShowcasePage = lazy(() => import('../shared/pages/AIShowcasePage'));
 const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
 const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
 const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
@@ -325,6 +326,10 @@ const router = createBrowserRouter([
       {
         path: "ragflow-chat",
         element: <ProtectedRoute pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
+      },
+      {
+        path: "ai-showcase",
+        element: <ProtectedRoute pageName="AI能力展示"><LazyComponent component={AIShowcasePage} /></ProtectedRoute>
       },
       {
         path: "dify-apps",
