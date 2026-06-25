@@ -115,26 +115,51 @@ function getMockPayload(config) {
 }
 
 /**
- * Set up the demo mode adapter. The original adapter is captured so
- * we can fall through to it for non-mocked requests.
+ * Resolve the real (network) adapter once, so demoAdapter can delegate
+ * non-mocked requests to it without recursing into itself.
+ *
+ * Note: `axios.defaults.adapter` is NOT a function in axios v1.x —
+ * it's an *array* of adapters (xhr + http). We must call
+ * `axios.getAdapter(adapters)` to obtain a callable function.
+ */
+function resolveRealAdapter() {
+  const adapters = axios.defaults.adapter;
+  if (typeof adapters === 'function') {
+    return adapters;
+  }
+  if (Array.isArray(adapters) && adapters.length > 0) {
+    return axios.getAdapter(adapters);
+  }
+  // Last-resort fallback (older axios or unusual builds)
+  if (typeof axios.getAdapter === 'function' && axios.adapters) {
+    return axios.getAdapter(axios.adapters);
+  }
+  throw new Error(
+    '[demoInterceptor] Cannot resolve a real network adapter from axios; ' +
+      'demo mode cannot fall through to real requests.'
+  );
+}
+
+/**
+ * Set up the demo mode adapter. We always fall through to the original
+ * XHR adapter (resolved from axios) so that calling this function
+ * multiple times (e.g. after Vite HMR) does not recurse into ourselves.
  *
  * @param {import('axios').AxiosInstance} axiosInstance
  * @param {() => boolean} [_getIsDemoMode] - 已废弃：现在从 localStorage 读取，保留参数仅为向后兼容
  */
 export function setupDemoInterceptor(axiosInstance, _getIsDemoMode) {
-  // Capture the current adapter (the default XHR one) so we can call
-  // it as a fallback.
-  const defaultAdapter = axiosInstance.defaults.adapter || axios.defaults.adapter;
+  const realAdapter = resolveRealAdapter();
 
   axiosInstance.defaults.adapter = function demoAdapter(config) {
     if (!isDemoModeEnabled()) {
-      return defaultAdapter(config);
+      return realAdapter(config);
     }
 
     const mock = getMockPayload(config);
     if (!mock) {
       // Not a demo URL — pass through to real adapter
-      return defaultAdapter(config);
+      return realAdapter(config);
     }
 
     logger.debug('[demo] intercepted', { method: config.method, url: config.url });

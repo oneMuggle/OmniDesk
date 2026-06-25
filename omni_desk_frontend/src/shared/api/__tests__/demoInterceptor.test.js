@@ -1,5 +1,6 @@
 import { setupDemoInterceptor } from '../demoInterceptor';
 import { MOCK_DIFY_APPS, MOCK_RAGFLOW_CONFIGS } from '../demoMocks';
+import axios from 'axios';
 
 // Mock localStorage for test environment
 const localStorageMock = (() => {
@@ -13,44 +14,52 @@ const localStorageMock = (() => {
 })();
 Object.defineProperty(window, 'localStorage', { value: localStorageMock, writable: true });
 
-/**
- * Build a fake axios instance with a controllable "default adapter"
- * so tests can verify that intercepted requests never reach the
- * network and that un-intercepted requests do.
- */
-function makeFakeAxios() {
-  const fakeResponse = { data: 'NETWORK', status: 999, headers: {}, config: {}, request: {} };
-  const fakeDefaultAdapter = jest.fn().mockResolvedValue(fakeResponse);
-  const instance = {
-    defaults: { adapter: fakeDefaultAdapter },
-  };
-  return { instance, fakeDefaultAdapter, fakeResponse };
-}
+// Replace axios.defaults.adapter with a controllable mock for fallback tests.
+// In jsdom there's no real XHR adapter, so we must mock it.
+const fakeNetworkResponse = { data: 'NETWORK', status: 999, headers: {}, config: {}, request: {} };
+const fakeNetworkAdapter = jest.fn().mockResolvedValue(fakeNetworkResponse);
+axios.defaults.adapter = fakeNetworkAdapter;
 
 describe('setupDemoInterceptor', () => {
+  let instance;
+
   beforeEach(() => {
     jest.clearAllMocks();
     localStorageMock.clear();
+    // Each test gets a fresh instance whose adapter starts as the (mocked) real adapter
+    instance = { defaults: { adapter: fakeNetworkAdapter } };
   });
 
   it('替换 instance.defaults.adapter', () => {
-    const { instance } = makeFakeAxios();
     const original = instance.defaults.adapter;
     setupDemoInterceptor(instance, () => false);
     expect(instance.defaults.adapter).not.toBe(original);
     expect(typeof instance.defaults.adapter).toBe('function');
   });
 
-  describe('demo 模式开启时 (localStorage flag = "true")', () => {
-    let instance, fakeDefaultAdapter;
+  it('不会递归调用自己（HMR 安全）', () => {
+    // First call: installs demoAdapter
+    setupDemoInterceptor(instance, () => false);
+    const firstAdapter = instance.defaults.adapter;
 
+    // Second call: instance.defaults.adapter is now demoAdapter. If we
+    // captured instance.defaults.adapter as fallback, this would recurse.
+    setupDemoInterceptor(instance, () => false);
+    const secondAdapter = instance.defaults.adapter;
+
+    expect(secondAdapter).not.toBe(firstAdapter); // fresh function
+    // Now turn demo off and call the new adapter — must reach the real
+    // network adapter, NOT the previous demoAdapter.
+    return secondAdapter({ method: 'get', url: 'x' }).then(() => {
+      expect(fakeNetworkAdapter).toHaveBeenCalled();
+    });
+  });
+
+  describe('demo 模式开启时 (localStorage flag = "true")', () => {
     beforeEach(() => {
       localStorageMock.getItem.mockImplementation((key) =>
         key === 'omnidesk:demo-mode' ? 'true' : null
       );
-      const made = makeFakeAxios();
-      instance = made.instance;
-      fakeDefaultAdapter = made.fakeDefaultAdapter;
       setupDemoInterceptor(instance, () => false);
     });
 
@@ -62,7 +71,7 @@ describe('setupDemoInterceptor', () => {
       const r = await call({ method: 'get', url: 'dify-apps/' });
       expect(r.data).toEqual({ results: MOCK_DIFY_APPS });
       expect(r.status).toBe(200);
-      expect(fakeDefaultAdapter).not.toHaveBeenCalled();
+      expect(fakeNetworkAdapter).not.toHaveBeenCalled();
     });
 
     it('GET /api/dify-apps/ 返回 mock 列表（绝对路径）', async () => {
@@ -117,7 +126,7 @@ describe('setupDemoInterceptor', () => {
     it('未匹配的 URL 走默认 adapter', async () => {
       const config = { method: 'get', url: 'other-endpoint/' };
       const r = await instance.defaults.adapter(config);
-      expect(fakeDefaultAdapter).toHaveBeenCalledWith(config);
+      expect(fakeNetworkAdapter).toHaveBeenCalledWith(config);
       expect(r.data).toBe('NETWORK');
     });
 
@@ -135,20 +144,15 @@ describe('setupDemoInterceptor', () => {
   });
 
   describe('demo 模式关闭时 (localStorage flag = null)', () => {
-    let instance, fakeDefaultAdapter;
-
     beforeEach(() => {
       localStorageMock.getItem.mockReturnValue(null);
-      const made = makeFakeAxios();
-      instance = made.instance;
-      fakeDefaultAdapter = made.fakeDefaultAdapter;
       setupDemoInterceptor(instance, () => false);
     });
 
     it('所有请求透传到默认 adapter', async () => {
       const config = { method: 'get', url: 'dify-apps/' };
       const r = await instance.defaults.adapter(config);
-      expect(fakeDefaultAdapter).toHaveBeenCalledWith(config);
+      expect(fakeNetworkAdapter).toHaveBeenCalledWith(config);
       expect(r.data).toBe('NETWORK');
     });
   });

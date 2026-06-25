@@ -155,13 +155,29 @@ instance.interceptors.response.use(
 );
 
 // Demo mode interceptor setup
-let isDemoModeGlobal = false;
-
-export function setDemoModeEnabled(enabled: boolean): void {
-    isDemoModeGlobal = enabled;
-}
-
+// The interceptor reads demo state from localStorage directly, so no
+// module-level flag is needed here. This avoids HMR-induced state drift
+// where multiple axios module copies would each have their own flag.
 import { setupDemoInterceptor } from './demoInterceptor';
-setupDemoInterceptor(instance, () => isDemoModeGlobal);
+setupDemoInterceptor(instance, () => {
+    try {
+        return localStorage.getItem('omnidesk:demo-mode') === 'true';
+    } catch {
+        return false;
+    }
+});
+
+/**
+ * Set demo mode state. Writes to localStorage (single source of truth
+ * shared with DemoContext and the demo interceptor). The function is
+ * kept for callers like DemoToggle that want to toggle programmatically.
+ */
+export function setDemoModeEnabled(enabled: boolean): void {
+    try {
+        localStorage.setItem('omnidesk:demo-mode', String(enabled));
+    } catch {
+        // localStorage 不可用，忽略
+    }
+}
 
 export default instance;
