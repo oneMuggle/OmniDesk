@@ -154,4 +154,14 @@ instance.interceptors.response.use(
     }
 );
 
+// Demo mode interceptor setup
+let isDemoModeGlobal = false;
+
+export function setDemoModeEnabled(enabled: boolean): void {
+    isDemoModeGlobal = enabled;
+}
+
+import { setupDemoInterceptor } from './demoInterceptor';
+setupDemoInterceptor(instance, () => isDemoModeGlobal);
+
 export default instance;
