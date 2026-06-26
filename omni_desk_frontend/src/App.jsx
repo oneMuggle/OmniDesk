@@ -15,6 +15,7 @@ import { ApiProvider } from './shared/context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
 import { RefreshProvider } from './shared/context/RefreshContext';
 import { ThemeProvider, useTheme } from './shared/context/ThemeContext';
+import { DemoProvider } from './shared/context/DemoContext';
 import { getAntdThemeToken } from './shared/theme/themeSchemes';
 
 ThemeAwareConfigProvider.propTypes = {
@@ -46,42 +47,44 @@ function App() {
 
   return (
     <ThemeProvider>
-      <ThemeAwareConfigProvider>
-        <AuthProvider>
-          <ApiProvider>
-            <RefreshProvider>
-              <div className="app-container">
-                {isMobileMenuOpen && (
-                  <div className="mobile-overlay" onClick={toggleMobileMenu} />
-                )}
-                <Sidebar
-                  isMobileMenuOpen={isMobileMenuOpen}
-                  toggleMobileMenu={toggleMobileMenu}
-                />
-                <div className="main-content">
-                  <ErrorBoundary>
-                    <div className="content-wrapper">
-                      <Outlet />
-                    </div>
-                  </ErrorBoundary>
+      <DemoProvider>
+        <ThemeAwareConfigProvider>
+          <AuthProvider>
+            <ApiProvider>
+              <RefreshProvider>
+                <div className="app-container">
+                  {isMobileMenuOpen && (
+                    <div className="mobile-overlay" onClick={toggleMobileMenu} />
+                  )}
+                  <Sidebar
+                    isMobileMenuOpen={isMobileMenuOpen}
+                    toggleMobileMenu={toggleMobileMenu}
+                  />
+                  <div className="main-content">
+                    <ErrorBoundary>
+                      <div className="content-wrapper">
+                        <Outlet />
+                      </div>
+                    </ErrorBoundary>
+                  </div>
+                  <ToastContainer
+                    position="top-right"
+                    autoClose={5000}
+                    hideProgressBar={false}
+                    newestOnTop={false}
+                    closeOnClick
+                    rtl={false}
+                    pauseOnFocusLoss
+                    draggable
+                    pauseOnHover
+                  />
+                  <QuickAssistant />
                 </div>
-                <ToastContainer
-                  position="top-right"
-                  autoClose={5000}
-                  hideProgressBar={false}
-                  newestOnTop={false}
-                  closeOnClick
-                  rtl={false}
-                  pauseOnFocusLoss
-                  draggable
-                  pauseOnHover
-                />
-                <QuickAssistant />
-              </div>
-            </RefreshProvider>
-          </ApiProvider>
-        </AuthProvider>
-      </ThemeAwareConfigProvider>
+              </RefreshProvider>
+            </ApiProvider>
+          </AuthProvider>
+        </ThemeAwareConfigProvider>
+      </DemoProvider>
     </ThemeProvider>
   );
 }
