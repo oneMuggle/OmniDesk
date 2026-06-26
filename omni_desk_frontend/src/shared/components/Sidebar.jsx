@@ -25,6 +25,7 @@ import {
 import notificationApi from '../../features/notifications/api/notificationApi';
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
+import DemoToggle from './DemoToggle';
 import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'sidebar_collapsed';
@@ -390,7 +391,12 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
             </div>
           )}
 
-          {isAuthenticated && !isCollapsed && <ThemeSelector />}
+          {isAuthenticated && !isCollapsed && (
+            <>
+              <ThemeSelector />
+              <DemoToggle />
+            </>
+          )}
 
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>
