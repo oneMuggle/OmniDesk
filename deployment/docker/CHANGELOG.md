@@ -13,6 +13,15 @@
 
 ## [未发布]
 
+## [0.5.6] - 2026-07-01
+
+### 修复
+
+#### 部署配置
+- **production.py: 必填环境变量空值导致 SystemCheckError**：`os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')` 在变量未设时返回 `['']`，触发 `corsheaders.E013` + `4_0.E001`，gunicorn `django.setup()` 启动失败。改为列表推导过滤空字符串，默认值变 `[]`，最小环境变量下 `manage.py check` 通过（`no issues (0 silenced)`）
+- **docker-compose 必填环境变量语法**：`docker-compose.prod.yml` + `offline.yml` 中 `${POSTGRES_DB}` / `${POSTGRES_USER}` / `${POSTGRES_PASSWORD}` / `${REDIS_PASSWORD}` 改为 `${VAR:?VAR is required}` 形式；变量缺失时 `docker compose config` 立即报错而非容器带空配置启动后端才报 `ImproperlyConfigured`。对齐 `docker-compose.yml` 的 dev 环境语法
+- **nginx.conf 清理限流配置陈旧注释**：旧注释误称 `limit_req_zone` 已移至 Dockerfile 的 http context 覆盖，实际 Dockerfile 只复制到 `conf.d/default.conf`（server context），`limit_req_zone` 必须 http context 定义。替换注释说明实际架构
+
 ## [0.5.5] - 2026-06-24
 
 ### 修复
