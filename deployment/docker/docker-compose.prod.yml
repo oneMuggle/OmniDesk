@@ -67,6 +67,9 @@ services:
   # ── Celery Worker ──────────────────────────────────────────────
   worker:
     image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:?BACKEND_IMAGE_TAG is required}
+    # SKIP_MIGRATE=true:worker 不跑 migrate,避免与 backend 容器并发触发 UniqueViolation
+    environment:
+      - SKIP_MIGRATE=true
     command: celery -A omni_desk_backend worker -l info
     volumes:
       - static_volume:/usr/src/app/staticfiles
