@@ -13,6 +13,18 @@
 
 ## [未发布]
 
+## [0.5.9] - 2026-07-04
+
+### 修复
+
+#### 部署配置
+- **frontend nginx upstream DNS race condition**(PR #44、`#45`):`docker-compose.offline.yml` 和 `docker-compose.prod.yml` 中 frontend `depends_on: - backend`(只等容器创建)改为 `backend: condition: service_healthy`(等 backend 通过 healthcheck `GET /api/health/`)。修复 nginx 启动时 DNS 未注册导致 `host not found in upstream "backend"` 进入 crash loop 的问题
+
+### 验证
+- 本地升级 v0.5.5 → v0.5.7 backend:5 服务一次启动全部 healthy,无需手动 `restart frontend`(修复前需手动 restart)
+- v0.5.5 数据库完整保留(10 个用户 + 业务数据)
+- PR #44 CI 10/10 jobs pass + PR #45 CI 10/10 jobs pass
+
 ## [0.5.8] - 2026-07-04
 
 ### 修复
