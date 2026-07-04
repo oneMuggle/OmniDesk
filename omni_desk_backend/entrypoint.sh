@@ -12,6 +12,20 @@ done
 
 set -e
 
+# ─── Skip migration path for non-backend services (e.g. celery worker) ───
+# v0.5.6 测试发现:worker 容器与 backend 容器共用同一镜像,都会跑 entrypoint.sh 的
+# migrate/collectstatic 段。两者同时启动时 Postgres 报 UniqueViolation
+# (django_migrations_id_seq 已存在),产生 race condition。
+#
+# 用法:在 docker-compose worker service 设 SKIP_MIGRATE=true
+# 行为:跳过 wait_for_db / migrate / collectstatic,直接降权执行 "$@"
+# 默认 false → backend 行为完全不变,向后兼容
+if [ "${SKIP_MIGRATE:-false}" = "true" ]; then
+    echo "SKIP_MIGRATE=true: 跳过 migrate / collectstatic(celery worker 等场景)"
+    export HOME=/home/app
+    exec setpriv --reuid=app --regid=app --init-groups "$@"
+fi
+
 echo "Waiting for database..."
 # 环境变量名与 settings/production.py 和 .env.production 保持一致
 # (DB_HOST/DB_PORT,而非 POSTGRES_HOST/POSTGRES_PORT)

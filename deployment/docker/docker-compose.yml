@@ -90,6 +90,9 @@ services:
       - ../../omni_desk_backend:/app
     env_file:
       - ./.env
+    # SKIP_MIGRATE=true:worker 不跑 migrate,避免与 backend 容器并发触发 UniqueViolation
+    environment:
+      - SKIP_MIGRATE=true
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       redis:
