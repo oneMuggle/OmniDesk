@@ -377,8 +377,9 @@ echo "  OK: VERSION"
 
 if [ -f "$EXPORT_DIR/build-manifest.json" ]; then
     cp "$EXPORT_DIR/build-manifest.json" "$BUNDLE_DIR/BUILD-MANIFEST.json"
-    echo "  OK: BUILD-MANIFEST.json"
+    echo "  OK: BUILD-MANIFEST.json (from exported_images)"
 else
+    # 生成最小 BUILD-MANIFEST.json
     GIT_SHA=$(git -C "$SCRIPT_DIR/../.." rev-parse --short HEAD 2>/dev/null || echo "unknown")
     BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
@@ -389,6 +390,79 @@ else
 }
 EOF
     echo "  OK: BUILD-MANIFEST.json (generated)"
+fi
+
+# ─── 自动修正 BUILD-MANIFEST.json 的版本/digest/size ─────────
+# 解决历史 bug:脚本直接 cp exported_images/build-manifest.json,该文件通常是上次构建的,
+# 导致新 bundle 的 manifest 仍指向旧版本的 backend/frontend digest。
+# 修复:用 docker load + inspect 从刚打包的 tar 提取真实 digest/size,重写 manifest。
+
+echo "修正 BUILD-MANIFEST.json 的版本与镜像元数据..."
+BACKEND_TAR="$BUNDLE_DIR/images/omni_desk_backend.tar"
+FRONTEND_TAR="$BUNDLE_DIR/images/omni_desk_frontend.tar"
+
+# 实用方案:docker load 镜像到本地,inspect 后不删除(后续 deploy.sh 会再次 load,可重用)
+# 因这是打包流程,本地多 2 个 tag 可接受,deploy.sh 时 docker load 是 idempotent
+# 优先匹配 v${BUILD_VERSION} 精确 tag,fallback 到任一非 latest tag
+if [ -f "$BACKEND_TAR" ]; then
+    docker load -q -i "$BACKEND_TAR" 2>/dev/null
+    # 优先匹配 v${BUILD_VERSION} 精确 tag(保证 manifest 反映本次构建版本)
+    BACKEND_INFO=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' | grep "^omni-desk-backend-prod:v${BUILD_VERSION} " | head -1)
+    # Fallback:取任一非 latest 的 backend-prod tag
+    if [ -z "$BACKEND_INFO" ]; then
+        BACKEND_INFO=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' \
+            | awk '/^omni-desk-backend-prod:/ && $1 !~ /:latest$/ {print; exit}')
+    fi
+    if [ -n "$BACKEND_INFO" ]; then
+        BACKEND_TAG_NAME=$(echo "$BACKEND_INFO" | awk '{print $1}')
+        BACKEND_DIGEST=$(docker image inspect "$BACKEND_TAG_NAME" --format '{{.Id}}' 2>/dev/null)
+        BACKEND_SIZE=$(docker image inspect "$BACKEND_TAG_NAME" --format '{{.Size}}' 2>/dev/null)
+    fi
+fi
+if [ -f "$FRONTEND_TAR" ]; then
+    docker load -q -i "$FRONTEND_TAR" 2>/dev/null
+    FRONTEND_INFO=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' | grep "^omni-desk-frontend-prod:v${BUILD_VERSION} " | head -1)
+    if [ -z "$FRONTEND_INFO" ]; then
+        FRONTEND_INFO=$(docker images --format '{{.Repository}}:{{.Tag}} {{.ID}} {{.Size}}' \
+            | awk '/^omni-desk-frontend-prod:/ && $1 !~ /:latest$/ {print; exit}')
+    fi
+    if [ -n "$FRONTEND_INFO" ]; then
+        FRONTEND_TAG_NAME=$(echo "$FRONTEND_INFO" | awk '{print $1}')
+        FRONTEND_DIGEST=$(docker image inspect "$FRONTEND_TAG_NAME" --format '{{.Id}}' 2>/dev/null)
+        FRONTEND_SIZE=$(docker image inspect "$FRONTEND_TAG_NAME" --format '{{.Size}}' 2>/dev/null)
+    fi
+fi
+
+if [ -n "$BACKEND_DIGEST" ] && [ -n "$FRONTEND_DIGEST" ]; then
+    GIT_SHA=$(git -C "$SCRIPT_DIR/../.." rev-parse --short HEAD 2>/dev/null || echo "unknown")
+    BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
+    cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
+{
+  "version": "$BUILD_VERSION",
+  "build_time": "$BUILD_TIME",
+  "git_sha": "$GIT_SHA",
+  "images": {
+    "backend": {
+      "name": "$BACKEND_TAG_NAME",
+      "digest": "$BACKEND_DIGEST",
+      "size_bytes": $BACKEND_SIZE
+    },
+    "frontend": {
+      "name": "$FRONTEND_TAG_NAME",
+      "digest": "$FRONTEND_DIGEST",
+      "size_bytes": $FRONTEND_SIZE
+    }
+  },
+  "base_images": {
+    "postgres": "postgres:14-alpine",
+    "redis": "redis:7-alpine",
+    "nginx": "nginx-stable-alpine"
+  }
+}
+EOF
+    echo "  OK: BUILD-MANIFEST.json (auto-corrected with real digests)"
+else
+    echo "  WARN: 无法从 tar 提取 backend/frontend digest,保留原 manifest"
 fi
 
 # ─── 生成 README ────────────────────────────────────────────
