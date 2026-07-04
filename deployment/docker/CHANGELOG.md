@@ -13,6 +13,20 @@
 
 ## [未发布]
 
+## [0.5.7] - 2026-07-04
+
+### 修复
+
+#### 部署配置
+- **celery worker 启动 race condition 导致 UniqueViolation 日志噪音**:celery worker 与 backend 容器共用同一 backend 镜像,启动时都会执行 `entrypoint.sh` 的 `wait_for_db / migrate / collectstatic` 段。两者并发启动时,Postgres 报 `UniqueViolation: django_migrations_id_seq`,产生 race condition。功能不受影响(worker 仍能在线 + 任务可执行),但启动日志每次都报错。修复:在 `entrypoint.sh` 顶部新增 `SKIP_MIGRATE` 环境变量分支,worker 容器设 `SKIP_MIGRATE=true` 时跳过 wait_for_db / migrate / collectstatic,直接降权执行 `celery ...`。默认 `false` → backend 行为完全不变,向后兼容(`#42`)
+
+### 验证
+- v0.5.7 镜像 `omni-desk-backend-prod:v0.5.7` digest `sha256:74989f2bb92cfd268b2acfd200712a9af7277b12770be1eee8012488e8f5c437` 重建成功
+- 端到端测试(11 阶段):5 服务 healthy,worker 启动日志无 UniqueViolation,celery `status` 1 node online,`debug_task` 0.0076s SUCCESS
+- `/api/health/` 200 + version 0.5.6(因 IMAGE_TAG 默认 v0.5.6),backend 行为完全不变
+- v0.5.5 容器(`compose-*`)在测试期间零影响,持续 healthy
+- CI:PR #42 触发 10/10 jobs 全 pass(`build-and-push` / `build-frontend` / `docker-integration` / `lint-backend` / `lint-frontend` / `security` / `test` / `test-backend` / `test-frontend` / `typecheck`)
+
 ## [0.5.6] - 2026-07-01
 
 ### 修复
