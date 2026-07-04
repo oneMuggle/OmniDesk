@@ -13,6 +13,17 @@
 
 ## [未发布]
 
+## [0.5.8] - 2026-07-04
+
+### 修复
+
+#### 打包脚本
+- **package_offline_bundle.sh 直接 cp 旧 BUILD-MANIFEST.json 导致新 bundle 写错 digest**(`#43`):v0.5.7 重新打包时发现,脚本只简单 `cp exported_images/build-manifest.json` 到 bundle,而该文件通常是上次构建残留,导致新 bundle 的 manifest 仍指向上版本的 backend/frontend digest(例如 v0.5.6 的 digest 写到了 v0.5.7 bundle)。修复:在 BUILD-MANIFEST 复制段后,用 `docker load` + `docker inspect` 从刚打包的 tar 提取真实 digest/size,自动重写 manifest。优先匹配 `v${BUILD_VERSION}` 精确 tag,fallback 用 `awk` 取任一非 `:latest` 的 prod tag
+
+### 验证
+- 跑 `package_offline_bundle.sh 0.5.8`(模拟新版本打包)生成的 BUILD-MANIFEST.json 正确反映 backend v0.5.7 + frontend v0.5.6 的真实 digest
+- PR #43 CI 10/10 jobs pass(`build-and-push` / `build-frontend` / `docker-integration` / `lint-backend` / `lint-frontend` / `security` / `test` / `test-backend` / `test-frontend` / `typecheck`)
+
 ## [0.5.7] - 2026-07-04
 
 ### 修复
