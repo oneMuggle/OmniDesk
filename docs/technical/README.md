@@ -47,6 +47,7 @@
 | 27 | [日志规范与事件清单](27-logging-standards.md) | 日志使用、事件清单、脱敏规范 |
 | 28 | [智能助手覆盖率路线图](28-smart-assistant-coverage-roadmap.md) | smart_assistant 模块 63.25% → ≥85% 补齐方案、CI 守卫、+63 测试用例(2026-06 v0.6.0) |
 | 29 | [性能 Profiling](29-performance-profiling.md) | django-silk dev 接入与使用 |
+| 30 | [发布渠道机制](30-release-channels.md) | alpha/beta/preview/stable 4 段式发布渠道 + hotfix |
 
 ---
 
