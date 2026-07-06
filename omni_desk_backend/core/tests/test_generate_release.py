@@ -10,6 +10,7 @@ from core.git_utils import (
     parse_commit_message,
     CHANGELOG_SECTIONS,
 )
+from core.management.commands.generate_release import Command
 
 
 # ─── parse_commit_message 测试 ───
@@ -370,3 +371,60 @@ class TestChangelogSectionMapping:
 
     def test_perf_maps_to_变更(self):
         assert CHANGELOG_SECTIONS['perf'] == '### 变更'
+
+
+# ─── channel 渠道感知的 generate_release 测试 ───
+
+
+class TestChannelReset:
+    """渠道升级时序号应重置."""
+
+    def test_alpha_to_beta_resets(self):
+        # 1.2.0-alpha.5 + 升渠道 -> 1.2.0-beta.1
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-alpha.5",
+            bump="patch",
+            channel="beta",
+        )
+        assert new_version == "1.2.0-beta.1"
+
+    def test_alpha_same_channel_increments(self):
+        # 1.2.0-alpha.1 + 同渠道 patch -> 1.2.0-alpha.2
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-alpha.1",
+            bump="patch",
+            channel="alpha",
+        )
+        assert new_version == "1.2.0-alpha.2"
+
+    def test_beta_to_rc_resets(self):
+        # 1.2.0-beta.3 + 升渠道 -> 1.2.0-rc.1
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-beta.3",
+            bump="patch",
+            channel="rc",
+        )
+        assert new_version == "1.2.0-rc.1"
+
+    def test_rc_to_stable_drops_suffix(self):
+        # 1.2.0-rc.2 + 升渠道到 stable -> 1.2.0(去掉后缀)
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-rc.2",
+            bump="patch",
+            channel="stable",
+        )
+        assert new_version == "1.2.0"
+
+    def test_hotfix_from_stable_bumps_patch(self):
+        # 1.2.0 stable + hotfix bump patch -> 1.2.1(无后缀)
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0",
+            bump="patch",
+            channel="stable",
+        )
+        assert new_version == "1.2.1"

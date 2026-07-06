@@ -21,12 +21,30 @@ if [ -z "$BUILD_VERSION" ]; then
     exit 1
 fi
 
-if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ERROR: Invalid version format '$BUILD_VERSION'. Use semantic versioning (MAJOR.MINOR.PATCH)."
+if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+    echo "ERROR: Invalid version format '$BUILD_VERSION'."
+    echo "Use MAJOR.MINOR.PATCH (stable) or MAJOR.MINOR.PATCH-{alpha,beta,rc}.N (pre-release)."
     exit 1
 fi
 
+# ─── 渠道推导(从 VERSION 后缀)───────────────────────
+case "$BUILD_VERSION" in
+    *-alpha.*) BUILD_CHANNEL="alpha" ;;
+    *-beta.*)  BUILD_CHANNEL="beta" ;;
+    *-rc.*)    BUILD_CHANNEL="preview" ;;
+    *)         BUILD_CHANNEL="stable" ;;
+esac
+echo "  发布渠道: ${BUILD_CHANNEL}"
+
 BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}"
+# 离线包目录命名:<channel>-v<version>(stable 不加 prefix)
+case "$BUILD_CHANNEL" in
+    alpha)   BUNDLE_DIR="omnidesk-offline-alpha-v${BUILD_VERSION}" ;;
+    beta)    BUNDLE_DIR="omnidesk-offline-beta-v${BUILD_VERSION}" ;;
+    preview) BUNDLE_DIR="omnidesk-offline-rc-v${BUILD_VERSION}" ;;
+    hotfix)  BUNDLE_DIR="omnidesk-offline-hotfix-v${BUILD_VERSION}" ;;
+    *)       BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}" ;;  # stable
+esac
 EXPORT_DIR="exported_images"
 
 echo "=========================================="
@@ -257,6 +275,8 @@ case "${1:-start}" in
     start)
         echo "=========================================="
         echo "  OmniDesk 离线部署"
+        echo "  渠道: $(jq -r '.channel // "stable"' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'stable')"
+        echo "  版本: $(jq -r '.version' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'unknown')"
         echo "=========================================="
         echo ""
 
@@ -385,6 +405,7 @@ else
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA"
 }
@@ -439,6 +460,7 @@ if [ -n "$BACKEND_DIGEST" ] && [ -n "$FRONTEND_DIGEST" ]; then
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA",
   "images": {

@@ -147,6 +147,27 @@ This project has a version management and safe update system located in the `cor
 4. **CHANGELOG.md** must be updated for every released version
 5. Migration safety: Django migrations are NOT auto-applied on app startup; they must be run explicitly via `migrate`
 
+## 发布渠道
+
+从 v0.6.0 起,OmniDesk 引入 4 段式发布渠道 + hotfix:
+
+| 渠道 | 分支 | 版本号格式 | 镜像 tag 示例 |
+|---|---|---|---|
+| alpha | `main` | `MAJOR.MINOR.PATCH-alpha.N` | `v1.2.0-alpha.5` |
+| beta | `beta` | `MAJOR.MINOR.PATCH-beta.N` | `v1.2.0-beta.1` |
+| preview | `rc` | `MAJOR.MINOR.PATCH-rc.N` | `v1.2.0-rc.1` |
+| stable | `release` | `MAJOR.MINOR.PATCH` | `v1.2.0` + `latest` |
+| hotfix | `release` | `MAJOR.MINOR.(PATCH+1)` | `v1.2.1` + `latest` |
+
+**关键约定**:
+- 渠道升级时 MAJOR.MINOR.PATCH 不变,仅序号段重置为 1
+- stable 与 hotfix 都不带后缀;hotfix 仅 bump PATCH
+- `latest` 镜像 tag 永远只指向 stable 渠道
+- 离线包目录命名:`omnidesk-offline-<channel>-v<version>/`(stable 无 channel 前缀)
+- BUILD-MANIFEST.json 新增 `channel` 字段,`/api/system/version/` API 也返回 channel
+
+详细规范见 `docs/technical/30-release-channels.md`。
+
 ## Development Workflow
 
 ### Plan-First Rule

@@ -2,7 +2,7 @@
 set -e
 
 # upgrade.sh — Safe version upgrade script for OmniDesk
-# Usage: ./upgrade.sh [path-to-new-images-dir]
+# Usage: ./upgrade.sh [path-to-new-images-dir] [--target-channel {alpha|beta|preview|stable|hotfix}]
 #
 # Workflow:
 #   1. Check current version
@@ -83,6 +83,14 @@ get_target_version() {
 
 IMAGE_DIR="${1:-.}"
 
+# 渠道参数(--target-channel,默认从 VERSION 后缀推导)
+TARGET_CHANNEL="${TARGET_CHANNEL:-}"
+for arg in "$@"; do
+    case "$arg" in
+        --target-channel=*) TARGET_CHANNEL="${arg#*=}" ;;
+    esac
+done
+
 echo "=========================================="
 echo "  OmniDesk Version Upgrade"
 echo "=========================================="
@@ -92,8 +100,18 @@ echo ""
 CURRENT_VERSION=$(get_current_version)
 TARGET_VERSION=$(get_target_version)
 
+if [ -z "$TARGET_CHANNEL" ]; then
+    case "$TARGET_VERSION" in
+        *-alpha.*) TARGET_CHANNEL="alpha" ;;
+        *-beta.*)  TARGET_CHANNEL="beta" ;;
+        *-rc.*)    TARGET_CHANNEL="preview" ;;
+        *)         TARGET_CHANNEL="stable" ;;
+    esac
+fi
+
 echo "Current version: $CURRENT_VERSION"
 echo "Target version:  $TARGET_VERSION"
+echo "Target channel:  $TARGET_CHANNEL"
 echo ""
 
 if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ]; then
@@ -111,6 +129,30 @@ if [ "$MAJOR_CHECK" = "DIFFERENT" ]; then
 fi
 
 echo "Compatibility check: PASSED"
+echo ""
+
+# ─── Step 2.5: 渠道校验(禁止跳级) ─────────────────────
+CURRENT_CHANNEL=""
+if [ "$CURRENT_VERSION" != "unknown" ]; then
+    case "$CURRENT_VERSION" in
+        *-alpha.*) CURRENT_CHANNEL="alpha" ;;
+        *-beta.*)  CURRENT_CHANNEL="beta" ;;
+        *-rc.*)    CURRENT_CHANNEL="preview" ;;
+        *)         CURRENT_CHANNEL="stable" ;;
+    esac
+fi
+if [ -n "$CURRENT_CHANNEL" ] && [ "$CURRENT_CHANNEL" != "$TARGET_CHANNEL" ]; then
+    case "$CURRENT_CHANNEL:$TARGET_CHANNEL" in
+        alpha:beta|beta:preview|preview:stable|alpha:preview|alpha:stable|beta:stable)
+            echo "Channel upgrade: $CURRENT_CHANNEL -> $TARGET_CHANNEL (allowed)" ;;
+        *)
+            echo "ERROR: Channel downgrade or invalid jump detected ($CURRENT_CHANNEL -> $TARGET_CHANNEL)."
+            echo "Allowed forward jumps: alpha->beta, beta->preview, preview->stable (or skip forward)."
+            echo "Downgrades (stable->anything, beta->alpha, etc.) are FORBIDDEN."
+            exit 1
+            ;;
+    esac
+fi
 echo ""
 
 # Step 3: Load new images
