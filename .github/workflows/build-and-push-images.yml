@@ -2,9 +2,9 @@ name: Run Tests, Build and Push Docker Images
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main", "develop", "beta", "rc", "release" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "beta", "rc", "release" ]
   workflow_dispatch:
 
 jobs:
@@ -94,6 +94,17 @@ jobs:
         id: read_version
         run: echo "VERSION=$(cat deployment/docker/VERSION | tr -d '[:space:]')" >> "$GITHUB_OUTPUT"
 
+      - name: Detect release channel
+        id: channel
+        run: |
+          case "${GITHUB_REF#refs/heads/}" in
+            main)    echo "CHANNEL=alpha"   >> "$GITHUB_OUTPUT" ;;
+            beta)    echo "CHANNEL=beta"    >> "$GITHUB_OUTPUT" ;;
+            rc)      echo "CHANNEL=preview" >> "$GITHUB_OUTPUT" ;;
+            release) echo "CHANNEL=stable"  >> "$GITHUB_OUTPUT" ;;
+            *)       echo "CHANNEL=none"    >> "$GITHUB_OUTPUT" ;;
+          esac
+
       - name: Extract metadata for backend image
         id: meta-backend
         uses: docker/metadata-action@v5
@@ -101,9 +112,9 @@ jobs:
           images: ghcr.io/onemuggle/omni-desk-backend
           tags: |
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=v${{ steps.read_version.outputs.VERSION }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.read_version.outputs.VERSION }},enable=${{ steps.channel.outputs.CHANNEL != 'none' }}
+            type=raw,value=${{ steps.read_version.outputs.VERSION }}-canary,enable=${{ steps.channel.outputs.CHANNEL == 'none' && github.event_name == 'push' }}
+            type=raw,value=latest,enable=${{ steps.channel.outputs.CHANNEL == 'stable' }}
 
       - name: Build and push backend image
         uses: docker/build-push-action@v5
@@ -124,10 +135,9 @@ jobs:
           images: ghcr.io/onemuggle/omni-desk-frontend
           tags: |
             type=sha
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=raw,value=develop,enable=${{ github.ref == 'refs/heads/develop' }}
-            type=raw,value=v${{ steps.read_version.outputs.VERSION }},enable={{is_default_branch}}
-            type=raw,value=v${{ steps.read_version.outputs.VERSION }},enable={{is_default_branch}}
+            type=raw,value=${{ steps.read_version.outputs.VERSION }},enable=${{ steps.channel.outputs.CHANNEL != 'none' }}
+            type=raw,value=${{ steps.read_version.outputs.VERSION }}-canary,enable=${{ steps.channel.outputs.CHANNEL == 'none' && github.event_name == 'push' }}
+            type=raw,value=latest,enable=${{ steps.channel.outputs.CHANNEL == 'stable' }}
 
       - name: Build and push frontend image
         uses: docker/build-push-action@v5

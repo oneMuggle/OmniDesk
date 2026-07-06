@@ -13,14 +13,35 @@
 
 ## [未发布]
 
+## [v0.5.9 修复] - 2026-07-06
+
 ### 修复
 
 #### 部署脚本
-- **deploy.sh IMAGE_TAG 派生改用 BUILD-MANIFEST.json**(PR `#46`):v0.5.9 bundle 实际打包的是 backend `v0.5.7` digest + frontend `v0.5.6` digest(因为镜像内容未变,仅 compose 编排升级),但 `deploy.sh start` 用 `VERSION` 派生 `BACKEND_IMAGE_TAG=v0.5.9`,与 `pull_policy: never` 下的实际镜像 tag 不匹配,触发 `image not found` 错误。修复:`generate_env()` 和 `load_images()` 改从 `BUILD-MANIFEST.json.images.backend.name` / `.frontend.name` 派生 GHCR tag 与 IMAGE_TAG,无 manifest 时 fallback 到 VERSION 派生(legacy 兼容);`package_offline_bundle.sh` 在镜像跨版本复用时主动 `docker tag` alias 到 `v${BUILD_VERSION}`,让已经分发的旧 deploy.sh 也能继续工作;`tests/test_deploy_image_tags.sh` 新增 4 个 fixture 覆盖正常/缺字段/legacy/无 jq 四种场景
+- **deploy.sh IMAGE_TAG 派生改用 BUILD-MANIFEST.json**(PR `#47`):v0.5.9 bundle 实际打包的是 backend `v0.5.7` digest + frontend `v0.5.6` digest(因为镜像内容未变,仅 compose 编排升级),但 `deploy.sh start` 用 `VERSION` 派生 `BACKEND_IMAGE_TAG=v0.5.9`,与 `pull_policy: never` 下的实际镜像 tag 不匹配,触发 `image not found` 错误。修复:`generate_env()` 和 `load_images()` 改从 `BUILD-MANIFEST.json.images.backend.name` / `.frontend.name` 派生 GHCR tag 与 IMAGE_TAG,无 manifest 时 fallback 到 VERSION 派生(legacy 兼容);`package_offline_bundle.sh` 在镜像跨版本复用时主动 `docker tag` alias 到 `v${BUILD_VERSION}`,让已经分分的旧 deploy.sh 也能继续工作;`tests/test_deploy_image_tags.sh` 新增 4 个 fixture 覆盖正常/缺字段/legacy/无 jq 四种场景
 
 ### 验证
 - 4/4 单元测试通过(`bash deployment/docker/tests/test_deploy_image_tags.sh`)
 - v0.5.9 bundle 全链路 deploy.sh start(临时 workdir)5 容器 healthy,`/api/health/` 返回 200,`BACKEND_IMAGE_TAG=v0.5.7`(从 manifest 派生,不再错为 v0.5.9)
+
+## [渠道机制引入] - 2026-07-06
+
+### 新增
+- **4 段式发布渠道**:alpha(开发自测) / beta(内测) / preview(预发布 RC) / stable(生产),加 hotfix(紧急修复)
+- **渠道与分支一一对应**:main=alpha, beta=beta, rc=preview, release=stable+hotfix
+- **版本号格式扩展**:`MAJOR.MINOR.PATCH[-alpha.N|-beta.N|-rc.N]`,stable/hotfix 无后缀
+- **镜像 tag**:`latest` 永远只指向 stable;feat/fix 分支打 `-canary` 取代原 `develop` tag
+- **离线包目录命名**:稳定版与历史兼容;预发布版加渠道前缀
+- **BUILD-MANIFEST.json**:新增 `channel` 字段
+- **/api/system/version/**:响应新增 `channel` 字段
+- **CI**:新增 `release-channel-matrix` 集成测试 workflow,4 个分支并行校验
+- **部署脚本**:`upgrade.sh` 支持 `--target-channel` 与跳级校验;`rollback.sh` 备份按渠道隔离
+- **文档**:新增 `docs/technical/30-release-channels.md`、`docs/user-manual/12-deployment-channels.md`
+
+### 迁移说明
+- 现有 `v0.5.x` 系列保持 stable 渠道历史(不变)
+- 从 `v0.6.0-alpha.1` 起启用新渠道
+- 不需要数据库迁移
 
 ## [0.5.9] - 2026-07-04
 

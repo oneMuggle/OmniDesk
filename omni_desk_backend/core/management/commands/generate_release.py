@@ -21,6 +21,12 @@ from core.git_utils import (
     get_commits_since,
     CHANGELOG_SECTIONS,
 )
+from core.version_utils import (
+    CHANNEL_NAMES,
+    compare_versions,
+    format_version,
+    parse_version,
+)
 
 BUMP_LABELS = {
     "major": "MAJOR",
@@ -54,6 +60,12 @@ class Command(BaseCommand):
             default=None,
             help="指定发布日期，格式 YYYY-MM-DD（默认今天）",
         )
+        parser.add_argument(
+            "--channel",
+            choices=["alpha", "beta", "preview", "stable", "hotfix"],
+            default=None,
+            help="发布渠道(默认从 git 分支自动推导,可选值覆盖)",
+        )
 
     def handle(self, *args, **options):
         preview = options["preview"]
@@ -65,7 +77,13 @@ class Command(BaseCommand):
         current_version = self._read_version()
         self.stdout.write(f"当前版本: {current_version}")
 
-        # 2. 获取自上次版本以来的提交
+        # 2. 推导渠道(--channel 优先,否则从 git 分支读)
+        channel = options["channel"]
+        if not channel:
+            channel = self._detect_channel_from_git()
+        self.stdout.write(f"目标渠道: {channel}")
+
+        # 3. 获取自上次版本以来的提交
         last_commit = find_last_version_commit()
         commits = get_commits_since(last_commit)
 
@@ -73,20 +91,25 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING("自上次版本发布以来没有新的提交。"))
             return
 
-        # 3. 计算版本 bump
+        # 4. 计算版本 bump
         if bump_override:
             bump_level = bump_override
             bump_reason = f"手动指定 ({BUMP_LABELS[bump_level]})"
         else:
             bump_level, bump_reason = self._calculate_bump(commits)
 
-        new_version = self._bump_version(current_version, bump_level)
+        # 5. 应用 bump + 渠道(序号重置逻辑)
+        new_version = self._bump_version_with_channel(
+            current_version=current_version,
+            bump=bump_level,
+            channel=channel,
+        )
         bump_label = BUMP_LABELS[bump_level]
 
-        # 4. 生成 CHANGELOG
-        changelog_entry = self._generate_changelog(commits, new_version, date_str)
+        # 6. 生成 CHANGELOG(传入 channel 用于标注)
+        changelog_entry = self._generate_changelog(commits, new_version, date_str, channel)
 
-        # 5. 打印预览
+        # 7. 打印预览
         self._print_preview(
             current_version,
             new_version,
@@ -95,33 +118,51 @@ class Command(BaseCommand):
             commits,
             changelog_entry,
             date_str,
+            channel,
         )
 
         if preview:
             self.stdout.write(self.style.WARNING("\n=== 预览模式，未修改任何文件 ==="))
             return
 
-        # 6. 用户确认
+        # 8. 用户确认
         self.stdout.write("")
-        confirm = input(f"确认发布版本 {new_version}? [y/N]: ")
+        confirm = input(f"确认发布版本 {new_version} (渠道 {channel})? [y/N]: ")
         if confirm.lower() not in ("y", "yes"):
             self.stdout.write(self.style.WARNING("已取消发布。"))
             return
 
-        # 7. 执行更新
+        # 9. 执行更新
         self._write_version(new_version)
         self._update_changelog(changelog_entry)
         self.stdout.write(self.style.SUCCESS(f"\n版本号已更新: {current_version} → {new_version}"))
         self.stdout.write(self.style.SUCCESS("CHANGELOG.md 已更新"))
 
-        # 8. 创建 tag
+        # 10. 创建 tag
         if create_tag:
-            self._create_git_tag(new_version)
+            self._create_git_tag(new_version, channel)
 
     def _read_version(self) -> str:
         if VERSION_FILE.is_file():
             return VERSION_FILE.read_text().strip()
         raise CommandError(f"VERSION 文件不存在: {VERSION_FILE}")
+
+    def _detect_channel_from_git(self) -> str:
+        """从当前 git 分支推导渠道名。"""
+        from core.version_utils import derive_channel_from_branch
+
+        result = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            cwd=str(PROJECT_ROOT),
+        )
+        branch = result.stdout.strip() if result.returncode == 0 else ""
+        channel = derive_channel_from_branch(branch)
+        if channel == "none":
+            self.stdout.write(self.style.WARNING(f"当前分支 {branch!r} 不在已知渠道列表中,默认按 stable 处理。"))
+            return "stable"
+        return channel
 
     def _write_version(self, version: str) -> None:
         VERSION_FILE.write_text(f"{version}\n")
@@ -141,28 +182,53 @@ class Command(BaseCommand):
         else:
             return "patch", "仅有日常维护类提交，默认 PATCH"
 
-    def _bump_version(self, version: str, bump: str) -> str:
-        """按语义化版本规则 bump 版本号."""
-        parts = version.split(".")
-        if len(parts) != 3:
-            raise CommandError(f"无效的版本号格式: {version}（应为 x.y.z）")
+    def _bump_version_with_channel(self, current_version: str, bump: str, channel: str) -> str:
+        """根据 bump 级别与渠道生成新版本号。
 
-        major, minor, patch = int(parts[0]), int(parts[1]), int(parts[2])
+        - 跨渠道切换:MAJOR.MINOR.PATCH 按 bump 调整,序号段重置为 1。
+        - 同渠道预发布:序号段按 patch 递增(bump 仅 patch 生效)。
+        - 同渠道 stable / hotfix:MAJOR/MINOR/PATCH 按 bump。
+        """
+        parsed = parse_version(current_version)
+        major, minor, patch = parsed.major, parsed.minor, parsed.patch
 
-        if bump == "major":
-            major += 1
-            minor = 0
-            patch = 0
-        elif bump == "minor":
-            minor += 1
-            patch = 0
-        elif bump == "patch":
-            patch += 1
+        # 解析"内部渠道":preview -> rc, hotfix -> stable
+        internal_channel = "rc" if channel == "preview" else ("stable" if channel == "hotfix" else channel)
 
-        return f"{major}.{minor}.{patch}"
+        # 同渠道 stable(包括 hotfix):MAJOR/MINOR/PATCH 按 bump
+        if internal_channel == "stable" and parsed.channel is None:
+            if bump == "major":
+                major += 1
+                minor = 0
+                patch = 0
+            elif bump == "minor":
+                minor += 1
+                patch = 0
+            elif bump == "patch":
+                patch += 1
+            return format_version(major, minor, patch)
 
-    def _generate_changelog(self, commits: list[CommitInfo], version: str, date_str: str) -> str:
-        """生成 Keep a Changelog 格式的变更日志条目."""
+        # 同渠道预发布(alpha/beta/rc):序号段 +1, MAJOR.MINOR.PATCH 不变
+        if parsed.channel == internal_channel:
+            new_seq = (parsed.channel_num or 0) + 1
+            return format_version(major, minor, patch, internal_channel, new_seq)
+
+        # 跨渠道切换:bump 参数被忽略(MAJOR.MINOR.PATCH 沿用当前,序号段重置为 1)
+        # 因为同一份 git 提交已经被外层 _calculate_bump 计算过 bump,渠道切换本身
+        # 不再触发新的 bump —— 仅切换后缀。
+        if internal_channel in ("alpha", "beta", "rc"):
+            return format_version(major, minor, patch, internal_channel, 1)
+        # stable:去掉后缀
+        return format_version(major, minor, patch)
+
+    def _generate_changelog(
+        self,
+        commits: list[CommitInfo],
+        version: str,
+        date_str: str,
+        channel: str = "stable",
+    ) -> str:
+        """生成 Keep a Changelog 格式的变更日志条目(带渠道标注)."""
         sections: dict[str, list[str]] = {}
         breaking_lines = []
 
@@ -188,7 +254,9 @@ class Command(BaseCommand):
 
             sections.setdefault(section_name, []).append(entry)
 
-        lines = [f"## [{version}] - {date_str}"]
+        # 渠道标注(中文)
+        channel_label = CHANNEL_NAMES.get(channel, channel)
+        lines = [f"## [{version}] - {date_str}  ← {channel_label}"]
 
         if breaking_lines:
             lines.append("")
@@ -208,25 +276,53 @@ class Command(BaseCommand):
         return "\n".join(lines)
 
     def _update_changelog(self, new_entry: str) -> None:
-        """在 CHANGELOG.md 的 [未发布] 段之后插入新条目."""
+        """在 CHANGELOG.md 中按 SemVer 顺序插入新条目.
+
+        排序规则:stable > rc > beta > alpha,序号大者靠后。
+        [未发布] 段保留在顶部,新条目插在它与所有历史版本之间(按 SemVer 倒序)。
+        """
         content = CHANGELOG_FILE.read_text()
 
-        pattern = r"(\n## \[\d+\.\d+\.\d+\])"
-        match = re.search(pattern, content)
+        # 提取新条目的版本号
+        m = re.match(r"## \[([^\]]+)\]", new_entry)
+        if not m:
+            # 兜底:插到 [未发布] 之后
+            pattern = r"(## \[未发布\][^\n]*\n)"
+            match = re.search(pattern, content)
+            if match:
+                pos = match.end()
+                CHANGELOG_FILE.write_text(content[:pos] + "\n" + new_entry + "\n" + content[pos:])
+            else:
+                CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
+            return
+        new_version = m.group(1)
 
-        if match:
-            insert_pos = match.start()
-            new_content = content[:insert_pos] + "\n" + new_entry + "\n" + content[insert_pos:]
+        # 找到所有 ## [vX.Y.Z...] 条目的位置,选第一个比 new_version 大的位置插入
+        existing_pattern = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
+        insert_pos = None
+        for match in existing_pattern.finditer(content):
+            existing_version = match.group(1)
+            if existing_version in ("未发布",):
+                continue
+            try:
+                if compare_versions(new_version, existing_version) > 0:
+                    insert_pos = match.start()
+                    break
+            except ValueError:
+                continue
+
+        if insert_pos is None:
+            # 没有比 new_version 大的,插到文件末尾
+            CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
         else:
-            new_content = content.rstrip() + "\n\n" + new_entry + "\n"
+            CHANGELOG_FILE.write_text(content[:insert_pos] + new_entry + "\n\n" + content[insert_pos:])
 
-        CHANGELOG_FILE.write_text(new_content)
-
-    def _create_git_tag(self, version: str) -> None:
-        """创建 git tag."""
+    def _create_git_tag(self, version: str, channel: str = "stable") -> None:
+        """创建 git tag(含渠道信息注释)."""
         tag_name = f"v{version}"
+        tag_msg = f"Release {tag_name} ({channel})"
         result = subprocess.run(
-            ["git", "tag", "-a", tag_name, "-m", f"Release {tag_name}"],
+            ["git", "tag", "-a", tag_name, "-m", tag_msg],
             capture_output=True,
             text=True,
             cwd=str(PROJECT_ROOT),
@@ -245,12 +341,14 @@ class Command(BaseCommand):
         commits,
         changelog_entry,
         date_str,
+        channel="stable",
     ):
         """打印版本发布预览."""
         self.stdout.write("")
         self.stdout.write(self.style.SUCCESS("=== 版本发布预览 ==="))
         self.stdout.write(f"当前版本: {current_version}")
         self.stdout.write(f"新版本号: {new_version}")
+        self.stdout.write(f"目标渠道: {channel}")
         self.stdout.write(f"发布日期: {date_str}")
         self.stdout.write(f"版本级别: {bump_label} ({bump_reason})")
         self.stdout.write("")
