@@ -26,6 +26,7 @@ def version_info(request):
     channel = "stable"
     try:
         from core.version_utils import parse_version
+
         parsed = parse_version(raw_version)
         if parsed.channel == "rc":
             channel = "preview"
