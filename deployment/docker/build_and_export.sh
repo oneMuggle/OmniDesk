@@ -21,9 +21,11 @@ if [ -z "$BUILD_VERSION" ]; then
     exit 1
 fi
 
-# 验证语义化版本格式
-if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ERROR: Invalid version format '$BUILD_VERSION'. Use semantic versioning (MAJOR.MINOR.PATCH)."
+# 验证语义化版本格式(支持渠道后缀: -alpha.N, -beta.N, -rc.N)
+if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-alpha\.[0-9]+|-beta\.[0-9]+|-rc\.[0-9]+)?$'; then
+    echo "ERROR: Invalid version format '$BUILD_VERSION'."
+    echo "Use semantic versioning: MAJOR.MINOR.PATCH or MAJOR.MINOR.PATCH-CHANNEL.N"
+    echo "Examples: 1.0.0, 1.0.0-alpha.1, 1.0.0-beta.2, 1.0.0-rc.1"
     exit 1
 fi
 
@@ -36,9 +38,18 @@ FRONTEND_IMAGE="omni-desk-frontend-prod:v${BUILD_VERSION}"
 # GHCR 全名 — 离线包加载后由 deploy 流程 docker tag 添加,让 offline compose 能直接引用
 BACKEND_IMAGE_GHCR="ghcr.io/onemuggle/omni-desk-backend:v${BUILD_VERSION}"
 FRONTEND_IMAGE_GHCR="ghcr.io/onemuggle/omni-desk-frontend:v${BUILD_VERSION}"
-# 同时打一个 :latest 标签用于 compose 文件引用
-BACKEND_IMAGE_LATEST="omni-desk-backend-prod:latest"
-FRONTEND_IMAGE_LATEST="omni-desk-frontend-prod:latest"
+
+# 判断是否为 stable 渠道(无后缀)
+IS_STABLE=true
+if echo "$BUILD_VERSION" | grep -qE '-(alpha|beta|rc)\.[0-9]+$'; then
+    IS_STABLE=false
+fi
+
+# :latest 标签仅 stable 渠道使用(渠道规范要求)
+if [ "$IS_STABLE" = true ]; then
+    BACKEND_IMAGE_LATEST="omni-desk-backend-prod:latest"
+    FRONTEND_IMAGE_LATEST="omni-desk-frontend-prod:latest"
+fi
 
 # 基础镜像（离线模式下使用本地已有镜像）
 POSTGRES_IMAGE="postgres:14-alpine"
@@ -74,17 +85,26 @@ docker build \
 
 cd "$COMPOSE_DIR"
 
-# 打 latest 标签（供 compose 文件引用）
-docker tag "$BACKEND_IMAGE" "$BACKEND_IMAGE_LATEST"
-docker tag "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_LATEST"
+# 打 latest 标签(仅 stable 渠道,供 compose 文件引用)
+if [ "$IS_STABLE" = true ]; then
+    docker tag "$BACKEND_IMAGE" "$BACKEND_IMAGE_LATEST"
+    docker tag "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_LATEST"
+    echo "Tagged :latest (stable channel)"
+else
+    echo "Skipped :latest tag (pre-release channel: $BUILD_VERSION)"
+fi
+
 # 同时打 GHCR 全名标签（让 offline compose 与 GHCR 引用一致,避免镜像名割裂）
 docker tag "$BACKEND_IMAGE" "$BACKEND_IMAGE_GHCR"
 docker tag "$FRONTEND_IMAGE" "$FRONTEND_IMAGE_GHCR"
 
 echo ""
 echo "Build complete:"
-echo "  Backend:  $BACKEND_IMAGE -> $BACKEND_IMAGE_LATEST + $BACKEND_IMAGE_GHCR"
-echo "  Frontend: $FRONTEND_IMAGE -> $FRONTEND_IMAGE_LATEST + $FRONTEND_IMAGE_GHCR"
+echo "  Backend:  $BACKEND_IMAGE -> $BACKEND_IMAGE_GHCR"
+echo "  Frontend: $FRONTEND_IMAGE -> $FRONTEND_IMAGE_GHCR"
+if [ "$IS_STABLE" = true ]; then
+    echo "  + :latest tags (stable channel)"
+fi
 
 # ─── Phase 1.3: 构建后验证 ──────────────────────────────────
 echo ""
