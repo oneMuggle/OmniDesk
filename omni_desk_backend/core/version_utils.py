@@ -48,13 +48,6 @@ class ParsedVersion:
     def is_stable(self) -> bool:
         return self.channel is None
 
-    @property
-    def channel_key(self) -> str:
-        """用于渠道排序的键:stable=3, rc=2, beta=1, alpha=0"""
-        if self.channel is None:
-            return "3"
-        return {"alpha": "0", "beta": "1", "rc": "2"}[self.channel]
-
 
 def parse_version(version: str) -> ParsedVersion:
     """解析 SemVer 字符串,失败抛 ValueError."""
@@ -111,7 +104,7 @@ def compare_versions(a: str, b: str) -> int:
         return -1 if (pa.major, pa.minor, pa.patch) < (pb.major, pb.minor, pb.patch) else 1
     # MAJOR.MINOR.PATCH 相同,按渠道排序
     if pa.channel == pb.channel:
-        if pa.channel == pb.channel and pa.channel_num == pb.channel_num:
+        if pa.channel_num == pb.channel_num:
             return 0
         return -1 if (pa.channel_num or 0) < (pb.channel_num or 0) else 1
     # 不同渠道:stable > rc > beta > alpha
