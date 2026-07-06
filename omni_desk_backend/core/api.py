@@ -21,9 +21,23 @@ logger = logging.getLogger(__name__)
 def version_info(request):
     import django
 
+    raw_version = getattr(settings, "APP_VERSION", "0.0.0-dev")
+    # 解析渠道(从 VERSION 后缀),失败 fallback 到 stable
+    channel = "stable"
+    try:
+        from core.version_utils import parse_version
+        parsed = parse_version(raw_version)
+        if parsed.channel == "rc":
+            channel = "preview"
+        elif parsed.channel in ("alpha", "beta"):
+            channel = parsed.channel
+    except (ValueError, ImportError):
+        pass
+
     return Response(
         {
-            "version": getattr(settings, "APP_VERSION", "0.0.0-dev"),
+            "version": raw_version,
+            "channel": channel,
             "build_time": getattr(settings, "BUILD_TIME", "unknown"),
             "django_version": f"{django.VERSION[0]}.{django.VERSION[1]}.{django.VERSION[2]}",
         }
