@@ -24,6 +24,18 @@ BACKUP_DIR="${BACKUP_DIR:-./backups}"
 # Path inside the container where the backup volume is mounted
 CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
+# 渠道参数(--channel,默认 stable)。hotfix 备份沿用 stable/ 目录。
+ROLLBACK_CHANNEL="${ROLLBACK_CHANNEL:-stable}"
+for arg in "$@"; do
+    case "$arg" in
+        --channel=*) ROLLBACK_CHANNEL="${arg#*=}" ;;
+    esac
+done
+if [ "$ROLLBACK_CHANNEL" = "hotfix" ]; then
+    ROLLBACK_CHANNEL="stable"
+fi
+BACKUP_DIR="${BACKUP_DIR:-./backups}/${ROLLBACK_CHANNEL}"
+
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
@@ -36,6 +48,7 @@ echo ""
 # Step 1: Show current version
 CURRENT_VERSION=$(compose exec -T backend python manage.py shell -c "from django.conf import settings; print(settings.APP_VERSION)" 2>/dev/null || echo "unknown")
 echo "Current version: $CURRENT_VERSION"
+echo "Rollback channel: $ROLLBACK_CHANNEL"
 echo ""
 
 # Step 2: Show available backups
