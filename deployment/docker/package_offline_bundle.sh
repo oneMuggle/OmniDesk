@@ -37,6 +37,14 @@ esac
 echo "  发布渠道: ${BUILD_CHANNEL}"
 
 BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}"
+# 离线包目录命名:<channel>-v<version>(stable 不加 prefix)
+case "$BUILD_CHANNEL" in
+    alpha)   BUNDLE_DIR="omnidesk-offline-alpha-v${BUILD_VERSION}" ;;
+    beta)    BUNDLE_DIR="omnidesk-offline-beta-v${BUILD_VERSION}" ;;
+    preview) BUNDLE_DIR="omnidesk-offline-rc-v${BUILD_VERSION}" ;;
+    hotfix)  BUNDLE_DIR="omnidesk-offline-hotfix-v${BUILD_VERSION}" ;;
+    *)       BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}" ;;  # stable
+esac
 EXPORT_DIR="exported_images"
 
 echo "=========================================="
@@ -267,6 +275,8 @@ case "${1:-start}" in
     start)
         echo "=========================================="
         echo "  OmniDesk 离线部署"
+        echo "  渠道: $(jq -r '.channel // "stable"' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'stable')"
+        echo "  版本: $(jq -r '.version' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'unknown')"
         echo "=========================================="
         echo ""
 
