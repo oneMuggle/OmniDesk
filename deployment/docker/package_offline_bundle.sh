@@ -21,10 +21,20 @@ if [ -z "$BUILD_VERSION" ]; then
     exit 1
 fi
 
-if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ERROR: Invalid version format '$BUILD_VERSION'. Use semantic versioning (MAJOR.MINOR.PATCH)."
+if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+    echo "ERROR: Invalid version format '$BUILD_VERSION'."
+    echo "Use MAJOR.MINOR.PATCH (stable) or MAJOR.MINOR.PATCH-{alpha,beta,rc}.N (pre-release)."
     exit 1
 fi
+
+# ─── 渠道推导(从 VERSION 后缀)───────────────────────
+case "$BUILD_VERSION" in
+    *-alpha.*) BUILD_CHANNEL="alpha" ;;
+    *-beta.*)  BUILD_CHANNEL="beta" ;;
+    *-rc.*)    BUILD_CHANNEL="preview" ;;
+    *)         BUILD_CHANNEL="stable" ;;
+esac
+echo "  发布渠道: ${BUILD_CHANNEL}"
 
 BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}"
 EXPORT_DIR="exported_images"
@@ -385,6 +395,7 @@ else
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA"
 }
@@ -439,6 +450,7 @@ if [ -n "$BACKEND_DIGEST" ] && [ -n "$FRONTEND_DIGEST" ]; then
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA",
   "images": {
