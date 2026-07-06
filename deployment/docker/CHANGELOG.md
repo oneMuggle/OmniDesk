@@ -30,7 +30,18 @@
 ### 验证
 - 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
 - 镜像依赖检查: ✅ 通过 (Django, psycopg2, celery, gunicorn OK)
-- 本地部署测试: **待验证**
+- 本地部署测试: ✅ 通过
+  - Backend: gunicorn healthy, 数据库迁移成功
+  - Frontend: nginx 正常服务, 代理 backend 成功
+  - API: `/api/health/` 返回 `version: 0.6.0-alpha.1`
+  - 全链路: frontend(8082) → nginx → backend(8001) → API 正常
+
+### 修复
+- **build_and_export.sh**: 支持渠道版本号格式 (-alpha.N / -beta.N / -rc.N)
+- **build_and_export.sh**: `:latest` 标签仅 stable 渠道打
+- **docker-compose.prod.yml**: backend 添加 healthcheck（使用 python urllib 替代 curl）
+- **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
+- **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
 
 ## [v0.5.9 修复] - 2026-07-06
 
