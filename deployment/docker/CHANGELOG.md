@@ -13,6 +13,23 @@
 
 ## [未发布]
 
+## [v0.6.0-alpha.1] - 2026-07-06
+
+### 说明
+- **首个 alpha 渠道版本**:开发阶段性完成，进入本地部署测试阶段
+- 功能基线与 v0.5.9 一致，主要变更是引入 4 段式发布渠道机制
+
+### 新增
+- **发布渠道机制**:alpha / beta / preview(rc) / stable 四阶段发布流程
+- **版本号解析工具**: `version_utils.py` 支持 SemVer 后缀解析
+- **渠道 API**: `/api/system/version/` 返回 `channel` 字段
+- **部署脚本渠道支持**: `upgrade.sh` / `rollback.sh` / `package_offline_bundle.sh` 支持渠道参数
+- **CI 渠道推导**: `build-and-push-images.yml` 按分支自动推导渠道 tag
+- **离线包目录命名**: 按渠道前缀区分（如 `omnidesk-offline-alpha-v0.6.0-alpha.1/`）
+
+### 验证
+- 本地部署测试: **待验证**
+
 ## [v0.5.9 修复] - 2026-07-06
 
 ### 修复
