@@ -23,7 +23,6 @@ from core.git_utils import (
 )
 from core.version_utils import (
     CHANNEL_NAMES,
-    ParsedVersion,
     compare_versions,
     format_version,
     parse_version,
@@ -202,9 +201,12 @@ class Command(BaseCommand):
         # 同渠道 stable(包括 hotfix):MAJOR/MINOR/PATCH 按 bump
         if internal_channel == "stable" and parsed.channel is None:
             if bump == "major":
-                major += 1; minor = 0; patch = 0
+                major += 1
+                minor = 0
+                patch = 0
             elif bump == "minor":
-                minor += 1; patch = 0
+                minor += 1
+                patch = 0
             elif bump == "patch":
                 patch += 1
             return format_version(major, minor, patch)

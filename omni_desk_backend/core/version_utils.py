@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 CHANNELS: tuple[str, ...] = ("alpha", "beta", "rc")
 
@@ -41,8 +40,8 @@ class ParsedVersion:
     major: int
     minor: int
     patch: int
-    channel: Optional[str] = None
-    channel_num: Optional[int] = None
+    channel: str | None = None
+    channel_num: int | None = None
 
     @property
     def is_stable(self) -> bool:
@@ -67,8 +66,8 @@ def format_version(
     major: int,
     minor: int,
     patch: int,
-    channel: Optional[str] = None,
-    channel_num: Optional[int] = None,
+    channel: str | None = None,
+    channel_num: int | None = None,
 ) -> str:
     """从分段构造 SemVer 字符串."""
     base = f"{major}.{minor}.{patch}"
