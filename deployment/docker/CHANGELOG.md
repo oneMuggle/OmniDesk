@@ -28,6 +28,8 @@
 - **离线包目录命名**: 按渠道前缀区分（如 `omnidesk-offline-alpha-v0.6.0-alpha.1/`）
 
 ### 验证
+- 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
+- 镜像依赖检查: ✅ 通过 (Django, psycopg2, celery, gunicorn OK)
 - 本地部署测试: **待验证**
 
 ## [v0.5.9 修复] - 2026-07-06
