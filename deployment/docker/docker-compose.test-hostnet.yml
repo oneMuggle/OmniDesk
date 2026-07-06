@@ -1,0 +1,4 @@
+# 测试 host 网络 — frontend 用 host 网络绕过端口映射冲突
+services:
+  frontend:
+    network_mode: host
