@@ -41,7 +41,7 @@ FRONTEND_IMAGE_GHCR="ghcr.io/onemuggle/omni-desk-frontend:v${BUILD_VERSION}"
 
 # 判断是否为 stable 渠道(无后缀)
 IS_STABLE=true
-if echo "$BUILD_VERSION" | grep -qE '-(alpha|beta|rc)\.[0-9]+$'; then
+if echo "$BUILD_VERSION" | grep -qE -- '-(alpha|beta|rc)\.[0-9]+$'; then
     IS_STABLE=false
 fi
 
