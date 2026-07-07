@@ -57,7 +57,7 @@ def test_items_without_sort_key_appear_last(synth):
     tool_results = [{
         "tool": "schedule_query", "module_label": "排班",
         "schedules": [
-            {"duty_date": "2026-07-08"},  # 无 sort_key → fallback
+            {"random_field": "x"},  # 无 sort_key → fallback 到 "9999"
             {"sort_key": "2026-07-10"},
         ],
     }]

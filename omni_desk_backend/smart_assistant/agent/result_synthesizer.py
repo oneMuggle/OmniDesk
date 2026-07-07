@@ -5,8 +5,6 @@
 """
 from __future__ import annotations
 
-from typing import Any
-
 
 class ResultSynthesizer:
     """将多个工具结果合并为一个结构化回答。
@@ -56,7 +54,13 @@ class ResultSynthesizer:
                         "type": tool_name,
                         "module": module,
                         "data": raw,
-                        "sort_key": raw.get("sort_key") or "9999",
+                        "sort_key": (
+                            raw.get("sort_key")
+                            or raw.get("start_at")
+                            or raw.get("created_at")
+                            or raw.get("duty_date")
+                            or "9999"
+                        ),
                     })
             elif r.get("found"):
                 # 单条结果(无数组字段):整 dict 作为一条 item
@@ -64,7 +68,13 @@ class ResultSynthesizer:
                     "type": tool_name,
                     "module": module,
                     "data": {k: v for k, v in r.items() if k not in ("found", "tool", "module_label", "message")},
-                    "sort_key": r.get("sort_key") or "9999",
+                    "sort_key": (
+                        r.get("sort_key")
+                        or r.get("start_at")
+                        or r.get("created_at")
+                        or r.get("duty_date")
+                        or "9999"
+                    ),
                 })
 
         # 排序:按 sort_key 升序
