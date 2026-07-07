@@ -10,10 +10,10 @@ from smart_assistant.tasks import process_document_embedding
 class TestProcessDocumentEmbedding(TestCase):
     """process_document_embedding Celery 任务测试."""
 
+    @patch('smart_assistant.tasks.RagflowClient')
     @patch('ragflow_service.models.RagflowConfig')
-    @patch('smart_assistant.tasks.requests')
     @patch('smart_assistant.tasks.getattr')
-    def test_successful_embedding_process(self, mock_getattr, mock_requests, mock_ragflow_config):
+    def test_successful_embedding_process(self, mock_getattr, mock_ragflow_config, mock_ragflow_client_class):
         """文档成功上传到 Ragflow 并完成解析."""
         mock_getattr.return_value = 'test-dataset-id'
 
@@ -22,25 +22,24 @@ class TestProcessDocumentEmbedding(TestCase):
         mock_config_obj.api_key = 'test-api-key'
         mock_ragflow_config.objects.filter.return_value.first.return_value = mock_config_obj
 
-        mock_upload_response = MagicMock()
-        mock_upload_response.raise_for_status.return_value = None
-        mock_upload_response.json.return_value = {'data': [{'id': 'ragflow-doc-123'}]}
-
-        mock_parse_response = MagicMock()
-        mock_parse_response.raise_for_status.return_value = None
-
-        mock_requests.post.side_effect = [mock_upload_response, mock_parse_response]
+        mock_client = MagicMock()
+        # upload_document 返回的是 data dict(以列表形式处理)
+        mock_client.upload_document.return_value = {'id': 'ragflow-doc-123'}
+        mock_client.parse_documents.return_value = True
+        mock_ragflow_client_class.return_value = mock_client
 
         from smart_assistant.models import KnowledgeBaseDocument
         with patch.object(KnowledgeBaseDocument, 'objects') as mock_objects:
             mock_doc = MagicMock()
             mock_objects.get.return_value = mock_doc
+            mock_doc.file.open.return_value.__enter__.return_value.read.return_value = b'test content'
 
             process_document_embedding('doc-1')
 
         assert mock_doc.embedding_status == 'completed'
         assert mock_doc.ragflow_document_id == 'ragflow-doc-123'
-        assert mock_requests.post.call_count == 2
+        assert mock_client.upload_document.called
+        assert mock_client.parse_documents.called
 
     @patch('smart_assistant.tasks.getattr')
     @patch('ragflow_service.models.RagflowConfig')
@@ -90,10 +89,10 @@ class TestProcessDocumentEmbedding(TestCase):
             mock_objects.get.side_effect = KnowledgeBaseDocument.DoesNotExist
             process_document_embedding('nonexistent-id')
 
+    @patch('smart_assistant.tasks.RagflowClient')
     @patch('ragflow_service.models.RagflowConfig')
-    @patch('smart_assistant.tasks.requests')
     @patch('smart_assistant.tasks.getattr')
-    def test_upload_failure_marks_as_failed(self, mock_getattr, mock_requests, mock_ragflow_config):
+    def test_upload_failure_marks_as_failed(self, mock_getattr, mock_ragflow_config, mock_ragflow_client_class):
         """上传失败时文档状态标记为 failed."""
         mock_getattr.return_value = 'test-dataset-id'
 
@@ -102,15 +101,16 @@ class TestProcessDocumentEmbedding(TestCase):
         mock_config_obj.api_key = 'test-api-key'
         mock_ragflow_config.objects.filter.return_value.first.return_value = mock_config_obj
 
-        mock_response = MagicMock()
-        mock_response.raise_for_status.return_value = None
-        mock_response.json.return_value = {'data': []}
-        mock_requests.post.return_value = mock_response
+        # 模拟 upload_document 返回空数据
+        mock_client = MagicMock()
+        mock_client.upload_document.return_value = {}  # 返回空,触发 ValueError
+        mock_ragflow_client_class.return_value = mock_client
 
         from smart_assistant.models import KnowledgeBaseDocument
         with patch.object(KnowledgeBaseDocument, 'objects') as mock_objects:
             mock_doc = MagicMock()
             mock_objects.get.return_value = mock_doc
+            mock_doc.file.open.return_value.__enter__.return_value.read.return_value = b'test content'
 
             try:
                 process_document_embedding('doc-1')
