@@ -80,16 +80,22 @@ const RagflowChatPage = () => {
 
       const response = await apiClient.post(
         `ragflow-service/configs/${ragflowConfig.id}/query/`,
-        { 
+        {
           question: inputMessage,
           conversation_id: conversationId // 传递conversation_id
         }
       );
 
+      // RAGFlow Chat API 返回格式: {data: {answer: "...", conversation_id: "..."}}
+      // 或简化格式: {answer: "...", conversation_id: "..."}
+      const responseData = response.data;
+      const answer = responseData?.data?.answer || responseData?.answer || responseData?.content || '';
+      const newConversationId = responseData?.data?.conversation_id || responseData?.conversation_id;
+
       const aiMessage = {
-        role: 'assistant', // 假设Ragflow返回的都是助手消息
-        content: response.data.answer, // 根据Ragflow实际返回的字段调整
-        conversation_id: response.data.conversation_id // 假设Ragflow返回conversation_id
+        role: 'assistant',
+        content: answer,
+        conversation_id: newConversationId
       };
       setConversationHistory([...conversationHistory, newMessage, aiMessage]);
       setInputMessage('');
