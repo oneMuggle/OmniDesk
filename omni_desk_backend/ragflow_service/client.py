@@ -4,7 +4,6 @@
 """
 
 import logging
-from typing import Any, Optional
 
 import requests
 
@@ -47,9 +46,9 @@ class RagflowClient:
         self,
         method: str,
         path: str,
-        json: Optional[dict] = None,
-        files: Optional[dict] = None,
-        timeout: Optional[int] = None,
+        json: dict | None = None,
+        files: dict | None = None,
+        timeout: int | None = None,
     ) -> dict:
         """发送 HTTP 请求。
 
@@ -272,7 +271,7 @@ class RagflowClient:
         self,
         name: str,
         dataset_ids: list[str],
-        llm_model: Optional[str] = None,
+        llm_model: str | None = None,
         **kwargs,
     ) -> dict:
         """创建聊天助手。
