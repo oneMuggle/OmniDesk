@@ -13,6 +13,36 @@
 
 ## [未发布]
 
+## [v0.6.0-alpha.2] - 2026-07-07
+
+### 新增
+- **RAGFlow 知识库服务完整接入** (PR #49):
+  - 后端:`RagflowClient` 统一封装 RAGFlow HTTP API(Dataset / 文档 / 检索 / Chat / 健康检查 8 类方法)
+  - 后端:`RagflowConfig` 新增 `chat_id` 字段;`query` action 改用正确的 RAGFlow Chat API 路径 `/api/v1/chats/{chat_id}/completions`
+  - 后端:新增 `health_check` / `list_datasets` / `list_chats` 三个 actions
+  - 后端:`ragflow_service` 数据库迁移 `0002_add_chat_id.py`
+  - 部署:`docker-compose.prod.yml` 新增 `ragflow`(v0.16.0)+ `ragflow-mysql` 服务及持久化卷
+  - 部署:`.env.production.example` 新增 `RAGFLOW_MYSQL_PASSWORD` / `RAGFLOW_PORT` / `RAGFLOW_API_ENDPOINT` / `RAGFLOW_API_KEY` / `SMART_ASSISTANT_DATASET_ID`
+  - 前端:`RagflowChatPage` 响应解析适配多种 RAGFlow API 返回格式
+  - 文档:`docs/plans/2026-07-06_ragflow-integration.md` 完整接入方案
+
+### 变更
+- **smart_assistant RAGTool 迁移至 RagflowClient**:
+  - `rag_router.py::search_dataset` 改用 `RagflowClient.retrieval()`,请求格式修正:`dataset_id` → `dataset_ids`(数组)、`query` → `question`
+  - `tasks.py::process_document_embedding` 改用 `RagflowClient.upload_document()` + `RagflowClient.parse_documents()`
+  - Celery 重试条件由 `requests.RequestException` 改为 `RagflowClientError`
+
+### 测试
+- `ragflow_service/tests/test_ragflow_views.py` 新增 2 个测试用例(`test_health_check_success` / `test_health_check_failure`),改用 `unittest.mock`,12/12 通过
+- `smart_assistant/tests/test_tasks.py` 适配 RagflowClient 重构,mock 目标改为 `RagflowClient`
+- `smart_assistant/tests/test_rag_router_coverage.py` 适配 RagflowClient 重构,27/27 通过
+- CI 全绿(10/10 jobs):`lint-backend` / `lint-frontend` / `typecheck` / `security` / `test-backend` / `test-frontend` / `build-frontend` / `docker-integration` / `test` / `build-and-push`
+
+### 升级注意
+- 升级前需在 `.env.production` 中配置 RAGFLOW_MYSQL_PASSWORD 等 RAGFlow 相关变量
+- 部署后首次启动需访问 `http://server-ip:9380` 完成 RAGFlow Web UI 初始化(创建管理员账号 + Chat Assistant)
+- 升级后通过 Django Admin 或 API 创建 `RagflowConfig`,填入 `api_endpoint` / `api_key` / `chat_id` 完成接入
+
 ## [v0.6.0-alpha.1] - 2026-07-06
 
 ### 说明
