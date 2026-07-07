@@ -45,3 +45,15 @@ class RAGTool(BaseTool):
             "description": self.description,
             "intent_type": self.intent_type,
         }
+
+    def build_base_queryset(self):
+        """RAG 工具无 Django ORM 数据源;返回 RagflowConfig 的空 QuerySet 作为契约占位。
+
+        实际数据来自 RAGFlow 外部服务,不走 Django ORM。
+        """
+        from ragflow_service.models import RagflowConfig
+        return RagflowConfig.objects.none()
+
+    def _scope_self(self, qs, ctx):
+        """RAG 是公共知识库,无"本人"语义;本人范围返回空 QuerySet。"""
+        return qs.none()

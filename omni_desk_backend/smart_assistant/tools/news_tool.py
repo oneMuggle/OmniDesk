@@ -36,3 +36,11 @@ class NewsTool(BaseTool):
             "count": len(results),
             "articles": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的新闻 QuerySet。"""
+        return NewsArticle.objects.select_related("news_type", "personnel").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下发布的新闻(按 personnel 字段 = CustomUser FK)。"""
+        return qs.filter(personnel=ctx.user)

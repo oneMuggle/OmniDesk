@@ -65,3 +65,17 @@ class AnnouncementTool(BaseTool):
             return {"found": False, "message": f'未找到与 "{keywords or query}" 相关的公告'}
 
         return {"found": True, "count": len(posts), "posts": posts}
+
+    def build_base_queryset(self):
+        from django.db.models import Q
+        from django.utils import timezone
+        from communication.models import Post
+        return (
+            Post.objects.filter(is_archived=False)
+            .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+            .select_related("author")
+        )
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 发布的公告。"""
+        return qs.filter(author=ctx.user)

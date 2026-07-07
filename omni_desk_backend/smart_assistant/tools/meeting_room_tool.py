@@ -68,3 +68,15 @@ class MeetingRoomTool(BaseTool):
             "date": str(target_date),
             "rooms": room_status,
         }
+
+    def build_base_queryset(self):
+        from meeting_rooms.models import MeetingRoom
+        return MeetingRoom.objects.all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 有过预订的会议室。"""
+        from meeting_rooms.models import MeetingRoomBooking
+        user_room_ids = MeetingRoomBooking.objects.filter(
+            user=ctx.user
+        ).values_list("meeting_room_id", flat=True)
+        return qs.filter(id__in=user_room_ids).distinct()

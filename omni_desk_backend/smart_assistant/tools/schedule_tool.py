@@ -51,3 +51,16 @@ class ScheduleTool(BaseTool):
             "description": self.description,
             "intent_type": self.intent_type,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的排班 QuerySet。"""
+        return Schedule.objects.select_related("duty_person", "duty_leader").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的排班。
+
+        注:brief 原代码使用 ``duty_person__user``,但 ``Personnel`` 无 ``user`` 字段,
+        实际反向关系为 ``user_account``(由 ``CustomUser.personnel = OneToOneField(...)``
+        的 ``related_name`` 定义)。此处用 ``user_account`` 与实际模型一致。
+        """
+        return qs.filter(duty_person__user_account=ctx.user)
