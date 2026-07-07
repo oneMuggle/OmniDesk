@@ -146,9 +146,7 @@ class RagflowClient:
         Returns:
             文档列表
         """
-        result = self._request(
-            "GET", f"/api/v1/datasets/{dataset_id}/documents?page={page}&page_size={page_size}"
-        )
+        result = self._request("GET", f"/api/v1/datasets/{dataset_id}/documents?page={page}&page_size={page_size}")
         return result.get("data", {}).get("docs", [])
 
     def upload_document(self, dataset_id: str, file_name: str, file_content: bytes) -> dict:
@@ -163,9 +161,7 @@ class RagflowClient:
             上传结果，包含文档 ID
         """
         files = {"file": (file_name, file_content)}
-        result = self._request(
-            "POST", f"/api/v1/datasets/{dataset_id}/documents", files=files
-        )
+        result = self._request("POST", f"/api/v1/datasets/{dataset_id}/documents", files=files)
         return result.get("data", {})
 
     def delete_document(self, dataset_id: str, document_ids: list[str]) -> bool:
