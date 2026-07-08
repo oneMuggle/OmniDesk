@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
-from ..models import DocumentBinding, OutboxItem
+from ..models import DocumentBinding, OutboxItem, UserPaperlessBinding
 
 CustomUser = get_user_model()
 
@@ -106,3 +106,27 @@ class TestOutboxItem:
         )
         delta = timezone.now() - item.next_retry_at
         assert abs(delta) < timedelta(seconds=5)
+
+
+@pytest.mark.django_db
+class TestUserPaperlessBinding:
+    def test_create_binding(self, user):
+        """验证:能创建 UserPaperlessBinding"""
+        b = UserPaperlessBinding.objects.create(
+            user=user, paperless_user_id=5, paperless_username='alice'
+        )
+        assert b.id is not None
+        assert b.is_active is True
+
+    def test_one_to_one(self, user):
+        """验证:一个 OmniDesk 用户只能绑定一个 paperless 用户"""
+        UserPaperlessBinding.objects.create(
+            user=user, paperless_user_id=5, paperless_username='alice'
+        )
+        from django.contrib.auth import get_user_model
+        CustomUser = get_user_model()
+        u2 = CustomUser.objects.create_user(username='bob', password='p')
+        with pytest.raises(Exception):
+            UserPaperlessBinding.objects.create(
+                user=u2, paperless_user_id=5, paperless_username='duplicate'
+            )

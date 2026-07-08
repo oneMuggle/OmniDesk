@@ -104,3 +104,25 @@ class OutboxItem(models.Model):
 
     def __str__(self):
         return f'Outbox#{self.id} {self.operation} {self.status}'
+
+
+class UserPaperlessBinding(models.Model):
+    """OmniDesk 用户 ↔ paperless 用户账号绑定"""
+
+    user = models.OneToOneField(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='paperless_bind',
+        verbose_name='OmniDesk 用户',
+    )
+    paperless_user_id = models.PositiveIntegerField(unique=True, verbose_name='paperless 用户 ID')
+    paperless_username = models.CharField(max_length=150, verbose_name='paperless 用户名')
+    bound_at = models.DateTimeField(auto_now_add=True, verbose_name='绑定时间')
+    is_active = models.BooleanField(default=True, verbose_name='是否激活')
+
+    class Meta:
+        verbose_name = 'paperless 账号绑定'
+        verbose_name_plural = 'paperless 账号绑定'
+
+    def __str__(self):
+        return f'{self.user.username} → paperless:{self.paperless_username}'
