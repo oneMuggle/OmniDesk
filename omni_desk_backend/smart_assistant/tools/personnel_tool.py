@@ -43,3 +43,11 @@ class PersonnelTool(BaseTool):
             "description": self.description,
             "intent_type": self.intent_type,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的人员 QuerySet。"""
+        return Personnel.objects.select_related("position").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 自身关联的人员记录(经 CustomUser.personnel → Personnel.user_account 反向关系)。"""
+        return qs.filter(user_account=ctx.user)

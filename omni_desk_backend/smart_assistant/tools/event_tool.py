@@ -64,3 +64,11 @@ class EventTool(BaseTool):
             "found": True,
             **results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的排班 QuerySet(主模型;execute 同时查 Holiday)。"""
+        return Schedule.objects.select_related("duty_person", "duty_leader").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:EventTool 聚合排班+节假日,无明确"本人"语义;返回空 QuerySet。"""
+        return qs.none()

@@ -184,3 +184,75 @@ def celery_eager_mode(settings):
     """启用 Celery 同步执行模式,避免测试中触发真实异步任务。"""
     settings.CELERY_TASK_ALWAYS_EAGER = True
     yield
+
+
+# =============================================================================
+# E2E 用户身份 Fixtures (Task 12)
+# =============================================================================
+# 三种身份对应 ToolContext.from_request() / resolve_scope() 派生的 scope:
+#   - auth_client          -> 普通员工, scope=SELF(默认,无任何权限)
+#   - auth_client_dept     -> 部门主管, scope=DEPARTMENT(授予 smart_assistant.view_department)
+#   - auth_client_admin    -> 管理员,   scope=GLOBAL(is_superuser=True,自动 GLOBAL)
+#
+# User 来自全局 conftest.py 的 CustomUser。
+# Permission 由 Task 9 migration 0010_smart_assistant_permissions 提供,
+#   挂在 ContentType(app_label='smart_assistant', model='smartassistantsession') 下,
+#   故 lookup 必须过滤该 app_label,否则 MultipleObjectsReturned
+#   (auth 等 app 也有 codename='view_<modelname>' 的 default permission)。
+# =============================================================================
+
+
+@pytest.fixture
+def auth_client(db):
+    """普通员工(无任何权限) -> APIClient.force_authenticate 注入。
+
+    与现有 ``admin_client`` 同型 APIClient,但用户不带 superuser/staff。
+    Test 通过 ``auth_client.handler._force_user`` 反查注入用户。
+    """
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(username="plain_user_test", password="plain123")
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
+def auth_client_dept(db):
+    """部门主管(拥有 ``smart_assistant.view_department``) -> DEPARTMENT scope。"""
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Permission
+
+    User = get_user_model()
+    user = User.objects.create_user(username="dept_manager_test", password="dept123")
+    # 注意:必须按 ContentType app_label 过滤。Permission 表里许多 app 都有
+    # codename='view_<modelname>' 的默认权限,无过滤会 MultipleObjectsReturned。
+    perm = Permission.objects.get(
+        content_type__app_label="smart_assistant",
+        codename="view_department",
+    )
+    user.user_permissions.add(perm)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
+def auth_client_admin(db):
+    """管理员(superuser) -> GLOBAL scope(无需授予 view_global)。
+
+    is_superuser=True 时 ``resolve_scope`` 优先返回 ``GLOBAL``。
+    """
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_superuser(
+        username="admin_scope_test", password="admin_scope_123", email="a@x.com"
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
