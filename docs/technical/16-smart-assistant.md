@@ -249,7 +249,14 @@ class ToolContext:
 
 `python manage.py check_tool_scopes` 在 CI 跑,确保所有 13 个工具实现 scope 抽象方法。
 
-### 7.4 已知 gap(待最终评审修复)
+### 7.4 已知 gap(已修复 — Task 17, 2026-07-07)
 
-1. `views/chat.py` 当前未把 `request.user` 传给 orchestrator,scope filter 在生产路径不生效 — 需 view 层修改
-2. `ToolResult.jsx` `module_counts` vs `moduleCounts` snake_case/camelCase 不匹配 — 需 adapter 或后端重命名
+| Gap | 状态 | 修复方式 |
+|---|---|---|
+| C1: `views/chat.py` 不传 user/scope,scope filter 在生产路径不生效 | ✅ 已修复 | view 层从 `request.user` 构造 `ToolContext(user, scope=resolve_scope(user))` 并传给 `orchestrator.process()/process_stream()` |
+| C2: `module_counts`(snake_case) vs `AggregatedDayCard` 期望的 `moduleCounts`(camelCase)不匹配 | ✅ 已修复 | `result_synthesizer.py` 改返回 `moduleCounts`,所有调用方 / 测试同步更新 |
+| C3: orchestrator 返回 `multi_tool_chain` 但 `ToolResult.jsx` 检查 `aggregated_day` | ✅ 已修复 | orchestrator `_process_chain()` 返回 `intent="aggregated_day"`,触发 `AggregatedDayCard` |
+| C4: QuickCommands 派发的 `personal_summary` intent 后端未注册 | ✅ 已修复 | 前端 `QuickCommands.jsx` 把 `{intent, scope}` 翻译回自然语言 query(方案 B),走原 `query` 路径 |
+| P0 漏洞: `cache_tool_result` 用 `context_sig=""` 不区分用户 → 缓存投毒 | ✅ 已修复 | cache.py + orchestrator 派生 `u<user_pk>_s<scope_value>` 并加入 cache key;E2E 测试 `test_e2e_cache_isolated_by_user_and_scope` 验证 |
+
+修复详情见 Task 17 plan:`docs/superpowers/plans/2026-07-07-task17-fix-integration-gaps.md`
