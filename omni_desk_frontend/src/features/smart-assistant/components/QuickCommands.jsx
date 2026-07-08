@@ -8,10 +8,32 @@ const DEFAULT_COMMANDS = [
   { label: '📝 备忘录', query: '我的备忘录' },
   { label: '📰 最新新闻', query: '最新新闻通知' },
   { label: '🔍 搜索文档', query: '搜索实验相关文档' },
+  {
+    key: 'personal_summary_week',
+    label: '我的本周',
+    intent: 'personal_summary',
+    scope: 'week',
+  },
+  {
+    key: 'personal_summary_today',
+    label: '我今天',
+    intent: 'personal_summary',
+    scope: 'today',
+  },
 ];
 
-const QuickCommands = ({ commands, onSend }) => {
+const QuickCommands = ({ commands, onSend, onCommand }) => {
   const items = commands || DEFAULT_COMMANDS;
+
+  const handleClick = (cmd) => {
+    if (cmd.intent && typeof onCommand === 'function') {
+      onCommand({ intent: cmd.intent, scope: cmd.scope });
+      return;
+    }
+    if (cmd.query && typeof onSend === 'function') {
+      onSend(cmd.query);
+    }
+  };
 
   return (
     <div className="quick-commands">
@@ -19,9 +41,9 @@ const QuickCommands = ({ commands, onSend }) => {
       <div className="quick-commands-list">
         {items.map((cmd, idx) => (
           <button
-            key={idx}
+            key={cmd.key || idx}
             className="quick-command-btn"
-            onClick={() => onSend(cmd.query)}
+            onClick={() => handleClick(cmd)}
           >
             {cmd.label}
           </button>
@@ -36,9 +58,13 @@ export default QuickCommands;
 QuickCommands.propTypes = {
   commands: PropTypes.arrayOf(
     PropTypes.shape({
+      key: PropTypes.string,
       label: PropTypes.string.isRequired,
-      query: PropTypes.string.isRequired,
+      query: PropTypes.string,
+      intent: PropTypes.string,
+      scope: PropTypes.string,
     }),
   ),
-  onSend: PropTypes.func.isRequired,
+  onSend: PropTypes.func,
+  onCommand: PropTypes.func,
 };
