@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
-from ..models import DocumentBinding, OutboxItem, UserPaperlessBinding
+from ..models import DocumentBinding, OutboxItem, PaperlessHealth, UserPaperlessBinding
 
 CustomUser = get_user_model()
 
@@ -130,3 +130,21 @@ class TestUserPaperlessBinding:
             UserPaperlessBinding.objects.create(
                 user=u2, paperless_user_id=5, paperless_username='duplicate'
             )
+
+
+@pytest.mark.django_db
+class TestPaperlessHealth:
+    def test_singleton(self):
+        """验证:健康状态单例(只能有一行)"""
+        h = PaperlessHealth.objects.create(is_healthy=True)
+        assert h.id is not None
+        # 第二次创建会创建新行(不是物理单例),但通过 get_singleton 始终返回第一行
+        singleton = PaperlessHealth.get_singleton()
+        assert singleton.id == h.id
+
+    def test_get_singleton_creates_default(self):
+        """验证:get_singleton 找不到时自动创建默认值"""
+        assert PaperlessHealth.objects.count() == 0
+        s = PaperlessHealth.get_singleton()
+        assert s.is_healthy is True
+        assert s.consecutive_failures == 0

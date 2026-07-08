@@ -126,3 +126,26 @@ class UserPaperlessBinding(models.Model):
 
     def __str__(self):
         return f'{self.user.username} → paperless:{self.paperless_username}'
+
+
+class PaperlessHealth(models.Model):
+    """paperless 健康检查状态(逻辑单例)"""
+
+    is_healthy = models.BooleanField(default=True, verbose_name='是否健康')
+    last_check_at = models.DateTimeField(auto_now=True, verbose_name='最后检查时间')
+    consecutive_failures = models.PositiveIntegerField(default=0, verbose_name='连续失败次数')
+    last_error = models.TextField(blank=True, verbose_name='最后错误')
+
+    class Meta:
+        verbose_name = 'paperless 健康状态'
+        verbose_name_plural = 'paperless 健康状态'
+
+    def __str__(self):
+        return f'paperless: {"健康" if self.is_healthy else "不可用"}'
+
+    @classmethod
+    def get_singleton(cls):
+        obj = cls.objects.first()
+        if obj is None:
+            obj = cls.objects.create(is_healthy=True)
+        return obj
