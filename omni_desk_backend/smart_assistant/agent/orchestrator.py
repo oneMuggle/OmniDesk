@@ -214,7 +214,12 @@ class AgentOrchestrator:
         }
 
     def process_stream(self, user_query: str, conversation_history: list = None, tool_context=None):
-        """流式处理:先发送元数据,再逐 chunk 发送 LLM 输出"""
+        """流式处理:先发送元数据,再逐 chunk 发送 LLM 输出。
+
+        Task 17 修复:在执行单工具路径前,先调用 ``generate_tool_chain_plan()``
+        检测多工具场景;若命中,走 ``_process_chain()`` 让流式前端也能拿到
+        ``aggregated_day`` 结构,触发 ``<AggregatedDayCard>`` 渲染。
+        """
         import json
 
         has_history = conversation_history is not None and len(conversation_history) > 0
@@ -222,9 +227,48 @@ class AgentOrchestrator:
 
         # Step 1: 意图分类
         schemas = ToolRegistry.get_all_schemas()
-        intent = classify_intent(user_query, schemas, conversation_history)
+
+        # Step 1.5 (Task 17): 检测多工具链式执行
+        # 与 process() 对称:命中多工具计划时,先走 _process_chain() 拿到
+        # 聚合结果(intent="aggregated_day"),再以流式事件流的形式
+        # 推给前端(避免流式场景下永远拿不到 moduleCounts)。
+        tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
+        if tool_chain:
+            chain_result = self._process_chain(
+                user_query, tool_chain, conversation_history, tool_context
+            )
+            # 1) 发送元数据(meta),含 moduleCounts 等供 AggregatedDayCard 渲染
+            meta = json.dumps(
+                {
+                    "type": "meta",
+                    "intent": chain_result["intent"],
+                    "tool_used": chain_result.get("tool_used"),
+                    "tool_result": chain_result.get("tool_result"),
+                    "sources": chain_result.get("sources"),
+                    "tool_fallback": False,
+                },
+                ensure_ascii=False,
+            )
+            yield f"data: {meta}\n\n"
+            # 2) 发送单一内容 chunk(_process_chain 已是最终聚合 answer)
+            data = json.dumps(
+                {"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False
+            )
+            yield f"data: {data}\n\n"
+            # 3) 结束信号
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # 缓存与意图分类(单工具路径,保持原行为)
         if not has_history:
-            cache_intent(user_query, schemas, intent, context_sig=scope_sig)
+            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
+            if cached_intent:
+                intent = cached_intent
+            else:
+                intent = classify_intent(user_query, schemas, conversation_history)
+                cache_intent(user_query, schemas, intent, context_sig=scope_sig)
+        else:
+            intent = classify_intent(user_query, schemas, conversation_history)
 
         # Step 2: 工具路由
         tool = ToolRegistry.get_tool(intent)
