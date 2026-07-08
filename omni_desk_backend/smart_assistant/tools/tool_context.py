@@ -25,7 +25,7 @@ class ToolContext:
     scope: SmartAssistantScope = SmartAssistantScope.SELF
 
     @classmethod
-    def from_request(cls, request: Any) -> "ToolContext":
+    def from_request(cls, request: Any) -> ToolContext:
         """从 DRF Request 构造 ToolContext。
 
         request.user 必填(由调用方保证已认证);

@@ -10,15 +10,12 @@
 
 from typing import TYPE_CHECKING
 
-from django.db.models import Q
-from django.utils import timezone
 
-from communication.models import Post
 
 from .base import BaseTool
 
 if TYPE_CHECKING:
-    from .tool_context import ToolContext
+    pass
 
 
 class AnnouncementTool(BaseTool):

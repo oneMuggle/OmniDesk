@@ -112,7 +112,7 @@ class BaseTool(ABC):
             f"{self.__class__.__name__} must implement build_base_queryset()"
         )
 
-    def get_queryset_for_scope(self, base_qs, context: "ToolContext"):
+    def get_queryset_for_scope(self, base_qs, context: ToolContext):
         """根据 scope 过滤 QuerySet。默认实现:dispatch 到 _scope_self/_scope_department/GLOBAL 透传。
 
         子类通常不重写此方法;如需自定义分支逻辑可重写。
