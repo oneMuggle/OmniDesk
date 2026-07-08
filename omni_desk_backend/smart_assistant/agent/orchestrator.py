@@ -173,9 +173,7 @@ class AgentOrchestrator:
         if tool_context is not None:
             executor_results = ToolChainExecutor().execute({"steps": plan}, tool_context)
         else:
-            raw_results = execute_tool_chain(
-                plan, user_query, context={"history": conversation_history or []}
-            )
+            raw_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
             executor_results = [r.get("result", {}) for r in raw_results if r.get("result")]
 
         # 聚合多工具结果(供前端 <AggregatedDayCard> 渲染)
@@ -234,9 +232,7 @@ class AgentOrchestrator:
         # 推给前端(避免流式场景下永远拿不到 moduleCounts)。
         tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
         if tool_chain:
-            chain_result = self._process_chain(
-                user_query, tool_chain, conversation_history, tool_context
-            )
+            chain_result = self._process_chain(user_query, tool_chain, conversation_history, tool_context)
             # 1) 发送元数据(meta),含 moduleCounts 等供 AggregatedDayCard 渲染
             meta = json.dumps(
                 {
@@ -251,9 +247,7 @@ class AgentOrchestrator:
             )
             yield f"data: {meta}\n\n"
             # 2) 发送单一内容 chunk(_process_chain 已是最终聚合 answer)
-            data = json.dumps(
-                {"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False
-            )
+            data = json.dumps({"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False)
             yield f"data: {data}\n\n"
             # 3) 结束信号
             yield f"data: {json.dumps({'type': 'done'})}\n\n"

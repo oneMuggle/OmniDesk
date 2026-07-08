@@ -3,6 +3,7 @@
 接收多工具执行结果,按时间排序,按模块分组,生成结构化聚合数据
 供前端 <AggregatedDayCard> 直接渲染。
 """
+
 from __future__ import annotations
 
 
@@ -50,32 +51,36 @@ class ResultSynthesizer:
 
             if raw_items:
                 for raw in raw_items:
-                    items.append({
-                        "type": tool_name,
-                        "module": module,
-                        "data": raw,
-                        "sort_key": (
-                            raw.get("sort_key")
-                            or raw.get("start_at")
-                            or raw.get("created_at")
-                            or raw.get("duty_date")
-                            or "9999"
-                        ),
-                    })
+                    items.append(
+                        {
+                            "type": tool_name,
+                            "module": module,
+                            "data": raw,
+                            "sort_key": (
+                                raw.get("sort_key")
+                                or raw.get("start_at")
+                                or raw.get("created_at")
+                                or raw.get("duty_date")
+                                or "9999"
+                            ),
+                        }
+                    )
             elif r.get("found"):
                 # 单条结果(无数组字段):整 dict 作为一条 item
-                items.append({
-                    "type": tool_name,
-                    "module": module,
-                    "data": {k: v for k, v in r.items() if k not in ("found", "tool", "module_label", "message")},
-                    "sort_key": (
-                        r.get("sort_key")
-                        or r.get("start_at")
-                        or r.get("created_at")
-                        or r.get("duty_date")
-                        or "9999"
-                    ),
-                })
+                items.append(
+                    {
+                        "type": tool_name,
+                        "module": module,
+                        "data": {k: v for k, v in r.items() if k not in ("found", "tool", "module_label", "message")},
+                        "sort_key": (
+                            r.get("sort_key")
+                            or r.get("start_at")
+                            or r.get("created_at")
+                            or r.get("duty_date")
+                            or "9999"
+                        ),
+                    }
+                )
 
         # 排序:按 sort_key 升序
         items.sort(key=lambda x: x["sort_key"])

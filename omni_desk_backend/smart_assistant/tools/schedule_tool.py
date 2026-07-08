@@ -50,9 +50,7 @@ class ScheduleTool(BaseTool):
                 target_date = (timezone.now() + timedelta(days=2)).date()
             elif "昨天" in query:
                 target_date = (timezone.now() - timedelta(days=1)).date()
-        schedules = Schedule.objects.filter(duty_date=target_date).select_related(
-            "duty_person", "duty_leader"
-        )
+        schedules = Schedule.objects.filter(duty_date=target_date).select_related("duty_person", "duty_leader")
         if not schedules.exists():
             return {"date": str(target_date), "found": False, "message": f"{target_date} 暂无排班记录"}
         results = [

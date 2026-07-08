@@ -44,9 +44,11 @@ class SmartAssistantConfig(AppConfig):
         if getattr(settings, "DEBUG", False):
             try:
                 from django.core.management import call_command
+
                 call_command("check_tool_scopes", verbosity=0)
             except SystemExit as e:
                 if e.code != 0:
                     import sys
+
                     sys.stderr.write("[smart_assistant] check_tool_scopes failed at startup\n")
                     # 不阻止启动(仅警告),CI 会真正 fail

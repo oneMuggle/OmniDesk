@@ -32,7 +32,8 @@ class MeetingRoomTool(BaseTool):
         day_start = timezone.make_aware(datetime.combine(target_date, time.min))
         day_end = timezone.make_aware(datetime.combine(target_date, time.max))
         bookings = MeetingRoomBooking.objects.filter(
-            start_time__gte=day_start, start_time__lte=day_end,
+            start_time__gte=day_start,
+            start_time__lte=day_end,
         ).select_related("meeting_room", "user")[:50]
 
         room_status = []
@@ -47,13 +48,15 @@ class MeetingRoomTool(BaseTool):
                 for b in bookings
                 if b.meeting_room_id == room.id
             ]
-            room_status.append({
-                "name": room.name,
-                "capacity": room.capacity,
-                "floor": room.location or "未指定",
-                "is_available": len(room_bookings) == 0,
-                "bookings": room_bookings,
-            })
+            room_status.append(
+                {
+                    "name": room.name,
+                    "capacity": room.capacity,
+                    "floor": room.location or "未指定",
+                    "is_available": len(room_bookings) == 0,
+                    "bookings": room_bookings,
+                }
+            )
 
         return {
             "found": True,
@@ -64,12 +67,12 @@ class MeetingRoomTool(BaseTool):
 
     def build_base_queryset(self):
         from meeting_rooms.models import MeetingRoom
+
         return MeetingRoom.objects.all()
 
     def _scope_self(self, qs, ctx):
         """本人范围:仅返回 ctx.user 有过预订的会议室。"""
         from meeting_rooms.models import MeetingRoomBooking
-        user_room_ids = MeetingRoomBooking.objects.filter(
-            user=ctx.user
-        ).values_list("meeting_room_id", flat=True)
+
+        user_room_ids = MeetingRoomBooking.objects.filter(user=ctx.user).values_list("meeting_room_id", flat=True)
         return qs.filter(id__in=user_room_ids).distinct()

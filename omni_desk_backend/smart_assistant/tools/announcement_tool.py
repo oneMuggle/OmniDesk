@@ -11,7 +11,6 @@
 from typing import TYPE_CHECKING
 
 
-
 from .base import BaseTool
 
 if TYPE_CHECKING:
@@ -39,6 +38,7 @@ class AnnouncementTool(BaseTool):
             from communication.models import Post
             from django.utils import timezone
             from django.db.models import Q
+
             qs = (
                 Post.objects.filter(is_archived=False)
                 .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
@@ -48,20 +48,23 @@ class AnnouncementTool(BaseTool):
 
         if keywords and len(keywords) >= 2:
             from django.db.models import Q
+
             qs = qs.filter(Q(title__icontains=keywords) | Q(content__icontains=keywords))
 
         posts = []
         for p in qs[:10]:
             raw_content = p.content or ""
             truncated = raw_content[:200] + ("..." if len(raw_content) > 200 else "")
-            posts.append({
-                "title": p.title,
-                "content": truncated,
-                "author": p.author.username if p.author else "系统",
-                "created_at": p.created_at.date().isoformat(),
-                "expires_at": p.expires_at.date().isoformat() if p.expires_at else None,
-                "sort_key": p.created_at.date().isoformat(),
-            })
+            posts.append(
+                {
+                    "title": p.title,
+                    "content": truncated,
+                    "author": p.author.username if p.author else "系统",
+                    "created_at": p.created_at.date().isoformat(),
+                    "expires_at": p.expires_at.date().isoformat() if p.expires_at else None,
+                    "sort_key": p.created_at.date().isoformat(),
+                }
+            )
 
         if not posts:
             return {
@@ -80,6 +83,7 @@ class AnnouncementTool(BaseTool):
         from django.db.models import Q
         from django.utils import timezone
         from communication.models import Post
+
         return (
             Post.objects.filter(is_archived=False)
             .filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))

@@ -52,6 +52,7 @@ class RAGTool(BaseTool):
         实际数据来自 RAGFlow 外部服务,不走 Django ORM。
         """
         from ragflow_service.models import RagflowConfig
+
         return RagflowConfig.objects.none()
 
     def _scope_self(self, qs, ctx):

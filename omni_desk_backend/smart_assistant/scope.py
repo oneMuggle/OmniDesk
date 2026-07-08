@@ -2,6 +2,7 @@
 
 单一事实来源:所有"用户能看多远"的判断都查 resolve_scope()。
 """
+
 from __future__ import annotations
 
 from enum import Enum

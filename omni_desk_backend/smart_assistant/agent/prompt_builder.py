@@ -99,7 +99,8 @@ SUMMARY_INTENT_HINT = """
 """
 
 
-TOOL_CHAIN_PROMPT = """你是一个工具链规划器。根据用户的查询，判断需要调用哪些工具。
+TOOL_CHAIN_PROMPT = (
+    """你是一个工具链规划器。根据用户的查询，判断需要调用哪些工具。
 
 可用的工具：
 {tool_schemas}
@@ -116,7 +117,9 @@ TOOL_CHAIN_PROMPT = """你是一个工具链规划器。根据用户的查询，
   {{"tool": "工具名2", "params": {{"query": "子查询2"}}, "depends_on": "工具名"}}
 ]
 
-只返回 JSON 数组，不要其他文字。""" + SUMMARY_INTENT_HINT
+只返回 JSON 数组，不要其他文字。"""
+    + SUMMARY_INTENT_HINT
+)
 
 TOOL_CHAIN_SYNTHESIS_PROMPT = """你是一个智能助手，负责将多个工具的执行结果综合成自然的中文回答。
 

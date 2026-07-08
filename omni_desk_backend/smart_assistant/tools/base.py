@@ -108,9 +108,7 @@ class BaseTool(ABC):
         以保证现有 13 个未实现该方法的旧工具仍可实例化(Task 3 仅添加方法,
         Task 4 才在子类中实现);调用本方法时才报错。
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement build_base_queryset()"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} must implement build_base_queryset()")
 
     def get_queryset_for_scope(self, base_qs, context: ToolContext):
         """根据 scope 过滤 QuerySet。默认实现:dispatch 到 _scope_self/_scope_department/GLOBAL 透传。
@@ -131,9 +129,7 @@ class BaseTool(ABC):
         默认实现:raise NotImplementedError。同 build_base_queryset,不写
         @abstractmethod 以保留向后兼容性。
         """
-        raise NotImplementedError(
-            f"{self.__class__.__name__} must implement _scope_self()"
-        )
+        raise NotImplementedError(f"{self.__class__.__name__} must implement _scope_self()")
 
     def _scope_department(self, qs, ctx):
         """部门范围过滤(默认 = 透传,子类可重写)。"""
