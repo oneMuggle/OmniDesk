@@ -32,7 +32,7 @@ describe('pluginApi', () => {
 
   it('executePlugin 应调用 POST', async () => {
     axiosInstance.post.mockResolvedValue({ data: { result: 'ok' } });
-    const result = await pluginApi.executePlugin(1, { param: 'value' });
+    await pluginApi.executePlugin(1, { param: 'value' });
     expect(axiosInstance.post).toHaveBeenCalledWith('/external/plugins/1/execute/', { params: { param: 'value' } });
   });
 });
