@@ -11,7 +11,7 @@ class ResultSynthesizer:
 
     设计意图:
     - 输入:每个工具返回的 dict(含 module_label, posts/rooms/schedules 等数组)
-    - 输出:统一结构 {summary, items, total_count, module_counts}
+    - 输出:统一结构 {summary, items, total_count, moduleCounts}(camelCase 与前端对齐)
     - 前端只需消费 items[].{type, module, data, sort_key} 即可分组渲染
     """
 
@@ -34,7 +34,7 @@ class ResultSynthesizer:
                 "summary": str,           # 人类可读汇总
                 "items": list[dict],      # 排序后的所有 item,前端聚合卡片渲染
                 "total_count": int,       # item 总数
-                "module_counts": dict,    # {模块名: 数量}
+                "moduleCounts": dict,     # {模块名: 数量}(camelCase)
             }
         """
         items = []
@@ -96,5 +96,5 @@ class ResultSynthesizer:
             "summary": summary,
             "items": items,
             "total_count": len(items),
-            "module_counts": module_counts,
+            "moduleCounts": module_counts,  # camelCase: 与前端 AggregatedDayCard 保持一致
         }

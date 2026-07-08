@@ -22,7 +22,7 @@ def test_single_tool_result_count(synth):
     }]
     result = synth.synthesize(tool_results, "本周")
     assert result["total_count"] == 1
-    assert result["module_counts"] == {"排班": 1}
+    assert result["moduleCounts"] == {"排班": 1}
 
 
 def test_multiple_tools_aggregated(synth):
@@ -36,7 +36,7 @@ def test_multiple_tools_aggregated(synth):
     ]
     result = synth.synthesize(tool_results, "本周")
     assert result["total_count"] == 3
-    assert result["module_counts"] == {"排班": 1, "会议室": 1, "公告": 1}
+    assert result["moduleCounts"] == {"排班": 1, "会议室": 1, "公告": 1}
 
 
 def test_items_sorted_by_sort_key(synth):
@@ -117,5 +117,5 @@ def test_module_counts_aggregated_correctly(synth):
          "posts": [{"sort_key": "d1"}]},
     ]
     result = synth.synthesize(tool_results, "")
-    assert result["module_counts"]["排班"] == 3
-    assert result["module_counts"]["公告"] == 1
+    assert result["moduleCounts"]["排班"] == 3
+    assert result["moduleCounts"]["公告"] == 1
