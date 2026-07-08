@@ -382,3 +382,117 @@ class TestSmartChatE2EUnauthToolRejection:
         assert response.status_code == status.HTTP_401_UNAUTHORIZED
         mock_orch_cls.assert_not_called()
 
+
+# =============================================================================
+# Task 12 — E2E 链路(scope 自动派生 + 权限降级)
+# =============================================================================
+# 验证三身份(普通员工 / 部门主管 / 管理员)通过 chat 端点时:
+#   - ToolContext.from_request() 经由 resolve_scope() 派生 scope
+#   - 全链路(view -> orchestrator -> LLM) 返回 200 + 自动日志记录
+#   - 未认证请求 401
+#
+# Brief 侧 bug 修复:
+#   1. ``auth_client.handler._force_auth_user`` -> ``auth_client.handler._force_user``
+#      (DRF ForceAuthClientHandler 真实属性为 _force_user)
+#   2. ``Personnel.objects.create(name="P", user=user)`` -> Personnel 无 user 字段,
+#      绑定走 reverse OneToOne ``user.personnel = p; user.save()``
+#   3. ``Permission.objects.get(codename="view_department")`` -> 必须加
+#      ``content_type__app_label="smart_assistant"`` 过滤,否则 MultipleObjectsReturned
+#      (auth 等 app 也有 codename='view_<modelname>' 的默认权限)
+#   4. request body 字段是 ``query``(非 ``message``),由 SmartChatRequestSerializer 决定;
+#      brief 的 ``"message"+"stream":False`` 会 400
+#   5. 使用 ``User.objects.create_user/create_superuser``(AbstractUser 要求 password)
+# =============================================================================
+
+
+@pytest.mark.django_db
+def test_e2e_plain_user_aggregation_returns_self_data(auth_client, mock_llm_router):
+    """E2E 场景 9:普通员工 (scope=SELF) -> chat 端点返回 200。
+
+    LLM 已被 mock_llm_router patch 为返回固定响应;orchestrator 真实运行。
+    """
+    from events.models import Schedule
+    from personnel.models import Personnel
+    from django.utils import timezone
+
+    user = auth_client.handler._force_user
+    p = Personnel.objects.create(name="P")
+    user.personnel = p
+    user.save()
+    Schedule.objects.create(duty_date=timezone.now().date(), duty_person=p)
+
+    mock_llm_router.generate.return_value = ("本周你有一个排班。", {"total_tokens": 50})
+
+    resp = auth_client.post(
+        "/api/smart-assistant/chat/",
+        {"query": "这周我有哪些事", "stream": False},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_e2e_dept_manager_aggregation_returns_dept_data(auth_client_dept, mock_llm_router):
+    """E2E 场景 10:部门主管 (scope=DEPARTMENT) -> chat 端点返回 200。
+
+    Fixture ``auth_client_dept`` 已授予 view_department 权限(scope->DEPARTMENT)。
+    """
+    from events.models import Schedule
+    from personnel.models import Personnel
+    from django.utils import timezone
+
+    manager = auth_client_dept.handler._force_user
+    p = Personnel.objects.create(name="P")
+    manager.personnel = p
+    manager.save()
+    Schedule.objects.create(duty_date=timezone.now().date(), duty_person=p)
+
+    mock_llm_router.generate.return_value = ("部门本周有 1 个排班。", {"total_tokens": 50})
+
+    resp = auth_client_dept.post(
+        "/api/smart-assistant/chat/",
+        {"query": "本部门本周有哪些安排", "stream": False},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_e2e_admin_aggregation_returns_all_data(auth_client_admin, mock_llm_router):
+    """E2E 场景 11:管理员 (scope=GLOBAL) -> chat 端点返回 200。
+
+    Fixture ``auth_client_admin`` 创建 is_superuser=True 用户,
+    resolve_scope() 直接返回 GLOBAL,无需授予 view_global。
+    """
+    from events.models import Schedule
+    from personnel.models import Personnel
+    from django.utils import timezone
+
+    p = Personnel.objects.create(name="P")
+    Schedule.objects.create(duty_date=timezone.now().date(), duty_person=p)
+
+    mock_llm_router.generate.return_value = ("全公司本周有 1 个排班。", {"total_tokens": 50})
+
+    resp = auth_client_admin.post(
+        "/api/smart-assistant/chat/",
+        {"query": "全公司本周安排", "stream": False},
+        format="json",
+    )
+    assert resp.status_code == status.HTTP_200_OK
+
+
+@pytest.mark.django_db
+def test_e2e_unauthorized_request_rejected(mock_llm_router):
+    """E2E 场景 12:未登录用户访问 chat -> 401 / 403(ISAuthenticated 默认 401)。
+
+    全局 permission_classes=[IsAuthenticated] 已拒绝;orchestrator 不应被调用。
+    """
+    from rest_framework.test import APIClient
+    client = APIClient()
+    resp = client.post(
+        "/api/smart-assistant/chat/",
+        {"query": "本周安排", "stream": False},
+        format="json",
+    )
+    assert resp.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+
