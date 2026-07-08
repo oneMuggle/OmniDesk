@@ -13,7 +13,7 @@
 ## Global Constraints
 
 - **Python 版本**:3.10(锁文件统一,见 CLAUDE.md 第 8 条)
-- **conda 环境**:`omni_desk`(`/home/fz/anaconda3/envs/omni_desk/bin/python`);**禁止污染 base**
+- **conda 环境**:`omni_desk`(`/home/fz/anaconda3/envs/OmniDesk/bin/python`);**禁止污染 base**
 - **Django app 命名**:`paperless_proxy`(下划线)
 - **Django 风格**:4 空格缩进;类型注解用 `models.CharField(max_length=...)`;时间字段 `auto_now_add=True / auto_now=True`
 - **DRF 风格**:ViewSet + 自定义 action;权限类 `IsBindingOwner / IsAdminOrOwner`
@@ -83,7 +83,7 @@ class TestPaperlessProxyApp:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_app_config.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_app_config.py -v
 ```
 
 预期:`django.core.exceptions.ImproperlyConfigured: App 'paperless_proxy' isn't installed`
@@ -139,7 +139,7 @@ class PaperlessNotFoundError(PaperlessError):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_app_config.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_app_config.py -v
 ```
 
 预期:2 passed
@@ -242,7 +242,7 @@ class TestDocumentBinding:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
 ```
 
 预期:`ImportError: cannot import name 'DocumentBinding' from 'paperless_proxy.models'`
@@ -305,8 +305,8 @@ class DocumentBinding(models.Model):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python manage.py makemigrations paperless_proxy
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python manage.py makemigrations paperless_proxy
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
 ```
 
 预期:3 passed,生成 `migrations/0001_initial.py`
@@ -383,7 +383,7 @@ class TestOutboxItem:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py::TestOutboxItem -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py::TestOutboxItem -v
 ```
 
 预期:`ImportError: cannot import name 'OutboxItem'`
@@ -454,8 +454,8 @@ class OutboxItem(models.Model):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python manage.py makemigrations paperless_proxy
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python manage.py makemigrations paperless_proxy
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
 ```
 
 预期:5 passed
@@ -536,8 +536,8 @@ class UserPaperlessBinding(models.Model):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python manage.py makemigrations paperless_proxy
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python manage.py makemigrations paperless_proxy
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
 ```
 
 预期:7 passed
@@ -613,8 +613,8 @@ class PaperlessHealth(models.Model):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python manage.py makemigrations paperless_proxy
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python manage.py makemigrations paperless_proxy
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_models.py -v
 ```
 
 预期:9 passed
@@ -914,7 +914,7 @@ class PaperlessClient:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_client.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_client.py -v
 ```
 
 预期:7 passed
@@ -975,7 +975,7 @@ echo "omni_desk_backend/omni_desk_backend/settings/paperless.env" >> .gitignore
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/ -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/ -v
 ```
 
 预期:全部通过(16 tests)
@@ -1217,7 +1217,7 @@ class OutboxService:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_outbox.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_outbox.py -v
 ```
 
 预期:6 passed
@@ -1420,7 +1420,7 @@ def _process_update_metadata(item, client: PaperlessClient) -> None:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
 ```
 
 预期:2 passed
@@ -1656,7 +1656,7 @@ urlpatterns = router.urls
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
 ```
 
 预期:4 passed
@@ -1772,7 +1772,7 @@ def _notify_admin_recovery(health):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
 ```
 
 预期:5 passed
@@ -1944,7 +1944,7 @@ urlpatterns = [
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
 ```
 
 预期:8 passed
@@ -2082,7 +2082,7 @@ class PaperlessUploadService:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_business_integration.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_business_integration.py -v
 ```
 
 预期:1 passed
@@ -2139,7 +2139,7 @@ class ProjectDocumentUploadView(APIView):
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/ -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/ -v
 ```
 
 预期:全部通过(约 25+ tests)
@@ -2316,7 +2316,7 @@ urlpatterns = [
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_views.py -v
 ```
 
 预期:11 passed
@@ -2413,7 +2413,7 @@ def cleanup_paperless_cache():
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_tasks.py -v
 ```
 
 预期:6 passed
@@ -2505,7 +2505,7 @@ class PaperlessSearchService:
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_search_federation.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/paperless_proxy/tests/test_search_federation.py -v
 ```
 
 预期:1 passed
@@ -2676,7 +2676,7 @@ urlpatterns = [
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/search_federation/tests/test_views.py -v
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest omni_desk_backend/search_federation/tests/test_views.py -v
 ```
 
 预期:2 passed
@@ -3151,7 +3151,7 @@ git commit -m "docs: paperless 集成技术手册 + 用户手册 + docker-compos
 
 ```bash
 cd /home/fz/project/OmniDesk
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest --ds=omni_desk_backend.settings.test
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test
 ```
 
 预期:全绿(原有测试 + paperless_proxy 30+ 测试 + search_federation 2 测试)
