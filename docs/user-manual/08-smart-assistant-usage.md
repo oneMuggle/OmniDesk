@@ -280,3 +280,23 @@
 - 技术架构:[docs/technical/16-smart-assistant.md](../technical/16-smart-assistant.md)
 - 深化设计:[docs/technical/17-ai-assistant-deep-design.md](../technical/17-ai-assistant-deep-design.md)
 - 优化路线图:[docs/plans/2026-06-06_smart-assistant-optimization.md](../plans/2026-06-06_smart-assistant-optimization.md)
+
+## 跨模块汇总查询(2026-07-07 新增)
+
+智能助手可以一次回答你多个模块的汇总信息。
+
+### 示例 query
+
+| 你想问 | 助手会做的事 |
+|---|---|
+| "这周我有哪些事" | 同时查排班 + 会议 + 公告,按时间排序 |
+| "今天有什么安排" | 查排班 + 今天的会议室 |
+| "本部门最新公告" | 按你身份自动决定范围 |
+
+### 权限说明
+
+- 普通员工:只能看到与你相关的内容(本人的排班、你参与的会议、你发布的公告等)
+- 部门主管:能看到同部门的所有数据
+- 管理员:能看到全公司数据
+
+如想看更多内容,联系管理员申请权限。
