@@ -22,24 +22,15 @@ def restore_tool_registry():
 
 
 def test_command_succeeds_when_all_tools_implement(restore_tool_registry):
-    """所有 13 个工具实现 _scope_self 时命令 exit 0"""
-    real_get = ToolRegistry.get_tool
+    """所有 13 个工具实现 _scope_self 时命令 exit 0
 
-    def fake_get(intent_type):
-        tool = real_get(intent_type)
-        if tool and not hasattr(tool, "_scope_self"):
-            tool._scope_self = lambda qs, ctx: qs
-            tool.build_base_queryset = lambda: "fake_qs"
-        return tool
-
-    monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr(ToolRegistry, "get_tool", classmethod(lambda cls, x: fake_get(x)))
-    try:
-        out = StringIO()
-        call_command("check_tool_scopes", stdout=out)
-        assert "OK" in out.getvalue() or "✅" in out.getvalue()
-    finally:
-        monkeypatch.undo()
+    此测试无需任何 monkeypatch:命令直接读取 ToolRegistry._tools(见
+    check_tool_scopes.py:21),不通过 get_tool()。因此测试通过完全依赖于
+    真实注册的 13 个工具都实现了 build_base_queryset + _scope_self。
+    """
+    out = StringIO()
+    call_command("check_tool_scopes", stdout=out)
+    assert "OK" in out.getvalue() or "✅" in out.getvalue()
 
 
 def test_command_fails_when_tool_missing_scope_self(restore_tool_registry):
