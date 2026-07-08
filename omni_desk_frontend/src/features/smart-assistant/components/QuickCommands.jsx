@@ -22,12 +22,38 @@ const DEFAULT_COMMANDS = [
   },
 ];
 
+/**
+ * 把 {intent, scope} 翻译为自然语言 query。
+ * Task 17 fix C4: 后端 SmartChatRequestSerializer 不接受 intent/scope 字段,
+ * 选择前端翻译为 query 字符串走原链路(方案 B)。
+ */
+const translateIntentToQuery = ({ intent, scope }) => {
+  if (intent === 'personal_summary') {
+    if (scope === 'today') return '今天有什么安排';
+    if (scope === 'week') return '这周我有哪些事';
+    if (scope === 'month') return '这个月我有哪些事';
+    return '我有哪些事';
+  }
+  // 未知 intent 兜底:用 scope 拼一个最简 query
+  return scope ? `我的${scope}` : '请帮我汇总';
+};
+
 const QuickCommands = ({ commands, onSend, onCommand }) => {
   const items = commands || DEFAULT_COMMANDS;
 
   const handleClick = (cmd) => {
-    if (cmd.intent && typeof onCommand === 'function') {
-      onCommand({ intent: cmd.intent, scope: cmd.scope });
+    // Task 17: 优先把 {intent, scope} 翻译为自然语言 query 走 onSend。
+    // 保留 onCommand 兼容旧调用方(若父组件同时提供 onCommand,仍按原方式透传)。
+    if (cmd.intent) {
+      const translated = cmd.query || translateIntentToQuery({ intent: cmd.intent, scope: cmd.scope });
+      if (typeof onSend === 'function') {
+        onSend(translated);
+        return;
+      }
+      if (typeof onCommand === 'function') {
+        onCommand({ intent: cmd.intent, scope: cmd.scope });
+        return;
+      }
       return;
     }
     if (cmd.query && typeof onSend === 'function') {
