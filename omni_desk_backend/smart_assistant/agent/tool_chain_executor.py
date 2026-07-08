@@ -2,13 +2,95 @@
 
 按依赖顺序执行工具列表，后一个工具可依赖前一个的输出。
 支持变量替换（如 $tool_name.field 从前一个工具结果中提取值）。
+
+新增 (Task 10):``ToolChainExecutor`` class —— 支持跨工具 scope 注入与
+单工具失败降级。该 class 与原有 ``execute_tool_chain`` 函数并存,后者
+继续服务于 orchestrator.py(契约不变)。
 """
 
 import logging
+from typing import TYPE_CHECKING
 
 from ..tools.registry import ToolRegistry
 
+if TYPE_CHECKING:
+    from ..tools.tool_context import ToolContext
+
 logger = logging.getLogger(__name__)
+
+
+class ToolChainExecutor:
+    """工具链执行器(class 版)。
+
+    与函数版 ``execute_tool_chain`` 的区别:
+    - 接收 ``ToolContext`` 实例(而非裸 dict),从中读取 ``scope`` / ``user``;
+    - 调度逻辑拆为 ``execute`` 与 ``_execute_single_tool``,便于测试时
+      子类化 ``_execute_single_tool`` 进行捕获;
+    - 单工具抛异常被捕获,标记 ``reason="exception"`` 后继续执行后续步骤,
+      而不是中断整个 plan;
+    - 工具未注册或用户未认证时,标记 ``reason="permission_denied"``;
+    - 空 plan(``{"steps": []}`` 或缺失 ``steps``)返回空列表。
+    """
+
+    def execute(self, plan, context: "ToolContext") -> list:
+        """按顺序执行 plan 中每个步骤,收集结果。
+
+        Args:
+            plan: ``{"steps": [{"tool": ..., "params": ...}, ...]}`` 格式。
+                缺失或空 ``steps`` 视为空 plan。
+            context: ``ToolContext`` 实例,含 user / scope 等。
+
+        Returns:
+            每步结果 dict 列表。每个 dict 至少含 ``tool`` 字段;成功时含
+            ``found`` / ``module_label``;失败时含 ``reason``(取值:
+            ``permission_denied`` / ``exception``)。
+        """
+        steps = (plan or {}).get("steps") or []
+        results: list = []
+        for step in steps:
+            result = self._execute_single_tool(step, context)
+            if result is not None:
+                results.append(result)
+        return results
+
+    def _execute_single_tool(self, step: dict, context: "ToolContext") -> dict:
+        """执行单个步骤。子类可重写以注入捕获/桩逻辑。
+
+        流程:
+        1. ``ToolRegistry.get_tool_for_user(tool_name, user)`` 校验权限;
+           返回 ``None`` → ``permission_denied``。
+        2. 工具支持 ``scope`` 过滤 → 走 ``build_base_queryset`` →
+           ``get_queryset_for_scope`` → ``execute(params, scope, qs)`` 新路径。
+        3. 否则 → 走旧路径 ``execute(query, context)``。
+        4. 任意异常 → 标记 ``reason="exception"`` 并返回。
+        """
+        tool_name = step.get("tool") if isinstance(step, dict) else None
+        tool = ToolRegistry.get_tool_for_user(tool_name, context.user)
+        if tool is None:
+            return {
+                "tool": tool_name,
+                "found": False,
+                "reason": "permission_denied",
+                "module_label": tool_name or "",
+            }
+
+        params = (step.get("params") or {}) if isinstance(step, dict) else {}
+
+        try:
+            if getattr(tool, "supports_scope_filter", False):
+                base_qs = tool.build_base_queryset()
+                scoped_qs = tool.get_queryset_for_scope(base_qs, context)
+                return tool.execute(params=params, scope=context.scope, qs=scoped_qs)
+            return tool.execute(query=params.get("query") if isinstance(params, dict) else None, context=context)
+        except Exception as exc:
+            logger.exception("工具执行失败: %s — %s", tool_name, exc)
+            return {
+                "tool": tool_name,
+                "found": False,
+                "reason": "exception",
+                "error": str(exc),
+                "module_label": tool_name or "",
+            }
 
 
 def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
