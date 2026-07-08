@@ -1,9 +1,14 @@
 import { Card, Descriptions, Tag, Badge } from 'antd';
 import PropTypes from 'prop-types';
+import AggregatedDayCard from './AggregatedDayCard';
 import './ToolResult.css';
 
 const ToolResult = ({ intent, result, sources }) => {
   if (!result) return null;
+
+  if (intent === 'aggregated_day') {
+    return <AggregatedDayCard {...result.data} />;
+  }
 
   if (intent === 'schedule_query' && result.found) {
     return (
