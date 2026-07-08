@@ -1,6 +1,6 @@
 import pytest
 from django.contrib.auth import get_user_model
-from ..models import DocumentBinding
+from ..models import DocumentBinding, OutboxItem
 
 CustomUser = get_user_model()
 
@@ -8,6 +8,18 @@ CustomUser = get_user_model()
 @pytest.fixture
 def user(db):
     return CustomUser.objects.create_user(username='alice', password='pwd')
+
+
+@pytest.fixture
+def binding(db, user):
+    return DocumentBinding.objects.create(
+        source_type='project_document',
+        source_id=1,
+        paperless_id=999,
+        paperless_checksum='h',
+        owner=user,
+        title='X',
+    )
 
 
 @pytest.mark.django_db
@@ -65,3 +77,32 @@ class TestDocumentBinding:
                 owner=user,
                 title='B',
             )
+
+
+@pytest.mark.django_db
+class TestOutboxItem:
+    def test_create_outbox(self, user, binding):
+        """验证:能创建 OutboxItem"""
+        item = OutboxItem.objects.create(
+            operation='upload',
+            status='pending',
+            payload={'title': 't.pdf', 'correspondent_id': None},
+            binding=binding,
+            created_by=user,
+        )
+        assert item.id is not None
+        assert item.status == 'pending'
+        assert item.retry_count == 0
+
+    def test_default_next_retry_at(self, user, binding):
+        """验证:默认 next_retry_at = now"""
+        from django.utils import timezone
+        from datetime import timedelta
+        item = OutboxItem.objects.create(
+            operation='upload',
+            payload={},
+            binding=binding,
+            created_by=user,
+        )
+        delta = timezone.now() - item.next_retry_at
+        assert abs(delta) < timedelta(seconds=5)
