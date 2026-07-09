@@ -88,6 +88,8 @@ INSTALLED_APPS = [
     "django_ratelimit",
     # 文档存储代理
     "paperless_proxy",
+    # 联邦搜索
+    "search_federation",
 ]
 
 MIDDLEWARE = [
