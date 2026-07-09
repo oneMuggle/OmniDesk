@@ -1,4 +1,5 @@
 """业务模块调用 paperless 上传的统一定入口"""
+
 import os
 import uuid
 from contextlib import suppress
@@ -31,7 +32,7 @@ class PaperlessUploadService:
         4. 返回 {binding_id, outbox_id, status}
         """
         if source_type not in dict(DocumentBinding.SOURCE_CHOICES):
-            raise ValueError(f'unsupported source_type: {source_type}')
+            raise ValueError(f"unsupported source_type: {source_type}")
 
         pending_path = PaperlessUploadService._save_pending_file(file, filename)
         try:
@@ -40,13 +41,13 @@ class PaperlessUploadService:
                     source_type=source_type,
                     source_id=source_id,
                     paperless_id=0,  # 临时占位,异步填充后更新
-                    paperless_checksum='',
+                    paperless_checksum="",
                     owner=owner,
                     title=title,
                     correspondent_id=correspondent,
                 )
                 outbox = OutboxService.enqueue(
-                    operation='upload',
+                    operation="upload",
                     payload=PaperlessUploadService._build_payload(
                         pending_path, filename, title, correspondent, document_type, tags, owner
                     ),
@@ -58,9 +59,9 @@ class PaperlessUploadService:
             raise
 
         return {
-            'binding_id': binding.id,
-            'outbox_id': outbox.id,
-            'status': outbox.status,
+            "binding_id": binding.id,
+            "outbox_id": outbox.id,
+            "status": outbox.status,
         }
 
     @staticmethod
@@ -68,7 +69,7 @@ class PaperlessUploadService:
         pending_path = PaperlessUploadService._pending_path(filename)
         try:
             fd = os.open(pending_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            with os.fdopen(fd, 'wb') as f:
+            with os.fdopen(fd, "wb") as f:
                 for chunk in file.chunks():
                     f.write(chunk)
         except Exception:
@@ -81,11 +82,11 @@ class PaperlessUploadService:
         media_root = os.path.abspath(settings.MEDIA_ROOT)
         pending_dir = os.path.abspath(os.path.join(media_root, settings.PAPERLESS_PENDING_DIR))
         if os.path.commonpath([media_root, pending_dir]) != media_root:
-            raise ValueError('PAPERLESS_PENDING_DIR must be inside MEDIA_ROOT')
+            raise ValueError("PAPERLESS_PENDING_DIR must be inside MEDIA_ROOT")
 
         os.makedirs(pending_dir, mode=0o700, exist_ok=True)
-        safe_filename = get_valid_filename(os.path.basename(filename)) or 'document'
-        return os.path.join(pending_dir, f'{uuid.uuid4().hex}_{safe_filename}')
+        safe_filename = get_valid_filename(os.path.basename(filename)) or "document"
+        return os.path.join(pending_dir, f"{uuid.uuid4().hex}_{safe_filename}")
 
     @staticmethod
     def _build_payload(
@@ -98,18 +99,18 @@ class PaperlessUploadService:
         owner=None,
     ) -> dict:
         return {
-            'file_path': pending_path,
-            'filename': filename,
-            'title': title,
-            'correspondent': correspondent,
-            'document_type': document_type,
-            'tags': tags,
-            'owner': PaperlessUploadService._paperless_owner_id(owner),
+            "file_path": pending_path,
+            "filename": filename,
+            "title": title,
+            "correspondent": correspondent,
+            "document_type": document_type,
+            "tags": tags,
+            "owner": PaperlessUploadService._paperless_owner_id(owner),
         }
 
     @staticmethod
     def _paperless_owner_id(owner):
-        binding = getattr(owner, 'paperless_bind', None)
+        binding = getattr(owner, "paperless_bind", None)
         if binding is None or not binding.is_active:
             return None
         return binding.paperless_user_id

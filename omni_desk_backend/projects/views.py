@@ -51,10 +51,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
 
     @action(
         detail=True,
-        methods=['post'],
+        methods=["post"],
         parser_classes=[MultiPartParser, FormParser],
-        url_path='upload_document',
-        url_name='upload-document',
+        url_path="upload_document",
+        url_name="upload-document",
     )
     def upload_document(self, request, pk=None):
         """上传项目文档,通过 paperless_proxy 异步投递到 paperless-ngx。
@@ -67,10 +67,10 @@ class ProjectViewSet(viewsets.ModelViewSet):
         # 复用对象级权限:仅项目负责人 / Admin / 超级用户可上传
         self.check_object_permissions(request, project)
 
-        file = request.FILES.get('file')
+        file = request.FILES.get("file")
         if not file:
             return Response(
-                {'detail': '缺少 file 字段'},
+                {"detail": "缺少 file 字段"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -78,15 +78,15 @@ class ProjectViewSet(viewsets.ModelViewSet):
             result = PaperlessUploadService.queue_upload(
                 file=file,
                 filename=file.name,
-                title=request.data.get('title') or file.name,
-                source_type=request.data.get('source_type', 'project_document'),
+                title=request.data.get("title") or file.name,
+                source_type=request.data.get("source_type", "project_document"),
                 source_id=project.id,
                 owner=request.user,
-                tags=request.data.get('tags'),
+                tags=request.data.get("tags"),
             )
         except ValueError as exc:
             return Response(
-                {'detail': str(exc)},
+                {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

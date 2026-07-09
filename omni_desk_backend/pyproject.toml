@@ -40,6 +40,8 @@ ignore = [
     # Style: use all() instead of for loop — fine as-is
     "SIM110",
     "SIM102",
+    # contextlib.suppress vs try/except/pass — style preference, existing code uses both
+    "SIM105",
     # `__all__` not sorted — cosmetic
     "RUF022",
     # f-string without placeholders

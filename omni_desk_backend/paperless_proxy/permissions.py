@@ -8,6 +8,7 @@ class IsAdmin(permissions.BasePermission):
 
 class IsBindingOwnerOrAdmin(permissions.BasePermission):
     """绑定资源:owner 或 admin 可访问"""
+
     def has_object_permission(self, request, view, obj):
         if request.user.is_staff:
             return True
