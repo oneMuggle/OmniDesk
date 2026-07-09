@@ -9,7 +9,7 @@ export const usePaperlessHealth = () => {
     let cancelled = false;
     const check = async () => {
       try {
-        const { data } = await axiosInstance.get('/api/paperless/health/');
+        const { data } = await axiosInstance.get('/paperless/health/');
         if (!cancelled) setIsHealthy(!!data.is_healthy);
       } catch {
         if (!cancelled) setIsHealthy(false);
