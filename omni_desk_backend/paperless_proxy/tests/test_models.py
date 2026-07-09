@@ -148,3 +148,17 @@ class TestPaperlessHealth:
         s = PaperlessHealth.get_singleton()
         assert s.is_healthy is True
         assert s.consecutive_failures == 0
+
+
+@pytest.mark.django_db
+def test_paperless_id_nullable():
+    """DocumentBinding.paperless_id 必须允许 NULL,避免二次上传 unique 冲突"""
+    CustomUser2 = get_user_model()
+    user = CustomUser2.objects.create_user(username='u_null', password='p')
+    binding = DocumentBinding.objects.create(
+        source_type='contract', source_id=1,
+        paperless_id=None, paperless_checksum='',
+        owner=user, title='No paperless yet',
+    )
+    binding.refresh_from_db()
+    assert binding.paperless_id is None

@@ -17,7 +17,9 @@ class DocumentBinding(models.Model):
 
     source_type = models.CharField(max_length=32, choices=SOURCE_CHOICES, db_index=True, verbose_name="业务源类型")
     source_id = models.PositiveIntegerField(db_index=True, verbose_name="业务源 ID")
-    paperless_id = models.PositiveIntegerField(unique=True, verbose_name="paperless 文档 ID")
+    paperless_id = models.PositiveIntegerField(
+        unique=True, null=True, blank=True, verbose_name="paperless 文档 ID"
+    )
     paperless_checksum = models.CharField(max_length=64, verbose_name="paperless 校验和")
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL,
