@@ -75,6 +75,11 @@
     "component": "LazyComponent"
   },
   {
+    "name": "AI能力展示",
+    "path": "/ai-showcase",
+    "component": "LazyComponent"
+  },
+  {
     "name": "Dify应用",
     "path": "/dify-apps",
     "component": "LazyComponent"
@@ -117,6 +122,26 @@
   {
     "name": "试验管理",
     "path": "/trials",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "文档库",
+    "path": "/documents-library",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "文档上传",
+    "path": "/documents-library/upload",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "同步状态",
+    "path": "/documents-library/sync",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "账户绑定",
+    "path": "/documents-library/account",
     "component": "LazyComponent"
   }
 ]
