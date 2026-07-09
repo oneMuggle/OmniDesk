@@ -1,7 +1,9 @@
 import pytest
+from unittest.mock import patch
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
-from ..models import OutboxItem, DocumentBinding
+from ..models import OutboxItem, DocumentBinding, PaperlessHealth, UserPaperlessBinding
+from ..services.client import PaperlessClient
 
 CustomUser = get_user_model()
 
@@ -66,3 +68,62 @@ class TestOutboxRetryAPI:
         dead_outbox.refresh_from_db()
         assert dead_outbox.status == 'pending'
         assert dead_outbox.retry_count == 0
+
+
+@pytest.mark.django_db
+class TestHealthAPI:
+    def test_health_endpoint(self, user):
+        PaperlessHealth.objects.create(is_healthy=True, consecutive_failures=0)
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/health/')
+        assert resp.status_code == 200
+        assert resp.data['is_healthy'] is True
+
+
+@pytest.mark.django_db
+class TestBindAPI:
+    @patch.object(PaperlessClient, 'post_token')
+    @patch.object(PaperlessClient, 'get_user_by_username')
+    def test_bind_success(self, mock_get_user, mock_token, user):
+        mock_token.return_value = 'tok'
+        mock_get_user.return_value = {'id': 7, 'username': 'alice'}
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/bind/', {
+            'username': 'alice', 'password': 'pwd',
+        }, format='json')
+        assert resp.status_code == 201
+        bind = UserPaperlessBinding.objects.get(user=user)
+        assert bind.paperless_user_id == 7
+
+    @patch.object(PaperlessClient, 'post_token')
+    def test_bind_auth_failure_401(self, mock_token, user):
+        from paperless_proxy.exceptions import PaperlessAuthError
+        mock_token.side_effect = PaperlessAuthError('invalid')
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/bind/', {
+            'username': 'alice', 'password': 'wrong',
+        }, format='json')
+        assert resp.status_code == 401
+
+    def test_unbind(self, user):
+        UserPaperlessBinding.objects.create(
+            user=user, paperless_user_id=5, paperless_username='alice'
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.delete('/api/paperless/bind/')
+        assert resp.status_code == 204
+        assert not UserPaperlessBinding.objects.filter(user=user).exists()
+
+    def test_bind_status(self, user):
+        UserPaperlessBinding.objects.create(
+            user=user, paperless_user_id=5, paperless_username='alice'
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/bind/status/')
+        assert resp.status_code == 200
+        assert resp.data['paperless_username'] == 'alice'
