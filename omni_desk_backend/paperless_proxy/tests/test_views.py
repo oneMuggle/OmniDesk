@@ -65,3 +65,4 @@ class TestOutboxRetryAPI:
         assert resp.status_code == 200
         dead_outbox.refresh_from_db()
         assert dead_outbox.status == 'pending'
+        assert dead_outbox.retry_count == 0
