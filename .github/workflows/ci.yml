@@ -164,9 +164,13 @@ jobs:
           # 生成随机密码
           POSTGRES_PASSWORD=$(openssl rand -base64 32)
           SECRET_KEY=$(openssl rand -base64 32)
+          PAPERLESS_DB_PASSWORD=$(openssl rand -base64 32)
+          PAPERLESS_SECRET_KEY=$(openssl rand -base64 32)
           # 使用 # 作为 sed 分隔符(避免 base64 字符串中的 / 字符触发 sed 解析错误)
           sed -i "s#<change-me>#$POSTGRES_PASSWORD#g" .env
           sed -i "s#SECRET_KEY=<change-me>#SECRET_KEY=$SECRET_KEY#g" .env
+          sed -i "s#<change-me-paperless-db>#$PAPERLESS_DB_PASSWORD#g" .env
+          sed -i "s#<change-me-paperless-sk>#$PAPERLESS_SECRET_KEY#g" .env
 
       - name: Build Docker images
         run: docker compose build
