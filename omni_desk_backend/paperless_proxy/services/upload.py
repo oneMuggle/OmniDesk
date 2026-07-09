@@ -40,7 +40,7 @@ class PaperlessUploadService:
                 binding = DocumentBinding.objects.create(
                     source_type=source_type,
                     source_id=source_id,
-                    paperless_id=0,  # 临时占位,异步填充后更新
+                    paperless_id=None,  # 异步填充,worker 同步成功后回写
                     paperless_checksum="",
                     owner=owner,
                     title=title,
