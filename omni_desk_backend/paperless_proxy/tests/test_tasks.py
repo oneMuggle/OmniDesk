@@ -30,7 +30,7 @@ def outbox_item(db, user, binding):
     return OutboxItem.objects.create(
         operation='upload',
         status='pending',
-        payload={'file_path': '/tmp/fake.pdf', 'filename': 'f.pdf', 'title': 'f.pdf', 'owner': 1},
+        payload={'file_path': '/tmp/fake.pdf', 'filename': 'f.pdf', 'title': 'f.pdf', 'owner': 1},  # nosec B108 - test fixture
         binding=binding,
         created_by=user,
     )
@@ -104,7 +104,7 @@ class TestCacheCleanup:
     @patch('os.remove')
     def test_deletes_old_files(self, mock_rm, mock_mtime, mock_list, mock_isfile, mock_exists, settings):
         """验证:超过 max_age 的文件被删除,新文件保留"""
-        settings.MEDIA_ROOT = '/tmp/m'
+        settings.MEDIA_ROOT = '/tmp/m'  # nosec B108 - test fixture
         settings.PAPERLESS_CACHE_DIR = 'cache/'
         settings.PAPERLESS_CACHE_MAX_AGE_DAYS = 30
         mock_exists.return_value = True
@@ -126,7 +126,7 @@ class TestCacheCleanup:
     @patch('os.remove')
     def test_keeps_recent_files(self, mock_rm, mock_mtime, mock_list, mock_isfile, mock_exists, settings):
         """验证:未过期文件不被删除"""
-        settings.MEDIA_ROOT = '/tmp/m'
+        settings.MEDIA_ROOT = '/tmp/m'  # nosec B108 - test fixture
         settings.PAPERLESS_CACHE_DIR = 'cache/'
         settings.PAPERLESS_CACHE_MAX_AGE_DAYS = 30
         mock_exists.return_value = True

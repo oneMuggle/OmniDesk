@@ -50,9 +50,7 @@ coverage[toml]==7.14.1
     #   -r requirements-dev.in
     #   pytest-cov
 cron-descriptor==1.4.5
-    # via
-    #   -r requirements.in
-    #   django-celery-beat
+    # via django-celery-beat
 cryptography==48.0.0
     # via
     #   types-pyopenssl
@@ -87,9 +85,7 @@ django-extensions==4.1
 django-filter==25.1
     # via -r requirements.in
 django-js-asset==3.1.2
-    # via
-    #   -r requirements.in
-    #   django-ckeditor
+    # via django-ckeditor
 django-ratelimit==4.1.0
     # via -r requirements.in
 django-redis==6.0.0
@@ -123,6 +119,8 @@ factory-boy==3.3.3
     #   pytest-factoryboy
 faker==40.19.1
     # via factory-boy
+freezegun==1.5.5
+    # via -r requirements-dev.in
 gprof2dot==2025.4.14
     # via django-silk
 gunicorn==26.0.0
@@ -213,12 +211,11 @@ pytest-factoryboy==2.8.1
 pytest-mock==3.15.1
     # via -r requirements-dev.in
 python-crontab==3.3.0
-    # via
-    #   -r requirements.in
-    #   django-celery-beat
+    # via django-celery-beat
 python-dateutil==2.9.0.post0
     # via
     #   celery
+    #   freezegun
     #   holidays
 python-docx==1.2.0
     # via
@@ -233,12 +230,17 @@ pyyaml==6.0.3
     # via
     #   -r requirements.in
     #   pymdown-extensions
-redis==8.0.0
+    #   responses
+redis==7.4.1
     # via
     #   -r requirements.in
     #   django-redis
 requests==2.34.2
-    # via -r requirements.in
+    # via
+    #   -r requirements.in
+    #   responses
+responses==0.26.2
+    # via -r requirements-dev.in
 ruff==0.15.15
     # via -r requirements-dev.in
 six==1.17.0
@@ -290,14 +292,13 @@ unidecode==1.4.0
 urllib3==2.7.0
     # via
     #   requests
+    #   responses
     #   types-requests
 vine==5.1.0
     # via
     #   amqp
     #   celery
     #   kombu
-waitress==3.0.2
-    # via -r requirements.in
 wcwidth==0.7.0
     # via prompt-toolkit
 wheel==0.47.0
