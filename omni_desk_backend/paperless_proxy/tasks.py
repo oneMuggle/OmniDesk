@@ -2,6 +2,7 @@
 import logging
 import os
 from celery import shared_task
+from django.conf import settings
 
 from .services.outbox import OutboxService, OutboxDeadError
 from .services.client import PaperlessClient
@@ -83,3 +84,37 @@ def _process_delete(item, client: PaperlessClient) -> None:
 def _process_update_metadata(item, client: PaperlessClient) -> None:
     # 留给后续阶段
     raise PaperlessError('update_metadata not implemented in v1')
+
+
+@shared_task(name='paperless_proxy.check_health')
+def check_paperless_health():
+    """定时检查 paperless 健康状态"""
+    from .models import PaperlessHealth
+    health = PaperlessHealth.get_singleton()
+    client = PaperlessClient()
+    is_up = client.health_check()
+    threshold = settings.PAPERLESS_HEALTH_FAILURE_THRESHOLD
+    if is_up:
+        was_unhealthy = not health.is_healthy
+        health.is_healthy = True
+        health.consecutive_failures = 0
+        health.last_error = ''
+        health.save()
+        if was_unhealthy:
+            _notify_admin_recovery(health)
+    else:
+        health.consecutive_failures += 1
+        if health.consecutive_failures >= threshold and health.is_healthy:
+            health.is_healthy = False
+            health.save()
+            _notify_admin_down(health)
+        else:
+            health.save(update_fields=['consecutive_failures', 'last_check_at'])
+    return {'is_healthy': health.is_healthy, 'consecutive_failures': health.consecutive_failures}
+
+
+def _notify_admin_down(health):
+    logger.error(f'paperless DOWN ({health.consecutive_failures} consecutive failures)')
+
+def _notify_admin_recovery(health):
+    logger.info('paperless RECOVERED')

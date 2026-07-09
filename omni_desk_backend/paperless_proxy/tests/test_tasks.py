@@ -2,8 +2,8 @@ import io
 import pytest
 from unittest.mock import patch, MagicMock
 from django.contrib.auth import get_user_model
-from ..models import OutboxItem, DocumentBinding
-from ..tasks import process_paperless_outbox
+from ..models import OutboxItem, DocumentBinding, PaperlessHealth
+from ..tasks import process_paperless_outbox, check_paperless_health
 from ..services.outbox import OutboxDeadError
 
 CustomUser = get_user_model()
@@ -58,3 +58,35 @@ class TestOutboxWorker:
         binding = outbox_item.binding
         binding.refresh_from_db()
         assert binding.paperless_id == 555
+
+
+@pytest.mark.django_db
+class TestHealthCheck:
+    @patch('paperless_proxy.services.client.PaperlessClient.health_check')
+    def test_healthy_resets_failures(self, mock_health):
+        """验证:健康时清零 consecutive_failures"""
+        PaperlessHealth.objects.create(is_healthy=False, consecutive_failures=5)
+        mock_health.return_value = True
+        check_paperless_health()
+        h = PaperlessHealth.get_singleton()
+        assert h.is_healthy is True
+        assert h.consecutive_failures == 0
+
+    @patch('paperless_proxy.services.client.PaperlessClient.health_check')
+    def test_three_failures_marks_unhealthy(self, mock_health):
+        """验证:连续 3 次失败才标 unhealthy"""
+        mock_health.return_value = False
+        for _ in range(3):
+            check_paperless_health()
+        h = PaperlessHealth.get_singleton()
+        assert h.is_healthy is False
+        assert h.consecutive_failures == 3
+
+    @patch('paperless_proxy.services.client.PaperlessClient.health_check')
+    def test_single_failure_does_not_mark_unhealthy(self, mock_health):
+        """验证:单次失败不立即标 unhealthy(避免抖动)"""
+        mock_health.return_value = False
+        check_paperless_health()
+        h = PaperlessHealth.get_singleton()
+        assert h.is_healthy is True
+        assert h.consecutive_failures == 1

@@ -313,6 +313,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(minutes=1),
         "args": (),
     },
+    "paperless-health-check-every-30s": {
+        "task": "paperless_proxy.check_health",
+        "schedule": timedelta(seconds=30),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置
