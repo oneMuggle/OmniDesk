@@ -94,6 +94,20 @@ omni_desk_backend/
 - `DocumentBindingSerializer`(已有 line 25-48,本次启用)
 - `OutboxItemSerializer`(已有)
 
+**PaperlessClient 新增方法(在 `services/client.py`):**
+
+```python
+def update_metadata(self, paperless_id: int, fields: dict) -> dict:
+    """调用 paperless-ngx PATCH /api/documents/{id}/"""
+    # fields 支持的 key: title, correspondent, document_type, tags, custom_fields
+    payload = {k: v for k, v in fields.items() if v is not None}
+    return self._request("PATCH", f"/api/documents/{paperless_id}/", json=payload)
+
+def delete(self, paperless_id: int) -> None:
+    """调用 paperless-ngx DELETE /api/documents/{id}/"""
+    self._request("DELETE", f"/api/documents/{paperless_id}/")
+```
+
 **新增 OutboxService 方法(在 `services/outbox.py`):**
 
 ```python
@@ -187,7 +201,7 @@ view → 检查 status == "dead" → outbox.delete()
 status != "dead" → 400 + detail
 ```
 
-**compliance / personnel upload 流:** 复用 `projects/views.py:60-93` 的同款 `upload` action pattern,绑定 `source_type=compliance_report` / `personnel_file`。
+**compliance / personnel upload 流:** 复用 `projects/views.py:60-93` 的同款 `upload` action pattern,绑定 `source_type=compliance_report` / `personnel_file`。鉴权沿用各模块视图集已有的对象级权限(`ComplianceReportViewSet` 的 `IsOwnerOrAdmin` / `PersonnelFileViewSet` 的 `IsSelfOrHROrAdmin`),不引入新权限类。
 
 ### 2.4 错误处理
 
@@ -226,7 +240,11 @@ status != "dead" → 400 + detail
    - 新增 `DocumentBindingViewSet`(ModelViewSet,过滤 + 分页 + update_metadata/delete action)
    - `OutboxViewSet` 改 `ModelViewSet`,加 GET retrieve + DELETE destroy
 7. `urls.py` 注册新路由
-8. `admin.py` 新建,注册 4 个模型
+8. `admin.py` 新建,注册 4 个模型:
+   - `DocumentBindingAdmin`: list_display=`("__str__", "owner", "paperless_id", "created_at")`, list_filter=`("source_type",)`, search_fields=`("title", "source_id")`
+   - `OutboxItemAdmin`: list_display=`("id", "operation", "status", "binding", "retry_count", "next_retry_at")`, list_filter=`("operation", "status")`, search_fields=`("binding__title",)`, readonly_fields=`("payload", "last_error")`
+   - `UserPaperlessBindingAdmin`: list_display=`("user", "paperless_username", "is_active", "bound_at")`, search_fields=`("user__username", "paperless_username")`
+   - `PaperlessHealthAdmin`: list_display=`("is_healthy", "consecutive_failures", "last_check_at")`
 9. `compliance/views.py` 加 `upload` action
 10. `personnel/views.py` 加 `upload` action
 11. 写测试 + 跑全部 paperless_proxy tests
@@ -239,7 +257,7 @@ status != "dead" → 400 + detail
 | 风险 | 缓解 |
 |---|---|
 | migration 改 nullable 在大数据表上慢 | paperless_proxy 数据量极小(刚上线),秒级完成 |
-| `tasks.py` 改 `_process_upload` truthy 检查 → `is None` 后,旧 outbox 项(已有 `paperless_id=0`)不再被回写 | 旧 0 占位语义是"未同步",worker 看到 0 仍会调 client.upload 重新同步,符合预期 |
+| `tasks.py` 改 `_process_upload` 的 `not item.binding.paperless_id` → `is None` | 旧 `0` 占位是"未同步"语义。改 `is None` 后:正在同步中的 binding(`paperless_id=0`)不会被 worker 二次回写 paperless_id,这是**改进**(避免旧 truthy 逻辑在 0 占位时二次赋值);已同步成功的 binding 的 paperless_id 是真实 ID(非 0 也非 None),逻辑不受影响;worker 处理未同步 binding 的行为不变(都会跑 `_process_upload`) |
 | paperless-ngx DELETE / PATCH API 行为差异 | 实施前先在 staging paperless 跑一次手动验证,文档化到 `docs/technical/31-paperless-integration.md` |
 | admin 注册后字段名 verbose_name 中文显示乱码 | Django admin 自动支持 i18n,确保 `LANGUAGE_CODE='zh-hans'`(已配置) |
 | compliance / personnel 已有 upload 视图(非 paperless)会被本次覆盖 | 实施前 grep 确认无同名 `upload` action |
