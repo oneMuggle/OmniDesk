@@ -1,3 +1,8 @@
+import os
+
+from django.conf import settings
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, status, mixins
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -5,12 +10,12 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
-from .models import OutboxItem, PaperlessHealth, UserPaperlessBinding
+from .models import OutboxItem, PaperlessHealth, UserPaperlessBinding, DocumentBinding
 from .serializers import OutboxItemSerializer, PaperlessHealthSerializer, UserPaperlessBindingSerializer
-from .permissions import IsAdmin
+from .permissions import IsAdmin, IsBindingOwnerOrAdmin
 from .services.outbox import OutboxService
 from .services.client import PaperlessClient
-from .exceptions import PaperlessAuthError, PaperlessNotFoundError
+from .exceptions import PaperlessAuthError, PaperlessNotFoundError, PaperlessUnavailableError
 
 
 class OutboxViewSet(viewsets.ReadOnlyModelViewSet):
@@ -86,3 +91,72 @@ class BindStatusView(APIView):
 
     def get(self, request):
         return BindView().get(request)
+
+
+class DocumentDownloadView(APIView):
+    """下载 paperless 文档原始内容;不可用时回退本地缓存(X-Degraded: true)"""
+    permission_classes = [IsAuthenticated, IsBindingOwnerOrAdmin]
+
+    def get(self, request, binding_id):
+        binding = get_object_or_404(DocumentBinding, pk=binding_id)
+        self.check_object_permissions(request, binding)
+        client = PaperlessClient()
+        cache_path = _get_cache_path(binding.paperless_id)
+        try:
+            content = client.download(binding.paperless_id)
+            os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+            with open(cache_path, 'wb') as f:
+                f.write(content)
+            response = HttpResponse(content, content_type='application/octet-stream')
+            response['Content-Disposition'] = f'attachment; filename="{binding.title}"'
+            return response
+        except PaperlessUnavailableError:
+            if os.path.exists(cache_path):
+                with open(cache_path, 'rb') as f:
+                    response = HttpResponse(f.read(), content_type='application/octet-stream')
+                    response['X-Degraded'] = 'true'
+                    response['Content-Disposition'] = f'attachment; filename="{binding.title}"'
+                    return response
+            return Response(
+                {'detail': 'paperless 不可用且无本地缓存'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        except PaperlessNotFoundError:
+            return Response({'detail': 'paperless 中文档不存在'}, status=404)
+
+
+class DocumentPreviewView(APIView):
+    """获取 paperless 文档预览图(PNG)"""
+    permission_classes = [IsAuthenticated, IsBindingOwnerOrAdmin]
+
+    def get(self, request, binding_id):
+        binding = get_object_or_404(DocumentBinding, pk=binding_id)
+        self.check_object_permissions(request, binding)
+        client = PaperlessClient()
+        try:
+            content = client.preview(binding.paperless_id)
+            return HttpResponse(content, content_type='image/png')
+        except PaperlessUnavailableError:
+            return Response({'detail': 'preview unavailable'}, status=503)
+        except PaperlessNotFoundError:
+            return Response({'detail': 'preview not found'}, status=404)
+
+
+def _get_cache_path(paperless_id: int) -> str:
+    cache_dir = os.path.join(settings.MEDIA_ROOT, settings.PAPERLESS_CACHE_DIR)
+    return os.path.join(cache_dir, f'{paperless_id}.bin')
+
+
+class BindingSyncStatusView(APIView):
+    """返回绑定对应的最新 outbox 同步状态"""
+    permission_classes = [IsAuthenticated, IsBindingOwnerOrAdmin]
+
+    def get(self, request, binding_id):
+        binding = get_object_or_404(DocumentBinding, pk=binding_id)
+        self.check_object_permissions(request, binding)
+        latest = binding.outbox.order_by('-created_at').first()
+        return Response({
+            'binding_id': binding.id,
+            'paperless_id': binding.paperless_id,
+            'sync_status': latest.status if latest else 'synced',
+        })

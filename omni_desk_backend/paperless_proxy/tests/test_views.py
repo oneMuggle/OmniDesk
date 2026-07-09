@@ -127,3 +127,49 @@ class TestBindAPI:
         resp = client.get('/api/paperless/bind/status/')
         assert resp.status_code == 200
         assert resp.data['paperless_username'] == 'alice'
+
+
+# --- Task 15: Download / Preview / SyncStatus ---
+
+
+@pytest.fixture
+def synced_binding(db, user):
+    return DocumentBinding.objects.create(
+        source_type='project_document', source_id=1, paperless_id=555,
+        paperless_checksum='h', owner=user, title='X',
+    )
+
+
+@pytest.mark.django_db
+class TestDownloadAPI:
+    @patch('paperless_proxy.services.client.PaperlessClient.download')
+    def test_download_success(self, mock_dl, user, synced_binding):
+        mock_dl.return_value = b'pdf content'
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/documents/{synced_binding.id}/download/')
+        assert resp.status_code == 200
+        assert b'pdf content' in resp.content
+
+    def test_download_permission_denied(self, admin, user, synced_binding):
+        from django.contrib.auth import get_user_model
+        CustomUser = get_user_model()
+        u2 = CustomUser.objects.create_user(username='eve', password='p')
+        client = APIClient()
+        client.force_authenticate(u2)
+        resp = client.get(f'/api/paperless/documents/{synced_binding.id}/download/')
+        assert resp.status_code == 403
+
+    @patch('paperless_proxy.services.client.PaperlessClient.download')
+    def test_download_paperless_down_returns_503(self, mock_dl, user, db):
+        from paperless_proxy.exceptions import PaperlessUnavailableError
+        mock_dl.side_effect = PaperlessUnavailableError('down')
+        # 使用不同 paperless_id 避免前一个测试留下的缓存文件触发降级模式
+        binding = DocumentBinding.objects.create(
+            source_type='contract', source_id=9999, paperless_id=77777,
+            paperless_checksum='h2', owner=user, title='Y',
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/download/')
+        assert resp.status_code == 503
