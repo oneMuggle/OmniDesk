@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import axiosInstance from '@shared/api/axiosConfig';
+import axiosInstance from '../../../shared/api/axiosConfig';
 
 export const usePaperlessHealth = () => {
   const [isHealthy, setIsHealthy] = useState(true);
