@@ -104,3 +104,26 @@ class TestOutboxMarkSynced:
         outbox.refresh_from_db()
         assert outbox.status == 'synced'
         assert outbox.retry_count == 0
+
+
+@pytest.mark.django_db
+def test_queue_update_metadata_creates_outbox(db, user, binding):
+    """queue_update_metadata 创建 operation=update_metadata 的 OutboxItem,payload 含 fields"""
+    item = OutboxService.queue_update_metadata(
+        binding, fields={"title": "new", "tags": [1]}, created_by=user
+    )
+    assert item.operation == "update_metadata"
+    assert item.status == "pending"
+    assert item.payload == {"title": "new", "tags": [1]}
+    assert item.binding_id == binding.id
+    assert item.created_by_id == user.id
+
+
+@pytest.mark.django_db
+def test_queue_delete_creates_outbox(db, user, binding):
+    """queue_delete 创建 operation=delete 的 OutboxItem,payload 含 paperless_id"""
+    item = OutboxService.queue_delete(binding, created_by=user)
+    assert item.operation == "delete"
+    assert item.status == "pending"
+    assert item.payload == {"paperless_id": binding.paperless_id}
+    assert item.binding_id == binding.id
