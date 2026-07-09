@@ -1,4 +1,5 @@
 import io
+from unittest.mock import patch, MagicMock
 import pytest
 import responses
 from django.conf import settings
@@ -125,3 +126,41 @@ class TestPaperlessClientGetUser:
         )
         with pytest.raises(PaperlessNotFoundError):
             client.get_user_by_username('ghost')
+
+
+def test_update_metadata_calls_patch():
+    """update_metadata 必须 PATCH /api/documents/{id}/,payload 仅含非空字段"""
+    from ..services.client import PaperlessClient
+    client = PaperlessClient()
+    mock_resp = MagicMock(status_code=200, ok=True)
+    mock_resp.json.return_value = {"id": 42, "title": "new"}
+    with patch.object(client.session, "request", return_value=mock_resp) as req:
+        result = client.update_metadata(42, {"title": "new", "correspondent": None, "tags": [1, 2]})
+    assert result == {"id": 42, "title": "new"}
+    args, kwargs = req.call_args
+    assert args[0] == "PATCH"
+    assert "/api/documents/42/" in args[1]
+    assert kwargs["json"] == {"title": "new", "tags": [1, 2]}  # None 被过滤
+
+
+def test_delete_calls_delete():
+    """delete 必须 DELETE /api/documents/{id}/"""
+    from ..services.client import PaperlessClient
+    client = PaperlessClient()
+    mock_resp = MagicMock(status_code=204, ok=True)
+    with patch.object(client.session, "request", return_value=mock_resp) as req:
+        client.delete(42)
+    args, kwargs = req.call_args
+    assert args[0] == "DELETE"
+    assert "/api/documents/42/" in args[1]
+
+
+def test_delete_404_raises_not_found():
+    """delete 时 404 → PaperlessNotFoundError"""
+    from ..services.client import PaperlessClient
+    from ..exceptions import PaperlessNotFoundError
+    client = PaperlessClient()
+    mock_resp = MagicMock(status_code=404, ok=False)
+    with patch.object(client.session, "request", return_value=mock_resp):
+        with pytest.raises(PaperlessNotFoundError):
+            client.delete(99)

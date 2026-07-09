@@ -107,6 +107,16 @@ class PaperlessClient:
         resp = self._request("GET", f"/api/documents/{paperless_id}/preview/")
         return resp.content
 
+    def update_metadata(self, paperless_id: int, fields: dict[str, Any]) -> dict[str, Any]:
+        """调用 paperless-ngx PATCH /api/documents/{id}/,过滤 None 字段"""
+        payload = {k: v for k, v in fields.items() if v is not None}
+        resp = self._request("PATCH", f"/api/documents/{paperless_id}/", json=payload)
+        return resp.json()
+
+    def delete(self, paperless_id: int) -> None:
+        """调用 paperless-ngx DELETE /api/documents/{id}/"""
+        self._request("DELETE", f"/api/documents/{paperless_id}/")
+
     def search(self, query: str, page: int = 1, page_size: int = 20) -> dict[str, Any]:
         """Tantivy 全文搜索"""
         params = {"query": query, "page": page, "page_size": page_size}
