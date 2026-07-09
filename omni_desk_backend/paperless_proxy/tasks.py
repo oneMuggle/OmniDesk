@@ -1,6 +1,7 @@
 """paperless_proxy Celery 任务"""
 import logging
 import os
+import time
 from celery import shared_task
 from django.conf import settings
 
@@ -118,3 +119,26 @@ def _notify_admin_down(health):
 
 def _notify_admin_recovery(health):
     logger.info('paperless RECOVERED')
+
+
+@shared_task(name='paperless_proxy.cleanup_cache')
+def cleanup_paperless_cache():
+    """清理过期的 paperless 本地缓存文件"""
+    cache_dir = os.path.join(settings.MEDIA_ROOT, settings.PAPERLESS_CACHE_DIR)
+    if not os.path.exists(cache_dir):
+        return {'deleted': 0}
+    max_age_seconds = settings.PAPERLESS_CACHE_MAX_AGE_DAYS * 86400
+    now = time.time()
+    deleted = 0
+    for fname in os.listdir(cache_dir):
+        fpath = os.path.join(cache_dir, fname)
+        if not os.path.isfile(fpath):
+            continue
+        mtime = os.path.getmtime(fpath)
+        if now - mtime > max_age_seconds:
+            try:
+                os.remove(fpath)
+                deleted += 1
+            except OSError:
+                pass
+    return {'deleted': deleted, 'cache_dir': cache_dir}

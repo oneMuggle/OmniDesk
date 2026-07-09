@@ -1,9 +1,12 @@
 import io
+import os
+import time
 import pytest
 from unittest.mock import patch, MagicMock
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from ..models import OutboxItem, DocumentBinding, PaperlessHealth
-from ..tasks import process_paperless_outbox, check_paperless_health
+from ..tasks import process_paperless_outbox, check_paperless_health, cleanup_paperless_cache
 from ..services.outbox import OutboxDeadError
 
 CustomUser = get_user_model()
@@ -90,3 +93,54 @@ class TestHealthCheck:
         h = PaperlessHealth.get_singleton()
         assert h.is_healthy is True
         assert h.consecutive_failures == 1
+
+
+@pytest.mark.django_db
+class TestCacheCleanup:
+    @patch('os.path.exists')
+    @patch('os.path.isfile')
+    @patch('os.listdir')
+    @patch('os.path.getmtime')
+    @patch('os.remove')
+    def test_deletes_old_files(self, mock_rm, mock_mtime, mock_list, mock_isfile, mock_exists, settings):
+        """验证:超过 max_age 的文件被删除,新文件保留"""
+        settings.MEDIA_ROOT = '/tmp/m'
+        settings.PAPERLESS_CACHE_DIR = 'cache/'
+        settings.PAPERLESS_CACHE_MAX_AGE_DAYS = 30
+        mock_exists.return_value = True
+        mock_isfile.return_value = True
+        mock_list.return_value = ['old.bin', 'new.bin']
+        now = time.time()
+        # old.bin 40 天前,new.bin 1 天前
+        mock_mtime.side_effect = [now - 40 * 86400, now - 86400]
+        result = cleanup_paperless_cache()
+        assert mock_rm.call_count == 1
+        args = mock_rm.call_args[0]
+        assert 'old.bin' in args[0]
+        assert result['deleted'] == 1
+
+    @patch('os.path.exists')
+    @patch('os.path.isfile')
+    @patch('os.listdir')
+    @patch('os.path.getmtime')
+    @patch('os.remove')
+    def test_keeps_recent_files(self, mock_rm, mock_mtime, mock_list, mock_isfile, mock_exists, settings):
+        """验证:未过期文件不被删除"""
+        settings.MEDIA_ROOT = '/tmp/m'
+        settings.PAPERLESS_CACHE_DIR = 'cache/'
+        settings.PAPERLESS_CACHE_MAX_AGE_DAYS = 30
+        mock_exists.return_value = True
+        mock_isfile.return_value = True
+        mock_list.return_value = ['recent.bin']
+        now = time.time()
+        mock_mtime.side_effect = [now - 86400]
+        result = cleanup_paperless_cache()
+        assert mock_rm.call_count == 0
+        assert result['deleted'] == 0
+
+    @patch('os.path.exists')
+    def test_missing_cache_dir_returns_zero(self, mock_exists, settings):
+        """验证:缓存目录不存在时返回 deleted=0"""
+        mock_exists.return_value = False
+        result = cleanup_paperless_cache()
+        assert result == {'deleted': 0}
