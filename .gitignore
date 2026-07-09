@@ -91,3 +91,4 @@ deployment/docker/.env.production
 # Root-level duplicate package files (frontend has its own)
 /package.json
 /package-lock.json
+omni_desk_backend/omni_desk_backend/settings/paperless.env
