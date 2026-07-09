@@ -107,6 +107,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
       ]
     },
+    { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
     { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
     { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
     { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
