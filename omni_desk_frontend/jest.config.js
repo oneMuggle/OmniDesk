@@ -31,6 +31,6 @@ module.exports = {
       statements: 23,
     },
   },
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   coveragePathIgnorePatterns: ['/node_modules/'],
 };
