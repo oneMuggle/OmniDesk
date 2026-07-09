@@ -57,7 +57,11 @@ class ProjectViewSet(viewsets.ModelViewSet):
         url_name='upload-document',
     )
     def upload_document(self, request, pk=None):
-        """上传项目文档,通过 paperless_proxy 异步投递到 paperless-ngx。"""
+        """上传项目文档,通过 paperless_proxy 异步投递到 paperless-ngx。
+
+        FormData 可携带 source_type 字段(project_document/contract/policy/compliance_report/personnel_file),
+        默认 project_document。
+        """
         project = self.get_object()
 
         # 复用对象级权限:仅项目负责人 / Admin / 超级用户可上传
@@ -75,7 +79,7 @@ class ProjectViewSet(viewsets.ModelViewSet):
                 file=file,
                 filename=file.name,
                 title=request.data.get('title') or file.name,
-                source_type='project_document',
+                source_type=request.data.get('source_type', 'project_document'),
                 source_id=project.id,
                 owner=request.user,
                 tags=request.data.get('tags'),
