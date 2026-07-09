@@ -48,6 +48,7 @@
 | 28 | [智能助手覆盖率路线图](28-smart-assistant-coverage-roadmap.md) | smart_assistant 模块 63.25% → ≥85% 补齐方案、CI 守卫、+63 测试用例(2026-06 v0.6.0) |
 | 29 | [性能 Profiling](29-performance-profiling.md) | django-silk dev 接入与使用 |
 | 30 | [发布渠道机制](30-release-channels.md) | alpha/beta/preview/stable 4 段式发布渠道 + hotfix |
+| 31 | [paperless-ngx 集成](31-paperless-integration.md) | paperless 集成架构、Outbox 写降级、联邦搜索、API、模型、部署、故障排查 |
 
 ---
 
@@ -58,4 +59,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-06-06 — 智能助手相关文档全面同步(16 升级、28 新增),旧 [`docs/smart-assistant-plan.md`](../smart-assistant-plan.md) 已标为废弃。
+> 📅 最近更新:2026-07-09 — 新增 31 paperless-ngx 集成技术手册(架构、Outbox 写降级、联邦搜索、API、部署、故障排查)。
