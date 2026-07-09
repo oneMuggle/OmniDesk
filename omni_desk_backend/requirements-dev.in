@@ -9,6 +9,7 @@ pytest-mock
 factory_boy
 pytest-factoryboy
 model_bakery
+responses  # paperless_proxy HTTP mocking
 
 # Linting & Formatting
 ruff
