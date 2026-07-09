@@ -308,6 +308,11 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=1),  # 每小时执行一次(换班申请过期清理,TTL 48h)
         "args": (),
     },
+    "paperless-process-outbox-every-minute": {
+        "task": "paperless_proxy.process_outbox",
+        "schedule": timedelta(minutes=1),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置
