@@ -31,17 +31,44 @@ class UploadView(APIView):
                 {"detail": "缺少 file 字段"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # 显式校验 source_id:multipart 中缺失或非法值都会导致后续 unique_together 冲突
+        raw_source_id = request.data.get("source_id")
+        if raw_source_id is None:
+            return Response(
+                {"detail": "缺少 source_id 字段"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            source_id = int(raw_source_id)
+            if source_id <= 0:
+                raise ValueError
+        except (TypeError, ValueError):
+            return Response(
+                {"detail": "source_id 必须是正整数"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # tags:multipart 不能直接传递数组,QueryDict 取值可能为字符串(单值或逗号分隔)或 list
+        raw_tags = request.data.get("tags")
+        if isinstance(raw_tags, str):
+            tags = [t.strip() for t in raw_tags.split(",") if t.strip()] or None
+        elif isinstance(raw_tags, list):
+            tags = raw_tags
+        else:
+            tags = None
+
         try:
             result = PaperlessUploadService.queue_upload(
                 file=file,
                 filename=file.name,
                 title=request.data.get("title") or file.name,
                 source_type=request.data.get("source_type", "project_document"),
-                source_id=int(request.data.get("source_id", 0)),
+                source_id=source_id,
                 owner=request.user,
                 correspondent=request.data.get("correspondent"),
                 document_type=request.data.get("document_type"),
-                tags=request.data.get("tags"),
+                tags=tags,
             )
         except (ValueError, TypeError) as exc:
             return Response(

@@ -1,5 +1,5 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
@@ -202,12 +202,32 @@ class TestUploadAPI:
         }, format='multipart')
         assert resp.status_code == 400
 
+    def test_upload_missing_source_id_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract',
+        }, format='multipart')
+        assert resp.status_code == 400
+        assert 'source_id' in resp.data['detail']
+
+    def test_upload_invalid_source_id_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 'abc',
+        }, format='multipart')
+        assert resp.status_code == 400
+        assert 'source_id' in resp.data['detail']
+
     def test_upload_creates_binding_and_outbox(self, user, monkeypatch):
         from ..services.upload import PaperlessUploadService
-        monkeypatch.setattr(
-            PaperlessUploadService, 'queue_upload',
-            staticmethod(lambda **kw: {'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}),
+        mock_queue = MagicMock(
+            return_value={'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}
         )
+        monkeypatch.setattr(PaperlessUploadService, 'queue_upload', mock_queue)
         client = APIClient()
         client.force_authenticate(user)
         f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
@@ -218,3 +238,29 @@ class TestUploadAPI:
         assert resp.data['status'] == 'pending'
         assert 'binding_id' in resp.data
         assert 'outbox_id' in resp.data
+        # 显式断言 kwargs,防止字段映射回归
+        mock_queue.assert_called_once()
+        call_kwargs = mock_queue.call_args.kwargs
+        assert call_kwargs['filename'] == 'test.pdf'
+        assert call_kwargs['title'] == 't'
+        assert call_kwargs['source_type'] == 'contract'
+        assert call_kwargs['source_id'] == 1
+        assert call_kwargs['owner'] == user
+
+    def test_upload_tags_comma_string_coerced_to_list(self, user, monkeypatch):
+        """multipart 中 tags 为逗号分隔字符串时,应被强制转为 list"""
+        from ..services.upload import PaperlessUploadService
+        mock_queue = MagicMock(
+            return_value={'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}
+        )
+        monkeypatch.setattr(PaperlessUploadService, 'queue_upload', mock_queue)
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 1,
+            'tags': 'tag1,tag2, tag3',
+        }, format='multipart')
+        assert resp.status_code == 201
+        call_kwargs = mock_queue.call_args.kwargs
+        assert call_kwargs['tags'] == ['tag1', 'tag2', 'tag3']
