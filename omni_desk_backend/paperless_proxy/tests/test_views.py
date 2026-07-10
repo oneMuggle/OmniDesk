@@ -58,6 +58,44 @@ class TestOutboxListAPI:
         for item in resp.data['results']:
             assert item['status'] == 'dead'
 
+    def test_retrieve_requires_admin(self, user, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 403
+
+    def test_admin_can_retrieve(self, admin, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.get(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 200
+        assert resp.data['id'] == dead_outbox.id
+
+
+@pytest.mark.django_db
+class TestOutboxDeleteAPI:
+    def test_delete_requires_admin(self, user, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.delete(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 403
+
+    def test_delete_non_dead_returns_400(self, admin, user, binding):
+        pending = OutboxItem.objects.create(
+            operation='upload', status='pending', payload={}, binding=binding, created_by=user,
+        )
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.delete(f'/api/paperless/outbox/{pending.id}/')
+        assert resp.status_code == 400
+
+    def test_delete_dead_returns_204_and_removes(self, admin, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.delete(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 204
+        assert not OutboxItem.objects.filter(pk=dead_outbox.id).exists()
+
 
 @pytest.mark.django_db
 class TestOutboxRetryAPI:

@@ -83,14 +83,25 @@ class UploadView(APIView):
         return Response(result, status=status.HTTP_201_CREATED)
 
 
-class OutboxViewSet(viewsets.ReadOnlyModelViewSet):
+class OutboxViewSet(viewsets.ModelViewSet):
     """Outbox 管理(admin 限定)"""
 
     queryset = OutboxItem.objects.all()
     serializer_class = OutboxItemSerializer
     permission_classes = [IsAdmin]
+    http_method_names = ["get", "post", "delete", "head", "options"]  # 禁 PUT/PATCH
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["status", "operation"]
+
+    def destroy(self, request, *args, **kwargs):
+        """仅 dead 状态可删除,避免误删正在处理的项"""
+        outbox = self.get_object()
+        if outbox.status != "dead":
+            return Response(
+                {"detail": f"只能删除死信(当前 status={outbox.status})"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=["post"])
     def retry(self, request, pk=None):
