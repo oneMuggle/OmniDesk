@@ -21,34 +21,40 @@ if [ -z "$BUILD_VERSION" ]; then
     exit 1
 fi
 
-if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+|-hotfix(\.[0-9]+)?)?$'; then
     echo "ERROR: Invalid version format '$BUILD_VERSION'."
-    echo "Use MAJOR.MINOR.PATCH (stable) or MAJOR.MINOR.PATCH-{alpha,beta,rc}.N (pre-release)."
+    echo "Use MAJOR.MINOR.PATCH (stable), MAJOR.MINOR.PATCH-{alpha,beta,rc}.N, or MAJOR.MINOR.PATCH-hotfix[.N]."
     exit 1
 fi
 
-# ─── 渠道推导(从 VERSION 后缀)───────────────────────
-case "$BUILD_VERSION" in
-    *-alpha.*) BUILD_CHANNEL="alpha" ;;
-    *-beta.*)  BUILD_CHANNEL="beta" ;;
-    *-rc.*)    BUILD_CHANNEL="preview" ;;
-    *)         BUILD_CHANNEL="stable" ;;
-esac
-echo "  发布渠道: ${BUILD_CHANNEL}"
+# ─── 渠道 ↔ 分支映射(VERSION 后缀 → channel + expected_branch)──
+# 单一映射表,channel 推导 + 分支守卫共用。修改时只改这一处。
+# 渠道-分支约定(详见 docs/technical/30-release-channels.md):
+#   vX.Y.Z-alpha.N  → alpha    + main
+#   vX.Y.Z-beta.N   → beta     + beta
+#   vX.Y.Z-rc.N     → preview  + rc
+#   vX.Y.Z-hotfix   → hotfix   + release
+#   vX.Y.Z          → stable   + release
+# 注:stable + hotfix 都从 release 分支打;hotfix 离线包目录加 -hotfix 前缀
+#   与 stable 区分(omnidesk-offline-hotfix-vX.Y.Z-hotfix/).
+channel_info() {
+    case "$1" in
+        *-alpha.*) echo "alpha main" ;;
+        *-beta.*)  echo "beta beta" ;;
+        *-rc.*)    echo "preview rc" ;;
+        *-hotfix*) echo "hotfix release" ;;
+        *)         echo "stable release" ;;
+    esac
+}
+read -r BUILD_CHANNEL EXPECTED_BRANCH < <(channel_info "$BUILD_VERSION")
+echo "  发布渠道: ${BUILD_CHANNEL} (期望分支:${EXPECTED_BRANCH})"
 
 # ─── 渠道 ↔ 分支守卫(防止在错分支上打包)─────────────────
 # 背景:package_offline_bundle.sh 不主动 checkout,直接读当前工作目录的代码。
 # 如果有人在 main 上跑 ./package_offline_bundle.sh 0.5.10 想要 hotfix,会把
 # main 上未发布的代码意外塞进 stable 包。
 # 守卫:VERSION 后缀 → 期望分支,与 git 当前分支不一致时拒绝执行。
-# 注:stable + hotfix 都从 release 分支打(BUILD_VERSION 是否带后缀不影响);
-# 渠道升级从 rc → release 时 release 分支的 commit 等于 rc HEAD,守卫仍通过。
-EXPECTED_BRANCH=$(case "$BUILD_VERSION" in
-    *-alpha.*) echo "main" ;;
-    *-beta.*)  echo "beta" ;;
-    *-rc.*)    echo "rc" ;;
-    *)         echo "release" ;;  # stable + hotfix 都用 release 分支
-esac)
+# 注:渠道升级从 rc → release 时 release 分支的 commit 等于 rc HEAD,守卫仍通过。
 
 if [ "${SKIP_GUARD:-0}" = "1" ]; then
     echo "  WARN: SKIP_GUARD=1,跳过渠道-分支守卫(期望 ${EXPECTED_BRANCH} ↔ 当前未检查)"
@@ -58,7 +64,12 @@ else
         CURRENT_BRANCH="$SIMULATE_BRANCH"
         echo "  (测试模式:SIMULATE_BRANCH=$CURRENT_BRANCH 覆盖 git rev-parse)"
     else
-        CURRENT_BRANCH=$(git -C "$SCRIPT_DIR/../.." rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+        # 区分 git 命令真正失败(非 git 仓库 / git 未安装)与 detached HEAD(rev-parse 输出 "HEAD" 且 exit 0)
+        if ! CURRENT_BRANCH=$(git -C "$SCRIPT_DIR/../.." rev-parse --abbrev-ref HEAD 2>/dev/null); then
+            echo "ERROR: 无法读取 git 当前分支(可能非 git 仓库,或 git 未安装,或 \$SCRIPT_DIR/../.. 不是 git 目录)" >&2
+            echo "  路径:\$SCRIPT_DIR/../.. = $SCRIPT_DIR/../.." >&2
+            exit 1
+        fi
     fi
     if [ "$CURRENT_BRANCH" = "HEAD" ]; then
         echo "ERROR: 当前是 detached HEAD 状态,无法判断期望分支。"
@@ -91,7 +102,8 @@ fi
 # 用途:CI 单元测试或本地验证守卫行为时,避免 mkdir/rm/cp/docker load 等副作用。
 # 主流程不受影响,默认 0。
 if [ "${TEST_GUARD_ONLY:-0}" = "1" ]; then
-    echo "  TEST_GUARD_ONLY=1,守卫测试通过,立即退出(跳过实际打包)"
+    # 显眼输出 + stderr 避免误以为打包成功(注意:本路径下不产生任何 bundle)
+    echo "*** TEST MODE: TEST_GUARD_ONLY=1 set, exiting BEFORE bundle build (NO bundle produced) ***" >&2
     exit 0
 fi
 

@@ -17,12 +17,19 @@ OmniDesk 从 v0.6.0 起引入 4 段式发布渠道(alpha / beta / preview / stab
 
 ## 版本号规则
 
-格式: `MAJOR.MINOR.PATCH[-CHANNEL.N]`,严格符合 SemVer 2.0 §9。
+格式: `MAJOR.MINOR.PATCH[-CHANNEL[.N]]`,严格符合 SemVer 2.0 §9。
+渠道后缀: `alpha` / `beta` / `rc` 必须带 `.N` 序号;`hotfix` 可选 `.N`(`1.2.1-hotfix` 或 `1.2.1-hotfix.1`)。
 
 渠道升级示例:
 - `1.2.0-alpha.5` → `1.2.0-beta.1`(序号重置)
 - `1.2.0-rc.2` → `1.2.0`(去掉后缀)
-- `1.2.0` → `1.2.1`(hotfix, PATCH bump)
+- `1.2.0` → `1.2.1-hotfix`(hotfix, PATCH bump + 显式后缀区分 stable)
+
+## 渠道守卫(2026-07-10 引入)
+
+`deployment/docker/package_offline_bundle.sh` 在打包前检查"当前 git 分支 vs VERSION 推断的期望分支",不匹配时 `exit 1`。这防止在错分支上意外打包(例:在 main 上打 stable 包把未发布代码塞进 production)。
+
+完整守卫规则 + 单元测试见 `deployment/docker/tests/test_branch_guard.sh`(20 case)。
 
 ## 镜像 tag
 
