@@ -36,6 +36,65 @@ case "$BUILD_VERSION" in
 esac
 echo "  发布渠道: ${BUILD_CHANNEL}"
 
+# ─── 渠道 ↔ 分支守卫(防止在错分支上打包)─────────────────
+# 背景:package_offline_bundle.sh 不主动 checkout,直接读当前工作目录的代码。
+# 如果有人在 main 上跑 ./package_offline_bundle.sh 0.5.10 想要 hotfix,会把
+# main 上未发布的代码意外塞进 stable 包。
+# 守卫:VERSION 后缀 → 期望分支,与 git 当前分支不一致时拒绝执行。
+# 注:stable + hotfix 都从 release 分支打(BUILD_VERSION 是否带后缀不影响);
+# 渠道升级从 rc → release 时 release 分支的 commit 等于 rc HEAD,守卫仍通过。
+EXPECTED_BRANCH=$(case "$BUILD_VERSION" in
+    *-alpha.*) echo "main" ;;
+    *-beta.*)  echo "beta" ;;
+    *-rc.*)    echo "rc" ;;
+    *)         echo "release" ;;  # stable + hotfix 都用 release 分支
+esac)
+
+if [ "${SKIP_GUARD:-0}" = "1" ]; then
+    echo "  WARN: SKIP_GUARD=1,跳过渠道-分支守卫(期望 ${EXPECTED_BRANCH} ↔ 当前未检查)"
+else
+    # SIMULATE_BRANCH 仅用于单元测试,可让守卫在不切分支的前提下模拟任意分支名
+    if [ -n "${SIMULATE_BRANCH:-}" ]; then
+        CURRENT_BRANCH="$SIMULATE_BRANCH"
+        echo "  (测试模式:SIMULATE_BRANCH=$CURRENT_BRANCH 覆盖 git rev-parse)"
+    else
+        CURRENT_BRANCH=$(git -C "$SCRIPT_DIR/../.." rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+    fi
+    if [ "$CURRENT_BRANCH" = "HEAD" ]; then
+        echo "ERROR: 当前是 detached HEAD 状态,无法判断期望分支。"
+        echo "  VERSION=${BUILD_VERSION} 期望分支:${EXPECTED_BRANCH}"
+        echo "  解决方案:git switch ${EXPECTED_BRANCH} 后重跑,或用 SKIP_GUARD=1 绕过(不推荐)。"
+        exit 1
+    fi
+    if [ "$CURRENT_BRANCH" != "$EXPECTED_BRANCH" ]; then
+        echo "ERROR: 渠道-分支不匹配,拒绝执行打包!"
+        echo "  VERSION:    ${BUILD_VERSION}  (渠道:${BUILD_CHANNEL})"
+        echo "  期望分支:   ${EXPECTED_BRANCH}"
+        echo "  当前分支:   ${CURRENT_BRANCH}"
+        echo ""
+        echo "渠道-分支映射:"
+        echo "  vX.Y.Z-alpha.N → main"
+        echo "  vX.Y.Z-beta.N  → beta"
+        echo "  vX.Y.Z-rc.N    → rc"
+        echo "  vX.Y.Z / vX.Y.(Z+1) hotfix → release"
+        echo ""
+        echo "解决方案:"
+        echo "  git switch ${EXPECTED_BRANCH} && ./package_offline_bundle.sh ${BUILD_VERSION}"
+        echo "  或(若确实要在 ${CURRENT_BRANCH} 上打包,需 SKIP_GUARD=1 绕过):"
+        echo "  SKIP_GUARD=1 ./package_offline_bundle.sh ${BUILD_VERSION}"
+        exit 1
+    fi
+    echo "  渠道-分支守卫通过:VERSION ${BUILD_VERSION} ↔ 分支 ${CURRENT_BRANCH} ✓"
+fi
+
+# ─── 测试 hook:TEST_GUARD_ONLY=1 让脚本在守卫通过后立即退出(不执行实际打包)──
+# 用途:CI 单元测试或本地验证守卫行为时,避免 mkdir/rm/cp/docker load 等副作用。
+# 主流程不受影响,默认 0。
+if [ "${TEST_GUARD_ONLY:-0}" = "1" ]; then
+    echo "  TEST_GUARD_ONLY=1,守卫测试通过,立即退出(跳过实际打包)"
+    exit 0
+fi
+
 BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}"
 # 离线包目录命名:<channel>-v<version>(stable 不加 prefix)
 case "$BUILD_CHANNEL" in
