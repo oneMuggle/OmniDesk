@@ -42,3 +42,27 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
     def unread_count(self, request):
         count = ComplianceChecker.get_unread_count(request.user)
         return Response({"unread_count": count})
+
+    @action(detail=True, methods=["post"])
+    def upload(self, request, pk=None):
+        """上传合规报告,通过 paperless_proxy 异步投递到 paperless-ngx"""
+        from paperless_proxy.services.upload import PaperlessUploadService
+        issue = self.get_object()
+        if not ComplianceChecker.can_modify_issue(request.user, issue):
+            raise PermissionDenied("您无权在此项目下上传合规报告。")
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "缺少 file 字段"}, status=400)
+        try:
+            result = PaperlessUploadService.queue_upload(
+                file=file,
+                filename=file.name,
+                title=request.data.get("title") or file.name,
+                source_type="compliance_report",
+                source_id=issue.id,
+                owner=request.user,
+                tags=request.data.get("tags"),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(result, status=201)
