@@ -11,7 +11,12 @@ from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from .models import OutboxItem, PaperlessHealth, UserPaperlessBinding, DocumentBinding
-from .serializers import OutboxItemSerializer, PaperlessHealthSerializer, UserPaperlessBindingSerializer
+from .serializers import (
+    OutboxItemSerializer,
+    DocumentBindingSerializer,
+    PaperlessHealthSerializer,
+    UserPaperlessBindingSerializer,
+)
 from .permissions import IsAdmin, IsBindingOwnerOrAdmin
 from .services.outbox import OutboxService
 from .services.client import PaperlessClient
@@ -227,4 +232,39 @@ class BindingSyncStatusView(APIView):
                 "paperless_id": binding.paperless_id,
                 "sync_status": latest.status if latest else "synced",
             }
+        )
+
+
+class DocumentBindingViewSet(viewsets.ModelViewSet):
+    """DocumentBinding CRUD + 异步 update_metadata/delete"""
+
+    queryset = DocumentBinding.objects.all()
+    serializer_class = DocumentBindingSerializer
+    permission_classes = [IsAuthenticated, IsBindingOwnerOrAdmin]
+    filter_backends = [DjangoFilterBackend]
+    filterset_fields = ["source_type", "source_id", "owner", "paperless_id"]
+
+    def update(self, request, *args, **kwargs):
+        """PATCH → 入 update_metadata outbox(不直接改 binding)"""
+        binding = self.get_object()
+        fields = {
+            k: v for k, v in request.data.items()
+            if k in ("title", "correspondent_id", "extra_metadata", "tags")
+        }
+        outbox = OutboxService.queue_update_metadata(binding, fields, created_by=request.user)
+        return Response(
+            {"binding_id": binding.id, "outbox_id": outbox.id, "status": outbox.status},
+            status=status.HTTP_202_ACCEPTED,
+        )
+
+    def partial_update(self, request, *args, **kwargs):
+        return self.update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        """DELETE → 入 delete outbox(worker 异步删 binding + paperless)"""
+        binding = self.get_object()
+        outbox = OutboxService.queue_delete(binding, created_by=request.user)
+        return Response(
+            {"binding_id": binding.id, "outbox_id": outbox.id, "status": outbox.status},
+            status=status.HTTP_202_ACCEPTED,
         )

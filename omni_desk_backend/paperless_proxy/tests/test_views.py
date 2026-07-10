@@ -264,3 +264,85 @@ class TestUploadAPI:
         assert resp.status_code == 201
         call_kwargs = mock_queue.call_args.kwargs
         assert call_kwargs['tags'] == ['tag1', 'tag2', 'tag3']
+
+@pytest.mark.django_db
+class TestDocumentBindingAPI:
+    def test_list_requires_auth(self, db):
+        client = APIClient()
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 401
+
+    def test_list_returns_paginated_results(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 200
+        assert 'results' in resp.data
+        assert len(resp.data['results']) >= 1
+
+    def test_list_filter_by_source_type(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/?source_type=contract')
+        assert resp.status_code == 200
+        for item in resp.data['results']:
+            assert item['source_type'] == 'contract'
+
+    def test_detail_owner_can_access(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 200
+        assert resp.data['title'] == 'X'
+
+    def test_detail_non_owner_non_admin_forbidden(self, db, binding):
+        other = CustomUser.objects.create_user(username='other', password='p')
+        client = APIClient()
+        client.force_authenticate(other)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 403
+
+    def test_detail_admin_can_access(self, admin, binding):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 200
+
+    def test_patch_creates_update_metadata_outbox(self, user, binding, monkeypatch):
+        from ..services.outbox import OutboxService
+        mock_q = MagicMock(return_value=OutboxItem(
+            operation='update_metadata', status='pending', payload={'title': 'new'},
+            binding=binding, created_by=user,
+        ))
+        monkeypatch.setattr(OutboxService, 'queue_update_metadata', mock_q)
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.patch(
+            f'/api/paperless/documents/{binding.id}/',
+            {'title': 'new'},
+            format='json',
+        )
+        assert resp.status_code == 202
+        mock_q.assert_called_once()
+        call_args = mock_q.call_args
+        # binding + fields are positional args; created_by is keyword
+        assert call_args.args[0] == binding
+        assert call_args.args[1] == {'title': 'new'}
+        assert call_args.kwargs['created_by'] == user
+
+    def test_delete_creates_delete_outbox(self, user, binding, monkeypatch):
+        from ..services.outbox import OutboxService
+        mock_q = MagicMock(return_value=OutboxItem(
+            operation='delete', status='pending', payload={'paperless_id': binding.paperless_id},
+            binding=binding, created_by=user,
+        ))
+        monkeypatch.setattr(OutboxService, 'queue_delete', mock_q)
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.delete(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 202
+        mock_q.assert_called_once()
+        call_args = mock_q.call_args
+        # binding is positional; created_by is keyword
+        assert call_args.args[0] == binding
+        assert call_args.kwargs['created_by'] == user

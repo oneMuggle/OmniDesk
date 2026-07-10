@@ -9,10 +9,12 @@ from .views import (
     DocumentPreviewView,
     BindingSyncStatusView,
     UploadView,
+    DocumentBindingViewSet,
 )
 
 router = DefaultRouter()
 router.register(r"outbox", OutboxViewSet, basename="outbox")
+router.register(r"documents", DocumentBindingViewSet, basename="documents")
 
 urlpatterns = [
     path("upload/", UploadView.as_view(), name="upload"),
