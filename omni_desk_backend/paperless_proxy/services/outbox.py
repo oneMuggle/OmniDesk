@@ -94,3 +94,27 @@ class OutboxService:
         outbox.last_error = ""
         outbox.save(update_fields=["status", "retry_count", "next_retry_at", "last_error", "updated_at"])
         return outbox
+
+    @staticmethod
+    @transaction.atomic
+    def queue_update_metadata(binding, fields: dict, created_by) -> OutboxItem:
+        """入队 update_metadata 操作,worker 异步调 paperless PATCH"""
+        return OutboxItem.objects.create(
+            operation="update_metadata",
+            status="pending",
+            payload=fields,
+            binding=binding,
+            created_by=created_by,
+        )
+
+    @staticmethod
+    @transaction.atomic
+    def queue_delete(binding, created_by) -> OutboxItem:
+        """入队 delete 操作,worker 异步调 paperless DELETE + 删 binding"""
+        return OutboxItem.objects.create(
+            operation="delete",
+            status="pending",
+            payload={"paperless_id": binding.paperless_id},
+            binding=binding,
+            created_by=created_by,
+        )

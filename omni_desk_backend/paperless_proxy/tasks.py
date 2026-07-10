@@ -9,6 +9,7 @@ from django.conf import settings
 from .services.outbox import OutboxService, OutboxDeadError
 from .services.client import PaperlessClient
 from .exceptions import PaperlessError
+from .models import OutboxItem
 
 logger = logging.getLogger(__name__)
 
@@ -33,7 +34,10 @@ def process_paperless_outbox():
                 _process_update_metadata(item, client)
             else:
                 raise PaperlessError(f"unknown operation: {item.operation}")
-            OutboxService.mark_synced(item)
+            # delete 操作通过 binding.delete() 联动 CASCADE 删 outbox 本体,
+            # mark_synced 需跳过已不存在的行,避免 _prepare_related_fields_for_save 报错
+            if OutboxItem.objects.filter(pk=item.pk).exists():
+                OutboxService.mark_synced(item)
             succeeded += 1
         except PaperlessError as e:
             try:
@@ -67,7 +71,7 @@ def _process_upload(item, client: PaperlessClient) -> None:
             document_type=payload.get("document_type"),
             tags=payload.get("tags"),
         )
-    if item.binding and not item.binding.paperless_id:
+    if item.binding and item.binding.paperless_id is None:
         item.binding.paperless_id = result["id"]
         item.binding.paperless_checksum = result.get("checksum", "")
         item.binding.save(update_fields=["paperless_id", "paperless_checksum", "updated_at"])
@@ -79,13 +83,30 @@ def _process_upload(item, client: PaperlessClient) -> None:
 
 
 def _process_delete(item, client: PaperlessClient) -> None:
-    # paperless 暂不实现删除 API 代理,留空
-    raise PaperlessError("delete not implemented in v1")
+    paperless_id = item.binding.paperless_id if item.binding else item.payload.get("paperless_id")
+    if paperless_id is None:
+        raise PaperlessError("binding not yet synced, cannot delete")
+    client.delete(paperless_id)
+    if item.binding:
+        item.binding.delete()  # CASCADE 删 outbox
 
 
 def _process_update_metadata(item, client: PaperlessClient) -> None:
-    # 留给后续阶段
-    raise PaperlessError("update_metadata not implemented in v1")
+    binding = item.binding
+    if not binding or binding.paperless_id is None:
+        raise PaperlessError("binding not yet synced, cannot update_metadata")
+    client.update_metadata(binding.paperless_id, item.payload)
+    # 回写本地 binding
+    fields_to_save = []
+    if "title" in item.payload:
+        binding.title = item.payload["title"]
+        fields_to_save.append("title")
+    if "extra_metadata" in item.payload:
+        binding.extra_metadata = item.payload["extra_metadata"]
+        fields_to_save.append("extra_metadata")
+    if fields_to_save:
+        fields_to_save.append("updated_at")
+        binding.save(update_fields=fields_to_save)
 
 
 @shared_task(name="paperless_proxy.check_health")

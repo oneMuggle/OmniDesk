@@ -37,7 +37,7 @@ class TestUploadService:
         assert result['outbox_id']
 
         binding = DocumentBinding.objects.get(id=result['binding_id'])
-        assert binding.paperless_id == 0
+        assert binding.paperless_id is None
         assert binding.paperless_checksum == ''
         assert binding.source_type == 'project_document'
         assert binding.source_id == 42
@@ -56,3 +56,19 @@ class TestUploadService:
         with open(outbox.payload['file_path'], 'rb') as saved_file:
             assert saved_file.read() == b'fake content'
         mock_upload.assert_not_called()
+
+
+@pytest.mark.django_db
+def test_queue_upload_paperless_id_is_none(user, tmp_path):
+    """queue_upload 创建的 binding paperless_id 必须为 None,不是 0"""
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from ..services.upload import PaperlessUploadService
+    file = SimpleUploadedFile('test.pdf', b'hello', content_type='application/pdf')
+    result = PaperlessUploadService.queue_upload(
+        file=file, filename='test.pdf', title='T',
+        source_type='contract', source_id=99, owner=user,
+    )
+    from ..models import DocumentBinding
+    binding = DocumentBinding.objects.get(pk=result['binding_id'])
+    assert binding.paperless_id is None
+    assert binding.paperless_checksum == ""

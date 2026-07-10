@@ -1,6 +1,7 @@
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, MagicMock
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from ..models import OutboxItem, DocumentBinding, PaperlessHealth, UserPaperlessBinding
 from ..services.client import PaperlessClient
@@ -56,6 +57,44 @@ class TestOutboxListAPI:
         assert resp.status_code == 200
         for item in resp.data['results']:
             assert item['status'] == 'dead'
+
+    def test_retrieve_requires_admin(self, user, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 403
+
+    def test_admin_can_retrieve(self, admin, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.get(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 200
+        assert resp.data['id'] == dead_outbox.id
+
+
+@pytest.mark.django_db
+class TestOutboxDeleteAPI:
+    def test_delete_requires_admin(self, user, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.delete(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 403
+
+    def test_delete_non_dead_returns_400(self, admin, user, binding):
+        pending = OutboxItem.objects.create(
+            operation='upload', status='pending', payload={}, binding=binding, created_by=user,
+        )
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.delete(f'/api/paperless/outbox/{pending.id}/')
+        assert resp.status_code == 400
+
+    def test_delete_dead_returns_204_and_removes(self, admin, dead_outbox):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.delete(f'/api/paperless/outbox/{dead_outbox.id}/')
+        assert resp.status_code == 204
+        assert not OutboxItem.objects.filter(pk=dead_outbox.id).exists()
 
 
 @pytest.mark.django_db
@@ -173,3 +212,197 @@ class TestDownloadAPI:
         client.force_authenticate(user)
         resp = client.get(f'/api/paperless/documents/{binding.id}/download/')
         assert resp.status_code == 503
+
+
+# --- Task 6: Upload API ---
+
+
+@pytest.mark.django_db
+class TestUploadAPI:
+    def test_upload_requires_auth(self, db):
+        client = APIClient()
+        resp = client.post('/api/paperless/upload/', {})
+        assert resp.status_code == 401
+
+    def test_upload_missing_file_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/upload/', {'title': 't', 'source_type': 'contract', 'source_id': 1}, format='multipart')
+        assert resp.status_code == 400
+        assert 'file' in resp.data['detail']
+
+    def test_upload_invalid_source_type_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'invalid', 'source_id': 1,
+        }, format='multipart')
+        assert resp.status_code == 400
+
+    def test_upload_missing_source_id_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract',
+        }, format='multipart')
+        assert resp.status_code == 400
+        assert 'source_id' in resp.data['detail']
+
+    def test_upload_invalid_source_id_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 'abc',
+        }, format='multipart')
+        assert resp.status_code == 400
+        assert 'source_id' in resp.data['detail']
+
+    def test_upload_creates_binding_and_outbox(self, user, monkeypatch):
+        from ..services.upload import PaperlessUploadService
+        mock_queue = MagicMock(
+            return_value={'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}
+        )
+        monkeypatch.setattr(PaperlessUploadService, 'queue_upload', mock_queue)
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 1,
+        }, format='multipart')
+        assert resp.status_code == 201
+        assert resp.data['status'] == 'pending'
+        assert 'binding_id' in resp.data
+        assert 'outbox_id' in resp.data
+        # 显式断言 kwargs,防止字段映射回归
+        mock_queue.assert_called_once()
+        call_kwargs = mock_queue.call_args.kwargs
+        assert call_kwargs['filename'] == 'test.pdf'
+        assert call_kwargs['title'] == 't'
+        assert call_kwargs['source_type'] == 'contract'
+        assert call_kwargs['source_id'] == 1
+        assert call_kwargs['owner'] == user
+
+    def test_upload_tags_comma_string_coerced_to_list(self, user, monkeypatch):
+        """multipart 中 tags 为逗号分隔字符串时,应被强制转为 list"""
+        from ..services.upload import PaperlessUploadService
+        mock_queue = MagicMock(
+            return_value={'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}
+        )
+        monkeypatch.setattr(PaperlessUploadService, 'queue_upload', mock_queue)
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 1,
+            'tags': 'tag1,tag2, tag3',
+        }, format='multipart')
+        assert resp.status_code == 201
+        call_kwargs = mock_queue.call_args.kwargs
+        assert call_kwargs['tags'] == ['tag1', 'tag2', 'tag3']
+
+@pytest.mark.django_db
+class TestDocumentBindingAPI:
+    def test_list_requires_auth(self, db):
+        client = APIClient()
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 401
+
+    def test_documents_list_post_returns_405(self, user):
+        """POST /api/paperless/documents/ 应当被 405 拒绝 — 上传走 /upload/ 入口"""
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/documents/', {})
+        assert resp.status_code == 405
+
+    def test_list_only_returns_own_bindings(self, user, binding):
+        """非管理员只能看到自己的 binding;其他用户的 binding 不会泄露"""
+        other = CustomUser.objects.create_user(username='other2', password='p')
+        DocumentBinding.objects.create(
+            source_type='policy', source_id=999, paperless_id=8888,
+            paperless_checksum='h', owner=other, title='Other',
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 200
+        for item in resp.data['results']:
+            assert item['owner'] == user.id
+
+    def test_list_returns_paginated_results(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 200
+        assert 'results' in resp.data
+        assert len(resp.data['results']) >= 1
+
+    def test_list_filter_by_source_type(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/?source_type=contract')
+        assert resp.status_code == 200
+        for item in resp.data['results']:
+            assert item['source_type'] == 'contract'
+
+    def test_detail_owner_can_access(self, user, binding):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 200
+        assert resp.data['title'] == 'X'
+
+    def test_detail_non_owner_non_admin_forbidden(self, db, binding):
+        other = CustomUser.objects.create_user(username='other', password='p')
+        client = APIClient()
+        client.force_authenticate(other)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        # get_queryset 按 owner 过滤后,非 owner 看不到行 → 404(防信息泄露)
+        assert resp.status_code == 404
+
+    def test_detail_admin_can_access(self, admin, binding):
+        client = APIClient()
+        client.force_authenticate(admin)
+        resp = client.get(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 200
+
+    def test_patch_creates_update_metadata_outbox(self, user, binding, monkeypatch):
+        from ..services.outbox import OutboxService
+        mock_q = MagicMock(return_value=OutboxItem(
+            operation='update_metadata', status='pending', payload={'title': 'new'},
+            binding=binding, created_by=user,
+        ))
+        monkeypatch.setattr(OutboxService, 'queue_update_metadata', mock_q)
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.patch(
+            f'/api/paperless/documents/{binding.id}/',
+            {'title': 'new'},
+            format='json',
+        )
+        assert resp.status_code == 202
+        mock_q.assert_called_once()
+        call_args = mock_q.call_args
+        # binding + fields are positional args; created_by is keyword
+        assert call_args.args[0] == binding
+        assert call_args.args[1] == {'title': 'new'}
+        assert call_args.kwargs['created_by'] == user
+
+    def test_delete_creates_delete_outbox(self, user, binding, monkeypatch):
+        from ..services.outbox import OutboxService
+        mock_q = MagicMock(return_value=OutboxItem(
+            operation='delete', status='pending', payload={'paperless_id': binding.paperless_id},
+            binding=binding, created_by=user,
+        ))
+        monkeypatch.setattr(OutboxService, 'queue_delete', mock_q)
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.delete(f'/api/paperless/documents/{binding.id}/')
+        assert resp.status_code == 202
+        mock_q.assert_called_once()
+        call_args = mock_q.call_args
+        # binding is positional; created_by is keyword
+        assert call_args.args[0] == binding
+        assert call_args.kwargs['created_by'] == user

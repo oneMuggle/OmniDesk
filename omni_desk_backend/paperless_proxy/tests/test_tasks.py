@@ -8,6 +8,7 @@ from django.contrib.auth import get_user_model
 from ..models import OutboxItem, DocumentBinding, PaperlessHealth
 from ..tasks import process_paperless_outbox, check_paperless_health, cleanup_paperless_cache
 from ..services.outbox import OutboxDeadError
+from ..services.client import PaperlessClient
 
 CustomUser = get_user_model()
 
@@ -21,7 +22,7 @@ def user(db):
 def binding(db, user):
     return DocumentBinding.objects.create(
         source_type='project_document', source_id=1,
-        paperless_id=0, paperless_checksum='', owner=user, title='X',
+        paperless_id=None, paperless_checksum='', owner=user, title='X',
     )
 
 
@@ -144,3 +145,77 @@ class TestCacheCleanup:
         mock_exists.return_value = False
         result = cleanup_paperless_cache()
         assert result == {'deleted': 0}
+
+
+@pytest.mark.django_db
+def test_process_upload_writes_real_paperless_id(user, binding, outbox_item):
+    """worker 调 client.upload 后,binding.paperless_id 必须从 None 变为真实 ID"""
+    fake_result = {"id": 12345, "checksum": "abc123"}
+    with patch.object(PaperlessClient, "upload", return_value=fake_result):
+        with patch("builtins.open", create=True) as mock_open:
+            mock_open.return_value.__enter__.return_value = MagicMock()
+            with patch("os.path.exists", return_value=True):
+                process_paperless_outbox.apply().get()
+    binding.refresh_from_db()
+    assert binding.paperless_id == 12345
+    assert binding.paperless_checksum == "abc123"
+
+
+@pytest.mark.django_db
+def test_process_update_metadata_calls_client_and_writes_back(user, binding, monkeypatch):
+    """update_metadata 调 client.update_metadata 并回写 binding.title"""
+    binding.paperless_id = 999  # 已同步
+    binding.save()
+    OutboxItem.objects.create(
+        operation="update_metadata",
+        status="pending",
+        payload={"title": "updated"},
+        binding=binding,
+        created_by=user,
+    )
+    fake_result = {"id": 999, "title": "updated"}
+    with patch.object(PaperlessClient, "update_metadata", return_value=fake_result) as m:
+        process_paperless_outbox.apply().get()
+    m.assert_called_once_with(999, {"title": "updated"})
+    binding.refresh_from_db()
+    assert binding.title == "updated"
+
+
+@pytest.mark.django_db
+def test_process_update_metadata_skips_when_paperless_id_is_none(user, binding):
+    """binding 未同步(paperless_id is None)时 update_metadata 走 mark_failed,不入 client"""
+    binding.paperless_id = None
+    binding.save()
+    OutboxItem.objects.create(
+        operation="update_metadata",
+        status="pending",
+        payload={"title": "x"},
+        binding=binding,
+        created_by=user,
+    )
+    with patch.object(PaperlessClient, "update_metadata") as m:
+        process_paperless_outbox.apply().get()
+    m.assert_not_called()
+    item = OutboxItem.objects.filter(operation="update_metadata").first()
+    # mark_failed 真正被调用的强证据:retry_count=1、status 回 pending、last_error 标记原因
+    assert item.status == "pending"  # backoff 后回到 pending
+    assert item.retry_count == 1
+    assert "binding not yet synced" in item.last_error
+
+
+@pytest.mark.django_db
+def test_process_delete_calls_client_and_removes_binding(user, binding):
+    """delete 调 client.delete 并删 binding(CASCADE 删 outbox)"""
+    binding.paperless_id = 888
+    binding.save()
+    OutboxItem.objects.create(
+        operation="delete",
+        status="pending",
+        payload={"paperless_id": 888},
+        binding=binding,
+        created_by=user,
+    )
+    with patch.object(PaperlessClient, "delete") as m:
+        process_paperless_outbox.apply().get()
+    m.assert_called_once_with(888)
+    assert not DocumentBinding.objects.filter(pk=binding.pk).exists()
