@@ -39,9 +39,7 @@ click-plugins==1.1.1.2
 click-repl==0.3.0
     # via celery
 cron-descriptor==1.4.5
-    # via
-    #   -r requirements.in
-    #   django-celery-beat
+    # via django-celery-beat
 django==4.2.30
     # via
     #   -r requirements.in
@@ -70,9 +68,7 @@ django-extensions==4.1
 django-filter==25.1
     # via -r requirements.in
 django-js-asset==3.1.2
-    # via
-    #   -r requirements.in
-    #   django-ckeditor
+    # via django-ckeditor
 django-ratelimit==4.1.0
     # via -r requirements.in
 django-redis==6.0.0
@@ -133,9 +129,7 @@ pyjwt==2.13.0
 pypdf==6.13.3
     # via -r requirements.in
 python-crontab==3.3.0
-    # via
-    #   -r requirements.in
-    #   django-celery-beat
+    # via django-celery-beat
 python-dateutil==2.9.0.post0
     # via
     #   celery
@@ -159,8 +153,10 @@ requests==2.34.2
     # via -r requirements.in
 six==1.17.0
     # via python-dateutil
-soupsieve==2.8.3
-    # via beautifulsoup4
+soupsieve==2.8.4
+    # via
+    #   -r requirements.in
+    #   beautifulsoup4
 sqlparse==0.5.5
     # via django
 typing-extensions==4.15.0
@@ -186,8 +182,6 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-waitress==3.0.2
-    # via -r requirements.in
 wcwidth==0.7.0
     # via prompt-toolkit
 whitenoise==6.12.0

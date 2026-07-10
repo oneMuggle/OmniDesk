@@ -30,6 +30,7 @@ class UploadView(APIView):
 
     def post(self, request):
         from .services.upload import PaperlessUploadService
+
         file = request.FILES.get("file")
         if not file:
             return Response(
@@ -266,10 +267,7 @@ class DocumentBindingViewSet(viewsets.ModelViewSet):
     def update(self, request, *args, **kwargs):
         """PATCH → 入 update_metadata outbox(不直接改 binding)"""
         binding = self.get_object()
-        fields = {
-            k: v for k, v in request.data.items()
-            if k in ("title", "correspondent_id", "extra_metadata", "tags")
-        }
+        fields = {k: v for k, v in request.data.items() if k in ("title", "correspondent_id", "extra_metadata", "tags")}
         outbox = OutboxService.queue_update_metadata(binding, fields, created_by=request.user)
         return Response(
             {"binding_id": binding.id, "outbox_id": outbox.id, "status": outbox.status},

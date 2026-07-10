@@ -47,6 +47,7 @@ class ComplianceIssueViewSet(viewsets.ModelViewSet):
     def upload(self, request, pk=None):
         """上传合规报告,通过 paperless_proxy 异步投递到 paperless-ngx"""
         from paperless_proxy.services.upload import PaperlessUploadService
+
         issue = self.get_object()
         if not ComplianceChecker.can_modify_issue(request.user, issue):
             raise PermissionDenied("您无权在此项目下上传合规报告。")

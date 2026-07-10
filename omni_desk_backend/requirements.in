@@ -38,6 +38,9 @@ beautifulsoup4
 lxml
 pillow
 
+# Security:override transitive pin to fix CVE-2026-49477 + CVE-2026-49476 (soupsieve<2.8.4 vulnerable)
+soupsieve>=2.8.4
+
 # Utilities
 python-dotenv
 requests>=2.31,<3.0

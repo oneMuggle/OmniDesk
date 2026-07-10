@@ -49,6 +49,7 @@ class PersonnelViewSet(viewsets.ModelViewSet):
     def upload(self, request, pk=None):
         """上传人事档案,通过 paperless_proxy 异步投递到 paperless-ngx"""
         from paperless_proxy.services.upload import PaperlessUploadService
+
         personnel = self.get_object()
         file = request.FILES.get("file")
         if not file:
