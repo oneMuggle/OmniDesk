@@ -8,12 +8,14 @@ from .views import (
     DocumentDownloadView,
     DocumentPreviewView,
     BindingSyncStatusView,
+    UploadView,
 )
 
 router = DefaultRouter()
 router.register(r"outbox", OutboxViewSet, basename="outbox")
 
 urlpatterns = [
+    path("upload/", UploadView.as_view(), name="upload"),
     path("health/", HealthView.as_view(), name="health"),
     path("bind/", BindView.as_view(), name="bind"),
     path("bind/status/", BindStatusView.as_view(), name="bind-status"),

@@ -18,6 +18,39 @@ from .services.client import PaperlessClient
 from .exceptions import PaperlessAuthError, PaperlessNotFoundError, PaperlessUnavailableError
 
 
+class UploadView(APIView):
+    """POST /api/paperless/upload/ — multipart 上传,入 outbox"""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        from .services.upload import PaperlessUploadService
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "缺少 file 字段"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            result = PaperlessUploadService.queue_upload(
+                file=file,
+                filename=file.name,
+                title=request.data.get("title") or file.name,
+                source_type=request.data.get("source_type", "project_document"),
+                source_id=int(request.data.get("source_id", 0)),
+                owner=request.user,
+                correspondent=request.data.get("correspondent"),
+                document_type=request.data.get("document_type"),
+                tags=request.data.get("tags"),
+            )
+        except (ValueError, TypeError) as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        return Response(result, status=status.HTTP_201_CREATED)
+
+
 class OutboxViewSet(viewsets.ReadOnlyModelViewSet):
     """Outbox 管理(admin 限定)"""
 

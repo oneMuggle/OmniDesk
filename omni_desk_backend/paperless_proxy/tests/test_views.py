@@ -1,6 +1,7 @@
 import pytest
 from unittest.mock import patch
 from django.contrib.auth import get_user_model
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
 from ..models import OutboxItem, DocumentBinding, PaperlessHealth, UserPaperlessBinding
 from ..services.client import PaperlessClient
@@ -173,3 +174,47 @@ class TestDownloadAPI:
         client.force_authenticate(user)
         resp = client.get(f'/api/paperless/documents/{binding.id}/download/')
         assert resp.status_code == 503
+
+
+# --- Task 6: Upload API ---
+
+
+@pytest.mark.django_db
+class TestUploadAPI:
+    def test_upload_requires_auth(self, db):
+        client = APIClient()
+        resp = client.post('/api/paperless/upload/', {})
+        assert resp.status_code == 401
+
+    def test_upload_missing_file_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/upload/', {'title': 't', 'source_type': 'contract', 'source_id': 1}, format='multipart')
+        assert resp.status_code == 400
+        assert 'file' in resp.data['detail']
+
+    def test_upload_invalid_source_type_returns_400(self, user):
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'invalid', 'source_id': 1,
+        }, format='multipart')
+        assert resp.status_code == 400
+
+    def test_upload_creates_binding_and_outbox(self, user, monkeypatch):
+        from ..services.upload import PaperlessUploadService
+        monkeypatch.setattr(
+            PaperlessUploadService, 'queue_upload',
+            staticmethod(lambda **kw: {'binding_id': 1, 'outbox_id': 1, 'status': 'pending'}),
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        f = SimpleUploadedFile('test.pdf', b'x', content_type='application/pdf')
+        resp = client.post('/api/paperless/upload/', {
+            'file': f, 'title': 't', 'source_type': 'contract', 'source_id': 1,
+        }, format='multipart')
+        assert resp.status_code == 201
+        assert resp.data['status'] == 'pending'
+        assert 'binding_id' in resp.data
+        assert 'outbox_id' in resp.data
