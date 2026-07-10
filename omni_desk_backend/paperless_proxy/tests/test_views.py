@@ -310,6 +310,27 @@ class TestDocumentBindingAPI:
         resp = client.get('/api/paperless/documents/')
         assert resp.status_code == 401
 
+    def test_documents_list_post_returns_405(self, user):
+        """POST /api/paperless/documents/ 应当被 405 拒绝 — 上传走 /upload/ 入口"""
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.post('/api/paperless/documents/', {})
+        assert resp.status_code == 405
+
+    def test_list_only_returns_own_bindings(self, user, binding):
+        """非管理员只能看到自己的 binding;其他用户的 binding 不会泄露"""
+        other = CustomUser.objects.create_user(username='other2', password='p')
+        DocumentBinding.objects.create(
+            source_type='policy', source_id=999, paperless_id=8888,
+            paperless_checksum='h', owner=other, title='Other',
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+        resp = client.get('/api/paperless/documents/')
+        assert resp.status_code == 200
+        for item in resp.data['results']:
+            assert item['owner'] == user.id
+
     def test_list_returns_paginated_results(self, user, binding):
         client = APIClient()
         client.force_authenticate(user)
@@ -338,7 +359,8 @@ class TestDocumentBindingAPI:
         client = APIClient()
         client.force_authenticate(other)
         resp = client.get(f'/api/paperless/documents/{binding.id}/')
-        assert resp.status_code == 403
+        # get_queryset 按 owner 过滤后,非 owner 看不到行 → 404(防信息泄露)
+        assert resp.status_code == 404
 
     def test_detail_admin_can_access(self, admin, binding):
         client = APIClient()

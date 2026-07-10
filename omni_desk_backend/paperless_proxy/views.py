@@ -247,13 +247,21 @@ class BindingSyncStatusView(APIView):
 
 
 class DocumentBindingViewSet(viewsets.ModelViewSet):
-    """DocumentBinding CRUD + 异步 update_metadata/delete"""
+    """DocumentBinding GET/PATCH/DELETE — POST /documents/ via 405, use POST /upload/ instead"""
 
     queryset = DocumentBinding.objects.all()
     serializer_class = DocumentBindingSerializer
     permission_classes = [IsAuthenticated, IsBindingOwnerOrAdmin]
     filter_backends = [DjangoFilterBackend]
     filterset_fields = ["source_type", "source_id", "owner", "paperless_id"]
+    http_method_names = ["get", "patch", "delete", "head", "options"]  # 禁 POST(upload 走 /upload/)
+
+    def get_queryset(self):
+        """非管理员只看自己的 binding;IsBindingOwnerOrAdmin 仅保护 detail"""
+        qs = DocumentBinding.objects.all()
+        if not self.request.user.is_staff:
+            qs = qs.filter(owner=self.request.user)
+        return qs
 
     def update(self, request, *args, **kwargs):
         """PATCH → 入 update_metadata outbox(不直接改 binding)"""

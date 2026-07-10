@@ -196,10 +196,11 @@ def test_process_update_metadata_skips_when_paperless_id_is_none(user, binding):
     with patch.object(PaperlessClient, "update_metadata") as m:
         process_paperless_outbox.apply().get()
     m.assert_not_called()
-    failed = OutboxItem.objects.filter(operation="update_metadata").first()
-    # brief 期望 ("failed", "dead"),但 mark_failed 实际返回 "pending"(带 backoff 重试);
-    # "failed" 状态在 STATUS_CHOICES 中存在但当前 mark_failed 不设置(若需严格对齐需改 outbox 服务)
-    assert failed.status in ("failed", "dead", "pending")
+    item = OutboxItem.objects.filter(operation="update_metadata").first()
+    # mark_failed 真正被调用的强证据:retry_count=1、status 回 pending、last_error 标记原因
+    assert item.status == "pending"  # backoff 后回到 pending
+    assert item.retry_count == 1
+    assert "binding not yet synced" in item.last_error
 
 
 @pytest.mark.django_db
