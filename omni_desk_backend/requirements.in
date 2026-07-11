@@ -32,11 +32,20 @@ pypdf>=6.13.3  # GHSA-jm82-fx9c-mx94
 python-docx>=1.0,<2.0
 docxcompose
 docxtpl
+openpyxl>=3.1,<4.0
+pandas>=2.0,<3.0
+tabulate>=0.9.0  # pandas to_markdown dependency
+pdfplumber>=0.10,<1.0
+mammoth>=1.6,<2.0
+python-magic>=0.4.27  # MIME type validation
 PyYAML
 Markdown
 beautifulsoup4
 lxml
 pillow
+
+# AI & LLM
+ollama>=0.4,<1.0
 
 # Security:override transitive pin to fix CVE-2026-49477 + CVE-2026-49476 (soupsieve<2.8.4 vulnerable)
 soupsieve>=2.8.4

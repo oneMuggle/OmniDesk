@@ -9,9 +9,9 @@ ENV PYTHONUNBUFFERED 1
 ENV PIP_NO_CACHE_DIR=off
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 
-# Install runtime library for psycopg2
+# Install runtime library for psycopg2 and libmagic for python-magic
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
+    apt-get install -y --no-install-recommends libpq5 libmagic1 && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory

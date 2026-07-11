@@ -48,6 +48,7 @@ urlpatterns = [
                 path("external/", include("external_integration.urls")),  # 外部集成管理
                 path("paperless/", include("paperless_proxy.urls")),  # paperless 代理（Outbox 管理）
                 path("search/", include("search_federation.urls")),  # 联邦搜索
+                path("", include("file_processing.urls")),  # 文件处理（上传/预览/分析/导出）
             ]
         ),
     ),

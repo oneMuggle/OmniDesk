@@ -1,96 +1,139 @@
-import { useState } from 'react';
-import { useAuth } from '../../features/auth/context/AuthContext';
-import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faFileAlt, faUpload } from '@fortawesome/free-solid-svg-icons';
-import documentsApi from '../../features/documents/api/documents';
+import React, { useState, useCallback } from 'react';
+import { Card, message, Spin, Typography } from 'antd';
+import { LoadingOutlined } from '@ant-design/icons';
+import FileUploadSection from '../components/file-processing/FileUploadSection';
+import PreviewSection from '../components/file-processing/PreviewSection';
+import AIAnalysisSection from '../components/file-processing/AIAnalysisSection';
+import { fileProcessingApi } from '../api/fileProcessing';
 import './FileAnalysisPage.css';
-import { logger } from '../utils/logger';
 
-function FileAnalysisPage() {
-  const { isAuthenticated } = useAuth();
-  const [file, setFile] = useState(null);
+const { Text } = Typography;
+
+/** 轮询配置 */
+const POLL_MAX_ATTEMPTS = 30;
+const POLL_INTERVAL_MS = 1000;
+
+const FileAnalysisPage = () => {
+  const [uploadedFile, setUploadedFile] = useState(null);
+  const [previewData, setPreviewData] = useState(null);
   const [analysisResult, setAnalysisResult] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [processingStatus, setProcessingStatus] = useState('');
 
-  const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
-  };
+  /**
+   * 轮询处理状态，直到 status=completed / failed 或超时
+   * @param {string} fileId
+   * @returns {Promise<object>} 预览数据
+   */
+  const pollProcessingStatus = useCallback(async (fileId) => {
+    for (let attempt = 0; attempt < POLL_MAX_ATTEMPTS; attempt++) {
+      const result = await fileProcessingApi.getPreview(fileId);
 
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!file) return;
-  
-    setIsLoading(true);
-    setError(null);
-  
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploadResponse = await documentsApi.uploadTemplate(formData);
-  
-      if (uploadResponse && uploadResponse.id) {
-        const analysisResponse = await documentsApi.analyzeDocumentTemplate(uploadResponse.id);
-        setAnalysisResult(analysisResponse);
-      } else {
-        throw new Error('文件上传后未收到模板ID');
+      if (result.status === 'completed') {
+        return result;
       }
-    } catch (err) {
-      setError('文件分析失败，请重试');
-      logger.error('分析错误:', err);
-    } finally {
-      setIsLoading(false);
+
+      if (result.status === 'failed') {
+        throw new Error(result.error || '文件处理失败');
+      }
+
+      setProcessingStatus(result.status || `处理中 (${attempt + 1}/${POLL_MAX_ATTEMPTS})`);
+      await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
     }
-  };
+
+    throw new Error('处理超时，请稍后重试');
+  }, []);
+
+  /**
+   * 处理文件上传 — 完整工作流：上传 → 轮询 → 分析
+   * @param {File} file
+   */
+  const handleFileUpload = useCallback(async (file) => {
+    setLoading(true);
+    setProcessingStatus('正在上传...');
+    setUploadedFile(null);
+    setPreviewData(null);
+    setAnalysisResult(null);
+
+    try {
+      // 1. 上传文件
+      const uploadResult = await fileProcessingApi.upload(file);
+      setUploadedFile(uploadResult);
+
+      // 2. 轮询处理状态
+      setProcessingStatus('正在处理...');
+      const preview = await pollProcessingStatus(uploadResult.id);
+      setPreviewData(preview);
+
+      // 3. 自动生成 AI 摘要
+      setProcessingStatus('正在分析...');
+      const analysis = await fileProcessingApi.analyze(uploadResult.id);
+      setAnalysisResult(analysis);
+
+      setProcessingStatus('');
+      message.success('文件处理成功');
+    } catch (err) {
+      setProcessingStatus('');
+      message.error(err.message || '文件处理失败');
+    } finally {
+      setLoading(false);
+    }
+  }, [pollProcessingStatus]);
+
+  /**
+   * 自然语言查询
+   * @param {string} question
+   * @returns {Promise<string>} 查询结果
+   */
+  const handleQuery = useCallback(async (question) => {
+    if (!uploadedFile) return;
+
+    try {
+      const result = await fileProcessingApi.query(uploadedFile.id, question);
+      return result.answer;
+    } catch (err) {
+      message.error('查询失败，请重试');
+      throw err;
+    }
+  }, [uploadedFile]);
 
   return (
     <div className="file-analysis-page">
-      <h2><FontAwesomeIcon icon={faFileAlt} /> 文件分析</h2>
-      
-      {isAuthenticated ? (
-        <>
-          <div className="upload-section">
-            <h3><FontAwesomeIcon icon={faUpload} /> 上传并分析文件</h3>
-            <form onSubmit={handleSubmit} className="upload-form">
-              <label className="file-input-wrapper">
-                {file ? `已选择: ${file.name}` : '选择文件'}
-                <input
-                  type="file"
-                  accept=".docx,.xlsx,.pdf"
-                  onChange={handleFileChange}
-                />
-              </label>
-              {file && <div className="file-name">{file.name}</div>}
-              <button
-                type="submit"
-                className="analyze-button"
-                disabled={!file || isLoading}
-              >
-                {isLoading ? '分析中...' : '分析文件'}
-              </button>
-            </form>
-          </div>
+      <Card title="文件分析" style={{ marginBottom: 16 }}>
+        <FileUploadSection
+          onFileUpload={handleFileUpload}
+          disabled={loading}
+        />
 
-          {isLoading && <div className="loading-message">正在分析文件，请稍候...</div>}
-          {error && <div className="error-message">{error}</div>}
-
-          {analysisResult && (
-            <div className="result-section">
-              <h3>分析结果</h3>
-              <div className="result-card">
-                <pre>{JSON.stringify(analysisResult, null, 2)}</pre>
-              </div>
+        {loading && (
+          <div style={{ textAlign: 'center', marginTop: 16 }}>
+            <Spin indicator={<LoadingOutlined style={{ fontSize: 24 }} spin />} />
+            <div style={{ marginTop: 8 }}>
+              <Text type="secondary">{processingStatus}</Text>
             </div>
-          )}
-        </>
-      ) : (
-        <div className="login-required">
-          请登录后使用文件分析功能
-        </div>
+          </div>
+        )}
+      </Card>
+
+      {previewData && (
+        <Card title="数据预览" style={{ marginBottom: 16 }}>
+          <PreviewSection
+            data={previewData}
+            mimeType={uploadedFile?.mime_type}
+          />
+        </Card>
+      )}
+
+      {analysisResult && (
+        <Card title="AI 分析" style={{ marginBottom: 16 }}>
+          <AIAnalysisSection
+            summary={analysisResult}
+            onQuery={handleQuery}
+          />
+        </Card>
       )}
     </div>
   );
-}
+};
 
 export default FileAnalysisPage;
