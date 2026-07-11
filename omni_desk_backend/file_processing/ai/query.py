@@ -8,7 +8,7 @@ class NaturalLanguageQuery:
 
     def __init__(self):
         # 从 Django settings 或环境变量读取 Ollama 端点
-        ollama_endpoint = getattr(settings, 'OLLAMA_ENDPOINT', 'http://localhost:11434')
+        ollama_endpoint = getattr(settings, "OLLAMA_ENDPOINT", "http://localhost:11434")
         self.client = Client(host=ollama_endpoint)
 
     def query(self, question: str, context: dict[str, any]) -> str:
@@ -22,17 +22,14 @@ class NaturalLanguageQuery:
             LLM 生成的回答字符串
         """
         # 如果没有数据，直接返回
-        if not context.get('sheets_data'):
+        if not context.get("sheets_data"):
             return "没有表格数据可供分析。"
 
         prompt = self._build_prompt(question, context)
 
-        response = self.client.chat(
-            model='qwen2.5:7b',
-            messages=[{'role': 'user', 'content': prompt}]
-        )
+        response = self.client.chat(model="qwen2.5:7b", messages=[{"role": "user", "content": prompt}])
 
-        return response['message']['content']
+        return response["message"]["content"]
 
     def _build_prompt(self, question: str, context: dict[str, any]) -> str:
         """构建 LLM 提示
@@ -47,14 +44,14 @@ class NaturalLanguageQuery:
         Returns:
             构建完成的 LLM 提示字符串
         """
-        sheets = context.get('sheets_data', [])
+        sheets = context.get("sheets_data", [])
         if not sheets:
             return "没有表格数据可供分析。"
 
         sheet = sheets[0]
         # 验证数据行列匹配
-        headers = sheet.get('headers', [])
-        data = sheet.get('data', [])
+        headers = sheet.get("headers", [])
+        data = sheet.get("data", [])
 
         if not headers:
             return "表格数据格式错误：缺少列名。"
@@ -78,7 +75,7 @@ class NaturalLanguageQuery:
 
         prompt = f"""你是一个数据分析助手。请根据以下表格数据回答用户的问题。
 
-表格数据（Sheet: {sheet['name']}）:
+表格数据（Sheet: {sheet["name"]}）:
 {markdown_table}
 
 用户问题: {question}

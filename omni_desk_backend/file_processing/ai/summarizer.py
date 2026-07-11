@@ -17,39 +17,41 @@ class DataSummarizer:
         summaries = []
 
         for sheet in sheets_data:
-            df = pd.DataFrame(sheet['data'], columns=sheet['headers'])
+            df = pd.DataFrame(sheet["data"], columns=sheet["headers"])
 
             summary = {
-                'sheet_name': sheet['name'],
-                'row_count': len(df),
-                'column_count': len(df.columns),
-                'columns': [],
+                "sheet_name": sheet["name"],
+                "row_count": len(df),
+                "column_count": len(df.columns),
+                "columns": [],
             }
 
             # 分析每一列
             for col in df.columns:
                 col_info = {
-                    'name': col,
-                    'type': str(df[col].dtype),
-                    'null_count': int(df[col].isnull().sum()),
-                    'unique_count': int(df[col].nunique()),
+                    "name": col,
+                    "type": str(df[col].dtype),
+                    "null_count": int(df[col].isnull().sum()),
+                    "unique_count": int(df[col].nunique()),
                 }
 
                 # 数值列统计
                 if pd.api.types.is_numeric_dtype(df[col]):
-                    col_info.update({
-                        'min': float(df[col].min()) if not df[col].empty else None,
-                        'max': float(df[col].max()) if not df[col].empty else None,
-                        'mean': float(df[col].mean()) if not df[col].empty else None,
-                        'sum': float(df[col].sum()) if not df[col].empty else None,
-                    })
+                    col_info.update(
+                        {
+                            "min": float(df[col].min()) if not df[col].empty else None,
+                            "max": float(df[col].max()) if not df[col].empty else None,
+                            "mean": float(df[col].mean()) if not df[col].empty else None,
+                            "sum": float(df[col].sum()) if not df[col].empty else None,
+                        }
+                    )
 
-                summary['columns'].append(col_info)
+                summary["columns"].append(col_info)
 
             summaries.append(summary)
 
         return {
-            'sheet_count': len(sheets_data),
-            'total_rows': sum(s['row_count'] for s in summaries),
-            'summaries': summaries,
+            "sheet_count": len(sheets_data),
+            "total_rows": sum(s["row_count"] for s in summaries),
+            "summaries": summaries,
         }

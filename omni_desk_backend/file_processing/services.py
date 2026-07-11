@@ -8,12 +8,12 @@ class FileProcessingService:
     """文件处理业务逻辑"""
 
     PROCESSORS = {
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ExcelProcessor,
-        'application/vnd.ms-excel': ExcelProcessor,
-        'text/csv': ExcelProcessor,
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document': WordProcessor,
-        'application/msword': WordProcessor,
-        'application/pdf': PDFProcessor,
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": ExcelProcessor,
+        "application/vnd.ms-excel": ExcelProcessor,
+        "text/csv": ExcelProcessor,
+        "application/vnd.openxmlformats-officedocument.wordprocessingml.document": WordProcessor,
+        "application/msword": WordProcessor,
+        "application/pdf": PDFProcessor,
     }
 
     def __init__(self):
@@ -47,15 +47,15 @@ class FileProcessingService:
             content_text=text,
             content_markdown=markdown,
             content_json=structured,
-            sheets_data=structured.get('sheets', []),
-            row_count=sum(sheet.get('row_count', 0) for sheet in structured.get('sheets', [])),
-            column_count=max((sheet.get('column_count', 0) for sheet in structured.get('sheets', [])), default=0),
+            sheets_data=structured.get("sheets", []),
+            row_count=sum(sheet.get("row_count", 0) for sheet in structured.get("sheets", [])),
+            column_count=max((sheet.get("column_count", 0) for sheet in structured.get("sheets", [])), default=0),
         )
 
         # 更新文件状态
-        uploaded_file.status = 'completed'
-        uploaded_file.sheet_count = metadata.get('sheet_count', 0)
-        uploaded_file.page_count = metadata.get('page_count', 0)
+        uploaded_file.status = "completed"
+        uploaded_file.sheet_count = metadata.get("sheet_count", 0)
+        uploaded_file.page_count = metadata.get("page_count", 0)
         uploaded_file.save()
 
         return result

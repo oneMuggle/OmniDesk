@@ -14,7 +14,7 @@ def process_file_task(self, file_id):
         uploaded_file = UploadedFile.objects.get(id=file_id)
 
         # 更新状态为处理中
-        uploaded_file.status = 'processing'
+        uploaded_file.status = "processing"
         uploaded_file.save()
 
         # 处理文件
@@ -32,8 +32,8 @@ def process_file_task(self, file_id):
         logger.error(f"文件处理失败（不可重试）: {exc}")
         try:
             uploaded_file = UploadedFile.objects.get(id=file_id)
-            uploaded_file.status = 'failed'
-            uploaded_file.error_message = '文件格式不支持或内容有误，请检查后重试'
+            uploaded_file.status = "failed"
+            uploaded_file.error_message = "文件格式不支持或内容有误，请检查后重试"
             uploaded_file.save()
         except UploadedFile.DoesNotExist:
             pass
@@ -47,8 +47,8 @@ def process_file_task(self, file_id):
         # 更新状态为失败，但不暴露详细错误信息
         try:
             uploaded_file = UploadedFile.objects.get(id=file_id)
-            uploaded_file.status = 'failed'
-            uploaded_file.error_message = '文件处理失败，请稍后重试'
+            uploaded_file.status = "failed"
+            uploaded_file.error_message = "文件处理失败，请稍后重试"
             uploaded_file.save()
         except UploadedFile.DoesNotExist:
             pass
