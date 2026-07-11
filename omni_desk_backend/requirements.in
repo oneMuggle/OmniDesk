@@ -34,6 +34,7 @@ docxcompose
 docxtpl
 openpyxl>=3.1,<4.0
 pandas>=2.0,<3.0
+tabulate>=0.9.0  # pandas to_markdown dependency
 pdfplumber>=0.10,<1.0
 mammoth>=1.6,<2.0
 python-magic>=0.4.27  # MIME type validation
