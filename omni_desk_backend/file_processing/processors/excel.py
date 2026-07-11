@@ -1,5 +1,5 @@
 import openpyxl
-from typing import Dict, Any
+from typing import Any
 from .base import FileProcessor
 
 
@@ -46,7 +46,7 @@ class ExcelProcessor(FileProcessor):
 
         return ''.join(md_parts)
 
-    def extract_structured(self, file_path: str) -> Dict[str, Any]:
+    def extract_structured(self, file_path: str) -> dict[str, Any]:
         """提取结构化数据（多 Sheet）"""
         wb = openpyxl.load_workbook(file_path, data_only=True)
         sheets = []
@@ -74,7 +74,7 @@ class ExcelProcessor(FileProcessor):
             'sheets': sheets,
         }
 
-    def get_metadata(self, file_path: str) -> Dict[str, Any]:
+    def get_metadata(self, file_path: str) -> dict[str, Any]:
         """获取 Excel 元数据"""
         wb = openpyxl.load_workbook(file_path, read_only=True)
         return {

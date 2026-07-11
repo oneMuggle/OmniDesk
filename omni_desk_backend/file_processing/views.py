@@ -1,4 +1,3 @@
-import mimetypes
 import magic
 import csv
 import io
@@ -15,7 +14,6 @@ from .serializers import UploadedFileSerializer
 from .tasks import process_file_task
 from .ai.summarizer import DataSummarizer
 from .ai.query import NaturalLanguageQuery
-from .services import FileProcessingService
 
 
 # 支持的文件大小限制（10MB）

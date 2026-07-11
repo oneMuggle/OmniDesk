@@ -1,5 +1,5 @@
 import pdfplumber
-from typing import Dict, Any
+from typing import Any
 from .base import FileProcessor
 
 
@@ -39,7 +39,7 @@ class PDFProcessor(FileProcessor):
 
             return ''.join(md_parts)
 
-    def extract_structured(self, file_path: str) -> Dict[str, Any]:
+    def extract_structured(self, file_path: str) -> dict[str, Any]:
         """提取 PDF 结构化数据"""
         with pdfplumber.open(file_path) as pdf:
             pages = []
@@ -56,7 +56,7 @@ class PDFProcessor(FileProcessor):
                 'pages': pages,
             }
 
-    def get_metadata(self, file_path: str) -> Dict[str, Any]:
+    def get_metadata(self, file_path: str) -> dict[str, Any]:
         """获取 PDF 元数据"""
         with pdfplumber.open(file_path) as pdf:
             return {

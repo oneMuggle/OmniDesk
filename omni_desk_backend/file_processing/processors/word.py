@@ -1,6 +1,6 @@
 from docx import Document
 import mammoth
-from typing import Dict, Any
+from typing import Any
 from .base import FileProcessor
 
 
@@ -18,7 +18,7 @@ class WordProcessor(FileProcessor):
             result = mammoth.convert_to_markdown(f)
             return result.value
 
-    def extract_structured(self, file_path: str) -> Dict[str, Any]:
+    def extract_structured(self, file_path: str) -> dict[str, Any]:
         """提取 Word 结构化数据"""
         doc = Document(file_path)
         return {
@@ -29,7 +29,7 @@ class WordProcessor(FileProcessor):
             ],
         }
 
-    def get_metadata(self, file_path: str) -> Dict[str, Any]:
+    def get_metadata(self, file_path: str) -> dict[str, Any]:
         """获取 Word 元数据"""
         doc = Document(file_path)
         return {

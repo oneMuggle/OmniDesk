@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any
+from typing import Any
 
 
 class FileProcessor(ABC):
@@ -16,11 +16,11 @@ class FileProcessor(ABC):
         pass
 
     @abstractmethod
-    def extract_structured(self, file_path: str) -> Dict[str, Any]:
+    def extract_structured(self, file_path: str) -> dict[str, Any]:
         """提取结构化数据（JSON）"""
         pass
 
     @abstractmethod
-    def get_metadata(self, file_path: str) -> Dict[str, Any]:
+    def get_metadata(self, file_path: str) -> dict[str, Any]:
         """获取文件元数据（页数、Sheet 数等）"""
         pass
