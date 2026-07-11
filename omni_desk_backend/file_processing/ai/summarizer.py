@@ -1,11 +1,10 @@
 import pandas as pd
-from typing import Dict, Any, List
 
 
 class DataSummarizer:
     """数据摘要生成器 - 为表格数据生成统计摘要信息"""
 
-    def summarize_table(self, sheets_data: List[Dict[str, Any]]) -> Dict[str, Any]:
+    def summarize_table(self, sheets_data: list[dict[str, any]]) -> dict[str, any]:
         """生成表格数据摘要
 
         Args:

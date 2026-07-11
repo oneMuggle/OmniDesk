@@ -1,6 +1,5 @@
 from ollama import Client
 import pandas as pd
-from typing import Dict, Any
 from django.conf import settings
 
 
@@ -12,7 +11,7 @@ class NaturalLanguageQuery:
         ollama_endpoint = getattr(settings, 'OLLAMA_ENDPOINT', 'http://localhost:11434')
         self.client = Client(host=ollama_endpoint)
 
-    def query(self, question: str, context: Dict[str, Any]) -> str:
+    def query(self, question: str, context: dict[str, any]) -> str:
         """用自然语言查询表格数据
 
         Args:
@@ -35,7 +34,7 @@ class NaturalLanguageQuery:
 
         return response['message']['content']
 
-    def _build_prompt(self, question: str, context: Dict[str, Any]) -> str:
+    def _build_prompt(self, question: str, context: dict[str, any]) -> str:
         """构建 LLM 提示
 
         将表格数据转换为 Markdown 格式，并构建清晰的提示文本。
