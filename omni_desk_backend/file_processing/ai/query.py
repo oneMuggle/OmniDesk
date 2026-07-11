@@ -1,13 +1,16 @@
 from ollama import Client
 import pandas as pd
 from typing import Dict, Any
+from django.conf import settings
 
 
 class NaturalLanguageQuery:
     """自然语言查询 - 允许用户用自然语言提问表格数据，通过 Ollama LLM 生成回答"""
 
     def __init__(self):
-        self.client = Client(host='http://localhost:11434')
+        # 从 Django settings 或环境变量读取 Ollama 端点
+        ollama_endpoint = getattr(settings, 'OLLAMA_ENDPOINT', 'http://localhost:11434')
+        self.client = Client(host=ollama_endpoint)
 
     def query(self, question: str, context: Dict[str, Any]) -> str:
         """用自然语言查询表格数据
@@ -50,7 +53,28 @@ class NaturalLanguageQuery:
             return "没有表格数据可供分析。"
 
         sheet = sheets[0]
-        df = pd.DataFrame(sheet['data'][:100], columns=sheet['headers'])
+        # 验证数据行列匹配
+        headers = sheet.get('headers', [])
+        data = sheet.get('data', [])
+
+        if not headers:
+            return "表格数据格式错误：缺少列名。"
+
+        # 限制数据量，避免内存问题
+        max_rows = min(100, len(data))
+        # 确保每行列数与 headers 匹配
+        validated_data = []
+        for row in data[:max_rows]:
+            if len(row) == len(headers):
+                validated_data.append(row)
+            else:
+                # 跳过不匹配的行
+                continue
+
+        if not validated_data:
+            return "表格数据格式错误：数据行列数不匹配。"
+
+        df = pd.DataFrame(validated_data, columns=headers)
         markdown_table = df.to_markdown(index=False)
 
         prompt = f"""你是一个数据分析助手。请根据以下表格数据回答用户的问题。

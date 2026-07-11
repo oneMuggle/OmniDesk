@@ -1,6 +1,6 @@
-import axios from 'axios';
+import api from './axiosConfig';
 
-const API_BASE = '/api/file';
+const API_BASE = '/file';
 
 export const fileProcessingApi = {
   /**
@@ -12,7 +12,7 @@ export const fileProcessingApi = {
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await axios.post(`${API_BASE}/upload/`, formData, {
+    const response = await api.post(`${API_BASE}/upload/`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
 
@@ -25,7 +25,7 @@ export const fileProcessingApi = {
    * @returns {Promise<Object>}
    */
   getPreview: async (fileId) => {
-    const response = await axios.get(`${API_BASE}/${fileId}/preview/`);
+    const response = await api.get(`${API_BASE}/${fileId}/preview/`);
     return response.data;
   },
 
@@ -35,7 +35,7 @@ export const fileProcessingApi = {
    * @returns {Promise<Object>}
    */
   analyze: async (fileId) => {
-    const response = await axios.post(`${API_BASE}/${fileId}/analyze/`);
+    const response = await api.post(`${API_BASE}/${fileId}/analyze/`);
     return response.data;
   },
 
@@ -46,7 +46,7 @@ export const fileProcessingApi = {
    * @returns {Promise<{analysis_id: string, question: string, answer: string}>}
    */
   query: async (fileId, question) => {
-    const response = await axios.post(`${API_BASE}/${fileId}/query/`, { question });
+    const response = await api.post(`${API_BASE}/${fileId}/query/`, { question });
     return response.data;
   },
 
@@ -57,7 +57,7 @@ export const fileProcessingApi = {
    * @returns {Promise<Blob>}
    */
   export: async (fileId, format) => {
-    const response = await axios.get(`${API_BASE}/${fileId}/export/${format}/`, {
+    const response = await api.get(`${API_BASE}/${fileId}/export/${format}/`, {
       responseType: 'blob',
     });
     return response.data;
