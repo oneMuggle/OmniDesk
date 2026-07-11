@@ -90,6 +90,8 @@ INSTALLED_APPS = [
     "paperless_proxy",
     # 联邦搜索
     "search_federation",
+    # 文件处理
+    "file_processing.apps.FileProcessingConfig",
 ]
 
 MIDDLEWARE = [
