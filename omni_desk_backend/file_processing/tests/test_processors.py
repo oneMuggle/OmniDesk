@@ -41,3 +41,49 @@ class TestExcelProcessor:
         assert metadata['sheet_count'] == 2
         assert '销售数据' in metadata['sheet_names']
         assert '员工信息' in metadata['sheet_names']
+
+
+class TestWordProcessor:
+
+    def test_extract_text(self):
+        from file_processing.processors.word import WordProcessor
+        processor = WordProcessor()
+        text = processor.extract_text('tests/fixtures/sample.docx')
+        assert '测试文档' in text
+        assert '这是第一段内容' in text
+
+    def test_extract_markdown(self):
+        from file_processing.processors.word import WordProcessor
+        processor = WordProcessor()
+        md = processor.extract_markdown('tests/fixtures/sample.docx')
+        assert '# 测试文档' in md or '**测试文档**' in md
+
+    def test_extract_structured(self):
+        from file_processing.processors.word import WordProcessor
+        processor = WordProcessor()
+        data = processor.extract_structured('tests/fixtures/sample.docx')
+        assert 'paragraphs' in data
+        assert 'tables' in data
+        assert len(data['tables']) > 0
+
+
+class TestPDFProcessor:
+
+    def test_extract_text(self):
+        from file_processing.processors.pdf import PDFProcessor
+        processor = PDFProcessor()
+        text = processor.extract_text('tests/fixtures/sample.pdf')
+        assert len(text) > 0
+
+    def test_extract_markdown(self):
+        from file_processing.processors.pdf import PDFProcessor
+        processor = PDFProcessor()
+        md = processor.extract_markdown('tests/fixtures/sample.pdf')
+        assert len(md) > 0
+
+    def test_get_metadata(self):
+        from file_processing.processors.pdf import PDFProcessor
+        processor = PDFProcessor()
+        metadata = processor.get_metadata('tests/fixtures/sample.pdf')
+        assert 'page_count' in metadata
+        assert metadata['page_count'] > 0
