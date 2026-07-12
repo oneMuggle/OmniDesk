@@ -87,6 +87,32 @@ release       ──hotfix───>  release (stable, PATCH bump)
             同时 cherry-pick 回 main/beta/rc
 ```
 
+## 自动同步机制(2026-07-12 引入)
+
+`main` / `beta` / `rc` 三个渠道分支之间新增**自动同步**机制:
+
+| 源 → 目标 | 触发条件 | 实现 |
+|---|---|---|
+| main → beta, rc | PR 含 `fix:` / `perf:` / `refactor:` | `.github/workflows/channel-sync.yml` |
+| beta → main, rc | 同上 | 同上 |
+| rc → main, beta | 同上 | 同上 |
+
+**工作流**:
+
+1. PR 合并到 main/beta/rc → workflow 自动开 2 个 sync PR 到其他渠道
+2. Sync PR 标题前缀 `🔁 [sync] #<n> → <target>`,自动过滤防递归
+3. Cherry-pick 冲突 → Sync PR 转 draft + 上传 patch + @原作者
+4. 人类 review sync PR → 合并
+
+**`release` 不参与自动同步**:
+
+- 任何 release 修改必须走 `hotfix-v*` 流程
+- 详见 [升级流程图](#升级流程图)
+
+**配置**: 仓库需配置 `CHANNEL_SYNC_TOKEN`,详见 `.github/CHANNEL_SYNC_SETUP.md`
+
+**设计文档**: `docs/superpowers/specs/2026-07-12-channel-fix-sync-design.md`
+
 ## 禁止操作
 
 - 渠道回退(stable → beta 不允许)
