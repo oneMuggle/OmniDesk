@@ -362,7 +362,7 @@ AUTOSTART_EOF
         echo "  version           Show current version and migration history"
         echo "  backup            Create database and media backup"
         echo "  upgrade           Safe version upgrade with backup"
-        echo "  rollback          Rollback to a previous version"
+        echo "  rollback          Rollback to a previous version (channel-scoped backups; --channel={alpha|beta|preview|stable|hotfix})"
         echo "  migrate           Pre-check and run database migrations"
         echo "  install-desktop   Install desktop notifier (usage: install-desktop [DEST_DIR] [EXE_FILE])"
         exit 1

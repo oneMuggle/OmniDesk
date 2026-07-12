@@ -13,6 +13,78 @@
 
 ## [未发布]
 
+## [v0.6.0-beta.1] - 2026-07-06
+
+### 说明
+- **首个 beta 渠道版本**:alpha 本地部署测试通过,进入内网生产环境自测
+- 功能基线与 0.6.0-alpha.1 一致
+- 序号段从 alpha 重置为 1 (按渠道升级规范)
+
+### 验证
+- 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
+- 离线包打包: ✅ 通过 (omnidesk-offline-beta-v0.6.0-beta.1/, 325M)
+- 内网生产环境自测: **待验证**
+
+## [v0.6.0-alpha.1] - 2026-07-06
+
+### 说明
+- **首个 alpha 渠道版本**:开发阶段性完成，进入本地部署测试阶段
+- 功能基线与 v0.5.9 一致，主要变更是引入 4 段式发布渠道机制
+
+### 新增
+- **发布渠道机制**:alpha / beta / preview(rc) / stable 四阶段发布流程
+- **版本号解析工具**: `version_utils.py` 支持 SemVer 后缀解析
+- **渠道 API**: `/api/system/version/` 返回 `channel` 字段
+- **部署脚本渠道支持**: `upgrade.sh` / `rollback.sh` / `package_offline_bundle.sh` 支持渠道参数
+- **CI 渠道推导**: `build-and-push-images.yml` 按分支自动推导渠道 tag
+- **离线包目录命名**: 按渠道前缀区分（如 `omnidesk-offline-alpha-v0.6.0-alpha.1/`）
+
+### 验证
+- 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
+- 镜像依赖检查: ✅ 通过 (Django, psycopg2, celery, gunicorn OK)
+- 本地部署测试: ✅ 通过
+  - Backend: gunicorn healthy, 数据库迁移成功
+  - Frontend: nginx 正常服务, 代理 backend 成功
+  - API: `/api/health/` 返回 `version: 0.6.0-alpha.1`
+  - 全链路: frontend(8082) → nginx → backend(8001) → API 正常
+
+### 修复
+- **build_and_export.sh**: 支持渠道版本号格式 (-alpha.N / -beta.N / -rc.N)
+- **build_and_export.sh**: `:latest` 标签仅 stable 渠道打
+- **docker-compose.prod.yml**: backend 添加 healthcheck（使用 python urllib 替代 curl）
+- **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
+- **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
+
+## [v0.5.9 修复] - 2026-07-06
+
+### 修复
+
+#### 部署脚本
+- **deploy.sh IMAGE_TAG 派生改用 BUILD-MANIFEST.json**(PR `#47`):v0.5.9 bundle 实际打包的是 backend `v0.5.7` digest + frontend `v0.5.6` digest(因为镜像内容未变,仅 compose 编排升级),但 `deploy.sh start` 用 `VERSION` 派生 `BACKEND_IMAGE_TAG=v0.5.9`,与 `pull_policy: never` 下的实际镜像 tag 不匹配,触发 `image not found` 错误。修复:`generate_env()` 和 `load_images()` 改从 `BUILD-MANIFEST.json.images.backend.name` / `.frontend.name` 派生 GHCR tag 与 IMAGE_TAG,无 manifest 时 fallback 到 VERSION 派生(legacy 兼容);`package_offline_bundle.sh` 在镜像跨版本复用时主动 `docker tag` alias 到 `v${BUILD_VERSION}`,让已经分分的旧 deploy.sh 也能继续工作;`tests/test_deploy_image_tags.sh` 新增 4 个 fixture 覆盖正常/缺字段/legacy/无 jq 四种场景
+
+### 验证
+- 4/4 单元测试通过(`bash deployment/docker/tests/test_deploy_image_tags.sh`)
+- v0.5.9 bundle 全链路 deploy.sh start(临时 workdir)5 容器 healthy,`/api/health/` 返回 200,`BACKEND_IMAGE_TAG=v0.5.7`(从 manifest 派生,不再错为 v0.5.9)
+
+## [渠道机制引入] - 2026-07-06
+
+### 新增
+- **4 段式发布渠道**:alpha(开发自测) / beta(内测) / preview(预发布 RC) / stable(生产),加 hotfix(紧急修复)
+- **渠道与分支一一对应**:main=alpha, beta=beta, rc=preview, release=stable+hotfix
+- **版本号格式扩展**:`MAJOR.MINOR.PATCH[-alpha.N|-beta.N|-rc.N]`,stable/hotfix 无后缀
+- **镜像 tag**:`latest` 永远只指向 stable;feat/fix 分支打 `-canary` 取代原 `develop` tag
+- **离线包目录命名**:稳定版与历史兼容;预发布版加渠道前缀
+- **BUILD-MANIFEST.json**:新增 `channel` 字段
+- **/api/system/version/**:响应新增 `channel` 字段
+- **CI**:新增 `release-channel-matrix` 集成测试 workflow,4 个分支并行校验
+- **部署脚本**:`upgrade.sh` 支持 `--target-channel` 与跳级校验;`rollback.sh` 备份按渠道隔离
+- **文档**:新增 `docs/technical/30-release-channels.md`、`docs/user-manual/12-deployment-channels.md`
+
+### 迁移说明
+- 现有 `v0.5.x` 系列保持 stable 渠道历史(不变)
+- 从 `v0.6.0-alpha.1` 起启用新渠道
+- 不需要数据库迁移
+
 ## [0.5.9] - 2026-07-04
 
 ### 修复

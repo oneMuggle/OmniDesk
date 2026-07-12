@@ -16,6 +16,10 @@ __pycache__/
 /node_modules/
 /deployment/docker/exported_images/
 /deployment/docker/omnidesk-offline-v*/
+/deployment/docker/omnidesk-offline-alpha-v*/
+/deployment/docker/omnidesk-offline-beta-v*/
+/deployment/docker/omnidesk-offline-rc-v*/
+/deployment/docker/omnidesk-offline-hotfix-v*/
 /deployment/docker/omnidesk-offline-*.zip
 
 # IDE
