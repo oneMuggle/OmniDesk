@@ -114,7 +114,7 @@ on:
   <!-- auto-sync-target: <target> -->
   ```
 - **冲突状态**：draft + body 追加"⚠️ Cherry-pick 冲突"段，附 patch 下载链接
-- **Reviewer 自动指派**：源 PR 作者 + 1-2 个最近活跃的 reviewer
+- **Reviewer 指派** (v1):由 `peter-evans/create-pull-request@v6` 默认行为;暂不实现"源 PR 作者 + 活跃 reviewer"自动匹配 (后续可加)
 
 ### 6. 循环防护（三层）
 
@@ -146,7 +146,7 @@ token 配置步骤见 `.github/CHANNEL_SYNC_SETUP.md`。
 ### 9. 测试
 
 **单元测试** (`tests/test_sync_filter.sh`)：
-- 20+ case，覆盖：
+- 12 case，覆盖：
   - 类型识别：`fix:` ✓ / `feat:` ✗ / `chore:` ✗ / `fix(x):` ✓ / `Fix:` ✗（大小写）
   - 多 commit PR：含 `feat+fix` 触发；纯 `feat+docs` 不触发
   - BREAKING CHANGE：`fix!:` ✓
@@ -182,7 +182,7 @@ token 配置步骤见 `.github/CHANNEL_SYNC_SETUP.md`。
 | 误同步 `release` | 高 | trigger filter 仅 main/beta/rc；CI 端再做一次 base branch 断言 |
 | 同步 PR 噪音（开发者收到大量通知） | 中 | 默认 1 reviewer (源 PR 作者)；冲突时再加 reviewer |
 | 解决冲突时再触发 sync | 中 | sync PR 标题前缀 + body marker 双保险 |
-| 内网环境 GitHub Actions 不可用 | 中 | workflow 也支持 `workflow_dispatch` 手动触发；CLI fallback 见 `deployment/docker/sync_channels.sh`（作为后续可选增强） |
+| 内网环境 GitHub Actions 不可用 | 中 | v1 仅 `pull_request` 触发；后续可加 `workflow_dispatch` 手动触发 + CLI fallback (`deployment/docker/sync_channels.sh`,作为可选增强) |
 | `beta` 上累积太多 sync PR | 低 | 每周 review 一次；考虑加 `/sync-batched` 合并命令（v2） |
 
 ## 依赖

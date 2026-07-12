@@ -41,12 +41,12 @@
 
 ## 启用 Workflow
 
-1. 合并 PR 后，workflow 默认自动启用
-2. 首次启用建议手动测试：
-   ```bash
-   gh workflow run channel-sync.yml
-   ```
-3. 在 Actions 页面查看日志
+1. 合并 PR 后，workflow 默认自动启用（监听 `pull_request closed` 事件）
+2. **首次启用建议**：开一个简单的 `fix: 触发测试` PR 并 merge 到 main,观察 Actions:
+   - 验证 detect-sync 识别到 fix: commit
+   - 验证 cherry-pick(beta) + cherry-pick(rc) 成功
+   - 验证 sync PR 自动创建
+3. **手动触发暂不支持**（v1 无 `workflow_dispatch`）;后续如需,可加 trigger + 上下文适配
 
 ## 调试
 
