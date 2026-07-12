@@ -53,3 +53,4 @@
 - **看不到 sync PR**：检查 PR 标题是否以 `🔁 [sync]` 开头（会跳过）
 - **workflow 失败 403**：token 权限不足或过期
 - **cherry-pick 冲突**：查看 PR 上传的 `conflict-<target>` artifact
+

@@ -30,3 +30,4 @@ for case in data['cases']:
 
 run_filter < "$FIXTURES"
 echo "ALL TESTS PASSED"
+
