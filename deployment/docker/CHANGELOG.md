@@ -13,6 +13,16 @@
 
 ## [未发布]
 
+### 新增
+- **发布渠道自动同步机制** (2026-07-12, PR #59):
+  - CI: `.github/workflows/channel-sync.yml` — `main` / `beta` / `rc` 之间双向自动同步 `fix:` / `perf:` / `refactor:` 类型提交,合并 PR 后自动开同步 PR
+  - 测试:`tests/lib/sync_filter.py` + 12 case fixtures + bash 测试脚本
+  - 文档:发布渠道机制新增"自动同步机制"章节,配置说明见 `.github/CHANNEL_SYNC_SETUP.md`
+  - 同步 PR 冲突处理:draft + 上传 patch + @原作者
+  - 循环防护:3 层(标题前缀 `🔁 [sync]` + body marker `auto-sync-source` + bot actor 过滤)
+  - 设计文档:`docs/superpowers/specs/2026-07-12-channel-fix-sync-design.md`
+  - 实施计划:`docs/superpowers/plans/2026-07-12-channel-fix-sync.md`
+
 ## [v0.6.0-alpha.2] - 2026-07-07
 
 ### 新增
