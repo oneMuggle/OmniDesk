@@ -1,0 +1,168 @@
+name: Channel Fix Sync
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, beta, rc]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-sync:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      should_sync: ${{ steps.filter.outputs.should_sync }}
+      targets: ${{ steps.matrix.outputs.targets }}
+      commits: ${{ steps.matrix.outputs.commits }}
+      source_branch: ${{ steps.matrix.outputs.source_branch }}
+      source_author: ${{ steps.matrix.outputs.source_author }}
+      source_pr_number: ${{ steps.matrix.outputs.source_pr_number }}
+    steps:
+      - name: Skip sync PRs and bot actors
+        id: skip
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_ACTOR: ${{ github.actor }}
+        run: |
+          if [[ "$PR_TITLE" == "🔁 [sync]"* ]] || [[ "$PR_BODY" == *"auto-sync-source:"* ]] || [[ "$PR_ACTOR" == "github-actions[bot]" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout PR head
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Filter commits
+        id: filter
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.merge_commit_sha }}"
+          COMMITS=$(git log --reverse --pretty='%H|%s' "$BASE".."$HEAD")
+          SHOULD_SYNC=false
+          SYNC_LIST=""
+          while IFS= read -r line; do
+            SHA="${line%%|*}"
+            SUBJECT="${line#*|}"
+            if printf '%s\n' "$SUBJECT" | grep -qE '^(fix|perf|refactor)(\([^)]+\))?!?:\s'; then
+              SYNC_LIST="$SYNC_LIST $SHA"
+              SHOULD_SYNC=true
+            fi
+          done <<< "$COMMITS"
+          echo "should_sync=$SHOULD_SYNC" >> $GITHUB_OUTPUT
+          echo "sync_commits=${SYNC_LIST# }" >> $GITHUB_OUTPUT
+
+      - name: Determine target branches
+        id: matrix
+        if: steps.filter.outputs.should_sync == 'true'
+        run: |
+          SOURCE="${{ github.event.pull_request.base.ref }}"
+          case "$SOURCE" in
+            main) TARGETS='["beta","rc"]' ;;
+            beta) TARGETS='["main","rc"]' ;;
+            rc)   TARGETS='["main","beta"]' ;;
+            *)    TARGETS='[]' ;;
+          esac
+          echo "targets=$TARGETS" >> $GITHUB_OUTPUT
+          echo "commits=${{ steps.filter.outputs.sync_commits }}" >> $GITHUB_OUTPUT
+          echo "source_branch=$SOURCE" >> $GITHUB_OUTPUT
+          echo "source_author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          echo "source_pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+
+  cherry-pick:
+    needs: detect-sync
+    if: needs.detect-sync.outputs.should_sync == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.detect-sync.outputs.targets) }}
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target }}
+          fetch-depth: 0
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+
+      - name: Fetch source commits
+        run: |
+          git fetch origin "${{ needs.detect-sync.outputs.source_branch }}" --no-tags
+
+      - name: Cherry-pick sync commits
+        id: pick
+        run: |
+          set +e
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          CONFLICT_SHA=""
+          for SHA in ${{ needs.detect-sync.outputs.commits }}; do
+            # 已包含则跳过
+            if git merge-base --is-ancestor "$SHA" HEAD; then
+              echo "::notice::Skipping $SHA (already in ${{ matrix.target }})"
+              continue
+            fi
+            if ! git cherry-pick -x "$SHA" > "$RUNNER_TEMP/cherry-pick.log" 2>&1; then
+              cat "$RUNNER_TEMP/cherry-pick.log"
+              CONFLICT_SHA="$SHA"
+              git cherry-pick --abort || true
+              git format-patch -1 "$SHA" --stdout > "$RUNNER_TEMP/conflict.patch"
+              echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
+              break
+            fi
+          done
+          if [ -n "$CONFLICT_SHA" ]; then
+            git commit --allow-empty -m "chore(sync): mark conflict on $CONFLICT_SHA"
+          fi
+          echo "has_conflict=$([ -n "$CONFLICT_SHA" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Push branch (success only)
+        if: steps.pick.outputs.has_conflict != 'true'
+        run: |
+          BRANCH="channel-sync/${{ needs.detect-sync.outputs.source_pr_number }}-${{ matrix.target }}"
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          git push origin "HEAD:$BRANCH" --force-with-lease
+
+      - name: Create sync PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          branch: channel-sync/${{ needs.detect-sync.outputs.source_pr_number }}-${{ matrix.target }}
+          base: ${{ matrix.target }}
+          title: "🔁 [sync] #${{ needs.detect-sync.outputs.source_pr_number }} → ${{ matrix.target }}"
+          body: |
+            🔁 [sync] #${{ needs.detect-sync.outputs.source_pr_number }} → ${{ matrix.target }}
+
+            自动同步 PR（源 PR #${{ needs.detect-sync.outputs.source_pr_number }}）
+
+            - 源分支: `${{ needs.detect-sync.outputs.source_branch }}`
+            - 源作者: @${{ needs.detect-sync.outputs.source_author }}
+            - 同步 commits: `${{ needs.detect-sync.outputs.commits }}`
+
+            <!-- auto-sync-source: #${{ needs.detect-sync.outputs.source_pr_number }} -->
+            <!-- auto-sync-target: ${{ matrix.target }} -->
+
+            ${{ steps.pick.outputs.has_conflict == 'true' && '⚠️ **Cherry-pick 冲突，请人工解决**\n\nPatch 已上传为本 workflow artifact。' || '' }}
+          draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
+          delete-branch: true
+
+      - name: Upload conflict patch
+        if: steps.pick.outputs.has_conflict == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: conflict-${{ matrix.target }}
+          path: ${{ runner.temp }}/conflict.patch
