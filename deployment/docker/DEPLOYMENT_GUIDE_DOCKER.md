@@ -69,6 +69,22 @@ CI/CD 流水线负责自动化构建、测试和推送生产镜像。
 1.  **构建和推送**: 流水线应使用 `docker build` 命令，并结合 `--target production` 标志来构建生产就绪的镜像。
 2.  **镜像命名**: 在 CI 环境中，应设置 `REGISTRY` 和 `TAG` 环境变量，以正确标记要推送到生产镜像仓库的镜像。例如：
     ```bash
+    docker tag omni-desk-backend-prod:vX.Y.Z ghcr.io/onemuggle/omni-desk-backend:vX.Y.Z
+    ```
+
+## 离线包渠道命名
+
+v0.6.0 起,离线包目录按渠道命名:
+
+- `omnidesk-offline-alpha-vX.Y.Z-alpha.N/` — 开发自测
+- `omnidesk-offline-beta-vX.Y.Z-beta.N/` — 内测
+- `omnidesk-offline-rc-vX.Y.Z-rc.N/` — 预发布
+- `omnidesk-offline-vX.Y.Z/` — 正式版(stable,无前缀与历史兼容)
+- `omnidesk-offline-hotfix-vX.Y.(Z+1)/` — 紧急修复
+
+详细规范见 `docs/technical/30-release-channels.md` 与 `docs/user-manual/12-deployment-channels.md`。
+2.  **镜像命名**: 在 CI 环境中，应设置 `REGISTRY` 和 `TAG` 环境变量，以正确标记要推送到生产镜像仓库的镜像。例如：
+    ```bash
     export REGISTRY=ghcr.io/your-username
     export TAG=v1.2.3
     docker-compose build

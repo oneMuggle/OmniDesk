@@ -21,12 +21,30 @@ if [ -z "$BUILD_VERSION" ]; then
     exit 1
 fi
 
-if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-    echo "ERROR: Invalid version format '$BUILD_VERSION'. Use semantic versioning (MAJOR.MINOR.PATCH)."
+if ! echo "$BUILD_VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+(-(alpha|beta|rc)\.[0-9]+)?$'; then
+    echo "ERROR: Invalid version format '$BUILD_VERSION'."
+    echo "Use MAJOR.MINOR.PATCH (stable) or MAJOR.MINOR.PATCH-{alpha,beta,rc}.N (pre-release)."
     exit 1
 fi
 
+# ─── 渠道推导(从 VERSION 后缀)───────────────────────
+case "$BUILD_VERSION" in
+    *-alpha.*) BUILD_CHANNEL="alpha" ;;
+    *-beta.*)  BUILD_CHANNEL="beta" ;;
+    *-rc.*)    BUILD_CHANNEL="preview" ;;
+    *)         BUILD_CHANNEL="stable" ;;
+esac
+echo "  发布渠道: ${BUILD_CHANNEL}"
+
 BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}"
+# 离线包目录命名:<channel>-v<version>(stable 不加 prefix)
+case "$BUILD_CHANNEL" in
+    alpha)   BUNDLE_DIR="omnidesk-offline-alpha-v${BUILD_VERSION}" ;;
+    beta)    BUNDLE_DIR="omnidesk-offline-beta-v${BUILD_VERSION}" ;;
+    preview) BUNDLE_DIR="omnidesk-offline-rc-v${BUILD_VERSION}" ;;
+    hotfix)  BUNDLE_DIR="omnidesk-offline-hotfix-v${BUILD_VERSION}" ;;
+    *)       BUNDLE_DIR="omnidesk-offline-v${BUILD_VERSION}" ;;  # stable
+esac
 EXPORT_DIR="exported_images"
 
 echo "=========================================="
@@ -124,20 +142,47 @@ load_images() {
     done
     echo "镜像加载完成。"
 
-    # 同步 GHCR 命名,使 compose 文件中的 ghcr.io/onemuggle/* 镜像引用能找到本地 tag
-    # (docker load 后镜像以源名 omni-desk-*-prod:vX.Y.Z 存在,需 alias 到 ghcr.io 全名)
-    local version
-    version=$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo "")
-    if [ -n "$version" ]; then
-        echo "同步 GHCR 镜像命名 (v${version})..."
-        docker tag "omni-desk-backend-prod:v${version}"  "ghcr.io/onemuggle/omni-desk-backend:v${version}"  2>/dev/null \
-            && echo "  tagged: ghcr.io/onemuggle/omni-desk-backend:v${version}" \
-            || echo "  WARN: backend retag 失败 (源镜像可能不存在)"
-        docker tag "omni-desk-frontend-prod:v${version}" "ghcr.io/onemuggle/omni-desk-frontend:v${version}" 2>/dev/null \
-            && echo "  tagged: ghcr.io/onemuggle/omni-desk-frontend:v${version}" \
-            || echo "  WARN: frontend retag 失败 (源镜像可能不存在)"
+    # 同步 GHCR 命名:用 BUILD-MANIFEST.json 作为 source of truth(不是 VERSION 文件)
+    # 背景:v0.5.7+ 起 backend/frontend 镜像内容可能跨版本复用(如 v0.5.9 backend 沿用
+    # v0.5.7 digest),manifest 准确记录实际打包的镜像 tag,deploy 必须跟着 manifest 走。
+    local manifest="$BUNDLE_DIR/BUILD-MANIFEST.json"
+    if [ -f "$manifest" ]; then
+        echo "从 BUILD-MANIFEST.json 读取镜像 tag..."
+        local backend_src frontend_src
+        if command -v jq >/dev/null 2>&1; then
+            backend_src=$(jq -r '.images.backend.name  // empty' "$manifest")
+            frontend_src=$(jq -r '.images.frontend.name // empty' "$manifest")
+        else
+            backend_src=$(grep -oE '"backend"[[:space:]]*:[[:space:]]*\{[^}]*"name"[[:space:]]*:[[:space:]]*"[^"]+"' "$manifest" | grep -oE '"[^"]+:[^"]+"' | tr -d '"' | head -1)
+            frontend_src=$(grep -oE '"frontend"[[:space:]]*:[[:space:]]*\{[^}]*"name"[[:space:]]*:[[:space:]]*"[^"]+"' "$manifest" | grep -oE '"[^"]+:[^"]+"' | tr -d '"' | head -1)
+        fi
+        if [ -n "$backend_src" ]; then
+            docker tag "$backend_src" "ghcr.io/onemuggle/omni-desk-backend:${backend_src##*:}" 2>/dev/null \
+                && echo "  tagged: $backend_src → ghcr.io/onemuggle/omni-desk-backend:${backend_src##*:}" \
+                || echo "  WARN: backend retag 失败(源镜像 $backend_src 可能不存在)"
+        else
+            echo "  WARN: BUILD-MANIFEST.json 缺 backend.name,跳过 backend retag"
+        fi
+        if [ -n "$frontend_src" ]; then
+            docker tag "$frontend_src" "ghcr.io/onemuggle/omni-desk-frontend:${frontend_src##*:}" 2>/dev/null \
+                && echo "  tagged: $frontend_src → ghcr.io/onemuggle/omni-desk-frontend:${frontend_src##*:}" \
+                || echo "  WARN: frontend retag 失败"
+        fi
     else
-        echo "WARN: VERSION 文件缺失或为空,跳过 GHCR 镜像重命名"
+        # legacy 模式:无 BUILD-MANIFEST.json 时回退到 VERSION 派生
+        echo "WARN: BUILD-MANIFEST.json 不存在,使用 VERSION 派生 tag(legacy 模式)"
+        local version
+        version=$(cat VERSION 2>/dev/null | tr -d '[:space:]' || echo "")
+        if [ -n "$version" ]; then
+            docker tag "omni-desk-backend-prod:v${version}"  "ghcr.io/onemuggle/omni-desk-backend:v${version}"  2>/dev/null \
+                && echo "  tagged: ghcr.io/onemuggle/omni-desk-backend:v${version}" \
+                || echo "  WARN: backend retag 失败"
+            docker tag "omni-desk-frontend-prod:v${version}" "ghcr.io/onemuggle/omni-desk-frontend:v${version}" 2>/dev/null \
+                && echo "  tagged: ghcr.io/onemuggle/omni-desk-frontend:v${version}" \
+                || echo "  WARN: frontend retag 失败"
+        else
+            echo "WARN: VERSION 文件缺失或为空,跳过 GHCR 镜像重命名"
+        fi
     fi
 }
 
@@ -181,18 +226,36 @@ with open('compose/.env.production', 'w') as f:
         fi
     fi
 
-    # 自动同步 IMAGE_TAG 与 VERSION 一致(升级时 config/.env.production 仍是旧版本)
-    if [ -n "$version" ]; then
-        local expected_tag="v${version}"
+    # 自动同步 IMAGE_TAG:从 BUILD-MANIFEST.json 派生(不是 VERSION)
+    # 升级时 config/.env.production 仍是旧 tag,但镜像实际 tag 在 manifest 里
+    local manifest="$BUNDLE_DIR/BUILD-MANIFEST.json"
+    local backend_tag frontend_tag
+    if [ -f "$manifest" ]; then
+        if command -v jq >/dev/null 2>&1; then
+            backend_tag=$(jq -r '.images.backend.name  | split(":")[1] // empty' "$manifest")
+            frontend_tag=$(jq -r '.images.frontend.name | split(":")[1] // empty' "$manifest")
+        else
+            backend_tag=$(grep -oE '"backend"[[:space:]]*:[[:space:]]*\{[^}]*"name"[[:space:]]*:[[:space:]]*"[^"]+:v[0-9.]+"' "$manifest" | grep -oE 'v[0-9.]+$' | head -1)
+            frontend_tag=$(grep -oE '"frontend"[[:space:]]*:[[:space:]]*\{[^}]*"name"[[:space:]]*:[[:space:]]*"[^"]+:v[0-9.]+"' "$manifest" | grep -oE 'v[0-9.]+$' | head -1)
+        fi
+    elif [ -n "$version" ]; then
+        # legacy fallback:用 VERSION 派生(无 BUILD-MANIFEST.json 的旧 bundle)
+        backend_tag="v${version}"
+        frontend_tag="v${version}"
+    fi
+
+    if [ -n "$backend_tag" ] && [ -n "$frontend_tag" ]; then
         local current_backend_tag=$(grep -E "^BACKEND_IMAGE_TAG=" compose/.env.production | cut -d= -f2)
         local current_frontend_tag=$(grep -E "^FRONTEND_IMAGE_TAG=" compose/.env.production | cut -d= -f2)
 
-        if [ "$current_backend_tag" != "$expected_tag" ] || [ "$current_frontend_tag" != "$expected_tag" ]; then
-            echo "  IMAGE_TAG 与 VERSION 不一致(backend=$current_backend_tag, frontend=$current_frontend_tag, expected=$expected_tag)"
-            echo "  自动更新 IMAGE_TAG → $expected_tag"
-            sed -i "s/^BACKEND_IMAGE_TAG=.*/BACKEND_IMAGE_TAG=$expected_tag/" compose/.env.production
-            sed -i "s/^FRONTEND_IMAGE_TAG=.*/FRONTEND_IMAGE_TAG=$expected_tag/" compose/.env.production
+        if [ "$current_backend_tag" != "$backend_tag" ] || [ "$current_frontend_tag" != "$frontend_tag" ]; then
+            echo "  IMAGE_TAG 与 manifest/VERSION 不一致(backend=$current_backend_tag, frontend=$current_frontend_tag, target: backend=$backend_tag, frontend=$frontend_tag)"
+            echo "  自动更新 IMAGE_TAG ← manifest"
+            sed -i "s/^BACKEND_IMAGE_TAG=.*/BACKEND_IMAGE_TAG=$backend_tag/" compose/.env.production
+            sed -i "s/^FRONTEND_IMAGE_TAG=.*/FRONTEND_IMAGE_TAG=$frontend_tag/" compose/.env.production
         fi
+    else
+        echo "  WARN: 无法确定 IMAGE_TAG(BUILD-MANIFEST.json 缺字段且 VERSION 为空),保留原值"
     fi
 }
 
@@ -257,6 +320,8 @@ case "${1:-start}" in
     start)
         echo "=========================================="
         echo "  OmniDesk 离线部署"
+        echo "  渠道: $(jq -r '.channel // "stable"' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'stable')"
+        echo "  版本: $(jq -r '.version' "$BUNDLE_DIR/BUILD-MANIFEST.json" 2>/dev/null || echo 'unknown')"
         echo "=========================================="
         echo ""
 
@@ -385,6 +450,7 @@ else
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA"
 }
@@ -433,12 +499,28 @@ if [ -f "$FRONTEND_TAR" ]; then
     fi
 fi
 
+# ─── 防御性 aliasing:确保实际 tag 也叫 v${BUILD_VERSION} ──────
+# 当镜像跨版本复用(manifest 显示 backend=v0.5.7 digest 但本 bundle 是 v0.5.9),
+# 主动 alias 一份到 omni-desk-*-prod:v${BUILD_VERSION},让任何依赖 VERSION 派生的
+# 旧 deploy.sh(没有从 manifest 读 tag 的版本)也能继续工作。
+EXPECTED_BACKEND_TAG="omni-desk-backend-prod:v${BUILD_VERSION}"
+EXPECTED_FRONTEND_TAG="omni-desk-frontend-prod:v${BUILD_VERSION}"
+if [ -n "$BACKEND_TAG_NAME" ] && [ "$BACKEND_TAG_NAME" != "$EXPECTED_BACKEND_TAG" ]; then
+    echo "  Aliasing $BACKEND_TAG_NAME → $EXPECTED_BACKEND_TAG (向后兼容旧 deploy.sh)"
+    docker tag "$BACKEND_TAG_NAME" "$EXPECTED_BACKEND_TAG"
+fi
+if [ -n "$FRONTEND_TAG_NAME" ] && [ "$FRONTEND_TAG_NAME" != "$EXPECTED_FRONTEND_TAG" ]; then
+    echo "  Aliasing $FRONTEND_TAG_NAME → $EXPECTED_FRONTEND_TAG (向后兼容旧 deploy.sh)"
+    docker tag "$FRONTEND_TAG_NAME" "$EXPECTED_FRONTEND_TAG"
+fi
+
 if [ -n "$BACKEND_DIGEST" ] && [ -n "$FRONTEND_DIGEST" ]; then
     GIT_SHA=$(git -C "$SCRIPT_DIR/../.." rev-parse --short HEAD 2>/dev/null || echo "unknown")
     BUILD_TIME=$(date -u '+%Y-%m-%dT%H:%M:%SZ')
     cat > "$BUNDLE_DIR/BUILD-MANIFEST.json" << EOF
 {
   "version": "$BUILD_VERSION",
+  "channel": "$BUILD_CHANNEL",
   "build_time": "$BUILD_TIME",
   "git_sha": "$GIT_SHA",
   "images": {

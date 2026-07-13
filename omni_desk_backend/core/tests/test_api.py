@@ -11,6 +11,31 @@ class TestCoreAPI:
         assert 'version' in response.data
         assert 'build_time' in response.data
         assert 'django_version' in response.data
+        assert 'channel' in response.data
+
+    def test_version_channel_stable_default(self, regular_client, settings):
+        """无后缀版本应返回 channel=stable。"""
+        settings.APP_VERSION = "1.2.0"
+        response = regular_client.get(reverse('version-info'))
+        assert response.data['channel'] == 'stable'
+
+    def test_version_channel_preview(self, regular_client, settings):
+        """-rc.N 后缀应返回 channel=preview。"""
+        settings.APP_VERSION = "1.2.0-rc.1"
+        response = regular_client.get(reverse('version-info'))
+        assert response.data['channel'] == 'preview'
+
+    def test_version_channel_beta(self, regular_client, settings):
+        """-beta.N 后缀应返回 channel=beta。"""
+        settings.APP_VERSION = "1.2.0-beta.3"
+        response = regular_client.get(reverse('version-info'))
+        assert response.data['channel'] == 'beta'
+
+    def test_version_channel_alpha(self, regular_client, settings):
+        """-alpha.N 后缀应返回 channel=alpha。"""
+        settings.APP_VERSION = "1.2.0-alpha.5"
+        response = regular_client.get(reverse('version-info'))
+        assert response.data['channel'] == 'alpha'
 
     def test_changelog_endpoint(self, regular_client):
         response = regular_client.get(reverse('changelog'))
