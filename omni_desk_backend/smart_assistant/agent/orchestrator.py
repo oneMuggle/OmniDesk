@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer
 from ..tools.registry import ToolRegistry
 from ..cache import (
@@ -188,7 +190,15 @@ class AgentOrchestrator:
 
             stream = _gen()
         elif tool:
-            stream = generate_answer_stream(user_query, intent, tool_name, tool_result, conversation_history)
+            # tool_name/tool_result 在上方的 if tool: 分支内已赋值,
+            # mypy 无法跨 elif 块追踪,此处用 cast 收紧类型
+            stream = generate_answer_stream(
+                user_query,
+                intent,
+                cast(str, tool_name),
+                cast(dict[str, Any], tool_result),
+                conversation_history,
+            )
         else:
             answer, _ = generate_general_answer(user_query, conversation_history)
 
