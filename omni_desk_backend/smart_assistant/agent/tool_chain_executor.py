@@ -5,6 +5,7 @@
 """
 
 import logging
+from typing import Any
 
 from ..tools.registry import ToolRegistry
 
@@ -23,7 +24,7 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
         执行结果列表，每项包含 tool_name, result, success 字段
     """
     results = []
-    tool_outputs = {}  # 存储每个工具的输出，供后续工具引用
+    tool_outputs: dict[str, Any] = {}  # 存储每个工具的输出，供后续工具引用
 
     for step in plan:
         tool_name = step.get("tool")
