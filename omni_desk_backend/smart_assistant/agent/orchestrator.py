@@ -74,10 +74,12 @@ class AgentOrchestrator:
                     answer = cached_answer
                     usage = None
                 else:
-                    answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    usage = None
                     cache_answer(user_query, intent, answer)
             else:
-                answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                usage = None
 
             return {
                 "answer": answer,

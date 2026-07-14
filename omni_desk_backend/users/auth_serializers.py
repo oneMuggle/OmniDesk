@@ -2,15 +2,12 @@
 
 import uuid
 
-from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.validators import RegexValidator
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
 from .models import CustomUser
-
-CustomUser = get_user_model()
 
 
 def ensure_guest_group():
