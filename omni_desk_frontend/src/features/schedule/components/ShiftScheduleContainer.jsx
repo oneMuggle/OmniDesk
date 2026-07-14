@@ -108,8 +108,8 @@ const ShiftScheduleContainer = () => {
                     leader: extendedProps.scheduleDetails.duty_leader?.id,
                     staffName: extendedProps.scheduleDetails.duty_person?.name || '未知人员',
                     leaderName: extendedProps.scheduleDetails.duty_leader?.name || '未知人员',
-                    staffPhone: extendedProps.scheduleDetails.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
-                    leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || ''
+                    staffPhone: extendedProps.scheduleDetails.duty_person?.phone_number || '',
+                    leaderPhone: extendedProps.scheduleDetails.duty_leader?.phone_number || ''
                   });
                   setScheduleModalOpen(true);
                 }
