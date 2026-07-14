@@ -8,6 +8,7 @@
 """
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ def _select_recent_messages(history: list) -> list:
         return history
 
     # 从最新消息往回取，直到接近 token 限制
-    selected = []
+    selected: list[dict[str, Any]] = []
     running_tokens = 0
 
     for msg in reversed(history):
