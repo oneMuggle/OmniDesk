@@ -544,8 +544,8 @@ const ScheduleManagementPage = () => {
       duty_leader: record.duty_leader?.id,
       person_position_filter: record.duty_person?.position?.id,
       leader_position_filter: record.duty_leader?.position?.id,
-      duty_person_phone: record.duty_person?.phone_numbers?.map(p => p.number).join(', ') || '',
-      duty_leader_phone: record.duty_leader?.phone_numbers?.map(p => p.number).join(', ') || '',
+      duty_person_phone: record.duty_person?.phone_number || '',
+      duty_leader_phone: record.duty_leader?.phone_number || '',
     };
     setFormInitialValues(initialValues);
     setIsModalVisible(true);
