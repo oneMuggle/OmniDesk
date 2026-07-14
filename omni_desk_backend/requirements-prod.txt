@@ -120,7 +120,7 @@ packaging==26.2
     # via
     #   gunicorn
     #   kombu
-pillow==12.2.0
+pillow==12.3.0
     # via -r requirements.in
 prompt-toolkit==3.0.52
     # via click-repl
