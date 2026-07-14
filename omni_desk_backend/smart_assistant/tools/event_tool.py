@@ -1,4 +1,6 @@
 from datetime import timedelta
+from typing import Any
+
 from django.utils import timezone
 from events.models import Schedule, Holiday
 from .base import BaseTool
@@ -36,7 +38,7 @@ class EventTool(BaseTool):
                 "message": f"{target_date} 暂无排班或节假日记录",
             }
 
-        results = {
+        results: dict[str, Any] = {
             "date": str(target_date),
             "schedules": [],
             "holidays": [],
