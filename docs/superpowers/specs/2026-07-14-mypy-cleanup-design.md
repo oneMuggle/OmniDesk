@@ -19,7 +19,8 @@ OmniDesk backend 的 mypy 类型检查自 v0.6.0 起积累 82 个错误（45 个
 - `smart_assistant/agent/orchestrator.py` 12 个
 - `smart_assistant/tools/*.py` 8 个工具文件**每个 8 个**——结构化重复错误
 - 总错误数 82 已 **3 周（自 2026-06-21）无任何 commit 修复**
-- 错误码分布：`assignment` 23 / `override` 11 / `arg-type` 7 / `no-any-return` 4 / `var-annotated` 3 / `attr-defined` 2 / `misc` 3 / `return-value` 1
+- 错误码分布（smart_assistant 51 错细分）：`assignment` 23 / `override` 11 / `arg-type` 7 / `no-any-return` 4 / `var-annotated` 3 / `attr-defined` 2 / `str` 2 / `misc` 1 / `return-value` 1 / `annotation-unchecked` 1
+  - 注：原始 agent 报告按错误码分类加总为 55 vs 总数 51，差值 4 来自"一个 error block 含多个 note 行"被重复计入细分。**PR0 实施时需重新统计全 backend 82 错的精确分布**
 - `mypy.ini` 文件被混用为 ruff 配置（`.ini` 扩展名塞 `[tool.ruff]` 段），配置职责不清
 - 本地 mypy 1.17.1，CI 装 mypy 2.1.0，存在版本差
 
@@ -96,12 +97,12 @@ PR0 → PR1 → PR2 → PR3 → PR4 → PR5 → PR6 → PR7 → PR8。
 |---|---|---|---|---|---|
 | 0 | chore(mypy): 修复 mypy.ini 文件归属 + 验证基线 | — | 1-2 | 易 | 0.5h |
 | 1 | fix(mypy): var-annotated 错误清理 | 3 | ~3 | 易 | 0.5h |
-| 2 | fix(mypy): attr-defined / str 错误清理 | 4 | ~3-4 | 中 | 1h |
+| 2 | fix(mypy): attr-defined / str 错误清理 | ~4 | ~3-4 | 中 | 1h |
 | 3 | fix(mypy): assignment 主项（隐式 Optional 模式） | 23 | ~10-15 | 中-高 | 3h |
 | 4 | fix(mypy): override 错误（BaseTool 接口对齐） | 11 | ~10 | 高 | 4h |
 | 5 | fix(mypy): arg-type 错误清理 | 7 | ~7 | 中 | 2h |
 | 6 | fix(mypy): no-any-return 错误清理 | 4 | ~4 | 中 | 2h |
-| 7 | fix(mypy): misc / return-value 错误清理 | 3 | ~3 | 易 | 1h |
+| 7 | fix(mypy): misc / return-value / annotation-unchecked 错误清理 | ~3 | ~3 | 易 | 1h |
 | 8 | ci(mypy): 移除 continue-on-error + 加入 needs: 链 | — | ci.yml | 易 | 0.5h |
 
 > 注：以上数字基于 smart_assistant 的 51 错统计。**PR0 实施时需重新跑 `mypy omni_desk_backend/` 取全 backend 82 错的精确分布**，并相应调整各 PR 数字。smart_assistant 之外的 31 错将分散在 PR1-7 中消化。
