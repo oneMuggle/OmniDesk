@@ -11,8 +11,6 @@ from personnel.serializers import PersonnelSerializer
 
 from .models import CustomUser, PhoneNumber
 
-CustomUser = get_user_model()
-
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
     class Meta:
