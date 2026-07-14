@@ -126,7 +126,8 @@ class RAGRouter:
             resp = requests.post(url, headers=headers, json=data, timeout=15)
             resp.raise_for_status()
             result = resp.json()
-            chunks = result.get("chunks", [])
+            # resp.json() 无类型注解 → Any，显式声明为 list[dict] 收紧
+            chunks: list[dict] = result.get("chunks", [])
             # 添加来源标记
             for chunk in chunks:
                 chunk["_source"] = dataset.get("name", "未知")
