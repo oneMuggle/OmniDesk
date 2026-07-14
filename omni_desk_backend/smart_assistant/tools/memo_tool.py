@@ -7,7 +7,7 @@ class MemoTool(BaseTool):
     description = "查询备忘录/便签"
     intent_type = "memo_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """搜索备忘录"""
         keywords = query.replace("搜索", "").replace("查找", "").replace("备忘录", "").replace("便签", "").strip()
 

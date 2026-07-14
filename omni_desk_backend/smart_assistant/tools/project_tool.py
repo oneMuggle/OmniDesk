@@ -7,7 +7,7 @@ class ProjectTool(BaseTool):
     description = "查询项目进度/状态/负责人"
     intent_type = "project_status"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """查询项目信息"""
         keywords = query.replace("搜索", "").replace("查找", "").replace("项目", "").strip()
 

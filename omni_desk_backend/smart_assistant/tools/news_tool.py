@@ -7,7 +7,7 @@ class NewsTool(BaseTool):
     description = "搜索新闻/通知"
     intent_type = "news_search"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """搜索新闻文章"""
         keywords = query.replace("搜索", "").replace("查找", "").replace("新闻", "").replace("通知", "").strip()
 

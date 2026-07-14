@@ -9,7 +9,7 @@ class ScheduleTool(BaseTool):
     description = "查询排班、值班安排"
     intent_type = "schedule_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """解析自然语言中的日期，查询排班信息"""
         target_date = timezone.now().date()
 

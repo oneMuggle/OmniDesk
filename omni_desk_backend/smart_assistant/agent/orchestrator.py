@@ -18,7 +18,7 @@ class AgentOrchestrator:
     支持单工具执行和多工具链式执行。
     """
 
-    def process(self, user_query: str, conversation_history: list = None) -> dict:
+    def process(self, user_query: str, conversation_history: list | None = None) -> dict:
         """处理用户问题"""
         schemas = ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
@@ -99,7 +99,7 @@ class AgentOrchestrator:
                 "usage": usage,
             }
 
-    def _process_chain(self, user_query: str, plan: list, conversation_history: list) -> dict:
+    def _process_chain(self, user_query: str, plan: list, conversation_history: list | None) -> dict:
         """多工具链式处理"""
         tool_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
         answer = synthesize_chain_answer(plan, tool_results, user_query)
@@ -124,7 +124,7 @@ class AgentOrchestrator:
             "tool_chain": plan,
         }
 
-    def process_stream(self, user_query: str, conversation_history: list = None):
+    def process_stream(self, user_query: str, conversation_history: list | None = None):
         """流式处理：先发送元数据，再逐 chunk 发送 LLM 输出"""
         import json
 

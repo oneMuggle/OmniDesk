@@ -9,7 +9,7 @@ class MeetingRoomTool(BaseTool):
     description = "查询会议室可用性和预订"
     intent_type = "meeting_room_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """查询会议室可用性和预订信息"""
         target_date = timezone.now().date()
 
