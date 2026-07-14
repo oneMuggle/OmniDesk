@@ -5,7 +5,7 @@
 """
 
 import logging
-from typing import Any
+from typing import Any, cast
 
 from ..tools.registry import ToolRegistry
 
@@ -114,7 +114,8 @@ def synthesize_answer(plan: list, tool_results: list, query: str) -> str:
 
     client = get_router()
     try:
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；answer 为 Any
         answer, _ = client.generate(prompt=synthesis_prompt)
-        return answer.strip()
+        return cast(str, answer.strip())
     except Exception as e:
         return f"回答生成失败: {str(e)}"

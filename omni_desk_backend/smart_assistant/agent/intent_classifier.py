@@ -1,3 +1,5 @@
+from typing import cast
+
 from llm_service.router import get_router
 from .prompt_builder import INTENT_PROMPT, SYSTEM_PROMPT
 from .conversation_context import build_messages_with_history, format_history_for_prompt
@@ -20,9 +22,10 @@ def classify_intent(query: str, schemas: list, history: list | None = None) -> s
             full_content = history_prefix + f"用户问题: {query}\n\n{prompt}"
         else:
             full_content = f"用户问题: {query}\n\n{prompt}"
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；response 为 Any
         response, _ = client.generate(prompt=full_content)
         # 标准化：去空格、转小写、替换空格为下划线
-        return response.strip().lower().replace(" ", "_").replace("-", "_")
+        return cast(str, response.strip().lower().replace(" ", "_").replace("-", "_"))
     except Exception:
         return "general_chat"
 
@@ -44,8 +47,9 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
             user_content=user_query,
             history=history or [],
         )
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；answer 为 Any
         answer, _ = client.generate(messages=messages)
-        return answer.strip()
+        return cast(str, answer.strip())
     except Exception as e:
         return f"回答生成失败: {str(e)}"
 
