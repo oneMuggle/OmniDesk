@@ -11,7 +11,7 @@ class EventTool(BaseTool):
     description = "查询事件/日程/排班/节假日"
     intent_type = "event_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """查询事件和日程信息"""
         target_date = timezone.now().date()
 

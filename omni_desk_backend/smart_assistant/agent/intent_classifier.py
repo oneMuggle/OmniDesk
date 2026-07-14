@@ -9,7 +9,7 @@ def build_intent_prompt(schemas: list) -> str:
     return INTENT_PROMPT.replace("{tool_schemas}", schema_text)
 
 
-def classify_intent(query: str, schemas: list, history: list = None) -> str:
+def classify_intent(query: str, schemas: list, history: list | None = None) -> str:
     """使用 LLM 进行意图分类，支持多轮上下文"""
     prompt = build_intent_prompt(schemas)
     client = get_router()
@@ -27,7 +27,7 @@ def classify_intent(query: str, schemas: list, history: list = None) -> str:
         return "general_chat"
 
 
-def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None) -> str:
+def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None) -> str:
     """将工具结果转化为自然语言回答，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
@@ -50,7 +50,7 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
         return f"回答生成失败: {str(e)}"
 
 
-def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None):
+def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None):
     """流式版本：逐步 yield LLM 输出 chunk，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
@@ -73,7 +73,7 @@ def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_re
         yield f"[错误] 回答生成失败: {str(e)}"
 
 
-def generate_general_answer(query: str, history: list = None) -> tuple:
+def generate_general_answer(query: str, history: list | None = None) -> tuple:
     """通用对话回答，支持多轮上下文。返回 (answer, usage) 元组。"""
     client = get_router()
     try:

@@ -12,7 +12,7 @@ from ..tools.registry import ToolRegistry
 logger = logging.getLogger(__name__)
 
 
-def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
+def execute_tool_chain(plan: list, query: str, context: dict | None = None) -> list:
     """执行工具链计划。
 
     Args:

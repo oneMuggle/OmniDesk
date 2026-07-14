@@ -7,7 +7,7 @@ class SensorTool(BaseTool):
     description = "查询传感器数据和告警"
     intent_type = "sensor_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """查询传感器信息和校准状态"""
         keywords = query.replace("搜索", "").replace("查找", "").replace("传感器", "").replace("设备", "").strip()
 
