@@ -17,6 +17,7 @@
 | 09 | [项目管理](09-project-management.md) | 项目创建、进度跟踪 |
 | 10 | [通知中心](10-notifications.md) | 查看和管理系统通知 |
 | 11 | [替代部署方案](11-alternative-deployment.md) | Railway 等云部署参考 |
+| 12 | [各发布渠道部署指引](12-deployment-channels.md) | alpha/beta/preview/stable 各渠道离线包的识别、选择、升级、回滚 |
 
 ---
 
