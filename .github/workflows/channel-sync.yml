@@ -234,6 +234,26 @@ jobs:
           git config user.email "channel-sync-bot@users.noreply.github.com"
           git push origin "HEAD:$BRANCH" --force-with-lease
 
+      - name: Assign source author
+        if: steps.pick.outputs.has_conflict == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                assignees: ['${{ needs.detect-sync.outputs.source_author }}']
+              });
+              console.log('Assigned source author:', '${{ needs.detect-sync.outputs.source_author }}');
+            } catch (err) {
+              console.warn('Failed to assign author:', err.message);
+              core.warning('Source author assignment failed, continuing');
+            }
+          env:
+            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+
       - name: Create sync PR
         uses: peter-evans/create-pull-request@v6
         with:
