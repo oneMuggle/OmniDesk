@@ -58,10 +58,13 @@
 
 当 channel-sync 检测到 cherry-pick 冲突时，会自动：
 
-1. **生成三件套 artifact**（`conflict-<target>`）：
-   - `source.patch` / `target.patch` / `diverge.patch` — 三方 diff
-   - `conflict_files.txt` — 冲突文件清单
-   - `file_history.md` — 冲突文件的历史改动
+1. **生成冲突 artifact**（`conflict-<target>`）：
+   - **始终上传**：
+     - `conflict_files.txt` — 冲突文件清单
+     - `file_history.md` — 冲突文件的历史改动
+   - **条件上传**（仅当总大小 ≤ 5MB 时）：
+     - `source.patch` / `target.patch` / `diverge.patch` — 三方 diff（base ↔ source ↔ target）
+   - **> 5MB 时**：PR body 会标注「Patch 文件过大，请本地 cherry-pick 复现」；仅 `.txt` + `.md` 在 artifact 中。
 2. **创建 draft PR**，body 含「⚠️ Cherry-pick 冲突」段与解决指引
 3. **自动 assign 源 PR 作者** 为 reviewer
 4. **应用 `conflicted-sync` label**
