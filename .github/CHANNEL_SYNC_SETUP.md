@@ -54,3 +54,28 @@
 - **workflow 失败 403**：token 权限不足或过期
 - **cherry-pick 冲突**：查看 PR 上传的 `conflict-<target>` artifact
 
+## 冲突解决流程
+
+当 channel-sync 检测到 cherry-pick 冲突时，会自动：
+
+1. **生成三件套 artifact**（`conflict-<target>`）：
+   - `source.patch` / `target.patch` / `diverge.patch` — 三方 diff
+   - `conflict_files.txt` — 冲突文件清单
+   - `file_history.md` — 冲突文件的历史改动
+2. **创建 draft PR**，body 含「⚠️ Cherry-pick 冲突」段与解决指引
+3. **自动 assign 源 PR 作者** 为 reviewer
+4. **应用 `conflicted-sync` label**
+
+### 人工解决步骤
+
+1. 下载 `conflict-<target>` artifact
+2. 本地复现冲突（见 PR body 中的 `快速解决指引` 段）
+3. 编辑冲突文件
+4. push 到 `channel-sync/<src>-<target>` 分支
+5. 合并 draft PR → **resume workflow 自动 cherry-pick 剩余 commits**
+
+### 嵌套保护
+
+- resume 嵌套 ≤ 2 层（连续 resume 后再冲突）
+- 超出后 workflow 主动失败，需人工处理
+
