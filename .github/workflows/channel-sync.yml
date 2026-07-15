@@ -121,7 +121,7 @@ jobs:
               git cherry-pick --abort || true
               git format-patch -1 "$SHA" --stdout > "$RUNNER_TEMP/conflict.patch"
               # 新增：记录三方 SHA（PR-A 增强）
-              BASE_SHA=$(git merge-base "${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "")
+              BASE_SHA=$(git merge-base "origin/${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "")
               echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
               echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
               echo "TARGET_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
@@ -147,8 +147,8 @@ jobs:
             TARGET_SHA="$TARGET_SHA"
             BASE_SHA="$BASE_SHA"
           else
-            echo "::warning::CONFLICT_SHA not set, computing fallback"
-            BASE_SHA=$(git merge-base "${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "HEAD~1")
+            echo "::warning::BASE_SHA could not be resolved via origin/\$source_branch, using fallback HEAD~1"
+            BASE_SHA=$(git merge-base "origin/${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "HEAD~1")
             SOURCE_PR_COMMITS="${{ needs.detect-sync.outputs.commits }}"
             SOURCE_SHA=$(echo "$SOURCE_PR_COMMITS" | awk '{print $1}')
             TARGET_SHA="HEAD"
