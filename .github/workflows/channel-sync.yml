@@ -133,6 +133,48 @@ jobs:
           fi
           echo "has_conflict=$([ -n "$CONFLICT_SHA" ] && echo true || echo false)" >> $GITHUB_OUTPUT
 
+      - name: Compute conflict context
+        id: conflict-context
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/conflict"
+          cd "$GITHUB_WORKSPACE"
+
+          # 优先用 env 记录的 SHA（如有），否则 fallback
+          if [ -n "$CONFLICT_SHA" ] && [ -n "$BASE_SHA" ]; then
+            SOURCE_SHA="$CONFLICT_SHA"
+            TARGET_SHA="$TARGET_SHA"
+            BASE_SHA="$BASE_SHA"
+          else
+            echo "::warning::CONFLICT_SHA not set, computing fallback"
+            BASE_SHA=$(git merge-base "${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "HEAD~1")
+            SOURCE_PR_COMMITS="${{ needs.detect-sync.outputs.commits }}"
+            SOURCE_SHA=$(echo "$SOURCE_PR_COMMITS" | awk '{print $1}')
+            TARGET_SHA="HEAD"
+          fi
+
+          # 三方 patch
+          if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "HEAD~1" ]; then
+            git diff "$BASE_SHA" "$SOURCE_SHA" > "$RUNNER_TEMP/conflict/source.patch" 2>/dev/null
+            git diff "$BASE_SHA" "$TARGET_SHA" > "$RUNNER_TEMP/conflict/target.patch" 2>/dev/null
+            git diff "$SOURCE_SHA" "$TARGET_SHA" > "$RUNNER_TEMP/conflict/diverge.patch" 2>/dev/null
+          fi
+
+          # 冲突文件清单
+          git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflict/conflict_files.txt" 2>/dev/null || \
+            echo "(failed to parse conflict files)" > "$RUNNER_TEMP/conflict/conflict_files.txt"
+
+          # 从 cherry-pick 日志补全
+          if [ -s "$RUNNER_TEMP/cherry-pick.log" ]; then
+            grep -E "^(CONFLICT|error):" "$RUNNER_TEMP/cherry-pick.log" | \
+              grep -oE "[^[:space:]]+\.(py|js|jsx|ts|tsx|md|yml|yaml|json|toml|sh)$" | \
+              sort -u >> "$RUNNER_TEMP/conflict/conflict_files.txt"
+          fi
+
+          ls -la "$RUNNER_TEMP/conflict/"
+          echo "conflict_files_count=$(wc -l < "$RUNNER_TEMP/conflict/conflict_files.txt")" >> $GITHUB_OUTPUT
+
       - name: Push branch (success only)
         if: steps.pick.outputs.has_conflict != 'true'
         run: |
