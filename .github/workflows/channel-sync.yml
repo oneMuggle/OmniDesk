@@ -253,25 +253,25 @@ jobs:
             <!-- auto-sync-source: #${{ needs.detect-sync.outputs.source_pr_number }} -->
             <!-- auto-sync-target: ${{ matrix.target }} -->
 
-            ${{ steps.pick.outputs.has_conflict == 'true' && '---
+            ${{ steps.pick.outputs.has_conflict == 'true' && format('---
 
             ## ⚠️ Cherry-pick 冲突
 
-            **冲突 commit**: `' + env.CONFLICT_SHA + '`
-            **目标分支**: `' + matrix.target + '`
-            **冲突文件**: ' + steps.conflict-context.outputs.conflict_files_count + ' 个
+            **冲突 commit**: `{0}`
+            **目标分支**: `{1}`
+            **冲突文件**: {2} 个
 
             ### 快速解决指引
 
-            1. **下载** artifact `conflict-' + matrix.target + '` 获取三件套
+            1. **下载** artifact `conflict-{1}` 获取三件套
             2. **本地复现**：
                ```bash
-               git fetch origin ' + matrix.target + '
-               git checkout ' + matrix.target + '
-               git cherry-pick -x ' + env.CONFLICT_SHA + '
+               git fetch origin {1}
+               git checkout {1}
+               git cherry-pick -x {0}
                ```
             3. **push 解决后合并此 PR** 即可触发自动续跑
-            ' || '' }}
+            ', env.CONFLICT_SHA, matrix.target, steps.conflict-context.outputs.conflict_files_count) || '' }}
           draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
           delete-branch: true
 
