@@ -211,6 +211,21 @@ jobs:
           cat "$HISTORY"
           echo "history_size=$(wc -c < "$HISTORY")" >> $GITHUB_OUTPUT
 
+      - name: Check artifact size
+        id: size-check
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          SIZE_MB=$(du -sm "$RUNNER_TEMP/conflict" 2>/dev/null | cut -f1)
+          SIZE_MB=${SIZE_MB:-0}
+          echo "size_mb=$SIZE_MB" >> $GITHUB_OUTPUT
+          if [ "$SIZE_MB" -gt 5 ]; then
+            echo "::warning::Conflict bundle is ${SIZE_MB}MB, > 5MB threshold"
+            echo "size_warning=true" >> $GITHUB_OUTPUT
+          else
+            echo "size_warning=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Push branch (success only)
         if: steps.pick.outputs.has_conflict != 'true'
         run: |
@@ -242,9 +257,15 @@ jobs:
           draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
           delete-branch: true
 
-      - name: Upload conflict patch
+      - name: Upload conflict bundle
         if: steps.pick.outputs.has_conflict == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: conflict-${{ matrix.target }}
-          path: ${{ runner.temp }}/conflict.patch
+          path: |
+            ${{ runner.temp }}/conflict/conflict_files.txt
+            ${{ runner.temp }}/conflict/file_history.md
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/source.patch', runner.temp) || '' }}
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/target.patch', runner.temp) || '' }}
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/diverge.patch', runner.temp) || '' }}
+          if-no-files-found: warn
