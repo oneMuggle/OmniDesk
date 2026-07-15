@@ -44,6 +44,7 @@
 | 24 | [安全检查清单](24-security-checklist.md) | 6 个 CVE 详细分析 + OWASP Top 10 对照 |
 | 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
 | 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
+| 35 | [mypy 压制登记册](35-mypy-suppressions.md) | 后端 `# type: ignore` 压制点追踪与维护规则 |
 
 ---
 

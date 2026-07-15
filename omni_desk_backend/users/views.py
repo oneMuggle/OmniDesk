@@ -111,7 +111,7 @@ class UserProfileUpdateView(generics.RetrieveUpdateAPIView):
 
 class UserLoginView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.AllowAny]  # type: ignore[assignment]  # reason: TokenViewBase stub types permission_classes as tuple[()] but DRF runtime accepts list
 
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):

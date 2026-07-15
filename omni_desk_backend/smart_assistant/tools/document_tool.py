@@ -7,7 +7,7 @@ class DocumentTool(BaseTool):
     description = "搜索公文/文档（按标题/类型/状态）"
     intent_type = "document_search"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """搜索文档模板和生成的文档"""
         keywords = query.replace("搜索", "").replace("查找", "").replace("文档", "").replace("公文", "").strip()
 

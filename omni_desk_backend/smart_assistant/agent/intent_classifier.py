@@ -1,3 +1,5 @@
+from typing import cast
+
 from llm_service.router import get_router
 from .prompt_builder import INTENT_PROMPT, SYSTEM_PROMPT
 from .conversation_context import build_messages_with_history, format_history_for_prompt
@@ -9,7 +11,7 @@ def build_intent_prompt(schemas: list) -> str:
     return INTENT_PROMPT.replace("{tool_schemas}", schema_text)
 
 
-def classify_intent(query: str, schemas: list, history: list = None) -> str:
+def classify_intent(query: str, schemas: list, history: list | None = None) -> str:
     """使用 LLM 进行意图分类，支持多轮上下文"""
     prompt = build_intent_prompt(schemas)
     client = get_router()
@@ -20,14 +22,15 @@ def classify_intent(query: str, schemas: list, history: list = None) -> str:
             full_content = history_prefix + f"用户问题: {query}\n\n{prompt}"
         else:
             full_content = f"用户问题: {query}\n\n{prompt}"
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；response 为 Any
         response, _ = client.generate(prompt=full_content)
         # 标准化：去空格、转小写、替换空格为下划线
-        return response.strip().lower().replace(" ", "_").replace("-", "_")
+        return cast(str, response.strip().lower().replace(" ", "_").replace("-", "_"))
     except Exception:
         return "general_chat"
 
 
-def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None) -> str:
+def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None) -> str:
     """将工具结果转化为自然语言回答，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
@@ -44,13 +47,14 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
             user_content=user_query,
             history=history or [],
         )
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；answer 为 Any
         answer, _ = client.generate(messages=messages)
-        return answer.strip()
+        return cast(str, answer.strip())
     except Exception as e:
         return f"回答生成失败: {str(e)}"
 
 
-def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list = None):
+def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None):
     """流式版本：逐步 yield LLM 输出 chunk，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
@@ -73,7 +77,7 @@ def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_re
         yield f"[错误] 回答生成失败: {str(e)}"
 
 
-def generate_general_answer(query: str, history: list = None) -> tuple:
+def generate_general_answer(query: str, history: list | None = None) -> tuple:
     """通用对话回答，支持多轮上下文。返回 (answer, usage) 元组。"""
     client = get_router()
     try:

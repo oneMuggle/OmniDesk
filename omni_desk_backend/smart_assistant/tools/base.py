@@ -17,7 +17,7 @@ class BaseTool(ABC):
     intent_type: str = ""  # 用于意图匹配
 
     @abstractmethod
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """执行工具，返回结构化结果"""
         pass
 

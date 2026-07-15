@@ -1,4 +1,6 @@
 from datetime import timedelta
+from typing import Any
+
 from django.utils import timezone
 from events.models import Schedule, Holiday
 from .base import BaseTool
@@ -9,7 +11,7 @@ class EventTool(BaseTool):
     description = "查询事件/日程/排班/节假日"
     intent_type = "event_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """查询事件和日程信息"""
         target_date = timezone.now().date()
 
@@ -36,7 +38,7 @@ class EventTool(BaseTool):
                 "message": f"{target_date} 暂无排班或节假日记录",
             }
 
-        results = {
+        results: dict[str, Any] = {
             "date": str(target_date),
             "schedules": [],
             "holidays": [],

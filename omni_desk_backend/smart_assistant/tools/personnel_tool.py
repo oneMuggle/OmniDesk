@@ -7,7 +7,7 @@ class PersonnelTool(BaseTool):
     description = "查询人员信息（姓名、部门、职位、状态）"
     intent_type = "personnel_query"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """搜索人员信息，仅返回脱敏字段"""
         keywords = query.replace("谁", "").replace("是", "").replace("的", "").strip()
 

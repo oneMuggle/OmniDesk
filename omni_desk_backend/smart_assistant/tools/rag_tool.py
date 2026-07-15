@@ -6,7 +6,7 @@ class RAGTool(BaseTool):
     description = "从知识库查询业务知识"
     intent_type = "knowledge_qa"
 
-    def execute(self, query: str, context: dict = None) -> dict:
+    def execute(self, query: str, context: dict | None = None) -> dict:
         """使用 RAGRouter 搜索多个知识库，合并结果"""
         from ..agent.rag_router import get_rag_router
 

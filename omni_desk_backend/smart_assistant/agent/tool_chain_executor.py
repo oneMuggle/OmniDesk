@@ -5,13 +5,14 @@
 """
 
 import logging
+from typing import Any, cast
 
 from ..tools.registry import ToolRegistry
 
 logger = logging.getLogger(__name__)
 
 
-def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
+def execute_tool_chain(plan: list, query: str, context: dict | None = None) -> list:
     """执行工具链计划。
 
     Args:
@@ -23,7 +24,7 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
         执行结果列表，每项包含 tool_name, result, success 字段
     """
     results = []
-    tool_outputs = {}  # 存储每个工具的输出，供后续工具引用
+    tool_outputs: dict[str, Any] = {}  # 存储每个工具的输出，供后续工具引用
 
     for step in plan:
         tool_name = step.get("tool")
@@ -113,7 +114,8 @@ def synthesize_answer(plan: list, tool_results: list, query: str) -> str:
 
     client = get_router()
     try:
+        # client.generate() 无返回类型注解 → tuple[Any, ...]；answer 为 Any
         answer, _ = client.generate(prompt=synthesis_prompt)
-        return answer.strip()
+        return cast(str, answer.strip())
     except Exception as e:
         return f"回答生成失败: {str(e)}"

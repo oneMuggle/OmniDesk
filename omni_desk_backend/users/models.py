@@ -27,7 +27,7 @@ class CustomUser(AbstractUser):
 
     # 使用用户名作为唯一标识
     USERNAME_FIELD = "username"
-    REQUIRED_FIELDS = []
+    REQUIRED_FIELDS: list[str] = []
 
     # 修复反向访问器冲突
     groups = models.ManyToManyField(

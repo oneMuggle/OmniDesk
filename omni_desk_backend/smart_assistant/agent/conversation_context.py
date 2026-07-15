@@ -8,6 +8,7 @@
 """
 
 import logging
+from typing import Any
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,7 @@ def build_messages_with_history(
     system_prompt: str,
     user_content: str,
     history: list,
-    summary_text: str = None,
+    summary_text: str | None = None,
 ) -> list:
     """构建 LLM messages 数组，包含智能截断的历史。
 
@@ -118,7 +119,7 @@ def _select_recent_messages(history: list) -> list:
         return history
 
     # 从最新消息往回取，直到接近 token 限制
-    selected = []
+    selected: list[dict[str, Any]] = []
     running_tokens = 0
 
     for msg in reversed(history):
@@ -156,7 +157,7 @@ def _remove_thinking_tags(content: str) -> str:
     return result
 
 
-def should_summarize(history: list, summary_text: str = None) -> bool:
+def should_summarize(history: list, summary_text: str | None = None) -> bool:
     """判断是否需要生成摘要。
 
     当历史 token 数超过 SOFT_TOKEN_LIMIT 且还没有摘要时，触发摘要生成。

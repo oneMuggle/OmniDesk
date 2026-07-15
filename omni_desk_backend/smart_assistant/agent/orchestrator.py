@@ -1,3 +1,5 @@
+from typing import Any, cast
+
 from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer
 from ..tools.registry import ToolRegistry
 from ..cache import (
@@ -18,7 +20,7 @@ class AgentOrchestrator:
     支持单工具执行和多工具链式执行。
     """
 
-    def process(self, user_query: str, conversation_history: list = None) -> dict:
+    def process(self, user_query: str, conversation_history: list | None = None) -> dict:
         """处理用户问题"""
         schemas = ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
@@ -74,10 +76,12 @@ class AgentOrchestrator:
                     answer = cached_answer
                     usage = None
                 else:
-                    answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    usage = None
                     cache_answer(user_query, intent, answer)
             else:
-                answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                usage = None
 
             return {
                 "answer": answer,
@@ -99,7 +103,7 @@ class AgentOrchestrator:
                 "usage": usage,
             }
 
-    def _process_chain(self, user_query: str, plan: list, conversation_history: list) -> dict:
+    def _process_chain(self, user_query: str, plan: list, conversation_history: list | None) -> dict:
         """多工具链式处理"""
         tool_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
         answer = synthesize_chain_answer(plan, tool_results, user_query)
@@ -124,7 +128,7 @@ class AgentOrchestrator:
             "tool_chain": plan,
         }
 
-    def process_stream(self, user_query: str, conversation_history: list = None):
+    def process_stream(self, user_query: str, conversation_history: list | None = None):
         """流式处理：先发送元数据，再逐 chunk 发送 LLM 输出"""
         import json
 
@@ -186,7 +190,15 @@ class AgentOrchestrator:
 
             stream = _gen()
         elif tool:
-            stream = generate_answer_stream(user_query, intent, tool_name, tool_result, conversation_history)
+            # tool_name/tool_result 在上方的 if tool: 分支内已赋值,
+            # mypy 无法跨 elif 块追踪,此处用 cast 收紧类型
+            stream = generate_answer_stream(
+                user_query,
+                intent,
+                cast(str, tool_name),
+                cast(dict[str, Any], tool_result),
+                conversation_history,
+            )
         else:
             answer, _ = generate_general_answer(user_query, conversation_history)
 

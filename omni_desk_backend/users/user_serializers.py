@@ -1,5 +1,7 @@
 """用户相关序列化器：用户详情、列表、管理、Personnel 关联。"""
 
+from typing import Any
+
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from rest_framework import serializers
@@ -8,8 +10,6 @@ from personnel.models import Personnel
 from personnel.serializers import PersonnelSerializer
 
 from .models import CustomUser, PhoneNumber
-
-CustomUser = get_user_model()
 
 
 class PhoneNumberSerializer(serializers.ModelSerializer):
@@ -45,7 +45,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             "permissions",
         )
         read_only_fields = ()
-        extra_kwargs = {}
+        extra_kwargs: dict[str, Any] = {}
 
     def get_permissions(self, obj):
         from .serializers import get_user_permissions
@@ -88,7 +88,7 @@ class UserSerializer(serializers.ModelSerializer):
             "phone_numbers",
             "permissions",
         )
-        extra_kwargs = {}
+        extra_kwargs: dict[str, Any] = {}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

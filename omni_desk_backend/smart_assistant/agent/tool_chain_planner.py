@@ -13,7 +13,7 @@ from .prompt_builder import TOOL_CHAIN_PROMPT
 logger = logging.getLogger(__name__)
 
 
-def generate_tool_chain_plan(query: str, schemas: list, history: list = None) -> list | None:
+def generate_tool_chain_plan(query: str, schemas: list, history: list | None = None) -> list | None:
     """判断是否需要多工具，并生成执行计划。
 
     Args:
@@ -68,7 +68,7 @@ def _matches_intent(query: str, schema: dict) -> bool:
     return any(kw in query for kw in keywords)
 
 
-def _ask_llm_for_plan(query: str, schemas: list, history: list = None) -> list | None:
+def _ask_llm_for_plan(query: str, schemas: list, history: list | None = None) -> list | None:
     """让 LLM 生成工具执行计划。"""
     schema_text = json.dumps(schemas, ensure_ascii=False, indent=2)
 
