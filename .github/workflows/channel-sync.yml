@@ -175,6 +175,42 @@ jobs:
           ls -la "$RUNNER_TEMP/conflict/"
           echo "conflict_files_count=$(wc -l < "$RUNNER_TEMP/conflict/conflict_files.txt")" >> $GITHUB_OUTPUT
 
+      - name: Annotate conflict files
+        id: annotate
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          HISTORY="$RUNNER_TEMP/conflict/file_history.md"
+          SOURCE_BRANCH="${{ needs.detect-sync.outputs.source_branch }}"
+          cd "$GITHUB_WORKSPACE"
+
+          echo "# 冲突文件历史" > "$HISTORY"
+          echo "" >> "$HISTORY"
+
+          if [ ! -s "$RUNNER_TEMP/conflict/conflict_files.txt" ]; then
+            echo "_无冲突文件清单_" >> "$HISTORY"
+            exit 0
+          fi
+
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            echo "=== \`$FILE\` ===" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            echo "**源分支 ($SOURCE_BRANCH) 最近改动:**" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            git log -5 --pretty='- `%h` %s (%an, %ad)' --date=short -- "$FILE" "$SOURCE_BRANCH" 2>/dev/null >> "$HISTORY" || \
+              echo "_(无历史记录)_" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            echo "**目标分支 (HEAD) 最近改动:**" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            git log -5 --pretty='- `%h` %s (%an, %ad)' --date=short -- "$FILE" 2>/dev/null >> "$HISTORY" || \
+              echo "_(无历史记录)_" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+          done < "$RUNNER_TEMP/conflict/conflict_files.txt"
+
+          cat "$HISTORY"
+          echo "history_size=$(wc -c < "$HISTORY")" >> $GITHUB_OUTPUT
+
       - name: Push branch (success only)
         if: steps.pick.outputs.has_conflict != 'true'
         run: |
