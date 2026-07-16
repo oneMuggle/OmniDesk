@@ -1,0 +1,46 @@
+{
+  "_comment": "Conflict scenario fixtures for test_conflict_handler.sh",
+  "scenarios": [
+    {
+      "name": "all_commits_already_in_target",
+      "source_pr": 65,
+      "target_branch": "beta",
+      "commits": ["abc1234567", "def5678901", "ghi9012345"],
+      "target_ancestors": ["abc1234567", "def5678901", "ghi9012345"],
+      "expected_remaining": "",
+      "expected_should_resume": false
+    },
+    {
+      "name": "partial_commits_in_target",
+      "source_pr": 68,
+      "target_branch": "beta",
+      "commits": ["abc1234567", "def5678901", "ghi9012345"],
+      "target_ancestors": ["abc1234567"],
+      "expected_remaining": "def5678901 ghi9012345",
+      "expected_should_resume": true
+    },
+    {
+      "name": "no_commits_in_target",
+      "source_pr": 70,
+      "target_branch": "rc",
+      "commits": ["aaa1111111", "bbb2222222"],
+      "target_ancestors": [],
+      "expected_remaining": "aaa1111111 bbb2222222",
+      "expected_should_resume": true
+    },
+    {
+      "name": "marker_missing_source",
+      "pr_body": "Some body without markers",
+      "expected_should_resume": false,
+      "expected_source_pr": "",
+      "expected_target": ""
+    },
+    {
+      "name": "marker_valid",
+      "pr_body": "<!-- auto-sync-source: #68 -->\n<!-- auto-sync-target: beta -->\nbody",
+      "expected_should_resume": true,
+      "expected_source_pr": "68",
+      "expected_target": "beta"
+    }
+  ]
+}

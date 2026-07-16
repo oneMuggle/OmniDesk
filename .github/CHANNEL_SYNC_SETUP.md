@@ -54,3 +54,47 @@
 - **workflow 失败 403**：token 权限不足或过期
 - **cherry-pick 冲突**：查看 PR 上传的 `conflict-<target>` artifact
 
+## 冲突解决流程
+
+当 channel-sync 检测到 cherry-pick 冲突时，会自动：
+
+1. **生成冲突 artifact**（`conflict-<target>`）：
+   - **始终上传**：
+     - `conflict_files.txt` — 冲突文件清单
+     - `file_history.md` — 冲突文件的历史改动
+   - **条件上传**（仅当总大小 ≤ 5MB 时）：
+     - `source.patch` / `target.patch` / `diverge.patch` — 三方 diff（base ↔ source ↔ target）
+   - **> 5MB 时**：PR body 会标注「Patch 文件过大，请本地 cherry-pick 复现」；仅 `.txt` + `.md` 在 artifact 中。
+2. **创建 draft PR**，body 含「⚠️ Cherry-pick 冲突」段与解决指引
+3. **自动 assign 源 PR 作者** 为 reviewer
+4. **应用 `conflicted-sync` label**
+
+### 人工解决步骤
+
+1. 下载 `conflict-<target>` artifact
+2. 本地复现冲突（见 PR body 中的 `快速解决指引` 段）：
+   ```bash
+   git fetch origin <target>
+   git checkout channel-sync/<src>-<target>
+   git cherry-pick -x <CONFLICT_SHA>
+   ```
+3. 编辑冲突文件（解决 `<<<<<<<` / `=======` / `>>>>>>>` markers）
+4. **标记已解决并完成 cherry-pick**（关键步骤，缺这两步则 push 是 no-op）：
+   ```bash
+   git add <resolved-files>
+   git cherry-pick --continue
+   ```
+   > 此时会产生一个 commit（如需修改信息：`git commit --amend`）
+5. push 到 `channel-sync/<src>-<target>` 分支：
+   ```bash
+   git push origin HEAD:channel-sync/<src>-<target>
+   ```
+6. 合并 draft PR → **resume workflow 自动 cherry-pick 剩余 commits**
+
+> ⚠️ **常见陷阱**：如果省略步骤 4（`git add` + `git cherry-pick --continue`），则 working tree 仍处于 unmerged 状态（`status=UU`），HEAD 不前进；直接 push 会得到 `Everything up-to-date`，合并后 resume workflow 因无新 commit 无法触发。
+
+### 嵌套保护
+
+- resume 嵌套 ≤ 2 层（连续 resume 后再冲突）
+- 超出后 workflow 主动失败，需人工处理
+

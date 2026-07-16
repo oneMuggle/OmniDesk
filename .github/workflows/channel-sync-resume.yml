@@ -1,0 +1,278 @@
+---
+name: Channel Sync Resume
+
+on:  # yamllint disable-line rule:truthy
+  pull_request:
+    types: [closed]
+    branches: [main, beta, rc]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: channel-sync-resume-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  detect-resume:
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.fork == false &&
+      (
+        (
+          contains(
+            github.event.pull_request.labels.*.name,
+            'conflicted-sync'
+          ) &&
+          startsWith(github.event.pull_request.title, '🔁 [sync]')
+        ) ||
+        startsWith(github.event.pull_request.title, '🔁 [resume]') ||
+        contains(
+          github.event.pull_request.body,
+          'auto-sync-resume: true'
+        )
+      )
+    runs-on: ubuntu-latest
+    outputs:
+      # yamllint disable rule:line-length
+      should_resume: ${{ steps.compute.outputs.should_resume || steps.parse.outputs.should_resume }}
+      # yamllint enable rule:line-length
+      source_pr: ${{ steps.parse.outputs.source_pr }}
+      target: ${{ steps.parse.outputs.target }}
+      source_branch: ${{ steps.parse.outputs.source_branch }}
+      remaining_commits: ${{ steps.compute.outputs.remaining_commits }}
+      nested_level: ${{ steps.compute.outputs.nested_level }}
+    steps:
+      - name: Parse sync PR metadata
+        id: parse
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        run: |
+          SOURCE_PR=$(
+            printf '%s' "$PR_BODY" |
+              grep -oP 'auto-sync-source: #\K\d+' |
+              head -1 ||
+              true
+          )
+          MARKER_TARGET=$(
+            printf '%s' "$PR_BODY" |
+              grep -oP 'auto-sync-target: \K\S+' |
+              head -1 ||
+              true
+          )
+          if [ -z "$SOURCE_PR" ] || [ -z "$MARKER_TARGET" ]; then
+            echo "::warning::Missing auto-sync-source/target markers in PR body"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$MARKER_TARGET" != "$PR_BASE" ]; then
+            echo "::warning::Sync target marker does not match PR base branch"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          TARGET="$PR_BASE"
+          echo "source_pr=$SOURCE_PR" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "source_branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
+          echo "should_resume=true" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout repository
+        if: steps.parse.outputs.should_resume == 'true'
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute remaining commits
+        id: compute
+        if: steps.parse.outputs.should_resume == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          SOURCE_PR: ${{ steps.parse.outputs.source_pr }}
+          TARGET: ${{ steps.parse.outputs.target }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          set -euo pipefail
+
+          API_PATH="repos/${{ github.repository }}/pulls"
+          API_PATH="$API_PATH/${SOURCE_PR}/commits?per_page=100"
+          if ! COMMITS_JSON=$(
+            gh api --paginate --slurp "$API_PATH" \
+              --jq '[
+                .[][] |
+                select(
+                  .commit.message |
+                  test("^(fix|perf|refactor)(\\([^)]+\\))?!?:\\s")
+                ) |
+                .sha
+              ]'
+          ); then
+            echo "::error::Failed to fetch commits for source PR #$SOURCE_PR"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if [ -z "$COMMITS_JSON" ] || [ "$COMMITS_JSON" = "null" ]; then
+            echo "::error::Invalid commit response for source PR #$SOURCE_PR"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          if ! COMMITS=$(printf '%s' "$COMMITS_JSON" | jq -r '.[]'); then
+            echo "::error::Failed to parse commits for source PR #$SOURCE_PR"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          if ! git fetch --no-tags origin \
+            "+refs/heads/$TARGET:refs/remotes/origin/$TARGET"; then
+            echo "::error::Failed to fetch target branch $TARGET"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+
+          REMAINING=""
+          while IFS= read -r SHA; do
+            [ -z "$SHA" ] && continue
+
+            if ! CHERRY_PICKED=$(
+              git log --fixed-strings \
+                --grep="(cherry picked from commit $SHA)" \
+                --pretty=%H -1 "origin/$TARGET" 2>/dev/null
+            ); then
+              echo "::error::Failed to inspect cherry-pick history" \
+                "for $SHA on $TARGET"
+              echo "should_resume=false" >> "$GITHUB_OUTPUT"
+              exit 1
+            fi
+            if [ -n "$CHERRY_PICKED" ]; then
+              continue
+            fi
+
+            if git merge-base --is-ancestor \
+              "$SHA" "origin/$TARGET" 2>/dev/null; then
+              continue
+            else
+              MERGE_BASE_STATUS=$?
+              if [ "$MERGE_BASE_STATUS" -gt 1 ]; then
+                echo "::error::Failed to compare $SHA with target $TARGET"
+                echo "should_resume=false" >> "$GITHUB_OUTPUT"
+                exit 1
+              fi
+            fi
+            REMAINING+=" $SHA"
+          done <<< "$COMMITS"
+
+          NESTED=$(
+            printf '%s' "$PR_BODY" |
+              grep -c "auto-sync-resume: true" 2>/dev/null
+          ) || NESTED=0
+          echo "nested_level=$NESTED" >> "$GITHUB_OUTPUT"
+
+          if [ -z "${REMAINING# }" ]; then
+            echo "::notice::All commits already in $TARGET, no resume needed"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+          elif [ "$NESTED" -ge 2 ]; then
+            echo "::error::Nested resume limit reached; manual action required"
+            echo "should_resume=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_resume=true" >> "$GITHUB_OUTPUT"
+            echo "remaining_commits=${REMAINING# }" >> "$GITHUB_OUTPUT"
+          fi
+
+  cherry-pick-remaining:
+    needs: detect-resume
+    if: needs.detect-resume.outputs.should_resume == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-resume.outputs.target }}
+          fetch-depth: 0
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+
+      - name: Fetch source commits
+        run: |
+          git fetch origin "${{ needs.detect-resume.outputs.source_branch }}" --no-tags || true
+
+      - name: Cherry-pick remaining commits
+        id: pick
+        env:
+          REMAINING_COMMITS: ${{ needs.detect-resume.outputs.remaining_commits }}
+          GH_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+        run: |
+          set +e
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          CONFLICT_SHA=""
+          for SHA in $REMAINING_COMMITS; do
+            if git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null; then
+              echo "::notice::Skipping $SHA (already in target)"
+              continue
+            fi
+            if ! git cherry-pick -x "$SHA" > "$RUNNER_TEMP/cherry-pick.log" 2>&1; then
+              CONFLICT_SHA="$SHA"
+              git cherry-pick --abort || true
+              git format-patch -1 "$SHA" --stdout > "$RUNNER_TEMP/conflict.patch"
+              echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
+              break
+            fi
+          done
+          if [ -n "$CONFLICT_SHA" ]; then
+            git commit --allow-empty -m "chore(sync): mark conflict on $CONFLICT_SHA"
+          fi
+          echo "has_conflict=$([ -n "$CONFLICT_SHA" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Push branch
+        if: steps.pick.outputs.has_conflict != 'true'
+        run: |
+          BRANCH="channel-sync/${{ needs.detect-resume.outputs.source_pr }}-${{ needs.detect-resume.outputs.target }}"
+          git push origin "HEAD:$BRANCH" --force-with-lease
+
+      - name: Create resume PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          branch: channel-sync/${{ needs.detect-resume.outputs.source_pr }}-${{ needs.detect-resume.outputs.target }}
+          base: ${{ needs.detect-resume.outputs.target }}
+          title: "🔁 [resume] #${{ needs.detect-resume.outputs.source_pr }} → ${{ needs.detect-resume.outputs.target }}"
+          body: |
+            🔁 [resume] #${{ needs.detect-resume.outputs.source_pr }} → ${{ needs.detect-resume.outputs.target }}
+
+            自动续跑 PR（原 sync PR 解决冲突后触发）
+
+            - 源 PR: #${{ needs.detect-resume.outputs.source_pr }}
+            - 目标: ${{ needs.detect-resume.outputs.target }}
+            - 续跑 commits: `${{ needs.detect-resume.outputs.remaining_commits }}`
+            - 嵌套层数: ${{ needs.detect-resume.outputs.nested_level }}
+
+            <!-- auto-sync-source: #${{ needs.detect-resume.outputs.source_pr }} -->
+            <!-- auto-sync-target: ${{ needs.detect-resume.outputs.target }} -->
+            <!-- auto-sync-resume: true -->
+
+            ${{ steps.pick.outputs.has_conflict == 'true' && '⚠️ **Cherry-pick 冲突（resume 时再次冲突），请人工解决**' || '' }}
+          draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
+          delete-branch: true
+
+      - name: Remove conflicted-sync label
+        if: steps.pick.outputs.has_conflict != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'conflicted-sync'
+              });
+              console.log('Removed conflicted-sync label');
+            } catch (err) {
+              console.warn('Failed to remove label:', err.message);
+            }
+          env:
+            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
