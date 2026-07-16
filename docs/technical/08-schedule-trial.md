@@ -32,6 +32,57 @@
   - **`PersonnelSequenceViewSet` / `LeaderSequenceViewSet`**: [`omni_desk_backend/events/views.py`](omni_desk_backend/events/views.py)
     - 提供对人员和领导顺序的CRUD管理功能。
 
+### 2.3 排班换班（用户自助）
+
+v0.5.0 引入基于 `events` 应用的 **ScheduleSwapRequest** 用户自助换班流程（4 个 SP 里程碑全部合入：f8c8563b / 72e8f567 / 38326e07 / 0eeab146）。
+
+#### 模型
+
+- **`ScheduleSwapRequest`**: `omni_desk_backend/events/models.py`
+  - 字段：`requester` (申请人), `target_user` (接收方), `target_date` (换班日期), `reason` (理由), `status` (`pending` / `approved` / `rejected` / `cancelled` / `expired`), `created_at`, `approved_at`, `expires_at`（= created_at + 48h 未处理则 `expired`）
+  - 状态机由 `events/signals.py` 中 `pre_save` / `post_save` 信号驱动
+- **`ScheduleSwapAuditLog`**: 每次状态流转写一条审计（HR 可查、可导出）
+
+#### 视图 / API
+
+| 端点 | 方法 | 权限 | 说明 |
+|---|---|---|---|
+| `/api/events/swap-requests/` | GET | 登录 | 列出当前用户相关请求（本人/接收方/HR） |
+| `/api/events/swap-requests/` | POST | 登录 | 申请换班 |
+| `/api/events/swap-requests/{id}/` | GET | 本人/接收方/HR | 详情 |
+| `/api/events/swap-requests/{id}/approve/` | POST | `IsHR` | HR 审批通过（自动改 `Schedule.duty_person`） |
+| `/api/events/swap-requests/{id}/reject/` | POST | `IsHR` | HR 拒绝 |
+| `/api/events/swap-requests/{id}/cancel/` | POST | 本人 | 申请人撤销未审批请求 |
+| `/api/events/my-schedule/` | GET | 登录 | 用户自助视角：未来 N 天自己值班 |
+
+#### 6 类通知（events/signals.py post_save 触发）
+
+1. 申请创建 → 通知 接收方 + HR
+2. HR 通过 → 通知 申请人 + 接收方 + 双方 Personnel 关联人员（如有）
+3. HR 拒绝 → 通知 申请人
+4. 申请人撤销 → 通知 接收方 + HR
+5. 即将过期（剩 ≤6h） → 通知 HR + 申请人
+6. 已过期 → 通知 HR + 申请人
+
+通知统一走 `NotificationService`（与 v0.4.0 Personnel 变更通知同源），写入 `Notification` 表 + 站内消息。
+
+#### Celery 过期任务
+
+- `events/tasks.py`：`expire_pending_swap_requests` — 每 30 分钟扫描 `pending` 且 `expires_at < now()`，置为 `expired` + 写审计 + 触发上述通知。
+
+#### 字段级权限
+
+L1 + L2 + L3 三层防护（与 v0.4.0 Personnel 字段防护同模式）：
+- L1：`IsAuthenticated`（任何登录）
+- L2：`request.user == obj.requester OR obj.target_user OR user.has_perm('events.approve_scheduleswap')`
+- L3：`status` 写权限仅 HR
+
+#### 关联
+
+- 设计文档：`docs/plans/2026-06-06_schedule-swap-request.md`（已归档、删档）
+- 用户指南：`docs/user-manual/02-schedule-management.md`
+
+
 ### 2.2. 试验管理
 
 试验管理功能允许用户跟踪和管理项目试验。
