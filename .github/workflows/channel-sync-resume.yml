@@ -40,6 +40,7 @@ jobs:
       # yamllint enable rule:line-length
       source_pr: ${{ steps.parse.outputs.source_pr }}
       target: ${{ steps.parse.outputs.target }}
+      source_branch: ${{ steps.parse.outputs.source_branch }}
       remaining_commits: ${{ steps.compute.outputs.remaining_commits }}
       nested_level: ${{ steps.compute.outputs.nested_level }}
     steps:
@@ -48,6 +49,7 @@ jobs:
         env:
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_BASE: ${{ github.event.pull_request.base.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
           SOURCE_PR=$(
             printf '%s' "$PR_BODY" |
@@ -74,6 +76,7 @@ jobs:
           TARGET="$PR_BASE"
           echo "source_pr=$SOURCE_PR" >> "$GITHUB_OUTPUT"
           echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "source_branch=$PR_HEAD_REF" >> "$GITHUB_OUTPUT"
           echo "should_resume=true" >> "$GITHUB_OUTPUT"
 
       - name: Checkout repository
@@ -194,7 +197,7 @@ jobs:
 
       - name: Fetch source commits
         run: |
-          git fetch origin "${{ needs.detect-resume.outputs.source_pr }}" --no-tags || true
+          git fetch origin "${{ needs.detect-resume.outputs.source_branch }}" --no-tags || true
 
       - name: Cherry-pick remaining commits
         id: pick
