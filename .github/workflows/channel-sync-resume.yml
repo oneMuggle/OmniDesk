@@ -274,5 +274,3 @@ jobs:
             } catch (err) {
               console.warn('Failed to remove label:', err.message);
             }
-          env:
-            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
