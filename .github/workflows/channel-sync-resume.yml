@@ -176,3 +176,97 @@ jobs:
             echo "should_resume=true" >> "$GITHUB_OUTPUT"
             echo "remaining_commits=${REMAINING# }" >> "$GITHUB_OUTPUT"
           fi
+
+  cherry-pick-remaining:
+    needs: detect-resume
+    if: needs.detect-resume.outputs.should_resume == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.detect-resume.outputs.target }}
+          fetch-depth: 0
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+
+      - name: Fetch source commits
+        run: |
+          git fetch origin "${{ needs.detect-resume.outputs.source_pr }}" --no-tags || true
+
+      - name: Cherry-pick remaining commits
+        id: pick
+        run: |
+          set +e
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          CONFLICT_SHA=""
+          for SHA in ${{ needs.detect-resume.outputs.remaining_commits }}; do
+            if git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null; then
+              echo "::notice::Skipping $SHA (already in target)"
+              continue
+            fi
+            if ! git cherry-pick -x "$SHA" > "$RUNNER_TEMP/cherry-pick.log" 2>&1; then
+              CONFLICT_SHA="$SHA"
+              git cherry-pick --abort || true
+              git format-patch -1 "$SHA" --stdout > "$RUNNER_TEMP/conflict.patch"
+              echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
+              break
+            fi
+          done
+          if [ -n "$CONFLICT_SHA" ]; then
+            git commit --allow-empty -m "chore(sync): mark conflict on $CONFLICT_SHA"
+          fi
+          echo "has_conflict=$([ -n "$CONFLICT_SHA" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Push branch
+        if: steps.pick.outputs.has_conflict != 'true'
+        run: |
+          BRANCH="channel-sync/${{ needs.detect-resume.outputs.source_pr }}-${{ needs.detect-resume.outputs.target }}"
+          git push origin "HEAD:$BRANCH" --force-with-lease
+
+      - name: Create resume PR
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          branch: channel-sync/${{ needs.detect-resume.outputs.source_pr }}-${{ needs.detect-resume.outputs.target }}
+          base: ${{ needs.detect-resume.outputs.target }}
+          title: "🔁 [resume] #${{ needs.detect-resume.outputs.source_pr }} → ${{ needs.detect-resume.outputs.target }}"
+          body: |
+            🔁 [resume] #${{ needs.detect-resume.outputs.source_pr }} → ${{ needs.detect-resume.outputs.target }}
+
+            自动续跑 PR（原 sync PR 解决冲突后触发）
+
+            - 源 PR: #${{ needs.detect-resume.outputs.source_pr }}
+            - 目标: ${{ needs.detect-resume.outputs.target }}
+            - 续跑 commits: `${{ needs.detect-resume.outputs.remaining_commits }}`
+            - 嵌套层数: ${{ needs.detect-resume.outputs.nested_level }}
+
+            <!-- auto-sync-source: #${{ needs.detect-resume.outputs.source_pr }} -->
+            <!-- auto-sync-target: ${{ needs.detect-resume.outputs.target }} -->
+            <!-- auto-sync-resume: true -->
+
+            ${{ steps.pick.outputs.has_conflict == 'true' && '⚠️ **Cherry-pick 冲突（resume 时再次冲突），请人工解决**' || '' }}
+          draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
+          delete-branch: true
+
+      - name: Remove conflicted-sync label
+        if: steps.pick.outputs.has_conflict != 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.removeLabel({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                name: 'conflicted-sync'
+              });
+              console.log('Removed conflicted-sync label');
+            } catch (err) {
+              console.warn('Failed to remove label:', err.message);
+            }
+          env:
+            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
