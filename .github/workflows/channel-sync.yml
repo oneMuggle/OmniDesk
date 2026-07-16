@@ -292,8 +292,6 @@ jobs:
               console.warn('Failed to assign author:', err.message);
               core.warning('Source author assignment failed, continuing');
             }
-          env:
-            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
 
       - name: Apply conflicted-sync label
         if: steps.pick.outputs.has_conflict == 'true'
@@ -335,8 +333,6 @@ jobs:
               console.warn('Failed to apply label:', err.message);
               core.warning('conflicted-sync label application failed, continuing');
             }
-          env:
-            GITHUB_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
 
       - name: Upload conflict bundle
         if: steps.pick.outputs.has_conflict == 'true'
