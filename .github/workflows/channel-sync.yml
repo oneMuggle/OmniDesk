@@ -144,7 +144,6 @@ jobs:
           # 优先用 env 记录的 SHA（如有），否则 fallback
           if [ -n "$CONFLICT_SHA" ] && [ -n "$BASE_SHA" ]; then
             SOURCE_SHA="$CONFLICT_SHA"
-            TARGET_SHA="$TARGET_SHA"
             BASE_SHA="$BASE_SHA"
           else
             echo "::warning::BASE_SHA could not be resolved via origin/\$source_branch, using fallback HEAD~1"

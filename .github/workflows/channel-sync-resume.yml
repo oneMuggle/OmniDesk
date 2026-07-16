@@ -201,12 +201,15 @@ jobs:
 
       - name: Cherry-pick remaining commits
         id: pick
+        env:
+          REMAINING_COMMITS: ${{ needs.detect-resume.outputs.remaining_commits }}
+          GH_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
         run: |
           set +e
           git config user.name "channel-sync-bot"
           git config user.email "channel-sync-bot@users.noreply.github.com"
           CONFLICT_SHA=""
-          for SHA in ${{ needs.detect-resume.outputs.remaining_commits }}; do
+          for SHA in $REMAINING_COMMITS; do
             if git merge-base --is-ancestor "$SHA" HEAD 2>/dev/null; then
               echo "::notice::Skipping $SHA (already in target)"
               continue
