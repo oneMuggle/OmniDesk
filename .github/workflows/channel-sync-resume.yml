@@ -1,0 +1,41 @@
+name: Channel Sync Resume
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, beta, rc]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: channel-sync-resume-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  detect-resume:
+    if: |
+      github.event.pull_request.merged == true &&
+      contains(github.event.pull_request.labels.*.name, 'conflicted-sync') &&
+      startsWith(github.event.pull_request.title, '🔁 [sync]')
+    runs-on: ubuntu-latest
+    outputs:
+      should_resume: ${{ steps.parse.outputs.should_resume }}
+      source_pr: ${{ steps.parse.outputs.source_pr }}
+      target: ${{ steps.parse.outputs.target }}
+      remaining_commits: ${{ steps.compute.outputs.remaining_commits }}
+      nested_level: ${{ steps.compute.outputs.nested_level }}
+    steps:
+      - name: Skip if not sync PR
+        id: skip
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_ACTOR: ${{ github.actor }}
+        run: |
+          if [[ "$PR_TITLE" == "🔁 [resume]"* ]] || [[ "$PR_BODY" == *"auto-sync-resume: true"* ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
