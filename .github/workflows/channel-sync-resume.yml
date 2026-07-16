@@ -39,3 +39,60 @@ jobs:
           else
             echo "skip=false" >> $GITHUB_OUTPUT
           fi
+
+      - name: Parse sync PR metadata
+        id: parse
+        if: steps.skip.outputs.skip != 'true'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          SOURCE_PR=$(echo "$PR_BODY" | grep -oP 'auto-sync-source: #\K\d+' | head -1)
+          TARGET=$(echo "$PR_BODY" | grep -oP 'auto-sync-target: \K\S+' | head -1)
+          if [ -z "$SOURCE_PR" ] || [ -z "$TARGET" ]; then
+            echo "::warning::Missing auto-sync-source/target markers in PR body"
+            echo "should_resume=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "source_pr=$SOURCE_PR" >> $GITHUB_OUTPUT
+          echo "target=$TARGET" >> $GITHUB_OUTPUT
+          echo "should_resume=true" >> $GITHUB_OUTPUT
+
+      - name: Compute remaining commits
+        id: compute
+        if: steps.parse.outputs.should_resume == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          SOURCE_PR: ${{ steps.parse.outputs.source_pr }}
+          TARGET: ${{ steps.parse.outputs.target }}
+        run: |
+          set +e
+          COMMITS_JSON=$(gh api "repos/${{ github.repository }}/pulls/${SOURCE_PR}/commits" --jq '[.[].sha]' 2>/dev/null)
+          if [ -z "$COMMITS_JSON" ] || [ "$COMMITS_JSON" = "null" ]; then
+            echo "::error::Failed to fetch commits for source PR #$SOURCE_PR"
+            echo "should_resume=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          COMMITS=$(echo "$COMMITS_JSON" | jq -r '.[]' | tr '\n' ' ')
+
+          git fetch origin "$TARGET" --depth=0 2>/dev/null
+
+          REMAINING=""
+          for SHA in $COMMITS; do
+            if ! git merge-base --is-ancestor "$SHA" "origin/$TARGET" 2>/dev/null; then
+              REMAINING="$REMAINING $SHA"
+            fi
+          done
+
+          NESTED=$(echo "${{ github.event.pull_request.body }}" | grep -c "auto-sync-resume: true" || echo "0")
+
+          if [ -z "${REMAINING# }" ]; then
+            echo "::notice::All commits already in $TARGET, no resume needed"
+            echo "should_resume=false" >> $GITHUB_OUTPUT
+          elif [ "$NESTED" -ge 2 ]; then
+            echo "::error::Resume nested level >= 2, manual intervention required"
+            echo "should_resume=false" >> $GITHUB_OUTPUT
+          else
+            echo "should_resume=true" >> $GITHUB_OUTPUT
+            echo "remaining_commits=${REMAINING# }" >> $GITHUB_OUTPUT
+            echo "nested_level=$NESTED" >> $GITHUB_OUTPUT
+          fi
