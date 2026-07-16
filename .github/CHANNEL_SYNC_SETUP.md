@@ -72,10 +72,26 @@
 ### 人工解决步骤
 
 1. 下载 `conflict-<target>` artifact
-2. 本地复现冲突（见 PR body 中的 `快速解决指引` 段）
-3. 编辑冲突文件
-4. push 到 `channel-sync/<src>-<target>` 分支
-5. 合并 draft PR → **resume workflow 自动 cherry-pick 剩余 commits**
+2. 本地复现冲突（见 PR body 中的 `快速解决指引` 段）：
+   ```bash
+   git fetch origin <target>
+   git checkout channel-sync/<src>-<target>
+   git cherry-pick -x <CONFLICT_SHA>
+   ```
+3. 编辑冲突文件（解决 `<<<<<<<` / `=======` / `>>>>>>>` markers）
+4. **标记已解决并完成 cherry-pick**（关键步骤，缺这两步则 push 是 no-op）：
+   ```bash
+   git add <resolved-files>
+   git cherry-pick --continue
+   ```
+   > 此时会产生一个 commit（如需修改信息：`git commit --amend`）
+5. push 到 `channel-sync/<src>-<target>` 分支：
+   ```bash
+   git push origin HEAD:channel-sync/<src>-<target>
+   ```
+6. 合并 draft PR → **resume workflow 自动 cherry-pick 剩余 commits**
+
+> ⚠️ **常见陷阱**：如果省略步骤 4（`git add` + `git cherry-pick --continue`），则 working tree 仍处于 unmerged 状态（`status=UU`），HEAD 不前进；直接 push 会得到 `Everything up-to-date`，合并后 resume workflow 因无新 commit 无法触发。
 
 ### 嵌套保护
 
