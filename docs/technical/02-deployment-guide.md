@@ -8,11 +8,11 @@
 
 ## 1. 概述
 
-本手册旨在指导用户在 Ubuntu 22.04 LTS 服务器上部署基于 Docker Compose 的全栈应用。该应用包含前端 React 应用和后端 Django REST Framework 应用，并利用 Nginx 作为反向代理和静态文件服务器，PostgreSQL 作为数据库。
+本手册旨在指导用户在 Ubuntu 22.04 LTS 服务器上部署基于 Docker Compose 的全栈应用。该应用包含前端 React 应用和后端 Django REST Framework 应用，前端容器内置 Nginx 作为统一 HTTP 入口（同时承担反向代理和静态文件服务），PostgreSQL 作为数据库。
 
 ## 2. 部署架构
 
-本项目采用以下部署架构：
+本项目采用**单 Nginx 入口**架构（前端容器内置 Nginx）：
 
 ```mermaid
 graph TD
@@ -22,21 +22,21 @@ graph TD
 
     subgraph 部署服务器 (Ubuntu 22.04 LTS)
         direction LR
-        B(Nginx Container) -- 反向代理 --> C(Backend Container)
-        B -- 静态文件服务 --> D(Frontend Container)
+        D[Frontend Container<br/>内置 Nginx :80<br/>反向代理 + 静态服务] -- /api 反代 --> C(Backend Container :8000)
         C -- DB 连接 --> E(PostgreSQL Container)
-        F[Docker Daemon] -- 管理 --> B & C & D & E
-        G[Docker Compose] -- 编排 --> B & C & D & E
+        F[Docker Daemon] -- 管理 --> C & D & E
+        G[Docker Compose] -- 编排 --> C & D & E
     end
 
-    A -- HTTP/HTTPS --> B
+    A -- HTTP/HTTPS :80 --> D
 ```
 
-*   **前端 (Frontend):** React 应用，打包成静态文件，由 Nginx 容器提供服务。
-*   **后端 (Backend):** Django REST Framework 应用，运行在 Waitress WSGI 服务器上，处理 API 请求。
+*   **前端 (Frontend):** React 应用构建产物 + 内置 Nginx（基于 `nginx:stable-alpine`），作为**唯一 HTTP 入口**，处理静态文件服务、反向代理到后端 API、Admin 路由、媒体文件访问等所有路由。Nginx 配置文件位于 `omni_desk_frontend/nginx.conf`。
+*   **后端 (Backend):** Django REST Framework 应用，运行在 Waitress WSGI 服务器上，监听容器内 `:8000` 端口（**不直接对外暴露**）。
 *   **数据库 (Database):** PostgreSQL 容器，用于存储应用数据。
-*   **Nginx:** Nginx 容器作为反向代理服务器，将外部请求路由到前端静态文件或后端 API 服务。
 *   **Docker & Docker Compose:** 提供容器化环境和多容器应用编排。
+
+> **架构说明**：早期版本曾使用两层 Nginx（外层 Nginx + 前端 Nginx），现已简化为单 Nginx 入口。修改 `omni_desk_frontend/nginx.conf` 即可调整所有路由规则，无需同时维护两份 Nginx 配置。
 
 ## 3. 部署环境准备
 
@@ -245,41 +245,79 @@ docker compose exec backend python /app/init_superuser.py
 
 ### 6.5. Nginx 配置说明
 
-项目中的 `docker/nginx.conf` 文件定义了 Nginx 的行为：
+项目采用**单 Nginx 入口**架构，唯一在用的 Nginx 配置位于 `omni_desk_frontend/nginx.conf`（前端容器内置）。该配置文件定义了前端容器的所有路由行为：
 
 ```nginx
 server {
     listen 80;
-    server_name localhost; # 在生产环境中应替换为您的域名或服务器 IP
+    server_name localhost;
 
-    location /static/ {
-        alias /app/staticfiles/; # Django 静态文件收集目录
-        expires 30d;
-        access_log off;
-    }
+    client_max_body_size 20M;
+    keepalive_timeout 65;
 
-    location /admin/static/ {
-        alias /app/staticfiles/admin/; # Django Admin 静态文件目录
-        expires 30d;
-        access_log off;
-    }
+    # Security headers（默认开启）
+    add_header X-Content-Type-Options nosniff always;
+    add_header X-Frame-Options SAMEORIGIN always;
+    add_header Referrer-Policy strict-origin-when-cross-origin always;
+    # ... 其他安全头省略
 
-    location / {
-        # 默认情况下，将所有请求代理到后端服务
+    # Django 静态文件服务
+    location /django-static/ {
         proxy_pass http://backend:8000;
-        proxy_set_header Host $host;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # 媒体文件服务
+    location /media/ {
+        proxy_pass http://backend:8000;
+        expires 7d;
+        add_header Cache-Control "public";
+    }
+
+    # 前端 React 应用
+    location / {
+        root /usr/share/nginx/html;
+        index index.html index.htm;
+        try_files $uri /index.html;
+    }
+
+    # API 反向代理
+    location /api/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $http_host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_redirect off;
     }
+
+    # Django Admin 反向代理
+    location /admin/ {
+        proxy_pass http://backend:8000;
+        proxy_set_header Host $http_host;
+        # ... 与 /api/ 相同的代理头
+        proxy_redirect off;
+    }
+
+    gzip on;
+    # ... gzip 配置
 }
 ```
 
-*   `listen 80;`: 监听 HTTP 80 端口。
-*   `server_name localhost;`: **在生产环境中，您应该将其替换为您的域名或服务器的公共 IP 地址。**
-*   `/static/` 和 `/admin/static/`: Nginx 直接提供 Django 收集的静态文件服务，提高了性能。
-*   `/`: 所有其他请求（包括前端应用的请求和后端 API 请求）都被代理到 `http://backend:8000`，即后端服务容器。
+**关键路由说明**：
 
-**注意：** 如果您希望 Nginx 直接服务前端应用，您可能需要修改 `docker/nginx.conf`，添加一个 `location /` 块来指向前端的构建产物（例如，如果前端构建到 `/usr/share/nginx/html`）。根据当前的 `docker-compose.yml` 和 `docker/nginx.conf`，前端应用似乎是通过 Nginx 代理到后端，然后由后端返回前端的 `index.html`。这通常意味着前端应用在启动时会向后端请求其静态资源。
+| 路径 | 处理方式 |
+|------|---------|
+| `/` | 前端 Nginx 直接服务 `/usr/share/nginx/html` 下的 React 构建产物 |
+| `/api/` | 反向代理到 `backend:8000`（Django REST Framework） |
+| `/admin/` | 反向代理到 `backend:8000`（Django Admin） |
+| `/django-static/` | 反向代理到 `backend:8000`（Django collectstatic 产物） |
+| `/media/` | 反向代理到 `backend:8000`（用户上传文件） |
+
+**HTTPS 配置**：如需启用 HTTPS，请取消 `omni_desk_frontend/nginx.conf` 中 `server { listen 443 ssl http2; ... }` 代码块的注释，并将自签证书放置到 `/etc/nginx/ssl/server.crt` 与 `/etc/nginx/ssl/server.key`。同时设置环境变量 `USE_HTTPS=true`。
+
+**修改路由**：所有路由规则集中在 `omni_desk_frontend/nginx.conf` 一处，无需维护多份 Nginx 配置。修改后需重新构建前端镜像。
 
 ## 7. 日常维护
 
@@ -441,20 +479,24 @@ docker run --rm --volumes-from project_db_1 -v ~/db_backups:/backup ubuntu tar c
 *   **环境变量：** 检查后端服务的数据库连接环境变量 (`POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `DB_HOST`, `DB_PORT`) 是否正确。
 *   **数据库日志：** 查看数据库容器日志 `docker compose logs db` 查找连接错误。
 
-### 8.3. Nginx 无法访问或代理错误
+### 8.3. 前端（Nginx 入口）无法访问或代理错误
 
-*   **检查 Nginx 容器状态：** `docker compose ps nginx` 确认 Nginx 容器是否正常运行。
-*   **检查 Nginx 配置：** 使用 `docker compose exec nginx nginx -t` 检查 Nginx 配置文件是否有语法错误。
-*   **Nginx 日志：** 查看 Nginx 容器日志 `docker compose logs nginx` 查找代理错误。
-*   **后端服务是否运行：** 确保后端服务 (`backend`) 正常运行，Nginx 才能正确代理。
+> **架构说明**：本项目无独立 Nginx 容器，Nginx 运行在 `frontend` 容器内，监听容器的 `:80` 端口。
+
+*   **检查前端容器状态：** `docker compose ps frontend` 确认前端容器正常运行（健康状态显示 `Up`）。
+*   **检查 Nginx 配置：** 使用 `docker compose exec frontend nginx -t` 检查 Nginx 配置文件语法。
+*   **Nginx 日志：** 查看前端容器日志 `docker compose logs frontend` 查找代理错误。
+*   **后端服务是否运行：** 确保后端服务 (`backend`) 正常运行，前端 Nginx 才能正确反向代理到 `http://backend:8000`。
+*   **网络连通性：** 前端容器内可执行 `docker compose exec frontend wget -O- http://backend:8000/api/system/version/` 验证能否访问后端。
 
 ### 8.4. 静态文件加载失败
 
-*   **检查 Nginx 静态文件路径：** 确认 `docker/nginx.conf` 中 `alias` 配置的路径 (`/app/staticfiles/`) 是否与后端 Dockerfile 中收集静态文件的路径一致。
-*   **静态文件是否已收集：** 确认在后端容器启动时，`python manage.py collectstatic` 命令已成功执行，并且静态文件存在于 `/app/staticfiles/` 目录下。您可以通过进入后端容器查看：
+*   **检查 Nginx 静态文件路径：** 确认前端 Nginx 配置 `omni_desk_frontend/nginx.conf` 中 `location /django-static/` 反代到 `http://backend:8000`，且后端容器内 `collectstatic` 已执行。
+*   **静态文件是否已收集：** 在后端容器内查看：
     ```bash
     docker compose exec backend ls /app/staticfiles/
     ```
+*   **如使用 Django Admin 静态文件：** Admin 静态文件由 `/django-static/admin/` 反代提供，需确认 `STATIC_ROOT` 路径配置正确（默认 `/app/staticfiles/`）。
 
 ## 9. 其他部署方式简介 (作为参考)
 
