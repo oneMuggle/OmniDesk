@@ -113,6 +113,40 @@ release       ──hotfix───>  release (stable, PATCH bump)
 
 **设计文档**: `docs/superpowers/specs/2026-07-12-channel-fix-sync-design.md`
 
+### 冲突解决流程
+
+当 channel-sync workflow 检测到 cherry-pick 冲突时：
+
+1. **生成三件套 artifact**（`conflict-<target>`）：
+   - `source.patch` / `target.patch` / `diverge.patch` — 三方 diff（base ↔ source ↔ target）
+   - `conflict_files.txt` — 冲突文件清单
+   - `file_history.md` — 每个冲突文件的源/目标最近 5 次改动
+2. **创建 draft PR**，body 含「⚠️ Cherry-pick 冲突」段与解决指引
+3. **自动 assign 源 PR 作者** 为 reviewer
+4. **应用 `conflicted-sync` label**
+
+#### 人工解决步骤
+
+1. 下载 `conflict-<target>` artifact
+2. 本地复现冲突：
+   ```bash
+   git fetch origin <target>
+   git checkout <target>
+   git cherry-pick -x <CONFLICT_SHA>
+   git cherry-pick --continue
+   ```
+3. push 到 `channel-sync/<src>-<target>` 分支
+4. 合并 draft PR → **resume workflow 自动 cherry-pick 剩余 commits**
+
+#### 续跑机制
+
+`channel-sync-resume.yml` 监听带 `conflicted-sync` label 的 sync PR 被合并：
+
+- 解析 PR body 的 `auto-sync-source` / `auto-sync-target` markers
+- 计算 target 还缺哪些 commits
+- 复用 cherry-pick 逻辑创建 `🔁 [resume]` PR
+- 嵌套 ≤ 2 层（连续 resume 后再冲突，超出后人工处理）
+
 ## 禁止操作
 
 - 渠道回退(stable → beta 不允许)
