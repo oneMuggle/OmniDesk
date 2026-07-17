@@ -93,7 +93,130 @@
 - `llm_service` 降级链（Ollama → 远程 API → 兜底）
 - Celery 异步任务 `execute_agent_task`
 
-## 8. 关联参考
+## 8. 实战 Demo:传感器异常分析报告(Plan 3 新增)
+
+### 8.1 场景描述
+
+**用户问句:** "分析本月所有传感器异常,生成根因报告 + 整改建议"
+
+**Supervisor 分解输出:**
+```json
+{
+  "objective": "分析本月传感器异常并生成根因报告",
+  "execution_mode": "pipeline",
+  "subtasks": [
+    {
+      "id": "researcher",
+      "role": "researcher",
+      "objective": "采集本月传感器异常数据",
+      "inputs": {"query": "本月传感器异常记录"},
+      "failure_mode": "retry",
+      "depends_on": [],
+      "quality_gate": ["anomalies 数量 >= 1"]
+    },
+    {
+      "id": "analyst",
+      "role": "analyst",
+      "objective": "模式识别 + 异常归因",
+      "inputs": {"anomalies": "$researcher.anomalies"},
+      "failure_mode": "retry",
+      "depends_on": ["researcher"],
+      "quality_gate": ["root_causes 数量 >= 1"]
+    }
+  ],
+  "final_synthesis": {
+    "id": "writer",
+    "role": "writer",
+    "objective": "撰写根因报告 + 整改建议",
+    "inputs": {
+      "anomalies": "$researcher.anomalies",
+      "root_causes": "$analyst.root_causes"
+    },
+    "depends_on": ["researcher", "analyst"]
+  },
+  "global_budget": 20000,
+  "timeout_seconds": 600
+}
+```
+
+### 8.2 执行流程
+
+```
+Supervisor(LLM 分解, few-shot 示例辅助)
+    ↓
+    ├─ SubTask 1: researcher
+    │    工具: sensor_tool
+    │    产出: anomalies: [{sensor_id, timestamp, severity}]
+    │    → 持久化到 AgentSubTask DB(status=completed)
+    │
+    ├─ SubTask 2: analyst
+    │    输入: $researcher.anomalies(SharedContext 自动注入)
+    │    产出: root_causes: [{cause, frequency, impact}]
+    │    → 持久化到 AgentSubTask DB
+    │
+    └─ SubTask 3: writer(final_synthesis)
+         输入: $researcher.anomalies + $analyst.root_causes
+         产出: 完整 Markdown 报告
+         → 持久化到 AgentSubTask DB
+```
+
+### 8.3 断点恢复示例
+
+**场景:** 执行到 analyst 时 worker 被 kill,researcher 已完成。
+
+**恢复流程:**
+```python
+# 1. 从 DB 加载任务
+result = MultiAgentExecutor.resume_from_checkpoint(
+    task_id="xxx-xxx-xxx",
+    llm_router=llm_router,
+    tool_registry=tool_registry,
+)
+
+# 2. resume_from_checkpoint 内部:
+#    - 加载 AgentTask + 已完成的 AgentSubTask
+#    - 重建 SharedContext(从 completed subtask 的 output)
+#    - 跳过 researcher(已完成),从 analyst 继续
+#    - 继续执行 writer
+
+# 3. 最终结果与无中断情况一致
+assert result.status == "success"
+```
+
+### 8.4 审计回放
+
+所有事件写入 `AgentEvent` 表,sequence 严格递增:
+```
+seq=1: task.started
+seq=2: subtask.started(researcher)
+seq=3: subtask.completed(researcher, tokens=100)
+seq=4: subtask.started(analyst)
+seq=5: subtask.completed(analyst, tokens=200)
+seq=6: subtask.started(writer)
+seq=7: subtask.completed(writer, tokens=300)
+seq=8: task.completed(status=success, total_tokens=600)
+```
+
+可通过 `/api/smart-assistant/tasks/{id}/events/` API 获取完整事件流,用于:
+- SSE 实时推送前端进度
+- 故障排查(事件回放)
+- 运营分析(成功率 / 平均耗时 / Token 消耗)
+
+### 8.5 测试覆盖
+
+| 测试文件 | 测试数量 | 覆盖点 |
+|---|---|---|
+| `test_supervisor_decomposition.py` | 5 | Supervisor 分解 + few-shot |
+| `test_audit_event.py` | 3 | AuditLogHook 事件写入 |
+| `test_multi_agent_resume.py` | 5 | 断点恢复 5 场景 |
+| `test_multi_agent_complex.py` | 2 | 完整 E2E + resume E2E |
+| **合计** | **15** | Plan 3 全部验收点 |
+
+---
+
+> 📅 最近更新:2026-07-17 — Plan 3 实战 demo 章节新增
+
+## 9. 关联参考
 
 - 设计灵感：`claw-code` (ultraworkers/claw-code) — Worker Boot / Task Packet / Recovery Recipes / Lane Event Sourcing
 - 关联计划：`docs/plans/2026-06-21_multi-agent-collaboration.md`（**已归档，删档**）
