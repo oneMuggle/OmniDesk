@@ -56,6 +56,7 @@ class MockLLMRouter:
         self.call_count += 1
 
         import json
+
         return json.dumps(output), {"total_tokens": 100}
 
 
@@ -139,11 +140,13 @@ class TestFullPipelineWithDBPersistence:
         agent_task.save()
 
         # Mock LLMRouter(每个 subtask 返回不同输出)
-        llm_router = MockLLMRouter(subtask_outputs={
-            "step1": {"data": "research_result"},
-            "step2": {"analysis": "analysis_result"},
-            "step3": {"report": "final_report"},
-        })
+        llm_router = MockLLMRouter(
+            subtask_outputs={
+                "step1": {"data": "research_result"},
+                "step2": {"analysis": "analysis_result"},
+                "step3": {"report": "final_report"},
+            }
+        )
 
         # 创建 executor(启用 DB 持久化)
         executor = MultiAgentExecutor(
@@ -188,6 +191,7 @@ class TestResumeFromCheckpoint:
 
         # 保存 task_packet
         agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.status = "paused"  # 恢复前状态应为 paused/failed,不能是 running(防并发)
         agent_task.save()
 
         # 模拟:step1 已完成,step2/step3 未完成
@@ -216,10 +220,12 @@ class TestResumeFromCheckpoint:
         )
 
         # Mock LLMRouter
-        llm_router = MockLLMRouter(subtask_outputs={
-            "step2": {"analysis": "new_analysis"},
-            "step3": {"report": "new_report"},
-        })
+        llm_router = MockLLMRouter(
+            subtask_outputs={
+                "step2": {"analysis": "new_analysis"},
+                "step3": {"report": "new_report"},
+            }
+        )
 
         # 从 checkpoint 恢复
         result = MultiAgentExecutor.resume_from_checkpoint(
@@ -232,9 +238,7 @@ class TestResumeFromCheckpoint:
         assert result.status == "success"
 
         # 验证 LLM 只被调用 2 次(step2 + step3,step1 被跳过)
-        assert llm_router.call_count == 2, (
-            f"LLM 应被调用 2 次(step2 + step3),实际 {llm_router.call_count} 次"
-        )
+        assert llm_router.call_count == 2, f"LLM 应被调用 2 次(step2 + step3),实际 {llm_router.call_count} 次"
 
         # 验证 DB 中所有 subtask 现在都是 completed
         subtasks = list(AgentSubTask.objects.filter(task=agent_task))
@@ -251,6 +255,7 @@ class TestResumeContextConsistency:
         from smart_assistant.models import AgentSubTask
 
         agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.status = "paused"  # 防并发:恢复前不能是 running
         agent_task.save()
 
         # 模拟:step1 已完成,artifacts 已保存
@@ -264,10 +269,12 @@ class TestResumeContextConsistency:
             tokens_used=100,
         )
 
-        llm_router = MockLLMRouter(subtask_outputs={
-            "step2": {"analysis": "analysis_based_on_research"},
-            "step3": {"report": "final"},
-        })
+        llm_router = MockLLMRouter(
+            subtask_outputs={
+                "step2": {"analysis": "analysis_based_on_research"},
+                "step3": {"report": "final"},
+            }
+        )
 
         # 恢复执行
         result = MultiAgentExecutor.resume_from_checkpoint(
@@ -307,9 +314,11 @@ class TestPauseResume:
         )
 
         # 第一次执行(只跑 step1,然后 pause)
-        llm_router_1 = MockLLMRouter(subtask_outputs={
-            "step1": {"data": "result1"},
-        })
+        llm_router_1 = MockLLMRouter(
+            subtask_outputs={
+                "step1": {"data": "result1"},
+            }
+        )
 
         executor_1 = MultiAgentExecutor(
             task_packet=three_subtask_packet,
@@ -326,10 +335,12 @@ class TestPauseResume:
         assert agent_task.status == "paused", f"任务状态应为 paused,实际 {agent_task.status}"
 
         # 第二次执行(resume)
-        llm_router_2 = MockLLMRouter(subtask_outputs={
-            "step2": {"analysis": "result2"},
-            "step3": {"report": "result3"},
-        })
+        llm_router_2 = MockLLMRouter(
+            subtask_outputs={
+                "step2": {"analysis": "result2"},
+                "step3": {"report": "result3"},
+            }
+        )
 
         result = MultiAgentExecutor.resume_from_checkpoint(
             task_id=str(agent_task.task_id),

@@ -25,9 +25,18 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from django.db import DatabaseError, IntegrityError
+
 from ..base import RecoveryAction, ToolHookBase
 
 logger = logging.getLogger(__name__)
+
+
+# 关键异常类型(审计功能失效,需要立即关注)
+CRITICAL_DB_ERRORS = (
+    DatabaseError,  # DB 连接断开、查询超时等
+    IntegrityError,  # 唯一约束违反、外键约束等
+)
 
 
 class AuditLogHook(ToolHookBase):
@@ -101,8 +110,14 @@ class AuditLogHook(ToolHookBase):
 
             logger.debug(f"AuditLogHook: 写入 AgentLog(tool={tool_name}, success=True)")
 
+        except CRITICAL_DB_ERRORS as e:
+            # 关键 DB 错误(审计功能失效)→ ERROR 级别,需要运维关注
+            logger.error(
+                f"AuditLogHook.post_execute DB 关键错误(审计可能失效): {e}",
+                exc_info=True,
+            )
         except Exception as e:
-            # Hook 出错不应影响主流程
+            # 非关键错误(字段校验等)→ WARNING,不影响主流程
             logger.warning(f"AuditLogHook.post_execute 出错: {e}", exc_info=True)
 
         return result
@@ -138,6 +153,11 @@ class AuditLogHook(ToolHookBase):
 
             logger.debug(f"AuditLogHook: 写入 AgentLog(tool={tool_name}, success=False)")
 
+        except CRITICAL_DB_ERRORS as e:
+            logger.error(
+                f"AuditLogHook.on_failure DB 关键错误(审计可能失效): {e}",
+                exc_info=True,
+            )
         except Exception as e:
             logger.warning(f"AuditLogHook.on_failure 出错: {e}", exc_info=True)
 
@@ -267,10 +287,13 @@ class AuditLogHook(ToolHookBase):
                 payload=payload,
             )
 
-            logger.debug(
-                f"AuditLogHook: 写入 AgentEvent(seq={sequence}, type={event_type})"
-            )
+            logger.debug(f"AuditLogHook: 写入 AgentEvent(seq={sequence}, type={event_type})")
 
+        except CRITICAL_DB_ERRORS as e:
+            logger.error(
+                f"AuditLogHook._write_agent_event DB 关键错误(seq={self._sequence_counter}, type={event_type}): {e}",
+                exc_info=True,
+            )
         except Exception as e:
             logger.warning(f"AuditLogHook._write_agent_event 出错: {e}", exc_info=True)
 

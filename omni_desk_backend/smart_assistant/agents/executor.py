@@ -647,6 +647,7 @@ class MultiAgentExecutor:
         db_status = status_map.get(result.status, result.status)
 
         try:
+            from django.db import DatabaseError, IntegrityError
             from smart_assistant.models import AgentSubTask, AgentTask
 
             # 获取 AgentTask
@@ -671,13 +672,17 @@ class MultiAgentExecutor:
                 },
             )
 
-            logger.debug(
-                f"Executor: 持久化 SubTask {subtask.id} → DB "
-                f"(status={db_status}, created={created})"
-            )
+            logger.debug(f"Executor: 持久化 SubTask {subtask.id} → DB (status={db_status}, created={created})")
 
+        except (DatabaseError, IntegrityError) as e:
+            # 关键 DB 错误(连接断开/约束违反)→ ERROR 级别
+            # 注意: 这种情况下 subtask 结果未持久化, resume 时会重新执行
+            logger.error(
+                f"Executor._persist_subtask_result DB 关键错误(subtask={subtask.id}, status={db_status}): {e}",
+                exc_info=True,
+            )
         except Exception as e:
-            # DB 失败不应影响主流程
+            # 非关键错误(字段校验等)→ WARNING,不影响主流程
             logger.warning(f"Executor._persist_subtask_result 出错: {e}", exc_info=True)
 
     def pause(self) -> None:
@@ -693,8 +698,13 @@ class MultiAgentExecutor:
         # 更新 DB 状态(如果启用)
         if self.agent_task_id:
             try:
+                from django.db import transaction
                 from smart_assistant.models import AgentTask
-                AgentTask.objects.filter(task_id=self.agent_task_id).update(status="paused")
+
+                # 事务保护:确保 status 更新原子性,避免中间状态
+                with transaction.atomic():
+                    AgentTask.objects.filter(task_id=self.agent_task_id).update(status="paused")
+                logger.debug(f"Executor: AgentTask {self.agent_task_id} status → paused (事务提交)")
             except Exception as e:
                 logger.warning(f"Executor.pause 更新 DB 出错: {e}", exc_info=True)
 
@@ -722,10 +732,19 @@ class MultiAgentExecutor:
         """
         from smart_assistant.models import AgentTask, AgentSubTask
         from .task_packet import TaskPacket
+        from django.db import transaction
 
-        # 加载 AgentTask
+        # 加载 AgentTask(使用 select_for_update 防并发恢复竞争)
         try:
-            agent_task = AgentTask.objects.get(task_id=task_id)
+            with transaction.atomic():
+                agent_task = AgentTask.objects.select_for_update().get(task_id=task_id)
+                # 防并发: 如果任务已在运行中, 拒绝重复恢复
+                if agent_task.status == "running":
+                    return TaskResult(
+                        task_id=task_id,
+                        status="failed",
+                        error_message=f"AgentTask {task_id} 已在运行中,拒绝并发恢复",
+                    )
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -768,9 +787,13 @@ class MultiAgentExecutor:
             f"已重建 {len(completed_subtasks)} 个 completed subtask 的 artifacts"
         )
 
-        # 更新任务状态为 running
-        agent_task.status = "running"
-        agent_task.save()
+        # 更新任务状态为 running(事务保护)
+        from django.db import transaction
+
+        with transaction.atomic():
+            agent_task.status = "running"
+            agent_task.save()
+        logger.debug(f"Executor.resume: AgentTask {task_id} status → running (事务提交)")
 
         # 继续执行(跳过已完成的 subtask)
         return executor._execute_resume()
