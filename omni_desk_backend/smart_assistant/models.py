@@ -383,3 +383,39 @@ class AgentEvent(models.Model):
 
     def __str__(self):
         return f"Event#{self.sequence} {self.event_type}"
+
+
+class ToolChainPlan(models.Model):
+    """多工具链执行计划的持久化记录。
+
+    用于断点恢复(分支 3)、审计追踪、plan 可视化。
+    """
+
+    STATUS_CHOICES = [
+        ("pending", "待执行"),
+        ("running", "执行中"),
+        ("completed", "已完成"),
+        ("failed", "失败"),
+    ]
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="tool_chain_plans",
+    )
+    plan_data = models.JSONField(default=dict)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="pending")
+    current_step = models.IntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = "smart_assistant_tool_chain_plan"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["user", "status"]),
+            models.Index(fields=["created_at"]),
+        ]
+
+    def __str__(self):
+        return f"ToolChainPlan(id={self.pk}, user={self.user_id}, status={self.status})"
