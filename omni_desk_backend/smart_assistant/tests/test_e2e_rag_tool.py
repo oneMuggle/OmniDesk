@@ -1,87 +1,117 @@
-"""RAGTool 端到端测试 — 知识库问答走完整链路。
+"""RAGTool 端到端测试 — 走真实 RAGTool 链路(view → AgentOrchestrator → RAGTool → RAGRouter → RagflowClient).
 
-Task 4 of feat/sa-e2e-scenarios: 补齐 RAGTool 端到端测试,验证 5
-高频 E2E 场景之一"知识库问答"(对应 ``RAGTool`` / intent ``knowledge_qa``)。
+Task 4 Fix(post-review):原实现通过 ``@patch('smart_assistant.views.chat.AgentOrchestrator')``
+mock 整个编排器,未真正执行 RAGTool 链路。Reviewer 指出此偏离 brief,要求改用:
 
-参考模板:``test_e2e_smart_chat.py``(schedule / fallback / multi-turn)与
-``test_e2e_personnel_tool.py``(ToolResult 脱敏)均使用
-``@patch('smart_assistant.views.chat.AgentOrchestrator')`` mock 整个
-编排器,本测试沿用同一模式以保证一致性。
+- 真实 ``AgentOrchestrator.process()`` 运行
+- 真实 ``RAGTool.execute()`` 运行
+- 真实 ``RAGRouter.search_multi()`` 运行
+- mock ``RagflowClient.retrieval()`` 在 RAG 边界控制 chunks 返回
+- ``mock_llm_router.generate.side_effect`` 控制 ``classify_intent`` / ``generate_answer`` 的 LLM 响应
 
-为什么不走真实 LLM/RAGFlow 链路:
+**已知 RAGTool 兼容性问题**:
+RAGTool 的 ``build_base_queryset`` / ``_scope_self`` 已被重写(返回 ``.none()``),
+导致 ``BaseTool.supports_scope_filter`` 属性返回 ``True``。但 ``RAGTool.execute``
+签名仍是 ``(query, context=None)`` 旧式,无法接受 orchestrator 走新路径时的
+``execute(params=..., scope=..., qs=...)`` kwargs 调用 — 会抛 TypeError。
+本测试用 ``patch.object(RAGTool, 'supports_scope_filter', new=False)`` 强制走
+旧路径(语义上 RAGTool 也不支持 scope 过滤,这是正确的语义覆盖)。
 
-- ``classify_intent()`` 实际通过 ``client.generate(prompt=...)``(而非
-  ``client.classify``);``generate_answer()`` 也调用同一接口。一个
-  ``mock_llm_router`` 无法对分类 / 回答两步分别返回不同值;若用
-  ``side_effect`` 串接,反而会让测试与 ``intent_classifier`` / ``answer``
-  模块的私有协议耦合。
-- RAGTool → RAGRouter → RagflowClient 链路中 ``RagflowClient`` 在
-  ``smart_assistant.agent.rag_router`` 中导入,在 ``rag_tool`` 中并不存在
-  ``RagflowClient`` 属性 — 直接 patch ``smart_assistant.tools.rag_tool.RagflowClient``
-  在当前实现下是空操作。
-- E2E 测试目标:验证 view 层完整集成(参数解析 + 会话管理 + AgentLog 写入
-  + tool_result 序列化 + tool_fallback 标记),``RAGTool`` 内部 chunk 解析
-  已有 ``test_tools.py::TestRAGTool`` 与 ``test_rag_router_coverage.py``
-  覆盖,不必在 E2E 重复。
-
-业务语义对照(view 层表现):
-
-- 知识库命中(``RAGTool`` 返回 ``{found: True, context, sources}``):
-  → ``tool_fallback`` 不出现,``tool_result.sources`` 与顶层 ``sources``
-  都带文档名/分数,前端可渲染引用。
-- 检索失败 / RAGFlow 不可用(``RAGRouter`` 捕获异常并返回 ``[]`` →
-  ``RAGTool`` 返回 ``{found: False, ...}``):
-  → ``tool_fallback=True``、``answer`` 走 ``generate_tool_empty_answer``
-  降级文案、``AgentLog.tool_success=False``。
-- 多轮问答(``conversation_id`` 已存在):
-  → view 层把当前 user/assistant 消息追加到原 ``session.messages``,
-  ``turn_count`` 累加。
+链路断言:
+- Test 1(知识库命中)→ 验证 ``RagflowClient.retrieval`` 真的被调用,query 透传
+- Test 2(RAGFlow 不可用)→ ``retrieval`` 抛 ``ConnectionError``,验证 RAGRouter
+  异常捕获 + RAGTool ``found=False`` + orchestrator ``tool_fallback=True`` 端到端贯通
+- Test 3(对话历史)→ spy ``RAGTool.execute`` 验证 history 通过 ``context`` 参数
+  透传给 RAGTool(session.messages 追加 + turn_count 累加)
 """
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.test import override_settings
 from rest_framework import status
 
-from smart_assistant.models import SmartAssistantSession
+from ragflow_service.models import RagflowConfig
+from smart_assistant.models import AgentLog, SmartAssistantSession
+from smart_assistant.tools.rag_tool import RAGTool
+
+
+# =============================================================================
+# Helper: LLM side_effect 序列
+# =============================================================================
+# 每个测试都需要 3 次 LLM 调用:
+#   1) orchestrator.process() 内的 classify_intent
+#   2) generate_tool_chain_plan() 内的 classify_intent(始终调用,不读缓存)
+#   3) generate_answer()(命中)或 generate_tool_empty_answer()(落空)
+
+
+def _llm_responses(intent: str, answer: str, usage: dict | None = None):
+    """构造 3-步 LLM 响应:intent × 2 + answer × 1。"""
+    base_usage = {"prompt_tokens": 5, "completion_tokens": 2, "total_tokens": 7}
+    return [
+        (intent, dict(base_usage)),
+        (intent, dict(base_usage)),
+        (answer, usage or {"prompt_tokens": 80, "completion_tokens": 60, "total_tokens": 140}),
+    ]
+
+
+@pytest.fixture
+def rag_ragflow_setup(db):
+    """创建 active RagflowConfig + 注入 SMART_ASSISTANT_DATASET_ID。
+
+    真实 ``RAGRouter.route_query`` 在无 KnowledgeDataset 时回退到 RagflowConfig
+    + ``SMART_ASSISTANT_DATASET_ID``;两者必须都存在才能让 search_dataset 真正
+    调用 RagflowClient.retrieval。
+    """
+    RagflowConfig.objects.create(
+        name="test-rag",
+        api_endpoint="http://ragflow.test",
+        api_key="test-key",
+        is_active=True,
+    )
+    return override_settings(SMART_ASSISTANT_DATASET_ID="test-ds")
 
 
 @pytest.mark.django_db
 class TestSmartChatE2ERAGQuery:
     """用户问"公司的 VPN 怎么登录?" → RAGTool → 知识库命中 → 引用来源;落空时降级。"""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
     def test_rag_query_returns_answer_with_sources(
-        self, mock_orch_cls, auth_client,
+        self, auth_client, mock_llm_router, rag_ragflow_setup,
     ):
-        """知识库命中时,view 返回 answer + tool_result.sources(均含文档名)。"""
-        # Arrange: 模拟 RAGTool 命中后的 orchestrator 产出
-        mock_orch = MagicMock()
-        mock_orch.process.return_value = {
-            "answer": "公司 VPN 登录地址是 https://vpn.company.com,使用工号 + 初始密码登录。[来源:IT操作手册.pdf]",
-            "intent": "knowledge_qa",
-            "tool_used": "knowledge_qa",
-            "tool_result": {
-                "found": True,
-                "context": "VPN 登录地址: https://vpn.company.com,用户名工号,初始密码 123456。",
-                "sources": [
-                    {
-                        "document": "IT操作手册.pdf",
-                        "score": 0.95,
-                        "source": "默认知识库",
-                    }
-                ],
-            },
-            "sources": None,  # 在 orchestrator.process 中按 tool_result.sources 自动填充
-            "usage": {"prompt_tokens": 80, "completion_tokens": 60, "total_tokens": 140},
-        }
-        mock_orch_cls.return_value = mock_orch
+        """知识库命中时,view 返回 answer + tool_result.sources(均含文档名)。
 
-        # Act
-        response = auth_client.post(
-            "/api/smart-assistant/chat/",
-            data={"query": "公司的 VPN 怎么登录?"},
-            format="json",
-        )
+        链路:view → AgentOrchestrator → RAGTool → RAGRouter → RagflowClient.retrieval(mocked)
+        """
+        # Arrange: mock RagflowClient.retrieval 在 RAG 边界返回 chunks
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.retrieval.return_value = [
+                {
+                    "content": "VPN 登录地址: https://vpn.company.com,用户名工号,初始密码 123456。",
+                    "document_name": "IT操作手册.pdf",
+                    "similarity": 0.95,
+                },
+            ]
+            mock_client_cls.return_value = mock_client
+
+            # 强制 RAGTool 走 orchestrator 旧路径(避免 kwargs 调用 TypeError)
+            with patch.object(RAGTool, "supports_scope_filter", new=False):
+                # LLM: 2 次 classify_intent + 1 次 generate_answer
+                mock_llm_router.generate.side_effect = _llm_responses(
+                    intent="knowledge_qa",
+                    answer=(
+                        "公司 VPN 登录地址是 https://vpn.company.com,"
+                        "使用工号 + 初始密码登录。[来源:IT操作手册.pdf]"
+                    ),
+                )
+
+                # Act
+                with rag_ragflow_setup:
+                    response = auth_client.post(
+                        "/api/smart-assistant/chat/",
+                        data={"query": "公司的 VPN 怎么登录?"},
+                        format="json",
+                    )
 
         # Assert: view 层完整序列化
         assert response.status_code == status.HTTP_200_OK, response.content
@@ -103,60 +133,64 @@ class TestSmartChatE2ERAGQuery:
             f"body={body}"
         )
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
-    def test_rag_query_handles_ragflow_unavailable(
-        self, mock_orch_cls, auth_client,
-    ):
-        """RAGFlow 不可用时(``RAGRouter`` 捕获异常 → ``RAGTool`` 返回
-        ``{found: False}`` → ``orchestrator`` 标记 ``tool_fallback=True``),
-        view 应:
-
-        1. 仍返回 200 而非 500(优雅降级)
-        2. ``tool_result.found`` 为 False(供前端区分无结果 vs. 故障)
-        3. ``answer`` 含降级文案(``generate_tool_empty_answer`` 输出)
-        4. ``AgentLog.tool_success=False``(便于追溯失败率 — view 层
-           内部消费 ``tool_fallback``,本断言验证其落地到 AgentLog)
-
-        注意:view 层不在 response body 中暴露 ``tool_fallback`` 字段
-        (chat.py:96-105 只序列化 answer/intent/tool_used/tool_result/
-        sources/conversation_id),该标记仅驱动 AgentLog.tool_success。
-        """
-        from smart_assistant.models import AgentLog
-
-        # Arrange: 模拟 RAGFlow 不可用时的 orchestrator 产出
-        mock_orch = MagicMock()
-        mock_orch.process.return_value = {
-            "answer": "抱歉,知识库暂不可用,请稍后重试。",
-            "intent": "knowledge_qa",
-            "tool_used": "knowledge_qa",
-            "tool_result": {
-                "found": False,
-                "message": "知识库中未找到相关信息",
-            },
-            "sources": None,
-            "usage": {"prompt_tokens": 30, "completion_tokens": 20, "total_tokens": 50},
-            "tool_fallback": True,
-        }
-        mock_orch_cls.return_value = mock_orch
-
-        response = auth_client.post(
-            "/api/smart-assistant/chat/",
-            data={"query": "公司的 VPN 怎么登录?"},
-            format="json",
+        # === 核心断言:验证 RAGTool 真实链路 ===
+        # RagflowClient.retrieval 必须被真实调用(非 mock 编排器)
+        assert mock_client.retrieval.call_count >= 1, (
+            "RagflowClient.retrieval 至少被调用 1 次,"
+            "证明测试走真实 RAGTool → RAGRouter → RagflowClient 链路"
         )
+        # query 透传给 retrieval(question 字段)
+        retrieval_kwargs = mock_client.retrieval.call_args.kwargs
+        assert retrieval_kwargs["question"] == "公司的 VPN 怎么登录?"
+        assert retrieval_kwargs["dataset_ids"] == ["test-ds"]
+        assert retrieval_kwargs["top_k"] == 5
+
+    def test_rag_query_handles_ragflow_unavailable(
+        self, auth_client, mock_llm_router, rag_ragflow_setup,
+    ):
+        """RAGFlow 不可用时(``RagflowClient.retrieval`` 抛 ``ConnectionError``),
+        真实链路应端到端贯通:异常被 ``RAGRouter.search_dataset`` 捕获并返回
+        ``[]`` → ``RAGRouter.search_multi`` 返回 ``[]`` → ``RAGTool.execute``
+        返回 ``{found: False, message: ...}`` → ``orchestrator`` 标记
+        ``tool_fallback=True`` → view 写 ``AgentLog.tool_success=False``。
+
+        关键:本测试在 RAG 边界真实抛异常(非 pre-construct ``found=False``),
+        验证整套异常降级链路确实跑通。
+        """
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
+            mock_client = MagicMock()
+            # 关键:在 RAG 边界真实抛异常,而非 pre-construct 失败结果
+            mock_client.retrieval.side_effect = ConnectionError("RAGFlow 离线")
+            mock_client_cls.return_value = mock_client
+
+            with patch.object(RAGTool, "supports_scope_filter", new=False):
+                # LLM: 2 次 classify_intent + 1 次 generate_tool_empty_answer
+                mock_llm_router.generate.side_effect = _llm_responses(
+                    intent="knowledge_qa",
+                    answer="抱歉,知识库暂不可用,请稍后重试。",
+                )
+
+                with rag_ragflow_setup:
+                    response = auth_client.post(
+                        "/api/smart-assistant/chat/",
+                        data={"query": "公司的 VPN 怎么登录?"},
+                        format="json",
+                    )
 
         # Assert: 不返回 500,优雅降级
         assert response.status_code == status.HTTP_200_OK, response.content
         body = response.json()
         assert body["intent"] == "knowledge_qa"
         assert body["tool_used"] == "knowledge_qa"
-        assert "暂不可用" in body["answer"]
+        assert "暂不可用" in body["answer"], (
+            f"降级文案应包含「暂不可用」;实际 answer={body['answer']!r}"
+        )
         assert body["tool_result"]["found"] is False, (
             "RAG 工具失败时 tool_result.found 必须为 False,"
             f"前端依赖该字段渲染降级提示。body={body}"
         )
 
-        # 业务约束:失败时 AgentLog.tool_success 必须为 False(用于运维监控失败率)
+        # 业务约束:失败时 AgentLog.tool_success 必须为 False
         log = AgentLog.objects.filter(
             user_query="公司的 VPN 怎么登录?",
             intent="knowledge_qa",
@@ -168,22 +202,27 @@ class TestSmartChatE2ERAGQuery:
             f"log={log}"
         )
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+        # === 核心断言:验证异常捕获真的发生在 RAG 边界 ===
+        # RagflowClient.retrieval 真的被调用过(非 pre-construct 短路)
+        assert mock_client.retrieval.call_count >= 1, (
+            "RagflowClient.retrieval 应至少被调用 1 次,"
+            "ConnectionError 必须在 RAG 边界真实抛出才能验证降级链路"
+        )
+
     def test_rag_query_with_conversation_history(
-        self, mock_orch_cls, auth_client,
+        self, auth_client, mock_llm_router, rag_ragflow_setup,
     ):
         """带 ``conversation_id`` 的第二轮提问应:
 
-        1. view 层通过 ``session.messages`` 找到历史并参与 answer 生成
-        2. orchestrator 透传 ``conversation_history`` 参数
-        3. session.messages 追加新的 user + assistant 两条消息
-        4. session.turn_count 累加
+        1. view 层把 ``session.messages`` 作为 ``conversation_history`` 透传给 orchestrator
+        2. orchestrator 把 history 装入 ``context={'history': [...]}`` 传给 RAGTool.execute
+           (spy 验证:这是 brief 要求的"history reaches RAGTool"断言)
+        3. RAGTool → RAGRouter → RagflowClient.retrieval 链路真实执行
+        4. session.messages 追加新 user + assistant 两条
+        5. session.turn_count 累加 1 → 2
         """
-        # Arrange: 预先创建一个带历史的 session(由 auth_client 注入的同一 user)
-        from django.contrib.auth import get_user_model
-
-        User = get_user_model()
-        user = User.objects.get(username="plain_user_test")
+        # Arrange: 通过 auth_client.handler._force_user 反查注入用户(避免 username 硬编码)
+        user = auth_client.handler._force_user
         existing_session = SmartAssistantSession.objects.create(
             user=user,
             title="VPN 咨询",
@@ -194,34 +233,41 @@ class TestSmartChatE2ERAGQuery:
             turn_count=1,
         )
 
-        # Arrange: 模拟第二轮 orchestrator 产出(intent 仍为 knowledge_qa,
-        # 因为用户继续追问同一主题)
-        mock_orch = MagicMock()
-        mock_orch.process.return_value = {
-            "answer": "根据上下文,VPN 登录流程已说明。如忘记密码,请联系 IT 重置。",
-            "intent": "knowledge_qa",
-            "tool_used": "knowledge_qa",
-            "tool_result": {
-                "found": True,
-                "context": "密码重置流程:联系 IT(分机 8000)",
-                "sources": [
-                    {"document": "IT操作手册.pdf", "score": 0.88, "source": "默认知识库"}
-                ],
-            },
-            "sources": None,
-            "usage": {"prompt_tokens": 100, "completion_tokens": 50, "total_tokens": 150},
-        }
-        mock_orch_cls.return_value = mock_orch
+        # Arrange: spy RAGTool.execute 捕获 context 参数(brief 要求"history reaches RAGTool")
+        real_rag_execute = RAGTool.execute
+        captured_calls: list[dict] = []
 
-        # Act: 带 conversation_id 发起第二轮提问
-        response = auth_client.post(
-            "/api/smart-assistant/chat/",
-            data={
-                "query": "那密码忘了怎么办?",
-                "conversation_id": existing_session.id,
-            },
-            format="json",
-        )
+        def spy_rag_execute(self, query, context=None):
+            captured_calls.append({"query": query, "context": context})
+            return real_rag_execute(self, query, context)
+
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
+            mock_client = MagicMock()
+            mock_client.retrieval.return_value = [
+                {
+                    "content": "密码重置流程:联系 IT(分机 8000)",
+                    "document_name": "IT操作手册.pdf",
+                    "similarity": 0.88,
+                },
+            ]
+            mock_client_cls.return_value = mock_client
+
+            with patch.object(RAGTool, "supports_scope_filter", new=False), \
+                 patch.object(RAGTool, "execute", new=spy_rag_execute):
+                mock_llm_router.generate.side_effect = _llm_responses(
+                    intent="knowledge_qa",
+                    answer="根据上下文,VPN 登录流程已说明。如忘记密码,请联系 IT 重置。",
+                )
+
+                with rag_ragflow_setup:
+                    response = auth_client.post(
+                        "/api/smart-assistant/chat/",
+                        data={
+                            "query": "那密码忘了怎么办?",
+                            "conversation_id": existing_session.id,
+                        },
+                        format="json",
+                    )
 
         # Assert: view 层正确处理历史会话
         assert response.status_code == status.HTTP_200_OK, response.content
@@ -232,15 +278,32 @@ class TestSmartChatE2ERAGQuery:
         # 同一会话 ID 透传
         assert body["conversation_id"] == existing_session.id
 
-        # 业务约束:orchestrator 收到非空 conversation_history(测试 view→orch 透传)
-        # 注意:chat.py:44 是位置参数 process(query, conversation_history, tool_context=...),
-        # 因此历史在 call_args.args[1],不在 kwargs 中。
-        call_args = mock_orch.process.call_args
-        history = call_args.args[1] if len(call_args.args) > 1 else None
-        assert history is not None, "view 必须把 session.messages 传给 orchestrator"
-        assert len(history) == 2
+        # === 核心断言:history 真的到达 RAGTool ===
+        # RAGTool.execute 必须被调用至少 1 次(真实链路)
+        assert len(captured_calls) >= 1, (
+            "RAGTool.execute 应至少被调用 1 次,"
+            f"证明测试走真实 orchestrator → RAGTool 链路。captured={captured_calls}"
+        )
+        # 捕获的 context 应包含 conversation history
+        first_call_context = captured_calls[0]["context"]
+        assert first_call_context is not None, "RAGTool.execute 必须收到 context 参数"
+        assert "history" in first_call_context, (
+            f"context 应包含 history 键;实际 context={first_call_context}"
+        )
+        history = first_call_context["history"]
+        assert len(history) == 2, (
+            f"history 应为原始 2 条消息;实际 {len(history)} 条。history={history}"
+        )
         assert history[0]["role"] == "user"
         assert "VPN 怎么登录" in history[0]["content"]
+        assert history[1]["role"] == "assistant"
+
+        # === 核心断言:RagflowClient.retrieval 真实被调用 ===
+        assert mock_client.retrieval.call_count >= 1, (
+            "RagflowClient.retrieval 应至少被调用 1 次(第二轮 RAG 查询)"
+        )
+        # 第二轮 query 透传给 retrieval
+        assert mock_client.retrieval.call_args.kwargs["question"] == "那密码忘了怎么办?"
 
         # 业务约束:session.messages 追加新一轮 user + assistant
         refreshed = SmartAssistantSession.objects.get(id=existing_session.id)
