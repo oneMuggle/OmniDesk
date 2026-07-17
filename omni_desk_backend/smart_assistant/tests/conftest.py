@@ -256,3 +256,46 @@ def auth_client_admin(db):
     client = APIClient()
     client.force_authenticate(user=user)
     return client
+
+
+# =============================================================================
+# Personnel Factory (Task 3)
+# =============================================================================
+# 工厂函数:按 ``Personnel`` 实际字段(name / department / phone_number /
+# position)创建测试数据,供 E2E 测试使用。
+#
+# 注:PersonnelTool 走 ``Personnel.objects.filter(name__icontains=...)``,
+# 因此 fixture 入参需提供 ``name`` 字段(department / phone_number /
+# position_name 可选,用于验证脱敏与 scope 隔离)。
+# =============================================================================
+
+
+@pytest.fixture
+def personnel_user_factory(db):
+    """创建 ``Personnel`` 记录的工厂函数。
+
+    Returns:
+        Callable[..., Personnel]: 接受 kwargs 字段(``name`` 必填,
+            ``department`` / ``phone_number`` / ``position_name`` / ``status`` 可选)。
+    """
+    from personnel.models import Personnel, Position
+
+    def factory(
+        name,
+        department="",
+        phone_number="",
+        position_name=None,
+        status="active",
+    ):
+        position = None
+        if position_name:
+            position, _ = Position.objects.get_or_create(name=position_name)
+        return Personnel.objects.create(
+            name=name,
+            department=department,
+            phone_number=phone_number,
+            position=position,
+            status=status,
+        )
+
+    return factory
