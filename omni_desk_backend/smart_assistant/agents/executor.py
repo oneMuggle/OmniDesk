@@ -214,6 +214,8 @@ class MultiAgentExecutor:
                 subtask_results.append(synth_result)
                 if synth_result.status == "success":
                     final_output = synth_result.output
+                # Plan 3: 持久化 final_synthesis 到 DB
+                self._persist_subtask_result(self.task_packet.final_synthesis, synth_result)
 
             # 判断任务状态
             failed_count = sum(1 for r in subtask_results if r.status == "failed")
