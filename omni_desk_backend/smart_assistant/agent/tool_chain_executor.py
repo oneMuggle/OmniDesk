@@ -51,6 +51,7 @@ def _replace_variables(params, step_results: dict):
     支持字符串/字典/列表嵌套;无法解析时保留原占位符(便于失败诊断)。
     """
     if isinstance(params, str):
+
         def repl(m):
             ref = m.group(1)
             parts = ref.split(".", 1)
@@ -118,7 +119,10 @@ class ToolChainExecutor:
             step_label = f"step{idx + 1}"
             start_time = time.time()
             result = self._execute_step_with_strategy(
-                step, step_label, step_results, context,
+                step,
+                step_label,
+                step_results,
+                context,
             )
             result["latency_ms"] = int((time.time() - start_time) * 1000)
             step_results[step_label] = result
@@ -128,7 +132,11 @@ class ToolChainExecutor:
         return output
 
     def _execute_step_with_strategy(
-        self, step: "PlanStep", step_label: str, step_results: dict, context: "ToolContext",
+        self,
+        step: "PlanStep",
+        step_label: str,
+        step_results: dict,
+        context: "ToolContext",
     ) -> dict:
         """按 ``on_failure`` 策略执行单步,失败时根据策略返回不同 status。"""
         resolved_params = _replace_variables(step.params, step_results)
@@ -167,7 +175,11 @@ class ToolChainExecutor:
             return tool.execute(query=query, context=context)
 
     def _build_failure_result(
-        self, step: "PlanStep", step_label: str, attempts: int, last_error: Exception | None,
+        self,
+        step: "PlanStep",
+        step_label: str,
+        attempts: int,
+        last_error: Exception | None,
     ) -> dict:
         """根据 on_failure 构建失败结果 dict。"""
         error_str = str(last_error) if last_error else "未知错误"

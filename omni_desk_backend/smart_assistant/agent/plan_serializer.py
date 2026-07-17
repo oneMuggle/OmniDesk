@@ -43,9 +43,7 @@ class PlanStep:
     def from_dict(cls, d: dict) -> "PlanStep":
         on_failure = d.get("on_failure", "skip")
         if on_failure not in VALID_ON_FAILURE:
-            raise PlanValidationError(
-                f"on_failure 必须是 {VALID_ON_FAILURE} 之一,收到: {on_failure!r}"
-            )
+            raise PlanValidationError(f"on_failure 必须是 {VALID_ON_FAILURE} 之一,收到: {on_failure!r}")
         return cls(
             tool=d["tool"],
             params=d.get("params", {}),
