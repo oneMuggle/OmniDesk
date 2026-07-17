@@ -84,10 +84,15 @@ class TestSmartChatE2EPersonnelQuery:
         assert body["tool_result"]["personnel"][0]["department"] == "开发部"
 
     @patch('smart_assistant.views.chat.AgentOrchestrator')
-    def test_personnel_query_returns_empty_for_unknown_person(
+    def test_personnel_query_returns_empty_when_no_match(
         self, mock_orch_cls, auth_client,
     ):
-        """不存在的姓名应返回 found=False(无结果)而非 500。"""
+        """查询无匹配的人员时,view 层不应返回 500,而应给出空结果/友好提示。
+
+        注意:PersonnelTool 按 ``name__icontains`` 过滤,**不按 department 过滤**,
+        因而本测试不专门验证"某部门找不到"的语义;只验证"查询无匹配"时
+        orchestrator 返回 ``found=False``、view 层 200 + answer 含"未找到"。
+        """
         mock_orch = MagicMock()
         # 模拟 orchestrator 检测到 found=False 时走 tool_empty 路径,
         # 合成"未找到..."自然语言回答。
@@ -122,8 +127,16 @@ class TestSmartChatE2EPersonnelQuery:
     def test_personnel_query_does_not_leak_sensitive_fields(
         self, mock_orch_cls, auth_client, personnel_user_factory,
     ):
-        """普通用户查询他人时,SELF scope 过滤应使 found=False,手机号永不暴露。"""
-        # Arrange: 数据库中存在王五(含手机号),但 plain user 无权查看
+        """响应体中应只包含 phone_number 的脱敏形式,原始手机号永远不应出现。
+
+        场景:orchestrator 已通过 PersonnelTool 执行查询并返回 ``found=True`` +
+        人员列表(其中 ``phone_number`` 是已经过 ``_mask_phone`` 字段级脱敏的
+        ``138****0000`` 形式)。view 层必须原样透传脱敏值,任何"还原明文"的
+        路径都会让 ``13800000000`` 进入 response body,被本测试捕获。
+        """
+        # Arrange: 数据库中存在王五(含完整手机号),PersonnelTool 内部会对它
+        # 做脱敏后才放进 tool_result.personnel;这里我们在 mock 中直接放置
+        # 已脱敏的形式,模拟 orchestrator 走完 PersonnelTool 后的产出。
         personnel_user_factory(
             name="王五",
             department="开发部",
@@ -131,19 +144,26 @@ class TestSmartChatE2EPersonnelQuery:
             position_name="高级工程师",
         )
         mock_orch = MagicMock()
-        # 模拟 orchestrator 走 _scope_self 后查不到结果(SELF scope 仅返回
-        # 当前 user 关联的 Personnel),返回 found=False + 友好提示。
         mock_orch.process.return_value = {
-            "answer": "未找到与 开发部王五 匹配的人员。",
+            "answer": "王五是开发部高级工程师。",
             "intent": "personnel_query",
             "tool_used": "personnel_query",
             "tool_result": {
-                "found": False,
-                "message": "未找到与 \"开发部王五\" 匹配的人员",
+                "found": True,
+                "count": 1,
+                "personnel": [
+                    {
+                        "name": "王五",
+                        "department": "开发部",
+                        "position": "高级工程师",
+                        "status": "在职",
+                        # PersonnelTool 内部 _mask_phone() 的输出形式
+                        "phone_number": "138****0000",
+                    }
+                ],
             },
             "sources": None,
             "usage": {"prompt_tokens": 50, "completion_tokens": 30, "total_tokens": 80},
-            "tool_fallback": True,
         }
         mock_orch_cls.return_value = mock_orch
 
@@ -154,11 +174,18 @@ class TestSmartChatE2EPersonnelQuery:
             format="json",
         )
 
-        # Assert: 整个 response body 不应包含王五的手机号(脱敏/SELF scope 验证)
+        # Assert: 整个 response body 应只包含脱敏形式,绝不含明文手机号
         assert response.status_code == status.HTTP_200_OK
         body = response.json()
         full_response_str = json.dumps(body, ensure_ascii=False)
+
+        # 正向:脱敏形式在响应中(view 层正确透传 _mask_phone 产出)
+        assert "138****0000" in full_response_str, (
+            "脱敏字段未到达 response body:phone_number 脱敏形式缺失。"
+            f"body={body}"
+        )
+        # 反向:明文手机号绝不出现(任何路径的还原 / 旁路都会被这里捕获)
         assert "13800000000" not in full_response_str, (
-            "敏感字段(手机号)泄露:response body 中包含目标人员手机号。"
+            "敏感字段(手机号)泄露:response body 中包含目标人员手机号明文。"
             f"body={body}"
         )
