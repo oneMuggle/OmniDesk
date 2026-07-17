@@ -20,11 +20,36 @@ ANSWER_CACHE_TTL = 7200  # 常见回答: 2 小时
 
 CACHE_PREFIX = "smart_assistant:cache:"
 
+# 全局缓存版本号,工具代码或缓存 schema 升级时调用 bump_cache_version()
+# 递增后旧缓存自动失效(因 cache key 含本字段)
+CACHE_VERSION: int = 1
+
+
+def bump_cache_version() -> int:
+    """手动 bump 缓存版本号,旧缓存自动失效。
+
+    使用场景:
+    - 工具签名变更(返回结构变化)
+    - 意图分类 prompt 升级
+    - LLM 端点切换
+
+    Returns:
+        新的 cache_version 值
+    """
+    global CACHE_VERSION
+    CACHE_VERSION += 1
+    logger.info("Cache version bumped to %d (旧缓存自动失效)", CACHE_VERSION)
+    return CACHE_VERSION
+
 
 def _key(*parts):
-    """生成缓存 key。"""
+    """生成缓存 key。
+
+    所有缓存 key 包含 CACHE_VERSION 全局字段,工具升级时调用
+    ``bump_cache_version()`` 即可让旧缓存自动失效,无需手动清理。
+    """
     raw = ":".join(str(p) for p in parts)
-    return CACHE_PREFIX + hashlib.md5(raw.encode()).hexdigest()[:16]  # nosec B324 — cache key, not security
+    return CACHE_PREFIX + f"v{CACHE_VERSION}:" + hashlib.md5(raw.encode()).hexdigest()[:16]  # nosec B324 — cache key, not security
 
 
 def get_cached_intent(query, schemas, context_sig=""):
