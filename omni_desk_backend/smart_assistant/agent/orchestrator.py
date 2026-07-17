@@ -217,6 +217,9 @@ class AgentOrchestrator:
         Task 17 修复:在执行单工具路径前,先调用 ``generate_tool_chain_plan()``
         检测多工具场景;若命中,走 ``_process_chain()`` 让流式前端也能拿到
         ``aggregated_day`` 结构,触发 ``<AggregatedDayCard>`` 渲染。
+
+        Task 2 增强(SAIS Plan 1):在入口先查回答缓存,命中时直接 yield
+        cached answer + done,跳过完整编排(LLM 调用 + 工具执行)。
         """
         import json
 
@@ -225,6 +228,30 @@ class AgentOrchestrator:
 
         # Step 1: 意图分类
         schemas = ToolRegistry.get_all_schemas()
+
+        # Task 2 of feat/sa-e2e-scenarios: 流式路径回答缓存短路
+        # 若缓存命中且无对话历史,直接 yield cached answer + done,跳过 LLM 调用。
+        intent = None
+        if not has_history:
+            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
+            if cached_intent:
+                intent = cached_intent
+            else:
+                intent = classify_intent(user_query, schemas, conversation_history)
+                cache_intent(user_query, schemas, intent, context_sig=scope_sig)
+
+            cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
+            if cached_answer:
+                # 缓存命中,直接 yield 完整 answer + done(不动 LLM)
+                meta = json.dumps(
+                    {"type": "meta", "intent": intent, "cache_hit": True},
+                    ensure_ascii=False,
+                )
+                yield f"data: {meta}\n\n"
+                chunk = json.dumps({"type": "chunk", "content": cached_answer}, ensure_ascii=False)
+                yield f"data: {chunk}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'cache_hit': True})}\n\n"
+                return
 
         # Step 1.5 (Task 17): 检测多工具链式执行
         # 与 process() 对称:命中多工具计划时,先走 _process_chain() 拿到
@@ -253,15 +280,8 @@ class AgentOrchestrator:
             yield f"data: {json.dumps({'type': 'done'})}\n\n"
             return
 
-        # 缓存与意图分类(单工具路径,保持原行为)
-        if not has_history:
-            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
-            if cached_intent:
-                intent = cached_intent
-            else:
-                intent = classify_intent(user_query, schemas, conversation_history)
-                cache_intent(user_query, schemas, intent, context_sig=scope_sig)
-        else:
+        # Step 2 前的意图分类:has_history=True 时(或缓存短路未计算时)需计算
+        if intent is None:
             intent = classify_intent(user_query, schemas, conversation_history)
 
         # Step 2: 工具路由
