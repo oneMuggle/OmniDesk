@@ -36,18 +36,29 @@ class PlanStep:
     on_failure: str = "skip"
     retry_count: int = 2
 
+    def __post_init__(self) -> None:
+        """构造后立即校验,防止 LLM planner 注入非法 plan。"""
+        if not isinstance(self.tool, str) or not self.tool:
+            raise PlanValidationError(f"tool 必须是非空字符串,收到: {self.tool!r}")
+        if not isinstance(self.params, dict):
+            raise PlanValidationError(f"params 必须是 dict,收到: {type(self.params).__name__}")
+        if self.on_failure not in VALID_ON_FAILURE:
+            raise PlanValidationError(f"on_failure 必须是 {VALID_ON_FAILURE} 之一,收到: {self.on_failure!r}")
+        if not isinstance(self.retry_count, int) or self.retry_count < 1:
+            raise PlanValidationError(f"retry_count 必须是 >=1 的整数,收到: {self.retry_count!r}")
+
     def to_dict(self) -> dict:
         return asdict(self)
 
     @classmethod
     def from_dict(cls, d: dict) -> "PlanStep":
-        on_failure = d.get("on_failure", "skip")
-        if on_failure not in VALID_ON_FAILURE:
-            raise PlanValidationError(f"on_failure 必须是 {VALID_ON_FAILURE} 之一,收到: {on_failure!r}")
+        # 委托 __post_init__ 校验,避免重复逻辑
+        if not isinstance(d, dict):
+            raise PlanValidationError(f"PlanStep.from_dict 期望 dict,收到: {type(d).__name__}")
         return cls(
-            tool=d["tool"],
+            tool=d.get("tool", ""),
             params=d.get("params", {}),
-            on_failure=on_failure,
+            on_failure=d.get("on_failure", "skip"),
             retry_count=d.get("retry_count", 2),
         )
 

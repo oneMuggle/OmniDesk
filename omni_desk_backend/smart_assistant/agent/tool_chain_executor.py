@@ -118,28 +118,31 @@ class ToolChainExecutor:
         for idx, step in enumerate(plan.steps):
             step_label = f"step{idx + 1}"
             start_time = time.time()
+            resolved_params = _replace_variables(step.params, step_results)
             result = self._execute_step_with_strategy(
                 step,
                 step_label,
-                step_results,
+                resolved_params,
                 context,
             )
             result["latency_ms"] = int((time.time() - start_time) * 1000)
             step_results[step_label] = result
             output.append(result)
 
-            self._write_agent_log(context.user, step, result, idx + 1)
+            self._write_agent_log(context.user, step, result, idx + 1, resolved_params)
         return output
 
     def _execute_step_with_strategy(
         self,
         step: "PlanStep",
         step_label: str,
-        step_results: dict,
+        resolved_params: dict,
         context: "ToolContext",
     ) -> dict:
-        """按 ``on_failure`` 策略执行单步,失败时根据策略返回不同 status。"""
-        resolved_params = _replace_variables(step.params, step_results)
+        """按 ``on_failure`` 策略执行单步,失败时根据策略返回不同 status。
+
+        ``resolved_params`` 由调用方解析(避免重试时重复解析变量)。
+        """
         attempts = step.retry_count if step.on_failure == "retry" else 1
         last_error: Exception | None = None
 
@@ -164,15 +167,23 @@ class ToolChainExecutor:
         return self._build_failure_result(step, step_label, attempts, last_error)
 
     def _call_tool(self, tool, params, context: "ToolContext"):
-        """调用工具,优先支持新签名 ``execute(params, context)``。
+        """调用工具,与 ``_execute_single_tool`` 签名处理一致。
 
-        兼容旧签名 ``execute(query, context)``(取 params["query"] 作为 query)。
+        分支:
+        1. ``supports_scope_filter`` 工具 → 走 ``build_base_queryset`` + ``execute(params, scope, qs)``
+        2. 旧工具 → 走 ``execute(query=params.get("query"), context=context)``
+
+        旧工具签名 ``execute(self, query: str, context: dict = None)``(13 个工具)
+        仅支持 ``query`` 位置参数 — 把整个 ``params`` dict 透传会触发 TypeError 后
+        退化为 ``query=None``,丢失所有数据。修复方式:显式按签名分发,不依赖
+        TypeError 兜底。
         """
-        try:
-            return tool.execute(params=params, context=context)
-        except TypeError:
-            query = params.get("query") if isinstance(params, dict) else None
-            return tool.execute(query=query, context=context)
+        if getattr(tool, "supports_scope_filter", False):
+            base_qs = tool.build_base_queryset()
+            scoped_qs = tool.get_queryset_for_scope(base_qs, context)
+            return tool.execute(params=params, scope=context.scope, qs=scoped_qs)
+        query = params.get("query") if isinstance(params, dict) else None
+        return tool.execute(query=query, context=context)
 
     def _build_failure_result(
         self,
@@ -210,10 +221,22 @@ class ToolChainExecutor:
             "attempts": attempts,
         }
 
-    def _write_agent_log(self, user, step: "PlanStep", result: dict, step_index: int) -> None:
+    def _write_agent_log(
+        self,
+        user,
+        step: "PlanStep",
+        result: dict,
+        step_index: int,
+        resolved_params: dict,
+    ) -> None:
         """为每步执行写入 AgentLog(便于审计追踪)。
 
-        ``user`` 参数保留以备将来扩展(目前 AgentLog 通过 ``session`` FK 关联用户)。
+        Args:
+            user: ToolContext.user(目前 AgentLog 通过 ``session`` FK 关联用户)
+            step: 当前 PlanStep
+            result: ``_execute_step_with_strategy`` 返回的 dict
+            step_index: 1-based step 编号
+            resolved_params: 已解析 ``{{stepN.output.x}}`` 的最终参数(避免审计看到占位符)
         """
         try:
             from ..models import AgentLog
@@ -224,11 +247,12 @@ class ToolChainExecutor:
                 user_query=f"[chain step {step_index}] {step.tool}",
                 intent=f"chain:{step.tool}",
                 tool_used=step.tool,
-                tool_input=step.params,
+                tool_input=resolved_params,  # 已解析,审计可读
                 tool_output=result.get("output") or {},
                 llm_response="",  # 必填字段,工具链执行非 LLM 综合结果
                 response_time_ms=result.get("latency_ms", 0),
-                tool_success=result["status"] not in ("failed", "skipped"),
+                # 仅 success=True;fallback/skip/failed 均为 False(更准确反映工具可用性)
+                tool_success=result["status"] == "success",
             )
         except Exception as exc:
             logger.warning("AgentLog 写入失败 (step %s): %s", step.tool, exc)

@@ -2,6 +2,7 @@
 
 Task 1 of feat/sa-multi-tool-chain: 让 plan 可持久化、可断点恢复。
 """
+
 import pytest
 
 from smart_assistant.agent.plan_serializer import (
@@ -43,10 +44,12 @@ class TestPlanStep:
 
 class TestPlan:
     def test_plan_to_dict_serializes_steps(self):
-        plan = Plan(steps=[
-            PlanStep(tool="schedule", params={"query": "张三"}, on_failure="skip"),
-            PlanStep(tool="memo", params={"title": "{{step1.output.summary}}"}, on_failure="retry"),
-        ])
+        plan = Plan(
+            steps=[
+                PlanStep(tool="schedule", params={"query": "张三"}, on_failure="skip"),
+                PlanStep(tool="memo", params={"title": "{{step1.output.summary}}"}, on_failure="retry"),
+            ]
+        )
         d = plan.to_dict()
         assert "steps" in d
         assert len(d["steps"]) == 2

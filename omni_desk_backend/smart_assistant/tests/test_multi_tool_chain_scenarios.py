@@ -6,6 +6,7 @@ Pre-flight 修正:Plan 2 文档示例代码用 ``ToolRegistry.get_tool`` mock �
 与现有 ``ToolRegistry.get_tool_for_user(tool_name, user)`` 实际签名不一致。
 本测试已改用 ``get_tool_for_user`` 适配现状。
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -39,15 +40,17 @@ class TestChainScheduleToMemoToAnnouncement:
             MockReg.get_tool_for_user.side_effect = get_tool_for_user
 
             ctx = ToolContext(user=admin_user_obj)
-            plan = Plan(steps=[
-                PlanStep(tool="schedule", params={"query": "张三这周值班"}, on_failure="skip"),
-                PlanStep(
-                    tool="memo",
-                    params={"title": "{{step1.output.data[0].user}} 排班报告"},
-                    on_failure="skip",
-                ),
-                PlanStep(tool="announcement", params={"query": "最近公告"}, on_failure="skip"),
-            ])
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="schedule", params={"query": "张三这周值班"}, on_failure="skip"),
+                    PlanStep(
+                        tool="memo",
+                        params={"title": "{{step1.output.data[0].user}} 排班报告"},
+                        on_failure="skip",
+                    ),
+                    PlanStep(tool="announcement", params={"query": "最近公告"}, on_failure="skip"),
+                ]
+            )
 
             executor = ToolChainExecutor()
             results = executor.execute(plan, ctx)
@@ -81,19 +84,21 @@ class TestChainSensorToPersonnelToMemo:
             MockReg.get_tool_for_user.side_effect = get_tool_for_user
 
             ctx = ToolContext(user=admin_user_obj)
-            plan = Plan(steps=[
-                PlanStep(tool="sensor", params={"query": "本月异常"}, on_failure="skip"),
-                PlanStep(
-                    tool="personnel",
-                    params={"query": "{{step1.output.data[0].owner}}"},
-                    on_failure="skip",
-                ),
-                PlanStep(
-                    tool="memo",
-                    params={"title": "周报-{{step2.output.data[0].department}}"},
-                    on_failure="skip",
-                ),
-            ])
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="sensor", params={"query": "本月异常"}, on_failure="skip"),
+                    PlanStep(
+                        tool="personnel",
+                        params={"query": "{{step1.output.data[0].owner}}"},
+                        on_failure="skip",
+                    ),
+                    PlanStep(
+                        tool="memo",
+                        params={"title": "周报-{{step2.output.data[0].department}}"},
+                        on_failure="skip",
+                    ),
+                ]
+            )
 
             executor = ToolChainExecutor()
             results = executor.execute(plan, ctx)
@@ -124,10 +129,12 @@ class TestChainComplianceToProjectFallback:
             MockReg.get_tool_for_user.side_effect = get_tool_for_user
 
             ctx = ToolContext(user=admin_user_obj)
-            plan = Plan(steps=[
-                PlanStep(tool="compliance", params={"query": "近期合规问题"}, on_failure="skip"),
-                PlanStep(tool="project", params={"query": "关联项目"}, on_failure="fallback"),
-            ])
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="compliance", params={"query": "近期合规问题"}, on_failure="skip"),
+                    PlanStep(tool="project", params={"query": "关联项目"}, on_failure="fallback"),
+                ]
+            )
 
             executor = ToolChainExecutor()
             results = executor.execute(plan, ctx)
