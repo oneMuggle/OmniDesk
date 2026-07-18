@@ -51,6 +51,7 @@
 | 31 | [paperless-ngx 集成](31-paperless-integration.md) | paperless 集成架构、Outbox 写降级、联邦搜索、API、模型、部署、故障排查 |
 | 32 | [Smart Assistant 多 Agent](32-smart-assistant-multi-agent.md) | MultiAgentExecutor / Pipeline / Fanout / Hierarchical + Hook 系统（v0.5.0 已实现） |
 | 33 | [RAGFlow 集成](33-ragflow-integration.md) | RAGFlow API 客户端、Dataset/Chat 管理、docker-compose 部署、健康检查（v0.6.0-alpha.2 已实现） |
+| 34 | [Smart Assistant 性能基准](34-smart-assistant-perf-benchmark.md) | P95 / 50 并发 / 缓存 TTFB 实测数据与优化手段（SAIS 分支 4 性能验收） |
 
 ---
 
@@ -61,4 +62,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-07-16 — 文档归档新增 32 多 Agent 协作 + 33 RAGFlow 集成（从 docs/plans/ 删除 4 个 COVERED + 新建章节覆盖 2 个 NO_CHAPTER）。
+> 📅 最近更新:2026-07-18 — 新增 34 Smart Assistant 性能基准报告（SAIS 分支 4 Task 4 性能验收）。
