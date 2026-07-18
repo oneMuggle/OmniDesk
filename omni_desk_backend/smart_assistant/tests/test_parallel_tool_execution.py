@@ -161,3 +161,122 @@ class TestParallelToolExecution:
         assert elapsed < 0.28, f"混合依赖耗时 {elapsed:.3f}s,应 < 0.28s"
         assert len(results) == 3
         assert all(r["status"] == "success" for r in results)
+
+    def test_empty_plan_returns_empty_list(self, admin_user_obj):
+        """空 plan(无步骤)应返回空列表,不报错。"""
+        ctx = ToolContext(user=admin_user_obj)
+        plan = Plan(steps=[])
+
+        executor = ToolChainExecutor()
+        results = executor.execute_parallel(plan, ctx)
+
+        assert results == []
+
+    def test_single_step_plan_executes_successfully(self, admin_user_obj):
+        """单步 plan 应正常执行,无需并行逻辑。"""
+        ctx = ToolContext(user=admin_user_obj)
+
+        def single_tool_execute(*args, **kwargs):
+            return {"found": True, "data": [{"id": 1}]}
+
+        with patch(
+            "smart_assistant.agent.tool_chain_executor.ToolRegistry.get_tool_for_user"
+        ) as mock:
+            mock.return_value = _make_tool(single_tool_execute)
+
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="single_tool", params={}, on_failure="skip"),
+                ]
+            )
+            executor = ToolChainExecutor()
+            results = executor.execute_parallel(plan, ctx)
+
+        assert len(results) == 1
+        assert results[0]["status"] == "success"
+        assert results[0]["tool"] == "single_tool"
+
+    def test_chain_dependency_all_serial(self, admin_user_obj):
+        """链式依赖:A → B → C,所有步骤必须串行执行。
+
+        验证:每个步骤依赖前一步的输出,无法并行。
+        """
+        ctx = ToolContext(user=admin_user_obj)
+        execution_order = []
+
+        def make_ordered_tool(name, delay=0.05):
+            def _exec(*args, **kwargs):
+                execution_order.append(name)
+                time.sleep(delay)
+                return {"found": True, "data": [{"name": name}]}
+
+            return _make_tool(_exec)
+
+        with patch(
+            "smart_assistant.agent.tool_chain_executor.ToolRegistry.get_tool_for_user"
+        ) as mock:
+            mock.side_effect = lambda tool_name, user: make_ordered_tool(tool_name)
+
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="tool_a", params={}, on_failure="skip"),
+                    PlanStep(
+                        tool="tool_b",
+                        params={"ref": "{{step1.output.data[0].name}}"},
+                        on_failure="skip",
+                    ),
+                    PlanStep(
+                        tool="tool_c",
+                        params={"ref": "{{step2.output.data[0].name}}"},
+                        on_failure="skip",
+                    ),
+                ]
+            )
+            executor = ToolChainExecutor()
+            start = time.time()
+            results = executor.execute_parallel(plan, ctx)
+            elapsed = time.time() - start
+
+        # 链式依赖必须串行:3 × 0.05s = 0.15s
+        assert elapsed >= 0.14, f"链式依赖应串行,耗时 {elapsed:.3f}s 应 ≥ 0.14s"
+        assert len(results) == 3
+        # 验证执行顺序:A → B → C
+        assert execution_order == ["tool_a", "tool_b", "tool_c"]
+
+    def test_parallel_execution_tool_error_does_not_crash(self, admin_user_obj):
+        """并行执行中某个工具抛异常时,执行器不应崩溃,应继续处理其他工具。
+
+        验证:异常被捕获,不会中断整个并行执行流程。
+        """
+        ctx = ToolContext(user=admin_user_obj)
+
+        def failing_tool(*args, **kwargs):
+            raise ValueError("工具执行失败")
+
+        def successful_tool(*args, **kwargs):
+            return {"found": True, "data": []}
+
+        with patch(
+            "smart_assistant.agent.tool_chain_executor.ToolRegistry.get_tool_for_user"
+        ) as mock:
+            mock.side_effect = [
+                _make_tool(successful_tool),
+                _make_tool(failing_tool),
+                _make_tool(successful_tool),
+            ]
+
+            plan = Plan(
+                steps=[
+                    PlanStep(tool="tool_a", params={}, on_failure="skip"),
+                    PlanStep(tool="tool_b", params={}, on_failure="skip"),
+                    PlanStep(tool="tool_c", params={}, on_failure="skip"),
+                ]
+            )
+            executor = ToolChainExecutor()
+            # 关键:不应抛出异常
+            results = executor.execute_parallel(plan, ctx)
+
+        # 3 个工具都应有结果(执行器未崩溃)
+        assert len(results) == 3, f"期望 3 个结果,实际 {len(results)}"
+        # 所有结果都应是字典(无论成功或失败)
+        assert all(isinstance(r, dict) for r in results)

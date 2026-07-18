@@ -169,6 +169,7 @@ def cache_answer(query, intent, answer, history_sig="", context_sig=""):
 # 高并发下同 key 的多个请求只有一个去调 loader(通常是 DB/LLM),其余等待结果,
 # 避免缓存击穿(同 key 50 个请求都打到后端)。
 _inflight_flags: dict[str, threading.Event] = {}
+_inflight_exceptions: dict[str, BaseException] = {}  # 存储 leader 的异常供等待者读取
 _inflight_global = threading.Lock()
 
 
@@ -180,6 +181,7 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
     2. 未命中时看是否已有线程在加载(检查 ``_inflight_flags``)
     3. 若有 → 当前线程 wait(event),最多 30s 后回查 cache
     4. 若无 → 当前线程成为 leader,调 loader 并 set cache,完成后唤醒等待者
+    5. 异常传播:leader 的 loader 抛异常时,等待者也会收到同一异常
 
     Args:
         key: 缓存 key(调用方应已拼接 cache_version + context_sig)
@@ -188,8 +190,16 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
 
     Returns:
         缓存值或 loader 返回值
+
+    Raises:
+        BaseException: 若 loader 抛出异常,所有等待者都会收到该异常
     """
     cache_key = _key("sf", key)
+
+    # 清理上一次调用的残留异常(若有)
+    with _inflight_global:
+        _inflight_exceptions.pop(key, None)
+
     # 1. 快速路径:cache 命中
     cached = cache.get(cache_key)
     if cached is not None:
@@ -208,6 +218,11 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
     if not is_leader:
         # 等待 leader 完成
         event.wait(timeout=30)
+        # 检查 leader 是否存储了异常
+        with _inflight_global:
+            exc = _inflight_exceptions.get(key)
+        if exc is not None:
+            raise exc
         # 回查 cache(leader 可能已 set)
         return cache.get(cache_key)
 
@@ -216,6 +231,11 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
         value = loader()
         cache.set(cache_key, value, ttl)
         return value
+    except BaseException as e:
+        # 存储异常供等待者读取
+        with _inflight_global:
+            _inflight_exceptions[key] = e
+        raise
     finally:
         event.set()
         with _inflight_global:

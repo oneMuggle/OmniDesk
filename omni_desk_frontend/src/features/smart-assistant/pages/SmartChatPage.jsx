@@ -236,6 +236,62 @@ const SmartChatPage = () => {
     return events;
   }, []);
 
+  // ── SSE 事件处理器 ──
+
+  /** 处理 meta 事件:设置元数据,缓存命中时跳过打字机 */
+  const handleMetaEvent = useCallback((event) => {
+    setStreamingMeta(event);
+    if (event.cache_hit) {
+      isCachedRef.current = true;
+      setStreamingAnswer(receivedTextRef.current);
+      displayedLenRef.current = receivedTextRef.current.length;
+    }
+  }, []);
+
+  /** 处理 chunk 事件:累积文本,驱动打字机 */
+  const handleChunkEvent = useCallback((event) => {
+    receivedTextRef.current += event.content;
+    if (isCachedRef.current) {
+      setStreamingAnswer(receivedTextRef.current);
+      displayedLenRef.current = receivedTextRef.current.length;
+    } else if (!rafRef.current) {
+      lastTickRef.current = performance.now();
+      rafRef.current = requestAnimationFrame(typewriterTick);
+    }
+  }, [typewriterTick]);
+
+  /** 处理 session 事件:更新会话 ID */
+  const handleSessionEvent = useCallback(async (event, activeSessionId) => {
+    if (!activeSessionId && event.conversation_id) {
+      setCurrentSessionId(event.conversation_id);
+      const resp = await getSessions();
+      setSessions(resp.data || []);
+      return event.conversation_id;
+    }
+    return activeSessionId;
+  }, []);
+
+  /** 处理单个 SSE 事件,路由到对应的处理器 */
+  const handleSSEEvent = useCallback(async (event, activeSessionId) => {
+    switch (event.type) {
+      case 'meta':
+        handleMetaEvent(event);
+        break;
+      case 'chunk':
+        handleChunkEvent(event);
+        break;
+      case 'done':
+        isStreamingRef.current = false;
+        break;
+      case 'session':
+        return await handleSessionEvent(event, activeSessionId);
+      default:
+        // 忽略未知事件类型
+        break;
+    }
+    return activeSessionId;
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent]);
+
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
    * 被 handleSubmit 和 handleRetry 共用。
@@ -246,7 +302,6 @@ const SmartChatPage = () => {
     const stream = await bodyPromise;
 
     if (!stream) {
-      // 用户取消或连接失败
       return;
     }
 
@@ -263,55 +318,23 @@ const SmartChatPage = () => {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // 处理完整的 SSE 消息(以 \n\n 分隔)
         const parts = buffer.split('\n\n');
         buffer = parts.pop() || '';
 
         for (const part of parts) {
           const events = parseSSE(part);
           for (const event of events) {
-            if (event.type === 'meta') {
-              setStreamingMeta(event);
-              if (event.cache_hit) {
-                // 缓存命中:跳过打字机,直接显示完整内容
-                isCachedRef.current = true;
-                setStreamingAnswer(receivedTextRef.current);
-                displayedLenRef.current = receivedTextRef.current.length;
-              }
-            } else if (event.type === 'chunk') {
-              receivedTextRef.current += event.content;
-              if (isCachedRef.current) {
-                // 缓存路径:直接显示
-                setStreamingAnswer(receivedTextRef.current);
-                displayedLenRef.current = receivedTextRef.current.length;
-              } else if (!rafRef.current) {
-                // 启动打字机
-                lastTickRef.current = performance.now();
-                rafRef.current = requestAnimationFrame(typewriterTick);
-              }
-            } else if (event.type === 'done') {
-              isStreamingRef.current = false;
-            } else if (event.type === 'session') {
-              if (!activeSessionId && event.conversation_id) {
-                activeSessionId = event.conversation_id;
-                setCurrentSessionId(activeSessionId);
-                const resp = await getSessions();
-                setSessions(resp.data || []);
-              }
-            }
+            activeSessionId = await handleSSEEvent(event, activeSessionId);
           }
         }
       }
     } finally {
       isStreamingRef.current = false;
-      // 流结束:若打字机未运行,立即刷新剩余文本;
-      // 若正在运行,typewriterTick 会自行检测 isStreaming=false 并完成
       if (!rafRef.current) {
         flushTypewriter();
       }
     }
-  }, [currentSessionId, parseSSE, typewriterTick, flushTypewriter]);
+  }, [currentSessionId, parseSSE, handleSSEEvent, flushTypewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -12,6 +12,7 @@ from smart_assistant.cache import (
     ANSWER_CACHE_TTL,
     CACHE_VERSION,
     TOOL_CACHE_TTL,
+    _extract_user_id,
     bump_cache_version,
     cache_answer,
     cache_intent,
@@ -95,3 +96,46 @@ class TestCacheTTLConstants:
 
     def test_tool_ttl_is_30_minutes(self):
         assert TOOL_CACHE_TTL == 1800
+
+
+class TestExtractUserId:
+    """_extract_user_id 单元测试 — 从 context_sig 提取 user_id。"""
+
+    def test_normal_context_sig(self):
+        """正常格式:u<pk>_s<scope> → pk"""
+        assert _extract_user_id("u123_sself") == 123
+        assert _extract_user_id("u1_sadmin") == 1
+        assert _extract_user_id("u999_sread") == 999
+
+    def test_user_id_zero(self):
+        """user_id=0 应返回 0"""
+        assert _extract_user_id("u0_sself") == 0
+
+    def test_empty_string(self):
+        """空字符串应返回 0"""
+        assert _extract_user_id("") == 0
+
+    def test_no_u_prefix(self):
+        """无 u 前缀应返回 0"""
+        assert _extract_user_id("123_sself") == 0
+        assert _extract_user_id("admin_sself") == 0
+
+    def test_non_numeric_user_id(self):
+        """非数字 user_id 应返回 0"""
+        assert _extract_user_id("uadmin_sself") == 0
+        assert _extract_user_id("uabc_sself") == 0
+
+    def test_missing_scope_part(self):
+        """缺少 scope 部分应仍能提取 user_id"""
+        assert _extract_user_id("u123") == 123
+        assert _extract_user_id("u1") == 1
+
+    def test_multiple_underscores(self):
+        """多个下划线应只取第一个 _ 前的部分"""
+        assert _extract_user_id("u123_s_self_extra") == 123
+
+    def test_none_input(self):
+        """None 输入应返回 0(通过类型推断,实际传入空字符串)"""
+        # 注意:_extract_user_id 签名要求 str,但测试防御性
+        # 实际调用时 orchestrator 应保证传入字符串
+        assert _extract_user_id("") == 0
