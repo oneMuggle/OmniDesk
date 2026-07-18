@@ -45,6 +45,25 @@ class RagflowClient:
         self._session = requests.Session()
         self._session.headers.update(self.headers)
 
+    def close(self):
+        """关闭底层 HTTP session,释放连接资源。
+
+        应在客户端不再使用时调用,特别是在长时间运行的应用中。
+        也可使用 context manager (with statement) 自动管理。
+        """
+        if hasattr(self, "_session") and self._session is not None:
+            self._session.close()
+            self._session = None
+
+    def __enter__(self):
+        """支持 with statement 上下文管理器。"""
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        """退出 with block 时自动关闭 session。"""
+        self.close()
+        return False  # 不抑制异常
+
     def _request(
         self,
         method: str,

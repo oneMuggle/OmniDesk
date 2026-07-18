@@ -54,3 +54,59 @@ class TestRagflowClientPerformance:
 
         # Session 仍只有一个,请求 50 次
         assert mock_session.request.call_count == 50
+
+
+class TestRagflowClientClose:
+    def test_close_closes_session(self, mock_session):
+        """close() 应关闭底层 session。"""
+        from ragflow_service.client import RagflowClient
+
+        client = RagflowClient(api_endpoint="http://test", api_key="x")
+        assert client._session is not None
+
+        client.close()
+
+        # session.close() 应被调用
+        mock_session.close.assert_called_once()
+        # _session 应被设置为 None
+        assert client._session is None
+
+    def test_close_idempotent(self, mock_session):
+        """多次调用 close() 不应报错。"""
+        from ragflow_service.client import RagflowClient
+
+        client = RagflowClient(api_endpoint="http://test", api_key="x")
+        client.close()
+        client.close()  # 第二次调用不应报错
+
+        # session.close() 只应被调用一次
+        assert mock_session.close.call_count == 1
+
+    def test_context_manager_closes_session(self, mock_session):
+        """with statement 应自动关闭 session。"""
+        from ragflow_service.client import RagflowClient
+
+        with RagflowClient(api_endpoint="http://test", api_key="x") as client:
+            assert client._session is not None
+            client.list_datasets()
+
+        # 退出 with block 后,session 应被关闭
+        mock_session.close.assert_called_once()
+        assert client._session is None
+
+    def test_context_manager_with_exception(self, mock_session):
+        """with statement 中发生异常时,session 仍应被关闭。"""
+        from ragflow_service.client import RagflowClient, RagflowClientError
+        import requests
+
+        try:
+            with RagflowClient(api_endpoint="http://test", api_key="x") as client:
+                # 模拟一个会抛出异常的 API 调用(使用 requests 异常,会被 _request 捕获并转为 RagflowClientError)
+                mock_session.request.side_effect = requests.exceptions.ConnectionError("Network error")
+                client.list_datasets()
+        except RagflowClientError:
+            pass  # 预期会抛出 RagflowClientError
+
+        # 即使发生异常,session 也应被关闭
+        mock_session.close.assert_called_once()
+        assert client._session is None
