@@ -41,6 +41,9 @@ class RagflowClient:
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
         }
+        # 使用 requests.Session 复用 TCP 连接,降低多次请求的 TTFB
+        self._session = requests.Session()
+        self._session.headers.update(self.headers)
 
     def _request(
         self,
@@ -66,17 +69,16 @@ class RagflowClient:
             RagflowClientError: API 调用失败
         """
         url = f"{self.base_url}{path}"
-        headers = self.headers.copy()
-
-        # 文件上传时移除 Content-Type，让 requests 自动设置
+        # 文件上传时临时移除 Content-Type,让 requests 自动设置 multipart boundary
+        extra_headers = {}
         if files:
-            headers.pop("Content-Type", None)
+            extra_headers["Content-Type"] = None
 
         try:
-            response = requests.request(
+            response = self._session.request(
                 method=method,
                 url=url,
-                headers=headers,
+                headers=extra_headers or None,
                 json=json,
                 files=files,
                 timeout=timeout or self.timeout,
