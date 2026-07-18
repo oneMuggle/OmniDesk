@@ -168,8 +168,6 @@ def cache_answer(query, intent, answer, history_sig="", context_sig=""):
 # ---------------------------------------------------------------------------
 # 高并发下同 key 的多个请求只有一个去调 loader(通常是 DB/LLM),其余等待结果,
 # 避免缓存击穿(同 key 50 个请求都打到后端)。
-_inflight_locks: dict[str, threading.Lock] = {}  # noqa: F841 (reserved for future)
-_inflight_values: dict[str, object] = {}
 _inflight_flags: dict[str, threading.Event] = {}
 _inflight_global = threading.Lock()
 

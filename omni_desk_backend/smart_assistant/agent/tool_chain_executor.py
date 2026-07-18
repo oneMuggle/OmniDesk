@@ -153,7 +153,7 @@ class ToolChainExecutor:
                 group_results = asyncio.run(_run_group())
 
                 for (idx, step, step_label, resolved_params), result in zip(
-                    group_data, group_results
+                    group_data, group_results, strict=True
                 ):
                     step_results[step_label] = result
                     output.append(result)
