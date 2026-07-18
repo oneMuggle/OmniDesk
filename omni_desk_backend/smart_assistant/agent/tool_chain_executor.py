@@ -89,6 +89,146 @@ class ToolChainExecutor:
     - 保留 dict 路径向后兼容
     """
 
+    def execute_parallel(self, plan: "Plan", context: "ToolContext") -> list:
+        """执行 plan,无依赖步骤并行,有依赖步骤串行。
+
+        Task 1 of feat/sa-perf-ux:降低 P95 延迟的核心方法。
+
+        算法:
+        1. 解析每步的依赖(扫描 params 中的 ``{{stepN.output...}}`` 引用)
+        2. 拓扑排序分组:同层步骤可并行,跨层串行
+        3. 单步组串行执行,多步组用 ``asyncio.gather`` + ``asyncio.to_thread``
+           并行(绕过 GIL,真正利用多核/并发 I/O 阻塞)
+
+        与 ``execute(plan)`` 的区别:
+        - ``execute`` 永远串行(保留兼容性)
+        - ``execute_parallel`` 分析依赖图,同层步骤并行
+
+        Args:
+            plan: ``Plan`` dataclass(不支持旧 dict 格式,旧格式请用 ``execute``)
+            context: ``ToolContext`` 实例
+
+        Returns:
+            每步结果 dict 列表(顺序与 plan.steps 一致)。
+        """
+        import asyncio
+
+        steps = plan.steps
+        dep_graph = self._build_dependency_graph(steps)
+        groups = self._topological_groups(steps, dep_graph)
+
+        step_results: dict = {}
+        output: list = []
+
+        for group in groups:
+            # 预解析每步的标签和参数(避免在闭包/线程中重复计算)
+            group_data = []
+            for idx, step in group:
+                step_label = f"step{idx + 1}"
+                resolved_params = _replace_variables(step.params, step_results)
+                group_data.append((idx, step, step_label, resolved_params))
+
+            if len(group_data) == 1:
+                # 单步:串行(避免 asyncio 调度开销)
+                idx, step, step_label, resolved_params = group_data[0]
+                result = self._execute_and_time(step, step_label, resolved_params, context)
+                step_results[step_label] = result
+                output.append(result)
+                self._write_agent_log(context.user, step, result, idx + 1, resolved_params)
+            else:
+                # 多步:并行(asyncio + 线程池,绕过 GIL 对 time.sleep/DB 阻塞的序列化)
+                async def _run_group(data=group_data):
+                    coros = [
+                        asyncio.to_thread(
+                            self._execute_and_time,
+                            step,
+                            step_label,
+                            resolved_params,
+                            context,
+                        )
+                        for (_, step, step_label, resolved_params) in data
+                    ]
+                    return await asyncio.gather(*coros)
+
+                group_results = asyncio.run(_run_group())
+
+                for (idx, step, step_label, resolved_params), result in zip(
+                    group_data, group_results
+                ):
+                    step_results[step_label] = result
+                    output.append(result)
+                    self._write_agent_log(
+                        context.user, step, result, idx + 1, resolved_params
+                    )
+
+        return output
+
+    def _execute_and_time(
+        self,
+        step: "PlanStep",
+        step_label: str,
+        resolved_params: dict,
+        context: "ToolContext",
+    ) -> dict:
+        """执行单步并记录耗时(供串行/并行路径复用)。
+
+        从 ``_execute_advanced`` 抽取出来,便于 ``execute_parallel`` 在
+        ``asyncio.to_thread`` 中调用(避免 lambda 捕获 + 重复 latency 计算)。
+        """
+        start_time = time.time()
+        result = self._execute_step_with_strategy(step, step_label, resolved_params, context)
+        result["latency_ms"] = int((time.time() - start_time) * 1000)
+        return result
+
+    def _build_dependency_graph(self, steps: list) -> dict:
+        """扫描每个 step 的 params,提取 ``{{stepN.output...}}`` 引用作为依赖。
+
+        Returns:
+            ``{step_index: set(dependency_indices)}`` 的邻接表。
+            依赖方向:``graph[i]`` 包含 i 依赖的所有前序步骤索引。
+            只允许前向依赖(``dep_step < i``),反向/自引用被忽略。
+        """
+        dep_pattern = re.compile(r"\{\{step(\d+)\.")
+        graph = {i: set() for i in range(len(steps))}
+        for i, step in enumerate(steps):
+            params_str = str(step.params)
+            for m in dep_pattern.finditer(params_str):
+                dep_step = int(m.group(1)) - 1  # {{step1...}} → index 0
+                if 0 <= dep_step < i:  # 只能依赖前序步骤
+                    graph[i].add(dep_step)
+        return graph
+
+    def _topological_groups(self, steps: list, dep_graph: dict) -> list:
+        """拓扑排序分组:同一层的步骤可并行执行。
+
+        Kahn 算法变体:每次取所有入度为 0 的步骤作为一层,
+        移除后更新后续步骤入度,循环直到所有步骤分组完毕。
+
+        Returns:
+            ``list[list[tuple[int, PlanStep]]]`` — 每组是 (index, step) 元组列表。
+            组间顺序保证依赖先执行;组内步骤可并行。
+        """
+        in_degree = {i: len(dep_graph[i]) for i in range(len(steps))}
+        groups: list = []
+        remaining = set(range(len(steps)))
+
+        while remaining:
+            # 当前层:所有依赖已满足的步骤
+            current = sorted([i for i in remaining if in_degree[i] == 0])
+            if not current:
+                # 存在环(不应发生,LLM planner 应保证 DAG),降级为串行全部打包
+                current = sorted(remaining)
+            groups.append([(i, steps[i]) for i in current])
+
+            # 移除已分组步骤,更新后续步骤的入度
+            for i in current:
+                remaining.discard(i)
+                for j in remaining:
+                    if i in dep_graph[j]:
+                        in_degree[j] -= 1
+
+        return groups
+
     def execute(self, plan, context: "ToolContext") -> list:
         """按顺序执行 plan 中每个步骤,收集结果。
 
