@@ -344,6 +344,7 @@ class GuestLoginView(generics.CreateAPIView):
 
 @csrf_exempt
 @api_view(["GET"])
+@permission_classes([permissions.AllowAny])
 def django_admin_login(request):
     """
     JWT → Session 转换端点。
@@ -351,6 +352,8 @@ def django_admin_login(request):
     然后重定向到 /admin/。
 
     使用 @csrf_exempt 因为此端点通过 URL 参数认证而非 session。
+    使用 @permission_classes([AllowAny]) 因为浏览器跳转不携带 Authorization header，
+    本视图在内部通过 AccessToken 自行验证 JWT。
     """
     from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 

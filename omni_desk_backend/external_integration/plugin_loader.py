@@ -32,8 +32,11 @@ def extract_plugin_zip(uploaded_file):
         for chunk in uploaded_file.chunks():
             f.write(chunk)
     with zipfile.ZipFile(zip_path, "r") as zf:
+        # SECURITY: 检查路径遍历 (Zip Slip 攻击) - 使用 Path.resolve() 规范化路径
+        tmp_path = Path(tmp_dir)
         for name in zf.namelist():
-            if ".." in name or name.startswith("/"):
+            member_path = (tmp_path / name).resolve()
+            if not str(member_path).startswith(str(tmp_path.resolve())):
                 raise ValueError(f"插件包含不安全的路径: {name}")
         zf.extractall(tmp_dir)
     os.remove(zip_path)
