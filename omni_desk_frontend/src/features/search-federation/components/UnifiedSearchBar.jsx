@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { AutoComplete, Tag, Flex, Spin } from 'antd';
 import { useUnifiedSearch } from '../hooks/useUnifiedSearch';
+import { sanitizeHtml } from '../../../shared/utils/sanitizeHtml';
 
 const SOURCE_COLOR = {
   paperless: 'blue',
@@ -34,11 +35,11 @@ export default function UnifiedSearchBar({ placeholder = '搜索项目、合同�
             <Tag color={SOURCE_COLOR[r.source] || 'default'}>
               {SOURCE_LABEL[r.source] || r.source}
             </Tag>
-            <span dangerouslySetInnerHTML={{ __html: r.title }} />
+            <span dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.title) }} />
             {r.highlight && r.source === 'paperless' && (
               <span
                 style={{ color: '#999', fontSize: 12 }}
-                dangerouslySetInnerHTML={{ __html: r.highlight }}
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(r.highlight) }}
               />
             )}
           </Flex>
