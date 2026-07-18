@@ -23,7 +23,8 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      # SECURITY: Use CMD-SHELL with REDISCLI_AUTH env var to avoid password exposure in process list
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
     networks:
       - omni_desk
 
