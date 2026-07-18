@@ -92,3 +92,6 @@ deployment/docker/.env.production
 /package.json
 /package-lock.json
 omni_desk_backend/omni_desk_backend/settings/paperless.env
+
+# Local development environment variables (contains secrets)
+omni_desk_backend/.env.local

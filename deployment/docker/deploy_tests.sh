@@ -154,7 +154,8 @@ echo "阶段 5: Redis 连通性"
 
 if [ -f ".env.production" ]; then
     REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    REDIS_PING=$(compose exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null || echo "FAIL")
+    # SECURITY FIX: Use REDISCLI_AUTH env var instead of -a flag to avoid password exposure in process list
+    REDIS_PING=$(compose exec -T -e REDISCLI_AUTH="$REDIS_PASSWORD" redis redis-cli ping 2>/dev/null || echo "FAIL")
     if echo "$REDIS_PING" | grep -q "PONG"; then
         result "PASS" "Redis responds to PING"
     else

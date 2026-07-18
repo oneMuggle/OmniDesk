@@ -90,6 +90,11 @@ def _extract_zip(uploaded_file):
             destination.write(chunk)
 
     with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        # SECURITY FIX: Check for path traversal (Zip Slip attack)
+        for member in zip_ref.namelist():
+            member_path = (temp_dir / member).resolve()
+            if not str(member_path).startswith(str(temp_dir.resolve())):
+                raise ValueError(f"Detected path traversal attempt in ZIP: {member}")
         zip_ref.extractall(temp_dir)
 
     md_files = list(temp_dir.glob("**/*.md"))
@@ -107,8 +112,13 @@ def _save_cover_image(cover_image_file):
     cover_dest_dir = media_root / "covers"
     cover_dest_dir.mkdir(parents=True, exist_ok=True)
 
-    cover_filename = cover_image_file.name
+    # SECURITY FIX: Sanitize filename to prevent path traversal
+    cover_filename = Path(cover_image_file.name).name
     dest_path = cover_dest_dir / cover_filename
+
+    # Verify the resolved path is within the intended directory
+    if not str(dest_path.resolve()).startswith(str(cover_dest_dir.resolve())):
+        raise ValueError(f"Invalid cover image filename: {cover_image_file.name}")
 
     with open(dest_path, "wb+") as destination:
         for chunk in cover_image_file.chunks():
