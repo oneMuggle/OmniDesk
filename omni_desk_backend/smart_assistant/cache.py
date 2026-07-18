@@ -8,6 +8,7 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 
 import hashlib
 import logging
+import threading
 
 from django.core.cache import cache
 
@@ -110,3 +111,64 @@ def cache_answer(query, intent, answer, history_sig="", context_sig=""):
     """缓存回答结果。context_sig 同上(防缓存投毒)。"""
     key = _key("answer", query, intent, history_sig, context_sig)
     cache.set(key, answer, ANSWER_CACHE_TTL)
+
+
+# ---------------------------------------------------------------------------
+# singleflight:缓存击穿防护
+# ---------------------------------------------------------------------------
+# 高并发下同 key 的多个请求只有一个去调 loader(通常是 DB/LLM),其余等待结果,
+# 避免缓存击穿(同 key 50 个请求都打到后端)。
+_inflight_locks: dict[str, threading.Lock] = {}  # noqa: F841 (reserved for future)
+_inflight_values: dict[str, object] = {}
+_inflight_flags: dict[str, threading.Event] = {}
+_inflight_global = threading.Lock()
+
+
+def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
+    """缓存击穿防护:同 key 并发时只调一次 loader。
+
+    流程:
+    1. 先查 cache,命中直接返回
+    2. 未命中时看是否已有线程在加载(检查 ``_inflight_flags``)
+    3. 若有 → 当前线程 wait(event),最多 30s 后回查 cache
+    4. 若无 → 当前线程成为 leader,调 loader 并 set cache,完成后唤醒等待者
+
+    Args:
+        key: 缓存 key(调用方应已拼接 cache_version + context_sig)
+        loader: 缓存未命中时调用的零参函数
+        ttl: 缓存 TTL(秒),默认 ANSWER_CACHE_TTL
+
+    Returns:
+        缓存值或 loader 返回值
+    """
+    cache_key = _key("sf", key)
+    # 1. 快速路径:cache 命中
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    # 2. 未命中,竞争 leader
+    with _inflight_global:
+        if key in _inflight_flags:
+            event = _inflight_flags[key]
+            is_leader = False
+        else:
+            event = threading.Event()
+            _inflight_flags[key] = event
+            is_leader = True
+
+    if not is_leader:
+        # 等待 leader 完成
+        event.wait(timeout=30)
+        # 回查 cache(leader 可能已 set)
+        return cache.get(cache_key)
+
+    # 3. leader:执行 loader,set cache,唤醒等待者
+    try:
+        value = loader()
+        cache.set(cache_key, value, ttl)
+        return value
+    finally:
+        event.set()
+        with _inflight_global:
+            _inflight_flags.pop(key, None)
