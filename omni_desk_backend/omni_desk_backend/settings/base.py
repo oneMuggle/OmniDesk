@@ -359,3 +359,6 @@ PAPERLESS_CACHE_DIR = os.environ.get("PAPERLESS_CACHE_DIR", "paperless_cache/")
 PAPERLESS_PENDING_DIR = os.environ.get("PAPERLESS_PENDING_DIR", "paperless_pending/")
 PAPERLESS_CACHE_MAX_AGE_DAYS = int(os.environ.get("PAPERLESS_CACHE_MAX_AGE_DAYS", "30"))
 PAPERLESS_CLEANUP_INTERVAL_HOURS = int(os.environ.get("PAPERLESS_CLEANUP_INTERVAL_HOURS", "6"))
+
+# Smart Assistant 缓存版本(部署级;工具升级时 bump 此值即可失效旧缓存)
+SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", "1.0")

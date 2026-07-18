@@ -10,6 +10,7 @@ import hashlib
 import logging
 import threading
 
+from django.conf import settings
 from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
@@ -43,14 +44,54 @@ def bump_cache_version() -> int:
     return CACHE_VERSION
 
 
+def _settings_cache_version() -> str:
+    """从 Django 设置中读取部署级缓存版本。
+
+    允许运维在 settings / 环境变量中 bump 版本,无需改代码重启即可失效旧缓存。
+    """
+    return getattr(settings, "SMART_ASSISTANT_CACHE_VERSION", "1.0")
+
+
+def _extract_user_id(context_sig: str) -> int:
+    """从 context_sig (``u<pk>_s<scope>``) 中提取 user_id。"""
+    if not context_sig or not context_sig.startswith("u"):
+        return 0
+    try:
+        return int(context_sig.split("_")[0][1:])
+    except (ValueError, IndexError):
+        return 0
+
+
+def _build_cache_key(query: str, user_id: int, intent: str) -> str:
+    """构建包含 cache_version 的缓存键。
+
+    组合 settings 级版本 + 运行时版本 + 业务参数,任一变化即产生新键,
+    旧缓存自动失效。供 ``cache_answer`` / ``get_cached_answer`` 内部使用,
+    也可直接调用以测试版本隔离行为。
+
+    Args:
+        query: 用户查询文本
+        user_id: 用户主键
+        intent: 意图分类名
+
+    Returns:
+        带 ``smart_assistant:cache:`` 前缀的 sha256 摘要键
+    """
+    raw = f"{query}|{user_id}|{intent}|{_settings_cache_version()}|v{CACHE_VERSION}"
+    return CACHE_PREFIX + hashlib.sha256(raw.encode()).hexdigest()[:32]  # nosec B324 — cache key, not security
+
+
 def _key(*parts):
     """生成缓存 key。
 
     所有缓存 key 包含 CACHE_VERSION 全局字段,工具升级时调用
     ``bump_cache_version()`` 即可让旧缓存自动失效,无需手动清理。
+    同时嵌入 settings 级 SMART_ASSISTANT_CACHE_VERSION,允许运维在不
+    改代码的情况下 bump 版本失效旧缓存。
     """
-    raw = ":".join(str(p) for p in parts)
-    return CACHE_PREFIX + f"v{CACHE_VERSION}:" + hashlib.md5(raw.encode()).hexdigest()[:16]  # nosec B324 — cache key, not security
+    raw = "|".join(str(p) for p in parts)
+    raw += f"|{_settings_cache_version()}|v{CACHE_VERSION}"
+    return CACHE_PREFIX + hashlib.sha256(raw.encode()).hexdigest()[:32]  # nosec B324 — cache key, not security
 
 
 def get_cached_intent(query, schemas, context_sig=""):
@@ -102,14 +143,23 @@ def get_cached_answer(query, intent, history_sig="", context_sig=""):
     """尝试从缓存获取回答。
 
     context_sig(Task 17 起):同工具缓存,按 user/scope 隔离。
+    缓存键通过 ``_build_cache_key`` 构建,包含 settings 级 cache_version,
+    运维 bump ``SMART_ASSISTANT_CACHE_VERSION`` 即可失效旧缓存。
     """
-    key = _key("answer", query, intent, history_sig, context_sig)
+    user_id = _extract_user_id(context_sig)
+    key = _build_cache_key(query=query, user_id=user_id, intent=intent)
+    # history_sig 影响键:不同历史上下文不应共享缓存
+    if history_sig:
+        key += f":h{hashlib.sha256(history_sig.encode()).hexdigest()[:8]}"  # nosec B324 — cache key, not security
     return cache.get(key)
 
 
 def cache_answer(query, intent, answer, history_sig="", context_sig=""):
     """缓存回答结果。context_sig 同上(防缓存投毒)。"""
-    key = _key("answer", query, intent, history_sig, context_sig)
+    user_id = _extract_user_id(context_sig)
+    key = _build_cache_key(query=query, user_id=user_id, intent=intent)
+    if history_sig:
+        key += f":h{hashlib.sha256(history_sig.encode()).hexdigest()[:8]}"  # nosec B324 — cache key, not security
     cache.set(key, answer, ANSWER_CACHE_TTL)
 
 
