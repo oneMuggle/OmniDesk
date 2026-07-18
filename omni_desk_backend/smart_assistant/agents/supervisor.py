@@ -180,6 +180,41 @@ class Supervisor:
     "timeout_seconds": 600  // 超时时间(秒)
 }}
 
+示例:用户问"分析本月传感器异常,生成根因报告"
+{{
+    "objective": "分析本月传感器异常并生成根因报告",
+    "execution_mode": "pipeline",
+    "subtasks": [
+        {{
+            "id": "researcher",
+            "role": "researcher",
+            "objective": "采集本月传感器异常数据",
+            "inputs": {{"query": "本月传感器异常记录"}},
+            "failure_mode": "retry",
+            "depends_on": [],
+            "quality_gate": ["anomalies 数量 >= 1"]
+        }},
+        {{
+            "id": "analyst",
+            "role": "analyst",
+            "objective": "模式识别 + 异常归因",
+            "inputs": {{"anomalies": "$researcher.anomalies"}},
+            "failure_mode": "retry",
+            "depends_on": ["researcher"],
+            "quality_gate": ["root_causes 数量 >= 1"]
+        }}
+    ],
+    "final_synthesis": {{
+        "id": "writer",
+        "role": "writer",
+        "objective": "撰写根因报告 + 整改建议",
+        "inputs": {{"anomalies": "$researcher.anomalies", "root_causes": "$analyst.root_causes"}},
+        "depends_on": ["researcher", "analyst"]
+    }},
+    "global_budget": 20000,
+    "timeout_seconds": 600
+}}
+
 不要输出任何解释,只输出 JSON。"""
 
     def _build_user_message(
