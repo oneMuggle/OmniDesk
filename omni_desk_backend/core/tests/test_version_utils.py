@@ -78,3 +78,38 @@ class TestCompareVersions:
 
     def test_same_channel_seq(self):
         assert compare_versions("1.2.0-alpha.2", "1.2.0-alpha.1") == 1
+
+
+class TestTryParseVersion:
+    def test_valid_stable(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("1.2.3") == ParsedVersion(1, 2, 3, None, None)
+
+    def test_valid_alpha(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("0.6.0-alpha.2") == ParsedVersion(0, 6, 0, "alpha", 2)
+
+    def test_valid_beta(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("0.5.9-beta.3") == ParsedVersion(0, 5, 9, "beta", 3)
+
+    def test_valid_rc(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("1.2.0-rc.2") == ParsedVersion(1, 2, 0, "rc", 2)
+
+    def test_strips_whitespace(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("  0.5.9  ") == ParsedVersion(0, 5, 9, None, None)
+
+    def test_invalid_returns_none(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("v1.2.3") is None  # 前导 'v' 仍被拒绝(契约不变)
+
+    def test_chinese_returns_none(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version("渠道机制引入") is None
+
+    def test_non_string_returns_none(self):
+        from core.version_utils import try_parse_version
+        assert try_parse_version(None) is None
+        assert try_parse_version(123) is None

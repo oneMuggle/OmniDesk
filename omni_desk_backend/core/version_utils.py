@@ -111,3 +111,17 @@ def compare_versions(a: str, b: str) -> int:
     a_rank = order[pa.channel]
     b_rank = order[pb.channel]
     return -1 if a_rank < b_rank else 1
+
+
+def try_parse_version(version: object) -> "Optional[ParsedVersion]":
+    """解析 SemVer 字符串,失败返回 None(不抛异常).
+
+    与 parse_version 的区别:此函数吞掉所有 ValueError/AttributeError,
+    用于 CHANGELOG 扫描等"宽松解析"场景。
+    """
+    if not isinstance(version, str):
+        return None
+    try:
+        return parse_version(version.strip())
+    except ValueError:
+        return None
