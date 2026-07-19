@@ -46,7 +46,8 @@ services:
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
       target: ${BUILD_TARGET:-development}
     volumes:
-      - ../../omni_desk_backend:/app
+      # Phase 8: Mount to /usr/src/app to match Dockerfile WORKDIR (was /app, didn't override WORKDIR)
+      - ../../omni_desk_backend:/usr/src/app
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
     ports:
