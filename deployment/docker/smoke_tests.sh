@@ -82,11 +82,11 @@ except Exception:
                         echo "  NOTE: $service running (health: $HEALTH)"
                     fi
                 else
-                    echo "  WARN: $service unhealthy (state=$state health=$health)"
+                    echo "  WARN: $service unhealthy (state=$STATE health=$HEALTH)"
                 fi
             fi
         else
-            echo "  FAIL: $service not running (state=$state)"
+            echo "  FAIL: $service not running (state=$STATE)"
             ALL_RUNNING=false
         fi
     else

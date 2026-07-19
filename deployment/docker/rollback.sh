@@ -26,15 +26,32 @@ CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
 # 渠道参数(--channel,默认 stable)。hotfix 备份沿用 stable/ 目录。
 ROLLBACK_CHANNEL="${ROLLBACK_CHANNEL:-stable}"
+DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
         --channel=*) ROLLBACK_CHANNEL="${arg#*=}" ;;
+        --dry-run)    DRY_RUN=true ;;
+        -h|--help)
+            echo "Usage: $0 [--channel={alpha|beta|preview|stable|hotfix}] [--dry-run]"
+            exit 0
+            ;;
     esac
 done
 if [ "$ROLLBACK_CHANNEL" = "hotfix" ]; then
     ROLLBACK_CHANNEL="stable"
 fi
 BACKUP_DIR="${BACKUP_DIR:-./backups}/${ROLLBACK_CHANNEL}"
+
+# Phase 11 DS-4: Structured log function with timestamp + log file
+LOG_FILE="${LOG_FILE:-./logs/rollback-$(date +%Y%m%d-%H%M%S).log}"
+mkdir -p "$(dirname "$LOG_FILE")"
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+if $DRY_RUN; then
+    log "DRY-RUN MODE — no destructive ops"
+fi
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
@@ -58,11 +75,8 @@ if [ -d "$BACKUP_DIR" ]; then
     if [ -z "$db_backups" ]; then
         echo "  No backups found in $BACKUP_DIR"
     else
-        i=1
-        echo "$db_backups" | while read -r f; do
-            echo "  [$i] $(basename "$f")"
-            i=$((i + 1))
-        done
+        # Phase 11 DS-2: Use nl for numbering (pipe-to-while was a subshell that reset i)
+        echo "$db_backups" | nl -ba -w1 -s'] [' | sed "s/^/  [/"
     fi
 else
     echo "  Backup directory $BACKUP_DIR does not exist."
@@ -97,7 +111,11 @@ echo ""
 # Step 5: Restore database
 if [ -n "$RESTORE_FILE_CONTAINER" ]; then
     echo "Step 5: Restoring database from $(basename "$RESTORE_FILE")..."
-    compose exec -T backend python manage.py restore_db "$RESTORE_FILE_CONTAINER" --force
+    if $DRY_RUN; then
+        echo "  [DRY-RUN] would run: compose exec -T backend python manage.py restore_db $RESTORE_FILE_CONTAINER --force"
+    else
+        compose exec -T backend python manage.py restore_db "$RESTORE_FILE_CONTAINER" --force
+    fi
     echo ""
 else
     echo "Step 5: Skipping database restore."
@@ -105,8 +123,12 @@ fi
 
 # Step 6: Restart services
 echo "Step 6: Restarting services..."
-compose down
-compose up -d
+if $DRY_RUN; then
+    echo "  [DRY-RUN] would run: compose down && compose up -d"
+else
+    compose down
+    compose up -d
+fi
 echo "Services restarted."
 echo ""
 
