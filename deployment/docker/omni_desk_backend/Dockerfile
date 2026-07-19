@@ -6,7 +6,9 @@ FROM python:3.10-slim-bookworm AS base
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE 1
 ENV PYTHONUNBUFFERED 1
-ENV PIP_NO_CACHE_DIR=off
+# SECURITY/PERFORMANCE (Phase 8): Disable pip cache in Docker to reduce image size
+# (Previous value 'off' actually meant cache ON, defeating the purpose)
+ENV PIP_NO_CACHE_DIR=1
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 
 # Install runtime library for psycopg2 and libmagic for python-magic

@@ -10,6 +10,7 @@ jobs:
   # ─── Backend ───
   lint-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,6 +25,7 @@ jobs:
 
   test-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -60,11 +62,13 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: 'pip'
       - name: Install security tools
         run: pip install bandit pip-audit
       - name: Bandit scan (Python code static analysis)
@@ -75,6 +79,7 @@ jobs:
   # ─── Frontend ───
   lint-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -102,6 +107,7 @@ jobs:
 
   test-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -119,6 +125,7 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -137,11 +144,13 @@ jobs:
   # ─── Type check (best-effort) ───
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: 'pip'
       - name: Install mypy
         run: pip install mypy types-requests types-redis types-python-dateutil
       - name: Type check
@@ -152,6 +161,7 @@ jobs:
   # ─── Docker Integration Test ───
   docker-integration:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: [lint-backend, test-backend, lint-frontend, test-frontend]
     defaults:
       run:
