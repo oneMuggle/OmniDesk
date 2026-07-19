@@ -32,6 +32,11 @@ _VERSION_RE = re.compile(
     r"(?:-(?P<channel>alpha|beta|rc)\.(?P<cnum>\d+))?$"
 )
 
+# 用于从 CHANGELOG header 文本中提取 SemVer 前缀
+_CHANGELOG_HEADER_VERSION_RE = re.compile(
+    r"^(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)"
+)
+
 
 @dataclass(frozen=True)
 class ParsedVersion:
@@ -125,3 +130,34 @@ def try_parse_version(version: object) -> "Optional[ParsedVersion]":
         return parse_version(version.strip())
     except ValueError:
         return None
+
+
+def normalize_changelog_header(raw: object) -> "Optional[str]":
+    """把 CHANGELOG header 中 [] 内的原始文本规范化为 SemVer 字符串.
+
+    处理历史异构格式:
+      - 'v0.6.0-alpha.2' → '0.6.0-alpha.2'  (去前导 v)
+      - '0.5.9 修复'     → '0.5.9'           (去中文/空格后缀)
+      - 'V0.4.0'         → '0.4.0'           (大小写不敏感)
+      - '渠道机制引入'   → None               (纯文本非版本)
+      - '未发布'         → None               (占位段,不视为版本)
+      - '0.7.0-alpha.1'  → '0.7.0-alpha.1'   (已规范,原样返回)
+
+    返回 None 表示该 header 不是 SemVer,调用方应跳过而非尝试解析。
+    """
+    if not isinstance(raw, str):
+        return None
+    cleaned = raw.strip()
+    if not cleaned or cleaned == "未发布":
+        return None
+    # 1. 去前导 v/V
+    if cleaned[0] in ("v", "V"):
+        cleaned = cleaned[1:]
+    # 2. 整串尝试解析
+    if try_parse_version(cleaned):
+        return cleaned
+    # 3. 截取以 \d+\.\d+\.\d+ 开头的最长前缀
+    m = _CHANGELOG_HEADER_VERSION_RE.match(cleaned)
+    if m:
+        return m.group(1)
+    return None

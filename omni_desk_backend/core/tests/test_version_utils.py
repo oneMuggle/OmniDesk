@@ -113,3 +113,36 @@ class TestTryParseVersion:
         from core.version_utils import try_parse_version
         assert try_parse_version(None) is None
         assert try_parse_version(123) is None
+
+
+class TestNormalizeChangelogHeader:
+    @pytest.mark.parametrize("raw,expected", [
+        # 已规范
+        ("0.7.0-alpha.1", "0.7.0-alpha.1"),
+        ("0.5.9", "0.5.9"),
+        # 去 v 前缀
+        ("v0.6.0-alpha.2", "0.6.0-alpha.2"),
+        ("V0.4.0", "0.4.0"),
+        # 去中文/英文后缀
+        ("0.5.9 修复", "0.5.9"),
+        ("0.4.0 hotfix", "0.4.0"),
+        ("0.6.0-rc.5 release", "0.6.0-rc.5"),
+        # 空白处理
+        ("  0.6.0-beta.1  ", "0.6.0-beta.1"),
+        # 非版本
+        ("渠道机制引入", None),
+        ("未发布", None),
+        ("", None),
+        ("v", None),
+        ("1.2", None),
+        # 复合
+        ("v0.5.0-rc.1 hotfix", "0.5.0-rc.1"),
+    ])
+    def test_normalize(self, raw, expected):
+        from core.version_utils import normalize_changelog_header
+        assert normalize_changelog_header(raw) == expected
+
+    def test_non_string_returns_none(self):
+        from core.version_utils import normalize_changelog_header
+        assert normalize_changelog_header(None) is None
+        assert normalize_changelog_header(123) is None
