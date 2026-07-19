@@ -161,3 +161,18 @@ def normalize_changelog_header(raw: object) -> "Optional[str]":
     if m:
         return m.group(1)
     return None
+
+
+# channel 排序权重:stable 最高,alpha 最低(与 compare_versions 同向)
+_CHANNEL_RANK: dict[str | None, int] = {"alpha": 0, "beta": 1, "rc": 2, None: 3}
+
+
+def _rank_tuple(p: ParsedVersion) -> tuple:
+    """ParsedVersion → 可比较元组,顺序与 compare_versions 完全一致.
+
+    排序:MAJOR.MINOR.PATCH 升序 → channel rank 升序(alpha < beta < rc < stable) → channel_num 升序。
+
+    与 compare_versions 区别:本函数返回元组便于直接比较,后者返回 -1/0/1。
+    所有输入下二者同向(由 TestRankTuple.test_rank_agrees_with_compare 保证)。
+    """
+    return (p.major, p.minor, p.patch, _CHANNEL_RANK[p.channel], p.channel_num or 0)

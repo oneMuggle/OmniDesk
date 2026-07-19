@@ -146,3 +146,43 @@ class TestNormalizeChangelogHeader:
         from core.version_utils import normalize_changelog_header
         assert normalize_changelog_header(None) is None
         assert normalize_changelog_header(123) is None
+
+
+class TestRankTuple:
+    """`_rank_tuple` 必须与 `compare_versions` 在所有 SemVer 排序规则下同向."""
+
+    @pytest.mark.parametrize("a,b", [
+        # stable vs stable
+        ("1.2.4", "1.2.3"),
+        ("1.3.0", "1.2.9"),
+        ("2.0.0", "1.99.99"),
+        # stable > pre-release
+        ("1.2.0", "1.2.0-rc.2"),
+        ("1.2.0", "1.2.0-beta.1"),
+        ("1.2.0", "1.2.0-alpha.99"),
+        # channel ordering
+        ("1.2.0-rc.1", "1.2.0-beta.1"),
+        ("1.2.0-beta.1", "1.2.0-alpha.1"),
+        # same channel, different seq
+        ("1.2.0-alpha.2", "1.2.0-alpha.1"),
+        ("1.2.0-beta.3", "1.2.0-beta.2"),
+    ])
+    def test_rank_agrees_with_compare(self, a, b):
+        from core.version_utils import _rank_tuple, try_parse_version
+        pa, pb = try_parse_version(a), try_parse_version(b)
+        assert pa is not None and pb is not None
+        assert _rank_tuple(pa) > _rank_tuple(pb)
+        assert _rank_tuple(pb) < _rank_tuple(pa)
+        # 与 compare_versions 同向
+        assert compare_versions(a, b) == 1
+        assert compare_versions(b, a) == -1
+
+    @pytest.mark.parametrize("version,expected_rank", [
+        ("1.2.0-alpha.3", (1, 2, 0, 0, 3)),
+        ("1.2.0", (1, 2, 0, 3, 0)),
+        ("1.2.0-rc.5", (1, 2, 0, 2, 5)),
+        ("0.0.1-alpha.1", (0, 0, 1, 0, 1)),
+    ])
+    def test_rank_format(self, version, expected_rank):
+        from core.version_utils import _rank_tuple
+        assert _rank_tuple(parse_version(version)) == expected_rank
