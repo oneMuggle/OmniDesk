@@ -593,3 +593,91 @@ class TestUpdateChangelog:
             assert unreleased_pos < new_pos < old_pos
         finally:
             self._restore_changelog(original)
+
+
+class TestNormalizeChangelogCommand:
+    """测试一次性迁移命令 normalize_changelog_headers."""
+
+    def _setup_changelog(self, tmp_path, content):
+        from core.management.commands import generate_release as gr_module
+        fake = tmp_path / "CHANGELOG.md"
+        fake.write_text(content)
+        original = gr_module.CHANGELOG_FILE
+        gr_module.CHANGELOG_FILE = fake
+        return fake, original
+
+    def _restore_changelog(self, original):
+        from core.management.commands import generate_release as gr_module
+        gr_module.CHANGELOG_FILE = original
+
+    def test_dry_run_does_not_modify_file(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        initial = "# Log\n\n## [未发布]\n\n## [v0.6.0-alpha.1] - 2026-07-14\n\n## [0.5.0 修复] - 2026-07-06\n"
+        fake, original = self._setup_changelog(tmp_path, initial)
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", "--dry-run", stdout=out)
+            assert fake.read_text() == initial, "dry-run 不应修改文件"
+            assert "DRY RUN" in out.getvalue()
+            assert "[v0.6.0-alpha.1]" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
+
+    def test_normalize_removes_v_prefix(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [0.6.0]" in content
+            assert "## [v0.6.0]" not in content
+        finally:
+            self._restore_changelog(original)
+
+    def test_normalize_strips_chinese_suffix(self, tmp_path):
+        """'## [0.5.0 修复]' 应被 normalize 为 '## [0.5.0]'。"""
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n## [0.5.0 修复] - 2026-07-06\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [0.6.0]" in content
+            assert "## [0.5.0]" in content  # 中文后缀被截
+            assert "[0.5.0 修复]" not in content
+        finally:
+            self._restore_changelog(original)
+
+    def test_skips_non_version_header(self, tmp_path):
+        """'## [渠道机制引入]' 这类非版本标题行原样保留。"""
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [渠道机制引入]" in content, "非版本标题应原样保留"
+            assert "跳过 1 个非版本标题" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
+
+    def test_keeps_unreleased_unchanged(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path, "# Log\n\n## [未发布]\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [未发布]" in content
+            assert "已规范化 0 个 header" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
