@@ -35,9 +35,7 @@ _SECRET_KEY = os.getenv("SECRET_KEY")
 if not _SECRET_KEY:
     # Phase 9: Fail loudly in production instead of silently generating random key
     # (random key would invalidate all sessions/tokens on every restart)
-    if os.getenv("DJANGO_ENV") == "production" or os.getenv("DJANGO_SETTINGS_MODULE", "").endswith(
-        ".production"
-    ):
+    if os.getenv("DJANGO_ENV") == "production" or os.getenv("DJANGO_SETTINGS_MODULE", "").endswith(".production"):
         from django.core.exceptions import ImproperlyConfigured
 
         raise ImproperlyConfigured(
