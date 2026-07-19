@@ -32,9 +32,6 @@ _VERSION_RE = re.compile(
     r"(?:-(?P<channel>alpha|beta|rc)\.(?P<cnum>\d+))?$"
 )
 
-# 用于从 CHANGELOG header 文本中提取 SemVer 前缀
-_CHANGELOG_HEADER_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)")
-
 
 @dataclass(frozen=True)
 class ParsedVersion:
@@ -135,13 +132,17 @@ def normalize_changelog_header(raw: object) -> str | None:
 
     处理历史异构格式:
       - 'v0.6.0-alpha.2' → '0.6.0-alpha.2'  (去前导 v)
-      - '0.5.9 修复'     → '0.5.9'           (去中文/空格后缀)
       - 'V0.4.0'         → '0.4.0'           (大小写不敏感)
-      - '渠道机制引入'   → None               (纯文本非版本)
-      - '未发布'         → None               (占位段,不视为版本)
       - '0.7.0-alpha.1'  → '0.7.0-alpha.1'   (已规范,原样返回)
+      - '渠道机制引入'   → None               (纯文本非版本)
+      - '0.5.9 修复'     → None               (中文后缀保留语义,如 hotfix 标识)
+      - '未发布'         → None               (占位段,不视为版本)
 
-    返回 None 表示该 header 不是 SemVer,调用方应跳过而非尝试解析。
+    注意:中文/英文后缀不再被剥离,以保留历史版本标题的语义信息
+    (如 '0.5.9 修复' 与 '0.5.9' 是两次独立 release,中文后缀是 disambiguator)。
+    调用方对 None 返回值应跳过该行。
+
+    返回 None 表示该 header 不是完整 SemVer,调用方应跳过而非尝试解析。
     """
     if not isinstance(raw, str):
         return None
@@ -151,13 +152,9 @@ def normalize_changelog_header(raw: object) -> str | None:
     # 1. 去前导 v/V
     if cleaned[0] in ("v", "V"):
         cleaned = cleaned[1:]
-    # 2. 整串尝试解析
+    # 2. 必须整串为合法 SemVer 才返回;有中文/英文/空格后缀则视为非标准版本,返 None
     if try_parse_version(cleaned):
         return cleaned
-    # 3. 截取以 \d+\.\d+\.\d+ 开头的最长前缀
-    m = _CHANGELOG_HEADER_VERSION_RE.match(cleaned)
-    if m:
-        return m.group(1)
     return None
 
 

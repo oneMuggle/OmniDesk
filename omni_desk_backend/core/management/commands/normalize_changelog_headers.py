@@ -2,7 +2,8 @@
 
 处理:
   - '## [vX.Y.Z]' → '## [X.Y.Z]'  (去除 v 前缀)
-  - '## [X.Y.Z 中文]' → '## [X.Y.Z]'  (去除中文/空格后缀)
+  - '## [X.Y.Z 中文]' 原样保留  (中文后缀是历史 release 的 disambiguator,
+                                如 '0.5.9 修复' 与 '0.5.9' 是两次独立 release)
   - '## [渠道机制引入]' 这类非版本标题行原样保留(显式跳过)
 
 典型用法:
@@ -18,7 +19,7 @@ from core.version_utils import normalize_changelog_header
 
 
 class Command(BaseCommand):
-    help = "一次性规范化 CHANGELOG.md 历史 header: 去掉 v 前缀 / 跳过非版本标题"
+    help = "一次性规范化 CHANGELOG.md 历史 header: 去掉 v 前缀 / 保留中文后缀 / 跳过非版本标题"
 
     def add_arguments(self, parser):
         parser.add_argument(

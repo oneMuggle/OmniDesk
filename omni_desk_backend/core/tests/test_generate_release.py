@@ -304,8 +304,6 @@ class TestChangelogGeneration:
 
 
 class TestVersionFileUpdate:
-    import re
-
     def test_write_version(self):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
             f.write('0.2.0\n')
@@ -551,17 +549,26 @@ class TestUpdateChangelog:
         finally:
             self._restore_changelog(original)
 
-    def test_tolerates_chinese_suffix_header(self, tmp_path):
-        """'## [0.5.9 修复]' 这类带中文后缀的版本应被规范化后参与排序。"""
+    def test_preserves_chinese_suffix_as_distinct(self, tmp_path):
+        """'## [0.5.9 修复]' 这种带中文后缀的版本应保留原样(语义信息),不被规范化。
+
+        中文后缀在 CHANGELOG 历史中是 disambiguator (例如 0.5.9 修复 是 hotfix
+        与同 SemVer 0.5.9 区分),migration 命令也保留它,_update_changelog 视其为
+        非标准版本 header 跳过(不参与排序)。
+        """
         fake, original = self._write_changelog(tmp_path,
             "# 更新日志\n\n## [未发布]\n\n## [0.5.9 修复] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
         try:
             new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
             self._cmd()._update_changelog(new_entry)
             content = fake.read_text()
-            # normalize 后 0.5.9 修复 → 0.5.9;0.6.0 > 0.5.9,新条目应插在 "0.5.9 修复" 之前
+            # normalize 后 [0.5.9 修复] → None(跳过);[0.5.0] 解析为 0.5.0
+            # 0.6.0 > 0.5.0,所以新条目插在 [0.5.0] 之前
             new_pos = content.index("## [0.6.0]")
-            assert new_pos < content.index("## [0.5.9 修复]")
+            old_pos = content.index("## [0.5.0]")
+            assert new_pos < old_pos
+            # [0.5.9 修复] 在新条目之后(被跳过,不影响排序)
+            assert content.index("## [0.5.9 修复]") != -1
         finally:
             self._restore_changelog(original)
 
@@ -638,8 +645,13 @@ class TestNormalizeChangelogCommand:
         finally:
             self._restore_changelog(original)
 
-    def test_normalize_strips_chinese_suffix(self, tmp_path):
-        """'## [0.5.0 修复]' 应被 normalize 为 '## [0.5.0]'。"""
+    def test_normalize_preserves_chinese_suffix(self, tmp_path):
+        """'## [0.5.0 修复]' 中文后缀应保留(语义信息如 hotfix 标识)。
+
+        review Minor finding #2: 历史中 '0.5.9 修复' 与 '0.5.9' 是两次独立
+        release(分别为 v0.5.9 hotfix 与原 release),中文后缀是 disambiguator。
+        normalize 不应剥离,否则会丢失语义。
+        """
         from io import StringIO
         from django.core.management import call_command
         fake, original = self._setup_changelog(tmp_path,
@@ -648,9 +660,13 @@ class TestNormalizeChangelogCommand:
         try:
             call_command("normalize_changelog_headers", stdout=out)
             content = fake.read_text()
-            assert "## [0.6.0]" in content
-            assert "## [0.5.0]" in content  # 中文后缀被截
-            assert "[0.5.0 修复]" not in content
+            assert "## [0.6.0]" in content  # v 前缀被剥离
+            assert "## [0.5.0 修复]" in content  # 中文后缀保留
+            assert "[v0.6.0]" not in content
+            # stdout 应报告 1 个 v 前缀变更,1 个非版本标题跳过(中文后缀被归为非版本)
+            assert "已规范化 1 个 header" in out.getvalue()
+            assert "跳过 1 个非版本标题" in out.getvalue()
+            assert "[0.5.0 修复]" in out.getvalue()
         finally:
             self._restore_changelog(original)
 

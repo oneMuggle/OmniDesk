@@ -123,10 +123,10 @@ class TestNormalizeChangelogHeader:
         # 去 v 前缀
         ("v0.6.0-alpha.2", "0.6.0-alpha.2"),
         ("V0.4.0", "0.4.0"),
-        # 去中文/英文后缀
-        ("0.5.9 修复", "0.5.9"),
-        ("0.4.0 hotfix", "0.4.0"),
-        ("0.6.0-rc.5 release", "0.6.0-rc.5"),
+        # 中文/英文后缀保留语义(0.5.9 修复 与 0.5.9 是不同 release)
+        ("0.5.9 修复", None),
+        ("0.4.0 hotfix", None),
+        ("0.6.0-rc.5 release", None),
         # 空白处理
         ("  0.6.0-beta.1  ", "0.6.0-beta.1"),
         # 非版本
@@ -135,8 +135,8 @@ class TestNormalizeChangelogHeader:
         ("", None),
         ("v", None),
         ("1.2", None),
-        # 复合
-        ("v0.5.0-rc.1 hotfix", "0.5.0-rc.1"),
+        # 复合:有 v 前缀 + 后缀
+        ("v0.5.0-rc.1 hotfix", None),
     ])
     def test_normalize(self, raw, expected):
         from core.version_utils import normalize_changelog_header
