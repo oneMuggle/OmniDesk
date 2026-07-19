@@ -23,7 +23,6 @@ from core.git_utils import (
 )
 from core.version_utils import (
     CHANNEL_NAMES,
-    compare_versions,
     format_version,
     parse_version,
     try_parse_version,

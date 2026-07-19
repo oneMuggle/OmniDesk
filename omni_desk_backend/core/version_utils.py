@@ -118,7 +118,7 @@ def compare_versions(a: str, b: str) -> int:
     return -1 if a_rank < b_rank else 1
 
 
-def try_parse_version(version: object) -> "Optional[ParsedVersion]":
+def try_parse_version(version: object) -> ParsedVersion | None:
     """解析 SemVer 字符串,失败返回 None(不抛异常).
 
     与 parse_version 的区别:此函数吞掉所有 ValueError/AttributeError,
@@ -132,7 +132,7 @@ def try_parse_version(version: object) -> "Optional[ParsedVersion]":
         return None
 
 
-def normalize_changelog_header(raw: object) -> "Optional[str]":
+def normalize_changelog_header(raw: object) -> str | None:
     """把 CHANGELOG header 中 [] 内的原始文本规范化为 SemVer 字符串.
 
     处理历史异构格式:
