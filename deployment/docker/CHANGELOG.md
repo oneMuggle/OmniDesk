@@ -13,15 +13,84 @@
 
 ## [未发布]
 
+## [0.7.0-alpha.1] - 2026-07-19  ← alpha
+
 ### 新增
-- **发布渠道自动同步机制** (2026-07-12, PR #59):
-  - CI: `.github/workflows/channel-sync.yml` — `main` / `beta` / `rc` 之间双向自动同步 `fix:` / `perf:` / `refactor:` 类型提交,合并 PR 后自动开同步 PR
-  - 测试:`tests/lib/sync_filter.py` + 12 case fixtures + bash 测试脚本
-  - 文档:发布渠道机制新增"自动同步机制"章节,配置说明见 `.github/CHANNEL_SYNC_SETUP.md`
-  - 同步 PR 冲突处理:draft + 上传 patch + @原作者
-  - 循环防护:3 层(标题前缀 `🔁 [sync]` + body marker `auto-sync-source` + bot actor 过滤)
-  - 设计文档:`docs/superpowers/specs/2026-07-12-channel-fix-sync-design.md`
-  - 实施计划:`docs/superpowers/plans/2026-07-12-channel-fix-sync.md`
+
+- **smart-assistant**: add SmartAssistantScope enum and resolve_scope
+- **smart-assistant**: ToolContext.scope field auto-resolved from request
+- **smart-assistant**: BaseTool adds scope filter abstract methods (backward compatible)
+- **smart-assistant**: all 13 tools implement build_base_queryset + _scope_self
+- **smart-assistant**: add ResultSynthesizer for multi-tool aggregation
+- **smart-assistant**: create view_department and view_global permissions
+- **smart-assistant**: check_tool_scopes management command + CI integration
+- **smart-assistant**: ToolChainExecutor integrates scope filter + multi-tool failure handling
+- **smart-assistant**: prompt_builder hints at multi-tool aggregation
+- **smart-assistant-frontend**: AggregatedDayCard component for multi-tool aggregation
+- **smart-assistant-frontend**: QuickCommands adds 个人本周/今天 shortcuts
+- **smart-assistant**: wire scope into chat view and orchestrator (fix C1 + C3)
+- **smart-assistant-frontend**: QuickCommands translates intent to query (fix C4)
+- 接入 paperless-ngx 文档管理 (#54)
+- **paperless**: add client.update_metadata and client.delete
+- **paperless**: outbox queue_update_metadata and queue_delete
+- **paperless**: implement update_metadata and delete workers
+- **paperless**: expose POST /api/paperless/upload/
+- **paperless**: expose DocumentBinding CRUD with async outbox
+- **paperless**: OutboxViewSet support DELETE and GET single
+- **paperless**: register 4 models in Django admin
+- **compliance**: expose issue upload action to paperless
+- **personnel**: expose personnel upload action to paperless
+- **deploy**: add channel-branch guard to package_offline_bundle.sh
+- **file_processing**: create Django app skeleton
+- **file_processing**: add data models (UploadedFile, ProcessingResult, AIAnalysis)
+- **file_processing**: implement ExcelProcessor with multi-sheet support
+- **file_processing**: implement WordProcessor and PDFProcessor
+- **file_processing**: implement FileProcessingService
+- **file_processing**: implement DataSummarizer for table data analysis
+- **file_processing**: implement NaturalLanguageQuery for AI-powered data analysis
+- **file_processing**: implement Celery task for async file processing
+- **file_processing**: implement API views for file upload, preview, analyze, and query
+- **frontend**: add fileProcessing API layer for file upload, preview, analyze, and query
+- **frontend**: implement FileUploadSection component with drag-and-drop support
+- **frontend**: implement PreviewSection component for Excel tables and Markdown documents
+- **frontend**: implement AIAnalysisSection component with data summary and natural language query
+- **frontend**: refactor FileAnalysisPage to integrate all file processing components
+- **channel-sync**: 三个渠道分支间 fix/perf/refactor 提交自动同步(PR #59),含冲突三方 patch artifact + resume 续跑机制
+- **smart-assistant**: 5 个高频 E2E 场景 + 流式缓存短路 + cache_version (SAIS #1/4) (#85)
+- **smart-assistant**: 多工具链编排升级(SAIS #2/4) (#86)
+- **smart-assistant**: 多 Agent 复杂任务实战(SAIS #3/4) (#87)
+- **smart-assistant**: 性能 + UX 收尾(SAIS #4/4) (#88)
+- **backend**: Phase 9 后端关键修复 (BE-1, BE-2, BE-5) (#94)
+
+### 变更
+
+- **smart-assistant**: ScheduleTool.execute accepts scoped qs (backward compatible)
+- **smart-assistant**: MeetingRoomTool.execute accepts scoped qs
+- **smart-assistant**: AnnouncementTool.execute accepts scoped qs
+- **paperless**: use None as upload placeholder instead of 0
+
+### 修复
+
+- **security**: Phase 7 修复 8 个 P0 安全漏洞 (#92)
+- **core**: 修正 git_utils.py PROJECT_ROOT 路径计算
+- **smart-assistant**: ResultSynthesizer restore sort_key fallback chain
+- **smart-assistant**: cache_tool_result scopes by user to prevent data leak (fix P0)
+- **smart-assistant**: ResultSynthesizer emits moduleCounts (camelCase) (fix C2)
+- **smart-assistant**: process_stream integrates multi-tool/ResultSynthesizer path
+- **smart-assistant**: remove unused React imports in test files (#51)
+- **frontend**: resolve all 36 ESLint warnings (#52)
+- **paperless**: allow paperless_id null for async upload placeholder
+- **paperless**: harden UploadView against missing source_id and tags coercion
+- **paperless**: address final-review findings (close POST /documents/, list owner filter, tighten skip test)
+- **ci**: Phase 8 CI/CD 优化 + ruff format 4 views + bump soupsieve to 2.8.4 (CVE-2026-49477/49476) (#93)
+- **deploy**: address high/medium review findings on branch-guard PR #57
+- 修复文件处理功能的安全问题
+- **docker**: 添加 libmagic1 系统库（python-magic 依赖）
+- **schedule**: 修排班页值班人员/领导电话显示无电话的 bug
+- **deps**: 升级 pillow 12.2.0 -> 12.3.0 修复 PYSEC-2026-2253 等 5 个 CVE
+- **deps**: re-pin requirements-prod.txt on Python 3.10 (修复 numpy CI 失败)
+- **smart-assistant**: SAIS Plan 4 代码质量修复(6 个 findings)
+- **scripts**: Phase 11 部署脚本修复 (DS-1, DS-2, DS-3, DS-4) (#95)
 
 ## [v0.6.0-alpha.2] - 2026-07-07
 
