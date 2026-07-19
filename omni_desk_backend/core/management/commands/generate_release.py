@@ -208,9 +208,21 @@ class Command(BaseCommand):
                 patch += 1
             return format_version(major, minor, patch)
 
-        # 同渠道预发布(alpha/beta/rc):序号段 +1, MAJOR.MINOR.PATCH 不变
+        # 同渠道预发布(alpha/beta/rc):
+        #   - bump=patch: 序号段 +1, MAJOR.MINOR.PATCH 不变 (同序列迭代)
+        #   - bump=minor/major: MAJOR/MINOR 推进, PATCH 归零, 序号段重置为 1 (新开发周期)
         if parsed.channel == internal_channel:
-            new_seq = (parsed.channel_num or 0) + 1
+            if bump in ("major", "minor"):
+                if bump == "major":
+                    major += 1
+                    minor = 0
+                    patch = 0
+                else:  # minor
+                    minor += 1
+                    patch = 0
+                new_seq = 1
+            else:  # patch
+                new_seq = (parsed.channel_num or 0) + 1
             return format_version(major, minor, patch, internal_channel, new_seq)
 
         # 跨渠道切换:bump 参数被忽略(MAJOR.MINOR.PATCH 沿用当前,序号段重置为 1)

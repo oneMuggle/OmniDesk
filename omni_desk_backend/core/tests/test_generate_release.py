@@ -428,3 +428,56 @@ class TestChannelReset:
             channel="stable",
         )
         assert new_version == "1.2.1"
+
+
+class TestBumpVersionSameChannelMinorMajor:
+    """同渠道预发布 + minor/major bump 应推进 MAJOR/MINOR 并重置 seq (Bug2).
+
+    semver 规则:推进 MAJOR/MINOR 必重置 pre-release 序号段;patch bump 保持
+    同序列迭代 (seq+1)。
+    """
+
+    def _cmd(self):
+        from core.management.commands.generate_release import Command
+        return Command()
+
+    # ── 同渠道预发布 + patch: seq+1 (行为不变,回归保护) ──
+
+    def test_same_beta_patch(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.5", "patch", "beta")
+        assert result == "0.6.0-beta.6"
+
+    # ── 同渠道预发布 + minor: MAJOR.MINOR bump + seq=1 (Bug2 主路径) ──
+
+    def test_same_alpha_minor_resets_seq(self):
+        """Bug2 核心场景:0.6.0-alpha.2 + minor → 0.7.0-alpha.1"""
+        result = self._cmd()._bump_version_with_channel("0.6.0-alpha.2", "minor", "alpha")
+        assert result == "0.7.0-alpha.1"
+
+    def test_same_beta_minor_resets_seq(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.3", "minor", "beta")
+        assert result == "0.7.0-beta.1"
+
+    # ── 同渠道预发布 + major: MAJOR+1 + seq=1 ──
+
+    def test_same_alpha_major_resets_seq(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-alpha.2", "major", "alpha")
+        assert result == "1.0.0-alpha.1"
+
+    # ── 同渠道 stable (incl hotfix) (行为不变) ──
+
+    def test_stable_minor(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0", "minor", "stable")
+        assert result == "0.7.0"
+
+    # ── 跨渠道 (行为不变) ──
+
+    def test_cross_channel_to_alpha(self):
+        """跨渠道切换,bump 被忽略,seq 重置为 1,MAJOR.MINOR.PATCH 沿用"""
+        result = self._cmd()._bump_version_with_channel("0.6.0", "minor", "alpha")
+        assert result == "0.6.0-alpha.1"
+
+    def test_cross_channel_preview_to_rc(self):
+        """preview 内部映射到 rc"""
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.2", "minor", "preview")
+        assert result == "0.6.0-rc.1"
