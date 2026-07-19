@@ -1,4 +1,5 @@
 # omni_desk_backend/search_federation/views.py
+import logging
 from concurrent.futures import ThreadPoolExecutor
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -6,6 +7,8 @@ from rest_framework.response import Response
 
 from paperless_proxy.models import PaperlessHealth
 from paperless_proxy.services.search import PaperlessSearchService
+
+logger = logging.getLogger(__name__)
 
 
 def _search_internal(query: str) -> list:
@@ -26,7 +29,7 @@ def _search_internal(query: str) -> list:
                 }
             )
     except Exception:
-        pass
+        logger.warning("Internal search failed for query=%r", query, exc_info=True)
     return results
 
 
@@ -53,11 +56,12 @@ class UnifiedSearchView(APIView):
             try:
                 results.extend(f_internal.result(timeout=3))
             except Exception:
-                pass
+                logger.warning("Internal search future failed", exc_info=True)
             if f_paperless:
                 try:
                     results.extend(f_paperless.result(timeout=3))
                 except Exception:
+                    logger.warning("Paperless search future failed", exc_info=True)
                     degraded = True
 
         return Response({"results": results, "degraded": degraded})

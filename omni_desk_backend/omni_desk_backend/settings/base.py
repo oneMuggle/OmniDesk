@@ -33,6 +33,15 @@ BUILD_TIME = os.getenv("BUILD_TIME", "unknown")
 # SECURITY WARNING: keep the secret key used in production secret!
 _SECRET_KEY = os.getenv("SECRET_KEY")
 if not _SECRET_KEY:
+    # Phase 9: Fail loudly in production instead of silently generating random key
+    # (random key would invalidate all sessions/tokens on every restart)
+    if os.getenv("DJANGO_ENV") == "production" or os.getenv("DJANGO_SETTINGS_MODULE", "").endswith(".production"):
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured(
+            "Production requires SECRET_KEY environment variable. "
+            "Refusing to start with a random key (would invalidate all sessions on restart)."
+        )
     import warnings
 
     warnings.warn(
