@@ -33,9 +33,7 @@ _VERSION_RE = re.compile(
 )
 
 # 用于从 CHANGELOG header 文本中提取 SemVer 前缀
-_CHANGELOG_HEADER_VERSION_RE = re.compile(
-    r"^(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)"
-)
+_CHANGELOG_HEADER_VERSION_RE = re.compile(r"^(\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)\.\d+)?)")
 
 
 @dataclass(frozen=True)
