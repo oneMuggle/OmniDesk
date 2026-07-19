@@ -26,6 +26,9 @@ from core.version_utils import (
     compare_versions,
     format_version,
     parse_version,
+    try_parse_version,
+    normalize_changelog_header,
+    _rank_tuple,
 )
 
 BUMP_LABELS = {
@@ -292,13 +295,20 @@ class Command(BaseCommand):
 
         排序规则:stable > rc > beta > alpha,序号大者靠后。
         [未发布] 段保留在顶部,新条目插在它与所有历史版本之间(按 SemVer 倒序)。
+
+        容错:历史 header 中的 v 前缀、中文/英文后缀、非版本标题行
+        (如 '## [渠道机制引入]')都会被 normalize_changelog_header 处理或跳过,
+        不让单个 header 解析失败导致整次插入走兜底分支。
         """
         content = CHANGELOG_FILE.read_text()
 
-        # 提取新条目的版本号
+        # 提取新条目的版本号(同样容错)
         m = re.match(r"## \[([^\]]+)\]", new_entry)
-        if not m:
-            # 兜底:插到 [未发布] 之后
+        new_version: str | None = None
+        if m:
+            new_version = normalize_changelog_header(m.group(1))
+        if not new_version:
+            # 新条目无法提取版本号,走兜底:插到 [未发布] 之后
             pattern = r"(## \[未发布\][^\n]*\n)"
             match = re.search(pattern, content)
             if match:
@@ -307,24 +317,30 @@ class Command(BaseCommand):
             else:
                 CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
             return
-        new_version = m.group(1)
+        new_parsed = try_parse_version(new_version)
+        if new_parsed is None:
+            # 新条目本身也无法解析,走兜底
+            CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
+            return
 
-        # 找到所有 ## [vX.Y.Z...] 条目的位置,选第一个比 new_version 大的位置插入
+        # 扫描所有 ## [...] header,跳过 [未发布] 和无法解析的,找第一个比 new 大的位置插入
         existing_pattern = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
         insert_pos = None
         for match in existing_pattern.finditer(content):
-            existing_version = match.group(1)
-            if existing_version in ("未发布",):
+            raw = match.group(1)
+            if raw == "未发布":
                 continue
-            try:
-                if compare_versions(new_version, existing_version) > 0:
-                    insert_pos = match.start()
-                    break
-            except ValueError:
-                continue
+            normalized = normalize_changelog_header(raw)
+            if not normalized:
+                continue  # 非版本标题(如 '渠道机制引入'),跳过
+            existing_parsed = try_parse_version(normalized)
+            if not existing_parsed:
+                continue  # 规范化后仍无法解析,跳过
+            if _rank_tuple(new_parsed) > _rank_tuple(existing_parsed):
+                insert_pos = match.start()
+                break
 
         if insert_pos is None:
-            # 没有比 new_version 大的,插到文件末尾
             CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
         else:
             CHANGELOG_FILE.write_text(content[:insert_pos] + new_entry + "\n\n" + content[insert_pos:])

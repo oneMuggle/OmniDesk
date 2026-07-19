@@ -481,3 +481,115 @@ class TestBumpVersionSameChannelMinorMajor:
         """preview 内部映射到 rc"""
         result = self._cmd()._bump_version_with_channel("0.6.0-beta.2", "minor", "preview")
         assert result == "0.6.0-rc.1"
+
+
+class TestUpdateChangelog:
+    """测试 _update_changelog 对历史异构 header 的容错插入 (Bug1 fix)."""
+
+    def _cmd(self):
+        from core.management.commands.generate_release import Command
+        return Command()
+
+    def _write_changelog(self, tmp_path, content):
+        """把 CHANGELOG_FILE monkeypatch 到 tmp_path/CHANGELOG.md,写初始内容."""
+        from core.management.commands import generate_release as gr_module
+        fake = tmp_path / "CHANGELOG.md"
+        fake.write_text(content)
+        original = gr_module.CHANGELOG_FILE
+        gr_module.CHANGELOG_FILE = fake
+        return fake, original
+
+    def _restore_changelog(self, original):
+        from core.management.commands import generate_release as gr_module
+        gr_module.CHANGELOG_FILE = original
+
+    def test_skips_unreleased_placeholder(self, tmp_path):
+        """[未发布] 必须保留在顶部,新条目插在它之后、第一个版本标题之前。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n### 修复\n- xxx\n")
+        try:
+            new_entry = "## [0.6.1] - 2026-07-20  ← stable\n\n### 修复\n- new fix\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            unreleased_pos = content.index("## [未发布]")
+            new_pos = content.index("## [0.6.1]")
+            old_pos = content.index("## [v0.6.0]")
+            assert unreleased_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
+
+    def test_tolerates_v_prefix_in_history(self, tmp_path):
+        """历史 '## [vX.Y.Z]' 不应让工具崩溃或追加到末尾。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n## [v0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.1] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            new_pos = content.index("## [0.6.1]")
+            old_pos = content.index("## [v0.6.0]")
+            assert new_pos < old_pos, (
+                f"0.6.1 应该在 v0.6.0 之前; new_pos={new_pos}, old_pos={old_pos}"
+            )
+            assert content.count("## [0.6.1]") == 1
+        finally:
+            self._restore_changelog(original)
+
+    def test_skips_chinese_non_version_header(self, tmp_path):
+        """'## [渠道机制引入]' 这类非版本标题应被跳过,不参与排序。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            # normalize 后 0.6.0 > 0.5.0,新条目应插在 [渠道机制引入] 之后、[0.5.0] 之前
+            new_pos = content.index("## [0.6.0]")
+            cn_pos = content.index("## [渠道机制引入]")
+            old_pos = content.index("## [0.5.0]")
+            assert cn_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
+
+    def test_tolerates_chinese_suffix_header(self, tmp_path):
+        """'## [0.5.9 修复]' 这类带中文后缀的版本应被规范化后参与排序。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [0.5.9 修复] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            # normalize 后 0.5.9 修复 → 0.5.9;0.6.0 > 0.5.9,新条目应插在 "0.5.9 修复" 之前
+            new_pos = content.index("## [0.6.0]")
+            assert new_pos < content.index("## [0.5.9 修复]")
+        finally:
+            self._restore_changelog(original)
+
+    def test_falls_back_to_append_when_no_comparable(self, tmp_path):
+        """所有现有 header 都无法解析时,新条目追加到末尾(兜底分支)。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n\n## [某个事件] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            lines = content.strip().split("\n")
+            assert any(line.startswith("## [0.6.0]") for line in lines[-3:]), \
+                f"新条目应被追加到末尾; actual last 3 lines: {lines[-3:]}"
+        finally:
+            self._restore_changelog(original)
+
+    def test_inserts_at_top_after_unreleased(self, tmp_path):
+        """主路径:新版本比所有现有版本都大,插在 [未发布] 之后、第一个版本标题之前。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [0.5.0] - 2026-07-01\n\n## [0.4.0] - 2026-06-05\n")
+        try:
+            new_entry = "## [0.7.0-alpha.1] - 2026-07-19  ← alpha\n\n### 新增\n- xxx\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            unreleased_pos = content.index("## [未发布]")
+            new_pos = content.index("## [0.7.0-alpha.1]")
+            old_pos = content.index("## [0.5.0]")
+            assert unreleased_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
