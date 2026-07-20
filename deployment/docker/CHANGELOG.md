@@ -92,7 +92,7 @@
 - **smart-assistant**: SAIS Plan 4 代码质量修复(6 个 findings)
 - **scripts**: Phase 11 部署脚本修复 (DS-1, DS-2, DS-3, DS-4) (#95)
 
-## [v0.6.0-alpha.2] - 2026-07-07
+## [0.6.0-alpha.2] - 2026-07-07
 
 ### 新增
 - **RAGFlow 知识库服务完整接入** (PR #49):
@@ -122,7 +122,7 @@
 - 部署后首次启动需访问 `http://server-ip:9380` 完成 RAGFlow Web UI 初始化(创建管理员账号 + Chat Assistant)
 - 升级后通过 Django Admin 或 API 创建 `RagflowConfig`,填入 `api_endpoint` / `api_key` / `chat_id` 完成接入
 
-## [v0.6.0-alpha.1] - 2026-07-06
+## [0.6.0-alpha.1] - 2026-07-06
 
 ### 说明
 - **首个 alpha 渠道版本**:开发阶段性完成，进入本地部署测试阶段
@@ -152,7 +152,7 @@
 - **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
 - **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
 
-## [v0.5.9 修复] - 2026-07-06
+## [0.5.9 修复] - 2026-07-06
 
 ### 修复
 
