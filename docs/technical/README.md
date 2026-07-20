@@ -62,4 +62,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-07-18 — 新增 34 Smart Assistant 性能基准报告（SAIS 分支 4 Task 4 性能验收）。
+> 📅 最近更新:2026-07-20 — 清理 22 个过时/已完成文档（docs/plans 5 个、docs/superpowers 4 个 plan + 1 个 spec、docs/notes 10 个、根级废弃文档 2 个）。
