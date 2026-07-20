@@ -13,6 +13,12 @@
 
 ## [未发布]
 
+## [0.7.0-alpha.2] - 2026-07-20  ← alpha
+
+### 修复
+
+- **generate_release**: 修复 CHANGELOG 历史 header 解析失败 + 同渠道 minor/major bump 推进错误 (#98)
+
 ## [0.7.0-alpha.1] - 2026-07-19  ← alpha
 
 ### 新增
