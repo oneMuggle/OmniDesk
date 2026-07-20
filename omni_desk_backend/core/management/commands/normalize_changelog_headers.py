@@ -15,7 +15,7 @@ import re
 
 from django.core.management.base import BaseCommand
 
-from core.version_utils import normalize_changelog_header
+from core.version_utils import strip_changelog_v_prefix
 
 
 class Command(BaseCommand):
@@ -41,13 +41,13 @@ class Command(BaseCommand):
             raw = match.group(1)
             if raw == "未发布":
                 return match.group(0)
-            normalized = normalize_changelog_header(raw)
-            if normalized is None:
+            stripped = strip_changelog_v_prefix(raw)
+            if stripped is None:
                 skipped.append(raw)
                 return match.group(0)
-            if normalized != raw:
-                changes.append((raw, normalized))
-            return f"## [{normalized}]"
+            if stripped != raw:
+                changes.append((raw, stripped))
+            return f"## [{stripped}]"
 
         new_content = pattern.sub(replace, content)
 

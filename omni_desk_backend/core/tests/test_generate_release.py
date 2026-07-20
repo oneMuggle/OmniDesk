@@ -549,12 +549,15 @@ class TestUpdateChangelog:
         finally:
             self._restore_changelog(original)
 
-    def test_preserves_chinese_suffix_as_distinct(self, tmp_path):
-        """'## [0.5.9 修复]' 这种带中文后缀的版本应保留原样(语义信息),不被规范化。
+    def test_orders_above_chinese_suffix_header(self, tmp_path):
+        """'## [0.5.9 修复]' 这种带中文后缀的版本应参与 SemVer 排序(Bug1 修复关键路径)。
 
-        中文后缀在 CHANGELOG 历史中是 disambiguator (例如 0.5.9 修复 是 hotfix
-        与同 SemVer 0.5.9 区分),migration 命令也保留它,_update_changelog 视其为
-        非标准版本 header 跳过(不参与排序)。
+        normalize_changelog_header 会从 '0.5.9 修复' 提取 SemVer 前缀 '0.5.9',
+        _update_changelog 据此把 0.6.0 插在 [0.5.9 修复] 之上 — 而非插在 [0.5.0] 之上
+        (否则会跳过 [0.5.9 修复],违反 SemVer 降序)。
+
+        第二轮 AI review 发现此前实现把 [0.5.9 修复] 跳过,导致新版本插在
+        [0.5.9 修复] 之下 — Bug1 排序回归。
         """
         fake, original = self._write_changelog(tmp_path,
             "# 更新日志\n\n## [未发布]\n\n## [0.5.9 修复] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
@@ -562,13 +565,16 @@ class TestUpdateChangelog:
             new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
             self._cmd()._update_changelog(new_entry)
             content = fake.read_text()
-            # normalize 后 [0.5.9 修复] → None(跳过);[0.5.0] 解析为 0.5.0
-            # 0.6.0 > 0.5.0,所以新条目插在 [0.5.0] 之前
+            # 0.6.0 > 0.5.9(= [0.5.9 修复] 提取) > 0.5.0,新条目应插在 [0.5.9 修复] 之上
             new_pos = content.index("## [0.6.0]")
+            suffix_pos = content.index("## [0.5.9 修复]")
             old_pos = content.index("## [0.5.0]")
-            assert new_pos < old_pos
-            # [0.5.9 修复] 在新条目之后(被跳过,不影响排序)
-            assert content.index("## [0.5.9 修复]") != -1
+            assert new_pos < suffix_pos, (
+                f"0.6.0 应在 [0.5.9 修复] 之上; new_pos={new_pos}, suffix_pos={suffix_pos}"
+            )
+            assert suffix_pos < old_pos, (
+                f"[0.5.9 修复] 应在 [0.5.0] 之上; suffix_pos={suffix_pos}, old_pos={old_pos}"
+            )
         finally:
             self._restore_changelog(original)
 

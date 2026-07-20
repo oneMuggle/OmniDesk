@@ -152,7 +152,7 @@
 - **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
 - **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
 
-## [v0.5.9 修复] - 2026-07-06
+## [0.5.9 修复] - 2026-07-06
 
 ### 修复
 

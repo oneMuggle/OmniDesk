@@ -123,10 +123,12 @@ class TestNormalizeChangelogHeader:
         # 去 v 前缀
         ("v0.6.0-alpha.2", "0.6.0-alpha.2"),
         ("V0.4.0", "0.4.0"),
-        # 中文/英文后缀保留语义(0.5.9 修复 与 0.5.9 是不同 release)
-        ("0.5.9 修复", None),
-        ("0.4.0 hotfix", None),
-        ("0.6.0-rc.5 release", None),
+        # 中文/英文后缀的版本 header — 提取 SemVer 前缀供 `_update_changelog` 排序
+        # (Bug1 修复关键路径:不能跳过这些 header,否则新版本会插错位置)
+        ("0.5.9 修复", "0.5.9"),
+        ("0.4.0 hotfix", "0.4.0"),
+        ("0.6.0-rc.5 release", "0.6.0-rc.5"),
+        ("v0.5.0-rc.1 hotfix", "0.5.0-rc.1"),
         # 空白处理
         ("  0.6.0-beta.1  ", "0.6.0-beta.1"),
         # 非版本
@@ -135,8 +137,6 @@ class TestNormalizeChangelogHeader:
         ("", None),
         ("v", None),
         ("1.2", None),
-        # 复合:有 v 前缀 + 后缀
-        ("v0.5.0-rc.1 hotfix", None),
     ])
     def test_normalize(self, raw, expected):
         from core.version_utils import normalize_changelog_header
@@ -146,6 +146,39 @@ class TestNormalizeChangelogHeader:
         from core.version_utils import normalize_changelog_header
         assert normalize_changelog_header(None) is None
         assert normalize_changelog_header(123) is None
+
+
+class TestStripChangelogVPrefix:
+    """`strip_changelog_v_prefix` 仅剥 v/V 前缀,中文/英文后缀原样保留。
+
+    与 `normalize_changelog_header` 职责分离:本函数用于 migration 命令,
+    不修改承载语义信息的中文后缀 (如 hotfix 标识)。
+    """
+
+    @pytest.mark.parametrize("raw,expected", [
+        # 剥 v/V 前缀
+        ("v0.6.0-alpha.1", "0.6.0-alpha.1"),
+        ("V0.5.9", "0.5.9"),
+        ("v0.5.9 修复", "0.5.9 修复"),  # 中文后缀保留
+        ("V0.4.0 hotfix", "0.4.0 hotfix"),  # 英文后缀保留
+        # 无 v 前缀 — 不修改
+        ("0.5.9 修复", None),
+        ("0.5.9", None),
+        ("0.6.0-alpha.1", None),
+        # 非版本
+        ("渠道机制引入", None),
+        ("未发布", None),
+        ("", None),
+        ("v", None),  # 剥 v 后为空字符串
+    ])
+    def test_strip(self, raw, expected):
+        from core.version_utils import strip_changelog_v_prefix
+        assert strip_changelog_v_prefix(raw) == expected
+
+    def test_non_string_returns_none(self):
+        from core.version_utils import strip_changelog_v_prefix
+        assert strip_changelog_v_prefix(None) is None
+        assert strip_changelog_v_prefix(123) is None
 
 
 class TestRankTuple:
