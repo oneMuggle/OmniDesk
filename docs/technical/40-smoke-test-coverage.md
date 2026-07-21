@@ -18,9 +18,8 @@
 | 8.3 | 文件上传链路 | `/api/file/upload/` | Celery dispatch 挂 |
 | 9 | 业务 happy-path (memos) | POST→GET→DELETE | memos view/serializer 挂 |
 | **10** | **业务广度 (5 app GET)** | **events/news/documents/projects/ragflow** | **某 app URL/view 挂** |
-| **11** | **PG 备份可恢复** | **backup_db → shadow DB → SELECT** | **备份文件不可还原** |
-| **12** | **外部依赖降级** | **paperless/llm 502/503 行为** | **降级路径是 stack trace** |
-| **13** | **HTTP 安全头 + bundle** | **X-CTO/X-FO/HSTS + bundle.js** | **Nginx 配置缺头/资源 404** |
+
+> 阶段 11/12/13 已规划但尚未实现(后续 PR 落地),见下方"已知缺口"段。
 
 ## app 端点覆盖(GET-only 探针)
 
@@ -35,6 +34,9 @@
 
 ## 已知缺口(后续阶段)
 
+- 阶段 11:PG 备份可恢复(`backup_db → shadow DB → SELECT`)
+- 阶段 12:外部依赖降级(paperless/llm 502/503 行为,降级路径是 stack trace)
+- 阶段 13:HTTP 安全头 + bundle(X-CTO/X-FO/HSTS + bundle.js,Nginx 配置缺头/资源 404)
 - 阶段 14:资源基线(CPU/mem/disk 阈值)
 - 阶段 15:rollback 闭环(独立脚本 `test_smoke_rollback_loop.sh`)
 - API 响应时间基线:需先建立生产 P95(后续 sprint)

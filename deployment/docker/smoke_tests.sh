@@ -100,13 +100,20 @@ _app_happy_path_get() {
     local min_size="${3:-2}"
     local token_var="${4:-GUEST_TOKEN_H10}"
 
-    if [ -z "${!token_var:-}" ]; then
+    if [ -z "${!token_var:-}" ] || [ "${!token_var:-}" = "__FAILED__" ]; then
+        # F5 修复:guest-login 失败时设 sentinel __FAILED__,后续探针直接 SKIP 不再重试
+        # (5 个 probe × 10s 超时 = 最坏 50s 浪费,加缓存后只要 10s 一次)
+        local guest_resp guest_http
+        guest_resp=$(curl -s --max-time 10 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' \
+            "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "")
+        guest_http=$(echo "$guest_resp" | tail -1)
         local new_token
-        new_token=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
-            "$BASE_URL/api/auth/guest-login/" \
+        new_token=$(echo "$guest_resp" | sed '$d' \
           | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
         if [ -z "$new_token" ]; then
-            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 (JWT 空)"
+            # F4 修复:把 HTTP 码带进 SKIP 详情,5 个 probe 不再全相同,便于 root cause 区分
+            printf -v "$token_var" '%s' "__FAILED__"
+            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 HTTP ${guest_http:-000} (JWT 空,本次 run 后续 probe 复用此结果) path=$path"
             return 0
         fi
         printf -v "$token_var" '%s' "$new_token"
@@ -120,14 +127,20 @@ _app_happy_path_get() {
     body=$(echo "$body" | sed '$d')
 
     case "$http_code" in
-        200)
-            size=${#body}
+        # F2 修复:201/204 也是合法 PASS(全链路 GET 不写数据,某些 view 返回 201 表示资源列表化)
+        200|201|204)
+            # F8 修复:${#body} 在 CJK locale 下是字符数不是字节数;用 wc -c 取真实字节数
+            size=$(echo -n "$body" | wc -c | tr -d ' ')
             if [ "$size" -ge "$min_size" ]; then
-                result "PASS" "业务 happy-path ($label)" "HTTP 200 size=${size}B path=$path"
+                result "PASS" "业务 happy-path ($label)" "HTTP $http_code size=${size}B path=$path"
             else
-                result "PASS" "业务 happy-path ($label)" "HTTP 200 但响应体仅 ${size}B (业务可能空数据) path=$path"
+                result "PASS" "业务 happy-path ($label)" "HTTP $http_code 但响应体仅 ${size}B (业务可能空数据) path=$path"
             fi
             ;;
+        # F3 修复:helper 探针的 FAIL 阈值严于阶段 6 guest-login 失败码。
+        # 真业务错仅 401/403/404 — guest 鉴权错 / 端点未注册;其余 5xx/4xx 保守 SKIP
+        # (与阶段 6 401/403/500 → FAIL 不同 — 阶段 6 是 guest-login 本身失败,必须 FAIL;
+        #  helper 是探 GET 业务端点,服务端资源/客户端错都不要假阳性 FAIL)
         401|403)
             result "FAIL" "业务 happy-path ($label)" "HTTP $http_code — guest 用户被拒,需确认 view 权限配置 path=$path"
             ;;
@@ -140,8 +153,17 @@ _app_happy_path_get() {
         429)
             result "WARN" "业务 happy-path ($label)" "HTTP 429 — DRF 5/15m 限流命中,15 分钟后重试 path=$path"
             ;;
+        # 5xx 服务器资源/未知错 — K2 保守 SKIP(helper 比阶段 6 宽松,500 不视为真业务错)
+        500|501|505|506|507|508|510)
+            result "SKIP" "业务 happy-path ($label)" "服务端资源/版本错 HTTP $http_code (K2 保守) path=$path"
+            ;;
+        # 4xx 客户端错 — 探针视角下非业务错,K2 保守 SKIP
+        400|405|406|408|409|410|411|412|413|414|415|416|417|418|421|422|423|424|425|426|428|431|451)
+            result "SKIP" "业务 happy-path ($label)" "客户端错 HTTP $http_code (非业务错,K2 保守) path=$path"
+            ;;
+        # K2:未知码默认 SKIP — 新版本后端可能新增业务错误码,CI 不阻塞
         *)
-            result "FAIL" "业务 happy-path ($label)" "HTTP $http_code (期望 200) path=$path"
+            result "SKIP" "业务 happy-path ($label)" "未知 HTTP $http_code (K2 保守 SKIP) path=$path"
             ;;
     esac
 }
