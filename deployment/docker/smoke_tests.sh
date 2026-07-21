@@ -14,16 +14,21 @@
 #   - BASE_URL 应指向前端 (默认 http://localhost); 后端 API 走 Nginx 反代 /api/
 #
 # ─── 副作用 (Operator 必读) ───────────────────────────────────
+#   - 阶段 5.2 Celery 真任务: 强制触发 paperless_proxy.cleanup_cache (≤30s 超时)
 #   - 阶段 8 会触发 backend / db 容器重启 — 生产窗口 30-90s 服务不可用
 #   - 阶段 8 会创建 backend:/usr/src/app/media/_smoke_marker 文件 (trap 退出清理)
 #   - 阶段 8 会在 postgres:_smoke_persist 表插一行 (trap 退出 DROP)
+#   - 阶段 8.3 会创建 /tmp/.smoke_upload_<pid>.pdf (post-upload rm 清理)
+#   - 阶段 9 memos: POST 创建 + GET 读回 + DELETE 清理 (失败仅 WARN,业务数据可短暂残留)
 #   - /tmp/.smoke_guest_<pid>.json 含 JWT token (脚本结束清理,umask 077 仅 owner 可读)
 #
 # ─── 已知陷阱 ──────────────────────────────────────────────────
 #   - HTTPS 部署: BASE_URL=https://... 时 curl 没 -k 会让所有 API 全 000 → 全 SKIP
-#   - DRF throttle: 5/15m 限流 — 同机 15 分钟内第二次跑阶段 6 会拿 429 WARN
+#   - DRF throttle: 5/15m 限流 — 同机 15 分钟内第二次跑阶段 6/8.3/9 会拿 429 SKIP
 #   - 同一 box 多 compose 项目: 必须确保 pwd basename 与运行中项目一致
 #     (推荐设置 COMPOSE_PROJECT_NAME 环境变量显式覆盖)
+#   - 破坏性 migration 默认阻断: 阶段 6 遇 DROP TABLE/COLUMN 直接 FAIL
+#     (显式 escape: SMOKE_ALLOW_DESTRUCTIVE=1 ./smoke_tests.sh 改 WARN)
 
 COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$COMPOSE_DIR" || exit 1
@@ -259,6 +264,23 @@ if echo "$WORKER_STATUS" | grep -q "Up"; then
 else
     result "FAIL" "Celery worker" "Status: $WORKER_STATUS"
 fi
+
+# 5.2 (P0 强化): 真任务端到端 — 进程在 ≠ 任务能跑。
+# 用 paperless_proxy.cleanup_cache(paperless_proxy/tasks.py:148):
+# 无参数;目录不存在返回 {"deleted": 0};否则仅删除过期缓存,幂等无副作用。
+# 已配置为每 6h 自动运行 — 显式触发 = 强制一次后台 cleanup。
+# 若 worker 进程在但 broker 切了 / task 未注册 / task 模块未加载,这一步 30s 超时失败。
+CELERY_RESP=$(timeout 35 compose exec -T backend python -c "
+from paperless_proxy.tasks import cleanup_paperless_cache
+r = cleanup_paperless_cache.delay()
+print('OK', r.get(timeout=30, propagate=False))
+" 2>/dev/null)
+if [ -z "$CELERY_RESP" ]; then CELERY_RESP="FAIL_TIMEOUT"; fi
+if echo "$CELERY_RESP" | grep -q "^OK {"; then
+    result "PASS" "Celery 真任务端到端" "$CELERY_RESP"
+else
+    result "FAIL" "Celery 真任务" "响应: $CELERY_RESP — worker 没消费/broker 不通/task 未注册"
+fi
 echo ""
 
 # ─── 阶段 6: 版本/迁移/CHANGELOG 端点 (需 JWT) ─────────────────
@@ -344,7 +366,13 @@ d = json.load(sys.stdin)
 ops = [o for p in d.get('pending', []) for o in (p.get('operations') or []) if o.get('destructive')]
 print(','.join(o['type'] + '(' + o.get('model', o.get('field','?')) + ')' for o in ops[:5]) or 'unknown')
 " 2>/dev/null || echo "extraction_failed")
-                result "WARN" "Pending migrations include destructive operations" "$DESTRUCTIVE_OPS"
+                # D 项 (P0):默认 FAIL — 不可预期的 DROP TABLE/COLUMN 应阻断部署。
+                # 显式 escape:SMOKE_ALLOW_DESTRUCTIVE=1 ./smoke_tests.sh 改回 WARN
+                if [ "${SMOKE_ALLOW_DESTRUCTIVE:-0}" = "1" ]; then
+                    result "WARN" "Pending migrations include destructive operations" "OVERRIDE: SMOKE_ALLOW_DESTRUCTIVE=1 已显式允许 — $DESTRUCTIVE_OPS"
+                else
+                    result "FAIL" "Pending migrations include destructive operations" "DROP TABLE/COLUMN 被禁止 — 需 SMOKE_ALLOW_DESTRUCTIVE=1 显式 escape. ops: $DESTRUCTIVE_OPS"
+                fi
                 ;;
         esac
     else
@@ -480,6 +508,93 @@ if [ -f ".env.production" ]; then
     fi
 else
     result "SKIP" "Postgres persist" ".env.production not found"
+fi
+echo ""
+
+# ─── 阶段 8.3: 文件上传链路 (file_processing 真业务) ──────
+echo "阶段 8.3: 文件上传链路"
+
+# P0 修复:真实 HTTP 上传 → 写 media_volume → process_file_task.delay(...)
+# 验证 Celery 任务分发能力(500/502 直接暴露 worker 失效)。
+# 端点 /api/file/upload/(file_processing/urls.py 注册前缀 file,非 file_processing)
+# 权限 IsAuthenticated(guest JWT 即可;见 file_processing/views.py:8,37,42)
+# 生产 /media/ 路由不可用(DEBUG=False,Django 不挂),但 201 + Celery 分发仍能验证
+# 用最小 magic 可识别 PDF — libmagic 看 %PDF- 前缀即识别 application/pdf
+GUEST_TOKEN_H83=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
+    "$BASE_URL/api/auth/guest-login/" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+
+if [ -n "$GUEST_TOKEN_H83" ]; then
+    # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
+    SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
+    printf '%%PDF-1.4\n' > "$SMOKE_PDF"
+    UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
+        -H "Authorization: Bearer $GUEST_TOKEN_H83" \
+        -F "file=@$SMOKE_PDF;type=application/pdf" \
+        "$BASE_URL/api/file/upload/" 2>/dev/null || echo "")
+    UPLOAD_CODE=$(echo "$UPLOAD_OUT" | tail -1)
+    rm -f "$SMOKE_PDF"
+    # 业务真错(400/401/403/413/415/500) → FAIL;网络瞬态(000/502/503/504) → SKIP
+    case "$UPLOAD_CODE" in
+        201)             result "PASS" "File processing 上传链路" "HTTP 201 — 业务命中 + Celery 任务已分发" ;;
+        000|502|503|504) result "SKIP" "File processing 上传链路" "网络瞬态 HTTP $UPLOAD_CODE" ;;
+        *)               result "FAIL" "File processing 上传链路" "HTTP $UPLOAD_CODE (期望 201)" ;;
+    esac
+else
+    result "SKIP" "File processing 上传链路" "guest-login 不可达 (JWT 空)"
+fi
+echo ""
+
+# ─── 阶段 9: 业务 happy-path (memos 端到端) ──────────────
+echo "阶段 9: 业务 happy-path (memos)"
+
+# P0 修复:28+ Django app 的业务端点此前 0 冒烟覆盖。
+# memos 是单调用闭环最佳入口:IsAuthenticated only(guest OK) + 必填仅 title + 无 FK。
+# 见 omni_desk_backend/memos/views.py:8-15(权限) / models.py:6-13(字段)
+# 已 reject 的备选:news(POST 需 Admin)/ documents(二阶 FK)/ meeting_rooms(时间冲突)
+GUEST_TOKEN_H9=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
+    "$BASE_URL/api/auth/guest-login/" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+
+if [ -z "$GUEST_TOKEN_H9" ]; then
+    result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+else
+    # 9.1 POST 创建
+    MEMO_TITLE="smoke-test-$$-$(date +%s)"
+    CREATE_RESP=$(curl -s --max-time 10 -X POST \
+        -H "Content-Type: application/json" \
+        -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+        -d "{\"title\":\"$MEMO_TITLE\"}" \
+        "$BASE_URL/api/memos/" 2>/dev/null || echo "")
+    MEMO_ID=$(echo "$CREATE_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+    if [ -n "$MEMO_ID" ]; then
+        result "PASS" "Memos POST 创建" "id=$MEMO_ID title=$MEMO_TITLE"
+
+        # 9.2 GET 详情
+        GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
+        if [ "$GET_CODE" = "200" ]; then
+            result "PASS" "Memos GET 详情" "HTTP 200"
+        else
+            result "FAIL" "Memos GET 详情" "HTTP $GET_CODE (期望 200)"
+        fi
+
+        # 9.3 DELETE 清理(失败仅 WARN,避免下次 run 累加)
+        DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X DELETE \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
+        # H2 修复(code-review):真业务错(401/403/500/502/503/504)→ FAIL,
+        # 让 memo 残留生产表被运维看到;404 留 WARN(可能已被清理);其他(400/405 等客户端错)留 WARN。
+        case "$DEL_CODE" in
+            204|200)         result "PASS" "Memos DELETE 清理" "HTTP $DEL_CODE" ;;
+            404)              result "WARN" "Memos DELETE 清理" "HTTP 404 — memo 不存在/已被清理,可忽略" ;;
+            401|403|500|502|503|504) result "FAIL" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留生产表,需人工 SQL 清理" ;;
+            *)                result "WARN" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留,下次 run 累加" ;;
+        esac
+    else
+        result "FAIL" "Memos POST 创建" "响应: ${CREATE_RESP:0:200}"
+    fi
 fi
 echo ""
 
