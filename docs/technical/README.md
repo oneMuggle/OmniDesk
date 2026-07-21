@@ -52,7 +52,7 @@
 | 32 | [Smart Assistant 多 Agent](32-smart-assistant-multi-agent.md) | MultiAgentExecutor / Pipeline / Fanout / Hierarchical + Hook 系统（v0.5.0 已实现） |
 | 33 | [RAGFlow 集成](33-ragflow-integration.md) | RAGFlow API 客户端、Dataset/Chat 管理、docker-compose 部署、健康检查（v0.6.0-alpha.2 已实现） |
 | 34 | [Smart Assistant 性能基准](34-smart-assistant-perf-benchmark.md) | P95 / 50 并发 / 缓存 TTFB 实测数据与优化手段（SAIS 分支 4 性能验收） |
-| 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-10 覆盖清单、app 端点 GET 探针表、已知缺口 |
+| 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 
 ---
 

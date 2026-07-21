@@ -80,7 +80,7 @@ cleanup_smoke_artifacts() {
         done
     fi
     # 阶段 11 备份文件清理
-    [ -n "${SMOKE_BACKUP_FILE:-}" ] && rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 compose exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
 trap cleanup_smoke_artifacts EXIT
 
