@@ -100,16 +100,22 @@ _app_happy_path_get() {
     local min_size="${3:-2}"
     local token_var="${4:-GUEST_TOKEN_H10}"
 
-    if [ -z "${!token_var:-}" ] || [ "${!token_var:-}" = "__FAILED__" ]; then
-        # F5 修复:guest-login 失败时设 sentinel __FAILED__,后续探针直接 SKIP 不再重试
-        # (5 个 probe × 10s 超时 = 最坏 50s 浪费,加缓存后只要 10s 一次)
-        local guest_resp guest_http
+    # F5 修复(2 轮):拆分 sentinel 守卫与空 token 守卫 —
+    # 之前用 `||` 把 "__FAILED__" 与空串合一起,导致失败缓存形同虚设,
+    # 每次探针仍跑一次 10s guest-login。修正后:命中 sentinel 直接 SKIP,不再发起 curl。
+    if [ "${!token_var:-}" = "__FAILED__" ]; then
+        result "SKIP" "业务 happy-path ($label)" "guest-login 缓存失败,本次 run 不再重试 path=$path"
+        return 0
+    fi
+
+    if [ -z "${!token_var:-}" ]; then
+        # 5 个 probe 共享 1 次 guest-login 调用(原本各调 1 次 × 10s 超时 = 最坏 50s 浪费)
+        local guest_resp guest_http new_token
         guest_resp=$(curl -s --max-time 10 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' \
             "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "")
         guest_http=$(echo "$guest_resp" | tail -1)
-        local new_token
-        new_token=$(echo "$guest_resp" | sed '$d' \
-          | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+        guest_resp=$(echo "$guest_resp" | sed '$d')
+        new_token=$(echo "$guest_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
         if [ -z "$new_token" ]; then
             # F4 修复:把 HTTP 码带进 SKIP 详情,5 个 probe 不再全相同,便于 root cause 区分
             printf -v "$token_var" '%s' "__FAILED__"
