@@ -69,6 +69,18 @@ cleanup_smoke_artifacts() {
     # S5: GUEST_JSON 在阶段 6 末尾会 unset,这里用 ${VAR:-} 兼容已 unset 的情况
     #   (单 trap 不可叠加,合并到此函数避免覆盖原 trap)
     [ -n "${GUEST_JSON:-}" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
+    # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
+    if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
+        for _attempt in 1 2 3; do
+            timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$SHADOW_DB' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+            timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+                "DROP DATABASE IF EXISTS $SHADOW_DB;" >/dev/null 2>&1 && break
+            sleep 2
+        done
+    fi
+    # 阶段 11 备份文件清理
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
 trap cleanup_smoke_artifacts EXIT
 
@@ -715,6 +727,84 @@ _app_happy_path_get "projects" "/api/projects/" 2 "GUEST_TOKEN_H10"
 
 # 10.5 ragflow-service configs
 _app_happy_path_get "ragflow/configs" "/api/ragflow-service/configs/" 2 "GUEST_TOKEN_H10"
+echo ""
+
+# ─── 阶段 11: PG 备份可恢复性 (shadow DB 还原验证) ──────────
+echo "阶段 11: PG 备份可恢复性"
+
+# P0 修复:backup_db / restore_db 命令已存在,但冒烟从未端到端验证。
+# 策略:触发 backup → 找最新 .sql.gz → 在同 postgres 容器内 CREATE DATABASE
+# omnidesk_shadow_restore_<pid> → base64 传输到 db 容器 → gunzip + psql 还原
+# → SELECT 4 张核心表验证非空 → DROP DATABASE 清理。
+# trap 内兜底 DROP 防中途崩溃残留。
+
+SHADOW_DB="omnidesk_shadow_restore_$$"
+SMOKE_BACKUP_FILE=""
+
+if [ ! -f ".env.production" ]; then
+    result "SKIP" "PG backup restore" ".env.production not found"
+else
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+
+    if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_DB" ]; then
+        result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"
+    else
+        # 11.1 触发 backup_db
+        BACKUP_OUT=$(timeout 60 compose exec -T backend python manage.py backup_db --db-only 2>&1) || BACKUP_RC=$?
+        BACKUP_RC=${BACKUP_RC:-0}
+        if [ "$BACKUP_RC" -ne 0 ]; then
+            result "FAIL" "PG backup_db 命令" "exit=$BACKUP_RC tail: ${BACKUP_OUT: -200}"
+        else
+            # 11.2 定位最新备份文件
+            LATEST=$(timeout 10 compose exec -T backend sh -c "ls -t /var/backups/postgres/*.sql.gz 2>/dev/null | head -1" 2>/dev/null | tr -d '\r\n')
+            if [ -z "$LATEST" ]; then
+                result "FAIL" "PG backup 文件定位" "未找到 .sql.gz 文件"
+            else
+                # 11.3 base64 传输(50MB 以内可接受)
+                B64=$(compose exec -T backend base64 "$LATEST" 2>/dev/null | tr -d '\r\n ')
+                if [ -z "$B64" ]; then
+                    result "FAIL" "PG backup 传输" "backend base64 编码失败"
+                else
+                    SMOKE_BACKUP_FILE="/tmp/.smoke_backup_$$.sql.gz"
+                    echo "$B64" | timeout 60 compose exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
+                    if ! timeout 10 compose exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
+                        result "FAIL" "PG backup 落地" "db 端 $SMOKE_BACKUP_FILE 写入失败或为空"
+                    else
+                        # 11.4 CREATE 影子库
+                        CREATE_OUT=$(timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                            "CREATE DATABASE $SHADOW_DB;" 2>&1) || true
+                        if ! echo "$CREATE_OUT" | grep -q "CREATE DATABASE"; then
+                            result "FAIL" "PG shadow DB 创建" "${CREATE_OUT:0:200}"
+                        else
+                            # 11.5 还原到影子库
+                            RESTORE_OUT=$(timeout 120 compose exec -T db sh -c \
+                                "gunzip -c $SMOKE_BACKUP_FILE | psql -U $POSTGRES_USER -d $SHADOW_DB -v ON_ERROR_STOP=1" 2>&1) || true
+                            if echo "$RESTORE_OUT" | grep -qE "ERROR|FATAL"; then
+                                result "FAIL" "PG restore 还原" "psql 报错: $(echo "$RESTORE_OUT" | grep -E 'ERROR|FATAL' | head -3)"
+                            else
+                                # 11.6 验证 4 张核心表非空
+                                NON_EMPTY=0
+                                for tbl in users_customuser memos_memo auth_group django_migrations; do
+                                    CNT=$(timeout 10 compose exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
+                                        "SELECT count(*) FROM $tbl;" 2>/dev/null | tr -d ' \r\n' || echo "0")
+                                    if [ -n "$CNT" ] && [ "$CNT" -gt 0 ] 2>/dev/null; then
+                                        NON_EMPTY=$((NON_EMPTY + 1))
+                                    fi
+                                done
+                                if [ "$NON_EMPTY" -ge 3 ]; then
+                                    result "PASS" "PG backup restore 验证" "影子库 $SHADOW_DB 还原,$NON_EMPTY/4 核心表非空"
+                                else
+                                    result "FAIL" "PG backup restore 验证" "影子库还原成功但 $NON_EMPTY/4 表非空,可能备份不完整"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    fi
+fi
 echo ""
 
 # ─── 总结 ────────────────────────────────────────────────────
