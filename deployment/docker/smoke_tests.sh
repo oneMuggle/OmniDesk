@@ -525,14 +525,15 @@ GUEST_TOKEN_H83=$(curl -s --max-time 10 -X POST -H "Content-Type: application/js
   | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
 
 if [ -n "$GUEST_TOKEN_H83" ]; then
-    TMP_PDF="/tmp/.smoke_upload_$$.pdf"
-    printf '%%PDF-1.4\n' > "$TMP_PDF"
+    # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
+    SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
+    printf '%%PDF-1.4\n' > "$SMOKE_PDF"
     UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
         -H "Authorization: Bearer $GUEST_TOKEN_H83" \
-        -F "file=@$TMP_PDF;type=application/pdf" \
+        -F "file=@$SMOKE_PDF;type=application/pdf" \
         "$BASE_URL/api/file/upload/" 2>/dev/null || echo "")
     UPLOAD_CODE=$(echo "$UPLOAD_OUT" | tail -1)
-    rm -f "$TMP_PDF"
+    rm -f "$SMOKE_PDF"
     # 业务真错(400/401/403/413/415/500) → FAIL;网络瞬态(000/502/503/504) → SKIP
     case "$UPLOAD_CODE" in
         201)             result "PASS" "File processing 上传链路" "HTTP 201 — 业务命中 + Celery 任务已分发" ;;
@@ -583,10 +584,13 @@ else
         DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X DELETE \
             -H "Authorization: Bearer $GUEST_TOKEN_H9" \
             "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
+        # H2 修复(code-review):真业务错(401/403/500/502/503/504)→ FAIL,
+        # 让 memo 残留生产表被运维看到;404 留 WARN(可能已被清理);其他(400/405 等客户端错)留 WARN。
         case "$DEL_CODE" in
-            204|200) result "PASS" "Memos DELETE 清理" "HTTP $DEL_CODE" ;;
-            404)      result "WARN" "Memos DELETE 清理" "HTTP 404 — memo 不存在/已被清理,可忽略" ;;
-            *)        result "WARN" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留,下次 run 累加" ;;
+            204|200)         result "PASS" "Memos DELETE 清理" "HTTP $DEL_CODE" ;;
+            404)              result "WARN" "Memos DELETE 清理" "HTTP 404 — memo 不存在/已被清理,可忽略" ;;
+            401|403|500|502|503|504) result "FAIL" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留生产表,需人工 SQL 清理" ;;
+            *)                result "WARN" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留,下次 run 累加" ;;
         esac
     else
         result "FAIL" "Memos POST 创建" "响应: ${CREATE_RESP:0:200}"
