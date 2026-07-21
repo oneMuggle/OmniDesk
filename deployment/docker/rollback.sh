@@ -149,6 +149,14 @@ else
 fi
 echo ""
 
+# Step 7.5: Smoke gate (P0)
+# 注:rollback.sh 的 Step 7 health 当前不 return 非零(只 WARN),smoke 是唯一硬 gate。
+# set -e (脚本顶部) 让 smoke 失败自动终止;插在 Step 8 记录前 → 失败不会
+# 留下"已回滚"伪记录,且在成功 banner 前 → 输出语义一致。
+echo "Step 7.5: Running smoke tests (gate before recording)..."
+./smoke_tests.sh "${BASE_URL:-http://localhost}"
+echo ""
+
 # Step 8: Record
 NEW_VERSION=$(compose exec -T backend python manage.py shell -c "from django.conf import settings; print(settings.APP_VERSION)" 2>/dev/null || echo "unknown")
 echo "$(date '+%Y-%m-%d %H:%M:%S') Rolled back: $CURRENT_VERSION -> $NEW_VERSION" >> upgrade.log

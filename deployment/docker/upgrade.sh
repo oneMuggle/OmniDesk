@@ -248,6 +248,15 @@ echo ""
 echo "Step 9: Running health check..."
 wait_for_backend
 
+# Step 9.5: Smoke gate (P0)
+# set -e (脚本顶部) 让 smoke 失败自动终止;插在 Step 10 记录前 → 失败不会
+# 留下"已升级"伪记录,且在成功 banner 前 → 输出语义一致。
+# ${BASE_URL:-http://localhost} 让 smoke 透传环境变量(若未设则与原默认一致)。
+echo ""
+echo "Step 9.5: Running smoke tests (gate before recording)..."
+./smoke_tests.sh "${BASE_URL:-http://localhost}"
+echo ""
+
 # Step 10: Record
 echo "Step 10: Recording upgrade..."
 echo "$(date '+%Y-%m-%d %H:%M:%S') Upgraded: $CURRENT_VERSION -> $TARGET_VERSION" >> upgrade.log
