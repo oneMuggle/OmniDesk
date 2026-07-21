@@ -88,6 +88,64 @@ result() {
     esac
 }
 
+# 通用 GET-only happy-path helper — 5 个 app 复用
+# 用法: _app_happy_path_get <app_label> <url_path> [<min_size_bytes>] [<token_var_name>]
+#   - app_label: 显示名(中文)
+#   - url_path: BASE_URL 后的相对路径,必须以 / 开头
+#   - min_size_bytes: 可选,响应体最小字节数(过滤空 JSON 数组),默认 2
+#   - token_var_name: 可选,JWT 缓存的全局变量名,默认 GUEST_TOKEN_H10
+_app_happy_path_get() {
+    local label="$1"
+    local path="$2"
+    local min_size="${3:-2}"
+    local token_var="${4:-GUEST_TOKEN_H10}"
+
+    if [ -z "${!token_var:-}" ]; then
+        local new_token
+        new_token=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
+            "$BASE_URL/api/auth/guest-login/" \
+          | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+        if [ -z "$new_token" ]; then
+            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 (JWT 空)"
+            return 0
+        fi
+        printf -v "$token_var" '%s' "$new_token"
+    fi
+
+    local http_code body size
+    body=$(curl -s --max-time 10 -w "\n%{http_code}" \
+        -H "Authorization: Bearer ${!token_var}" \
+        "$BASE_URL$path" 2>/dev/null || echo "")
+    http_code=$(echo "$body" | tail -1)
+    body=$(echo "$body" | sed '$d')
+
+    case "$http_code" in
+        200)
+            size=${#body}
+            if [ "$size" -ge "$min_size" ]; then
+                result "PASS" "业务 happy-path ($label)" "HTTP 200 size=${size}B path=$path"
+            else
+                result "PASS" "业务 happy-path ($label)" "HTTP 200 但响应体仅 ${size}B (业务可能空数据) path=$path"
+            fi
+            ;;
+        401|403)
+            result "FAIL" "业务 happy-path ($label)" "HTTP $http_code — guest 用户被拒,需确认 view 权限配置 path=$path"
+            ;;
+        404)
+            result "FAIL" "业务 happy-path ($label)" "HTTP 404 — 端点未注册 path=$path"
+            ;;
+        000|502|503|504)
+            result "SKIP" "业务 happy-path ($label)" "网络瞬态 HTTP $http_code path=$path"
+            ;;
+        429)
+            result "WARN" "业务 happy-path ($label)" "HTTP 429 — DRF 5/15m 限流命中,15 分钟后重试 path=$path"
+            ;;
+        *)
+            result "FAIL" "业务 happy-path ($label)" "HTTP $http_code (期望 200) path=$path"
+            ;;
+    esac
+}
+
 echo "=========================================="
 echo "  冒烟测试"
 echo "  Frontend/API: $BASE_URL"
@@ -596,6 +654,39 @@ else
         result "FAIL" "Memos POST 创建" "响应: ${CREATE_RESP:0:200}"
     fi
 fi
+echo ""
+
+# ─── 阶段 10: 业务端点广度 (5 app × 1 GET-only happy-path) ─────
+echo "阶段 10: 业务端点广度"
+
+# P1 修复:17+ app 此前仅 memos 一条 happy-path,阶段 10 用 GET-only 探针
+# 验证 5 个高频/高风险 app 的 URL 模式 + view + serializer + 权限 + DB 查询
+# 全部链路。GET 不写数据,无需 cleanup(陷阱不增项)。
+# 端点选取标准(都已验存在):
+#   events  /api/events/trials/         — 排班试用,低写入风险
+#   news    /api/news-articles/         — 新闻公告
+#   documents /api/documents/books/     — 文档书籍
+#   projects /api/projects/             — 项目管理
+#   ragflow-service /api/ragflow-service/configs/  — 外部服务配置
+#
+# 若 5 条全 PASS 视为业务广度冒烟通过;单项 FAIL 立即定位哪个 app 端点挂
+
+GUEST_TOKEN_H10=""
+
+# 10.1 events trials
+_app_happy_path_get "events/trials" "/api/events/trials/" 2 "GUEST_TOKEN_H10"
+
+# 10.2 news articles
+_app_happy_path_get "news/articles" "/api/news-articles/" 2 "GUEST_TOKEN_H10"
+
+# 10.3 documents books
+_app_happy_path_get "documents/books" "/api/documents/books/" 2 "GUEST_TOKEN_H10"
+
+# 10.4 projects
+_app_happy_path_get "projects" "/api/projects/" 2 "GUEST_TOKEN_H10"
+
+# 10.5 ragflow-service configs
+_app_happy_path_get "ragflow/configs" "/api/ragflow-service/configs/" 2 "GUEST_TOKEN_H10"
 echo ""
 
 # ─── 总结 ────────────────────────────────────────────────────
