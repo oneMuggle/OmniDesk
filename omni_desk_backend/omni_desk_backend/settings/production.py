@@ -49,6 +49,9 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT", 5432),
         "CONN_MAX_AGE": 600,
+        # Django 4.1+:reusing cached conn 前 SELECT 1 健康检查,
+        # 防止 backend worker 在 db restart 后持有 stale conn 导致 500
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 

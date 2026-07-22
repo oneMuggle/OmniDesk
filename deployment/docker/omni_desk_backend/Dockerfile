@@ -9,9 +9,10 @@ ENV PYTHONUNBUFFERED 1
 ENV PIP_NO_CACHE_DIR=off
 ENV PIP_DISABLE_PIP_VERSION_CHECK=on
 
-# Install runtime library for psycopg2
+# Install runtime library for psycopg2, libmagic for python-magic,
+# and postgresql-client for pg_dump (needed by manage.py backup_db)
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends libpq5 && \
+    apt-get install -y --no-install-recommends libpq5 libmagic1 postgresql-client && \
     rm -rf /var/lib/apt/lists/*
 
 # Set the working directory
@@ -75,8 +76,34 @@ COPY omni_desk_backend/requirements-prod.txt .
 # Install Python dependencies from the local wheelhouse
 RUN pip install --no-cache-dir --no-index --find-links=/wheelhouse -r requirements-prod.txt
 
+# Fix-11: ollama 传递依赖 anyio 漏在 requirements-prod.txt
+# (ollama 在 prod, anyio 只在 dev.txt),file_processing 启动需要
+# 同时 httpx==1.0.dev3 (prod 锁定的 pre-release)与 ollama 0.6.2 不兼容
+# 强制 uninstall 再装新版(确保覆盖 wheelhouse 中的 1.0.dev3)
+# 后续应通过 requirements.in + pip-compile 重新生成修复根因
+RUN pip uninstall -y httpx anyio 2>&1 | tail -3 || true
+RUN pip install --no-cache-dir --upgrade 'anyio>=4.0' 'httpx>=0.27,<1.0'
+
 # Copy application source
 COPY --chown=app:app omni_desk_backend/ .
+
+# Build-time sanity check:确保关键 app 的 .py 文件存在
+# 背景:v0.7.0-alpha.2 离线包镜像(v0.6.0/v0.7.0-alpha.2 SHA 相同)build context 残缺,
+# paperless_proxy/file_processing 的 .py 文件未进入镜像,导致 Celery 任务注册失败 / 上传 404
+# 此处硬断言防止未来构建再次回归
+RUN test -f /usr/src/app/paperless_proxy/tasks.py && \
+    test -f /usr/src/app/paperless_proxy/views.py && \
+    test -f /usr/src/app/paperless_proxy/apps.py && \
+    test -f /usr/src/app/file_processing/views.py && \
+    test -f /usr/src/app/file_processing/models.py && \
+    test -f /usr/src/app/file_processing/urls.py && \
+    echo "✓ key apps verified (paperless_proxy + file_processing)" \
+    || (echo "✗ BUILD CONTEXT BROKEN: paperless_proxy or file_processing missing .py files" && exit 1)
+
+# Copy VERSION file so core/version.py can read the deployed version
+COPY deployment/docker/VERSION deployment/docker/VERSION
+# Copy CHANGELOG.md so /api/system/changelog/ can serve real content
+COPY deployment/docker/CHANGELOG.md deployment/docker/CHANGELOG.md
 
 # Ensure the entrypoint script has correct line endings and is executable
 RUN sed -i 's/\r$//' ./entrypoint.sh
