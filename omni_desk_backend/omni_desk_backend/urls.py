@@ -47,7 +47,7 @@ urlpatterns = [
                 path("system/", include("core.urls")),  # 系统信息（版本等）
                 path("external/", include("external_integration.urls")),  # 外部集成管理
                 path("paperless/", include("paperless_proxy.urls")),  # paperless 代理(Outbox 管理)
-                path("file-processing/", include("file_processing.urls")),  # 文件处理(上传/分析)
+                path("file/", include("file_processing.urls")),  # 文件处理(/api/file/upload/ 等)
             ]
         ),
     ),
