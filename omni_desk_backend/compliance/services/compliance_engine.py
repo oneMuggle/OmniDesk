@@ -37,4 +37,6 @@ class ComplianceChecker:
             return cast(int, ComplianceIssue.objects.filter(status__in=["待处理", "处理中"]).count())
 
         user_projects = Project.objects.filter(manager=user)
-        return cast(int, ComplianceIssue.objects.filter(project__in=user_projects, status__in=["待处理", "处理中"]).count())
+        return cast(
+            int, ComplianceIssue.objects.filter(project__in=user_projects, status__in=["待处理", "处理中"]).count()
+        )

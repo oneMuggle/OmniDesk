@@ -30,7 +30,9 @@ def classify_intent(query: str, schemas: list, history: list | None = None) -> s
         return "general_chat"
 
 
-def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None) -> str:
+def generate_answer(
+    user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None
+) -> str:
     """将工具结果转化为自然语言回答，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
@@ -54,7 +56,9 @@ def generate_answer(user_query: str, intent: str, tool_name: str, tool_result: d
         return f"回答生成失败: {str(e)}"
 
 
-def generate_answer_stream(user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None):
+def generate_answer_stream(
+    user_query: str, intent: str, tool_name: str, tool_result: dict, history: list | None = None
+):
     """流式版本：逐步 yield LLM 输出 chunk，支持多轮上下文"""
     result_text = str(tool_result) if tool_result else "无结果"
 
