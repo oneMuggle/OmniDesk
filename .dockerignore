@@ -43,6 +43,8 @@ scripts/
 misc/
 # Exception: VERSION file is needed by core/version.py to report deployed version
 !deployment/docker/VERSION
+# Exception: CHANGELOG.md is needed by core/api.py changelog endpoint
+!deployment/docker/CHANGELOG.md
 
 # Project specific tooling
 .roo/

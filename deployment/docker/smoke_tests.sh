@@ -58,10 +58,10 @@ set -uo pipefail
 # B·E1: backend rm 也加 timeout 10 — 对称补漏,防 trap 期间 backend 处于 restart/starting 时 exec 挂死
 # B·G: db cleanup 重试 3 次防 _smoke_persist 表永久残留
 cleanup_smoke_artifacts() {
-    [ -n "${MARKER_FILE:-}" ] && timeout 10 compose exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
                 "DROP TABLE IF EXISTS _smoke_persist;" >/dev/null 2>&1 && break
             sleep 2
         done
@@ -72,15 +72,15 @@ cleanup_smoke_artifacts() {
     # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$SHADOW_DB' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
-            timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
                 "DROP DATABASE IF EXISTS $SHADOW_DB;" >/dev/null 2>&1 && break
             sleep 2
         done
     fi
     # 阶段 11 备份文件清理
-    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 compose exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
 trap cleanup_smoke_artifacts EXIT
 
@@ -98,6 +98,61 @@ result() {
               WARN_DETAILS+=("$msg${detail:+ — $detail}")
               ;;
     esac
+}
+
+# ─── 通用等待 helper ──────────────────────────────────────
+# Fix-9:db 重启后 gunicorn worker 持有 stale conn 500 的根因修复
+# wait_for_healthy <service> [timeout_s=60] — 等容器 healthcheck=healthy
+wait_for_healthy() {
+    local service="$1"
+    local timeout="${2:-60}"
+    local cid
+    cid=$(compose ps -q "$service" 2>/dev/null || true)
+    [ -z "$cid" ] && return 1
+    local end=$((SECONDS + timeout))
+    while [ "$SECONDS" -lt "$end" ]; do
+        local hc
+        hc=$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")
+        [ "$hc" = "healthy" ] && return 0
+        sleep 2
+    done
+    return 1
+}
+
+# wait_for_db [timeout_s=90] — 等 db pg_isready OK
+wait_for_db() {
+    local timeout="${1:-90}"
+    local end=$((SECONDS + timeout))
+    while [ "$SECONDS" -lt "$end" ]; do
+        if compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+# curl_with_retry <max=3> <curl args...> — 指数退避;5xx/网络瞬态自动重试
+# 返回: "<body>\n<http_code>";成功时最后一行是 200/201/204
+curl_with_retry() {
+    local max="${1:-3}"
+    shift
+    local attempt=1 delay=2 out="" code=""
+    while [ "$attempt" -le "$max" ]; do
+        out=$(curl -s --max-time 10 -w "\n%{http_code}" "$@" 2>/dev/null || echo "")
+        code=$(echo "$out" | tail -1)
+        case "$code" in
+            200|201|204) echo "$out"; return 0 ;;
+            000|502|503|504) ;;  # 网络瞬态,重试
+            500) [ "$attempt" -eq "$max" ] && { echo "$out"; return 0; } ;;  # 500 重试到 max
+            *) echo "$out"; return 0 ;;  # 业务错码(4xx),直接返回不重试
+        esac
+        sleep "$delay"
+        delay=$((delay * 2))
+        attempt=$((attempt + 1))
+    done
+    echo "$out"
+    return 1
 }
 
 # 通用 GET-only happy-path helper — 5 个 app 复用
@@ -198,6 +253,10 @@ ENV_FILE="--env-file .env.production"
 compose() {
     docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE "$@"
 }
+
+# Fix-12: 把 compose() 函数 export 到子 shell,让 $(compose ...) 等命令可用
+# 否则 timeout / $() 子进程不继承 bash 函数
+export -f compose
 
 # ─── 阶段 1: 容器状态 ───────────────────────────────────────
 echo "阶段 1: 容器状态"
@@ -368,11 +427,16 @@ fi
 # 无参数;目录不存在返回 {"deleted": 0};否则仅删除过期缓存,幂等无副作用。
 # 已配置为每 6h 自动运行 — 显式触发 = 强制一次后台 cleanup。
 # 若 worker 进程在但 broker 切了 / task 未注册 / task 模块未加载,这一步 30s 超时失败。
-CELERY_RESP=$(timeout 35 compose exec -T backend python -c "
+# Fix-12: compose() 是 bash 函数,timeout / sh -c 都不会继承,必须用 docker compose 直接调用
+# COMPOSE_PROJECT_NAME/COMPOSE_FILE/ENV_FILE 是 smoke 顶部定义的全局变量
+timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python -c "
+import django; django.setup()
 from paperless_proxy.tasks import cleanup_paperless_cache
 r = cleanup_paperless_cache.delay()
 print('OK', r.get(timeout=30, propagate=False))
-" 2>/dev/null)
+" > /tmp/.smoke_celery_$$.out 2>/dev/null
+CELERY_RESP=$(cat /tmp/.smoke_celery_$$.out 2>/dev/null)
+rm -f /tmp/.smoke_celery_$$.out
 if [ -z "$CELERY_RESP" ]; then CELERY_RESP="FAIL_TIMEOUT"; fi
 if echo "$CELERY_RESP" | grep -q "^OK {"; then
     result "PASS" "Celery 真任务端到端" "$CELERY_RESP"
@@ -490,10 +554,12 @@ import sys,json
 d=json.load(sys.stdin)
 assert isinstance(d.get('changelog',''), str) and len(d['changelog']) > 0
 " 2>/dev/null; then
+        # Fix-12: regex 兼容 'v' 前缀(Keep a Changelog 标准 '## [v0.7.0-alpha.2]')
+        #       和无 'v' 前缀(当前 deployment/docker/CHANGELOG.md 用 '## [0.7.0-alpha.2]')
         VER=$(echo "$CHL" | python3 -c "
 import sys,json,re
 t=json.load(sys.stdin)['changelog']
-m=re.search(r'\[(v[0-9.]+[a-z0-9.-]*)\]', t)
+m=re.search(r'\[(v?[0-9.]+[a-z0-9.-]*)\]', t)
 print(m.group(1) if m else 'fallback')
 " 2>/dev/null)
         result "PASS" "Changelog endpoint (latest=$VER)"
@@ -563,7 +629,7 @@ if compose exec -T backend sh -c "echo '$MEDIA_MARKER' > $MARKER_FILE" 2>/dev/nu
     fi
     # 注意:trap EXIT 也会清理 marker_file,这里显式 rm 是双保险
     # B·F: 主流程 marker 清理也加 timeout 10,与 trap 内 backend rm 对称
-    timeout 10 compose exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
 else
     result "SKIP" "Backend media persist" "Cannot write to /usr/src/app/media/"
 fi
@@ -583,11 +649,16 @@ if [ -f ".env.production" ]; then
             result "FAIL" "Postgres persist" "CREATE+INSERT 失败: ${PSQL_OUT:0:200}"
         else
             compose restart db >/dev/null 2>&1 || true
+            # Fix-9: db 重启后,gunicorn worker 持有的 conn 会 stale(CONN_MAX_AGE=600 场景)
+            # 同步重启 backend 让 entrypoint 重新建连(等 CONN_HEALTH_CHECKS 兜底时也起到双重保险)
+            compose restart backend >/dev/null 2>&1 || true
             # H3: 18 * 5s = 90s,覆盖 db.start_period 60s + retries 5s/次
             for _ in $(seq 1 18); do
                 if compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then break; fi
                 sleep 5
             done
+            # 等 backend 重新 healthy(避免阶段 9 撞 stale conn 500)
+            wait_for_healthy backend 30 || true
             if ! compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
                 # 卷可能 OK,但 db 还在启动,SKIP 而非 FAIL (避免冷启动误报)
                 result "SKIP" "Postgres persist" "pg_isready 90s 内未就绪;卷可能 OK 但 db 还在启动"
@@ -650,21 +721,27 @@ echo "阶段 9: 业务 happy-path (memos)"
 # memos 是单调用闭环最佳入口:IsAuthenticated only(guest OK) + 必填仅 title + 无 FK。
 # 见 omni_desk_backend/memos/views.py:8-15(权限) / models.py:6-13(字段)
 # 已 reject 的备选:news(POST 需 Admin)/ documents(二阶 FK)/ meeting_rooms(时间冲突)
-GUEST_TOKEN_H9=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
-    "$BASE_URL/api/auth/guest-login/" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
-
-if [ -z "$GUEST_TOKEN_H9" ]; then
-    result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+# Fix-9: 阶段 8 重启 db 后,gunicorn worker 可能还在重建连接 — 入口加 backend 健康守卫
+if ! wait_for_healthy backend 30; then
+    result "SKIP" "业务 happy-path (memos)" "阶段 8 重启后 backend 30s 内未 healthy"
+    echo ""
 else
-    # 9.1 POST 创建
-    MEMO_TITLE="smoke-test-$$-$(date +%s)"
-    CREATE_RESP=$(curl -s --max-time 10 -X POST \
-        -H "Content-Type: application/json" \
-        -H "Authorization: Bearer $GUEST_TOKEN_H9" \
-        -d "{\"title\":\"$MEMO_TITLE\"}" \
-        "$BASE_URL/api/memos/" 2>/dev/null || echo "")
-    MEMO_ID=$(echo "$CREATE_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+    # 用 curl_with_retry 处理 5xx/网络瞬态(配合 production.py CONN_HEALTH_CHECKS=True 双重保险)
+    GUEST_TOKEN_H9=$(curl_with_retry 3 -X POST -H "Content-Type: application/json" -d '{}' \
+        "$BASE_URL/api/auth/guest-login/" 2>/dev/null | head -n -1 | \
+        python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+
+    if [ -z "$GUEST_TOKEN_H9" ]; then
+        result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+    else
+        # 9.1 POST 创建 — 加 retry,db 重启瞬态 5xx 自动恢复
+        MEMO_TITLE="smoke-test-$$-$(date +%s)"
+        CREATE_RESP=$(curl_with_retry 3 -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            -d "{\"title\":\"$MEMO_TITLE\"}" \
+            "$BASE_URL/api/memos/" 2>/dev/null | head -n -1 || echo "")
+        MEMO_ID=$(echo "$CREATE_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
     if [ -n "$MEMO_ID" ]; then
         result "PASS" "Memos POST 创建" "id=$MEMO_ID title=$MEMO_TITLE"
 
@@ -692,6 +769,7 @@ else
         esac
     else
         result "FAIL" "Memos POST 创建" "响应: ${CREATE_RESP:0:200}"
+    fi
     fi
 fi
 echo ""
@@ -750,35 +828,45 @@ else
     if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_DB" ]; then
         result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"
     else
-        # 11.1 触发 backup_db
-        BACKUP_OUT=$(timeout 60 compose exec -T backend python manage.py backup_db --db-only 2>&1) || BACKUP_RC=$?
+        # 11.1 触发 backup_db — Fix-12: compose() 是 bash 函数,timeout 不继承,直接 docker compose
+        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
+        BACKUP_RC=$?
+        BACKUP_OUT=$(cat /tmp/.smoke_backup_$$.out 2>/dev/null)
+        rm -f /tmp/.smoke_backup_$$.out
         BACKUP_RC=${BACKUP_RC:-0}
         if [ "$BACKUP_RC" -ne 0 ]; then
             result "FAIL" "PG backup_db 命令" "exit=$BACKUP_RC tail: ${BACKUP_OUT: -200}"
         else
             # 11.2 定位最新备份文件
-            LATEST=$(timeout 10 compose exec -T backend sh -c "ls -t /var/backups/postgres/*.sql.gz 2>/dev/null | head -1" 2>/dev/null | tr -d '\r\n')
+            # Fix-11: backup_db 默认 output_dir 是 /opt/omnidesk/backups (见 core/management/commands/backup_db.py:20)
+            # Fix-12: timeout 是新进程,不继承 bash 函数,必须用 docker compose 直接调用
+            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
+            LATEST=$(cat /tmp/.smoke_bkls_$$.out 2>/dev/null | tr -d '\r\n')
+            rm -f /tmp/.smoke_bkls_$$.out
             if [ -z "$LATEST" ]; then
                 result "FAIL" "PG backup 文件定位" "未找到 .sql.gz 文件"
             else
                 # 11.3 base64 传输(50MB 以内可接受)
-                B64=$(compose exec -T backend base64 "$LATEST" 2>/dev/null | tr -d '\r\n ')
+                # Fix-12: 所有 docker compose 子进程调用都展开为完整命令,避免 timeout/$() 不继承 bash 函数
+                docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
+                B64=$(cat /tmp/.smoke_b64_$$.out 2>/dev/null | tr -d '\r\n ')
+                rm -f /tmp/.smoke_b64_$$.out
                 if [ -z "$B64" ]; then
                     result "FAIL" "PG backup 传输" "backend base64 编码失败"
                 else
                     SMOKE_BACKUP_FILE="/tmp/.smoke_backup_$$.sql.gz"
-                    echo "$B64" | timeout 60 compose exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
-                    if ! timeout 10 compose exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
+                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
+                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
                         result "FAIL" "PG backup 落地" "db 端 $SMOKE_BACKUP_FILE 写入失败或为空"
                     else
                         # 11.4 CREATE 影子库
-                        CREATE_OUT=$(timeout 20 compose exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                             "CREATE DATABASE $SHADOW_DB;" 2>&1) || true
                         if ! echo "$CREATE_OUT" | grep -q "CREATE DATABASE"; then
                             result "FAIL" "PG shadow DB 创建" "${CREATE_OUT:0:200}"
                         else
                             # 11.5 还原到影子库
-                            RESTORE_OUT=$(timeout 120 compose exec -T db sh -c \
+                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c \
                                 "gunzip -c $SMOKE_BACKUP_FILE | psql -U $POSTGRES_USER -d $SHADOW_DB -v ON_ERROR_STOP=1" 2>&1) || true
                             if echo "$RESTORE_OUT" | grep -qE "ERROR|FATAL"; then
                                 result "FAIL" "PG restore 还原" "psql 报错: $(echo "$RESTORE_OUT" | grep -E 'ERROR|FATAL' | head -3)"
@@ -786,7 +874,7 @@ else
                                 # 11.6 验证 4 张核心表非空
                                 NON_EMPTY=0
                                 for tbl in users_customuser memos_memo auth_group django_migrations; do
-                                    CNT=$(timeout 10 compose exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
+                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
                                         "SELECT count(*) FROM $tbl;" 2>/dev/null | tr -d ' \r\n' || echo "0")
                                     if [ -n "$CNT" ] && [ "$CNT" -gt 0 ] 2>/dev/null; then
                                         NON_EMPTY=$((NON_EMPTY + 1))
