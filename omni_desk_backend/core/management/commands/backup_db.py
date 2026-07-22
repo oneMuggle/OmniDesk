@@ -71,11 +71,11 @@ class Command(BaseCommand):
             # 原因 2: -Fc custom format 需要 pg_restore 还原,smoke_tests 阶段 11 用 psql
             #         plain SQL 才能 psql 直接管道还原(更通用,运维友好)
             with open(filepath, "wb") as out:
+                # Fix-13: Ruff UP022 — 用 capture_output=True 替代 stdout=PIPE, stderr=PIPE
                 result = subprocess.run(
                     cmd,  # 默认 plain SQL format,兼容 psql 直接还原
                     env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,
                     check=False,
                 )
                 if result.returncode != 0:
