@@ -279,3 +279,19 @@ whitenoise==6.12.0
 # The following packages are considered to be unsafe in a requirements file:
 # pip
 # setuptools
+
+# Fix-15: paperless_proxy + file_processing 测试依赖(从 main sync)
+ollama==0.6.2
+    # via -r requirements.in
+openpyxl==3.1.5
+    # via file_processing.excel
+pdfplumber==0.11.10
+    # via file_processing.processors.pdf
+pandas==2.2.3
+    # via file_processing.services
+anyio==4.14.1
+    # via httpx
+httpx==0.28.1
+    # via ollama
+python-magic==0.4.27
+    # via file_processing.services
