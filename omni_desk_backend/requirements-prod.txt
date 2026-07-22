@@ -192,3 +192,9 @@ wcwidth==0.7.0
     # via prompt-toolkit
 whitenoise==6.12.0
     # via -r requirements.in
+
+# Fix-14: paperless_proxy/file_processing 依赖(从 main sync,缺 pip-compile)
+openpyxl==3.1.5
+    # via file_processing.excel
+pypdfium2==5.12.0
+    # via pypdf

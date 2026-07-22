@@ -86,6 +86,10 @@ INSTALLED_APPS = [
     "dashboard.apps.DashboardConfig",
     "external_integration.apps.ExternalIntegrationConfig",
     "django_ratelimit",
+    # 文档存储代理
+    "paperless_proxy",
+    # 文件处理
+    "file_processing.apps.FileProcessingConfig",
 ]
 
 MIDDLEWARE = [
