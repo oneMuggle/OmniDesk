@@ -303,3 +303,17 @@ openpyxl==3.1.5
     # via file_processing.excel
 pypdfium2==5.12.0
     # via pypdf
+ollama==0.6.2
+    # via -r requirements.in
+anyio==4.14.1
+    # via httpx
+httpx==0.28.1
+    # via ollama
+pdfplumber==0.11.10
+    # via file_processing.processors.pdf
+beautifulsoup4==4.14.3
+    # via file_processing.processors.word
+python-docx==1.2.0
+    # via file_processing.processors.word
+python-magic==0.4.27
+    # via file_processing.services
