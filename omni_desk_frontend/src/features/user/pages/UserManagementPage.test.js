@@ -1,6 +1,4 @@
-import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
-import flushPromises from 'flush-promises';
+import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import UserManagementPage from './UserManagementPage';
 import userManagementApi from '../api/userManagementApi';

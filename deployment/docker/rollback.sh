@@ -24,6 +24,35 @@ BACKUP_DIR="${BACKUP_DIR:-./backups}"
 # Path inside the container where the backup volume is mounted
 CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
+# 渠道参数(--channel,默认 stable)。hotfix 备份沿用 stable/ 目录。
+ROLLBACK_CHANNEL="${ROLLBACK_CHANNEL:-stable}"
+DRY_RUN=false
+for arg in "$@"; do
+    case "$arg" in
+        --channel=*) ROLLBACK_CHANNEL="${arg#*=}" ;;
+        --dry-run)    DRY_RUN=true ;;
+        -h|--help)
+            echo "Usage: $0 [--channel={alpha|beta|preview|stable|hotfix}] [--dry-run]"
+            exit 0
+            ;;
+    esac
+done
+if [ "$ROLLBACK_CHANNEL" = "hotfix" ]; then
+    ROLLBACK_CHANNEL="stable"
+fi
+BACKUP_DIR="${BACKUP_DIR:-./backups}/${ROLLBACK_CHANNEL}"
+
+# Phase 11 DS-4: Structured log function with timestamp + log file
+LOG_FILE="${LOG_FILE:-./logs/rollback-$(date +%Y%m%d-%H%M%S).log}"
+mkdir -p "$(dirname "$LOG_FILE")"
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
+if $DRY_RUN; then
+    log "DRY-RUN MODE — no destructive ops"
+fi
+
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
@@ -36,6 +65,7 @@ echo ""
 # Step 1: Show current version
 CURRENT_VERSION=$(compose exec -T backend python manage.py shell -c "from django.conf import settings; print(settings.APP_VERSION)" 2>/dev/null || echo "unknown")
 echo "Current version: $CURRENT_VERSION"
+echo "Rollback channel: $ROLLBACK_CHANNEL"
 echo ""
 
 # Step 2: Show available backups
@@ -45,11 +75,8 @@ if [ -d "$BACKUP_DIR" ]; then
     if [ -z "$db_backups" ]; then
         echo "  No backups found in $BACKUP_DIR"
     else
-        i=1
-        echo "$db_backups" | while read -r f; do
-            echo "  [$i] $(basename "$f")"
-            i=$((i + 1))
-        done
+        # Phase 11 DS-2: Use nl for numbering (pipe-to-while was a subshell that reset i)
+        echo "$db_backups" | nl -ba -w1 -s'] [' | sed "s/^/  [/"
     fi
 else
     echo "  Backup directory $BACKUP_DIR does not exist."
@@ -84,7 +111,11 @@ echo ""
 # Step 5: Restore database
 if [ -n "$RESTORE_FILE_CONTAINER" ]; then
     echo "Step 5: Restoring database from $(basename "$RESTORE_FILE")..."
-    compose exec -T backend python manage.py restore_db "$RESTORE_FILE_CONTAINER" --force
+    if $DRY_RUN; then
+        echo "  [DRY-RUN] would run: compose exec -T backend python manage.py restore_db $RESTORE_FILE_CONTAINER --force"
+    else
+        compose exec -T backend python manage.py restore_db "$RESTORE_FILE_CONTAINER" --force
+    fi
     echo ""
 else
     echo "Step 5: Skipping database restore."
@@ -92,8 +123,12 @@ fi
 
 # Step 6: Restart services
 echo "Step 6: Restarting services..."
-compose down
-compose up -d
+if $DRY_RUN; then
+    echo "  [DRY-RUN] would run: compose down && compose up -d"
+else
+    compose down
+    compose up -d
+fi
 echo "Services restarted."
 echo ""
 
@@ -112,6 +147,14 @@ if [ -n "$CONTAINER_ID" ]; then
 else
     echo "WARNING: Backend container not running."
 fi
+echo ""
+
+# Step 7.5: Smoke gate (P0)
+# 注:rollback.sh 的 Step 7 health 当前不 return 非零(只 WARN),smoke 是唯一硬 gate。
+# set -e (脚本顶部) 让 smoke 失败自动终止;插在 Step 8 记录前 → 失败不会
+# 留下"已回滚"伪记录,且在成功 banner 前 → 输出语义一致。
+echo "Step 7.5: Running smoke tests (gate before recording)..."
+./smoke_tests.sh "${BASE_URL:-http://localhost}"
 echo ""
 
 # Step 8: Record

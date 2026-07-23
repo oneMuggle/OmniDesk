@@ -1,17 +1,19 @@
 from django.contrib.auth import login as django_login
-from django.db import IntegrityError
-from django.http import HttpResponseRedirect
+from django.http import HttpResponseRedirect, JsonResponse
 from django.middleware.csrf import get_token
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
 from rest_framework import exceptions, generics, permissions, status, viewsets
-from rest_framework.decorators import api_view
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.exceptions import ValidationError
 from rest_framework.filters import SearchFilter
 from rest_framework.response import Response
 from rest_framework_simplejwt.tokens import RefreshToken, AccessToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from observability import get_logger
+from observability.events import AuthEvent
 from personnel.models import Personnel
 
 from .models import CustomUser
@@ -25,6 +27,8 @@ from .serializers import (
     UserPersonnelSerializer,
     UserRegistrationSerializer,
 )
+
+logger = get_logger(__name__)
 
 RATELIMIT_CONFIG = {
     "group": "auth",
@@ -42,44 +46,50 @@ class UserRegistrationView(generics.CreateAPIView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
+                from rest_framework.renderers import JSONRenderer
+
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = "application/json"
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
 
     def create(self, request, *args, **kwargs):
+        # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+        # 背景:DRF 的 exception_handler 返回的 Response 在某些条件下
+        # (例如 Django 内置 RegexValidator 触发时)未经过 finalize_response,
+        # 导致 accepted_renderer 未设置,触发 AssertionError → 500
+        serializer = self.get_serializer(data=request.data)
         try:
-            serializer = self.get_serializer(data=request.data)
             serializer.is_valid(raise_exception=True)
-            user = serializer.save()
+        except ValidationError as e:
+            return JsonResponse(e.detail, status=400, safe=False)
 
-            return Response(
-                {
-                    "success": True,
-                    "message": "注册成功，请登录",
-                    "username": user.username,
-                    "user": UserDetailSerializer(user).data,
-                },
-                status=status.HTTP_201_CREATED,
-            )
-        except exceptions.APIException as e:
-            error_key = list(e.detail.keys())[0] if isinstance(e.detail, dict) else "validation_error"
-            return Response(
-                {"success": False, "error": error_key, "message": "注册验证失败", "validation_errors": e.detail},
-                status=e.status_code,
-            )
-        except IntegrityError:
-            import traceback
+        user = serializer.save()
 
-            traceback.print_exc()
-            error_data = {
-                "success": False,
-                "error": "username_exists",
-                "detail": "用户名已被使用",
-                "validation_errors": serializer.errors if "serializer" in locals() else {},
-            }
-            return Response(error_data, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {
+                "success": True,
+                "message": "注册成功,请登录",
+                "username": user.username,
+                "user": UserDetailSerializer(user).data,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class UserDetailView(generics.RetrieveAPIView):
@@ -116,11 +126,61 @@ class UserLoginView(TokenObtainPairView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
+                from rest_framework.renderers import JSONRenderer
+
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = "application/json"
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
+
+    def post(self, request, *args, **kwargs):
+        """登录端点,覆盖父类以发出结构化登录事件日志。
+
+        成功:auth.login.success(user_id, ip)
+        失败:auth.login.failure(username, reason, ip) — 不记密码
+        """
+        ip = request.META.get("REMOTE_ADDR")
+        serializer = self.get_serializer(data=request.data)
+
+        try:
+            serializer.is_valid(raise_exception=True)
+        except exceptions.AuthenticationFailed:
+            username = request.data.get("username") if isinstance(request.data, dict) else None
+            logger.warning(
+                "用户登录失败",
+                extra={
+                    "event": AuthEvent.LOGIN_FAILURE,
+                    "username": username,
+                    "reason": "invalid_credentials",
+                    "ip": ip,
+                },
+            )
+            raise
+
+        logger.info(
+            "用户登录成功",
+            extra={
+                "event": AuthEvent.LOGIN_SUCCESS,
+                "user_id": serializer.user.id,
+                "ip": ip,
+            },
+        )
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 class ChangePasswordView(generics.UpdateAPIView):
@@ -210,6 +270,18 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
         serializer = self.get_serializer(instance)
         return Response(serializer.data)
 
+    def list(self, request, *args, **kwargs):
+        # 显式封顶 1000,避免无界 queryset 触发内存问题
+        # 注意:不能在 get_queryset() 上直接 [:1000],因为 Django
+        # 禁止在 sliced queryset 上调用 .get() / .filter(),会破坏 retrieve
+        queryset = self.filter_queryset(self.get_queryset())[:1000]
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
+
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
@@ -232,11 +304,27 @@ class GuestLoginView(generics.CreateAPIView):
     @method_decorator(ratelimit(**RATELIMIT_CONFIG))
     def dispatch(self, request, *args, **kwargs):
         if getattr(request, "limited", False):
-            return Response(
-                {"success": False, "error": "rate_limit", "message": "请求过于频繁，请稍后再试"},
-                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            return JsonResponse(
+                {"success": False, "error": "rate_limit", "message": "请求过于频繁,请稍后再试"},
+                status=429,
             )
-        return super().dispatch(request, *args, **kwargs)
+        try:
+            response = super().dispatch(request, *args, **kwargs)
+            # 确保 DRF Response 有 accepted_renderer
+            from rest_framework.response import Response
+
+            if isinstance(response, Response) and not hasattr(response, "accepted_renderer"):
+                from rest_framework.renderers import JSONRenderer
+
+                response.accepted_renderer = JSONRenderer()
+                response.accepted_media_type = "application/json"
+            return response
+        except ValidationError as e:
+            # 显式捕获 ValidationError,返回 JsonResponse,绕过 DRF 渲染问题
+            return JsonResponse(e.detail, status=400, safe=False)
+        except Exception as e:
+            # 其他异常也捕获,返回 500 JSON
+            return JsonResponse({"error": str(e)}, status=500)
 
     def create(self, request, *args, **kwargs):
         user = self.perform_create()
@@ -256,6 +344,7 @@ class GuestLoginView(generics.CreateAPIView):
 
 @csrf_exempt
 @api_view(["GET"])
+@permission_classes([permissions.AllowAny])
 def django_admin_login(request):
     """
     JWT → Session 转换端点。
@@ -263,6 +352,8 @@ def django_admin_login(request):
     然后重定向到 /admin/。
 
     使用 @csrf_exempt 因为此端点通过 URL 参数认证而非 session。
+    使用 @permission_classes([AllowAny]) 因为浏览器跳转不携带 Authorization header，
+    本视图在内部通过 AccessToken 自行验证 JWT。
     """
     from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
@@ -343,4 +434,4 @@ class MyPersonnelView(generics.RetrieveUpdateAPIView):
             )
         except Exception:
             # 通知失败不应阻塞主流程
-            pass
+            logger.exception("个人信息更新通知发送失败")

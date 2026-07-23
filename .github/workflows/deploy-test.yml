@@ -25,13 +25,13 @@ jobs:
         # deploy-test 在 workflow_run 触发的 job 中 GITHUB_TOKEN 没有 packages:read scope,
         # 无法拉取 GHCR 镜像。改为本地 build + tag 成 GHCR 全名,
         # 让 offline.yml 用本地镜像 (pull_policy: missing 允许 fallback)。
-        # 镜像 tag 锁死 v0.2.0(与 .env.production.example 的 BACKEND_IMAGE_TAG 默认值一致)
+        # 镜像 tag 锁死 v0.4.0(与 .env.production.example / docker-compose.offline.yml 默认值一致)
         run: |
           docker build \
             -f deployment/docker/omni_desk_backend/Dockerfile \
             --target production \
             --platform linux/amd64 \
-            -t ghcr.io/onemuggle/omni-desk-backend:v0.2.0 \
+            -t ghcr.io/onemuggle/omni-desk-backend:v0.4.0 \
             .
 
       - name: Build frontend image locally
@@ -40,7 +40,7 @@ jobs:
             -f omni_desk_frontend/Dockerfile \
             --target production \
             --platform linux/amd64 \
-            -t ghcr.io/onemuggle/omni-desk-frontend:v0.2.0 \
+            -t ghcr.io/onemuggle/omni-desk-frontend:v0.4.0 \
             omni_desk_frontend/
 
       - name: Create .env.production for CI

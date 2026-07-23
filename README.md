@@ -172,3 +172,131 @@ cd deployment/docker
 ```
 
 详细说明请参考 [完整部署指南](deployment/docker/DEPLOYMENT_GUIDE.md)。
+
+## 测试
+
+### 单元测试
+
+**后端测试:**
+```bash
+cd omni_desk_backend
+pytest --cov=. --cov-fail-under=80
+```
+
+**前端测试:**
+```bash
+cd omni_desk_frontend
+npm test
+```
+
+### Docker 集成测试
+
+在提交代码前，建议运行 Docker 集成测试以确保所有服务正常工作：
+
+```bash
+# 运行完整的 Docker 集成测试
+./scripts/test-docker-integration.sh
+```
+
+该脚本会自动执行以下测试：
+1. ✅ 验证环境配置
+2. ✅ 构建 Docker 镜像
+3. ✅ 启动所有服务
+4. ✅ 健康检查（后端、前端、数据库、Redis）
+5. ✅ 测试登录 API
+6. ✅ 测试受保护的 API 端点
+7. ✅ 测试前端代理
+8. ✅ 检查容器日志
+
+### 辅助测试脚本
+
+**配置验证:**
+```bash
+# 验证环境变量配置是否完整
+./scripts/validate-config.sh
+```
+
+**日志检查:**
+```bash
+# 检查所有容器的日志
+./scripts/check-container-logs.sh
+
+# 检查特定服务的日志
+./scripts/check-container-logs.sh backend
+```
+
+### CI/CD 测试
+
+所有测试已集成到 GitHub Actions CI 流程中：
+
+- **代码质量检查**: ruff (Python), ESLint (JavaScript)
+- **单元测试**: pytest (后端), Jest (前端)
+- **安全扫描**: bandit, pip-audit, npm audit
+- **类型检查**: mypy
+- **Docker 集成测试**: 完整的端到端测试
+
+CI 会在每次推送和 PR 时自动运行，确保代码质量。
+
+## 开发工作流
+
+### 提交前检查清单
+
+在提交代码前，请确保：
+
+- [ ] 运行单元测试并通过
+- [ ] 运行 Docker 集成测试并通过
+- [ ] 检查代码风格（ruff/ESLint）
+- [ ] 更新相关文档
+- [ ] 无硬编码的配置（使用环境变量）
+
+### 常见问题排查
+
+**前端无法连接到后端 API:**
+- 检查 `vite.config.js` 中的代理配置
+- 确保 `VITE_API_PROXY_TARGET` 环境变量正确设置
+- Docker 环境中应设置为 `http://backend:8000`
+
+**数据库连接失败:**
+- 检查 `.env` 文件中的数据库配置
+- 确保数据库服务已启动：`docker compose ps`
+- 查看数据库日志：`docker compose logs db`
+
+**登录失败 (500 错误):**
+- 检查前端代理配置
+- 查看后端日志：`docker compose logs backend`
+- 验证数据库迁移是否完整：`docker compose exec backend python manage.py migrate`
+
+## 文档库（paperless-ngx 集成）
+
+OmniDesk 集成了 [paperless-ngx](https://docs.paperless-ngx.com/) 作为统一文档存储后端，提供「文档库」一级模块：
+
+- **业务附件统一落盘**：项目、合同、合规、人事等模块的附件上传自动同步到 paperless，支持 Outbox 写降级（paperless 宕机时数据不丢失）
+- **联邦搜索**：顶部搜索栏同时查询 OmniDesk 业务数据 + paperless 全文检索，结果带高亮摘要
+- **读穿透缓存**：paperless 不可用时可下载本地缓存版本（响应头带 `X-Degraded: true`）
+- **账号绑定**：OmniDesk 用户可绑定 paperless 账号，实现 owner 级权限隔离
+- **同步状态可视化**：文档卡片显示「待同步/同步中/已同步/失败/需重试」五种状态
+
+访问「文档库」页面（顶部菜单）即可查看、上传、管理文档，或绑定 paperless 账号。
+
+详细架构、API、部署说明见 [技术手册 — paperless-ngx 集成](docs/technical/31-paperless-integration.md)；使用指南见 [用户手册 — 文档库](docs/user-manual/13-document-library.md)。
+
+## 贡献指南
+
+1. Fork 项目
+2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
+3. 运行测试并确保通过
+4. 提交更改 (`git commit -m 'Add amazing feature'`)
+5. 推送到分支 (`git push origin feature/amazing-feature`)
+6. 创建 Pull Request
+
+## 许可证
+
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+
+## 联系方式
+
+项目维护者：[您的联系方式]
+
+---
+
+**提示**: 遇到问题请先查看 [常见问题排查](#常见问题排查) 部分，或提交 Issue。

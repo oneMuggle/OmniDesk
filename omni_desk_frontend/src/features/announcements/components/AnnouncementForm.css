@@ -39,6 +39,10 @@
   background-color: #b2bec3;
   cursor: not-allowed;
 }
-.ql-editor {
+.ProseMirror {
   background-color: #ffffff; /* 设置富文本框背景色为白色 */
+  min-height: 250px;
+  padding: 0.75rem;
+  border: 1px solid #dfe6e9;
+  border-radius: 5px;
 }

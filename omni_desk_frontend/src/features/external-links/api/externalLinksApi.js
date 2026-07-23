@@ -1,4 +1,4 @@
-import axiosInstance from '../../../shared/api/axiosConfig.js';
+import axiosInstance from '../../../shared/api/axiosConfig';
 
 /**
  * 获取按分类分组的外链列表

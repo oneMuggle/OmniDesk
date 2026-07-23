@@ -41,9 +41,9 @@ class TestAgentOrchestrator(TestCase):
 
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
     def test_tool_fallback_to_general(self, mock_general, mock_classify, mock_registry):
-        """工具返回 found=False 时 fallback 到通用回答."""
+        """工具返回 found=False 时调用 generate_tool_empty_answer 生成友好回答."""
         mock_classify.return_value = 'schedule_query'
 
         mock_tool = MagicMock()
@@ -77,9 +77,9 @@ class TestAgentOrchestrator(TestCase):
 
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
     def test_tool_exception_fallback(self, mock_general, mock_classify, mock_registry):
-        """工具抛出异常时 fallback 到通用回答."""
+        """工具抛出异常时 fallback 到 generate_tool_empty_answer."""
         mock_classify.return_value = 'knowledge_qa'
 
         mock_tool = MagicMock()
@@ -138,6 +138,167 @@ class TestAgentOrchestrator(TestCase):
         call_kwargs = mock_tool.execute.call_args[1]
         self.assertEqual(call_kwargs['context']['history'], history)
 
+    @patch('smart_assistant.agent.orchestrator.cache_intent')
+    @patch('smart_assistant.agent.orchestrator.get_cached_intent')
+    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
+    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    @patch('smart_assistant.agent.orchestrator.generate_answer')
+    def test_intent_cache_hit_skips_classifier(
+        self, mock_generate, mock_classify, mock_registry, mock_get_cached, mock_cache_intent
+    ):
+        """意图缓存命中时,classify_intent 不被调用,直接走工具路由."""
+        # 预填 intent 缓存
+        mock_get_cached.return_value = 'schedule_query'
+
+        mock_tool = MagicMock()
+        mock_tool.name = 'schedule_query'
+        mock_tool.execute.return_value = {'found': True, 'schedules': []}
+        mock_registry.get_tool.return_value = mock_tool
+        mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
+        mock_generate.return_value = ('张三值班。', None)
+
+        result = self.orchestrator.process('明天谁值班？')
+
+        # 缓存命中 → classify_intent 不应被调用
+        mock_classify.assert_not_called()
+        mock_get_cached.assert_called_once()
+        # 命中已有值,不应再写入
+        mock_cache_intent.assert_not_called()
+        # 工具路由仍正常完成
+        self.assertEqual(result['intent'], 'schedule_query')
+        self.assertEqual(result['tool_used'], 'schedule_query')
+
+    @patch('smart_assistant.agent.orchestrator.cache_intent')
+    @patch('smart_assistant.agent.orchestrator.get_cached_intent')
+    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
+    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    @patch('smart_assistant.agent.orchestrator.generate_answer')
+    def test_has_history_skips_intent_cache(
+        self, mock_generate, mock_classify, mock_registry, mock_get_cached, mock_cache_intent
+    ):
+        """有对话历史时不读/不写意图缓存(避免历史依赖被错误缓存)."""
+        mock_classify.return_value = 'schedule_query'
+
+        mock_tool = MagicMock()
+        mock_tool.name = 'schedule_query'
+        mock_tool.execute.return_value = {'found': True, 'schedules': []}
+        mock_registry.get_tool.return_value = mock_tool
+        mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
+        mock_generate.return_value = ('回答', None)
+
+        history = [{'role': 'user', 'content': '上周谁值班？'}]
+        result = self.orchestrator.process('这周呢？', conversation_history=history)
+
+        # has_history=True → 既不读也不写 intent 缓存
+        mock_get_cached.assert_not_called()
+        mock_cache_intent.assert_not_called()
+        # classify_intent 仍被调用(传 history)
+        mock_classify.assert_called_once()
+        self.assertEqual(result['intent'], 'schedule_query')
+
+    @patch('smart_assistant.agent.orchestrator.synthesize_chain_answer')
+    @patch('smart_assistant.agent.orchestrator.execute_tool_chain')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_chain_plan')
+    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
+    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    def test_process_chain_returns_multi_tool_results(
+        self, mock_classify, mock_registry, mock_plan, mock_execute, mock_synthesize
+    ):
+        """多工具链返回时,answer 来自 synthesize,tool_result 包含 chain_results 与 sources."""
+        mock_classify.return_value = 'multi_tool_chain'
+        mock_registry.get_all_schemas.return_value = [
+            {'name': 'schedule_query', 'description': '排班'},
+            {'name': 'personnel_query', 'description': '人员'},
+        ]
+
+        # LLM 规划返回 2 个工具的链
+        mock_plan.return_value = [
+            {'tool': 'schedule_query', 'params': {}, 'depends_on': None},
+            {'tool': 'personnel_query', 'params': {'uid': '$schedule_query.user_id'}, 'depends_on': 'schedule_query'},
+        ]
+
+        # 执行器返回 2 个工具的结果(含 sources)
+        mock_execute.return_value = [
+            {
+                'tool_name': 'schedule_query',
+                'result': {
+                    'found': True,
+                    'schedules': [],
+                    'sources': [{'document': 'duty.pdf', 'score': 0.9}],
+                },
+                'success': True,
+            },
+            {
+                'tool_name': 'personnel_query',
+                'result': {
+                    'found': True,
+                    'user_id': 42,
+                    'sources': [{'document': 'hr.xlsx', 'score': 0.8}],
+                },
+                'success': True,
+            },
+        ]
+        mock_synthesize.return_value = '张三这周值班且是研发部工程师。'
+
+        result = self.orchestrator.process('张三这周值班情况和他的部门信息')
+
+        # Task 17: intent 改为 aggregated_day,触发前端 AggregatedDayCard
+        self.assertEqual(result['intent'], 'aggregated_day')
+        self.assertEqual(result['answer'], '张三这周值班且是研发部工程师。')
+        # tool_used 取 plan 的第一个工具
+        self.assertEqual(result['tool_used'], 'schedule_query')
+        # tool_result 包含 chain_results 兼容字段
+        self.assertIn('chain_results', result['tool_result'])
+        self.assertEqual(len(result['tool_result']['chain_results']), 2)
+        # Task 17: 新增 ResultSynthesizer 输出(camelCase 与前端对齐)
+        self.assertIn('summary', result['tool_result'])
+        self.assertIn('items', result['tool_result'])
+        self.assertIn('total_count', result['tool_result'])
+        self.assertIn('moduleCounts', result['tool_result'])
+        # sources 合并了两个工具的来源
+        self.assertIsNotNone(result['sources'])
+        self.assertEqual(len(result['sources']), 2)
+        # 整个 plan 透传
+        self.assertEqual(len(result['tool_chain']), 2)
+
+    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
+    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_empty_answer')
+    def test_tool_fallback_response_structure(
+        self, mock_general, mock_classify, mock_registry
+    ):
+        """工具返回 found=False 时,返回结构完整含 tool_fallback=True 且 sources=None."""
+        mock_classify.return_value = 'schedule_query'
+
+        mock_tool = MagicMock()
+        mock_tool.name = 'schedule_query'
+        mock_tool.execute.return_value = {
+            'found': False,
+            'message': '本周无排班',
+        }
+        mock_registry.get_tool.return_value = mock_tool
+        mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
+        mock_general.return_value = ('抱歉,暂无排班。', {'total_tokens': 20})
+
+        result = self.orchestrator.process('明天谁值班？')
+
+        # 必备字段
+        self.assertIn('answer', result)
+        self.assertIn('intent', result)
+        self.assertIn('tool_used', result)
+        self.assertIn('tool_result', result)
+        self.assertIn('sources', result)
+        self.assertIn('tool_fallback', result)
+        self.assertIn('usage', result)
+
+        self.assertEqual(result['answer'], '抱歉,暂无排班。')
+        self.assertEqual(result['intent'], 'schedule_query')
+        self.assertEqual(result['tool_used'], 'schedule_query')
+        self.assertEqual(result['tool_result']['found'], False)
+        self.assertIsNone(result['sources'])
+        self.assertTrue(result['tool_fallback'])
+        self.assertEqual(result['usage'], {'total_tokens': 20})
+
 
 class TestAgentOrchestratorStream(TestCase):
     """AgentOrchestrator 流式处理测试."""
@@ -195,3 +356,112 @@ class TestAgentOrchestratorStream(TestCase):
         meta = json.loads(first_data)
         self.assertEqual(meta['type'], 'meta')
         self.assertIsNone(meta['tool_used'])
+
+    @patch('smart_assistant.agent.orchestrator.synthesize_chain_answer')
+    @patch('smart_assistant.agent.orchestrator.ToolChainExecutor')
+    @patch('smart_assistant.agent.orchestrator.generate_tool_chain_plan')
+    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
+    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    def test_process_stream_returns_aggregated_day_for_multi_tool(
+        self, mock_classify, mock_registry, mock_plan, mock_executor_cls,
+        mock_synthesize
+    ):
+        """Round 2 修复:``process_stream`` 必须集成多工具/ResultSynthesizer 路径。
+
+        当 ``generate_tool_chain_plan`` 返回 plan 时,流式事件流应:
+        - meta 事件含 ``intent="aggregated_day"``
+        - tool_result 含 ``moduleCounts`` 字段(供前端 ``<AggregatedDayCard>``)
+        - 至少一个 chunk 携带最终聚合 answer
+        - 末尾仍以 ``{"type": "done"}`` 收尾
+
+        这与 ``process()`` 的多工具路径对称——流式用户也能拿到 aggregated_day。
+
+        实现策略:用 ``tool_context`` 触发 ``_process_chain`` 走
+        ``ToolChainExecutor``(class 版)路径,该路径在每个结果 dict 里
+        都会带 ``module_label`` 字段,``ResultSynthesizer`` 借此聚合。
+        """
+        # arrange: classify_intent 返回 multi_tool_chain
+        mock_classify.return_value = 'multi_tool_chain'
+        mock_registry.get_all_schemas.return_value = [
+            {'name': 'schedule_query', 'description': '排班'},
+            {'name': 'announcement_query', 'description': '公告'},
+        ]
+        # arrange: generate_tool_chain_plan 返回 2 步 plan
+        mock_plan.return_value = [
+            {'tool': 'schedule_query', 'params': {}},
+            {'tool': 'announcement_query', 'params': {}},
+        ]
+        # arrange: ToolChainExecutor().execute() 返回带 module_label 的结果
+        # (与 E2E 测试中 fake_execute 同结构)
+        mock_executor = MagicMock()
+        mock_executor.execute.return_value = [
+            {
+                'tool': 'schedule_query',
+                'module_label': '排班',
+                'found': True,
+                'schedules': [
+                    {'duty_date': '2026-07-08', 'sort_key': '2026-07-08'},
+                ],
+            },
+            {
+                'tool': 'announcement_query',
+                'module_label': '公告',
+                'found': True,
+                'posts': [{'title': '本周例会', 'sort_key': '2026-07-09'}],
+            },
+        ]
+        mock_executor_cls.return_value = mock_executor
+        # arrange: synthesize_chain_answer 返回合成回答
+        mock_synthesize.return_value = '本周有 1 个排班 + 1 条公告。'
+
+        # arrange: 构造一个 mock tool_context(让 _process_chain 走 class 版执行器)
+        from smart_assistant.scope import SmartAssistantScope
+        from smart_assistant.tools.tool_context import ToolContext
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        user = User.objects.create(username='stream_agg_test_user')
+        ctx = ToolContext(user=user, scope=SmartAssistantScope.SELF)
+
+        # act
+        chunks = list(
+            self.orchestrator.process_stream('这周我有哪些事', tool_context=ctx)
+        )
+
+        # assert: 至少 3 个事件(meta + chunk + done)
+        self.assertGreaterEqual(
+            len(chunks), 3,
+            f"流式多工具路径应至少产生 3 个事件,实际 {len(chunks)}"
+        )
+
+        # 1) meta 事件
+        first_data = chunks[0].split('data: ', 1)[1]
+        meta = json.loads(first_data)
+        self.assertEqual(meta['type'], 'meta')
+        self.assertEqual(
+            meta['intent'], 'aggregated_day',
+            "流式多工具路径必须 emit intent='aggregated_day'"
+        )
+        # moduleCounts 字段存在(供 AggregatedDayCard 渲染)
+        self.assertIn('tool_result', meta)
+        self.assertIn('moduleCounts', meta['tool_result'])
+        # 排班 1 + 公告 1
+        self.assertEqual(meta['tool_result']['moduleCounts'].get('排班'), 1)
+        self.assertEqual(meta['tool_result']['moduleCounts'].get('公告'), 1)
+
+        # 2) content chunk 携带最终聚合 answer
+        content_chunks = [
+            c for c in chunks[1:]
+            if '"content"' in c and '"type":"chunk"' in c.replace(' ', '')
+        ]
+        self.assertGreaterEqual(
+            len(content_chunks), 1,
+            "流式多工具路径应至少 emit 1 个 content chunk"
+        )
+        first_chunk_data = content_chunks[0].split('data: ', 1)[1]
+        first_chunk = json.loads(first_chunk_data)
+        self.assertIn('本周', first_chunk['content'])
+
+        # 3) done 事件收尾
+        last_data = chunks[-1].split('data: ', 1)[1]
+        done = json.loads(last_data)
+        self.assertEqual(done['type'], 'done')

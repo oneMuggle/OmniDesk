@@ -25,6 +25,7 @@ import {
 import notificationApi from '../../features/notifications/api/notificationApi';
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
+import DemoToggle from './DemoToggle';
 import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'sidebar_collapsed';
@@ -106,6 +107,7 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
         { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
       ]
     },
+    { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
     { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
     { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
     { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
@@ -390,7 +392,12 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
             </div>
           )}
 
-          {isAuthenticated && !isCollapsed && <ThemeSelector />}
+          {isAuthenticated && !isCollapsed && (
+            <>
+              <ThemeSelector />
+              <DemoToggle />
+            </>
+          )}
 
           {isMobileMenuOpen && (
             <button className="close-menu" onClick={toggleMobileMenu}>

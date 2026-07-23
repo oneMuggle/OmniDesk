@@ -27,13 +27,21 @@ class GroupViewSet(viewsets.ModelViewSet):
 class PageRouteViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
     pagination_class = None
+    queryset = PageRoute.objects.filter(parent__isnull=True).order_by("id")
+    serializer_class = PageRouteSerializer
 
     def list(self, request, *args, **kwargs):
         logger.info(f"User: {request.user}, is_staff: {request.user.is_staff}")
-        return super().list(request, *args, **kwargs)
-
-    queryset = PageRoute.objects.filter(parent__isnull=True).order_by("id")
-    serializer_class = PageRouteSerializer
+        # 显式封顶 1000,避免无界 queryset 触发 N+1/内存问题
+        # 注意:不能在 class-level queryset 上直接 [:1000],因为 Django
+        # 禁止在 sliced queryset 上调用 .get() / .filter(),会破坏 retrieve
+        queryset = self.filter_queryset(self.get_queryset())[:1000]
+        page = self.paginate_queryset(queryset)
+        if page is not None:
+            serializer = self.get_serializer(page, many=True)
+            return self.get_paginated_response(serializer.data)
+        serializer = self.get_serializer(queryset, many=True)
+        return Response(serializer.data)
 
 
 class GroupPermissionView(APIView):

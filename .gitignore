@@ -17,6 +17,7 @@ __pycache__/
 /deployment/docker/exported_images/
 /deployment/docker/omnidesk-offline-v*/
 /deployment/docker/omnidesk-offline-*.zip
+/deployment/docker/omnidesk-offline-*/
 
 # IDE
 .idea/
@@ -90,3 +91,11 @@ deployment/docker/.env.production
 # Root-level duplicate package files (frontend has its own)
 /package.json
 /package-lock.json
+omni_desk_backend/omni_desk_backend/settings/paperless.env
+
+# Local development environment variables (contains secrets)
+omni_desk_backend/.env.local
+
+# Claude agent data and tooling
+.claude/
+actionlint

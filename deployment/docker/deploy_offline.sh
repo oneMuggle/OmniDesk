@@ -204,7 +204,9 @@ case "${1:-start}" in
         echo ""
         if [ -x "smoke_tests.sh" ]; then
             echo "Running smoke tests..."
-            ./smoke_tests.sh || echo "Smoke tests had failures. Check output above."
+            # P0:不再 `|| echo` 吞错 — set -e (脚本顶部) 让 smoke 失败终止部署。
+            # smoke_tests.sh 自身只在 FAIL>0 时 exit 1,WARN/SKIP 仍 exit 0。
+            ./smoke_tests.sh
         fi
 
         echo "Deployment complete."
@@ -362,7 +364,7 @@ AUTOSTART_EOF
         echo "  version           Show current version and migration history"
         echo "  backup            Create database and media backup"
         echo "  upgrade           Safe version upgrade with backup"
-        echo "  rollback          Rollback to a previous version"
+        echo "  rollback          Rollback to a previous version (channel-scoped backups; --channel={alpha|beta|preview|stable|hotfix})"
         echo "  migrate           Pre-check and run database migrations"
         echo "  install-desktop   Install desktop notifier (usage: install-desktop [DEST_DIR] [EXE_FILE])"
         exit 1

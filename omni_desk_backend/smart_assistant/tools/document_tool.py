@@ -13,7 +13,10 @@ class DocumentTool(BaseTool):
 
         templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
 
-        generated_docs = GeneratedDocument.objects.filter(name__icontains=keywords).select_related("template")[:10]
+        # GeneratedDocument 无 name 字段,改用 template__name 反查
+        generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
+            "template"
+        )[:10]
 
         if not templates.exists() and not generated_docs.exists():
             return {
@@ -27,19 +30,21 @@ class DocumentTool(BaseTool):
                 {
                     "type": "模板",
                     "title": t.name,
-                    "experiment_type": t.get_experiment_type_display(),
+                    "experiment_type": t.get_template_type_display(),
                     "owner": t.owner.username if t.owner else "未知",
                     "created_at": str(t.created_at.date()),
                 }
             )
 
         for doc in generated_docs:
+            # GeneratedDocument 无 name 字段,改用关联 template 的 name
+            # 无 created_at 字段,改用 generated_at
             results.append(
                 {
                     "type": "文档",
-                    "title": doc.name,
+                    "title": doc.template.name if doc.template else "未命名",
                     "template": doc.template.name if doc.template else "未知",
-                    "created_at": str(doc.created_at.date()) if doc.created_at else "未设置",
+                    "created_at": str(doc.generated_at.date()) if doc.generated_at else "未设置",
                 }
             )
 
@@ -48,3 +53,11 @@ class DocumentTool(BaseTool):
             "count": len(results),
             "documents": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的文档模板 QuerySet(主模型;execute 同时查 GeneratedDocument)。"""
+        return DocumentTemplate.objects.select_related("owner").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的文档模板(按 owner 字段)。"""
+        return qs.filter(owner=ctx.user)

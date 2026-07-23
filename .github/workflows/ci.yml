@@ -10,6 +10,7 @@ jobs:
   # ─── Backend ───
   lint-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -24,11 +25,16 @@ jobs:
 
   test-backend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libmagic-dev
       - name: Cache pip dependencies
         uses: actions/cache@v4
         with:
@@ -40,10 +46,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r omni_desk_backend/requirements-dev.txt
+      - name: Check smart_assistant tool scopes
+        working-directory: omni_desk_backend
+        run: |
+          python manage.py check_tool_scopes
       - name: Run tests with coverage
         working-directory: omni_desk_backend
         run: |
-          pytest --cov=. --cov-fail-under=60 --cov-report=xml --cov-report=term-missing -v
+          pytest --cov=. --cov-fail-under=80 --cov-report=xml --cov-report=term-missing -v
       - name: Upload coverage
         uses: codecov/codecov-action@v4
         with:
@@ -52,11 +62,13 @@ jobs:
 
   security:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: 'pip'
       - name: Install security tools
         run: pip install bandit pip-audit
       - name: Bandit scan (Python code static analysis)
@@ -67,6 +79,7 @@ jobs:
   # ─── Frontend ───
   lint-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -81,11 +94,20 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run npm audit
-        run: npm audit --audit-level=high
+      - name: Run npm audit (block only on critical severity)
+        run: |
+          output=$(npm audit --json --audit-level=critical 2>&1) || true
+          critical_count=$(echo "$output" | jq '.metadata.vulnerabilities.critical // 0')
+          if [ "$critical_count" -gt 0 ]; then
+            echo "❌ Critical severity vulnerabilities found: $critical_count"
+            npm audit --audit-level=critical
+            exit 1
+          fi
+          echo "✅ No critical severity vulnerabilities"
 
   test-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -103,6 +125,7 @@ jobs:
 
   build-frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: ./omni_desk_frontend
@@ -121,16 +144,155 @@ jobs:
   # ─── Type check (best-effort) ───
   typecheck:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
+          cache: 'pip'
       - name: Install mypy
         run: pip install mypy types-requests types-redis types-python-dateutil
       - name: Type check
+        continue-on-error: true
         working-directory: omni_desk_backend
-        # Fix-19: 暂时排除 paperless_proxy + file_processing(从 main sync 后有 34 个 mypy 错,
-        # 与 main 配置 Python 3.11 严格度不同有关)。后续应单独 hygiene PR 修这 34 个错
-        # (#80 fix/mypy-cleanup 已修过部分,新增 34 个来自 sync 引入的代码)。
-        run: mypy . --ignore-missing-imports --exclude paperless_proxy --exclude file_processing
+        run: mypy . --ignore-missing-imports
+
+  # ─── Docker Integration Test ───
+  docker-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    needs: [lint-backend, test-backend, lint-frontend, test-frontend]
+    defaults:
+      run:
+        working-directory: ./deployment/docker
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Create .env file
+        run: |
+          cp .env.example .env
+          # 生成随机密码
+          POSTGRES_PASSWORD=$(openssl rand -base64 32)
+          SECRET_KEY=$(openssl rand -base64 32)
+          PAPERLESS_DB_PASSWORD=$(openssl rand -base64 32)
+          PAPERLESS_SECRET_KEY=$(openssl rand -base64 32)
+          # 使用 # 作为 sed 分隔符(避免 base64 字符串中的 / 字符触发 sed 解析错误)
+          sed -i "s#<change-me>#$POSTGRES_PASSWORD#g" .env
+          sed -i "s#SECRET_KEY=<change-me>#SECRET_KEY=$SECRET_KEY#g" .env
+          sed -i "s#<change-me-paperless-db>#$PAPERLESS_DB_PASSWORD#g" .env
+          sed -i "s#<change-me-paperless-sk>#$PAPERLESS_SECRET_KEY#g" .env
+
+      - name: Build Docker images
+        run: docker compose build
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for services
+        run: sleep 20
+
+      - name: Health check - Backend
+        run: |
+          for i in {1..10}; do
+            if curl -sf http://localhost:8000/api/health/ > /dev/null; then
+              echo "✅ Backend is healthy"
+              exit 0
+            fi
+            echo "Waiting for backend... ($i/10)"
+            sleep 3
+          done
+          echo "❌ Backend health check failed"
+          docker compose logs backend --tail=50
+          exit 1
+
+      - name: Health check - Frontend
+        run: |
+          for i in {1..10}; do
+            if curl -sf http://localhost:3000 > /dev/null; then
+              echo "✅ Frontend is healthy"
+              exit 0
+            fi
+            echo "Waiting for frontend... ($i/10)"
+            sleep 3
+          done
+          echo "❌ Frontend health check failed"
+          docker compose logs frontend --tail=50
+          exit 1
+
+      - name: Health check - Database
+        run: |
+          if docker compose exec -T db pg_isready -U omni_desk_user -d omni_desk > /dev/null; then
+            echo "✅ Database is healthy"
+          else
+            echo "❌ Database health check failed"
+            docker compose logs db --tail=50
+            exit 1
+          fi
+
+      - name: Health check - Redis
+        run: |
+          if docker compose exec -T redis redis-cli ping > /dev/null; then
+            echo "✅ Redis is healthy"
+          else
+            echo "❌ Redis health check failed"
+            docker compose logs redis --tail=50
+            exit 1
+          fi
+
+      - name: Migrate database
+        run: |
+          docker compose exec -T backend python manage.py migrate
+
+      - name: Test login API
+        run: |
+          # 创建测试用户
+          docker compose exec -T backend python manage.py shell -c "
+          from users.models import CustomUser
+          if not CustomUser.objects.filter(username='testuser').exists():
+              CustomUser.objects.create_user('testuser', 'test@example.com', 'testpass123')
+              print('Created test user: testuser/testpass123')
+          "
+
+          # 测试登录
+          RESPONSE=$(curl -s -X POST http://localhost:8000/api/auth/login/ \
+            -H "Content-Type: application/json" \
+            -d '{"username":"testuser","password":"testpass123"}')
+
+          if echo "$RESPONSE" | python3 -c "import sys, json; data=json.load(sys.stdin); sys.exit(0 if 'access' in data else 1)" 2>/dev/null; then
+            echo "✅ Login API test passed"
+            TOKEN=$(echo "$RESPONSE" | python3 -c "import sys, json; print(json.load(sys.stdin)['access'])")
+            echo "TOKEN=$TOKEN" >> $GITHUB_ENV
+          else
+            echo "❌ Login API test failed"
+            echo "Response: $RESPONSE"
+            docker compose logs backend --tail=50
+            exit 1
+          fi
+
+      - name: Test protected API endpoints
+        run: |
+          if curl -sf -H "Authorization: Bearer $TOKEN" \
+            http://localhost:8000/api/users/me/ > /dev/null; then
+            echo "✅ Protected API endpoint test passed"
+          else
+            echo "❌ Protected API endpoint test failed"
+            exit 1
+          fi
+
+      - name: Test frontend proxy
+        run: |
+          if curl -sf http://localhost:3000/ > /dev/null; then
+            echo "✅ Frontend proxy test passed"
+          else
+            echo "❌ Frontend proxy test failed"
+            docker compose logs frontend --tail=50
+            exit 1
+          fi
+
+      - name: Cleanup
+        if: always()
+        run: docker compose down

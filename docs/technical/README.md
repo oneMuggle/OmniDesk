@@ -44,7 +44,15 @@
 | 24 | [安全检查清单](24-security-checklist.md) | 6 个 CVE 详细分析 + OWASP Top 10 对照 |
 | 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
 | 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
-| 35 | [mypy 压制登记册](35-mypy-suppressions.md) | 后端 `# type: ignore` 压制点追踪与维护规则 |
+| 27 | [日志规范与事件清单](27-logging-standards.md) | 日志使用、事件清单、脱敏规范 |
+| 28 | [智能助手覆盖率路线图](28-smart-assistant-coverage-roadmap.md) | smart_assistant 模块 63.25% → ≥85% 补齐方案、CI 守卫、+63 测试用例(2026-06 v0.6.0) |
+| 29 | [性能 Profiling](29-performance-profiling.md) | django-silk dev 接入与使用 |
+| 30 | [发布渠道机制](30-release-channels.md) | alpha/beta/preview/stable 4 段式发布渠道 + hotfix（含 main/beta/rc 自动同步机制）|
+| 31 | [paperless-ngx 集成](31-paperless-integration.md) | paperless 集成架构、Outbox 写降级、联邦搜索、API、模型、部署、故障排查 |
+| 32 | [Smart Assistant 多 Agent](32-smart-assistant-multi-agent.md) | MultiAgentExecutor / Pipeline / Fanout / Hierarchical + Hook 系统（v0.5.0 已实现） |
+| 33 | [RAGFlow 集成](33-ragflow-integration.md) | RAGFlow API 客户端、Dataset/Chat 管理、docker-compose 部署、健康检查（v0.6.0-alpha.2 已实现） |
+| 34 | [Smart Assistant 性能基准](34-smart-assistant-perf-benchmark.md) | P95 / 50 并发 / 缓存 TTFB 实测数据与优化手段（SAIS 分支 4 性能验收） |
+| 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 
 ---
 
@@ -54,3 +62,5 @@
 - 每个章节独立成文，文件名格式 `XX-topic-name.md`
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
+
+> 📅 最近更新:2026-07-20 — 清理 22 个过时/已完成文档（docs/plans 5 个、docs/superpowers 4 个 plan + 1 个 spec、docs/notes 10 个、根级废弃文档 2 个）。

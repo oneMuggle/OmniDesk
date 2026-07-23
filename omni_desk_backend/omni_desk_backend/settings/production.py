@@ -56,8 +56,10 @@ DATABASES = {
 }
 
 # CSRF and CORS settings for production
-CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
-CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+# 注意:默认值必须过滤空字符串,否则 .split(",") 在未设环境变量时返回 [""],
+# 触发 corsheaders.E013 + 4_0.E001 SystemCheckError,导致 gunicorn 启动失败。
+CORS_ALLOWED_ORIGINS = [o for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o]
+CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
 
 # ──────────────────────────────────────────────────────────────────────
 # HTTPS / Cookie security

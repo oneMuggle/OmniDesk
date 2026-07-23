@@ -31,7 +31,8 @@ class TestUserRegistration:
         api_client.post(reverse('users_auth:auth-registration'), data, format='json')
         response = api_client.post(reverse('users_auth:auth-registration'), data, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert response.data['success'] is False
+        # 修复后:返回 DRF 标准格式 {field: [errors]},不再有 success: False wrapper
+        assert 'username' in response.json()
 
 
 @pytest.mark.django_db

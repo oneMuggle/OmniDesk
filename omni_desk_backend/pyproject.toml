@@ -1,7 +1,7 @@
 [tool.ruff]
 line-length = 120
 target-version = "py311"
-exclude = ["*/migrations/*", "*/test_*.py", "*/tests/*", "*/tests.py"]
+exclude = ["*/migrations/*", "*/test_*.py", "*/tests/*", "*/tests.py", "*/legacy_django_testcase.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
@@ -40,6 +40,8 @@ ignore = [
     # Style: use all() instead of for loop — fine as-is
     "SIM110",
     "SIM102",
+    # contextlib.suppress vs try/except/pass — style preference, existing code uses both
+    "SIM105",
     # `__all__` not sorted — cosmetic
     "RUF022",
     # f-string without placeholders

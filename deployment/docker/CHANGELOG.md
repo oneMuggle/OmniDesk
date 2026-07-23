@@ -13,6 +13,324 @@
 
 ## [未发布]
 
+### 变更
+
+- **smoke_tests.sh**: 补全阶段 10-11(业务广度 5 app GET-only 探针 + PG 备份可恢复性 shadow DB 还原验证);阶段 11 backup 文件改为容器内清理;矩阵文档同步阶段 11
+
+## [0.7.0-alpha.2] - 2026-07-20  ← alpha
+
+### 修复
+
+- **generate_release**: 修复 CHANGELOG 历史 header 解析失败 + 同渠道 minor/major bump 推进错误 (#98)
+
+## [0.7.0-alpha.1] - 2026-07-19  ← alpha
+
+### 新增
+
+- **smart-assistant**: add SmartAssistantScope enum and resolve_scope
+- **smart-assistant**: ToolContext.scope field auto-resolved from request
+- **smart-assistant**: BaseTool adds scope filter abstract methods (backward compatible)
+- **smart-assistant**: all 13 tools implement build_base_queryset + _scope_self
+- **smart-assistant**: add ResultSynthesizer for multi-tool aggregation
+- **smart-assistant**: create view_department and view_global permissions
+- **smart-assistant**: check_tool_scopes management command + CI integration
+- **smart-assistant**: ToolChainExecutor integrates scope filter + multi-tool failure handling
+- **smart-assistant**: prompt_builder hints at multi-tool aggregation
+- **smart-assistant-frontend**: AggregatedDayCard component for multi-tool aggregation
+- **smart-assistant-frontend**: QuickCommands adds 个人本周/今天 shortcuts
+- **smart-assistant**: wire scope into chat view and orchestrator (fix C1 + C3)
+- **smart-assistant-frontend**: QuickCommands translates intent to query (fix C4)
+- 接入 paperless-ngx 文档管理 (#54)
+- **paperless**: add client.update_metadata and client.delete
+- **paperless**: outbox queue_update_metadata and queue_delete
+- **paperless**: implement update_metadata and delete workers
+- **paperless**: expose POST /api/paperless/upload/
+- **paperless**: expose DocumentBinding CRUD with async outbox
+- **paperless**: OutboxViewSet support DELETE and GET single
+- **paperless**: register 4 models in Django admin
+- **compliance**: expose issue upload action to paperless
+- **personnel**: expose personnel upload action to paperless
+- **deploy**: add channel-branch guard to package_offline_bundle.sh
+- **file_processing**: create Django app skeleton
+- **file_processing**: add data models (UploadedFile, ProcessingResult, AIAnalysis)
+- **file_processing**: implement ExcelProcessor with multi-sheet support
+- **file_processing**: implement WordProcessor and PDFProcessor
+- **file_processing**: implement FileProcessingService
+- **file_processing**: implement DataSummarizer for table data analysis
+- **file_processing**: implement NaturalLanguageQuery for AI-powered data analysis
+- **file_processing**: implement Celery task for async file processing
+- **file_processing**: implement API views for file upload, preview, analyze, and query
+- **frontend**: add fileProcessing API layer for file upload, preview, analyze, and query
+- **frontend**: implement FileUploadSection component with drag-and-drop support
+- **frontend**: implement PreviewSection component for Excel tables and Markdown documents
+- **frontend**: implement AIAnalysisSection component with data summary and natural language query
+- **frontend**: refactor FileAnalysisPage to integrate all file processing components
+- **channel-sync**: 三个渠道分支间 fix/perf/refactor 提交自动同步(PR #59),含冲突三方 patch artifact + resume 续跑机制
+- **smart-assistant**: 5 个高频 E2E 场景 + 流式缓存短路 + cache_version (SAIS #1/4) (#85)
+- **smart-assistant**: 多工具链编排升级(SAIS #2/4) (#86)
+- **smart-assistant**: 多 Agent 复杂任务实战(SAIS #3/4) (#87)
+- **smart-assistant**: 性能 + UX 收尾(SAIS #4/4) (#88)
+- **backend**: Phase 9 后端关键修复 (BE-1, BE-2, BE-5) (#94)
+
+### 变更
+
+- **smart-assistant**: ScheduleTool.execute accepts scoped qs (backward compatible)
+- **smart-assistant**: MeetingRoomTool.execute accepts scoped qs
+- **smart-assistant**: AnnouncementTool.execute accepts scoped qs
+- **paperless**: use None as upload placeholder instead of 0
+
+### 修复
+
+- **security**: Phase 7 修复 8 个 P0 安全漏洞 (#92)
+- **core**: 修正 git_utils.py PROJECT_ROOT 路径计算
+- **smart-assistant**: ResultSynthesizer restore sort_key fallback chain
+- **smart-assistant**: cache_tool_result scopes by user to prevent data leak (fix P0)
+- **smart-assistant**: ResultSynthesizer emits moduleCounts (camelCase) (fix C2)
+- **smart-assistant**: process_stream integrates multi-tool/ResultSynthesizer path
+- **smart-assistant**: remove unused React imports in test files (#51)
+- **frontend**: resolve all 36 ESLint warnings (#52)
+- **paperless**: allow paperless_id null for async upload placeholder
+- **paperless**: harden UploadView against missing source_id and tags coercion
+- **paperless**: address final-review findings (close POST /documents/, list owner filter, tighten skip test)
+- **ci**: Phase 8 CI/CD 优化 + ruff format 4 views + bump soupsieve to 2.8.4 (CVE-2026-49477/49476) (#93)
+- **deploy**: address high/medium review findings on branch-guard PR #57
+- 修复文件处理功能的安全问题
+- **docker**: 添加 libmagic1 系统库（python-magic 依赖）
+- **schedule**: 修排班页值班人员/领导电话显示无电话的 bug
+- **deps**: 升级 pillow 12.2.0 -> 12.3.0 修复 PYSEC-2026-2253 等 5 个 CVE
+- **deps**: re-pin requirements-prod.txt on Python 3.10 (修复 numpy CI 失败)
+- **smart-assistant**: SAIS Plan 4 代码质量修复(6 个 findings)
+- **scripts**: Phase 11 部署脚本修复 (DS-1, DS-2, DS-3, DS-4) (#95)
+
+## [0.6.0-alpha.2] - 2026-07-07
+
+### 新增
+- **RAGFlow 知识库服务完整接入** (PR #49):
+  - 后端:`RagflowClient` 统一封装 RAGFlow HTTP API(Dataset / 文档 / 检索 / Chat / 健康检查 8 类方法)
+  - 后端:`RagflowConfig` 新增 `chat_id` 字段;`query` action 改用正确的 RAGFlow Chat API 路径 `/api/v1/chats/{chat_id}/completions`
+  - 后端:新增 `health_check` / `list_datasets` / `list_chats` 三个 actions
+  - 后端:`ragflow_service` 数据库迁移 `0002_add_chat_id.py`
+  - 部署:`docker-compose.prod.yml` 新增 `ragflow`(v0.16.0)+ `ragflow-mysql` 服务及持久化卷
+  - 部署:`.env.production.example` 新增 `RAGFLOW_MYSQL_PASSWORD` / `RAGFLOW_PORT` / `RAGFLOW_API_ENDPOINT` / `RAGFLOW_API_KEY` / `SMART_ASSISTANT_DATASET_ID`
+  - 前端:`RagflowChatPage` 响应解析适配多种 RAGFlow API 返回格式
+  - 文档:`docs/plans/2026-07-06_ragflow-integration.md` 完整接入方案
+
+### 变更
+- **smart_assistant RAGTool 迁移至 RagflowClient**:
+  - `rag_router.py::search_dataset` 改用 `RagflowClient.retrieval()`,请求格式修正:`dataset_id` → `dataset_ids`(数组)、`query` → `question`
+  - `tasks.py::process_document_embedding` 改用 `RagflowClient.upload_document()` + `RagflowClient.parse_documents()`
+  - Celery 重试条件由 `requests.RequestException` 改为 `RagflowClientError`
+
+### 测试
+- `ragflow_service/tests/test_ragflow_views.py` 新增 2 个测试用例(`test_health_check_success` / `test_health_check_failure`),改用 `unittest.mock`,12/12 通过
+- `smart_assistant/tests/test_tasks.py` 适配 RagflowClient 重构,mock 目标改为 `RagflowClient`
+- `smart_assistant/tests/test_rag_router_coverage.py` 适配 RagflowClient 重构,27/27 通过
+- CI 全绿(10/10 jobs):`lint-backend` / `lint-frontend` / `typecheck` / `security` / `test-backend` / `test-frontend` / `build-frontend` / `docker-integration` / `test` / `build-and-push`
+
+### 升级注意
+- 升级前需在 `.env.production` 中配置 RAGFLOW_MYSQL_PASSWORD 等 RAGFlow 相关变量
+- 部署后首次启动需访问 `http://server-ip:9380` 完成 RAGFlow Web UI 初始化(创建管理员账号 + Chat Assistant)
+- 升级后通过 Django Admin 或 API 创建 `RagflowConfig`,填入 `api_endpoint` / `api_key` / `chat_id` 完成接入
+
+## [0.6.0-alpha.1] - 2026-07-06
+
+### 说明
+- **首个 alpha 渠道版本**:开发阶段性完成，进入本地部署测试阶段
+- 功能基线与 v0.5.9 一致，主要变更是引入 4 段式发布渠道机制
+
+### 新增
+- **发布渠道机制**:alpha / beta / preview(rc) / stable 四阶段发布流程
+- **版本号解析工具**: `version_utils.py` 支持 SemVer 后缀解析
+- **渠道 API**: `/api/system/version/` 返回 `channel` 字段
+- **部署脚本渠道支持**: `upgrade.sh` / `rollback.sh` / `package_offline_bundle.sh` 支持渠道参数
+- **CI 渠道推导**: `build-and-push-images.yml` 按分支自动推导渠道 tag
+- **离线包目录命名**: 按渠道前缀区分（如 `omnidesk-offline-alpha-v0.6.0-alpha.1/`）
+
+### 验证
+- 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
+- 镜像依赖检查: ✅ 通过 (Django, psycopg2, celery, gunicorn OK)
+- 本地部署测试: ✅ 通过
+  - Backend: gunicorn healthy, 数据库迁移成功
+  - Frontend: nginx 正常服务, 代理 backend 成功
+  - API: `/api/health/` 返回 `version: 0.6.0-alpha.1`
+  - 全链路: frontend(8082) → nginx → backend(8001) → API 正常
+
+### 修复
+- **build_and_export.sh**: 支持渠道版本号格式 (-alpha.N / -beta.N / -rc.N)
+- **build_and_export.sh**: `:latest` 标签仅 stable 渠道打
+- **docker-compose.prod.yml**: backend 添加 healthcheck（使用 python urllib 替代 curl）
+- **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
+- **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
+
+## [0.5.9 修复] - 2026-07-06
+
+### 修复
+
+#### 部署脚本
+- **deploy.sh IMAGE_TAG 派生改用 BUILD-MANIFEST.json**(PR `#47`):v0.5.9 bundle 实际打包的是 backend `v0.5.7` digest + frontend `v0.5.6` digest(因为镜像内容未变,仅 compose 编排升级),但 `deploy.sh start` 用 `VERSION` 派生 `BACKEND_IMAGE_TAG=v0.5.9`,与 `pull_policy: never` 下的实际镜像 tag 不匹配,触发 `image not found` 错误。修复:`generate_env()` 和 `load_images()` 改从 `BUILD-MANIFEST.json.images.backend.name` / `.frontend.name` 派生 GHCR tag 与 IMAGE_TAG,无 manifest 时 fallback 到 VERSION 派生(legacy 兼容);`package_offline_bundle.sh` 在镜像跨版本复用时主动 `docker tag` alias 到 `v${BUILD_VERSION}`,让已经分分的旧 deploy.sh 也能继续工作;`tests/test_deploy_image_tags.sh` 新增 4 个 fixture 覆盖正常/缺字段/legacy/无 jq 四种场景
+
+### 验证
+- 4/4 单元测试通过(`bash deployment/docker/tests/test_deploy_image_tags.sh`)
+- v0.5.9 bundle 全链路 deploy.sh start(临时 workdir)5 容器 healthy,`/api/health/` 返回 200,`BACKEND_IMAGE_TAG=v0.5.7`(从 manifest 派生,不再错为 v0.5.9)
+
+## [渠道机制引入] - 2026-07-06
+
+### 新增
+- **4 段式发布渠道**:alpha(开发自测) / beta(内测) / preview(预发布 RC) / stable(生产),加 hotfix(紧急修复)
+- **渠道与分支一一对应**:main=alpha, beta=beta, rc=preview, release=stable+hotfix
+- **版本号格式扩展**:`MAJOR.MINOR.PATCH[-alpha.N|-beta.N|-rc.N]`,stable/hotfix 无后缀
+- **镜像 tag**:`latest` 永远只指向 stable;feat/fix 分支打 `-canary` 取代原 `develop` tag
+- **离线包目录命名**:稳定版与历史兼容;预发布版加渠道前缀
+- **BUILD-MANIFEST.json**:新增 `channel` 字段
+- **/api/system/version/**:响应新增 `channel` 字段
+- **CI**:新增 `release-channel-matrix` 集成测试 workflow,4 个分支并行校验
+- **部署脚本**:`upgrade.sh` 支持 `--target-channel` 与跳级校验;`rollback.sh` 备份按渠道隔离
+- **文档**:新增 `docs/technical/30-release-channels.md`、`docs/user-manual/12-deployment-channels.md`
+
+### 迁移说明
+- 现有 `v0.5.x` 系列保持 stable 渠道历史(不变)
+- 从 `v0.6.0-alpha.1` 起启用新渠道
+- 不需要数据库迁移
+
+## [0.5.9] - 2026-07-04
+
+### 修复
+
+#### 部署配置
+- **frontend nginx upstream DNS race condition**(PR #44、`#45`):`docker-compose.offline.yml` 和 `docker-compose.prod.yml` 中 frontend `depends_on: - backend`(只等容器创建)改为 `backend: condition: service_healthy`(等 backend 通过 healthcheck `GET /api/health/`)。修复 nginx 启动时 DNS 未注册导致 `host not found in upstream "backend"` 进入 crash loop 的问题
+
+### 验证
+- 本地升级 v0.5.5 → v0.5.7 backend:5 服务一次启动全部 healthy,无需手动 `restart frontend`(修复前需手动 restart)
+- v0.5.5 数据库完整保留(10 个用户 + 业务数据)
+- PR #44 CI 10/10 jobs pass + PR #45 CI 10/10 jobs pass
+
+## [0.5.8] - 2026-07-04
+
+### 修复
+
+#### 打包脚本
+- **package_offline_bundle.sh 直接 cp 旧 BUILD-MANIFEST.json 导致新 bundle 写错 digest**(`#43`):v0.5.7 重新打包时发现,脚本只简单 `cp exported_images/build-manifest.json` 到 bundle,而该文件通常是上次构建残留,导致新 bundle 的 manifest 仍指向上版本的 backend/frontend digest(例如 v0.5.6 的 digest 写到了 v0.5.7 bundle)。修复:在 BUILD-MANIFEST 复制段后,用 `docker load` + `docker inspect` 从刚打包的 tar 提取真实 digest/size,自动重写 manifest。优先匹配 `v${BUILD_VERSION}` 精确 tag,fallback 用 `awk` 取任一非 `:latest` 的 prod tag
+
+### 验证
+- 跑 `package_offline_bundle.sh 0.5.8`(模拟新版本打包)生成的 BUILD-MANIFEST.json 正确反映 backend v0.5.7 + frontend v0.5.6 的真实 digest
+- PR #43 CI 10/10 jobs pass(`build-and-push` / `build-frontend` / `docker-integration` / `lint-backend` / `lint-frontend` / `security` / `test` / `test-backend` / `test-frontend` / `typecheck`)
+
+## [0.5.7] - 2026-07-04
+
+### 修复
+
+#### 部署配置
+- **celery worker 启动 race condition 导致 UniqueViolation 日志噪音**:celery worker 与 backend 容器共用同一 backend 镜像,启动时都会执行 `entrypoint.sh` 的 `wait_for_db / migrate / collectstatic` 段。两者并发启动时,Postgres 报 `UniqueViolation: django_migrations_id_seq`,产生 race condition。功能不受影响(worker 仍能在线 + 任务可执行),但启动日志每次都报错。修复:在 `entrypoint.sh` 顶部新增 `SKIP_MIGRATE` 环境变量分支,worker 容器设 `SKIP_MIGRATE=true` 时跳过 wait_for_db / migrate / collectstatic,直接降权执行 `celery ...`。默认 `false` → backend 行为完全不变,向后兼容(`#42`)
+
+### 验证
+- v0.5.7 镜像 `omni-desk-backend-prod:v0.5.7` digest `sha256:74989f2bb92cfd268b2acfd200712a9af7277b12770be1eee8012488e8f5c437` 重建成功
+- 端到端测试(11 阶段):5 服务 healthy,worker 启动日志无 UniqueViolation,celery `status` 1 node online,`debug_task` 0.0076s SUCCESS
+- `/api/health/` 200 + version 0.5.6(因 IMAGE_TAG 默认 v0.5.6),backend 行为完全不变
+- v0.5.5 容器(`compose-*`)在测试期间零影响,持续 healthy
+- CI:PR #42 触发 10/10 jobs 全 pass(`build-and-push` / `build-frontend` / `docker-integration` / `lint-backend` / `lint-frontend` / `security` / `test` / `test-backend` / `test-frontend` / `typecheck`)
+
+## [0.5.6] - 2026-07-01
+
+### 修复
+
+#### 部署配置
+- **production.py: 必填环境变量空值导致 SystemCheckError**：`os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')` 在变量未设时返回 `['']`，触发 `corsheaders.E013` + `4_0.E001`，gunicorn `django.setup()` 启动失败。改为列表推导过滤空字符串，默认值变 `[]`，最小环境变量下 `manage.py check` 通过（`no issues (0 silenced)`）
+- **docker-compose 必填环境变量语法**：`docker-compose.prod.yml` + `offline.yml` 中 `${POSTGRES_DB}` / `${POSTGRES_USER}` / `${POSTGRES_PASSWORD}` / `${REDIS_PASSWORD}` 改为 `${VAR:?VAR is required}` 形式；变量缺失时 `docker compose config` 立即报错而非容器带空配置启动后端才报 `ImproperlyConfigured`。对齐 `docker-compose.yml` 的 dev 环境语法
+- **nginx.conf 清理限流配置陈旧注释**：旧注释误称 `limit_req_zone` 已移至 Dockerfile 的 http context 覆盖，实际 Dockerfile 只复制到 `conf.d/default.conf`（server context），`limit_req_zone` 必须 http context 定义。替换注释说明实际架构
+
+## [0.5.5] - 2026-06-24
+
+### 修复
+- **deploy.sh generate_env 自动同步 IMAGE_TAG 与 VERSION 一致**: 升级时 `config/.env.production` 是上次部署的 IMAGE_TAG(例如 v0.5.2),deploy.sh 直接 cp 不会更新,导致容器还在跑旧版本镜像(本次 v0.5.2 → v0.5.4 升级踩坑)。`generate_env` 末尾增加同步逻辑:读 `VERSION` 与 `compose/.env.production` 当前 IMAGE_TAG 对比,不匹配自动 sed 更新到 `v$VERSION`(`config/.env.production` 保留原样,只更新 `compose/.env.production`)。
+
+### 验证
+- bash 语法 OK(2 文件)
+- 4 个场景逻辑测试通过(升级 v0.5.2→v0.5.4 / 首次部署 / 跨大版本 v0.3.0→v0.5.4 / IMAGE_TAG 缺失)
+- 升级流程:从 v0.5.2 升级到 v0.5.4 不用再手动 sed 改 IMAGE_TAG
+
+## [0.5.4] - 2026-06-24
+
+### 修复
+
+#### 人员管理
+- **EncryptedCharField max_length=18 → 64 修复 18 字符身份证存储**: `_encrypt_field` 用 XOR+base64 编码,18 字符明文 → 24 字符密文超 `varchar(18)` 限制。`max_length` 改为 64(已有数据保留),并生成 migration 0006。Personnel 和 FamilyMember 同时修改(039f555)
+- **Personnel seeder 用 18 字符真实身份证格式**: 配合 model 修复,seeder 恢复真实身份证格式(110101 + 8 位生日 + 4 位序号)而非短 fake 数据(c896d3e)
+
+#### 路由权限
+- **sync_routes 支持多路径**: backend 容器内找不到 routes.json,改为尝试多个路径(优先 `/usr/src/app/staticfiles/routes.json`,fallback 源码路径)。配合 Dockerfile 复制 routes.json,容器可同步 24 个前端路由(3ada87d + 4ff9460)
+
+#### 后端
+- **Llm Ollama 兜底 candidate 类型检查**: 直接调 `candidate.get("_is_ollama")` 在 candidate 不是 dict 时会抛 AttributeError,改为 `isinstance(candidate, dict) and ...`(e267baf)
+
+#### 前端
+- **登录请求不携带 Authorization 头**: 携带旧 token 可能导致后端用旧 token 验证而非 username/password。Login 检测到 `auth/login` 路径时跳过 Authorization 注入(878a226)
+
+#### 部署配置
+- **修正 postgres 镜像名 + 添加 VITE_API_PROXY_TARGET**: `postgres:14.2` → `postgres:14-alpine`(与 BUILD-MANIFEST.json 对齐);dev compose 添加 `VITE_API_PROXY_TARGET=http://backend:8000` 让 Vite dev server 代理 /api 请求到 backend(51411a1)
+- **backend Dockerfile build 时复制 routes.json**: `COPY omni_desk_frontend/public/routes.json /usr/src/app/staticfiles/routes.json`,让 sync_routes 在生产 backend 镜像中能读到 frontend 路由(4ff9460)
+- **.dockerignore 添加 routes.json negation**: `.dockerignore` 排除整个 `omni_desk_frontend/`,Dockerfile 复制 routes.json 失败。添加 `!omni_desk_frontend/public/routes.json` 让 build context 包含此文件(fc8f2f7)
+
+#### CI
+- **docker-integration job sed 分隔符 / 改 #**: `openssl rand -base64 32` 生成的字符串可能包含 `/` 字符,与 sed 表达式分隔符冲突,触发 `unknown option to 's'` 解析错误。改用 `#` 作为 sed 分隔符(base64 字符集不含 `#`)(e6688fc)
+- **移除对未追踪本地脚本的依赖**: `scripts/validate-config.sh` 和 `scripts/check-container-logs.sh` 是本地未追踪文件,CI runner checkout 时不存在 → `No such file or directory`(91dec57)
+- **所有 step 默认在 deployment/docker 工作目录**: 之前只有部分 step 有 `cd deployment/docker`,`Build Docker images` step 在 repo 根目录跑 `docker compose build` 找不到 compose 文件(c1ef5ff)
+- **健康检查用公开端点 /api/health/ 代替 /api/system/version/**: `/api/system/version/` 需要认证返回 401,改用公开端点 `/api/health/`(c60cd1d)
+- **测试登录 API 前先 migrate 数据库**: 直接 `python manage.py shell` 创建测试用户但数据库表没建 → `no such table: users_customuser`(6deb369)
+- **Test frontend proxy 测试前端根路径 /**: `/api/system/version/` 在 dev compose(vite dev server)需要认证,改测前端根路径 /(98734e6)
+
+### 验证
+- 本地部署 5 个容器全部 healthy
+- gunicorn Permission denied 错误 0,后端 500 错误 0
+- 注册 API 全场景:正常 201、重复用户 400、用户名太短 400、密码不一致 400、空用户名 400、非法字符 400
+- 登录 JWT 返回 access + refresh,refresh token 刷新正常
+- 离线包 v0.5.2 重新打包,backend 镜像重建(包含 14 个 fix)
+- 33+ 个表填充测试数据(15 personnel、89 子表、24 page routes)
+- CI 全绿(8/8 jobs success)
+
+## [0.5.2] - 2026-06-22
+
+### 修复
+- **deploy.sh generate_env 漏替换 `<CHANGE-TO-DB-USER>` 占位符**: `package_offline_bundle.sh` heredoc 内 `generate_env()` 补上 `re.sub(r'<CHANGE-TO-DB-USER>', 'omni_desk_user', content)`,避免离线部署首次启动时 `POSTGRES_USER` 保留为字面值 `<CHANGE-TO-DB-USER>` 导致 backend 连不上 DB(运行时 entrypoint.sh 死循环 "Database not ready yet, retrying...")
+- 此问题由本次会话的离线包部署测试发现(在 `omnidesk-offline-v0.5.0` 复现)
+
+## [0.5.1] - 2026-06-22
+
+### 修复
+- **离线部署包 .tar 镜像 RepoTags 缺 GHCR 全名**: `docker save` 改用 source + GHCR 双 tag,加载后无需额外 retag 即可被 compose 识别为 `ghcr.io/onemuggle/*` 镜像,避免部署兜底走 GHCR
+- **离线包内 compose/env 的 IMAGE_TAG 默认值不同步**: `package_offline_bundle.sh` 在复制 compose/env 到 bundle 后,用 `sed` 把默认 tag 替换为 `${BUILD_VERSION}`,下次打 v0.5.1+ 自动正确
+- **package_offline_bundle.sh heredoc 内 deploy.sh 缺 retag 逻辑**: 添加 11 行 retag,作为双保险(即便 tar 内 RepoTags 不全,部署时也能补)
+- **POSTGRES_IMAGE 变量与 tar/compose 不一致**: `postgres:14.2` → `postgres:14-alpine`(与 BUILD-MANIFEST.json / compose / 实际 tar 对齐)
+
+## [0.5.0] - 2026-06-22
+
+### 新增
+- **智能助手 — 多 Agent 协作(里程碑 1.1–1.4)**
+  - 基础设施:`TaskPacket` 任务包、`SharedContext` 共享上下文、`MultiAgentExecutor` Pipeline 执行器
+  - `Supervisor` 任务分解 + `IntentClassifier` 分流、REST API + SSE 推送
+  - 工具未找到返回友好提示(rather than '无权限')
+  - 显示体验优化:添加取消功能、改进 `<think>` 内容展示
+- **前端 — 图片上传与表单校验**
+  - `RichTextEditor` 恢复图片上传(`@tiptap/extension-image`)
+  - `zod` 表单校验试点(登录页)+ 表单模式文档
+- **可观测性** — 关键路径结构化日志(登录 / 权限 / Celery)
+- **DevTools** — `django-silk` dev 模式接入(SQL profiling)
+
+### 变更
+- **前端构建** — `src/shared/api` 全部转 TypeScript(12 文件)
+- **前端性能** — `React.lazy` 拆分 editor / docprocessing / markdown 页面
+- **前端依赖** — `react-quill → tiptap` 迁移(修 quill XSS CVE);`npm audit` overrides 修 22→3 CVE
+- **Vite target** — build target 提升至 `chrome109`(兼容 Win7 Chrome 109 / Edge 109)
+- **后端重构** — 全面项目优化(四阶段)+ ruff format 规范化
+- **视图集分页** — 恢复 3 处 ViewSet 分页 + 2 处封顶 1000
+
+### 修复
+- 登录表单空值验证消息
+- 前端缺失的 `zod` 依赖
+- 前端依赖与 CI 配置
+- `events.trials.py` 未使用的 `status` import
+- CI:`deploy-test.yml` 镜像 tag `v0.2.0 → v0.4.0`、lint-backend / security 失败、调低 lint-frontend 阻塞阈值
+- ruff format 格式化新增和修改的文件
+
 ## [0.4.0] - 2026-06-05
 
 ### 新增

@@ -11,12 +11,29 @@ class Command(BaseCommand):
     help = "Sync routes from frontend to database"
 
     def handle(self, *args, **options):
-        # Path to the routes.json file
-        routes_json_path = settings.BASE_DIR.parent / "omni_desk_frontend" / "public" / "routes.json"
+        # 多个可能的位置(按优先级):
+        # 1. 容器内 staticfiles 目录(Dockerfile build 时复制)
+        # 2. 容器内 /usr/src/omni_desk_frontend/public/(源码路径,通常不存在)
+        # 3. settings.BASE_DIR 相对路径(开发环境)
+        possible_paths = [
+            settings.BASE_DIR / "staticfiles" / "routes.json",
+            "/usr/src/omni_desk_frontend/public/routes.json",
+            settings.BASE_DIR.parent / "omni_desk_frontend" / "public" / "routes.json",
+        ]
 
-        if not os.path.exists(routes_json_path):
-            self.stdout.write(self.style.ERROR(f"Routes JSON file not found at {routes_json_path}"))
+        routes_json_path = None
+        for p in possible_paths:
+            if os.path.exists(p):
+                routes_json_path = p
+                break
+
+        if not routes_json_path:
+            self.stdout.write(
+                self.style.ERROR(f"Routes JSON file not found. Tried: {[str(p) for p in possible_paths]}")
+            )
             return
+
+        self.stdout.write(f"Using routes.json from: {routes_json_path}")
 
         with open(routes_json_path, encoding="utf-8") as f:
             try:

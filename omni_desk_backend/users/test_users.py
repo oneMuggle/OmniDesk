@@ -30,7 +30,7 @@ class UserRegistrationTests(TestCase):
         }
         response = self.client.post(self.register_url, data, format='json')
         self.assertEqual(response.status_code, 400)
-        self.assertIn('username', response.data['validation_errors'])
+        self.assertIn('username', response.json())
 
     def test_missing_password(self):
         data = {
@@ -40,7 +40,7 @@ class UserRegistrationTests(TestCase):
         }
         response = self.client.post(self.register_url, data, format='json')
         self.assertEqual(response.status_code, 400)
-        self.assertIn('password', response.data['validation_errors'])
+        self.assertIn('password', response.json())
 
     def test_password_mismatch(self):
         data = {
@@ -50,7 +50,7 @@ class UserRegistrationTests(TestCase):
         }
         response = self.client.post(self.register_url, data, format='json')
         self.assertEqual(response.status_code, 400)
-        self.assertIn('password', response.data['validation_errors'])
+        self.assertIn('password', response.json())
 
 # Create your tests here.
 

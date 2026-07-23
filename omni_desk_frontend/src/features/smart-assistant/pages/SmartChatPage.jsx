@@ -1,27 +1,34 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, getSessions, createSession, deleteSession } from '../api/smartAssistantApi';
 import ToolResult from '../components/ToolResult';
-import MessageMarkdown from '../components/MessageMarkdown';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import { Button, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import './SmartChatPage.css';
 
+/**
+ * 解析内容中的 <thinking> 标签,分离思考内容与正文。
+ * 支持多个 <thinking> 块(合并为一个 thinkContent)。
+ */
 const parseThinkContent = (content) => {
   if (!content) return { mainContent: '', thinkContent: '' };
 
-  const thinkStart = content.indexOf('<thinking>');
-  const thinkEnd = content.indexOf('</thinking>');
+  const thinkRegex = /<thinking>([\s\S]*?)<\/thinking>/g;
+  const thinkParts = [];
+  let match;
 
-  if (thinkStart === -1 || thinkEnd === -1) {
+  while ((match = thinkRegex.exec(content)) !== null) {
+    const trimmed = match[1].trim();
+    if (trimmed) thinkParts.push(trimmed);
+  }
+
+  if (thinkParts.length === 0) {
     return { mainContent: content, thinkContent: '' };
   }
 
-  const thinkContent = content.slice(thinkStart + 10, thinkEnd).trim();
-  const mainContent = (content.slice(0, thinkStart) + content.slice(thinkEnd + 11)).trim();
-
-  return { mainContent, thinkContent };
+  const mainContent = content.replace(/<thinking>[\s\S]*?<\/thinking>/g, '').trim();
+  return { mainContent, thinkContent: thinkParts.join('\n\n') };
 };
 
 const MessageActions = ({ content, onFeedback, feedback }) => (
@@ -59,6 +66,9 @@ MessageActions.propTypes = {
   feedback: PropTypes.string,
 };
 
+/** 打字机节流间隔(ms) */
+const TYPEWRITER_INTERVAL = 50;
+
 const SmartChatPage = () => {
   const [inputMessage, setInputMessage] = useState('');
   const [messages, setMessages] = useState([]);
@@ -69,6 +79,20 @@ const SmartChatPage = () => {
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showSessionList, setShowSessionList] = useState(false);
   const messagesEndRef = useRef(null);
+  const abortRef = useRef(null);
+
+  // ── 打字机效果 refs ──
+  // receivedTextRef: 从 SSE 接收到的完整文本(chunks 缓冲)
+  // displayedLenRef: 已经显示给用户的字符数
+  // rafRef / lastTickRef: requestAnimationFrame 句柄与上次刷新时间戳
+  // isCachedRef: 后端缓存命中标志(跳过打字机)
+  // isStreamingRef: 流是否仍在接收数据
+  const receivedTextRef = useRef('');
+  const displayedLenRef = useRef(0);
+  const rafRef = useRef(null);
+  const lastTickRef = useRef(0);
+  const isCachedRef = useRef(false);
+  const isStreamingRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -92,6 +116,13 @@ const SmartChatPage = () => {
     loadSessions();
   }, []);
 
+  // 组件卸载时清理 rAF
+  useEffect(() => {
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
   const handleNewSession = useCallback(async () => {
     try {
       const response = await createSession('新会话');
@@ -106,7 +137,6 @@ const SmartChatPage = () => {
   const handleSwitchSession = useCallback((session) => {
     setCurrentSessionId(session.id);
     setShowSessionList(false);
-    // 恢复历史消息
     const historyMessages = session.messages || [];
     setMessages(historyMessages.map(msg => ({
       role: msg.role,
@@ -131,7 +161,66 @@ const SmartChatPage = () => {
     }
   }, [currentSessionId]);
 
-  // 解析 SSE 数据行
+  // ── 打字机效果核心函数 ──
+
+  /** rAF 回调:每 TYPEWRITER_INTERVAL ms 逐步揭示已接收的文本 */
+  const typewriterTick = useCallback(() => {
+    const received = receivedTextRef.current;
+    const displayedLen = displayedLenRef.current;
+
+    if (displayedLen >= received.length) {
+      if (!isStreamingRef.current) {
+        // 流已结束且全部显示 → 停止 rAF 循环
+        rafRef.current = null;
+        return;
+      }
+      // 流仍在接收,等待更多数据
+      rafRef.current = requestAnimationFrame(typewriterTick);
+      return;
+    }
+
+    const now = performance.now();
+    if (now - lastTickRef.current >= TYPEWRITER_INTERVAL) {
+      const remaining = received.length - displayedLen;
+      // 渐进揭示:剩余越多一次揭示越多,但上限 10 字符/帧
+      const charsToAdd = Math.max(1, Math.min(Math.ceil(remaining * 0.2), 10));
+      const newLen = Math.min(displayedLen + charsToAdd, received.length);
+
+      setStreamingAnswer(received.slice(0, newLen));
+      displayedLenRef.current = newLen;
+      lastTickRef.current = now;
+    }
+
+    rafRef.current = requestAnimationFrame(typewriterTick);
+  }, []);
+
+  /** 重置打字机状态(新请求 / 取消时调用) */
+  const resetTypewriter = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    receivedTextRef.current = '';
+    displayedLenRef.current = 0;
+    isCachedRef.current = false;
+    isStreamingRef.current = false;
+  }, []);
+
+  /** 立即显示所有已接收文本(流结束兜底) */
+  const flushTypewriter = useCallback(() => {
+    if (rafRef.current) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    const received = receivedTextRef.current;
+    if (displayedLenRef.current < received.length) {
+      setStreamingAnswer(received);
+      displayedLenRef.current = received.length;
+    }
+  }, []);
+
+  // ── SSE 解析 ──
+
   const parseSSE = useCallback((text) => {
     const lines = text.split('\n');
     const events = [];
@@ -147,60 +236,134 @@ const SmartChatPage = () => {
     return events;
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+  // ── SSE 事件处理器 ──
 
-    const userMessage = { role: 'user', content: inputMessage };
-    const newMessages = [...messages, userMessage];
-    setMessages(newMessages);
-    setInputMessage('');
-    setIsLoading(true);
-    setStreamingAnswer('');
-    setStreamingMeta(null);
+  /** 处理 meta 事件:设置元数据,缓存命中时跳过打字机 */
+  const handleMetaEvent = useCallback((event) => {
+    setStreamingMeta(event);
+    if (event.cache_hit) {
+      isCachedRef.current = true;
+      setStreamingAnswer(receivedTextRef.current);
+      displayedLenRef.current = receivedTextRef.current.length;
+    }
+  }, []);
+
+  /** 处理 chunk 事件:累积文本,驱动打字机 */
+  const handleChunkEvent = useCallback((event) => {
+    receivedTextRef.current += event.content;
+    if (isCachedRef.current) {
+      setStreamingAnswer(receivedTextRef.current);
+      displayedLenRef.current = receivedTextRef.current.length;
+    } else if (!rafRef.current) {
+      lastTickRef.current = performance.now();
+      rafRef.current = requestAnimationFrame(typewriterTick);
+    }
+  }, [typewriterTick]);
+
+  /** 处理 session 事件:更新会话 ID */
+  const handleSessionEvent = useCallback(async (event, activeSessionId) => {
+    if (!activeSessionId && event.conversation_id) {
+      setCurrentSessionId(event.conversation_id);
+      const resp = await getSessions();
+      setSessions(resp.data || []);
+      return event.conversation_id;
+    }
+    return activeSessionId;
+  }, []);
+
+  /** 处理单个 SSE 事件,路由到对应的处理器 */
+  const handleSSEEvent = useCallback(async (event, activeSessionId) => {
+    switch (event.type) {
+      case 'meta':
+        handleMetaEvent(event);
+        break;
+      case 'chunk':
+        handleChunkEvent(event);
+        break;
+      case 'done':
+        isStreamingRef.current = false;
+        break;
+      case 'session':
+        return await handleSessionEvent(event, activeSessionId);
+      default:
+        // 忽略未知事件类型
+        break;
+    }
+    return activeSessionId;
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent]);
+
+  /**
+   * 核心流式处理:读取 SSE reader,驱动打字机显示。
+   * 被 handleSubmit 和 handleRetry 共用。
+   */
+  const runStream = useCallback(async (query) => {
+    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
+    abortRef.current = abort;
+    const stream = await bodyPromise;
+
+    if (!stream) {
+      return;
+    }
+
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+    isStreamingRef.current = true;
+    let activeSessionId = currentSessionId;
 
     try {
-      const stream = await sendSmartChatStream(inputMessage, currentSessionId);
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
       // eslint-disable-next-line no-constant-condition
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-
-        // 处理完整的 SSE 消息（以 \n\n 分隔）
         const parts = buffer.split('\n\n');
         buffer = parts.pop() || '';
 
         for (const part of parts) {
           const events = parseSSE(part);
           for (const event of events) {
-            if (event.type === 'meta') {
-              setStreamingMeta(event);
-            } else if (event.type === 'chunk') {
-              setStreamingAnswer(prev => prev + event.content);
-            } else if (event.type === 'session') {
-              if (!currentSessionId && event.conversation_id) {
-                setCurrentSessionId(event.conversation_id);
-                const resp = await getSessions();
-                setSessions(resp.data || []);
-              }
-            }
+            activeSessionId = await handleSSEEvent(event, activeSessionId);
           }
         }
       }
+    } finally {
+      isStreamingRef.current = false;
+      if (!rafRef.current) {
+        flushTypewriter();
+      }
+    }
+  }, [currentSessionId, parseSSE, handleSSEEvent, flushTypewriter]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!inputMessage.trim() || isLoading) return;
+
+    const userMessage = { role: 'user', content: inputMessage };
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setIsLoading(true);
+    setStreamingAnswer('');
+    setStreamingMeta(null);
+    resetTypewriter();
+
+    try {
+      await runStream(inputMessage);
     } catch (error) {
-      setStreamingAnswer(`[错误] ${error.message}`);
+      if (error.name !== 'AbortError') {
+        const errText = `[错误] ${error.message}`;
+        receivedTextRef.current = errText;
+        setStreamingAnswer(errText);
+        displayedLenRef.current = errText.length;
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
   };
 
-  // 当流式回答完成时，追加到消息列表
+  // 当流式回答完成时,追加到消息列表
   useEffect(() => {
     if (!isLoading && streamingAnswer && messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -239,45 +402,36 @@ const SmartChatPage = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
+    resetTypewriter();
 
     try {
-      const stream = await sendSmartChatStream(lastUserMsg.content, currentSessionId);
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const events = parseSSE(part);
-          for (const event of events) {
-            if (event.type === 'meta') {
-              setStreamingMeta(event);
-            } else if (event.type === 'chunk') {
-              setStreamingAnswer(prev => prev + event.content);
-            } else if (event.type === 'session') {
-              if (!currentSessionId && event.conversation_id) {
-                setCurrentSessionId(event.conversation_id);
-                const resp = await getSessions();
-                setSessions(resp.data || []);
-              }
-            }
-          }
-        }
-      }
+      await runStream(lastUserMsg.content);
     } catch (error) {
-      setStreamingAnswer(`[错误] ${error.message}`);
+      if (error.name !== 'AbortError') {
+        const errText = `[错误] ${error.message}`;
+        receivedTextRef.current = errText;
+        setStreamingAnswer(errText);
+        displayedLenRef.current = errText.length;
+      }
     } finally {
       setIsLoading(false);
+      abortRef.current = null;
     }
-  }, [messages, currentSessionId, parseSSE]);
+  }, [messages, runStream, resetTypewriter]);
+
+  /** 停止生成:中止请求 + 清理打字机状态 + 显示提示 */
+  const handleStop = useCallback(() => {
+    if (abortRef.current) {
+      abortRef.current();
+      abortRef.current = null;
+    }
+    isStreamingRef.current = false;
+    resetTypewriter();
+    setStreamingAnswer('');
+    setStreamingMeta(null);
+    setIsLoading(false);
+    antMessage.info('已取消生成');
+  }, [resetTypewriter]);
 
   return (
     <div className="smart-chat-container">
@@ -330,10 +484,7 @@ const SmartChatPage = () => {
                 {msg.role === 'user' ? (
                   <div className="user-message-text">{mainContent}</div>
                 ) : (
-                  <>
-                    <MessageMarkdown content={mainContent} />
-                    {thinkContent && <ThinkContent content={thinkContent} />}
-                  </>
+                  <ThinkContent thinkContent={thinkContent} mainContent={mainContent} />
                 )}
               </div>
               {msg.tool_result && <ToolResult intent={msg.intent} result={msg.tool_result} sources={msg.sources} />}
@@ -365,8 +516,7 @@ const SmartChatPage = () => {
           return (
             <div className="message assistant">
               <div className="message-content">
-                <MessageMarkdown content={mainContent} />
-                {thinkContent && <ThinkContent content={thinkContent} />}
+                <ThinkContent thinkContent={thinkContent} mainContent={mainContent} />
               </div>
               {streamingMeta?.tool_result && (
                 <ToolResult
@@ -389,9 +539,15 @@ const SmartChatPage = () => {
           placeholder="问我任何问题，例如：明天谁值班？"
           disabled={isLoading}
         />
-        <button type="submit" disabled={isLoading}>
-          {isLoading ? '发送中...' : '发送'}
-        </button>
+        {isLoading ? (
+          <button type="button" onClick={handleStop} className="stop-btn">
+            取消
+          </button>
+        ) : (
+          <button type="submit" disabled={!inputMessage.trim()}>
+            发送
+          </button>
+        )}
       </form>
     </div>
   );

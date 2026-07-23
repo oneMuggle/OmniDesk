@@ -1,4 +1,6 @@
+from django.core.exceptions import ValidationError
 from django.db import models
+from django.utils import timezone
 
 from users.models import CustomUser
 
@@ -237,3 +239,215 @@ class Holiday(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# ---- SP1-1: ScheduleSwapRequest(决策 1C: 两人互认即生效) ----
+
+
+class ScheduleSwapRequest(models.Model):
+    """值班换班申请(状态机见 plan 文档 §4)。
+
+    状态流转:
+        pending → approved(接收方 accept,ViewSet 内部调 apply_swap)
+        pending → rejected_by_target(接收方 reject)
+        pending → cancelled(申请方 cancel)
+        pending → expired(系统 48h 超时)
+    """
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected_by_target"
+    STATUS_CANCELLED = "cancelled"
+    STATUS_EXPIRED = "expired"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待接收方确认"),
+        (STATUS_APPROVED, "已生效(双方互认)"),
+        (STATUS_REJECTED, "接收方已拒绝"),
+        (STATUS_CANCELLED, "申请方已撤销"),
+        (STATUS_EXPIRED, "已超时失效"),
+    ]
+
+    SCOPE_DUTY_PERSON = "duty_person"
+    SCOPE_DUTY_LEADER = "duty_leader"
+    SCOPE_CHOICES = [
+        (SCOPE_DUTY_PERSON, "值班人员"),
+        (SCOPE_DUTY_LEADER, "值班领导"),  # 决策 5A:首版仅用 duty_person,字段预留
+    ]
+
+    requester = models.ForeignKey(
+        "personnel.Personnel",
+        on_delete=models.PROTECT,
+        related_name="initiated_swap_requests",
+        verbose_name="申请发起人",
+    )
+    original_schedule = models.ForeignKey(
+        Schedule,
+        on_delete=models.CASCADE,
+        related_name="outgoing_swap_requests",
+        verbose_name="原排班",
+    )
+    scope = models.CharField(
+        max_length=20,
+        choices=SCOPE_CHOICES,
+        default=SCOPE_DUTY_PERSON,
+        verbose_name="换岗范围",
+    )
+    target_personnel = models.ForeignKey(
+        "personnel.Personnel",
+        on_delete=models.PROTECT,
+        related_name="incoming_swap_requests",
+        verbose_name="接收换班者",
+    )
+    target_schedule = models.ForeignKey(
+        Schedule,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="incoming_swap_requests",
+        verbose_name="对调排班(可选)",
+        help_text="若为空=单方面替班;若有值=双向对调(决策 2C)",
+    )
+    reason = models.CharField(max_length=500, verbose_name="申请理由")
+    status = models.CharField(
+        max_length=30,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        db_index=True,
+        verbose_name="状态",
+    )
+
+    target_decided_at = models.DateTimeField(null=True, blank=True, verbose_name="接收方决策时间")
+    target_decision_note = models.CharField(max_length=500, blank=True, verbose_name="接收方备注")
+
+    approver = models.ForeignKey(
+        "users.CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="approved_swap_requests",
+        verbose_name="审批人(本设计中=接收方 user_account)",
+    )
+    approved_at = models.DateTimeField(null=True, blank=True, verbose_name="生效时间")
+    approval_note = models.CharField(max_length=500, blank=True, verbose_name="生效备注")
+
+    expires_at = models.DateTimeField(db_index=True, verbose_name="失效时间(默认 48h)")
+
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+
+    class Meta:
+        verbose_name = "排班换班申请"
+        verbose_name_plural = "排班换班申请"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "expires_at"], name="swap_status_expires_idx"),
+            models.Index(fields=["requester", "status"], name="swap_requester_status_idx"),
+            models.Index(fields=["target_personnel", "status"], name="swap_target_status_idx"),
+        ]
+        constraints = [
+            # 同一原排班同时只能有一个 active 申请(pending 状态)
+            models.UniqueConstraint(
+                fields=["original_schedule"],
+                condition=models.Q(status="pending"),
+                name="uniq_active_swap_per_schedule",
+            ),
+        ]
+
+    def clean(self):
+        """L3 数据完整性防护。不依赖用户上下文,仅校验数据本身。"""
+        super().clean()
+        errors = {}
+        if self.requester_id and self.target_personnel_id and self.requester_id == self.target_personnel_id:
+            errors["target_personnel"] = "不能把班换给自己"
+        if self.scope == self.SCOPE_DUTY_PERSON:
+            if (
+                self.original_schedule_id
+                and self.requester_id
+                and self.original_schedule.duty_person_id != self.requester_id
+            ):
+                errors["requester"] = "您不是该日的值班人员,无权发起换班"
+        elif self.scope == self.SCOPE_DUTY_LEADER:
+            if (
+                self.original_schedule_id
+                and self.requester_id
+                and self.original_schedule.duty_leader_id != self.requester_id
+            ):
+                errors["requester"] = "您不是该日的值班领导,无权发起换班"
+        if self.original_schedule_id and self.original_schedule.duty_date:
+            if self.original_schedule.duty_date < timezone.now().date():
+                errors["original_schedule"] = "无法对已过去的排班发起换班申请"
+        if self.expires_at and self.expires_at <= timezone.now():
+            errors["expires_at"] = "失效时间必须晚于当前时间"
+        if errors:
+            raise ValidationError(errors)
+
+    def apply_swap(self, approver=None):
+        """执行 Schedule 字段交换。决策 1C:接收方 accept 后自动调用。
+
+        必须在 transaction.atomic() 块中调用;同时用 select_for_update 锁原/目标排班。
+        """
+        field_name = "duty_person" if self.scope == self.SCOPE_DUTY_PERSON else "duty_leader"
+
+        original = Schedule.objects.select_for_update().get(pk=self.original_schedule_id)
+        if self.target_schedule_id:
+            target = Schedule.objects.select_for_update().get(pk=self.target_schedule_id)
+            original_val = getattr(original, field_name)
+            target_val = getattr(target, field_name)
+            setattr(original, field_name, target_val)
+            setattr(target, field_name, original_val)
+            original.save(update_fields=[field_name])
+            target.save(update_fields=[field_name])
+        else:
+            setattr(original, field_name, self.target_personnel)
+            original.save(update_fields=[field_name])
+
+        self.status = self.STATUS_APPROVED
+        self.approver = approver
+        self.approved_at = timezone.now()
+        self.save(update_fields=["status", "approver", "approved_at", "updated_at"])
+
+    @property
+    def status_display(self):
+        """对外暴露状态中文(供前端直接使用,免去 i18n 配置)。"""
+        return self.get_status_display()
+
+    def __str__(self):
+        return f"#{self.pk} {self.requester.name} → {self.target_personnel.name} [{self.status}]"
+
+
+class ScheduleSwapAuditLog(models.Model):
+    """换班申请状态流转审计日志。每次状态变更追加一行。
+
+    独立于 users.AuditLogEntry(后者专为 link_user_personnel 批处理设计)。
+    """
+
+    swap_request = models.ForeignKey(
+        ScheduleSwapRequest,
+        on_delete=models.CASCADE,
+        related_name="audit_logs",
+        verbose_name="关联换班申请",
+    )
+    actor = models.ForeignKey(
+        "users.CustomUser",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="swap_audit_actions",
+        verbose_name="操作者",
+    )
+    from_status = models.CharField(max_length=30, verbose_name="原状态")
+    to_status = models.CharField(max_length=30, verbose_name="新状态")
+    note = models.CharField(max_length=500, blank=True, verbose_name="备注")
+    metadata = models.JSONField(default=dict, blank=True, verbose_name="元数据")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+
+    class Meta:
+        verbose_name = "换班审计日志"
+        verbose_name_plural = "换班审计日志"
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["swap_request", "-created_at"]),
+        ]
+
+    def __str__(self):
+        return f"{self.from_status} → {self.to_status} by {self.actor_id or 'system'}"

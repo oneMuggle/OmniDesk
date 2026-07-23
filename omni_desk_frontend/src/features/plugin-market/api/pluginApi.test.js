@@ -1,7 +1,7 @@
 import * as pluginApi from './pluginApi';
 import axiosInstance from '../../../shared/api/axiosConfig.js';
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   get: jest.fn(),
   post: jest.fn(),
 }));
@@ -32,7 +32,7 @@ describe('pluginApi', () => {
 
   it('executePlugin 应调用 POST', async () => {
     axiosInstance.post.mockResolvedValue({ data: { result: 'ok' } });
-    const result = await pluginApi.executePlugin(1, { param: 'value' });
+    await pluginApi.executePlugin(1, { param: 'value' });
     expect(axiosInstance.post).toHaveBeenCalledWith('/external/plugins/1/execute/', { params: { param: 'value' } });
   });
 });

@@ -1,12 +1,14 @@
 """RAG 路由器：支持多数据集智能路由。
 
 根据查询关键词匹配最相关的知识库数据集，并行搜索后合并结果。
+使用 RagflowClient 统一封装 RAGFlow API 调用。
 """
 
 import logging
 
-import requests
 from django.conf import settings
+
+from ragflow_service.client import RagflowClient, RagflowClientError
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +104,7 @@ class RAGRouter:
         return result
 
     def search_dataset(self, query: str, dataset: dict, top_k: int = 5) -> list:
-        """搜索单个数据集。"""
+        """搜索单个数据集，使用 RagflowClient.retrieval()。"""
         api_endpoint = dataset.get("api_endpoint", "").rstrip("/")
         api_key = dataset.get("api_key", "")
         dataset_id = dataset.get("ragflow_dataset_id", "")
@@ -111,29 +113,22 @@ class RAGRouter:
             logger.warning("RAG 数据集配置不完整: %s", dataset.get("name"))
             return []
 
-        url = f"{api_endpoint}/api/v1/retrieval"
-        headers = {
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        }
-        data = {
-            "dataset_id": dataset_id,
-            "query": query,
-            "top_k": top_k,
-        }
-
         try:
-            resp = requests.post(url, headers=headers, json=data, timeout=15)
-            resp.raise_for_status()
-            result = resp.json()
-            # resp.json() 无类型注解 → Any，显式声明为 list[dict] 收紧
-            chunks: list[dict] = result.get("chunks", [])
+            client = RagflowClient(api_endpoint=api_endpoint, api_key=api_key)
+            chunks = client.retrieval(
+                dataset_ids=[dataset_id],
+                question=query,
+                top_k=top_k,
+            )
             # 添加来源标记
             for chunk in chunks:
                 chunk["_source"] = dataset.get("name", "未知")
             return chunks
-        except Exception as e:
+        except RagflowClientError as e:
             logger.warning("RAG 数据集 %s 搜索失败: %s", dataset.get("name"), e)
+            return []
+        except Exception as e:
+            logger.warning("RAG 数据集 %s 搜索时发生未知错误: %s", dataset.get("name"), e)
             return []
 
     def search_multi(self, query: str, top_k: int = 5) -> list:

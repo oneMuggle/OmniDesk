@@ -11,6 +11,8 @@ from ..models import SmartAssistantSession, AgentLog
 from ..serializers import SmartChatRequestSerializer
 from ..agent.orchestrator import AgentOrchestrator
 from ..agent.conversation_context import count_turns
+from ..scope import resolve_scope
+from ..tools.tool_context import ToolContext
 
 
 class SmartChatViewSet(viewsets.ViewSet):
@@ -38,7 +40,8 @@ class SmartChatViewSet(viewsets.ViewSet):
                 pass
 
         start_time = time.time()
-        result = orchestrator.process(query, conversation_history)
+        tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))
+        result = orchestrator.process(query, conversation_history, tool_context=tool_context)
         response_time_ms = int((time.time() - start_time) * 1000)
 
         if conversation_id and session:
@@ -123,11 +126,12 @@ class SmartChatViewSet(viewsets.ViewSet):
         start_time = time.time()
 
         orchestrator = AgentOrchestrator()
+        tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))
 
         def event_stream():
             full_answer = []
 
-            for chunk in orchestrator.process_stream(query, conversation_history):
+            for chunk in orchestrator.process_stream(query, conversation_history, tool_context=tool_context):
                 yield chunk
                 try:
                     payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]

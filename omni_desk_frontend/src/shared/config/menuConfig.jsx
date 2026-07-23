@@ -42,6 +42,7 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: AppstoreOutlined,
     permission: null,
     subItems: [
+      { to: "/ai-showcase", icon: AppstoreOutlined, text: "AI 能力展示", permission: null },
       { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
       { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
       { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
@@ -62,6 +63,7 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
       { to: "/control-panel/plugin-market/manage", text: "插件管理", permission: 'admin' },
     ]
   },
+  { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
   { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
   { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
   { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },

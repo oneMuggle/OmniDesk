@@ -12,13 +12,13 @@ class SensorTool(BaseTool):
         keywords = query.replace("搜索", "").replace("查找", "").replace("传感器", "").replace("设备", "").strip()
 
         # 按名称或编号搜索
-        sensors = Sensor.objects.filter(name__icontains=keywords).select_related("category", "storage_location")[:10]
+        sensors = Sensor.objects.filter(name__icontains=keywords).select_related("sensor_category", "location")[:10]
 
         if not sensors.exists():
             # 如果没有关键词，返回传感器统计
             if not keywords:
                 total = Sensor.objects.count()
-                active = Sensor.objects.filter(is_active=True).count()
+                active = Sensor.objects.filter(status="in_use").count()
                 return {
                     "found": True,
                     "summary": True,
@@ -39,12 +39,12 @@ class SensorTool(BaseTool):
             results.append(
                 {
                     "name": s.name,
-                    "model": s.model,
+                    "model": s.sensor_number,
                     "serial_number": s.serial_number,
-                    "category": s.category.name if s.category else "未分类",
+                    "category": s.sensor_category.name if s.sensor_category else "未分类",
                     "status": s.status,
-                    "is_active": s.is_active,
-                    "location": s.storage_location.name if s.storage_location else "未分配",
+                    "is_active": s.status == "in_use",
+                    "location": s.location.name if s.location else "未分配",
                     "last_calibration": str(latest_calibration.calibration_date.date())
                     if latest_calibration
                     else "未校准",
@@ -57,3 +57,11 @@ class SensorTool(BaseTool):
             "count": len(results),
             "sensors": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的传感器 QuerySet(主模型;execute 同时查 SensorCalibration)。"""
+        return Sensor.objects.select_related("sensor_category", "location").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:传感器是公共设备库存,无"本人"语义;返回空 QuerySet。"""
+        return qs.none()

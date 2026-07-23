@@ -12,6 +12,7 @@
 | Chrome 109 | 不使用 ES2023+ 语法 |
 | CSS | 避免 `:has()`、container queries 等新特性 |
 | 构建 | 编译目标设旧版浏览器，Polyfill 自动注入 |
+| 动态 `import()` / `React.lazy` | ✅ 支持 | Chrome 61+,与 Win7 Chrome 109 兼容 |
 
 ## 3. 桌面客户端兼容
 

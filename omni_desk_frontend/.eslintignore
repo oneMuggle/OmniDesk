@@ -1,2 +1,4 @@
 build/
 public/static/js/
+e2e/
+playwright.config.js

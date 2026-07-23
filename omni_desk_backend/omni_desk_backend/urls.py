@@ -46,8 +46,9 @@ urlpatterns = [
                 path("dashboard/", include("dashboard.urls")),  # 仪表盘数据接口
                 path("system/", include("core.urls")),  # 系统信息（版本等）
                 path("external/", include("external_integration.urls")),  # 外部集成管理
-                path("paperless/", include("paperless_proxy.urls")),  # paperless 代理(Outbox 管理)
-                path("file/", include("file_processing.urls")),  # 文件处理(/api/file/upload/ 等)
+                path("paperless/", include("paperless_proxy.urls")),  # paperless 代理（Outbox 管理）
+                path("search/", include("search_federation.urls")),  # 联邦搜索
+                path("", include("file_processing.urls")),  # 文件处理（上传/预览/分析/导出）
             ]
         ),
     ),
@@ -56,3 +57,7 @@ urlpatterns = [
 if settings.DEBUG:
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# django-silk (dev-only SQL profiler) — only mounted when explicitly enabled
+if getattr(settings, "ENABLE_SILK", False):
+    urlpatterns += [path("silk/", include("silk.urls", namespace="silk"))]

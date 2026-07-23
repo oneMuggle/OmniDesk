@@ -25,8 +25,10 @@ usage() {
 # Main command logic
 case "$1" in
     up)
-        echo "Ensuring clean environment before starting services..."
-        docker compose down --volumes --remove-orphans || true
+        echo "Cleaning up orphaned containers before starting services..."
+        # SECURITY FIX: Removed --volumes flag to prevent accidental data loss
+        # If you need to reset the database, use: docker compose down --volumes
+        docker compose down --remove-orphans || true
         echo "Starting all services..."
         docker compose up -d --build
         echo "Services are up and running."

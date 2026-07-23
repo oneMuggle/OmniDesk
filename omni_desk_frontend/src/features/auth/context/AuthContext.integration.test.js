@@ -14,7 +14,7 @@ import PropTypes from 'prop-types';
 const mockPost = jest.fn();
 const mockGet = jest.fn();
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   post: (...args) => mockPost(...args),
   get: (...args) => mockGet(...args),
   defaults: { baseURL: 'http://127.0.0.1:8000/api/' },

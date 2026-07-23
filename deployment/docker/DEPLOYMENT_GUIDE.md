@@ -20,16 +20,15 @@
 
 ## 架构概述
 
-OmniDesk 采用多容器 Docker 架构，通过 `docker-compose` 编排以下服务：
+OmniDesk 采用多容器 Docker 架构，通过 `docker-compose` 编排以下服务（**单 Nginx 入口**：Nginx 集成在前端容器内）：
 
 | 服务 | 镜像 | 说明 |
 |------|------|------|
 | `db` | postgres:14.2 | PostgreSQL 数据库 |
 | `redis` | redis:7-alpine | Redis 缓存/消息队列 |
 | `backend` | omni-desk-backend | Django 后端应用 |
-| `frontend` | omni-desk-frontend | React 前端应用 |
+| `frontend` | omni-desk-frontend | React 前端应用 + 内置 Nginx（唯一 HTTP 入口） |
 | `worker` | omni-desk-backend | Celery 异步任务处理 |
-| `nginx` | nginx:stable-alpine | 反向代理/静态文件服务 |
 
 ### 流量架构
 
@@ -37,24 +36,26 @@ OmniDesk 采用多容器 Docker 架构，通过 `docker-compose` 编排以下服
 用户请求
     │
     ▼
-┌─────────┐
-│  Nginx  │ :80
-└────┬────┘
+┌──────────────────┐
+│  Frontend        │ :80  (内置 Nginx + React 静态)
+└────┬─────────────┘
      │
      ├──────────────────┬──────────────────┐
      ▼                  ▼                  ▼
-┌─────────┐      ┌─────────────┐   ┌─────────────┐
-│Frontend │      │  Backend    │   │  Static/Media│
-│ React   │      │  Django     │   │  Files       │
-│  :80     │      │  :8000      │   │              │
-└─────────┘      └──────┬──────┘   └─────────────┘
-                        │
-                   ┌────┴────┐
-                   ▼         ▼
-              ┌────────┐ ┌──────┐
-              │ Postgres│ │ Redis│
-              └────────┘ └──────┘
+┌──────────────┐ ┌─────────────┐   ┌─────────────┐
+│  Backend     │ │  React SPA  │   │  Django     │
+│  Django      │ │  (静态构建) │   │  Static/    │
+│  :8000       │ │             │   │  Media      │
+└──────┬───────┘ └─────────────┘   └─────────────┘
+       │
+  ┌────┴────┐
+  ▼         ▼
+┌────────┐ ┌──────┐
+│Postgres│ │ Redis│
+└────────┘ └──────┘
 ```
+
+> **架构说明**：早期版本使用独立 Nginx 容器 + 前端 Nginx 双层架构，已简化为单 Nginx 入口。所有路由规则集中在前端容器的 `omni_desk_frontend/nginx.conf` 中维护。
 
 ---
 
@@ -69,9 +70,6 @@ deployment/
 │   ├── docker-compose.build.yml       # 本地构建配置
 │   ├── .env                            # 开发环境变量
 │   ├── .env.production                 # 生产环境变量
-│   ├── nginx/
-│   │   ├── nginx.conf                  # 生产 Nginx 配置
-│   │   └── nginx.dev.conf              # 开发 Nginx 配置
 │   ├── omni_desk_backend/              # 后端 Dockerfile
 │   │   └── Dockerfile
 │   ├── deploy_docker.sh               # 部署管理脚本
@@ -389,10 +387,9 @@ cd deployment/docker
 
 脚本执行后，`exported_images/` 目录包含：
 - `omni_desk_backend.tar` - 后端镜像
-- `omni_desk_frontend.tar` - 前端镜像
+- `omni_desk_frontend.tar` - 前端镜像（含内置 Nginx）
 - `postgres.tar` - PostgreSQL 镜像
 - `redis.tar` - Redis 镜像
-- `nginx.tar` - Nginx 镜像
 
 ### 步骤 2：传输文件到内网服务器
 
@@ -403,9 +400,6 @@ deployment/docker/
 ├── docker-compose.yml       # 基础配置
 ├── docker-compose.prod.yml  # 生产配置
 ├── .env.production          # 环境变量（需根据内网修改）
-├── nginx/                   # Nginx 配置目录
-│   ├── nginx.conf
-│   └── nginx.dev.conf
 └── deploy_offline.sh       # 离线部署脚本
 ```
 

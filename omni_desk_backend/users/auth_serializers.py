@@ -39,6 +39,9 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
         value = value.strip()
         if not value:
             raise serializers.ValidationError("用户名不能为空")
+        # 提前检查用户名唯一性,避免 create() 时触发数据库 IntegrityError
+        if CustomUser.objects.filter(username__iexact=value).exists():
+            raise serializers.ValidationError("用户名已被使用")
         return value
 
     def validate(self, data):

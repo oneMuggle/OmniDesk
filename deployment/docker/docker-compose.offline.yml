@@ -15,12 +15,12 @@ x-common-env: &common-env
 
 services:
   db:
-    image: postgres:14.2
+    image: postgres:14-alpine
     command: postgres -c listen_addresses='*'
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:?POSTGRES_DB is required}
+      POSTGRES_USER: ${POSTGRES_USER:?POSTGRES_USER is required}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     healthcheck:
@@ -32,6 +32,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
     logging:
       driver: json-file
       options:
@@ -40,9 +45,10 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --requirepass ${REDIS_PASSWORD}
+    command: redis-server --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      # SECURITY: Use CMD-SHELL with REDISCLI_AUTH env var to avoid password exposure in process list
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -52,6 +58,11 @@ services:
       - redis_data:/data
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
@@ -59,15 +70,12 @@ services:
         max-file: "3"
 
   backend:
-    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     <<: *common-env
     environment:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
       - DJANGO_ENV=production
-      # 触发 entrypoint.sh 跑 collectstatic 生成 staticfiles.json,
-      # 否则 WhiteNoise CompressedManifestStaticFilesStorage 找不到 admin 静态文件
-      # 报 'Missing staticfiles manifest entry' → 500
       - COLLECT_STATIC=true
     volumes:
       - static_volume:/usr/src/app/staticfiles
@@ -87,6 +95,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.5'
     logging:
       driver: json-file
       options:
@@ -94,13 +107,14 @@ services:
         max-file: "3"
 
   frontend:
-    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-frontend:${FRONTEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     ports:
       - "80:80"
     command: ["nginx", "-g", "daemon off;"]
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     healthcheck:
       test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
       interval: 15s
@@ -110,6 +124,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: '0.5'
     logging:
       driver: json-file
       options:
@@ -117,9 +136,12 @@ services:
         max-file: "3"
 
   worker:
-    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.2.0}
+    image: ghcr.io/onemuggle/omni-desk-backend:${BACKEND_IMAGE_TAG:-v0.4.0}
     pull_policy: never
     <<: *common-env
+    # SKIP_MIGRATE=true:worker 不跑 migrate,避免与 backend 容器并发触发 UniqueViolation
+    environment:
+      - SKIP_MIGRATE=true
     command: celery -A omni_desk_backend worker -l info
     depends_on:
       db:
@@ -135,6 +157,11 @@ services:
     restart: unless-stopped
     networks:
       - omni_desk
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
     logging:
       driver: json-file
       options:

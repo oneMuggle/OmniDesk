@@ -6,7 +6,9 @@ from dataclasses import dataclass
 from pathlib import Path
 
 # 项目根目录 (core/git_utils.py -> project root)
-PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
+# __file__: .../omni_desk_backend/core/git_utils.py
+# .parent × 3 = .../OmniDesk
+PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
 
 CONVENTIONAL_TYPES = {
     "feat": "新增功能",

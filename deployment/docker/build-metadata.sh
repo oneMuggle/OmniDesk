@@ -46,7 +46,7 @@ record_metadata() {
     }
   },
   "base_images": {
-    "postgres": "postgres:14.2",
+    "postgres": "postgres:14-alpine",
     "redis": "redis:7-alpine",
     "nginx": "nginx:stable-alpine"
   }

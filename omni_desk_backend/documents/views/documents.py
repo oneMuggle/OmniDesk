@@ -10,7 +10,6 @@ class GeneratedDocumentViewSet(viewsets.ModelViewSet):
     queryset = GeneratedDocument.objects.select_related("template", "generated_by")
     serializer_class = GeneratedDocumentSerializer
     permission_classes = [permissions.IsAuthenticated]
-    pagination_class = None
 
     def get_queryset(self):
         return self.queryset.filter(generated_by=self.request.user)

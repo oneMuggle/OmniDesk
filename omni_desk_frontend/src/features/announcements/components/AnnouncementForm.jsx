@@ -1,7 +1,6 @@
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import ReactQuill from 'react-quill';
-import 'react-quill/dist/quill.snow.css'; // 导入 Quill 的样式
+import RichTextEditor from '../../../shared/components/RichTextEditor';
 import apiClient from '../../../shared/api/apiClient'; // 导入 apiClient
 import './AnnouncementForm.css';
 
@@ -10,55 +9,34 @@ const AnnouncementForm = () => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const editorRef = useRef(null);
   const { id } = useParams();
   const navigate = useNavigate();
   const isEditing = Boolean(id);
-  const quillRef = useRef(null);
 
-  // 图片上传处理器
-  const imageHandler = useCallback(() => {
+  // 恢复 PR-27 移除的图片上传能力:
+  // file picker → POST /api/events/upload-image/ → editor.insertImage(url)
+  const handleImageUpload = useCallback(() => {
     const input = document.createElement('input');
     input.setAttribute('type', 'file');
     input.setAttribute('accept', 'image/*');
     input.click();
-
     input.onchange = async () => {
-      const file = input.files[0];
-      if (file) {
-        const formData = new FormData();
-        formData.append('image', file);
-
-        try {
-          const response = await apiClient.post('/api/events/upload-image/', formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
-          const imageUrl = response.data.url;
-          const quill = quillRef.current.getEditor();
-          const range = quill.getSelection(true);
-          quill.insertEmbed(range.index, 'image', imageUrl);
-        } catch (err) {
-          setError('图片上传失败: ' + (err.response?.data?.detail || err.message));
-        }
+      const file = input.files?.[0];
+      if (!file) return;
+      const formData = new FormData();
+      formData.append('image', file);
+      try {
+        const response = await apiClient.post('/api/events/upload-image/', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        const imageUrl = response.data.url;
+        editorRef.current?.insertImage(imageUrl);
+      } catch (err) {
+        setError('图片上传失败: ' + (err.response?.data?.detail || err.message));
       }
     };
-  }, [setError, quillRef]); // 添加依赖项
-
-  const modules = useMemo(() => ({
-    toolbar: {
-      container: [
-        [{ 'header': [1, 2, false] }],
-        ['bold', 'italic', 'underline', 'strike', 'blockquote'],
-        [{'list': 'ordered'}, {'list': 'bullet'}, {'indent': '-1'}, {'indent': '+1'}],
-        ['link', 'image'],
-        ['clean']
-      ],
-      handlers: {
-        image: imageHandler,
-      },
-    },
-  }), [imageHandler]); // 添加依赖项
+  }, []);
 
   useEffect(() => {
     if (isEditing) {
@@ -79,7 +57,7 @@ const AnnouncementForm = () => {
     setError(null);
 
     const payload = { title, content };
-    
+
     try {
       if (isEditing) {
         await apiClient.put(`/api/events/announcements/${id}/`, payload);
@@ -113,19 +91,27 @@ const AnnouncementForm = () => {
         </div>
         <div className="form-group">
           <label htmlFor="content">内容</label>
-          <ReactQuill
-            ref={quillRef}
-            theme="snow"
+          <RichTextEditor
+            ref={editorRef}
             value={content}
             onChange={(value) => setContent(value)}
-            modules={modules}
             required
             style={{ height: '300px', marginBottom: '50px' }}
           />
         </div>
-        <button type="submit" className="btn btn-primary" disabled={loading}>
-          {loading ? '提交中...' : (isEditing ? '更新公告' : '发布公告')}
-        </button>
+        <div className="form-actions">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleImageUpload}
+            disabled={loading}
+          >
+            插入图片
+          </button>
+          <button type="submit" className="btn btn-primary" disabled={loading}>
+            {loading ? '提交中...' : (isEditing ? '更新公告' : '发布公告')}
+          </button>
+        </div>
       </form>
     </div>
   );

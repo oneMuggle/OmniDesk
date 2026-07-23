@@ -1,7 +1,7 @@
 import * as externalLinksApi from './externalLinksApi';
 import axiosInstance from '../../../shared/api/axiosConfig.js';
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   get: jest.fn(),
   post: jest.fn(),
   put: jest.fn(),
@@ -20,7 +20,7 @@ describe('externalLinksApi', () => {
 
   it('createExternalLink 应调用 POST', async () => {
     axiosInstance.post.mockResolvedValue({ data: { id: 1 } });
-    const result = await externalLinksApi.createExternalLink({ name: 'New' });
+    await externalLinksApi.createExternalLink({ name: 'New' });
     expect(axiosInstance.post).toHaveBeenCalledWith('/external/external-links/', { name: 'New' });
   });
 

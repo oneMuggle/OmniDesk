@@ -1,6 +1,10 @@
-from typing import Any, cast
-
-from .intent_classifier import classify_intent, generate_answer, generate_answer_stream, generate_general_answer
+from .intent_classifier import (
+    classify_intent,
+    generate_answer,
+    generate_answer_stream,
+    generate_general_answer,
+    generate_tool_empty_answer,
+)
 from ..tools.registry import ToolRegistry
 from ..cache import (
     get_cached_intent,
@@ -11,28 +15,59 @@ from ..cache import (
     cache_answer,
 )
 from .tool_chain_planner import generate_tool_chain_plan
-from .tool_chain_executor import execute_tool_chain, synthesize_answer as synthesize_chain_answer
+from .tool_chain_executor import (
+    execute_tool_chain,
+    synthesize_answer as synthesize_chain_answer,
+    ToolChainExecutor,
+)
+from .result_synthesizer import ResultSynthesizer
+
+
+def _scope_cache_sig(tool_context):
+    """从 ToolContext 派生 cache 隔离签名,防止跨用户缓存投毒。
+
+    返回形如 ``u<user_pk>_s<scope_value>`` 的短串,拼到 cache key 里。
+    tool_context 为 None 时退化为 ``anonymous``,与原行为兼容(空 sig)。
+    """
+    if tool_context is None or tool_context.user is None:
+        return "anonymous"
+    user = tool_context.user
+    user_pk = getattr(user, "pk", None) or getattr(user, "id", None) or "anon"
+    scope = getattr(tool_context, "scope", None)
+    scope_value = scope.value if hasattr(scope, "value") else str(scope or "self")
+    return f"u{user_pk}_s{scope_value}"
 
 
 class AgentOrchestrator:
     """Agent 编排器：意图分类 → 工具选择 → 回答生成
 
     支持单工具执行和多工具链式执行。
+
+    Task 17 增强:
+    - ``process()`` / ``process_stream()`` 接受 ``tool_context``(``ToolContext`` 实例);
+      用于 scope-aware 跨模块汇总路径,以及 cache key 隔离。
+    - 多工具路径走 ``ToolChainExecutor``(class 版,支持 scope 注入),并通过
+      ``ResultSynthesizer`` 把多工具结果聚合成前端 ``<AggregatedDayCard>`` 直接消费的结构。
+    - 返回 ``intent="aggregated_day"``,让前端 ``ToolResult.jsx`` 触发 ``AggregatedDayCard`` 渲染。
     """
 
-    def process(self, user_query: str, conversation_history: list | None = None) -> dict:
+    def process(self, user_query: str, conversation_history: list = None, tool_context=None) -> dict:
         """处理用户问题"""
         schemas = ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
 
-        # Step 1: 意图分类（先查缓存）
+        # Step 1: 意图分类(先查缓存)
+        # 缓存 key 中纳入 scope(由 tool_context 派生),避免不同权限用户读到
+        # 彼此的 intent 分类结果。
+        scope_sig = _scope_cache_sig(tool_context)
+
         if not has_history:
-            cached_intent = get_cached_intent(user_query, schemas)
+            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
             if cached_intent:
                 intent = cached_intent
             else:
                 intent = classify_intent(user_query, schemas, conversation_history)
-                cache_intent(user_query, schemas, intent)
+                cache_intent(user_query, schemas, intent, context_sig=scope_sig)
         else:
             intent = classify_intent(user_query, schemas, conversation_history)
 
@@ -40,25 +75,44 @@ class AgentOrchestrator:
         tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
 
         if tool_chain:
-            # 多工具链式执行
-            return self._process_chain(user_query, tool_chain, conversation_history)
+            # 多工具链式执行 — Task 17: 走 scope-aware 路径
+            return self._process_chain(user_query, tool_chain, conversation_history, tool_context)
 
-        # Step 3: 单工具路由（保持现有路径）
+        # Step 3: 单工具路由(保持现有路径)
         tool = ToolRegistry.get_tool(intent)
         if tool:
-            cached_result = get_cached_tool_result(tool.name, user_query)
+            cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
             if cached_result is not None:
                 tool_result = cached_result
             else:
                 try:
-                    tool_result = tool.execute(user_query, context={"history": conversation_history or []})
+                    if tool_context is not None:
+                        # 优先走 scope-aware 路径(若工具实现了 scope 抽象)
+                        if getattr(tool, "supports_scope_filter", False):
+                            base_qs = tool.build_base_queryset()
+                            scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
+                            tool_result = tool.execute(
+                                params={"query": user_query},
+                                scope=tool_context.scope,
+                                qs=scoped_qs,
+                            )
+                        else:
+                            tool_result = tool.execute(
+                                user_query,
+                                context={"history": conversation_history or []},
+                            )
+                    else:
+                        tool_result = tool.execute(
+                            user_query,
+                            context={"history": conversation_history or []},
+                        )
                 except Exception as e:
                     tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
-                cache_tool_result(tool.name, user_query, tool_result)
+                cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
 
-            # 工具失败时优雅降级
+            # 工具执行成功但未找到结果时,带工具上下文告知 LLM
             if isinstance(tool_result, dict) and not tool_result.get("found"):
-                answer, usage = generate_general_answer(user_query, conversation_history)
+                answer, usage = generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
                 return {
                     "answer": answer,
                     "intent": intent,
@@ -69,19 +123,17 @@ class AgentOrchestrator:
                     "usage": usage,
                 }
 
-            # Step 4: LLM 生成自然语言回答（先查缓存）
+            # Step 4: LLM 生成自然语言回答(先查缓存)
             if not has_history:
-                cached_answer = get_cached_answer(user_query, intent)
+                cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
                 if cached_answer:
                     answer = cached_answer
                     usage = None
                 else:
-                    answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
-                    usage = None
-                    cache_answer(user_query, intent, answer)
+                    answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+                    cache_answer(user_query, intent, answer, context_sig=scope_sig)
             else:
-                answer = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
-                usage = None
+                answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
             return {
                 "answer": answer,
@@ -103,42 +155,134 @@ class AgentOrchestrator:
                 "usage": usage,
             }
 
-    def _process_chain(self, user_query: str, plan: list, conversation_history: list | None) -> dict:
-        """多工具链式处理"""
-        tool_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
-        answer = synthesize_chain_answer(plan, tool_results, user_query)
+    def _process_chain(
+        self,
+        user_query: str,
+        plan: list,
+        conversation_history: list,
+        tool_context=None,
+    ) -> dict:
+        """多工具链式处理。
 
-        # 收集第一个工具的名称和所有 source
+        Task 17 行为变更:
+        - 优先走 ``ToolChainExecutor``(class 版)以注入 scope/user;
+          若未提供 tool_context 则降级到旧函数版 ``execute_tool_chain`` 保持兼容。
+        - 用 ``ResultSynthesizer`` 把多工具结果聚合成前端可消费的 dict。
+        - 返回 ``intent="aggregated_day"``,触发前端 ``<AggregatedDayCard>`` 渲染。
+        """
+        if tool_context is not None:
+            executor_results = ToolChainExecutor().execute({"steps": plan}, tool_context)
+        else:
+            raw_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
+            executor_results = [r.get("result", {}) for r in raw_results if r.get("result")]
+
+        # 聚合多工具结果(供前端 <AggregatedDayCard> 渲染)
+        synthesized = ResultSynthesizer().synthesize(executor_results, user_query)
+
+        # LLM 合成自然语言回答
         first_tool = plan[0].get("tool") if plan else None
+        try:
+            answer = synthesize_chain_answer(plan, executor_results, user_query)
+        except Exception:
+            answer = synthesized["summary"]
+
+        # 收集所有 source
         all_sources = []
-        for r in tool_results:
-            if r.get("result") and isinstance(r["result"], dict):
-                sources = r["result"].get("sources")
+        for r in executor_results:
+            if isinstance(r, dict):
+                sources = r.get("sources")
                 if sources:
                     all_sources.extend(sources)
 
         return {
             "answer": answer,
-            "intent": "multi_tool_chain",
+            "intent": "aggregated_day",  # Task 17: 关键改名,触发 AggregatedDayCard
             "tool_used": first_tool,
             "tool_result": {
-                "chain_results": tool_results,
+                # ResultSynthesizer 输出(camelCase)直接供前端 AggregatedDayCard 消费
+                "summary": synthesized["summary"],
+                "items": synthesized["items"],
+                "total_count": synthesized["total_count"],
+                "moduleCounts": synthesized["moduleCounts"],
+                # 兼容字段:保留 chain_results 供调试/旧前端代码读取
+                "chain_results": executor_results,
             },
             "sources": all_sources if all_sources else None,
             "tool_chain": plan,
         }
 
-    def process_stream(self, user_query: str, conversation_history: list | None = None):
-        """流式处理：先发送元数据，再逐 chunk 发送 LLM 输出"""
+    def process_stream(self, user_query: str, conversation_history: list = None, tool_context=None):
+        """流式处理:先发送元数据,再逐 chunk 发送 LLM 输出。
+
+        Task 17 修复:在执行单工具路径前,先调用 ``generate_tool_chain_plan()``
+        检测多工具场景;若命中,走 ``_process_chain()`` 让流式前端也能拿到
+        ``aggregated_day`` 结构,触发 ``<AggregatedDayCard>`` 渲染。
+
+        Task 2 增强(SAIS Plan 1):在入口先查回答缓存,命中时直接 yield
+        cached answer + done,跳过完整编排(LLM 调用 + 工具执行)。
+        """
         import json
 
         has_history = conversation_history is not None and len(conversation_history) > 0
+        scope_sig = _scope_cache_sig(tool_context)
 
         # Step 1: 意图分类
         schemas = ToolRegistry.get_all_schemas()
-        intent = classify_intent(user_query, schemas, conversation_history)
+
+        # Task 2 of feat/sa-e2e-scenarios: 流式路径回答缓存短路
+        # 若缓存命中且无对话历史,直接 yield cached answer + done,跳过 LLM 调用。
+        intent = None
         if not has_history:
-            cache_intent(user_query, schemas, intent)
+            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
+            if cached_intent:
+                intent = cached_intent
+            else:
+                intent = classify_intent(user_query, schemas, conversation_history)
+                cache_intent(user_query, schemas, intent, context_sig=scope_sig)
+
+            cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
+            if cached_answer:
+                # 缓存命中,直接 yield 完整 answer + done(不动 LLM)
+                meta = json.dumps(
+                    {"type": "meta", "intent": intent, "cache_hit": True},
+                    ensure_ascii=False,
+                )
+                yield f"data: {meta}\n\n"
+                chunk = json.dumps({"type": "chunk", "content": cached_answer}, ensure_ascii=False)
+                yield f"data: {chunk}\n\n"
+                yield f"data: {json.dumps({'type': 'done', 'cache_hit': True})}\n\n"
+                return
+
+        # Step 1.5 (Task 17): 检测多工具链式执行
+        # 与 process() 对称:命中多工具计划时,先走 _process_chain() 拿到
+        # 聚合结果(intent="aggregated_day"),再以流式事件流的形式
+        # 推给前端(避免流式场景下永远拿不到 moduleCounts)。
+        tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
+        if tool_chain:
+            chain_result = self._process_chain(user_query, tool_chain, conversation_history, tool_context)
+            # 1) 发送元数据(meta),含 moduleCounts 等供 AggregatedDayCard 渲染
+            meta = json.dumps(
+                {
+                    "type": "meta",
+                    "intent": chain_result["intent"],
+                    "tool_used": chain_result.get("tool_used"),
+                    "tool_result": chain_result.get("tool_result"),
+                    "sources": chain_result.get("sources"),
+                    "tool_fallback": False,
+                },
+                ensure_ascii=False,
+            )
+            yield f"data: {meta}\n\n"
+            # 2) 发送单一内容 chunk(_process_chain 已是最终聚合 answer)
+            data = json.dumps({"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False)
+            yield f"data: {data}\n\n"
+            # 3) 结束信号
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            return
+
+        # Step 2 前的意图分类:has_history=True 时(或缓存短路未计算时)需计算
+        if intent is None:
+            intent = classify_intent(user_query, schemas, conversation_history)
 
         # Step 2: 工具路由
         tool = ToolRegistry.get_tool(intent)
@@ -148,15 +292,27 @@ class AgentOrchestrator:
         tool_fallback = False
 
         if tool:
-            cached_result = get_cached_tool_result(tool.name, user_query)
+            cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
             if cached_result is not None:
                 tool_result = cached_result
             else:
                 try:
-                    tool_result = tool.execute(user_query, context={"history": conversation_history or []})
+                    if tool_context is not None and getattr(tool, "supports_scope_filter", False):
+                        base_qs = tool.build_base_queryset()
+                        scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
+                        tool_result = tool.execute(
+                            params={"query": user_query},
+                            scope=tool_context.scope,
+                            qs=scoped_qs,
+                        )
+                    else:
+                        tool_result = tool.execute(
+                            user_query,
+                            context={"history": conversation_history or []},
+                        )
                 except Exception as e:
                     tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
-                cache_tool_result(tool.name, user_query, tool_result)
+                cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
 
             # 工具失败时 fallback 到通用回答
             if isinstance(tool_result, dict) and not tool_result.get("found"):
@@ -182,23 +338,15 @@ class AgentOrchestrator:
 
         # Step 3: 流式生成回答
         if tool_fallback:
-            # fallback 到通用回答
-            answer, _ = generate_general_answer(user_query, conversation_history)
+            # 工具已执行但未找到结果,带工具上下文告知 LLM
+            answer, _ = generate_tool_empty_answer(user_query, tool_name, tool_result, conversation_history)
 
             def _gen():
                 yield answer
 
             stream = _gen()
         elif tool:
-            # tool_name/tool_result 在上方的 if tool: 分支内已赋值,
-            # mypy 无法跨 elif 块追踪,此处用 cast 收紧类型
-            stream = generate_answer_stream(
-                user_query,
-                intent,
-                cast(str, tool_name),
-                cast(dict[str, Any], tool_result),
-                conversation_history,
-            )
+            stream = generate_answer_stream(user_query, intent, tool_name, tool_result, conversation_history)
         else:
             answer, _ = generate_general_answer(user_query, conversation_history)
 

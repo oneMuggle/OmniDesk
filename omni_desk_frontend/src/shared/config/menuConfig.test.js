@@ -37,7 +37,7 @@ describe('menuConfig', () => {
       const items = createMainMenuItems({ logout: jest.fn(), unreadNotificationCount: 0 });
       const aiSubmenu = items.find(item => item.text === 'AI 助手');
       expect(aiSubmenu).toBeDefined();
-      expect(aiSubmenu.subItems.length).toBe(4);
+      expect(aiSubmenu.subItems.length).toBe(5);
     });
 
     it('should have admin permission on management center', () => {

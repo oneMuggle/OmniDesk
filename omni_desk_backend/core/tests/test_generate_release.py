@@ -10,6 +10,7 @@ from core.git_utils import (
     parse_commit_message,
     CHANGELOG_SECTIONS,
 )
+from core.management.commands.generate_release import Command
 
 
 # ─── parse_commit_message 测试 ───
@@ -303,8 +304,6 @@ class TestChangelogGeneration:
 
 
 class TestVersionFileUpdate:
-    import re
-
     def test_write_version(self):
         with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
             f.write('0.2.0\n')
@@ -370,3 +369,337 @@ class TestChangelogSectionMapping:
 
     def test_perf_maps_to_变更(self):
         assert CHANGELOG_SECTIONS['perf'] == '### 变更'
+
+
+# ─── channel 渠道感知的 generate_release 测试 ───
+
+
+class TestChannelReset:
+    """渠道升级时序号应重置."""
+
+    def test_alpha_to_beta_resets(self):
+        # 1.2.0-alpha.5 + 升渠道 -> 1.2.0-beta.1
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-alpha.5",
+            bump="patch",
+            channel="beta",
+        )
+        assert new_version == "1.2.0-beta.1"
+
+    def test_alpha_same_channel_increments(self):
+        # 1.2.0-alpha.1 + 同渠道 patch -> 1.2.0-alpha.2
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-alpha.1",
+            bump="patch",
+            channel="alpha",
+        )
+        assert new_version == "1.2.0-alpha.2"
+
+    def test_beta_to_rc_resets(self):
+        # 1.2.0-beta.3 + 升渠道 -> 1.2.0-rc.1
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-beta.3",
+            bump="patch",
+            channel="rc",
+        )
+        assert new_version == "1.2.0-rc.1"
+
+    def test_rc_to_stable_drops_suffix(self):
+        # 1.2.0-rc.2 + 升渠道到 stable -> 1.2.0(去掉后缀)
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0-rc.2",
+            bump="patch",
+            channel="stable",
+        )
+        assert new_version == "1.2.0"
+
+    def test_hotfix_from_stable_bumps_patch(self):
+        # 1.2.0 stable + hotfix bump patch -> 1.2.1(无后缀)
+        cmd = Command()
+        new_version = cmd._bump_version_with_channel(
+            current_version="1.2.0",
+            bump="patch",
+            channel="stable",
+        )
+        assert new_version == "1.2.1"
+
+
+class TestBumpVersionSameChannelMinorMajor:
+    """同渠道预发布 + minor/major bump 应推进 MAJOR/MINOR 并重置 seq (Bug2).
+
+    semver 规则:推进 MAJOR/MINOR 必重置 pre-release 序号段;patch bump 保持
+    同序列迭代 (seq+1)。
+    """
+
+    def _cmd(self):
+        from core.management.commands.generate_release import Command
+        return Command()
+
+    # ── 同渠道预发布 + patch: seq+1 (行为不变,回归保护) ──
+
+    def test_same_beta_patch(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.5", "patch", "beta")
+        assert result == "0.6.0-beta.6"
+
+    # ── 同渠道预发布 + minor: MAJOR.MINOR bump + seq=1 (Bug2 主路径) ──
+
+    def test_same_alpha_minor_resets_seq(self):
+        """Bug2 核心场景:0.6.0-alpha.2 + minor → 0.7.0-alpha.1"""
+        result = self._cmd()._bump_version_with_channel("0.6.0-alpha.2", "minor", "alpha")
+        assert result == "0.7.0-alpha.1"
+
+    def test_same_beta_minor_resets_seq(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.3", "minor", "beta")
+        assert result == "0.7.0-beta.1"
+
+    # ── 同渠道预发布 + major: MAJOR+1 + seq=1 ──
+
+    def test_same_alpha_major_resets_seq(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0-alpha.2", "major", "alpha")
+        assert result == "1.0.0-alpha.1"
+
+    # ── 同渠道 stable (incl hotfix) (行为不变) ──
+
+    def test_stable_minor(self):
+        result = self._cmd()._bump_version_with_channel("0.6.0", "minor", "stable")
+        assert result == "0.7.0"
+
+    # ── 跨渠道 (行为不变) ──
+
+    def test_cross_channel_to_alpha(self):
+        """跨渠道切换,bump 被忽略,seq 重置为 1,MAJOR.MINOR.PATCH 沿用"""
+        result = self._cmd()._bump_version_with_channel("0.6.0", "minor", "alpha")
+        assert result == "0.6.0-alpha.1"
+
+    def test_cross_channel_preview_to_rc(self):
+        """preview 内部映射到 rc"""
+        result = self._cmd()._bump_version_with_channel("0.6.0-beta.2", "minor", "preview")
+        assert result == "0.6.0-rc.1"
+
+
+class TestUpdateChangelog:
+    """测试 _update_changelog 对历史异构 header 的容错插入 (Bug1 fix)."""
+
+    def _cmd(self):
+        from core.management.commands.generate_release import Command
+        return Command()
+
+    def _write_changelog(self, tmp_path, content):
+        """把 CHANGELOG_FILE monkeypatch 到 tmp_path/CHANGELOG.md,写初始内容."""
+        from core.management.commands import generate_release as gr_module
+        fake = tmp_path / "CHANGELOG.md"
+        fake.write_text(content)
+        original = gr_module.CHANGELOG_FILE
+        gr_module.CHANGELOG_FILE = fake
+        return fake, original
+
+    def _restore_changelog(self, original):
+        from core.management.commands import generate_release as gr_module
+        gr_module.CHANGELOG_FILE = original
+
+    def test_skips_unreleased_placeholder(self, tmp_path):
+        """[未发布] 必须保留在顶部,新条目插在它之后、第一个版本标题之前。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n### 修复\n- xxx\n")
+        try:
+            new_entry = "## [0.6.1] - 2026-07-20  ← stable\n\n### 修复\n- new fix\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            unreleased_pos = content.index("## [未发布]")
+            new_pos = content.index("## [0.6.1]")
+            old_pos = content.index("## [v0.6.0]")
+            assert unreleased_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
+
+    def test_tolerates_v_prefix_in_history(self, tmp_path):
+        """历史 '## [vX.Y.Z]' 不应让工具崩溃或追加到末尾。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n## [v0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.1] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            new_pos = content.index("## [0.6.1]")
+            old_pos = content.index("## [v0.6.0]")
+            assert new_pos < old_pos, (
+                f"0.6.1 应该在 v0.6.0 之前; new_pos={new_pos}, old_pos={old_pos}"
+            )
+            assert content.count("## [0.6.1]") == 1
+        finally:
+            self._restore_changelog(original)
+
+    def test_skips_chinese_non_version_header(self, tmp_path):
+        """'## [渠道机制引入]' 这类非版本标题应被跳过,不参与排序。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            # normalize 后 0.6.0 > 0.5.0,新条目应插在 [渠道机制引入] 之后、[0.5.0] 之前
+            new_pos = content.index("## [0.6.0]")
+            cn_pos = content.index("## [渠道机制引入]")
+            old_pos = content.index("## [0.5.0]")
+            assert cn_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
+
+    def test_orders_above_chinese_suffix_header(self, tmp_path):
+        """'## [0.5.9 修复]' 这种带中文后缀的版本应参与 SemVer 排序(Bug1 修复关键路径)。
+
+        normalize_changelog_header 会从 '0.5.9 修复' 提取 SemVer 前缀 '0.5.9',
+        _update_changelog 据此把 0.6.0 插在 [0.5.9 修复] 之上 — 而非插在 [0.5.0] 之上
+        (否则会跳过 [0.5.9 修复],违反 SemVer 降序)。
+
+        第二轮 AI review 发现此前实现把 [0.5.9 修复] 跳过,导致新版本插在
+        [0.5.9 修复] 之下 — Bug1 排序回归。
+        """
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [0.5.9 修复] - 2026-07-06\n\n## [0.5.0] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            # 0.6.0 > 0.5.9(= [0.5.9 修复] 提取) > 0.5.0,新条目应插在 [0.5.9 修复] 之上
+            new_pos = content.index("## [0.6.0]")
+            suffix_pos = content.index("## [0.5.9 修复]")
+            old_pos = content.index("## [0.5.0]")
+            assert new_pos < suffix_pos, (
+                f"0.6.0 应在 [0.5.9 修复] 之上; new_pos={new_pos}, suffix_pos={suffix_pos}"
+            )
+            assert suffix_pos < old_pos, (
+                f"[0.5.9 修复] 应在 [0.5.0] 之上; suffix_pos={suffix_pos}, old_pos={old_pos}"
+            )
+        finally:
+            self._restore_changelog(original)
+
+    def test_falls_back_to_append_when_no_comparable(self, tmp_path):
+        """所有现有 header 都无法解析时,新条目追加到末尾(兜底分支)。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n\n## [某个事件] - 2026-07-01\n")
+        try:
+            new_entry = "## [0.6.0] - 2026-07-20  ← stable\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            lines = content.strip().split("\n")
+            assert any(line.startswith("## [0.6.0]") for line in lines[-3:]), \
+                f"新条目应被追加到末尾; actual last 3 lines: {lines[-3:]}"
+        finally:
+            self._restore_changelog(original)
+
+    def test_inserts_at_top_after_unreleased(self, tmp_path):
+        """主路径:新版本比所有现有版本都大,插在 [未发布] 之后、第一个版本标题之前。"""
+        fake, original = self._write_changelog(tmp_path,
+            "# 更新日志\n\n## [未发布]\n\n## [0.5.0] - 2026-07-01\n\n## [0.4.0] - 2026-06-05\n")
+        try:
+            new_entry = "## [0.7.0-alpha.1] - 2026-07-19  ← alpha\n\n### 新增\n- xxx\n"
+            self._cmd()._update_changelog(new_entry)
+            content = fake.read_text()
+            unreleased_pos = content.index("## [未发布]")
+            new_pos = content.index("## [0.7.0-alpha.1]")
+            old_pos = content.index("## [0.5.0]")
+            assert unreleased_pos < new_pos < old_pos
+        finally:
+            self._restore_changelog(original)
+
+
+class TestNormalizeChangelogCommand:
+    """测试一次性迁移命令 normalize_changelog_headers."""
+
+    def _setup_changelog(self, tmp_path, content):
+        from core.management.commands import generate_release as gr_module
+        fake = tmp_path / "CHANGELOG.md"
+        fake.write_text(content)
+        original = gr_module.CHANGELOG_FILE
+        gr_module.CHANGELOG_FILE = fake
+        return fake, original
+
+    def _restore_changelog(self, original):
+        from core.management.commands import generate_release as gr_module
+        gr_module.CHANGELOG_FILE = original
+
+    def test_dry_run_does_not_modify_file(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        initial = "# Log\n\n## [未发布]\n\n## [v0.6.0-alpha.1] - 2026-07-14\n\n## [0.5.0 修复] - 2026-07-06\n"
+        fake, original = self._setup_changelog(tmp_path, initial)
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", "--dry-run", stdout=out)
+            assert fake.read_text() == initial, "dry-run 不应修改文件"
+            assert "DRY RUN" in out.getvalue()
+            assert "[v0.6.0-alpha.1]" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
+
+    def test_normalize_removes_v_prefix(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [0.6.0]" in content
+            assert "## [v0.6.0]" not in content
+        finally:
+            self._restore_changelog(original)
+
+    def test_normalize_preserves_chinese_suffix(self, tmp_path):
+        """'## [0.5.0 修复]' 中文后缀应保留(语义信息如 hotfix 标识)。
+
+        review Minor finding #2: 历史中 '0.5.9 修复' 与 '0.5.9' 是两次独立
+        release(分别为 v0.5.9 hotfix 与原 release),中文后缀是 disambiguator。
+        normalize 不应剥离,否则会丢失语义。
+        """
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [v0.6.0] - 2026-07-14\n\n## [0.5.0 修复] - 2026-07-06\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [0.6.0]" in content  # v 前缀被剥离
+            assert "## [0.5.0 修复]" in content  # 中文后缀保留
+            assert "[v0.6.0]" not in content
+            # stdout 应报告 1 个 v 前缀变更,1 个非版本标题跳过(中文后缀被归为非版本)
+            assert "已规范化 1 个 header" in out.getvalue()
+            assert "跳过 1 个非版本标题" in out.getvalue()
+            assert "[0.5.0 修复]" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
+
+    def test_skips_non_version_header(self, tmp_path):
+        """'## [渠道机制引入]' 这类非版本标题行原样保留。"""
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path,
+            "# Log\n\n## [未发布]\n\n## [渠道机制引入] - 2026-07-06\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [渠道机制引入]" in content, "非版本标题应原样保留"
+            assert "跳过 1 个非版本标题" in out.getvalue()
+        finally:
+            self._restore_changelog(original)
+
+    def test_keeps_unreleased_unchanged(self, tmp_path):
+        from io import StringIO
+        from django.core.management import call_command
+        fake, original = self._setup_changelog(tmp_path, "# Log\n\n## [未发布]\n")
+        out = StringIO()
+        try:
+            call_command("normalize_changelog_headers", stdout=out)
+            content = fake.read_text()
+            assert "## [未发布]" in content
+            assert "已规范化 0 个 header" in out.getvalue()
+        finally:
+            self._restore_changelog(original)

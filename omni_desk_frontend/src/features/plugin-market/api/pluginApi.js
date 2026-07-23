@@ -1,4 +1,4 @@
-import axiosInstance from '../../../shared/api/axiosConfig.js';
+import axiosInstance from '../../../shared/api/axiosConfig';
 
 const BASE_URL = '/external/plugins/';
 
