@@ -9,7 +9,9 @@ amqp==5.3.1
 annotated-types==0.7.0
     # via pydantic
 anyio==4.14.2
-    # via -r omni_desk_backend/requirements.in
+    # via
+    #   -r omni_desk_backend/requirements.in
+    #   httpx
 asgiref==3.12.1
     # via
     #   django
@@ -28,6 +30,7 @@ celery==5.6.3
     #   django-celery-beat
 certifi==2026.6.17
     # via
+    #   httpcore
     #   httpx
     #   requests
 cffi==2.1.0
@@ -112,13 +115,20 @@ exceptiongroup==1.3.1
     #   celery
 gunicorn==26.0.0
     # via -r omni_desk_backend/requirements.in
+h11==0.16.0
+    # via httpcore
 holidays==0.100
     # via -r omni_desk_backend/requirements.in
-httpx==1.0.dev3
-    # via ollama
+httpcore==1.0.9
+    # via httpx
+httpx==0.27.2
+    # via
+    #   -r omni_desk_backend/requirements.in
+    #   ollama
 idna==3.18
     # via
     #   anyio
+    #   httpx
     #   requests
 jinja2==3.1.6
     # via docxtpl
@@ -204,6 +214,8 @@ requests==2.34.2
     # via -r omni_desk_backend/requirements.in
 six==1.17.0
     # via python-dateutil
+sniffio==1.3.1
+    # via httpx
 soupsieve==2.8.4
     # via
     #   -r omni_desk_backend/requirements.in
