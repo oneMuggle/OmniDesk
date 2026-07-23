@@ -13,19 +13,126 @@
 
 ## [未发布]
 
-## [v0.6.0-beta.1] - 2026-07-06
+### 变更
 
-### 说明
-- **首个 beta 渠道版本**:alpha 本地部署测试通过,进入内网生产环境自测
-- 功能基线与 0.6.0-alpha.1 一致
-- 序号段从 alpha 重置为 1 (按渠道升级规范)
+- **smoke_tests.sh**: 补全阶段 10-11(业务广度 5 app GET-only 探针 + PG 备份可恢复性 shadow DB 还原验证);阶段 11 backup 文件改为容器内清理;矩阵文档同步阶段 11
 
-### 验证
-- 镜像构建: ✅ 通过 (Backend 142MB, Frontend 36MB)
-- 离线包打包: ✅ 通过 (omnidesk-offline-beta-v0.6.0-beta.1/, 325M)
-- 内网生产环境自测: **待验证**
+## [0.7.0-alpha.2] - 2026-07-20  ← alpha
 
-## [v0.6.0-alpha.1] - 2026-07-06
+### 修复
+
+- **generate_release**: 修复 CHANGELOG 历史 header 解析失败 + 同渠道 minor/major bump 推进错误 (#98)
+
+## [0.7.0-alpha.1] - 2026-07-19  ← alpha
+
+### 新增
+
+- **smart-assistant**: add SmartAssistantScope enum and resolve_scope
+- **smart-assistant**: ToolContext.scope field auto-resolved from request
+- **smart-assistant**: BaseTool adds scope filter abstract methods (backward compatible)
+- **smart-assistant**: all 13 tools implement build_base_queryset + _scope_self
+- **smart-assistant**: add ResultSynthesizer for multi-tool aggregation
+- **smart-assistant**: create view_department and view_global permissions
+- **smart-assistant**: check_tool_scopes management command + CI integration
+- **smart-assistant**: ToolChainExecutor integrates scope filter + multi-tool failure handling
+- **smart-assistant**: prompt_builder hints at multi-tool aggregation
+- **smart-assistant-frontend**: AggregatedDayCard component for multi-tool aggregation
+- **smart-assistant-frontend**: QuickCommands adds 个人本周/今天 shortcuts
+- **smart-assistant**: wire scope into chat view and orchestrator (fix C1 + C3)
+- **smart-assistant-frontend**: QuickCommands translates intent to query (fix C4)
+- 接入 paperless-ngx 文档管理 (#54)
+- **paperless**: add client.update_metadata and client.delete
+- **paperless**: outbox queue_update_metadata and queue_delete
+- **paperless**: implement update_metadata and delete workers
+- **paperless**: expose POST /api/paperless/upload/
+- **paperless**: expose DocumentBinding CRUD with async outbox
+- **paperless**: OutboxViewSet support DELETE and GET single
+- **paperless**: register 4 models in Django admin
+- **compliance**: expose issue upload action to paperless
+- **personnel**: expose personnel upload action to paperless
+- **deploy**: add channel-branch guard to package_offline_bundle.sh
+- **file_processing**: create Django app skeleton
+- **file_processing**: add data models (UploadedFile, ProcessingResult, AIAnalysis)
+- **file_processing**: implement ExcelProcessor with multi-sheet support
+- **file_processing**: implement WordProcessor and PDFProcessor
+- **file_processing**: implement FileProcessingService
+- **file_processing**: implement DataSummarizer for table data analysis
+- **file_processing**: implement NaturalLanguageQuery for AI-powered data analysis
+- **file_processing**: implement Celery task for async file processing
+- **file_processing**: implement API views for file upload, preview, analyze, and query
+- **frontend**: add fileProcessing API layer for file upload, preview, analyze, and query
+- **frontend**: implement FileUploadSection component with drag-and-drop support
+- **frontend**: implement PreviewSection component for Excel tables and Markdown documents
+- **frontend**: implement AIAnalysisSection component with data summary and natural language query
+- **frontend**: refactor FileAnalysisPage to integrate all file processing components
+- **channel-sync**: 三个渠道分支间 fix/perf/refactor 提交自动同步(PR #59),含冲突三方 patch artifact + resume 续跑机制
+- **smart-assistant**: 5 个高频 E2E 场景 + 流式缓存短路 + cache_version (SAIS #1/4) (#85)
+- **smart-assistant**: 多工具链编排升级(SAIS #2/4) (#86)
+- **smart-assistant**: 多 Agent 复杂任务实战(SAIS #3/4) (#87)
+- **smart-assistant**: 性能 + UX 收尾(SAIS #4/4) (#88)
+- **backend**: Phase 9 后端关键修复 (BE-1, BE-2, BE-5) (#94)
+
+### 变更
+
+- **smart-assistant**: ScheduleTool.execute accepts scoped qs (backward compatible)
+- **smart-assistant**: MeetingRoomTool.execute accepts scoped qs
+- **smart-assistant**: AnnouncementTool.execute accepts scoped qs
+- **paperless**: use None as upload placeholder instead of 0
+
+### 修复
+
+- **security**: Phase 7 修复 8 个 P0 安全漏洞 (#92)
+- **core**: 修正 git_utils.py PROJECT_ROOT 路径计算
+- **smart-assistant**: ResultSynthesizer restore sort_key fallback chain
+- **smart-assistant**: cache_tool_result scopes by user to prevent data leak (fix P0)
+- **smart-assistant**: ResultSynthesizer emits moduleCounts (camelCase) (fix C2)
+- **smart-assistant**: process_stream integrates multi-tool/ResultSynthesizer path
+- **smart-assistant**: remove unused React imports in test files (#51)
+- **frontend**: resolve all 36 ESLint warnings (#52)
+- **paperless**: allow paperless_id null for async upload placeholder
+- **paperless**: harden UploadView against missing source_id and tags coercion
+- **paperless**: address final-review findings (close POST /documents/, list owner filter, tighten skip test)
+- **ci**: Phase 8 CI/CD 优化 + ruff format 4 views + bump soupsieve to 2.8.4 (CVE-2026-49477/49476) (#93)
+- **deploy**: address high/medium review findings on branch-guard PR #57
+- 修复文件处理功能的安全问题
+- **docker**: 添加 libmagic1 系统库（python-magic 依赖）
+- **schedule**: 修排班页值班人员/领导电话显示无电话的 bug
+- **deps**: 升级 pillow 12.2.0 -> 12.3.0 修复 PYSEC-2026-2253 等 5 个 CVE
+- **deps**: re-pin requirements-prod.txt on Python 3.10 (修复 numpy CI 失败)
+- **smart-assistant**: SAIS Plan 4 代码质量修复(6 个 findings)
+- **scripts**: Phase 11 部署脚本修复 (DS-1, DS-2, DS-3, DS-4) (#95)
+
+## [0.6.0-alpha.2] - 2026-07-07
+
+### 新增
+- **RAGFlow 知识库服务完整接入** (PR #49):
+  - 后端:`RagflowClient` 统一封装 RAGFlow HTTP API(Dataset / 文档 / 检索 / Chat / 健康检查 8 类方法)
+  - 后端:`RagflowConfig` 新增 `chat_id` 字段;`query` action 改用正确的 RAGFlow Chat API 路径 `/api/v1/chats/{chat_id}/completions`
+  - 后端:新增 `health_check` / `list_datasets` / `list_chats` 三个 actions
+  - 后端:`ragflow_service` 数据库迁移 `0002_add_chat_id.py`
+  - 部署:`docker-compose.prod.yml` 新增 `ragflow`(v0.16.0)+ `ragflow-mysql` 服务及持久化卷
+  - 部署:`.env.production.example` 新增 `RAGFLOW_MYSQL_PASSWORD` / `RAGFLOW_PORT` / `RAGFLOW_API_ENDPOINT` / `RAGFLOW_API_KEY` / `SMART_ASSISTANT_DATASET_ID`
+  - 前端:`RagflowChatPage` 响应解析适配多种 RAGFlow API 返回格式
+  - 文档:`docs/plans/2026-07-06_ragflow-integration.md` 完整接入方案
+
+### 变更
+- **smart_assistant RAGTool 迁移至 RagflowClient**:
+  - `rag_router.py::search_dataset` 改用 `RagflowClient.retrieval()`,请求格式修正:`dataset_id` → `dataset_ids`(数组)、`query` → `question`
+  - `tasks.py::process_document_embedding` 改用 `RagflowClient.upload_document()` + `RagflowClient.parse_documents()`
+  - Celery 重试条件由 `requests.RequestException` 改为 `RagflowClientError`
+
+### 测试
+- `ragflow_service/tests/test_ragflow_views.py` 新增 2 个测试用例(`test_health_check_success` / `test_health_check_failure`),改用 `unittest.mock`,12/12 通过
+- `smart_assistant/tests/test_tasks.py` 适配 RagflowClient 重构,mock 目标改为 `RagflowClient`
+- `smart_assistant/tests/test_rag_router_coverage.py` 适配 RagflowClient 重构,27/27 通过
+- CI 全绿(10/10 jobs):`lint-backend` / `lint-frontend` / `typecheck` / `security` / `test-backend` / `test-frontend` / `build-frontend` / `docker-integration` / `test` / `build-and-push`
+
+### 升级注意
+- 升级前需在 `.env.production` 中配置 RAGFLOW_MYSQL_PASSWORD 等 RAGFlow 相关变量
+- 部署后首次启动需访问 `http://server-ip:9380` 完成 RAGFlow Web UI 初始化(创建管理员账号 + Chat Assistant)
+- 升级后通过 Django Admin 或 API 创建 `RagflowConfig`,填入 `api_endpoint` / `api_key` / `chat_id` 完成接入
+
+## [0.6.0-alpha.1] - 2026-07-06
 
 ### 说明
 - **首个 alpha 渠道版本**:开发阶段性完成，进入本地部署测试阶段
@@ -55,7 +162,7 @@
 - **docker-compose.yml/prod.yml**: 端口使用 `${TEST_*_PORT:-default}` 环境变量
 - **nginx.conf**: 移除变量+resolver 方案，简化 proxy_pass（变量 proxy_pass 在某些情况下行为异常）
 
-## [v0.5.9 修复] - 2026-07-06
+## [0.5.9 修复] - 2026-07-06
 
 ### 修复
 

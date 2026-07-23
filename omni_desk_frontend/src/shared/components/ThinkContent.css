@@ -1,27 +1,62 @@
-.think-container {
-  margin-top: 12px;
-  border-radius: 8px;
-  overflow: hidden;
-  border: 1px solid #d9e7ff;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
-  background: linear-gradient(135deg, #f0f7ff 0%, #fafafa 100%);
+/* ── ThinkContent 新样式(Ant Design Collapse + 💭 图标 + 浅灰背景) ── */
+
+.think-wrapper {
+  width: 100%;
 }
 
-.think-header {
-  padding: 10px 14px;
-  background: linear-gradient(90deg, #e6f4ff 0%, #f0f7ff 100%);
-  color: #1890ff;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  user-select: none;
+/* 仅正文(无 think)时的包装 */
+.think-main-only {
+  width: 100%;
+}
+
+/* ── Collapse 容器覆盖 ── */
+.think-collapse.ant-collapse {
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.think-collapse.ant-collapse > .ant-collapse-item {
+  border-bottom: none;
+  background: linear-gradient(135deg, #f5f7fa 0%, #fafbfc 100%);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.think-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-header {
+  padding: 8px 14px;
+  background: linear-gradient(90deg, #eef2f7 0%, #f5f7fa 100%);
+  border-radius: 8px 8px 0 0;
   transition: background 0.2s ease;
 }
 
-.think-header:hover {
-  background: linear-gradient(90deg, #d6eaff 0%, #e6f4ff 100%);
+.think-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-header:hover {
+  background: linear-gradient(90deg, #e4eaf2 0%, #eef2f7 100%);
+}
+
+/* 折叠时底部圆角 */
+.think-collapse.ant-collapse > .ant-collapse-item.ant-collapse-item-active > .ant-collapse-header {
+  border-radius: 8px 8px 0 0;
+}
+
+.think-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-content {
+  background: #f9fafb;
+  border-top: 1px solid #e8ecf1;
+}
+
+.think-collapse.ant-collapse > .ant-collapse-item > .ant-collapse-content > .ant-collapse-content-box {
+  padding: 10px 14px;
+}
+
+/* ── Header 内容 ── */
+.think-header-content {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7a8d;
+  font-weight: 500;
+  font-size: 0.9em;
 }
 
 .think-icon {
@@ -29,67 +64,51 @@
 }
 
 .think-title {
-  flex: 1;
   font-size: 0.9em;
 }
 
-.think-toggle {
-  font-size: 0.7em;
-  transition: transform 0.3s ease;
-  color: #1890ff;
-}
-
-.think-toggle.expanded {
-  transform: rotate(180deg);
-}
-
-.think-content {
-  padding: 0 14px;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height 0.3s ease, padding 0.3s ease;
-  background-color: rgba(250, 250, 250, 0.8);
+/* ── Think 正文 ── */
+.think-body {
   font-size: 0.85em;
   color: #555;
   font-family: 'Menlo', 'Monaco', 'Courier New', monospace;
   line-height: 1.6;
 }
 
-.think-content.show {
-  padding: 12px 14px;
-  max-height: 500px;
-  overflow-y: auto;
-}
-
-.think-content p {
-  margin: 4px 0;
+.think-body p {
+  margin: 3px 0;
   white-space: pre-wrap;
   word-break: break-word;
 }
 
-.code-line {
+.think-body .code-line {
   color: #d63384;
   padding-left: 12px;
   position: relative;
 }
 
-.code-line::before {
+.think-body .code-line::before {
   content: ">";
   position: absolute;
   left: 0;
   color: #999;
 }
 
-/* 流式时的动画效果 */
-.think-container.streaming {
-  animation: pulse 2s ease-in-out infinite;
+/* ── 主内容区域 ── */
+.think-main-content {
+  width: 100%;
 }
 
-@keyframes pulse {
+/* ── 流式时的脉冲动画(可选) ── */
+.think-wrapper.streaming .think-collapse {
+  animation: think-pulse 2s ease-in-out infinite;
+}
+
+@keyframes think-pulse {
   0%, 100% {
-    box-shadow: 0 2px 8px rgba(24, 144, 255, 0.1);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
   }
   50% {
-    box-shadow: 0 2px 12px rgba(24, 144, 255, 0.25);
+    box-shadow: 0 2px 8px rgba(107, 122, 141, 0.15);
   }
 }

@@ -1,0 +1,348 @@
+name: Channel Fix Sync
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main, beta, rc]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  detect-sync:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    outputs:
+      should_sync: ${{ steps.filter.outputs.should_sync }}
+      targets: ${{ steps.matrix.outputs.targets }}
+      commits: ${{ steps.matrix.outputs.commits }}
+      source_branch: ${{ steps.matrix.outputs.source_branch }}
+      source_author: ${{ steps.matrix.outputs.source_author }}
+      source_pr_number: ${{ steps.matrix.outputs.source_pr_number }}
+    steps:
+      - name: Skip sync PRs and bot actors
+        id: skip
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_ACTOR: ${{ github.actor }}
+        run: |
+          if [[ "$PR_TITLE" == "🔁 [sync]"* ]] || [[ "$PR_TITLE" == "🔁 [resume]"* ]] || [[ "$PR_BODY" == *"auto-sync-source:"* ]] || [[ "$PR_BODY" == *"auto-sync-resume: true"* ]] || [[ "$PR_ACTOR" == "github-actions[bot]" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Checkout PR head
+        if: steps.skip.outputs.skip != 'true'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Filter commits
+        id: filter
+        if: steps.skip.outputs.skip != 'true'
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.merge_commit_sha }}"
+          COMMITS=$(git log --reverse --pretty='%H|%s' "$BASE".."$HEAD")
+          SHOULD_SYNC=false
+          SYNC_LIST=""
+          while IFS= read -r line; do
+            SHA="${line%%|*}"
+            SUBJECT="${line#*|}"
+            if printf '%s\n' "$SUBJECT" | grep -qE '^(fix|perf|refactor)(\([^)]+\))?!?:\s'; then
+              SYNC_LIST="$SYNC_LIST $SHA"
+              SHOULD_SYNC=true
+            fi
+          done <<< "$COMMITS"
+          echo "should_sync=$SHOULD_SYNC" >> $GITHUB_OUTPUT
+          echo "sync_commits=${SYNC_LIST# }" >> $GITHUB_OUTPUT
+
+      - name: Determine target branches
+        id: matrix
+        if: steps.filter.outputs.should_sync == 'true'
+        run: |
+          SOURCE="${{ github.event.pull_request.base.ref }}"
+          case "$SOURCE" in
+            main) TARGETS='["beta","rc"]' ;;
+            beta) TARGETS='["main","rc"]' ;;
+            rc)   TARGETS='["main","beta"]' ;;
+            *)    TARGETS='[]' ;;
+          esac
+          echo "targets=$TARGETS" >> $GITHUB_OUTPUT
+          echo "commits=${{ steps.filter.outputs.sync_commits }}" >> $GITHUB_OUTPUT
+          echo "source_branch=$SOURCE" >> $GITHUB_OUTPUT
+          echo "source_author=${{ github.event.pull_request.user.login }}" >> $GITHUB_OUTPUT
+          echo "source_pr_number=${{ github.event.pull_request.number }}" >> $GITHUB_OUTPUT
+
+  cherry-pick:
+    needs: detect-sync
+    if: needs.detect-sync.outputs.should_sync == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.detect-sync.outputs.targets) }}
+    steps:
+      - name: Checkout target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ matrix.target }}
+          fetch-depth: 0
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+
+      - name: Fetch source commits
+        run: |
+          git fetch origin "${{ needs.detect-sync.outputs.source_branch }}" --no-tags
+
+      - name: Cherry-pick sync commits
+        id: pick
+        run: |
+          set +e
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          CONFLICT_SHA=""
+          for SHA in ${{ needs.detect-sync.outputs.commits }}; do
+            # 已包含则跳过
+            if git merge-base --is-ancestor "$SHA" HEAD; then
+              echo "::notice::Skipping $SHA (already in ${{ matrix.target }})"
+              continue
+            fi
+            if ! git cherry-pick -x "$SHA" > "$RUNNER_TEMP/cherry-pick.log" 2>&1; then
+              cat "$RUNNER_TEMP/cherry-pick.log"
+              CONFLICT_SHA="$SHA"
+              git cherry-pick --abort || true
+              git format-patch -1 "$SHA" --stdout > "$RUNNER_TEMP/conflict.patch"
+              # 新增：记录三方 SHA（PR-A 增强）
+              BASE_SHA=$(git merge-base "origin/${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "")
+              echo "CONFLICT_SHA=$SHA" >> $GITHUB_ENV
+              echo "BASE_SHA=$BASE_SHA" >> $GITHUB_ENV
+              echo "TARGET_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+              break
+            fi
+          done
+          if [ -n "$CONFLICT_SHA" ]; then
+            git commit --allow-empty -m "chore(sync): mark conflict on $CONFLICT_SHA"
+          fi
+          echo "has_conflict=$([ -n "$CONFLICT_SHA" ] && echo true || echo false)" >> $GITHUB_OUTPUT
+
+      - name: Compute conflict context
+        id: conflict-context
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          mkdir -p "$RUNNER_TEMP/conflict"
+          cd "$GITHUB_WORKSPACE"
+
+          # 优先用 env 记录的 SHA（如有），否则 fallback
+          if [ -n "$CONFLICT_SHA" ] && [ -n "$BASE_SHA" ]; then
+            SOURCE_SHA="$CONFLICT_SHA"
+            BASE_SHA="$BASE_SHA"
+          else
+            echo "::warning::BASE_SHA could not be resolved via origin/\$source_branch, using fallback HEAD~1"
+            BASE_SHA=$(git merge-base "origin/${{ needs.detect-sync.outputs.source_branch }}" HEAD 2>/dev/null || echo "HEAD~1")
+            SOURCE_PR_COMMITS="${{ needs.detect-sync.outputs.commits }}"
+            SOURCE_SHA=$(echo "$SOURCE_PR_COMMITS" | awk '{print $1}')
+            TARGET_SHA="HEAD"
+          fi
+
+          # 三方 patch
+          if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "HEAD~1" ]; then
+            git diff "$BASE_SHA" "$SOURCE_SHA" > "$RUNNER_TEMP/conflict/source.patch" 2>/dev/null
+            git diff "$BASE_SHA" "$TARGET_SHA" > "$RUNNER_TEMP/conflict/target.patch" 2>/dev/null
+            git diff "$SOURCE_SHA" "$TARGET_SHA" > "$RUNNER_TEMP/conflict/diverge.patch" 2>/dev/null
+          fi
+
+          # 冲突文件清单
+          git diff --name-only --diff-filter=U > "$RUNNER_TEMP/conflict/conflict_files.txt" 2>/dev/null || \
+            echo "(failed to parse conflict files)" > "$RUNNER_TEMP/conflict/conflict_files.txt"
+
+          # 从 cherry-pick 日志补全
+          if [ -s "$RUNNER_TEMP/cherry-pick.log" ]; then
+            grep -E "^(CONFLICT|error):" "$RUNNER_TEMP/cherry-pick.log" | \
+              grep -oE "[^[:space:]]+\.(py|js|jsx|ts|tsx|md|yml|yaml|json|toml|sh)$" | \
+              sort -u >> "$RUNNER_TEMP/conflict/conflict_files.txt"
+          fi
+
+          ls -la "$RUNNER_TEMP/conflict/"
+          echo "conflict_files_count=$(wc -l < "$RUNNER_TEMP/conflict/conflict_files.txt")" >> $GITHUB_OUTPUT
+
+      - name: Annotate conflict files
+        id: annotate
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          HISTORY="$RUNNER_TEMP/conflict/file_history.md"
+          SOURCE_BRANCH="${{ needs.detect-sync.outputs.source_branch }}"
+          cd "$GITHUB_WORKSPACE"
+
+          echo "# 冲突文件历史" > "$HISTORY"
+          echo "" >> "$HISTORY"
+
+          if [ ! -s "$RUNNER_TEMP/conflict/conflict_files.txt" ]; then
+            echo "_无冲突文件清单_" >> "$HISTORY"
+            exit 0
+          fi
+
+          while IFS= read -r FILE; do
+            [ -z "$FILE" ] && continue
+            echo "=== \`$FILE\` ===" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            echo "**源分支 ($SOURCE_BRANCH) 最近改动:**" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            git log -5 --pretty='- `%h` %s (%an, %ad)' --date=short -- "$FILE" "$SOURCE_BRANCH" 2>/dev/null >> "$HISTORY" || \
+              echo "_(无历史记录)_" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            echo "**目标分支 (HEAD) 最近改动:**" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+            git log -5 --pretty='- `%h` %s (%an, %ad)' --date=short -- "$FILE" 2>/dev/null >> "$HISTORY" || \
+              echo "_(无历史记录)_" >> "$HISTORY"
+            echo "" >> "$HISTORY"
+          done < "$RUNNER_TEMP/conflict/conflict_files.txt"
+
+          cat "$HISTORY"
+          echo "history_size=$(wc -c < "$HISTORY")" >> $GITHUB_OUTPUT
+
+      - name: Check artifact size
+        id: size-check
+        if: steps.pick.outputs.has_conflict == 'true'
+        run: |
+          set +e
+          SIZE_MB=$(du -sm "$RUNNER_TEMP/conflict" 2>/dev/null | cut -f1)
+          SIZE_MB=${SIZE_MB:-0}
+          echo "size_mb=$SIZE_MB" >> $GITHUB_OUTPUT
+          if [ "$SIZE_MB" -gt 5 ]; then
+            echo "::warning::Conflict bundle is ${SIZE_MB}MB, > 5MB threshold"
+            echo "size_warning=true" >> $GITHUB_OUTPUT
+          else
+            echo "size_warning=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Push branch (success only)
+        if: steps.pick.outputs.has_conflict != 'true'
+        run: |
+          BRANCH="channel-sync/${{ needs.detect-sync.outputs.source_pr_number }}-${{ matrix.target }}"
+          git config user.name "channel-sync-bot"
+          git config user.email "channel-sync-bot@users.noreply.github.com"
+          git push origin "HEAD:$BRANCH" --force-with-lease
+
+      - name: Create sync PR
+        id: create-pr
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.CHANNEL_SYNC_TOKEN }}
+          branch: channel-sync/${{ needs.detect-sync.outputs.source_pr_number }}-${{ matrix.target }}
+          base: ${{ matrix.target }}
+          title: "🔁 [sync] #${{ needs.detect-sync.outputs.source_pr_number }} → ${{ matrix.target }}"
+          body: |
+            🔁 [sync] #${{ needs.detect-sync.outputs.source_pr_number }} → ${{ matrix.target }}
+
+            自动同步 PR（源 PR #${{ needs.detect-sync.outputs.source_pr_number }}）
+
+            - 源分支: `${{ needs.detect-sync.outputs.source_branch }}`
+            - 源作者: @${{ needs.detect-sync.outputs.source_author }}
+            - 同步 commits: `${{ needs.detect-sync.outputs.commits }}`
+
+            <!-- auto-sync-source: #${{ needs.detect-sync.outputs.source_pr_number }} -->
+            <!-- auto-sync-target: ${{ matrix.target }} -->
+
+            ${{ steps.pick.outputs.has_conflict == 'true' && format('---
+
+            ## ⚠️ Cherry-pick 冲突
+
+            **冲突 commit**: `{0}`
+            **目标分支**: `{1}`
+            **冲突文件**: {2} 个
+
+            ### 快速解决指引
+
+            1. **下载** artifact `conflict-{1}` 获取三件套
+            2. **本地复现**：
+               ```bash
+               git fetch origin {1}
+               git checkout {1}
+               git cherry-pick -x {0}
+               ```
+            3. **push 解决后合并此 PR** 即可触发自动续跑
+            ', env.CONFLICT_SHA, matrix.target, steps.conflict-context.outputs.conflict_files_count) || '' }}
+          draft: ${{ steps.pick.outputs.has_conflict == 'true' }}
+          delete-branch: true
+
+      - name: Assign source author
+        if: steps.pick.outputs.has_conflict == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              await github.rest.issues.addAssignees({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+                assignees: ['${{ needs.detect-sync.outputs.source_author }}']
+              });
+              console.log('Assigned source author:', '${{ needs.detect-sync.outputs.source_author }}');
+            } catch (err) {
+              console.warn('Failed to assign author:', err.message);
+              core.warning('Source author assignment failed, continuing');
+            }
+
+      - name: Apply conflicted-sync label
+        if: steps.pick.outputs.has_conflict == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const LABEL_NAME = 'conflicted-sync';
+            const LABEL_COLOR = 'd93f0b';
+            const LABEL_DESC = 'Channel-sync PR with cherry-pick conflict';
+            try {
+              try {
+                await github.rest.issues.getLabel({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  name: LABEL_NAME
+                });
+              } catch (e) {
+                if (e.status === 404) {
+                  await github.rest.issues.createLabel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    name: LABEL_NAME,
+                    color: LABEL_COLOR,
+                    description: LABEL_DESC
+                  });
+                  console.log('Created label:', LABEL_NAME);
+                } else {
+                  throw e;
+                }
+              }
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: ${{ steps.create-pr.outputs.pull-request-number }},
+                labels: [LABEL_NAME]
+              });
+              console.log('Applied label:', LABEL_NAME);
+            } catch (err) {
+              console.warn('Failed to apply label:', err.message);
+              core.warning('conflicted-sync label application failed, continuing');
+            }
+
+      - name: Upload conflict bundle
+        if: steps.pick.outputs.has_conflict == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: conflict-${{ matrix.target }}
+          path: |
+            ${{ runner.temp }}/conflict/conflict_files.txt
+            ${{ runner.temp }}/conflict/file_history.md
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/source.patch', runner.temp) || '' }}
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/target.patch', runner.temp) || '' }}
+            ${{ steps.size-check.outputs.size_warning != 'true' && format('{0}/conflict/diverge.patch', runner.temp) || '' }}
+          if-no-files-found: warn

@@ -184,3 +184,118 @@ def celery_eager_mode(settings):
     """启用 Celery 同步执行模式,避免测试中触发真实异步任务。"""
     settings.CELERY_TASK_ALWAYS_EAGER = True
     yield
+
+
+# =============================================================================
+# E2E 用户身份 Fixtures (Task 12)
+# =============================================================================
+# 三种身份对应 ToolContext.from_request() / resolve_scope() 派生的 scope:
+#   - auth_client          -> 普通员工, scope=SELF(默认,无任何权限)
+#   - auth_client_dept     -> 部门主管, scope=DEPARTMENT(授予 smart_assistant.view_department)
+#   - auth_client_admin    -> 管理员,   scope=GLOBAL(is_superuser=True,自动 GLOBAL)
+#
+# User 来自全局 conftest.py 的 CustomUser。
+# Permission 由 Task 9 migration 0010_smart_assistant_permissions 提供,
+#   挂在 ContentType(app_label='smart_assistant', model='smartassistantsession') 下,
+#   故 lookup 必须过滤该 app_label,否则 MultipleObjectsReturned
+#   (auth 等 app 也有 codename='view_<modelname>' 的 default permission)。
+# =============================================================================
+
+
+@pytest.fixture
+def auth_client(db):
+    """普通员工(无任何权限) -> APIClient.force_authenticate 注入。
+
+    与现有 ``admin_client`` 同型 APIClient,但用户不带 superuser/staff。
+    Test 通过 ``auth_client.handler._force_user`` 反查注入用户。
+    """
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_user(username="plain_user_test", password="plain123")
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
+def auth_client_dept(db):
+    """部门主管(拥有 ``smart_assistant.view_department``) -> DEPARTMENT scope。"""
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Permission
+
+    User = get_user_model()
+    user = User.objects.create_user(username="dept_manager_test", password="dept123")
+    # 注意:必须按 ContentType app_label 过滤。Permission 表里许多 app 都有
+    # codename='view_<modelname>' 的默认权限,无过滤会 MultipleObjectsReturned。
+    perm = Permission.objects.get(
+        content_type__app_label="smart_assistant",
+        codename="view_department",
+    )
+    user.user_permissions.add(perm)
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+@pytest.fixture
+def auth_client_admin(db):
+    """管理员(superuser) -> GLOBAL scope(无需授予 view_global)。
+
+    is_superuser=True 时 ``resolve_scope`` 优先返回 ``GLOBAL``。
+    """
+    from rest_framework.test import APIClient
+    from django.contrib.auth import get_user_model
+
+    User = get_user_model()
+    user = User.objects.create_superuser(
+        username="admin_scope_test", password="admin_scope_123", email="a@x.com"
+    )
+    client = APIClient()
+    client.force_authenticate(user=user)
+    return client
+
+
+# =============================================================================
+# Personnel Factory (Task 3)
+# =============================================================================
+# 工厂函数:按 ``Personnel`` 实际字段(name / department / phone_number /
+# position)创建测试数据,供 E2E 测试使用。
+#
+# 注:PersonnelTool 走 ``Personnel.objects.filter(name__icontains=...)``,
+# 因此 fixture 入参需提供 ``name`` 字段(department / phone_number /
+# position_name 可选,用于验证脱敏与 scope 隔离)。
+# =============================================================================
+
+
+@pytest.fixture
+def personnel_user_factory(db):
+    """创建 ``Personnel`` 记录的工厂函数。
+
+    Returns:
+        Callable[..., Personnel]: 接受 kwargs 字段(``name`` 必填,
+            ``department`` / ``phone_number`` / ``position_name`` / ``status`` 可选)。
+    """
+    from personnel.models import Personnel, Position
+
+    def factory(
+        name,
+        department="",
+        phone_number="",
+        position_name=None,
+        status="active",
+    ):
+        position = None
+        if position_name:
+            position, _ = Position.objects.get_or_create(name=position_name)
+        return Personnel.objects.create(
+            name=name,
+            department=department,
+            phone_number=phone_number,
+            position=position,
+            status=status,
+        )
+
+    return factory

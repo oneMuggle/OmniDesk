@@ -20,7 +20,7 @@ describe('externalLinksApi', () => {
 
   it('createExternalLink 应调用 POST', async () => {
     axiosInstance.post.mockResolvedValue({ data: { id: 1 } });
-    const result = await externalLinksApi.createExternalLink({ name: 'New' });
+    await externalLinksApi.createExternalLink({ name: 'New' });
     expect(axiosInstance.post).toHaveBeenCalledWith('/external/external-links/', { name: 'New' });
   });
 

@@ -441,3 +441,116 @@ class TestMeetingRoomToolDatabaseScenarios:
         # 当前 tool 忽略 capacity,返回所有房间
         assert result["found"] is True
         assert len(result["rooms"]) == 2
+
+
+# =============================================================================
+# 5. 新签名 execute(query=None, context=None, params=None, scope=None, qs=None)
+#    — Task 6 跨模块汇总路径(2026-07-07)
+#
+# ⚠️ brief 已知 2 处会破坏实现的 bug(与 Task 5 同源模式):
+# 1. `MeetingRoomBooking.clean()` 校验 `start_time < timezone.now()` 会拒绝历史时间;
+#    测试用 `now() + 1h`(未来)规避。`save()` 内部调用 `full_clean()`,不绕过验证。
+# 2. 旧签名 `execute(query, context)` 与新签名 `execute(params, scope, qs)` 共享同一
+#    函数签名 `(self, query=None, context=None, params=None, scope=None, qs=None)`;
+#    3 个位置参数会被映射到 `(query, context, params)` —— `qs=None` 走 fallback。
+#    新路径必须用 kwargs:`tool.execute(params={}, scope=..., qs=...)`。
+# =============================================================================
+
+
+import pytest  # noqa: E402
+from smart_assistant.scope import SmartAssistantScope  # noqa: E402
+from smart_assistant.tools.tool_context import ToolContext  # noqa: E402
+from smart_assistant.tools.meeting_room_tool import MeetingRoomTool  # noqa: E402
+
+
+@pytest.fixture
+def tool():
+    return MeetingRoomTool()
+
+
+@pytest.mark.django_db
+def test_new_execute_filters_by_user_booking(tool, db):
+    """scope=SELF:只返回 ctx.user 有过预订的会议室"""
+    from django.contrib.auth import get_user_model
+    from meeting_rooms.models import MeetingRoom, MeetingRoomBooking
+    from django.utils import timezone
+
+    User = get_user_model()
+    u = User.objects.create(username="alice")
+    r1 = MeetingRoom.objects.create(name="R1", capacity=10)
+    r2 = MeetingRoom.objects.create(name="R2", capacity=20)
+    # 用未来时间,避免 MeetingRoomBooking.clean() 拒绝 start_time < now 的历史时间
+    future_start = timezone.now() + timedelta(hours=1)
+    future_end = future_start + timedelta(hours=1)
+    MeetingRoomBooking.objects.create(
+        meeting_room=r1, user=u,
+        title="m1", start_time=future_start, end_time=future_end,
+    )
+    # R2 无人预订
+
+    ctx = ToolContext(user=u, scope=SmartAssistantScope.SELF)
+    base = tool.build_base_queryset()
+    scoped = tool.get_queryset_for_scope(base, ctx)
+
+    # 新路径必须用 kwargs(3 个位置参数会映射到 (query, context, params),qs 落空走 fallback)
+    result = tool.execute(params={}, scope=SmartAssistantScope.SELF, qs=scoped)
+    assert result["found"] is True
+    names = [r["name"] for r in result["rooms"]]
+    assert "R1" in names
+    assert "R2" not in names
+    assert result.get("module_label") == "会议室"
+
+
+@pytest.mark.django_db
+def test_old_execute_still_works(tool, db):
+    """旧签名 execute(query, context) 仍工作"""
+    from meeting_rooms.models import MeetingRoom
+    MeetingRoom.objects.create(name="R1", capacity=10)
+    ctx = ToolContext(user="u")
+    result = tool.execute("今天", ctx)
+    assert "found" in result
+
+
+@pytest.mark.django_db
+def test_scope_self_no_user_bookings_returns_empty(tool, db):
+    """用户没有任何预订 → SELF 范围返回空"""
+    from django.contrib.auth import get_user_model
+    from meeting_rooms.models import MeetingRoom
+
+    User = get_user_model()
+    u = User.objects.create(username="alice")
+    MeetingRoom.objects.create(name="R1", capacity=10)
+
+    ctx = ToolContext(user=u, scope=SmartAssistantScope.SELF)
+    base = tool.build_base_queryset()
+    scoped = tool.get_queryset_for_scope(base, ctx)
+
+    result = tool.execute(params={}, scope=SmartAssistantScope.SELF, qs=scoped)
+    assert result.get("found") is False or len(result.get("rooms", [])) == 0
+
+
+@pytest.mark.django_db
+def test_scope_global_returns_all_rooms(tool, db):
+    """scope=GLOBAL → 返回所有会议室"""
+    from meeting_rooms.models import MeetingRoom
+    MeetingRoom.objects.create(name="R1", capacity=10)
+    MeetingRoom.objects.create(name="R2", capacity=20)
+
+    ctx = ToolContext(user="u", scope=SmartAssistantScope.GLOBAL)
+    base = tool.build_base_queryset()
+    scoped = tool.get_queryset_for_scope(base, ctx)
+
+    result = tool.execute(params={}, scope=SmartAssistantScope.GLOBAL, qs=scoped)
+    assert len(result.get("rooms", [])) == 2
+
+
+@pytest.mark.django_db
+def test_module_label_in_result(tool, db):
+    """新路径结果必须含 module_label='会议室'(前端分组用)"""
+    from meeting_rooms.models import MeetingRoom
+    MeetingRoom.objects.create(name="R1", capacity=10)
+
+    ctx = ToolContext(user="u", scope=SmartAssistantScope.GLOBAL)
+    base = tool.build_base_queryset()
+    result = tool.execute(params={}, scope=SmartAssistantScope.GLOBAL, qs=base)
+    assert result.get("module_label") == "会议室"

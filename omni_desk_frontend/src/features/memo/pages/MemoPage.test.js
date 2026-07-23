@@ -1,4 +1,3 @@
-import React from 'react';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BrowserRouter as Router } from 'react-router-dom';
@@ -10,11 +9,13 @@ import { useCalendar } from '../../schedule/hooks/useCalendar';
 jest.mock('../hooks/useMemoData');
 jest.mock('../../schedule/hooks/useCalendar');
 jest.mock('../components/MiniCalendar', () => {
+  /* eslint-disable react/prop-types */
   const MockMiniCalendar = ({ memos }) => (
     <div data-testid="mini-calendar">
       {memos?.map(m => <div key={m.id}>{m.title}</div>)}
     </div>
   );
+  /* eslint-enable react/prop-types */
   MockMiniCalendar.displayName = 'MiniCalendar';
   return MockMiniCalendar;
 });

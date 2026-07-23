@@ -3,8 +3,6 @@ import userEvent from '@testing-library/user-event';
 import * as ReactQuery from '@tanstack/react-query';
 import ScheduleManagementPage from './ScheduleManagementPage';
 import { scheduleApi } from '../api/scheduleApi';
-import { getAllPersonnel, getPositions } from '../../personnel/api/personnelApi';
-import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
 
 // Mock external libraries
 jest.mock('jspdf');

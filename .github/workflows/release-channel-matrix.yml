@@ -75,3 +75,16 @@ jobs:
           tags: ghcr.io/onemuggle/omni-desk-frontend:test-${{ matrix.branch }}
           cache-from: type=gha
           build-args: CI=false
+
+  dry-run-sync-conflict:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run dry-run cherry-pick
+        run: bash tests/dry-run-cherry-pick.sh
+
+      - name: Verify completion
+        run: |
+          echo "Dry-run completed (exit 0 = conflict detected as expected)"

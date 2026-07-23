@@ -109,3 +109,95 @@ def test_required_auth_true(tool):
 def test_intent_type_is_announcement(tool):
     assert tool.intent_type == "announcement_query"
     assert tool.name == "announcement_query"
+
+
+# =============================================================================
+# 6. 新签名 execute(query=None, context=None, params=None, scope=None, qs=None)
+#    — Task 7 跨模块汇总路径(2026-07-07)
+#
+# ⚠️ brief 已知 2 处会破坏实现的 bug(与 Task 5/6 同源模式):
+# 1. `User.objects.create(username="alice")` — AbstractUser 必填 password,需 create_user()
+# 2. `tool.execute({}, SmartAssistantScope.SELF, scoped)` — 3 个位置参数会映射到
+#    (query, context, params),qs 落空走 fallback。新路径必须用 kwargs:
+#    `tool.execute(params={}, scope=..., qs=...)`。
+# =============================================================================
+
+
+import pytest  # noqa: E402
+from smart_assistant.scope import SmartAssistantScope  # noqa: E402
+from smart_assistant.tools.tool_context import ToolContext  # noqa: E402
+from smart_assistant.tools.announcement_tool import AnnouncementTool  # noqa: E402
+
+
+@pytest.fixture
+def tool():
+    return AnnouncementTool()
+
+
+@pytest.mark.django_db
+def test_new_execute_filters_by_author(tool, db):
+    """scope=SELF:只返回 ctx.user 发布的公告"""
+    from django.contrib.auth import get_user_model
+    from communication.models import Post
+
+    User = get_user_model()
+    # brief 用 .create(username=...) 在 AbstractUser 上会因缺 password 报错;
+    # 改用 create_user 显式给密码
+    alice = User.objects.create_user(username="alice", password="alice_pwd_123")
+    bob = User.objects.create_user(username="bob", password="bob_pwd_123")
+    Post.objects.create(title="A 写的", content="x", author=alice)
+    Post.objects.create(title="B 写的", content="y", author=bob)
+
+    ctx = ToolContext(user=alice, scope=SmartAssistantScope.SELF)
+    base = tool.build_base_queryset()
+    scoped = tool.get_queryset_for_scope(base, ctx)
+
+    # 新路径必须用 kwargs(3 个位置参数会映射到 (query, context, params),qs 落空走 fallback)
+    result = tool.execute(params={}, scope=SmartAssistantScope.SELF, qs=scoped)
+    assert result["found"] is True
+    titles = [p["title"] for p in result["posts"]]
+    assert "A 写的" in titles
+    assert "B 写的" not in titles
+    assert result.get("module_label") == "公告"
+
+
+@pytest.mark.django_db
+def test_old_execute_still_works(tool, db):
+    """旧签名仍工作"""
+    from communication.models import Post
+
+    Post.objects.create(title="x", content="y")
+    ctx = ToolContext(user="u")
+    result = tool.execute("公告", ctx)
+    assert "found" in result
+
+
+@pytest.mark.django_db
+def test_scope_global_returns_all(tool, db):
+    """scope=GLOBAL → 全部公告"""
+    from communication.models import Post
+
+    Post.objects.create(title="p1", content="c")
+    Post.objects.create(title="p2", content="c")
+
+    ctx = ToolContext(user="u", scope=SmartAssistantScope.GLOBAL)
+    base = tool.build_base_queryset()
+    scoped = tool.get_queryset_for_scope(base, ctx)
+
+    # 新路径必须用 kwargs
+    result = tool.execute(params={}, scope=SmartAssistantScope.GLOBAL, qs=scoped)
+    assert result["count"] == 2
+
+
+@pytest.mark.django_db
+def test_module_label_in_result(tool, db):
+    """新路径结果必须含 module_label='公告'"""
+    from communication.models import Post
+
+    Post.objects.create(title="x", content="c")
+
+    ctx = ToolContext(user="u", scope=SmartAssistantScope.GLOBAL)
+    base = tool.build_base_queryset()
+    # 新路径必须用 kwargs
+    result = tool.execute(params={}, scope=SmartAssistantScope.GLOBAL, qs=base)
+    assert result.get("module_label") == "公告"

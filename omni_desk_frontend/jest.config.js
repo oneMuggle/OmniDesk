@@ -5,7 +5,7 @@ module.exports = {
     '^.+\\.[jt]sx?$': 'babel-jest',
   },
   transformIgnorePatterns: [
-    '/node_modules/(?!(axios|@ant-design|antd|dayjs|@tanstack|react-router|react-router-dom|@babel|d3|@quill|quill|@tiptap|prosemirror-[^/]+|@hello-pangea|@fullcalendar|preact|react-dnd|react-dnd-html5-backend|react-markdown|remark-[^/]+|rehype-[^/]+|unist-[^/]+|vfile|vfile-message|devlop|micromark[^/]*|mdast-[^/]*|hast-[^/]*|trim-lines|property-information|space-separated-tokens|comma-separated-tokens|bail|is-plain-obj|trough|ccount|escape-string-regexp|html-void-elements|stringify-entities|character-entities-html4|decode-named-character-reference|longest-streak|jspdf|raf|dompurify|rgbcolor|stackblur-canvas|moment)(/.|$))',
+    '/node_modules/(?!(axios|@ant-design|antd|dayjs|@tanstack|react-router|react-router-dom|@babel|d3|@quill|quill|@tiptap|prosemirror-[^/]+|@hello-pangea|@fullcalendar|preact|react-dnd|react-dnd-html5-backend|react-markdown|remark-[^/]+|rehype-[^/]+|unist-[^/]+|vfile|vfile-message|devlop|unified|micromark[^/]*|mdast-[^/]*|hast-[^/]*|trim-lines|property-information|space-separated-tokens|comma-separated-tokens|bail|is-plain-obj|trough|ccount|escape-string-regexp|html-void-elements|html-url-attributes|stringify-entities|character-[^/]*|decode-named-character-reference|longest-streak|estree-util-[^/]+|zwitch|markdown-table|parse-entities|is-alphabetical|is-alphanumerical|is-decimal|is-hexadecimal|@ungap/[^/]+|jspdf|raf|dompurify|rgbcolor|stackblur-canvas|moment)(/.|$))',
   ],
   testTimeout: 60000,
   moduleNameMapper: {
@@ -31,6 +31,6 @@ module.exports = {
       statements: 23,
     },
   },
-  testPathIgnorePatterns: ['/node_modules/'],
+  testPathIgnorePatterns: ['/node_modules/', '/e2e/'],
   coveragePathIgnorePatterns: ['/node_modules/'],
 };

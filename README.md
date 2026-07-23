@@ -266,6 +266,20 @@ CI 会在每次推送和 PR 时自动运行，确保代码质量。
 - 查看后端日志：`docker compose logs backend`
 - 验证数据库迁移是否完整：`docker compose exec backend python manage.py migrate`
 
+## 文档库（paperless-ngx 集成）
+
+OmniDesk 集成了 [paperless-ngx](https://docs.paperless-ngx.com/) 作为统一文档存储后端，提供「文档库」一级模块：
+
+- **业务附件统一落盘**：项目、合同、合规、人事等模块的附件上传自动同步到 paperless，支持 Outbox 写降级（paperless 宕机时数据不丢失）
+- **联邦搜索**：顶部搜索栏同时查询 OmniDesk 业务数据 + paperless 全文检索，结果带高亮摘要
+- **读穿透缓存**：paperless 不可用时可下载本地缓存版本（响应头带 `X-Degraded: true`）
+- **账号绑定**：OmniDesk 用户可绑定 paperless 账号，实现 owner 级权限隔离
+- **同步状态可视化**：文档卡片显示「待同步/同步中/已同步/失败/需重试」五种状态
+
+访问「文档库」页面（顶部菜单）即可查看、上传、管理文档，或绑定 paperless 账号。
+
+详细架构、API、部署说明见 [技术手册 — paperless-ngx 集成](docs/technical/31-paperless-integration.md)；使用指南见 [用户手册 — 文档库](docs/user-manual/13-document-library.md)。
+
 ## 贡献指南
 
 1. Fork 项目

@@ -68,3 +68,11 @@ class ExternalLinkTool(BaseTool):
             }
 
         return {"found": True, "count": len(links), "links": links}
+
+    def build_base_queryset(self):
+        """返回未过滤的外链 QuerySet(execute 中会再加 is_active filter)。"""
+        return ExternalLink.objects.all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:外链是公共导航数据,无"本人"语义;返回空 QuerySet。"""
+        return qs.none()

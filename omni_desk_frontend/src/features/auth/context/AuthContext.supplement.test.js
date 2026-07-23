@@ -3,7 +3,7 @@
  * AuthContext 补充测试：login、logout、register、loginAsGuest、pageConfigs 等。
  */
 
-import React, { useContext, useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { render, screen, waitFor, act } from '@testing-library/react';
 import { AuthProvider, AuthContext } from './AuthContext';
 
@@ -31,6 +31,7 @@ const pageConfigApiMock = pageConfigApi;
 
 // --- Helper Components ---
 
+// eslint-disable-next-line react/prop-types
 const AuthActionTrigger = ({ action }) => {
   const ctx = useContext(AuthContext);
   const [result, setResult] = useState(null);
@@ -46,12 +47,14 @@ const AuthActionTrigger = ({ action }) => {
   return result ? <div data-testid="result">{result}</div> : <div>loading</div>;
 };
 
+// eslint-disable-next-line react/prop-types
 const ContextConsumer = ({ capture }) => {
   const ctx = useContext(AuthContext);
   useEffect(() => { capture(ctx); }, [ctx, capture]);
   return null;
 };
 
+// eslint-disable-next-line react/prop-types
 const SetUserAndCheck = ({ user, permission, testId }) => {
   const { setUser, hasPermission } = useContext(AuthContext);
   const [result, setResult] = useState(null);

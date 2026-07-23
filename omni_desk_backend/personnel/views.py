@@ -1,5 +1,7 @@
 from rest_framework import permissions, viewsets
+from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.response import Response
 
 from users.permissions import IsAdminOrManagerOrReadOnly
 
@@ -42,6 +44,29 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         if self.action == "retrieve":
             return PersonnelDetailSerializer
         return PersonnelSerializer
+
+    @action(detail=True, methods=["post"])
+    def upload(self, request, pk=None):
+        """上传人事档案,通过 paperless_proxy 异步投递到 paperless-ngx"""
+        from paperless_proxy.services.upload import PaperlessUploadService
+
+        personnel = self.get_object()
+        file = request.FILES.get("file")
+        if not file:
+            return Response({"detail": "缺少 file 字段"}, status=400)
+        try:
+            result = PaperlessUploadService.queue_upload(
+                file=file,
+                filename=file.name,
+                title=request.data.get("title") or file.name,
+                source_type="personnel_file",
+                source_id=personnel.id,
+                owner=request.user,
+                tags=request.data.get("tags"),
+            )
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=400)
+        return Response(result, status=201)
 
 
 class ContractViewSet(viewsets.ModelViewSet):

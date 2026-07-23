@@ -23,7 +23,8 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      # SECURITY: Use CMD-SHELL with REDISCLI_AUTH env var to avoid password exposure in process list
+      test: ["CMD-SHELL", "REDISCLI_AUTH=${REDIS_PASSWORD} redis-cli ping"]
     networks:
       - omni_desk
 
@@ -96,8 +97,56 @@ services:
       - omni_desk
     <<: *common-env
 
+  # ── RAGFlow MySQL ─────────────────────────────────────────────
+  ragflow-mysql:
+    image: mysql:8.0
+    container_name: omnidesk-ragflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_DATABASE: ragflow
+      MYSQL_USER: ragflow
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+    volumes:
+      - ragflow_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${RAGFLOW_MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - omni_desk
+
+  # ── RAGFlow ─────────────────────────────────────────────────
+  ragflow:
+    image: infiniflow/ragflow:v0.16.0
+    container_name: omnidesk-ragflow
+    restart: unless-stopped
+    environment:
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_HOST: ragflow-mysql
+      MYSQL_PORT: "3306"
+    volumes:
+      - ragflow_data:/ragflow/data
+    ports:
+      - "${RAGFLOW_PORT:-9380}:80"
+    depends_on:
+      ragflow-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - omni_desk
+
 volumes:
   redis_data:
+  ragflow_data:
+  ragflow_mysql_data:
 
 networks:
   omni_desk:

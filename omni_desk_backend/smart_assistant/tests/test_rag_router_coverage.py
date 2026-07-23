@@ -242,63 +242,61 @@ class TestSearchDataset:
         """api_endpoint 为空时返回 [],不调用网络."""
         router = RAGRouter()
         dataset = self._make_dataset_dict(api_endpoint="")
-        with patch("smart_assistant.agent.rag_router.requests.post") as mock_post:
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
             result = router.search_dataset("query", dataset)
         assert result == []
-        mock_post.assert_not_called()
+        mock_client_cls.assert_not_called()
 
     def test_returns_empty_when_api_key_missing(self):
         router = RAGRouter()
         dataset = self._make_dataset_dict(api_key="")
-        with patch("smart_assistant.agent.rag_router.requests.post") as mock_post:
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
             result = router.search_dataset("query", dataset)
         assert result == []
-        mock_post.assert_not_called()
+        mock_client_cls.assert_not_called()
 
     def test_returns_empty_when_dataset_id_missing(self):
         router = RAGRouter()
         dataset = self._make_dataset_dict(ragflow_dataset_id="")
-        with patch("smart_assistant.agent.rag_router.requests.post") as mock_post:
+        with patch("smart_assistant.agent.rag_router.RagflowClient") as mock_client_cls:
             result = router.search_dataset("query", dataset)
         assert result == []
-        mock_post.assert_not_called()
+        mock_client_cls.assert_not_called()
 
     def test_search_success_adds_source_marker(self):
         """成功时给每个 chunk 加 _source 字段."""
         router = RAGRouter()
         dataset = self._make_dataset_dict(name="人事库")
 
-        mock_resp = MagicMock()
-        mock_resp.json.return_value = {
-            "chunks": [
-                {"content": "chunk1", "score": 0.9},
-                {"content": "chunk2", "score": 0.8},
-            ]
-        }
-        mock_resp.raise_for_status.return_value = None
+        mock_client = MagicMock()
+        mock_client.retrieval.return_value = [
+            {"content": "chunk1", "score": 0.9},
+            {"content": "chunk2", "score": 0.8},
+        ]
 
-        with patch("smart_assistant.agent.rag_router.requests.post", return_value=mock_resp) as mock_post:
+        with patch("smart_assistant.agent.rag_router.RagflowClient", return_value=mock_client) as mock_client_cls:
             result = router.search_dataset("问题", dataset, top_k=3)
 
         assert len(result) == 2
         assert result[0]["_source"] == "人事库"
         assert result[1]["_source"] == "人事库"
-        # 验证请求参数
-        call_kwargs = mock_post.call_args.kwargs
-        assert call_kwargs["json"]["dataset_id"] == "ds-001"
-        assert call_kwargs["json"]["query"] == "问题"
-        assert call_kwargs["json"]["top_k"] == 3
-        assert call_kwargs["timeout"] == 15
+        # 验证 RagflowClient.retrieval 调用参数
+        call_args = mock_client.retrieval.call_args
+        assert call_args.kwargs["dataset_ids"] == ["ds-001"]
+        assert call_args.kwargs["question"] == "问题"
+        assert call_args.kwargs["top_k"] == 3
 
     def test_search_returns_empty_on_network_exception(self):
         """网络异常时返回 [],不传播异常."""
+        from ragflow_service.client import RagflowClientError
+
         router = RAGRouter()
         dataset = self._make_dataset_dict()
 
-        with patch(
-            "smart_assistant.agent.rag_router.requests.post",
-            side_effect=Exception("connection refused"),
-        ):
+        mock_client = MagicMock()
+        mock_client.retrieval.side_effect = RagflowClientError("connection refused")
+
+        with patch("smart_assistant.agent.rag_router.RagflowClient", return_value=mock_client):
             result = router.search_dataset("问题", dataset)
 
         assert result == []
