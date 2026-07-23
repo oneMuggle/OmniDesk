@@ -47,7 +47,6 @@ pillow
 # AI & LLM
 ollama>=0.4,<1.0
 anyio>=3.0  # 显式声明:ollama 0.6+ 的 _client.py import anyio 但 wheel 未声明硬依赖
-httpx>=0.24,<0.28  # 显式 pin:ollama 0.6.2 假设 httpx 0.x 稳定版 API,新 httpx 1.0+ 已移除 base_url 关键字
 
 # Security:override transitive pin to fix CVE-2026-49477 + CVE-2026-49476 (soupsieve<2.8.4 vulnerable)
 soupsieve>=2.8.4
