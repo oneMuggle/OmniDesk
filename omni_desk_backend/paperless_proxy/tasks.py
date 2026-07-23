@@ -1,5 +1,6 @@
 """paperless_proxy Celery 任务"""
 
+import contextlib
 import logging
 import os
 import time
@@ -47,10 +48,8 @@ def process_paperless_outbox():
             failed += 1
         except Exception as e:
             logger.exception(f"Outbox#{item.id} unexpected error: {e}")
-            try:
+            with contextlib.suppress(OutboxDeadError):
                 OutboxService.mark_failed(item, f"unexpected: {e}")
-            except OutboxDeadError:
-                pass
             failed += 1
 
     return {"processed": len(items), "succeeded": succeeded, "failed": failed}
@@ -76,10 +75,8 @@ def _process_upload(item, client: PaperlessClient) -> None:
         item.binding.paperless_checksum = result.get("checksum", "")
         item.binding.save(update_fields=["paperless_id", "paperless_checksum", "updated_at"])
     # 删除本地待同步文件
-    try:
+    with contextlib.suppress(OSError):
         os.remove(file_path)
-    except OSError:
-        pass
 
 
 def _process_delete(item, client: PaperlessClient) -> None:
