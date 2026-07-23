@@ -113,7 +113,25 @@ docker exec -e PGPASSWORD=<旧密码或新密码> <db容器> psql -U omni_desk_u
 **原因**: docker-compose.yml 中 `node_modules_volume`(旧 named volume)残留旧 node_modules,与新 image 不一致
 **解法**: `docker compose down` 不删 volumes,改用匿名 volume (已修复:部署脚本中 `volumes: [/app/node_modules]` 匿名方式)
 
-### 7.4 阶段 1-4 计划文件
+### 7.4 端口 80 已被占用(nginx / traefik 等),frontend 容器启动失败
+**现象**: `compose-frontend-1` 报 `Error response from daemon: failed to bind host port 0.0.0.0:80/tcp: address already in use`
+**原因**: 离线包 compose 中 frontend 默认 `ports: ["80:80"]`,与已有服务(本机 traefik/ingress/nginx)冲突
+**解法 A(临时,本地测试)**: 在 `compose/` 加 `docker-compose.override.yml`,把 frontend 端口改到 18080:
+```yaml
+services:
+  frontend:
+    ports: !reset []   # 清空 offline.yml 的 ports 列表
+    image: ghcr.io/onemuggle/omni-desk-frontend:v0.7.0-beta.3
+    pull_policy: never
+    command: ["nginx", "-g", "daemon off;"]
+    networks: [omni_desk]
+    # ... (其余字段复制 offline.yml 的 frontend 完整定义)
+```
+然后用 `docker compose -f compose/docker-compose.offline.yml -f compose/docker-compose.override.yml --env-file compose/.env.production up -d` 启动(注意:`deploy.sh` 默认不会自动加载 override,需显式加 `-f`)
+**解法 B(生产)**: 用独立 nginx/Caddy 反代到容器内部端口,或调整 infra 让 frontend 独占 80
+**关键点**: docker compose 对 `ports` 列表默认**追加**而非替换,直接 override `ports: ["18080:80"]` 会同时绑 80 + 18080,仍冲突;必须用 `!reset []` 清空后再定义
+
+### 7.5 阶段 1-4 计划文件
 - 已删除: `docs/plans/2026-06-03_docker-deployment-three-layer-assurance.md`
 - 实施详情见各 commit 与本章节 6.x 节
 
