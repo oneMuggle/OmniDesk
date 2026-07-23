@@ -53,3 +53,11 @@ class DocumentTool(BaseTool):
             "count": len(results),
             "documents": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的文档模板 QuerySet(主模型;execute 同时查 GeneratedDocument)。"""
+        return DocumentTemplate.objects.select_related("owner").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的文档模板(按 owner 字段)。"""
+        return qs.filter(owner=ctx.user)

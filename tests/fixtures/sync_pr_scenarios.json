@@ -1,0 +1,76 @@
+{
+  "cases": [
+    {
+      "name": "single_fix_should_trigger",
+      "subjects": ["fix: 修复登录超时"],
+      "expected_trigger": true,
+      "expected_commits": [0]
+    },
+    {
+      "name": "single_feat_should_not_trigger",
+      "subjects": ["feat: 新增导出功能"],
+      "expected_trigger": false,
+      "expected_commits": []
+    },
+    {
+      "name": "fix_with_scope_should_trigger",
+      "subjects": ["fix(auth): 修复 OAuth 回调错误"],
+      "expected_trigger": true,
+      "expected_commits": [0]
+    },
+    {
+      "name": "perf_should_trigger",
+      "subjects": ["perf: 缓存用户权限查询"],
+      "expected_trigger": true,
+      "expected_commits": [0]
+    },
+    {
+      "name": "refactor_should_trigger",
+      "subjects": ["refactor(sync): 拆分 cherry-pick 逻辑"],
+      "expected_trigger": true,
+      "expected_commits": [0]
+    },
+    {
+      "name": "mixed_feat_and_fix_should_trigger_only_fix",
+      "subjects": ["feat: 新增图表组件", "fix: 修复图表渲染"],
+      "expected_trigger": true,
+      "expected_commits": [1]
+    },
+    {
+      "name": "feat_and_docs_only_should_not_trigger",
+      "subjects": ["feat: 新增 API", "docs: 更新 README"],
+      "expected_trigger": false,
+      "expected_commits": []
+    },
+    {
+      "name": "uppercase_Fix_should_not_trigger",
+      "subjects": ["Fix: 大写不应触发"],
+      "expected_trigger": false,
+      "expected_commits": []
+    },
+    {
+      "name": "chore_should_not_trigger",
+      "subjects": ["chore: 升级依赖"],
+      "expected_trigger": false,
+      "expected_commits": []
+    },
+    {
+      "name": "breaking_fix_should_trigger",
+      "subjects": ["fix!: 破坏性变更"],
+      "expected_trigger": true,
+      "expected_commits": [0]
+    },
+    {
+      "name": "merge_commit_should_be_filtered",
+      "subjects": ["Merge branch 'feat/x' into main", "fix: 实际修复"],
+      "expected_trigger": true,
+      "expected_commits": [1]
+    },
+    {
+      "name": "empty_should_not_trigger",
+      "subjects": [],
+      "expected_trigger": false,
+      "expected_commits": []
+    }
+  ]
+}

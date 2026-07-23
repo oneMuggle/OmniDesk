@@ -1,8 +1,8 @@
-# 项目优化路线图(2026-06-05)
+# 项目优化路线图(2026-06-05, 更新于 2026-07-18)
 
 ## 背景与目标
 
-OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python 代码、34 个 Django app、23 篇技术文档、4 条 CI workflow。已具备离线部署、Windows 7 兼容、版本管理、Docker 三层保障等能力。
+OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,**最新统计**: 42 个 Django apps, 26,816 行 Python 代码, 32,933 行前端代码, 9 条 CI workflow, 13 个部署脚本。已具备离线部署、Windows 7 兼容、版本管理、Docker 三层保障等能力。
 
 本次优化以**不破坏现有强约束**(离线/Windows 7/双 UI 库共存过渡期/Django LTS)为前提,从 ROI 角度分 P0/P1/P2 三个优先级给出 8 个可执行模块。**目标:**
 
@@ -162,3 +162,168 @@ OmniDesk 是 Django 4.2 + React 18.3 全栈业务管理平台,约 22K 行 Python
 - 引入微服务/前后端分离重构(架构级)
 - 引入新 UI 库(Chakra、Radix)
 - 部署到云厂商(项目硬约束:内网离线)
+
+---
+
+## 2026-07-18 更新：新增发现（4 个维度深度审计）
+
+> 以下问题为 2026-07-18 全项目审计新发现，按优先级补充到本路线图。
+
+### 🔴 P0 — 安全问题（本周必须修复）
+
+| # | 问题 | 位置 | 修复方案 | 预计时间 |
+|---|------|------|----------|----------|
+| **S-C1** | **TLS 私钥已提交 Git** | `utils/nginx/certs/server.key` | 吊销证书 + `git filter-repo` 清除历史 + `.gitignore` 排除 `certs/` | 2h |
+| **S-C2** | **DRF 未设置默认权限类** | `settings/base.py:222-233` | 添加 `DEFAULT_PERMISSION_CLASSES: ["rest_framework.permissions.IsAuthenticated"]` | 30min |
+| **S-C3** | **XSS：搜索结果未转义** | `UnifiedSearchBar.jsx:37,41` | `dangerouslySetInnerHTML` 用 `sanitizeHtml()` 包裹 | 15min |
+| **S-H3+H4** | **ZIP 导入缺路径遍历检查** | `book_import.py:93,110` | 检查 `..` 路径（Zip Slip 攻击）+ 清理封面文件名 | 1h |
+| **SEC-1** | **`.env.local` 已提交到 git** | `omni_desk_backend/.env.local` | 加入 .gitignore + `git rm --cached` + 轮换密钥 | 30min |
+| **SEC-2** | **密码复用** | `deployment/docker/.env` | SECRET_KEY 和 POSTGRES_PASSWORD 生成独立值 | 15min |
+| **SEC-3** | **Redis 密码暴露** | `deploy_tests.sh:157`, `smoke_tests.sh:184` | `-a` flag 改用 `REDISCLI_AUTH` 环境变量 | 15min |
+| **SEC-4** | **`deploy_docker.sh` 销毁数据** | `deploy_docker.sh:29` | `down --volumes` 移除 `--volumes` flag | 5min |
+
+### 🔴 P1 — 高优先级（1-2 周）
+
+| # | 问题 | 位置 | 修复方案 | 预计时间 |
+|---|------|------|----------|----------|
+| **DEP-1** | **Django 4.2 已 EOL** | 全局 | 启动 Django 5.2 LTS 升级计划 | 1 周 |
+| **DEP-2** | **requirements-prod.txt 含 alpha 包** | pip-compile 命令 | 移除 `--pre` flag，重新生成锁文件 | 15min |
+| **CI-1** | **CI 严重冗余** | `build-and-push-images.yml`, `deploy-test.yml` | build-and-push 改为 workflow_run 触发，删除 test job | 2h |
+| **CI-2** | **CI job 无 timeout** | 所有 9 个 workflow | 添加 `timeout-minutes`: lint 15min, test 30min, build 60min | 30min |
+| **CI-3** | **`PIP_NO_CACHE_DIR=off` 含义反转** | 后端 Dockerfile:9 | 改为 `PIP_NO_CACHE_DIR=1` | 5min |
+| **CI-4** | **volume mount 路径不匹配** | `docker-compose.yml:49` | `/app` vs WORKDIR `/usr/src/app` 统一 | 10min |
+| **BE-1** | **`SECRET_KEY` 缺失静默降级** | `settings/base.py:34-47` | `production.py` 中阻止启动 | 30min |
+| **BE-2** | **78% 异常无日志** | 275 个 except 块 | 批量添加 `logger.exception()` | 2 天 |
+| **BE-3** | **smart_assistant 巨型 App** | 119 文件，17,562 行，占后端 44% | 拆分为 core + agents + tools | 1-2 周 |
+| **BE-4** | **executor.py 882 行** | `smart_assistant/agents/executor.py` | 拆分为 pipeline + checkpoint + subtask_runner | 2 天 |
+| **FE-1** | **10+ 未使用前端依赖** | package.json | 移除 openai(10MB)、react-dnd、react-tooltip 等 | 30min |
+| **FE-2** | **13 个超大组件(>300 行)** | 前端 ScheduleManagementPage 909 行等 | 拆分为子组件 | 40h |
+| **FE-3** | **React.memo 使用率 0%** | 整个前端 | 为 Sidebar、ToolResult 等添加 memo | 2h |
+| **FE-4** | **`key={index}` 反模式** | 24 处 | 替换为稳定 key | 3h |
+
+### 🟡 P2 — 中优先级（1 个月）
+
+| # | 问题 | 位置 | 修复方案 | 预计时间 |
+|---|------|------|----------|----------|
+| **DS-1** | **smoke_tests.sh 变量 bug** | lines 85, 89 | `$state` → `$STATE`, `$health` → `$HEALTH` | 10min |
+| **DS-2** | **rollback.sh 备份编号 bug** | lines 61-65 | pipe to while 子 shell，改用 `nl` | 15min |
+| **DS-3** | **无 dry-run 支持** | upgrade.sh, rollback.sh | 添加 `--dry-run` flag | 4h |
+| **DS-4** | **无结构化日志** | 所有部署脚本 | 添加 `log()` 函数 + 时间戳 | 3h |
+| **DOC-1** | **无 Swagger/OpenAPI 文档** | 144 个路由仅 43% 有文档 | 配置 `drf-spectacular` | 1 天 |
+| **DOC-2** | **7+ 已完成计划未清理** | `docs/plans/` | 删除已完成计划文件 | 30min |
+| **DOC-3** | **用户手册零截图** | 14 篇手册 | 各补 1-2 张截图 | 1 周 |
+| **BE-5** | **19 处 `.all()` 无分页保护** | views.py | 添加 `pagination_class` | 1 天 |
+| **BE-6** | **52 处原始 SQL 查询** | 后端 | 审查并添加 select_related/prefetch_related | 8h |
+| **BE-7** | **Serializer `fields = "__all__"` 过度暴露** | 30+ 处 | 改为显式字段列表 | 1 天 |
+
+### 🟢 P3 — 低优先级（持续改进）
+
+| # | 问题 | 修复方案 |
+|---|------|----------|
+| **BE-8** | Sidebar 重复代码 | 统一 Sidebar.jsx + BaseSidebar.jsx |
+| **BE-9** | docprocessing chunk 608KB | 动态 import 懒加载 |
+| **BE-10** | 178 处内联箭头函数 | 提取为 useCallback |
+| **CI-5** | lint-backend 无 pip cache | 添加 `cache: 'pip'` |
+| **CI-6** | prod compose 无资源限制 | 从 offline compose 复制限制 |
+| **BE-11** | `print()` 语句残留 | 替换为 logger |
+| **BE-12** | 无统一异常处理中间件 | 配置 DRF `DEFAULT_EXCEPTION_HANDLER` |
+
+---
+
+### 2026-07-18 实施路线图
+
+#### 阶段 7: 安全加固（第 1 周）
+
+- [ ] S-C1: 吊销证书 + 清除 git 历史中的私钥
+- [ ] S-C2: 添加 DRF 默认权限类
+- [ ] S-C3: 修复 UnifiedSearchBar XSS
+- [ ] S-H3+H4: ZIP 导入路径遍历检查
+- [ ] SEC-1: 清理 .env.local 提交
+- [ ] SEC-2: 修复密码复用
+- [ ] SEC-3: 修复 Redis 密码暴露
+- [ ] SEC-4: 修复 deploy_docker.sh 数据销毁
+- [ ] DEP-2: 移除 requirements-prod.txt 的 --pre
+
+**预计时间**: 8 小时
+
+#### 阶段 8: CI/CD 优化（第 2 周）
+
+- [ ] CI-1: 消除 CI 冗余
+- [ ] CI-2: 添加 CI timeout
+- [ ] CI-3: 修复 PIP_NO_CACHE_DIR
+- [ ] CI-4: 统一 volume mount 路径
+
+**预计时间**: 4 小时
+
+#### 阶段 9: 后端关键修复（第 3-4 周）
+
+- [ ] BE-1: SECRET_KEY 缺失阻止启动
+- [ ] BE-2: 批量添加异常日志
+- [ ] BE-4: 拆分 executor.py
+- [ ] BE-5: 审查 .all() 无分页保护
+
+**预计时间**: 5 天
+
+#### 阶段 10: 前端性能优化（第 5-6 周）
+
+- [ ] FE-1: 移除未使用依赖
+- [ ] FE-3: 添加 React.memo
+- [ ] FE-4: 修复 key={index}
+- [ ] FE-2: 拆分 ScheduleManagementPage + SmartChatPage
+
+**预计时间**: 50 小时
+
+#### 阶段 11: 部署脚本修复（第 7 周）
+
+- [ ] DS-1: 修复 smoke_tests.sh 变量 bug
+- [ ] DS-2: 修复 rollback.sh 备份编号
+- [ ] DS-3: 添加 --dry-run 支持
+- [ ] DS-4: 添加结构化日志
+
+**预计时间**: 8 小时
+
+#### 阶段 12: 文档补全（第 8-10 周）
+
+- [ ] DOC-1: 配置 drf-spectacular
+- [ ] DOC-2: 清理已完成计划
+- [ ] DOC-3: 用户手册补截图
+
+**预计时间**: 2 周
+
+---
+
+### 预期收益（更新后）
+
+| 维度 | 优化前 | 优化后 | 收益 |
+|------|--------|--------|------|
+| CI 时间 | ~26 min/push | ~11 min/push | **节省 15 min/push** |
+| Bundle 大小 | 3.9 MB | ~2.5 MB | **节省 1.4 MB (36%)** |
+| 安全漏洞 | 8 个 P0 + 8 个 HIGH | 0 个 P0 | **消除关键风险** |
+| 测试覆盖 | 80.89% | 85%+ | 提升 4%+ |
+| 超大组件 | 13 个 >300 行 | <5 个 | **可维护性大幅提升** |
+| 文档覆盖 | API 43% | API 100% | **自动化文档** |
+
+---
+
+### 风险评估（更新）
+
+| 风险 | 等级 | 缓解 |
+|------|------|------|
+| TLS 私钥清除后证书需重新颁发 | HIGH | 提前准备新证书 |
+| DRF 默认权限改变后 API 访问失败 | HIGH | 灰度发布 + 回滚预案 |
+| Django 5.2 升级破坏依赖兼容 | HIGH | 先在 develop 分支测试 2 周 |
+| 移除 openai 依赖后发现有隐藏引用 | LOW | 先 grep 验证 |
+| 拆分组件导致回归 bug | MEDIUM | 添加测试覆盖后再拆分 |
+| CI 优化后 workflow_run 触发失败 | LOW | 保留手动触发选项 |
+
+---
+
+### 审计方法论
+
+本次审计使用 4 个并行 agent 分别分析：
+1. **后端代码质量** — 代码规模、测试覆盖、依赖健康度、代码模式
+2. **前端性能** — Bundle 大小、代码分割、React 性能、组件质量
+3. **DevOps/CI-CD** — GitHub Actions、Docker、部署脚本、环境管理
+4. **安全与文档** — Django settings、XSS/注入、文档完整性、代码注释
+
+审计命令清单见附录 A。

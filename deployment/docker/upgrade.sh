@@ -27,6 +27,13 @@ BACKUP_DIR="${BACKUP_DIR:-./backups}"
 # Path inside the container where the backup volume is mounted
 CONTAINER_BACKUP_DIR="/usr/src/app/backups"
 
+# Phase 11 DS-4: Structured log function with timestamp + log file
+LOG_FILE="${LOG_FILE:-./logs/upgrade-$(date +%Y%m%d-%H%M%S).log}"
+mkdir -p "$(dirname "$LOG_FILE")"
+log() {
+    echo "[$(date +'%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+}
+
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
@@ -85,11 +92,23 @@ IMAGE_DIR="${1:-.}"
 
 # 渠道参数(--target-channel,默认从 VERSION 后缀推导)
 TARGET_CHANNEL="${TARGET_CHANNEL:-}"
+DRY_RUN=false
 for arg in "$@"; do
     case "$arg" in
         --target-channel=*) TARGET_CHANNEL="${arg#*=}" ;;
+        --dry-run)           DRY_RUN=true ;;
+        -h|--help)
+            echo "Usage: $0 [IMAGE_DIR] [--target-channel={alpha|beta|preview|stable|hotfix}] [--dry-run]"
+            exit 0
+            ;;
     esac
 done
+
+if $DRY_RUN; then
+    echo "=========================================="
+    echo "  DRY-RUN MODE — no destructive ops"
+    echo "=========================================="
+fi
 
 echo "=========================================="
 echo "  OmniDesk Version Upgrade"
@@ -160,7 +179,11 @@ echo "Step 3: Loading new Docker images..."
 for tar_file in "$IMAGE_DIR"/*.tar; do
     if [ -f "$tar_file" ]; then
         echo "  Loading: $(basename "$tar_file")"
-        docker load -i "$tar_file"
+        if $DRY_RUN; then
+            echo "    [DRY-RUN] would run: docker load -i $tar_file"
+        else
+            docker load -i "$tar_file"
+        fi
     fi
 done
 echo "Images loaded."
@@ -186,32 +209,53 @@ echo ""
 
 # Step 6: Backup
 echo "Step 6: Creating backup..."
-mkdir -p "$BACKUP_DIR"
-compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" || {
-    echo "WARNING: Backup failed. Proceed with caution."
-    read -p "Type 'yes' to continue without backup: " confirm2
-    if [ "$confirm2" != "yes" ]; then
-        echo "Upgrade cancelled."
-        exit 1
-    fi
-}
+if $DRY_RUN; then
+    echo "  [DRY-RUN] would run: compose exec -T backend python manage.py backup_db --output-dir $CONTAINER_BACKUP_DIR"
+else
+    mkdir -p "$BACKUP_DIR"
+    compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" || {
+        echo "WARNING: Backup failed. Proceed with caution."
+        read -p "Type 'yes' to continue without backup: " confirm2
+        if [ "$confirm2" != "yes" ]; then
+            echo "Upgrade cancelled."
+            exit 1
+        fi
+    }
+fi
 echo ""
 
 # Step 7: Update containers
 echo "Step 7: Updating containers..."
-compose down
-compose up -d
+if $DRY_RUN; then
+    echo "  [DRY-RUN] would run: compose down && compose up -d"
+else
+    compose down
+    compose up -d
+fi
 echo "Containers updated."
 echo ""
 
 # Step 8: Run migrations
 echo "Step 8: Running database migrations..."
-compose exec -T backend python manage.py migrate
+if $DRY_RUN; then
+    echo "  [DRY-RUN] would run: compose exec -T backend python manage.py migrate"
+else
+    compose exec -T backend python manage.py migrate
+fi
 echo ""
 
 # Step 9: Health check
 echo "Step 9: Running health check..."
 wait_for_backend
+
+# Step 9.5: Smoke gate (P0)
+# set -e (脚本顶部) 让 smoke 失败自动终止;插在 Step 10 记录前 → 失败不会
+# 留下"已升级"伪记录,且在成功 banner 前 → 输出语义一致。
+# ${BASE_URL:-http://localhost} 让 smoke 透传环境变量(若未设则与原默认一致)。
+echo ""
+echo "Step 9.5: Running smoke tests (gate before recording)..."
+./smoke_tests.sh "${BASE_URL:-http://localhost}"
+echo ""
 
 # Step 10: Record
 echo "Step 10: Recording upgrade..."

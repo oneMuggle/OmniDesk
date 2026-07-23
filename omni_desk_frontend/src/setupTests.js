@@ -9,6 +9,11 @@ import { TextEncoder, TextDecoder } from 'util';
 window.TextEncoder = TextEncoder;
 window.TextDecoder = TextDecoder;
 
+// performance.now() 用于打字机节流等动画逻辑,部分 jsdom 版本未暴露为裸全局变量
+if (typeof performance === 'undefined' || typeof performance.now !== 'function') {
+  globalThis.performance = { now: () => Date.now() };
+}
+
 // Mock matchMedia (Ant Design 5 uses addEventListener/removeEventListener)
 window.matchMedia = window.matchMedia || function () {
   return {

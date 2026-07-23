@@ -221,3 +221,42 @@ class ToolContext:
 - [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md) — 覆盖率补齐与守卫策略
 - [优化实施计划](../plans/2026-06-06_smart-assistant-optimization.md) — 6 阶段路线图(2026-06-06)
 - [用户操作手册](../user-manual/08-smart-assistant-usage.md) — 终端用户使用指南
+
+## 7. 分层权限与跨模块汇总(2026-07-07 新增)
+
+智能助手已支持跨模块汇总查询和分层权限,详见 docs/superpowers/specs/2026-07-07-smart-assistant-cross-module-aggregation-design.md。
+
+### 7.1 三层权限 scope
+
+| Scope | 适用用户 | 数据范围 |
+|---|---|---|
+| SELF | 普通员工 | 仅本人相关 |
+| DEPARTMENT | 部门主管 | 同部门 |
+| GLOBAL | 管理员/superuser | 全公司 |
+
+权限自动从 `request.user.has_perm()` 派生,无需前端传参。
+
+### 7.2 跨模块汇总
+
+用户问"这周我有哪些事"时,智能助手自动:
+1. IntentClassifier 检测 `needs_multi_tool=True`
+2. ToolChainPlanner 规划多工具(Schedule + MeetingRoom + Announcement)
+3. ToolChainExecutor 按 scope 过滤每个工具的 QuerySet
+4. ResultSynthesizer 聚合结果(时间排序 + 同主题合并 + 模块统计)
+5. LLM 合成自然语言回答 + 前端 <AggregatedDayCard> 渲染卡片
+
+### 7.3 启动时校验
+
+`python manage.py check_tool_scopes` 在 CI 跑,确保所有 13 个工具实现 scope 抽象方法。
+
+### 7.4 已知 gap(已修复 — Task 17, 2026-07-07)
+
+| Gap | 状态 | 修复方式 |
+|---|---|---|
+| C1: `views/chat.py` 不传 user/scope,scope filter 在生产路径不生效 | ✅ 已修复 | view 层从 `request.user` 构造 `ToolContext(user, scope=resolve_scope(user))` 并传给 `orchestrator.process()/process_stream()` |
+| C2: `module_counts`(snake_case) vs `AggregatedDayCard` 期望的 `moduleCounts`(camelCase)不匹配 | ✅ 已修复 | `result_synthesizer.py` 改返回 `moduleCounts`,所有调用方 / 测试同步更新 |
+| C3: orchestrator 返回 `multi_tool_chain` 但 `ToolResult.jsx` 检查 `aggregated_day` | ✅ 已修复 | orchestrator `_process_chain()` 返回 `intent="aggregated_day"`,触发 `AggregatedDayCard` |
+| C4: QuickCommands 派发的 `personal_summary` intent 后端未注册 | ✅ 已修复 | 前端 `QuickCommands.jsx` 把 `{intent, scope}` 翻译回自然语言 query(方案 B),走原 `query` 路径 |
+| P0 漏洞: `cache_tool_result` 用 `context_sig=""` 不区分用户 → 缓存投毒 | ✅ 已修复 | cache.py + orchestrator 派生 `u<user_pk>_s<scope_value>` 并加入 cache key;E2E 测试 `test_e2e_cache_isolated_by_user_and_scope` 验证 |
+
+修复详情见 Task 17 plan:`docs/superpowers/plans/2026-07-07-task17-fix-integration-gaps.md`

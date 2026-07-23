@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
+from pathlib import Path
 
 from django.conf import settings
 
@@ -32,8 +33,11 @@ def extract_plugin_zip(uploaded_file):
         for chunk in uploaded_file.chunks():
             f.write(chunk)
     with zipfile.ZipFile(zip_path, "r") as zf:
+        # SECURITY: 检查路径遍历 (Zip Slip 攻击) - 使用 Path.is_relative_to() 避免前缀冲突 bug
+        tmp_path_resolved = Path(tmp_dir).resolve()
         for name in zf.namelist():
-            if ".." in name or name.startswith("/"):
+            member_path = (Path(tmp_dir) / name).resolve()
+            if not member_path.is_relative_to(tmp_path_resolved):
                 raise ValueError(f"插件包含不安全的路径: {name}")
         zf.extractall(tmp_dir)
     os.remove(zip_path)
