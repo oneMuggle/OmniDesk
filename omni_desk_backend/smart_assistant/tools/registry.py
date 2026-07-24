@@ -31,7 +31,7 @@ class ToolRegistry:
     def get_tool_for_user(
         cls,
         intent_type: str,
-        user: AbstractBaseUser | None | Any,
+        user: AbstractBaseUser | Any | None,
     ) -> BaseTool | None:
         """按用户返回工具(权限校验)。
 

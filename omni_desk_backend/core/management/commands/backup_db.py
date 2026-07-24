@@ -65,10 +65,23 @@ class Command(BaseCommand):
         ]
 
         try:
-            with gzip.open(filepath, "wb") as gz:
-                result = subprocess.run(cmd, env=env, stdout=gz, stderr=subprocess.PIPE)
+            # Fix-12: 用 plain SQL format + Python gzip 显式流式压缩
+            # 原因 1: subprocess.run(stdout=gzip.open(...)) 是 Python 已知 bug — 关闭顺序错位
+            #         导致 .sql.gz 文件实际为 plain SQL 文本,gunzip 报 "invalid magic"
+            # 原因 2: -Fc custom format 需要 pg_restore 还原,smoke_tests 阶段 11 用 psql
+            #         plain SQL 才能 psql 直接管道还原(更通用,运维友好)
+            with open(filepath, "wb") as out:
+                result = subprocess.run(
+                    cmd,  # 默认 plain SQL format,兼容 psql 直接还原
+                    env=env,
+                    capture_output=True,  # Ruff UP022:优于 stdout/stderr=PIPE
+                    check=False,
+                )
                 if result.returncode != 0:
                     raise CommandError(f"pg_dump failed: {result.stderr.decode()}")
+                # 用 Python gzip 流式压缩到文件 — 避免 subprocess+file-like 关闭顺序问题
+                with gzip.GzipFile(fileobj=out, mode="wb") as gz:
+                    gz.write(result.stdout)
 
             size_mb = filepath.stat().st_size / (1024 * 1024)
             self.stdout.write(self.style.SUCCESS(f"Database backup saved: {filepath} ({size_mb:.1f} MB)"))
