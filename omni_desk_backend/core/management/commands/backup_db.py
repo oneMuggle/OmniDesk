@@ -74,8 +74,7 @@ class Command(BaseCommand):
                 result = subprocess.run(
                     cmd,  # 默认 plain SQL format,兼容 psql 直接还原
                     env=env,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
+                    capture_output=True,  # Ruff UP022:优于 stdout/stderr=PIPE
                     check=False,
                 )
                 if result.returncode != 0:
