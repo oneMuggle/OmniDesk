@@ -49,14 +49,15 @@ DATABASES = {
         "HOST": os.getenv("DB_HOST"),
         "PORT": os.getenv("DB_PORT", 5432),
         "CONN_MAX_AGE": 600,
+        # Django 4.1+:reusing cached conn 前 SELECT 1 健康检查,
+        # 防止 backend worker 在 db restart 后持有 stale conn 导致 500
+        "CONN_HEALTH_CHECKS": True,
     }
 }
 
 # CSRF and CORS settings for production
-# 注意:默认值必须过滤空字符串,否则 .split(",") 在未设环境变量时返回 [""],
-# 触发 corsheaders.E013 + 4_0.E001 SystemCheckError,导致 gunicorn 启动失败。
-CORS_ALLOWED_ORIGINS = [o for o in os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",") if o]
-CSRF_TRUSTED_ORIGINS = [o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o]
+CORS_ALLOWED_ORIGINS = os.environ.get("CORS_ALLOWED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
 
 # ──────────────────────────────────────────────────────────────────────
 # HTTPS / Cookie security

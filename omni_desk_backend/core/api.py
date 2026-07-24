@@ -21,24 +21,9 @@ logger = logging.getLogger(__name__)
 def version_info(request):
     import django
 
-    raw_version = getattr(settings, "APP_VERSION", "0.0.0-dev")
-    # 解析渠道(从 VERSION 后缀),失败 fallback 到 stable
-    channel = "stable"
-    try:
-        from core.version_utils import parse_version
-
-        parsed = parse_version(raw_version)
-        if parsed.channel == "rc":
-            channel = "preview"
-        elif parsed.channel in ("alpha", "beta"):
-            channel = parsed.channel
-    except (ValueError, ImportError):
-        pass
-
     return Response(
         {
-            "version": raw_version,
-            "channel": channel,
+            "version": getattr(settings, "APP_VERSION", "0.0.0-dev"),
             "build_time": getattr(settings, "BUILD_TIME", "unknown"),
             "django_version": f"{django.VERSION[0]}.{django.VERSION[1]}.{django.VERSION[2]}",
         }
@@ -48,8 +33,15 @@ def version_info(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def changelog(request):
-    changelog_path = Path(__file__).resolve().parent.parent.parent.parent / "deployment" / "docker" / "CHANGELOG.md"
-    if changelog_path.is_file():
+    # 与 core/version.py 同样采用多路径 fallback,支持开发与生产两种 layout:
+    #   - 开发环境: core/api.py 在 PROJECT_ROOT/omni_desk_backend/core/,3 次 .parent 解析到 repo root
+    #   - 生产容器: core/api.py 在 /usr/src/app/core/,2 次 .parent 解析到 /usr/src/app (PROJECT_ROOT)
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "deployment" / "docker" / "CHANGELOG.md",
+        Path(__file__).resolve().parent.parent / "deployment" / "docker" / "CHANGELOG.md",
+    ]
+    changelog_path = next((p for p in candidates if p.is_file()), None)
+    if changelog_path:
         content = changelog_path.read_text(encoding="utf-8")
     else:
         content = "# 更新日志\n\n暂无更新日志。"
