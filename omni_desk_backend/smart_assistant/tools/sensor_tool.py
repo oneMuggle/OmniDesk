@@ -57,3 +57,11 @@ class SensorTool(BaseTool):
             "count": len(results),
             "sensors": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的传感器 QuerySet(主模型;execute 同时查 SensorCalibration)。"""
+        return Sensor.objects.select_related("sensor_category", "location").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:传感器是公共设备库存,无"本人"语义;返回空 QuerySet。"""
+        return qs.none()

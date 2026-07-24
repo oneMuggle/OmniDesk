@@ -33,6 +33,15 @@ BUILD_TIME = os.getenv("BUILD_TIME", "unknown")
 # SECURITY WARNING: keep the secret key used in production secret!
 _SECRET_KEY = os.getenv("SECRET_KEY")
 if not _SECRET_KEY:
+    # Phase 9: Fail loudly in production instead of silently generating random key
+    # (random key would invalidate all sessions/tokens on every restart)
+    if os.getenv("DJANGO_ENV") == "production" or os.getenv("DJANGO_SETTINGS_MODULE", "").endswith(".production"):
+        from django.core.exceptions import ImproperlyConfigured
+
+        raise ImproperlyConfigured(
+            "Production requires SECRET_KEY environment variable. "
+            "Refusing to start with a random key (would invalidate all sessions on restart)."
+        )
     import warnings
 
     warnings.warn(
@@ -86,6 +95,12 @@ INSTALLED_APPS = [
     "dashboard.apps.DashboardConfig",
     "external_integration.apps.ExternalIntegrationConfig",
     "django_ratelimit",
+    # 文档存储代理
+    "paperless_proxy",
+    # 联邦搜索
+    "search_federation",
+    # 文件处理
+    "file_processing.apps.FileProcessingConfig",
 ]
 
 MIDDLEWARE = [
@@ -215,6 +230,7 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # REST Framework配置 - 更新权限相关设置
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
+    "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
@@ -306,6 +322,21 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=1),  # 每小时执行一次(换班申请过期清理,TTL 48h)
         "args": (),
     },
+    "paperless-process-outbox-every-minute": {
+        "task": "paperless_proxy.process_outbox",
+        "schedule": timedelta(minutes=1),
+        "args": (),
+    },
+    "paperless-health-check-every-30s": {
+        "task": "paperless_proxy.check_health",
+        "schedule": timedelta(seconds=30),
+        "args": (),
+    },
+    "paperless-cache-cleanup-every-6h": {
+        "task": "paperless_proxy.cleanup_cache",
+        "schedule": timedelta(hours=6),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置
@@ -324,3 +355,20 @@ OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL_NAME = os.environ.get("OLLAMA_MODEL_NAME", "llama2")  # 默认模型可以根据需要调整
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+# paperless 集成配置
+PAPERLESS_URL = os.environ.get("PAPERLESS_URL", "http://paperless:8000")
+PAPERLESS_API_TOKEN = os.environ.get("PAPERLESS_API_TOKEN", "")
+PAPERLESS_TIMEOUT_SECONDS = int(os.environ.get("PAPERLESS_TIMEOUT_SECONDS", "10"))
+PAPERLESS_HEALTH_CHECK_INTERVAL = int(os.environ.get("PAPERLESS_HEALTH_CHECK_INTERVAL", "30"))
+PAPERLESS_HEALTH_FAILURE_THRESHOLD = int(os.environ.get("PAPERLESS_HEALTH_FAILURE_THRESHOLD", "3"))
+PAPERLESS_OUTBOX_BATCH_SIZE = int(os.environ.get("PAPERLESS_OUTBOX_BATCH_SIZE", "50"))
+PAPERLESS_OUTBOX_MAX_RETRIES = int(os.environ.get("PAPERLESS_OUTBOX_MAX_RETRIES", "10"))
+PAPERLESS_OUTBOX_BASE_BACKOFF_SECONDS = int(os.environ.get("PAPERLESS_OUTBOX_BASE_BACKOFF_SECONDS", "30"))
+PAPERLESS_CACHE_DIR = os.environ.get("PAPERLESS_CACHE_DIR", "paperless_cache/")
+PAPERLESS_PENDING_DIR = os.environ.get("PAPERLESS_PENDING_DIR", "paperless_pending/")
+PAPERLESS_CACHE_MAX_AGE_DAYS = int(os.environ.get("PAPERLESS_CACHE_MAX_AGE_DAYS", "30"))
+PAPERLESS_CLEANUP_INTERVAL_HOURS = int(os.environ.get("PAPERLESS_CLEANUP_INTERVAL_HOURS", "6"))
+
+# Smart Assistant 缓存版本(部署级;工具升级时 bump 此值即可失效旧缓存)
+SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", "1.0")

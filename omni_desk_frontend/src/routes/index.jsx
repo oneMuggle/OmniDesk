@@ -75,6 +75,11 @@ const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/
 const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
 const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
 const NotificationBell = lazy(() => import('../features/notifications/components/NotificationBell'));
+// 文档库路由 (paperless-ngx 集成)
+const DocumentLibraryPage = lazy(() => import('../features/documents-library/pages/DocumentLibraryPage'));
+const DocumentUploadPage = lazy(() => import('../features/documents-library/pages/DocumentUploadPage'));
+const SyncStatusPage = lazy(() => import('../features/documents-library/pages/SyncStatusPage'));
+const AccountBindingPage = lazy(() => import('../features/documents-library/pages/AccountBindingPage'));
 
 const LazyComponent = ({ component: Component, ...props }) => (
   <Suspense fallback={<PageSuspenseFallback />}>
@@ -378,6 +383,23 @@ const router = createBrowserRouter([
       {
         path: "docs/:docId",
         element: <LazyComponent component={DocsPage} />
+      },
+      // 文档库路由 (paperless-ngx 集成)
+      {
+        path: "documents-library",
+        element: <ProtectedRoute pageName="文档库"><LazyComponent component={DocumentLibraryPage} /></ProtectedRoute>
+      },
+      {
+        path: "documents-library/upload",
+        element: <ProtectedRoute pageName="文档上传"><LazyComponent component={DocumentUploadPage} /></ProtectedRoute>
+      },
+      {
+        path: "documents-library/sync",
+        element: <ProtectedRoute pageName="同步状态"><LazyComponent component={SyncStatusPage} /></ProtectedRoute>
+      },
+      {
+        path: "documents-library/account",
+        element: <ProtectedRoute pageName="账户绑定"><LazyComponent component={AccountBindingPage} /></ProtectedRoute>
       },
       {
         path: "*",

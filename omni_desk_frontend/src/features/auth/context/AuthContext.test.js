@@ -1,4 +1,4 @@
-import React, { useContext, useEffect } from 'react';
+import { useContext, useEffect } from 'react';
 import { render, screen } from '@testing-library/react';
 import PropTypes from 'prop-types';
 import { AuthProvider, AuthContext } from './AuthContext';

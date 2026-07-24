@@ -46,13 +46,17 @@ services:
       dockerfile: deployment/docker/omni_desk_backend/Dockerfile
       target: ${BUILD_TARGET:-development}
     volumes:
-      - ../../omni_desk_backend:/app
+      # Phase 8: Mount to /usr/src/app to match Dockerfile WORKDIR (was /app, didn't override WORKDIR)
+      - ../../omni_desk_backend:/usr/src/app
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
     ports:
       - "${TEST_BACKEND_PORT:-8000}:8000"
     env_file:
       - ./.env
+    environment:
+      - PAPERLESS_URL=http://paperless:8000
+      - PAPERLESS_API_TOKEN=${PAPERLESS_API_TOKEN:-}
     command: python manage.py runserver 0.0.0.0:8000
     depends_on:
       db:
@@ -100,7 +104,69 @@ services:
       db:
         condition: service_healthy
 
+  # ── paperless-ngx ─────────────────────────────────────────────────
+  # 独立文档管理服务;与 OmniDesk 后端通过 HTTP 通信(Token 认证)
+  # 首次启动前需在 .env 中配置:PAPERLESS_SECRET_KEY / PAPERLESS_DB_PASSWORD / PAPERLESS_API_TOKEN
+  paperless:
+    image: ghcr.io/paperless-ngx/paperless-ngx:latest
+    restart: unless-stopped
+    depends_on:
+      - paperless-db
+      - paperless-redis
+    environment:
+      - PAPERLESS_REDIS=redis://paperless-redis:6379
+      - PAPERLESS_DBHOST=paperless-db
+      - PAPERLESS_DBPORT=5432
+      - PAPERLESS_DBNAME=paperless
+      - PAPERLESS_DBUSER=paperless
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASSWORD:?PAPERLESS_DB_PASSWORD is required}
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY:?PAPERLESS_SECRET_KEY is required}
+      - PAPERLESS_TIME_ZONE=${TZ:-Asia/Shanghai}
+      - PAPERLESS_OCR_LANGUAGES=chi_sim+eng
+      - PAPERLESS_PORT=8000
+    volumes:
+      - paperless-data:/usr/src/paperless/data
+      - paperless-media:/usr/src/paperless/media
+    ports:
+      - "${PAPERLESS_EXPOSE_PORT:-8001}:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/api/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── paperless PostgreSQL ─────────────────────────────────────────
+  paperless-db:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=paperless
+      - POSTGRES_USER=paperless
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD:?PAPERLESS_DB_PASSWORD is required}
+    volumes:
+      - paperless-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U paperless -d paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── paperless Redis ──────────────────────────────────────────────
+  paperless-redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
 volumes:
   postgres_data:
   static_volume:
   media_volume:
+  paperless-data:
+  paperless-media:
+  paperless-db:

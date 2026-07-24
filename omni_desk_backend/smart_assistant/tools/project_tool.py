@@ -37,3 +37,11 @@ class ProjectTool(BaseTool):
             "count": len(results),
             "projects": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的项目 QuerySet。"""
+        return Project.objects.select_related("manager").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 负责管理的项目(按 manager 字段)。"""
+        return qs.filter(manager=ctx.user)

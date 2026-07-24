@@ -1,4 +1,9 @@
-from rest_framework import exceptions, permissions, viewsets
+from rest_framework import exceptions, permissions, status, viewsets
+from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
+from rest_framework.response import Response
+
+from paperless_proxy.services.upload import PaperlessUploadService
 
 from .models import Project
 from .permissions import IsProjectOwnerOrAdmin
@@ -43,3 +48,46 @@ class ProjectViewSet(viewsets.ModelViewSet):
             if not request.user.is_authenticated:
                 raise exceptions.NotAuthenticated()
             raise
+
+    @action(
+        detail=True,
+        methods=["post"],
+        parser_classes=[MultiPartParser, FormParser],
+        url_path="upload_document",
+        url_name="upload-document",
+    )
+    def upload_document(self, request, pk=None):
+        """上传项目文档,通过 paperless_proxy 异步投递到 paperless-ngx。
+
+        FormData 可携带 source_type 字段(project_document/contract/policy/compliance_report/personnel_file),
+        默认 project_document。
+        """
+        project = self.get_object()
+
+        # 复用对象级权限:仅项目负责人 / Admin / 超级用户可上传
+        self.check_object_permissions(request, project)
+
+        file = request.FILES.get("file")
+        if not file:
+            return Response(
+                {"detail": "缺少 file 字段"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            result = PaperlessUploadService.queue_upload(
+                file=file,
+                filename=file.name,
+                title=request.data.get("title") or file.name,
+                source_type=request.data.get("source_type", "project_document"),
+                source_id=project.id,
+                owner=request.user,
+                tags=request.data.get("tags"),
+            )
+        except ValueError as exc:
+            return Response(
+                {"detail": str(exc)},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        return Response(result, status=status.HTTP_201_CREATED)

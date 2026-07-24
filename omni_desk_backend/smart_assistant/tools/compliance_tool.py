@@ -92,3 +92,11 @@ class ComplianceTool(BaseTool):
             return {"found": False, "message": f'未找到与 "{keywords or query}" 相关的合规问题'}
 
         return {"found": True, "count": len(issues), "issues": issues}
+
+    def build_base_queryset(self):
+        """返回未过滤的合规问题 QuerySet(主数据源,execute 中已加 status filter)。"""
+        return ComplianceIssue.objects.select_related("project", "document_book", "document_template").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 作为项目负责人管理的项目下的合规问题(经 project.manager 关系)。"""
+        return qs.filter(project__manager=ctx.user)

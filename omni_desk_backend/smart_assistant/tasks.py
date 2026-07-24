@@ -1,14 +1,22 @@
-import requests
+import logging
+
 from celery import shared_task
+
+from ragflow_service.client import RagflowClient, RagflowClientError
+
+logger = logging.getLogger(__name__)
 
 
 @shared_task(
-    autoretry_for=(requests.RequestException,),
+    autoretry_for=(RagflowClientError,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
 )
 def process_document_embedding(document_id):
-    """异步处理文档向量化：上传到 Ragflow 并触发解析"""
+    """异步处理文档向量化：上传到 Ragflow 并触发解析。
+
+    使用 RagflowClient 统一封装 API 调用。
+    """
     from smart_assistant.models import KnowledgeBaseDocument
     from ragflow_service.models import RagflowConfig
     from django.conf import settings
@@ -22,27 +30,24 @@ def process_document_embedding(document_id):
         if not config:
             raise ValueError("Ragflow 配置未激活")
 
-        base_url = config.api_endpoint.rstrip("/")
-        headers = {"Authorization": f"Bearer {config.api_key}"}
-
-        # Step 1: 上传文档到 Ragflow dataset
         dataset_id = getattr(settings, "SMART_ASSISTANT_DATASET_ID", None)
         if not dataset_id:
             raise ValueError("SMART_ASSISTANT_DATASET_ID 未配置")
 
-        upload_url = f"{base_url}/api/v1/datasets/{dataset_id}/documents"
+        client = RagflowClient(api_endpoint=config.api_endpoint, api_key=config.api_key)
+
+        # Step 1: 上传文档到 Ragflow dataset
         with doc.file.open("rb") as f:
-            response = requests.post(
-                upload_url,
-                headers={"Authorization": headers["Authorization"]},
-                files={"file": (doc.file.name, f)},
-                timeout=60,
-            )
-        response.raise_for_status()
-        upload_data = response.json()
+            file_content = f.read()
+
+        upload_result = client.upload_document(
+            dataset_id=dataset_id,
+            file_name=doc.file.name,
+            file_content=file_content,
+        )
 
         # Ragflow 返回文档 ID
-        doc_infos = upload_data.get("data", [])
+        doc_infos = upload_result if isinstance(upload_result, list) else [upload_result]
         if not doc_infos:
             raise ValueError("文档上传到 Ragflow 失败，未返回文档信息")
 
@@ -54,20 +59,15 @@ def process_document_embedding(document_id):
         doc.save(update_fields=["ragflow_document_id"])
 
         # Step 2: 触发文档解析
-        parse_url = f"{base_url}/api/v1/datasets/{dataset_id}/documents/chunks"
-        parse_response = requests.post(
-            parse_url,
-            headers={**headers, "Content-Type": "application/json"},
-            json={"document_ids": [ragflow_doc_id]},
-            timeout=60,
-        )
-        parse_response.raise_for_status()
+        client.parse_documents(dataset_id=dataset_id, document_ids=[ragflow_doc_id])
 
         doc.embedding_status = "completed"
         doc.save(update_fields=["embedding_status"])
+
     except KnowledgeBaseDocument.DoesNotExist:
         pass
     except Exception as e:
+        logger.error("文档向量化失败: %s", e)
         from smart_assistant.models import KnowledgeBaseDocument
 
         try:
@@ -81,7 +81,7 @@ def process_document_embedding(document_id):
 
 
 @shared_task(
-    autoretry_for=(requests.RequestException,),
+    autoretry_for=(Exception,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 2},
     task_time_limit=300,  # 硬超时 5 分钟

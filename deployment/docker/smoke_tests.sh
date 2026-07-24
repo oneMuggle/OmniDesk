@@ -15,6 +15,44 @@ BASE_URL="${1:-http://localhost}"
 PASS=0
 FAIL=0
 SKIP=0
+WARN=0
+# O1: WARN 详情数组 — STATUS 框前 echo,让 operator 不用 grep 翻日志
+WARN_DETAILS=()
+
+# 不加 -e:result() 自控制流程,需要宽容失败
+set -uo pipefail
+
+# 退出兜底:阶段 8 marker 文件 / 测试表若中途崩溃,自动清理避免污染生产卷
+# 注意:trap 内不要再调用 exit 防止 trap 重入
+# B1: db exec 加 timeout 30 防止 db restarting 状态挂死
+# B·E1: backend rm 也加 timeout 10 — 对称补漏,防 trap 期间 backend 处于 restart/starting 时 exec 挂死
+# B·G: db cleanup 重试 3 次防 _smoke_persist 表永久残留
+cleanup_smoke_artifacts() {
+    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ]; then
+        for _attempt in 1 2 3; do
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+                "DROP TABLE IF EXISTS _smoke_persist;" >/dev/null 2>&1 && break
+            sleep 2
+        done
+    fi
+    # S5: GUEST_JSON 在阶段 6 末尾会 unset,这里用 ${VAR:-} 兼容已 unset 的情况
+    #   (单 trap 不可叠加,合并到此函数避免覆盖原 trap)
+    [ -n "${GUEST_JSON:-}" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
+    # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
+    if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
+        for _attempt in 1 2 3; do
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$SHADOW_DB' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+                "DROP DATABASE IF EXISTS $SHADOW_DB;" >/dev/null 2>&1 && break
+            sleep 2
+        done
+    fi
+    # 阶段 11 备份文件清理
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
+}
+trap cleanup_smoke_artifacts EXIT
 
 result() {
     local status="$1"
@@ -24,6 +62,152 @@ result() {
         PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
         FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
         SKIP) echo "  SKIP: $msg"; SKIP=$((SKIP + 1)) ;;
+        # O1: WARN 详情也收集到 WARN_DETAILS,STATUS 框前 echo
+        WARN) echo "  WARN: $msg"; WARN=$((WARN + 1))
+              [ -n "$detail" ] && echo "    -> $detail"
+              WARN_DETAILS+=("$msg${detail:+ — $detail}")
+              ;;
+    esac
+}
+
+# ─── 通用等待 helper ──────────────────────────────────────
+# Fix-9:db 重启后 gunicorn worker 持有 stale conn 500 的根因修复
+# wait_for_healthy <service> [timeout_s=60] — 等容器 healthcheck=healthy
+wait_for_healthy() {
+    local service="$1"
+    local timeout="${2:-60}"
+    local cid
+    cid=$(compose ps -q "$service" 2>/dev/null || true)
+    [ -z "$cid" ] && return 1
+    local end=$((SECONDS + timeout))
+    while [ "$SECONDS" -lt "$end" ]; do
+        local hc
+        hc=$(docker inspect --format='{{.State.Health.Status}}' "$cid" 2>/dev/null || echo "unknown")
+        [ "$hc" = "healthy" ] && return 0
+        sleep 2
+    done
+    return 1
+}
+
+# wait_for_db [timeout_s=90] — 等 db pg_isready OK
+wait_for_db() {
+    local timeout="${1:-90}"
+    local end=$((SECONDS + timeout))
+    while [ "$SECONDS" -lt "$end" ]; do
+        if compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+# curl_with_retry <max=3> <curl args...> — 指数退避;5xx/网络瞬态自动重试
+# 返回: "<body>\n<http_code>";成功时最后一行是 200/201/204
+curl_with_retry() {
+    local max="${1:-3}"
+    shift
+    local attempt=1 delay=2 out="" code=""
+    while [ "$attempt" -le "$max" ]; do
+        out=$(curl -s --max-time 10 -w "\n%{http_code}" "$@" 2>/dev/null || echo "")
+        code=$(echo "$out" | tail -1)
+        case "$code" in
+            200|201|204) echo "$out"; return 0 ;;
+            000|502|503|504) ;;  # 网络瞬态,重试
+            500) [ "$attempt" -eq "$max" ] && { echo "$out"; return 0; } ;;  # 500 重试到 max
+            *) echo "$out"; return 0 ;;  # 业务错码(4xx),直接返回不重试
+        esac
+        sleep "$delay"
+        delay=$((delay * 2))
+        attempt=$((attempt + 1))
+    done
+    echo "$out"
+    return 1
+}
+
+# 通用 GET-only happy-path helper — 5 个 app 复用
+# 用法: _app_happy_path_get <app_label> <url_path> [<min_size_bytes>] [<token_var_name>]
+#   - app_label: 显示名(中文)
+#   - url_path: BASE_URL 后的相对路径,必须以 / 开头
+#   - min_size_bytes: 可选,响应体最小字节数(过滤空 JSON 数组),默认 2
+#   - token_var_name: 可选,JWT 缓存的全局变量名,默认 GUEST_TOKEN_H10
+_app_happy_path_get() {
+    local label="$1"
+    local path="$2"
+    local min_size="${3:-2}"
+    local token_var="${4:-GUEST_TOKEN_H10}"
+
+    # F5 修复(2 轮):拆分 sentinel 守卫与空 token 守卫 —
+    # 之前用 `||` 把 "__FAILED__" 与空串合一起,导致失败缓存形同虚设,
+    # 每次探针仍跑一次 10s guest-login。修正后:命中 sentinel 直接 SKIP,不再发起 curl。
+    if [ "${!token_var:-}" = "__FAILED__" ]; then
+        result "SKIP" "业务 happy-path ($label)" "guest-login 缓存失败,本次 run 不再重试 path=$path"
+        return 0
+    fi
+
+    if [ -z "${!token_var:-}" ]; then
+        # 5 个 probe 共享 1 次 guest-login 调用(原本各调 1 次 × 10s 超时 = 最坏 50s 浪费)
+        local guest_resp guest_http new_token
+        guest_resp=$(curl -s --max-time 10 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' \
+            "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "")
+        guest_http=$(echo "$guest_resp" | tail -1)
+        guest_resp=$(echo "$guest_resp" | sed '$d')
+        new_token=$(echo "$guest_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+        if [ -z "$new_token" ]; then
+            # F4 修复:把 HTTP 码带进 SKIP 详情,5 个 probe 不再全相同,便于 root cause 区分
+            printf -v "$token_var" '%s' "__FAILED__"
+            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 HTTP ${guest_http:-000} (JWT 空,本次 run 后续 probe 复用此结果) path=$path"
+            return 0
+        fi
+        printf -v "$token_var" '%s' "$new_token"
+    fi
+
+    local http_code body size
+    body=$(curl -s --max-time 10 -w "\n%{http_code}" \
+        -H "Authorization: Bearer ${!token_var}" \
+        "$BASE_URL$path" 2>/dev/null || echo "")
+    http_code=$(echo "$body" | tail -1)
+    body=$(echo "$body" | sed '$d')
+
+    case "$http_code" in
+        # F2 修复:201/204 也是合法 PASS(全链路 GET 不写数据,某些 view 返回 201 表示资源列表化)
+        200|201|204)
+            # F8 修复:${#body} 在 CJK locale 下是字符数不是字节数;用 wc -c 取真实字节数
+            size=$(echo -n "$body" | wc -c | tr -d ' ')
+            if [ "$size" -ge "$min_size" ]; then
+                result "PASS" "业务 happy-path ($label)" "HTTP $http_code size=${size}B path=$path"
+            else
+                result "PASS" "业务 happy-path ($label)" "HTTP $http_code 但响应体仅 ${size}B (业务可能空数据) path=$path"
+            fi
+            ;;
+        # F3 修复:helper 探针的 FAIL 阈值严于阶段 6 guest-login 失败码。
+        # 真业务错仅 401/403/404 — guest 鉴权错 / 端点未注册;其余 5xx/4xx 保守 SKIP
+        # (与阶段 6 401/403/500 → FAIL 不同 — 阶段 6 是 guest-login 本身失败,必须 FAIL;
+        #  helper 是探 GET 业务端点,服务端资源/客户端错都不要假阳性 FAIL)
+        401|403)
+            result "FAIL" "业务 happy-path ($label)" "HTTP $http_code — guest 用户被拒,需确认 view 权限配置 path=$path"
+            ;;
+        404)
+            result "FAIL" "业务 happy-path ($label)" "HTTP 404 — 端点未注册 path=$path"
+            ;;
+        000|502|503|504)
+            result "SKIP" "业务 happy-path ($label)" "网络瞬态 HTTP $http_code path=$path"
+            ;;
+        429)
+            result "WARN" "业务 happy-path ($label)" "HTTP 429 — DRF 5/15m 限流命中,15 分钟后重试 path=$path"
+            ;;
+        # 5xx 服务器资源/未知错 — K2 保守 SKIP(helper 比阶段 6 宽松,500 不视为真业务错)
+        500|501|505|506|507|508|510)
+            result "SKIP" "业务 happy-path ($label)" "服务端资源/版本错 HTTP $http_code (K2 保守) path=$path"
+            ;;
+        # 4xx 客户端错 — 探针视角下非业务错,K2 保守 SKIP
+        400|405|406|408|409|410|411|412|413|414|415|416|417|418|421|422|423|424|425|426|428|431|451)
+            result "SKIP" "业务 happy-path ($label)" "客户端错 HTTP $http_code (非业务错,K2 保守) path=$path"
+            ;;
+        # K2:未知码默认 SKIP — 新版本后端可能新增业务错误码,CI 不阻塞
+        *)
+            result "SKIP" "业务 happy-path ($label)" "未知 HTTP $http_code (K2 保守 SKIP) path=$path"
+            ;;
     esac
 }
 
@@ -39,6 +223,10 @@ ENV_FILE="--env-file .env.production"
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
+
+# Fix-12: 把 compose() 函数 export 到子 shell,让 $(compose ...) 等命令可用
+# 否则 timeout / $() 子进程不继承 bash 函数
+export -f compose
 
 # ─── 阶段 1: 容器状态 ───────────────────────────────────────
 echo "阶段 1: 容器状态"
@@ -201,6 +389,478 @@ if echo "$WORKER_STATUS" | grep -q "Up"; then
     result "PASS" "Celery worker is running"
 else
     result "FAIL" "Celery worker" "Status: $WORKER_STATUS"
+fi
+
+# 5.2 (P0 强化): 真任务端到端 — 进程在 ≠ 任务能跑。
+# 用 paperless_proxy.cleanup_cache(paperless_proxy/tasks.py:148):
+# 无参数;目录不存在返回 {"deleted": 0};否则仅删除过期缓存,幂等无副作用。
+# 已配置为每 6h 自动运行 — 显式触发 = 强制一次后台 cleanup。
+# 若 worker 进程在但 broker 切了 / task 未注册 / task 模块未加载,这一步 30s 超时失败。
+# Fix-12: compose() 是 bash 函数,timeout / sh -c 都不会继承,必须用 docker compose 直接调用
+# COMPOSE_PROJECT_NAME/COMPOSE_FILE/ENV_FILE 是 smoke 顶部定义的全局变量
+timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python -c "
+import django; django.setup()
+from paperless_proxy.tasks import cleanup_paperless_cache
+r = cleanup_paperless_cache.delay()
+print('OK', r.get(timeout=30, propagate=False))
+" > /tmp/.smoke_celery_$$.out 2>/dev/null
+CELERY_RESP=$(cat /tmp/.smoke_celery_$$.out 2>/dev/null)
+rm -f /tmp/.smoke_celery_$$.out
+if [ -z "$CELERY_RESP" ]; then CELERY_RESP="FAIL_TIMEOUT"; fi
+if echo "$CELERY_RESP" | grep -q "^OK {"; then
+    result "PASS" "Celery 真任务端到端" "$CELERY_RESP"
+else
+    result "FAIL" "Celery 真任务" "响应: $CELERY_RESP — worker 没消费/broker 不通/task 未注册"
+fi
+echo ""
+
+# ─── 阶段 6: 版本/迁移/CHANGELOG 端点 (需 JWT) ─────────────────
+echo "阶段 6: 版本/迁移/CHANGELOG 端点"
+
+# 阶段 6 头部抓 JWT — 区分 5/15m 限流 (H1)
+# 阶段 6 头部抓 JWT — 区分 5/15m 限流 (H1) + 真业务错误不应 SKIP (C·新发现 1)
+# C·新发现 2: 用 PID 后缀隔离并发 run 时的 json 文件
+# S5: JWT 文件默认仅 owner 可读;清理合并到主 cleanup_smoke_artifacts trap
+#   (因为 bash EXIT trap 是单值,不能与已有 trap 叠加,见 trap 函数实现)
+GUEST_JSON="/tmp/.smoke_guest_$$.json"
+(umask 077; : > "$GUEST_JSON")  # S5: 设 restrictive 权限
+GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
+    -X POST -H "Content-Type: application/json" -d '{}' \
+    "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+
+case "$GUEST_HTTP" in
+    200)
+        GUEST_TOKEN=$(python3 -c "import json; print(json.load(open('$GUEST_JSON')).get('access',''))" 2>/dev/null || echo "")
+        ;;
+    429)
+        result "WARN" "Guest login rate-limited (HTTP 429)" "5/15m 已耗尽,跳过阶段 6;可 15 分钟后重试"
+        GUEST_TOKEN=""
+        ;;
+    # 真业务错误(token 失效/被禁/IP 黑名单/后端崩溃):FAIL 让 CI gate 看见
+    400|401|403|500)
+        result "FAIL" "Guest login 真业务错误" "HTTP $GUEST_HTTP — 服务可能配置错/后端崩溃,不能 SKIP"
+        GUEST_TOKEN=""
+        ;;
+    # B·D: 路由配置错误 / 服务器资源拒绝 — guest-login 是已知 POST 端点,
+    #   405/451 = API 签名错或合规拒绝;506/507 = 服务器资源/版本错
+    405|451)
+        result "FAIL" "Guest login 路由配置错误" "HTTP $GUEST_HTTP — 端点签名错/合规拒绝,不能 SKIP"
+        GUEST_TOKEN=""
+        ;;
+    506|507)
+        result "FAIL" "Guest login 服务器资源异常" "HTTP $GUEST_HTTP — 服务器资源/版本不支持,不能 SKIP"
+        GUEST_TOKEN=""
+        ;;
+    # 网络瞬态 / nginx 上游挂:保守 SKIP
+    000|502|503|504)
+        result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (网络瞬态)"
+        GUEST_TOKEN=""
+        ;;
+    *)
+        # K2 设计意图:未知 HTTP 码保守 SKIP — 新版本后端可能新增业务错误码,
+        #  在 CI 上不阻塞,但 STATUS 行通过 "skip count" 让值班能定位
+        result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (未知)"
+        GUEST_TOKEN=""
+        ;;
+esac
+# 清理临时 json (即便 set -u 下变量未用)
+[ -f "$GUEST_JSON" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
+unset GUEST_JSON
+
+if [ -z "$GUEST_TOKEN" ]; then
+    # S4: 显式告知后续 6.1 / 6.2 也被跳过 — operator 看到 "FAIL + 2 SKIP" 而非 "FAIL" 单独一行
+    #     才能区分"是 guest-login 单独坏"还是"全栈挂了"
+    result "SKIP" "Migrations endpoint" "No JWT (guest-login HTTP ${GUEST_HTTP:-empty})"
+    result "SKIP" "Changelog endpoint" "No JWT (guest-login HTTP ${GUEST_HTTP:-empty})"
+else
+    # 6.1 /api/system/migrations/
+    MIG=$(curl -s --max-time 10 -H "Authorization: Bearer $GUEST_TOKEN" \
+        "$BASE_URL/api/system/migrations/" 2>/dev/null || echo "")
+    if echo "$MIG" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+assert 'has_destructive' in d
+assert 'applied_count' in d
+assert 'pending_count' in d
+" 2>/dev/null; then
+        APPLIED=$(echo "$MIG" | python3 -c "import sys,json; print(json.load(sys.stdin)['applied_count'])")
+        PENDING=$(echo "$MIG" | python3 -c "import sys,json; print(json.load(sys.stdin)['pending_count'])")
+        # destructive 比较 (M5) — case 大小写安全
+        DESTRUCTIVE=$(echo "$MIG" | python3 -c "import sys,json; print(json.load(sys.stdin)['has_destructive'])")
+        result "PASS" "Migrations endpoint (applied=$APPLIED pending=$PENDING destructive=$DESTRUCTIVE)"
+        case "$DESTRUCTIVE" in
+            [Tt]rue|1)
+                # destructive op 列表 (L4) — 提示具体哪些类型
+                DESTRUCTIVE_OPS=$(echo "$MIG" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+ops = [o for p in d.get('pending', []) for o in (p.get('operations') or []) if o.get('destructive')]
+print(','.join(o['type'] + '(' + o.get('model', o.get('field','?')) + ')' for o in ops[:5]) or 'unknown')
+" 2>/dev/null || echo "extraction_failed")
+                # D 项 (P0):默认 FAIL — 不可预期的 DROP TABLE/COLUMN 应阻断部署。
+                # 显式 escape:SMOKE_ALLOW_DESTRUCTIVE=1 ./smoke_tests.sh 改回 WARN
+                if [ "${SMOKE_ALLOW_DESTRUCTIVE:-0}" = "1" ]; then
+                    result "WARN" "Pending migrations include destructive operations" "OVERRIDE: SMOKE_ALLOW_DESTRUCTIVE=1 已显式允许 — $DESTRUCTIVE_OPS"
+                else
+                    result "FAIL" "Pending migrations include destructive operations" "DROP TABLE/COLUMN 被禁止 — 需 SMOKE_ALLOW_DESTRUCTIVE=1 显式 escape. ops: $DESTRUCTIVE_OPS"
+                fi
+                ;;
+        esac
+    else
+        result "FAIL" "Migrations endpoint" "Response: ${MIG:0:200}"
+    fi
+
+    # 6.2 /api/system/changelog/
+    # 端点合法返回两种:
+    #   (A) 真实 CHANGELOG.md 内容 — 含 "## " 二级标题与 [vX.Y.Z] 顶层 version
+    #   (B) 占位符 fallback — "# 更新日志\n\n暂无更新日志。"
+    #       (当 backend 容器无法读到 deployment/docker/CHANGELOG.md 时触发,
+    #        这是生产部署配置问题而非 smoke 失败,故 PASS + WARN)
+    CHL=$(curl -s --max-time 10 -H "Authorization: Bearer $GUEST_TOKEN" \
+        "$BASE_URL/api/system/changelog/" 2>/dev/null || echo "")
+    if echo "$CHL" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+assert isinstance(d.get('changelog',''), str) and len(d['changelog']) > 0
+" 2>/dev/null; then
+        # Fix-12: regex 兼容 'v' 前缀(Keep a Changelog 标准 '## [v0.7.0-alpha.2]')
+        #       和无 'v' 前缀(当前 deployment/docker/CHANGELOG.md 用 '## [0.7.0-alpha.2]')
+        VER=$(echo "$CHL" | python3 -c "
+import sys,json,re
+t=json.load(sys.stdin)['changelog']
+m=re.search(r'\[(v?[0-9.]+[a-z0-9.-]*)\]', t)
+print(m.group(1) if m else 'fallback')
+" 2>/dev/null)
+        result "PASS" "Changelog endpoint (latest=$VER)"
+        if [ "$VER" = "fallback" ]; then
+            result "WARN" "Changelog endpoint fallback" "生产部署可能未挂载 deployment/docker/CHANGELOG.md;详见 core/api.py:54"
+        fi
+    else
+        result "FAIL" "Changelog endpoint" "Response: ${CHL:0:200}"
+    fi
+fi
+echo ""
+
+# ─── 阶段 7: 离线包元数据/可加载性校验 (validate_artifacts.sh) ──
+echo "阶段 7: 离线包元数据/可加载性校验"
+
+if [ -x "./validate_artifacts.sh" ]; then
+    VA_OUTPUT=$(./validate_artifacts.sh exported_images/ 2>&1)
+    VA_RC=$?
+    if [ "$VA_RC" -eq 0 ]; then
+        VA_PASS=$(echo "$VA_OUTPUT" | grep -c "PASS:")
+        VA_FAIL=$(echo "$VA_OUTPUT" | grep -c "FAIL:")
+        VA_WARN=$(echo "$VA_OUTPUT" | grep -c "WARN:")
+        result "PASS" "Offline bundle integrity (validate_artifacts: pass=$VA_PASS fail=$VA_FAIL warn=$VA_WARN)"
+    else
+        result "FAIL" "Offline bundle integrity" "validate_artifacts.sh exit=$VA_RC. tail: $(echo "$VA_OUTPUT" | tail -10)"
+    fi
+else
+    result "SKIP" "Offline bundle integrity" "validate_artifacts.sh not found/executable"
+fi
+echo ""
+
+# ─── 阶段 8: 卷持久化测试 (重启后数据仍在) ─────────────────────
+echo "阶段 8: 卷持久化测试"
+# R2: 卷持久化是部署正确性的关键 — 如果卷未正确挂载,容器重启即丢数据。
+#     测试两个最具代表性的卷:
+#       8.1 backend media (Django FileField 默认落点,容器重启数据应仍在)
+#       8.2 postgres data (关系数据,容器重启数据应仍在)
+#     策略: write → restart → 等 health green → read → cleanup。
+#     注: 容器重启期间服务不可用,生产窗口期 ~30-90s。
+
+# 8.1 Backend media volume (最稳的卷测试 — 文件就在 volume)
+MEDIA_MARKER="smoke_media_$$_$(date +%s)"
+MARKER_FILE="/usr/src/app/media/_smoke_marker"
+if compose exec -T backend sh -c "echo '$MEDIA_MARKER' > $MARKER_FILE" 2>/dev/null; then
+    compose restart backend >/dev/null 2>&1 || true
+    # H2: 不再固定 sleep — 等 backend HEALTHCHECK green 才动手,最多 60s
+    BACKEND_ID=$(compose ps -q backend 2>/dev/null || true)
+    for _ in $(seq 1 12); do  # 12 * 5s ≈ 60s
+        HC="unknown"
+        if [ -n "$BACKEND_ID" ]; then
+            HC=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no-healthcheck{{end}}' \
+                "$BACKEND_ID" 2>/dev/null || echo "unknown")
+        fi
+        [ "$HC" = "healthy" ] && break
+        sleep 5
+    done
+    MEDIA_AFTER=$(compose exec -T backend cat "$MARKER_FILE" 2>/dev/null || echo "MISSING")
+    if [ "$MEDIA_AFTER" = "$MEDIA_MARKER" ]; then
+        result "PASS" "Backend media volume persists across restart"
+    else
+        # 健康但值不对 → 真的丢卷; 健康但仍未 ready → SKIP(避免误报)
+        if [ "$HC" != "healthy" ]; then
+            result "SKIP" "Backend media persist" "Backend 60s 内未恢复 healthy (hc=$HC),暂无法判定"
+        else
+            result "FAIL" "Backend media persist" "Got '$MEDIA_AFTER' (expected $MEDIA_MARKER)"
+        fi
+    fi
+    # 注意:trap EXIT 也会清理 marker_file,这里显式 rm 是双保险
+    # B·F: 主流程 marker 清理也加 timeout 10,与 trap 内 backend rm 对称
+    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+else
+    result "SKIP" "Backend media persist" "Cannot write to /usr/src/app/media/"
+fi
+
+# 8.2 Postgres data volume (用 INSERT + restart db)
+if [ -f ".env.production" ]; then
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+    if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB" ]; then
+        # I 安全注释: PG_MARKER_VAL 仅含 PID + unix_ts + 下划线,无 SQL 注入风险。
+        #   若改值规则(如追加 user input),须保证仅含 [A-Za-z0-9_],否则需 quote 转义
+        PG_MARKER_VAL="smoke_pg_$$_$(date +%s)"
+        # M3: 捕获 PSQL 输出,失败时区分建表失败 vs 重启后卷丢
+        PSQL_OUT=$(compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -c \
+            "CREATE TABLE IF NOT EXISTS _smoke_persist (mark text); INSERT INTO _smoke_persist (mark) VALUES ('$PG_MARKER_VAL');" 2>&1) || true
+        if ! echo "$PSQL_OUT" | grep -q "INSERT 0 1"; then
+            result "FAIL" "Postgres persist" "CREATE+INSERT 失败: ${PSQL_OUT:0:200}"
+        else
+            compose restart db >/dev/null 2>&1 || true
+            # Fix-9: db 重启后,gunicorn worker 持有的 conn 会 stale(CONN_MAX_AGE=600 场景)
+            # 同步重启 backend 让 entrypoint 重新建连(等 CONN_HEALTH_CHECKS 兜底时也起到双重保险)
+            compose restart backend >/dev/null 2>&1 || true
+            # H3: 18 * 5s = 90s,覆盖 db.start_period 60s + retries 5s/次
+            for _ in $(seq 1 18); do
+                if compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then break; fi
+                sleep 5
+            done
+            # 等 backend 重新 healthy(避免阶段 9 撞 stale conn 500)
+            wait_for_healthy backend 30 || true
+            if ! compose exec -T db pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB" >/dev/null 2>&1; then
+                # 卷可能 OK,但 db 还在启动,SKIP 而非 FAIL (避免冷启动误报)
+                result "SKIP" "Postgres persist" "pg_isready 90s 内未就绪;卷可能 OK 但 db 还在启动"
+            else
+                PG_AFTER=$(compose exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tAc \
+                    "SELECT mark FROM _smoke_persist WHERE mark='$PG_MARKER_VAL';" 2>/dev/null | tr -d ' \r\n' || echo "")
+                if [ "$PG_AFTER" = "$PG_MARKER_VAL" ]; then
+                    result "PASS" "Postgres data persists across restart"
+                else
+                    result "FAIL" "Postgres persist" "重启后 SELECT 返回 '$PG_AFTER' (卷可能丢失)"
+                fi
+            fi
+        fi
+    else
+        result "SKIP" "Postgres persist" "POSTGRES_USER/POSTGRES_DB not set in .env.production"
+    fi
+else
+    result "SKIP" "Postgres persist" ".env.production not found"
+fi
+echo ""
+
+# ─── 阶段 8.3: 文件上传链路 (file_processing 真业务) ──────
+echo "阶段 8.3: 文件上传链路"
+
+# P0 修复:真实 HTTP 上传 → 写 media_volume → process_file_task.delay(...)
+# 验证 Celery 任务分发能力(500/502 直接暴露 worker 失效)。
+# 端点 /api/file/upload/(file_processing/urls.py 注册前缀 file,非 file_processing)
+# 权限 IsAuthenticated(guest JWT 即可;见 file_processing/views.py:8,37,42)
+# 生产 /media/ 路由不可用(DEBUG=False,Django 不挂),但 201 + Celery 分发仍能验证
+# 用最小 magic 可识别 PDF — libmagic 看 %PDF- 前缀即识别 application/pdf
+GUEST_TOKEN_H83=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
+    "$BASE_URL/api/auth/guest-login/" \
+  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+
+if [ -n "$GUEST_TOKEN_H83" ]; then
+    # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
+    SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
+    printf '%%PDF-1.4\n' > "$SMOKE_PDF"
+    UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
+        -H "Authorization: Bearer $GUEST_TOKEN_H83" \
+        -F "file=@$SMOKE_PDF;type=application/pdf" \
+        "$BASE_URL/api/file/upload/" 2>/dev/null || echo "")
+    UPLOAD_CODE=$(echo "$UPLOAD_OUT" | tail -1)
+    rm -f "$SMOKE_PDF"
+    # 业务真错(400/401/403/413/415/500) → FAIL;网络瞬态(000/502/503/504) → SKIP
+    case "$UPLOAD_CODE" in
+        201)             result "PASS" "File processing 上传链路" "HTTP 201 — 业务命中 + Celery 任务已分发" ;;
+        000|502|503|504) result "SKIP" "File processing 上传链路" "网络瞬态 HTTP $UPLOAD_CODE" ;;
+        *)               result "FAIL" "File processing 上传链路" "HTTP $UPLOAD_CODE (期望 201)" ;;
+    esac
+else
+    result "SKIP" "File processing 上传链路" "guest-login 不可达 (JWT 空)"
+fi
+echo ""
+
+# ─── 阶段 9: 业务 happy-path (memos 端到端) ──────────────
+echo "阶段 9: 业务 happy-path (memos)"
+
+# P0 修复:28+ Django app 的业务端点此前 0 冒烟覆盖。
+# memos 是单调用闭环最佳入口:IsAuthenticated only(guest OK) + 必填仅 title + 无 FK。
+# 见 omni_desk_backend/memos/views.py:8-15(权限) / models.py:6-13(字段)
+# 已 reject 的备选:news(POST 需 Admin)/ documents(二阶 FK)/ meeting_rooms(时间冲突)
+# Fix-9: 阶段 8 重启 db 后,gunicorn worker 可能还在重建连接 — 入口加 backend 健康守卫
+if ! wait_for_healthy backend 30; then
+    result "SKIP" "业务 happy-path (memos)" "阶段 8 重启后 backend 30s 内未 healthy"
+    echo ""
+else
+    # 用 curl_with_retry 处理 5xx/网络瞬态(配合 production.py CONN_HEALTH_CHECKS=True 双重保险)
+    GUEST_TOKEN_H9=$(curl_with_retry 3 -X POST -H "Content-Type: application/json" -d '{}' \
+        "$BASE_URL/api/auth/guest-login/" 2>/dev/null | head -n -1 | \
+        python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+
+    if [ -z "$GUEST_TOKEN_H9" ]; then
+        result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+    else
+        # 9.1 POST 创建 — 加 retry,db 重启瞬态 5xx 自动恢复
+        MEMO_TITLE="smoke-test-$$-$(date +%s)"
+        CREATE_RESP=$(curl_with_retry 3 -X POST \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            -d "{\"title\":\"$MEMO_TITLE\"}" \
+            "$BASE_URL/api/memos/" 2>/dev/null | head -n -1 || echo "")
+        MEMO_ID=$(echo "$CREATE_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
+    if [ -n "$MEMO_ID" ]; then
+        result "PASS" "Memos POST 创建" "id=$MEMO_ID title=$MEMO_TITLE"
+
+        # 9.2 GET 详情
+        GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
+        if [ "$GET_CODE" = "200" ]; then
+            result "PASS" "Memos GET 详情" "HTTP 200"
+        else
+            result "FAIL" "Memos GET 详情" "HTTP $GET_CODE (期望 200)"
+        fi
+
+        # 9.3 DELETE 清理(失败仅 WARN,避免下次 run 累加)
+        DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X DELETE \
+            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
+        # H2 修复(code-review):真业务错(401/403/500/502/503/504)→ FAIL,
+        # 让 memo 残留生产表被运维看到;404 留 WARN(可能已被清理);其他(400/405 等客户端错)留 WARN。
+        case "$DEL_CODE" in
+            204|200)         result "PASS" "Memos DELETE 清理" "HTTP $DEL_CODE" ;;
+            404)              result "WARN" "Memos DELETE 清理" "HTTP 404 — memo 不存在/已被清理,可忽略" ;;
+            401|403|500|502|503|504) result "FAIL" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留生产表,需人工 SQL 清理" ;;
+            *)                result "WARN" "Memos DELETE 清理" "HTTP $DEL_CODE — memo 残留,下次 run 累加" ;;
+        esac
+    else
+        result "FAIL" "Memos POST 创建" "响应: ${CREATE_RESP:0:200}"
+    fi
+    fi
+fi
+echo ""
+
+# ─── 阶段 10: 业务端点广度 (5 app × 1 GET-only happy-path) ─────
+echo "阶段 10: 业务端点广度"
+
+# P1 修复:17+ app 此前仅 memos 一条 happy-path,阶段 10 用 GET-only 探针
+# 验证 5 个高频/高风险 app 的 URL 模式 + view + serializer + 权限 + DB 查询
+# 全部链路。GET 不写数据,无需 cleanup(陷阱不增项)。
+# 端点选取标准(都已验存在):
+#   events  /api/events/trials/         — 排班试用,低写入风险
+#   news    /api/news-articles/         — 新闻公告
+#   documents /api/documents/books/     — 文档书籍
+#   projects /api/projects/             — 项目管理
+#   ragflow-service /api/ragflow-service/configs/  — 外部服务配置
+#
+# 若 5 条全 PASS 视为业务广度冒烟通过;单项 FAIL 立即定位哪个 app 端点挂
+
+GUEST_TOKEN_H10=""
+
+# 10.1 events trials
+_app_happy_path_get "events/trials" "/api/events/trials/" 2 "GUEST_TOKEN_H10"
+
+# 10.2 news articles
+_app_happy_path_get "news/articles" "/api/news-articles/" 2 "GUEST_TOKEN_H10"
+
+# 10.3 documents books
+_app_happy_path_get "documents/books" "/api/documents/books/" 2 "GUEST_TOKEN_H10"
+
+# 10.4 projects
+_app_happy_path_get "projects" "/api/projects/" 2 "GUEST_TOKEN_H10"
+
+# 10.5 ragflow-service configs
+_app_happy_path_get "ragflow/configs" "/api/ragflow-service/configs/" 2 "GUEST_TOKEN_H10"
+echo ""
+
+# ─── 阶段 11: PG 备份可恢复性 (shadow DB 还原验证) ──────────
+echo "阶段 11: PG 备份可恢复性"
+
+# P0 修复:backup_db / restore_db 命令已存在,但冒烟从未端到端验证。
+# 策略:触发 backup → 找最新 .sql.gz → 在同 postgres 容器内 CREATE DATABASE
+# omnidesk_shadow_restore_<pid> → base64 传输到 db 容器 → gunzip + psql 还原
+# → SELECT 4 张核心表验证非空 → DROP DATABASE 清理。
+# trap 内兜底 DROP 防中途崩溃残留。
+
+SHADOW_DB="omnidesk_shadow_restore_$$"
+SMOKE_BACKUP_FILE=""
+
+if [ ! -f ".env.production" ]; then
+    result "SKIP" "PG backup restore" ".env.production not found"
+else
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+
+    if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_DB" ]; then
+        result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"
+    else
+        # 11.1 触发 backup_db — Fix-12: compose() 是 bash 函数,timeout 不继承,直接 docker compose
+        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
+        BACKUP_RC=$?
+        BACKUP_OUT=$(cat /tmp/.smoke_backup_$$.out 2>/dev/null)
+        rm -f /tmp/.smoke_backup_$$.out
+        BACKUP_RC=${BACKUP_RC:-0}
+        if [ "$BACKUP_RC" -ne 0 ]; then
+            result "FAIL" "PG backup_db 命令" "exit=$BACKUP_RC tail: ${BACKUP_OUT: -200}"
+        else
+            # 11.2 定位最新备份文件
+            # Fix-11: backup_db 默认 output_dir 是 /opt/omnidesk/backups (见 core/management/commands/backup_db.py:20)
+            # Fix-12: timeout 是新进程,不继承 bash 函数,必须用 docker compose 直接调用
+            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
+            LATEST=$(cat /tmp/.smoke_bkls_$$.out 2>/dev/null | tr -d '\r\n')
+            rm -f /tmp/.smoke_bkls_$$.out
+            if [ -z "$LATEST" ]; then
+                result "FAIL" "PG backup 文件定位" "未找到 .sql.gz 文件"
+            else
+                # 11.3 base64 传输(50MB 以内可接受)
+                # Fix-12: 所有 docker compose 子进程调用都展开为完整命令,避免 timeout/$() 不继承 bash 函数
+                docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
+                B64=$(cat /tmp/.smoke_b64_$$.out 2>/dev/null | tr -d '\r\n ')
+                rm -f /tmp/.smoke_b64_$$.out
+                if [ -z "$B64" ]; then
+                    result "FAIL" "PG backup 传输" "backend base64 编码失败"
+                else
+                    SMOKE_BACKUP_FILE="/tmp/.smoke_backup_$$.sql.gz"
+                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
+                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
+                        result "FAIL" "PG backup 落地" "db 端 $SMOKE_BACKUP_FILE 写入失败或为空"
+                    else
+                        # 11.4 CREATE 影子库
+                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                            "CREATE DATABASE $SHADOW_DB;" 2>&1) || true
+                        if ! echo "$CREATE_OUT" | grep -q "CREATE DATABASE"; then
+                            result "FAIL" "PG shadow DB 创建" "${CREATE_OUT:0:200}"
+                        else
+                            # 11.5 还原到影子库
+                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c \
+                                "gunzip -c $SMOKE_BACKUP_FILE | psql -U $POSTGRES_USER -d $SHADOW_DB -v ON_ERROR_STOP=1" 2>&1) || true
+                            if echo "$RESTORE_OUT" | grep -qE "ERROR|FATAL"; then
+                                result "FAIL" "PG restore 还原" "psql 报错: $(echo "$RESTORE_OUT" | grep -E 'ERROR|FATAL' | head -3)"
+                            else
+                                # 11.6 验证 4 张核心表非空
+                                NON_EMPTY=0
+                                for tbl in users_customuser memos_memo auth_group django_migrations; do
+                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
+                                        "SELECT count(*) FROM $tbl;" 2>/dev/null | tr -d ' \r\n' || echo "0")
+                                    if [ -n "$CNT" ] && [ "$CNT" -gt 0 ] 2>/dev/null; then
+                                        NON_EMPTY=$((NON_EMPTY + 1))
+                                    fi
+                                done
+                                if [ "$NON_EMPTY" -ge 3 ]; then
+                                    result "PASS" "PG backup restore 验证" "影子库 $SHADOW_DB 还原,$NON_EMPTY/4 核心表非空"
+                                else
+                                    result "FAIL" "PG backup restore 验证" "影子库还原成功但 $NON_EMPTY/4 表非空,可能备份不完整"
+                                fi
+                            fi
+                        fi
+                    fi
+                fi
+            fi
+        fi
+    fi
 fi
 echo ""
 

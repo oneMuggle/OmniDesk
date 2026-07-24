@@ -149,6 +149,8 @@ function resolveRealAdapter() {
  * @param {() => boolean} [_getIsDemoMode] - 已废弃：现在从 localStorage 读取，保留参数仅为向后兼容
  */
 export function setupDemoInterceptor(axiosInstance, _getIsDemoMode) {
+  // _getIsDemoMode 参数已废弃:现在从 localStorage 读取;保留仅为向后兼容
+  void _getIsDemoMode;
   const realAdapter = resolveRealAdapter();
 
   axiosInstance.defaults.adapter = function demoAdapter(config) {
@@ -162,6 +164,7 @@ export function setupDemoInterceptor(axiosInstance, _getIsDemoMode) {
       return realAdapter(config);
     }
 
+    // eslint-disable-next-line testing-library/no-debugging-utils
     logger.debug('[demo] intercepted', { method: config.method, url: config.url });
 
     // Build the response in the shape axios expects. This mirrors

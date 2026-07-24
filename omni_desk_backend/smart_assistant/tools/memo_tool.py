@@ -37,3 +37,11 @@ class MemoTool(BaseTool):
             "count": len(results),
             "memos": results,
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的备忘录 QuerySet。"""
+        return Memo.objects.select_related("user").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的备忘录。"""
+        return qs.filter(user=ctx.user)
