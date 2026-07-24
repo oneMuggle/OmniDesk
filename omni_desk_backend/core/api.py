@@ -48,8 +48,15 @@ def version_info(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def changelog(request):
-    changelog_path = Path(__file__).resolve().parent.parent.parent.parent / "deployment" / "docker" / "CHANGELOG.md"
-    if changelog_path.is_file():
+    # 与 core/version.py 同样采用多路径 fallback,支持开发与生产两种 layout:
+    #   - 开发环境: core/api.py 在 PROJECT_ROOT/omni_desk_backend/core/,3 次 .parent 解析到 repo root
+    #   - 生产容器: core/api.py 在 /usr/src/app/core/,2 次 .parent 解析到 /usr/src/app (PROJECT_ROOT)
+    candidates = [
+        Path(__file__).resolve().parent.parent.parent / "deployment" / "docker" / "CHANGELOG.md",
+        Path(__file__).resolve().parent.parent / "deployment" / "docker" / "CHANGELOG.md",
+    ]
+    changelog_path = next((p for p in candidates if p.is_file()), None)
+    if changelog_path:
         content = changelog_path.read_text(encoding="utf-8")
     else:
         content = "# 更新日志\n\n暂无更新日志。"
