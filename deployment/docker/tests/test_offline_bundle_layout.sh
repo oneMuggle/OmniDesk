@@ -260,8 +260,222 @@ else
     fail "rollback.sh 丢了硬门禁,回滚可能在未部署包上误跑"
 fi
 
+# 8. 协调员 Important #1:真实调用 package_offline_bundle.sh(避免手工 cp 掩盖打包回退)
+#    把整个 deployment/docker/ 脚本树复制到临时 SRC,真实运行 SKIP_GUARD=1 跳过
+#    渠道-分支守卫,触发真实拷贝/IMAGE_TAG_SED/sed/CHECKSUMS 等流程,验证产出。
+REAL_PACK_SRC="$(mktemp -d)/pack_src"
+mkdir -p "$REAL_PACK_SRC"
+cp "$ROOT/package_offline_bundle.sh" "$REAL_PACK_SRC/"
+cp "$ROOT/upgrade.sh"             "$REAL_PACK_SRC/"
+cp "$ROOT/rollback.sh"            "$REAL_PACK_SRC/"
+cp "$ROOT/backup.sh"              "$REAL_PACK_SRC/"
+cp "$ROOT/verify.sh"              "$REAL_PACK_SRC/"
+cp "$ROOT/deploy_offline.sh"      "$REAL_PACK_SRC/"
+cp "$ROOT/smoke_tests.sh"         "$REAL_PACK_SRC/"
+cp "$ROOT/docker-compose.offline.yml" "$REAL_PACK_SRC/"
+cp "$ROOT/.env.production.example"     "$REAL_PACK_SRC/"
+echo "0.7.0-rc.1" > "$REAL_PACK_SRC/VERSION"
+
+# 占位 exported_images/(backend/frontend .tar),让脚本走"导出存在"路径而不触发 docker save
+mkdir -p "$REAL_PACK_SRC/exported_images"
+# 创建 fake tars:让 verify.sh [3/3] 体积阈值通过(backend>=50MB, frontend>=10MB);
+# 同时给 base images(postgres/redis/nginx)也建空文件,避免 package_offline_bundle.sh
+# 走到 docker save 分支却没产物。
+dd if=/dev/zero of="$REAL_PACK_SRC/exported_images/omni_desk_backend.tar" bs=1M count=60 2>/dev/null
+dd if=/dev/zero of="$REAL_PACK_SRC/exported_images/omni_desk_frontend.tar" bs=1M count=15 2>/dev/null
+touch "$REAL_PACK_SRC/exported_images/postgres-14-alpine.tar"
+touch "$REAL_PACK_SRC/exported_images/redis-7-alpine.tar"
+touch "$REAL_PACK_SRC/exported_images/nginx-stable-alpine.tar"
+
+# IMPORTANT:零字节/随机字节不是合法 docker image,`docker load -q -i` 会非零退出,
+# 由于 package_offline_bundle.sh 顶部 set -e 会让脚本在此处 abort(并跳过 CHECKSUMS 与 README 的生成)。
+# 用 stub docker 让 `load` 和 `images` 都返回 0/空输出,允许脚本继续。
+DOCKER_STUB_DIR="$(mktemp -d)"
+cat > "$DOCKER_STUB_DIR/docker" <<'STUB_EOF'
+#!/bin/bash
+# 简化版 docker stub:只让 package_offline_bundle.sh 的 load/images/inspect 走通。
+# 其它子命令透传给真实 docker。
+case "$1" in
+    load)
+        # load:不真正解析,直接 exit 0
+        exit 0
+        ;;
+    images)
+        # images --format:返回空(让 BACKEND_INFO / FRONTEND_INFO 为空,走 fallback 分支)
+        exit 0
+        ;;
+    image)
+        # docker image inspect:return 0 让脚本以为镜像存在
+        exit 0
+        ;;
+    save)
+        exit 0
+        ;;
+    *)
+        # 透传给真实 docker
+        exec /usr/bin/docker "$@"
+        ;;
+esac
+STUB_EOF
+chmod +x "$DOCKER_STUB_DIR/docker"
+# 极简 BUILD-MANIFEST.json(脚本会优先 cp 它;docker load 路径 2>/dev/null 容错)
+echo '{"version":"0.7.0-rc.1","channel":"preview"}' > "$REAL_PACK_SRC/exported_images/build-manifest.json"
+
+real_pack_log="$(mktemp)"
+set +e
+# PATH = stub docker + 真实命令,让 docker load/images/save/inspect 走 stub(避免零字节 tar 让脚本 abort)
+( cd "$REAL_PACK_SRC" && PATH="$DOCKER_STUB_DIR:$PATH" SKIP_GUARD=1 bash package_offline_bundle.sh 0.7.0-rc.1 ) >"$real_pack_log" 2>&1
+real_pack_rc=$?
+set -e
+
+REAL_BUNDLE="$REAL_PACK_SRC/omnidesk-offline-rc-v0.7.0-rc.1"
+if [ -d "$REAL_BUNDLE" ]; then
+    pass "真实 package_offline_bundle.sh 产出存在: $REAL_BUNDLE (rc=$real_pack_rc)"
+else
+    fail "真实 package_offline_bundle.sh 没有产出 omnidesk-offline-rc-v0.7.0-rc.1/"
+    echo "      --- package_offline_bundle.sh 日志 ---"
+    sed 's/^/        /' "$real_pack_log"
+fi
+
+# 8.1 真实 bundle 含全部 brief 要求脚本
+for s in deploy upgrade rollback backup verify deploy_offline smoke_tests; do
+    if [ -f "$REAL_BUNDLE/scripts/${s}.sh" ]; then
+        pass "real bundle 含 scripts/${s}.sh"
+    else
+        fail "real bundle 缺 scripts/${s}.sh"
+    fi
+done
+
+# 8.2 真实 bundle 含 compose/docker-compose.offline.yml + compose/.env.production.example(Round 2)
+assert_file_exists "$REAL_BUNDLE/compose/docker-compose.offline.yml"
+assert_file_exists "$REAL_BUNDLE/compose/.env.production.example"
+
+# 8.3 真实 bundle 不应预生成 compose/.env.production(由 deploy.sh start 生成)
+if [ ! -f "$REAL_BUNDLE/compose/.env.production" ]; then
+    pass "real bundle 未预生成 compose/.env.production(应 deploy 时生成)"
+else
+    fail "real bundle 错误地预生成了 compose/.env.production"
+fi
+
+# 8.4 real bundle VERSION 与 BUILD-MANIFEST.json
+[ -f "$REAL_BUNDLE/VERSION" ] && pass "real bundle 含 VERSION" || fail "real bundle 缺 VERSION"
+[ -f "$REAL_BUNDLE/BUILD-MANIFEST.json" ] && pass "real bundle 含 BUILD-MANIFEST.json" || fail "real bundle 缺 BUILD-MANIFEST.json"
+
+# 8.5 真实 bundle 中 IMAGE_TAG 已被 sed 重写为 v0.7.0-rc.1(避免手工 cp 漏改)
+if grep -qE 'BACKEND_IMAGE_TAG:-v0\.7\.0-rc\.1|FRONTEND_IMAGE_TAG:-v0\.7\.0-rc\.1' "$REAL_BUNDLE/compose/docker-compose.offline.yml"; then
+    pass "real bundle sed 已把 IMAGE_TAG fallback 改成 v0.7.0-rc.1"
+else
+    fail "real bundle IMAGE_TAG 未被 sed 重写(还停留在原 fallback 值)"
+fi
+
+# 8.6 真实 bundle 上 verify.sh 应 exit 0(完整 bundle,镜像体积 WARN 不计 ERRORS)
+set +e
+( cd "$REAL_BUNDLE" && bash scripts/verify.sh >/dev/null 2>&1 )
+real_verify_rc=$?
+set -e
+if [ "$real_verify_rc" = "0" ]; then
+    pass "verify.sh 在 real bundle 上 exit 0(完整产物合格)"
+else
+    fail "verify.sh 在 real bundle 上 exit=$real_verify_rc"
+fi
+
+# 8.7 real bundle 内 upgrade.sh / rollback.sh 能 bash -n 通过(确认真实拷到了内容,
+#     而不是空文件 — 后者在 hero scenarios 中常被静默忽略)
+bash -n "$REAL_BUNDLE/scripts/upgrade.sh" 2>/dev/null && pass "real bundle upgrade.sh bash -n OK"  || fail "real bundle upgrade.sh bash -n FAIL"
+bash -n "$REAL_BUNDLE/scripts/rollback.sh" 2>/dev/null && pass "real bundle rollback.sh bash -n OK" || fail "real bundle rollback.sh bash -n FAIL"
+
+# 9. 协调员 Important #2:verify.sh 注释行过滤 + 真实声明匹配
+#    构造一个 example 文件,故意把字段名写在注释行 → 应被识别为"未声明"。
+fake_compose="$(mktemp)"
+cat > "$fake_compose" <<'EOF'
+# 警告:COMPOSE_PROJECT_NAME 必须显式提供,但本测试故意把它只写在注释里
+# COMPOSE_PROJECT_NAME=should-not-count
+name: ${COMPOSE_PROJECT_NAME}
+services:
+  db:
+    image: postgres:14-alpine
+EOF
+# 把 verify.sh 的核心匹配逻辑内联到本测试(因为涉及临时文件解析,不易直接 source)
+fake_filter() {
+    local file="$1" pattern="$2"
+    local filtered
+    filtered=$(grep -vE '^[[:space:]]*#' "$file" || true)
+    if printf '%s\n' "$filtered" | grep -qE "(^|[^A-Z_])${pattern}([^A-Z_]|$)"; then
+        return 0
+    else
+        return 1
+    fi
+}
+if fake_filter "$fake_compose" 'COMPOSE_PROJECT_NAME'; then
+    # 真有 `name: ${COMPOSE_PROJECT_NAME}` 声明,所以应匹配 — OK
+    pass "verify.sh 注释过滤后仍能匹配真实声明(name: \${COMPOSE_PROJECT_NAME})"
+else
+    fail "verify.sh 注释过滤误杀真实声明"
+fi
+
+# 现在去掉 name: 那行,只留注释
+fake_compose2="$(mktemp)"
+cat > "$fake_compose2" <<'EOF'
+# COMPOSE_PROJECT_NAME=only-in-comment
+services:
+  db:
+    image: postgres:14-alpine
+EOF
+if fake_filter "$fake_compose2" 'COMPOSE_PROJECT_NAME'; then
+    fail "verify.sh 注释过滤失效:注释行被当作真实声明"
+else
+    pass "verify.sh 注释过滤生效:仅注释时不匹配"
+fi
+rm -f "$fake_compose" "$fake_compose2"
+
+# 9.2 同步校验 verify.sh 源代码确实包含注释过滤行(防回退)
+if grep -q 'grep -vE' "$ROOT/verify.sh"; then
+    pass "verify.sh 源码包含 grep -vE 注释过滤(Implementation)未回退"
+else
+    fail "verify.sh 源码丢了 grep -vE 注释过滤(实现回退)"
+fi
+
+# 10. 协调员 Important #3:compose name 字段使用硬门禁(:?),不应回退到目录名
+#     在临时 bundle 中去掉 COMPOSE_PROJECT_NAME 让 docker compose config 解析,期望失败。
+if command -v docker >/dev/null 2>&1 && docker compose version >/dev/null 2>&1; then
+    tmp_d="$TEST_TMPDIR/hard_gate"
+    mkdir -p "$tmp_d/compose"
+    cp "$REAL_BUNDLE/compose/docker-compose.offline.yml" "$tmp_d/compose/"
+    # 写一个故意不带 COMPOSE_PROJECT_NAME 的 env
+    cat > "$tmp_d/.env.production" <<'EOF'
+POSTGRES_DB=test
+POSTGRES_USER=u
+POSTGRES_PASSWORD=p
+SECRET_KEY=k
+REDIS_PASSWORD=r
+BACKEND_IMAGE_TAG=v0.7.0-rc.1
+FRONTEND_IMAGE_TAG=v0.7.0-rc.1
+EOF
+    set +e
+    ( cd "$tmp_d" && docker compose -f compose/docker-compose.offline.yml --env-file .env.production config >/dev/null 2>&1 )
+    hard_rc=$?
+    set -e
+    if [ "$hard_rc" != "0" ]; then
+        pass "缺 COMPOSE_PROJECT_NAME 时 docker compose config 拒绝(:? 硬门禁生效,rc=$hard_rc)"
+    else
+        fail "缺 COMPOSE_PROJECT_NAME 时 compose 仍通过 — name 字段缺硬门禁(回退到目录名)"
+    fi
+fi
+
+# 10.2 源码层面:compose 文件第 1 处 `name:` 行必须包含 `:?` 硬门禁
+if grep -E '^name:.*:?[A-Z]' "$COMPOSE_FILE_SRC" >/dev/null; then
+    if grep -E '^name: \$\{COMPOSE_PROJECT_NAME:\?' "$COMPOSE_FILE_SRC" >/dev/null; then
+        pass "compose name 字段使用 :? 硬门禁"
+    else
+        fail "compose name 字段没有 :? 硬门禁 — 没设默认会回退到目录名"
+    fi
+else
+    fail "compose 缺顶层 name: 字段"
+fi
+
 # ─── 汇总 ────────────────────────────────────────────────────
-rm -rf "$TEST_TMPDIR"
+# 清理所有 mktemp 临时目录(包括 real pack 测试创建的独立 mktemp -d,以及 docker stub)
+rm -rf "$TEST_TMPDIR" "$(dirname "$REAL_PACK_SRC")" /tmp/pack_src "$DOCKER_STUB_DIR" 2>/dev/null || true
 
 echo ""
 echo "=========================================="

@@ -91,17 +91,29 @@ for pattern in "${IDENTITY_PATTERNS[@]}"; do
     compose_ok=0
     env_ok=0
     env_checked="$ENV_FILE"
-    if [ -f "$COMPOSE_FILE" ] && grep -qE "(^|[^A-Z_])${pattern}([^A-Z_]|$)" "$COMPOSE_FILE"; then
-        compose_ok=1
+    # 协调员 Important #2:跳过 YAML / .env 注释行(以 # 开头的行),只匹配"真实声明"。
+    # 目的:避免注释里提到 COMPOSE_PROJECT_NAME 时被误判为已配置,
+    #       防止打包者误把字段名搬进注释就掩盖了真实声明的缺失。
+    if [ -f "$COMPOSE_FILE" ]; then
+        compose_real=$(grep -vE '^[[:space:]]*#' "$COMPOSE_FILE" || true)
+        if printf '%s\n' "$compose_real" | grep -qE "(^|[^A-Z_])${pattern}([^A-Z_]|$)"; then
+            compose_ok=1
+        fi
     fi
-    if [ -f "$ENV_FILE" ] && grep -qE "^${pattern}=" "$ENV_FILE"; then
-        env_ok=1
-    elif [ -f "$ENV_EXAMPLE_FILE" ] && grep -qE "^${pattern}=" "$ENV_EXAMPLE_FILE"; then
-        env_ok=1
-        env_checked="$ENV_EXAMPLE_FILE (fallback,包未部署)"
+    if [ -f "$ENV_FILE" ]; then
+        env_real=$(grep -vE '^[[:space:]]*#' "$ENV_FILE" || true)
+        if printf '%s\n' "$env_real" | grep -qE "^${pattern}="; then
+            env_ok=1
+        fi
+    elif [ -f "$ENV_EXAMPLE_FILE" ]; then
+        env_real=$(grep -vE '^[[:space:]]*#' "$ENV_EXAMPLE_FILE" || true)
+        if printf '%s\n' "$env_real" | grep -qE "^${pattern}="; then
+            env_ok=1
+            env_checked="$ENV_EXAMPLE_FILE (fallback,包未部署)"
+        fi
     fi
     if [ "$compose_ok" = "1" ] && [ "$env_ok" = "1" ]; then
-        echo "  OK: $pattern 在 compose 与 $env_checked 中都已声明"
+        echo "  OK: $pattern 在 compose 与 $env_checked 中都已声明(忽略注释行)"
     else
         echo "  MISSING: $pattern (compose_ok=$compose_ok env_ok=$env_ok)"
         ERRORS=$((ERRORS + 1))
