@@ -24,12 +24,21 @@ if [ -f "$SCRIPT_DIR/../compose/docker-compose.offline.yml" ]; then
     # 离线包布局:compose 在 SCRIPT_DIR/../compose/
     cd "$SCRIPT_DIR/.."
     COMPOSE_FILE="-f compose/docker-compose.offline.yml"
-    ENV_FILE="--env-file compose/.env.production"
+    ENV_FILE_PATH="compose/.env.production"
 else
     # 源码树布局:compose 文件与脚本同目录
     cd "$SCRIPT_DIR"
     COMPOSE_FILE="-f docker-compose.offline.yml"
-    ENV_FILE="--env-file .env.production"
+    ENV_FILE_PATH=".env.production"
+fi
+ENV_FILE="--env-file $ENV_FILE_PATH"
+
+# 硬门禁:启动/升级前必须存在真实 .env.production(本脚本只对"已部署"包有意义)。
+# 协调员 follow-up:verify.sh 容忍缺失(example fallback),但 upgrade 必须实际 .env.production。
+if [ ! -f "$ENV_FILE_PATH" ]; then
+    echo "ERROR: $ENV_FILE_PATH 不存在 — upgrade 必须在已部署的实例上运行。" >&2
+    echo "  首次部署请先: cd <bundle> && ./scripts/deploy.sh start(生成 .env.production)" >&2
+    exit 1
 fi
 
 # Backup directory on the host (relative to script location)

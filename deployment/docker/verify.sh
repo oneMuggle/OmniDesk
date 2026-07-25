@@ -45,7 +45,7 @@ REQUIRED_FILES=(
     "scripts/deploy_offline.sh"
     "scripts/smoke_tests.sh"
     "compose/docker-compose.offline.yml"
-    "compose/.env.production"
+    "compose/.env.production.example"
     "config/.env.production.example"
     "VERSION"
     "BUILD-MANIFEST.json"
@@ -62,9 +62,20 @@ for f in "${REQUIRED_FILES[@]}"; do
     fi
 done
 
-# 2.5 校验固定身份字段(compose 文件 + .env.production 都必须含)
+# 2.4 提示:compose/.env.production 是 deploy 时生成,缺它不代表"包损坏"
+# 启动/升级的硬门禁由 deploy_offline.sh / upgrade.sh 自行 require_env_file 检查。
+if [ -f "compose/.env.production" ]; then
+    echo "  OK: compose/.env.production (已初始化)"
+elif [ -f "compose/.env.production.example" ]; then
+    echo "  INFO: compose/.env.production 缺失,但 compose/.env.production.example 存在 — 包尚未部署,验证通过"
+else
+    echo "  WARN: compose/.env.production 缺失且无 example 备份(异常)"
+fi
+
+# 2.5 校验固定身份字段(compose 文件 + 至少一个 env 文件必须含)
 # 目的:防止打包脚本意外漏掉 ${COMPOSE_PROJECT_NAME} / ${OMNIDESK_*_VOLUME},
 # 导致 alpha/beta/rc 多包目录升级时无法复用同一项目/卷 → 孤儿项目/数据遗弃。
+# 行为:优先校验 compose/.env.production(已初始化);不存在则校验 compose/.env.production.example。
 echo ""
 echo "[2.5/3] 校验固定项目/卷身份字段..."
 
@@ -75,17 +86,22 @@ IDENTITY_PATTERNS=(
 )
 COMPOSE_FILE="compose/docker-compose.offline.yml"
 ENV_FILE="compose/.env.production"
+ENV_EXAMPLE_FILE="compose/.env.production.example"
 for pattern in "${IDENTITY_PATTERNS[@]}"; do
     compose_ok=0
     env_ok=0
+    env_checked="$ENV_FILE"
     if [ -f "$COMPOSE_FILE" ] && grep -qE "(^|[^A-Z_])${pattern}([^A-Z_]|$)" "$COMPOSE_FILE"; then
         compose_ok=1
     fi
     if [ -f "$ENV_FILE" ] && grep -qE "^${pattern}=" "$ENV_FILE"; then
         env_ok=1
+    elif [ -f "$ENV_EXAMPLE_FILE" ] && grep -qE "^${pattern}=" "$ENV_EXAMPLE_FILE"; then
+        env_ok=1
+        env_checked="$ENV_EXAMPLE_FILE (fallback,包未部署)"
     fi
     if [ "$compose_ok" = "1" ] && [ "$env_ok" = "1" ]; then
-        echo "  OK: $pattern 在 compose 与 env 中都已声明"
+        echo "  OK: $pattern 在 compose 与 $env_checked 中都已声明"
     else
         echo "  MISSING: $pattern (compose_ok=$compose_ok env_ok=$env_ok)"
         ERRORS=$((ERRORS + 1))

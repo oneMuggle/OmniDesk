@@ -174,6 +174,92 @@ else
     echo "  SKIP: docker compose 不可用,跳过跨目录解析断言"
 fi
 
+# 7. 协调员 follow-up 要求:验证新的"example fallback"门禁行为
+#    - bundle 必须含 compose/.env.production.example
+#    - 在未初始化(compose/.env.production 缺失)时,verify.sh 应通过(用 example)
+#    - package_offline_bundle.sh 应同时把 example 拷到 config/ 和 compose/ 两个目录
+assert_file_exists "$ENV_EXAMPLE_SRC"
+
+# 构造"未初始化"bundle(只有 .example,没有 .env.production)模拟刚解压的状态
+uninit_bundle="$TEST_TMPDIR/uninit_bundle"
+mkdir -p "$uninit_bundle/scripts" "$uninit_bundle/compose" "$uninit_bundle/images" "$uninit_bundle/config"
+cp "$ROOT/upgrade.sh"   "$uninit_bundle/scripts/upgrade.sh"
+cp "$ROOT/rollback.sh"  "$uninit_bundle/scripts/rollback.sh"
+cp "$ROOT/backup.sh"    "$uninit_bundle/scripts/backup.sh"
+cp "$ROOT/verify.sh"    "$uninit_bundle/scripts/verify.sh"
+cp "$ROOT/deploy_offline.sh" "$uninit_bundle/scripts/deploy_offline.sh"
+cp "$ROOT/smoke_tests.sh"    "$uninit_bundle/scripts/smoke_tests.sh"
+# scripts/deploy.sh 由 package_offline_bundle.sh 内联生成,不来自源码;
+# 这里用 stub 占位(空脚本但存在)模拟打包后的产物。
+cat > "$uninit_bundle/scripts/deploy.sh" <<'STUB_DEPLOY_EOF'
+#!/bin/bash
+# stub deploy.sh — 占位符,verify.sh 只检查存在性,不执行
+echo "stub deploy"
+STUB_DEPLOY_EOF
+chmod +x "$uninit_bundle/scripts/deploy.sh"
+cp "$COMPOSE_FILE_SRC"  "$uninit_bundle/compose/docker-compose.offline.yml"
+cp "$ENV_EXAMPLE_SRC"   "$uninit_bundle/compose/.env.production.example"
+cp "$ENV_EXAMPLE_SRC"   "$uninit_bundle/config/.env.production.example"
+echo "0.7.0-rc.1" > "$uninit_bundle/VERSION"
+echo '{}' > "$uninit_bundle/BUILD-MANIFEST.json"
+# 生成 CHECKSUMS.sha256(空 sha256 即可,verify.sh 只校验空文件集的 checksum)
+(cd "$uninit_bundle" && find . -type f ! -name 'CHECKSUMS.sha256' -exec sha256sum {} + > CHECKSUMS.sha256)
+# 注意:不创建 compose/.env.production — 这是"未初始化 bundle"的关键标志
+
+# 模拟 package_offline_bundle.sh 的镜像复制(verify.sh [3/3] 段会校验大小,
+# 留 0 字节会被判"镜像过小" → 模拟真实 bundle 给镜像灌入合法大小)
+dd if=/dev/zero of="$uninit_bundle/images/omni_desk_backend.tar" bs=1M count=60 2>/dev/null
+dd if=/dev/zero of="$uninit_bundle/images/omni_desk_frontend.tar" bs=1M count=15 2>/dev/null
+dd if=/dev/zero of="$uninit_bundle/images/postgres-14-alpine.tar" bs=1M count=80 2>/dev/null
+dd if=/dev/zero of="$uninit_bundle/images/redis-7-alpine.tar" bs=1M count=15 2>/dev/null
+dd if=/dev/zero of="$uninit_bundle/images/nginx-stable-alpine.tar" bs=1M count=30 2>/dev/null
+
+# 7.1 compose/.env.production.example 必须存在
+assert_file_exists "$uninit_bundle/compose/.env.production.example"
+
+# 7.2 config/.env.production.example 也存在(双重备份)
+assert_file_exists "$uninit_bundle/config/.env.production.example"
+
+# 7.3 在未初始化 bundle 上运行 verify.sh 应通过(用 example fallback,不报 .env.production 缺失)
+#    用 `|| true` 让 set -e 在 verify.sh 退非零时不杀进程,以便我们捕获退出码再断言。
+set +e
+verify_output=$(cd "$uninit_bundle" && bash scripts/verify.sh 2>&1)
+verify_rc=$?
+set -e
+if [ "$verify_rc" -eq 0 ]; then
+    pass "verify.sh 在未初始化 bundle 上通过(example fallback): exit=$verify_rc"
+else
+    fail "verify.sh 在未初始化 bundle 上失败: exit=$verify_rc"
+    echo "$verify_output" | sed 's/^/    /'
+fi
+
+# 7.4 verify.sh 的输出应包含"example"提示(让用户知道发生了什么)
+if echo "$verify_output" | grep -qE 'example|未初始化|已初始化'; then
+    pass "verify.sh 输出包含 example 提示"
+else
+    fail "verify.sh 输出缺少 example 相关提示"
+fi
+
+# 7.5 启动/升级硬门禁:必须仍要求真实 .env.production
+#    - deploy_offline.sh 用 require_env_file 函数
+#    - upgrade.sh / rollback.sh 各自 inline 检查 [ -f $ENV_FILE_PATH ]
+#    任一脚本丢掉门禁都会让"未初始化"包绕过安全检查。
+if grep -q 'require_env_file' "$ROOT/deploy_offline.sh"; then
+    pass "deploy_offline.sh 仍使用 require_env_file 硬要求实际 .env.production"
+else
+    fail "deploy_offline.sh 丢了 require_env_file 调用,启动/升级会失去门禁"
+fi
+if grep -qE '\[ ! -f "\$ENV_FILE_PATH" \]' "$ROOT/upgrade.sh"; then
+    pass "upgrade.sh 仍硬要求 ENV_FILE_PATH 实际存在"
+else
+    fail "upgrade.sh 丢了硬门禁,升级可能在未部署包上误跑"
+fi
+if grep -qE '\[ ! -f "\$ENV_FILE_PATH" \]' "$ROOT/rollback.sh"; then
+    pass "rollback.sh 仍硬要求 ENV_FILE_PATH 实际存在"
+else
+    fail "rollback.sh 丢了硬门禁,回滚可能在未部署包上误跑"
+fi
+
 # ─── 汇总 ────────────────────────────────────────────────────
 rm -rf "$TEST_TMPDIR"
 

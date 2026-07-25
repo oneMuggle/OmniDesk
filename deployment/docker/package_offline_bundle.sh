@@ -508,7 +508,15 @@ if [ -f "$SCRIPT_DIR/.env.production.example" ]; then
     # 用 sed 把 bundle 内 example env 的 IMAGE_TAG 默认值替换为当前构建版本
     sed -i "s/^BACKEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
     sed -i "s/^FRONTEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
-    echo "  OK: .env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
+    echo "  OK: config/.env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
+
+    # 同时复制到 compose/ 子目录,作为"未初始化"门禁:
+    # verify.sh 在 compose/.env.production 不存在时退而校验 compose/.env.production.example
+    # (启动/升级前仍由 deploy_offline.sh / upgrade.sh 强制要求正式 .env.production)
+    cp "$SCRIPT_DIR/.env.production.example" "$BUNDLE_DIR/compose/.env.production.example"
+    sed -i "s/^BACKEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/.env.production.example"
+    sed -i "s/^FRONTEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/.env.production.example"
+    echo "  OK: compose/.env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
 else
     echo "  WARN: .env.production.example 不存在,跳过配置模板复制"
 fi

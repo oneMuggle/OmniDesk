@@ -21,12 +21,19 @@ if [ -f "$SCRIPT_DIR/../compose/docker-compose.offline.yml" ]; then
     # 离线包布局
     cd "$SCRIPT_DIR/.."
     COMPOSE_FILE="-f compose/docker-compose.offline.yml"
-    ENV_FILE="--env-file compose/.env.production"
+    ENV_FILE_PATH="compose/.env.production"
 else
     # 源码树布局
     cd "$SCRIPT_DIR"
     COMPOSE_FILE="-f docker-compose.offline.yml"
-    ENV_FILE="--env-file .env.production"
+    ENV_FILE_PATH=".env.production"
+fi
+ENV_FILE="--env-file $ENV_FILE_PATH"
+
+# 硬门禁:rollback 只对"已部署"实例有意义,缺 .env.production 时立即拒绝
+if [ ! -f "$ENV_FILE_PATH" ]; then
+    echo "ERROR: $ENV_FILE_PATH 不存在 — rollback 必须在已部署的实例上运行。" >&2
+    exit 1
 fi
 
 # Backup directory on the host (relative to script location)
