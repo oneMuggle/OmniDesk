@@ -13,11 +13,21 @@ set -e
 #   6. Health check
 #   7. Record rollback
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-COMPOSE_FILE="-f docker-compose.offline.yml"
-ENV_FILE="--env-file .env.production"
+# 自动检测布局:源码树(扁平)vs 离线包(compose/ 子目录)
+# brief 要求 bundle 内脚本通过 SCRIPT_DIR/../compose 定位 compose/env 文件
+if [ -f "$SCRIPT_DIR/../compose/docker-compose.offline.yml" ]; then
+    # 离线包布局
+    cd "$SCRIPT_DIR/.."
+    COMPOSE_FILE="-f compose/docker-compose.offline.yml"
+    ENV_FILE="--env-file compose/.env.production"
+else
+    # 源码树布局
+    cd "$SCRIPT_DIR"
+    COMPOSE_FILE="-f docker-compose.offline.yml"
+    ENV_FILE="--env-file .env.production"
+fi
 
 # Backup directory on the host (relative to script location)
 BACKUP_DIR="${BACKUP_DIR:-./backups}"

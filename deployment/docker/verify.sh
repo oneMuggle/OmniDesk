@@ -38,10 +38,18 @@ REQUIRED_FILES=(
     "images/redis-7-alpine.tar"
     "images/nginx-stable-alpine.tar"
     "scripts/deploy.sh"
+    "scripts/upgrade.sh"
+    "scripts/rollback.sh"
+    "scripts/backup.sh"
+    "scripts/verify.sh"
+    "scripts/deploy_offline.sh"
+    "scripts/smoke_tests.sh"
     "compose/docker-compose.offline.yml"
+    "compose/.env.production"
     "config/.env.production.example"
     "VERSION"
     "BUILD-MANIFEST.json"
+    "CHECKSUMS.sha256"
 )
 
 for f in "${REQUIRED_FILES[@]}"; do
@@ -50,6 +58,36 @@ for f in "${REQUIRED_FILES[@]}"; do
         echo "  OK: $f ($SIZE)"
     else
         echo "  MISSING: $f"
+        ERRORS=$((ERRORS + 1))
+    fi
+done
+
+# 2.5 校验固定身份字段(compose 文件 + .env.production 都必须含)
+# 目的:防止打包脚本意外漏掉 ${COMPOSE_PROJECT_NAME} / ${OMNIDESK_*_VOLUME},
+# 导致 alpha/beta/rc 多包目录升级时无法复用同一项目/卷 → 孤儿项目/数据遗弃。
+echo ""
+echo "[2.5/3] 校验固定项目/卷身份字段..."
+
+IDENTITY_PATTERNS=(
+    "COMPOSE_PROJECT_NAME"
+    "OMNIDESK_POSTGRES_VOLUME"
+    "OMNIDESK_MEDIA_VOLUME"
+)
+COMPOSE_FILE="compose/docker-compose.offline.yml"
+ENV_FILE="compose/.env.production"
+for pattern in "${IDENTITY_PATTERNS[@]}"; do
+    compose_ok=0
+    env_ok=0
+    if [ -f "$COMPOSE_FILE" ] && grep -qE "(^|[^A-Z_])${pattern}([^A-Z_]|$)" "$COMPOSE_FILE"; then
+        compose_ok=1
+    fi
+    if [ -f "$ENV_FILE" ] && grep -qE "^${pattern}=" "$ENV_FILE"; then
+        env_ok=1
+    fi
+    if [ "$compose_ok" = "1" ] && [ "$env_ok" = "1" ]; then
+        echo "  OK: $pattern 在 compose 与 env 中都已声明"
+    else
+        echo "  MISSING: $pattern (compose_ok=$compose_ok env_ok=$env_ok)"
         ERRORS=$((ERRORS + 1))
     fi
 done
