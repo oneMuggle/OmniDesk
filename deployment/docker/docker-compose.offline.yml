@@ -8,6 +8,14 @@
 # 离线包通过 build_and_export.sh 在 docker save/load 后用 docker tag 重命名:
 #   docker tag omni-desk-backend-prod:v0.2.0  ghcr.io/onemuggle/omni-desk-backend:v0.2.0
 #   docker tag omni-desk-frontend-prod:v0.2.0 ghcr.io/onemuggle/omni-desk-frontend:v0.2.0
+#
+# ─── 固定项目与卷身份 ─────────────────────────────────────────
+# 通过顶层 `name: ${COMPOSE_PROJECT_NAME}` 与 volumes 的 explicit `name:`
+# 锁定身份,让 alpha/beta/rc/stable/hotfix 多个包目录复用同一 Compose 项目与数据卷,
+# 升级时不会因为包目录名变化产生孤儿项目/卷。
+# 所有字段均由 .env.production.example 提供默认值(CHANNEL 派生)。
+
+name: ${COMPOSE_PROJECT_NAME}
 
 x-common-env: &common-env
   env_file:
@@ -170,9 +178,14 @@ services:
 
 volumes:
   postgres_data:
+    # 固定 external name:不同包目录升级时复用同一 Postgres 数据卷
+    # (避免 docker compose 把数据遗弃在孤儿项目里)
+    name: ${OMNIDESK_POSTGRES_VOLUME}
   redis_data:
   static_volume:
   media_volume:
+    # 固定 external name:不同包目录升级时复用同一 Django media 卷
+    name: ${OMNIDESK_MEDIA_VOLUME}
   backup_volume:
 
 networks:

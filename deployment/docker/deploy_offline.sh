@@ -4,15 +4,84 @@ set -e
 # deploy_offline.sh — 离线部署管理脚本
 # 使用方法: ./deploy_offline.sh {start|debug|stop|clean|restart|status|logs|exec|version|backup|upgrade|rollback|migrate|install-desktop}
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Use standalone compose file (no merge with docker-compose.yml)
-COMPOSE_FILE="-f docker-compose.offline.yml"
-ENV_FILE="--env-file .env.production"
+# 自动检测布局:源码树(扁平)vs 离线包(compose/ 子目录)
+# brief 要求 bundle 内脚本通过 SCRIPT_DIR/../compose 定位 compose/env 文件
+if [ -f "$SCRIPT_DIR/../compose/docker-compose.offline.yml" ]; then
+    # 离线包布局
+    cd "$SCRIPT_DIR/.."
+    COMPOSE_FILE="-f compose/docker-compose.offline.yml"
+    ENV_FILE="--env-file compose/.env.production"
+else
+    # 源码树布局
+    cd "$SCRIPT_DIR"
+    COMPOSE_FILE="-f docker-compose.offline.yml"
+    ENV_FILE="--env-file .env.production"
+fi
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
+}
+
+# ─── 路径辅助:定位 .env.production(源码树或离线包布局)────────
+# 返回:相对于当前 cwd 的路径(空字符串表示不存在)
+resolve_env_file() {
+    if [ -f "compose/.env.production" ]; then
+        echo "compose/.env.production"
+    elif [ -f ".env.production" ]; then
+        echo ".env.production"
+    fi
+}
+
+# 检测失败时打印错误并退出
+require_env_file() {
+    local env_path
+    env_path="$(resolve_env_file)"
+    if [ -z "$env_path" ]; then
+        echo "ERROR: .env.production not found (looked in compose/ and .)"
+        exit 1
+    fi
+}
+
+# ─── 加载镜像 ───────────────────────────────────────────────
+load_images() {
+    echo "Loading images from .tar files..."
+    local errors=0
+
+    # 源码树:images/ 在 exported_images/(build_and_export.sh 输出)
+    # 离线包:images/ 直接在 bundle 根目录
+    local img_dir=""
+    if [ -d "images" ]; then
+        img_dir="images"
+    elif [ -d "exported_images" ]; then
+        img_dir="exported_images"
+    fi
+    if [ -z "$img_dir" ]; then
+        echo "WARN: images/ or exported_images/ directory not found, skipping image load"
+        return 0
+    fi
+
+    for tar_file in "$img_dir/omni_desk_backend.tar" "$img_dir/omni_desk_frontend.tar" "$img_dir/postgres-14-alpine.tar" "$img_dir/redis-7-alpine.tar" "$img_dir/nginx-stable-alpine.tar"; do
+        if [ -f "$tar_file" ]; then
+            echo "  Loading: $(basename "$tar_file")"
+            if docker load -i "$tar_file"; then
+                echo "    OK"
+            else
+                echo "    FAIL"
+                errors=$((errors + 1))
+            fi
+        else
+            echo "  WARN: $tar_file not found"
+            errors=$((errors + 1))
+        fi
+    done
+
+    if [ "$errors" -gt 0 ]; then
+        echo "ERROR: $errors image(s) failed to load."
+        return 1
+    fi
+    echo "All images loaded successfully."
 }
 
 # ─── 预部署检查 ──────────────────────────────────────────────
@@ -39,15 +108,23 @@ pre_deploy_check() {
         echo "  PASS: Docker Compose available"
     fi
 
-    # 检查 .env.production
-    if [ ! -f ".env.production" ]; then
-        echo "  FAIL: .env.production not found"
+    # 检查 .env.production(源码树:./.env.production;离线包:compose/.env.production)
+    local env_file_path
+    if [ -f "compose/.env.production" ]; then
+        env_file_path="compose/.env.production"
+    elif [ -f ".env.production" ]; then
+        env_file_path=".env.production"
+    else
+        env_file_path=""
+    fi
+    if [ -z "$env_file_path" ]; then
+        echo "  FAIL: .env.production not found (looked in compose/ and .)"
         errors=$((errors + 1))
     else
-        echo "  PASS: .env.production exists"
+        echo "  PASS: $env_file_path exists"
         # 检查关键变量不为空
         for var in POSTGRES_PASSWORD SECRET_KEY REDIS_PASSWORD; do
-            val=$(grep "^${var}=" .env.production | cut -d= -f2-)
+            val=$(grep "^${var}=" "$env_file_path" | cut -d= -f2-)
             if [ -z "$val" ] || echo "$val" | grep -qi "<.*>"; then
                 echo "  FAIL: $var is empty or placeholder"
                 errors=$((errors + 1))
@@ -131,33 +208,6 @@ wait_for_healthy() {
     return 1
 }
 
-# ─── 加载镜像 ───────────────────────────────────────────────
-load_images() {
-    echo "Loading images from .tar files..."
-    local errors=0
-
-    for tar_file in "exported_images/omni_desk_backend.tar" "exported_images/omni_desk_frontend.tar" "exported_images/postgres-14-alpine.tar" "exported_images/redis-7-alpine.tar" "exported_images/nginx-stable-alpine.tar"; do
-        if [ -f "$tar_file" ]; then
-            echo "  Loading: $(basename "$tar_file")"
-            if docker load -i "$tar_file"; then
-                echo "    OK"
-            else
-                echo "    FAIL"
-                errors=$((errors + 1))
-            fi
-        else
-            echo "  WARN: $tar_file not found"
-            errors=$((errors + 1))
-        fi
-    done
-
-    if [ "$errors" -gt 0 ]; then
-        echo "ERROR: $errors image(s) failed to load."
-        return 1
-    fi
-    echo "All images loaded successfully."
-}
-
 # ─── 首次部署检查 ────────────────────────────────────────────
 check_first_deploy() {
     if docker compose $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py showmigrations 2>/dev/null | grep -q "\[ \]"; then
@@ -217,10 +267,7 @@ case "${1:-start}" in
         echo "  ./deploy_offline.sh exec backend python manage.py collectstatic --noinput"
         ;;
     debug)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         echo "Loading images from .tar files..."
         load_images || exit 1
         echo "Running in debug mode (foreground, press Ctrl+C to stop)..."
@@ -238,10 +285,7 @@ case "${1:-start}" in
         echo "WARNING: This deletes all database data."
         ;;
     restart)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         echo "Restarting production services..."
         compose down
         compose up -d
@@ -252,10 +296,7 @@ case "${1:-start}" in
         compose ps
         ;;
     exec)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         shift
         compose exec "$@"
         ;;
@@ -267,32 +308,20 @@ case "${1:-start}" in
         compose exec -T backend python manage.py list_versions 2>/dev/null || echo "Unable to connect to backend."
         ;;
     backup)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         echo "Running backup..."
         ./backup.sh "${@:2}"
         ;;
     upgrade)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         ./upgrade.sh "${2:-.}"
         ;;
     rollback)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         ./rollback.sh
         ;;
     migrate)
-        if [ ! -f ".env.production" ]; then
-            echo "ERROR: .env.production not found."
-            exit 1
-        fi
+        require_env_file
         echo "Running pre-migration check..."
         compose exec -T backend python manage.py check_migrations 2>/dev/null || true
         echo ""

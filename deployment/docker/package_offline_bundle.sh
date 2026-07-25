@@ -470,14 +470,27 @@ echo "  OK: deploy.sh"
 cp "$SCRIPT_DIR/verify.sh" "$BUNDLE_DIR/scripts/"
 echo "  OK: verify.sh"
 
-# 复制 rollback.sh 和 backup.sh（如果存在）
-for script in rollback.sh backup.sh; do
+# 复制 rollback.sh / backup.sh / upgrade.sh / deploy_offline.sh(如果存在)
+#
+# 背景(Task 1 brief):
+#   - 之前只复制 rollback.sh + backup.sh,upgrade.sh 漏掉了 ——
+#     离线包用户调 `deploy.sh upgrade` 时 upgrade.sh 不在 scripts/ 里会失败。
+#   - deploy_offline.sh 是源码树里的多命令入口(backup/upgrade/rollback/migrate),
+#     一并复制让 bundle 用户可以选择通过它而不是 deploy.sh 触发这些子命令。
+for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh; do
     if [ -f "$SCRIPT_DIR/$script" ]; then
         cp "$SCRIPT_DIR/$script" "$BUNDLE_DIR/scripts/"
         chmod +x "$BUNDLE_DIR/scripts/$script"
         echo "  OK: $script"
     fi
 done
+
+# 复制 smoke_tests.sh(brief 要求"所需 smoke 测试")
+if [ -f "$SCRIPT_DIR/smoke_tests.sh" ]; then
+    cp "$SCRIPT_DIR/smoke_tests.sh" "$BUNDLE_DIR/scripts/"
+    chmod +x "$BUNDLE_DIR/scripts/smoke_tests.sh"
+    echo "  OK: smoke_tests.sh"
+fi
 
 # ─── 复制 compose 配置 ─────────────────────────────────────
 echo "复制 docker-compose 配置..."
