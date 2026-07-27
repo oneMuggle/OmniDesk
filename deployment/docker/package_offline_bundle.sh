@@ -470,20 +470,32 @@ echo "  OK: deploy.sh"
 cp "$SCRIPT_DIR/verify.sh" "$BUNDLE_DIR/scripts/"
 echo "  OK: verify.sh"
 
-# 复制 rollback.sh / backup.sh / upgrade.sh / deploy_offline.sh(如果存在)
+# 复制 rollback.sh / backup.sh / upgrade.sh / deploy_offline.sh /
+# upgrade_state.sh / test_helpers.sh(如果存在)
 #
-# 背景(Task 1 brief):
+# 背景(Task 1 + Task 2 brief):
 #   - 之前只复制 rollback.sh + backup.sh,upgrade.sh 漏掉了 ——
 #     离线包用户调 `deploy.sh upgrade` 时 upgrade.sh 不在 scripts/ 里会失败。
 #   - deploy_offline.sh 是源码树里的多命令入口(backup/upgrade/rollback/migrate),
 #     一并复制让 bundle 用户可以选择通过它而不是 deploy.sh 触发这些子命令。
-for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh; do
+#   - upgrade_state.sh(Task 2):upgrade.sh / rollback.sh / deploy_offline.sh(upgrade/rollback 分支)
+#     全部 `source upgrade_state.sh` 加载状态机/锁/SAFE_STOPPED 模块;
+#     若 bundle 不带它,bundle 用户跑任何升级/回滚命令都会因 source 缺文件失败。
+#   - test_helpers.sh(Task 2):共享断言库;tests/test_*.sh 会 source 它。
+#     把测试与 helpers 一并打包,bundle 用户可在生产环境做自检。
+for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh upgrade_state.sh test_helpers.sh; do
     if [ -f "$SCRIPT_DIR/$script" ]; then
         cp "$SCRIPT_DIR/$script" "$BUNDLE_DIR/scripts/"
         chmod +x "$BUNDLE_DIR/scripts/$script"
         echo "  OK: $script"
     fi
 done
+
+# 复制 tests/ 目录(若存在)— 测试入口,供 bundle 用户在生产环境做自检
+if [ -d "$SCRIPT_DIR/tests" ]; then
+    cp -r "$SCRIPT_DIR/tests" "$BUNDLE_DIR/scripts/"
+    echo "  OK: tests/"
+fi
 
 # 复制 smoke_tests.sh(brief 要求"所需 smoke 测试")
 if [ -f "$SCRIPT_DIR/smoke_tests.sh" ]; then

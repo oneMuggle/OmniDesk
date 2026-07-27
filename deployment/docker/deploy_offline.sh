@@ -24,6 +24,15 @@ compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
 
+# ─── 升级状态机(Task 2 brief) ──────────────────────────────
+# 升级状态模块(upgrade_state.sh)只在 upgrade/rollback 分支需要 —
+# start/stop/status/logs/backup/migrate/install-desktop 等普通路径完全不引用,
+# 若无条件 source 会浪费启动开销,且 bundle 中文件缺失时会让所有命令都 fail。
+# 因此这里只设置默认 OMNIDESK_RUNTIME_ROOT;真正 source 推迟到 upgrade/rollback
+# case(见下方)。
+export OMNIDESK_RUNTIME_ROOT="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
+SCRIPT_DIR_ENV="$(cd "$(dirname "$0")" && pwd)"
+
 # ─── 路径辅助:定位 .env.production(源码树或离线包布局)────────
 # 返回:相对于当前 cwd 的路径(空字符串表示不存在)
 resolve_env_file() {
@@ -314,10 +323,23 @@ case "${1:-start}" in
         ;;
     upgrade)
         require_env_file
+        # upgrade.sh 自身 source upgrade_state.sh;这里显式 source 是为了
+        # 在 dispatch 前就能 detect "升级状态模块缺失" 这种 bundle 完整性问题 —
+        # 若 upgrade_state.sh 漏打包,在 dispatch 之前就 fail-fast,而不是
+        # 让 ./upgrade.sh 在子 shell 里神秘崩。
+        if [ ! -f "$SCRIPT_DIR_ENV/upgrade_state.sh" ]; then
+            echo "ERROR: scripts/upgrade_state.sh 缺失 — bundle 不完整。" >&2
+            echo "  请用 package_offline_bundle.sh 重新打包,确保 upgrade_state.sh 复制到 scripts/。" >&2
+            exit 1
+        fi
         ./upgrade.sh "${2:-.}"
         ;;
     rollback)
         require_env_file
+        if [ ! -f "$SCRIPT_DIR_ENV/upgrade_state.sh" ]; then
+            echo "ERROR: scripts/upgrade_state.sh 缺失 — bundle 不完整。" >&2
+            exit 1
+        fi
         ./rollback.sh
         ;;
     migrate)
