@@ -288,10 +288,233 @@ case "${1:-start}" in
         echo "Services stopped."
         ;;
     clean)
-        echo "Stopping services and removing volumes..."
+        # ─── 6 门禁保护(Task 7 brief)─────────────────────────────
+        # 阻止误删生产数据卷:必须按顺序通过 6 道检查,任一失败立即非零退出,
+        # 不下发 `compose down -v`(防 catastrophic data loss)。
+        #
+        #   a. 无 active upgrade(upgrade.sh 未运行或状态文件不在 RECOVERY/SAFE_STOPPED)
+        #   b. --backup-id <id> 指定,且指定批次目录存在
+        #   c. metadata.json 中 restore_verified=true
+        #   d. DB checksum 校验通过
+        #   e. media checksum 校验通过
+        #   f. 备份位于外部 OMNIDESK_BACKUP_ROOT
+        #   g. 确认参数等于 "DELETE OMNIDESK DATA <channel>"(精确大小写)
+        require_env_file
+
+        # 解析参数:--confirm-delete-data <phrase> 和 --backup-id <id>
+        CONFIRM_PHRASE=""
+        BACKUP_ID=""
+        shift_next_phrase=0
+        shift_next_id=0
+        for arg in "${@:2}"; do
+            case "$arg" in
+                --confirm-delete-data=*) CONFIRM_PHRASE="${arg#*=}"; shift_next_phrase=0 ;;
+                --confirm-delete-data)   shift_next_phrase=1 ;;
+                --backup-id=*)           BACKUP_ID="${arg#*=}"; shift_next_id=0 ;;
+                --backup-id)             shift_next_id=1 ;;
+                --help|-h)
+                    echo "Usage: $0 clean --confirm-delete-data \"DELETE OMNIDESK DATA <channel>\" --backup-id <batch-id>"
+                    exit 0
+                    ;;
+                *)
+                    # 处理两 token 形式(--confirm-delete-data <phrase> / --backup-id <id>)
+                    if [ "$shift_next_phrase" -eq 1 ]; then
+                        CONFIRM_PHRASE="$arg"
+                        shift_next_phrase=0
+                    elif [ "$shift_next_id" -eq 1 ]; then
+                        BACKUP_ID="$arg"
+                        shift_next_id=0
+                    fi
+                    ;;
+            esac
+        done
+
+        # 从 .env.production 读取 channel + BACKUP_ROOT
+        ENV_PATH="$(resolve_env_file)"
+        CHANNEL_VAL="$(grep -E '^CHANNEL=' "$ENV_PATH" 2>/dev/null | cut -d= -f2- || true)"
+        [ -z "$CHANNEL_VAL" ] && CHANNEL_VAL="stable"
+        BACKUP_ROOT_VAL="${OMNIDESK_BACKUP_ROOT:-$(grep -E '^OMNIDESK_BACKUP_ROOT=' "$ENV_PATH" 2>/dev/null | cut -d= -f2- || true)}"
+        [ -z "$BACKUP_ROOT_VAL" ] && BACKUP_ROOT_VAL="/opt/omnidesk/backups"
+
+        # 审计日志路径(写到 BACKUP_ROOT/audit/clean.log)
+        AUDIT_LOG_DIR="$BACKUP_ROOT_VAL/audit"
+        AUDIT_LOG="$AUDIT_LOG_DIR/clean.log"
+        mkdir -p "$AUDIT_LOG_DIR"
+
+        write_audit() {
+            local status="$1" reason="$2"
+            local ts
+            ts=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+            echo "[$ts] status=$status backup_id=${BACKUP_ID:-NONE} channel=$CHANNEL_VAL reason=$reason" >> "$AUDIT_LOG"
+        }
+
+        # ─── 门禁 a:无 active upgrade ────────────────────────────────
+        RUNTIME_ROOT_VAL="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
+        ACTIVE_BLOCKED=0
+        if [ -d "$RUNTIME_ROOT_VAL/upgrades" ]; then
+            while IFS= read -r sf; do
+                local_st=$(jq -r '.state // "UNKNOWN"' "$sf" 2>/dev/null || echo "UNKNOWN")
+                if [ "$local_st" != "UNKNOWN" ] && [ "$local_st" != "RECOVERY_STARTED" ] \
+                   && [ "$local_st" != "RECOVERY_COMMITTED" ] && [ "$local_st" != "SAFE_STOPPED" ]; then
+                    echo "ERROR: 门禁 a 失败:存在 active upgrade(状态=$local_st, file=$sf)" >&2
+                    ACTIVE_BLOCKED=1
+                fi
+            done < <(find "$RUNTIME_ROOT_VAL/upgrades" -maxdepth 2 -name state.json 2>/dev/null)
+        fi
+        if [ "$ACTIVE_BLOCKED" -ne 0 ]; then
+            write_audit "REJECTED" "active upgrade in progress"
+            echo "拒绝 clean:存在 active upgrade。请先完成/恢复/或 rm state.json。" >&2
+            exit 1
+        fi
+
+        # ─── 门禁 b:--backup-id 必须指定且批次目录存在 ───────────
+        if [ -z "$BACKUP_ID" ]; then
+            write_audit "REJECTED" "missing --backup-id"
+            echo "ERROR: 门禁 b 失败:--backup-id 必须指定" >&2
+            exit 1
+        fi
+        BATCH_DIR_VAL="$BACKUP_ROOT_VAL/$CHANNEL_VAL/$BACKUP_ID"
+        if [ ! -d "$BATCH_DIR_VAL" ]; then
+            write_audit "REJECTED" "batch dir not found: $BATCH_DIR_VAL"
+            echo "ERROR: 门禁 b 失败:批次目录不存在: $BATCH_DIR_VAL" >&2
+            exit 1
+        fi
+
+        # ─── 门禁 f:备份目录在 BACKUP_ROOT 之内(防 path traversal) ─
+        # realpath 解析软链 + 规范化,确保 BATCH_DIR_VAL 是 BACKUP_ROOT_VAL 的子目录
+        REAL_BATCH="$(cd "$BATCH_DIR_VAL" 2>/dev/null && pwd -P)"
+        REAL_BACKUP_ROOT="$(cd "$BACKUP_ROOT_VAL" 2>/dev/null && pwd -P)"
+        case "$REAL_BATCH/" in
+            "$REAL_BACKUP_ROOT/"*)
+                : # OK
+                ;;
+            *)
+                write_audit "REJECTED" "batch outside BACKUP_ROOT: $REAL_BATCH"
+                echo "ERROR: 门禁 f 失败:批次目录不在 BACKUP_ROOT 内($REAL_BATCH not under $REAL_BACKUP_ROOT)" >&2
+                exit 1
+                ;;
+        esac
+
+        # ─── 门禁 g:确认短语必须精确匹配 "DELETE OMNIDESK DATA <channel>" ──
+        EXPECTED_PHRASE="DELETE OMNIDESK DATA $CHANNEL_VAL"
+        if [ "$CONFIRM_PHRASE" != "$EXPECTED_PHRASE" ]; then
+            write_audit "REJECTED" "confirm phrase mismatch (got='$CONFIRM_PHRASE' expected='$EXPECTED_PHRASE')"
+            echo "ERROR: 门禁 g 失败:确认短语不匹配" >&2
+            echo "  期望: $EXPECTED_PHRASE" >&2
+            echo "  收到: $CONFIRM_PHRASE" >&2
+            exit 1
+        fi
+
+        # ─── 门禁 c/d/e:调用 verify_backup_batch.sh 校验批次完整性 ──
+        # verify_backup_batch.sh 自身会:
+        #   c. 校验 metadata.json 必填字段(含 restore_verified)
+        #   d. 校验 database sha256
+        #   e. 校验 media sha256
+        # 如果 bundle 内有 verify_backup_batch.sh(生产),走外部脚本;
+        # 否则(测试 bundle 仅打包 deploy_offline.sh)内联同款校验,确保门禁语义不变。
+        if [ -f "$SCRIPT_DIR_ENV/verify_backup_batch.sh" ]; then
+            # 生产路径:调用外部脚本
+            if ! bash "$SCRIPT_DIR_ENV/verify_backup_batch.sh" "$BATCH_DIR_VAL"; then
+                write_audit "REJECTED" "verify_backup_batch failed for $BATCH_DIR_VAL"
+                echo "ERROR: 门禁 c/d/e 失败:批次校验未通过(见上方 verify_backup_batch 输出)" >&2
+                exit 1
+            fi
+        else
+            # 内联路径:执行与 verify_backup_batch.sh 同款的 6 项校验
+            META="$BATCH_DIR_VAL/metadata.json"
+            if [ ! -f "$META" ]; then
+                write_audit "REJECTED" "metadata.json missing"
+                echo "ERROR: 门禁 c 失败:metadata.json 缺失" >&2
+                exit 1
+            fi
+            # c.1 必填字段(含 restore_verified)
+            REQUIRED_KEYS='upgrade_id channel source_version database_file media_file database_sha256 media_sha256 database_size media_size restore_verified created_at'
+            for key in $REQUIRED_KEYS; do
+                VAL=$(jq -r ".$key // \"__MISSING__\"" "$META" 2>/dev/null || echo "__PARSE_ERROR__")
+                if [ "$VAL" = "__MISSING__" ] || [ "$VAL" = "__PARSE_ERROR__" ] || [ -z "$VAL" ]; then
+                    write_audit "REJECTED" "metadata missing field: $key"
+                    echo "ERROR: 门禁 c 失败:metadata.json 缺字段 $key" >&2
+                    exit 1
+                fi
+            done
+            # c.2 restore_verified 必须 true
+            RV=$(jq -r '.restore_verified' "$META")
+            if [ "$RV" != "true" ]; then
+                write_audit "REJECTED" "restore_verified != true"
+                echo "ERROR: 门禁 c 失败:restore_verified 必须为 true(实际: $RV)" >&2
+                exit 1
+            fi
+            DB_FILE_REL=$(jq -r '.database_file' "$META")
+            MEDIA_FILE_REL=$(jq -r '.media_file' "$META")
+            DB_SHA=$(jq -r '.database_sha256' "$META")
+            MEDIA_SHA=$(jq -r '.media_sha256' "$META")
+            DB_SIZE=$(jq -r '.database_size' "$META")
+            MEDIA_SIZE=$(jq -r '.media_size' "$META")
+            # 路径穿越防御
+            case "$DB_FILE_REL" in ""|*".."*|/*)
+                write_audit "REJECTED" "database_file invalid path"
+                echo "ERROR: 门禁 c 失败:database_file 路径非法" >&2; exit 1 ;;
+            esac
+            case "$MEDIA_FILE_REL" in ""|*".."*|/*)
+                write_audit "REJECTED" "media_file invalid path"
+                echo "ERROR: 门禁 c 失败:media_file 路径非法" >&2; exit 1 ;;
+            esac
+            DB_PATH="$BATCH_DIR_VAL/$DB_FILE_REL"
+            MEDIA_PATH="$BATCH_DIR_VAL/$MEDIA_FILE_REL"
+            # d. database sha256 + size 校验
+            ACTUAL_DB_SHA=$(sha256sum "$DB_PATH" 2>/dev/null | awk '{print $1}')
+            if [ "$ACTUAL_DB_SHA" != "$DB_SHA" ]; then
+                write_audit "REJECTED" "DB sha256 mismatch"
+                echo "ERROR: 门禁 d 失败:database sha256 不匹配" >&2; exit 1
+            fi
+            ACTUAL_DB_SIZE=$(stat -c%s "$DB_PATH" 2>/dev/null || echo 0)
+            if [ "$ACTUAL_DB_SIZE" != "$DB_SIZE" ]; then
+                write_audit "REJECTED" "DB size mismatch"
+                echo "ERROR: 门禁 d 失败:database size 不匹配" >&2; exit 1
+            fi
+            # d.1 sidecar .sha256 必须与 computed hash 一致(防篡改副文件)
+            DB_SIDECAR="$BATCH_DIR_VAL/${DB_FILE_REL}.sha256"
+            if [ -f "$DB_SIDECAR" ]; then
+                SIDECAR_DB_SHA=$(awk '{print $1}' "$DB_SIDECAR")
+                if [ "$SIDECAR_DB_SHA" != "$ACTUAL_DB_SHA" ]; then
+                    write_audit "REJECTED" "DB sidecar sha256 mismatch"
+                    echo "ERROR: 门禁 d 失败:database.sha256 副文件不匹配" >&2; exit 1
+                fi
+            fi
+            # e. media sha256 + size 校验
+            ACTUAL_MEDIA_SHA=$(sha256sum "$MEDIA_PATH" 2>/dev/null | awk '{print $1}')
+            if [ "$ACTUAL_MEDIA_SHA" != "$MEDIA_SHA" ]; then
+                write_audit "REJECTED" "media sha256 mismatch"
+                echo "ERROR: 门禁 e 失败:media sha256 不匹配" >&2; exit 1
+            fi
+            ACTUAL_MEDIA_SIZE=$(stat -c%s "$MEDIA_PATH" 2>/dev/null || echo 0)
+            if [ "$ACTUAL_MEDIA_SIZE" != "$MEDIA_SIZE" ]; then
+                write_audit "REJECTED" "media size mismatch"
+                echo "ERROR: 门禁 e 失败:media size 不匹配" >&2; exit 1
+            fi
+            # e.1 sidecar .sha256 必须与 computed hash 一致
+            MEDIA_SIDECAR="$BATCH_DIR_VAL/${MEDIA_FILE_REL}.sha256"
+            if [ -f "$MEDIA_SIDECAR" ]; then
+                SIDECAR_MEDIA_SHA=$(awk '{print $1}' "$MEDIA_SIDECAR")
+                if [ "$SIDECAR_MEDIA_SHA" != "$ACTUAL_MEDIA_SHA" ]; then
+                    write_audit "REJECTED" "media sidecar sha256 mismatch"
+                    echo "ERROR: 门禁 e 失败:media.sha256 副文件不匹配" >&2; exit 1
+                fi
+            fi
+        fi
+
+        # ─── 全部门禁通过:写审计 + 执行 compose down -v ───────────
+        write_audit "APPROVED" "all gates passed, executing compose down -v"
+        echo "=========================================="
+        echo "  clean:全部 6 门禁通过,执行 compose down -v"
+        echo "  backup_id=$BACKUP_ID"
+        echo "  batch_dir=$BATCH_DIR_VAL"
+        echo "  audit=$AUDIT_LOG"
+        echo "=========================================="
         compose down -v
         echo "All containers and volumes removed."
         echo "WARNING: This deletes all database data."
+        echo "审计已记录:$AUDIT_LOG"
         ;;
     restart)
         require_env_file
