@@ -74,6 +74,44 @@ compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
 
+# ─── 升级状态机(Task 2 brief) ──────────────────────────────
+# 加载 upgrade_state.sh:rollback 失败时触发 SAFE_STOPPED,记录现场供升级脚本排查。
+SCRIPT_DIR_ENV="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./upgrade_state.sh
+source "$SCRIPT_DIR_ENV/upgrade_state.sh"
+export OMNIDESK_RUNTIME_ROOT="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
+
+# ─── Step 0.5: 生成 rollback 专属 UPGRADE_ID(必须 unique 且非 unknown) ──
+# rollback 标识 = rollback-<UTC时间戳>-<channel>;通过前缀区分 upgrade / rollback
+# 这样:
+#   1) 永远不会落到默认 sentinel "unknown" 上
+#   2) trap 触发 enter_safe_stop 时,状态文件路径唯一,不会污染其他升级记录
+#   3) 调用方可以用 grep 区分 rollback vs upgrade 的状态目录
+TS_UTC_ROLLBACK=$(date -u +'%Y%m%dT%H%M%SZ')
+export UPGRADE_ID="rollback-${TS_UTC_ROLLBACK}-${ROLLBACK_CHANNEL}"
+
+# 持有 rollback 专属升级锁(并发回滚互斥;若与当前 upgrade 抢锁,upgrade 锁优先,
+# 这里 acquire 失败意味着另有 rollback 在跑,直接拒绝)。
+LOCK_PATH_ROLLBACK="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/upgrade.lock"
+if ! acquire_upgrade_lock; then
+    echo "ERROR: 已有 rollback 在运行(lock dir: $LOCK_PATH_ROLLBACK)。" >&2
+    echo "  若确认是遗留,可手动 rm -rf $LOCK_PATH_ROLLBACK 后重试。" >&2
+    exit 1
+fi
+
+# trap:rollback 失败 → SAFE_STOPPED(保留现场);成功 → 释放锁
+# 注意:仅当本脚本确实持有锁时才记录 SAFE_STOPPED — 避免给"被守卫拒绝"的新回滚
+# 写新 SAFE_STOPPED 标记。
+on_rollback_failure() {
+    local rc=$?
+    local lock_path="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/upgrade.lock"
+    if [ "$rc" -ne 0 ] && [ -d "$lock_path" ]; then
+        enter_safe_stop "rollback.sh 失败 (exit=$rc)" >/dev/null 2>&1 || true
+    fi
+    release_upgrade_lock >/dev/null 2>&1 || true
+}
+trap on_rollback_failure EXIT
+
 echo "=========================================="
 echo "  OmniDesk Version Rollback"
 echo "=========================================="

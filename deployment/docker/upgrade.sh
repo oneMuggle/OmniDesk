@@ -57,6 +57,28 @@ compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
 
+# ─── 升级状态机(Task 2 brief) ──────────────────────────────
+# 加载 upgrade_state.sh,提供 write_state / transition_state / enter_safe_stop。
+# OMNIDESK_RUNTIME_ROOT 默认 /opt/omnidesk/runtime,源码树测试时可通过
+# 环境变量覆盖。UPGRADE_ID 是本次升级的唯一标识(时间戳 + 版本对)。
+SCRIPT_DIR_ENV="$(cd "$(dirname "$0")" && pwd)"
+# shellcheck source=./upgrade_state.sh
+source "$SCRIPT_DIR_ENV/upgrade_state.sh"
+export OMNIDESK_RUNTIME_ROOT="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
+
+# trap:任何失败 → SAFE_STOPPED(保留现场供回滚/排查);升级完成 → 释放锁
+# 注意:仅当本脚本确实持有锁时才记录 SAFE_STOPPED — 若我们因 assert_no_existing_safe_stop
+# 失败而退出,那不应该再为"被拒绝的新升级"写一个新 SAFE_STOPPED(避免覆盖原状态)。
+on_upgrade_failure() {
+    local rc=$?
+    local lock_path="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/upgrade.lock"
+    if [ "$rc" -ne 0 ] && [ -d "$lock_path" ]; then
+        enter_safe_stop "upgrade.sh 失败 (exit=$rc)" >/dev/null 2>&1 || true
+    fi
+    release_upgrade_lock >/dev/null 2>&1 || true
+}
+trap on_upgrade_failure EXIT
+
 # ─── Helper Functions ──────────────────────────────────────────
 
 compare_major() {
@@ -156,6 +178,36 @@ if [ "$CURRENT_VERSION" = "$TARGET_VERSION" ]; then
     echo "Already at target version. Nothing to do."
     exit 0
 fi
+
+# ─── Step 1.5: 初始化升级状态文件(Task 2 brief) ──────────
+# UPGRADE_ID = UTC 时间戳 + 版本对;写入 INIT 状态。
+# 关键守卫(任一失败必须 HARD-FAIL,不吞错):
+#   1) assert_no_existing_safe_stop — 已有 SAFE_STOPPED 拒绝新升级
+#   2) acquire_upgrade_lock — 并发升级互斥
+#   3) write_state INIT — 状态文件写入;失败时 trap 会触发 SAFE_STOPPED 记录现场
+TS_UTC=$(date -u +'%Y%m%dT%H%M%SZ')
+export UPGRADE_ID="${TS_UTC}-${CURRENT_VERSION}-to-${TARGET_VERSION}"
+# (1) SAFE_STOPPED 守卫:已有升级卡在 SAFE_STOPPED 时硬拒绝
+if ! assert_no_existing_safe_stop; then
+    echo "ERROR: 拒绝升级 — 已有 SAFE_STOPPED 标记。请先人工排查并清理旧 state.json。" >&2
+    exit 1
+fi
+# (2) 升级锁:并发升级互斥
+LOCK_PATH="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/upgrade.lock"
+if ! acquire_upgrade_lock; then
+    echo "ERROR: 已有升级在运行(lock dir: $LOCK_PATH)。" >&2
+    echo "  若确认是遗留,可手动 rm -rf $LOCK_PATH 后重试。" >&2
+    exit 1
+fi
+# (3) IMAGE_TAG 从 .env.production 读;缺省用 VERSION 派生
+SRC_IMG_TAG="$(grep -E '^BACKEND_IMAGE_TAG=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || true)"
+TGT_IMG_TAG="$(grep -E '^BACKEND_IMAGE_TAG=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || true)"
+[ -z "$TGT_IMG_TAG" ] && TGT_IMG_TAG="v${TARGET_VERSION}"
+# (4) 写 INIT — 必须成功;set -e 让 write_state 失败自动非零退出
+write_state INIT \
+    source_version="$CURRENT_VERSION" target_version="$TARGET_VERSION" \
+    channel="$TARGET_CHANNEL" backup_dir="${OMNIDESK_BACKUP_ROOT:-/opt/omnidesk/backups}/${ROLLBACK_CHANNEL:-${TARGET_CHANNEL}}/${UPGRADE_ID}" \
+    source_image_tag="$SRC_IMG_TAG" target_image_tag="$TGT_IMG_TAG"
 
 # Step 2: Compatibility check
 MAJOR_CHECK=$(compare_major "$CURRENT_VERSION" "$TARGET_VERSION")
