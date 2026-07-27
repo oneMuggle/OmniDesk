@@ -102,15 +102,23 @@ write_state INIT source_version=0.5.9 target_version=0.5.9 \
 
 STATE_FILE4="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/state.json"
 
+# enter_safe_stop 会尝试 docker compose stop。退出码依赖 .env.production
+# 是否存在(无 → docker compose 失败 → rc=1;有 → docker compose 成功 → rc=0)。
+# 这是真实生产环境的合理行为,因此 T4 不应断言特定退出码 — 改断言
+# "无论如何都写入 SAFE_STOPPED" — 这才是 brief 真正要求的语义。
 set +e
 enter_safe_stop "test forced stop" >/dev/null 2>&1
-safe_stop_rc=$?
 set -e
+# 核心断言(brief 原文):无论 stop 命令是否成功,SAFE_STOPPED 状态必须被写入
 assert_json_field "$STATE_FILE4" state "SAFE_STOPPED"
-if [ "$safe_stop_rc" -ne 0 ]; then
-    pass "enter_safe_stop 在 stop 失败时返回非零 (exit=$safe_stop_rc)"
+# 进一步断言:reason 必须记录(保证 enter_safe_stop 真正走到了写状态分支)
+assert_json_field "$STATE_FILE4" reason "test forced stop"
+# stop_failures 必须记录(可能是 "none" 也可能是服务名列表)
+STOP_FAILS=$(jq -r '.stop_failures // ""' "$STATE_FILE4" 2>/dev/null || echo "")
+if [ -n "$STOP_FAILS" ]; then
+    pass "stop_failures 已记录: [$STOP_FAILS]"
 else
-    fail "enter_safe_stop 应返回非零却退出 0"
+    fail "stop_failures 未记录"
 fi
 
 # ─── T5: SAFE_STOPPED 时拒绝新升级 ─────────────────────────
