@@ -8,6 +8,7 @@ class EventTool(BaseTool):
     name = "event_query"
     description = "查询事件/日程/排班/节假日"
     intent_type = "event_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """查询事件和日程信息"""

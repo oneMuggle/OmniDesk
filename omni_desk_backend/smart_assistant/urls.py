@@ -10,10 +10,12 @@ from .views import (
     StatsViewSet,
     AgentTaskViewSet,
 )
+from .views.knowledge_base import KnowledgeDatasetViewSet
 
 router = DefaultRouter()
 router.register(r"chat", SmartChatViewSet, basename="smart-chat")
 router.register(r"knowledge-base/documents", KnowledgeBaseViewSet, basename="knowledge-docs")
+router.register(r"knowledge-base/datasets", KnowledgeDatasetViewSet, basename="knowledge-datasets")
 router.register(r"sessions", SessionViewSet, basename="smart-sessions")
 router.register(r"agent-logs", AgentLogViewSet, basename="agent-logs")
 router.register(r"endpoints", LlmEndpointViewSet, basename="llm-endpoints")

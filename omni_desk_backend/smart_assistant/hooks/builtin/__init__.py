@@ -1,9 +1,20 @@
 """内置 Hook 实现
 
-Phase 1: 空包,仅做占位
-Phase 2: 实现以下内置 Hook
-- AuditLogHook: 统一写 AgentLog
-- PIISanitizerHook: 脱敏用户输入中的手机号/身份证/银行卡
+已落地:
+- AuditLogHook: 统一写 AgentLog(工具级审计,含 risk_level)+ AgentEvent(任务级审计)
+- PiiMaskingHook: 对工具输出中的手机号/身份证/邮箱做掩码(post_execute)
+- TimeoutGuardHook: 工具超时熔断(配置入口 + 执行包装层,详见模块文档)
+
+规划中:
 - SensitiveDataGateHook: 权限门控(替代硬编码 required_auth=True)
-- ToolTimeoutHook: 工具超时重试
 """
+
+from .audit_log import AuditLogHook
+from .pii_masking import PiiMaskingHook
+from .timeout_guard import TimeoutGuardHook
+
+__all__ = [
+    "AuditLogHook",
+    "PiiMaskingHook",
+    "TimeoutGuardHook",
+]

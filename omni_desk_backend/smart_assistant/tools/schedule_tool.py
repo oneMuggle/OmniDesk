@@ -8,6 +8,7 @@ class ScheduleTool(BaseTool):
     name = "schedule_query"
     description = "查询排班、值班安排"
     intent_type = "schedule_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """查询排班。
@@ -68,6 +69,8 @@ class ScheduleTool(BaseTool):
             "name": self.name,
             "description": self.description,
             "intent_type": self.intent_type,
+            # 与 BaseTool.get_schema 保持一致:暴露风险等级供执行器/前端门控
+            "risk_level": self.risk_level,
         }
 
     def build_base_queryset(self):

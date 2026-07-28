@@ -73,6 +73,22 @@ class AgentLogSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at"]
 
 
+class AgentLogFeedbackSerializer(serializers.Serializer):
+    """Agent 日志用户反馈请求（赞/踩）
+
+    契约：{"feedback": "up" | "down" | null}
+        - "up" / "down"：写入 AgentLog.user_feedback（允许改选覆盖）
+        - null：清除已有反馈
+        - 其他值 / 缺省：校验失败（400）
+    """
+
+    feedback = serializers.ChoiceField(
+        choices=["up", "down"],
+        allow_null=True,
+        help_text="用户反馈：up=赞，down=踩，null=清除",
+    )
+
+
 class SmartChatRequestSerializer(serializers.Serializer):
     """智能聊天请求"""
 

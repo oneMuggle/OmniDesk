@@ -5,8 +5,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.http import FileResponse
 
-from ..models import KnowledgeBaseDocument
-from ..serializers import KnowledgeBaseDocumentSerializer
+from ..models import KnowledgeBaseDocument, KnowledgeDataset
+from ..serializers import KnowledgeBaseDocumentSerializer, KnowledgeDatasetSerializer
 from ..tasks import process_document_embedding
 
 
@@ -68,3 +68,17 @@ class KnowledgeBaseViewSet(viewsets.ModelViewSet):
                 "categories": [c for c in categories if c],
             }
         )
+
+
+class KnowledgeDatasetViewSet(viewsets.ModelViewSet):
+    """知识库数据集管理（CRUD）
+
+    数据集为全局共享资源（被 RAGRouter 消费做智能路由），模型无属主字段，
+    所有已认证用户均可读写。create/update 的必填校验由
+    KnowledgeDatasetSerializer 依据模型字段（name / ragflow_dataset_id 必填）
+    自动完成；document_count 为只读统计字段。
+    """
+
+    queryset = KnowledgeDataset.objects.all()
+    serializer_class = KnowledgeDatasetSerializer
+    permission_classes = [IsAuthenticated]

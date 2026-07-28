@@ -7,7 +7,11 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from llm_service.ollama_client import OllamaClient
+# 统一走 LLMRouter：享受 DB 端点配置与优先级降级，不再直连 OllamaClient
+from llm_service.router import get_router
+
+# 本应用在 LlmAppConfig 中的标识；无专属配置时 router 自动落到 Ollama 全局兜底
+APP_NAME = "office_assistant"
 
 
 class OfficeAssistantProcessView(APIView):
@@ -31,14 +35,15 @@ class OfficeAssistantProcessView(APIView):
             return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            client = OllamaClient()
+            router = get_router(app_name=APP_NAME)
             system_message = system_prompts[action]
 
             if stream:
-                response_stream = client.generate(prompt=text, system_message=system_message, stream=True)
+                response_stream = router.generate(prompt=text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type="text/event-stream")
             else:
-                processed_text = client.generate(prompt=text, system_message=system_message, stream=False)
+                # router 非流式返回 (content, usage) 元组，office_assistant 无需成本字段
+                processed_text, _usage = router.generate(prompt=text, system_message=system_message, stream=False)
                 return Response({"processed_text": processed_text}, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -84,7 +89,7 @@ class ProcessDocumentView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            client = OllamaClient()
+            router = get_router(app_name=APP_NAME)
 
             system_prompts = {
                 "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
@@ -100,10 +105,13 @@ class ProcessDocumentView(APIView):
             system_message = system_prompts[action]
 
             if stream:
-                response_stream = client.generate(prompt=original_text, system_message=system_message, stream=True)
+                response_stream = router.generate(prompt=original_text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type="text/event-stream")
             else:
-                processed_text = client.generate(prompt=original_text, system_message=system_message, stream=False)
+                # router 非流式返回 (content, usage) 元组，此处只取正文
+                processed_text, _usage = router.generate(
+                    prompt=original_text, system_message=system_message, stream=False
+                )
                 response_data = {
                     "status": "success",
                     "data": {

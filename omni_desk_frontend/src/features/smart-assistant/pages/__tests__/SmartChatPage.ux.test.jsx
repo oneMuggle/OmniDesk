@@ -12,7 +12,9 @@ import { ReadableStream } from 'stream/web';
 import SmartChatPage from '../SmartChatPage';
 
 // ── API Mock ──
+// requireActual 保留 resolveErrorHint / ERROR_KIND_MESSAGES 等纯函数导出
 jest.mock('../../api/smartAssistantApi', () => ({
+  ...jest.requireActual('../../api/smartAssistantApi'),
   sendSmartChatStream: jest.fn(),
   sendSmartChat: jest.fn(),
   getSessions: jest.fn().mockResolvedValue({ data: { results: [] } }),
@@ -82,7 +84,7 @@ describe('SmartChatPage UX', () => {
 
     const input = screen.getByPlaceholderText(/问我任何问题/);
     fireEvent.change(input, { target: { value: '测试问题' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
 
     // 验证取消按钮出现(isLoading=true 时渲染)
     await waitFor(() => {
@@ -109,7 +111,7 @@ describe('SmartChatPage UX', () => {
 
     const input = screen.getByPlaceholderText(/问我任何问题/);
     fireEvent.change(input, { target: { value: 'think 测试' } });
-    fireEvent.submit(input.closest('form'));
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
 
     // 验证正文("最终答案")首先渲染,think 折叠区存在(header "思考过程")
     await waitFor(

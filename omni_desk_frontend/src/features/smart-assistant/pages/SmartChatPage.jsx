@@ -1,8 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback } from '../api/smartAssistantApi';
+import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
-import { Button, message as antMessage } from 'antd';
+import { Button, Typography, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import './SmartChatPage.css';
@@ -86,6 +86,9 @@ const SmartChatPage = () => {
   // 当前流式响应携带的 AgentLog ID(done/session 等事件的 log_id 字段),
   // 流结束后附加到 assistant 消息上,用于赞踩反馈写后端
   const pendingLogIdRef = useRef(null);
+  // 当前流式响应携带的失败辅助提示(输出契约 format_version:1,done/session
+  // 事件的 kind/hint 字段);旧事件无字段时保持 null,不渲染提示行
+  const pendingErrorHintRef = useRef(null);
 
   // ── 打字机效果 refs ──
   // receivedTextRef: 从 SSE 接收到的完整文本(chunks 缓冲)
@@ -285,6 +288,19 @@ const SmartChatPage = () => {
     if (event.log_id !== undefined && event.log_id !== null) {
       pendingLogIdRef.current = event.log_id;
     }
+    // 输出契约(format_version:1):失败时 done/session 事件携带 kind/hint。
+    // 旧事件无这些字段 → resolveErrorHint 返回 undefined,行为与旧版一致。
+    if (event.type === 'done' || event.type === 'session') {
+      const errorHint = resolveErrorHint(event);
+      if (errorHint) {
+        pendingErrorHintRef.current = errorHint;
+        // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
+        // (只写 receivedTextRef,由 flushTypewriter 统一刷新到 streamingAnswer)
+        if (event.type === 'done' && !receivedTextRef.current) {
+          receivedTextRef.current = '回答生成失败';
+        }
+      }
+    }
     switch (event.type) {
       case 'meta':
         handleMetaEvent(event);
@@ -310,6 +326,7 @@ const SmartChatPage = () => {
    */
   const runStream = useCallback(async (query) => {
     pendingLogIdRef.current = null;
+    pendingErrorHintRef.current = null;
     const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
     abortRef.current = abort;
     const stream = await bodyPromise;
@@ -390,11 +407,14 @@ const SmartChatPage = () => {
         tool_result: streamingMeta?.tool_result,
         sources: streamingMeta?.sources,
         logId: pendingLogIdRef.current,
+        // 失败辅助提示(输出契约);旧事件无 kind/hint 时为 null,不渲染提示行
+        errorHint: pendingErrorHintRef.current,
       };
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingAnswer('');
       setStreamingMeta(null);
       pendingLogIdRef.current = null;
+      pendingErrorHintRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, streamingAnswer, streamingMeta]);
@@ -529,6 +549,15 @@ const SmartChatPage = () => {
                   <ThinkContent thinkContent={thinkContent} mainContent={mainContent} />
                 )}
               </div>
+              {msg.role === 'assistant' && msg.errorHint && (
+                <Typography.Text
+                  type="secondary"
+                  data-testid="message-error-hint"
+                  style={{ display: 'block', marginTop: 4 }}
+                >
+                  {msg.errorHint}
+                </Typography.Text>
+              )}
               {msg.tool_result && <ToolResult intent={msg.intent} result={msg.tool_result} sources={msg.sources} />}
               {msg.role === 'assistant' && (
                 <MessageActions

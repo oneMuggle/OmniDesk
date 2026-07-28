@@ -5,6 +5,7 @@ class RAGTool(BaseTool):
     name = "knowledge_qa"
     description = "从知识库查询业务知识"
     intent_type = "knowledge_qa"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """使用 RAGRouter 搜索多个知识库，合并结果"""
@@ -44,6 +45,8 @@ class RAGTool(BaseTool):
             "name": self.name,
             "description": self.description,
             "intent_type": self.intent_type,
+            # 与 BaseTool.get_schema 保持一致:暴露风险等级供执行器/前端门控
+            "risk_level": self.risk_level,
         }
 
     def build_base_queryset(self):

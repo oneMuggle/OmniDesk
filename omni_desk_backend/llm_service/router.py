@@ -2,6 +2,7 @@ import logging
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -9,20 +10,26 @@ logger = logging.getLogger(__name__)
 class LLMRouter:
     """多端点 LLM 路由器：按优先级尝试端点，自动降级。
 
-    降级链路：数据库 LlmAppConfig（按 priority 排序）→ Ollama 本地。
-    不再依赖环境变量。
+    降级链路：数据库 LlmAppConfig（按 priority 排序，按 app_name 隔离）
+    → Ollama 本地全局兜底。不再依赖环境变量。
+
+    各业务模块（smart_assistant、office_assistant 等）通过 ``app_name``
+    获取各自的端点配置；无专属配置时自动落到 Ollama 全局兜底链。
     """
 
     OLLAMA_BASE = "http://localhost:11434"
+    # Ollama 兜底模型的最终回退值；运行时优先读 settings.OLLAMA_MODEL_NAME
     OLLAMA_MODEL = "qwen2.5:7b"
     REQUEST_TIMEOUT = 120
 
-    def __init__(self):
+    def __init__(self, app_name="smart_assistant"):
+        # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
+        self.app_name = app_name
         self._configs = []
         self._load_configs()
 
     def _load_configs(self):
-        """从数据库加载所有活跃的 LlmAppConfig，按 priority 升序。"""
+        """从数据库加载当前应用所有活跃的 LlmAppConfig，按 priority 升序。"""
         try:
             from smart_assistant.models import LlmAppConfig
 
@@ -30,13 +37,18 @@ class LLMRouter:
                 LlmAppConfig.objects.select_related("endpoint")
                 .filter(
                     is_active=True,
-                    app_name="smart_assistant",
+                    app_name=self.app_name,
                 )
                 .order_by("endpoint__priority", "endpoint__is_fallback")
             )
         except Exception as e:
             logger.warning("无法从数据库加载 LLM 应用配置: %s", e)
             self._configs = []
+
+    @classmethod
+    def _resolve_ollama_model(cls) -> str:
+        """解析 Ollama 兜底模型：优先 settings.OLLAMA_MODEL_NAME，缺失时回退类常量。"""
+        return getattr(settings, "OLLAMA_MODEL_NAME", None) or cls.OLLAMA_MODEL
 
     def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
         """生成回答，自动在多个端点间降级。
@@ -87,7 +99,7 @@ class LLMRouter:
             if is_ollama:
                 base_url = self.OLLAMA_BASE
                 api_key = ""
-                model_name = self.OLLAMA_MODEL
+                model_name = self._resolve_ollama_model()
                 label = f"Ollama ({model_name})"
             else:
                 # LlmAppConfig 对象
@@ -195,12 +207,18 @@ class LLMRouter:
         self._load_configs()
 
 
-# 单例
-_router = None
+# 按 app_name 缓存的单例（各应用独立持有自己的端点配置）
+_routers = {}
 
 
-def get_router():
-    global _router
-    if _router is None:
-        _router = LLMRouter()
-    return _router
+def get_router(app_name="smart_assistant"):
+    """获取指定应用的 LLMRouter 单例。
+
+    Args:
+        app_name: 应用标识（对应 LlmAppConfig.app_name），默认
+            ``smart_assistant`` 以兼容既有调用方。无专属配置的应用
+            （如 office_assistant）会自动落到 Ollama 全局兜底链。
+    """
+    if app_name not in _routers:
+        _routers[app_name] = LLMRouter(app_name=app_name)
+    return _routers[app_name]

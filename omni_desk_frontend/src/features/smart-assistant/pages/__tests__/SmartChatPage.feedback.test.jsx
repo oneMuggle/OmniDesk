@@ -14,7 +14,9 @@ import { ReadableStream } from 'stream/web';
 import SmartChatPage from '../SmartChatPage';
 
 // ── API Mock ──
+// requireActual 保留 resolveErrorHint / ERROR_KIND_MESSAGES 等纯函数导出
 jest.mock('../../api/smartAssistantApi', () => ({
+  ...jest.requireActual('../../api/smartAssistantApi'),
   sendSmartChatStream: jest.fn(),
   sendSmartChat: jest.fn(),
   getSessions: jest.fn().mockResolvedValue({ data: { results: [] } }),

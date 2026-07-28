@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class OllamaClient:
     def __init__(self, base_url=None, model_name=None):
         self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-        self.model_name = model_name or os.environ.get("OLLAMA_MODEL_NAME", "llama2")  # 默认使用llama2模型
+        # 默认模型与 LLMRouter / settings.OLLAMA_MODEL_NAME 统一为 qwen2.5:7b
+        self.model_name = model_name or os.environ.get("OLLAMA_MODEL_NAME", "qwen2.5:7b")
 
     def _make_request(self, endpoint, data, stream=False):
         url = f"{self.base_url}/{endpoint}"
@@ -111,13 +112,13 @@ if __name__ == "__main__":
         for model in models:
             logger.info("- %s (%.2f GB)", model["name"], model["size"] / (1024 * 1024 * 1024))
 
-        # Example: Generate text (ensure llama2 is available or pull it first)
-        # logger.info("\nGenerating text with llama2:")
-        # response_text = client.generate(prompt="What is the capital of France?", model_name="llama2")
+        # Example: Generate text (ensure the default model is available or pull it first)
+        # logger.info("\nGenerating text with the default model:")
+        # response_text = client.generate(prompt="What is the capital of France?")
         # logger.info(response_text)
 
         # Example: Pull a model (uncomment to run)
-        # client.pull_model("llama2")
+        # client.pull_model("qwen2.5:7b")
 
     except Exception as e:
         logger.error("Error: %s", e)

@@ -38,6 +38,27 @@ CRITICAL_DB_ERRORS = (
     IntegrityError,  # 唯一约束违反、外键约束等
 )
 
+# 工具风险等级(与 tools/base.py 的 VALID_RISK_LEVELS 保持一致)
+RISK_LEVEL_DESTRUCTIVE = "destructive"
+
+
+def _audit_input(ctx: Any, tool: Any) -> dict:
+    """构造带风险等级的审计输入
+
+    工具权限分级要求每次工具调用的审计记录都携带 ``risk_level``。
+    AgentLog 无独立风险等级字段,故并入 ``tool_input``(JSONField)——
+    风险等级属于"调用时的上下文",语义上归属输入侧。
+
+    - ctx.tool_input 为 dict → 追加 ``risk_level`` 键
+    - ctx.tool_input 非 dict → 包装为 {"params": ..., "risk_level": ...}
+    - 工具未声明 risk_level → 兜底 "read"(fail-safe:与 BaseTool 默认值一致)
+    """
+    raw_input = getattr(ctx, "tool_input", {}) if hasattr(ctx, "tool_input") else {}
+    risk_level = getattr(tool, "risk_level", "read")
+    if isinstance(raw_input, dict):
+        return {**raw_input, "risk_level": risk_level}
+    return {"params": raw_input, "risk_level": risk_level}
+
 
 class AuditLogHook(ToolHookBase):
     """审计日志 Hook
@@ -82,7 +103,8 @@ class AuditLogHook(ToolHookBase):
 
             # 提取工具信息
             tool_name = getattr(tool, "name", tool.__class__.__name__)
-            tool_input = getattr(ctx, "tool_input", {}) if hasattr(ctx, "tool_input") else {}
+            # 审计输入:并入工具风险等级(read/write/destructive)
+            tool_input = _audit_input(ctx, tool)
 
             # 提取用户信息
             user = getattr(ctx, "user", None)
@@ -108,7 +130,14 @@ class AuditLogHook(ToolHookBase):
                 tool_success=True,
             )
 
-            logger.debug(f"AuditLogHook: 写入 AgentLog(tool={tool_name}, success=True)")
+            # 破坏性操作(destructive)提升日志级别,便于运维快速筛查高危调用
+            if tool_input.get("risk_level") == RISK_LEVEL_DESTRUCTIVE:
+                logger.warning(
+                    f"AuditLogHook: 破坏性工具调用(tool={tool_name}, "
+                    f"request_id={request_id}, user={getattr(user, 'username', user)})"
+                )
+            else:
+                logger.debug(f"AuditLogHook: 写入 AgentLog(tool={tool_name}, success=True)")
 
         except CRITICAL_DB_ERRORS as e:
             # 关键 DB 错误(审计功能失效)→ ERROR 级别,需要运维关注
@@ -137,7 +166,8 @@ class AuditLogHook(ToolHookBase):
             from smart_assistant.models import AgentLog
 
             tool_name = getattr(tool, "name", tool.__class__.__name__)
-            tool_input = getattr(ctx, "tool_input", {}) if hasattr(ctx, "tool_input") else {}
+            # 审计输入:失败调用同样记录风险等级(失败的高危调用尤其需要审计)
+            tool_input = _audit_input(ctx, tool)
             session = getattr(ctx, "session", None)
 
             await AgentLog.objects.acreate(

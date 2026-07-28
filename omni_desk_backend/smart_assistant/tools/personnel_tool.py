@@ -18,6 +18,7 @@ class PersonnelTool(BaseTool):
     name = "personnel_query"
     description = "查询人员信息（姓名、部门、职位、状态）"
     intent_type = "personnel_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """搜索人员信息,仅返回脱敏字段(phone_number 已做最小字段级脱敏)"""
@@ -55,6 +56,8 @@ class PersonnelTool(BaseTool):
             "name": self.name,
             "description": self.description,
             "intent_type": self.intent_type,
+            # 与 BaseTool.get_schema 保持一致:暴露风险等级供执行器/前端门控
+            "risk_level": self.risk_level,
         }
 
     def build_base_queryset(self):
