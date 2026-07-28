@@ -93,6 +93,7 @@
   font-size: 14px;
 }
 
+.session-menu-btn,
 .delete-session-btn {
   border: none;
   background: none;
@@ -101,6 +102,10 @@
   font-size: 16px;
   padding: 0 4px;
   line-height: 1;
+}
+
+.session-menu-btn:hover {
+  color: #1890ff;
 }
 
 .delete-session-btn:hover {

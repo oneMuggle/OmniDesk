@@ -14,6 +14,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -335,6 +337,12 @@ CELERY_BEAT_SCHEDULE = {
     "paperless-cache-cleanup-every-6h": {
         "task": "paperless_proxy.cleanup_cache",
         "schedule": timedelta(hours=6),
+        "args": (),
+    },
+    "smart-assistant-daily-digest": {
+        # 智能助手每日晨报:工作日(周一~周五)8:30 巡检生成并推送
+        "task": "smart_assistant.tasks.send_daily_digests",
+        "schedule": crontab(hour=8, minute=30, day_of_week="1-5"),
         "args": (),
     },
 }

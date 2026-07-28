@@ -1,11 +1,28 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { forkSession, exportSessionMarkdown } from './sessionForkExportApi';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
-import { Button, Typography, message as antMessage } from 'antd';
+import { Button, Typography, Dropdown, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import './SmartChatPage.css';
+
+/**
+ * 会话历史消息 → 页面展示消息（字段映射集中处理，
+ * 复用于切换会话与 fork 后切入副本会话）。
+ */
+const toDisplayMessages = (historyMessages) =>
+  (historyMessages || []).map(msg => ({
+    role: msg.role,
+    content: msg.content,
+    intent: msg.intent,
+    tool_used: msg.tool_used,
+    tool_result: msg.tool_result,
+    sources: msg.sources,
+    // 兼容:旧版会话历史无 log_id 时为 undefined,反馈仅记本地
+    logId: msg.log_id,
+  }));
 
 /**
  * 解析内容中的 <thinking> 标签,分离思考内容与正文。
@@ -146,17 +163,7 @@ const SmartChatPage = () => {
   const handleSwitchSession = useCallback((session) => {
     setCurrentSessionId(session.id);
     setShowSessionList(false);
-    const historyMessages = session.messages || [];
-    setMessages(historyMessages.map(msg => ({
-      role: msg.role,
-      content: msg.content,
-      intent: msg.intent,
-      tool_used: msg.tool_used,
-      tool_result: msg.tool_result,
-      sources: msg.sources,
-      // 兼容:旧版会话历史无 log_id 时为 undefined,反馈仅记本地
-      logId: msg.log_id,
-    })));
+    setMessages(toDisplayMessages(session.messages));
   }, []);
 
   const handleDeleteSession = useCallback(async (sessionId) => {
@@ -171,6 +178,41 @@ const SmartChatPage = () => {
       // 静默失败
     }
   }, [currentSessionId]);
+
+  /** 创建副本（fork）：成功后切入新会话并展示其历史消息 */
+  const handleForkSession = useCallback(async (session) => {
+    try {
+      const response = await forkSession(session.id);
+      const newSession = response.data;
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(newSession.id);
+      setShowSessionList(false);
+      setMessages(toDisplayMessages(newSession.messages));
+      antMessage.success('已创建会话副本');
+    } catch {
+      antMessage.error('创建副本失败，请稍后重试');
+    }
+  }, []);
+
+  /** 导出 Markdown：fetch + blob 下载，失败统一提示 */
+  const handleExportSession = useCallback(async (session) => {
+    try {
+      await exportSessionMarkdown(session.id, session.title);
+      antMessage.success('导出成功');
+    } catch {
+      antMessage.error('导出失败，请稍后重试');
+    }
+  }, []);
+
+  /** 会话操作菜单路由（fork / export） */
+  const handleSessionMenuClick = useCallback((session, { key, domEvent }) => {
+    domEvent.stopPropagation();
+    if (key === 'fork') {
+      handleForkSession(session);
+    } else if (key === 'export') {
+      handleExportSession(session);
+    }
+  }, [handleForkSession, handleExportSession]);
 
   // ── 打字机效果核心函数 ──
 
@@ -522,6 +564,24 @@ const SmartChatPage = () => {
                 onClick={() => handleSwitchSession(session)}
               >
                 <span className="session-title">{session.title}</span>
+                <Dropdown
+                  menu={{
+                    items: [
+                      { key: 'fork', label: '创建副本' },
+                      { key: 'export', label: '导出 Markdown' },
+                    ],
+                    onClick: (info) => handleSessionMenuClick(session, info),
+                  }}
+                  trigger={['click']}
+                >
+                  <button
+                    className="session-menu-btn"
+                    aria-label="会话操作"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    ⋯
+                  </button>
+                </Dropdown>
                 <button
                   className="delete-session-btn"
                   onClick={(e) => {

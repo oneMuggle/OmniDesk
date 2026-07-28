@@ -390,6 +390,7 @@ class TestOrchestratorErrorFlag:
         assert result["error"] is False
         mock_cache.assert_called_once()
 
+    @pytest.mark.django_db
     @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
     @patch("smart_assistant.agent.orchestrator.ToolRegistry")
     @patch("smart_assistant.agent.orchestrator.classify_intent")
@@ -397,7 +398,11 @@ class TestOrchestratorErrorFlag:
     def test_stream_done_carries_error_on_failure(
         self, mock_general, mock_classify, mock_registry, mock_plan
     ):
-        """流式通用对话失败时 done 事件携带 error=true。"""
+        """流式通用对话失败时 done 事件携带 error=true。
+
+        注:输出契约升级后,失败 done 事件会经 classify_error_kind 追加
+        kind/hint,该判定需查询 LlmAppConfig,故本用例需要 django_db。
+        """
         mock_plan.return_value = []
         mock_classify.return_value = "general_chat"
         mock_registry.get_tool.return_value = None

@@ -1,3 +1,5 @@
+import json
+
 from .intent_classifier import (
     classify_intent,
     generate_answer,
@@ -6,6 +8,7 @@ from .intent_classifier import (
     generate_tool_empty_answer,
 )
 from .conversation_context import is_failed_answer
+from ..models import LlmAppConfig
 from ..tools.registry import ToolRegistry
 from ..cache import (
     get_cached_intent,
@@ -22,6 +25,92 @@ from .tool_chain_executor import (
     ToolChainExecutor,
 )
 from .result_synthesizer import ResultSynthesizer
+
+
+# ---------------------------------------------------------------------------
+# 后端输出契约（与前端共享，机器可读；借鉴 claw-code 的 doctor 契约思路）
+# ---------------------------------------------------------------------------
+
+# SSE 事件契约版本号：所有 meta/chunk/done/session 事件均携带
+FORMAT_VERSION = 1
+
+# 错误分类 → 可操作的中文指引（前端按 kind 决定提示样式与跳转入口）
+ERROR_KIND_HINTS = {
+    "no_llm_endpoint": "请前往管理后台 → AI 应用配置 LLM 端点",
+    "llm_unavailable": "LLM 服务暂时不可用，请稍后重试或检查端点连通性",
+    "ragflow_unavailable": "知识库服务暂时不可用",
+    "internal_error": "服务异常，请稍后重试",
+}
+
+
+def _has_active_llm_config() -> bool:
+    """是否存在激活的智能助手 LLM 应用配置（且其端点同样激活）。"""
+    return LlmAppConfig.objects.filter(
+        app_name="smart_assistant",
+        is_active=True,
+        endpoint__is_active=True,
+    ).exists()
+
+
+def _mentions_ragflow(answer, tool_result) -> bool:
+    """判断错误信息是否涉及 Ragflow（大小写不敏感）。"""
+    haystacks = [str(answer or "")]
+    if isinstance(tool_result, dict):
+        for key in ("message", "error", "detail"):
+            value = tool_result.get(key)
+            if isinstance(value, str):
+                haystacks.append(value)
+    elif isinstance(tool_result, str):
+        haystacks.append(tool_result)
+    return any("ragflow" in text.lower() for text in haystacks)
+
+
+def classify_error_kind(result: dict):
+    """判定编排结果的机器可读错误分类（kind）。
+
+    输出契约判定规则（优先级自上而下）：
+    - 非失败响应（error 为假且回答无失败前缀）→ 返回 ``None``
+    - knowledge_qa 工具失败且错误涉及 Ragflow → ``"ragflow_unavailable"``
+    - 无激活的 LLM 应用配置/端点 → ``"no_llm_endpoint"``
+    - 有配置但 LLM 回答生成失败 → ``"llm_unavailable"``
+    - 其他失败（如显式 error 标记但回答无失败前缀）→ ``"internal_error"``
+
+    保持纯函数 + 单次 DB 查询的形式，便于单测（需 django_db）。
+    """
+    if not (bool(result.get("error")) or is_failed_answer(result.get("answer"))):
+        return None
+    tool_used = result.get("tool_used") or ""
+    if tool_used == "knowledge_qa" and _mentions_ragflow(result.get("answer"), result.get("tool_result")):
+        return "ragflow_unavailable"
+    if not _has_active_llm_config():
+        return "no_llm_endpoint"
+    if is_failed_answer(result.get("answer")):
+        return "llm_unavailable"
+    return "internal_error"
+
+
+def sse_event(payload: dict) -> str:
+    """序列化单条 SSE 事件：统一附带契约版本号 ``format_version``。"""
+    return f"data: {json.dumps({'format_version': FORMAT_VERSION, **payload}, ensure_ascii=False)}\n\n"
+
+
+def annotate_error_kind(payload: dict, answer: str, tool_used=None, tool_result=None) -> dict:
+    """为失败事件载荷追加 ``kind`` + ``hint``（输出契约）。
+
+    供 orchestrator 的 done 事件与视图层的 session/同步响应复用，
+    保证同一失败场景在各出口拿到一致的错误分类。
+    """
+    kind = classify_error_kind(
+        {
+            "answer": answer,
+            "error": True,
+            "tool_used": tool_used,
+            "tool_result": tool_result,
+        }
+    )
+    payload["kind"] = kind
+    payload["hint"] = ERROR_KIND_HINTS.get(kind, ERROR_KIND_HINTS["internal_error"])
+    return payload
 
 
 def _scope_cache_sig(tool_context):
@@ -227,9 +316,10 @@ class AgentOrchestrator:
 
         Task 2 增强(SAIS Plan 1):在入口先查回答缓存,命中时直接 yield
         cached answer + done,跳过完整编排(LLM 调用 + 工具执行)。
-        """
-        import json
 
+        输出契约:所有事件(meta/chunk/done)统一携带 ``format_version``;
+        失败时 done 事件追加机器可读的 ``kind`` + 中文 ``hint``。
+        """
         has_history = conversation_history is not None and len(conversation_history) > 0
         scope_sig = _scope_cache_sig(tool_context)
 
@@ -250,15 +340,12 @@ class AgentOrchestrator:
             cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
             if cached_answer:
                 # 缓存命中,直接 yield 完整 answer + done(不动 LLM)
-                meta = json.dumps(
-                    {"type": "meta", "intent": intent, "cache_hit": True},
-                    ensure_ascii=False,
-                )
-                yield f"data: {meta}\n\n"
-                chunk = json.dumps({"type": "chunk", "content": cached_answer}, ensure_ascii=False)
-                yield f"data: {chunk}\n\n"
+                yield sse_event({"type": "meta", "intent": intent, "cache_hit": True})
+                yield sse_event({"type": "chunk", "content": cached_answer})
                 done = {"type": "done", "cache_hit": True, "error": is_failed_answer(cached_answer)}
-                yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
+                if done["error"]:
+                    annotate_error_kind(done, cached_answer)
+                yield sse_event(done)
                 return
 
         # Step 1.5 (Task 17): 检测多工具链式执行
@@ -269,7 +356,7 @@ class AgentOrchestrator:
         if tool_chain:
             chain_result = self._process_chain(user_query, tool_chain, conversation_history, tool_context)
             # 1) 发送元数据(meta),含 moduleCounts 等供 AggregatedDayCard 渲染
-            meta = json.dumps(
+            yield sse_event(
                 {
                     "type": "meta",
                     "intent": chain_result["intent"],
@@ -277,16 +364,20 @@ class AgentOrchestrator:
                     "tool_result": chain_result.get("tool_result"),
                     "sources": chain_result.get("sources"),
                     "tool_fallback": False,
-                },
-                ensure_ascii=False,
+                }
             )
-            yield f"data: {meta}\n\n"
             # 2) 发送单一内容 chunk(_process_chain 已是最终聚合 answer)
-            data = json.dumps({"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False)
-            yield f"data: {data}\n\n"
+            yield sse_event({"type": "chunk", "content": chain_result["answer"]})
             # 3) 结束信号(携带错误标记,供 view 层决定是否落库)
             done = {"type": "done", "error": is_failed_answer(chain_result["answer"])}
-            yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
+            if done["error"]:
+                annotate_error_kind(
+                    done,
+                    chain_result["answer"],
+                    tool_used=chain_result.get("tool_used"),
+                    tool_result=chain_result.get("tool_result"),
+                )
+            yield sse_event(done)
             return
 
         # Step 2 前的意图分类:has_history=True 时(或缓存短路未计算时)需计算
@@ -332,7 +423,7 @@ class AgentOrchestrator:
                 sources = tool_result.get("sources") if isinstance(tool_result, dict) else None
 
         # 先发送元数据
-        meta = json.dumps(
+        yield sse_event(
             {
                 "type": "meta",
                 "intent": intent,
@@ -340,10 +431,8 @@ class AgentOrchestrator:
                 "tool_result": tool_result,
                 "sources": sources,
                 "tool_fallback": tool_fallback,
-            },
-            ensure_ascii=False,
+            }
         )
-        yield f"data: {meta}\n\n"
 
         # Step 3: 流式生成回答
         if tool_fallback:
@@ -368,9 +457,11 @@ class AgentOrchestrator:
         stream_parts = []
         for chunk in stream:
             stream_parts.append(chunk)
-            data = json.dumps({"type": "chunk", "content": chunk}, ensure_ascii=False)
-            yield f"data: {data}\n\n"
+            yield sse_event({"type": "chunk", "content": chunk})
 
         # 发送结束信号(携带错误标记,供 view 层决定是否落库)
-        done = {"type": "done", "error": is_failed_answer("".join(stream_parts))}
-        yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
+        full_answer = "".join(stream_parts)
+        done = {"type": "done", "error": is_failed_answer(full_answer)}
+        if done["error"]:
+            annotate_error_kind(done, full_answer, tool_used=tool_name, tool_result=tool_result)
+        yield sse_event(done)

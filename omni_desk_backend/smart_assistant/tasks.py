@@ -220,3 +220,62 @@ def execute_agent_task(task_id: str):
         except AgentTask.DoesNotExist:
             pass
         raise
+
+
+@shared_task
+def send_daily_digests():
+    """智能助手每日晨报推送(工作日 8:30 由 beat 触发,见 CELERY_BEAT_SCHEDULE)。
+
+    主动循环(proactivity MVP)的推送环节:
+    遍历目标用户 → 逐个调用 ``smart_assistant.digest.generate_daily_digest``
+    生成 Markdown 晨报 → 写入 Notification。
+
+    目标用户(MVP 范围):所有 ``is_active=True`` 且 ``is_staff=True`` 的用户。
+    TODO(后续):改为按 NotificationPreference 偏好设置订阅/退订,
+    并支持用户自选晨报包含的模块。
+
+    行为约定:
+    - 单个用户失败(生成返回 None 或写通知抛异常)不影响其余用户;
+    - 通过 ``NotificationService.create`` 的 dedupe_key(按日期)做当日去重,
+      beat 重投/重复触发不会给用户发第二条晨报;
+    - 统计成功/失败数,记入任务日志并作为任务结果返回。
+    """
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    from notifications.service import NotificationService
+    from smart_assistant.digest import generate_daily_digest
+
+    User = get_user_model()
+    today = timezone.localdate()
+    title = f"智能助手每日晨报（{today.isoformat()}）"
+    # 去重键按日期粒度:NotificationService 会再按 user 过滤,同键 24h 内合并
+    dedupe_key = f"smart_assistant_daily_digest:{today.isoformat()}"
+
+    success = 0
+    failed = 0
+    total = 0
+    for user in User.objects.filter(is_active=True, is_staff=True):
+        total += 1
+        try:
+            markdown = generate_daily_digest(user, today=today)
+            if not markdown:
+                failed += 1
+                logger.warning("晨报生成失败,已跳过: user=%s date=%s", user.username, today.isoformat())
+                continue
+            NotificationService.create(
+                user=user,
+                type="system",
+                title=title,
+                content=markdown,
+                dedupe_key=dedupe_key,
+            )
+            success += 1
+        except Exception:
+            failed += 1
+            logger.exception("晨报推送失败: user=%s date=%s", user.username, today.isoformat())
+
+    logger.info(
+        "每日晨报推送完成: 成功=%s 失败=%s 总计=%s date=%s", success, failed, total, today.isoformat()
+    )
+    return {"success": success, "failed": failed, "total": total, "date": today.isoformat()}

@@ -9,7 +9,13 @@ from rest_framework.response import Response
 
 from ..models import SmartAssistantSession, AgentLog
 from ..serializers import SmartChatRequestSerializer
-from ..agent.orchestrator import AgentOrchestrator
+from ..agent.orchestrator import (
+    AgentOrchestrator,
+    ERROR_KIND_HINTS,
+    FORMAT_VERSION,
+    annotate_error_kind,
+    classify_error_kind,
+)
 from ..agent.conversation_context import (
     apply_rolling_summary,
     build_effective_history,
@@ -118,18 +124,22 @@ class SmartChatViewSet(viewsets.ViewSet):
             tool_success=False if error else (result.get("tool_fallback") is not True),
         )
 
-        return Response(
-            {
-                "answer": answer,
-                "intent": result.get("intent"),
-                "tool_used": result.get("tool_used"),
-                "tool_result": result.get("tool_result"),
-                "sources": result.get("sources"),
-                "conversation_id": result.get("conversation_id") or conversation_id,
-                "log_id": log.id,
-                "error": error,
-            }
-        )
+        payload = {
+            "answer": answer,
+            "intent": result.get("intent"),
+            "tool_used": result.get("tool_used"),
+            "tool_result": result.get("tool_result"),
+            "sources": result.get("sources"),
+            "conversation_id": result.get("conversation_id") or conversation_id,
+            "log_id": log.id,
+            "error": error,
+        }
+        # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
+        if error:
+            kind = classify_error_kind(result)
+            payload["kind"] = kind
+            payload["hint"] = ERROR_KIND_HINTS.get(kind, ERROR_KIND_HINTS["internal_error"])
+        return Response(payload)
 
     @action(detail=False, methods=["post"])
     def stream(self, request):
@@ -231,12 +241,21 @@ class SmartChatViewSet(viewsets.ViewSet):
                 tool_success=False if error else (meta.get("tool_fallback") is not True),
             )
 
+            # 输出契约：session 事件携带 format_version；失败时追加 kind + hint
             session_event = {
                 "type": "session",
+                "format_version": FORMAT_VERSION,
                 "conversation_id": cid,
                 "log_id": log.id,
                 "error": error,
             }
+            if error:
+                annotate_error_kind(
+                    session_event,
+                    answer,
+                    tool_used=meta.get("tool_used"),
+                    tool_result=meta.get("tool_result"),
+                )
             yield f"data: {json.dumps(session_event, ensure_ascii=False)}\n\n"
 
         return StreamingHttpResponse(event_stream(), content_type="text/event-stream")
