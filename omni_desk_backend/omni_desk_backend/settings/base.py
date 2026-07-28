@@ -101,6 +101,8 @@ INSTALLED_APPS = [
     "search_federation",
     # 文件处理
     "file_processing.apps.FileProcessingConfig",
+    # 联培生管理
+    "joint_students.apps.JointStudentsConfig",
 ]
 
 MIDDLEWARE = [
@@ -372,3 +374,6 @@ PAPERLESS_CLEANUP_INTERVAL_HOURS = int(os.environ.get("PAPERLESS_CLEANUP_INTERVA
 
 # Smart Assistant 缓存版本(部署级;工具升级时 bump 此值即可失效旧缓存)
 SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", "1.0")
+
+# 联培生考核批次自动触发日（每月 N 号的 02:00 运行 Celery 任务）
+JOINT_STUDENT_CYCLE_DAY = int(os.getenv("JOINT_STUDENT_CYCLE_DAY", "1"))
