@@ -17,6 +17,29 @@ HARD_TOKEN_LIMIT = 6000  # 超过此值时只保留摘要 + 最近 3 轮
 RECENT_TURNS_SOFT = 6  # 软限制下保留的最近轮数
 RECENT_TURNS_HARD = 3  # 硬限制下保留的最近轮数
 
+# LLM 失败响应前缀（intent_classifier / tool_chain_executor 失败时返回的文案）
+FAILED_ANSWER_PREFIX = "回答生成失败"
+FAILED_ANSWER_STREAM_PREFIX = "[错误] 回答生成失败"
+
+# 滚动摘要提示词
+ROLLING_SUMMARY_PROMPT = (
+    "请将以下对话历史压缩为一段简洁的中文摘要。"
+    "保留关键事实（涉及的人物、时间、事项与结论），不超过 300 字，"
+    "直接输出摘要正文，不要添加任何标题或前缀。"
+)
+
+
+def is_failed_answer(answer) -> bool:
+    """统一判断 LLM 回答是否为失败响应。
+
+    非流式路径失败文案形如 ``回答生成失败: <异常>``；
+    流式路径失败 chunk 形如 ``[错误] 回答生成失败: <异常>``。
+    orchestrator / views 共用此判断，避免错误文本污染多轮上下文。
+    """
+    if not isinstance(answer, str) or not answer:
+        return False
+    return answer.startswith(FAILED_ANSWER_PREFIX) or answer.startswith(FAILED_ANSWER_STREAM_PREFIX)
+
 
 def estimate_tokens(text: str) -> int:
     """粗略估算 token 数。
@@ -173,3 +196,104 @@ def count_turns(history: list) -> int:
     if not history:
         return 0
     return sum(1 for msg in history if msg.get("role") == "user")
+
+
+# ---------------------------------------------------------------------------
+# 滚动摘要（长会话上下文压缩）
+# ---------------------------------------------------------------------------
+
+
+def truncate_to_recent_turns(messages: list, recent_turns: int = RECENT_TURNS_SOFT) -> list:
+    """截断历史，仅保留最近 N 轮（每轮 = user + assistant 各一条）。"""
+    if not messages:
+        return []
+    return list(messages[-(recent_turns * 2) :])
+
+
+def build_effective_history(messages: list, summary_text: str = None) -> list:
+    """构造送入 LLM 的有效历史。
+
+    - 无摘要：返回全量历史（兼容原行为）
+    - 有摘要：以「摘要（system 消息）+ 最近 N 轮」代替全量，
+      避免长会话 token 线性膨胀
+    """
+    messages = messages or []
+    if not summary_text:
+        return list(messages)
+    recent = truncate_to_recent_turns(messages)
+    summary_msg = {
+        "role": "system",
+        "content": f"以下是之前对话的摘要，请在回答时参考：\n{summary_text}",
+    }
+    return [summary_msg] + recent
+
+
+def _format_transcript(messages: list) -> str:
+    """把消息列表渲染为「用户/助手」对话文稿（剔除 thinking 标签）。"""
+    parts = []
+    for msg in messages or []:
+        role = msg.get("role")
+        if role == "user":
+            label = "用户"
+        elif role == "assistant":
+            label = "助手"
+        else:
+            # system 等角色不参与摘要素材
+            continue
+        content = _remove_thinking_tags(msg.get("content", "") or "").strip()
+        if content:
+            parts.append(f"{label}: {content}")
+    return "\n".join(parts)
+
+
+def generate_rolling_summary(messages: list):
+    """经 LLM 路由器为早期对话生成摘要。
+
+    失败时（异常或返回失败响应）返回 None，由调用方静默降级（保留全量历史），
+    绝不影响主对话链路。
+    """
+    transcript = _format_transcript(messages)
+    if not transcript:
+        return None
+    try:
+        # 延迟导入，避免模块级循环依赖，并保证测试 patch llm_service.router.get_router 生效
+        from llm_service.router import get_router
+
+        answer, _usage = get_router().generate(
+            prompt=f"{ROLLING_SUMMARY_PROMPT}\n\n对话历史：\n{transcript}",
+        )
+    except Exception as exc:
+        logger.warning("滚动摘要生成失败，保留全量历史: %s", exc)
+        return None
+    if is_failed_answer(answer):
+        logger.warning("滚动摘要返回失败响应，保留全量历史")
+        return None
+    summary = (answer or "").strip()
+    return summary or None
+
+
+def apply_rolling_summary(session, recent_turns: int = RECENT_TURNS_SOFT) -> bool:
+    """会话保存路径的滚动摘要入口（就地修改 session，不负责 save）。
+
+    超过 ``SOFT_TOKEN_LIMIT`` 且尚无摘要时：
+    1. 对「早期消息」（最近 N 轮之外的部分）生成摘要写入 ``summary_text``
+    2. 截断 ``messages`` 仅保留最近 N 轮，并同步 ``turn_count`` / ``summary_token_count``
+
+    摘要生成失败时静默降级：session 保持原样（全量历史）。
+    返回 True 表示发生了摘要与截断。
+    """
+    messages = list(session.messages or [])
+    if not should_summarize(messages, session.summary_text):
+        return False
+    recent = truncate_to_recent_turns(messages, recent_turns)
+    early = messages[: len(messages) - len(recent)]
+    if not early:
+        return False
+    summary = generate_rolling_summary(early)
+    if not summary:
+        return False
+    session.summary_text = summary
+    session.summary_token_count = estimate_tokens(summary)
+    session.messages = recent
+    session.turn_count = count_turns(recent)
+    return True

@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendSmartChatStream, getSessions, createSession, deleteSession } from '../api/smartAssistantApi';
+import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback } from '../api/smartAssistantApi';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import { Button, message as antMessage } from 'antd';
@@ -31,7 +31,7 @@ const parseThinkContent = (content) => {
   return { mainContent, thinkContent: thinkParts.join('\n\n') };
 };
 
-const MessageActions = ({ content, onFeedback, feedback }) => (
+const MessageActions = ({ content, onFeedback, feedback, submitting }) => (
   <div className="message-actions">
     <Button
       type="text"
@@ -48,6 +48,7 @@ const MessageActions = ({ content, onFeedback, feedback }) => (
       size="small"
       icon={<LikeOutlined />}
       onClick={() => onFeedback?.('up')}
+      loading={submitting && feedback === 'up'}
       className={`action-btn ${feedback === 'up' ? 'active' : ''}`}
     />
     <Button
@@ -55,6 +56,7 @@ const MessageActions = ({ content, onFeedback, feedback }) => (
       size="small"
       icon={<DislikeOutlined />}
       onClick={() => onFeedback?.('down')}
+      loading={submitting && feedback === 'down'}
       className={`action-btn ${feedback === 'down' ? 'active' : ''}`}
     />
   </div>
@@ -63,7 +65,8 @@ const MessageActions = ({ content, onFeedback, feedback }) => (
 MessageActions.propTypes = {
   content: PropTypes.string,
   onFeedback: PropTypes.func,
-  feedback: PropTypes.string,
+  feedback: PropTypes.oneOf(['up', 'down']),
+  submitting: PropTypes.bool,
 };
 
 /** 打字机节流间隔(ms) */
@@ -80,6 +83,9 @@ const SmartChatPage = () => {
   const [showSessionList, setShowSessionList] = useState(false);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
+  // 当前流式响应携带的 AgentLog ID(done/session 等事件的 log_id 字段),
+  // 流结束后附加到 assistant 消息上,用于赞踩反馈写后端
+  const pendingLogIdRef = useRef(null);
 
   // ── 打字机效果 refs ──
   // receivedTextRef: 从 SSE 接收到的完整文本(chunks 缓冲)
@@ -145,6 +151,8 @@ const SmartChatPage = () => {
       tool_used: msg.tool_used,
       tool_result: msg.tool_result,
       sources: msg.sources,
+      // 兼容:旧版会话历史无 log_id 时为 undefined,反馈仅记本地
+      logId: msg.log_id,
     })));
   }, []);
 
@@ -273,6 +281,10 @@ const SmartChatPage = () => {
 
   /** 处理单个 SSE 事件,路由到对应的处理器 */
   const handleSSEEvent = useCallback(async (event, activeSessionId) => {
+    // 兼容旧版事件:无 log_id 字段时静默跳过
+    if (event.log_id !== undefined && event.log_id !== null) {
+      pendingLogIdRef.current = event.log_id;
+    }
     switch (event.type) {
       case 'meta':
         handleMetaEvent(event);
@@ -297,6 +309,7 @@ const SmartChatPage = () => {
    * 被 handleSubmit 和 handleRetry 共用。
    */
   const runStream = useCallback(async (query) => {
+    pendingLogIdRef.current = null;
     const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
     abortRef.current = abort;
     const stream = await bodyPromise;
@@ -376,20 +389,49 @@ const SmartChatPage = () => {
         tool_used: streamingMeta?.tool_used,
         tool_result: streamingMeta?.tool_result,
         sources: streamingMeta?.sources,
+        logId: pendingLogIdRef.current,
       };
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingAnswer('');
       setStreamingMeta(null);
+      pendingLogIdRef.current = null;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, streamingAnswer, streamingMeta]);
 
-  // 处理消息反馈
-  const handleFeedback = useCallback((msgIndex, type) => {
-    setMessages(prev => prev.map((msg, i) =>
-      i === msgIndex ? { ...msg, feedback: type } : msg
+  // 处理消息反馈(赞/踩):乐观更新本地状态并写后端,失败时回滚并提示
+  const handleFeedback = useCallback(async (msgIndex, type) => {
+    const msg = messages[msgIndex];
+    if (!msg || msg.role !== 'assistant' || msg.feedbackSubmitting) return;
+    // 防重复提交:相同反馈不重复调用 API(允许 up/down 互相改选)
+    if (msg.feedback === type) return;
+
+    // 无 logId 的历史消息(旧版事件未携带)仅记录本地状态
+    if (!msg.logId) {
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedback: type } : m
+      ));
+      return;
+    }
+
+    const prevFeedback = msg.feedback ?? null;
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, feedback: type, feedbackSubmitting: true } : m
     ));
-  }, []);
+    try {
+      await submitFeedback(msg.logId, type);
+    } catch {
+      // API 失败 → 回滚到提交前的反馈状态
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedback: prevFeedback } : m
+      ));
+      antMessage.error('反馈提交失败,请稍后重试');
+    } finally {
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedbackSubmitting: false } : m
+      ));
+    }
+  }, [messages]);
 
   // 重试最后一条消息
   const handleRetry = useCallback(async () => {
@@ -492,6 +534,7 @@ const SmartChatPage = () => {
                 <MessageActions
                   content={msg.content}
                   feedback={msg.feedback}
+                  submitting={msg.feedbackSubmitting}
                   onFeedback={(type) => handleFeedback(index, type)}
                 />
               )}

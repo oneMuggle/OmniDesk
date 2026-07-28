@@ -1,4 +1,5 @@
 import logging
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
 
@@ -117,6 +118,12 @@ class LLMRouter:
                     if choices and "message" in choices[0]:
                         if i > 0:
                             logger.info("LLM 降级成功: 切换到 %s", label)
+                        # 补充成本核算字段：命中的端点 ID + 预估费用
+                        usage = self._enrich_usage(
+                            usage,
+                            endpoint=None if is_ollama else endpoint,
+                            model_name=model_name,
+                        )
                         return choices[0]["message"]["content"], usage
                     raise Exception("LLM API 响应结构异常")
             except Exception as e:
@@ -125,6 +132,40 @@ class LLMRouter:
                 continue
 
         raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}")
+
+    @staticmethod
+    def _compute_estimated_cost(endpoint, total_tokens) -> float:
+        """根据命中端点的单价配置计算本次调用的预估费用（元）。
+
+        无端点、无 ``cost_per_1k_tokens`` 配置或无 token 用量时返回 0.0，
+        保证调用方任何情况下都不会因成本计算报错。
+        """
+        cost_per_1k = getattr(endpoint, "cost_per_1k_tokens", None) if endpoint is not None else None
+        if cost_per_1k is None or not total_tokens:
+            return 0.0
+        try:
+            cost = Decimal(str(total_tokens)) * Decimal(str(cost_per_1k)) / Decimal("1000")
+            return float(cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP))
+        except (InvalidOperation, ValueError, TypeError):
+            logger.warning("成本计算失败: total_tokens=%s, cost_per_1k=%s", total_tokens, cost_per_1k)
+            return 0.0
+
+    def _enrich_usage(self, usage, endpoint, model_name: str) -> dict:
+        """在 usage 字典中补充成本核算字段（向后兼容，不改动原有 token 字段）。
+
+        新增字段：
+        - ``estimated_cost``: 本次调用预估费用（元），无配置时为 0.0
+        - ``endpoint_id``: 实际命中的 LlmEndpoint 主键（Ollama 兜底为 None）
+        - ``model_name``: 实际命中的模型名（调用方未提供时才写入）
+        """
+        enriched = dict(usage) if isinstance(usage, dict) else {}
+        total_tokens = enriched.get("total_tokens")
+        if total_tokens is None:
+            total_tokens = (enriched.get("prompt_tokens") or 0) + (enriched.get("completion_tokens") or 0)
+        enriched["estimated_cost"] = self._compute_estimated_cost(endpoint, total_tokens)
+        enriched["endpoint_id"] = getattr(endpoint, "id", None)
+        enriched.setdefault("model_name", model_name)
+        return enriched
 
     def _stream_generate(self, response):
         """流式解析 SSE 响应。"""

@@ -151,8 +151,10 @@ done
 
 # 基础镜像（优先从 exported_images 取，不存在则从本地导出）
 # 使用并行数组兼容 sh/bash
-BASE_IMAGE_NAMES="postgres-14-alpine.tar redis-7-alpine.tar nginx-stable-alpine.tar"
-BASE_IMAGE_TAGS="postgres:14-alpine redis:7-alpine nginx:stable-alpine"
+# RAG 知识库栈(mysql:8.0 + infiniflow/ragflow:v0.16.0)为可选基础镜像:
+# 构建机无该镜像时仅 MISSING 告警,不中断打包(对应 deploy_offline.sh 的可选加载组)。
+BASE_IMAGE_NAMES="postgres-14-alpine.tar redis-7-alpine.tar nginx-stable-alpine.tar mysql-8.0.tar ragflow-v0.16.0.tar"
+BASE_IMAGE_TAGS="postgres:14-alpine redis:7-alpine nginx:stable-alpine mysql:8.0 infiniflow/ragflow:v0.16.0"
 
 base_image_idx=0
 for name in $BASE_IMAGE_NAMES; do
@@ -449,6 +451,10 @@ case "${1:-start}" in
         echo "执行数据库迁移..."
         docker compose -f compose/docker-compose.offline.yml --env-file compose/.env.production exec -T backend python manage.py migrate
         echo "迁移完成。"
+        # 播种智能助手默认 LLM 端点(幂等:LlmEndpoint 表非空时自动跳过)。
+        # 修复离线部署根因:空库无 LLM 端点时所有对话返回"所有 LLM 端点均不可用"。
+        echo "初始化智能助手默认 LLM 端点(幂等)..."
+        docker compose -f compose/docker-compose.offline.yml --env-file compose/.env.production exec -T backend python manage.py seed_llm_endpoint
         ;;
     verify)
         if [ -f "scripts/verify.sh" ]; then

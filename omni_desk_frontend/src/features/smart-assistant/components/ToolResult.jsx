@@ -6,6 +6,24 @@ import AggregatedDayCard from './AggregatedDayCard';
 import './ToolResult.css';
 
 /**
+ * 规范化聚合查询(aggregated_day)结果。
+ * 后端 ResultSynthesizer 返回扁平结构 {summary, items, total_count, moduleCounts, chain_results};
+ * 同时兼容未来可能出现的 {data: {...}} 包层结构。
+ */
+const normalizeAggregatedResult = (result) => {
+  if (!result || typeof result !== 'object') return {};
+  const wrapped = result.data;
+  if (
+    wrapped &&
+    typeof wrapped === 'object' &&
+    (wrapped.items || wrapped.moduleCounts || wrapped.summary)
+  ) {
+    return wrapped;
+  }
+  return result;
+};
+
+/**
  * 将工具结果序列化为可复制的纯文本。
  * 不同 intent 使用不同的格式化策略。
  */
@@ -87,11 +105,12 @@ const serializeResult = (intent, result, sources) => {
     ).join('\n---\n');
   }
 
-  if (intent === 'aggregated_day' && result.data) {
+  if (intent === 'aggregated_day') {
+    const data = normalizeAggregatedResult(result);
     try {
-      return JSON.stringify(result.data, null, 2);
+      return JSON.stringify(data, null, 2);
     } catch {
-      return String(result.data);
+      return String(data);
     }
   }
 
@@ -156,9 +175,14 @@ const ToolResult = ({ intent, result, sources }) => {
   );
 
   if (intent === 'aggregated_day') {
+    const aggData = normalizeAggregatedResult(result);
     return (
       <div className="tool-result-card">
-        <AggregatedDayCard {...result.data} />
+        <AggregatedDayCard
+          items={aggData.items}
+          moduleCounts={aggData.moduleCounts}
+          summary={aggData.summary}
+        />
         {copyBtn}
       </div>
     );
@@ -426,6 +450,7 @@ ToolResult.propTypes = {
       start_date: PropTypes.string,
       created_at: PropTypes.string,
     })),
+    date: PropTypes.string,
     holidays: PropTypes.arrayOf(PropTypes.shape({
       name: PropTypes.string,
       start_date: PropTypes.string,
@@ -479,6 +504,19 @@ ToolResult.propTypes = {
       sso_token_endpoint: PropTypes.string,
     })),
     message: PropTypes.string,
+    // aggregated_day 扁平结构(后端 ResultSynthesizer 输出)
+    summary: PropTypes.string,
+    items: PropTypes.arrayOf(PropTypes.shape({
+      type: PropTypes.string,
+      module: PropTypes.string,
+      data: PropTypes.object,
+      sort_key: PropTypes.string,
+    })),
+    total_count: PropTypes.number,
+    moduleCounts: PropTypes.object,
+    chain_results: PropTypes.array,
+    // 兼容未来可能的包层结构
+    data: PropTypes.object,
   }),
   sources: PropTypes.arrayOf(PropTypes.shape({
     document: PropTypes.string,

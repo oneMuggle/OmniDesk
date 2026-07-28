@@ -94,6 +94,16 @@ export async function sendSmartChat(query, conversationId = null) {
 }
 
 /**
+ * 提交消息反馈（赞/踩）
+ * PATCH /api/smart-assistant/agent-logs/{logId}/feedback/
+ * @param {number|string} logId AgentLog ID（来自对话响应的 log_id 字段）
+ * @param {'up'|'down'} feedback 反馈类型
+ */
+export async function submitFeedback(logId, feedback) {
+  return apiClient.patch(`${BASE_URL}/agent-logs/${logId}/feedback/`, { feedback });
+}
+
+/**
  * 上传知识库文档
  */
 export async function uploadKnowledgeDoc(file, title) {

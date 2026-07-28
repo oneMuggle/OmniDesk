@@ -5,6 +5,7 @@ from .intent_classifier import (
     generate_general_answer,
     generate_tool_empty_answer,
 )
+from .conversation_context import is_failed_answer
 from ..tools.registry import ToolRegistry
 from ..cache import (
     get_cached_intent,
@@ -121,6 +122,7 @@ class AgentOrchestrator:
                     "sources": None,
                     "tool_fallback": True,
                     "usage": usage,
+                    "error": is_failed_answer(answer),
                 }
 
             # Step 4: LLM 生成自然语言回答(先查缓存)
@@ -131,7 +133,9 @@ class AgentOrchestrator:
                     usage = None
                 else:
                     answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
-                    cache_answer(user_query, intent, answer, context_sig=scope_sig)
+                    # 失败响应不进缓存,避免错误文本被后续请求反复命中
+                    if not is_failed_answer(answer):
+                        cache_answer(user_query, intent, answer, context_sig=scope_sig)
             else:
                 answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
@@ -142,6 +146,7 @@ class AgentOrchestrator:
                 "tool_result": tool_result,
                 "sources": tool_result.get("sources") if isinstance(tool_result, dict) else None,
                 "usage": usage,
+                "error": is_failed_answer(answer),
             }
         else:
             # 通用对话
@@ -153,6 +158,7 @@ class AgentOrchestrator:
                 "tool_result": None,
                 "sources": None,
                 "usage": usage,
+                "error": is_failed_answer(answer),
             }
 
     def _process_chain(
@@ -209,6 +215,7 @@ class AgentOrchestrator:
             },
             "sources": all_sources if all_sources else None,
             "tool_chain": plan,
+            "error": is_failed_answer(answer),
         }
 
     def process_stream(self, user_query: str, conversation_history: list = None, tool_context=None):
@@ -250,7 +257,8 @@ class AgentOrchestrator:
                 yield f"data: {meta}\n\n"
                 chunk = json.dumps({"type": "chunk", "content": cached_answer}, ensure_ascii=False)
                 yield f"data: {chunk}\n\n"
-                yield f"data: {json.dumps({'type': 'done', 'cache_hit': True})}\n\n"
+                done = {"type": "done", "cache_hit": True, "error": is_failed_answer(cached_answer)}
+                yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
                 return
 
         # Step 1.5 (Task 17): 检测多工具链式执行
@@ -276,8 +284,9 @@ class AgentOrchestrator:
             # 2) 发送单一内容 chunk(_process_chain 已是最终聚合 answer)
             data = json.dumps({"type": "chunk", "content": chain_result["answer"]}, ensure_ascii=False)
             yield f"data: {data}\n\n"
-            # 3) 结束信号
-            yield f"data: {json.dumps({'type': 'done'})}\n\n"
+            # 3) 结束信号(携带错误标记,供 view 层决定是否落库)
+            done = {"type": "done", "error": is_failed_answer(chain_result["answer"])}
+            yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
             return
 
         # Step 2 前的意图分类:has_history=True 时(或缓存短路未计算时)需计算
@@ -355,9 +364,13 @@ class AgentOrchestrator:
 
             stream = _gen2()
 
+        # 累积流式内容,用于在结束信号中判定是否为失败响应
+        stream_parts = []
         for chunk in stream:
+            stream_parts.append(chunk)
             data = json.dumps({"type": "chunk", "content": chunk}, ensure_ascii=False)
             yield f"data: {data}\n\n"
 
-        # 发送结束信号
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        # 发送结束信号(携带错误标记,供 view 层决定是否落库)
+        done = {"type": "done", "error": is_failed_answer("".join(stream_parts))}
+        yield f"data: {json.dumps(done, ensure_ascii=False)}\n\n"
