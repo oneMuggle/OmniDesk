@@ -1,4 +1,5 @@
 """测试用工厂函数。"""
+import uuid
 from datetime import date
 from decimal import Decimal
 
@@ -25,7 +26,10 @@ def create_personnel(name="测试人员", **kwargs) -> Personnel:
     return Personnel.objects.create(**defaults)
 
 
-def create_user(username="testuser", is_superuser=False, **kwargs) -> CustomUser:
+def create_user(username=None, is_superuser=False, **kwargs) -> CustomUser:
+    # username 默认 None 时自动生成 uuid 片段,避免多次调用触发 UNIQUE 冲突
+    if username is None:
+        username = f"testuser-{uuid.uuid4().hex[:8]}"
     defaults = {
         "username": username,
         "is_superuser": is_superuser,

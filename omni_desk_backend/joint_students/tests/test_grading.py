@@ -1,5 +1,4 @@
 """A 档名额优先算法测试。"""
-import itertools
 from datetime import date
 from decimal import Decimal
 
@@ -15,10 +14,6 @@ from joint_students.tests.factories import (
 )
 
 
-# 测试模块内单调递增计数器, 保证每个 expert user username 唯一 (避免 UNIQUE 约束冲突)
-_expert_username_counter = itertools.count()
-
-
 def _setup_cycle_with_students(n, scores):
     """创建 cycle + n 个联培生 + 每个联培生指定分数的 expert score。
     scores: list of decimal, 与 n 个联培生一一对应。
@@ -27,8 +22,7 @@ def _setup_cycle_with_students(n, scores):
     js_list = [create_joint_student() for _ in range(n)]
     for js, s in zip(js_list, scores):
         create_report(joint_student=js, year=2026, month=7, status="approved")
-        username = f"expert_{next(_expert_username_counter)}"
-        create_score(cycle=cycle, joint_student=js, expert=create_user(username=username), score=s)
+        create_score(cycle=cycle, joint_student=js, expert=create_user(), score=s)
     return cycle, js_list
 
 
