@@ -619,7 +619,8 @@ const SmartChatPage = () => {
                 </Typography.Text>
               )}
               {msg.tool_result && <ToolResult intent={msg.intent} result={msg.tool_result} sources={msg.sources} />}
-              {msg.role === 'assistant' && (
+              {/* 失败消息(带 errorHint)无归属日志,feedback 提交必然 404,故不渲染赞踩按钮 */}
+              {msg.role === 'assistant' && !msg.errorHint && (
                 <MessageActions
                   content={msg.content}
                   feedback={msg.feedback}

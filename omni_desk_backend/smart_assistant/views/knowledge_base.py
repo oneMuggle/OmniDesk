@@ -1,7 +1,7 @@
 import os
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
 from rest_framework.response import Response
 from django.http import FileResponse
 
@@ -73,12 +73,24 @@ class KnowledgeBaseViewSet(viewsets.ModelViewSet):
 class KnowledgeDatasetViewSet(viewsets.ModelViewSet):
     """知识库数据集管理（CRUD）
 
-    数据集为全局共享资源（被 RAGRouter 消费做智能路由），模型无属主字段，
-    所有已认证用户均可读写。create/update 的必填校验由
-    KnowledgeDatasetSerializer 依据模型字段（name / ragflow_dataset_id 必填）
-    自动完成；document_count 为只读统计字段。
+    数据集为全局共享资源（被 RAGRouter 消费做智能路由），模型无属主字段。
+    权限分离（与同应用 DoctorView 的管理端惯例一致）：
+        - 读（list / retrieve）：所有已认证用户可访问（前端需展示可用知识库）
+        - 写（create / update / partial_update / destroy）：仅 staff/admin，
+          避免普通用户篡改影响全体用户 RAG 路由的全局配置
+    create/update 的必填校验由 KnowledgeDatasetSerializer 依据模型字段
+    （name / ragflow_dataset_id 必填）自动完成；document_count 为只读统计字段。
     """
 
     queryset = KnowledgeDataset.objects.all()
     serializer_class = KnowledgeDatasetSerializer
     permission_classes = [IsAuthenticated]
+
+    #: 写操作 action 集合（DRF 路由动作名）
+    WRITE_ACTIONS = ("create", "update", "partial_update", "destroy")
+
+    def get_permissions(self):
+        # 读操作保持 IsAuthenticated；写操作追加 IsAdminUser（校验 is_staff）
+        if self.action in self.WRITE_ACTIONS:
+            return [IsAuthenticated(), IsAdminUser()]
+        return [IsAuthenticated()]

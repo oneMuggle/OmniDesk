@@ -150,6 +150,10 @@ class TimeoutGuardHook(ToolHookBase):
         解释器退出。func 内部抛出的异常会原样向上抛出(交由上层
         on_failure 钩子链处理)。
 
+        线程卫生:worker 线程内 Django ORM 打开的 DB 连接是线程私有的,
+        func 结束后显式 ``connections.close_all()`` 回收,避免生产路径
+        (所有工具执行都经本包装层)的连接泄漏到数据库 idle 超时。
+
         Args:
             func: 要执行的同步可调用对象(如 ``tool.execute``)
             *args / **kwargs: 透传给 func 的参数
@@ -170,6 +174,14 @@ class TimeoutGuardHook(ToolHookBase):
                 box["value"] = func(*args, **kwargs)
             except BaseException as e:  # noqa: BLE001 - 需要跨线程传递任意异常
                 box["error"] = e
+            finally:
+                # worker 线程私有 DB 连接的显式回收(见 docstring 线程卫生段)
+                try:
+                    from django.db import connections
+
+                    connections.close_all()
+                except Exception:  # 清理失败不影响结果传递
+                    pass
 
         worker = threading.Thread(
             target=_target,

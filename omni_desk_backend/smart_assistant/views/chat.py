@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 
 from django.http import StreamingHttpResponse
@@ -15,8 +16,10 @@ from ..agent.orchestrator import (
     FORMAT_VERSION,
     annotate_error_kind,
     classify_error_kind,
+    sse_event,
 )
 from ..agent.conversation_context import (
+    FAILED_ANSWER_STREAM_PREFIX,
     apply_rolling_summary,
     build_effective_history,
     count_turns,
@@ -24,6 +27,8 @@ from ..agent.conversation_context import (
 )
 from ..scope import resolve_scope
 from ..tools.tool_context import ToolContext
+
+logger = logging.getLogger(__name__)
 
 
 def _resolve_error(result: dict) -> bool:
@@ -169,23 +174,59 @@ class SmartChatViewSet(viewsets.ViewSet):
             full_answer = []
             meta = {}
             done_error = False
+            done_seen = False
+            stream_exc = None
 
-            for chunk in orchestrator.process_stream(query, conversation_history, tool_context=tool_context):
-                yield chunk
-                try:
-                    payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
-                    data = json.loads(payload)
-                except (IndexError, json.JSONDecodeError):
-                    continue
-                event_type = data.get("type")
-                if event_type == "chunk":
-                    full_answer.append(data.get("content", ""))
-                elif event_type == "meta":
-                    meta = data
-                elif event_type == "done":
-                    done_error = bool(data.get("error"))
+            try:
+                for chunk in orchestrator.process_stream(query, conversation_history, tool_context=tool_context):
+                    yield chunk
+                    try:
+                        payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
+                        data = json.loads(payload)
+                    except (IndexError, json.JSONDecodeError):
+                        continue
+                    event_type = data.get("type")
+                    if event_type == "chunk":
+                        full_answer.append(data.get("content", ""))
+                    elif event_type == "meta":
+                        meta = data
+                    elif event_type == "done":
+                        done_error = bool(data.get("error"))
+                        done_seen = True
+            except Exception as exc:
+                # 生成器中途异常（DB/工具异常逃逸）：按失败路径收口，保证"失败必审计"——
+                # 若直接中断流，前端会把已收到的部分内容当成功回答，且 AgentLog 缺失。
+                stream_exc = exc
+                done_error = True
+                logger.exception(
+                    "SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id
+                )
 
-            answer = "".join(full_answer)
+            partial_answer = "".join(full_answer)
+            if stream_exc is not None:
+                # 统一采用流式失败前缀，复用 is_failed_answer 语义：
+                # 前端失败提示与"失败不落库"逻辑随之自动生效；已累积内容保留进审计记录
+                failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
+                answer = (
+                    f"{failure_marker}｜已生成部分内容：{partial_answer}"
+                    if partial_answer
+                    else failure_marker
+                )
+                # 补发失败 chunk（部分内容此前已 streamed，此处仅补失败标记）
+                yield sse_event({"type": "chunk", "content": failure_marker})
+                # 生成器未发出 done 时补发携带 kind/hint 的失败 done，让前端完整收尾
+                if not done_seen:
+                    done_event = {"type": "done", "error": True}
+                    annotate_error_kind(
+                        done_event,
+                        answer,
+                        tool_used=meta.get("tool_used"),
+                        tool_result=meta.get("tool_result"),
+                    )
+                    yield sse_event(done_event)
+            else:
+                answer = partial_answer
+
             # 失败判定：done 事件显式标记优先，回答前缀兜底
             error = done_error or is_failed_answer(answer)
             response_time_ms = int((time.time() - start_time) * 1000)

@@ -56,29 +56,29 @@
 
 - [x] 步骤 4：成本核算写入 `AgentLog.estimated_cost`
 - [x] 步骤 5：启用滚动摘要（`conversation_context.py` + 会话保存路径）
-- [ ] 步骤 6：反馈 API（`agent-logs/{id}/feedback/`）+ 前端赞踩接入（前端已完成，后端 API 进行中）
-- [ ] 步骤 7：知识库数据集 CRUD API（`KnowledgeDatasetViewSet`）
-- [ ] 步骤 8：office_assistant 统一 LLMRouter + Ollama 默认模型统一 + 删 `openai_client.py` + `RagflowConfig.api_key` 加密迁移
+- [x] 步骤 6：反馈 API（`agent-logs/{id}/feedback/`）+ 前端赞踩接入
+- [x] 步骤 7：知识库数据集 CRUD API（`KnowledgeDatasetViewSet`）
+- [x] 步骤 8：office_assistant 统一 LLMRouter + Ollama 默认模型统一 + 删 `openai_client.py` + `RagflowConfig.api_key` 加密迁移
 
 ### P2 — 架构增强（借鉴 claw-code）
 
-- [ ] 步骤 9：`/api/smart-assistant/doctor/` 自检端点
-- [ ] 步骤 10：输出契约（SSE `format_version` + 错误 `kind` 结构化）+ 前端按 kind 提示
-- [ ] 步骤 11：PII 脱敏 hook + 超时熔断 hook
-- [ ] 步骤 12：工具权限分级（`risk_level` 元数据 + 审计）
-- [ ] 步骤 13：Mock LLM 等价测试（确定性 e2e，不依赖真实 LLM）
+- [x] 步骤 9：`/api/smart-assistant/doctor/` 自检端点
+- [x] 步骤 10：输出契约（SSE `format_version` + 错误 `kind` 结构化）+ 前端按 kind 提示
+- [x] 步骤 11：PII 脱敏 hook + 超时熔断 hook
+- [x] 步骤 12：工具权限分级（`risk_level` 元数据 + 审计）
+- [x] 步骤 13：Mock LLM 等价测试（确定性 e2e，不依赖真实 LLM）
 
 ### P3 — 主动式演进
 
-- [ ] 步骤 14：多 Agent 前端面板（`/smart-assistant/tasks` + SSE timeline + 介入 UI）
-- [ ] 步骤 15：每日晨报 Celery beat + notifications 推送
-- [ ] 步骤 16：会话 fork / Markdown 导出
+- [x] 步骤 14：多 Agent 前端面板（`/smart-assistant/tasks` + SSE timeline + 介入 UI）
+- [x] 步骤 15：每日晨报 Celery beat + notifications 推送
+- [x] 步骤 16：会话 fork / Markdown 导出
 
 ### 收尾
 
-- [ ] 步骤 17：全量 pytest（80% 覆盖率门槛）+ 前端 jest/lint 通过
-- [ ] 步骤 18：code-reviewer 评审，修复 CRITICAL/HIGH
-- [ ] 步骤 19：更新 `docs/technical/16-smart-assistant.md`
+- [x] 步骤 17：全量 pytest 1876 passed + 前端 jest 488 passed / lint 通过
+- [ ] 步骤 18：code-reviewer 评审，修复 CRITICAL/HIGH（进行中）
+- [ ] 步骤 19：更新 `docs/technical/16-smart-assistant.md`（进行中）
 
 ## 风险评估与依赖
 

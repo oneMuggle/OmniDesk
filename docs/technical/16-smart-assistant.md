@@ -2,45 +2,58 @@
 
 > 类似贾维斯的智能助手,通过聊天快速获取信息、知识库问答、文献搜索。
 >
-> 📅 **最近更新:2026-06-06** — 模块结构、覆盖率和开发状态已与代码同步;覆盖率补齐计划见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md)
+> 📅 **最近更新:2026-07-29** — 同步 2026-07-28 增强轮次(P0 恢复可用 / P1 核心闭环 / P2 架构增强 / P3 主动式演进,共 16 项):失败响应不落库、成本核算、滚动摘要、反馈/数据集 CRUD、doctor 自检、输出契约、Hooks、工具风险分级、Mock LLM 等价测试、多 Agent 前端面板、每日晨报、会话 fork/导出。计划见 [2026-07-28_smart-assistant-enhancement.md](../plans/2026-07-28_smart-assistant-enhancement.md);覆盖率补齐见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md)
 
 ## 1. 架构概览
 
 ```
-用户提问 → 意图分类(Ollama) → 工具路由 → 结果生成 → 返回答案
-                                │
-                    ┌───────────┼───────────────┐
-                    ▼           ▼               ▼
+用户提问 → 意图分类(Ollama) → 工具路由/链规划 → 工具执行 → LLM 生成 → 返回答案
+                                │                  │
+                    ┌───────────┼───────────────┐  ├─ Hooks(PII 脱敏/超时熔断/审计,按需注册)
+                    ▼           ▼               ▼  └─ risk_level 分级(read/write/destructive)
                ScheduleTool  PersonnelTool    RAGTool
                (排班查询)     (人员查询)      (知识库/Ragflow)
+
+失败路径:classify_error_kind → kind + hint(失败响应不写 session,仅写 AgentLog 审计)
+长会话:滚动摘要(>3000 token 触发,截断保留最近 6 轮,摘要优先构造历史)
 ```
 
-### 1.1 当前真实模块结构(2026-06-06 实测)
+### 1.1 当前真实模块结构(2026-07-29 实测)
 
 | 类别 | 模块 | 文件 | 说明 |
 |------|------|------|------|
 | **Agent(7)** | 意图分类 | `agent/intent_classifier.py` | Ollama 本地 LLM 识别用户意图 |
-| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成(支持单/多工具链) |
+| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成(支持单/多工具链);含输出契约(`FORMAT_VERSION`、`classify_error_kind`、`annotate_error_kind`) |
 | | Prompt 构建 | `agent/prompt_builder.py` | 系统 prompt + 工具链 prompt |
-| | 对话上下文 | `agent/conversation_context.py` | 多轮历史 + 滚动摘要 |
+| | 对话上下文 | `agent/conversation_context.py` | 多轮历史 + 滚动摘要 + 失败回答判定(`is_failed_answer`) |
 | | RAG 路由 | `agent/rag_router.py` | 多数据集关键词匹配 + 并行搜索 |
 | | 工具链规划 | `agent/tool_chain_planner.py` | LLM 生成多工具执行计划 |
 | | 工具链执行 | `agent/tool_chain_executor.py` | 按依赖顺序执行,支持 `$variable` 替换 |
-| **工具(12)** | 见 §2.1 | `tools/*.py` | 单例注册中心 `tools/registry.py` |
-| **视图(6)** | 聊天 | `views/chat.py` | 非流式 + SSE 流式两路 |
-| | 知识库 | `views/knowledge_base.py` | 文档上传/列表/删除/状态 |
+| **多 Agent** | 执行器 | `agents/` | MultiAgentExecutor / Pipeline / Fanout / Hierarchical,详见 [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md) |
+| **工具(13)** | 见 §2.1 | `tools/*.py` | 单例注册中心 `tools/registry.py`;全部声明 `risk_level="read"` |
+| **视图(8)** | 聊天 | `views/chat.py` | 非流式 + SSE 流式两路(失败不落库 + 错误 kind 标注) |
+| | 知识库 | `views/knowledge_base.py` | 文档上传/列表/删除/状态 + 数据集 CRUD |
 | | LLM 配置 | `views/llm_config.py` | 端点/激活/健康检查 |
-| | 会话 | `views/sessions.py` | 会话 CRUD |
-| | 日志 | `views/logs.py` | 审计日志 API |
+| | 会话 | `views/sessions.py` | 会话 CRUD + fork + Markdown 导出 |
+| | 日志 | `views/logs.py` | 审计日志 API + 反馈 action |
 | | 统计 | `views/stats.py` | 用量/意图分布聚合 |
+| | 自检 | `views/doctor.py` | 2026-07 新增:6 项系统自检(staff) |
+| | 多 Agent 任务 | `views/tasks.py` | 多 Agent 任务/时间线/介入/流订阅(见第 32 章) |
+| **Hook 系统** | 内置 3 个 | `hooks/builtin/` | AuditLogHook / PiiMaskingHook / TimeoutGuardHook(注册表默认为空,调用方显式注册) |
 | **中间件(1)** | 限流 | `middleware/rate_limit.py` | 30 req/min/user,SSE 接口限流 |
 | **缓存** | 3 级 | `cache.py` | 意图(1h)/工具(30min)/回答(2h) |
+| **晨报** | 每日摘要 | `digest.py` | 复用聚合链路生成每日晨报 Markdown |
 | **Celery** | 文档向量化 | `tasks.py` | 上传→Ragflow 解析→状态流转 |
+| | 每日晨报 | `tasks.py::send_daily_digests` | beat 工作日 8:30 触发,推送通知中心 |
 
 ### 1.2 核心数据流
 
-1. **非流式路径**:`POST /api/smart-assistant/chat/` → 解析 → 查缓存 → 意图分类 → 工具链规划 → 工具执行 → LLM 生成回答 → 写入 AgentLog
-2. **流式路径**:`POST /api/smart-assistant/chat/stream/` → 同上但 LLM 调用改为 `generate_answer_stream` → 逐 chunk 通过 SSE 推送(meta → chunks → done)
+1. **非流式路径**:`POST /api/smart-assistant/chat/` → 解析 → 查缓存 → 意图分类 → 工具链规划 → 工具执行 → LLM 生成回答 → 失败判定(`_resolve_error`)→ 成功:写入 `session.messages` + AgentLog(携带 `estimated_cost`);失败:仅写 AgentLog(`tool_success=False`),响应追加 `kind`/`hint`
+2. **流式路径**:`POST /api/smart-assistant/chat/stream/` → 同上但 LLM 调用改为 `generate_answer_stream` → 逐 chunk 通过 SSE 推送(meta → chunks → done → session);**所有 SSE 帧携带 `format_version=1`**;done 帧携带显式 `error` 标记 + `kind`/`hint`;失败时不写 `session.messages`(无 `conversation_id` 时显式置空 `persist_session`)
+3. **会话压缩**:会话保存路径调用 `apply_rolling_summary()`,token 超 `SOFT_TOKEN_LIMIT`(3000)且尚无摘要时,对早期消息生成 `summary_text` 并把 `messages` 截断为最近 6 轮(12 条)
+4. **历史构造**:下一次请求由 `build_effective_history()` 组装,**摘要优先**——有摘要时返回 `[摘要 system 消息] + 最近 6 轮`,无摘要返回全量
+
+> 失败时**仍写 AgentLog**(审计需要,`session` 可为空),审计与"不污染多轮上下文"是两条独立链路。
 
 ## 2. 后端实现
 
@@ -48,11 +61,11 @@
 
 | 模型 | 关键字段 | 说明 |
 |------|----------|------|
-| `AgentLog` | user, query, response, tool_used, tool_output, intent | 助手调用日志(扩展字段见 [17-ai-assistant-deep-design §6](./17-ai-assistant-deep-design.md)) |
-| `SmartAssistantSession` | user, conversation_id, messages(JSON), summary_text, turn_count | 对话会话(已支持多轮压缩) |
+| `AgentLog` | user, query, response, tool_used, tool_output, intent, **estimated_cost, model_name, input_tokens/output_tokens/total_tokens, user_feedback** | 助手调用日志;`estimated_cost` 为 `DecimalField(10, 6)` 可空(预估费用,元);`user_feedback` 取值 `""`/`up`/`down`(扩展字段见 [17-ai-assistant-deep-design §6](./17-ai-assistant-deep-design.md)) |
+| `SmartAssistantSession` | user, conversation_id, messages(JSON), summary_text, **summary_token_count**, turn_count | 对话会话(滚动摘要已启用) |
 | `KnowledgeBaseDocument` | title, file, status, vectorized_at | 知识库文档 |
-| `KnowledgeDataset` | name, ragflow_dataset_id, tags, is_active | 多数据集 RAG 路由 |
-| `LlmEndpoint` / `LlmAppConfig` | name, priority, is_fallback, model_capabilities | 多 LLM 端点配置 |
+| `KnowledgeDataset` | name, ragflow_dataset_id, tags, is_active | 多数据集 RAG 路由(全局共享资源,无属主字段) |
+| `LlmEndpoint` / `LlmAppConfig` | name, priority, is_fallback, model_capabilities, **api_key(加密存储)** | 多 LLM 端点配置 |
 
 ### 2.2 工具系统(13 个)
 
@@ -73,7 +86,7 @@
 | `ExternalLinkTool` | 内网外链导航(VPN/Jira) | `external_integration.ExternalLink` |
 
 最后 3 个工具(Announcement/Compliance/ExternalLink)为 2026-06 阶段 3 计划新增(详见
-[27-smart-assistant-stage3-new-tools](../plans/2026-06-07_smart-assistant-stage3-new-tools.md))。
+[2026-06-07_smart-assistant-stage3-new-tools.md](../plans/2026-06-07_smart-assistant-stage3-new-tools.md))。
 
 #### 2.2.1 新工具 API(阶段 3 增量)
 
@@ -136,39 +149,215 @@ class ToolContext:
 
 共 9 个 E2E 测试覆盖完整链路。
 
+#### 2.2.4 工具风险分级(`risk_level`,2026-07 新增)
+
+`tools/base.py` 引入工具风险元数据,为写操作/破坏性操作预留分级与二次确认协议:
+
+| 常量 | 取值 | 约定 |
+|------|------|------|
+| `RISK_LEVEL_READ` | `read` | 只读查询,`BaseTool` 默认值 |
+| `RISK_LEVEL_WRITE` | `write` | 有副作用的写操作,orchestrator 记录显式审计 |
+| `RISK_LEVEL_DESTRUCTIVE` | `destructive` | 破坏性操作,约定必须同时置 `require_confirmation=True`(预留二次确认) |
+
+- `VALID_RISK_LEVELS` frozenset 由 `tests/test_tool_risk_level.py` 全量校验,非法取值在测试中 fail
+- `get_schema()` 输出包含 `risk_level`,供前端/审计消费
+- **现状:13 个工具全部显式声明 `risk_level="read"`**(均为只读查询,无副作用),write/destructive 为框架预留,尚无实例
+- 审计:`AuditLogHook._audit_input()` 将 `risk_level` 并入 `AgentLog.tool_input`(JSONField);`destructive` 调用额外 `logger.warning` 提升日志级别
+
 ### 2.3 API 端点
 
 | 端点 | 方法 | 说明 |
 |------|------|------|
-| `/api/smart-assistant/chat/` | POST | 发送聊天消息(非流式) |
-| `/api/smart-assistant/chat/stream/` | POST | 流式响应(SSE) |
+| `/api/smart-assistant/chat/` | POST | 发送聊天消息(非流式);失败响应追加 `kind`/`hint` |
+| `/api/smart-assistant/chat/stream/` | POST | 流式响应(SSE,全帧 `format_version=1`,实现于 2026-07 重写) |
 | `/api/smart-assistant/sessions/` | GET/POST | 会话列表/创建 |
-| `/api/smart-assistant/sessions/<id>/` | GET/DELETE | 会话详情/删除 |
+| `/api/smart-assistant/sessions/{id}/` | GET/DELETE | 会话详情/删除 |
+| `/api/smart-assistant/sessions/{id}/fork/` | POST | **新增**:会话 fork(可选 `at_message` 截断前 N 条、`title`) |
+| `/api/smart-assistant/sessions/{id}/export/` | GET | **新增**:Markdown 导出(RFC 5987 文件名) |
 | `/api/smart-assistant/knowledge-base/` | GET/POST | 知识库文档管理 |
+| `/api/smart-assistant/knowledge-base/datasets/` | GET/POST/PUT/PATCH/DELETE | **新增**:数据集 CRUD(`KnowledgeDatasetViewSet`,仅 `IsAuthenticated`,数据集为全局共享资源) |
+| `/api/smart-assistant/agent-logs/{id}/feedback/` | PATCH | **新增**:回答反馈(`up`/`down`/`null` 清除,仅本人可反馈) |
 | `/api/smart-assistant/logs/` | GET | 审计日志列表 |
-| `/api/smart-assistant/logs/<id>/` | GET | 审计日志详情 |
+| `/api/smart-assistant/logs/{id}/` | GET | 审计日志详情 |
 | `/api/smart-assistant/llm-config/` | GET/POST | LLM 端点配置 |
 | `/api/smart-assistant/stats/` | GET | 用量/意图分布聚合 |
 | `/api/smart-assistant/usage/{stats,daily,user}/` | GET | 用量分析(详见 [17-ai-assistant-deep-design §6.2](./17-ai-assistant-deep-design.md)) |
+| `/api/smart-assistant/doctor/` | GET | **新增**:系统自检(staff only),见 §2.7 |
+| `/api/smart-assistant/tasks/...` | GET/POST | 多 Agent 任务/执行/介入/时间线/流订阅,详见 [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md) |
+
+### 2.4 输出契约与错误分类(2026-07 新增)
+
+**SSE 契约**:所有 SSE 事件(meta/chunk/done/session)经 `orchestrator.sse_event()` 统一注入 `format_version: 1`(`FORMAT_VERSION` 常量)。同步(非 SSE)响应的 JSON **不带** `format_version`,仅在失败时追加 `kind`/`hint`。
+
+**错误分类单一事实源**:`classify_error_kind(result)` 位于 `agent/orchestrator.py` 顶部,纯函数 + 单次 DB 查询,同步路径与流式 done/session 帧经 `annotate_error_kind()` 复用同一分类,保证各出口一致。
+
+| kind | 触发条件 | hint(中文指引) |
+|------|----------|-----------------|
+| `no_llm_endpoint` | 无激活的 LlmAppConfig/端点 | 请前往管理后台 → AI 应用配置 LLM 端点 |
+| `llm_unavailable` | 有配置但回答带失败前缀 | LLM 服务暂时不可用,请稍后重试或检查端点连通性 |
+| `ragflow_unavailable` | `tool_used="knowledge_qa"` 且错误涉及 ragflow | 知识库服务暂时不可用 |
+| `internal_error` | 其余失败(兜底) | 服务异常,请稍后重试 |
+
+hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback 到 `internal_error` 的 hint。
+
+### 2.5 失败响应不落库与滚动摘要(2026-07 新增)
+
+**失败不落库(双保险)**:
+
+- 统一判定 `_resolve_error(result)` = 显式 `error` 标记 **OR** `is_failed_answer(answer)` 前缀判断
+- 显式标记:orchestrator 每个返回分支都带 `"error": is_failed_answer(answer)`
+- 前缀兜底:`is_failed_answer()` 匹配 `FAILED_ANSWER_PREFIX="回答生成失败"` 与 `FAILED_ANSWER_STREAM_PREFIX="[错误] 回答生成失败"`(`agent/conversation_context.py`)
+- 同步与流式两条路径在失败时均跳过 `session.messages` 写入,避免错误回答污染多轮上下文
+
+**滚动摘要**:
+
+| 常量(`agent/conversation_context.py`) | 值 | 含义 |
+|------|------|------|
+| `SOFT_TOKEN_LIMIT` | 3000 | 摘要触发阈值(且尚无摘要) |
+| `HARD_TOKEN_LIMIT` | 6000 | 硬上限 |
+| `RECENT_TURNS_SOFT` | 6 | soft 触发时截断保留最近轮数(12 条消息) |
+| `RECENT_TURNS_HARD` | 3 | hard 触发时保留轮数 |
+
+- `generate_rolling_summary(messages)` 经 `llm_service.router` 生成(`ROLLING_SUMMARY_PROMPT`:保留人物/时间/事项/结论,≤300 字);异常或失败响应 → 返回 `None`,静默降级保留全量历史
+- `apply_rolling_summary(session)` 写入 `summary_text` + `summary_token_count`,截断 `messages` 并重算 `turn_count`
+- `build_effective_history(messages, summary_text)` **摘要优先**:有摘要 → `[摘要 system 消息] + 最近 6 轮`;无摘要 → 全量
+
+### 2.6 成本核算(2026-07 新增)
+
+- `llm_service/router.py::_enrich_usage()` 在非流式 `generate()` 返回的 usage 中补充:
+  - `estimated_cost`:按命中端点 `cost_per_1k_tokens × total_tokens / 1000` 计算(六位小数 `ROUND_HALF_UP`;无配置/无用量 → `0.0`)
+  - `endpoint_id`:命中的 `LlmEndpoint` 主键(Ollama 兜底为 `None`)
+  - `model_name`:实际模型名
+- 同步路径经 `_usage_fields()` 提取后落库 `AgentLog.estimated_cost`;**流式路径显式 `estimated_cost=None`**(流式暂无 usage 统计,见 §9 遗留项)
+
+### 2.7 doctor 自检端点(2026-07 新增)
+
+`GET /api/smart-assistant/doctor/`,权限 `IsAuthenticated + IsAdminUser`(staff only)。
+
+**6 个检查项**(`CHECKERS` 元组,顺序即输出顺序):
+
+| # | 检查项 | 内容 |
+|---|--------|------|
+| 1 | `llm_config` | smart_assistant 的 LlmAppConfig 是否存在且激活(模型 + 端点名) |
+| 2 | `llm_endpoints` | 逐个探测激活 LlmEndpoint(优先 `/v1/models`,失败回退基址;任意 HTTP 响应含 4xx 视为可达) |
+| 3 | `ollama_fallback` | `settings.OLLAMA_BASE_URL` 兜底可达性(不可达仅 warn) |
+| 4 | `ragflow` | 激活 RagflowConfig 存在性 + `api_endpoint` 可达性 |
+| 5 | `datasets` | 激活 KnowledgeDataset 数量(0 个 → warn) |
+| 6 | `cache_rate_limit` | 缓存后端类型 + RateLimitMiddleware 启用情况(LocMemCache 提示换 Redis) |
+
+**报告结构**(与 chat 契约同源,`format_version: 1`):
+
+```json
+{
+  "format_version": 1,
+  "checked_at": "...",
+  "summary": {"ok": 4, "warn": 1, "error": 1},
+  "checks": [{"name": "...", "status": "ok|warn|error", "kind": "...", "message": "...", "hint": "..."}]
+}
+```
+
+探测超时 `PROBE_TIMEOUT_SECONDS=3`;单项异常兜底为 `kind="internal_error"` 的检查项,端点本身不返回 500。doctor 的 `kind` 取值是 chat 契约的超集(另含 `ok`/`info`/`ollama_unavailable`/`no_active_dataset`)。
+
+### 2.8 反馈 API 与数据集 CRUD(2026-07 新增)
+
+**反馈 API**:`PATCH /api/smart-assistant/agent-logs/{id}/feedback/`(`AgentLogViewSet.feedback` action)
+
+- 取值:`up` / `down` / `null`(`null` 清除,落库为 `""`),允许 up↔down 改选
+- 归属校验:`AgentLog.objects.get(pk=pk, session__user=request.user)`——仅本人可反馈自己的日志;日志不存在、session 无主或 pk 非法一律 404,刻意不泄露他人日志存在性
+
+**数据集 CRUD**:`KnowledgeDatasetViewSet`(ModelViewSet),前缀 `knowledge-base/datasets/`
+
+- 完整 CRUD,权限仅 `IsAuthenticated`(无 staff 门槛;数据集为全局共享资源,被 RAGRouter 消费,模型无属主字段)
+- 必填校验(name / ragflow_dataset_id)由 `KnowledgeDatasetSerializer` 完成,`document_count` 为只读统计
+- ⚠️ 前端管理页面尚未落地(仅后端 API,见 §9 遗留项)
+
+### 2.9 会话 fork 与导出(2026-07 新增)
+
+**fork**:`POST /api/smart-assistant/sessions/{id}/fork/`
+
+- 请求体均可选:`at_message`(非负整数,仅复制前 N 条消息,默认全量)、`title`(默认 `原标题（副本）`,对齐 `TITLE_MAX_LENGTH=255`)
+- 新会话归属 `request.user`,`turn_count` 按截断结果重算,`summary_text` 置空待重建,返回 201
+- `get_queryset` 限定本人会话,访问他人自动 404
+
+**export**:`GET /api/smart-assistant/sessions/{id}/export/`
+
+- `render_session_markdown` 输出 `# 标题` + 创建时间/轮数 + 逐条消息段落(role 映射:用户/助手/系统)
+- `Content-Disposition` 双文件名:ASCII 兜底 `filename="session-{pk}.md"` + **RFC 5987** `filename*=UTF-8''{quote(filename)}`
+- `build_export_filename` 正则清洗标题非法字符,最终格式 `{safe_title}-{YYYYMMDD}.md`
+
+### 2.10 Hook 系统(2026-07 新增)
+
+`hooks/builtin/` 内置 3 个 hook(借鉴 claw-code 设计):
+
+| Hook | 开关 | 默认 | 作用 |
+|------|------|------|------|
+| `AuditLogHook` | 无 | — | 工具输入/输出并入 `AgentLog.tool_input`(含 `risk_level`);destructive 额外 warning |
+| `PiiMaskingHook` | `SMART_ASSISTANT_PII_MASKING` | `True` | post_execute 递归脱敏工具输出(生成新容器,不可变);邮箱 → 身份证 → 手机号顺序匹配:手机号 `138****1234`(前 3 后 4)、身份证前 6 后 4、邮箱 local 保留前 3 位 |
+| `TimeoutGuardHook` | `SMART_ASSISTANT_TOOL_TIMEOUT`(秒)/ `SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED` | `10.0` / `True` | 钩子本身为配置入口 + 恢复策略;实际计时由 `run_guarded_sync`(daemon 线程 + `join(timeout)`)/ `run_guarded`(`asyncio.wait_for`)与 `BaseTool.execute_with_guard` 完成;超时返回 `{"found": False, "timed_out": True, "error": "tool_timeout", ...}`,`on_failure` 对 `TimeoutError` 返回 `RecoveryAction(action="fallback")` |
+
+**接线现状(重要)**:`get_registry()` 返回**空注册表**,生产执行器(MultiAgentExecutor / ToolChainExecutor)未默认装载钩子链,`execute_with_guard` 目前仅测试引用——hook 均已实现并通过测试(`test_hooks_builtin.py`,592 行),接入生产链路需调用方显式注册(见 §9 遗留项)。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
+
+### 2.11 每日晨报(2026-07 新增)
+
+- **调度**:`CELERY_BEAT_SCHEDULE["smart-assistant-daily-digest"]` → `smart_assistant.tasks.send_daily_digests`,`crontab(hour=8, minute=30, day_of_week="1-5")`(工作日 8:30,`CELERY_TIMEZONE=Asia/Shanghai`)
+- **生成**:`digest.py::generate_daily_digest(user)` 以固定晨检 query(`DIGEST_QUERY="今天我有哪些安排？请汇总今日的排班、会议室、备忘录和待办事项。"`)构造 `ToolContext(user, scope=resolve_scope(user))` 调 `AgentOrchestrator().process()`,**复用聚合链路**(`intent="aggregated_day"` → ToolChainExecutor + ResultSynthesizer);渲染 Markdown(日期标题 + summary + moduleCounts + 重点条目,`MAX_HIGHLIGHT_ITEMS=10`、`MAX_ITEM_DESC_LENGTH=80`);失败一律返回 None 不抛异常
+- **推送**:经 `NotificationService.create(type="system", content=markdown, dedupe_key=...)` 写通知中心;`dedupe_key=f"smart_assistant_daily_digest:{date.isoformat()}"`(按日期去重,beat 重投不会发第二条)
+- **面向用户**:`is_active=True, is_staff=True`(MVP 范围,TODO 改按 NotificationPreference 订阅);单用户失败不中断,任务返回 `{"success", "failed", "total", "date"}`
+
+### 2.12 LLM 接入层统一(2026-07 新增)
+
+| 变更 | 说明 |
+|------|------|
+| office_assistant 统一路由 | `office_assistant/views.py` 改经 `llm_service.router.get_router(app_name="office_assistant")`(流式 `stream=True`,非流式返回 `(content, usage)`),消除直连 Ollama 裂缝 |
+| Ollama 默认模型统一 | `llm_service/ollama_client.py` 与 `settings/base.py` 的 `OLLAMA_MODEL_NAME` 默认值统一为 `qwen2.5:7b`(原 `llama2`),base_url 默认 `http://localhost:11434` |
+| 删除死代码 | `llm_service/openai_client.py` 已删除;目录仅剩 `ollama_client.py` / `router.py` + 测试 |
+| RagflowConfig.api_key 加密 | 改为 `EncryptedCharField(max_length=500)`(复用 `personnel.models` 实现:`sha256(SECRET_KEY)` 派生密钥逐字节 XOR + base64,透明加解密,解密失败降级返回原值);迁移 `ragflow_service/migrations/0003_encrypt_api_key.py` 前向用原生 SQL 读明文加密(避免 ORM 对合法 base64 明文二次加密),reverse 可解密回滚 |
+
+### 2.13 Mock LLM 等价测试(2026-07 新增)
+
+CI 不依赖真实 LLM 的确定性 e2e 体系:
+
+- **`tests/mock_llm_server.py`**:纯标准库 `ThreadingHTTPServer`,仅模拟 OpenAI 兼容 `POST /v1/chat/completions`(Ollama 在测试中被故意指向死端口作确定性失败兜底);`stream=true` 时按 SSE 输出 `chat.completion.chunk` + `data: [DONE]`;关键词路由确定性返回固定回答 / 500 / 121s 超时;入口 `running_server()` 上下文管理器(端口 0 自动分配、daemon 线程)
+- **`tests/test_mock_llm_e2e.py`**:5 个模块级用例——固定回答 + Decimal 精确成本(`0.003000`)/ 端点 500 失败不建 session / 流式事件序列(meta→chunk→done→session,拼接 == 非流式回答,验证流式/非流式等价)/ 单端点无重试只降级 / 超时 fallthrough
+- **隔离机制**:fixture 用 ORM 真实创建 `LlmEndpoint`/`LlmAppConfig` 指向进程内 mock(走真实 TCP 全链路)+ autouse fixture monkeypatch `LLMRouter.OLLAMA_BASE` 到 discard 端口 + 清单例缓存
 
 ## 3. 前端实现
 
 | 组件 | 路径 | 说明 |
 |------|------|------|
-| `SmartChatPage` | `/smart-assistant` | 聊天主界面(400 行,流式打字) |
+| `SmartChatPage` | `/smart-assistant` | 聊天主界面(流式打字、错误 hint 展示、会话 ⋯ 菜单:创建副本/导出 Markdown) |
 | `KnowledgeBasePage` | `/knowledge-base` | 知识库管理 |
 | `AgentAuditPanel` | `/smart-assistant/audit` | 管理员审计面板(图表+过滤) |
 | `StatsPage` | `/smart-assistant/stats` | 用量统计页 |
-| `ToolResult` | 共享组件 | 工具结果渲染(排班/人员/知识来源等) |
+| `AgentTaskPanel` | `/smart-assistant/tasks` | **新增**:多 Agent 任务面板(SSE timeline、介入、子任务/产出展示) |
+| `ToolResult` | 共享组件 | 工具结果渲染(排班/人员/知识来源等;聚合结果已对齐扁平结构) |
+| `AggregatedDayCard` | 共享组件 | 跨模块汇总卡片(扁平 props:items/moduleCounts/summary) |
 | `MessageMarkdown` | 共享组件 | Markdown 渲染(`react-markdown` + remark-gfm) |
-| `MessageActions` | 共享组件 | 点赞/点踩/复制/重试 |
+| `MessageActions` | 共享组件 | 点赞/点踩/复制/重试(赞踩经 `submitFeedback` 接反馈 API) |
 | `QuickCommands` | 共享组件 | 快捷指令面板 |
+| `QuickAssistant` | 共享组件 | 悬浮快捷助手(同样消费错误 hint) |
 | `DocumentPreview` | 共享组件 | 文档预览(上传/下载) |
+| `sessionForkExportApi` | `pages/sessionForkExportApi.js` | **新增**:fork / Markdown 导出客户端(`forkSession`、`exportSessionMarkdown`、`parseDownloadFilename`;置于 pages/ 目录是为规避并行开发冲突) |
 
-### 3.1 流式响应
+### 3.1 流式响应与错误提示
 
-- 后端:`StreamingHttpResponse` 按 chunk 推送,首帧先发 `meta`(工具意图/工具结果)
+- 后端:`StreamingHttpResponse` 按 chunk 推送,首帧先发 `meta`(工具意图/工具结果);**所有 SSE 帧携带 `format_version: 1`**,失败时 done 帧携带 `error` + `kind` + `hint`
 - 前端:`fetch` + `ReadableStream` 逐段渲染,打字效果;加载状态在 `meta` 到达后即切换为工具意图预览
+- 错误 hint 消费:从 SSE `done`/`session` 事件经 `smartAssistantApi.resolveErrorHint(event)` 解析(`ERROR_KIND_MESSAGES` kind→文案映射表),`SmartChatPage` 挂到消息 `errorHint` 字段渲染 secondary 文本(`data-testid="message-error-hint"`),`QuickAssistant` 同模式;流无正文时兜底「回答生成失败」
+
+### 3.2 聚合卡片渲染修复(2026-07)
+
+- **修复前**:`ToolResult.jsx` 按嵌套结构消费(`result.data.items/moduleCounts/summary`),与后端返回的扁平 `tool_result` 不匹配,跨模块汇总卡片渲染断链(功能实际失效)
+- **修复后**:新增 `normalizeAggregatedResult(result)`,主路径扁平读取 `result.items / result.moduleCounts / result.summary` 并显式传三个 prop(保留 `result.data` 包层的防御性回退)
+- 同轮修复 `AggregatedDayCard.jsx` 的 Rules of Hooks 违规(`useMemo` 移到所有 early return 之前)+ 补全 propTypes
+
+### 3.3 多 Agent 任务面板(2026-07 新增)
+
+- 路由 `/smart-assistant/tasks`(`routes/index.jsx`,lazy 加载,`ProtectedRoute pageName="多Agent任务"` 仅要求登录);Sidebar「AI 助手」子菜单新增「多Agent任务」入口(`ClusterOutlined` 图标)
+- **SSE timeline**:`subscribeTaskStream`(fetch + ReadableStream + AbortController)订阅 `/api/smart-assistant/tasks/{id}/stream/`,按 `sequence` 去重、60s 超时重连
+- **介入**:`interveneAgentTask(taskId, action)` 支持 `pause` / `resume` / `cancel` 三个动作(cancel 带 Popconfirm);⚠️ 暂不支持「补充指令」动作(见 §9 遗留项)
+- `agentTaskApi.js` 另导出 `getAgentTasks`、`getAgentTaskTimeline`、`createAgentTask`、`executeAgentTask` 及状态映射常量(`TASK_STATUS_MAP` / `SUBTASK_STATUS_MAP` / `EVENT_TYPE_LABELS`)
+- 后端 API(Pipeline/Fanout/Hierarchical 执行器)详见 [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md)
 
 ## 4. 配置
 
@@ -176,15 +365,32 @@ class ToolContext:
 |----------|------|------|
 | `SMART_ASSISTANT_DATASET_ID` | Ragflow 默认数据集 ID | 无(待配置) |
 | `SMART_ASSISTANT_CHAT_RATE_LIMIT` | 每用户每分钟最大请求数 | `30` |
-| `SMART_ASSISTANT_MAX_HISTORY_TOKENS` | 长会话压缩阈值 | `2000`(规划中) |
+| `SMART_ASSISTANT_PII_MASKING` | PiiMaskingHook 开关(代码级 `getattr` 兜底,未在 settings 定义) | `True` |
+| `SMART_ASSISTANT_TOOL_TIMEOUT` | 工具执行超时秒数(同上) | `10.0` |
+| `SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED` | 超时熔断开关(同上) | `True` |
 | `SMART_ASSISTANT_AGENT_VERSION` | Agent 框架版本(v1/v2) | `v1`(规划中) |
-| `OLLAMA_ENDPOINT` | Ollama 本地服务地址 | 项目默认 |
-| `OLLAMA_MODEL` | Ollama 模型名称 | `deepseek-r1:1.5b` |
+| `OLLAMA_BASE_URL` | Ollama 本地服务地址 | 项目默认 |
+| `OLLAMA_MODEL_NAME` | Ollama 模型名称(2026-07 起全站统一) | `qwen2.5:7b`(原 `llama2`) |
 | `OLLAMA_KEEP_ALIVE` | 模型常驻时间(规划中) | `24h` |
+| `SEED_LLM_API_ENDPOINT` | `seed_llm_endpoint` 播种的端点地址 | `http://localhost:11434/v1` |
+| `SEED_LLM_MODEL` | 播种端点的模型名 | `qwen2.5:7b` |
+| `SEED_LLM_API_KEY` | 播种端点的 API key | 空 |
+| `RAGFLOW_PORT` | 离线 compose RAGFlow 宿主机端口 | `9380` |
+| `RAGFLOW_MYSQL_PASSWORD` | 离线 compose RAGFlow MySQL 密码(`:?` 必填) | 无 |
+| `RAGFLOW_API_ENDPOINT` | backend 访问 RAGFlow 的地址 | `http://ragflow:80` |
 
-## 5. 模块覆盖率与质量(2026-06-06 实测)
+> 滚动摘要阈值为**代码常量**(`agent/conversation_context.py`:`SOFT_TOKEN_LIMIT=3000` / `HARD_TOKEN_LIMIT=6000` / `RECENT_TURNS_SOFT=6`),不经环境变量配置。
 
-**模块总覆盖率 63.25%**(55 passed,远低于项目基线 80.89%)。
+## 5. 离线部署注意事项(2026-07 新增)
+
+- **compose 内置 RAGFlow**(可选能力):`docker-compose.offline.yml` 新增 `ragflow` 服务(`infiniflow/ragflow:v0.16.0`,`pull_policy: never` → 需 `docker load` 离线加载)+ 配套 `ragflow-mysql`(`mysql:8.0`,`RAGFLOW_MYSQL_PASSWORD` 必填)。**未使用 compose profile**,随栈启动;可选性由「backend 故意不 `depends_on` ragflow」保证——RAG 故障不阻塞主站,仅知识库检索运行时优雅降级
+- **默认 LLM 端点种子**:`deploy_offline.sh` 的 `migrate` 分支在 `manage.py migrate` 后自动执行 `manage.py seed_llm_endpoint`(**幂等:`LlmEndpoint` 表非空即跳过**,管理员已手动配置则不受影响),创建 `default-llm-endpoint`(`is_active`/`is_fallback`/`priority=1`)+ 配套 `LlmAppConfig(app_name="smart_assistant")`;支持 `--dry-run`
+- **env 示例**:`.env.example` / `.env.production.example` 新增 `SEED_LLM_*` 三个注释示例变量;production 版补充告警——容器内 `localhost` 指向容器自身,Ollama 部署在宿主机时须改用宿主机内网 IP
+- 离线三层一致性约束(镜像/compose/env)详见 [23-offline-deployment.md](./23-offline-deployment.md)
+
+## 6. 模块覆盖率与质量
+
+**2026-06-06 快照:模块总覆盖率 63.25%**(55 passed,远低于项目基线 80.89%)。
 
 覆盖率断点(详细补齐路径见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md)):
 
@@ -201,32 +407,28 @@ class ToolContext:
 | `middleware/rate_limit.py` | 48% | 17 行 |
 | `migrations/0004` | 52% | 11 行 |
 
-## 6. 开发状态(2026-06-06 更新)
+> 2026-07-29 注:增强轮次为全部新代码补齐测试(新增 `test_doctor` / `test_digest` / `test_session_fork_export` / `test_feedback_api` / `test_dataset_crud` / `test_hooks_builtin` / `test_tool_risk_level` / `test_mock_llm_e2e` 等),全量 pytest 1876 passed、前端 jest 488 passed(见增强计划步骤 17);模块级覆盖率重新度量待执行。
+
+## 7. 开发状态(2026-07-29 更新)
 
 | 阶段 | 状态 | 备注 |
 |------|------|------|
-| Phase 1:核心聊天 + 基础工具(3) | ✅ 已完成 | 实际已扩到 12 工具 |
+| Phase 1:核心聊天 + 基础工具(3) | ✅ 已完成 | 实际已扩到 13 工具 |
 | Phase 2:知识库文档上传与向量化 | ✅ 已完成 | 仅需配置 `SMART_ASSISTANT_DATASET_ID` |
 | Phase 3:流式响应 + 对话历史 | ✅ 已完成 | 含多轮压缩(≤6/7-15/>15 三档) |
 | Phase 4:审计面板 + 错误处理 | ✅ 已完成 | 含 3 级缓存、限流、token 用量统计 |
 | Phase 5:深化设计(模型降级/多数据集 RAG/成本监控) | ✅ 已完成 | 见 [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) |
-| **Phase 6:覆盖率补齐与质量守卫(P0)** | 🔄 进行中 | 本次优化方案 阶段 2 |
-| Phase 7:新工具(公告/合规/外部链接)(P1) | 📝 计划 | 本次优化方案 阶段 3 |
-| Phase 8:性能与体验(P1) | 📝 计划 | 本次优化方案 阶段 4 |
-| Phase 9:架构升级(ReAct + Reflexion)(P2) | 📝 计划 | 本次优化方案 阶段 5 |
+| Phase 6:覆盖率补齐与质量守卫 | 🔄 进行中 | 见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md) |
+| Phase 7:新工具(公告/合规/外部链接) | ✅ 已完成 | 2026-06 阶段 3 落地,13 工具齐备 |
+| **2026-07-28 增强轮次(P0-P3,16 项)** | ✅ 已完成 | P0 恢复可用(失败不落库/聚合卡片修复/RAGFlow+种子)/ P1 闭环(成本/摘要/反馈/数据集 CRUD/LLM 统一)/ P2 架构(doctor/输出契约/Hooks/risk_level/Mock 测试)/ P3 主动式(多 Agent 面板/晨报/fork 导出);见 [增强计划](../plans/2026-07-28_smart-assistant-enhancement.md) |
+| Phase 8:性能与体验(P1) | 📝 计划 | 性能基准实测见 [34-smart-assistant-perf-benchmark.md](./34-smart-assistant-perf-benchmark.md) |
+| Phase 9:架构升级(ReAct + Reflexion)(P2) | 📝 计划 | — |
 
-## 7. 相关文档
-
-- [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) — 多轮对话、工具链、模型降级、成本监控
-- [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md) — 覆盖率补齐与守卫策略
-- [优化实施计划](../plans/2026-06-06_smart-assistant-optimization.md) — 6 阶段路线图(2026-06-06)
-- [用户操作手册](../user-manual/08-smart-assistant-usage.md) — 终端用户使用指南
-
-## 7. 分层权限与跨模块汇总(2026-07-07 新增)
+## 8. 分层权限与跨模块汇总(2026-07-07 新增)
 
 智能助手已支持跨模块汇总查询和分层权限,详见 docs/superpowers/specs/2026-07-07-smart-assistant-cross-module-aggregation-design.md。
 
-### 7.1 三层权限 scope
+### 8.1 三层权限 scope
 
 | Scope | 适用用户 | 数据范围 |
 |---|---|---|
@@ -236,7 +438,7 @@ class ToolContext:
 
 权限自动从 `request.user.has_perm()` 派生,无需前端传参。
 
-### 7.2 跨模块汇总
+### 8.2 跨模块汇总
 
 用户问"这周我有哪些事"时,智能助手自动:
 1. IntentClassifier 检测 `needs_multi_tool=True`
@@ -245,11 +447,11 @@ class ToolContext:
 4. ResultSynthesizer 聚合结果(时间排序 + 同主题合并 + 模块统计)
 5. LLM 合成自然语言回答 + 前端 <AggregatedDayCard> 渲染卡片
 
-### 7.3 启动时校验
+### 8.3 启动时校验
 
 `python manage.py check_tool_scopes` 在 CI 跑,确保所有 13 个工具实现 scope 抽象方法。
 
-### 7.4 已知 gap(已修复 — Task 17, 2026-07-07)
+### 8.4 已知 gap(已修复 — Task 17, 2026-07-07)
 
 | Gap | 状态 | 修复方式 |
 |---|---|---|
@@ -260,3 +462,35 @@ class ToolContext:
 | P0 漏洞: `cache_tool_result` 用 `context_sig=""` 不区分用户 → 缓存投毒 | ✅ 已修复 | cache.py + orchestrator 派生 `u<user_pk>_s<scope_value>` 并加入 cache key;E2E 测试 `test_e2e_cache_isolated_by_user_and_scope` 验证 |
 
 修复详情见 Task 17 plan:`docs/superpowers/plans/2026-07-07-task17-fix-integration-gaps.md`
+
+## 9. 决策与遗留项
+
+### 9.1 架构决策
+
+| 决策 | 理由 |
+|------|------|
+| Dify 维持 iframe 浅集成,不做服务端 API 集成 | YAGNI:当前无深度编排诉求;内网离线部署下 Dify 服务端栈成本高;iframe 已满足嵌入访问需求 |
+| 晨报 MVP 面向 `is_active + is_staff` 用户 | 先小范围验证;后续按 `NotificationPreference` 订阅偏好放开(代码 TODO 已标注) |
+| `seed_llm_endpoint` 幂等按「表非空」而非按 name 字段 | 语义是「管理员未配置过才播种默认端点」,避免与手动配置并存产生歧义 |
+| `RagflowConfig.api_key` 复用 personnel 自研加密字段(XOR + base64) | 与 `LlmEndpoint.api_key` 同方案,零新依赖;安全强度满足内网场景 |
+
+### 9.2 已知遗留项
+
+| 遗留 | 说明 |
+|------|------|
+| 流式路径 `estimated_cost` 恒为 `None` | 流式调用暂无 usage 统计,成本核算仅覆盖同步路径 |
+| 数据集 CRUD 无前端页面 | 后端 `KnowledgeDatasetViewSet` 就绪,前端仍依赖 Django admin 或 API 直调 |
+| Hooks 未接入生产链路 | `get_registry()` 默认为空,MultiAgentExecutor / ToolChainExecutor 未装载钩子链;`execute_with_guard` 仅测试引用。hook 实现与测试完备,接线为后续工作 |
+| 多 Agent intervene 不支持「补充指令」 | 当前介入动作仅 `pause` / `resume` / `cancel`;如需向运行中任务注入指令,需后端扩展 intervene 端点 |
+| Mock LLM 覆盖范围 | 仅模拟 OpenAI 兼容端点,未覆盖 tool-calls 路径与 Ollama 正向输出对比 |
+
+## 10. 相关文档
+
+- [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) — 多轮对话、工具链、模型降级、成本监控
+- [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md) — 覆盖率补齐与守卫策略
+- [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md) — 多 Agent 执行器 / Hook 系统 / 任务 API
+- [33-ragflow-integration.md](./33-ragflow-integration.md) — RAGFlow API 客户端与部署
+- [34-smart-assistant-perf-benchmark.md](./34-smart-assistant-perf-benchmark.md) — 性能基准实测
+- [23-offline-deployment.md](./23-offline-deployment.md) — 离线部署三层一致性约束
+- [增强实施计划](../plans/2026-07-28_smart-assistant-enhancement.md) — 2026-07-28 增强轮次(P0-P3,16 项,进行中)
+- [用户操作手册](../user-manual/08-smart-assistant-usage.md) — 终端用户使用指南

@@ -28,7 +28,7 @@
 | 13 | [新闻系统](13-news-system.md) | 新闻发布与管理模块 |
 | 14 | [项目与合规](14-project-compliance.md) | 项目管理、合规追踪模块 |
 | 15 | [用户交流模块](15-communication-module.md) | ⚠️ 前端未实现，仅后端 API |
-| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手系统架构与实现 |
+| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手架构、13 工具、输出契约、Hooks、doctor 自检、晨报、会话 fork/导出、离线部署（2026-07-28 增强批次） |
 | 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 多轮对话、工具链、模型降级、成本监控 |
 | 18 | [外部集成架构](18-external-integration.md) | 🔄 进行中 |
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
@@ -63,4 +63,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-07-20 — 清理 22 个过时/已完成文档（docs/plans 5 个、docs/superpowers 4 个 plan + 1 个 spec、docs/notes 10 个、根级废弃文档 2 个）。
+> 📅 最近更新:2026-07-29 — 第 16 章（智能助手系统）同步 2026-07-28 增强批次（P0-P3 共 16 项），一句话简介同步更新。

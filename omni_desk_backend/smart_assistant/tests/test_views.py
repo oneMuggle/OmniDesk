@@ -485,3 +485,92 @@ class TestAgentLogViewSet(TestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['user_query'], '明天谁值班？')
+
+    # ── 归属隔离（IDOR 防护）测试 ──
+
+    def _create_log_for(self, user, query, session=None):
+        """为指定用户创建一条 AgentLog（session 为空时创建无主日志）."""
+        if session is None and user is not None:
+            session = SmartAssistantSession.objects.create(user=user, title=f'{user.username} 的会话')
+        return AgentLog.objects.create(
+            session=session,
+            user_query=query,
+            intent='schedule_query',
+            tool_used='schedule_query',
+            tool_input={'query': query},
+            tool_output={'found': True},
+            llm_response='回答',
+        )
+
+    def test_regular_user_list_only_own_logs(self):
+        """普通用户 list 仅返回自己的日志,不含他人日志."""
+        other = CustomUser.objects.create_user(username='otheruser2', password='password123')
+        # setUp 已为 self.user 建了一条日志;再建他人日志与自己的第二条
+        self._create_log_for(other, '别人的问题')
+        self._create_log_for(self.user, '我自己的问题')
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get('/api/smart-assistant/agent-logs/')
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        queries = [item['user_query'] for item in response.data['results']]
+        self.assertNotIn('别人的问题', queries)
+        self.assertIn('我自己的问题', queries)
+        self.assertIn('明天谁值班？', queries)  # setUp 中 self.user 的日志
+        self.assertEqual(response.data['count'], 2)
+
+    def test_regular_user_retrieve_other_log_returns_404(self):
+        """普通用户 retrieve 他人日志详情 → 404（queryset 归属过滤）."""
+        log = AgentLog.objects.first()  # setUp 中属于 self.user 的日志
+        intruder = CustomUser.objects.create_user(username='intruder', password='password123')
+
+        self.client.force_authenticate(user=intruder)
+        response = self.client.get(f'/api/smart-assistant/agent-logs/{log.id}/')
+
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+    def test_orphan_log_visible_to_staff_only(self):
+        """无主日志（session=None）:普通用户不可见,staff 可见."""
+        self._create_log_for(None, '无主日志', session=None)
+
+        # 普通用户:list 中不含无主日志
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get('/api/smart-assistant/agent-logs/')
+        queries = [item['user_query'] for item in response.data['results']]
+        self.assertNotIn('无主日志', queries)
+
+        # staff:list 中可见无主日志（跨用户审计能力）
+        self.client.force_authenticate(user=self.admin)
+        response = self.client.get('/api/smart-assistant/agent-logs/')
+        queries = [item['user_query'] for item in response.data['results']]
+        self.assertIn('无主日志', queries)
+
+    def test_staff_can_filter_by_user_id(self):
+        """staff 跨用户审计:user_id 过滤参数生效."""
+        other = CustomUser.objects.create_user(username='otheruser3', password='password123')
+        self._create_log_for(other, '其他用户的问题')
+
+        # client 仍以 self.admin（staff）认证
+        response = self.client.get(
+            '/api/smart-assistant/agent-logs/',
+            {'user_id': other.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        queries = [item['user_query'] for item in response.data['results']]
+        self.assertEqual(queries, ['其他用户的问题'])
+
+    def test_regular_user_user_id_filter_ignored(self):
+        """普通用户的 user_id 参数不生效（不能借此枚举他人日志）."""
+        other = CustomUser.objects.create_user(username='otheruser4', password='password123')
+        self._create_log_for(other, '别人的问题')
+
+        self.client.force_authenticate(user=self.user)
+        response = self.client.get(
+            '/api/smart-assistant/agent-logs/',
+            {'user_id': other.id},
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        queries = [item['user_query'] for item in response.data['results']]
+        self.assertNotIn('别人的问题', queries)

@@ -9,7 +9,8 @@
   ``ToolChainExecutor`` + ``ResultSynthesizer``,产出 intent="aggregated_day" 的
   ``tool_result``::{summary, items, total_count, moduleCounts, chain_results}。
 - 本模块把该结构渲染为 Markdown 简报(日期标题 + summary + 各模块条数 + 重点条目列表),
-  再由 ``smart_assistant.tasks.send_daily_digests`` 写入 Notification 完成推送。
+  再由 ``smart_assistant.tasks.send_single_digest`` 子任务(经 ``send_daily_digests``
+  按用户派发)写入 Notification 完成推送。
 
 失败语义:
 - 生成失败(编排器抛异常 / 返回失败回答 / 返回结构非法)一律返回 None 并记日志,

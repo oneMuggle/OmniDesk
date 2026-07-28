@@ -7,10 +7,12 @@
 - apply_rolling_summary:超阈值时写摘要并截断 messages;失败时保留全量
 - view 层集成:长会话触发摘要与截断;摘要失败不影响主对话;
   有摘要的会话以摘要历史送入 orchestrator
+- 失败退避(修复「重试风暴」):失败后写按会话隔离的退避标记,
+  退避期内不再调用 LLM;退避过期(或手动清除)后恢复尝试;成功清除标记
 """
 
 from types import SimpleNamespace
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -18,7 +20,11 @@ from smart_assistant.agent.conversation_context import (
     RECENT_TURNS_SOFT,
     apply_rolling_summary,
     build_effective_history,
+    clear_summary_backoff,
     generate_rolling_summary,
+    is_summary_in_backoff,
+    mark_summary_backoff,
+    should_summarize,
     truncate_to_recent_turns,
 )
 from smart_assistant.models import SmartAssistantSession
@@ -173,9 +179,7 @@ class TestViewRollingSummary:
     """POST /api/smart-assistant/chat/ 的滚动摘要集成行为。"""
 
     @patch("smart_assistant.views.chat.AgentOrchestrator")
-    def test_chat_triggers_summary_and_truncates(
-        self, mock_cls, admin_client, admin_user_obj, mock_llm_router
-    ):
+    def test_chat_triggers_summary_and_truncates(self, mock_cls, admin_client, admin_user_obj, mock_llm_router):
         """长会话新一轮后触发摘要:summary_text 写入,messages 截断。"""
         mock_llm_router.generate.return_value = ("这是早期对话的摘要", None)
         session = SmartAssistantSession.objects.create(
@@ -211,9 +215,7 @@ class TestViewRollingSummary:
         assert session.messages[-1]["content"] == "新回答"
 
     @patch("smart_assistant.views.chat.AgentOrchestrator")
-    def test_summary_failure_does_not_break_chat(
-        self, mock_cls, admin_client, admin_user_obj, mock_llm_router
-    ):
+    def test_summary_failure_does_not_break_chat(self, mock_cls, admin_client, admin_user_obj, mock_llm_router):
         """摘要生成失败:主对话正常返回,历史保留全量。"""
         mock_llm_router.generate.side_effect = Exception("LLM 不可用")
         session = SmartAssistantSession.objects.create(
@@ -247,9 +249,7 @@ class TestViewRollingSummary:
         assert session.turn_count == 9
 
     @patch("smart_assistant.views.chat.AgentOrchestrator")
-    def test_session_with_summary_sends_summary_history(
-        self, mock_cls, admin_client, admin_user_obj
-    ):
+    def test_session_with_summary_sends_summary_history(self, mock_cls, admin_client, admin_user_obj):
         """有摘要的会话:送入 orchestrator 的历史为「摘要 + 最近消息」。"""
         session = SmartAssistantSession.objects.create(
             user=admin_user_obj,
@@ -280,3 +280,109 @@ class TestViewRollingSummary:
         assert history[0]["role"] == "system"
         assert "既有摘要" in history[0]["content"]
         assert len(history) == 1 + RECENT_TURNS_SOFT * 2
+
+
+# =============================================================================
+# 失败退避(修复 2 — HIGH:滚动摘要失败重试风暴)
+# =============================================================================
+
+
+def _fake_session_with_pk(messages, pk, summary_text=""):
+    """带主键的鸭子类型 session(pk 是退避标记的隔离维度)。"""
+    session = _fake_session(messages, summary_text=summary_text)
+    session.pk = pk
+    return session
+
+
+class TestSummaryBackoff:
+    """LLM 摘要失败后的退避:退避期内不再调用 LLM,过期后恢复。"""
+
+    @patch("llm_service.router.get_router")
+    def test_failure_writes_backoff_and_suppresses_retry(self, mock_get_router):
+        """失败 → 写退避标记 → 退避期内第二次调用不再触达 LLM。"""
+        mock_get_router.return_value.generate.side_effect = Exception("LLM 不可用")
+        session = _fake_session_with_pk(_long_history(8), pk=42)
+
+        assert apply_rolling_summary(session) is False
+        assert mock_get_router.return_value.generate.call_count == 1
+        # 退避标记已按 session id 写入
+        assert is_summary_in_backoff(42) is True
+
+        # 退避期内重复调用:直接跳过,LLM 调用次数不增长
+        assert apply_rolling_summary(session) is False
+        assert apply_rolling_summary(session) is False
+        assert mock_get_router.return_value.generate.call_count == 1
+        # session 保持全量历史(静默降级)
+        assert session.summary_text == ""
+        assert len(session.messages) == 16
+
+    @patch("llm_service.router.get_router")
+    def test_backoff_expiry_resumes_attempt(self, mock_get_router):
+        """退避过期(手动删除标记模拟 TTL 失效)后恢复尝试。"""
+        mock_get_router.return_value.generate.side_effect = Exception("LLM 不可用")
+        session = _fake_session_with_pk(_long_history(8), pk=43)
+
+        apply_rolling_summary(session)
+        assert mock_get_router.return_value.generate.call_count == 1
+        assert is_summary_in_backoff(43) is True
+
+        # 模拟 TTL 到期:手动删除退避标记
+        clear_summary_backoff(43)
+        assert is_summary_in_backoff(43) is False
+
+        apply_rolling_summary(session)
+        assert mock_get_router.return_value.generate.call_count == 2
+
+    @patch("llm_service.router.get_router")
+    def test_success_after_backoff_expiry_keeps_marker_cleared(self, mock_get_router):
+        """完整故障周期:失败 → 退避 → 过期 → LLM 恢复 → 摘要成功,标记保持清除。"""
+        mock_get_router.return_value.generate.side_effect = Exception("LLM 不可用")
+        session_fail = _fake_session_with_pk(_long_history(8), pk=44)
+        apply_rolling_summary(session_fail)
+        assert is_summary_in_backoff(44) is True
+
+        # 退避到期(模拟 TTL 失效)后 LLM 恢复
+        clear_summary_backoff(44)
+        mock_get_router.return_value.generate.side_effect = None
+        mock_get_router.return_value.generate.return_value = ("早期对话摘要", None)
+        session_ok = _fake_session_with_pk(_long_history(8), pk=44)
+
+        assert apply_rolling_summary(session_ok) is True
+        assert session_ok.summary_text == "早期对话摘要"
+        # 成功路径显式清除标记,无残留
+        assert is_summary_in_backoff(44) is False
+
+    @patch("llm_service.router.get_router")
+    def test_should_summarize_respects_backoff(self, mock_get_router):
+        """should_summarize 传入 session_id 时受退避标记抑制。"""
+        long_history = _long_history(8)
+
+        # 无退避:超阈值 → True
+        assert should_summarize(long_history, session_id=45) is True
+
+        mark_summary_backoff(45)
+        try:
+            # 退避期内:即使超阈值且无摘要也跳过
+            assert should_summarize(long_history, session_id=45) is False
+            # 未传 session_id 的旧调用方不受影响(向后兼容)
+            assert should_summarize(long_history) is True
+        finally:
+            clear_summary_backoff(45)
+
+        assert should_summarize(long_history, session_id=45) is True
+        mock_get_router.assert_not_called()
+
+    @patch("llm_service.router.get_router")
+    def test_backoff_isolated_per_session(self, mock_get_router):
+        """退避标记按会话隔离:其他会话不受影响。"""
+        mock_get_router.return_value.generate.side_effect = Exception("LLM 不可用")
+        session_a = _fake_session_with_pk(_long_history(8), pk=46)
+        apply_rolling_summary(session_a)
+        assert is_summary_in_backoff(46) is True
+        assert is_summary_in_backoff(47) is False
+
+        # 会话 47 不受会话 46 的退避影响,仍会尝试(同样失败 → 各自退避)
+        session_b = _fake_session_with_pk(_long_history(8), pk=47)
+        apply_rolling_summary(session_b)
+        assert mock_get_router.return_value.generate.call_count == 2
+        assert is_summary_in_backoff(47) is True

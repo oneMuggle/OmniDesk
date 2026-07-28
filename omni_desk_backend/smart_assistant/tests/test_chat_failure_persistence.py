@@ -300,6 +300,115 @@ class TestStreamFailureNoPersistence:
 
 
 # =============================================================================
+# SSE 流:生成器中途异常的失败收口与审计
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestStreamMidStreamExceptionAudit:
+    """process_stream 生成器中途抛异常:流必须完整收尾且失败必审计。
+
+    模拟 DB/工具异常逃逸出 orchestrator 的场景:已 yield 部分 chunk 后抛
+    RuntimeError。view 层必须按失败路径收口——补发失败 chunk/done、写
+    AgentLog(tool_success=False)、发 session 事件,且失败不落库。
+    """
+
+    @staticmethod
+    def _broken_stream(*args, **kwargs):
+        """先吐 meta + 部分 chunk,再抛 RuntimeError 模拟异常逃逸。"""
+        events = [
+            {
+                "type": "meta",
+                "intent": "general_chat",
+                "tool_used": None,
+                "tool_result": None,
+                "sources": None,
+                "tool_fallback": False,
+            },
+            {"type": "chunk", "content": "部分内容"},
+        ]
+        for event in events:
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        raise RuntimeError("模拟 DB/工具异常逃逸")
+
+    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    def test_mid_stream_exception_no_cid_completes_and_audits(self, mock_cls, admin_client):
+        """无 cid 中途异常:流完整收尾(done/session 齐全),审计落库,不新建会话。"""
+        mock_cls.return_value.process_stream.side_effect = self._broken_stream
+        sessions_before = SmartAssistantSession.objects.count()
+
+        resp = admin_client.post(
+            "/api/smart-assistant/chat/stream/",
+            {"query": "中途异常"},
+            format="json",
+        )
+        raw = b"".join(resp.streaming_content).decode("utf-8")
+        events = _parse_sse_events(raw)
+
+        # 补发的失败 chunk 与已 streamed 的部分内容都在流中
+        chunk_contents = [e.get("content", "") for e in events if e["type"] == "chunk"]
+        assert any("部分内容" in content for content in chunk_contents)
+        assert any("[错误] 回答生成失败" in content for content in chunk_contents)
+        # 补发的 done 事件携带 error 与输出契约的 kind/hint
+        done = next(e for e in events if e["type"] == "done")
+        assert done["error"] is True
+        assert "kind" in done and "hint" in done
+        # session 事件正常发出
+        session_evt = next(e for e in events if e["type"] == "session")
+        assert session_evt["error"] is True
+        assert session_evt["conversation_id"] is None
+        assert isinstance(session_evt["log_id"], int)
+
+        # 失败不落库语义保持:不新建会话
+        assert SmartAssistantSession.objects.count() == sessions_before
+        # AgentLog 写入且 tool_success=False,session 为空
+        log = AgentLog.objects.get(id=session_evt["log_id"])
+        assert log.tool_success is False
+        assert log.session is None
+        # 审计内容:失败前缀 + 已累积的部分内容
+        assert log.llm_response.startswith("[错误] 回答生成失败")
+        assert "部分内容" in log.llm_response
+
+    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    def test_mid_stream_exception_with_cid_no_append(
+        self, mock_cls, admin_client, admin_user_obj
+    ):
+        """有 cid 中途异常:不追加消息,审计日志关联原会话。"""
+        session = SmartAssistantSession.objects.create(
+            user=admin_user_obj,
+            title="已有会话",
+            messages=[
+                {"role": "user", "content": "首问"},
+                {"role": "assistant", "content": "首答"},
+            ],
+            turn_count=1,
+        )
+        mock_cls.return_value.process_stream.side_effect = self._broken_stream
+
+        resp = admin_client.post(
+            "/api/smart-assistant/chat/stream/",
+            {"query": "续问", "conversation_id": session.id},
+            format="json",
+        )
+        raw = b"".join(resp.streaming_content).decode("utf-8")
+        events = _parse_sse_events(raw)
+
+        done = next(e for e in events if e["type"] == "done")
+        assert done["error"] is True
+        session_evt = next(e for e in events if e["type"] == "session")
+        assert session_evt["error"] is True
+        assert session_evt["conversation_id"] == session.id
+
+        # 消息未被部分内容污染
+        session.refresh_from_db()
+        assert len(session.messages) == 2
+        assert session.turn_count == 1
+        log = AgentLog.objects.get(id=session_evt["log_id"])
+        assert log.session_id == session.id
+        assert log.tool_success is False
+
+
+# =============================================================================
 # orchestrator error 标记
 # =============================================================================
 

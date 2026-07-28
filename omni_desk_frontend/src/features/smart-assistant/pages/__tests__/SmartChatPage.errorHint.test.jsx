@@ -125,4 +125,20 @@ describe('SmartChatPage 失败辅助提示', () => {
     const hint = await screen.findByTestId('message-error-hint');
     expect(hint).toHaveTextContent(ERROR_KIND_MESSAGES.llm_unavailable);
   });
+
+  it('失败消息(带 errorHint)不渲染赞踩按钮', async () => {
+    // 失败消息无归属 AgentLog(无主日志),feedback 提交必然 404,
+    // 故不展示赞踩入口,避免体验不一致
+    await sendAndWait([
+      { type: 'chunk', content: '回答生成失败' },
+      { type: 'done', error: true, kind: 'no_llm_endpoint' },
+    ], '回答生成失败');
+
+    // 等待流结束(errorHint 已渲染即最终态)
+    await screen.findByTestId('message-error-hint');
+
+    // antd 图标按钮的无障碍名来自图标 aria-label(赞: like / 踩: dislike)
+    expect(screen.queryByRole('button', { name: 'like' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'dislike' })).not.toBeInTheDocument();
+  });
 });

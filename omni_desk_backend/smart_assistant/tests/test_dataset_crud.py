@@ -239,3 +239,77 @@ class TestDatasetAuth:
             format="json",
         )
         assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+class TestDatasetPermission:
+    """读写权限分离：数据集为全局共享资源，读开放、写仅 staff/admin。
+
+    注:上方 TestDatasetCreate / TestDatasetUpdateDelete 使用 authenticated_client
+    （全局 fixture,staff+superuser）,已覆盖"staff 可写";本类补齐普通用户侧约束。
+    auth_client 为本模块 conftest 提供的普通员工（非 staff、无特殊权限）。
+    """
+
+    def test_regular_user_can_list(self, auth_client):
+        """普通用户可列表（前端需展示可用知识库）。"""
+        _create_dataset(name="只读可见", ragflow_dataset_id="ragflow-ro-list")
+
+        resp = auth_client.get(LIST_URL)
+
+        assert resp.status_code == status.HTTP_200_OK
+        names = {item["name"] for item in resp.data["results"]}
+        assert "只读可见" in names
+
+    def test_regular_user_can_retrieve(self, auth_client):
+        """普通用户可查看数据集详情。"""
+        dataset = _create_dataset(name="只读详情", ragflow_dataset_id="ragflow-ro-detail")
+
+        resp = auth_client.get(_detail_url(dataset.id))
+
+        assert resp.status_code == status.HTTP_200_OK
+        assert resp.data["name"] == "只读详情"
+
+    def test_regular_user_create_returns_403(self, auth_client):
+        """普通用户创建 → 403,且不落库。"""
+        resp = auth_client.post(
+            LIST_URL,
+            {"name": "越权创建", "ragflow_dataset_id": "ragflow-forbidden"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert not KnowledgeDataset.objects.filter(name="越权创建").exists()
+
+    def test_regular_user_partial_update_returns_403(self, auth_client):
+        """普通用户 PATCH → 403,原值不变。"""
+        dataset = _create_dataset(name="受保护数据集", ragflow_dataset_id="ragflow-guard")
+
+        resp = auth_client.patch(
+            _detail_url(dataset.id),
+            {"name": "被篡改"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        dataset.refresh_from_db()
+        assert dataset.name == "受保护数据集"
+
+    def test_regular_user_full_update_returns_403(self, auth_client):
+        """普通用户 PUT → 403。"""
+        dataset = _create_dataset(name="PUT保护", ragflow_dataset_id="ragflow-put-guard")
+
+        resp = auth_client.put(
+            _detail_url(dataset.id),
+            {"name": "PUT篡改", "ragflow_dataset_id": "ragflow-put-new"},
+            format="json",
+        )
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_regular_user_delete_returns_403(self, auth_client):
+        """普通用户 DELETE → 403,记录仍存在。"""
+        dataset = _create_dataset(name="禁删", ragflow_dataset_id="ragflow-del-guard")
+
+        resp = auth_client.delete(_detail_url(dataset.id))
+
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+        assert KnowledgeDataset.objects.filter(id=dataset.id).exists()

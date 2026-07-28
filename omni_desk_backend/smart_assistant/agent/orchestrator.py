@@ -25,6 +25,11 @@ from .tool_chain_executor import (
     ToolChainExecutor,
 )
 from .result_synthesizer import ResultSynthesizer
+from ..hooks.wiring import (
+    apply_failure_hooks,
+    apply_post_execute_hooks,
+    execute_guarded,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -175,29 +180,36 @@ class AgentOrchestrator:
             if cached_result is not None:
                 tool_result = cached_result
             else:
+                hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
                 try:
-                    if tool_context is not None:
-                        # 优先走 scope-aware 路径(若工具实现了 scope 抽象)
-                        if getattr(tool, "supports_scope_filter", False):
-                            base_qs = tool.build_base_queryset()
-                            scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
-                            tool_result = tool.execute(
-                                params={"query": user_query},
-                                scope=tool_context.scope,
-                                qs=scoped_qs,
-                            )
-                        else:
-                            tool_result = tool.execute(
-                                user_query,
-                                context={"history": conversation_history or []},
-                            )
+                    # 工具执行统一经 execute_guarded 超时熔断包装(修复 1)
+                    if tool_context is not None and getattr(tool, "supports_scope_filter", False):
+                        # scope-aware 路径(工具实现了 scope 抽象)
+                        base_qs = tool.build_base_queryset()
+                        scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
+                        tool_result = execute_guarded(
+                            tool,
+                            params={"query": user_query},
+                            scope=tool_context.scope,
+                            qs=scoped_qs,
+                        )
                     else:
-                        tool_result = tool.execute(
+                        tool_result = execute_guarded(
+                            tool,
                             user_query,
                             context={"history": conversation_history or []},
                         )
                 except Exception as e:
-                    tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
+                    # ON_FAILURE 钩子链先介入:给出结构化 fallback 时采用,
+                    # 否则保留原错误结构
+                    recovery = apply_failure_hooks(tool, e, hook_ctx)
+                    if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                        tool_result = recovery.fallback_value
+                    else:
+                        tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
+                # POST_EXECUTE 钩子链:统一出口 PII 脱敏。必须在缓存之前,
+                # 否则缓存命中路径会绕过脱敏
+                tool_result = apply_post_execute_hooks(tool, tool_result, hook_ctx)
                 cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
 
             # 工具执行成功但未找到结果时,带工具上下文告知 LLM
@@ -396,22 +408,32 @@ class AgentOrchestrator:
             if cached_result is not None:
                 tool_result = cached_result
             else:
+                hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
                 try:
+                    # 与 process() 对称:超时熔断包装(修复 1)
                     if tool_context is not None and getattr(tool, "supports_scope_filter", False):
                         base_qs = tool.build_base_queryset()
                         scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
-                        tool_result = tool.execute(
+                        tool_result = execute_guarded(
+                            tool,
                             params={"query": user_query},
                             scope=tool_context.scope,
                             qs=scoped_qs,
                         )
                     else:
-                        tool_result = tool.execute(
+                        tool_result = execute_guarded(
+                            tool,
                             user_query,
                             context={"history": conversation_history or []},
                         )
                 except Exception as e:
-                    tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
+                    recovery = apply_failure_hooks(tool, e, hook_ctx)
+                    if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                        tool_result = recovery.fallback_value
+                    else:
+                        tool_result = {"found": False, "message": f"工具执行失败: {str(e)}"}
+                # POST_EXECUTE 钩子链:统一出口 PII 脱敏(缓存前)
+                tool_result = apply_post_execute_hooks(tool, tool_result, hook_ctx)
                 cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
 
             # 工具失败时 fallback 到通用回答

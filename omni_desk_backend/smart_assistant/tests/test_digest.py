@@ -1,4 +1,4 @@
-"""每日晨报(digest)与推送任务(send_daily_digests)单元测试。
+"""每日晨报(digest)与推送任务(send_daily_digests / send_single_digest)单元测试。
 
 覆盖:
 - generate_daily_digest:
@@ -7,10 +7,15 @@
     * orchestrator 抛异常 → 返回 None 不抛;
     * orchestrator 返回失败回答(error=True) → 返回 None;
     * 未命中聚合链路的降级路径 → 采用 answer 渲染。
-- send_daily_digests:
-    * mock generate → 每个目标用户(is_active + is_staff)一条 Notification;
-    * 非 staff 用户不接收;
-    * 部分用户失败不影响其余用户;
+- send_daily_digests(派发层):
+    * 为每个目标用户(is_active + is_staff)dispatch 一个 send_single_digest 子任务;
+    * 非 staff 用户不派发;主任务自身不直接写 Notification;
+    * 无目标用户时派发数为 0 且不抛。
+- send_single_digest(单用户子任务):
+    * 成功 → 写一条 system 类型 Notification;
+    * generate 返回 None → 不抛、不写通知、success=False;
+    * generate 抛异常 → 失败隔离,不抛、不写通知;
+    * 用户不存在 → 记日志不抛、success=False;
     * 当日重复执行按 dedupe_key 去重,不产生第二条。
 - beat 配置:
     * settings.CELERY_BEAT_SCHEDULE 含 "smart-assistant-daily-digest",
@@ -23,11 +28,12 @@ from unittest.mock import patch
 import pytest
 from celery.schedules import crontab
 from django.conf import settings
+from django.utils import timezone
 
 from notifications.models import Notification
 from smart_assistant.digest import generate_daily_digest
 from smart_assistant.scope import SmartAssistantScope
-from smart_assistant.tasks import send_daily_digests
+from smart_assistant.tasks import send_daily_digests, send_single_digest
 
 # 固定测试日期:2026-07-29 周三,避免断言随真实日期漂移
 FIXED_TODAY = date(2026, 7, 29)
@@ -150,72 +156,105 @@ class TestGenerateDailyDigest:
 
 
 # =============================================================================
-# send_daily_digests
+# send_daily_digests(派发层)
 # =============================================================================
 
 
+@pytest.mark.django_db
 class TestSendDailyDigests:
-    """晨报推送 Celery 任务测试(mock 掉 generate_daily_digest,真实写 Notification)。"""
+    """晨报主任务测试:仅断言"为每个目标用户 dispatch 了子任务"。
 
-    def test_creates_notification_per_target_user(self, admin_user_obj, manager_user_obj, regular_user_obj):
-        """每个目标用户(staff + active)一条晨报;非 staff 用户不接收。"""
-        with patch("smart_assistant.digest.generate_daily_digest", return_value="# 晨报\n测试正文") as mock_gen:
+    主任务不再串行执行生成链路,生成/写通知/失败隔离全部下沉到
+    ``send_single_digest`` 子任务(见 TestSendSingleDigest)。
+    """
+
+    def test_dispatches_subtask_per_target_user(
+        self, admin_user_obj, manager_user_obj, regular_user_obj
+    ):
+        """每个目标用户(staff + active)派发一个子任务;非 staff 用户不派发。"""
+        with patch("smart_assistant.tasks.send_single_digest.delay") as mock_delay:
             summary = send_daily_digests()
 
         # 目标用户仅 admin_user_obj / manager_user_obj;regular_user_obj 非 staff
-        assert summary["total"] == 2
-        assert summary["success"] == 2
-        assert summary["failed"] == 0
-        assert mock_gen.call_count == 2
+        assert summary["dispatched"] == 2
+        assert summary["date"] == timezone.localdate().isoformat()
+        assert mock_delay.call_count == 2
+        dispatched_ids = {call.args[0] for call in mock_delay.call_args_list}
+        assert dispatched_ids == {admin_user_obj.id, manager_user_obj.id}
+        # 主任务只派发,不直接写通知
+        assert Notification.objects.filter(dedupe_key__startswith=DIGEST_DEDUPE_PREFIX).count() == 0
+
+    def test_no_target_users_dispatches_nothing(self, regular_user_obj):
+        """无目标用户(仅存在非 staff 用户)→ 派发数为 0,不抛异常。"""
+        with patch("smart_assistant.tasks.send_single_digest.delay") as mock_delay:
+            summary = send_daily_digests()
+
+        assert summary["dispatched"] == 0
+        mock_delay.assert_not_called()
+
+
+# =============================================================================
+# send_single_digest(单用户子任务)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestSendSingleDigest:
+    """单用户晨报子任务测试(mock 掉 generate_daily_digest,真实写 Notification)。"""
+
+    def test_success_creates_notification(self, admin_user_obj):
+        """生成成功 → 写一条 system 类型晨报通知,返回 success=True。"""
+        with patch("smart_assistant.digest.generate_daily_digest", return_value="# 晨报\n测试正文"):
+            result = send_single_digest(admin_user_obj.id)
+
+        assert result["user_id"] == admin_user_obj.id
+        assert result["success"] is True
 
         notifications = Notification.objects.filter(dedupe_key__startswith=DIGEST_DEDUPE_PREFIX)
-        assert notifications.count() == 2
-        assert set(notifications.values_list("user__username", flat=True)) == {
-            "admin_test",
-            "manager_test",
-        }
-        # Notification 写入字段校验
+        assert notifications.count() == 1
         notification = notifications.first()
+        assert notification.user_id == admin_user_obj.id
         assert notification.type == "system"
         assert "智能助手每日晨报" in notification.title
-        assert summary["date"] in notification.title
+        assert timezone.localdate().isoformat() in notification.title
         assert notification.content.startswith("# 晨报")
         assert notification.is_read is False
 
-    def test_partial_failure_continues_remaining_users(self, admin_user_obj, manager_user_obj):
-        """单个用户生成抛异常 → 该用户跳过,其余用户照常收到晨报。"""
-
-        def fake_generate(user, today=None):
-            if user.username == "admin_test":
-                raise RuntimeError("编排器异常")
-            return "# 晨报正文"
-
-        with patch("smart_assistant.digest.generate_daily_digest", side_effect=fake_generate):
-            summary = send_daily_digests()
-
-        assert summary["success"] == 1
-        assert summary["failed"] == 1
-        # 失败用户无通知,成功用户有且仅有一条
-        assert Notification.objects.filter(user=admin_user_obj, type="system").count() == 0
-        assert Notification.objects.filter(user=manager_user_obj, type="system").count() == 1
-
-    def test_generate_returning_none_counts_as_failed(self, admin_user_obj):
-        """generate 返回 None(生成失败)→ 计失败且不写 Notification,任务不抛。"""
+    def test_generate_returning_none_does_not_raise(self, admin_user_obj):
+        """generate 返回 None(生成失败)→ 不抛、不写通知、success=False。"""
         with patch("smart_assistant.digest.generate_daily_digest", return_value=None):
-            summary = send_daily_digests()
+            result = send_single_digest(admin_user_obj.id)
 
-        assert summary["success"] == 0
-        assert summary["failed"] == 1
+        assert result["success"] is False
+        assert result["reason"] == "generate_failed"
         assert Notification.objects.filter(user=admin_user_obj).count() == 0
 
-    def test_same_day_rerun_is_deduped(self, admin_user_obj):
-        """当日重复执行(beat 重投)→ dedupe_key 去重,同一用户仅一条晨报。"""
-        with patch("smart_assistant.digest.generate_daily_digest", return_value="# 晨报"):
-            first = send_daily_digests()
-            second = send_daily_digests()
+    def test_generate_exception_is_isolated(self, admin_user_obj):
+        """generate 抛异常(写通知失败等)→ 失败隔离:不向 Celery 抛,不写通知。"""
+        with patch(
+            "smart_assistant.digest.generate_daily_digest", side_effect=RuntimeError("编排器异常")
+        ):
+            result = send_single_digest(admin_user_obj.id)
 
-        assert first["success"] == 1
-        assert second["success"] == 1  # Service 合并到原通知,仍计成功
+        assert result["success"] is False
+        assert result["reason"] == "exception"
+        assert Notification.objects.filter(user=admin_user_obj).count() == 0
+
+    def test_missing_user_logs_and_does_not_raise(self):
+        """用户不存在(派发后被删除)→ 记日志不抛,success=False。"""
+        result = send_single_digest(999999)
+
+        assert result["success"] is False
+        assert result["reason"] == "user_not_found"
+
+    def test_same_day_rerun_is_deduped(self, admin_user_obj):
+        """当日重复执行(beat 重投/子任务重试)→ dedupe_key 去重,仅一条晨报。"""
+        with patch("smart_assistant.digest.generate_daily_digest", return_value="# 晨报"):
+            first = send_single_digest(admin_user_obj.id)
+            second = send_single_digest(admin_user_obj.id)
+
+        assert first["success"] is True
+        assert second["success"] is True  # Service 合并到原通知,仍计成功
         assert Notification.objects.filter(user=admin_user_obj, type="system").count() == 1
 
 

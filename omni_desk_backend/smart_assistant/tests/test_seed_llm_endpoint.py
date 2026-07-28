@@ -13,6 +13,7 @@ from io import StringIO
 
 import pytest
 from django.core.management import call_command
+from django.db import IntegrityError
 
 from smart_assistant.models import LlmAppConfig, LlmEndpoint
 
@@ -78,6 +79,27 @@ class TestSeedLlmEndpoint:
         assert LlmEndpoint.objects.count() == 0
         assert LlmAppConfig.objects.count() == 0
         assert "dry-run" in out.getvalue()
+
+    def test_seed_rolls_back_endpoint_when_app_config_fails(self, monkeypatch):
+        """LlmAppConfig 创建失败 → 整体事务回滚,不遗留孤儿 LlmEndpoint。
+
+        否则幂等检查(表非空即跳过)会使后续重试永远无法补建应用配置。
+        """
+
+        def _raise(*args, **kwargs):
+            raise IntegrityError("模拟 LlmAppConfig 创建失败")
+
+        monkeypatch.setattr(
+            "smart_assistant.management.commands.seed_llm_endpoint.LlmAppConfig.objects.create",
+            _raise,
+        )
+
+        with pytest.raises(IntegrityError):
+            call_command("seed_llm_endpoint", stdout=StringIO())
+
+        # 事务回滚:端点未被遗留
+        assert LlmEndpoint.objects.count() == 0
+        assert LlmAppConfig.objects.count() == 0
 
     def test_seed_skips_when_endpoint_exists(self):
         """已有记录(如管理员手动配置)时跳过,不覆盖、不新增"""

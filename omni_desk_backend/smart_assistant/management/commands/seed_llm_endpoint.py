@@ -22,6 +22,7 @@ from __future__ import annotations
 import os
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 from smart_assistant.models import LlmAppConfig, LlmEndpoint
 
@@ -71,20 +72,24 @@ class Command(BaseCommand):
             )
             return
 
-        endpoint = LlmEndpoint.objects.create(
-            name=ENDPOINT_NAME,
-            api_endpoint=api_endpoint,
-            api_key=api_key,
-            is_active=True,
-            is_fallback=True,
-            priority=1,
-        )
-        app_config = LlmAppConfig.objects.create(
-            app_name=APP_NAME,
-            endpoint=endpoint,
-            model_name=model_name,
-            is_active=True,
-        )
+        # 两步写入必须同事务:LlmAppConfig 创建失败时若留下孤儿 LlmEndpoint,
+        # 幂等检查(表非空即跳过)会导致后续重试永远无法补建应用配置,
+        # 智能助手持续不可用。atomic 保证失败整体回滚,下次执行可重新播种。
+        with transaction.atomic():
+            endpoint = LlmEndpoint.objects.create(
+                name=ENDPOINT_NAME,
+                api_endpoint=api_endpoint,
+                api_key=api_key,
+                is_active=True,
+                is_fallback=True,
+                priority=1,
+            )
+            app_config = LlmAppConfig.objects.create(
+                app_name=APP_NAME,
+                endpoint=endpoint,
+                model_name=model_name,
+                is_active=True,
+            )
         self.stdout.write(
             self.style.SUCCESS(
                 f"✅ 已创建默认 LLM 端点:{endpoint.api_endpoint}(模型:{app_config.model_name})"

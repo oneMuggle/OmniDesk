@@ -224,21 +224,49 @@ def execute_agent_task(task_id: str):
 
 @shared_task
 def send_daily_digests():
-    """智能助手每日晨报推送(工作日 8:30 由 beat 触发,见 CELERY_BEAT_SCHEDULE)。
+    """智能助手每日晨报派发任务(工作日 8:30 由 beat 触发,见 CELERY_BEAT_SCHEDULE)。
 
-    主动循环(proactivity MVP)的推送环节:
-    遍历目标用户 → 逐个调用 ``smart_assistant.digest.generate_daily_digest``
-    生成 Markdown 晨报 → 写入 Notification。
+    主动循环(proactivity MVP)的推送环节。性能修复:原实现对所有目标用户
+    串行跑完整编排链路(每用户数秒至十余秒),50 用户易超 10 分钟且 8:30
+    集中锤击本地 LLM。现改为派发模式——主任务仅遍历目标用户并为每个用户
+    dispatch ``send_single_digest`` 子任务,由 Celery worker 并发消费,
+    单用户失败在子任务内隔离,不影响其余用户。
 
     目标用户(MVP 范围):所有 ``is_active=True`` 且 ``is_staff=True`` 的用户。
     TODO(后续):改为按 NotificationPreference 偏好设置订阅/退订,
     并支持用户自选晨报包含的模块。
 
-    行为约定:
-    - 单个用户失败(生成返回 None 或写通知抛异常)不影响其余用户;
-    - 通过 ``NotificationService.create`` 的 dedupe_key(按日期)做当日去重,
-      beat 重投/重复触发不会给用户发第二条晨报;
-    - 统计成功/失败数,记入任务日志并作为任务结果返回。
+    返回:{"dispatched": <派发子任务数>, "date": <ISO 日期>}
+    """
+    from django.contrib.auth import get_user_model
+    from django.utils import timezone
+
+    User = get_user_model()
+    today = timezone.localdate()
+    user_ids = list(User.objects.filter(is_active=True, is_staff=True).values_list("id", flat=True))
+
+    for user_id in user_ids:
+        send_single_digest.delay(user_id)
+
+    logger.info(
+        "每日晨报子任务派发完成: dispatched=%s date=%s", len(user_ids), today.isoformat()
+    )
+    return {"dispatched": len(user_ids), "date": today.isoformat()}
+
+
+@shared_task
+def send_single_digest(user_id):
+    """为单个用户生成晨报并写入 Notification(由 ``send_daily_digests`` 派发)。
+
+    失败隔离约定(自身 try/except 记录 success/failure,不向 Celery 抛异常,
+    避免无意义的任务失败重试):
+    - 用户不存在 → 记 warning 日志,返回 success=False;
+    - ``generate_daily_digest`` 返回 None(生成失败)→ 记日志,跳过,不写通知;
+    - 其他异常(写通知失败等)→ logger.exception 记录,返回 success=False。
+
+    去重:通过 ``NotificationService.create`` 的 dedupe_key(按日期粒度,
+    Service 内部再按 user 过滤)做当日去重,beat 重投/子任务重复执行
+    不会给用户发第二条晨报。
     """
     from django.contrib.auth import get_user_model
     from django.utils import timezone
@@ -248,34 +276,28 @@ def send_daily_digests():
 
     User = get_user_model()
     today = timezone.localdate()
-    title = f"智能助手每日晨报（{today.isoformat()}）"
-    # 去重键按日期粒度:NotificationService 会再按 user 过滤,同键 24h 内合并
-    dedupe_key = f"smart_assistant_daily_digest:{today.isoformat()}"
 
-    success = 0
-    failed = 0
-    total = 0
-    for user in User.objects.filter(is_active=True, is_staff=True):
-        total += 1
-        try:
-            markdown = generate_daily_digest(user, today=today)
-            if not markdown:
-                failed += 1
-                logger.warning("晨报生成失败,已跳过: user=%s date=%s", user.username, today.isoformat())
-                continue
-            NotificationService.create(
-                user=user,
-                type="system",
-                title=title,
-                content=markdown,
-                dedupe_key=dedupe_key,
-            )
-            success += 1
-        except Exception:
-            failed += 1
-            logger.exception("晨报推送失败: user=%s date=%s", user.username, today.isoformat())
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        logger.warning("晨报推送跳过,用户不存在: user_id=%s date=%s", user_id, today.isoformat())
+        return {"user_id": user_id, "success": False, "reason": "user_not_found"}
 
-    logger.info(
-        "每日晨报推送完成: 成功=%s 失败=%s 总计=%s date=%s", success, failed, total, today.isoformat()
-    )
-    return {"success": success, "failed": failed, "total": total, "date": today.isoformat()}
+    try:
+        markdown = generate_daily_digest(user, today=today)
+        if not markdown:
+            logger.warning("晨报生成失败,已跳过: user=%s date=%s", user.username, today.isoformat())
+            return {"user_id": user_id, "success": False, "reason": "generate_failed"}
+        NotificationService.create(
+            user=user,
+            type="system",
+            title=f"智能助手每日晨报（{today.isoformat()}）",
+            content=markdown,
+            # 去重键按日期粒度:NotificationService 会再按 user 过滤,同键 24h 内合并
+            dedupe_key=f"smart_assistant_daily_digest:{today.isoformat()}",
+        )
+        logger.info("晨报推送成功: user=%s date=%s", user.username, today.isoformat())
+        return {"user_id": user_id, "success": True}
+    except Exception:
+        logger.exception("晨报推送失败: user=%s date=%s", user.username, today.isoformat())
+        return {"user_id": user_id, "success": False, "reason": "exception"}
