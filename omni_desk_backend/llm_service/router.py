@@ -121,10 +121,18 @@ class LLMRouter:
                     raise Exception("LLM API 响应结构异常")
             except Exception as e:
                 last_error = e
+                if i == len(candidates) - 1:
+                    # P0-W:最后一个端点仍失败 → 抛出原始异常保留类型与完整堆栈,
+                    # 不再吞掉后替换成通用 Exception 文案
+                    logger.warning(
+                        "最后 LLM 端点 %s 失败 (%s)，抛出原始异常: %s", label, type(e).__name__, e
+                    )
+                    raise
                 logger.warning("LLM 端点 %s 失败 (%s)，尝试下一个: %s", label, type(e).__name__, e)
                 continue
 
-        raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}")
+        # 理论上不可达(循环末尾已抛原始异常),保留兜底并链接原始异常
+        raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}") from last_error
 
     def _stream_generate(self, response):
         """流式解析 SSE 响应。"""
