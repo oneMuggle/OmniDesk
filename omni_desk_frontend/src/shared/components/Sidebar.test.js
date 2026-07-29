@@ -9,6 +9,14 @@ import notificationApi from '../../features/notifications/api/notificationApi';
 // Mock the notificationApi module
 jest.mock('../../features/notifications/api/notificationApi');
 
+// NotificationBell 依赖 QueryClientProvider(本测试未包裹),
+// 以带 testid 的标记组件替代,用于验证挂载行为
+jest.mock('../../features/notifications/components/NotificationBell', () => {
+  return function MockNotificationBell() {
+    return <div data-testid="notification-bell" />;
+  };
+});
+
 const mockAuthContext = {
   user: null,
   isAuthenticated: false,
@@ -70,5 +78,20 @@ describe('Sidebar', () => {
     expect(screen.getByText(/首页/i)).toBeInTheDocument();
     expect(screen.getByText(/公告栏/i)).toBeInTheDocument();
     expect(screen.getByText(/日历/i)).toBeInTheDocument();
+  });
+
+  it('mounts NotificationBell in the header when authenticated', () => {
+    const authenticatedContext = {
+      ...mockAuthContext,
+      isAuthenticated: true,
+      user: { username: 'testuser', role: 'user' },
+    };
+    renderSidebar(authenticatedContext);
+    expect(screen.getByTestId('notification-bell')).toBeInTheDocument();
+  });
+
+  it('does not mount NotificationBell when not authenticated', () => {
+    renderSidebar();
+    expect(screen.queryByTestId('notification-bell')).not.toBeInTheDocument();
   });
 });

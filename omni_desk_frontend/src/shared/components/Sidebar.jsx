@@ -24,6 +24,7 @@ import {
   UserOutlined,
 } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
+import NotificationBell from '../../features/notifications/components/NotificationBell';
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
 import DemoToggle from './DemoToggle';
@@ -379,6 +380,12 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
                 <DownOutlined className="dropdown-arrow" />
               </div>
             </Dropdown>
+          )}
+
+          {isAuthenticated && (
+            <div className="sidebar-notification-bell">
+              <NotificationBell />
+            </div>
           )}
 
           {isGuest && !isCollapsed && (
