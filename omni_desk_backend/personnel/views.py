@@ -1,11 +1,13 @@
-from rest_framework import permissions, viewsets
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.filters import SearchFilter
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from users.permissions import IsAdminOrManagerOrReadOnly
 
 from .models import Contract, Education, FamilyMember, Personnel, Position, ProfessionalQualification, WorkExperience
+from .permissions import IsOwnerOrManagerOrReadOnly, is_privileged_user
 from .serializers import (
     ContractSerializer,
     EducationSerializer,
@@ -69,14 +71,24 @@ class PersonnelViewSet(viewsets.ModelViewSet):
         return Response(result, status=201)
 
 
+def _scoped_queryset(model, request):
+    """行级过滤(P0-A):admin/hr/manager 可见全量,其他用户仅见本人 personnel 名下数据。"""
+    queryset = model.objects.select_related("personnel").order_by("pk")
+    if is_privileged_user(request.user):
+        return queryset
+    return queryset.filter(personnel__user_account=request.user)
+
+
 class ContractViewSet(viewsets.ModelViewSet):
     """
     一个用于查看和编辑合同信息的ViewSet。
     """
 
-    queryset = Contract.objects.select_related("personnel")
     serializer_class = ContractSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        return _scoped_queryset(Contract, self.request)
 
 
 class EducationViewSet(viewsets.ModelViewSet):
@@ -84,9 +96,11 @@ class EducationViewSet(viewsets.ModelViewSet):
     一个用于查看和编辑教育背景的ViewSet。
     """
 
-    queryset = Education.objects.select_related("personnel")
     serializer_class = EducationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        return _scoped_queryset(Education, self.request)
 
 
 class WorkExperienceViewSet(viewsets.ModelViewSet):
@@ -94,9 +108,11 @@ class WorkExperienceViewSet(viewsets.ModelViewSet):
     一个用于查看和编辑工作经历的ViewSet。
     """
 
-    queryset = WorkExperience.objects.select_related("personnel")
     serializer_class = WorkExperienceSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        return _scoped_queryset(WorkExperience, self.request)
 
 
 class ProfessionalQualificationViewSet(viewsets.ModelViewSet):
@@ -104,9 +120,11 @@ class ProfessionalQualificationViewSet(viewsets.ModelViewSet):
     一个用于查看和编辑职业资质的ViewSet。
     """
 
-    queryset = ProfessionalQualification.objects.select_related("personnel")
     serializer_class = ProfessionalQualificationSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        return _scoped_queryset(ProfessionalQualification, self.request)
 
 
 class FamilyMemberViewSet(viewsets.ModelViewSet):
@@ -114,9 +132,11 @@ class FamilyMemberViewSet(viewsets.ModelViewSet):
     一个用于查看和编辑家庭成员的ViewSet。
     """
 
-    queryset = FamilyMember.objects.select_related("personnel")
     serializer_class = FamilyMemberSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        return _scoped_queryset(FamilyMember, self.request)
 
 
 class PositionViewSet(viewsets.ModelViewSet):
