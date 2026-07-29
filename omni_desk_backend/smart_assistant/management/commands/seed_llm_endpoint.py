@@ -54,22 +54,16 @@ class Command(BaseCommand):
         existing = LlmEndpoint.objects.count()
         if existing > 0:
             self.stdout.write(
-                self.style.WARNING(
-                    f"LlmEndpoint 表已有 {existing} 条记录,跳过播种"
-                    "(如需修改请在管理后台或手动调整)。"
-                )
+                self.style.WARNING(f"LlmEndpoint 表已有 {existing} 条记录,跳过播种(如需修改请在管理后台或手动调整)。")
             )
             return
 
         if dry_run:
             self.stdout.write("[dry-run] LlmEndpoint 表为空,将创建以下配置(未写入数据库):")
             self.stdout.write(
-                f"  - LlmEndpoint: name={ENDPOINT_NAME}, api_endpoint={api_endpoint}, "
-                "is_active=True, is_fallback=True"
+                f"  - LlmEndpoint: name={ENDPOINT_NAME}, api_endpoint={api_endpoint}, is_active=True, is_fallback=True"
             )
-            self.stdout.write(
-                f"  - LlmAppConfig: app_name={APP_NAME}, model_name={model_name}, is_active=True"
-            )
+            self.stdout.write(f"  - LlmAppConfig: app_name={APP_NAME}, model_name={model_name}, is_active=True")
             return
 
         # 两步写入必须同事务:LlmAppConfig 创建失败时若留下孤儿 LlmEndpoint,
@@ -91,8 +85,6 @@ class Command(BaseCommand):
                 is_active=True,
             )
         self.stdout.write(
-            self.style.SUCCESS(
-                f"✅ 已创建默认 LLM 端点:{endpoint.api_endpoint}(模型:{app_config.model_name})"
-            )
+            self.style.SUCCESS(f"✅ 已创建默认 LLM 端点:{endpoint.api_endpoint}(模型:{app_config.model_name})")
         )
         self.stdout.write("  智能助手已关联该端点(is_fallback=True,作为默认/兜底配置)。")

@@ -76,9 +76,7 @@ def generate_daily_digest(user, query: str = DIGEST_QUERY, today: date | None = 
         return None
 
     if not isinstance(result, dict):
-        logger.warning(
-            "晨报聚合链路返回非法结果: user=%s result_type=%s", username, type(result).__name__
-        )
+        logger.warning("晨报聚合链路返回非法结果: user=%s result_type=%s", username, type(result).__name__)
         return None
     if result.get("error"):
         # orchestrator 已通过 is_failed_answer() 判定 LLM 回答失败

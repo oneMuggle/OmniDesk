@@ -65,11 +65,7 @@ def _check(name: str, status: str, kind: str, message: str, hint: str = "") -> d
 
 def _check_llm_config() -> list:
     """检查智能助手 LLM 应用配置是否存在且激活。"""
-    config = (
-        LlmAppConfig.objects.filter(app_name=APP_NAME, is_active=True)
-        .select_related("endpoint")
-        .first()
-    )
+    config = LlmAppConfig.objects.filter(app_name=APP_NAME, is_active=True).select_related("endpoint").first()
     if config is None:
         return [
             _check(

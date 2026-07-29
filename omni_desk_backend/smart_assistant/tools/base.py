@@ -27,9 +27,7 @@ RISK_LEVEL_DESTRUCTIVE = "destructive"
 
 #: 合法风险等级枚举。新工具声明 risk_level 时必须取其中之一
 #: (见 test_tool_risk_level.py 的全量校验)。
-VALID_RISK_LEVELS: frozenset = frozenset(
-    {RISK_LEVEL_READ, RISK_LEVEL_WRITE, RISK_LEVEL_DESTRUCTIVE}
-)
+VALID_RISK_LEVELS: frozenset = frozenset({RISK_LEVEL_READ, RISK_LEVEL_WRITE, RISK_LEVEL_DESTRUCTIVE})
 
 
 class BaseTool(ABC):

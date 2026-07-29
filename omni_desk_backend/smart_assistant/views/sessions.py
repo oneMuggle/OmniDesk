@@ -124,7 +124,6 @@ class SessionViewSet(viewsets.ModelViewSet):
         filename = build_export_filename(session)
         # 兼容 ASCII 兜底文件名 + RFC 5987 编码的中文文件名
         response["Content-Disposition"] = (
-            f'attachment; filename="session-{session.pk}.md"; '
-            f"filename*=UTF-8''{quote(filename)}"
+            f"attachment; filename=\"session-{session.pk}.md\"; filename*=UTF-8''{quote(filename)}"
         )
         return response

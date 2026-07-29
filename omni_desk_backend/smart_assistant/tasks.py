@@ -248,9 +248,7 @@ def send_daily_digests():
     for user_id in user_ids:
         send_single_digest.delay(user_id)
 
-    logger.info(
-        "每日晨报子任务派发完成: dispatched=%s date=%s", len(user_ids), today.isoformat()
-    )
+    logger.info("每日晨报子任务派发完成: dispatched=%s date=%s", len(user_ids), today.isoformat())
     return {"dispatched": len(user_ids), "date": today.isoformat()}
 
 

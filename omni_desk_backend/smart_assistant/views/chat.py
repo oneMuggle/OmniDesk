@@ -198,20 +198,14 @@ class SmartChatViewSet(viewsets.ViewSet):
                 # 若直接中断流，前端会把已收到的部分内容当成功回答，且 AgentLog 缺失。
                 stream_exc = exc
                 done_error = True
-                logger.exception(
-                    "SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id
-                )
+                logger.exception("SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id)
 
             partial_answer = "".join(full_answer)
             if stream_exc is not None:
                 # 统一采用流式失败前缀，复用 is_failed_answer 语义：
                 # 前端失败提示与"失败不落库"逻辑随之自动生效；已累积内容保留进审计记录
                 failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
-                answer = (
-                    f"{failure_marker}｜已生成部分内容：{partial_answer}"
-                    if partial_answer
-                    else failure_marker
-                )
+                answer = f"{failure_marker}｜已生成部分内容：{partial_answer}" if partial_answer else failure_marker
                 # 补发失败 chunk（部分内容此前已 streamed，此处仅补失败标记）
                 yield sse_event({"type": "chunk", "content": failure_marker})
                 # 生成器未发出 done 时补发携带 kind/hint 的失败 done，让前端完整收尾
