@@ -6,6 +6,7 @@ class NewsTool(BaseTool):
     name = "news_search"
     description = "搜索新闻/通知"
     intent_type = "news_search"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """搜索新闻文章"""

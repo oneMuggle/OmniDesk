@@ -41,6 +41,7 @@ class ComplianceTool(BaseTool):
     name = "compliance_query"
     description = "查询合规问题/待整改项(compliance.ComplianceIssue)"
     intent_type = "compliance_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
     required_auth = True
 
     def execute(self, query: str, context: "ToolContext") -> dict:

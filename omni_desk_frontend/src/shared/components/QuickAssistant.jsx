@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { FloatButton, Drawer, Input, Button, Spin } from 'antd';
+import { FloatButton, Drawer, Input, Button, Spin, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, FullscreenOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons';
-import { sendSmartChatStream, createSession } from '../../features/smart-assistant/api/smartAssistantApi';
+import { sendSmartChatStream, createSession, resolveErrorHint } from '../../features/smart-assistant/api/smartAssistantApi';
 import ToolResult from '../../features/smart-assistant/components/ToolResult';
 import { useNavigate } from 'react-router-dom';
 import './QuickAssistant.css';
@@ -17,6 +17,9 @@ const QuickAssistant = () => {
   const [streamingMeta, setStreamingMeta] = useState(null);
   const [sessionId, setSessionId] = useState(null);
   const [isCancelled, setIsCancelled] = useState(false);
+  // 失败辅助提示(输出契约 format_version:1,done/session 事件的 kind/hint);
+  // 旧事件无字段时保持 null,不渲染提示行
+  const [errorHint, setErrorHint] = useState(null);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const navigate = useNavigate();
@@ -69,6 +72,7 @@ const QuickAssistant = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
+    setErrorHint(null);
     setIsCancelled(false);
 
     try {
@@ -84,6 +88,8 @@ const QuickAssistant = () => {
       const reader = stream.getReader();
       const decoder = new TextDecoder();
       let buffer = '';
+      // 本次流是否已产出正文(用于失败无内容时的兜底气泡)
+      let receivedContent = false;
 
       // eslint-disable-next-line no-constant-condition
       while (true) {
@@ -100,7 +106,19 @@ const QuickAssistant = () => {
             if (event.type === 'meta') {
               setStreamingMeta(event);
             } else if (event.type === 'chunk') {
+              receivedContent = true;
               setStreamingAnswer(prev => prev + event.content);
+            } else if (event.type === 'done' || event.type === 'session') {
+              // 输出契约(format_version:1):失败时 done/session 事件携带 kind/hint;
+              // 旧事件无这些字段 → resolveErrorHint 返回 undefined,行为与旧版一致
+              const hint = resolveErrorHint(event);
+              if (hint) {
+                setErrorHint(hint);
+                // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
+                if (event.type === 'done' && !receivedContent) {
+                  setStreamingAnswer('回答生成失败');
+                }
+              }
             }
           }
         }
@@ -135,10 +153,13 @@ const QuickAssistant = () => {
         tool_used: streamingMeta?.tool_used,
         tool_result: streamingMeta?.tool_result,
         sources: streamingMeta?.sources,
+        // 失败辅助提示(输出契约);旧事件无 kind/hint 时为 null,不渲染提示行
+        errorHint,
       };
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingAnswer('');
       setStreamingMeta(null);
+      setErrorHint(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, streamingAnswer, streamingMeta]);
@@ -208,6 +229,15 @@ const QuickAssistant = () => {
                   />
                 )}
               </div>
+              {msg.role === 'assistant' && msg.errorHint && (
+                <Typography.Text
+                  type="secondary"
+                  data-testid="qa-error-hint"
+                  style={{ display: 'block', marginTop: 4 }}
+                >
+                  {msg.errorHint}
+                </Typography.Text>
+              )}
             </div>
           ))}
           {streamingAnswer && (

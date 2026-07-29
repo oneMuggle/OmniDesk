@@ -90,6 +90,23 @@ load_images() {
         echo "ERROR: $errors image(s) failed to load."
         return 1
     fi
+
+    # ─── 可选镜像:RAG 知识库栈(ragflow + 其元数据库 mysql)─────────
+    # RAG 是可选能力:tar 缺失或加载失败仅 WARN,不阻塞主站启动。
+    # (兼容未携带 RAG 镜像的旧版离线包;start 分支会据此决定是否启动 RAG 服务)
+    for tar_file in "$img_dir/mysql-8.0.tar" "$img_dir/ragflow-v0.16.0.tar"; do
+        if [ -f "$tar_file" ]; then
+            echo "  Loading (optional): $(basename "$tar_file")"
+            if docker load -i "$tar_file"; then
+                echo "    OK"
+            else
+                echo "    WARN: failed to load (知识库功能不可用,主站不受影响)"
+            fi
+        else
+            echo "  WARN: $tar_file not found (知识库功能不可用,主站不受影响)"
+        fi
+    done
+
     echo "All images loaded successfully."
 }
 
@@ -254,9 +271,18 @@ case "${1:-start}" in
         fi
 
         echo "Starting production services..."
-        compose up -d
+        # RAG 知识库为可选能力:若 bundle 未携带 ragflow/mysql 镜像(如旧版离线包),
+        # 只启动核心服务,避免 compose up 因缺失镜像整体失败而拖垮主站。
+        # backend 不 depends_on ragflow,运行时 RAG 调用失败会优雅降级。
+        if docker image inspect infiniflow/ragflow:v0.16.0 >/dev/null 2>&1 \
+           && docker image inspect mysql:8.0 >/dev/null 2>&1; then
+            compose up -d
+        else
+            echo "WARN: ragflow/mysql 镜像缺失,仅启动核心服务(知识库功能不可用)"
+            compose up -d db redis backend frontend worker
+        fi
 
-        # 等待服务健康
+        # 等待服务健康(仅核心服务;ragflow 可选,不纳入健康门禁)
         wait_for_healthy 120 || true
 
         # 运行冒烟测试
@@ -576,6 +602,10 @@ case "${1:-start}" in
             ./backup.sh --db-only
             compose exec -T backend python manage.py migrate
             echo "Migrations complete."
+            # 播种智能助手默认 LLM 端点(幂等:LlmEndpoint 表非空时自动跳过)。
+            # 修复离线部署根因:空库无 LLM 端点时所有对话返回"所有 LLM 端点均不可用"。
+            echo "Seeding default LLM endpoint for smart assistant (idempotent)..."
+            compose exec -T backend python manage.py seed_llm_endpoint
         else
             echo "Migrations skipped."
         fi

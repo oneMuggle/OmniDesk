@@ -66,11 +66,49 @@ class SmartAssistantSessionSerializer(serializers.ModelSerializer):
         read_only_fields = ["created_at", "updated_at"]
 
 
+class SessionForkSerializer(serializers.Serializer):
+    """会话复制（fork）请求参数
+
+    契约（字段均可选）：
+        - at_message: 非负整数，仅复制前 N 条消息；缺省 / null 表示全量复制
+        - title: 新会话标题（≤255 字符）；缺省 / 空串时使用「原标题（副本）」
+    """
+
+    at_message = serializers.IntegerField(
+        min_value=0,
+        required=False,
+        allow_null=True,
+        help_text="仅复制前 N 条消息，缺省全量复制",
+    )
+    title = serializers.CharField(
+        max_length=255,
+        required=False,
+        allow_blank=True,
+        help_text="新会话标题，缺省为「原标题（副本）」",
+    )
+
+
 class AgentLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentLog
         fields = "__all__"
         read_only_fields = ["created_at"]
+
+
+class AgentLogFeedbackSerializer(serializers.Serializer):
+    """Agent 日志用户反馈请求（赞/踩）
+
+    契约：{"feedback": "up" | "down" | null}
+        - "up" / "down"：写入 AgentLog.user_feedback（允许改选覆盖）
+        - null：清除已有反馈
+        - 其他值 / 缺省：校验失败（400）
+    """
+
+    feedback = serializers.ChoiceField(
+        choices=["up", "down"],
+        allow_null=True,
+        help_text="用户反馈：up=赞，down=踩，null=清除",
+    )
 
 
 class SmartChatRequestSerializer(serializers.Serializer):

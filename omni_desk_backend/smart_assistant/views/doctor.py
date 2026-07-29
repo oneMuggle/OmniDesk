@@ -1,0 +1,267 @@
+"""智能助手 doctor 自检端点（借鉴 claw-code 的 doctor 命令与机器可读输出契约）。
+
+GET /api/smart-assistant/doctor/ 对智能助手依赖的外部服务做一次只读健康自检，
+返回结构化结果（``format_version=1``），供管理后台运维面板展示：
+
+- llm_config     智能助手 LLM 应用配置是否存在且激活
+- llm_endpoint:* 每个激活的 LLM 端点轻量可达性探测
+- ollama_fallback Ollama 兜底服务可达性（warn 级——它只是降级兜底）
+- ragflow        Ragflow 配置是否存在 + api_endpoint 可达性
+- datasets       激活的知识库数据集数量
+- cache_rate_limit 缓存后端类型与限流中间件启用情况（信息级）
+
+所有网络探测统一使用短超时（3 秒）；任何检查项异常都会被捕获并转成
+``status="error"`` 的检查项，端点本身不返回 500。仅 staff 可访问。
+"""
+
+import logging
+
+import requests
+from django.conf import settings
+from django.utils import timezone
+from rest_framework.permissions import IsAdminUser, IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
+from ..models import KnowledgeDataset, LlmAppConfig, LlmEndpoint
+
+logger = logging.getLogger(__name__)
+
+# 输出契约版本号（与 chat SSE 契约同源）
+FORMAT_VERSION = 1
+# 外部服务探测超时（秒）——自检不能拖垮请求
+PROBE_TIMEOUT_SECONDS = 3
+# 智能助手在 LlmAppConfig 中的应用标识
+APP_NAME = "smart_assistant"
+
+# 检查项状态
+STATUS_OK = "ok"
+STATUS_WARN = "warn"
+STATUS_ERROR = "error"
+
+
+def _probe_http(url: str, timeout: int = PROBE_TIMEOUT_SECONDS):
+    """轻量 HTTP 可达性探测：返回 ``(是否可达, 细节描述)``。
+
+    任何 HTTP 响应（含 4xx）都视为"网络可达"；仅连接失败/超时判为不可达。
+    异常不外抛，统一转为 ``(False, 错误描述)``。
+    """
+    try:
+        resp = requests.get(url, timeout=timeout)
+        return True, f"HTTP {resp.status_code}"
+    except requests.RequestException as exc:
+        return False, str(exc) or exc.__class__.__name__
+
+
+def _check(name: str, status: str, kind: str, message: str, hint: str = "") -> dict:
+    """构造单个检查项（字段顺序即输出契约）。"""
+    return {"name": name, "status": status, "kind": kind, "message": message, "hint": hint}
+
+
+# ---------------------------------------------------------------------------
+# 各检查项（每个函数返回检查项列表，不抛异常由 DoctorView 统一兜底）
+# ---------------------------------------------------------------------------
+
+
+def _check_llm_config() -> list:
+    """检查智能助手 LLM 应用配置是否存在且激活。"""
+    config = LlmAppConfig.objects.filter(app_name=APP_NAME, is_active=True).select_related("endpoint").first()
+    if config is None:
+        return [
+            _check(
+                "llm_config",
+                STATUS_ERROR,
+                "no_llm_endpoint",
+                "智能助手未配置可用的 LLM 应用配置，所有问答将失败",
+                "请前往管理后台 → AI 应用配置 LLM 端点",
+            )
+        ]
+    return [
+        _check(
+            "llm_config",
+            STATUS_OK,
+            "ok",
+            f"智能助手 LLM 应用配置已就绪（模型：{config.model_name}，端点：{config.endpoint.name}）",
+        )
+    ]
+
+
+def _check_llm_endpoints() -> list:
+    """逐个探测激活的 LLM 端点可达性（优先 /v1/models，失败回退基址）。"""
+    endpoints = list(LlmEndpoint.objects.filter(is_active=True).order_by("priority"))
+    if not endpoints:
+        return [
+            _check(
+                "llm_endpoints",
+                STATUS_ERROR,
+                "no_llm_endpoint",
+                "没有任何激活的 LLM API 端点",
+                "请前往管理后台 → AI 应用配置 LLM 端点",
+            )
+        ]
+    checks = []
+    for endpoint in endpoints:
+        base = endpoint.api_endpoint.rstrip("/")
+        reachable, detail = _probe_http(f"{base}/v1/models")
+        if not reachable:
+            # 部分服务不暴露 /v1/models，回退探测基址（任意 HTTP 响应即视为可达）
+            fallback_reachable, fallback_detail = _probe_http(endpoint.api_endpoint)
+            reachable = fallback_reachable
+            detail = f"{detail}；基址探测：{fallback_detail}"
+        if reachable:
+            checks.append(
+                _check(f"llm_endpoint:{endpoint.name}", STATUS_OK, "ok", f"端点「{endpoint.name}」可达（{detail}）")
+            )
+        else:
+            checks.append(
+                _check(
+                    f"llm_endpoint:{endpoint.name}",
+                    STATUS_ERROR,
+                    "llm_unavailable",
+                    f"端点「{endpoint.name}」不可达：{detail}",
+                    "LLM 服务暂时不可用，请稍后重试或检查端点连通性",
+                )
+            )
+    return checks
+
+
+def _check_ollama_fallback() -> list:
+    """探测 Ollama 兜底服务可达性（仅降级链路，不可达只告警）。"""
+    base_url = getattr(settings, "OLLAMA_BASE_URL", "")
+    if not base_url:
+        return [
+            _check(
+                "ollama_fallback",
+                STATUS_WARN,
+                "ollama_unavailable",
+                "未配置 OLLAMA_BASE_URL，LLM 端点全部失败时无兜底可用",
+                "建议在环境变量中配置 OLLAMA_BASE_URL",
+            )
+        ]
+    reachable, detail = _probe_http(base_url)
+    if reachable:
+        return [_check("ollama_fallback", STATUS_OK, "ok", f"Ollama 兜底服务可达（{detail}）")]
+    return [
+        _check(
+            "ollama_fallback",
+            STATUS_WARN,
+            "ollama_unavailable",
+            f"Ollama 兜底服务不可达：{detail}",
+            "不影响主 LLM 链路；但端点全部失败时将无法降级，建议检查 Ollama 服务状态",
+        )
+    ]
+
+
+def _check_ragflow() -> list:
+    """检查 Ragflow 配置是否存在且 api_endpoint 可达。"""
+    # 延迟导入：避免 smart_assistant 在 ragflow_service 未安装/未迁移时整体不可用
+    from ragflow_service.models import RagflowConfig
+
+    config = RagflowConfig.objects.filter(is_active=True).first()
+    if config is None:
+        return [
+            _check(
+                "ragflow",
+                STATUS_ERROR,
+                "ragflow_unavailable",
+                "未配置可用的 Ragflow 配置，知识库问答（knowledge_qa）不可用",
+                "请在管理后台配置 Ragflow 服务后重试",
+            )
+        ]
+    reachable, detail = _probe_http(config.api_endpoint)
+    if reachable:
+        return [
+            _check(
+                "ragflow",
+                STATUS_OK,
+                "ok",
+                f"Ragflow 配置「{config.name}」可达（{detail}）",
+            )
+        ]
+    return [
+        _check(
+            "ragflow",
+            STATUS_ERROR,
+            "ragflow_unavailable",
+            f"Ragflow 配置「{config.name}」不可达：{detail}",
+            "知识库服务暂时不可用",
+        )
+    ]
+
+
+def _check_datasets() -> list:
+    """统计激活的知识库数据集数量（0 个只告警——知识库可为可选能力）。"""
+    active_count = KnowledgeDataset.objects.filter(is_active=True).count()
+    if active_count == 0:
+        return [
+            _check(
+                "datasets",
+                STATUS_WARN,
+                "no_active_dataset",
+                "没有激活的知识库数据集，知识库问答将无数据可查",
+                "建议在知识库管理中创建并激活至少一个数据集",
+            )
+        ]
+    return [_check("datasets", STATUS_OK, "ok", f"已激活 {active_count} 个知识库数据集")]
+
+
+def _check_cache_rate_limit() -> list:
+    """信息级：缓存后端类型与限流中间件启用情况。"""
+    backend = settings.CACHES.get("default", {}).get("BACKEND", "")
+    backend_name = backend.rsplit(".", 1)[-1] or "未配置"
+    rate_limit_enabled = any("RateLimitMiddleware" in path for path in settings.MIDDLEWARE)
+    message = f"缓存后端：{backend_name}；限流中间件：{'已启用' if rate_limit_enabled else '未启用'}"
+    hint = ""
+    if "LocMemCache" in backend:
+        hint = "进程内缓存仅适用于单进程/测试环境，多进程部署请改用 Redis"
+    elif not rate_limit_enabled:
+        hint = "未检测到限流中间件，高并发场景建议启用"
+    return [_check("cache_rate_limit", STATUS_OK, "info", message, hint)]
+
+
+class DoctorView(APIView):
+    """智能助手 doctor 自检：只读诊断，供管理后台运维面板使用。
+
+    权限：IsAuthenticated + is_staff（非 staff 返回 403，未认证返回 401）。
+    """
+
+    permission_classes = [IsAuthenticated, IsAdminUser]
+
+    #: 检查项函数注册表（顺序即输出顺序）
+    CHECKERS = (
+        _check_llm_config,
+        _check_llm_endpoints,
+        _check_ollama_fallback,
+        _check_ragflow,
+        _check_datasets,
+        _check_cache_rate_limit,
+    )
+
+    def get(self, request):
+        checks = []
+        for checker in self.CHECKERS:
+            checker_name = getattr(checker, "__name__", "unknown_check")
+            try:
+                checks.extend(checker())
+            except Exception as exc:  # 防御性兜底：单项异常不拖垮整个自检
+                logger.exception("doctor 检查项 %s 执行异常", checker_name)
+                checks.append(
+                    _check(
+                        checker_name,
+                        STATUS_ERROR,
+                        "internal_error",
+                        f"检查项执行异常：{exc}",
+                        "服务异常，请稍后重试",
+                    )
+                )
+        summary = {STATUS_OK: 0, STATUS_WARN: 0, STATUS_ERROR: 0}
+        for item in checks:
+            summary[item["status"]] = summary.get(item["status"], 0) + 1
+        return Response(
+            {
+                "format_version": FORMAT_VERSION,
+                "checked_at": timezone.now().isoformat(),
+                "summary": summary,
+                "checks": checks,
+            }
+        )

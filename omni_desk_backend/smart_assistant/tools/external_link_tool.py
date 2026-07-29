@@ -26,6 +26,7 @@ class ExternalLinkTool(BaseTool):
     name = "external_link_query"
     description = "查询公司内网外链(VPN/Jira 等,external_integration.ExternalLink)"
     intent_type = "external_link_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
     required_auth = True
 
     def execute(self, query: str, context: "ToolContext") -> dict:

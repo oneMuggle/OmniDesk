@@ -17,6 +17,19 @@ class ValidationResult:
         self.reason = reason
 
 
+# ---------------------------------------------------------------------------
+# 工具风险等级(借鉴 claw-code 的 PermissionMode 分层)
+# ---------------------------------------------------------------------------
+
+RISK_LEVEL_READ = "read"
+RISK_LEVEL_WRITE = "write"
+RISK_LEVEL_DESTRUCTIVE = "destructive"
+
+#: 合法风险等级枚举。新工具声明 risk_level 时必须取其中之一
+#: (见 test_tool_risk_level.py 的全量校验)。
+VALID_RISK_LEVELS: frozenset = frozenset({RISK_LEVEL_READ, RISK_LEVEL_WRITE, RISK_LEVEL_DESTRUCTIVE})
+
+
 class BaseTool(ABC):
     """工具基类"""
 
@@ -29,6 +42,35 @@ class BaseTool(ABC):
     默认 ``True``(fail-closed):新工具默认需要认证,仅当工具确实无需用户身份
     (例如纯静态信息查询)时由子类显式覆盖为 ``False``。Registry 在分发时会据此
     拒绝未授权请求。
+    """
+
+    risk_level: str = RISK_LEVEL_READ
+    """工具风险等级(权限分级,借鉴 claw-code 的 PermissionMode 分层)。
+
+    三级语义与确认流程约定:
+
+    - ``"read"``(只读):纯查询,无副作用。默认等级,直接执行,无需确认。
+      当前已注册的 13 个工具均为该等级。
+    - ``"write"``(写入):创建/修改数据(如新建日程、更新备忘录)。执行器
+      应结合 ``require_confirmation`` 决定流程:``require_confirmation=True``
+      时,先通过 pre_execute 钩子向前端返回"待确认"信号,用户确认后再放行;
+      ``False`` 时可直接执行,但审计照常记录。
+    - ``"destructive"``(破坏性):删除/批量覆盖等难以撤销的操作(如删除公文、
+      清空备忘录)。**必须** ``require_confirmation=True``;执行器必须走二次
+      确认流程,且 AuditLogHook 会以 WARNING 级别记录该类调用。
+
+    子类必须显式声明该属性(哪怕值是默认的 "read"),便于审计与评审时一眼
+    确认每个工具的副作用边界;test_tool_risk_level.py 会校验所有注册工具
+    的取值合法性。
+    """
+
+    require_confirmation: bool = False
+    """执行前是否需要用户二次确认。
+
+    默认 ``False``。约定:``risk_level`` 为 ``"destructive"`` 的工具必须置
+    ``True``;``"write"`` 工具按业务敏感度自行决定;``"read"`` 工具应保持
+    ``False``。确认流程由执行器 + pre_execute 钩子实现(规划中):钩子返回
+    Reject(error_code="confirmation_required") 挂起执行,待前端确认后重放。
     """
 
     @abstractmethod
@@ -45,12 +87,37 @@ class BaseTool(ABC):
         pass
 
     def get_schema(self) -> dict:
-        """返回工具的描述 schema，用于意图识别"""
+        """返回工具的描述 schema，用于意图识别
+
+        包含 ``risk_level``,供执行器/前端在工具调用链中做权限门控与展示。
+        """
         return {
             "name": self.name,
             "description": self.description,
             "intent_type": self.intent_type,
+            "risk_level": self.risk_level,
         }
+
+    def execute_with_guard(self, query: str, context: ToolContext) -> dict:
+        """带超时熔断的执行包装层入口(旧路径:query + context)
+
+        现有钩子契约的 post_execute 拿不到执行耗时,无法在钩子内计时,
+        因此超时熔断在 BaseTool 执行包装层实现;``TimeoutGuardHook`` 作为
+        配置入口(阈值读 settings ``SMART_ASSISTANT_TOOL_TIMEOUT``,默认 10s)。
+
+        - 熔断关闭时:等价于直接调用 ``self.execute(query, context)``;
+        - 超时时:立即返回 ``{"found": False, "timed_out": True, ...}``
+          失败字典,调用方不挂起(详见 hooks/builtin/timeout_guard.py)。
+
+        注:仅包装旧签名 ``execute(query, context)``;跨模块汇总新路径
+        (``execute(params, scope, qs)``)的调用方可自行用
+        ``TimeoutGuardHook.run_guarded_sync`` 包装。
+        """
+        # 延迟导入,避免 tools ↔ hooks 在应用加载期产生导入耦合
+        from smart_assistant.hooks.builtin.timeout_guard import TimeoutGuardHook
+
+        guard = TimeoutGuardHook()
+        return guard.run_guarded_sync(self.execute, query, context, tool_name=self.name)
 
     def get_examples(self) -> list:
         """返回 few-shot 示例，帮助 LLM 理解工具用法。"""

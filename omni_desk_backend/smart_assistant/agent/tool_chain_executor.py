@@ -17,6 +17,11 @@ import re
 import time
 from typing import TYPE_CHECKING
 
+from ..hooks.wiring import (
+    apply_failure_hooks,
+    apply_post_execute_hooks,
+    execute_guarded,
+)
 from ..tools.registry import ToolRegistry
 from .plan_serializer import Plan, PlanStep
 
@@ -281,6 +286,7 @@ class ToolChainExecutor:
         """
         attempts = step.retry_count if step.on_failure == "retry" else 1
         last_error: Exception | None = None
+        tool = None  # 权限校验失败时工具尚未取出,失败钩子以 None 传入即可
 
         for attempt in range(attempts):
             try:
@@ -300,6 +306,20 @@ class ToolChainExecutor:
                 if attempt + 1 < attempts:
                     continue
 
+        # 全部 attempt 失败:触发 ON_FAILURE 钩子链(审计/恢复策略)。
+        # 钩子给出结构化 fallback(如超时熔断兜底)时优先采用其结果,
+        # 否则按 step.on_failure 策略构建失败结果。
+        if last_error is not None:
+            recovery = apply_failure_hooks(tool, last_error, context)
+            if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                return {
+                    "step": step_label,
+                    "tool": step.tool,
+                    "status": "fallback",
+                    "output": recovery.fallback_value,
+                    "error": str(last_error),
+                    "attempts": attempts,
+                }
         return self._build_failure_result(step, step_label, attempts, last_error)
 
     def _call_tool(self, tool, params, context: "ToolContext"):
@@ -313,13 +333,22 @@ class ToolChainExecutor:
         仅支持 ``query`` 位置参数 — 把整个 ``params`` dict 透传会触发 TypeError 后
         退化为 ``query=None``,丢失所有数据。修复方式:显式按签名分发,不依赖
         TypeError 兜底。
+
+        钩子接线(修复 1):
+        - 两个分支的执行都经 ``execute_guarded`` 包装 —— 超时熔断生效;
+        - 执行结果统一经 ``apply_post_execute_hooks``(PII 脱敏等)后再返回。
+        串行(``_execute_advanced``)与并行(``execute_parallel``)路径都经过
+        本方法,因此一处接线覆盖全部逐步执行场景。
         """
         if getattr(tool, "supports_scope_filter", False):
             base_qs = tool.build_base_queryset()
             scoped_qs = tool.get_queryset_for_scope(base_qs, context)
-            return tool.execute(params=params, scope=context.scope, qs=scoped_qs)
-        query = params.get("query") if isinstance(params, dict) else None
-        return tool.execute(query=query, context=context)
+            output = execute_guarded(tool, params=params, scope=context.scope, qs=scoped_qs)
+        else:
+            query = params.get("query") if isinstance(params, dict) else None
+            output = execute_guarded(tool, query=query, context=context)
+        # POST_EXECUTE 钩子链:工具输出统一出口脱敏(失败时降级透传)
+        return apply_post_execute_hooks(tool, output, context)
 
     def _build_failure_result(
         self,
@@ -403,6 +432,10 @@ class ToolChainExecutor:
            ``get_queryset_for_scope`` → ``execute(params, scope, qs)`` 新路径。
         3. 否则 → 走旧路径 ``execute(query, context)``。
         4. 任意异常 → 标记 ``reason="exception"`` 并返回。
+
+        钩子接线(修复 1):执行经 ``execute_guarded`` 超时熔断包装;成功结果
+        经 ``apply_post_execute_hooks``(PII 脱敏等);异常先走 ON_FAILURE
+        钩子链,钩子给出结构化 fallback 时采用其结果。
         """
         tool_name = step.get("tool") if isinstance(step, dict) else None
         tool = ToolRegistry.get_tool_for_user(tool_name, context.user)
@@ -420,10 +453,19 @@ class ToolChainExecutor:
             if getattr(tool, "supports_scope_filter", False):
                 base_qs = tool.build_base_queryset()
                 scoped_qs = tool.get_queryset_for_scope(base_qs, context)
-                return tool.execute(params=params, scope=context.scope, qs=scoped_qs)
-            return tool.execute(query=params.get("query") if isinstance(params, dict) else None, context=context)
+                result = execute_guarded(tool, params=params, scope=context.scope, qs=scoped_qs)
+            else:
+                result = execute_guarded(
+                    tool,
+                    query=params.get("query") if isinstance(params, dict) else None,
+                    context=context,
+                )
         except Exception as exc:
             logger.exception("工具执行失败: %s — %s", tool_name, exc)
+            recovery = apply_failure_hooks(tool, exc, context)
+            if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                # 钩子结构化兜底(如超时熔断失败字典),fallback 键优先
+                return {"tool": tool_name, "reason": "exception", **recovery.fallback_value}
             return {
                 "tool": tool_name,
                 "found": False,
@@ -431,6 +473,8 @@ class ToolChainExecutor:
                 "error": str(exc),
                 "module_label": tool_name or "",
             }
+        # POST_EXECUTE 钩子链:工具输出统一出口脱敏
+        return apply_post_execute_hooks(tool, result, context)
 
 
 def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
@@ -469,13 +513,20 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
             params = _resolve_variables(params, depends_on, dep_result)
 
         try:
-            result = tool.execute(query, context=context)
+            # 超时熔断包装(与 ToolChainExecutor class 路径一致)
+            result = execute_guarded(tool, query, context=context)
             success = result.get("found", False)
         except Exception as e:
             logger.error("工具执行失败: %s — %s", tool_name, e)
-            result = {"found": False, "message": f"工具执行失败: {str(e)}"}
+            recovery = apply_failure_hooks(tool, e, context)
+            if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                result = recovery.fallback_value
+            else:
+                result = {"found": False, "message": f"工具执行失败: {str(e)}"}
             success = False
 
+        # POST_EXECUTE 钩子链:工具输出统一出口脱敏
+        result = apply_post_execute_hooks(tool, result, context)
         tool_outputs[tool_name] = result
         results.append(
             {

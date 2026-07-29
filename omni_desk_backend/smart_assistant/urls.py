@@ -10,10 +10,13 @@ from .views import (
     StatsViewSet,
     AgentTaskViewSet,
 )
+from .views.knowledge_base import KnowledgeDatasetViewSet
+from .views.doctor import DoctorView
 
 router = DefaultRouter()
 router.register(r"chat", SmartChatViewSet, basename="smart-chat")
 router.register(r"knowledge-base/documents", KnowledgeBaseViewSet, basename="knowledge-docs")
+router.register(r"knowledge-base/datasets", KnowledgeDatasetViewSet, basename="knowledge-datasets")
 router.register(r"sessions", SessionViewSet, basename="smart-sessions")
 router.register(r"agent-logs", AgentLogViewSet, basename="agent-logs")
 router.register(r"endpoints", LlmEndpointViewSet, basename="llm-endpoints")
@@ -22,5 +25,7 @@ router.register(r"stats", StatsViewSet, basename="smart-stats")
 router.register(r"tasks", AgentTaskViewSet, basename="agent-tasks")
 
 urlpatterns = [
+    # doctor 自检端点（staff 只读诊断，机器可读输出契约 format_version=1）
+    path("doctor/", DoctorView.as_view(), name="smart-doctor"),
     path("", include(router.urls)),
 ]

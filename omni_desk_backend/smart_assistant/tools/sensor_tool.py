@@ -6,6 +6,7 @@ class SensorTool(BaseTool):
     name = "sensor_query"
     description = "查询传感器数据和告警"
     intent_type = "sensor_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """查询传感器信息和校准状态"""

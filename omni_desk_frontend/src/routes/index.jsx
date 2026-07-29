@@ -61,6 +61,7 @@ const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPa
 const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
 const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
 const StatsPage = lazy(() => import('../features/smart-assistant/pages/StatsPage'));
+const AgentTaskPanel = lazy(() => import('../features/smart-assistant/pages/AgentTaskPanel'));
 const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
 const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
 const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
@@ -323,6 +324,10 @@ const router = createBrowserRouter([
       {
         path: "smart-assistant/stats",
         element: <ProtectedRoute pageName="智能助手统计"><LazyComponent component={StatsPage} /></ProtectedRoute>
+      },
+      {
+        path: "smart-assistant/tasks",
+        element: <ProtectedRoute pageName="多Agent任务"><LazyComponent component={AgentTaskPanel} /></ProtectedRoute>
       },
       {
         path: "knowledge-base",

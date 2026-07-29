@@ -23,6 +23,7 @@ class AnnouncementTool(BaseTool):
     name = "announcement_query"
     description = "查询公司公告/通知(communication.Post)"
     intent_type = "announcement_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
     required_auth = True
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:

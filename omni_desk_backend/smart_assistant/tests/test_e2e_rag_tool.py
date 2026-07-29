@@ -23,7 +23,13 @@ RAGTool 的 ``build_base_queryset`` / ``_scope_self`` 已被重写(返回 ``.non
   异常捕获 + RAGTool ``found=False`` + orchestrator ``tool_fallback=True`` 端到端贯通
 - Test 3(对话历史)→ spy ``RAGTool.execute`` 验证 history 通过 ``context`` 参数
   透传给 RAGTool(session.messages 追加 + turn_count 累加)
+
+**测试模式说明**:类级标记使用 ``django_db(transaction=True)``。钩子接线后
+工具执行经 TimeoutGuardHook 在独立 daemon 线程运行,RAGRouter 在线程内
+查询 DB(RagflowConfig / KnowledgeDataset),默认事务模式的未提交夹具
+对其他线程不可见,故改用真实提交模式。
 """
+
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -71,12 +77,19 @@ def rag_ragflow_setup(db):
     return override_settings(SMART_ASSISTANT_DATASET_ID="test-ds")
 
 
-@pytest.mark.django_db
+# transaction=True:工具执行经 TimeoutGuardHook 在独立 daemon 线程运行
+# (hooks 接线后),RAGRouter 在线程内查询 RagflowConfig/KnowledgeDataset,
+# 事务模式下未提交的测试夹具数据对其他线程不可见,需改用真实提交。
+# 生产行为不受影响(线程看到的是已提交数据)。
+@pytest.mark.django_db(transaction=True)
 class TestSmartChatE2ERAGQuery:
     """用户问"公司的 VPN 怎么登录?" → RAGTool → 知识库命中 → 引用来源;落空时降级。"""
 
     def test_rag_query_returns_answer_with_sources(
-        self, auth_client, mock_llm_router, rag_ragflow_setup,
+        self,
+        auth_client,
+        mock_llm_router,
+        rag_ragflow_setup,
     ):
         """知识库命中时,view 返回 answer + tool_result.sources(均含文档名)。
 
@@ -100,8 +113,7 @@ class TestSmartChatE2ERAGQuery:
                 mock_llm_router.generate.side_effect = _llm_responses(
                     intent="knowledge_qa",
                     answer=(
-                        "公司 VPN 登录地址是 https://vpn.company.com,"
-                        "使用工号 + 初始密码登录。[来源:IT操作手册.pdf]"
+                        "公司 VPN 登录地址是 https://vpn.company.com,使用工号 + 初始密码登录。[来源:IT操作手册.pdf]"
                     ),
                 )
 
@@ -129,15 +141,13 @@ class TestSmartChatE2ERAGQuery:
 
         # 业务约束:知识库命中时不应触发 tool_fallback 标记
         assert body.get("tool_fallback") is not True, (
-            "RAGTool 命中时不应触发 tool_fallback;前端会错误降级。"
-            f"body={body}"
+            f"RAGTool 命中时不应触发 tool_fallback;前端会错误降级。body={body}"
         )
 
         # === 核心断言:验证 RAGTool 真实链路 ===
         # RagflowClient.retrieval 必须被真实调用(非 mock 编排器)
         assert mock_client.retrieval.call_count >= 1, (
-            "RagflowClient.retrieval 至少被调用 1 次,"
-            "证明测试走真实 RAGTool → RAGRouter → RagflowClient 链路"
+            "RagflowClient.retrieval 至少被调用 1 次,证明测试走真实 RAGTool → RAGRouter → RagflowClient 链路"
         )
         # query 透传给 retrieval(question 字段)
         retrieval_kwargs = mock_client.retrieval.call_args.kwargs
@@ -146,7 +156,10 @@ class TestSmartChatE2ERAGQuery:
         assert retrieval_kwargs["top_k"] == 5
 
     def test_rag_query_handles_ragflow_unavailable(
-        self, auth_client, mock_llm_router, rag_ragflow_setup,
+        self,
+        auth_client,
+        mock_llm_router,
+        rag_ragflow_setup,
     ):
         """RAGFlow 不可用时(``RagflowClient.retrieval`` 抛 ``ConnectionError``),
         真实链路应端到端贯通:异常被 ``RAGRouter.search_dataset`` 捕获并返回
@@ -182,12 +195,9 @@ class TestSmartChatE2ERAGQuery:
         body = response.json()
         assert body["intent"] == "knowledge_qa"
         assert body["tool_used"] == "knowledge_qa"
-        assert "暂不可用" in body["answer"], (
-            f"降级文案应包含「暂不可用」;实际 answer={body['answer']!r}"
-        )
+        assert "暂不可用" in body["answer"], f"降级文案应包含「暂不可用」;实际 answer={body['answer']!r}"
         assert body["tool_result"]["found"] is False, (
-            "RAG 工具失败时 tool_result.found 必须为 False,"
-            f"前端依赖该字段渲染降级提示。body={body}"
+            f"RAG 工具失败时 tool_result.found 必须为 False,前端依赖该字段渲染降级提示。body={body}"
         )
 
         # 业务约束:失败时 AgentLog.tool_success 必须为 False
@@ -205,12 +215,14 @@ class TestSmartChatE2ERAGQuery:
         # === 核心断言:验证异常捕获真的发生在 RAG 边界 ===
         # RagflowClient.retrieval 真的被调用过(非 pre-construct 短路)
         assert mock_client.retrieval.call_count >= 1, (
-            "RagflowClient.retrieval 应至少被调用 1 次,"
-            "ConnectionError 必须在 RAG 边界真实抛出才能验证降级链路"
+            "RagflowClient.retrieval 应至少被调用 1 次,ConnectionError 必须在 RAG 边界真实抛出才能验证降级链路"
         )
 
     def test_rag_query_with_conversation_history(
-        self, auth_client, mock_llm_router, rag_ragflow_setup,
+        self,
+        auth_client,
+        mock_llm_router,
+        rag_ragflow_setup,
     ):
         """带 ``conversation_id`` 的第二轮提问应:
 
@@ -252,8 +264,10 @@ class TestSmartChatE2ERAGQuery:
             ]
             mock_client_cls.return_value = mock_client
 
-            with patch.object(RAGTool, "supports_scope_filter", new=False), \
-                 patch.object(RAGTool, "execute", new=spy_rag_execute):
+            with (
+                patch.object(RAGTool, "supports_scope_filter", new=False),
+                patch.object(RAGTool, "execute", new=spy_rag_execute),
+            ):
                 mock_llm_router.generate.side_effect = _llm_responses(
                     intent="knowledge_qa",
                     answer="根据上下文,VPN 登录流程已说明。如忘记密码,请联系 IT 重置。",
@@ -281,27 +295,20 @@ class TestSmartChatE2ERAGQuery:
         # === 核心断言:history 真的到达 RAGTool ===
         # RAGTool.execute 必须被调用至少 1 次(真实链路)
         assert len(captured_calls) >= 1, (
-            "RAGTool.execute 应至少被调用 1 次,"
-            f"证明测试走真实 orchestrator → RAGTool 链路。captured={captured_calls}"
+            f"RAGTool.execute 应至少被调用 1 次,证明测试走真实 orchestrator → RAGTool 链路。captured={captured_calls}"
         )
         # 捕获的 context 应包含 conversation history
         first_call_context = captured_calls[0]["context"]
         assert first_call_context is not None, "RAGTool.execute 必须收到 context 参数"
-        assert "history" in first_call_context, (
-            f"context 应包含 history 键;实际 context={first_call_context}"
-        )
+        assert "history" in first_call_context, f"context 应包含 history 键;实际 context={first_call_context}"
         history = first_call_context["history"]
-        assert len(history) == 2, (
-            f"history 应为原始 2 条消息;实际 {len(history)} 条。history={history}"
-        )
+        assert len(history) == 2, f"history 应为原始 2 条消息;实际 {len(history)} 条。history={history}"
         assert history[0]["role"] == "user"
         assert "VPN 怎么登录" in history[0]["content"]
         assert history[1]["role"] == "assistant"
 
         # === 核心断言:RagflowClient.retrieval 真实被调用 ===
-        assert mock_client.retrieval.call_count >= 1, (
-            "RagflowClient.retrieval 应至少被调用 1 次(第二轮 RAG 查询)"
-        )
+        assert mock_client.retrieval.call_count >= 1, "RagflowClient.retrieval 应至少被调用 1 次(第二轮 RAG 查询)"
         # 第二轮 query 透传给 retrieval
         assert mock_client.retrieval.call_args.kwargs["question"] == "那密码忘了怎么办?"
 

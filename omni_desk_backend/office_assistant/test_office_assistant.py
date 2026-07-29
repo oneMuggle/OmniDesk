@@ -13,15 +13,17 @@ class OfficeAssistantProcessViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = reverse('office-assistant-process')
 
-    @patch('llm_service.ollama_client.OllamaClient.generate')
-    def test_process_text_successfully(self, mock_generate):
-        mock_generate.return_value = 'Processed text'
+    @patch('office_assistant.views.get_router')
+    def test_process_text_successfully(self, mock_get_router):
+        # router.generate 非流式返回 (content, usage) 元组
+        mock_get_router.return_value.generate.return_value = ('Processed text', {})
 
         data = {'action': 'proofread', 'text': 'Some text to process.'}
         response = self.client.post(self.url, data, format='json')
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data['processed_text'], 'Processed text')
+        mock_get_router.assert_called_with(app_name='office_assistant')
 
     def test_missing_action_or_text(self):
         response = self.client.post(self.url, {'action': 'proofread'}, format='json')
@@ -37,9 +39,10 @@ class ProcessDocumentViewTests(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = reverse('office-assistant-process-document')
 
-    @patch('llm_service.ollama_client.OllamaClient.generate')
-    def test_process_document_successfully(self, mock_generate):
-        mock_generate.return_value = 'Processed document text.'
+    @patch('office_assistant.views.get_router')
+    def test_process_document_successfully(self, mock_get_router):
+        # router.generate 非流式返回 (content, usage) 元组
+        mock_get_router.return_value.generate.return_value = ('Processed document text.', {})
 
         document = docx.Document()
         document.add_paragraph('This is a test document.')

@@ -6,6 +6,7 @@ class DocumentTool(BaseTool):
     name = "document_search"
     description = "搜索公文/文档（按标题/类型/状态）"
     intent_type = "document_search"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """搜索文档模板和生成的文档"""

@@ -14,6 +14,8 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
+
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -337,6 +339,12 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=6),
         "args": (),
     },
+    "smart-assistant-daily-digest": {
+        # 智能助手每日晨报:工作日(周一~周五)8:30 巡检生成并推送
+        "task": "smart_assistant.tasks.send_daily_digests",
+        "schedule": crontab(hour=8, minute=30, day_of_week="1-5"),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置
@@ -352,7 +360,8 @@ MINERU_API_KEY = os.environ.get("MINERU_API_KEY", "YOUR_MINERU_API_KEY")
 
 # Ollama 配置
 OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
-OLLAMA_MODEL_NAME = os.environ.get("OLLAMA_MODEL_NAME", "llama2")  # 默认模型可以根据需要调整
+# 默认模型全站统一为 qwen2.5:7b（LLMRouter 兜底与 OllamaClient 均以此为回退值）
+OLLAMA_MODEL_NAME = os.environ.get("OLLAMA_MODEL_NAME", "qwen2.5:7b")
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 

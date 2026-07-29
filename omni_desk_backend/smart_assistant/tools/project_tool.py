@@ -6,6 +6,7 @@ class ProjectTool(BaseTool):
     name = "project_status"
     description = "查询项目进度/状态/负责人"
     intent_type = "project_status"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """查询项目信息"""

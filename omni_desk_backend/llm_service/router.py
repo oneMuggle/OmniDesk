@@ -1,6 +1,8 @@
 import logging
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
+from django.conf import settings
 
 logger = logging.getLogger(__name__)
 
@@ -8,20 +10,26 @@ logger = logging.getLogger(__name__)
 class LLMRouter:
     """多端点 LLM 路由器：按优先级尝试端点，自动降级。
 
-    降级链路：数据库 LlmAppConfig（按 priority 排序）→ Ollama 本地。
-    不再依赖环境变量。
+    降级链路：数据库 LlmAppConfig（按 priority 排序，按 app_name 隔离）
+    → Ollama 本地全局兜底。不再依赖环境变量。
+
+    各业务模块（smart_assistant、office_assistant 等）通过 ``app_name``
+    获取各自的端点配置；无专属配置时自动落到 Ollama 全局兜底链。
     """
 
     OLLAMA_BASE = "http://localhost:11434"
+    # Ollama 兜底模型的最终回退值；运行时优先读 settings.OLLAMA_MODEL_NAME
     OLLAMA_MODEL = "qwen2.5:7b"
     REQUEST_TIMEOUT = 120
 
-    def __init__(self):
+    def __init__(self, app_name="smart_assistant"):
+        # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
+        self.app_name = app_name
         self._configs = []
         self._load_configs()
 
     def _load_configs(self):
-        """从数据库加载所有活跃的 LlmAppConfig，按 priority 升序。"""
+        """从数据库加载当前应用所有活跃的 LlmAppConfig，按 priority 升序。"""
         try:
             from smart_assistant.models import LlmAppConfig
 
@@ -29,13 +37,18 @@ class LLMRouter:
                 LlmAppConfig.objects.select_related("endpoint")
                 .filter(
                     is_active=True,
-                    app_name="smart_assistant",
+                    app_name=self.app_name,
                 )
                 .order_by("endpoint__priority", "endpoint__is_fallback")
             )
         except Exception as e:
             logger.warning("无法从数据库加载 LLM 应用配置: %s", e)
             self._configs = []
+
+    @classmethod
+    def _resolve_ollama_model(cls) -> str:
+        """解析 Ollama 兜底模型：优先 settings.OLLAMA_MODEL_NAME，缺失时回退类常量。"""
+        return getattr(settings, "OLLAMA_MODEL_NAME", None) or cls.OLLAMA_MODEL
 
     def generate(self, prompt=None, system_message=None, stream=False, options=None, messages=None):
         """生成回答，自动在多个端点间降级。
@@ -86,7 +99,7 @@ class LLMRouter:
             if is_ollama:
                 base_url = self.OLLAMA_BASE
                 api_key = ""
-                model_name = self.OLLAMA_MODEL
+                model_name = self._resolve_ollama_model()
                 label = f"Ollama ({model_name})"
             else:
                 # LlmAppConfig 对象
@@ -117,6 +130,12 @@ class LLMRouter:
                     if choices and "message" in choices[0]:
                         if i > 0:
                             logger.info("LLM 降级成功: 切换到 %s", label)
+                        # 补充成本核算字段：命中的端点 ID + 预估费用
+                        usage = self._enrich_usage(
+                            usage,
+                            endpoint=None if is_ollama else endpoint,
+                            model_name=model_name,
+                        )
                         return choices[0]["message"]["content"], usage
                     raise Exception("LLM API 响应结构异常")
             except Exception as e:
@@ -125,6 +144,40 @@ class LLMRouter:
                 continue
 
         raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}")
+
+    @staticmethod
+    def _compute_estimated_cost(endpoint, total_tokens) -> float:
+        """根据命中端点的单价配置计算本次调用的预估费用（元）。
+
+        无端点、无 ``cost_per_1k_tokens`` 配置或无 token 用量时返回 0.0，
+        保证调用方任何情况下都不会因成本计算报错。
+        """
+        cost_per_1k = getattr(endpoint, "cost_per_1k_tokens", None) if endpoint is not None else None
+        if cost_per_1k is None or not total_tokens:
+            return 0.0
+        try:
+            cost = Decimal(str(total_tokens)) * Decimal(str(cost_per_1k)) / Decimal("1000")
+            return float(cost.quantize(Decimal("0.000001"), rounding=ROUND_HALF_UP))
+        except (InvalidOperation, ValueError, TypeError):
+            logger.warning("成本计算失败: total_tokens=%s, cost_per_1k=%s", total_tokens, cost_per_1k)
+            return 0.0
+
+    def _enrich_usage(self, usage, endpoint, model_name: str) -> dict:
+        """在 usage 字典中补充成本核算字段（向后兼容，不改动原有 token 字段）。
+
+        新增字段：
+        - ``estimated_cost``: 本次调用预估费用（元），无配置时为 0.0
+        - ``endpoint_id``: 实际命中的 LlmEndpoint 主键（Ollama 兜底为 None）
+        - ``model_name``: 实际命中的模型名（调用方未提供时才写入）
+        """
+        enriched = dict(usage) if isinstance(usage, dict) else {}
+        total_tokens = enriched.get("total_tokens")
+        if total_tokens is None:
+            total_tokens = (enriched.get("prompt_tokens") or 0) + (enriched.get("completion_tokens") or 0)
+        enriched["estimated_cost"] = self._compute_estimated_cost(endpoint, total_tokens)
+        enriched["endpoint_id"] = getattr(endpoint, "id", None)
+        enriched.setdefault("model_name", model_name)
+        return enriched
 
     def _stream_generate(self, response):
         """流式解析 SSE 响应。"""
@@ -154,12 +207,18 @@ class LLMRouter:
         self._load_configs()
 
 
-# 单例
-_router = None
+# 按 app_name 缓存的单例（各应用独立持有自己的端点配置）
+_routers = {}
 
 
-def get_router():
-    global _router
-    if _router is None:
-        _router = LLMRouter()
-    return _router
+def get_router(app_name="smart_assistant"):
+    """获取指定应用的 LLMRouter 单例。
+
+    Args:
+        app_name: 应用标识（对应 LlmAppConfig.app_name），默认
+            ``smart_assistant`` 以兼容既有调用方。无专属配置的应用
+            （如 office_assistant）会自动落到 Ollama 全局兜底链。
+    """
+    if app_name not in _routers:
+        _routers[app_name] = LLMRouter(app_name=app_name)
+    return _routers[app_name]

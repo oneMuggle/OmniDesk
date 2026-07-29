@@ -91,6 +91,10 @@ services:
       - DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production
       - DJANGO_ENV=production
       - COLLECT_STATIC=true
+      # RAG 知识库端点:显式声明保证 .env.production 漏配时仍有正确默认值。
+      # 注意:backend 故意不 depends_on ragflow —— RAG 是可选能力,ragflow 容器
+      # 故障/慢启动不得阻塞主站启动(运行时通过 HTTP 调用,连接失败时优雅降级)。
+      - RAGFLOW_API_ENDPOINT=${RAGFLOW_API_ENDPOINT:-http://ragflow:80}
     volumes:
       - static_volume:/usr/src/app/staticfiles
       - media_volume:/usr/src/app/media
@@ -182,6 +186,70 @@ services:
         max-size: "50m"
         max-file: "3"
 
+  # ── RAGFlow MySQL(知识库检索服务的元数据库)────────────────
+  # 与 docker-compose.prod.yml 的 ragflow-mysql 定义保持一致。
+  # 镜像 tag 固定 mysql:8.0(离线环境通过 docker load 加载,禁止 :latest)。
+  ragflow-mysql:
+    image: mysql:8.0
+    pull_policy: never
+    container_name: omnidesk-ragflow-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_DATABASE: ragflow
+      MYSQL_USER: ragflow
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+    volumes:
+      - ragflow_mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${RAGFLOW_MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
+
+  # ── RAGFlow(知识库检索服务,智能助手的 RAG 能力来源)─────────
+  # 与 docker-compose.prod.yml 的 ragflow 定义保持一致。
+  # 镜像 tag 固定 infiniflow/ragflow:v0.16.0(离线环境通过 docker load 加载)。
+  # RAG 为可选能力:backend 不依赖本服务启动,本服务挂掉只影响知识库检索,
+  # 主站与智能助手的基础对话能力(走 LLM 端点)不受影响。
+  ragflow:
+    image: infiniflow/ragflow:v0.16.0
+    pull_policy: never
+    container_name: omnidesk-ragflow
+    restart: unless-stopped
+    environment:
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_HOST: ragflow-mysql
+      MYSQL_PORT: "3306"
+    volumes:
+      - ragflow_data:/ragflow/data
+    ports:
+      - "${RAGFLOW_PORT:-9380}:80"
+    depends_on:
+      ragflow-mysql:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://127.0.0.1:80/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 60s
+    networks:
+      - omni_desk
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "3"
+
 volumes:
   postgres_data:
     # 固定 external name:不同包目录升级时复用同一 Postgres 数据卷
@@ -193,6 +261,10 @@ volumes:
     # 固定 external name:不同包目录升级时复用同一 Django media 卷
     name: ${OMNIDESK_MEDIA_VOLUME}
   backup_volume:
+  # RAGFlow 数据卷:卷身份由顶层固定项目名(COMPOSE_PROJECT_NAME)锁定,
+  # 升级换包目录时随项目名复用,不会产生孤儿卷。
+  ragflow_data:
+  ragflow_mysql_data:
 
 networks:
   omni_desk:

@@ -8,6 +8,7 @@ class MeetingRoomTool(BaseTool):
     name = "meeting_room_query"
     description = "查询会议室可用性和预订"
     intent_type = "meeting_room_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """查询会议室(支持新旧两种签名)"""

@@ -1,12 +1,13 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { Card, Tag, Typography, Empty, Skeleton, Alert, List, Space } from 'antd';
+import PropTypes from 'prop-types';
 
 const { Text, Title } = Typography;
 
 /**
  * AggregatedDayCard - 跨模块汇总查询结果聚合卡片
  *
- * 接收 ResultSynthesizer 输出:
+ * 接收 ResultSynthesizer 输出(扁平结构):
  * - items: 按 sort_key 排序后的所有项
  * - moduleCounts: {模块名: 数量}
  * - summary: 人类可读汇总文本
@@ -14,6 +15,16 @@ const { Text, Title } = Typography;
  * 按模块自动分组渲染,使用 Ant Design Card + Tag
  */
 const AggregatedDayCard = ({ items = [], moduleCounts = {}, summary = '', isLoading, error }) => {
+  // 注意:useMemo 必须无条件调用(rules of hooks),先于任何 early return
+  const grouped = useMemo(() => {
+    const map = {};
+    for (const item of items) {
+      if (!map[item.module]) map[item.module] = [];
+      map[item.module].push(item);
+    }
+    return map;
+  }, [items]);
+
   if (isLoading) {
     return <Card><Skeleton active /></Card>;
   }
@@ -29,15 +40,6 @@ const AggregatedDayCard = ({ items = [], moduleCounts = {}, summary = '', isLoad
       </Card>
     );
   }
-
-  const grouped = useMemo(() => {
-    const map = {};
-    for (const item of items) {
-      if (!map[item.module]) map[item.module] = [];
-      map[item.module].push(item);
-    }
-    return map;
-  }, [items]);
 
   return (
     <Card
@@ -70,6 +72,19 @@ const AggregatedDayCard = ({ items = [], moduleCounts = {}, summary = '', isLoad
       ))}
     </Card>
   );
+};
+
+AggregatedDayCard.propTypes = {
+  items: PropTypes.arrayOf(PropTypes.shape({
+    type: PropTypes.string,
+    module: PropTypes.string,
+    data: PropTypes.object,
+    sort_key: PropTypes.string,
+  })),
+  moduleCounts: PropTypes.object,
+  summary: PropTypes.string,
+  isLoading: PropTypes.bool,
+  error: PropTypes.string,
 };
 
 export default AggregatedDayCard;

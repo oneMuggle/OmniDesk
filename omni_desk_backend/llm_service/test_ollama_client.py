@@ -31,7 +31,8 @@ class TestOllamaClient(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             client = OllamaClient()
             self.assertEqual(client.base_url, "http://localhost:11434")
-            self.assertEqual(client.model_name, "llama2")
+            # 默认模型已与 LLMRouter / settings 统一为 qwen2.5:7b
+            self.assertEqual(client.model_name, "qwen2.5:7b")
 
     @patch('requests.get')
     def test_list_models_success(self, mock_get):

@@ -3,6 +3,41 @@ import apiClient from '../../../shared/api/apiClient';
 const BASE_URL = 'smart-assistant';
 
 /**
+ * 后端输出契约(format_version: 1):失败 kind → 前端友好提示映射。
+ * 当事件未携带 hint 时,用此映射兜底;未知 kind 归入 internal_error。
+ */
+export const ERROR_KIND_MESSAGES = {
+  no_llm_endpoint: '管理员尚未配置 LLM 服务，请前往「管理后台 → AI 应用」配置端点',
+  llm_unavailable: 'LLM 服务暂时不可用，请稍后重试',
+  ragflow_unavailable: '知识库服务暂时不可用，本次回答未包含知识库内容',
+  rate_limited: '请求过于频繁，请稍后再试',
+  internal_error: '服务异常，请稍后重试',
+};
+
+/**
+ * 从 SSE done/session 事件(或同步失败响应)中解析辅助提示文案。
+ *
+ * 防御性兼容:后端分两步上线,kind/hint/error 字段可能尚未存在 —
+ * - hint 优先于 kind 映射
+ * - 有 kind 但未知 → internal_error 兜底
+ * - 仅 error:true 无 kind/hint → internal_error 兜底
+ * - 完全没有 kind/hint/error 字段(旧事件) → 返回 undefined,行为与旧版一致
+ *
+ * @param {object|undefined|null} event SSE 事件或失败响应对象
+ * @returns {string|undefined} 辅助提示文案;无可提示内容时为 undefined
+ */
+export function resolveErrorHint(event) {
+  if (!event) return undefined;
+  const hint = typeof event.hint === 'string' && event.hint.trim() ? event.hint.trim() : undefined;
+  if (hint) return hint;
+  if (event.kind) {
+    return ERROR_KIND_MESSAGES[event.kind] || ERROR_KIND_MESSAGES.internal_error;
+  }
+  if (event.error) return ERROR_KIND_MESSAGES.internal_error;
+  return undefined;
+}
+
+/**
  * 发送智能聊天（SSE 流式）
  * 返回 { bodyPromise, abort } 对象
  * - bodyPromise: Promise<ReadableStream>，解析为响应体
@@ -91,6 +126,16 @@ export async function sendSmartChat(query, conversationId = null) {
     body.conversation_id = conversationId;
   }
   return apiClient.post(`${BASE_URL}/chat/`, body);
+}
+
+/**
+ * 提交消息反馈（赞/踩）
+ * PATCH /api/smart-assistant/agent-logs/{logId}/feedback/
+ * @param {number|string} logId AgentLog ID（来自对话响应的 log_id 字段）
+ * @param {'up'|'down'} feedback 反馈类型
+ */
+export async function submitFeedback(logId, feedback) {
+  return apiClient.patch(`${BASE_URL}/agent-logs/${logId}/feedback/`, { feedback });
 }
 
 /**

@@ -6,6 +6,7 @@ class MemoTool(BaseTool):
     name = "memo_query"
     description = "查询备忘录/便签"
     intent_type = "memo_query"
+    risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
     def execute(self, query: str, context: dict = None) -> dict:
         """搜索备忘录"""

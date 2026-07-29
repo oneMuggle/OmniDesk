@@ -57,10 +57,12 @@ class TestBaseToolDefaults:
         tool = _ConcreteTool()
         schema = tool.get_schema()
 
+        # risk_level: 工具权限分级新增字段,BaseTool 默认 "read"
         assert schema == {
             "name": "concrete_test_tool",
             "description": "用于测试的最小工具",
             "intent_type": "test_intent",
+            "risk_level": "read",
         }
 
     def test_get_examples_returns_empty_list_by_default(self):

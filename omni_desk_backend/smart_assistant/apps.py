@@ -39,6 +39,17 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(ComplianceTool())
         ToolRegistry.register(ExternalLinkTool())
 
+        # 钩子注册:PII 脱敏(POST_EXECUTE)+ 超时熔断恢复(ON_FAILURE)挂到
+        # 全局 HookRegistry。接线方式与 AuditLogHook 文档约定一致
+        # (registry.register + HookEvent);区别在于审计钩子按任务实例化,
+        # 而这两个是无状态全局钩子,启动时一次性注册。
+        # 调用点:orchestrator 单工具执行 / ToolChainExecutor 逐步执行经
+        # hooks.wiring 的同步入口(execute_guarded / apply_post_execute_hooks)
+        # 触发;register_builtin_hooks 幂等,ready() 多次执行不会重复挂载。
+        from .hooks.wiring import register_builtin_hooks
+
+        register_builtin_hooks()
+
         # 仅在 DEBUG 模式下启动时校验 scope(避免生产启动变慢)。
         # 注:必须在工具注册之后,否则 check_tool_scopes 看到的是空 registry。
         if getattr(settings, "DEBUG", False):

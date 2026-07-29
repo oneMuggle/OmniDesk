@@ -71,7 +71,11 @@ class TestChatPerformance:
         mock_session = MagicMock()
         mock_session.id = 1
         mock_session_create = MagicMock(return_value=mock_session)
-        mock_log_create = MagicMock()
+        # 响应契约新增 log_id:mock 的 create 必须返回带整型主键的对象,
+        # 否则裸 MagicMock 进入 JSON 渲染会触发 RecursionError
+        mock_log = MagicMock()
+        mock_log.id = 1
+        mock_log_create = MagicMock(return_value=mock_log)
 
         def send_request(i):
             # 每个线程创建独立 client,避免 handler 状态竞争
