@@ -13,6 +13,15 @@ from llm_service.router import get_router
 # 本应用在 LlmAppConfig 中的标识；无专属配置时 router 自动落到 Ollama 全局兜底
 APP_NAME = "office_assistant"
 
+# 文本处理白名单(P0-I):能力收敛为 3 个,杜绝未审计 action 直通 LLM
+ALLOWED_ACTIONS = ("proofread", "translate", "polish")
+
+SYSTEM_PROMPTS = {
+    "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
+    "translate": "You are a translator. Translate the following text to Chinese.",
+    "polish": "You are a writing assistant. Improve the style and clarity of the following text.",
+}
+
 
 class OfficeAssistantProcessView(APIView):
     permission_classes = [IsAuthenticated]
@@ -25,18 +34,12 @@ class OfficeAssistantProcessView(APIView):
         if not action or not text:
             return Response({"error": "Action and text are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        system_prompts = {
-            "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
-            "translate": "You are a translator. Translate the following text to Chinese.",
-            "polish": "You are a writing assistant. Improve the style and clarity of the following text.",
-        }
-
-        if action not in system_prompts:
-            return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+        if action not in ALLOWED_ACTIONS:
+            return Response({"detail": f"unsupported action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
             router = get_router(app_name=APP_NAME)
-            system_message = system_prompts[action]
+            system_message = SYSTEM_PROMPTS[action]
 
             if stream:
                 response_stream = router.generate(prompt=text, system_message=system_message, stream=True)

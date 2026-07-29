@@ -5,6 +5,11 @@ import os
 import time
 from celery import shared_task
 from django.conf import settings
+from django.db.models import Q
+
+from notifications.models import Notification
+from notifications.service import NotificationService
+from users.models import CustomUser
 
 from .services.outbox import OutboxService, OutboxDeadError
 from .services.client import PaperlessClient
@@ -137,12 +142,48 @@ def check_paperless_health():
     return {"is_healthy": health.is_healthy, "consecutive_failures": health.consecutive_failures}
 
 
+def _iter_admin_users():
+    """全体管理员(superuser 或 Admin 组),去重。"""
+    return (
+        CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name="Admin"))
+        .distinct()
+        .order_by("id")
+    )
+
+
 def _notify_admin_down(health):
+    """paperless 连续失败越过阈值 → 紧急通知全体管理员(P0-H)。
+
+    dedupe_key 按 health 单例行 id:24h 内同一下降事件的重复通知会被
+    NotificationService 合并到原通知,避免告警风暴。
+    """
     logger.error(f"paperless DOWN ({health.consecutive_failures} consecutive failures)")
+    for admin in _iter_admin_users():
+        NotificationService.create(
+            user=admin,
+            type="paperless_down",
+            title="Paperless 服务不可用",
+            content=(
+                f"Paperless 服务连续 {health.consecutive_failures} 次健康检查失败,"
+                f"已标记为不可用。最后错误:{health.last_error or '无'}。请尽快排查。"
+            ),
+            dedupe_key=f"paperless_down:{health.id}",
+            priority=Notification.PRIORITY_URGENT,
+        )
 
 
 def _notify_admin_recovery(health):
+    """paperless 从不可用恢复 → 通知全体管理员(P0-H)。"""
     logger.info("paperless RECOVERED")
+    for admin in _iter_admin_users():
+        NotificationService.create(
+            user=admin,
+            type="paperless_recovered",
+            title="Paperless 服务已恢复",
+            content="Paperless 服务健康检查已恢复正常。",
+            dedupe_key=f"paperless_recovered:{health.id}",
+            priority=Notification.PRIORITY_NORMAL,
+        )
 
 
 @shared_task(name="paperless_proxy.cleanup_cache")
