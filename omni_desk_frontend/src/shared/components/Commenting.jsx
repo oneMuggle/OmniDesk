@@ -16,7 +16,7 @@ const Commenting = ({ chapterId, comments: initialComments }) => {
         }
 
         try {
-            const response = await api.post(`/api/documents/chapters/${chapterId}/add_comment/`, {
+            const response = await api.post(`documents/chapters/${chapterId}/add_comment/`, {
                 content: newComment,
             });
             setComments([...comments, response.data]);

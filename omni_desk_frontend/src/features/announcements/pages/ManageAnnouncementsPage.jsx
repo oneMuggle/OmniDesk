@@ -26,7 +26,7 @@ const ManageAnnouncementsPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('你确定要删除这条公告吗？')) {
       try {
-        await apiClient.delete(`/api/events/announcements/${id}/`);
+        await apiClient.delete(`events/announcements/${id}/`);
         // 重新获取公告列表
         fetchAnnouncements();
       } catch (e) {

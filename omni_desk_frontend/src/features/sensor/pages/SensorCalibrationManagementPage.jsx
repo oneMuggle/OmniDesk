@@ -15,7 +15,7 @@ const SensorCalibrationManagementPage = () => {
     const fetchCalibrations = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await axiosInstance.get(`/api/sensor-management/sensor-calibrations/?sensor_id=${sensorId}`);
+            const response = await axiosInstance.get(`sensor-management/sensor-calibrations/?sensor_id=${sensorId}`);
             setCalibrations(response.data);
         } catch (error) {
             message.error('Failed to fetch sensor calibrations.');
@@ -45,7 +45,7 @@ const SensorCalibrationManagementPage = () => {
 
     const handleDelete = async (id) => {
         try {
-            await axiosInstance.delete(`/api/sensor-management/sensor-calibrations/${id}/`);
+            await axiosInstance.delete(`sensor-management/sensor-calibrations/${id}/`);
             message.success('Calibration deleted successfully.');
             fetchCalibrations();
         } catch (error) {
@@ -58,10 +58,10 @@ const SensorCalibrationManagementPage = () => {
         try {
             const values = await form.validateFields();
             if (editingCalibration) {
-                await axiosInstance.put(`/api/sensor-management/sensor-calibrations/${editingCalibration.id}/`, values);
+                await axiosInstance.put(`sensor-management/sensor-calibrations/${editingCalibration.id}/`, values);
                 message.success('Calibration updated successfully.');
             } else {
-                await axiosInstance.post('/api/sensor-management/sensor-calibrations/', { ...values, sensor: sensorId });
+                await axiosInstance.post('sensor-management/sensor-calibrations/', { ...values, sensor: sensorId });
                 message.success('Calibration added successfully.');
             }
             setIsModalVisible(false);

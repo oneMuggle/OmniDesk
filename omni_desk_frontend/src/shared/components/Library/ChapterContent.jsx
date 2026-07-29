@@ -25,7 +25,7 @@ const ChapterContent = () => {
             setLoading(true);
             try {
                 // Assuming API endpoint is /api/documents/chapters/<id>/
-                const response = await axiosInstance.get(`/api/documents/chapters/${chapterId}/`);
+                const response = await axiosInstance.get(`documents/chapters/${chapterId}/`);
                 setChapter(response.data);
             } catch (err) {
                 setError('Failed to load chapter content.');
