@@ -56,20 +56,35 @@ def notify_schedule_created(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Announcement)
 def notify_announcement_created(sender, instance, created, **kwargs):
+    """公告 fan-out 通知(P0-W:bulk_create 批量落库,替代逐条 NotificationService 调用)。
+
+    每项携带 dedupe_key=announcement:{公告id}:{用户id},便于事后按公告/用户
+    定位与清理;作者本人不收自己发布的公告。
+    """
     if not created:
         return
     from users.models import CustomUser
 
-    all_users = CustomUser.objects.all()
-    for user in all_users:
-        if user.id != instance.author_id:
-            _notify(
+    from .models import Notification
+
+    recipients = CustomUser.objects.exclude(id=instance.author_id)
+    title = f"新公告：{instance.title}"
+    content = instance.content[:200]
+    Notification.objects.bulk_create(
+        [
+            Notification(
                 user=user,
                 type="announcement",
-                title=f"新公告：{instance.title}",
-                content=instance.content[:200],
+                title=title,
+                content=content,
                 link="/announcements",
+                priority=Notification.PRIORITY_NORMAL,
+                dedupe_key=f"announcement:{instance.id}:{user.id}",
             )
+            for user in recipients
+        ],
+        batch_size=500,
+    )
 
 
 @receiver(post_save, sender=ComplianceIssue)
