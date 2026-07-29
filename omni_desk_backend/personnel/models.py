@@ -6,6 +6,8 @@ from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from .fields import EncryptedCharField as FernetEncryptedCharField
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,7 +38,12 @@ def _decrypt_field(encoded_value, key):
 
 
 class EncryptedCharField(models.CharField):
-    """CharField that transparently encrypts values using Django's SECRET_KEY."""
+    """[遗留] XOR + base64 假加密字段,仅供 external_integration / ragflow_service /
+    smart_assistant 的 api_key 字段继续使用(历史数据格式兼容)。
+
+    P0-B 起 personnel 的身份证号等敏感字段改用 personnel.fields.EncryptedCharField
+    (Fernet 认证加密)。新代码请勿使用本类。
+    """
 
     def from_db_value(self, value, expression, connection):
         return _decrypt_field(value, settings.SECRET_KEY)
@@ -66,8 +73,11 @@ class Personnel(models.Model):
 
     # Basic Info
     name = models.CharField(max_length=100, verbose_name="姓名", db_index=True)
-    id_card_number = EncryptedCharField(max_length=64, unique=True, null=True, blank=True, verbose_name="身份证号")
-    # max_length 调整为 64:18 字符明文 XOR+base64 加密后变 24 字符密文,18 长度不够
+    id_card_number = FernetEncryptedCharField(
+        max_length=256, unique=True, null=True, blank=True, verbose_name="身份证号"
+    )
+    # max_length 调整为 256:18 字符明文 Fernet 加密后约 124 字符密文(urlsafe base64)
+    # 注:Fernet 密文含随机 IV,DB 层 unique 约束不再对明文生效;重复校验应在业务层处理
     date_of_birth = models.DateField(verbose_name="出生年月", null=True, blank=True)
     phone_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
     address = models.TextField(verbose_name="家庭住址", blank=True)
@@ -210,8 +220,8 @@ class FamilyMember(models.Model):
     )
     name = models.CharField(max_length=100, verbose_name="姓名")
     relationship = models.CharField(max_length=50, verbose_name="与本人关系")
-    id_card_number = EncryptedCharField(max_length=64, verbose_name="身份证号", blank=True)
-    # max_length 调整为 64:18 字符明文 XOR+base64 加密后变 24 字符密文,18 长度不够
+    id_card_number = FernetEncryptedCharField(max_length=256, verbose_name="身份证号", blank=True)
+    # max_length 调整为 256:18 字符明文 Fernet 加密后约 124 字符密文(urlsafe base64)
     contact_number = models.CharField(max_length=20, verbose_name="联系电话", blank=True)
 
     def __str__(self):
