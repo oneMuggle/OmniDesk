@@ -25,6 +25,22 @@ const instance: AxiosInstance = axios.create({
     },
 });
 
+// 兜底守卫:instance 的 baseURL 已包含 /api/ 前缀,调用方再写
+// '/api/xxx' 会被拼成 /api/api/xxx 双前缀导致 404。
+// 这里在请求发出前直接拒绝,尽早暴露错误用法。
+// 注意:window.open / location.href 等浏览器导航不走 axios,不受此守卫影响。
+instance.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+        if (config.url?.startsWith('/api/')) {
+            return Promise.reject(
+                new Error('Do not include /api/ in apiClient calls')
+            );
+        }
+        return config;
+    },
+    (error: AxiosError) => Promise.reject(error)
+);
+
 let isRefreshing = false;
 let failedQueue: FailedRequest[] = [];
 

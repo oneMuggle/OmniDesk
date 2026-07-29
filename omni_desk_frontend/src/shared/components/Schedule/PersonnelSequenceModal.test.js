@@ -161,7 +161,7 @@ describe('PersonnelSequenceModal', () => {
     await user.click(screen.getByRole('button', { name: /保\s*存/ }));
 
     await waitFor(() => {
-      expect(apiClient.post).toHaveBeenCalledWith('/api/events/personnel-sequences/', {
+      expect(apiClient.post).toHaveBeenCalledWith('events/personnel-sequences/', {
         name: 'Test Sequence',
         sequence: [1],
         holiday_personnel: [2],

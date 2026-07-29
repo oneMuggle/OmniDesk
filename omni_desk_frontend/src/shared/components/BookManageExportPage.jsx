@@ -15,7 +15,7 @@ const BookManageExportPage = () => {
     const fetchBooks = async () => {
         try {
             setLoadingBooks(true);
-            const response = await api.get('/api/documents/books/');
+            const response = await api.get('documents/books/');
             setBooks(response.data.results || response.data);
             setLoadingBooks(false);
         } catch (err) {
@@ -26,7 +26,7 @@ const BookManageExportPage = () => {
 
     const handleExportMarkdown = async (bookId, bookTitle) => {
         try {
-            const response = await api.get(`/api/documents/books/${bookId}/export_markdown/`, {
+            const response = await api.get(`documents/books/${bookId}/export_markdown/`, {
                 responseType: 'blob',
             });
 
@@ -48,7 +48,7 @@ const BookManageExportPage = () => {
     const handleDeleteBook = async (bookId, bookTitle) => {
         if (window.confirm(`确定要删除书籍 "${bookTitle}" 吗？`)) {
             try {
-                await api.delete(`/api/documents/books/${bookId}/`);
+                await api.delete(`documents/books/${bookId}/`);
                 alert(`书籍 "${bookTitle}" 删除成功！`);
                 fetchBooks(); // Refresh book list after delete
             } catch (error) {

@@ -10,7 +10,9 @@ module.exports = {
   testTimeout: 60000,
   moduleNameMapper: {
     '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
-    'axios': 'axios/dist/node/axios.cjs',
+    // 必须锚定(^axios$):未锚定的 'axios' 会按子串匹配劫持所有
+    // axiosConfig / apiClient 模块,导致测试拿到裸 axios 而非真实实例
+    '^axios$': 'axios/dist/node/axios.cjs',
     '^jspdf$': '<rootDir>/src/__mocks__/jspdf.js',
     '^html2canvas$': '<rootDir>/src/__mocks__/html2canvas.js',
   },

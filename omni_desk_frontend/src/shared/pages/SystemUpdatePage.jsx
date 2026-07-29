@@ -16,9 +16,9 @@ function SystemUpdatePage() {
     const fetchAll = async () => {
       try {
         const [versionRes, changelogRes, migrationRes] = await Promise.all([
-          axiosInstance.get('/api/system/version/'),
-          axiosInstance.get('/api/system/changelog/'),
-          axiosInstance.get('/api/system/migrations/'),
+          axiosInstance.get('system/version/'),
+          axiosInstance.get('system/changelog/'),
+          axiosInstance.get('system/migrations/'),
         ]);
         setVersionData(versionRes.data);
         setChangelog(changelogRes.data.changelog);

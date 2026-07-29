@@ -25,7 +25,7 @@ const ChapterView = ({ chapter, complianceIssues = [] }) => {
         const fetchChapterDetails = async () => {
             setLoading(true);
             try {
-                const response = await api.get(`/api/documents/chapters/${chapter.id}/`);
+                const response = await api.get(`documents/chapters/${chapter.id}/`);
                 setChapterDetails(response.data);
                 setLoading(false);
             } catch (err) {

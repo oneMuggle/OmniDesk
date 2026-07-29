@@ -23,7 +23,7 @@ const LibraryPage = () => {
     const fetchBooks = async (projectId) => {
         setLoading(true);
         try {
-            let url = '/api/documents/books/';
+            let url = 'documents/books/';
             if (projectId) {
                 url += `?project_id=${projectId}`;
             }

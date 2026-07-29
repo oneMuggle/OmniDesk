@@ -11,7 +11,7 @@ function VersionInfo() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    axiosInstance.get('/api/system/version/')
+    axiosInstance.get('system/version/')
       .then(res => {
         setVersionData(res.data);
         setLoading(false);
