@@ -43,7 +43,7 @@ const LibraryPage = () => {
     useEffect(() => {
         const fetchBooks = async () => {
             try {
-                const response = await api.get('/api/documents/books/');
+                const response = await api.get('documents/books/');
                 setBooks(response.data.results || response.data); // Handle paginated or non-paginated response
                 setLoading(false);
             } catch (err) {

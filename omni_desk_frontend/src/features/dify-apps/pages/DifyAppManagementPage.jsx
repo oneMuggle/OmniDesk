@@ -21,7 +21,7 @@ const DifyAppManagementPage = () => {
 
     const fetchDifyApps = async () => {
         try {
-            const response = await apiClient.get('/api/dify-apps/');
+            const response = await apiClient.get('dify-apps/');
             setDifyApps(response.data.results || response.data); // Adjust based on API response structure
         } catch (err) {
             setError('Failed to fetch Dify applications.');
@@ -59,7 +59,7 @@ const DifyAppManagementPage = () => {
     const handleDeleteClick = async (appId) => {
         if (window.confirm('Are you sure you want to delete this Dify application?')) {
             try {
-                await apiClient.delete(`/api/dify-apps/${appId}/`);
+                await apiClient.delete(`dify-apps/${appId}/`);
                 fetchDifyApps(); // Refresh list
             } catch (err) {
                 setError('Failed to delete Dify application.');
@@ -73,10 +73,10 @@ const DifyAppManagementPage = () => {
         try {
             if (currentApp) {
                 // Update existing app
-                await apiClient.put(`/api/dify-apps/${currentApp.id}/`, formData);
+                await apiClient.put(`dify-apps/${currentApp.id}/`, formData);
             } else {
                 // Create new app
-                await apiClient.post('/api/dify-apps/', formData);
+                await apiClient.post('dify-apps/', formData);
             }
             setShowForm(false);
             fetchDifyApps(); // Refresh list
