@@ -76,9 +76,9 @@
 
 ### 收尾
 
-- [x] 步骤 17：全量 pytest 1876 passed + 前端 jest 488 passed / lint 通过
-- [ ] 步骤 18：code-reviewer 评审，修复 CRITICAL/HIGH（进行中）
-- [ ] 步骤 19：更新 `docs/technical/16-smart-assistant.md`（进行中）
+- [x] 步骤 17：全量 pytest 1912 passed（+279）+ 前端 jest 489 passed（+53）/ lint 通过，覆盖率 90.16%
+- [x] 步骤 18：code-reviewer 评审，修复 CRITICAL 1 + HIGH 5 + MEDIUM 2（M3-M10 留后续 fix 分支）
+- [x] 步骤 19：更新 `docs/technical/16-smart-assistant.md`（全面重写 §1-10）+ README 同步
 
 ## 风险评估与依赖
 

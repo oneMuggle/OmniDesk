@@ -51,7 +51,7 @@ def decrypt_existing_api_keys(apps, schema_editor):
         for config_id, encrypted_key in rows:
             plain = personnel.models._decrypt_field(encrypted_key, settings.SECRET_KEY)
             cursor.execute(
-                f"UPDATE {table} SET api_key = %s WHERE id = %s",
+                f"UPDATE {table} SET api_key = %s WHERE id = %s",  # nosec B608 - table from model _meta
                 [plain, config_id],
             )
 

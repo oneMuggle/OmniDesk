@@ -57,7 +57,8 @@ import asyncio
 import functools
 import inspect
 import threading
-from typing import Any, Callable
+from typing import Any
+from collections.abc import Callable
 
 from django.conf import settings
 
@@ -172,7 +173,7 @@ class TimeoutGuardHook(ToolHookBase):
         def _target() -> None:
             try:
                 box["value"] = func(*args, **kwargs)
-            except BaseException as e:  # noqa: BLE001 - 需要跨线程传递任意异常
+            except BaseException as e:
                 box["error"] = e
             finally:
                 # worker 线程私有 DB 连接的显式回收(见 docstring 线程卫生段)
@@ -238,7 +239,7 @@ class TimeoutGuardHook(ToolHookBase):
 
         try:
             return await asyncio.wait_for(awaitable, timeout=self.timeout)
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, TimeoutError):  # Python 3.10 兼容（3.11+ 二者合并）
             return build_timeout_result(tool_name, self.timeout)
 
     # ------------------------------------------------------------------
