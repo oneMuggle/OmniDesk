@@ -35,7 +35,8 @@ class TestOfficeAssistantProcessView:
             'text': 'Test text',
         }, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
-        assert 'Invalid action' in response.data['error']
+        # P0-I:能力收敛白名单,返回机器可读 detail
+        assert response.data['detail'] == 'unsupported action: invalid_action'
 
     def test_process_proofread_mocked(self, api_client, regular_user_obj, mocker):
         """Test proofread action with mocked OllamaClient"""

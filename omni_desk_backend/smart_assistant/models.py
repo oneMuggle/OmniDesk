@@ -93,6 +93,8 @@ class SmartAssistantSession(models.Model):
     summary_text = models.TextField(blank=True, default="", verbose_name="早期对话摘要")
     summary_token_count = models.IntegerField(null=True, blank=True, verbose_name="摘要 token 数")
     turn_count = models.IntegerField(default=0, verbose_name="对话轮数")
+    # P0-K:持久化最近一次聊天错误,便于前端展示与运维排查
+    last_error = models.TextField(blank=True, default="", verbose_name="最近错误")
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
