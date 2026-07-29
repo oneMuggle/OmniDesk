@@ -201,9 +201,19 @@ class MultiAgentExecutor:
             if self.task_packet.execution_mode == ExecutionMode.PIPELINE:
                 subtask_results = self._execute_pipeline()
             elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
-                raise NotImplementedError("Fan-out 模式尚未实现,请等待后续 milestone")
+                # P0-J:未实现模式显式拒绝(rejected 与真实执行失败 failed 区分),
+                # 不再抛 NotImplementedError 混入异常路径
+                return TaskResult(
+                    task_id=self.task_packet.task_id,
+                    status="rejected",
+                    error_message="fanout 模式尚未实现,请使用 pipeline 模式",
+                )
             elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
-                raise NotImplementedError("Hierarchical 模式尚未实现,请等待后续 milestone")
+                return TaskResult(
+                    task_id=self.task_packet.task_id,
+                    status="rejected",
+                    error_message="hierarchical 模式尚未实现,请使用 pipeline 模式",
+                )
             else:
                 raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
 
