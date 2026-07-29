@@ -12,14 +12,9 @@ Contract / Education / WorkExperience / Qualification / FamilyMember 五个子 V
 
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
-from users.permissions import _log_permission_denied
+from users.permissions import _log_permission_denied, is_privileged_user
 
-
-def is_privileged_user(user) -> bool:
-    """判定 admin / hr / manager(项目约定:Admin/Manager 组成员或 superuser)。"""
-    if not (user and getattr(user, "is_authenticated", False)):
-        return False
-    return user.is_superuser or user.groups.filter(name__in=["Admin", "Manager"]).exists()
+__all__ = ["IsOwnerOrManagerOrReadOnly", "is_privileged_user"]
 
 
 class IsOwnerOrManagerOrReadOnly(BasePermission):
