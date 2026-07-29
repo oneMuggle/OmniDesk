@@ -10,9 +10,10 @@ const AnnouncementForm = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const editorRef = useRef(null);
-  const { id } = useParams();
+  // 路由定义为 announcements/:announcementId/edit,参数名必须对齐
+  const { announcementId } = useParams();
   const navigate = useNavigate();
-  const isEditing = Boolean(id);
+  const isEditing = Boolean(announcementId);
 
   // 恢复 PR-27 移除的图片上传能力:
   // file picker → POST /api/events/upload-image/ → editor.insertImage(url)
@@ -41,7 +42,7 @@ const AnnouncementForm = () => {
   useEffect(() => {
     if (isEditing) {
       setLoading(true);
-      apiClient.get(`events/announcements/${id}/`)
+      apiClient.get(`events/announcements/${announcementId}/`)
         .then(response => {
           setTitle(response.data.title);
           setContent(response.data.content);
@@ -49,7 +50,7 @@ const AnnouncementForm = () => {
         .catch(e => setError(e.message))
         .finally(() => setLoading(false));
     }
-  }, [id, isEditing]);
+  }, [announcementId, isEditing]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -60,7 +61,7 @@ const AnnouncementForm = () => {
 
     try {
       if (isEditing) {
-        await apiClient.put(`events/announcements/${id}/`, payload);
+        await apiClient.put(`events/announcements/${announcementId}/`, payload);
       } else {
         await apiClient.post('events/announcements/', payload);
       }
