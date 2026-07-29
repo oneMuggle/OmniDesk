@@ -23,13 +23,13 @@ def encrypt_existing_api_keys(apps, schema_editor):
 
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT id, api_key FROM {table} WHERE api_key IS NOT NULL AND api_key != ''"
+            f"SELECT id, api_key FROM {table} WHERE api_key IS NOT NULL AND api_key != ''",  # nosec B608 - table from model _meta
         )
         rows = cursor.fetchall()
         for config_id, plain_key in rows:
             encrypted = personnel.models._encrypt_field(plain_key, settings.SECRET_KEY)
             cursor.execute(
-                f"UPDATE {table} SET api_key = %s WHERE id = %s",
+                f"UPDATE {table} SET api_key = %s WHERE id = %s",  # nosec B608 - table from model _meta
                 [encrypted, config_id],
             )
 
@@ -45,7 +45,7 @@ def decrypt_existing_api_keys(apps, schema_editor):
 
     with schema_editor.connection.cursor() as cursor:
         cursor.execute(
-            f"SELECT id, api_key FROM {table} WHERE api_key IS NOT NULL AND api_key != ''"
+            f"SELECT id, api_key FROM {table} WHERE api_key IS NOT NULL AND api_key != ''",  # nosec B608 - table from model _meta
         )
         rows = cursor.fetchall()
         for config_id, encrypted_key in rows:
