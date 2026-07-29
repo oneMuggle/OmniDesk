@@ -60,8 +60,8 @@ class TestChatCreateCoverage:
     """补 chat create() 的边界条件."""
 
     @patch("smart_assistant.views.chat.AgentOrchestrator")
-    def test_chat_with_invalid_conversation_id_creates_new_session(self, mock_orch_cls, admin_client):
-        """conversation_id 不存在时,view 不报错,走新建会话路径."""
+    def test_chat_with_invalid_conversation_id_returns_404(self, mock_orch_cls, admin_client):
+        """P0-W:conversation_id 不存在 → 404,不再静默新建会话."""
         mock_orch_cls.return_value = _mock_orchestrator_for_chat(answer="新回答")
 
         # 999999 不存在
@@ -70,10 +70,10 @@ class TestChatCreateCoverage:
             {"query": "测试", "conversation_id": 999999},
             format="json",
         )
-        assert resp.status_code == 200
-        # 新会话被创建
-        assert "conversation_id" in resp.json()
-        assert SmartAssistantSession.objects.filter(title="测试").exists()
+        assert resp.status_code == 404
+        assert resp.json()["detail"] == "session not found"
+        # 不再悄悄创建新会话
+        assert not SmartAssistantSession.objects.filter(title="测试").exists()
 
     @patch("smart_assistant.views.chat.AgentOrchestrator")
     def test_chat_records_token_usage_in_agent_log(self, mock_orch_cls, admin_client):

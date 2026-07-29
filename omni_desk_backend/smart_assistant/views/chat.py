@@ -37,7 +37,14 @@ class SmartChatViewSet(viewsets.ViewSet):
                 session = SmartAssistantSession.objects.get(id=conversation_id, user=request.user)
                 conversation_history = session.messages or []
             except SmartAssistantSession.DoesNotExist:
-                pass
+                # P0-W:不再静默吞掉无效会话 id —— 避免客户端误以为仍在原上下文中,
+                # 实际上却悄悄开了新会话
+                logger.warning(
+                    "会话不存在或不属于当前用户: conversation_id=%s user_id=%s",
+                    conversation_id,
+                    request.user.id,
+                )
+                return Response({"detail": "session not found"}, status=status.HTTP_404_NOT_FOUND)
 
         start_time = time.time()
         tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))

@@ -119,8 +119,8 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
     @patch('smart_assistant.views.chat.AgentOrchestrator')
-    def test_chat_with_nonexistent_conversation_id_creates_new_session(self, mock_orchestrator_cls):
-        """conversation_id 不存在时,view 静默忽略并创建新会话."""
+    def test_chat_with_nonexistent_conversation_id_returns_404(self, mock_orchestrator_cls):
+        """P0-W:conversation_id 不存在时返回 404,不再静默创建新会话."""
         mock_orchestrator = MagicMock()
         mock_orchestrator.process.return_value = {
             'answer': '新会话回答',
@@ -139,13 +139,8 @@ class TestSmartChatViewSet(TestCase):
             format='json',
         )
 
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-        # 应创建了一个新会话
-        self.assertIn('conversation_id', response.data)
-        # 验证新会话存在
-        new_session = SmartAssistantSession.objects.get(id=response.data['conversation_id'])
-        self.assertEqual(new_session.user, self.user)
-        self.assertEqual(new_session.turn_count, 1)
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+        self.assertEqual(response.data['detail'], 'session not found')
 
     @patch('smart_assistant.views.chat.AgentOrchestrator')
     def test_chat_turn_count_increments(self, mock_orchestrator_cls):
