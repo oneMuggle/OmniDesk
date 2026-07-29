@@ -43,7 +43,7 @@ const BookImportPage = () => {
         formData.append('tags', tags);
 
         try {
-            const response = await api.post('/api/documents/import_book/', formData, {
+            const response = await api.post('documents/import_book/', formData, {
                 headers: {
                     'Content-Type': 'multipart/form-data',
                 },

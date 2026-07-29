@@ -11,7 +11,7 @@ const PageVisibilityManagement = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const response = await axiosInstance.get('/api/config/page-visibility/');
+        const response = await axiosInstance.get('config/page-visibility/');
         const { pages, groups, visibility } = response.data;
         setPages(pages);
         setGroups(groups);
@@ -37,7 +37,7 @@ const PageVisibilityManagement = () => {
     }));
 
     try {
-      await axiosInstance.post('/api/config/page-visibility/', {
+      await axiosInstance.post('config/page-visibility/', {
         page_id: pageId,
         group_id: groupId,
         is_visible: newIsVisible,
