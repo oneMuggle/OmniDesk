@@ -23,6 +23,10 @@ class Notification(models.Model):
         ("schedule_swap_rejected", "换班被接收方拒绝"),
         ("schedule_swap_cancelled", "换班已撤销"),
         ("schedule_swap_expired", "换班申请已超时"),
+        # ---- P0 修复新增类型(paperless 健康告警 + 合规到期升级) ----
+        ("paperless_down", "Paperless 服务不可用"),
+        ("paperless_recovered", "Paperless 服务已恢复"),
+        ("compliance_due", "合规问题到期"),
     ]
 
     PRIORITY_CHOICES = [

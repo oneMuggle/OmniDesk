@@ -2,6 +2,8 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     OutboxViewSet,
+    OutboxRetryView,
+    OutboxDiscardView,
     HealthView,
     BindView,
     BindStatusView,
@@ -24,4 +26,7 @@ urlpatterns = [
     path("documents/<int:binding_id>/download/", DocumentDownloadView.as_view(), name="download"),
     path("documents/<int:binding_id>/preview/", DocumentPreviewView.as_view(), name="preview"),
     path("bindings/<int:binding_id>/sync-status/", BindingSyncStatusView.as_view(), name="sync-status"),
+    # P0-H:管理面显式端点(置于 router.urls 之前,优先于 ViewSet retry action)
+    path("outbox/<int:pk>/retry/", OutboxRetryView.as_view(), name="outbox-retry"),
+    path("outbox/<int:pk>/discard/", OutboxDiscardView.as_view(), name="outbox-discard"),
 ] + router.urls

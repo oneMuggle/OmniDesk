@@ -3,6 +3,7 @@ import os
 from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -114,6 +115,41 @@ class OutboxViewSet(viewsets.ModelViewSet):
             )
         OutboxService.retry_dead(outbox)
         return Response(OutboxItemSerializer(outbox).data)
+
+
+class OutboxRetryView(APIView):
+    """POST /api/paperless/outbox/<pk>/retry/ — 管理员重试死信(P0-H)
+
+    dead → pending 后由 process_paperless_outbox 重新拉取;
+    非 dead 状态拒绝重试,避免打断正在同步的项。
+    """
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def post(self, request, pk):
+        outbox = get_object_or_404(OutboxItem, pk=pk)
+        if outbox.status != "dead":
+            return Response(
+                {"detail": f"只能重试死信(当前 status={outbox.status})"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        outbox.status = "pending"
+        outbox.retry_count = 0
+        outbox.last_error = ""
+        outbox.next_retry_at = timezone.now()
+        outbox.save(update_fields=["status", "retry_count", "last_error", "next_retry_at", "updated_at"])
+        return Response(OutboxItemSerializer(outbox).data)
+
+
+class OutboxDiscardView(APIView):
+    """DELETE /api/paperless/outbox/<pk>/discard/ — 管理员丢弃死信(P0-H)"""
+
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def delete(self, request, pk):
+        outbox = get_object_or_404(OutboxItem, pk=pk)
+        outbox.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class HealthView(APIView):
