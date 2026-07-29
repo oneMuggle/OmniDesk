@@ -2,7 +2,7 @@ from datetime import timedelta
 import logging
 
 from celery import shared_task
-from django.db.models import F, Q
+from django.db.models import Q
 from django.utils import timezone
 
 from users.models import CustomUser  # 假设需要关联到用户
@@ -16,16 +16,27 @@ logger = logging.getLogger(__name__)
 # User = get_user_model()
 
 
-def send_notification(user, subject, message):
+def send_notification(sensor, user):
+    """通过 NotificationService 创建站内校准提醒通知(P0-L)。
+
+    dedupe_key 按 传感器 + 日期 粒度:同日任务多次执行(或同一传感器
+    命中多个提前天数档位)时,同用户的未读通知会被合并而非重复轰炸。
     """
-    模拟发送通知的函数。
-    在实际项目中，这里会集成邮件发送、站内信、短信等服务。
-    """
-    logger.info("发送通知给 %s: 主题=%s", user.username, subject)
-    # 实际项目中，这里会调用对应的通知服务
-    # send_mail(subject, message, 'from@example.com', [user.email])
-    # 或者创建站内信记录等
-    pass
+    from notifications.service import NotificationService
+
+    today = timezone.now().date()
+    identifier = sensor.serial_number or sensor.sensor_number
+    category_name = sensor.sensor_category.name if sensor.sensor_category else "未知类别"
+    NotificationService.create(
+        user=user,
+        type="calibration_reminder",
+        title=f"校准提醒:传感器 {identifier} 即将到期",
+        content=(
+            f"传感器 {identifier}(类别:{category_name})的校准日期为 "
+            f"{sensor.next_calibration_date},请及时处理。"
+        ),
+        dedupe_key=f"calibration:{sensor.id}:{today.isoformat()}",
+    )
 
 
 @shared_task
@@ -45,19 +56,24 @@ def check_and_create_calibration_reminders():
     # 定义提醒的提前天数
     remind_days = [5, 1, 0]  # 提前5天，提前1天，当天
 
+    # 修复:原实现 timedelta(days=F(...)) 在 Python 层构造即抛 TypeError(F 表达式
+    # 不能做 timedelta 参数),该任务从未真正跑通过。改为一次查询拉候选集,
+    # 用模型既有 next_calibration_date 属性在 Python 侧过滤(传感器为内网资产,
+    # 规模有限;select_related 预取类别避免后续通知文案的 N+1)
+    candidates = list(
+        Sensor.objects.filter(last_calibration_date__isnull=False)
+        .exclude(status__in=["under_calibration", "retired"])
+        .select_related("sensor_category")
+    )
+
     for days_before in remind_days:
         remind_date = today + timedelta(days=days_before)
 
-        # 查找符合条件的传感器(select_related 获取 sensor_category,避免 N+1)
-        sensors_due = (
-            Sensor.objects.filter(
-                Q(last_calibration_date__isnull=False)
-                & Q(last_calibration_date__date__lte=remind_date - timedelta(days=F("calibration_interval_days")))
-            )
-            .exclude(status__in=["under_calibration", "retired"])
-            .select_related("sensor_category")
-            .distinct()
-        )
+        sensors_due = [
+            sensor
+            for sensor in candidates
+            if sensor.next_calibration_date is not None and sensor.next_calibration_date <= remind_date
+        ]
 
         # 批量查询今天已有的提醒(避免循环内逐条 exists 查询)
         existing_reminder_sensor_ids = set(
@@ -77,10 +93,8 @@ def check_and_create_calibration_reminders():
 
             logger.info("为传感器 %s 创建了校准提醒，提醒日期：%s", sensor.serial_number, today)
 
-            # 发送通知给相关用户
-            subject = f"校准提醒：传感器 {sensor.serial_number} 即将到期"
-            message = f"传感器 {sensor.serial_number}（类别：{sensor.sensor_category.name}）的校准日期为 {sensor.next_calibration_date}，请及时处理。"
+            # 发送站内通知给相关用户(P0-L:接入 NotificationService)
             for user in admin_users:
-                send_notification(user, subject, message)
+                send_notification(sensor, user)
 
     logger.info("校准提醒任务执行完毕")
