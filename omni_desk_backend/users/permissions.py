@@ -67,26 +67,11 @@ class IsAdminOrManager(BasePermission):
         return True
 
 
-class IsAdminOrManagerOrReadOnly(BasePermission):
-    """
-    The request is authenticated as a user, or is a read-only request.
-    Write permissions are only allowed to admin or manager users.
-    """
-
-    def has_permission(self, request, view):
-        if request.method in SAFE_METHODS:
-            if not (request.user and request.user.is_authenticated):
-                _log_permission_denied(request, view)
-                return False
-            return True
-        if not (
-            request.user
-            and request.user.is_authenticated
-            and (request.user.is_superuser or request.user.groups.filter(name__in=["Admin", "Manager"]).exists())
-        ):
-            _log_permission_denied(request, view)
-            return False
-        return True
+def is_privileged_user(user) -> bool:
+    """判定 admin / hr / manager(项目约定:Admin/Manager 组成员或 superuser)。"""
+    if not (user and getattr(user, "is_authenticated", False)):
+        return False
+    return user.is_superuser or user.groups.filter(name__in=["Admin", "Manager"]).exists()
 
 
 class IsAdminOrReadOnly(BasePermission):
@@ -174,6 +159,15 @@ class IsAdminOrManagerOrReadOnly(BasePermission):
 
         return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)
 
+    def has_object_permission(self, request, view, obj):
+        # admin / hr 直接放行(项目约定:superuser 或 Admin/Manager 组)
+        if request.user and request.user.is_authenticated and is_privileged_user(request.user):
+            return True
+        if request.method in self.SAFE_METHODS:
+            return bool(request.user and request.user.is_authenticated)
+        _log_permission_denied(request, view)
+        return False
+
 
 class IsRequester(BasePermission):
     """对象级权限:仅 obj.requester 对应的 user 可操作(用于 cancel action)。
@@ -207,4 +201,3 @@ class IsTargetPersonnel(BasePermission):
         if not allowed:
             _log_permission_denied(request, view)
         return allowed
-        return IsAdmin().has_permission(request, view) or IsHR().has_permission(request, view)
