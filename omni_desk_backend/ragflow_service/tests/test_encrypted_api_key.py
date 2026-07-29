@@ -17,8 +17,9 @@ def _read_raw_api_key(config_id):
     """绕过 ORM 字段层解密，用原生 SQL 读取 DB 中的原始存储值。"""
     table = RagflowConfig._meta.db_table
     with connection.cursor() as cursor:
-        cursor.execute(  # nosec B608 - table from model _meta
-            f"SELECT api_key FROM {table} WHERE id = %s", [config_id]
+        cursor.execute(
+            f"SELECT api_key FROM {table} WHERE id = %s",  # nosec B608 - table from model _meta
+            [config_id],
         )
         row = cursor.fetchone()
     return row[0] if row else None

@@ -239,7 +239,7 @@ class TimeoutGuardHook(ToolHookBase):
 
         try:
             return await asyncio.wait_for(awaitable, timeout=self.timeout)
-        except (asyncio.TimeoutError, TimeoutError):  # Python 3.10 兼容（3.11+ 二者合并）
+        except (asyncio.TimeoutError, TimeoutError):  # noqa: UP041  # Python 3.10 兼容（3.11+ 二者合并）
             return build_timeout_result(tool_name, self.timeout)
 
     # ------------------------------------------------------------------
