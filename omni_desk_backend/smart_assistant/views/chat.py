@@ -48,7 +48,18 @@ class SmartChatViewSet(viewsets.ViewSet):
 
         start_time = time.time()
         tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))
-        result = orchestrator.process(query, conversation_history, tool_context=tool_context)
+        try:
+            result = orchestrator.process(query, conversation_history, tool_context=tool_context)
+        except Exception as exc:
+            # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
+            # 不再把 500 裸抛给客户端而不留痕迹
+            logger.warning(
+                "智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc
+            )
+            if session is not None:
+                session.last_error = str(exc)
+                session.save(update_fields=["last_error"])
+            return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         response_time_ms = int((time.time() - start_time) * 1000)
 
         if conversation_id and session:
