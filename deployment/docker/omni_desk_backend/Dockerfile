@@ -101,9 +101,13 @@ RUN test -f /usr/src/app/paperless_proxy/tasks.py && \
     || (echo "✗ BUILD CONTEXT BROKEN: paperless_proxy or file_processing missing .py files" && exit 1)
 
 # Copy VERSION file so core/version.py can read the deployed version
+# 同时复制到 /etc/omnidesk/ — 当 prod compose 使用 bind mount 覆盖 /usr/src/app 时,
+# /etc/omnidesk/VERSION 不受影响,作为可靠的 fallback 路径。
 COPY deployment/docker/VERSION deployment/docker/VERSION
+RUN mkdir -p /etc/omnidesk && cp deployment/docker/VERSION /etc/omnidesk/VERSION
 # Copy CHANGELOG.md so /api/system/changelog/ can serve real content
 COPY deployment/docker/CHANGELOG.md deployment/docker/CHANGELOG.md
+RUN cp deployment/docker/CHANGELOG.md /etc/omnidesk/CHANGELOG.md
 
 # Ensure the entrypoint script has correct line endings and is executable
 RUN sed -i 's/\r$//' ./entrypoint.sh

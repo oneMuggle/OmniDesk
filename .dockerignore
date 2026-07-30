@@ -35,7 +35,9 @@ tech_docs/
 *.md
 
 # Deployment & Config files not needed in the image
-deployment/
+# NOTE: 使用 `deployment/*` 而非 `deployment/` — 后者会跳过整个目录扫描,
+# 导致下面的 `!` 例外规则无法生效(Docker 已知行为)。
+deployment/*
 docker/
 nginx_config/
 scripts/
