@@ -195,14 +195,15 @@ services:
     container_name: omnidesk-ragflow-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      # NOTE: RAGFLOW_MYSQL_PASSWORD 为可选服务 ragflow 的必需变量
+      MYSQL_ROOT_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:-}
       MYSQL_DATABASE: ragflow
       MYSQL_USER: ragflow
-      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:-}
     volumes:
       - ragflow_mysql_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${RAGFLOW_MYSQL_PASSWORD}"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${RAGFLOW_MYSQL_PASSWORD:-}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -226,7 +227,7 @@ services:
     container_name: omnidesk-ragflow
     restart: unless-stopped
     environment:
-      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:?RAGFLOW_MYSQL_PASSWORD is required}
+      MYSQL_PASSWORD: ${RAGFLOW_MYSQL_PASSWORD:-}
       MYSQL_HOST: ragflow-mysql
       MYSQL_PORT: "3306"
     volumes:
