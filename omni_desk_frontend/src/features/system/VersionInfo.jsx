@@ -1,29 +1,27 @@
-import { useEffect, useState } from 'react';
 import { Card, Descriptions, Spin, Tag } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import axiosInstance from '../../shared/api/axiosConfig';
 
 /**
  * Version info display component.
  * Shows app version, build time, and Django version from /api/system/version/.
  */
+const fetchSystemVersion = async () => {
+  const { data } = await axiosInstance.get('system/version/');
+  return data;
+};
+
 function VersionInfo() {
-  const [versionData, setVersionData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const { data: versionData, isLoading, isError } = useQuery({
+    queryKey: ['system-version'],
+    queryFn: fetchSystemVersion,
+  });
 
-  useEffect(() => {
-    axiosInstance.get('system/version/')
-      .then(res => {
-        setVersionData(res.data);
-        setLoading(false);
-      })
-      .catch(() => setLoading(false));
-  }, []);
-
-  if (loading) {
+  if (isLoading) {
     return <Spin />;
   }
 
-  if (!versionData) {
+  if (isError || !versionData) {
     return <div>Unable to load version information.</div>;
   }
 

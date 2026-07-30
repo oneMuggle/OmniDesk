@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import PropTypes from 'prop-types';
 import { Table, Button, Form, Input, Modal, message } from 'antd';
 import {
   getPositions,
@@ -8,8 +9,12 @@ import {
 } from '../api/personnelApi';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
-
-const PositionManagementTab = () => {
+/**
+ * 职位管理 Tab（独立组件）。
+ * onPositionsChanged：职位增/改/删成功后的可选回调，
+ * 供父级页面同步刷新人员列表的职位列与职位下拉选项。
+ */
+const PositionManagementTab = ({ onPositionsChanged }) => {
   const [positionForm] = Form.useForm();
   const [positionData, setPositionData] = useState([]);
   const [isPositionModalVisible, setIsPositionModalVisible] = useState(false);
@@ -20,7 +25,8 @@ const PositionManagementTab = () => {
     const fetchPositionData = async () => {
       try {
         const response = await getPositions();
-        setPositionData(response.results || []);
+        // 兼容两种返回形态：axios 响应（data.results）与已解包的 { results }（如单测 mock）
+        setPositionData(response?.data?.results ?? response?.results ?? []);
       } catch (error) {
         message.error('获取职位数据失败');
         setPositionData([]);
@@ -86,6 +92,7 @@ const PositionManagementTab = () => {
       }
       setIsPositionModalVisible(false);
       setVersion(v => v + 1);
+      onPositionsChanged?.();
     } catch (error) {
       message.error('职位操作失败');
     }
@@ -102,6 +109,7 @@ const PositionManagementTab = () => {
           await deletePosition(id);
           message.success('职位删除成功');
           setVersion(v => v + 1);
+          onPositionsChanged?.();
         } catch (error) {
           message.error('职位删除失败');
         }
@@ -150,6 +158,10 @@ const PositionManagementTab = () => {
       </Modal>
     </div>
   );
+};
+
+PositionManagementTab.propTypes = {
+  onPositionsChanged: PropTypes.func,
 };
 
 export default PositionManagementTab;
