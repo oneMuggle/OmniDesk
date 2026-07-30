@@ -119,8 +119,11 @@ services:
       - PAPERLESS_DBPORT=5432
       - PAPERLESS_DBNAME=paperless
       - PAPERLESS_DBUSER=paperless
-      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASSWORD:?PAPERLESS_DB_PASSWORD is required}
-      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY:?PAPERLESS_SECRET_KEY is required}
+      # NOTE: PAPERLESS_DB_PASSWORD / PAPERLESS_SECRET_KEY 为可选服务 paperless 的必需变量
+      # 使用 :- 默认空值而非 :? 强制校验,这样启动核心服务时无需提供占位符
+      # 若实际启动 paperless 但未配置,服务会在启动时报错(DB 连接失败/secret key 无效)
+      - PAPERLESS_DBPASS=${PAPERLESS_DB_PASSWORD:-}
+      - PAPERLESS_SECRET_KEY=${PAPERLESS_SECRET_KEY:-}
       - PAPERLESS_TIME_ZONE=${TZ:-Asia/Shanghai}
       - PAPERLESS_OCR_LANGUAGES=chi_sim+eng
       - PAPERLESS_PORT=8000
@@ -143,7 +146,8 @@ services:
     environment:
       - POSTGRES_DB=paperless
       - POSTGRES_USER=paperless
-      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD:?PAPERLESS_DB_PASSWORD is required}
+      # NOTE: PAPERLESS_DB_PASSWORD 为可选服务 paperless 的必需变量
+      - POSTGRES_PASSWORD=${PAPERLESS_DB_PASSWORD:-}
     volumes:
       - paperless-db:/var/lib/postgresql/data
     healthcheck:
