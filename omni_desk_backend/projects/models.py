@@ -24,6 +24,7 @@ class Project(models.Model):
             ("已暂停", "已暂停"),
             ("已取消", "已取消"),
         ],
+        db_index=True,
         verbose_name="项目状态",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")

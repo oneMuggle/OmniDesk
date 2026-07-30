@@ -273,6 +273,10 @@ class AgentTask(models.Model):
         verbose_name = "Agent 任务"
         verbose_name_plural = verbose_name
         ordering = ["-created_at"]
+        indexes = [
+            # "按用户查任务列表并按时间倒序" 的高频查询(与 ToolChainPlan 的 Index 先例一致)
+            models.Index(fields=["user", "-created_at"]),
+        ]
 
     def __str__(self):
         return f"Task-{str(self.task_id)[:8]} {self.objective[:30]}"

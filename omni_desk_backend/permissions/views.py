@@ -9,7 +9,12 @@ from rest_framework.views import APIView
 from users.permissions import IsAdminOrReadOnly
 
 from .models import GroupPagePermission, PageRoute
-from .serializers import GroupSerializer, PageRouteSerializer
+from .serializers import (
+    GroupSerializer,
+    PageRouteSerializer,
+    build_page_route_children_map,
+    build_page_route_node,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -32,16 +37,13 @@ class PageRouteViewSet(viewsets.ReadOnlyModelViewSet):
 
     def list(self, request, *args, **kwargs):
         logger.info(f"User: {request.user}, is_staff: {request.user.is_staff}")
-        # 显式封顶 1000,避免无界 queryset 触发 N+1/内存问题
-        # 注意:不能在 class-level queryset 上直接 [:1000],因为 Django
-        # 禁止在 sliced queryset 上调用 .get() / .filter(),会破坏 retrieve
-        queryset = self.filter_queryset(self.get_queryset())[:1000]
-        page = self.paginate_queryset(queryset)
-        if page is not None:
-            serializer = self.get_serializer(page, many=True)
-            return self.get_paginated_response(serializer.data)
-        serializer = self.get_serializer(queryset, many=True)
-        return Response(serializer.data)
+        # 一次取全表 + 内存建树,消除序列化器递归 get_children 的逐节点 N+1(每次导航高频调用)。
+        # pagination_class=None,响应始终为根节点 list;根节点显式封顶 1000(与旧行为一致)。
+        all_routes = list(PageRoute.objects.all().order_by("id"))
+        children_map = build_page_route_children_map(all_routes)
+        roots = children_map.get(None, [])[:1000]
+        data = [build_page_route_node(route, children_map) for route in roots]
+        return Response(data)
 
 
 class GroupPermissionView(APIView):
@@ -77,16 +79,19 @@ class UserPermissionView(APIView):
 
     def get(self, request):
         user = request.user
+        # 一次取全表构建 children 映射,避免 PageRouteSerializer 递归 get_children 的逐节点 N+1
+        all_routes = list(PageRoute.objects.all().order_by("id"))
+        children_map = build_page_route_children_map(all_routes)
         if user.is_superuser:
             # Superuser has all permissions
-            pages = PageRoute.objects.all()
+            pages = all_routes
         else:
             groups = user.groups.all()
             page_ids = GroupPagePermission.objects.filter(group__in=groups).values_list("page_id", flat=True).distinct()
             pages = PageRoute.objects.filter(id__in=page_ids)
 
-        serializer = PageRouteSerializer(pages, many=True)
-        return Response(serializer.data)
+        data = [build_page_route_node(page, children_map) for page in pages]
+        return Response(data)
 
 
 class GroupedPermissionsView(APIView):

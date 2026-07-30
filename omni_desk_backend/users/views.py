@@ -238,7 +238,10 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
 
 
 class UserPersonnelViewSet(viewsets.ModelViewSet):
-    queryset = CustomUser.objects.prefetch_related("phone_numbers").all().order_by("username")
+    # select_related 覆盖嵌套 PersonnelSerializer 的 personnel + personnel.position 外键,消除逐用户 N+1
+    queryset = (
+        CustomUser.objects.select_related("personnel__position").prefetch_related("phone_numbers").order_by("username")
+    )
     serializer_class = UserPersonnelSerializer  # 使用 UserPersonnelSerializer
     lookup_field = "id"
     pagination_class = None
@@ -284,14 +287,18 @@ class UserPersonnelViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         # 允许管理员和经理查看所有用户，普通用户只能查看自己
         if self.request.user.is_authenticated and (self.request.user.is_staff or self.request.user.is_superuser):
-            queryset = CustomUser.objects.prefetch_related("phone_numbers").order_by("username")
+            queryset = (
+                CustomUser.objects.select_related("personnel__position")
+                .prefetch_related("phone_numbers")
+                .order_by("username")
+            )
             position = self.request.query_params.get("personnel__position", None)
 
             if position:
                 queryset = queryset.filter(personnel__position_id=position)
 
             return queryset
-        return CustomUser.objects.filter(id=self.request.user.id)
+        return CustomUser.objects.select_related("personnel__position").filter(id=self.request.user.id)
 
 
 class GuestLoginView(generics.CreateAPIView):

@@ -20,7 +20,12 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
-    queryset = Post.objects.select_related("author").filter(is_archived=False).order_by("-created_at")
+    queryset = (
+        Post.objects.select_related("author")
+        .prefetch_related("comments__author")
+        .filter(is_archived=False)
+        .order_by("-created_at")
+    )
 
     def perform_create(self, serializer):
         serializer.save(author=self.request.user)
@@ -35,4 +40,5 @@ class CommentViewSet(viewsets.ModelViewSet):
         serializer.save(author=self.request.user, post_id=self.kwargs["post_pk"])
 
     def get_queryset(self):
-        return Comment.objects.filter(post_id=self.kwargs["post_pk"]).order_by("created_at")
+        # 补回类级 queryset 的 select_related(get_queryset 重写会丢失),避免逐条评论查询 author
+        return Comment.objects.filter(post_id=self.kwargs["post_pk"]).select_related("author").order_by("created_at")

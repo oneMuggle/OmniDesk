@@ -1,6 +1,7 @@
 import os
 
 from django.conf import settings
+from django.db.models import Prefetch
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -294,8 +295,18 @@ class DocumentBindingViewSet(viewsets.ModelViewSet):
     http_method_names = ["get", "patch", "delete", "head", "options"]  # 禁 POST(upload 走 /upload/)
 
     def get_queryset(self):
-        """非管理员只看自己的 binding;IsBindingOwnerOrAdmin 仅保护 detail"""
-        qs = DocumentBinding.objects.all()
+        """非管理员只看自己的 binding;IsBindingOwnerOrAdmin 仅保护 detail
+
+        窗口化 Prefetch:Django 4.2 对切片 prefetch 使用 ROW_NUMBER() OVER (PARTITION BY binding)
+        逐父对象取最新 1 条 outbox,避免序列化器逐 binding 查询(N+1)。
+        """
+        qs = DocumentBinding.objects.prefetch_related(
+            Prefetch(
+                "outbox",
+                queryset=OutboxItem.objects.order_by("-created_at")[:1],
+                to_attr="latest_outbox",
+            )
+        )
         if not self.request.user.is_staff:
             qs = qs.filter(owner=self.request.user)
         return qs

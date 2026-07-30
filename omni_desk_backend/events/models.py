@@ -171,7 +171,7 @@ class Announcement(models.Model):
     author = models.ForeignKey(
         CustomUser, on_delete=models.SET_NULL, null=True, related_name="announcements", verbose_name="发布者"
     )
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
     class Meta:
