@@ -112,7 +112,7 @@ npm test -- --testPathPattern=ProtectedRoute.test
     → 编写测试（TDD：先写测试，再写实现）
     → 本地运行 pytest + npm test 验证
     → 提交代码
-    → CI 自动运行测试（ci-test.yml）
+    → CI 自动运行测试（ci.yml）
     → 测试通过后才能合并
 ```
 
@@ -212,7 +212,7 @@ Docker 镜像构建完成
 PR / 推送到 main/develop
     ↓
 ┌─────────────────────────────────────────┐
-│ ci-test.yml                             │
+│ ci.yml                                  │
 │   后端 pytest + 前端 jest 并行运行        │
 │   生成覆盖率报告 + JUnit 输出             │
 │   任一失败 → 阻止合并                     │
@@ -238,7 +238,7 @@ PR / 推送到 main/develop
 
 | 工作流 | 触发条件 | 运行内容 | 失败后果 |
 |--------|----------|----------|----------|
-| `ci-test.yml` | PR / push to main/develop | 后端 pytest + 前端 jest | 阻止 PR 合并 |
+| `ci.yml` | PR / push to main/develop | 后端 pytest + 前端 jest + lint + mypy | 阻止 PR 合并 |
 | `build-and-push-images.yml` | push to main | Docker 构建 + 镜像自检 | 不推送失败镜像 |
 | `deploy-test.yml` | build-and-push 完成后 | 部署期 10 阶段测试 | 告警，不自动部署 |
 
@@ -306,7 +306,7 @@ deployment/docker/
     └── test_infrastructure.sh     # 基础设施专项测试
 
 .github/workflows/
-├── ci-test.yml                    # PR/推送测试
+├── ci.yml                         # PR/推送测试
 ├── build-and-push-images.yml      # 构建 + 推送
 └── deploy-test.yml                # 部署后自动测试
 ```

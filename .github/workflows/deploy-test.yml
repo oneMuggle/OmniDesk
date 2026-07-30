@@ -2,7 +2,7 @@ name: Deploy Test
 
 on:
   workflow_run:
-    workflows: ["Run Tests, Build and Push Docker Images"]
+    workflows: ["Build and Push Docker Images"]
     types:
       - completed
     branches:

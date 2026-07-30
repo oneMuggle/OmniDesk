@@ -88,7 +88,7 @@ Uses environment variables for PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POST
 ## CI/CD
 
 - **Push to main**: Triggers `build-and-push-images.yml` (builds Docker, pushes to GHCR) → `deploy-ssh-windows.yml` (SSH deploy)
-- **Push to test**: Triggers `ci-test.yml` (backend pytest + frontend jest)
+- **Push / PR to main & develop**: Triggers `ci.yml` (unified CI: backend pytest + frontend jest + lint + mypy)
 
 ## App Structure
 
@@ -121,8 +121,7 @@ Auto-generated from `src/routes/` - check that directory for available pages.
 ## CI/CD Details
 
 - **Main branch**: `build-and-push-images.yml` → `deploy-ssh-windows.yml` (Windows SSH deploy)
-- **Test branch**: `ci-test.yml` (parallel backend pytest + frontend jest)
-- **Develop branch**: `ci-develop.yml` (separate backend/frontend jobs)
+- **Main & develop branches / PRs**: `ci.yml` (unified CI: parallel backend pytest + frontend jest + lint + mypy; the legacy `ci-test.yml` has been removed)
 - **Windows deployment**: SSH to Windows server, pulls from GHCR (unusual for Django)
 
 ## Notes
