@@ -145,3 +145,77 @@ python manage.py link_user_personnel --rollback --batch=2026-06-05-001
 - **计划文档**:`docs/plans/2026-06-05_personnel-user-association.md`(实施完成后已删除)
 - **测试统计**:后端 648 passed + 1 skipped + 2 xfailed,整体覆盖率 80.57%
 - **TDD 工作流**:全 Phase 严格 RED → GREEN → IMPROVE
+
+---
+
+## 字段加密（Fernet,P0-B,2026-07 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.2](41-p0-security-data-safety-batch-2026-07.md)。本节聚焦"身份证号加密"的实施细节;其他章节不再重复 Fernet 实现原理。
+
+### 背景与替换动机
+
+历史实现 [`Personnel.id_card_number`](omni_desk_backend/personnel/models.py) / `FamilyMember.id_card_number` 使用 **XOR + base64** 的"假加密"——攻击者拿到 ciphertext 即可反推明文,审计合规风险极高。**2026-07 P0 批次** 用 [`EncryptedCharField`](omni_desk_backend/personnel/fields.py) 替换为 **AES-128 / Fernet**(派生自 Django `SECRET_KEY`)。
+
+### `EncryptedCharField` 实现要点
+
+```python
+# omni_desk_backend/personnel/fields.py
+def _fernet_key() -> bytes:
+    raw = hashlib.sha256(settings.SECRET_KEY.encode()).digest()
+    return base64.urlsafe_b64encode(raw)
+
+class EncryptedCharField(models.CharField):
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('max_length', 512)  # 留足 ciphertext 膨胀空间
+        super().__init__(*args, **kwargs)
+
+    def get_prep_value(self, value):  # Python → DB
+        if value is None:
+            return value
+        return Fernet(_fernet_key()).encrypt(value.encode()).decode()
+
+    def from_db_value(self, value, expression, connection):  # DB → Python
+        if value is None:
+            return value
+        return Fernet(_fernet_key()).decrypt(value.encode()).decode()
+```
+
+- **透明读写:** 模型层 API 与普通 `CharField` 完全一致,无需改动 serializer / view。
+- **DB 存储:** 实际为 Fernet token(base64 字符串),长度通常 100-200 字节,字段 `max_length=512` 避免迁移失败。
+- **迁移:** Django 自动生成列变更(`CharField(max_length=...)` → `CharField(max_length=512)`);Data migration 中用旧 XOR → Fernet 双跳(`先 XOR 解密 → 再 Fernet 加密`)。
+
+### 加密范围与不加密范围
+
+| 字段 | 加密方案 | 理由 |
+|---|---|---|
+| `Personnel.id_card_number` | **Fernet (EncryptedCharField)** | 身份证号,审计级敏感数据 |
+| `FamilyMember.id_card_number` | **Fernet (EncryptedCharField)** | 同上 |
+| `RagflowServer.api_key` | 旧 XOR(保留) | API Key 长度固定,Fernet 不必要 |
+| `ExternalIntegration.api_key`(含 ragflow / smart_assistant) | 旧 XOR(保留) | 同上 |
+| `Sensor.serial_number` | 不加密 | 非敏感 |
+| `Personnel.phone_number` / `address` | 不加密(明文 CharField) | 受 L1-L3 行级权限保护 + 通知审计,可追溯 |
+
+> **设计权衡:** Fernet 改造只动"审计敏感"字段,API key 走 XOR 不变(简化迁移、降低无谓风险面)。
+
+### 密钥派生与轮换
+
+- **派生源:** `settings.SECRET_KEY`(32+ 字节)
+- **轮换策略:** 当前实现未自带 rotation(需要 DBA 同步轮换 SECRET_KEY);如需 rotation,可通过多版本密钥数组 + `current_version` 标记实现,留作 P1。
+- **备份建议:** `SECRET_KEY` 必须与 DB 备份一起被备份(否则 backup 无法 restore)。
+
+### 测试覆盖
+
+`omni_desk_backend/personnel/tests/test_encrypted_field.py`:
+
+- ✅ `test_id_card_number_is_encrypted_at_rest`:直接 SQL 查 DB 列,确认 NOT 明文 `110101...`,且 Python 层能解密回原文。
+- ✅ `test_encrypted_value_persists_across_refresh`:写一次 + `refresh_from_db`,断言解密值一致。
+- ✅ `test_unicode_id_card_works`:Unicode 字符(如姓名)不破坏 Fernet 编码。
+
+### 故障排查
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 启动报 `InvalidToken` 异常 | `SECRET_KEY` 与 DB 落库时不同 | 用当时的 `SECRET_KEY` 启动,或重新导入(`SECRET_KEY` 必须备份) |
+| Migration 列长报错 | ciphertext 超过 `max_length` | 调大 `EncryptedCharField.max_length` |
+| 性能 regression | Fernet 加解密比 XOR 慢约 100 倍,但只是字段级,经实际 profiler < 0.5ms / 行,可忽略 | N/A |
+

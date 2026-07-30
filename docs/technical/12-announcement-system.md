@@ -70,3 +70,66 @@
 
 - **XSS风险**: 由于系统直接渲染由管理员输入的HTML (`dangerouslySetInnerHTML`)，存在潜在的跨站脚本（XSS）风险。
 - **当前策略**: 基于对内容发布者（管理员/经理）的信任，目前未在后端或前端实施HTML清理。在对安全性要求更高的场景下，应考虑引入如 `DOMPurify` 之类的库来过滤恶意脚本。
+
+---
+
+## 5. 公告广播通知 + 路由修复（2026-07 P0 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.6 / §1.7](41-p0-security-data-safety-batch-2026-07.md)。本节覆盖 P0-L(广播通知)、P0-N/P0-O(前端路由修复)。
+
+### 5.1 公告广播接 NotificationService + bulk_create(P0-L)
+
+[`notifications/signals.py`](omni_desk_backend/notifications/signals.py) `notify_announcement_created` 历史实现是**逐条循环插入**`Notification.objects.create(...)`,30+ 用户规模下 O(n) 慢查询。**2026-07 批次**改为 `bulk_create(batch_size=500)` + `dedupe_key`:
+
+```python
+def notify_announcement_created(sender, instance, created, **kwargs):
+    if not created:
+        return
+    users = CustomUser.objects.exclude(id=instance.author_id)  # 作者本人不收
+    Notification.objects.bulk_create([
+        Notification(
+            user=u,
+            type='announcement',
+            dedupe_key=f'announcement:{instance.id}:{u.id}',
+            payload={'title': instance.title, 'announcement_id': instance.id},
+        )
+        for u in users.iterator(chunk_size=500)
+    ], batch_size=500)
+```
+
+**关键优化:**
+
+- `bulk_create(batch_size=500)` —— 单条 SQL INSERT 批写
+- `iterator(chunk_size=500)` —— 不一次性加载到内存
+- 每用户独立 `dedupe_key`(含 user id)—— 跨用户合并窗口独立
+- 排除作者本人 —— 自己发布的公告自己看不到
+
+### 5.2 前端公告路由修复(P0-N, P0-O)
+
+[`omni_desk_frontend/src/features/announcements/components/AnnouncementForm.jsx`](omni_desk_frontend/src/features/announcements/components/AnnouncementForm.jsx) 历史实现从 `useParams()` 取 `id`,实际 route param 是 `announcementId` → 编辑模式永远"创建新公告"。**2026-07 批次**修正:
+
+```jsx
+// before
+const { id } = useParams();
+const isEditing = Boolean(id);
+
+// after
+const { announcementId } = useParams();
+const isEditing = Boolean(announcementId);
+```
+
+同时 `ManageAnnouncementsPage.jsx` 的"发布新公告"链接 `to="/new"` 修正为 `to="/control-panel/announcements/create"`(匹配实际 route 配置)。
+
+### 5.3 测试覆盖
+
+| 测试文件 | 覆盖范围 |
+|---|---|
+| `notifications/tests/test_announcement_broadcast.py` | 1 个公告 → 所有非作者用户都能收到通知;计数与 `CustomUser.objects.count()` 一致;同公告二次保存不重复发(因 `not created` 分支) |
+| `announcements/__tests__/AnnouncementForm.test.jsx` | mock `useParams()` 返回 `announcementId=42`,断言进入"编辑"模式渲染 |
+| `announcements/__tests__/ManageAnnouncementsPage.test.jsx` | "发布新公告"链接 href 含 `/create` |
+
+### 5.4 用户侧效果
+
+- 公告发布后,所有其他登录用户 **5 秒内** 看到 `NotificationBell` 红色角标
+- 详情页跳转 `/announcements/{id}`(用 `announcementId` 路由参数)
+- 创建链接点击直达 `/control-panel/announcements/create`(不再 404)

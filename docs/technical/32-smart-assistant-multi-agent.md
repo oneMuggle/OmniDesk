@@ -225,3 +225,66 @@ seq=8: task.completed(status=success, total_tokens=600)
 ---
 
 > 📅 最近更新：2026-07-16 — 文档归档，从 docs/plans/2026-06-21_multi-agent-collaboration.md 提取。
+
+---
+
+## 10. 未实现模式结构化拒绝（P0-I,2026-07 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.8](41-p0-security-data-safety-batch-2026-07.md)。本节说明 `FANOUT` / `HIERARCHICAL` 模式如何从"抛 `NotImplementedError`"改为"结构化 4xx 拒绝"。
+
+### 背景
+
+历史实现 `MultiAgentExecutor` 在收到 `execution_mode in {FANOUT, HIERARCHICAL}` 时:
+
+- **`agents/executor.py:201` 抛 `NotImplementedError`** — LLM 链上层 catch 后返回 500,前端显示"服务异常",用户不知是"该模式尚未实现"而非系统故障
+- **`agents/supervisor.py` 提示词中列入 `fanout` / `hierarchical`** — LLM 偶尔仍会规划出不可执行的子图,问题暴露在运行时而非 plan 阶段
+
+**2026-07 P0 批次**调整为"两道防御":
+
+### 防御 1:Supervisor 阶段拒绝(Prompt 层)
+
+[`agents/supervisor.py`](omni_desk_backend/smart_assistant/agents/supervisor.py) 中 `TaskPacketValidator` 在 LLM 输出解析后,直接拒绝:
+
+```python
+if execution_mode in ('fanout', 'hierarchical'):
+    raise ValidationError(
+        f'{execution_mode} 模式尚未实现,当前仅支持 pipeline 模式'
+    )
+```
+
+supervisor prompt 中**移除**了 `fanout` / `hierarchical` 选项,新加的 validator 是"防御性"二次校验(防 LLM 偶发输出未列出选项)。
+
+### 防御 2:Executor 阶段结构化 4xx(运行时)
+
+[`agents/executor.py:201-208`](omni_desk_backend/smart_assistant/agents/executor.py) 历史 `raise NotImplementedError` 改为返回 `TaskResult(status='rejected', error_message=...)`:
+
+```python
+elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
+    return TaskResult(
+        task_id=self.task_packet.task_id,
+        status='rejected',
+        error_message='Fan-out 模式尚未实现,请使用 pipeline 模式',
+    )
+elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
+    return TaskResult(
+        task_id=self.task_packet.task_id,
+        status='rejected',
+        error_message='Hierarchical 模式尚未实现,请使用 pipeline 模式',
+    )
+```
+
+[`views/chat.py`](omni_desk_backend/smart_assistant/views/chat.py) 在编排层把 `status='rejected'` 翻译为 HTTP **400 Bad Request**,body 含原始 `error_message` —— 前端能精确提示用户改用 `pipeline` 模式。
+
+### 测试覆盖
+
+`omni_desk_backend/smart_assistant/tests/test_fanout_rejection.py`:
+
+- ✅ `test_supervisor_rejects_fanout_with_400`:mock `TaskPacket(execution_mode=FANOUT)`,断言 executor 返回 `status='rejected'` + error_message 含"Fan-out 模式尚未实现"
+- ✅ `test_hierarchical_also_rejected`:同理 HIERARCHICAL
+- ✅ `test_pipeline_still_works`:回归 pipeline 模式不受影响
+- ✅ `test_validator_runs_in_supervisor`:mock supervisor LLM 输出含 `fanout`,断言 ValidationError
+
+### 用户侧效果
+
+- 智能助手支持复杂任务时,前端明确显示"暂不支持 fan-out 模式,请改用 pipeline"—— 而不是模糊的"服务异常"
+- 后台 `AgentTask.status='rejected'` 可在 `/api/smart-assistant/tasks/` 列表筛选,运维可见

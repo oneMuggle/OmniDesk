@@ -484,6 +484,86 @@ CI 不依赖真实 LLM 的确定性 e2e 体系:
 | 多 Agent intervene 不支持「补充指令」 | 当前介入动作仅 `pause` / `resume` / `cancel`;如需向运行中任务注入指令,需后端扩展 intervene 端点 |
 | Mock LLM 覆盖范围 | 仅模拟 OpenAI 兼容端点,未覆盖 tool-calls 路径与 Ollama 正向输出对比 |
 
+---
+
+## 11. chat 失败持久化 + Office 助手能力收敛（2026-07 P0 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.8](41-p0-security-data-safety-batch-2026-07.md)。本节覆盖 P0-J(`last_error` 落库) 和 P0-K(office_assistant 能力收敛)。
+
+### 11.1 `SmartAssistantSession.last_error` 字段（P0-J）
+
+[`smart_assistant/models.py`](omni_desk_backend/smart_assistant/models.py) 历史 `SmartAssistantSession` 没有"上次失败原因"字段 —— 一旦 chat API 5xx,用户重试时看不到"上次为什么失败",debug 困难。**2026-07 批次**新增:
+
+```python
+class SmartAssistantSession(models.Model):
+    # ... 原有字段 ...
+    last_error = models.TextField(blank=True, default='')
+```
+
+[`views/chat.py`](omni_desk_backend/smart_assistant/views/chat.py) 在编排层(`AgentOrchestrator`)异常逃逸时持久化:
+
+```python
+except LLMError as e:
+    session.refresh_from_db()
+    session.last_error = f"{type(e).__name__}: {e}"
+    session.save(update_fields=['last_error'])
+    return Response({'detail': str(e)}, status=500)
+
+except SmartAssistantSession.DoesNotExist:
+    logger.warning("invalid conversation_id=%s from user=%s",
+                   conversation_id, request.user.id)
+    return Response({'detail': 'session not found'}, status=404)
+```
+
+**两层防护:**
+
+1. **流式/非流式路径统一捕获:** 同步 chat 与 SSE chat 都在 `orchestrator.process*` 入口 `try/except`,异常都写 `last_error` 后再上报
+2. **`SmartAssistantSession.DoesNotExist` → 404:** 历史实现静默放过"无效 conversation_id",不报错,前端无感知;现显式返 404,前端可正确处理
+
+**API 行为:** `GET /api/smart-assistant/sessions/{id}/` 响应新增 `last_error` 字段,前端可在 session 历史面板显示上次失败原因。
+
+### 11.2 Office 助手能力收敛（ALLOWED_ACTIONS,P0-K）
+
+[`office_assistant/views.py`](omni_desk_backend/office_assistant/views.py) 历史实现对前端传来的 `action` 字段**不显式校验**,LLM router 会尝试执行任意 action —— 包括文档实际不支持的(`extract_entities`、`summarize_long_doc` 等),最终 500 或返回空字符串。
+
+**2026-07 批次**强制白名单:
+
+```python
+ALLOWED_ACTIONS = ('proofread', 'translate', 'polish')
+
+def post(self, request):
+    action = request.data.get('action')
+    if action not in ALLOWED_ACTIONS:
+        return Response(
+            {'detail': f'unsupported action: {action}, supported: {list(ALLOWED_ACTIONS)}'},
+            status=400,
+        )
+    # ... 原有处理 ...
+```
+
+**收敛范围:** 仅支持"文本级"操作,与前端文档/UI 实际支持的 3 项一致。**注意:** `summarize` / `extract_keywords` 暂未列入,因为：
+
+- 当前文档解析通道(MinerU)未对这些长操作做过鲁棒性测试
+- 留作 P1 加入,届时同步更新前端的"操作面板"
+
+### 11.3 测试覆盖
+
+| 测试文件 | 覆盖范围 |
+|---|---|
+| `smart_assistant/tests/test_chat_last_error.py` | mock LLM 抛 `RuntimeError('boom')`, 跑 POST chat → 断言 `r.status_code==500` + `SmartAssistantSession.objects.latest().last_error=='boom'` |
+| `smart_assistant/tests/test_chat_invalid_conversation_404.py` | 传不存在的 conversation_id → 404 + `detail='session not found'` |
+| `office_assistant/tests/test_capability_scope.py` | `action='extract_entities'` → 400;合法 action 仍正常处理 |
+| `office_assistant/tests/test_three_allowed_actions.py` | 三种合法 action 都成功执行 |
+
+### 11.4 用户侧效果
+
+- 智能助手面板"历史会话"显示 "⚠️ 上次失败:LLMError: timeout"
+- Office 助手面板误点击"实体抽取"等不存在功能时,精确提示"暂不支持,当前仅 proofread / translate / polish"
+- 运维查 `session.last_error` 能区分真实 bug 与 LLM 端点暂时不可用
+
+> ⚠️ **架构注记:** chat 失败落库的关键是它走**编排层**(LangGraph / 自研 orchestrator)异常逃逸,因此可以在最外层 try/except 中捕获写库。如果未来改为把 chat 拆成 Celery 异步任务,`last_error` 写入逻辑要相应迁移到任务回调。
+
+
 ## 10. 相关文档
 
 - [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) — 多轮对话、工具链、模型降级、成本监控

@@ -78,3 +78,53 @@
 
 - **智能分析与查漏补缺**: 利用LLM（如Ollama）对文档内容进行智能分析以自动生成 `ComplianceIssue` 的具体实现。
 - **定时提醒**: 利用Celery等任务队列对 `ComplianceIssue` 的截止日期进行定时检查和提醒的实现。
+
+---
+
+## 5. 合规到期提醒通知（接 NotificationService,P0-L,2026-07 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.6](41-p0-security-data-safety-batch-2026-07.md)。
+
+### 背景
+
+[`compliance/tasks.py`](omni_desk_backend/compliance/tasks.py) `check_compliance_deadlines` 在升级合规问题严重程度(pending → urgent)后,缺少通知项目负责人的步骤 → 升级**静默发生**,负责人不被通知。**2026-07 P0 批次**接 `NotificationService`。
+
+### 修复实现
+
+```python
+# omni_desk_backend/compliance/tasks.py
+def check_compliance_deadlines():
+    today = timezone.now().date()
+    yesterday = today - timedelta(days=1)
+
+    for issue in ComplianceIssue.objects.filter(status='pending', due_date__lt=today):
+        issue.status = 'urgent'
+        issue.save(update_fields=['status', 'updated_at'])
+
+        if issue.project and issue.project.manager:
+            NotificationService.create(
+                user=issue.project.manager,
+                type='compliance_due',
+                dedupe_key=f'compliance_due:{issue.id}:{today.isoformat()}',
+                priority='urgent',
+                payload={
+                    'issue_id': issue.id,
+                    'project_id': issue.project_id,
+                    'due_date': issue.due_date.isoformat(),
+                },
+            )
+```
+
+注意:子 Celery 任务的 `last_error`、`running_time` 字段已写 `timedelta(days=F('...'))` 之前一直 500。`F()` 表达式不能直接用于 `timedelta` 算术,必须先 `extract` 数值。**本批次也顺手修了 `timedelta(days=F(...))` TypeError**(此前该 Celery 任务从未跑通过)。
+
+### 测试覆盖
+
+`omni_desk_backend/compliance/tests/test_due_notification.py`:
+
+- ✅ `test_overdue_compliance_notifies_project_manager`:过期 1 天的 pending issue → 升级 urgent + 通知 PM。
+- ✅ `test_not_overdue_compliance_no_notification`:未到期不触发。
+
+### 用户侧效果
+
+- 项目负责人收到 "⚠️ 合规问题 CL-2024-001 已逾期" 通知
+- issue 状态从 pending 转 urgent(可见于合规列表页筛选)

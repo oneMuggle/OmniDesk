@@ -53,6 +53,17 @@
 | 33 | [RAGFlow 集成](33-ragflow-integration.md) | RAGFlow API 客户端、Dataset/Chat 管理、docker-compose 部署、健康检查（v0.6.0-alpha.2 已实现） |
 | 34 | [Smart Assistant 性能基准](34-smart-assistant-perf-benchmark.md) | P95 / 50 并发 / 缓存 TTFB 实测数据与优化手段（SAIS 分支 4 性能验收） |
 | 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
+| 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
+
+### 新增功能点(待建章节预留编号)
+
+| 编号 | 主题 | 计划来源 |
+|------|------|----------|
+| 35 | 通知中心 (notifications app) | 站内 + 邮件通知,文档待补 |
+| 36 | 文件处理 (file_processing app) | Office / MinerU 文件解析通道,文档待补 |
+| 37 | 联培生管理 (joint_students app) | 设计草案见 [superpowers 计划](../superpowers/specs/2026-07-28-联培生管理模块-design.md) |
+| 38 | LLM 服务层 (llm_service app) | 多 LLM Provider 抽象,文档待补 |
+| 39 | 可观测性 (observability app) | 日志聚合、监控指标,文档待补 |
 
 ---
 
@@ -63,4 +74,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-07-29 — 第 16 章（智能助手系统）同步 2026-07-28 增强批次（P0-P3 共 16 项），一句话简介同步更新。
+> 📅 最近更新:2026-07-30 — 第 41 章新增,归档 2026-07 安全/数据安全 P0 批次(12 项修复)的实施轨迹;同步更新 24-security-checklist、07-user-permissions、26-personnel-user-association、08-schedule-trial、31-paperless-integration、10-sensor-management、14-project-compliance、12-announcement-system、32-smart-assistant-multi-agent、16-smart-assistant 等章节加入本批次相关小节。原计划文档 `docs/plans/2026-08-01_security-data-safety-p0.md` 已删除。

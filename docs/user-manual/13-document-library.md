@@ -115,3 +115,44 @@
 ### Q: 我删除了 paperless 中的文档，OmniDesk 会同步吗？
 
 不会。同步方向是单向的（OmniDesk → paperless），在 paperless 中的修改不会自动同步回 OmniDesk。
+
+---
+
+## 9. 死信管理与故障通知（2026-07 P0 批次）
+
+### 9.1 paperless DOWN 通知
+
+当 paperless 服务连续失败 3 次(默认阈值),系统会向**所有管理员**发送一条紧急通知:
+
+- **通知类型:** `paperless_down`
+- **优先级:** P0 紧急
+- **通知文案:** "paperless 文档服务不可用,影响文档同步与联邦搜索"
+- **同一故障 24h 只发一次**(由 `dedupe_key` 保证)
+
+管理员收到后:
+
+1. SSH 到服务器,跑 `docker compose ps paperless` 查看容器状态
+2. 跑 `docker compose logs --tail=200 paperless` 查看错误日志
+3. 修复后系统会自动发 `paperless_recovered` 通知(类似文案,绿色)
+
+### 9.2 死信重试与丢弃
+
+如果某个文档同步连续失败 10 次(默认 `PAPERLESS_OUTBOX_MAX_RETRIES`),Outbox 项会**升级为死信**(`status='dead'`)。处理方式:
+
+**仅管理员(admin)** 可以在「文档库 → 同步状态」页面看到死信列表,每条死信行有两个按钮:
+
+| 按钮 | 操作 | 何时使用 |
+|---|---|---|
+| **[重试]** | 把该项状态重置为 `pending`,Worker 重新尝试上传 | 上游 paperless 问题已修复 |
+| **[丢弃]** | 物理删除该 Outbox 项 | 该文档不再需要,或重试仍失败 |
+
+> ⚠️ 普通用户看不到死信管理入口,也调用不了后端 API(权限被 `IsAdminUser` 拦截)。
+
+### 9.3 文档库事故排查清单
+
+按以下顺序排查:
+
+1. **顶部横幅是黄色吗?** 是 → paperless 不可用,系统已自动降级;横幅消失时恢复
+2. **是否有 paperless DOWN 通知?** 有 → 去 §9.1
+3. **某个具体文档显示"需重试"?** 是 → 通知 admin 走 §9.2
+4. **其他问题?** 收集 `docker compose logs backend worker | grep paperless`,联系运维

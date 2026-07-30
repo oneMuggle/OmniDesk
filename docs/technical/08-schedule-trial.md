@@ -118,3 +118,63 @@ L1 + L2 + L3 三层防护（与 v0.4.0 Personnel 字段防护同模式）：
 - **试验日历页面**: (例如 `TrialCalendarPage.jsx`)
   - 以日历或列表形式展示所有 `Trial` 和 `TimeSlot`。
   - 提供创建和编辑试验的功能。
+
+---
+
+## 4. 排班并发控制（`select_for_update` + 409 Conflict,P0-G,2026-07 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.4](41-p0-security-data-safety-batch-2026-07.md)。本节聚焦排班的并发写丢失防护。
+
+### 背景
+
+历史实现 `POST /api/events/schedules/swap-dates/` 与 `POST /api/events/schedules/`(`create`)在两个管理员同时操作同一日(`UniqueConstraint(duty_date, duty_person)`)时会出现**丢更新**或 **5xx 报错**:
+
+- 同时换班 → last-writer-wins 静默覆盖
+- 唯一约束冲突 → `IntegrityError` → DRF 返回 500,前端报错但用户不清楚"是冲突而非系统故障"
+
+### 修复方案
+
+[`events/views/schedules.py`](omni_desk_backend/events/views/schedules.py) 中 `swap_dates` 与 `create` 均改为:
+
+```python
+from django.db import transaction, IntegrityError
+
+@action(detail=False, methods=['post'], url_path='swap-dates')
+def swap_dates(self, request):
+    s1_id = request.data['schedule_id_1']
+    s2_id = request.data['schedule_id_2']
+    try:
+        with transaction.atomic():
+            s1 = Schedule.objects.select_for_update().get(pk=s1_id)
+            s2 = Schedule.objects.select_for_update().get(pk=s2_id)
+            s1.duty_person, s2.duty_person = s2.duty_person, s1.duty_person
+            s1.save(); s2.save()
+    except IntegrityError:
+        return Response({'detail': 'conflict: another swap in progress'}, status=409)
+    return Response({'ok': True})
+```
+
+三层防护:
+
+1. **`transaction.atomic()`** — 包住整个 swap,失败回滚。
+2. **`select_for_update()`** — PG 行锁,序列化并发换班请求。
+3. **`IntegrityError → 409 Conflict`** — 唯一约束冲突显式化为可理解的 409(前端可提示"另一笔同时进行的冲突")。
+
+### 注意事项
+
+- **SQLite 测试环境不锁行:** `select_for_update` 在 SQLite 是 no-op。`settings/test.py` 必须用 PostgreSQL(项目 CI 通过 docker-compose 起的 PG 满足)。
+- **DRF 状态码:** 自定义 action 可直接 `return Response(..., status=409)`,无需重写 exception handler。
+
+### 测试覆盖
+
+`omni_desk_backend/events/tests/test_schedule_concurrency.py`:
+
+- ✅ `test_concurrent_swap_does_not_lose_update`:`ThreadPoolExecutor(2)` 并发两次 `swap-dates`,断言一胜一负(`[200, 409]`)。
+- ✅ `test_concurrent_create_same_day_one_succeeds`:同时 `create` 同一 `(date, person)`,一胜一负 409。
+
+### 前端处理
+
+`TrialScheduleContainer.jsx` 收到 409 时:
+
+- 显示 Ant Design `message.error('冲突:另一笔换班正在进行,请刷新后再试')`
+- 不重试 — 让用户主动核对最新 schedule 后再操作

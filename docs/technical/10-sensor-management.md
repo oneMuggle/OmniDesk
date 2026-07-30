@@ -67,3 +67,49 @@
 ## 4. 已知问题
 
 - **路由配置不完整**: 后端应用 `sensor_management` 的 `urls.py` 文件目前只注册了 `/api/sensor-management/sensors/` 这一个端点。其他如 `SensorCategoryViewSet`, `SensorMovementViewSet` 等虽然已在 `views.py` 中定义，但并未注册路由，导致前端无法访问 `/api/sensor-management/sensor-categories/` 等API，功能无法正常使用。
+
+---
+
+## 5. 校准提醒通知（接 NotificationService,P0-L,2026-07 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.6](41-p0-security-data-safety-batch-2026-07.md)。本节聚焦修复前"模拟通知"的假闭环。
+
+### 背景
+
+[`sensor_management/tasks.py`](omni_desk_backend/sensor_management/tasks.py) 历史实现 `send_notification(sensor, today)` 仅 `logger.info("calibration reminder ...")` —— **真正的 NotificationService 调用从未发生**,管理员无法在通知中心看到校准提醒。**2026-07 P0 批次**接 `NotificationService` + `dedupe_key`。
+
+### 修复实现
+
+```python
+# omni_desk_backend/sensor_management/tasks.py
+def send_notification(sensor, today):
+    from notifications.services import NotificationService
+
+    target_user = getattr(sensor, 'responsible_user', None) or _first_admin()
+    NotificationService.create(
+        user=target_user,
+        type='calibration_reminder',
+        dedupe_key=f'calibration:{sensor.id}:{today.isoformat()}',
+        priority='normal',
+        payload={
+            'sensor_id': sensor.id,
+            'sensor_number': sensor.sensor_number,
+            'last_calibrated_at': sensor.last_calibrated_at.isoformat() if sensor.last_calibrated_at else None,
+        },
+    )
+```
+
+**注:** 旧 Sensor 模型无 `responsible_user` 字段,实际接收人回退到"第一个 admin"。如未来增加负责人字段,改用 `sensor.responsible_user`。
+
+### 测试覆盖
+
+`omni_desk_backend/sensor_management/tests/test_calibration_notification.py`:
+
+- ✅ `test_calibration_reminder_creates_notification`:mock `timezone.now()` 到到期日,跑命令,断言 `Notification` 表有 `type='calibration_reminder'` + `dedupe_key` 一致。
+- ✅ `test_deduped_reminder_not_resent_same_day`:同一日重复跑命令,断言只产生一条通知。
+- ✅ `test_calibration_overdue_severity_escalates`:超期传感器 urgent 优先级。
+
+### 用户侧效果
+
+- 管理员打开 `/notifications` 能看到 "🔧 传感器 S-2024-001 已到期校准" 类型提醒
+- 通知详情包含 sensor number、上次校准日期、过期天数

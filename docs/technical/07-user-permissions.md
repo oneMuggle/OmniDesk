@@ -67,3 +67,68 @@ API的访问权限主要由 `users` 应用负责。
   - [`omni_desk_backend/users/views.py`](omni_desk_backend/users/views.py) 中的 `UserPersonnelViewSet` 提供了API，允许管理员将用户账户指派给一个人员。
 - **前端**:
   - 相关的管理界面允许管理员在用户列表中为每个用户选择并关联一个“人员”。
+
+---
+
+## 5. 行级权限 / 作者隔离 / 权限体系清理（2026-07 P0 批次）
+
+> 本节对应审计批次 [41-p0-security-data-safety-batch-2026-07.md §1-3](41-p0-security-data-safety-batch-2026-07.md)。覆盖 P0-A / P0-C / P0-D / P0-E 四个修复点。
+
+### 5.1 `IsOwnerOrManagerOrReadOnly`（personnel 行级权限,P0-A）
+
+[`omni_desk_backend/personnel/permissions.py`](omni_desk_backend/personnel/permissions.py) 新增的权限类,用于 personnel 子模型的行级访问控制(Contract / Education / WorkExperience / Qualification / FamilyMember 共 5 个 ViewSet)。
+
+**判定逻辑(双层防御):**
+
+1. **L1 `has_permission`:** 仅要求登录(`request.user.is_authenticated`)。
+2. **L3 `has_object_permission`:**
+   - `SAFE_METHODS` → 放行(由 `get_queryset` 行级过滤兜底,见下)
+   - `request.user.is_privileged_user()` → 放行(Admin / Manager 组 + superuser)
+   - 反向查找 `obj.personnel.user_account_id == request.user.id` → 放行
+   - 其他 → 拒
+
+**ViewSet 接入示例(ContractViewSet):**
+
+```python
+class ContractViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated, IsOwnerOrManagerOrReadOnly]
+
+    def get_queryset(self):
+        if self.request.user.is_privileged_user():
+            return Contract.objects.all()
+        return Contract.objects.filter(personnel__user_account=self.request.user)
+```
+
+> **注意:** 项目原本无 `CustomUser.role` 字段(只在 `Personnel.role`);行级权限统一走 `is_privileged_user()`(内部封装"Admin / Manager 组 + superuser"判定)。其余四个 ViewSet 接入模式同上,详见 [41-p0-security-data-safety-batch-2026-07.md §1.1](41-p0-security-data-safety-batch-2026-07.md)。
+
+**测试位置:** `omni_desk_backend/personnel/tests/test_permissions.py`(owner 可读本人 / 其他用户看不到他人)。
+
+### 5.2 `IsAuthorOrReadOnly`(communication 作者隔离,P0-D)
+
+[`omni_desk_backend/communication/views.py`](omni_desk_backend/communication/views.py) 新增的权限类,适用于 `Post` / `Comment` 等"作者本人可控"模型。
+
+**判定逻辑:**
+
+- `SAFE_METHODS` → 放行
+- `obj.author_id == request.user.id` → 放行
+- 其他 → 403
+
+**接入:**
+
+```python
+class PostViewSet(viewsets.ModelViewSet):
+    permission_classes = [permissions.IsAuthenticated, IsAuthorOrReadOnly]
+
+    def get_queryset(self):
+        return Post.objects.all()  # 安全方法内可看所有,写入由 IsAuthorOrReadOnly 控制
+```
+
+**测试位置:** `omni_desk_backend/communication/tests/test_author_isolation.py`(Bob 不能 DELETE Alice 的帖子)。
+
+### 5.3 权限体系清理(P0-C, P0-E)
+
+- **去重 `IsAdminOrManagerOrReadOnly`:** [`users/permissions.py`](omni_desk_backend/users/permissions.py) 历史上存在两份重复定义(行 70-89 与 158-176),`2026-07` 批次已合并为唯一一份并加注释。
+- **删除不可达 return:** `IsTargetPersonnel.has_object_permission` 历史上在 `if request.user.role in ('admin', 'hr'): return True` 分支后留有 `return IsAdmin().has_permission(...)` 的死代码(line 210),已删除。
+- **`UserAdminDetailView` 删 `instance.phone_number` 死引用:** [`users/views.py`](omni_desk_backend/users/views.py) 第 233 行原写 `instance.phone_number = personnel.phone_numbers.first().number`,但 `instance` 不是 Personnel,实际从未生效;已删除该行,改为提示用户走 `PhoneNumber` 关联模型 `update_or_create`(详见 [26-personnel-user-association.md](26-personnel-user-association.md) §3.2)。
+
+**测试位置:** `omni_desk_backend/users/tests/test_permissions_cleanup.py`(`inspect` 静态断言同名类仅一份 / 无死代码)。

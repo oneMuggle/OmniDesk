@@ -368,3 +368,80 @@ OmniDesk 自身的 `backup_db` 命令同时会备份 `DocumentBinding` / `Outbox
 | `test_search_federation.py` | PaperlessSearchService + UnifiedSearchView 合并/降级 |
 | `test_business_integration.py` | PaperlessUploadService 业务入口 |
 | `test_app_config.py` | App 注册验证 |
+
+---
+
+## 13. 运维可观测 + Outbox 死信管理（2026-07 P0 批次）
+
+> 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.5](41-p0-security-data-safety-batch-2026-07.md)。本节聚焦 P0-H 落地的 4 个增强点。
+
+### 13.1 paperless DOWN 管理员通知
+
+[`paperless_proxy/tasks.py`](omni_desk_backend/paperless_proxy/tasks.py) 中 `_notify_admin_down` / `_notify_admin_recovery` 接 [`NotificationService.create()`](omni_desk_backend/notifications/services.py),使用 `dedupe_key` 避免重复轰炸:
+
+```python
+def _notify_admin_down(health: PaperlessHealth):
+    from notifications.services import NotificationService
+    from users.models import CustomUser
+    for admin in CustomUser.objects.filter(is_superuser=True):
+        NotificationService.create(
+            user=admin,
+            type='paperless_down',
+            dedupe_key=f'paperless_down:{health.id}',
+            priority='urgent',
+            payload={'consecutive_failures': health.consecutive_failures},
+        )
+    logger.error(f"paperless DOWN ({health.consecutive_failures} consecutive failures)")
+```
+
+**触发条件:** `check_paperless_health` 30 秒探测,连续失败达 `PAPERLESS_HEALTH_FAILURE_THRESHOLD`(默认 3 次)且未在过去 24h 发送过同 dedupe_key 的通知时,触发 DOWN 通知;恢复时同步发 RECOVERED 通知。
+
+### 13.2 Outbox 死信管理 API
+
+新增 2 个管理 API(仅 admin):
+
+| 端点 | 方法 | 说明 |
+|---|---|---|
+| `/api/paperless/outbox/{id}/retry/` | POST | 手动重试死信(仅 `status=dead` 可重试) → 状态置 `pending`,清除 `last_error` |
+| `/api/paperless/outbox/{id}/discard/` | DELETE | 直接删除死信(不可恢复) |
+
+[`paperless_proxy/views.py`](omni_desk_backend/paperless_proxy/views.py) 中 `OutboxRetryView` / `OutboxDiscardView` 实现:
+
+```python
+class OutboxRetryView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    def post(self, request, pk):
+        item = get_object_or_404(OutboxItem, pk=pk)
+        if item.status != 'dead':
+            return Response({'detail': 'only dead items can retry'}, status=400)
+        item.status = 'pending'
+        item.error_message = ''
+        item.save(update_fields=['status', 'error_message', 'updated_at'])
+        return Response({'ok': True})
+
+class OutboxDiscardView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+    def delete(self, request, pk):
+        item = get_object_or_404(OutboxItem, pk=pk)
+        item.delete()
+        return Response(status=204)
+```
+
+**安全:** 两个端点都 `IsAdminUser`;`discard` 为破坏性操作应进一步加 audit log(P1)。
+
+### 13.3 测试覆盖
+
+| 测试文件 | 覆盖范围 |
+|---|---|
+| `test_health_notification.py` | 连续失败 5 次后断言 `Notification.objects.filter(type='paperless_down').exists()`;恢复时 REVERSE 通知 |
+| `test_outbox_retry.py` | 创建 `dead` 状态 `OutboxItem`,admin POST retry → 状态变 pending;非 admin → 403 |
+| `test_outbox_discard.py` | admin DELETE → 204;非 admin → 403 |
+
+### 13.4 用户/运维操作指南
+
+详见 [用户手册 § 13-document-library 文档同步状态](../user-manual/13-document-library.md)。核心要点:
+
+- 死信列表页 `/documents-library/sync` 可见所有 `dead` 项
+- 每行提供 `[重试]` 与 `[丢弃]` 按钮(仅 admin)
+- 收到 DOWN 通知后查 `docker compose logs paperless` + `PaperlessHealth.last_error`
+
