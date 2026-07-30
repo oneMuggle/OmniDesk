@@ -65,6 +65,11 @@
     "component": "LazyComponent"
   },
   {
+    "name": "多Agent任务",
+    "path": "/smart-assistant/tasks",
+    "component": "LazyComponent"
+  },
+  {
     "name": "知识库管理",
     "path": "/knowledge-base",
     "component": "LazyComponent"
