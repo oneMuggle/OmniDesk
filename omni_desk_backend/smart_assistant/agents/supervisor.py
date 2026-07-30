@@ -84,9 +84,7 @@ class Supervisor:
                 # 4.5 P0-J:执行模式校验 —— fanout/hierarchical 尚未实现,
                 # 直接拒绝,避免把不可执行的 TaskPacket 交给 executor
                 if task_packet.execution_mode in (ExecutionMode.FANOUT, ExecutionMode.HIERARCHICAL):
-                    raise ValidationError(
-                        f"{task_packet.execution_mode.value} mode not yet implemented"
-                    )
+                    raise ValidationError(f"{task_packet.execution_mode.value} mode not yet implemented")
 
                 return task_packet
 
