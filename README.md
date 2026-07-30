@@ -1,302 +1,249 @@
 # OmniDesk: 集成化业务管理平台
 
-## 项目概述
+> 全栈业务管理平台(Django 4.2 + React 18 + Vite 5)。面向组织级场景,覆盖排班、试验、会议室、传感器、备忘录、公告、新闻、项目、合规、人员、智能助手、AI 应用、文档库与发布管理。
+> 当前版本: `0.7.0-alpha.2`(alpha 渠道)
 
-OmniDesk 是一个全面的全栈业务管理平台，旨在简化各种组织运营。它采用基于 Django 的后端和基于 React 的前端，为管理文档、项目、传感器和用户提供了强大且可扩展的解决方案。
+## 项目特性
+
+OmniDesk 提供以下能力,均开箱即用,支持内网/离线部署:
+
+### 业务模块
+| 模块 | 说明 |
+|------|------|
+| **排班管理** | 周/月排班视图、试验关联、人员冲突检测 |
+| **试验管理** | 试验全生命周期、阶段流转、合规校验 |
+| **会议室预约** | 实时占用图、冲突检测、审批 |
+| **传感器管理** | 设备校准、历史读数、阈值告警 |
+| **备忘录** | 个人/共享备忘、提醒、分类 |
+| **公告 / 新闻** | 多级发布、已读追踪、置顶 |
+| **项目管理** | 项目台账、阶段、文档关联 |
+| **合规追踪** | 合规事项、责任人、到期提醒 |
+| **人员-用户关联** | 员工档案绑定登录账号,自动同步 |
+| **积分管理** | 员工积分、兑换、核销 |
+
+### AI 与知识
+| 模块 | 说明 |
+|------|------|
+| **智能助手** | 多 Agent 协作、13+ 工具、Hooks 自检、晨报、会话 fork/导出、性能基准(技术手册第 16/32/34 章) |
+| **AI 能力展示** | 工具列表、调用样例、实时演示 |
+| **Office 助手 / 文件分析** | Office 文件智能解析(MinerU 集成)与内容检索 |
+| **Dify 应用** | 与 Dify 平台对接,一键运行聊天型 AI 应用 |
+| **RAGFlow 集成** | Dataset/Chat 管理、API 客户端、健康检查(技术手册第 33 章) |
+| **知识库管理** | 文档分段、向量化、人工维护 |
+| **联邦搜索** | 顶部全局搜索同时查业务数据 + paperless 全文 |
+
+### 平台与集成
+| 模块 | 说明 |
+|------|------|
+| **文档库 (paperless-ngx 集成)** | 业务附件统一落盘到 paperless,Outbox 降级,联邦搜索高亮,5 种同步状态可视化(技术手册第 31 章) |
+| **桌面客户端** | 三层架构中的桌面端(技术手册第 20 章) |
+| **集成中心 / 快捷外链 / 插件市场** | 控制面板的扩展入口,统一管理 SSO、外部跳转、自定义插件 |
+| **通知中心** | 站内通知 + 邮件 + Webhook,支持分组与已读追踪 |
+| **仪表盘** | 个人首页:日程、待办、未读通知、最新公告 |
+| **版本管理与发布渠道** | 4 段式渠道 alpha/beta/preview/stable + hotfix,配套备份/回滚(技术手册第 19/30 章) |
 
 ## 项目结构
 
-该项目分为以下主要目录：
+```
+OmniDesk/
+├── omni_desk_backend/          # Django 后端(约 30 个 apps)
+├── omni_desk_frontend/         # React 前端(Vite 5,约 25 个 features)
+├── deployment/docker/          # Docker Compose + 离线包打包脚本
+├── docs/                       # 全部项目文档(技术手册、用户手册、计划)
+├── utils/                      # 工具脚本
+└── README.md                   # 本文件
+```
 
--   `omni_desk_backend/`: 包含 Django 后端应用程序，包括所有 API 端点、数据库模型和业务逻辑。
--   `omni_desk_frontend/`: 包含 React 前端应用程序，包括所有 UI 组件、页面和客户端逻辑。
--   `deployment/`: 包含用于部署应用程序的 Docker 配置文件。
--   `docs/`: 包含项目文档。
--   `utils/`: 包含项目的实用程序脚本。
+### 后端 Apps(Django INSTALLED_APPS)
+
+`personnel`, `users`, `events`, `documents`, `config`, `memos`, `dify_apps`,
+`office_assistant`, `projects`, `compliance`, `ragflow_service`, `meeting_rooms`,
+`sensor_management`, `communication`, `news`, `permissions`, `ebooks`,
+`smart_assistant`, `core`, `notifications`, `dashboard`, `external_integration`,
+`paperless_proxy`, `search_federation`, `file_processing`, `llm_service`
++ Django 标准库 + DRF + SimpleJWT + Celery Beat。
+
+自定义用户模型: `AUTH_USER_MODEL = 'users.CustomUser'`
+
+### 前端 features
+
+`admin`, `announcements`, `auth`, `communication`, `compliance`, `dify-apps`,
+`documents`, `documents-library`, `ebook`, `equipment`, `external-links`,
+`integration-hub`, `meeting-room`, `memo`, `news`, `notifications`,
+`office-assistant`, `personnel`, `plugin-market`, `profile`, `projects`,
+`schedule`, `search-federation`, `sensor`, `smart-assistant`, `system`, `user`
+共 29 个受保护页面(见 `omni_desk_frontend/public/routes.json`)。
 
 ## 先决条件
 
-在开始之前，请确保您的系统上安装了以下软件：
+- **Python 3.10**(与 Dockerfile、CI、conda 环境统一)
+- **Node.js 18+**(Vite 5 要求)
+- **PostgreSQL 13+** 与 **Redis 6+**(Celery 任务、缓存依赖)
+- **Docker / Docker Compose**(生产 / 离线部署;dev 也可绕过)
+- **Conda 环境**:`omni_desk`(避免污染 base)
 
--   **Python** (版本 3.8 或更高)
--   **Node.js** (版本 14 或更高)
--   **npm** 或 **yarn**
--   **Docker** 和 **Docker Compose** (用于容器化部署)
--   **PostgreSQL**
--   **Redis**
+> ⚠️ 项目对 Windows 7 + Chrome 109 浏览器做了兼容性测试(技术手册第 22 章)。
+> 离线/内网部署约束见技术手册第 23 章。
 
-## 安装与设置
+## 快速开始(开发环境)
 
-请按照以下步骤为后端和前端设置开发环境。
-
-### 后端设置 (`omni_desk_backend`)
-
-1.  **导航到后端目录：**
-    ```bash
-    cd omni_desk_backend
-    ```
-
-2.  **创建并激活虚拟环境：**
-    ```bash
-    python -m venv venv
-    source venv/bin/activate  # 在 Windows 上，使用 `venv\Scripts\activate`
-    ```
-
-3.  **安装所需的 Python 包：**
-    ```bash
-    pip install -r requirements.txt
-    ```
-
-4.  **配置您的环境变量：**
-    在 `omni_desk_backend` 目录中创建一个 `.env` 文件，并添加数据库、密钥等必要的配置。
-
-5.  **应用数据库迁移：**
-    ```bash
-    python manage.py migrate
-    ```
-
-### 依赖管理 (`pip-tools`)
-
-本项目的 Python 依赖项通过 `pip-tools` 进行管理，以确保在所有环境中保持一致性。
-
-- **核心依赖项** 在 `omni_desk_backend/requirements.in` 中定义。
-- **开发和测试依赖项** 在 `omni_desk_backend/requirements-dev.in` 中定义。
-
-要更新依赖项，请执行以下步骤：
-
-1.  **修改 `.in` 文件**: 在 `requirements.in` 或 `requirements-dev.in` 中添加或删除包。
-
-2.  **重新生成 `requirements.txt` 和 `requirements-prod.txt`**:
-    ```bash
-    # 确保你已经安装了 pip-tools
-    pip install pip-tools
-
-    # 进入后端目录
-    cd omni_desk_backend
-
-    # 生成生产环境的依赖
-    pip-compile -o requirements-prod.txt requirements.in
-
-    # 生成开发环境的依赖
-    pip-compile -o requirements.txt requirements-dev.in
-    ```
-
-**重要提示**: 请勿手动编辑 `requirements.txt` 或 `requirements-prod.txt` 文件。始终使用 `pip-compile` 来更新它们。
-### 前端设置 (`omni_desk_frontend`)
-
-1.  **导航到前端目录：**
-    ```bash
-    cd omni_desk_frontend
-    ```
-
-2.  **安装所需的 Node.js 包：**
-    ```bash
-    npm install
-    # 或
-    yarn install
-    ```
-
-## 运行项目
-
-### 后端
-
-要启动 Django 开发服务器，请从 `omni_desk_backend` 目录运行以下命令：
+### 一、环境准备
 
 ```bash
-python manage.py runserver
+# 创建并激活 conda 环境(Python 3.10)
+conda create -n omni_desk python=3.10 -y
+conda activate omni_desk
+
+# 克隆仓库
+git clone <repo-url> OmniDesk
+cd OmniDesk
 ```
 
-后端 API 将在 `http://127.0.0.1:8000` 上可用。
-
-### 前端
-
-要启动 React 开发服务器，请从 `omni_desk_frontend` 目录运行以下命令：
+### 二、后端
 
 ```bash
-npm start
-# 或
-yarn start
+cd omni_desk_backend
+
+# 编译依赖(NEVER edit .txt 文件)
+pip-compile -o requirements-prod.txt requirements.in
+pip-compile -o requirements.txt requirements-dev.in
+
+# 安装
+pip install -r requirements.txt
+
+# 配置 .env(参考 settings/local.py 默认配置)
+
+# 迁移 + 启动
+python manage.py migrate
+python manage.py runserver         # 默认使用 settings.local
 ```
 
-前端应用程序将在 `http://localhost:3000` 上可用。
+后端默认监听 `http://127.0.0.1:8000`,登录入口 `/api/auth/login/`。
 
-## 部署
-
-### 自动化部署 (CI/CD) - 推荐
-
-本项目采用 GitHub Actions 进行持续集成与持续部署 (CI/CD)。
-
-**推送流程 (推送到 `main` 分支):**
-
-```
-Push → 构建镜像 → 运行测试 → 推送至 GHCR → SSH 部署到服务器
-```
-
-**详细步骤:**
-1. **自动构建**: [`.github/workflows/build-and-push-images.yml`](.github/workflows/build-and-push-images.yml) 自动构建 Docker 镜像并推送到 GitHub Container Registry (GHCR)
-2. **自动部署**: [`.github/workflows/deploy-ssh-windows.yml`](.github/workflows/deploy-ssh-windows.yml) 通过 SSH 部署到 Windows 服务器
-
-### Docker 部署
-
-项目提供完整的 Docker 部署方案，详见 [部署指南](deployment/docker/DEPLOYMENT_GUIDE.md)。
-
-**快速启动:**
-```bash
-cd deployment/docker
-./deploy_docker.sh up          # 开发环境
-docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d  # 生产环境
-```
-
-**部署脚本功能:**
-| 命令 | 说明 |
-|------|------|
-| `./deploy_docker.sh up` | 构建并启动所有服务 |
-| `./deploy_docker.sh down` | 停止所有服务 |
-| `./deploy_docker.sh logs [service]` | 查看日志 |
-| `./deploy_docker.sh migrate` | 执行数据库迁移 |
-| `./deploy_docker.sh collectstatic` | 收集静态文件 |
-
-### 离线/内网部署
-
-对于无法访问互联网的内网服务器:
+### 三、前端
 
 ```bash
-# 1. 在有网环境打包镜像
-cd deployment/docker
-./build_and_export.sh
-
-# 2. 传输 exported_images/ 目录到内网服务器
-
-# 3. 在内网服务器部署
-./deploy_offline.sh
+cd omni_desk_frontend
+npm install
+npm start          # 监听 0.0.0.0:3000,Vite 代理 /api 到 8000
 ```
 
-详细说明请参考 [完整部署指南](deployment/docker/DEPLOYMENT_GUIDE.md)。
+前端默认监听 `http://localhost:3000`。
 
 ## 测试
 
-### 单元测试
+### 单元 / 集成(开发期)
 
-**后端测试:**
 ```bash
+# 后端(in-memory SQLite)
 cd omni_desk_backend
-pytest --cov=. --cov-fail-under=80
-```
+pytest --ds=omni_desk_backend.settings.test
 
-**前端测试:**
-```bash
+# 前端(Jest + RTL)
 cd omni_desk_frontend
-npm test
+npm run test:coverage
 ```
 
-### Docker 集成测试
+> CI 守卫: 后端覆盖率红线 80%、前端 80%、mypy strict、ruff、ESLint。详见 [CI/CD 指南](docs/technical/03-cicd-guide.md)。
 
-在提交代码前，建议运行 Docker 集成测试以确保所有服务正常工作：
+### 部署期(冒烟 / 集成)
+
+- `deployment/docker/deploy_tests.sh`(可选 4 种 profile)
+- `omni_desk_backend/conftest.py` + 各 `*tests*/test_*.py`
+
+## 部署
+
+### 推荐流程(按发布渠道)
+
+```
+main(开发合并) → 切 alpha 分支 → 内部 alpha 验证
+   ↓
+beta(公测) → 客户 preview 验证
+   ↓
+rc → stable(发布 GA)
+```
+
+详细规范与脚本: [发布渠道机制](docs/technical/30-release-channels.md) 和 [CI/CD 指南](docs/technical/03-cicd-guide.md)。
+
+### Docker Compose
 
 ```bash
-# 运行完整的 Docker 集成测试
-./scripts/test-docker-integration.sh
+cd deployment/docker
+
+# 部署脚本
+./deploy_docker.sh up              # 启动
+./deploy_docker.sh down            # 停止
+./deploy_docker.sh logs [service]  # 日志
+./deploy_docker.sh migrate         # 迁移
+./deploy_docker.sh collectstatic   # 收集静态
 ```
 
-该脚本会自动执行以下测试：
-1. ✅ 验证环境配置
-2. ✅ 构建 Docker 镜像
-3. ✅ 启动所有服务
-4. ✅ 健康检查（后端、前端、数据库、Redis）
-5. ✅ 测试登录 API
-6. ✅ 测试受保护的 API 端点
-7. ✅ 测试前端代理
-8. ✅ 检查容器日志
+完整步骤见 [部署指南](docs/technical/02-deployment-guide.md)。
 
-### 辅助测试脚本
+### 离线 / 内网
 
-**配置验证:**
 ```bash
-# 验证环境变量配置是否完整
-./scripts/validate-config.sh
+# 1. 在外网机器打包镜像
+cd deployment/docker
+./build_and_export.sh
+
+# 2. 拷贝到内网机器
+
+# 3. 内网机器部署
+./deploy_offline.sh up
 ```
 
-**日志检查:**
+离线包目录命名遵循 `omnidesk-offline-<channel>-v<version>/`,含 `BUILD-MANIFEST.json`(channel 字段)。
+
+### 升级与回滚
+
 ```bash
-# 检查所有容器的日志
-./scripts/check-container-logs.sh
+# 升级(带 10 步安全门禁:检查 → 加载镜像 → 预检迁移 → 确认 → 备份 → 更新 → 迁移 → 健康检查)
+./upgrade.sh v0.7.0
 
-# 检查特定服务的日志
-./scripts/check-container-logs.sh backend
+# 回滚(同时回滚镜像 + 可选 DB restore)
+./rollback.sh v0.6.3 [--restore-db backup.sql.gz]
 ```
 
-### CI/CD 测试
+完整流程、数据安全保证、备份策略见:
+- [部署指南 § 部署运维](docs/technical/02-deployment-guide.md)
+- [CI/CD 指南 § 离线升级与数据安全](docs/technical/03-cicd-guide.md)
+- [版本管理系统](docs/technical/19-version-management.md)
 
-所有测试已集成到 GitHub Actions CI 流程中：
+## 文档
 
-- **代码质量检查**: ruff (Python), ESLint (JavaScript)
-- **单元测试**: pytest (后端), Jest (前端)
-- **安全扫描**: bandit, pip-audit, npm audit
-- **类型检查**: mypy
-- **Docker 集成测试**: 完整的端到端测试
+| 类型 | 入口 | 目标读者 |
+|------|------|----------|
+| 技术手册 | [docs/technical/](docs/technical/README.md) | 开发者(架构、API、部署、模块设计) |
+| 用户手册 | [docs/user-manual/](docs/user-manual/README.md) | 最终用户(功能说明、操作步骤) |
+| 实施计划 | [docs/plans/](docs/plans/) | 进行中的功能设计稿(完成后并入手册或删除) |
+| 项目规范 | [CLAUDE.md](CLAUDE.md) | AI Agent 与协作开发者(架构、约定、工作流) |
+| Agent 详细指令 | [AGENTS.md](AGENTS.md) | AI Agent 工作细则 |
 
-CI 会在每次推送和 PR 时自动运行，确保代码质量。
+## 贡献与开发
 
-## 开发工作流
+### 工作流
 
-### 提交前检查清单
+1. 切 feature 分支(详见 [CLAUDE.md](CLAUDE.md))
+2. 提交前 checklist:
+   - [ ] `pytest`(后端单测与覆盖率)
+   - [ ] `npm run test:coverage`(前端)
+   - [ ] `ruff check`(后端 lint)
+   - [ ] `mypy`(类型检查)
+   - [ ] 更新相关 docs(/technical 或 /user-manual)
 
-在提交代码前，请确保：
+### 提交规范
 
-- [ ] 运行单元测试并通过
-- [ ] 运行 Docker 集成测试并通过
-- [ ] 检查代码风格（ruff/ESLint）
-- [ ] 更新相关文档
-- [ ] 无硬编码的配置（使用环境变量）
+Conventional Commits:`feat:` / `fix:` / `refactor:` / `perf:` / `docs:` / `test:` / `chore:` / `ci:` / `build:`
 
-### 常见问题排查
-
-**前端无法连接到后端 API:**
-- 检查 `vite.config.js` 中的代理配置
-- 确保 `VITE_API_PROXY_TARGET` 环境变量正确设置
-- Docker 环境中应设置为 `http://backend:8000`
-
-**数据库连接失败:**
-- 检查 `.env` 文件中的数据库配置
-- 确保数据库服务已启动：`docker compose ps`
-- 查看数据库日志：`docker compose logs db`
-
-**登录失败 (500 错误):**
-- 检查前端代理配置
-- 查看后端日志：`docker compose logs backend`
-- 验证数据库迁移是否完整：`docker compose exec backend python manage.py migrate`
-
-## 文档库（paperless-ngx 集成）
-
-OmniDesk 集成了 [paperless-ngx](https://docs.paperless-ngx.com/) 作为统一文档存储后端，提供「文档库」一级模块：
-
-- **业务附件统一落盘**：项目、合同、合规、人事等模块的附件上传自动同步到 paperless，支持 Outbox 写降级（paperless 宕机时数据不丢失）
-- **联邦搜索**：顶部搜索栏同时查询 OmniDesk 业务数据 + paperless 全文检索，结果带高亮摘要
-- **读穿透缓存**：paperless 不可用时可下载本地缓存版本（响应头带 `X-Degraded: true`）
-- **账号绑定**：OmniDesk 用户可绑定 paperless 账号，实现 owner 级权限隔离
-- **同步状态可视化**：文档卡片显示「待同步/同步中/已同步/失败/需重试」五种状态
-
-访问「文档库」页面（顶部菜单）即可查看、上传、管理文档，或绑定 paperless 账号。
-
-详细架构、API、部署说明见 [技术手册 — paperless-ngx 集成](docs/technical/31-paperless-integration.md)；使用指南见 [用户手册 — 文档库](docs/user-manual/13-document-library.md)。
-
-## 贡献指南
-
-1. Fork 项目
-2. 创建特性分支 (`git checkout -b feature/amazing-feature`)
-3. 运行测试并确保通过
-4. 提交更改 (`git commit -m 'Add amazing feature'`)
-5. 推送到分支 (`git push origin feature/amazing-feature`)
-6. 创建 Pull Request
-
-## 许可证
-
-本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
+主分支(`main`)受保护,所有改动通过 PR 合并。
 
 ## 联系方式
 
-项目维护者：[您的联系方式]
+项目维护者: 见仓库的 CODEOWNERS / 团队通讯录
+- 问题反馈: 提交 Issue
+- 安全问题: 走内部渠道(参见 [安全检查清单](docs/technical/24-security-checklist.md))
 
 ---
 
-**提示**: 遇到问题请先查看 [常见问题排查](#常见问题排查) 部分，或提交 Issue。
+> 📅 最近更新: 2026-07-29 — 同步 0.7.0-alpha.2 渠道功能(RAGFlow、文档库、智能助手多 Agent、文件分析、发布渠道、升级/回滚)。
