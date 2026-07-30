@@ -28,7 +28,7 @@ def _make_dead_item(created_by):
         created_by=created_by,
         last_error="boom",
         retry_count=10,
-        payload={"file_path": "/tmp/x.pdf", "filename": "x.pdf"},
+        payload={"file_path": "/tmp/x.pdf", "filename": "x.pdf"},  # nosec B108 -- 测试 payload 字符串,非真实临时文件操作
     )
 
 

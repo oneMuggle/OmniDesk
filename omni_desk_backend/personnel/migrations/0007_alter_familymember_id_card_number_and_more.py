@@ -47,7 +47,7 @@ def xor_to_fernet(apps, schema_editor):
     with connection.cursor() as cursor:
         for table in _TABLES:
             cursor.execute(
-                f"SELECT id, id_card_number FROM {table} "
+                f"SELECT id, id_card_number FROM {table} "  # nosec B608 -- table 来自硬编码 _TABLES,非用户输入
                 "WHERE id_card_number IS NOT NULL AND id_card_number != ''"
             )
             rows = cursor.fetchall()
@@ -58,7 +58,8 @@ def xor_to_fernet(apps, schema_editor):
                     continue  # 非旧格式(可能已迁移或损坏),跳过
                 token = fernet.encrypt(plaintext.encode()).decode()
                 cursor.execute(
-                    f"UPDATE {table} SET id_card_number = %s WHERE id = %s", [token, pk]
+                    f"UPDATE {table} SET id_card_number = %s WHERE id = %s",  # nosec B608 -- table 硬编码,值已参数化
+                    [token, pk],
                 )
 
 
@@ -68,7 +69,7 @@ def fernet_to_xor(apps, schema_editor):
     with connection.cursor() as cursor:
         for table in _TABLES:
             cursor.execute(
-                f"SELECT id, id_card_number FROM {table} "
+                f"SELECT id, id_card_number FROM {table} "  # nosec B608 -- table 来自硬编码 _TABLES,非用户输入
                 "WHERE id_card_number IS NOT NULL AND id_card_number != ''"
             )
             rows = cursor.fetchall()
@@ -79,7 +80,8 @@ def fernet_to_xor(apps, schema_editor):
                     continue  # 非 Fernet 格式,跳过
                 legacy = _legacy_xor_encrypt(plaintext, settings.SECRET_KEY)
                 cursor.execute(
-                    f"UPDATE {table} SET id_card_number = %s WHERE id = %s", [legacy, pk]
+                    f"UPDATE {table} SET id_card_number = %s WHERE id = %s",  # nosec B608 -- table 硬编码,值已参数化
+                    [legacy, pk],
                 )
 
 

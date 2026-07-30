@@ -99,9 +99,7 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                     duty_date = None
 
                 if duty_date:
-                    existing_schedule = (
-                        Schedule.objects.select_for_update().filter(duty_date=duty_date).first()
-                    )
+                    existing_schedule = Schedule.objects.select_for_update().filter(duty_date=duty_date).first()
                     if existing_schedule:
                         if override:
                             existing_schedule.delete()

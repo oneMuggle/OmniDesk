@@ -22,7 +22,7 @@ ID_CARD = "110101199003078888"
 
 def _raw_id_card(table, pk):
     with connection.cursor() as cursor:
-        cursor.execute(f"SELECT id_card_number FROM {table} WHERE id = %s", [pk])
+        cursor.execute(f"SELECT id_card_number FROM {table} WHERE id = %s", [pk])  # nosec B608 -- table 为硬编码表名,pk 已参数化
         row = cursor.fetchone()
     return row[0] if row else None
 

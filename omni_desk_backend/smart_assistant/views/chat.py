@@ -87,9 +87,7 @@ class SmartChatViewSet(viewsets.ViewSet):
         except Exception as exc:
             # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
             # 不再把 500 裸抛给客户端而不留痕迹
-            logger.warning(
-                "智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc
-            )
+            logger.warning("智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc)
             if session is not None:
                 session.last_error = str(exc)
                 session.save(update_fields=["last_error"])

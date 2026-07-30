@@ -144,11 +144,7 @@ def check_paperless_health():
 
 def _iter_admin_users():
     """全体管理员(superuser 或 Admin 组),去重。"""
-    return (
-        CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name="Admin"))
-        .distinct()
-        .order_by("id")
-    )
+    return CustomUser.objects.filter(Q(is_superuser=True) | Q(groups__name="Admin")).distinct().order_by("id")
 
 
 def _notify_admin_down(health):

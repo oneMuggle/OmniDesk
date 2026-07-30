@@ -143,9 +143,7 @@ class LLMRouter:
                 if i == len(candidates) - 1:
                     # P0-W:最后一个端点仍失败 → 抛出原始异常保留类型与完整堆栈,
                     # 不再吞掉后替换成通用 Exception 文案
-                    logger.warning(
-                        "最后 LLM 端点 %s 失败 (%s)，抛出原始异常: %s", label, type(e).__name__, e
-                    )
+                    logger.warning("最后 LLM 端点 %s 失败 (%s)，抛出原始异常: %s", label, type(e).__name__, e)
                     raise
                 logger.warning("LLM 端点 %s 失败 (%s)，尝试下一个: %s", label, type(e).__name__, e)
                 continue

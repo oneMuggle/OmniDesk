@@ -31,10 +31,7 @@ def send_notification(sensor, user):
         user=user,
         type="calibration_reminder",
         title=f"校准提醒:传感器 {identifier} 即将到期",
-        content=(
-            f"传感器 {identifier}(类别:{category_name})的校准日期为 "
-            f"{sensor.next_calibration_date},请及时处理。"
-        ),
+        content=(f"传感器 {identifier}(类别:{category_name})的校准日期为 {sensor.next_calibration_date},请及时处理。"),
         dedupe_key=f"calibration:{sensor.id}:{today.isoformat()}",
     )
 
