@@ -32,4 +32,6 @@ class TestHealthCheck:
             assert response.status_code == status.HTTP_503_SERVICE_UNAVAILABLE
             assert response.data['status'] == 'error'
             assert response.data['database'] == 'error'
-            assert 'database_error' in response.data
+            # 错误详情不得泄露给未认证调用方，仅返回固定文案
+            assert response.data['database_error'] == 'database error'
+            assert 'Connection refused' not in str(response.data)

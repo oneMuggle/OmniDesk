@@ -77,6 +77,10 @@ class PluginExecutionService:
         from external_integration.plugin_loader import extract_plugin_zip
         from external_integration.plugin_sandbox import execute_plugin_safely
 
+        # SECURITY: 仅允许执行已审核批准的插件，防止未审核代码被运行
+        if plugin.status != "approved":
+            return {"success": False, "error": "插件未通过审核，禁止执行", "status_code": 403}
+
         active_version = plugin.versions.filter(is_active=True).first()
         if not active_version:
             return {"success": False, "error": "没有已激活的插件版本", "status_code": 400}
