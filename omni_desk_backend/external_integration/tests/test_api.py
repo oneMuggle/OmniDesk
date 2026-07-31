@@ -250,7 +250,7 @@ class TestIsForbiddenHost:
             '172.31.255.255',
             '192.168.1.1',
             '169.254.169.254',
-            '0.0.0.0',
+            '0.0.0.0',  # nosec B104 -- 测试 is_forbidden_host 拒绝该 IP,并非真实 socket bind
             'localhost',
             'LOCALHOST',
             '::1',
