@@ -16,7 +16,7 @@
 
 set -u
 
-DEPLOY_SH="${1:-deployment/docker/package_offline_bundle.sh}"
+DEPLOY_SH="${1:-package_offline_bundle.sh}"
 if [ ! -f "$DEPLOY_SH" ]; then
     echo "FAIL: deploy.sh not found: $DEPLOY_SH"
     echo "用法: $0 [path/to/deploy.sh]"
