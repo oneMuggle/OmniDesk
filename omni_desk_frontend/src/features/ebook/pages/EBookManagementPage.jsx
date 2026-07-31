@@ -19,7 +19,7 @@ const EBookManagementPage = () => {
     const fetchBooks = async () => {
       setIsLoading(true);
       try {
-        const response = await axiosInstance.get('/api/ebooks');
+        const response = await axiosInstance.get('ebooks');
         const booksList = response.data.results || response.data;
         setBooks(booksList);
         setFilteredBooks(booksList);
@@ -47,7 +47,7 @@ const EBookManagementPage = () => {
     formData.append('file', file);
 
     try {
-      const response = await axiosInstance.post('/api/ebooks/upload', formData, {
+      const response = await axiosInstance.post('ebooks/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
@@ -80,7 +80,7 @@ const EBookManagementPage = () => {
 
   const handleDelete = async (bookId) => {
     try {
-      await axiosInstance.delete(`/api/ebooks/${bookId}`);
+      await axiosInstance.delete(`ebooks/${bookId}`);
       const updatedBooks = books.filter(book => book.id !== bookId);
       setBooks(updatedBooks);
       setFilteredBooks(updatedBooks);

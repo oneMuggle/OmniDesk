@@ -101,8 +101,8 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
       };
 
       const request = sequence
-        ? apiClient.put(`/api/events/personnel-sequences/${sequence.id}/`, payload)
-        : apiClient.post('/api/events/personnel-sequences/', payload);
+        ? apiClient.put(`events/personnel-sequences/${sequence.id}/`, payload)
+        : apiClient.post('events/personnel-sequences/', payload);
 
       request
         .then(() => {

@@ -17,7 +17,7 @@ const BookPage = () => {
         const fetchBook = async () => {
             if (!bookId) return;
             try {
-                const response = await api.get(`/api/documents/books/${bookId}/`);
+                const response = await api.get(`documents/books/${bookId}/`);
                 setBook(response.data);
                 if (response.data.chapters && response.data.chapters.length > 0) {
                     // Select the first chapter by default
@@ -39,7 +39,7 @@ const BookPage = () => {
 
     const handleExportMarkdown = async () => {
         try {
-            const response = await api.get(`/api/documents/books/${bookId}/export_markdown/`, {
+            const response = await api.get(`documents/books/${bookId}/export_markdown/`, {
                 responseType: 'blob', // Important: responseType must be 'blob' for file downloads
             });
 

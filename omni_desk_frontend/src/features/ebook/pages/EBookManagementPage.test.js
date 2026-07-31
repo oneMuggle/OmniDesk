@@ -160,5 +160,5 @@ test('deletes a book and removes it from the list', async () => {
     expect(screen.queryByText('React 入门指南')).not.toBeInTheDocument();
   });
 
-  expect(axiosInstance.delete).toHaveBeenCalledWith('/api/ebooks/1');
+  expect(axiosInstance.delete).toHaveBeenCalledWith('ebooks/1');
 });

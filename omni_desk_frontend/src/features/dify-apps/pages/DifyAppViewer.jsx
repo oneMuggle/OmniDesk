@@ -22,7 +22,7 @@ const DifyAppViewer = () => {
                         Authorization: `Bearer ${token}` // 添加Authorization头
                     }
                 } : {};
-                const response = await axiosInstance.get(`/api/dify-apps/${appId}/`, config);
+                const response = await axiosInstance.get(`dify-apps/${appId}/`, config);
                 setEmbedUrl(response.data.embed_url);
             } catch (err) {
                 setError('Failed to load Dify application.');

@@ -21,8 +21,10 @@ import json
 import re
 from typing import Any
 
+from django.core.exceptions import ValidationError
+
 from .roles import ROLE_PROFILES, AgentRole
-from .task_packet import TaskPacket, TaskPacketValidator
+from .task_packet import ExecutionMode, TaskPacket, TaskPacketValidator
 
 
 class Supervisor:
@@ -78,8 +80,19 @@ class Supervisor:
 
                 # 4. 构造 TaskPacket
                 task_packet = TaskPacket.from_dict(data)
+
+                # 4.5 P0-J:执行模式校验 —— fanout/hierarchical 尚未实现,
+                # 直接拒绝,避免把不可执行的 TaskPacket 交给 executor
+                if task_packet.execution_mode in (ExecutionMode.FANOUT, ExecutionMode.HIERARCHICAL):
+                    raise ValidationError(
+                        f"{task_packet.execution_mode.value} mode not yet implemented"
+                    )
+
                 return task_packet
 
+            except ValidationError:
+                # 模式不可用属于确定性拒绝,不进入 LLM 重试循环
+                raise
             except Exception as e:
                 last_error = str(e)
                 continue
