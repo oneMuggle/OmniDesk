@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 
 from django.http import StreamingHttpResponse
@@ -13,6 +14,9 @@ from ..agent.orchestrator import AgentOrchestrator
 from ..agent.conversation_context import count_turns
 from ..scope import resolve_scope
 from ..tools.tool_context import ToolContext
+
+
+logger = logging.getLogger(__name__)
 
 
 class SmartChatViewSet(viewsets.ViewSet):
