@@ -22,46 +22,6 @@ WARN_DETAILS=()
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
 
-# ─── Task 8: 环境变量设置与校验 ────────────────────────────────
-# 设置并校验 COMPOSE_PROJECT_NAME / OMNIDESK_BACKUP_ROOT / OMNIDESK_RUNTIME_ROOT
-# 这些变量用于确保 smoke 测试与升级/备份脚本使用一致的运行时路径
-
-# COMPOSE_PROJECT_NAME: 必须与 .env.production 或 bundle identity 一致
-# 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
-    if [ -f ".env.production" ]; then
-        COMPOSE_PROJECT_NAME=$(grep -E '^COMPOSE_PROJECT_NAME=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$COMPOSE_PROJECT_NAME" ] && COMPOSE_PROJECT_NAME="omnidesk"
-fi
-export COMPOSE_PROJECT_NAME
-
-# OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
-# 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_BACKUP_ROOT=$(grep -E '^OMNIDESK_BACKUP_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_BACKUP_ROOT" ] && OMNIDESK_BACKUP_ROOT="/opt/omnidesk/backups"
-fi
-export OMNIDESK_BACKUP_ROOT
-
-# OMNIDESK_RUNTIME_ROOT: 运行时持久化目录(升级状态/日志)
-# 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_RUNTIME_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_RUNTIME_ROOT=$(grep -E '^OMNIDESK_RUNTIME_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_RUNTIME_ROOT" ] && OMNIDESK_RUNTIME_ROOT="/opt/omnidesk/runtime"
-fi
-export OMNIDESK_RUNTIME_ROOT
-
-# 校验:确保变量非空
-if [ -z "$COMPOSE_PROJECT_NAME" ] || [ -z "$OMNIDESK_BACKUP_ROOT" ] || [ -z "$OMNIDESK_RUNTIME_ROOT" ]; then
-    echo "ERROR: 环境变量校验失败 — COMPOSE_PROJECT_NAME/OMNIDESK_BACKUP_ROOT/OMNIDESK_RUNTIME_ROOT 不能为空" >&2
-    exit 1
-fi
-
 # 退出兜底:阶段 8 marker 文件 / 测试表若中途崩溃,自动清理避免污染生产卷
 # 注意:trap 内不要再调用 exit 防止 trap 重入
 # B1: db exec 加 timeout 30 防止 db restarting 状态挂死
@@ -310,11 +270,11 @@ except Exception:
                         echo "  NOTE: $service running (health: $HEALTH)"
                     fi
                 else
-                    echo "  WARN: $service unhealthy (state=$state health=$health)"
+                    echo "  WARN: $service unhealthy (state=$STATE health=$HEALTH)"
                 fi
             fi
         else
-            echo "  FAIL: $service not running (state=$state)"
+            echo "  FAIL: $service not running (state=$STATE)"
             ALL_RUNNING=false
         fi
     else
