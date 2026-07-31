@@ -26,7 +26,7 @@ const ManageAnnouncementsPage = () => {
   const handleDelete = async (id) => {
     if (window.confirm('你确定要删除这条公告吗？')) {
       try {
-        await apiClient.delete(`/api/events/announcements/${id}/`);
+        await apiClient.delete(`events/announcements/${id}/`);
         // 重新获取公告列表
         fetchAnnouncements();
       } catch (e) {
@@ -41,7 +41,7 @@ const ManageAnnouncementsPage = () => {
   return (
     <div className="manage-announcements-container">
       <h1>公告管理</h1>
-      <Link to="/control-panel/announcements/new" className="btn btn-primary">
+      <Link to="/control-panel/announcements/create" className="btn btn-primary">
         发布新公告
       </Link>
       <table className="announcements-table">
@@ -60,7 +60,7 @@ const ManageAnnouncementsPage = () => {
               <td>{announcement.author ? (announcement.author.real_name || announcement.author.username) : '匿名'}</td>
               <td>{new Date(announcement.created_at).toLocaleDateString()}</td>
               <td>
-                <Link to={`/control-panel/announcements/edit/${announcement.id}`} className="btn btn-secondary">
+                <Link to={`/control-panel/announcements/${announcement.id}/edit`} className="btn btn-secondary">
                   编辑
                 </Link>
                 <button onClick={() => handleDelete(announcement.id)} className="btn btn-danger">

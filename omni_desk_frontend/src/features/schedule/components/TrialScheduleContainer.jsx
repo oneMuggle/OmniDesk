@@ -22,7 +22,7 @@ const TrialScheduleContainer = () => {
 
   useEffect(() => {
     if (!isTrialsLoading) {
-      trialQueryClient.invalidateQueries(['trials']);
+      trialQueryClient.invalidateQueries({ queryKey: ['trials'] });
     }
   }, [isTrialsLoading, trialQueryClient]);
 
@@ -46,7 +46,7 @@ const TrialScheduleContainer = () => {
       };
       await trialApi.updateTrial(targetTrialId, updatePayload);
 
-      trialQueryClient.invalidateQueries(['trials']); // 刷新数据
+      trialQueryClient.invalidateQueries({ queryKey: ['trials'] }); // 刷新数据
       setCurrentEvent(null); // 关闭模态框
     } catch (error) {
       logger.error('保存试验失败:', error);
@@ -125,10 +125,10 @@ const TrialScheduleContainer = () => {
           onSave={handleSaveTrial} // 将试验保存逻辑传递给 CalendarEventModal
           onCancel={() => setCurrentEvent(null)}
           onDelete={() => {
-            trialQueryClient.invalidateQueries(['trials']);
+            trialQueryClient.invalidateQueries({ queryKey: ['trials'] });
           }}
           onSwap={() => {
-            trialQueryClient.invalidateQueries(['trials']);
+            trialQueryClient.invalidateQueries({ queryKey: ['trials'] });
           }}
         />
       )}

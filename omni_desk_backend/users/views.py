@@ -228,9 +228,8 @@ class UserAdminDetailView(generics.RetrieveUpdateAPIView):
                 personnel = Personnel.objects.get(id=personnel_id)
                 instance.personnel = personnel
                 instance.real_name = personnel.name
-                # Assuming personnel model has a phone_numbers field
-                if hasattr(personnel, "phone_numbers") and personnel.phone_numbers.exists():
-                    instance.phone_number = personnel.phone_numbers.first().number
+                # 死引用已移除(P0-E):CustomUser 无 phone_number 字段,
+                # 旧代码写入的属性不会持久化,且 Personnel 无 phone_numbers 反向关系
                 instance.save()
             except Personnel.DoesNotExist:
                 return Response({"detail": "Personnel not found."}, status=status.HTTP_404_NOT_FOUND)

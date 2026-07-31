@@ -22,7 +22,7 @@ const AnnotationHandler = ({ chapterId, children }) => {
         if (!selection) return;
 
         try {
-            await api.post(`/api/documents/chapters/${chapterId}/add_annotation/`, {
+            await api.post(`documents/chapters/${chapterId}/add_annotation/`, {
                 selected_text: selection.toString(),
                 note: note,
             });

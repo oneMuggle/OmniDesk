@@ -18,7 +18,7 @@ export const useScheduleEventDrop = (updateEventApi, queryClient, onDropSuccess,
       await updateEventApi(eventId, newStart, oldStart);
 
       loading.destroy();
-      await queryClient.invalidateQueries();
+      await queryClient.invalidateQueries({ queryKey: ['schedules'], exact: true });
 
       Modal.success({
         title: '更新成功',

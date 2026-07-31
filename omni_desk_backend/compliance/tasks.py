@@ -4,6 +4,8 @@ from datetime import timedelta
 from celery import shared_task
 from django.utils import timezone
 
+from notifications.models import Notification
+
 from .models import ComplianceIssue
 
 logger = logging.getLogger(__name__)
@@ -47,12 +49,32 @@ def check_compliance_due_dates():
     # 批量更新，减少数据库查询
     if expired_issues:
         ComplianceIssue.objects.bulk_update(expired_issues, ["status", "severity"])
+        _notify_escalated_issues(expired_issues, today)
     if upcoming_issues:
         ComplianceIssue.objects.bulk_update(upcoming_issues, ["status"])
 
     updated_count = len(expired_issues) + len(upcoming_issues)
 
-    # 如果需要发送通知，可以在这里调用通知服务
-    # 例如：send_notification_to_user(issue.project.manager, f"合规问题提醒：{issue.description}")
-
     logger.info("check_compliance_due_dates task finished. Updated %d issues.", updated_count)
+
+
+def _notify_escalated_issues(issues, today):
+    """合规问题过期升级为紧急后,紧急通知项目负责人(P0-L)。
+
+    dedupe_key 按 问题 + 日期 粒度:同日任务多次执行不重复发通知。
+    """
+    from notifications.service import NotificationService
+
+    for issue in issues:
+        manager = getattr(issue.project, "manager", None)
+        if manager is None:
+            logger.debug("合规问题 %s 所属项目无负责人,跳过到期通知", issue.id)
+            continue
+        NotificationService.create(
+            user=manager,
+            type="compliance_due",
+            title=f"合规问题已逾期:{issue.project.name}",
+            content=f"{issue.description[:200]}(系统已自动升级为紧急,请尽快处理)",
+            dedupe_key=f"compliance_due:{issue.id}:{today.isoformat()}",
+            priority=Notification.PRIORITY_URGENT,
+        )

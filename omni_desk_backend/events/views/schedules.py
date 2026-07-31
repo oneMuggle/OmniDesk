@@ -9,7 +9,7 @@ import calendar
 import logging
 from datetime import datetime, timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.db.models import Q
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
@@ -83,41 +83,53 @@ class ScheduleViewSet(viewsets.ModelViewSet):
         return Response({"status": "success"}, status=201)
 
     def create(self, request, *args, **kwargs):
-        """创建排班。支持 override=True 覆盖已有排班。"""
+        """创建排班。支持 override=True 覆盖已有排班。
+
+        P0-G:存在性检查 + 插入在同一事务内以 select_for_update 行锁串行化,
+        并发同日期创建由唯一约束兜底,冲突方返回 409。
+        """
         override = str(request.data.get("override", "false")).lower() == "true"
         duty_date_str = request.data.get("duty_date")
 
-        with transaction.atomic():
-            try:
-                duty_date = datetime.strptime(duty_date_str, "%Y-%m-%d").date()
-            except (ValueError, TypeError):
-                duty_date = None
+        try:
+            with transaction.atomic():
+                try:
+                    duty_date = datetime.strptime(duty_date_str, "%Y-%m-%d").date()
+                except (ValueError, TypeError):
+                    duty_date = None
 
-            if duty_date:
-                existing_schedule = Schedule.objects.filter(duty_date=duty_date).first()
-                if existing_schedule:
-                    if override:
-                        existing_schedule.delete()
-                    else:
-                        from rest_framework.exceptions import ValidationError
+                if duty_date:
+                    existing_schedule = (
+                        Schedule.objects.select_for_update().filter(duty_date=duty_date).first()
+                    )
+                    if existing_schedule:
+                        if override:
+                            existing_schedule.delete()
+                        else:
+                            from rest_framework.exceptions import ValidationError
 
-                        raise ValidationError({"duty_date": "该日期已有排班。如需覆盖，请设置 override=True。"})
+                            raise ValidationError({"duty_date": "该日期已有排班。如需覆盖，请设置 override=True。"})
 
-            serializer = self.get_serializer(data=request.data)
-            serializer.is_valid(raise_exception=True)
-            save_kwargs = {}
-            duty_person_val = request.data.get("duty_person_id") or request.data.get("duty_person")
-            if duty_person_val:
-                save_kwargs["duty_person_id"] = duty_person_val
+                serializer = self.get_serializer(data=request.data)
+                serializer.is_valid(raise_exception=True)
+                save_kwargs = {}
+                duty_person_val = request.data.get("duty_person_id") or request.data.get("duty_person")
+                if duty_person_val:
+                    save_kwargs["duty_person_id"] = duty_person_val
 
-            duty_leader_val = request.data.get("duty_leader_id") or request.data.get("duty_leader")
-            if duty_leader_val:
-                save_kwargs["duty_leader_id"] = duty_leader_val
+                duty_leader_val = request.data.get("duty_leader_id") or request.data.get("duty_leader")
+                if duty_leader_val:
+                    save_kwargs["duty_leader_id"] = duty_leader_val
 
-            serializer.save(**save_kwargs)
+                serializer.save(**save_kwargs)
 
-            headers = self.get_success_headers(serializer.data)
-            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+                headers = self.get_success_headers(serializer.data)
+                return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+        except IntegrityError:
+            return Response(
+                {"error": "排班冲突:该日期排班已被并发请求写入,请刷新后重试"},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     def perform_update(self, serializer):
         """更新排班时检查日期冲突，并确保外键字段正确更新。"""
@@ -147,8 +159,9 @@ class ScheduleViewSet(viewsets.ModelViewSet):
 
         try:
             with transaction.atomic():
-                schedule1 = Schedule.objects.get(pk=schedule_id_1)
-                schedule2 = Schedule.objects.get(pk=schedule_id_2)
+                # P0-G:select_for_update 锁定两行,并发 swap 串行化,避免丢失更新
+                schedule1 = Schedule.objects.select_for_update().get(pk=schedule_id_1)
+                schedule2 = Schedule.objects.select_for_update().get(pk=schedule_id_2)
 
                 temp_person = schedule1.duty_person
                 temp_leader = schedule1.duty_leader
@@ -171,6 +184,11 @@ class ScheduleViewSet(viewsets.ModelViewSet):
                 )
         except Schedule.DoesNotExist:
             return Response({"error": "One or both schedules not found"}, status=404)
+        except IntegrityError:
+            return Response(
+                {"error": "排班冲突:并发交换触发约束冲突,请刷新后重试"},
+                status=status.HTTP_409_CONFLICT,
+            )
 
     @action(detail=False, methods=["post"], url_path="swap-weekly-leaders")
     def swap_weekly_leaders(self, request):

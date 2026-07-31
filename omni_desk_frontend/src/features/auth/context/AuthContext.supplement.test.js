@@ -9,7 +9,7 @@ import { AuthProvider, AuthContext } from './AuthContext';
 
 // --- Mocks ---
 
-jest.mock('../../../shared/api/axiosConfig.js', () => ({
+jest.mock('../../../shared/api/axiosConfig', () => ({
   post: jest.fn(),
   get: jest.fn(),
   defaults: { baseURL: '/api/' },

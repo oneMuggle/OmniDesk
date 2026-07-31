@@ -7,7 +7,20 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from llm_service.ollama_client import OllamaClient
+# 统一走 LLMRouter：享受 DB 端点配置与优先级降级，不再直连 OllamaClient
+from llm_service.router import get_router
+
+# 本应用在 LlmAppConfig 中的标识；无专属配置时 router 自动落到 Ollama 全局兜底
+APP_NAME = "office_assistant"
+
+# 文本处理白名单(P0-I):能力收敛为 3 个,杜绝未审计 action 直通 LLM
+ALLOWED_ACTIONS = ("proofread", "translate", "polish")
+
+SYSTEM_PROMPTS = {
+    "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
+    "translate": "You are a translator. Translate the following text to Chinese.",
+    "polish": "You are a writing assistant. Improve the style and clarity of the following text.",
+}
 
 
 class OfficeAssistantProcessView(APIView):
@@ -21,24 +34,19 @@ class OfficeAssistantProcessView(APIView):
         if not action or not text:
             return Response({"error": "Action and text are required."}, status=status.HTTP_400_BAD_REQUEST)
 
-        system_prompts = {
-            "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
-            "translate": "You are a translator. Translate the following text to Chinese.",
-            "polish": "You are a writing assistant. Improve the style and clarity of the following text.",
-        }
-
-        if action not in system_prompts:
-            return Response({"error": "Invalid action."}, status=status.HTTP_400_BAD_REQUEST)
+        if action not in ALLOWED_ACTIONS:
+            return Response({"detail": f"unsupported action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
 
         try:
-            client = OllamaClient()
-            system_message = system_prompts[action]
+            router = get_router(app_name=APP_NAME)
+            system_message = SYSTEM_PROMPTS[action]
 
             if stream:
-                response_stream = client.generate(prompt=text, system_message=system_message, stream=True)
+                response_stream = router.generate(prompt=text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type="text/event-stream")
             else:
-                processed_text = client.generate(prompt=text, system_message=system_message, stream=False)
+                # router 非流式返回 (content, usage) 元组，office_assistant 无需成本字段
+                processed_text, _usage = router.generate(prompt=text, system_message=system_message, stream=False)
                 return Response({"processed_text": processed_text}, status=status.HTTP_200_OK)
 
         except Exception as e:
@@ -84,7 +92,7 @@ class ProcessDocumentView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            client = OllamaClient()
+            router = get_router(app_name=APP_NAME)
 
             system_prompts = {
                 "proofread": "You are a proofreader. Find and correct any spelling or grammar mistakes in the following text.",
@@ -100,10 +108,13 @@ class ProcessDocumentView(APIView):
             system_message = system_prompts[action]
 
             if stream:
-                response_stream = client.generate(prompt=original_text, system_message=system_message, stream=True)
+                response_stream = router.generate(prompt=original_text, system_message=system_message, stream=True)
                 return StreamingHttpResponse(response_stream, content_type="text/event-stream")
             else:
-                processed_text = client.generate(prompt=original_text, system_message=system_message, stream=False)
+                # router 非流式返回 (content, usage) 元组，此处只取正文
+                processed_text, _usage = router.generate(
+                    prompt=original_text, system_message=system_message, stream=False
+                )
                 response_data = {
                     "status": "success",
                     "data": {
