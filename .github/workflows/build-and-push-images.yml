@@ -51,7 +51,7 @@ jobs:
 
       - name: Extract metadata for backend image
         id: meta-backend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/onemuggle/omni-desk-backend
           tags: |
@@ -74,7 +74,7 @@ jobs:
 
       - name: Extract metadata for frontend image
         id: meta-frontend
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/onemuggle/omni-desk-frontend
           tags: |
