@@ -9,7 +9,9 @@ amqp==5.3.1
 annotated-types==0.7.0
     # via pydantic
 anyio==4.14.1
-    # via httpx
+    # via
+    #   -r omni_desk_backend/requirements.in
+    #   httpx
 asgiref==3.11.1
     # via
     #   django
@@ -71,12 +73,10 @@ django==4.2.30
     # via
     #   -r omni_desk_backend/requirements.in
     #   django-celery-beat
-    #   django-ckeditor
     #   django-cors-headers
     #   django-crum
     #   django-extensions
     #   django-filter
-    #   django-js-asset
     #   django-redis
     #   django-silk
     #   django-timezone-field
@@ -86,8 +86,6 @@ django==4.2.30
     #   model-bakery
 django-celery-beat==2.9.0
     # via -r omni_desk_backend/requirements.in
-django-ckeditor==6.7.3
-    # via -r omni_desk_backend/requirements.in
 django-cors-headers==4.9.0
     # via -r omni_desk_backend/requirements.in
 django-crum==0.7.9
@@ -96,8 +94,6 @@ django-extensions==4.1
     # via -r omni_desk_backend/requirements.in
 django-filter==25.1
     # via -r omni_desk_backend/requirements.in
-django-js-asset==3.1.2
-    # via django-ckeditor
 django-ratelimit==4.1.0
     # via -r omni_desk_backend/requirements.in
 django-redis==6.0.0
