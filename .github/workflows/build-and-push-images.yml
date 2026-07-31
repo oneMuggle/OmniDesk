@@ -61,7 +61,7 @@ jobs:
             type=raw,value=latest,enable=${{ steps.channel.outputs.CHANNEL == 'stable' }}
 
       - name: Build and push backend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deployment/docker/omni_desk_backend/Dockerfile
@@ -84,7 +84,7 @@ jobs:
             type=raw,value=latest,enable=${{ steps.channel.outputs.CHANNEL == 'stable' }}
 
       - name: Build and push frontend image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./omni_desk_frontend
           file: ./omni_desk_frontend/Dockerfile
