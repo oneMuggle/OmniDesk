@@ -58,6 +58,23 @@ class IntegrationService(models.Model):
     def __str__(self):
         return f"{self.name} ({self.get_integration_type_display()})"
 
+    def save(self, *args, **kwargs):
+        """SECURITY: 模型层 SSRF 校验,确保 Django Admin / 直接 ORM 写入也受保护。
+
+        DRF ``IntegrationServiceSerializer.validate_endpoint_url`` 仅在 API 写入路径生效;
+        Django Admin 通过 ModelAdmin 直接调用 ``save()``,会绕过 serializer 字段校验,
+        攻击者可借此注入 ``http://127.0.0.1:8000/admin/`` 一类的 SSRF 入口。
+        在模型层复用同一校验函数保证所有写入路径都通过 SSRF 白名单检查。
+
+        注: ``bulk_create`` 走的是 ``_base_manager.bulk_create``,不会逐个调用 ``save()``,
+        因此批量导入场景需调用方自行保证 URL 合法。
+        """
+        # 延迟导入避免 serializers <-> models 循环依赖
+        from external_integration.serializers import validate_endpoint_url
+
+        validate_endpoint_url(self.endpoint_url)
+        super().save(*args, **kwargs)
+
 
 class Plugin(models.Model):
     """第三层集成：热插拔插件"""

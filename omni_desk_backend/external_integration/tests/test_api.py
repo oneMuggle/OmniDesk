@@ -39,11 +39,12 @@ def admin_client(api_client, admin_user):
 
 @pytest.fixture
 def integration_service(db):
+    # 使用公开 IP/域名,避免触发 ``IntegrationService.save()`` 中新增的 SSRF 校验
     return IntegrationService.objects.create(
         name='Test Dify',
         slug='test-dify',
         integration_type='api',
-        endpoint_url='http://dify.internal/api/v1',
+        endpoint_url='http://example.com/api/v1',
     )
 
 
@@ -130,6 +131,8 @@ class TestIntegrationServiceSecurity:
             'http://localhost:8000/api',
             'http://[::1]:8000/api',
             'http://[fc00::1]/api',
+            'http://100.64.0.1/api',  # CGNAT 段 (100.64.0.0/10)
+            'http://100.127.255.254/api',
         ],
     )
     def test_create_with_internal_url_rejected(self, admin_client, endpoint_url):
@@ -147,6 +150,47 @@ class TestIntegrationServiceSecurity:
             '/api/external/integrations/', self._payload('http://93.184.216.34/api'), format='json'
         )
         assert resp.status_code == 201
+
+    def test_save_rejects_ssrf_via_orm_bypass(self, db):
+        """SECURITY: 直接走 ORM ``save()``(模拟 Django Admin 路径)也必须被 SSRF 校验拦截。
+
+        Django Admin 通过 ``ModelAdmin.save_model`` 直接调用 ``instance.save()``,
+        不会经过 DRF serializer 的字段校验;若模型层无独立校验,Admin 路径可注入
+        任意 endpoint_url 绕过 API 端的 SSRF 防护。
+        """
+        from django.core.exceptions import ValidationError
+
+        bad = IntegrationService(
+            name='Admin Bypass Attempt',
+            slug='admin-bypass-attempt',
+            integration_type='api',
+            endpoint_url='http://127.0.0.1:8000/admin/',
+        )
+        with pytest.raises(ValidationError):
+            bad.save()
+
+        # 正常 URL 仍可保存
+        ok = IntegrationService(
+            name='Admin Save OK',
+            slug='admin-save-ok',
+            integration_type='api',
+            endpoint_url='http://example.com/api',
+        )
+        ok.save()
+        assert ok.pk is not None
+
+    def test_save_rejects_cgnat_via_orm(self, db):
+        """SECURITY: ``IntegrationService.save()`` 也需拦截 CGNAT 段(100.64.0.0/10)。"""
+        from django.core.exceptions import ValidationError
+
+        cgnat = IntegrationService(
+            name='CGNAT Attempt',
+            slug='cgnat-attempt',
+            integration_type='api',
+            endpoint_url='http://100.64.0.1/api',
+        )
+        with pytest.raises(ValidationError):
+            cgnat.save()
 
 
 @pytest.mark.django_db
@@ -242,3 +286,82 @@ class TestIsForbiddenHost:
 
         monkeypatch.setattr(socket, 'getaddrinfo', _raise)
         assert is_forbidden_host('nonexistent.invalid') is True
+
+    @pytest.mark.parametrize(
+        'host',
+        [
+            '100.64.0.1',
+            '100.64.5.5',
+            '100.100.100.100',
+            '100.127.255.254',
+        ],
+    )
+    def test_cgnat_blocked(self, host):
+        """CGNAT 段(100.64.0.0/10)需被拒绝——Python ``IPv4Address.is_private`` 不覆盖该段。"""
+        assert is_forbidden_host(host) is True
+
+
+@pytest.mark.django_db
+class TestProxyServiceReValidation:
+    """``ProxyService.forward_post`` 请求前再次校验 endpoint_url,防御 DNS rebinding。"""
+
+    def test_forward_post_rejects_dns_rebinding_to_internal(self, monkeypatch):
+        """集成场景: 同一域名创建时解析为合法公网 IP,请求时解析为 127.0.0.1 → 拒绝。"""
+        from external_integration.services.plugin_service import ProxyService
+
+        # mock socket.getaddrinfo 让 forward_post 内部 is_forbidden_host 解析到内网 IP
+        monkeypatch.setattr(
+            socket,
+            'getaddrinfo',
+            lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('127.0.0.1', 0))],
+        )
+
+        result = ProxyService.forward_post(
+            endpoint_url='http://attacker.example.com/api',
+            payload={'x': 1},
+        )
+        assert result['status_code'] == 400
+        assert '禁止' in result['error']
+
+    def test_forward_post_rejects_cgnat_rebinding(self, monkeypatch):
+        """CGNAT rebinding 也应被前向转发层拒绝。"""
+        from external_integration.services.plugin_service import ProxyService
+
+        monkeypatch.setattr(
+            socket,
+            'getaddrinfo',
+            lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('100.64.0.1', 0))],
+        )
+
+        result = ProxyService.forward_post(
+            endpoint_url='http://attacker.example.com/api',
+            payload={},
+        )
+        assert result['status_code'] == 400
+
+    def test_forward_post_allows_when_resolves_to_public(self, monkeypatch):
+        """正向路径: 解析到公网 IP 时仍可转发(避免引入回归)。"""
+        from unittest.mock import patch
+
+        from external_integration.services.plugin_service import ProxyService
+
+        monkeypatch.setattr(
+            socket,
+            'getaddrinfo',
+            lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, '', ('93.184.216.34', 0))],
+        )
+
+        class _FakeResp:
+            status_code = 200
+
+            def json(self):
+                return {'ok': True}
+
+        with patch.object(requests := __import__('requests'), 'post', return_value=_FakeResp()) as mock_post:
+            result = ProxyService.forward_post(
+                endpoint_url='http://public.example.com/api',
+                payload={'x': 1},
+            )
+        assert result['status_code'] == 200
+        assert result['data'] == {'ok': True}
+        mock_post.assert_called_once()
