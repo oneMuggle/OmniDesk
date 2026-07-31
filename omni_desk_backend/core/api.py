@@ -48,10 +48,13 @@ def version_info(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def changelog(request):
-    # 与 core/version.py 同样采用多路径 fallback,支持开发与生产两种 layout:
-    #   - 开发环境: core/api.py 在 PROJECT_ROOT/omni_desk_backend/core/,3 次 .parent 解析到 repo root
-    #   - 生产容器: core/api.py 在 /usr/src/app/core/,2 次 .parent 解析到 /usr/src/app (PROJECT_ROOT)
+    # 与 core/version.py 同样采用多路径 fallback,按优先级排序:
+    #   1. 生产容器标准位置 /etc/omnidesk/CHANGELOG.md(由 Dockerfile COPY,不受 compose bind mount 影响)
+    #   2. 开发环境相对路径(项目根在 parent.parent.parent)
+    #   3. 生产容器备用相对路径(项目根在 parent.parent,所有代码位于 /usr/src/app/)
+    #      注:若 compose 用 bind mount 覆盖 /usr/src/app,此路径会失效,优先使用 /etc/omnidesk/
     candidates = [
+        Path("/etc/omnidesk/CHANGELOG.md"),
         Path(__file__).resolve().parent.parent.parent / "deployment" / "docker" / "CHANGELOG.md",
         Path(__file__).resolve().parent.parent / "deployment" / "docker" / "CHANGELOG.md",
     ]
