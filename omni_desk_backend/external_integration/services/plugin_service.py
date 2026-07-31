@@ -1,4 +1,5 @@
 import logging
+from urllib.parse import urlparse
 
 import requests
 
@@ -22,6 +23,23 @@ class ProxyService:
     @staticmethod
     def forward_post(endpoint_url: str, payload: dict, api_key: str | None = None, timeout: int = 30) -> dict:
         """Forward a POST request to an external service and return the response."""
+        # SECURITY: 重新解析并校验 endpoint_url,防御 DNS rebinding / TOCTOU SSRF 绕过。
+        # ``IntegrationServiceSerializer.validate_endpoint_url`` 仅在创建/更新时校验,
+        # DNS 记录可能在创建之后被攻击者篡改(TTL 短于"创建到调用"间隔);
+        # 此处在请求前再次解析并校验,残留窗口被压缩到请求调度耗时(毫秒级)。
+        from external_integration.serializers import is_forbidden_host
+
+        parsed = urlparse(endpoint_url)
+        if is_forbidden_host(parsed.hostname):
+            logger.warning(
+                "ProxyService 拒绝转发: %s 当前解析到禁止地址(SSRF 防护)",
+                endpoint_url,
+            )
+            return {
+                "error": "endpoint_url 当前解析到禁止地址(回环/内网/元数据),请求被拒绝",
+                "status_code": 400,
+            }
+
         headers = {}
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
@@ -76,6 +94,10 @@ class PluginExecutionService:
         from external_integration.models import PluginCallLog
         from external_integration.plugin_loader import extract_plugin_zip
         from external_integration.plugin_sandbox import execute_plugin_safely
+
+        # SECURITY: 仅允许执行已审核批准的插件，防止未审核代码被运行
+        if plugin.status != "approved":
+            return {"success": False, "error": "插件未通过审核，禁止执行", "status_code": 403}
 
         active_version = plugin.versions.filter(is_active=True).first()
         if not active_version:

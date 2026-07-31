@@ -14,6 +14,7 @@ from urllib.parse import unquote
 import markdown
 from django.conf import settings
 from django.db import transaction
+from django.utils.text import get_valid_filename
 
 from taggit.models import Tag
 
@@ -84,7 +85,11 @@ def _extract_zip(uploaded_file):
     temp_dir_obj = tempfile.TemporaryDirectory()
     temp_dir = Path(temp_dir_obj.name)
 
-    zip_path = temp_dir / uploaded_file.name
+    # SECURITY: 净化上传文件名，防止 ../ 路径穿越写出临时目录
+    safe_zip_name = get_valid_filename(Path(uploaded_file.name).name)
+    if not safe_zip_name or safe_zip_name in {".", ".."}:
+        raise ValueError("非法文件名")
+    zip_path = temp_dir / safe_zip_name
     with open(zip_path, "wb+") as destination:
         for chunk in uploaded_file.chunks():
             destination.write(chunk)

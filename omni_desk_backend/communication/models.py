@@ -12,6 +12,11 @@ class Post(models.Model):
     expires_at = models.DateTimeField(null=True, blank=True)
     is_archived = models.BooleanField(default=False)
 
+    class Meta:
+        indexes = [
+            models.Index(fields=["is_archived", "-created_at"]),
+        ]
+
     def __str__(self):
         return self.title
 

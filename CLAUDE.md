@@ -53,7 +53,7 @@ Django settings are split across `omni_desk_backend/settings/`:
 - `production.py` - production settings
 - `test.py` - test (in-memory SQLite, MD5 password hasher, logging disabled)
 
-Django apps: `personnel`, `events`, `documents`, `config`, `memos`, `dify_apps`, `office_assistant`, `projects`, `compliance`, `ragflow_service`, `meeting_rooms`, `sensor_management`, `communication`, `news`, `permissions`, `sensors`, `users`, `llm_service`
+Django apps: `personnel`, `events`, `documents`, `config`, `memos`, `dify_apps`, `office_assistant`, `projects`, `compliance`, `ragflow_service`, `meeting_rooms`, `sensor_management`, `communication`, `news`, `permissions`, `users`, `llm_service`
 
 Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
@@ -68,8 +68,7 @@ Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 ### CI/CD
 
 - **main**: `build-and-push-images.yml` (Docker build + GHCR push, + Deploy Test via workflow_run)
-- **develop**: `ci.yml` (统一 CI: backend pytest + frontend jest + 静态检查 + mypy typecheck)
-- **test**: `ci-test.yml` (legacy, 已被 ci.yml 统一,仅保留作为历史引用)
+- **main / develop**: `ci.yml` (统一 CI: backend pytest + frontend jest + 静态检查 + mypy typecheck; push 与 PR 均触发)
 
 ## Key Conventions & Gotchas
 

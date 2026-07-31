@@ -123,11 +123,15 @@ class PersonnelSequenceSerializer(serializers.ModelSerializer):
         if not personnel_ids:
             return []
 
-        # Fetch all valid personnel objects in one query, optimizing for user_account access.
-        valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
+        # 列表场景由视图层批量预取 Personnel 并通过 context["personnel_map"] 注入,
+        # 避免逐行查询(N+1);未注入时(详情/创建/更新)回退到单对象查询,行为不变。
+        personnel_map = self.context.get("personnel_map")
+        if personnel_map is None:
+            # Fetch all valid personnel objects in one query, optimizing for user_account access.
+            valid_personnel = Personnel.objects.filter(id__in=personnel_ids)
 
-        # Create a dictionary for quick lookups
-        personnel_map = {p.id: p for p in valid_personnel}
+            # Create a dictionary for quick lookups
+            personnel_map = {p.id: p for p in valid_personnel}
 
         # Build the result list, preserving the original order and skipping invalid IDs
         result_list = []

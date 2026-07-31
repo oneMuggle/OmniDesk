@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
 import { Typography, Card, Row, Col, List, Empty, Statistic, Tag, Skeleton } from 'antd';
+import { useQuery } from '@tanstack/react-query';
 import {
   ExperimentOutlined,
   CalendarOutlined,
@@ -36,81 +36,70 @@ const quickActions = [
   { to: '/projects', icon: <ProjectOutlined />, title: '项目管理', color: '#ec4899' },
 ];
 
+// 本周概览：试验 / 排班 / 会议室预约（Promise.allSettled，单项失败不影响其余）
+const fetchWeeklyOverview = async () => {
+  const results = await Promise.allSettled([
+    apiClient.get('events/trials/this-week/'),
+    (async () => {
+      const today = new Date();
+      const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)));
+      const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 7));
+      return apiClient.get('events/schedules/by-date-range/', {
+        params: {
+          start_date: startOfWeek.toISOString().split('T')[0],
+          end_date: endOfWeek.toISOString().split('T')[0]
+        }
+      });
+    })(),
+    apiClient.get('meeting-rooms/meeting-room-bookings/this-week/'),
+  ]);
+
+  const [trialsResult, schedulesResult, bookingsResult] = results;
+  const errors = {};
+
+  if (trialsResult.status === 'rejected') {
+    logger.error('Error fetching weekly trials:', trialsResult.reason);
+    errors.trials = true;
+  }
+  if (schedulesResult.status === 'rejected') {
+    logger.error('Error fetching weekly schedules:', schedulesResult.reason);
+    errors.schedules = true;
+  }
+  if (bookingsResult.status === 'rejected') {
+    logger.error('Error fetching weekly bookings:', bookingsResult.reason);
+    errors.bookings = true;
+  }
+
+  return {
+    trials: trialsResult.status === 'fulfilled' ? trialsResult.value.data : [],
+    schedules: schedulesResult.status === 'fulfilled' ? schedulesResult.value.data : [],
+    bookings: bookingsResult.status === 'fulfilled' ? bookingsResult.value.data : [],
+    errors,
+  };
+};
+
+// 仪表盘聚合数据
+const fetchDashboardStats = async () => {
+  const response = await apiClient.get('dashboard/stats/');
+  return response.data;
+};
+
 const DashboardPage = () => {
-  const [loading, setLoading] = useState(true);
-  const [weeklyTrials, setWeeklyTrials] = useState([]);
-  const [weeklySchedules, setWeeklySchedules] = useState([]);
-  const [weeklyBookings, setWeeklyBookings] = useState([]);
-  const [errors, setErrors] = useState({});
+  // 本周试验 / 排班 / 会议室预约
+  const { data: weeklyData, isLoading: loading } = useQuery({
+    queryKey: ['dashboard-weekly-overview'],
+    queryFn: fetchWeeklyOverview,
+  });
+  const weeklyTrials = weeklyData?.trials ?? [];
+  const weeklySchedules = weeklyData?.schedules ?? [];
+  const weeklyBookings = weeklyData?.bookings ?? [];
+  const errors = weeklyData?.errors ?? {};
 
-  // 新增：仪表盘聚合数据
-  const [dashboardStats, setDashboardStats] = useState(null);
-  const [statsLoading, setStatsLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchWeeklyData = async () => {
-      setLoading(true);
-
-      const results = await Promise.allSettled([
-        apiClient.get('events/trials/this-week/'),
-        (async () => {
-          const today = new Date();
-          const startOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + (today.getDay() === 0 ? -6 : 1)));
-          const endOfWeek = new Date(today.setDate(today.getDate() - today.getDay() + 7));
-          return apiClient.get('events/schedules/by-date-range/', {
-            params: {
-              start_date: startOfWeek.toISOString().split('T')[0],
-              end_date: endOfWeek.toISOString().split('T')[0]
-            }
-          });
-        })(),
-        apiClient.get('meeting-rooms/meeting-room-bookings/this-week/'),
-      ]);
-
-      const [trialsResult, schedulesResult, bookingsResult] = results;
-
-      if (trialsResult.status === 'fulfilled') {
-        setWeeklyTrials(trialsResult.value.data);
-      } else {
-        logger.error('Error fetching weekly trials:', trialsResult.reason);
-        setErrors(prev => ({ ...prev, trials: true }));
-      }
-
-      if (schedulesResult.status === 'fulfilled') {
-        setWeeklySchedules(schedulesResult.value.data);
-      } else {
-        logger.error('Error fetching weekly schedules:', schedulesResult.reason);
-        setErrors(prev => ({ ...prev, schedules: true }));
-      }
-
-      if (bookingsResult.status === 'fulfilled') {
-        setWeeklyBookings(bookingsResult.value.data);
-      } else {
-        logger.error('Error fetching weekly bookings:', bookingsResult.reason);
-        setErrors(prev => ({ ...prev, bookings: true }));
-      }
-
-      setLoading(false);
-    };
-
-    fetchWeeklyData();
-  }, []);
-
-  // 获取仪表盘聚合数据
-  useEffect(() => {
-    const fetchDashboardStats = async () => {
-      try {
-        const response = await apiClient.get('dashboard/stats/');
-        setDashboardStats(response.data);
-      } catch (err) {
-        logger.error('Error fetching dashboard stats:', err);
-      } finally {
-        setStatsLoading(false);
-      }
-    };
-
-    fetchDashboardStats();
-  }, []);
+  // 仪表盘聚合数据
+  const { data: dashboardStats, isLoading: statsLoading } = useQuery({
+    queryKey: ['dashboard-stats'],
+    queryFn: fetchDashboardStats,
+  });
 
   return (
     <div className="dashboard-page-container">

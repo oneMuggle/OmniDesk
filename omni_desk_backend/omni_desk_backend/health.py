@@ -29,7 +29,8 @@ def health_check(request):
         logger.error("Database health check failed: %s", e)
         health["status"] = "error"
         health["database"] = "error"
-        health["database_error"] = str(e)
+        # SECURITY: 对外返回固定文案，避免向未认证调用方泄露数据库连接细节（详情仅入日志）
+        health["database_error"] = "database error"
         status_code = 503
 
     return Response(health, status=status_code)

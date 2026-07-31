@@ -18,6 +18,8 @@ __pycache__/
 /deployment/docker/omnidesk-offline-v*/
 /deployment/docker/omnidesk-offline-*.zip
 /deployment/docker/omnidesk-offline-*/
+# 所有部署目录下产生的 zip 包(离线包、用户备份等)均不入库
+/deployment/docker/*.zip
 
 # IDE
 .idea/

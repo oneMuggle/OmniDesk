@@ -35,7 +35,9 @@ class Sensor(models.Model):
             return self.last_calibration_date + timedelta(days=self.calibration_interval_days)
         return None
 
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default="in_stock", verbose_name="状态")
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default="in_stock", db_index=True, verbose_name="状态"
+    )
     location = models.ForeignKey(
         "StorageLocation", on_delete=models.SET_NULL, null=True, blank=True, verbose_name="存放位置"
     )

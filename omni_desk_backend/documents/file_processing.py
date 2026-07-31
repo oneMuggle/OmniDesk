@@ -8,6 +8,7 @@ from pathlib import Path
 import pypdf
 import requests
 from django.conf import settings
+from django.utils.text import get_valid_filename
 from docx import Document as DocxDocument
 
 logger = logging.getLogger(__name__)
@@ -80,7 +81,11 @@ def process_uploaded_file(file_obj, temp_dir):
     如果直接提取失败，尝试通过 Mineru OCR 提取。
     """
     file_extension = Path(file_obj.name).suffix.lower()
-    temp_file_path = os.path.join(temp_dir, file_obj.name)
+    # SECURITY: 净化上传文件名，防止绝对路径 / ../ 路径穿越写出临时目录
+    safe_name = get_valid_filename(os.path.basename(file_obj.name))
+    if not safe_name or safe_name in {".", ".."}:
+        raise ValueError("非法文件名")
+    temp_file_path = os.path.join(temp_dir, safe_name)
 
     # 将上传的文件保存到临时目录
     with open(temp_file_path, "wb+") as destination:

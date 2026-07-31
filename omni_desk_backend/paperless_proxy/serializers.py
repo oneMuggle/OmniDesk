@@ -44,6 +44,11 @@ class DocumentBindingSerializer(serializers.ModelSerializer):
         read_only_fields = ["paperless_id", "paperless_checksum", "created_at", "updated_at"]
 
     def get_outbox_status(self, obj):
+        # 列表场景由视图层窗口化 Prefetch 注入 latest_outbox(to_attr → list,空列表语义同 None);
+        # 未经 prefetch 的对象(如 BindingSyncStatusView 直接取 binding)回退原查询,行为不变。
+        prefetched = getattr(obj, "latest_outbox", None)
+        if prefetched is not None:
+            return prefetched[0].status if prefetched else "synced"
         latest = obj.outbox.order_by("-created_at").first()
         return latest.status if latest else "synced"
 

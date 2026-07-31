@@ -1,6 +1,5 @@
 import dayjs from 'dayjs';
 import { logger } from './logger';
-// import utc from 'dayjs-plugin-utc'; // 禁用 utc 插件，用于排查问题
 // import timezone from 'dayjs/plugin/timezone'; // 禁用 timezone 插件，用于排查问题
 
 // dayjs.extend(utc); // 禁用 utc 插件，用于排查问题

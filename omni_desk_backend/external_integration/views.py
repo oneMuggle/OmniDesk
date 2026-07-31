@@ -59,6 +59,14 @@ class IntegrationServiceViewSet(viewsets.ModelViewSet):
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "slug"
 
+    # SECURITY: 写操作与服务端代理调用仅管理员可用，防止普通用户借服务端发起 SSRF 请求
+    ADMIN_ONLY_ACTIONS = {"create", "update", "partial_update", "destroy", "proxy"}
+
+    def get_permissions(self):
+        if self.action in self.ADMIN_ONLY_ACTIONS:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
+
     def get_queryset(self):
         return IntegrationService.objects.filter(is_active=True)
 
@@ -90,6 +98,14 @@ class PluginViewSet(viewsets.ModelViewSet):
     serializer_class = PluginSerializer
     permission_classes = [permissions.IsAuthenticated]
     lookup_field = "id"
+
+    # SECURITY: 写操作（含版本上传）与审核仅管理员可用，防止普通用户越权上传/批准插件
+    ADMIN_ONLY_ACTIONS = {"create", "update", "partial_update", "destroy", "upload_version", "review"}
+
+    def get_permissions(self):
+        if self.action in self.ADMIN_ONLY_ACTIONS:
+            return [permissions.IsAdminUser()]
+        return super().get_permissions()
 
     @action(detail=False, methods=["get"])
     def template(self, request):

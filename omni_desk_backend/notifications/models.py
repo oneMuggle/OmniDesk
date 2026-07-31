@@ -43,7 +43,7 @@ class Notification(models.Model):
     user = models.ForeignKey(
         CustomUser, on_delete=models.CASCADE, related_name="notifications", verbose_name="接收用户"
     )
-    type = models.CharField(max_length=30, choices=TYPE_CHOICES, verbose_name="通知类型")
+    type = models.CharField(max_length=30, choices=TYPE_CHOICES, db_index=True, verbose_name="通知类型")
     priority = models.PositiveSmallIntegerField(
         choices=PRIORITY_CHOICES, default=PRIORITY_NORMAL, verbose_name="优先级"
     )

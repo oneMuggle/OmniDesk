@@ -101,6 +101,7 @@ class DocumentViewSetTests(APITestCase):
         self.assertEqual(chapter.comments.count(), 1)
 
 
+import io
 import zipfile
 import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
@@ -170,6 +171,28 @@ class BookImportViewTests(APITestCase):
             self.assertIn("Test Zip Book", chapter.title)
             # Check if image path was correctly updated in the content
             self.assertIn(f"{settings.MEDIA_URL}book_images/My_Zip_Imported_Book/test_image.png", chapter.content_md)
+
+    def test_extract_zip_traversal_filename_sanitized(self):
+        """含 ../ 的 ZIP 上传文件名应被净化，临时文件不得逃逸出临时目录。"""
+        from ..book_import import _extract_zip
+
+        buf = io.BytesIO()
+        with zipfile.ZipFile(buf, "w") as zf:
+            zf.writestr("book.md", "# Safe Book\n\ncontent")
+        uploaded_file = SimpleUploadedFile(
+            "../../zip_traversal_evil.zip", buf.getvalue(), content_type="application/zip"
+        )
+
+        content, _base_path, temp_dir_obj = _extract_zip(uploaded_file)
+        try:
+            self.assertIn("Safe Book", content)
+            temp_dir = Path(temp_dir_obj.name)
+            # 净化后的文件应落在临时目录内
+            self.assertTrue((temp_dir / "zip_traversal_evil.zip").exists())
+            # 绝不能写到临时目录的上级目录
+            self.assertFalse((temp_dir.parent / "zip_traversal_evil.zip").exists())
+        finally:
+            temp_dir_obj.cleanup()
 
 
 from unittest.mock import patch, MagicMock
@@ -248,6 +271,41 @@ class FileProcessingTests(TestCase):
 
         text = process_uploaded_file(uploaded_file, self.temp_dir)
         self.assertEqual(text, "")
+
+    def test_process_uploaded_file_traversal_name_sanitized(self):
+        """含 ../ 路径穿越的上传文件名应被净化，仅写入临时目录内。"""
+        uploaded_file = SimpleUploadedFile("../../traversal_evil.txt", "evil content".encode("utf-8"))
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+
+        self.assertEqual(text, "evil content")
+        self.assertTrue(os.path.exists(os.path.join(self.temp_dir, "traversal_evil.txt")))
+        # 绝不能逃逸到临时目录之外
+        self.assertFalse(os.path.exists(os.path.join(self.temp_dir, "..", "..", "traversal_evil.txt")))
+
+    def test_process_uploaded_file_absolute_path_sanitized(self):
+        """绝对路径文件名应只保留基础名并写入临时目录内。"""
+        uploaded_file = SimpleUploadedFile("/etc/absolute_evil.txt", b"dummy")
+
+        text = process_uploaded_file(uploaded_file, self.temp_dir)
+
+        self.assertEqual(text, "dummy")
+        self.assertTrue(os.path.exists(os.path.join(self.temp_dir, "absolute_evil.txt")))
+
+    def test_process_uploaded_file_dot_name_rejected(self):
+        """纯点号文件名（如 ..）应被拒绝。
+
+        Django 的 UploadedFile 构造器本身会拦截 ".."，这里用 mock 对象
+        直接验证 process_uploaded_file 自身的防御性校验。
+        get_valid_filename 对 ".." 会抛 SuspiciousFileOperation，同样视为拒绝。
+        """
+        from django.core.exceptions import SuspiciousFileOperation
+
+        file_obj = MagicMock()
+        file_obj.name = ".."
+
+        with self.assertRaises((ValueError, SuspiciousFileOperation)):
+            process_uploaded_file(file_obj, self.temp_dir)
 
     def test_extract_text_from_pdf_success(self):
         """Test successful text extraction from PDF."""

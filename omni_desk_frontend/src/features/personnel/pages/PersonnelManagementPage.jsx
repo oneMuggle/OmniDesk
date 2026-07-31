@@ -6,14 +6,11 @@ import {
   createPersonnel,
   updatePersonnel,
   deletePersonnel,
-  getPositions,
   getAllPositions,
-  createPosition, // Import new position APIs
-  updatePosition,
-  deletePosition
 } from '../api/personnelApi';
-import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { logger } from '../../../shared/utils/logger';
+import PositionManagementTab from '../components/PositionManagementTab';
 
 const { Option } = Select; // Destructure Option from Select
 
@@ -95,8 +92,15 @@ const PersonnelManagementPage = () => {
   const { current, pageSize } = pagination;
 
   useEffect(() => {
-    fetchData(current, pageSize, searchParams);
-    fetchPositions(); // Fetch positions on component mount
+    // async IIFE：避免在 effect 体内同步调用含 setState 的函数（react-hooks/set-state-in-effect），
+    // 两个请求并行发起，行为与原实现一致
+    const loadData = async () => {
+      await Promise.all([
+        fetchData(current, pageSize, searchParams),
+        fetchPositions(),
+      ]);
+    };
+    loadData();
   }, [fetchData, fetchPositions, current, pageSize, searchParams]);
 
   const handleTableChange = (newPagination) => {
@@ -173,149 +177,11 @@ const PersonnelManagementPage = () => {
 
   const [activeTab, setActiveTab] = useState('personnel'); // New state for active tab
 
-  // Position Management Tab Component
-  const PositionManagementTab = () => {
-    const [positionForm] = Form.useForm();
-    const [positionData, setPositionData] = useState([]);
-    const [isPositionModalVisible, setIsPositionModalVisible] = useState(false);
-    const [editingPositionId, setEditingPositionId] = useState(null);
-
-    const fetchPositionData = useCallback(async () => {
-      try {
-        const response = await getPositions();
-        setPositionData(response.data.results || []);
-      } catch (error) {
-        message.error('获取职位数据失败');
-        setPositionData([]);
-      }
-    }, []);
-
-    useEffect(() => {
-      const loadData = async () => {
-        await fetchPositionData();
-      };
-      loadData();
-    }, [fetchPositionData]);
-
-    const positionColumns = [
-      {
-        title: '职位名称',
-        dataIndex: 'name',
-        key: 'name',
-      },
-      {
-        title: '操作',
-        key: 'action',
-        render: (_, record) => (
-          <div className='space-x-2'>
-            <Button
-              type="primary"
-              icon={<EditOutlined />}
-              onClick={() => showEditPositionModal(record)}
-            >
-              编辑
-            </Button>
-            <Button
-              danger
-              icon={<DeleteOutlined />}
-              onClick={() => handleDeletePosition(record.id)}
-            >
-              删除
-            </Button>
-          </div>
-        ),
-      },
-    ];
-
-    const showCreatePositionModal = () => {
-      positionForm.resetFields();
-      setEditingPositionId(null);
-      setIsPositionModalVisible(true);
-    };
-
-    const showEditPositionModal = (record) => {
-      positionForm.setFieldsValue(record);
-      setEditingPositionId(record.id);
-      setIsPositionModalVisible(true);
-    };
-
-    const handleSubmitPosition = async () => {
-      try {
-        const values = await positionForm.validateFields();
-        if (editingPositionId) {
-          await updatePosition(editingPositionId, values);
-          message.success('职位更新成功');
-        } else {
-          await createPosition(values);
-          message.success('职位创建成功');
-        }
-        setIsPositionModalVisible(false);
-        await fetchPositionData();
-      } catch (error) {
-        message.error('职位操作失败');
-      }
-    };
-
-    const handleDeletePosition = async (id) => {
-      Modal.confirm({
-        title: '确认删除',
-        content: '确定要删除该职位吗？',
-        okText: '确认',
-        cancelText: '取消',
-        okType: 'danger',
-        onOk: async () => {
-          try {
-            await deletePosition(id);
-            message.success('职位删除成功');
-            await fetchPositionData();
-            await fetchData(1, pagination.pageSize, searchParams);
-            await fetchPositions();
-          } catch (error) {
-            message.error('职位删除失败');
-          }
-        },
-      });
-    };
-
-    return (
-      <div>
-        <div className='mb-4 flex justify-between'>
-          <h3 className='text-lg font-bold'>职位管理</h3>
-          <Button
-            type="primary"
-            icon={<PlusOutlined />}
-            onClick={showCreatePositionModal}
-          >
-            新增职位
-          </Button>
-        </div>
-        <Table
-          columns={positionColumns}
-          dataSource={positionData || []}
-          rowKey="id"
-          bordered
-          pagination={false} // Positional data often doesn't need pagination
-        />
-        <Modal
-          title={editingPositionId ? '编辑职位' : '新增职位'}
-          open={isPositionModalVisible}
-          onOk={handleSubmitPosition}
-          onCancel={() => setIsPositionModalVisible(false)}
-          destroyOnHidden
-        >
-          <Form form={positionForm} layout="vertical">
-            <Form.Item
-              label="职位名称"
-              name="name"
-              rules={[{ required: true, message: '请输入职位名称' }]}
-            >
-              <Input placeholder="请输入职位名称" />
-            </Form.Item>
-          </Form>
-        </Modal>
-      </div>
-    );
-  };
+  // 职位发生增/改/删后，同步刷新人员列表的职位列与职位下拉选项
+  const handlePositionsChanged = useCallback(() => {
+    fetchData(1, pagination.pageSize, searchParams);
+    fetchPositions();
+  }, [fetchData, fetchPositions, pagination.pageSize, searchParams]);
 
   const tabItems = [
     {
@@ -393,7 +259,7 @@ const PersonnelManagementPage = () => {
     {
       key: 'positions',
       label: '职位管理',
-      children: <PositionManagementTab />
+      children: <PositionManagementTab onPositionsChanged={handlePositionsChanged} />
     }
   ];
 
