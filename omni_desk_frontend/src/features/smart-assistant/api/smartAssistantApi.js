@@ -195,19 +195,19 @@ export async function fetchLlmModels(apiEndpoint, apiKey) {
  * Dify 应用管理
  */
 export async function getDifyApps() {
-  return apiClient.get('/api/dify-apps/');
+  return apiClient.get('dify-apps/');
 }
 
 export async function addDifyApp(data) {
-  return apiClient.post('/api/dify-apps/', data);
+  return apiClient.post('dify-apps/', data);
 }
 
 export async function updateDifyApp(id, data) {
-  return apiClient.put(`/api/dify-apps/${id}/`, data);
+  return apiClient.put(`dify-apps/${id}/`, data);
 }
 
 export async function deleteDifyApp(id) {
-  return apiClient.delete(`/api/dify-apps/${id}/`);
+  return apiClient.delete(`dify-apps/${id}/`);
 }
 
 /**

@@ -23,7 +23,7 @@ const BookReaderPage = () => {
             if (!bookId) return;
             try {
                 const [bookResponse, complianceResponse] = await Promise.all([
-                    api.get(`/api/documents/books/${bookId}/`),
+                    api.get(`documents/books/${bookId}/`),
                     complianceApi.getAllComplianceIssues({ document_book: bookId }) // 获取与书籍相关的合规问题
                 ]);
                 setBook(bookResponse.data);

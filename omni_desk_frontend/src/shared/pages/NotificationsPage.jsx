@@ -32,12 +32,12 @@ const NotificationsPage = () => {
 
   const markReadMutation = useMutation({
     mutationFn: (id) => notificationApi.markRead(id),
-    onSuccess: () => queryClient.invalidateQueries(['notifications']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const markAllReadMutation = useMutation({
     mutationFn: () => notificationApi.markAllRead(),
-    onSuccess: () => queryClient.invalidateQueries(['notifications']),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['notifications'] }),
   });
 
   const handleRowClick = (record) => {

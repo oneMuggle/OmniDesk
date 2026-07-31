@@ -14,7 +14,7 @@ const ChapterEditorPage = () => {
     useEffect(() => {
         const fetchChapter = async () => {
             try {
-                const response = await api.get(`/api/documents/chapters/${chapterId}/`);
+                const response = await api.get(`documents/chapters/${chapterId}/`);
                 setChapter(response.data);
                 setContentMd(response.data.content_md);
                 setLoading(false);
@@ -30,7 +30,7 @@ const ChapterEditorPage = () => {
         setMessage('');
         setError('');
         try {
-            await api.put(`/api/documents/chapters/${chapterId}/update_content/`, {
+            await api.put(`documents/chapters/${chapterId}/update_content/`, {
                 content_md: contentMd,
             });
             setMessage('章节内容更新成功！');

@@ -1,13 +1,25 @@
-from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated
+from rest_framework import permissions, viewsets
+from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 
 from .models import Comment, Post
 from .serializers import CommentSerializer, PostSerializer
 
 
+class IsAuthorOrReadOnly(permissions.BasePermission):
+    """对象级权限(P0-D):读操作放行认证用户,写/删仅限作者本人。"""
+
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
+    def has_object_permission(self, request, view, obj):
+        if request.method in SAFE_METHODS:
+            return True
+        return obj.author_id == request.user.id
+
+
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
     queryset = Post.objects.select_related("author").filter(is_archived=False).order_by("-created_at")
 
     def perform_create(self, serializer):
@@ -16,7 +28,7 @@ class PostViewSet(viewsets.ModelViewSet):
 
 class CommentViewSet(viewsets.ModelViewSet):
     serializer_class = CommentSerializer
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
     queryset = Comment.objects.select_related("author", "post").all()
 
     def perform_create(self, serializer):

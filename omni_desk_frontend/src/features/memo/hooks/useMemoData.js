@@ -5,10 +5,12 @@ export const useMemoData = () => {
   const queryClient = useQueryClient();
 
   // 获取所有备忘录
+  // memoApi.getAllMemos 返回 AxiosResponse,需解包 data.results;
+  // 旧实现 queryFn 直接返回 AxiosResponse + select data.results(AxiosResponse
+  // 上没有 results)导致 memos 永远为空数组
   const memosQuery = useQuery({
     queryKey: ['memos'],
-    queryFn: memoApi.getAllMemos,
-    select: (data) => data.results, // 提取results数组
+    queryFn: async () => (await memoApi.getAllMemos()).data?.results ?? [],
   });
 
   // 创建备忘录

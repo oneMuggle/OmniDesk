@@ -47,23 +47,23 @@ export interface ComplianceIssueUpdate extends Partial<ComplianceIssueCreate> {}
 export type ComplianceIssueParams = Record<string, unknown>;
 
 export function getAllComplianceIssues(params: ComplianceIssueParams = {}) {
-    return apiClient.get<ComplianceIssue[]>('/api/compliance/', { params });
+    return apiClient.get<ComplianceIssue[]>('compliance/', { params });
 }
 
 export function createComplianceIssue(data: ComplianceIssueCreate) {
-    return apiClient.post<ComplianceIssue>('/api/compliance/', data);
+    return apiClient.post<ComplianceIssue>('compliance/', data);
 }
 
 export function updateComplianceIssue(id: number, data: ComplianceIssueUpdate) {
-    return apiClient.put<ComplianceIssue>(`/api/compliance/${id}/`, data);
+    return apiClient.put<ComplianceIssue>(`compliance/${id}/`, data);
 }
 
 export function deleteComplianceIssue(id: number) {
-    return apiClient.delete(`/api/compliance/${id}/`);
+    return apiClient.delete(`compliance/${id}/`);
 }
 
 export function getComplianceIssue(id: number) {
-    return apiClient.get<ComplianceIssue>(`/api/compliance/${id}/`);
+    return apiClient.get<ComplianceIssue>(`compliance/${id}/`);
 }
 
 export default {

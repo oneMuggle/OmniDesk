@@ -17,7 +17,7 @@ const DifyAppList = () => {
     useEffect(() => {
         const fetchDifyApps = async () => {
             try {
-                const response = await apiClient.get('/api/dify-apps/');
+                const response = await apiClient.get('dify-apps/');
                 setDifyApps(response.data.results || []);
             } catch (err) {
                 setError('Failed to fetch Dify applications.');
