@@ -470,14 +470,39 @@ echo "  OK: deploy.sh"
 cp "$SCRIPT_DIR/verify.sh" "$BUNDLE_DIR/scripts/"
 echo "  OK: verify.sh"
 
-# 复制 rollback.sh 和 backup.sh（如果存在）
-for script in rollback.sh backup.sh; do
+# 复制 rollback.sh / backup.sh / upgrade.sh / deploy_offline.sh /
+# upgrade_state.sh / test_helpers.sh(如果存在)
+#
+# 背景(Task 1 + Task 2 brief):
+#   - 之前只复制 rollback.sh + backup.sh,upgrade.sh 漏掉了 ——
+#     离线包用户调 `deploy.sh upgrade` 时 upgrade.sh 不在 scripts/ 里会失败。
+#   - deploy_offline.sh 是源码树里的多命令入口(backup/upgrade/rollback/migrate),
+#     一并复制让 bundle 用户可以选择通过它而不是 deploy.sh 触发这些子命令。
+#   - upgrade_state.sh(Task 2):upgrade.sh / rollback.sh / deploy_offline.sh(upgrade/rollback 分支)
+#     全部 `source upgrade_state.sh` 加载状态机/锁/SAFE_STOPPED 模块;
+#     若 bundle 不带它,bundle 用户跑任何升级/回滚命令都会因 source 缺文件失败。
+#   - test_helpers.sh(Task 2):共享断言库;tests/test_*.sh 会 source 它。
+#     把测试与 helpers 一并打包,bundle 用户可在生产环境做自检。
+for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh upgrade_state.sh test_helpers.sh; do
     if [ -f "$SCRIPT_DIR/$script" ]; then
         cp "$SCRIPT_DIR/$script" "$BUNDLE_DIR/scripts/"
         chmod +x "$BUNDLE_DIR/scripts/$script"
         echo "  OK: $script"
     fi
 done
+
+# 复制 tests/ 目录(若存在)— 测试入口,供 bundle 用户在生产环境做自检
+if [ -d "$SCRIPT_DIR/tests" ]; then
+    cp -r "$SCRIPT_DIR/tests" "$BUNDLE_DIR/scripts/"
+    echo "  OK: tests/"
+fi
+
+# 复制 smoke_tests.sh(brief 要求"所需 smoke 测试")
+if [ -f "$SCRIPT_DIR/smoke_tests.sh" ]; then
+    cp "$SCRIPT_DIR/smoke_tests.sh" "$BUNDLE_DIR/scripts/"
+    chmod +x "$BUNDLE_DIR/scripts/smoke_tests.sh"
+    echo "  OK: smoke_tests.sh"
+fi
 
 # ─── 复制 compose 配置 ─────────────────────────────────────
 echo "复制 docker-compose 配置..."
@@ -495,7 +520,15 @@ if [ -f "$SCRIPT_DIR/.env.production.example" ]; then
     # 用 sed 把 bundle 内 example env 的 IMAGE_TAG 默认值替换为当前构建版本
     sed -i "s/^BACKEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
     sed -i "s/^FRONTEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/config/.env.production.example"
-    echo "  OK: .env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
+    echo "  OK: config/.env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
+
+    # 同时复制到 compose/ 子目录,作为"未初始化"门禁:
+    # verify.sh 在 compose/.env.production 不存在时退而校验 compose/.env.production.example
+    # (启动/升级前仍由 deploy_offline.sh / upgrade.sh 强制要求正式 .env.production)
+    cp "$SCRIPT_DIR/.env.production.example" "$BUNDLE_DIR/compose/.env.production.example"
+    sed -i "s/^BACKEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/BACKEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/.env.production.example"
+    sed -i "s/^FRONTEND_IMAGE_TAG=v[0-9]*\.[0-9]*\.[0-9]*/FRONTEND_IMAGE_TAG=v${BUILD_VERSION}/" "$BUNDLE_DIR/compose/.env.production.example"
+    echo "  OK: compose/.env.production.example (IMAGE_TAG → v${BUILD_VERSION})"
 else
     echo "  WARN: .env.production.example 不存在,跳过配置模板复制"
 fi
