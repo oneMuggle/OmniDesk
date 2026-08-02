@@ -90,6 +90,11 @@ class MainWindow(QWidget):
     # ─── 健康检查 ──────────────────────────────────────
     def check_health(self):
         """调用 /api/health/ 检测后端连通性"""
+        if not self.api_client:
+            self.is_online = False
+            self.status_indicator.setText("❌ 连接断开")
+            self.status_indicator.setStyleSheet("color: #f44336;")
+            return
         base_url = self.api_client.base_url.replace("/api", "")
         try:
             resp = requests.get(f"{base_url}/api/health/", timeout=5)
