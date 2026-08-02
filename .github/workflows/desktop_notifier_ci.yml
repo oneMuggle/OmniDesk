@@ -36,6 +36,10 @@ jobs:
     if: github.ref_name == 'test' || github.ref_name == 'main'
     needs: test
     runs-on: windows-2022
+    # 使用 softprops/action-gh-release 创建 GitHub Release,
+    # 需要 contents: write 权限;默认 GITHUB_TOKEN 只读会导致失败
+    permissions:
+      contents: write
 
     steps:
     - name: Checkout code
