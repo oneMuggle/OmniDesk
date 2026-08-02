@@ -28,4 +28,4 @@ def test_main_window_instantiation(qtbot):
     qtbot.addWidget(window)
     
     # Check if the window title is set correctly
-    assert window.windowTitle() == "Desktop Notifier"
+    assert window.windowTitle() == "OmniDesk 桌面助手"
