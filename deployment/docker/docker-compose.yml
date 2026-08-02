@@ -76,8 +76,11 @@ services:
       # 匿名 volume:每次容器创建从 image 的 /app/node_modules 拷贝,
       # 保证 image (npm ci) 与运行时一致,避免旧 named volume 导致"vite not found"。
       - /app/node_modules
+    # 与 prod override 的 TEST_FRONTEND_PORT 分开:
+    # base 是 development target (vite 监听 3000), prod 是 nginx (监听 80),
+    # 共用同一变量会导致组合启动时 3000/80 都映射到同一宿主端口而冲突。
     ports:
-      - "${TEST_FRONTEND_PORT:-3000}:3000"
+      - "${FRONTEND_DEV_PORT:-3000}:3000"
     environment:
       - CHOKIDAR_USEPOLLING=true
       - VITE_API_PROXY_TARGET=http://backend:8000
