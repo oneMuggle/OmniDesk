@@ -260,7 +260,7 @@ jobs:
 
       - name: Remove conflicted-sync label
         if: steps.pick.outputs.has_conflict != 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             try {
