@@ -297,34 +297,97 @@ class TestSwapRequestCreateConfirmed:
 
 
 # ---------------------------------------------------------------------------
-# SwapRequestDecideTool 测试
+# SwapRequestDecideTool._dry_run 业务测试(Task 10)
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSwapRequestDecideDryRun:
+    """决策 dry_run 测试"""
+
+    def test_dry_run_no_user(self):
+        result = SwapRequestDecideTool()._dry_run("同意申请", ctx={})
+        assert result["found"] is False
+        assert "未关联" in result["message"]
+
+    def test_dry_run_extractor_returns_none(self, user_b):
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=None):
+            result = SwapRequestDecideTool()._dry_run("query", {"user": user_b})
+        assert result["found"] is False
+
+    def test_dry_run_swap_id_not_found(self, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=99999)):
+            result = SwapRequestDecideTool()._dry_run("query", {"user": user_b})
+        assert result["found"] is False
+        assert "未找到" in result["message"]
+
+    def test_dry_run_fallback_latest_pending(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=None)):
+            result = SwapRequestDecideTool()._dry_run("同意张三的申请", {"user": user_b})
+        assert result["found"] is True
+        assert result["draft"]["fields"]["swap_id"] == swap_request.id
+
+
+@pytest.mark.django_db
+class TestSwapRequestDecideConfirmed:
+    """决策 confirmed 测试"""
+
+    def test_confirmed_accept(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=swap_request.id, note="同意")):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is True
+        assert result["result"]["status"] == "approved"
+
+    def test_confirmed_reject(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="reject", swap_id=swap_request.id)):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is True
+        assert result["result"]["status"] == "rejected_by_target"
+
+    def test_confirmed_extractor_fail(self, user_b):
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=None):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is False
 
 
 @pytest.mark.django_db
 class TestSwapRequestDecideTool:
     """决策工具测试"""
 
-    def test_decide_dry_run(self, user_b):
-        """dry_run 模式返回 draft"""
-        tool = SwapRequestDecideTool()
-        context = {"dry_run": True}
+    def test_decide_dry_run(self, swap_request, user_b):
+        """dry_run 模式返回真实决策 draft"""
+        from smart_assistant.extractors.swap_extractor import DecideParams
 
-        result = tool.execute(query="同意张三的换班申请", context=context)
+        tool = SwapRequestDecideTool()
+        context = {"dry_run": True, "user": user_b}
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_decide_params",
+            return_value=DecideParams(action="accept", swap_id=swap_request.id),
+        ):
+            result = tool.execute(query="同意张三的换班申请", context=context)
 
         assert result["found"] is True
-        assert "draft" in result
-        assert "summary" in result["draft"]
+        assert result["draft"]["fields"]["swap_id"] == swap_request.id
+        assert result["draft"]["fields"]["action"] == "accept"
 
-    def test_decide_confirmed(self, user_b):
-        """confirmed 模式返回结果"""
+    def test_decide_confirmed(self, swap_request, user_b):
+        """confirmed 模式执行真实决策"""
+        from smart_assistant.extractors.swap_extractor import DecideParams
+
         tool = SwapRequestDecideTool()
-        context = {"confirmed": True}
-
-        result = tool.execute(query="同意张三的换班申请", context=context)
+        context = {"confirmed": True, "user": user_b}
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_decide_params",
+            return_value=DecideParams(action="reject", swap_id=swap_request.id),
+        ):
+            result = tool.execute(query="拒绝张三的换班申请", context=context)
 
         assert result["found"] is True
-        assert "result" in result
+        assert result["result"]["status"] == "rejected_by_target"
 
     def test_decide_fallback(self, user_b):
         """兜底模式返回 found=False"""
