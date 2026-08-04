@@ -203,3 +203,102 @@ class TestCreateSwapByQuery:
                 duty_date=target_schedule.duty_date,
                 reason="测试自己换自己",
             )
+
+
+@pytest.mark.django_db
+class TestAcceptSwap:
+    """accept_swap:接收方 accept → apply_swap + audit_log"""
+
+    def test_accept_success(self, swap_request, user_b):
+        """user_b 是 target_personnel 的 user_account,accept 成功"""
+        from django.utils import timezone as tz
+        ttl = getattr(settings, "SWAP_REQUEST_TTL_HOURS", 48)
+        swap_request.expires_at = tz.now() + timedelta(hours=ttl)
+        swap_request.save()
+
+        result = swap_service.accept_swap(actor=user_b, swap_id=swap_request.id, note="同意")
+
+        assert result.status == ScheduleSwapRequest.STATUS_APPROVED
+        assert result.approver == user_b
+        assert result.approved_at is not None
+        assert result.audit_logs.count() == 1
+        log = result.audit_logs.first()
+        assert log.from_status == ScheduleSwapRequest.STATUS_PENDING
+        assert log.to_status == ScheduleSwapRequest.STATUS_APPROVED
+        assert log.actor == user_b
+        assert log.note == "同意"
+
+    def test_accept_not_target(self, swap_request, user_a):
+        """user_a 是 requester 不是 target → SwapPermissionError"""
+        with pytest.raises(SwapPermissionError):
+            swap_service.accept_swap(actor=user_a, swap_id=swap_request.id)
+
+    def test_accept_status_not_pending(self, swap_request, user_b):
+        """swap 已 cancelled → SwapServiceError"""
+        swap_request.status = ScheduleSwapRequest.STATUS_CANCELLED
+        swap_request.save()
+        with pytest.raises(SwapServiceError, match="not in pending"):
+            swap_service.accept_swap(actor=user_b, swap_id=swap_request.id)
+
+    def test_accept_swap_not_found(self, user_b):
+        """swap_id 不存在 → SwapNotFoundError"""
+        with pytest.raises(SwapNotFoundError):
+            swap_service.accept_swap(actor=user_b, swap_id=99999)
+
+
+@pytest.mark.django_db
+class TestRejectSwap:
+    """reject_swap:接收方 reject → status=rejected_by_target"""
+
+    def test_reject_success(self, swap_request, user_b):
+        """成功 reject"""
+        from django.utils import timezone as tz
+        ttl = getattr(settings, "SWAP_REQUEST_TTL_HOURS", 48)
+        swap_request.expires_at = tz.now() + timedelta(hours=ttl)
+        swap_request.save()
+
+        result = swap_service.reject_swap(actor=user_b, swap_id=swap_request.id, note="不合适")
+
+        assert result.status == ScheduleSwapRequest.STATUS_REJECTED
+        assert result.target_decision_note == "不合适"
+        assert result.target_decided_at is not None
+
+    def test_reject_not_target(self, swap_request, user_a):
+        """user_a 不是 target → SwapPermissionError"""
+        with pytest.raises(SwapPermissionError):
+            swap_service.reject_swap(actor=user_a, swap_id=swap_request.id)
+
+    def test_reject_status_not_pending(self, swap_request, user_b):
+        """swap 已 approved → SwapServiceError"""
+        swap_request.status = ScheduleSwapRequest.STATUS_APPROVED
+        swap_request.save()
+        with pytest.raises(SwapServiceError):
+            swap_service.reject_swap(actor=user_b, swap_id=swap_request.id)
+
+
+@pytest.mark.django_db
+class TestCancelSwap:
+    """cancel_swap:申请方 cancel → status=cancelled"""
+
+    def test_cancel_success(self, swap_request, user_a):
+        """成功 cancel"""
+        from django.utils import timezone as tz
+        ttl = getattr(settings, "SWAP_REQUEST_TTL_HOURS", 48)
+        swap_request.expires_at = tz.now() + timedelta(hours=ttl)
+        swap_request.save()
+
+        result = swap_service.cancel_swap(actor=user_a, swap_id=swap_request.id)
+
+        assert result.status == ScheduleSwapRequest.STATUS_CANCELLED
+
+    def test_cancel_not_requester(self, swap_request, user_b):
+        """user_b 不是 requester → SwapPermissionError"""
+        with pytest.raises(SwapPermissionError):
+            swap_service.cancel_swap(actor=user_b, swap_id=swap_request.id)
+
+    def test_cancel_status_not_pending(self, swap_request, user_a):
+        """swap 已 approved → SwapServiceError"""
+        swap_request.status = ScheduleSwapRequest.STATUS_APPROVED
+        swap_request.save()
+        with pytest.raises(SwapServiceError):
+            swap_service.cancel_swap(actor=user_a, swap_id=swap_request.id)

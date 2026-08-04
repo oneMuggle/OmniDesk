@@ -23,7 +23,7 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from events.models import Schedule, ScheduleSwapRequest
+from events.models import Schedule, ScheduleSwapAuditLog, ScheduleSwapRequest
 from personnel.models import Personnel
 
 
@@ -133,3 +133,113 @@ def create_swap_by_query(
             scope=ScheduleSwapRequest.SCOPE_DUTY_PERSON,
             reason=reason,
         )
+
+
+def accept_swap(*, actor, swap_id: int, note: str = "") -> ScheduleSwapRequest:
+    """接收方 accept → apply_swap + audit_log。
+
+    权限:actor.user_account == swap.target_personnel.user_account
+    前置状态:swap.status == STATUS_PENDING
+
+    Raises:
+        SwapNotFoundError: swap_id 不存在
+        SwapPermissionError: actor 不是 target_personnel
+        SwapServiceError: swap 不在 pending 状态
+    """
+    try:
+        swap = ScheduleSwapRequest.objects.get(pk=swap_id)
+    except ScheduleSwapRequest.DoesNotExist:
+        raise SwapNotFoundError(f"换班申请 #{swap_id} 不存在")
+
+    target_user = getattr(swap.target_personnel, "user_account", None)
+    if target_user != actor:
+        raise SwapPermissionError("仅接收方可以接受换班申请")
+    if swap.status != ScheduleSwapRequest.STATUS_PENDING:
+        raise SwapServiceError(f"该申请 not in pending 状态(当前:{swap.status}),无法 accept")
+
+    with transaction.atomic():
+        old_status = swap.status
+        swap.apply_swap(approver=actor)
+        ScheduleSwapAuditLog.objects.create(
+            swap_request=swap,
+            actor=actor,
+            from_status=old_status,
+            to_status=swap.status,
+            note=note or "接收方同意",
+        )
+    return swap
+
+
+def reject_swap(*, actor, swap_id: int, note: str = "") -> ScheduleSwapRequest:
+    """接收方 reject → status=STATUS_REJECTED + audit_log。
+
+    Raises:
+        SwapNotFoundError: swap_id 不存在
+        SwapPermissionError: actor 不是 target_personnel
+        SwapServiceError: swap 不在 pending 状态
+    """
+    try:
+        swap = ScheduleSwapRequest.objects.get(pk=swap_id)
+    except ScheduleSwapRequest.DoesNotExist:
+        raise SwapNotFoundError(f"换班申请 #{swap_id} 不存在")
+
+    target_user = getattr(swap.target_personnel, "user_account", None)
+    if target_user != actor:
+        raise SwapPermissionError("仅接收方可以拒绝换班申请")
+    if swap.status != ScheduleSwapRequest.STATUS_PENDING:
+        raise SwapServiceError(f"该申请 not in pending 状态(当前:{swap.status})")
+
+    with transaction.atomic():
+        old_status = swap.status
+        swap.status = ScheduleSwapRequest.STATUS_REJECTED
+        swap.target_decided_at = timezone.now()
+        swap.target_decision_note = note
+        swap.save(
+            update_fields=[
+                "status",
+                "target_decided_at",
+                "target_decision_note",
+                "updated_at",
+            ]
+        )
+        ScheduleSwapAuditLog.objects.create(
+            swap_request=swap,
+            actor=actor,
+            from_status=old_status,
+            to_status=swap.status,
+            note="接收方拒绝",
+        )
+    return swap
+
+
+def cancel_swap(*, actor, swap_id: int) -> ScheduleSwapRequest:
+    """申请方 cancel → status=STATUS_CANCELLED + audit_log。
+
+    Raises:
+        SwapNotFoundError: swap_id 不存在
+        SwapPermissionError: actor 不是 requester
+        SwapServiceError: swap 不在 pending 状态
+    """
+    try:
+        swap = ScheduleSwapRequest.objects.get(pk=swap_id)
+    except ScheduleSwapRequest.DoesNotExist:
+        raise SwapNotFoundError(f"换班申请 #{swap_id} 不存在")
+
+    requester_user = getattr(swap.requester, "user_account", None)
+    if requester_user != actor:
+        raise SwapPermissionError("仅申请方可以撤销换班申请")
+    if swap.status != ScheduleSwapRequest.STATUS_PENDING:
+        raise SwapServiceError(f"该申请 not in pending 状态(当前:{swap.status})")
+
+    with transaction.atomic():
+        old_status = swap.status
+        swap.status = ScheduleSwapRequest.STATUS_CANCELLED
+        swap.save(update_fields=["status", "updated_at"])
+        ScheduleSwapAuditLog.objects.create(
+            swap_request=swap,
+            actor=actor,
+            from_status=old_status,
+            to_status=swap.status,
+            note="申请方撤销",
+        )
+    return swap
