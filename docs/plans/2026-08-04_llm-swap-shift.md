@@ -4,7 +4,7 @@
 |---|---|
 | 日期 | 2026-08-04 |
 | 作者 | Claude（人工指令触发） |
-| 状态 | ⏳ 草案，待用户审批（2026-08-04 用户确认核心决策 1/2/3 后进入 Phase 1） |
+| 状态 | ⏳ 草案 + Phase 1.0 调研完成；待 `feat/sa-confirm-framework` 子分支落地后再进入 Phase 1.1（2026-08-04） |
 | 涉及版本 | v0.6.x（main 分支 alpha 通道） |
 | 关联后端 | `smart_assistant` + `events` |
 | 关联前端 | `features/schedule` + `shared/components/QuickAssistant.jsx` |
@@ -289,7 +289,7 @@ intent_keywords = {
 | `dateparser` | ⚠️ 待确认 `requirements-prod.txt` 是否已含；如无则加入 `requirements.in` 并 `pip-compile` |
 | `events.ScheduleSwapRequest` 模型 | ✅ 已有 |
 | `events.SwapRequestViewSet.perform_create` 业务逻辑 | ✅ 已有，工具直接复用 |
-| `BaseTool.require_confirmation` 流程 | ⚠️ 框架层"待用户确认"信号（钩子返回 `Reject(confirmation_required)`）已在 `base.py` 文档中描述但**当前 orchestrator 是否完整实现**需 Phase 1 验证；如未实现，需先补 orchestrator 的 confirm-replay 流程 |
+| **`BaseTool.require_confirmation` 框架 confirm-replay 链路** | ❌ **未接通**（2026-08-04 调研结论）<br/>`Reject` 类已实现（`hooks/base.py:43-55`）、`HookRegistry.run_pre_hooks` 已实现短路返回（`hooks/base.py:273-305`），但：<br/>① `hooks/wiring.py` 没有 `apply_pre_execute_hooks` 同步入口（仅有 `apply_post_execute_hooks` 与 `apply_failure_hooks`）<br/>② `AgentOrchestrator.process()` / `process_stream()` 不读 `tool.require_confirmation`，不调 `run_pre_hooks`，直接进入 `execute_guarded`<br/>③ 视图层 `SmartChatViewSet.create/stream` 没有任何 `confirm_token` / replay 路径<br/>→ 必须先在 **`feat/sa-confirm-framework`** 子分支补齐三处才能进入 Phase 1.1 |
 | `audit_log` Hook | ⚠️ Phase 3 决策：直接写 `ScheduleSwapAuditLog`，避免引入新 Hook 类型 |
 
 ### 5.3 向后兼容
@@ -332,7 +332,7 @@ intent_keywords = {
 | 接收方决策是否由 LLM 代理 | ✅ **允许**接收方在 QuickAssistant **主动**发起决策指令（说"同意李四的换班"） | 用户决定（2026-08-04）：接收方本人操作合规；LLM **不得**在用户未说话时自动决策 |
 | 接收方决策合规闸门 | LLM 必须先 query 出具体 swap_id + 申请人 + 日期，列出"将对 XX 的换班执行 同意/拒绝"，等二次确认 | 防误判、防 race、防 LLM 静默代签 |
 | 写工具速率限制 | 每用户每分钟 **10 次**（create + decide 共用配额） | 用户决策（2026-08-04）：内网场景，10/min 留足余量又不至于完全无防 |
-| Phase 1 起步条件 | **必须先做步骤 1.0 框架验证闸门** | 用户决策（2026-08-04）：避免在 `require_confirmation` 框架未跑通前做大量业务开发导致返工 |
+| Phase 1 起步条件 | **必须先做 `feat/sa-confirm-framework` 子分支**（与本分支并行，单独 PR）；落地后回到本分支做步骤 1.0 框架验证闸门 | 用户决策（2026-08-04）：方案 A；避免在 confirm-replay 框架未跑通前做业务开发导致返工 |
 | 写工具风险等级 | `write` + `require_confirmation=True` | 不可逆操作（一旦发出就通知接收方），但非破坏性 |
 | 是否复用 ViewSet 业务逻辑 | ✅ 直接 import 复用 `perform_create` / `accept` / `reject` / `cancel` 内部规则 | 避免逻辑双写 |
 | 关键词 vs LLM 分类 | 关键词先粗筛 + LLM 二次确认 | 减少误触发，降低 LLM 调用 |
@@ -345,7 +345,71 @@ intent_keywords = {
 - `omni_desk_backend/smart_assistant/tools/base.py` 第 47–74 行：风险等级与确认流程约定
 - `omni_desk_backend/smart_assistant/agent/prompt_builder.py` 第 59–84 行：现有 INTENT_PROMPT 模式
 - `omni_desk_backend/smart_assistant/agent/tool_chain_planner.py` 第 51–68 行：关键词表模式
+- `omni_desk_backend/smart_assistant/hooks/base.py` 第 43–55, 273–305 行：`Reject` + `run_pre_hooks` 已实现但未在 wiring 接线
+- `omni_desk_backend/smart_assistant/hooks/wiring.py`：缺 `apply_pre_execute_hooks`（参考 `apply_post_execute_hooks` 第 125–141 行模式）
+- `omni_desk_backend/smart_assistant/agent/orchestrator.py`：单工具路由（第 177–201 行）需在 execute 前插入 pre-hook 拦截
+- `omni_desk_backend/smart_assistant/views/chat.py`：confirm 路径最自然挂载点是 `SmartChatViewSet.create` 加 `@action(detail=False, methods=["post"]) confirm` 或在 `create` 内根据 `request.data.get("confirm_token")` 分支
+- `omni_desk_backend/smart_assistant/cache.py`：draft 短期缓存参考 `_key` + `cache.set/get` 模式（`cache.py:84-94, 97-115`）
 - `omni_desk_backend/events/views/swap.py`：完整 CRUD 与状态机参考
 - `omni_desk_backend/events/models.py` 第 247–433 行：`ScheduleSwapRequest` 模型字段
 - `docs/technical/...` 中现有"智能助手"章节
 - 全局规则：`feature-development.md`、`feature-branch-workflow.md`、`testing.md`
+
+---
+
+## 10. 子分支：feat/sa-confirm-framework（先决条件）
+
+### 10.1 目标
+
+补齐 `BaseTool.require_confirmation` 框架的 confirm-replay 链路，使所有未来 write 工具都能声明"需要二次确认"并由 orchestrator + 视图层 + 缓存层协同完成"execute → reject(confirm) → 暂存 draft → 等待用户 → replay → 真正执行"。
+
+### 10.2 改动清单
+
+| 文件 | 改动 |
+|---|---|
+| `smart_assistant/hooks/wiring.py` | 新增 `apply_pre_execute_hooks(tool, ctx, params)` 同步入口，复用 `_run_coroutine_sync` 模式（参考 `apply_post_execute_hooks`） |
+| `smart_assistant/cache.py` | 新增 `set_confirmation_draft(token, draft, ttl=600)` / `get_confirmation_draft(token)` / `clear_confirmation_draft(token)` 三个函数，复用 `cache.set/get` 与 `_key` |
+| `smart_assistant/agent/orchestrator.py` | `process()` 单工具路由段（第 177–213 行）在 `execute_guarded` **前**插入：<br/>1. 若 `tool.require_confirmation and not request_confirm_token` → 调 `apply_pre_execute_hooks`<br/>2. 若返回 `Reject(error_code="confirmation_required")` → 调工具预演（新增 `dry_run_execute` 钩子点）或工具自己提前返回 draft<br/>3. 把 draft 写入缓存，key=token=uuid4()，返回 `{"awaiting_confirmation": True, "confirmation_token": "...", "draft": {...}}` 给前端（不走 LLM 合成）<br/>`process_stream()` 对称改动 |
+| `smart_assistant/views/chat.py` | `SmartChatViewSet.create` 检测 `request.data.get("confirm_token")`：若有且缓存命中 → 跳过 pre-hook 链，直接 `tool.execute()` 落库，返回最终结果；`AgentLog.tool_success=True` |
+| `smart_assistant/tests/test_confirm_replay_e2e.py` | 端到端测试：create draft → return awaiting_confirmation → 用户 confirm → replay → 真正 execute，以及用户取消路径、token 过期路径 |
+
+### 10.3 输出契约
+
+**第一次请求**（无 confirm_token，工具 require_confirmation=True）：
+```json
+{
+  "awaiting_confirmation": true,
+  "confirmation_token": "uuid-v4",
+  "draft": {
+    "tool": "swap_request_create",
+    "summary": "将为以下换班申请发起请求,确认吗?",
+    "fields": {
+      "requester": "张三(您)",
+      "target": "李四",
+      "duty_date": "2026-08-06(周三)",
+      "reason": "—"
+    }
+  },
+  "intent": "swap_request_create",
+  "tool_used": "swap_request_create",
+  "answer": "请确认以下换班申请",
+  "error": false
+}
+```
+
+**第二次请求**（带 confirm_token）：
+- 缓存命中 draft + tool_name → 直接 `tool.execute(confirmed_params)` → 正常返回落库结果
+- 缓存未命中 / 已过期 → 返回 410 Gone，提示"确认已过期,请重新发起"
+
+### 10.4 完成判据
+
+- [ ] `apply_pre_execute_hooks` 单元测试通过（参考 `apply_post_execute_hooks` 模式）
+- [ ] `set/get/clear_confirmation_draft` 单测覆盖过期、并发、跨用户隔离
+- [ ] orchestrator 单测覆盖：`require_confirmation=True` 工具 → 返回 awaiting_confirmation（不走 LLM）；replay 路径 → 跳过 pre-hook 直接 execute
+- [ ] 视图层单测：confirm_token 有效 → 落库；无效/过期 → 410；缺 token 但工具需确认 → 返回 awaiting_confirmation
+- [ ] 端到端：mock 工具 verify 完整链路
+- [ ] pytest 覆盖 confirm-replay 相关代码 ≥ 80%
+
+### 10.5 与本计划的关系
+
+子分支独立 PR 合并到 main 后，本计划 Phase 1.1 即可开始。子分支代码全部位于 `smart_assistant/` 内部，与 swap 业务无耦合。
