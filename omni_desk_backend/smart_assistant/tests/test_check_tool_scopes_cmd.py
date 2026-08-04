@@ -106,4 +106,4 @@ def test_command_outputs_tool_count(restore_tool_registry, capsys):
     out = StringIO()
     call_command("check_tool_scopes", stdout=out)
     output = out.getvalue()
-    assert "13" in output or "tools" in output.lower()
+    assert "16" in output or "tools" in output.lower()

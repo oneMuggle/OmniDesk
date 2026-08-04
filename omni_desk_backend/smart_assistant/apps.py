@@ -24,6 +24,11 @@ class SmartAssistantConfig(AppConfig):
         from .tools.announcement_tool import AnnouncementTool
         from .tools.compliance_tool import ComplianceTool
         from .tools.external_link_tool import ExternalLinkTool
+        from .tools.swap_request_tool import (
+            SwapRequestQueryTool,
+            SwapRequestCreateTool,
+            SwapRequestDecideTool,
+        )
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
@@ -38,6 +43,9 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(AnnouncementTool())
         ToolRegistry.register(ComplianceTool())
         ToolRegistry.register(ExternalLinkTool())
+        ToolRegistry.register(SwapRequestQueryTool())
+        ToolRegistry.register(SwapRequestCreateTool())
+        ToolRegistry.register(SwapRequestDecideTool())
 
         # 钩子注册:PII 脱敏(POST_EXECUTE)+ 超时熔断恢复(ON_FAILURE)挂到
         # 全局 HookRegistry。接线方式与 AuditLogHook 文档约定一致
