@@ -24,6 +24,11 @@ from events.models import Schedule, ScheduleSwapRequest
 from personnel.models import Personnel
 
 from ..extractors.swap_extractor import extract_create_params
+from events.services.swap_service import (
+    SwapServiceError,
+    SwapPermissionError,
+    create_swap_by_query,
+)
 from .base import BaseTool
 
 logger = logging.getLogger(__name__)
@@ -191,13 +196,42 @@ class SwapRequestCreateTool(BaseTool):
         }
 
     def _confirmed(self, query, ctx) -> dict:
-        """confirmed 模式:真正执行落库"""
-        # TODO: 实现业务逻辑(复用 SwapRequestViewSet.perform_create)
-        # 暂时返回占位结果
+        """confirmed 模式:重 parse(query) → 调 swap_service.create_swap_by_query 落库"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        requester = getattr(user, "personnel", None)
+        if requester is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+
+        params = extract_create_params(query, requester)
+        if params is None:
+            return {"found": False, "message": "无法识别换班意图"}
+
+        duty_date = _parse_date_string(params.duty_date)
+        if duty_date is None:
+            return {"found": False, "message": f"无法解析日期 '{params.duty_date}'"}
+
+        try:
+            swap = create_swap_by_query(
+                requester=requester,
+                target_name=params.target_name,
+                duty_date=duty_date,
+                reason=params.reason,
+            )
+        except (SwapServiceError, SwapPermissionError) as e:
+            return {"found": False, "message": str(e)}
+        except Exception as e:
+            return {"found": False, "message": f"创建换班申请失败: {e}"}
+
         return {
             "found": True,
-            "result": "not_implemented",
-            "summary": f"换班申请已发起(待实现): {query}",
+            "result": {"swap_id": swap.id, "status": swap.status},
+            "summary": (
+                f"换班申请已发起: #{swap.id} "
+                f"{swap.requester.name} → {swap.target_personnel.name} "
+                f"{swap.original_schedule.duty_date}"
+            ),
         }
 
     def build_base_queryset(self):
