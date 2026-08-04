@@ -209,6 +209,10 @@ class SmartChatViewSet(viewsets.ViewSet):
             "conversation_id": result.get("conversation_id") or conversation_id,
             "log_id": log.id,
             "error": error,
+            # confirm-replay 框架:若 orchestrator 拦截并返回 awaiting_confirmation,
+            # 透传 awaiting_confirmation + confirmation_token 给前端
+            "awaiting_confirmation": result.get("awaiting_confirmation", False),
+            "confirmation_token": result.get("confirmation_token"),
         }
         # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
         if error:
