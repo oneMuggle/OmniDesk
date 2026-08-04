@@ -27,6 +27,9 @@ from ..agent.conversation_context import (
 )
 from ..scope import resolve_scope
 from ..tools.tool_context import ToolContext
+from ..tools.registry import ToolRegistry
+from ..cache import get_confirmation_draft, clear_confirmation_draft
+from ..hooks.wiring import execute_guarded
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +64,58 @@ class SmartChatViewSet(viewsets.ViewSet):
 
         query = serializer.validated_data["query"]
         conversation_id = serializer.validated_data.get("conversation_id")
+        confirm_token = (serializer.validated_data.get("confirm_token") or "").strip()
+
+        # === confirm-replay:replay 路径(跳过 orchestrator,直接执行工具) ===
+        # 前端带 confirm_token 二次请求 → 视图层直接执行工具,不走 orchestrator
+        # (orchestrator 已在首次请求时把 draft 存到短期缓存,这里只 replay)
+        if confirm_token:
+            draft_entry = get_confirmation_draft(confirm_token)
+            if not draft_entry:
+                return Response(
+                    {"detail": "确认已过期或不存在,请重新发起", "code": "confirmation_expired"},
+                    status=status.HTTP_410_GONE,
+                )
+            # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
+            expected_prefix = f"u{request.user.pk}_"
+            if not draft_entry.get("context_sig", "").startswith(expected_prefix):
+                logger.warning(
+                    "confirm token 跨用户重放: token=%s expected_user=%s draft_user_sig=%s",
+                    confirm_token,
+                    request.user.pk,
+                    draft_entry.get("context_sig", ""),
+                )
+                return Response(
+                    {"detail": "该确认不属于当前用户", "code": "confirmation_user_mismatch"},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+            # replay:跳过 orchestrator,直接执行工具
+            tool = ToolRegistry.get_tool(draft_entry["tool_name"])
+            if not tool:
+                logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
+                return Response(
+                    {"detail": f"工具 {draft_entry['tool_name']} 未注册"},
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+            try:
+                tool_result = execute_guarded(
+                    tool,
+                    draft_entry["user_query"],
+                    context={"history": [], "confirmed": True, "confirm_token": confirm_token},
+                )
+                clear_confirmation_draft(confirm_token)  # 清理,防止重放
+                return Response({
+                    "answer": tool_result.get("summary") or "操作已完成",
+                    "tool_used": tool.name,
+                    "tool_result": tool_result,
+                    "confirmed": True,
+                    "error": False,
+                })
+            except Exception as exc:
+                logger.exception("confirm replay 执行失败: token=%s", confirm_token)
+                return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        # === replay 路径结束 ===
+
         orchestrator = AgentOrchestrator()
 
         conversation_history = None
