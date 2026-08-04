@@ -17,13 +17,9 @@
 """
 
 import logging
-import re
-from datetime import timedelta
 
 from django.db.models import Q
-from django.utils import timezone
-from events.models import Schedule, ScheduleSwapRequest
-from personnel.models import Personnel
+from events.models import ScheduleSwapRequest
 
 from .base import BaseTool
 
