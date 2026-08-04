@@ -17,13 +17,36 @@
 """
 
 import logging
+from datetime import date, datetime
 
 from django.db.models import Q
-from events.models import ScheduleSwapRequest
+from events.models import Schedule, ScheduleSwapRequest
+from personnel.models import Personnel
 
+from ..extractors.swap_extractor import extract_create_params
 from .base import BaseTool
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_date_string(s: str) -> date | None:
+    """鲁棒地解析日期字符串,失败返回 None。
+
+    接受格式:
+    - "2026-08-12"(ISO)
+    - "08-12"(MM-DD,默认当年)
+    """
+    if not s:
+        return None
+    s = s.strip()
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(s, "%m-%d").date().replace(year=date.today().year)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -126,14 +149,44 @@ class SwapRequestCreateTool(BaseTool):
         return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
 
     def _dry_run(self, query, ctx) -> dict:
-        """dry_run 模式:解析 query,构造 draft,不真正执行"""
-        # TODO: 实现自然语言解析(query → target_name, duty_date)
-        # 暂时返回占位 draft
+        """dry_run 模式:解析 query,验证可行性,返 draft(不落库)"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        requester = getattr(user, "personnel", None)
+        if requester is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+
+        params = extract_create_params(query, requester)
+        if params is None:
+            return {"found": False, "message": "无法识别换班意图,请明确换班对象(姓名)和日期"}
+
+        target = Personnel.objects.filter(name=params.target_name).first()
+        if target is None:
+            return {"found": False, "message": f"未找到 '{params.target_name}' 该人员"}
+
+        if target.id == requester.id:
+            return {"found": False, "message": "不能把班换给自己"}
+
+        duty_date = _parse_date_string(params.duty_date)
+        if duty_date is None:
+            return {"found": False, "message": f"无法解析日期 '{params.duty_date}'"}
+
+        schedule = Schedule.objects.filter(duty_date=duty_date, duty_person=requester).first()
+        if schedule is None:
+            return {"found": False, "message": f"找不到您 {duty_date} 的排班记录"}
+
         return {
             "found": True,
             "draft": {
-                "summary": f"将为以下操作发起确认: {query}",
-                "fields": {"query": query, "note": "待实现:自然语言解析"},
+                "summary": f"为 {requester.name} → {target.name} {duty_date} 发起换班申请",
+                "fields": {
+                    "target_personnel_id": target.id,
+                    "target_personnel_name": target.name,
+                    "original_schedule_id": schedule.id,
+                    "duty_date": duty_date.isoformat(),
+                    "reason": params.reason,
+                },
             },
         }
 
