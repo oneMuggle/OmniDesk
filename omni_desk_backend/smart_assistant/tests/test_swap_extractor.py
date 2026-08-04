@@ -6,8 +6,10 @@ import pytest
 
 from smart_assistant.extractors.swap_extractor import (
     CreateParams,
+    DecideParams,
     _call_llm_for_json,
     extract_create_params,
+    extract_decide_params,
 )
 
 
@@ -115,3 +117,56 @@ class TestExtractCreateParams:
             )
         assert result is not None
         assert result.reason == ""
+
+
+class TestExtractDecideParams:
+    """extract_decide_params:LLM 解析 decide 参数"""
+
+    def test_accept_with_swap_id(self):
+        """accept + swap_id 显式提供"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"action": "accept", "swap_id": 7, "note": "可以"}',
+        ):
+            mock_actor = MagicMock()
+            mock_actor.personnel.name = "李四"
+            result = extract_decide_params("同意申请 #7", mock_actor)
+        assert isinstance(result, DecideParams)
+        assert result.action == "accept"
+        assert result.swap_id == 7
+        assert result.note == "可以"
+
+    def test_reject_without_swap_id(self):
+        """reject 不带 swap_id → 仍合法(swap_id 兜底逻辑)"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"action": "reject", "swap_id": null, "note": ""}',
+        ):
+            mock_actor = MagicMock()
+            mock_actor.personnel.name = "李四"
+            result = extract_decide_params("拒绝张三的申请", mock_actor)
+        assert result is not None
+        assert result.action == "reject"
+        assert result.swap_id is None
+
+    def test_missing_action(self):
+        """缺 action → None"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"swap_id": 7}',
+        ):
+            mock_actor = MagicMock()
+            mock_actor.personnel.name = "李四"
+            result = extract_decide_params("query", mock_actor)
+        assert result is None
+
+    def test_invalid_action(self):
+        """action 不在合法集合 → None"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"action": "delete", "swap_id": 7}',
+        ):
+            mock_actor = MagicMock()
+            mock_actor.personnel.name = "李四"
+            result = extract_decide_params("query", mock_actor)
+        assert result is None
