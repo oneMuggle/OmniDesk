@@ -116,6 +116,11 @@ class SmartChatRequestSerializer(serializers.Serializer):
 
     query = serializers.CharField(required=True, help_text="用户问题")
     conversation_id = serializers.IntegerField(required=False, allow_null=True, help_text="可选：关联的会话ID")
+    confirm_token = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        help_text="可选:二次确认 token,带此字段走 replay 路径(跳过 orchestrator 拦截,直接执行工具)",
+    )
 
 
 class SmartChatResponseSerializer(serializers.Serializer):

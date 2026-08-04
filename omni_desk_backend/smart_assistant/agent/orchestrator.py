@@ -1,4 +1,5 @@
 import json
+import uuid
 
 from .intent_classifier import (
     classify_intent,
@@ -17,6 +18,7 @@ from ..cache import (
     cache_tool_result,
     get_cached_answer,
     cache_answer,
+    set_confirmation_draft,
 )
 from .tool_chain_planner import generate_tool_chain_plan
 from .tool_chain_executor import (
@@ -25,9 +27,11 @@ from .tool_chain_executor import (
     ToolChainExecutor,
 )
 from .result_synthesizer import ResultSynthesizer
+from ..hooks.base import Reject
 from ..hooks.wiring import (
     apply_failure_hooks,
     apply_post_execute_hooks,
+    apply_pre_execute_hooks,
     execute_guarded,
 )
 
@@ -176,11 +180,63 @@ class AgentOrchestrator:
         # Step 3: 单工具路由(保持现有路径)
         tool = ToolRegistry.get_tool(intent)
         if tool:
+            hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
+
+            # === confirm-replay 框架:require_confirmation 工具拦截 ===
+            # Phase B:orchestrator 在 execute 前调 pre-hook 链。若工具标记
+            # require_confirmation=True 且 pre-hook 返回 Reject(error_code=
+            # "confirmation_required"),则工具"预演"(dry_run)返回 draft,
+            # orchestrator 把 draft 存到短期缓存,返回 awaiting_confirmation
+            # 给前端,等用户二次确认。
+            if getattr(tool, "require_confirmation", False):
+                hook_result = apply_pre_execute_hooks(tool, hook_ctx, {"query": user_query})
+                if isinstance(hook_result, Reject) and hook_result.error_code == "confirmation_required":
+                    # 工具预演:dry_run=True 让工具内部跳过副作用,只返回 draft
+                    dry_run_result = execute_guarded(
+                        tool,
+                        user_query,
+                        context={"history": conversation_history or [], "dry_run": True},
+                    )
+                    draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None
+                    if not draft:
+                        # 工具未支持 dry_run 模式,返回错误
+                        return {
+                            "answer": f"工具 {tool.name} 标记为需要确认,但未返回预演结果(draft),请联系管理员",
+                            "intent": intent,
+                            "tool_used": tool.name,
+                            "tool_result": None,
+                            "awaiting_confirmation": False,
+                            "error": True,
+                        }
+                    # 存 draft 到短期缓存(TTL 10 分钟)
+                    token = str(uuid.uuid4())
+                    set_confirmation_draft(
+                        token,
+                        {
+                            "tool_name": tool.name,
+                            "user_query": user_query,
+                            "context_sig": scope_sig,
+                            "draft": draft,
+                        },
+                    )
+                    # 不走 LLM 合成,直接返回 awaiting_confirmation 给前端
+                    return {
+                        "answer": draft.get("summary") or "请确认以下操作",
+                        "intent": intent,
+                        "tool_used": tool.name,
+                        "tool_result": {"draft": draft},
+                        "awaiting_confirmation": True,
+                        "confirmation_token": token,
+                        "error": False,
+                    }
+                # 非 confirmation_required 的 Reject 或其他情况:走既有路径
+                # (apply_pre_execute_hooks 内部已做失败降级,透传 params)
+            # === confirm-replay 拦截结束 ===
+
             cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
             if cached_result is not None:
                 tool_result = cached_result
             else:
-                hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
                 try:
                     # 工具执行统一经 execute_guarded 超时熔断包装(修复 1)
                     if tool_context is not None and getattr(tool, "supports_scope_filter", False):
