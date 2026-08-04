@@ -189,9 +189,7 @@ class AgentOrchestrator:
             # orchestrator 把 draft 存到短期缓存,返回 awaiting_confirmation
             # 给前端,等用户二次确认。
             if getattr(tool, "require_confirmation", False):
-                hook_result = apply_pre_execute_hooks(
-                    tool, hook_ctx, {"query": user_query}
-                )
+                hook_result = apply_pre_execute_hooks(tool, hook_ctx, {"query": user_query})
                 if isinstance(hook_result, Reject) and hook_result.error_code == "confirmation_required":
                     # 工具预演:dry_run=True 让工具内部跳过副作用,只返回 draft
                     dry_run_result = execute_guarded(

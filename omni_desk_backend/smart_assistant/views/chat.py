@@ -104,13 +104,15 @@ class SmartChatViewSet(viewsets.ViewSet):
                     context={"history": [], "confirmed": True, "confirm_token": confirm_token},
                 )
                 clear_confirmation_draft(confirm_token)  # 清理,防止重放
-                return Response({
-                    "answer": tool_result.get("summary") or "操作已完成",
-                    "tool_used": tool.name,
-                    "tool_result": tool_result,
-                    "confirmed": True,
-                    "error": False,
-                })
+                return Response(
+                    {
+                        "answer": tool_result.get("summary") or "操作已完成",
+                        "tool_used": tool.name,
+                        "tool_result": tool_result,
+                        "confirmed": True,
+                        "error": False,
+                    }
+                )
             except Exception as exc:
                 logger.exception("confirm replay 执行失败: token=%s", confirm_token)
                 return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
