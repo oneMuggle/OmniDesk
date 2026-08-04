@@ -240,3 +240,58 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
         event.set()
         with _inflight_global:
             _inflight_flags.pop(key, None)
+
+
+# ---------------------------------------------------------------------------
+# confirm-replay:draft 短期缓存
+# ---------------------------------------------------------------------------
+# 工具标记 require_confirmation=True 时,orchestrator 在 execute 前拦截,
+# 把工具的"预演"结果(draft)存入短期缓存,返回 confirmation_token 给前端。
+# 用户在前端点确认后,二次请求带 token 触发 replay,跳过 pre-hook 直接执行。
+# TTL 10 分钟:用户从看到弹窗到点确认通常 < 1 分钟,10 分钟足够容错。
+CONFIRMATION_DRAFT_TTL = 600  # 秒
+
+
+def _draft_key(token: str) -> str:
+    """confirmation draft 缓存 key。
+
+    与业务缓存隔离(前缀 "confirm_draft"),避免与 tool/intent/answer 缓存冲突。
+    token 由调用方生成(uuid4),key 内已含 CACHE_VERSION 与 settings 级版本,
+    升级自动失效。
+    """
+    return _key("confirm_draft", token)
+
+
+def set_confirmation_draft(
+    token: str,
+    draft: dict,
+    ttl: int = CONFIRMATION_DRAFT_TTL,
+) -> None:
+    """存 confirmation draft。token 由调用方生成(uuid4)。
+
+    Args:
+        token: 唯一标识(replay 时前端带回)
+        draft: draft 字典(工具预演结果 + 上下文)
+        ttl: 过期秒数,默认 10 分钟
+
+    注意:调用方负责保证 token 唯一(用 uuid4 即可)。本函数不校验参数类型,
+    异常时由 Django cache 层吞错(与 cache.set 行为一致)。
+    """
+    cache.set(_draft_key(token), draft, ttl)
+
+
+def get_confirmation_draft(token: str) -> dict | None:
+    """取 confirmation draft。过期/不存在返回 None。
+
+    Returns:
+        draft 字典;token 无效或已过期时为 None
+    """
+    return cache.get(_draft_key(token))
+
+
+def clear_confirmation_draft(token: str) -> None:
+    """replay 成功后清理 draft,防止 token 重放。
+
+    失败安全:token 不存在时静默(不抛异常),与 cache.delete 行为一致。
+    """
+    cache.delete(_draft_key(token))

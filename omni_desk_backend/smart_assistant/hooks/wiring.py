@@ -23,7 +23,7 @@ import asyncio
 import logging
 from typing import Any
 
-from .base import HookEvent, HookRegistry, RecoveryAction, get_registry
+from .base import HookEvent, HookRegistry, RecoveryAction, Reject, get_registry
 
 logger = logging.getLogger(__name__)
 
@@ -162,3 +162,37 @@ def apply_failure_hooks(tool: Any, error: Exception, ctx: Any) -> RecoveryAction
     if isinstance(result, RecoveryAction):
         return result
     return default  # 防御:钩子链返回值类型异常时降级为 ignore
+
+
+def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict) -> dict | Reject:
+    """同步执行全局 PRE_EXECUTE 钩子链。
+
+    典型用途:``require_confirmation=True`` 的工具在执行前通过钩子返回
+    ``Reject(error_code="confirmation_required")`` 挂起执行,等前端二次确认
+    后重放;以及输入参数校验、权限预检等场景。
+
+    Args:
+        tool: 工具实例(需有 ``name`` 属性,用于钩子内部判定)
+        ctx: 工具执行上下文(通常是 ``ToolContext`` 或 ``SharedContext``)
+        params: 工具输入参数(可能被多个 Hook 顺序修改)
+
+    Returns:
+        dict: 最终参数(可能被多个 Hook 修改)
+        Reject: 被某个 Hook 拒绝(通常是 ``require_confirmation=True`` 的工具
+        需要前端二次确认,或权限预检失败)
+
+    失败安全:未注册任何 pre 钩子时走快速路径直接返回 params;钩子链自身
+    异常降级为原样透传(与 ``apply_post_execute_hooks`` / ``apply_failure_hooks``
+    的吞错策略一致),绝不阻断主流程。
+    """
+    registry = get_registry()
+    if not registry.list_hooks(HookEvent.PRE_EXECUTE):
+        return params  # 快速路径:无 pre 钩子(如注册表被测试重置)
+    result = _run_coroutine_sync(
+        lambda: registry.run_pre_hooks(tool, ctx, params),
+        "PRE_EXECUTE 钩子链",
+        params,  # 异常时降级为原样透传,工具继续执行
+    )
+    if isinstance(result, (dict, Reject)):
+        return result
+    return params  # 防御:钩子链返回值类型异常时降级透传
