@@ -9,6 +9,9 @@ djangorestframework-simplejwt==5.5.1
 # JWT (transitive of simplejwt; pinned to avoid PYSEC-2026-175/177/178/179)
 PyJWT==2.13.0
 
+# Cryptography (transitive of pdfminer-six; bumped to avoid CVE-2026-69247)
+cryptography>=50.0.0
+
 # Database & Cache
 psycopg2-binary>=2.9,<3.0
 redis>=7.0,<8.0
