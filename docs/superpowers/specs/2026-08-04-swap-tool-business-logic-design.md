@@ -289,10 +289,15 @@ def _confirmed(self, query, ctx) -> dict:
 
 **view 层需要注入 ctx.user**:当前 view 在 replay 路径上 `context={"history": [], "confirmed": True, "confirm_token": confirm_token}` 没传 user。改造方案:view 层改为 `context={"history": [], "confirmed": True, "confirm_token": confirm_token, "user": request.user}`,其他路径同理。
 
-### 3.6 缓存与幂等
+### 3.6 性能
+
+- **dry_run 阶段**:走 LLM 解析 → ~1-2s 延迟(用户预期)
+- **confirmed 阶段**:ViewSet 在 replay 路径上从 `draft_entry["draft"]` 拿到 fields,工具 `_confirmed` 优先用 `ctx.get("draft_fields")`,LLM 仅在 draft_fields 缺失时回退。否则一次换班 = 2 次 LLM 调用,延迟翻倍(2-4s)
+
+### 3.7 缓存与幂等
 
 - draft 缓存已经走 `set_confirmation_draft` (Phase A-D),`_dry_run` 只返回 dict 给 orchestrator
-- `confirmed` 路径不重复 parse:ViewSet 已有 `confirm_token` 走 replay,只需重跑同一 query → 同一 service,自然幂等
+- `confirmed` 路径 priority: 1) ctx.draft_fields(来自缓存) → 2) 重 parse(LLM)
 - 同一 reason 的重复请求:靠 `UniqueConstraint(original_schedule, status=pending)` 兜底
 - 若 replay 路径 service 报 UniqueConstraint 违反(draft 期间已被并行创建),转 `found=False, message="该排班已有进行中的换班申请"`
 
