@@ -19,6 +19,13 @@ import logging
 import re
 from dataclasses import dataclass
 
+from django.utils import timezone as dj_timezone
+
+from .prompts.swap_create_prompt import (
+    SWAP_CREATE_SYSTEM_PROMPT,
+    build_create_user_prompt,
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -80,3 +87,28 @@ def _call_llm_for_json(prompt: str) -> dict | None:
     except json.JSONDecodeError:
         logger.warning("_call_llm_for_json: 提取后仍非 JSON. raw=%r", raw[:200])
         return None
+
+
+def extract_create_params(query: str, requester) -> CreateParams | None:
+    """从 query 提取创建 swap 所需参数。
+
+    Returns:
+        CreateParams 实例;LLM 失败/缺字段 → None
+    """
+    requester_name = getattr(requester, "name", "未知")
+    today = str(dj_timezone.now().date())
+    user_prompt = build_create_user_prompt(query, requester_name, today)
+    full_prompt = f"{SWAP_CREATE_SYSTEM_PROMPT}\n\n{user_prompt}"
+    data = _call_llm_for_json(full_prompt)
+    if data is None:
+        return None
+    target_name = data.get("target_name")
+    duty_date = data.get("duty_date")
+    if not target_name or not duty_date:
+        logger.warning("extract_create_params: 缺字段. data=%s", data)
+        return None
+    return CreateParams(
+        target_name=target_name,
+        duty_date=duty_date,
+        reason=data.get("reason") or "",
+    )

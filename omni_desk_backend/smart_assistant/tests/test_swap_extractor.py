@@ -1,10 +1,13 @@
 """swap_extractor 单元测试"""
 
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
+import pytest
 
 from smart_assistant.extractors.swap_extractor import (
+    CreateParams,
     _call_llm_for_json,
+    extract_create_params,
 )
 
 
@@ -55,3 +58,60 @@ class TestCallLlmForJson:
         ):
             result = _call_llm_for_json("fake prompt")
         assert result == {"target_name": "李四"}
+
+
+@pytest.mark.django_db
+class TestExtractCreateParams:
+    """extract_create_params:LLM 解析 create 参数"""
+
+    def test_valid_extraction(self):
+        """LLM 返回有效 JSON → 构造 CreateParams"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"target_name": "李四", "duty_date": "2026-08-12", "reason": "出差"}',
+        ):
+            mock_requester = MagicMock()
+            mock_requester.name = "张三"
+            result = extract_create_params(
+                "我想和李四换 8月12日 的班,因出差", mock_requester
+            )
+        assert isinstance(result, CreateParams)
+        assert result.target_name == "李四"
+        assert result.duty_date == "2026-08-12"
+        assert result.reason == "出差"
+
+    def test_missing_required_field(self):
+        """LLM 缺 target_name → None"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"duty_date": "2026-08-12"}',
+        ):
+            mock_requester = MagicMock()
+            mock_requester.name = "张三"
+            result = extract_create_params("模糊 query", mock_requester)
+        assert result is None
+
+    def test_llm_failure(self):
+        """LLM 抛异常 → None"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            side_effect=RuntimeError("LLM timeout"),
+        ):
+            mock_requester = MagicMock()
+            mock_requester.name = "张三"
+            result = extract_create_params("query", mock_requester)
+        assert result is None
+
+    def test_empty_reason_allowed(self):
+        """reason 字段为空字符串是合法的"""
+        with patch(
+            "smart_assistant.extractors.swap_extractor._call_llm",
+            return_value='{"target_name": "李四", "duty_date": "2026-08-12", "reason": ""}',
+        ):
+            mock_requester = MagicMock()
+            mock_requester.name = "张三"
+            result = extract_create_params(
+                "我想和李四换 8月12日 的班", mock_requester
+            )
+        assert result is not None
+        assert result.reason == ""
