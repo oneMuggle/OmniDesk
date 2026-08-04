@@ -28,7 +28,18 @@ from personnel.models import Personnel
 
 
 class SwapServiceError(Exception):
-    """业务错误(非用户/权限),由调用方转为 HTTP 400/409。"""
+    """业务错误(非用户/权限),由调用方转为 HTTP 400/409。
+
+    Attributes:
+        field: 关联字段名(如 "target_personnel" / "requester"),可选。
+        ViewSet 据此把错误恢复到 serializer 字段格式:
+        {"<field>": "..."} 或 {"detail": "..."}(field 为空时)。
+    """
+
+    def __init__(self, message: str, *, field: str | None = None):
+        super().__init__(message)
+        self.message = message
+        self.field = field
 
 
 class SwapPermissionError(Exception):
@@ -68,8 +79,10 @@ def _create_swap_internal(
         instance.full_clean()
     except Exception as e:
         # 将 model.ValidationError 转换为 SwapServiceError,统一异常类型
+        # 保留字段名,以便 ViewSet 还原为 serializer 字段格式
         if hasattr(e, "message_dict"):
-            raise SwapServiceError(str(list(e.message_dict.values())[0][0])) from e
+            field_name, messages = next(iter(e.message_dict.items()))
+            raise SwapServiceError(messages[0], field=field_name) from e
         raise SwapServiceError(str(e)) from e
     instance.save()
     return instance
