@@ -27,14 +27,11 @@ def build_decide_user_prompt(query: str, actor_name: str, pending_swaps: list) -
 
     pending_swaps: list of dict,每个 dict 含 swap_id / requester_name / target_name / duty_date
     """
-    pending_text = "\n".join(
-        f"  - #{s['swap_id']}: {s['requester_name']} → {s.get('target_name', '?')} "
-        f"({s.get('duty_date', '?')})"
-        for s in pending_swaps
-    ) or "  (无 pending 申请)"
-    return (
-        f"操作人: {actor_name}\n"
-        f"待决策申请清单:\n{pending_text}\n"
-        f"用户请求: {query}\n"
-        f"\n请输出 JSON:"
+    pending_text = (
+        "\n".join(
+            f"  - #{s['swap_id']}: {s['requester_name']} → {s.get('target_name', '?')} ({s.get('duty_date', '?')})"
+            for s in pending_swaps
+        )
+        or "  (无 pending 申请)"
     )
+    return f"操作人: {actor_name}\n待决策申请清单:\n{pending_text}\n用户请求: {query}\n\n请输出 JSON:"

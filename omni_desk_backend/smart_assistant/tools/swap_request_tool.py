@@ -285,13 +285,19 @@ class SwapRequestDecideTool(BaseTool):
         if personnel is None:
             return None
         if params.swap_id is not None:
-            return ScheduleSwapRequest.objects.filter(pk=params.swap_id).filter(
-                Q(target_personnel=personnel) | Q(requester=personnel)
-            ).first()
-        return ScheduleSwapRequest.objects.filter(
-            target_personnel=personnel,
-            status=ScheduleSwapRequest.STATUS_PENDING,
-        ).order_by("-created_at").first()
+            return (
+                ScheduleSwapRequest.objects.filter(pk=params.swap_id)
+                .filter(Q(target_personnel=personnel) | Q(requester=personnel))
+                .first()
+            )
+        return (
+            ScheduleSwapRequest.objects.filter(
+                target_personnel=personnel,
+                status=ScheduleSwapRequest.STATUS_PENDING,
+            )
+            .order_by("-created_at")
+            .first()
+        )
 
     def _dry_run(self, query, ctx) -> dict:
         """dry_run 模式:解析决策并构造确认 draft。"""

@@ -24,9 +24,4 @@ SWAP_CREATE_SYSTEM_PROMPT = """你是 swap_request_extractor,负责把中文自�
 
 def build_create_user_prompt(query: str, requester_name: str, today: str) -> str:
     """构造 user prompt 字符串"""
-    return (
-        f"申请人: {requester_name}\n"
-        f"当前日期: {today}\n"
-        f"用户请求: {query}\n"
-        f"\n请输出 JSON:"
-    )
+    return f"申请人: {requester_name}\n当前日期: {today}\n用户请求: {query}\n\n请输出 JSON:"

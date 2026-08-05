@@ -64,9 +64,7 @@ def _call_llm(prompt: str) -> str:
     真实实现依赖项目 LLM 客户端(YAGNI:本任务范围只到 mock level,
     真实 LLM 接入在后续 PR 单独处理)。
     """
-    raise NotImplementedError(
-        "_call_llm 是 stub。请在生产环境接入项目 LLM 客户端后再使用 swap_extractor。"
-    )
+    raise NotImplementedError("_call_llm 是 stub。请在生产环境接入项目 LLM 客户端后再使用 swap_extractor。")
 
 
 def _call_llm_for_json(prompt: str) -> dict | None:

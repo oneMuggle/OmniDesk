@@ -132,9 +132,7 @@ def create_swap_by_query(
     target_personnel = Personnel.objects.filter(name=target_name).first()
     if target_personnel is None:
         raise SwapServiceError(f"未找到 '{target_name}' 该人员")
-    original_schedule = Schedule.objects.filter(
-        duty_date=duty_date, duty_person=requester
-    ).first()
+    original_schedule = Schedule.objects.filter(duty_date=duty_date, duty_person=requester).first()
     if original_schedule is None:
         raise SwapServiceError(f"找不到您 {duty_date} 的排班记录")
     with transaction.atomic():
