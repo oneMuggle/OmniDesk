@@ -17,13 +17,45 @@
 """
 
 import logging
+from datetime import date, datetime
 
 from django.db.models import Q
-from events.models import ScheduleSwapRequest
+from events.models import Schedule, ScheduleSwapRequest
+from personnel.models import Personnel
 
+from ..extractors.swap_extractor import extract_create_params, extract_decide_params
+from events.services.swap_service import (
+    SwapNotFoundError,
+    SwapPermissionError,
+    SwapServiceError,
+    accept_swap,
+    cancel_swap,
+    create_swap_by_query,
+    reject_swap,
+)
 from .base import BaseTool
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_date_string(s: str) -> date | None:
+    """鲁棒地解析日期字符串,失败返回 None。
+
+    接受格式:
+    - "2026-08-12"(ISO)
+    - "08-12"(MM-DD,默认当年)
+    """
+    if not s:
+        return None
+    s = s.strip()
+    try:
+        return datetime.strptime(s, "%Y-%m-%d").date()
+    except ValueError:
+        pass
+    try:
+        return datetime.strptime(s, "%m-%d").date().replace(year=date.today().year)
+    except ValueError:
+        return None
 
 
 # ---------------------------------------------------------------------------
@@ -126,25 +158,84 @@ class SwapRequestCreateTool(BaseTool):
         return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
 
     def _dry_run(self, query, ctx) -> dict:
-        """dry_run 模式:解析 query,构造 draft,不真正执行"""
-        # TODO: 实现自然语言解析(query → target_name, duty_date)
-        # 暂时返回占位 draft
+        """dry_run 模式:解析 query,验证可行性,返 draft(不落库)"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        requester = getattr(user, "personnel", None)
+        if requester is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+
+        params = extract_create_params(query, requester)
+        if params is None:
+            return {"found": False, "message": "无法识别换班意图,请明确换班对象(姓名)和日期"}
+
+        target = Personnel.objects.filter(name=params.target_name).first()
+        if target is None:
+            return {"found": False, "message": f"未找到 '{params.target_name}' 该人员"}
+
+        if target.id == requester.id:
+            return {"found": False, "message": "不能把班换给自己"}
+
+        duty_date = _parse_date_string(params.duty_date)
+        if duty_date is None:
+            return {"found": False, "message": f"无法解析日期 '{params.duty_date}'"}
+
+        schedule = Schedule.objects.filter(duty_date=duty_date, duty_person=requester).first()
+        if schedule is None:
+            return {"found": False, "message": f"找不到您 {duty_date} 的排班记录"}
+
         return {
             "found": True,
             "draft": {
-                "summary": f"将为以下操作发起确认: {query}",
-                "fields": {"query": query, "note": "待实现:自然语言解析"},
+                "summary": f"为 {requester.name} → {target.name} {duty_date} 发起换班申请",
+                "fields": {
+                    "target_personnel_id": target.id,
+                    "target_personnel_name": target.name,
+                    "original_schedule_id": schedule.id,
+                    "duty_date": duty_date.isoformat(),
+                    "reason": params.reason,
+                },
             },
         }
 
     def _confirmed(self, query, ctx) -> dict:
-        """confirmed 模式:真正执行落库"""
-        # TODO: 实现业务逻辑(复用 SwapRequestViewSet.perform_create)
-        # 暂时返回占位结果
+        """confirmed 模式:重 parse(query) → 调 swap_service.create_swap_by_query 落库"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        requester = getattr(user, "personnel", None)
+        if requester is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+
+        params = extract_create_params(query, requester)
+        if params is None:
+            return {"found": False, "message": "无法识别换班意图"}
+
+        duty_date = _parse_date_string(params.duty_date)
+        if duty_date is None:
+            return {"found": False, "message": f"无法解析日期 '{params.duty_date}'"}
+
+        try:
+            swap = create_swap_by_query(
+                requester=requester,
+                target_name=params.target_name,
+                duty_date=duty_date,
+                reason=params.reason,
+            )
+        except (SwapServiceError, SwapPermissionError) as e:
+            return {"found": False, "message": str(e)}
+        except Exception as e:
+            return {"found": False, "message": f"创建换班申请失败: {e}"}
+
         return {
             "found": True,
-            "result": "not_implemented",
-            "summary": f"换班申请已发起(待实现): {query}",
+            "result": {"swap_id": swap.id, "status": swap.status},
+            "summary": (
+                f"换班申请已发起: #{swap.id} "
+                f"{swap.requester.name} → {swap.target_personnel.name} "
+                f"{swap.original_schedule.duty_date}"
+            ),
         }
 
     def build_base_queryset(self):
@@ -188,26 +279,83 @@ class SwapRequestDecideTool(BaseTool):
         # 兜底
         return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
 
+    def _resolve_target_swap(self, params, actor):
+        """解析 actor 相关的目标换班申请。"""
+        personnel = getattr(actor, "personnel", None)
+        if personnel is None:
+            return None
+        if params.swap_id is not None:
+            return (
+                ScheduleSwapRequest.objects.filter(pk=params.swap_id)
+                .filter(Q(target_personnel=personnel) | Q(requester=personnel))
+                .first()
+            )
+        return (
+            ScheduleSwapRequest.objects.filter(
+                target_personnel=personnel,
+                status=ScheduleSwapRequest.STATUS_PENDING,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+
     def _dry_run(self, query, ctx) -> dict:
-        """dry_run 模式:解析 query,构造 draft,不真正执行"""
-        # TODO: 实现自然语言解析(query → action, swap_id)
-        # 暂时返回占位 draft
+        """dry_run 模式:解析决策并构造确认 draft。"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None or getattr(user, "personnel", None) is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        params = extract_decide_params(query, user)
+        if params is None:
+            return {"found": False, "message": "无法识别换班决策(accept/reject/cancel)"}
+        swap = self._resolve_target_swap(params, user)
+        if swap is None:
+            return {"found": False, "message": "未找到您相关的待决策换班申请"}
+        if swap.status != ScheduleSwapRequest.STATUS_PENDING:
+            return {"found": False, "message": f"该申请不在 pending 状态(当前:{swap.status})"}
         return {
             "found": True,
             "draft": {
-                "summary": f"将为以下操作发起确认: {query}",
-                "fields": {"query": query, "note": "待实现:自然语言解析"},
+                "summary": f"确认 {params.action} #{swap.id} {swap.requester.name} → "
+                f"{swap.target_personnel.name} {swap.original_schedule.duty_date}",
+                "fields": {
+                    "swap_id": swap.id,
+                    "action": params.action,
+                    "current_status": swap.status,
+                    "note": params.note,
+                },
             },
         }
 
     def _confirmed(self, query, ctx) -> dict:
-        """confirmed 模式:真正执行落库"""
-        # TODO: 实现业务逻辑(复用 SwapRequestViewSet.accept/reject/cancel)
-        # 暂时返回占位结果
+        """confirmed 模式:重解析并调用对应 swap service。"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None or getattr(user, "personnel", None) is None:
+            return {"found": False, "message": "当前用户未关联人员档案"}
+        params = extract_decide_params(query, user)
+        if params is None:
+            return {"found": False, "message": "无法识别换班决策"}
+        swap = self._resolve_target_swap(params, user)
+        if swap is None:
+            return {"found": False, "message": "未找到您相关的换班申请"}
+        try:
+            if params.action == "accept":
+                result_swap = accept_swap(actor=user, swap_id=swap.id, note=params.note)
+            elif params.action == "reject":
+                result_swap = reject_swap(actor=user, swap_id=swap.id, note=params.note)
+            elif params.action == "cancel":
+                result_swap = cancel_swap(actor=user, swap_id=swap.id)
+            else:
+                return {"found": False, "message": f"非法 action: {params.action}"}
+        except (SwapNotFoundError, SwapPermissionError, SwapServiceError) as exc:
+            return {"found": False, "message": str(exc)}
+        except Exception as exc:
+            return {"found": False, "message": f"决策失败: {exc}"}
+        action_text = {"accept": "已接受", "reject": "已拒绝", "cancel": "已撤销"}[params.action]
         return {
             "found": True,
-            "result": "not_implemented",
-            "summary": f"换班申请决策已完成(待实现): {query}",
+            "result": {"swap_id": result_swap.id, "status": result_swap.status},
+            "summary": f"换班申请 {action_text}: #{result_swap.id} "
+            f"{result_swap.requester.name} → {result_swap.target_personnel.name}",
         }
 
     def build_base_queryset(self):

@@ -131,26 +131,24 @@ class TestSwapRequestQueryTool:
 class TestSwapRequestCreateTool:
     """创建工具测试"""
 
-    def test_create_dry_run(self, user_a):
-        """dry_run 模式返回 draft"""
+    def test_create_dry_run(self, user_a, personnel_b, schedule_a):
+        """dry_run 模式返回 draft(成功路径:user + target + schedule)"""
+        from datetime import date, timedelta
+        from smart_assistant.extractors.swap_extractor import CreateParams
         tool = SwapRequestCreateTool()
-        context = {"dry_run": True}
-
-        result = tool.execute(query="我想和李四换下周三的班", context=context)
-
+        context = {"dry_run": True, "user": user_a}
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(
+                target_name="李四",
+                duty_date=(date.today() + timedelta(days=7)).isoformat(),
+                reason="出差",
+            ),
+        ):
+            result = tool.execute(query="我想和李四换班", context=context)
         assert result["found"] is True
         assert "draft" in result
-        assert "summary" in result["draft"]
-
-    def test_create_confirmed(self, user_a):
-        """confirmed 模式返回结果"""
-        tool = SwapRequestCreateTool()
-        context = {"confirmed": True}
-
-        result = tool.execute(query="我想和李四换下周三的班", context=context)
-
-        assert result["found"] is True
-        assert "result" in result
+        assert "summary" in result["draft"]  # 新实现返 summary
 
     def test_create_fallback(self, user_a):
         """兜底模式返回 found=False"""
@@ -164,34 +162,232 @@ class TestSwapRequestCreateTool:
 
 
 # ---------------------------------------------------------------------------
-# SwapRequestDecideTool 测试
+# SwapRequestCreateTool._dry_run 业务测试(Task 8)
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSwapRequestCreateDryRun:
+    """SwapRequestCreateTool._dry_run 各场景"""
+
+    def test_dry_run_no_user(self):
+        """ctx 无 user → found=False"""
+        tool = SwapRequestCreateTool()
+        result = tool._dry_run("我想和李四换班", ctx={})
+        assert result["found"] is False
+        assert "未关联" in result["message"]
+
+    def test_dry_run_extractor_returns_none(self, user_a):
+        """LLM 解析失败 → found=False"""
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=None,
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._dry_run("模糊 query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "无法识别" in result["message"]
+
+    def test_dry_run_target_not_found(self, user_a):
+        """目标人不存在 → found=False 说明'未找到'"""
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(target_name="不存在的名字", duty_date="2026-08-12"),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._dry_run("query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "未找到" in result["message"]
+
+    def test_dry_run_schedule_not_found(self, user_a, personnel_b):
+        """该日 requester 无排班 → found=False"""
+        from datetime import date, timedelta
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        past = date.today() - timedelta(days=30)
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(target_name="李四", duty_date=past.isoformat()),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._dry_run("query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "找不到您" in result["message"]
+
+    def test_dry_run_self_swap(self, user_a, personnel_a):
+        """target == requester → found=False"""
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(target_name="张三", duty_date="2026-08-12"),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._dry_run("query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "不能把班换给自己" in result["message"]
+
+    def test_dry_run_success(self, user_a, personnel_b, schedule_a):
+        """所有校验通过 → 返 draft"""
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(
+                target_name="李四", duty_date=schedule_a.duty_date.isoformat(), reason="出差"
+            ),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._dry_run("query", ctx={"user": user_a})
+        assert result["found"] is True
+        assert "draft" in result
+        draft = result["draft"]
+        assert "fields" in draft
+        assert draft["fields"]["target_personnel_id"] == personnel_b.id
+        assert draft["fields"]["original_schedule_id"] == schedule_a.id
+        assert draft["fields"]["reason"] == "出差"
+
+
+# ---------------------------------------------------------------------------
+# SwapRequestCreateTool._confirmed 业务测试(Task 9)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSwapRequestCreateConfirmed:
+    """SwapRequestCreateTool._confirmed 创建 swap 并落库"""
+
+    def test_confirmed_success(self, user_a, personnel_b, schedule_a):
+        """confirmed:成功创建 swap_request"""
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(
+                target_name="李四", duty_date=schedule_a.duty_date.isoformat(), reason="出差"
+            ),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._confirmed("query", ctx={"user": user_a})
+        assert result["found"] is True
+        assert result["result"]["status"] == "pending"
+        assert ScheduleSwapRequest.objects.count() == 1
+
+    def test_confirmed_extractor_fail(self, user_a):
+        """LLM 解析失败 → found=False"""
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=None,
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._confirmed("query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "无法识别" in result["message"]
+
+    def test_confirmed_target_not_found(self, user_a, schedule_a):
+        """目标人不存在 → found=False"""
+        from smart_assistant.extractors.swap_extractor import CreateParams
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_create_params",
+            return_value=CreateParams(
+                target_name="不存在", duty_date=schedule_a.duty_date.isoformat()
+            ),
+        ):
+            tool = SwapRequestCreateTool()
+            result = tool._confirmed("query", ctx={"user": user_a})
+        assert result["found"] is False
+        assert "未找到" in result["message"]
+
+
+# ---------------------------------------------------------------------------
+# SwapRequestDecideTool._dry_run 业务测试(Task 10)
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestSwapRequestDecideDryRun:
+    """决策 dry_run 测试"""
+
+    def test_dry_run_no_user(self):
+        result = SwapRequestDecideTool()._dry_run("同意申请", ctx={})
+        assert result["found"] is False
+        assert "未关联" in result["message"]
+
+    def test_dry_run_extractor_returns_none(self, user_b):
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=None):
+            result = SwapRequestDecideTool()._dry_run("query", {"user": user_b})
+        assert result["found"] is False
+
+    def test_dry_run_swap_id_not_found(self, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=99999)):
+            result = SwapRequestDecideTool()._dry_run("query", {"user": user_b})
+        assert result["found"] is False
+        assert "未找到" in result["message"]
+
+    def test_dry_run_fallback_latest_pending(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=None)):
+            result = SwapRequestDecideTool()._dry_run("同意张三的申请", {"user": user_b})
+        assert result["found"] is True
+        assert result["draft"]["fields"]["swap_id"] == swap_request.id
+
+
+@pytest.mark.django_db
+class TestSwapRequestDecideConfirmed:
+    """决策 confirmed 测试"""
+
+    def test_confirmed_accept(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="accept", swap_id=swap_request.id, note="同意")):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is True
+        assert result["result"]["status"] == "approved"
+
+    def test_confirmed_reject(self, swap_request, user_b):
+        from smart_assistant.extractors.swap_extractor import DecideParams
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=DecideParams(action="reject", swap_id=swap_request.id)):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is True
+        assert result["result"]["status"] == "rejected_by_target"
+
+    def test_confirmed_extractor_fail(self, user_b):
+        with patch("smart_assistant.tools.swap_request_tool.extract_decide_params", return_value=None):
+            result = SwapRequestDecideTool()._confirmed("query", {"user": user_b})
+        assert result["found"] is False
 
 
 @pytest.mark.django_db
 class TestSwapRequestDecideTool:
     """决策工具测试"""
 
-    def test_decide_dry_run(self, user_b):
-        """dry_run 模式返回 draft"""
-        tool = SwapRequestDecideTool()
-        context = {"dry_run": True}
+    def test_decide_dry_run(self, swap_request, user_b):
+        """dry_run 模式返回真实决策 draft"""
+        from smart_assistant.extractors.swap_extractor import DecideParams
 
-        result = tool.execute(query="同意张三的换班申请", context=context)
+        tool = SwapRequestDecideTool()
+        context = {"dry_run": True, "user": user_b}
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_decide_params",
+            return_value=DecideParams(action="accept", swap_id=swap_request.id),
+        ):
+            result = tool.execute(query="同意张三的换班申请", context=context)
 
         assert result["found"] is True
-        assert "draft" in result
-        assert "summary" in result["draft"]
+        assert result["draft"]["fields"]["swap_id"] == swap_request.id
+        assert result["draft"]["fields"]["action"] == "accept"
 
-    def test_decide_confirmed(self, user_b):
-        """confirmed 模式返回结果"""
+    def test_decide_confirmed(self, swap_request, user_b):
+        """confirmed 模式执行真实决策"""
+        from smart_assistant.extractors.swap_extractor import DecideParams
+
         tool = SwapRequestDecideTool()
-        context = {"confirmed": True}
-
-        result = tool.execute(query="同意张三的换班申请", context=context)
+        context = {"confirmed": True, "user": user_b}
+        with patch(
+            "smart_assistant.tools.swap_request_tool.extract_decide_params",
+            return_value=DecideParams(action="reject", swap_id=swap_request.id),
+        ):
+            result = tool.execute(query="拒绝张三的换班申请", context=context)
 
         assert result["found"] is True
-        assert "result" in result
+        assert result["result"]["status"] == "rejected_by_target"
 
     def test_decide_fallback(self, user_b):
         """兜底模式返回 found=False"""

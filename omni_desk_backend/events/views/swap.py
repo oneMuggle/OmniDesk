@@ -1,24 +1,22 @@
-"""events.views.swap — 换班申请 ViewSet
-
-拆分自原 events/views.py(Phase 3 优化)。包含:
-- SwapRequestViewSet: 排班换班申请(两人互认即生效,决策 1C)
-"""
+"""events.views.swap — 换班申请 ViewSet(薄包装,业务逻辑在 services.swap_service)"""
 
 import logging
-from datetime import timedelta
 
-from django.conf import settings
-from django.core.exceptions import ValidationError as DjangoValidationError
-from django.db import transaction
 from django.db.models import Q
-from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
 from rest_framework.response import Response
 
+from events.services import swap_service
+from events.services.swap_service import (
+    SwapNotFoundError,
+    SwapPermissionError,
+    SwapServiceError,
+)
 from users.permissions import IsRequester, IsTargetPersonnel
 
-from ..models import ScheduleSwapAuditLog, ScheduleSwapRequest
+from ..models import ScheduleSwapRequest
 from ..serializers import (
     SwapRequestCreateSerializer,
     SwapRequestDetailSerializer,
@@ -30,12 +28,12 @@ logger = logging.getLogger(__name__)
 
 
 class SwapRequestViewSet(viewsets.ModelViewSet):
-    """排班换班申请 ViewSet。
+    """排班换班申请 ViewSet(薄包装)。
 
-    行级权限:三视角(申请方/接收方/HR 知情)。
-    - cancel:申请方 (IsRequester)
-    - accept/reject:接收方 (IsTargetPersonnel)
-    - 其他 list/retrieve:任何登录用户(行级过滤由 get_queryset 完成)
+    业务逻辑(events.services.swap_service)与 HTTP 层分离:
+    - perform_create: 调 create_swap_from_serializer
+    - accept / reject: 调 accept_swap / reject_swap
+    - cancel: 调 cancel_swap
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -81,98 +79,81 @@ class SwapRequestViewSet(viewsets.ModelViewSet):
         return SwapRequestCreateSerializer
 
     def perform_create(self, serializer):
+        """薄包装:把 serializer 注入 requester 后调 service。"""
         requester = getattr(self.request.user, "personnel", None)
         if requester is None:
-            from rest_framework.exceptions import PermissionDenied
-
             raise PermissionDenied("当前用户尚未关联人员档案,请联系 HR")
-        ttl = getattr(settings, "SWAP_REQUEST_TTL_HOURS", 48)
+        serializer.is_valid(raise_exception=True)
+        serializer.validated_data["requester"] = requester
         try:
-            with transaction.atomic():
-                instance = serializer.save(
-                    requester=requester,
-                    expires_at=timezone.now() + timedelta(hours=ttl),
-                    status=ScheduleSwapRequest.STATUS_PENDING,
-                )
-                instance.full_clean()
-        except DjangoValidationError as e:
-            from rest_framework.exceptions import ValidationError as DRFValidationError
+            instance = swap_service.create_swap_from_serializer(serializer=serializer)
+        except SwapPermissionError as e:
+            raise PermissionDenied(str(e))
+        except SwapServiceError as e:
+            # 还原为 serializer 字段格式: {"<field>": "..."}
+            error_payload = {e.field: [e.message]} if e.field else {"detail": e.message}
+            raise DRFValidationError(error_payload)
+        self._swap_instance = instance
 
-            raise DRFValidationError(e.message_dict)
+    def create(self, request, *args, **kwargs):
+        """重写 create:perform_create 走 service,直接返回详情 serializer。"""
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        instance = getattr(self, "_swap_instance", None)
+        if instance is None:
+            return Response(
+                {"detail": "创建失败:perform_create 未设置 instance"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        return Response(
+            SwapRequestDetailSerializer(instance).data,
+            status=status.HTTP_201_CREATED,
+        )
 
     @action(detail=True, methods=["post"])
     def accept(self, request, pk=None):
-        """决策 1C:接收方 accept → status=approved,自动调 apply_swap()。"""
-        swap = self.get_object()
-        if swap.status != ScheduleSwapRequest.STATUS_PENDING:
-            return Response(
-                {"detail": f"该申请不在 pending 状态(当前:{swap.status}),无法 accept"},
-                status=status.HTTP_409_CONFLICT,
-            )
-        with transaction.atomic():
-            old_status = swap.status
-            target_user = getattr(swap.target_personnel, "user_account", None)
-            swap.apply_swap(approver=target_user)
-            ScheduleSwapAuditLog.objects.create(
-                swap_request=swap,
+        """接收方 accept。"""
+        try:
+            swap = swap_service.accept_swap(
                 actor=request.user,
-                from_status=old_status,
-                to_status=swap.status,
+                swap_id=pk,
                 note=request.data.get("target_decision_note", "接收方同意"),
             )
+        except SwapNotFoundError:
+            return Response({"detail": "换班申请不存在"}, status=status.HTTP_404_NOT_FOUND)
+        except SwapPermissionError as e:
+            raise PermissionDenied(str(e))
+        except SwapServiceError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
         return Response(SwapRequestDetailSerializer(swap).data)
 
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
-        """接收方 reject → status=rejected_by_target。"""
-        swap = self.get_object()
-        if swap.status != ScheduleSwapRequest.STATUS_PENDING:
-            return Response(
-                {"detail": f"该申请不在 pending 状态(当前:{swap.status})"},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        with transaction.atomic():
-            old_status = swap.status
-            swap.status = ScheduleSwapRequest.STATUS_REJECTED
-            swap.target_decided_at = timezone.now()
-            swap.target_decision_note = request.data.get("target_decision_note", "")
-            swap.save(
-                update_fields=[
-                    "status",
-                    "target_decided_at",
-                    "target_decision_note",
-                    "updated_at",
-                ]
-            )
-            ScheduleSwapAuditLog.objects.create(
-                swap_request=swap,
+        """接收方 reject。"""
+        try:
+            swap = swap_service.reject_swap(
                 actor=request.user,
-                from_status=old_status,
-                to_status=swap.status,
-                note="接收方拒绝",
+                swap_id=pk,
+                note=request.data.get("target_decision_note", ""),
             )
+        except SwapNotFoundError:
+            return Response({"detail": "换班申请不存在"}, status=status.HTTP_404_NOT_FOUND)
+        except SwapPermissionError as e:
+            raise PermissionDenied(str(e))
+        except SwapServiceError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
         return Response(SwapRequestDetailSerializer(swap).data)
 
     @action(detail=True, methods=["post"])
     def cancel(self, request, pk=None):
-        """申请方 cancel → status=cancelled。"""
-        swap = self.get_object()
-        if swap.status != ScheduleSwapRequest.STATUS_PENDING:
-            return Response(
-                {"detail": f"该申请不在 pending 状态(当前:{swap.status})"},
-                status=status.HTTP_409_CONFLICT,
-            )
-
-        with transaction.atomic():
-            old_status = swap.status
-            swap.status = ScheduleSwapRequest.STATUS_CANCELLED
-            swap.save(update_fields=["status", "updated_at"])
-            ScheduleSwapAuditLog.objects.create(
-                swap_request=swap,
-                actor=request.user,
-                from_status=old_status,
-                to_status=swap.status,
-                note="申请方撤销",
-            )
+        """申请方 cancel。"""
+        try:
+            swap = swap_service.cancel_swap(actor=request.user, swap_id=pk)
+        except SwapNotFoundError:
+            return Response({"detail": "换班申请不存在"}, status=status.HTTP_404_NOT_FOUND)
+        except SwapPermissionError as e:
+            raise PermissionDenied(str(e))
+        except SwapServiceError as e:
+            return Response({"detail": str(e)}, status=status.HTTP_409_CONFLICT)
         return Response(SwapRequestDetailSerializer(swap).data)

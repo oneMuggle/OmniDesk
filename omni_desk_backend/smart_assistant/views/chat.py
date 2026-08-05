@@ -101,7 +101,7 @@ class SmartChatViewSet(viewsets.ViewSet):
                 tool_result = execute_guarded(
                     tool,
                     draft_entry["user_query"],
-                    context={"history": [], "confirmed": True, "confirm_token": confirm_token},
+                    context={"history": [], "confirmed": True, "confirm_token": confirm_token, "user": request.user},
                 )
                 clear_confirmation_draft(confirm_token)  # 清理,防止重放
                 return Response(
