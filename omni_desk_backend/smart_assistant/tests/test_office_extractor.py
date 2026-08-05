@@ -87,6 +87,21 @@ class TestOfficeExtractor:
         assert "Test PDF content" in doc.text
         assert doc.format == "pdf"
 
+    def test_pdf_extract_text_called_once_per_page(self):
+        from unittest import mock
+
+        page = mock.MagicMock()
+        page.extract_text.return_value = "页面文字"
+        page.extract_tables.return_value = []
+        pdf = mock.MagicMock()
+        pdf.__enter__.return_value = pdf
+        pdf.pages = [page, page]
+        with mock.patch("pdfplumber.open", return_value=pdf):
+            doc = OfficeExtractor.extract(_upload("多页.pdf", base64.b64decode(MIN_PDF_B64)))
+        assert doc.text == "页面文字\n页面文字"
+        # 每页只调一次 extract_text（昂贵操作），不重复调用
+        assert page.extract_text.call_count == 2
+
     def test_xlsx_extracts_sheets(self):
         doc = OfficeExtractor.extract(_upload("名单.xlsx", _make_xlsx_bytes()))
         assert len(doc.sheets) == 1
@@ -101,6 +116,13 @@ class TestOfficeExtractor:
         doc = OfficeExtractor.extract(_upload("笔记.txt", "纯文本内容".encode()))
         assert doc.text == "纯文本内容"
 
+    def test_csv_gbk_encoding_fallback(self):
+        content = "姓名,部门\n张三,技术部\n".encode("gbk")
+        doc = OfficeExtractor.extract(_upload("名单.csv", content))
+        assert doc.format == "csv"
+        assert "张三" in doc.text
+        assert "技术部" in doc.text
+
     def test_unsupported_extension_raises(self):
         with pytest.raises(OfficeExtractError):
             OfficeExtractor.extract(_upload("旧版.doc", b"\xd0\xcf\x11\xe0"))
@@ -108,6 +130,24 @@ class TestOfficeExtractor:
     def test_corrupt_file_raises(self):
         with pytest.raises(OfficeExtractError):
             OfficeExtractor.extract(_upload("坏.docx", b"not a docx at all"))
+
+    def test_oversized_file_rejected_before_read(self):
+        class FakeOversizeFile:
+            name = "超大.xlsx"
+            size = OfficeExtractor.MAX_UPLOAD_SIZE + 1
+
+            def __init__(self):
+                self.read_called = False
+
+            def read(self, *args, **kwargs):
+                self.read_called = True
+                return b"x" * 100
+
+        f = FakeOversizeFile()
+        with pytest.raises(OfficeExtractError):
+            OfficeExtractor.extract(f)
+        # file.size 预检应在 read() 之前拒绝，避免超大文件读入内存
+        assert f.read_called is False
 
     def test_chunk_text_splits_by_size(self):
         chunks = OfficeExtractor.chunk_text("a" * 20_000, size=8_000)

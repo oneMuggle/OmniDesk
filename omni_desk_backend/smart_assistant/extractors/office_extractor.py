@@ -46,6 +46,10 @@ class OfficeExtractor:
             raise OfficeExtractError(
                 f"暂不支持 {ext or '该'} 格式，支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv"
             )
+        # 优先用 file.size 预检大小，避免超大文件先整读入内存
+        size_hint = getattr(file, "size", None)
+        if size_hint is not None and size_hint > OfficeExtractor.MAX_UPLOAD_SIZE:
+            raise OfficeExtractError("文件超过 10MB 上限")
         try:
             data = file.read()
         except Exception as exc:  # pragma: no cover — 依赖具体文件对象
@@ -107,8 +111,9 @@ class OfficeExtractor:
         pages_text = []
         with pdfplumber.open(file) as pdf:
             for page in pdf.pages:
-                if page.extract_text():
-                    pages_text.append(page.extract_text())
+                text = page.extract_text()  # 昂贵操作，单次调用并缓存
+                if text:
+                    pages_text.append(text)
                 for t in page.extract_tables() or []:
                     rows = [[cell if cell is not None else "" for cell in row] for row in t]
                     if rows:
@@ -164,7 +169,17 @@ class OfficeExtractor:
 
     @staticmethod
     def _extract_csv(file, name) -> ExtractedDocument:
-        df = pd.read_csv(file)
+        # 编码回退：优先 utf-8，中文 GBK/GB18030 CSV 在 utf-8 下会 UnicodeDecodeError
+        raw = file.read()
+        df = None
+        for encoding in ("utf-8", "gbk", "gb18030"):
+            try:
+                df = pd.read_csv(io.BytesIO(raw), encoding=encoding)
+                break
+            except UnicodeDecodeError:
+                continue
+        if df is None:
+            raise OfficeExtractError("CSV 编码无法识别，仅支持 utf-8/gbk/gb18030")
         return ExtractedDocument(
             text=df.to_markdown(index=False),
             markdown=df.to_markdown(index=False),
