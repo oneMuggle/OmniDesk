@@ -25,7 +25,7 @@ export function validateFile({ name = '', size = 0 } = {}) {
 /**
  * 聊天附件选择器：白名单校验 + 缩略 chip + 移除。
  */
-export default function FileAttachmentInput({ value, onChange, disabled }) {
+export default function FileAttachmentInput({ value = null, onChange, disabled = false }) {
   const handleBeforeUpload = (file) => {
     const result = validateFile(file);
     if (!result.ok) {
@@ -71,5 +71,3 @@ FileAttachmentInput.propTypes = {
   onChange: PropTypes.func.isRequired,
   disabled: PropTypes.bool,
 };
-
-FileAttachmentInput.defaultProps = { value: null, disabled: false };
