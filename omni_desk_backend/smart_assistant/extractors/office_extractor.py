@@ -43,9 +43,7 @@ class OfficeExtractor:
         name = getattr(file, "name", "") or ""
         ext = Path(name).suffix.lower()
         if ext not in OfficeExtractor.SUPPORTED_EXTENSIONS:
-            raise OfficeExtractError(
-                f"暂不支持 {ext or '该'} 格式，支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv"
-            )
+            raise OfficeExtractError(f"暂不支持 {ext or '该'} 格式，支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv")
         # 优先用 file.size 预检大小，避免超大文件先整读入内存
         size_hint = getattr(file, "size", None)
         if size_hint is not None and size_hint > OfficeExtractor.MAX_UPLOAD_SIZE:
@@ -133,10 +131,7 @@ class OfficeExtractor:
             headers = [str(c) if c is not None else "" for c in rows[0]]
             data = [[str(c) if c is not None else "" for c in r] for r in rows[1:]]
             sheets.append({"name": ws.title, "headers": headers, "data": data})
-            parts.append(
-                f"### Sheet: {ws.title}\n"
-                + pd.DataFrame(data, columns=headers).to_markdown(index=False)
-            )
+            parts.append(f"### Sheet: {ws.title}\n" + pd.DataFrame(data, columns=headers).to_markdown(index=False))
         wb.close()
         return ExtractedDocument(
             text="\n\n".join(parts),

@@ -121,7 +121,9 @@ class SmartChatRequestSerializer(serializers.Serializer):
         allow_blank=True,
         help_text="可选:二次确认 token,带此字段走 replay 路径(跳过 orchestrator 拦截,直接执行工具)",
     )
-    attachment = serializers.FileField(required=False, allow_null=True, help_text="可选：Office 附件（docx/pdf/xlsx/pptx/txt/md/csv，≤10MB）")
+    attachment = serializers.FileField(
+        required=False, allow_null=True, help_text="可选：Office 附件（docx/pdf/xlsx/pptx/txt/md/csv，≤10MB）"
+    )
 
 
 class SmartChatResponseSerializer(serializers.Serializer):

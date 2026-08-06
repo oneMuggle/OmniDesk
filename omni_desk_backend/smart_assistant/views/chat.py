@@ -213,9 +213,7 @@ class SmartChatViewSet(viewsets.ViewSet):
         )
         # 附件注入历史(在 build_effective_history 之后,确保 system 消息排在最前)
         if doc_dict:
-            conversation_history = self._inject_attachment(
-                conversation_history, doc_dict, conversation_id
-            )
+            conversation_history = self._inject_attachment(conversation_history, doc_dict, conversation_id)
         try:
             # C-1:conversation_history 保持位置参数(测试用 args[1] 取参),
             # tool_context 仅以 kwarg 传入(避免与 orchestrator.process 签名冲突)
@@ -340,9 +338,7 @@ class SmartChatViewSet(viewsets.ViewSet):
         )
         # 附件注入历史
         if doc_dict:
-            conversation_history = self._inject_attachment(
-                conversation_history, doc_dict, conversation_id
-            )
+            conversation_history = self._inject_attachment(conversation_history, doc_dict, conversation_id)
 
         def event_stream():
             full_answer = []

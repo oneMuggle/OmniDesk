@@ -46,10 +46,6 @@ class SpreadsheetTool(BaseTool):
         # 复杂自然语言问题 → 复用 file_processing 的 LLM 表格问答
         answer = NaturalLanguageQuery().query(
             query or "",
-            {
-                "sheets_data": [
-                    {"name": sheet["name"], "headers": sheet["headers"], "data": sheet["data"]}
-                ]
-            },
+            {"sheets_data": [{"name": sheet["name"], "headers": sheet["headers"], "data": sheet["data"]}]},
         )
         return {"found": True, "answer": answer, "summary": answer}
