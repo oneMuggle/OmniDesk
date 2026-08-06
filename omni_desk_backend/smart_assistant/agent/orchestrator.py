@@ -460,6 +460,53 @@ class AgentOrchestrator:
         tool_fallback = False
 
         if tool:
+            # === confirm-replay 流式拦截(与 process() 对称) ===
+            if getattr(tool, "require_confirmation", False):
+                hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
+                hook_result = apply_pre_execute_hooks(tool, hook_ctx, {"query": user_query})
+                if isinstance(hook_result, Reject) and hook_result.error_code == "confirmation_required":
+                    dry_run_result = execute_guarded(
+                        tool,
+                        user_query,
+                        context={"history": conversation_history or [], "dry_run": True},
+                    )
+                    draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None
+                    if not draft:
+                        done = {"type": "done", "error": True}
+                        annotate_error_kind(
+                            done,
+                            dry_run_result.get("message", "工具未返回确认草案"),
+                            tool_used=tool.name,
+                            tool_result=dry_run_result,
+                        )
+                        yield sse_event(done)
+                        return
+                    token = str(uuid.uuid4())
+                    set_confirmation_draft(
+                        token,
+                        {
+                            "tool_name": tool.name,
+                            "user_query": user_query,
+                            "context_sig": scope_sig,
+                            "draft": draft,
+                        },
+                    )
+                    yield sse_event(
+                        {"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": draft}}
+                    )
+                    yield sse_event(
+                        {
+                            "type": "confirmation",
+                            "awaiting_confirmation": True,
+                            "confirmation_token": token,
+                            "draft": draft,
+                            "answer": draft.get("summary") or "请确认以下操作",
+                        }
+                    )
+                    yield sse_event({"type": "done", "error": False, "awaiting_confirmation": True})
+                    return
+            # === confirm-replay 流式拦截结束 ===
+
             cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
             if cached_result is not None:
                 tool_result = cached_result
