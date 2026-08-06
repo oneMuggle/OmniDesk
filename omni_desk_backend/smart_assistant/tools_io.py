@@ -89,11 +89,11 @@ def resolve_download_token(token: str) -> str | None:
             return None
     except (ValueError, UnicodeDecodeError):
         return None
-    # 一次性：登记已使用，防重放
+    # 一次性：用 cache.add() 原子登记（仅当 key 不存在时才写入成功），
+    # 避免 get-then-set 的竞态——并发请求会有且仅有一个 add 成功。
     used_key = f"{_CACHE_PREFIX}used:{payload}"
-    if cache.get(used_key):
-        return None
-    cache.set(used_key, "1", DOWNLOAD_TOKEN_TTL)
+    if not cache.add(used_key, "1", DOWNLOAD_TOKEN_TTL):
+        return None  # 已被使用（或并发请求已抢先）→ 拒绝
     return relative_path
 
 
