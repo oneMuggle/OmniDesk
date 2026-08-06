@@ -198,3 +198,17 @@ class TestRAGTool(TestCase):
 
         result = self.tool.execute('测试问题')
         self.assertFalse(result['found'])
+
+
+def test_tool_count_after_office_tools():
+    """新增 3 个工具后注册表应包含 office_read / office_generate / spreadsheet_qa。
+
+    Task 6 验证:apps.py ready() 显式注册这 3 个工具,意图识别可触达。
+    """
+    from smart_assistant.tools.registry import ToolRegistry
+
+    schemas = ToolRegistry.get_all_schemas()
+    names = {s["name"] for s in schemas}
+    assert "office_read" in names
+    assert "office_generate" in names
+    assert "spreadsheet_qa" in names

@@ -29,6 +29,9 @@ class SmartAssistantConfig(AppConfig):
             SwapRequestCreateTool,
             SwapRequestDecideTool,
         )
+        from .tools.office_read_tool import OfficeReadTool
+        from .tools.office_generate_tool import OfficeGenerateTool
+        from .tools.spreadsheet_tool import SpreadsheetTool
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
@@ -46,6 +49,9 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(SwapRequestQueryTool())
         ToolRegistry.register(SwapRequestCreateTool())
         ToolRegistry.register(SwapRequestDecideTool())
+        ToolRegistry.register(OfficeReadTool())
+        ToolRegistry.register(OfficeGenerateTool())
+        ToolRegistry.register(SpreadsheetTool())
 
         # 钩子注册:PII 脱敏(POST_EXECUTE)+ 超时熔断恢复(ON_FAILURE)挂到
         # 全局 HookRegistry。接线方式与 AuditLogHook 文档约定一致
