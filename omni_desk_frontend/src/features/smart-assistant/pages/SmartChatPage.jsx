@@ -3,6 +3,7 @@ import { sendSmartChatStream, getSessions, createSession, deleteSession, submitF
 import { forkSession, exportSessionMarkdown } from './sessionForkExportApi';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
+import FileAttachmentInput from '../../../shared/components/FileAttachmentInput';
 import { Button, Typography, Dropdown, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
@@ -91,6 +92,7 @@ const TYPEWRITER_INTERVAL = 50;
 
 const SmartChatPage = () => {
   const [inputMessage, setInputMessage] = useState('');
+  const [attachment, setAttachment] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
@@ -369,7 +371,7 @@ const SmartChatPage = () => {
   const runStream = useCallback(async (query) => {
     pendingLogIdRef.current = null;
     pendingErrorHintRef.current = null;
-    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
+    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment);
     abortRef.current = abort;
     const stream = await bodyPromise;
 
@@ -406,15 +408,16 @@ const SmartChatPage = () => {
         flushTypewriter();
       }
     }
-  }, [currentSessionId, parseSSE, handleSSEEvent, flushTypewriter]);
+  }, [currentSessionId, attachment, parseSSE, handleSSEEvent, flushTypewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = { role: 'user', content: inputMessage };
+    const userMessage = { role: 'user', content: inputMessage, attachment: attachment ? attachment.name : null };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setAttachment(null);
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
@@ -665,13 +668,20 @@ const SmartChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSubmit} className="smart-chat-input-form">
-        <input
-          type="text"
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="问我任何问题，例如：明天谁值班？"
-          disabled={isLoading}
-        />
+        <div className="smart-chat-input-row">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder="问我任何问题，例如：明天谁值班？"
+            disabled={isLoading}
+          />
+          <FileAttachmentInput
+            value={attachment}
+            onChange={setAttachment}
+            disabled={isLoading}
+          />
+        </div>
         {isLoading ? (
           <button type="button" onClick={handleStop} className="stop-btn">
             取消
