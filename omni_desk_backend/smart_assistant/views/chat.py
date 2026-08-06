@@ -59,7 +59,7 @@ class SmartChatViewSet(viewsets.ViewSet):
 
     permission_classes = [IsAuthenticated]
     # 允许 JSON(默认)/multipart/form-data 上传 Office 附件
-    parser_classes = [JSONParser, MultiPartParser, FormParser]  # noqa: RUF012
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def _extract_attachment(self, request):
         """校验并抽取附件。返回 (doc_dict, None) 或 (None, error_response)。

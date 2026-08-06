@@ -61,7 +61,7 @@ def _plan_document_structure(query: str) -> dict | None:
         return None
     if not isinstance(data.get("structure"), list) or not isinstance(data.get("variables"), dict):
         return None
-    return data
+    return data  # type: ignore[no-any-return]
 
 
 def _fill(content: str, variables: dict) -> str:
@@ -71,11 +71,11 @@ def _fill(content: str, variables: dict) -> str:
     return content
 
 
-def _docx_bytes(doc: DocxDocument) -> bytes:
+def _docx_bytes(doc: object) -> bytes:
     import io
 
     buf = io.BytesIO()
-    doc.save(buf)
+    doc.save(buf)  # type: ignore[attr-defined]
     return buf.getvalue()
 
 
@@ -149,7 +149,7 @@ class OfficeGenerateTool(BaseTool):
         """
         for item in structure:
             if item.get("type") == "heading":
-                content = item.get("content", "").strip()
+                content = str(item.get("content", "")).strip()
                 if content:
                     return content
         # 从 query 中提取文档类型关键词（去掉"生成""创建"等动词）

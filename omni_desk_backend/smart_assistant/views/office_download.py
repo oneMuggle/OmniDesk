@@ -32,7 +32,7 @@ class OfficeDownloadView(APIView):
             logger.warning("下载文件不存在: %s", relative_path)
             return Response({"detail": "文件不存在"}, status=404)
         try:
-            f = open(full, "rb")
+            f = open(full, "rb")  # noqa: SIM115 — 文件句柄在 FileResponse 响应结束后由 _cleanup 关闭
         except OSError as exc:
             logger.exception("打开下载文件失败: %s", full)
             return Response({"detail": "文件读取失败"}, status=500)

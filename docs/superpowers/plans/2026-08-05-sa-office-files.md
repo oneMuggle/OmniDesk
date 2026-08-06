@@ -28,7 +28,7 @@
 
 ---
 
-### Task 1: 新增 python-pptx 依赖并重生成锁文件
+### [x] Task 1: 新增 python-pptx 依赖并重生成锁文件
 
 **Files:**
 - Modify: `omni_desk_backend/requirements.in`
@@ -38,7 +38,7 @@
 **Interfaces:**
 - Produces: 环境可 `import pptx`（python-pptx 包）。
 
-- [ ] **Step 1: 在 requirements.in 追加 python-pptx**
+- [x] **Step 1: 在 requirements.in 追加 python-pptx**
 
 在 `omni_desk_backend/requirements.in` 文档处理依赖块（`openpyxl` 附近）加一行：
 
@@ -46,12 +46,12 @@
 python-pptx>=0.6.21
 ```
 
-- [ ] **Step 2: 确认当前 conda 环境是 omni_desk**
+- [x] **Step 2: 确认当前 conda 环境是 omni_desk**
 
 Run: `conda info --envs | grep '*'`
 Expected: 输出行含 `omni_desk` 且带 `*`。若在 `base`，先 `conda activate omni_desk` 再继续。
 
-- [ ] **Step 3: pip-compile 重生成两个锁文件**
+- [x] **Step 3: pip-compile 重生成两个锁文件**
 
 Run（在 `omni_desk_backend/` 目录）:
 ```bash
@@ -60,7 +60,7 @@ Run（在 `omni_desk_backend/` 目录）:
 ```
 Expected: 两文件出现 `python-pptx==0.6.2x` 及其依赖（`Pillow` 已存在）。
 
-- [ ] **Step 4: 安装依赖并验证 import**
+- [x] **Step 4: 安装依赖并验证 import**
 
 Run:
 ```bash
@@ -69,7 +69,7 @@ Run:
 ```
 Expected: 打印版本号，无 ImportError。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/requirements.in omni_desk_backend/requirements.txt omni_desk_backend/requirements-prod.txt
@@ -78,7 +78,7 @@ git commit -m "build(smart-assistant): 新增 python-pptx 依赖（读取 pptx �
 
 ---
 
-### Task 2: OfficeExtractor 统一抽取器
+### [x] Task 2: OfficeExtractor 统一抽取器
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/extractors/office_extractor.py`
@@ -113,7 +113,7 @@ git commit -m "build(smart-assistant): 新增 python-pptx 依赖（读取 pptx �
       def format_for_prompt(doc: ExtractedDocument, filename: str) -> str  # 生成注入文本（含切片逻辑）
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_office_extractor.py`：
 
@@ -240,12 +240,12 @@ class TestOfficeExtractor:
         assert prompt.count("x") <= 16_000
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_extractor.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — `ModuleNotFoundError: No module named 'smart_assistant.extractors.office_extractor'`
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/extractors/office_extractor.py`：
 
@@ -455,12 +455,12 @@ from .office_extractor import ExtractedDocument, OfficeExtractError, OfficeExtra
 __all__ = ["ExtractedDocument", "OfficeExtractError", "OfficeExtractor"]
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_extractor.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（9 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/extractors/
@@ -470,7 +470,7 @@ git commit -m "feat(smart-assistant): OfficeExtractor 统一抽取 docx/pdf/xlsx
 
 ---
 
-### Task 3: OfficeReadTool（读附件切片）
+### [x] Task 3: OfficeReadTool（读附件切片）
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/tools/office_read_tool.py`
@@ -480,7 +480,7 @@ git commit -m "feat(smart-assistant): OfficeExtractor 统一抽取 docx/pdf/xlsx
 - Consumes: `OfficeExtractor.chunk_text`（Task 2）；附件经 `ctx.attachment` 传入（Task 8 注入）。
 - Produces: `class OfficeReadTool(BaseTool)`，`name="office_read"`，`risk_level="read"`。`execute(query, context) -> dict`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_office_read_tool.py`：
 
@@ -521,12 +521,12 @@ class TestOfficeReadTool:
         assert result["found"] is False
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_read_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — `ModuleNotFoundError: No module named 'smart_assistant.tools.office_read_tool'`
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/tools/office_read_tool.py`：
 
@@ -567,12 +567,12 @@ class OfficeReadTool(BaseTool):
         }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_read_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（4 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/tools/office_read_tool.py omni_desk_backend/smart_assistant/tests/test_office_read_tool.py
@@ -581,7 +581,7 @@ git commit -m "feat(smart-assistant): OfficeReadTool 读取附件切片"
 
 ---
 
-### Task 4: OfficeGenerateTool（生成 .docx，require_confirmation）
+### [x] Task 4: OfficeGenerateTool（生成 .docx，require_confirmation）
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/tools/office_generate_tool.py`
@@ -591,7 +591,7 @@ git commit -m "feat(smart-assistant): OfficeReadTool 读取附件切片"
 - Consumes: `save_tmp_office_file`、`create_download_token`（Task 7 定义，本任务先 mock）；confirm-replay 缓存 `get_confirmation_draft`（cache.py 现有）。
 - Produces: `class OfficeGenerateTool(BaseTool)`，`name="office_generate"`，`risk_level="write"`，`require_confirmation=True`。`_dry_run(query, ctx) -> dict`、`_confirmed(query, ctx) -> dict`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_office_generate_tool.py`：
 
@@ -653,12 +653,12 @@ class TestOfficeGenerateTool:
         mock_render.assert_called_once()
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_generate_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — `ModuleNotFoundError: No module named 'smart_assistant.tools.office_generate_tool'`
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/tools/office_generate_tool.py`：
 
@@ -840,12 +840,12 @@ class OfficeGenerateTool(BaseTool):
 
 > 注：`..tools_io` 为 Task 7 创建的新模块 `smart_assistant/tools_io.py`（含 `save_tmp_office_file` / `create_download_token`）。Task 4 测试 mock 掉 `_render_docx_to_file` 与 `create_download_token`，不依赖 Task 7 即可通过；Task 7 落地后真实路径连通。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_generate_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（3 个用例，均 mock LLM 与文件写入）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/tools/office_generate_tool.py omni_desk_backend/smart_assistant/tests/test_office_generate_tool.py
@@ -854,7 +854,7 @@ git commit -m "feat(smart-assistant): OfficeGenerateTool 生成 docx（confirm-r
 
 ---
 
-### Task 5: SpreadsheetTool（表格问答）
+### [x] Task 5: SpreadsheetTool（表格问答）
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/tools/spreadsheet_tool.py`
@@ -864,7 +864,7 @@ git commit -m "feat(smart-assistant): OfficeGenerateTool 生成 docx（confirm-r
 - Consumes: 附件 `sheets` 数据（`attachment["sheets"]`，Task 8 注入）；`NaturalLanguageQuery`（`file_processing.ai.query`）。
 - Produces: `class SpreadsheetTool(BaseTool)`，`name="spreadsheet_qa"`，`risk_level="read"`。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_spreadsheet_tool.py`：
 
@@ -915,12 +915,12 @@ class TestSpreadsheetTool:
         assert result["found"] is False
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_spreadsheet_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — `ModuleNotFoundError: No module named 'smart_assistant.tools.spreadsheet_tool'`
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/tools/spreadsheet_tool.py`：
 
@@ -982,12 +982,12 @@ class SpreadsheetTool(BaseTool):
         return {"found": True, "answer": answer, "summary": answer}
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_spreadsheet_tool.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（3 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/tools/spreadsheet_tool.py omni_desk_backend/smart_assistant/tests/test_spreadsheet_tool.py
@@ -996,7 +996,7 @@ git commit -m "feat(smart-assistant): SpreadsheetTool 表格统计与自然语�
 
 ---
 
-### Task 6: 注册 3 个工具并更新工具数量断言
+### [x] Task 6: 注册 3 个工具并更新工具数量断言
 
 **Files:**
 - Modify: `omni_desk_backend/smart_assistant/apps.py`
@@ -1006,12 +1006,12 @@ git commit -m "feat(smart-assistant): SpreadsheetTool 表格统计与自然语�
 **Interfaces:**
 - Consumes: 3 个工具类（Task 3/4/5）。
 
-- [ ] **Step 1: 跑现有测试确认当前工具数量基线**
+- [x] **Step 1: 跑现有测试确认当前工具数量基线**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_tools.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS。记录测试中工具数量的断言值（记作 N）。
 
-- [ ] **Step 2: 写失败测试（先改断言）**
+- [x] **Step 2: 写失败测试（先改断言）**
 
 在 `omni_desk_backend/smart_assistant/tests/test_tools.py` 找到工具数量断言（如 `len(ToolRegistry.get_all())` 或 `assert len(registry) == N`），把 `N` 改为 `N + 3`，并新增：
 
@@ -1029,7 +1029,7 @@ def test_tool_count_after_office_tools():
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_tools.py::test_tool_count_after_office_tools -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — 断言失败（3 个工具尚未注册）。
 
-- [ ] **Step 3: 在 apps.py 注册**
+- [x] **Step 3: 在 apps.py 注册**
 
 修改 `omni_desk_backend/smart_assistant/apps.py` 的 `ready()`：在 import 块追加：
 
@@ -1047,12 +1047,12 @@ ToolRegistry.register(OfficeGenerateTool())
 ToolRegistry.register(SpreadsheetTool())
 ```
 
-- [ ] **Step 4: 跑测试确认通过 + 全量工具测试回归**
+- [x] **Step 4: 跑测试确认通过 + 全量工具测试回归**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_tools.py omni_desk_backend/smart_assistant/tests/test_all_tools_scope.py omni_desk_backend/smart_assistant/tests/test_tool_risk_level.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS。若 `test_all_tools_scope.py` / `test_tool_risk_level.py` 强制所有工具实现 `build_base_queryset`/`_scope_self` 或检查 `supports_scope_filter`，则为 3 个新工具补空实现（`build_base_queryset` 抛 `NotImplementedError` 或返回 `qs.none()`；`_scope_self` 返回 `qs.none()`），保持风险等级校验通过。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/apps.py omni_desk_backend/smart_assistant/tools/ omni_desk_backend/smart_assistant/tests/test_tools.py omni_desk_backend/smart_assistant/tests/test_all_tools_scope.py
@@ -1061,7 +1061,7 @@ git commit -m "feat(smart-assistant): 注册 OfficeRead/OfficeGenerate/Spreadshe
 
 ---
 
-### Task 7: 附件缓存 + 临时文件 + 签名下载 token（tools_io）
+### [x] Task 7: 附件缓存 + 临时文件 + 签名下载 token（tools_io）
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/tools_io.py`
@@ -1081,7 +1081,7 @@ git commit -m "feat(smart-assistant): 注册 OfficeRead/OfficeGenerate/Spreadshe
   def cleanup_expired_files() -> int                                        # 清 10 分钟前的 tmp_office 文件
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_tools_io.py`：
 
@@ -1150,12 +1150,12 @@ class TestToolsIO:
         assert cleaned >= 1
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_tools_io.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — `ModuleNotFoundError: No module named 'smart_assistant.tools_io'`
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/tools_io.py`：
 
@@ -1289,12 +1289,12 @@ def cleanup_office_tmp_files():
     return removed
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_tools_io.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（6 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/tools_io.py omni_desk_backend/smart_assistant/tasks.py omni_desk_backend/smart_assistant/tests/test_tools_io.py
@@ -1303,7 +1303,7 @@ git commit -m "feat(smart-assistant): 附件缓存与生成文档临时文件 + 
 
 ---
 
-### Task 8: chat 接口附件上传与上下文注入
+### [x] Task 8: chat 接口附件上传与上下文注入
 
 **Files:**
 - Modify: `omni_desk_backend/smart_assistant/serializers.py`
@@ -1316,7 +1316,7 @@ git commit -m "feat(smart-assistant): 附件缓存与生成文档临时文件 + 
 - Consumes: `OfficeExtractor`（Task 2）、`tools_io.file_sha256/cache_attachment`（Task 7）。
 - Produces: `chat/` 与 `chat/stream/` 支持 `attachment` 字段；附件内容作为 `role="system"` 消息注入 `conversation_history`；`ToolContext` 增加 `attachment` 字段；`_select_recent_messages` 保留 system 消息。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_chat_attachment.py`：
 
@@ -1397,12 +1397,12 @@ class TestChatAttachment:
         assert resp.status_code == 200
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_chat_attachment.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — 400（`attachment` 非 serializer 字段）。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 修改 `omni_desk_backend/smart_assistant/serializers.py`，`SmartChatRequestSerializer` 增加字段：
 
@@ -1531,12 +1531,12 @@ def _select_recent_messages(history: list) -> list:
     return system_msgs + selected
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_chat_attachment.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（3 个用例）。同时回归 `test_tool_context.py`（ToolContext 新增字段需兼容既有构造）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/serializers.py omni_desk_backend/smart_assistant/views/chat.py omni_desk_backend/smart_assistant/agent/conversation_context.py omni_desk_backend/smart_assistant/tools/tool_context.py omni_desk_backend/smart_assistant/tests/test_chat_attachment.py
@@ -1545,7 +1545,7 @@ git commit -m "feat(smart-assistant): chat 接口支持附件上传并注入 LLM
 
 ---
 
-### Task 9: office-download 下载端点
+### [x] Task 9: office-download 下载端点
 
 **Files:**
 - Create: `omni_desk_backend/smart_assistant/views/office_download.py`
@@ -1556,7 +1556,7 @@ git commit -m "feat(smart-assistant): chat 接口支持附件上传并注入 LLM
 - Consumes: `resolve_download_token`（Task 7）。
 - Produces: `GET /api/smart-assistant/office-download/<token>/`，JWT 鉴权，返回 .docx blob。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_backend/smart_assistant/tests/test_office_download.py`：
 
@@ -1618,12 +1618,12 @@ class TestOfficeDownload:
         assert resp.status_code == 401
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_download.py -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — 404（路由不存在）。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_backend/smart_assistant/views/office_download.py`：
 
@@ -1698,12 +1698,12 @@ urlpatterns = [
 ]
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_office_download.py -v --ds=omni_desk_backend.settings.test`
 Expected: PASS（4 个用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/views/office_download.py omni_desk_backend/smart_assistant/urls.py omni_desk_backend/smart_assistant/tests/test_office_download.py
@@ -1712,7 +1712,7 @@ git commit -m "feat(smart-assistant): office-download 临时文档下载端点"
 
 ---
 
-### Task 10: SSE 流式确认流补全（process_stream confirm-replay 拦截）
+### [x] Task 10: SSE 流式确认流补全（process_stream confirm-replay 拦截）
 
 **Files:**
 - Modify: `omni_desk_backend/smart_assistant/agent/orchestrator.py`
@@ -1723,7 +1723,7 @@ git commit -m "feat(smart-assistant): office-download 临时文档下载端点"
 - Consumes: 现有 `apply_pre_execute_hooks` / `set_confirmation_draft` / `Reject`（已有）。
 - Produces: `process_stream` 对 `require_confirmation=True` 工具在 dry_run 后发出 `confirmation` SSE 事件；replay 路径把 `draft` 注入工具 context。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 在 `omni_desk_backend/smart_assistant/tests/test_orchestrator_confirm.py` 追加：
 
@@ -1745,12 +1745,12 @@ def test_stream_yields_confirmation_event_for_confirm_tool():
 
 > 说明：确认拦截发生在 `_dry_run` 之前（`apply_pre_execute_hooks` 返回 `Reject(confirmation_required)`）。若 `_dry_run` 因 LLM 不可用返回 `found=False` 无 draft，orchestrator 会发失败 done，但**仍不会直接执行生成**——测试断言的核心是"未出现 file_download"。
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_orchestrator_confirm.py::test_stream_yields_confirmation_event_for_confirm_tool -v --ds=omni_desk_backend.settings.test`
 Expected: FAIL — 当前 `process_stream` 无确认拦截，直接 execute。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 修改 `omni_desk_backend/smart_assistant/agent/orchestrator.py` 的 `process_stream`，在 `if tool:` 之后、`cached_result` 之前插入与 `process()` 对称的确认拦截：
 
@@ -1822,12 +1822,12 @@ tool_result = execute_guarded(
 )
 ```
 
-- [ ] **Step 4: 跑测试确认通过 + 回归**
+- [x] **Step 4: 跑测试确认通过 + 回归**
 
 Run: `/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest omni_desk_backend/smart_assistant/tests/test_orchestrator_confirm.py omni_desk_backend/smart_assistant/tests/test_view_confirm_replay.py -v --ds=omni_desk_backend.settings.test`
 Expected: 新用例 PASS，既有 confirm-replay 用例 0 退化。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_backend/smart_assistant/agent/orchestrator.py omni_desk_backend/smart_assistant/views/chat.py omni_desk_backend/smart_assistant/tests/test_orchestrator_confirm.py
@@ -1836,7 +1836,7 @@ git commit -m "feat(smart-assistant): SSE 流式确认流补全 + replay 注入 
 
 ---
 
-### Task 11: 前端 API 层（FormData / confirm_token / download）
+### [x] Task 11: 前端 API 层（FormData / confirm_token / download）
 
 **Files:**
 - Modify: `omni_desk_frontend/src/features/smart-assistant/api/smartAssistantApi.js`
@@ -1850,7 +1850,7 @@ git commit -m "feat(smart-assistant): SSE 流式确认流补全 + replay 注入 
   downloadOfficeFile(token) -> Promise<Blob>
   ```
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_frontend/src/features/smart-assistant/api/__tests__/smartAssistantApi.test.js`：
 
@@ -1909,12 +1909,12 @@ describe('smartAssistantApi attachment & confirm', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run（在 `omni_desk_frontend/`）: `npm test -- --runInBand`
 Expected: FAIL — `sendSmartChatStream` 仅两个参数、无 FormData 分支、无 `downloadOfficeFile`。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 修改 `omni_desk_frontend/src/features/smart-assistant/api/smartAssistantApi.js`：
 
@@ -1992,12 +1992,12 @@ export async function downloadOfficeFile(token) {
 }
 ```
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test -- --runInBand`
 Expected: PASS（4 个新用例）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_frontend/src/features/smart-assistant/api/smartAssistantApi.js omni_desk_frontend/src/features/smart-assistant/api/__tests__/smartAssistantApi.test.js
@@ -2006,7 +2006,7 @@ git commit -m "feat(smart-assistant): 前端 API 支持附件 FormData / confirm
 
 ---
 
-### Task 12: 前端 FileAttachmentInput 组件 + 聊天页集成
+### [x] Task 12: 前端 FileAttachmentInput 组件 + 聊天页集成
 
 **Files:**
 - Create: `omni_desk_frontend/src/shared/components/FileAttachmentInput.jsx`
@@ -2017,7 +2017,7 @@ git commit -m "feat(smart-assistant): 前端 API 支持附件 FormData / confirm
 **Interfaces:**
 - Produces: `FileAttachmentInput`（受控组件：`value` = File|null，`onChange(file|null)`，`disabled`）。导出 `validateFile({name,size}) -> {ok, reason?}` 纯函数便于测试。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_frontend/src/shared/components/__tests__/FileAttachmentInput.test.jsx`：
 
@@ -2048,12 +2048,12 @@ describe('FileAttachmentInput', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npm test -- --runInBand`
 Expected: FAIL — 组件/导出函数不存在。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 创建 `omni_desk_frontend/src/shared/components/FileAttachmentInput.jsx`：
 
@@ -2142,12 +2142,12 @@ FileAttachmentInput.defaultProps = { value: null, disabled: false };
 
 集成 `QuickAssistant.jsx`（`src/shared/components/QuickAssistant.jsx`）：同样加 state 与组件（`sendSmartChatStream(query, currentSessionId, attachment, null)`）。
 
-- [ ] **Step 4: 跑测试确认通过**
+- [x] **Step 4: 跑测试确认通过**
 
 Run: `npm test -- --runInBand`
 Expected: PASS（新组件用例 + 既有页面用例回归；若 SmartChatPage 快照受影响则更新快照）。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_frontend/src/shared/components/FileAttachmentInput.jsx omni_desk_frontend/src/shared/components/__tests__/FileAttachmentInput.test.jsx omni_desk_frontend/src/features/smart-assistant/pages/SmartChatPage.jsx omni_desk_frontend/src/shared/components/QuickAssistant.jsx
@@ -2156,7 +2156,7 @@ git commit -m "feat(smart-assistant): 聊天页附件上传组件与集成"
 
 ---
 
-### Task 13: 前端确认弹窗 + 下载卡片渲染
+### [x] Task 13: 前端确认弹窗 + 下载卡片渲染
 
 **Files:**
 - Modify: `omni_desk_frontend/src/features/smart-assistant/components/ToolResult.jsx`
@@ -2167,7 +2167,7 @@ git commit -m "feat(smart-assistant): 聊天页附件上传组件与集成"
 - Consumes: `sendSmartChat`（confirm 二次请求，Task 11）、`downloadOfficeFile`（Task 11）。
 - Produces: `ToolResult` 渲染 `file_download` 下载卡片；`SmartChatPage` 处理 SSE `confirmation` 事件 → Modal.confirm → 二次请求。
 
-- [ ] **Step 1: 写失败测试**
+- [x] **Step 1: 写失败测试**
 
 创建 `omni_desk_frontend/src/features/smart-assistant/components/__tests__/ToolResult.test.jsx`：
 
@@ -2202,12 +2202,12 @@ describe('ToolResult download card', () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试确认失败**
+- [x] **Step 2: 跑测试确认失败**
 
 Run: `npm test -- --runInBand`
 Expected: FAIL — ToolResult 未渲染下载按钮。
 
-- [ ] **Step 3: 写实现**
+- [x] **Step 3: 写实现**
 
 修改 `omni_desk_frontend/src/features/smart-assistant/components/ToolResult.jsx`：
 
@@ -2300,12 +2300,12 @@ const handleConfirmation = async (event) => {
 
 > 说明：`sendSmartChat` 二次请求走非流式 `chat/`（已支持 confirm_token replay，Task 8 实现）。下载经 ToolResult 下载卡片触发。`Modal` / `message` 从 `antd` import（SmartChatPage 已 import Modal 则复用）。
 
-- [ ] **Step 4: 跑测试确认通过 + 前端全量**
+- [x] **Step 4: 跑测试确认通过 + 前端全量**
 
 Run: `npm test -- --runInBand`
 Expected: PASS（ToolResult 2 个新用例 + 全量回归）。若 `SmartChatPage` 既有测试受影响，同步修复。
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add omni_desk_frontend/src/features/smart-assistant/components/ToolResult.jsx omni_desk_frontend/src/features/smart-assistant/components/__tests__/ToolResult.test.jsx omni_desk_frontend/src/features/smart-assistant/pages/SmartChatPage.jsx
@@ -2314,7 +2314,7 @@ git commit -m "feat(smart-assistant): 下载卡片 + SSE 确认弹窗"
 
 ---
 
-### Task 14: 全量验证与收尾
+### [x] Task 14: 全量验证与收尾
 
 **Files:**
 - Modify: `docs/superpowers/plans/2026-08-05-sa-office-files.md`（勾选本计划步骤 `[x]`）
@@ -2323,7 +2323,7 @@ git commit -m "feat(smart-assistant): 下载卡片 + SSE 确认弹窗"
 **Interfaces:**
 - Consumes: 前 13 个任务全部完成。
 
-- [ ] **Step 1: 后端全量测试**
+- [x] **Step 1: 后端全量测试**
 
 Run（在 `omni_desk_backend/`）:
 ```bash
@@ -2331,7 +2331,7 @@ Run（在 `omni_desk_backend/`）:
 ```
 Expected: 全绿。
 
-- [ ] **Step 2: 覆盖率检查**
+- [x] **Step 2: 覆盖率检查**
 
 Run:
 ```bash
@@ -2339,7 +2339,7 @@ Run:
 ```
 Expected: 新增模块覆盖率 ≥80%（不足则补用例）。
 
-- [ ] **Step 3: ruff + mypy**
+- [x] **Step 3: ruff + mypy**
 
 Run:
 ```bash
@@ -2348,7 +2348,7 @@ Run:
 ```
 Expected: 0 错误。
 
-- [ ] **Step 4: 前端全量测试 + lint + build**
+- [x] **Step 4: 前端全量测试 + lint + build**
 
 Run（在 `omni_desk_frontend/`）:
 ```bash
@@ -2358,19 +2358,19 @@ npm run build
 ```
 Expected: 全绿，build 通过（含 `scripts/generate-routes.js` 路由自动生成）。
 
-- [ ] **Step 5: 清理截图/临时产物 + 勾选计划**
+- [x] **Step 5: 清理截图/临时产物 + 勾选计划**
 
 - 删除调试截图（若有）
 - 在本文档每个已完成任务标题前加 `[x]`
 
-- [ ] **Step 6: 提交收尾**
+- [x] **Step 6: 提交收尾**
 
 ```bash
 git add -A
 git commit -m "docs(smart-assistant): 完成 Office 文件能力阶段 1 实施计划"
 ```
 
-- [ ] **Step 7: 创建 feature 分支 PR（若当前在 main）**
+- [x] **Step 7: 创建 feature 分支 PR（若当前在 main）**
 
 本次改动已分 13 个 commit 落在当前分支。若直接在 main 开发，则将 commit 整理到 feature 分支并开 PR；若已在 `feat/sa-office-files` 分支，直接推送并建 PR：
 

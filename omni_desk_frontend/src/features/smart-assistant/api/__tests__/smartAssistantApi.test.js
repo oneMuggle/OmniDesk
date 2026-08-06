@@ -10,6 +10,7 @@
  * - JSON 路径:confirm_token 透传
  * - downloadOfficeFile:GET 接口拿 token 鉴权,返回 Blob
  */
+/* eslint-env node, jest */
 import {
   sendSmartChatStream,
   downloadOfficeFile,

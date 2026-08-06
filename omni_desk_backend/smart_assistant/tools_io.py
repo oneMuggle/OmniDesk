@@ -40,7 +40,8 @@ def cache_attachment(conversation_id, file_hash: str, doc: dict) -> None:
 
 
 def get_attachment(conversation_id, file_hash: str) -> dict | None:
-    return cache.get(attachment_cache_key(conversation_id, file_hash))
+    result = cache.get(attachment_cache_key(conversation_id, file_hash))
+    return result  # type: ignore[no-any-return]
 
 
 def _tmp_dir() -> str:
