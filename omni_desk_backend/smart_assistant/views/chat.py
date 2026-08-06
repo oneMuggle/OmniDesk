@@ -70,6 +70,12 @@ class SmartChatViewSet(viewsets.ViewSet):
         file = request.FILES.get("attachment")
         if not file:
             return None, None
+        # I-1:早期拒绝超大文件，避免全量读入内存后再由 OfficeExtractor 拒绝
+        if file.size and file.size > 10 * 1024 * 1024:
+            return None, Response(
+                {"detail": "文件超过 10MB 上限，请压缩或拆分后重试"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         try:
             extracted = OfficeExtractor.extract(file)
         except OfficeExtractError as exc:
@@ -205,10 +211,11 @@ class SmartChatViewSet(viewsets.ViewSet):
                 conversation_history, doc_dict, conversation_id
             )
         try:
-            # 全部以 kwarg 传递,便于 mock_process.call_args 取参
+            # C-1:conversation_history 保持位置参数(测试用 args[1] 取参),
+            # tool_context 仅以 kwarg 传入(避免与 orchestrator.process 签名冲突)
             result = orchestrator.process(
                 query,
-                conversation_history=conversation_history,
+                conversation_history,
                 tool_context=tool_context,
             )
         except Exception as exc:
