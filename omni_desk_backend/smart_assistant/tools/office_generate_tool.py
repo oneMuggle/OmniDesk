@@ -105,8 +105,9 @@ def _render_docx_to_file(structure: list, variables: dict, title: str) -> tuple[
     if doc.paragraphs:
         doc.paragraphs[0].alignment = WD_ALIGN_PARAGRAPH.CENTER
 
-    relative_path = save_tmp_office_file(f"{title}.docx", _docx_bytes(doc))
-    return relative_path, _docx_bytes(doc)
+    content_bytes = _docx_bytes(doc)
+    relative_path = save_tmp_office_file(f"{title}.docx", content_bytes)
+    return relative_path, content_bytes
 
 
 class OfficeGenerateTool(BaseTool):
