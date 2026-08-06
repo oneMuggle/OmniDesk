@@ -299,3 +299,13 @@ def send_single_digest(user_id):
     except Exception:
         logger.exception("晨报推送失败: user=%s date=%s", user.username, today.isoformat())
         return {"user_id": user_id, "success": False, "reason": "exception"}
+
+
+@shared_task(name="cleanup_office_tmp_files")
+def cleanup_office_tmp_files():
+    """定期清理 tmp_office 过期生成文件。"""
+    from .tools_io import cleanup_expired_files
+
+    removed = cleanup_expired_files()
+    logger.info("已清理过期 office 临时文件: %s", removed)
+    return removed
