@@ -3,6 +3,7 @@ import { FloatButton, Drawer, Input, Button, Spin, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, FullscreenOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons';
 import { sendSmartChatStream, createSession, resolveErrorHint } from '../../features/smart-assistant/api/smartAssistantApi';
 import ToolResult from '../../features/smart-assistant/components/ToolResult';
+import FileAttachmentInput from './FileAttachmentInput';
 import { useNavigate } from 'react-router-dom';
 import './QuickAssistant.css';
 
@@ -12,6 +13,7 @@ const QuickAssistant = () => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
+  const [attachment, setAttachment] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
   const [streamingMeta, setStreamingMeta] = useState(null);
@@ -65,10 +67,11 @@ const QuickAssistant = () => {
     const currentSessionId = await ensureSession();
     if (!currentSessionId) return;
 
-    const userMessage = { role: 'user', content: inputMessage };
+    const userMessage = { role: 'user', content: inputMessage, attachment: attachment ? attachment.name : null };
     setMessages(prev => [...prev, userMessage]);
     const query = inputMessage;
     setInputMessage('');
+    setAttachment(null);
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
@@ -76,7 +79,7 @@ const QuickAssistant = () => {
     setIsCancelled(false);
 
     try {
-      const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
+      const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment);
       abortRef.current = abort;
       const stream = await bodyPromise;
 
@@ -271,6 +274,11 @@ const QuickAssistant = () => {
             disabled={isLoading}
             autoSize={{ minRows: 1, maxRows: 4 }}
             className="qa-input"
+          />
+          <FileAttachmentInput
+            value={attachment}
+            onChange={setAttachment}
+            disabled={isLoading}
           />
           {isLoading ? (
             <Button

@@ -132,39 +132,38 @@ def build_messages_with_history(
 
 
 def _select_recent_messages(history: list) -> list:
-    """根据 token 限制选择要保留的历史消息。"""
+    """根据 token 限制选择要保留的历史消息。system 消息（附件上下文/摘要）始终保留。
+
+    设计原则:system 角色通常承载瞬时但重要的上下文（附件正文、滚动摘要），
+    这些内容必须始终进入 LLM 上下文,不能被 token 截断所淘汰。
+    """
     if not history:
         return []
 
-    total_tokens = sum(estimate_tokens(msg.get("content", "")) for msg in history)
+    # 1) system 消息始终保留(附件上下文、摘要等不参与 token 淘汰)
+    system_msgs = [m for m in history if m.get("role") == "system"]
+    others = [m for m in history if m.get("role") != "system"]
 
+    if not others:
+        return system_msgs
+
+    total_tokens = sum(estimate_tokens(m.get("content", "")) for m in others)
     if total_tokens <= SOFT_TOKEN_LIMIT:
-        # 全部保留
-        return history
+        return system_msgs + others
 
-    # 从最新消息往回取，直到接近 token 限制
+    # 2) 非 system 消息按 token 限制逆序累积
     selected = []
     running_tokens = 0
-
-    for msg in reversed(history):
+    for msg in reversed(others):
         content = msg.get("content", "")
-        # 清理 <thinking> 内容以节省 token
         clean_content = _remove_thinking_tags(content)
         token_count = estimate_tokens(clean_content)
-
         if running_tokens + token_count > HARD_TOKEN_LIMIT:
             break
-
-        selected.insert(
-            0,
-            {
-                "role": msg["role"],
-                "content": clean_content,
-            },
-        )
+        selected.insert(0, {"role": msg["role"], "content": clean_content})
         running_tokens += token_count
 
-    return selected
+    return system_msgs + selected
 
 
 def _remove_thinking_tags(content: str) -> str:

@@ -7,6 +7,9 @@
 - require_confirmation=True + Reject + dry_run 未返回 draft → 错误
 - require_confirmation=True + Reject(其他 error_code) → 不拦截,走既有路径
 - require_confirmation=True + pre-hook 返回 dict → 不拦截,走既有路径
+
+Task 10 (process_stream 流式拦截):
+- require_confirmation=True + Reject(confirmation_required) → SSE 流发出 confirmation 事件,不会直接执行
 """
 
 from unittest.mock import MagicMock, patch
@@ -335,3 +338,67 @@ class TestConfirmationInterception:
         # 不拦截,走既有路径
         assert result.get("awaiting_confirmation") is not True
         assert result["answer"] == "written"
+
+
+# ---------------------------------------------------------------------------
+# Task 10: process_stream 流式拦截测试
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.django_db
+class TestStreamConfirmationInterception:
+    """process_stream 对 require_confirmation 工具的 SSE 流式拦截。"""
+
+    def test_stream_yields_confirmation_event_for_confirm_tool(self):
+        """SSE 流式路径对 require_confirmation 工具应发出 confirmation 事件而非直接执行。
+
+        说明:确认拦截发生在 ``apply_pre_execute_hooks`` 返回
+        ``Reject(confirmation_required)`` 之后,需要先调 ``_dry_run`` 拿 draft。
+        若 ``_dry_run`` 因 LLM 不可用返回 ``found=False`` 无 draft,orchestrator
+        会发失败 done,**但仍不会直接执行生成**——测试断言的核心是"未出现
+        file_download";若 draft 可得,则会发出 confirmation 事件。
+        """
+        from unittest.mock import patch
+
+        from smart_assistant.tools.registry import ToolRegistry
+
+        tool = ToolRegistry.get_tool("office_generate")
+        assert tool is not None and tool.require_confirmation
+
+        # 注册 pre hook 触发 Reject(confirmation_required),确保拦截路径生效
+        class _ConfirmStreamHook(ToolHookBase):
+            name = "confirm_stream_hook"
+
+            async def pre_execute(self, tool, ctx, params):
+                return Reject(
+                    reason="需要二次确认",
+                    error_code="confirmation_required",
+                )
+
+        registry = get_registry()
+        registry.register(HookEvent.PRE_EXECUTE, _ConfirmStreamHook(), priority=20)
+
+        # mock classify_intent 直接返回 office_generate,跳过 LLM 调用
+        # mock execute_guarded 返回一个包含 draft 的 dry_run_result,模拟工具正常 dry_run
+        with patch(
+            "smart_assistant.agent.orchestrator.classify_intent",
+            return_value="office_generate",
+        ), patch(
+            "smart_assistant.agent.orchestrator.generate_tool_chain_plan",
+            return_value=[],
+        ), patch(
+            "smart_assistant.agent.orchestrator.execute_guarded",
+            return_value={
+                "found": True,
+                "draft": {
+                    "summary": "将生成请假单",
+                    "fields": {"query": "生成请假单"},
+                },
+            },
+        ):
+            events = list(AgentOrchestrator().process_stream("生成请假单", [], None))
+
+        data_blob = "\n".join(events)
+        assert "awaiting_confirmation" in data_blob or "confirmation_token" in data_blob
+        # 不应直接执行生成
+        assert "file_download" not in data_blob

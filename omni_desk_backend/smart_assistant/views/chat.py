@@ -5,6 +5,7 @@ import time
 from django.http import StreamingHttpResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
@@ -25,9 +26,11 @@ from ..agent.conversation_context import (
     count_turns,
     is_failed_answer,
 )
+from ..extractors.office_extractor import ExtractedDocument, OfficeExtractError, OfficeExtractor
 from ..scope import resolve_scope
 from ..tools.tool_context import ToolContext
 from ..tools.registry import ToolRegistry
+from ..tools_io import cache_attachment, file_sha256
 from ..cache import get_confirmation_draft, clear_confirmation_draft
 from ..hooks.wiring import execute_guarded
 
@@ -55,6 +58,59 @@ class SmartChatViewSet(viewsets.ViewSet):
     """智能聊天接口"""
 
     permission_classes = [IsAuthenticated]
+    # 允许 JSON(默认)/multipart/form-data 上传 Office 附件
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def _extract_attachment(self, request):
+        """校验并抽取附件。返回 (doc_dict, None) 或 (None, error_response)。
+
+        ``doc_dict`` 字段:text / markdown / sheets / format / filename;
+        无附件时 ``(None, None)``;抽取失败时 ``(None, Response 400)``。
+        """
+        file = request.FILES.get("attachment")
+        if not file:
+            return None, None
+        # I-1:早期拒绝超大文件，避免全量读入内存后再由 OfficeExtractor 拒绝
+        if file.size and file.size > 10 * 1024 * 1024:
+            return None, Response(
+                {"detail": "文件超过 10MB 上限，请压缩或拆分后重试"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        try:
+            extracted = OfficeExtractor.extract(file)
+        except OfficeExtractError as exc:
+            return None, Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        if not extracted.text and not extracted.markdown:
+            return None, Response(
+                {"detail": "未从文件中提取到文本内容，可能为纯图片扫描件"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        doc_dict = {
+            "text": extracted.text,
+            "markdown": extracted.markdown,
+            "sheets": extracted.sheets,
+            "format": extracted.format,
+            "filename": file.name,
+        }
+        return doc_dict, None
+
+    def _inject_attachment(self, conversation_history, doc_dict, conversation_id):
+        """把附件内容作为 system 消息注入历史头部，并写入短时附件缓存。
+
+        缓存键:(conversation_id, file_hash),TTL 10 分钟,供后续 office_read
+        工具按 file_hash 二次取用。无 conversation_id 时不缓存(单次请求即丢)。
+        """
+        prompt_text = OfficeExtractor.format_for_prompt(
+            ExtractedDocument(text=doc_dict["text"], markdown=doc_dict["markdown"]),
+            doc_dict["filename"],
+        )
+        attachment_msg = {"role": "system", "content": prompt_text}
+        conversation_history = [attachment_msg] + (conversation_history or [])
+        if conversation_id:
+            seed = (doc_dict["filename"] + doc_dict["text"][:200]).encode("utf-8", errors="replace")
+            file_hash = file_sha256(seed)
+            cache_attachment(conversation_id, file_hash, doc_dict)
+        return conversation_history
 
     def create(self, request):
         """POST /api/smart-assistant/chat/"""
@@ -65,6 +121,12 @@ class SmartChatViewSet(viewsets.ViewSet):
         query = serializer.validated_data["query"]
         conversation_id = serializer.validated_data.get("conversation_id")
         confirm_token = (serializer.validated_data.get("confirm_token") or "").strip()
+
+        # === 附件抽取:无论是否 confirm-replay,都要先处理(让 confirm 路径
+        # 也能看到附件上下文;若确认时无附件,doc_dict 保持 None) ===
+        doc_dict, err_resp = self._extract_attachment(request)
+        if err_resp:
+            return err_resp
 
         # === confirm-replay:replay 路径(跳过 orchestrator,直接执行工具) ===
         # 前端带 confirm_token 二次请求 → 视图层直接执行工具,不走 orchestrator
@@ -101,7 +163,13 @@ class SmartChatViewSet(viewsets.ViewSet):
                 tool_result = execute_guarded(
                     tool,
                     draft_entry["user_query"],
-                    context={"history": [], "confirmed": True, "confirm_token": confirm_token, "user": request.user},
+                    context={
+                        "history": [],
+                        "confirmed": True,
+                        "confirm_token": confirm_token,
+                        "user": request.user,
+                        "draft": draft_entry.get("draft", {}).get("fields"),
+                    },
                 )
                 clear_confirmation_draft(confirm_token)  # 清理,防止重放
                 return Response(
@@ -138,9 +206,22 @@ class SmartChatViewSet(viewsets.ViewSet):
                 return Response({"detail": "session not found"}, status=status.HTTP_404_NOT_FOUND)
 
         start_time = time.time()
-        tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))
+        tool_context = ToolContext(
+            user=request.user,
+            scope=resolve_scope(request.user),
+            attachment=doc_dict,
+        )
+        # 附件注入历史(在 build_effective_history 之后,确保 system 消息排在最前)
+        if doc_dict:
+            conversation_history = self._inject_attachment(conversation_history, doc_dict, conversation_id)
         try:
-            result = orchestrator.process(query, conversation_history, tool_context=tool_context)
+            # C-1:conversation_history 保持位置参数(测试用 args[1] 取参),
+            # tool_context 仅以 kwarg 传入(避免与 orchestrator.process 签名冲突)
+            result = orchestrator.process(
+                query,
+                conversation_history,
+                tool_context=tool_context,
+            )
         except Exception as exc:
             # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
             # 不再把 500 裸抛给客户端而不留痕迹
@@ -233,6 +314,11 @@ class SmartChatViewSet(viewsets.ViewSet):
         query = serializer.validated_data["query"]
         conversation_id = serializer.validated_data.get("conversation_id")
 
+        # 附件抽取(同 create 路径)
+        doc_dict, err_resp = self._extract_attachment(request)
+        if err_resp:
+            return err_resp
+
         conversation_history = None
         session = None
         if conversation_id:
@@ -245,7 +331,14 @@ class SmartChatViewSet(viewsets.ViewSet):
         start_time = time.time()
 
         orchestrator = AgentOrchestrator()
-        tool_context = ToolContext(user=request.user, scope=resolve_scope(request.user))
+        tool_context = ToolContext(
+            user=request.user,
+            scope=resolve_scope(request.user),
+            attachment=doc_dict,
+        )
+        # 附件注入历史
+        if doc_dict:
+            conversation_history = self._inject_attachment(conversation_history, doc_dict, conversation_id)
 
         def event_stream():
             full_answer = []
@@ -255,7 +348,11 @@ class SmartChatViewSet(viewsets.ViewSet):
             stream_exc = None
 
             try:
-                for chunk in orchestrator.process_stream(query, conversation_history, tool_context=tool_context):
+                for chunk in orchestrator.process_stream(
+                    query,
+                    conversation_history=conversation_history,
+                    tool_context=tool_context,
+                ):
                     yield chunk
                     try:
                         payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
