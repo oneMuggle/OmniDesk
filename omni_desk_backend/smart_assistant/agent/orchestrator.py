@@ -1,5 +1,9 @@
 import json
+import logging
+import time
 import uuid
+
+from django.conf import settings
 
 from .intent_classifier import (
     classify_intent,
@@ -34,6 +38,9 @@ from ..hooks.wiring import (
     apply_pre_execute_hooks,
     execute_guarded,
 )
+
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -148,10 +155,113 @@ class AgentOrchestrator:
     - 多工具路径走 ``ToolChainExecutor``(class 版,支持 scope 注入),并通过
       ``ResultSynthesizer`` 把多工具结果聚合成前端 ``<AggregatedDayCard>`` 直接消费的结构。
     - 返回 ``intent="aggregated_day"``,让前端 ``ToolResult.jsx`` 触发 ``AggregatedDayCard`` 渲染。
+
+    Task 6 增强(SAIS Plan 1):
+    - 持有 ``self.router = LLMRouter(app_name="smart_assistant")``,原生
+      tool_calls 路径直接调 ``router.generate_with_tools()``;
+    - JSON 路径仍走 ``router.generate()``(向后兼容)。
     """
 
-    def process(self, user_query: str, conversation_history: list = None, tool_context=None) -> dict:
-        """处理用户问题"""
+    def __init__(self) -> None:
+        """初始化 LLM router(按 app_name 隔离,默认 smart_assistant)。"""
+        # 延迟导入避免模块加载期循环
+        from llm_service.router import LLMRouter
+
+        self.router = LLMRouter(app_name="smart_assistant")
+
+    def process(
+        self,
+        user_query: str | None = None,
+        conversation_history: list | None = None,
+        tool_context=None,
+        *,
+        query: str | None = None,
+        llm_messages: list | None = None,
+        use_native_tool_calls: bool | None = None,
+    ) -> dict:
+        """处理用户问题。
+
+        Task 6 增强(SAIS Plan 1):
+        - 新增可选 kwarg ``use_native_tool_calls``(默认 ``None`` = 自动判断):
+          - ``None``:依 ``settings.USE_NATIVE_TOOL_CALLS + _endpoint_supports_tool_calls()``
+            决定走 ``_process_tool_calls_path``(原生 tool_calls)或
+            ``_process_json_path``(JSON 解析旧路径)。
+          - ``True``/``False``:强制指定。
+        - 同时支持 ``query`` kwarg(新代码约定)与位置参数 ``user_query``(旧代码约定)。
+        - 默认行为 100% 对等于旧实现(返回 dict,所有现有调用方不受影响)。
+        - 新路径异常时自动降级到 JSON 路径,不抛异常给视图层。
+        """
+        # 兼容 query=user_query(new code) 与 user_query(legacy)
+        if query is None:
+            query = user_query
+        if query is None:
+            raise TypeError("process() 需要 query 或 user_query 参数")
+
+        # 决定走哪条路径
+        if use_native_tool_calls is None:
+            try:
+                use_native = (
+                    bool(getattr(settings, "USE_NATIVE_TOOL_CALLS", False))
+                    and self._endpoint_supports_tool_calls()
+                )
+            except Exception:
+                logger.warning("_endpoint_supports_tool_calls 检查失败,降级到 JSON 路径", exc_info=True)
+                use_native = False
+        else:
+            use_native = bool(use_native_tool_calls)
+
+        if use_native:
+            # 新路径:返回 tuple(content, usage, meta)
+            try:
+                from smart_assistant.tools.tool_context import ToolContext
+                if tool_context is None:
+                    tool_context = ToolContext(user=None)
+                if llm_messages is None:
+                    llm_messages = self._build_initial_messages(
+                        query, tool_context, conversation_history
+                    )
+                content, usage, meta = self._process_tool_calls_path(
+                    query=query, context=tool_context, llm_messages=llm_messages
+                )
+                return self._wrap_native_to_dict(content, usage, meta)
+            except Exception as exc:
+                # 降级策略:新路径异常 → JSON 路径兜底
+                logger.warning(
+                    "tool_calls 路径异常,降级到 JSON 路径: %s", exc, exc_info=True
+                )
+                # 回退:用 JSON 路径再跑一遍
+                try:
+                    content, usage, meta = self._process_json_path(
+                        query=query,
+                        context=tool_context,
+                        llm_messages=llm_messages,
+                    )
+                    return self._wrap_native_to_dict(content, usage, meta)
+                except Exception:
+                    # JSON 路径也失败 → 走最原始的 legacy 路径(digest/chat.py 已能处理异常)
+                    return self._legacy_process(query, conversation_history, tool_context)
+
+        # 走 JSON 路径:调用 _process_json_path(测试期望入口),并把
+        # tuple 转回 dict 保持向后兼容。
+        content, usage, meta = self._process_json_path(
+            query=query,
+            context=tool_context,
+            llm_messages=llm_messages,
+            conversation_history=conversation_history,
+        )
+        return self._wrap_native_to_dict(content, usage, meta)
+
+    def _legacy_process(
+        self,
+        user_query: str,
+        conversation_history: list | None,
+        tool_context,
+    ) -> dict:
+        """旧 process() 实现的逐字提取(Task 6 拆分)。
+
+        行为完全对等于 Task 6 之前的 process();A/B 评估期间
+        ``_process_json_path()`` 调用时同样跑这套逻辑。
+        """
         schemas = ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
 
@@ -317,6 +427,359 @@ class AgentOrchestrator:
                 "usage": usage,
                 "error": is_failed_answer(answer),
             }
+
+    # === Task 6:原生 tool_calls 路径(L1 §3.4)===
+
+    def _endpoint_supports_tool_calls(self) -> bool:
+        """检查当前激活的 LlmEndpoint 是否声明支持 native_tool_calls。
+
+        读 ``LlmEndpoint.model_capabilities``(JSONField,默认为 list)。
+        契约:若 model_capabilities 是 ``list[dict]``,且任一元素包含
+        ``native_tool_calls=True``,则返回 ``True``。
+
+        安全降级:无激活 endpoint / capabilities 为空 / 数据异常 → 返回
+        ``False``,orchestrator 自动降级到 JSON 路径,避免老端点被错配。
+        """
+        try:
+            config = (
+                LlmAppConfig.objects.select_related("endpoint")
+                .filter(is_active=True, app_name="smart_assistant", endpoint__is_active=True)
+                .order_by("endpoint__priority", "endpoint__is_fallback")
+                .first()
+            )
+        except Exception:
+            logger.warning("查询 LlmAppConfig 失败,降级 JSON 路径", exc_info=True)
+            return False
+
+        if config is None:
+            return False
+
+        caps = getattr(config.endpoint, "model_capabilities", None)
+        if not isinstance(caps, list):
+            return False
+        for cap in caps:
+            if isinstance(cap, dict) and cap.get("native_tool_calls") is True:
+                return True
+        return False
+
+    def _build_initial_messages(
+        self,
+        user_query: str,
+        context,
+        conversation_history: list | None,
+    ) -> list:
+        """构造 LLM 初始 messages 列表(原生 tool_calls 路径使用)。
+
+        返回 OpenAI 兼容格式::
+            [
+                {"role": "system", "content": "你是 OmniDesk 助手..."},
+                {"role": "user", "content": user_query},
+            ]
+
+        历史消息以原样追加到 system 之后;若 ``llm_messages`` 已在外部
+        构造完成,直接透传(避免重复包 system prompt)。
+        """
+        messages = []
+        messages.append(
+            {
+                "role": "system",
+                "content": "你是 OmniDesk 智能助手,负责按用户请求调用合适的工具完成任务。",
+            }
+        )
+        if conversation_history:
+            for m in conversation_history:
+                if isinstance(m, dict) and m.get("role") in ("user", "assistant", "tool", "system"):
+                    messages.append(m)
+        messages.append({"role": "user", "content": user_query})
+        return messages
+
+    def _process_tool_calls_path(
+        self,
+        *,
+        query: str,
+        context,
+        llm_messages: list,
+    ) -> tuple[str, dict, dict]:
+        """原生 tool_calls 主循环(spec §3.4)。
+
+        - 最多 ``settings.MAX_TOOL_CALLS_ROUNDS`` 轮(默认 3);
+        - 每轮调 ``router.generate_with_tools(messages, tools, tool_choice='auto')``;
+        - 工具错误 4 类:
+            * invalid_arguments(JSON 不合法 / schema 校验失败)
+            * tool_unavailable_for_user(get_tool_for_user 返回 None)
+            * tool_timeout(execute_with_guard 抛 TimeoutError;归类为 execution_failed)
+            * execution_failed(任意其他异常)
+        - 3 轮后强制 ``tool_choice="none"`` 兜底,LLM 必须给自然语言回答。
+
+        返回:
+            ``(content, usage, meta)`` 三元组。meta 含 ``tool_calls_meta`` /
+            ``tool_calls_rounds`` / ``tool_call_path='native'``,供持久化到
+            AgentLog(tool_calls_meta / tool_calls_rounds / tool_call_path 字段)。
+        """
+        from smart_assistant.agent.tool_context_resolver import resolve_tools_for_user
+
+        # 注入 user 参数(required_auth 工具对未登录用户不可见)
+        tools_schema = resolve_tools_for_user(context.user)
+        tool_calls_meta: list = []
+        rounds = 0
+        max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
+
+        for round_idx in range(max_rounds):
+            try:
+                content, usage, tool_calls = self.router.generate_with_tools(
+                    messages=llm_messages,
+                    tools=tools_schema,
+                    tool_choice="auto",
+                )
+            except Exception as exc:
+                # 降级策略(来自 Task 3 reviewer):新方法异常 → 走 JSON 路径
+                logger.warning(
+                    "generate_with_tools 异常,降级到 _process_json_path: %s", exc, exc_info=True
+                )
+                return self._process_json_path(
+                    query=query, context=context, llm_messages=llm_messages
+                )
+
+            if not tool_calls:
+                # LLM 主动选择不调工具,直接返回 content
+                return content, usage, {
+                    "tool_calls_meta": tool_calls_meta,
+                    "tool_calls_rounds": rounds,
+                    "tool_call_path": "native",
+                }
+
+            rounds += 1
+            tool_results = []
+
+            for tc in tool_calls:
+                t0 = time.monotonic()
+                func_name = tc.get("function", {}).get("name", "")
+                tool_call_id = tc.get("id", "")
+
+                # 1) 工具可用性:required_auth / 匿名用户 / 不存在 → unavailable
+                tool = ToolRegistry.get_tool_for_user(func_name, context.user)
+                if tool is None:
+                    tool_results.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": json.dumps(
+                                {"error": "tool_unavailable_for_user"},
+                                ensure_ascii=False,
+                            ),
+                        }
+                    )
+                    tool_calls_meta.append(
+                        {
+                            "round": round_idx,
+                            "tool": func_name,
+                            "error": "unavailable",
+                            "duration_ms": 0,
+                        }
+                    )
+                    continue
+
+                # 2) 参数解析 + schema 校验
+                try:
+                    raw_args = tc.get("function", {}).get("arguments", "{}")
+                    if isinstance(raw_args, str):
+                        args = json.loads(raw_args)
+                    elif isinstance(raw_args, dict):
+                        args = raw_args
+                    else:
+                        args = {}
+                    validated = tool.validate_arguments(args)
+                except Exception as exc:
+                    tool_results.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": json.dumps(
+                                {"error": "invalid_arguments", "detail": str(exc)},
+                                ensure_ascii=False,
+                            ),
+                        }
+                    )
+                    tool_calls_meta.append(
+                        {
+                            "round": round_idx,
+                            "tool": func_name,
+                            "error": "invalid_args",
+                            "duration_ms": 0,
+                        }
+                    )
+                    continue
+
+                # 3) 工具执行:走 execute_with_guard(hook + timeout 包装)
+                try:
+                    result = tool.execute_with_guard(validated, context)
+                except Exception as exc:
+                    tool_results.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": json.dumps(
+                                {
+                                    "error": "execution_failed",
+                                    "detail": str(exc),
+                                },
+                                ensure_ascii=False,
+                            ),
+                        }
+                    )
+                    tool_calls_meta.append(
+                        {
+                            "round": round_idx,
+                            "tool": func_name,
+                            "error": "execution_failed",
+                            "duration_ms": 0,
+                        }
+                    )
+                    continue
+
+                duration_ms = int((time.monotonic() - t0) * 1000)
+                tool_calls_meta.append(
+                    {
+                        "round": round_idx,
+                        "tool": func_name,
+                        "arguments": validated,
+                        "duration_ms": duration_ms,
+                    }
+                )
+                tool_results.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": json.dumps(result, ensure_ascii=False),
+                    }
+                )
+
+            # 把 assistant(tool_calls) + tool 结果 append 到 messages
+            llm_messages.append(
+                {
+                    "role": "assistant",
+                    "content": content or "",
+                    "tool_calls": tool_calls,
+                }
+            )
+            llm_messages.extend(tool_results)
+
+        # 3 轮后兜底:强制 tool_choice="none"
+        content, usage, _ = self.router.generate_with_tools(
+            messages=llm_messages,
+            tools=tools_schema,
+            tool_choice="none",
+        )
+        return content, usage, {
+            "tool_calls_meta": tool_calls_meta,
+            "tool_calls_rounds": rounds,
+            "tool_call_path": "native",
+        }
+
+    def _process_json_path(
+        self,
+        *,
+        query: str,
+        context,
+        llm_messages: list | None,
+        conversation_history: list | None = None,
+    ) -> tuple[str, dict, dict]:
+        """JSON 解析路径(spec §3.4)。
+
+        业务行为 100% 对等于旧 ``process()`` —— 这是 fallback 路径,
+        A/B 评估期间两条路径的回答质量必须对等。
+
+        当前实现:委托 ``_legacy_process`` 执行旧逻辑,再把 dict 结果
+        转换为 ``(content, usage, meta)`` 三元组。
+
+        参数:
+            query: 用户问题
+            context: ToolContext(用于 scope 派生)
+            llm_messages: LLM 初始 messages(可选);若未提供,从
+                conversation_history 派生。
+            conversation_history: 对话历史(优先于 llm_messages,旧版约定)
+        """
+        # 把 llm_messages 转换为旧版 conversation_history(若提供且未传 history)
+        if conversation_history is None and llm_messages:
+            conversation_history = []
+            for msg in llm_messages:
+                if isinstance(msg, dict) and msg.get("role") in ("user", "assistant", "tool"):
+                    role = msg["role"]
+                    if role == "tool":
+                        continue  # tool 消息不进入历史(legacy 不识别)
+                    conversation_history.append({"role": role, "content": msg.get("content", "")})
+
+        result = self._legacy_process(query, conversation_history, context)
+
+        # 从 dict 提取 content / usage,构造 meta
+        content = result.get("answer", "")
+        usage = result.get("usage") or {}
+        meta = {
+            "tool_calls_meta": [],
+            "tool_calls_rounds": 0,
+            "tool_call_path": "json",
+            # 透传旧字段供下游审计使用
+            "intent": result.get("intent"),
+            "tool_used": result.get("tool_used"),
+            "tool_result": result.get("tool_result"),
+            "sources": result.get("sources"),
+            "tool_fallback": result.get("tool_fallback", False),
+            "tool_chain": result.get("tool_chain"),
+            "awaiting_confirmation": result.get("awaiting_confirmation", False),
+            "confirmation_token": result.get("confirmation_token"),
+            "error": result.get("error", False),
+        }
+        return content, usage, meta
+
+    def _wrap_native_to_dict(
+        self,
+        content: str,
+        usage: dict,
+        meta: dict,
+    ) -> dict:
+        """把原生路径的三元组包装为旧版 dict 格式(向后兼容)。
+
+        现有视图层(digest.py / views/chat.py)读 ``result["answer"]`` /
+        ``result["tool_used"]`` 等字段;包装器保证这些键仍可用。
+        """
+        tool_path = meta.get("tool_call_path", "native")
+        if tool_path == "native":
+            # 原生路径尚未完整跑通 intent 分类/工具链规划,只能填部分字段
+            return {
+                "answer": content,
+                "intent": None,
+                "tool_used": None,
+                "tool_result": None,
+                "sources": None,
+                "usage": usage,
+                "error": is_failed_answer(content),
+                # 审计字段(供 AgentLog 落库)
+                "tool_call_path": tool_path,
+                "tool_calls_meta": meta.get("tool_calls_meta", []),
+                "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
+            }
+        # JSON 路径的 meta 已经携带了旧字段,直接展开
+        out = {
+            "answer": content,
+            "usage": usage,
+            "tool_call_path": tool_path,
+            "tool_calls_meta": meta.get("tool_calls_meta", []),
+            "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
+        }
+        for k in (
+            "intent",
+            "tool_used",
+            "tool_result",
+            "sources",
+            "tool_fallback",
+            "tool_chain",
+            "awaiting_confirmation",
+            "confirmation_token",
+            "error",
+        ):
+            if k in meta:
+                out[k] = meta[k]
+        return out
 
     def _process_chain(
         self,
