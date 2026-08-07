@@ -40,6 +40,52 @@ class RAGTool(BaseTool):
             "sources": sources,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 从知识库查询业务知识。
+
+        dataset_ids 为 array(items 也是 object 时也要 strict);
+        多数据集选择是非典型场景,description 显式说明避免 LLM 误用。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "从知识库(RAGFlow)查询业务知识,合并多个数据集的检索结果。"
+                    "示例 query: '公司的报销流程是什么'、'查询质量手册'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言问题,作为 RAG 检索 query",
+                        },
+                        "dataset_ids": {
+                            "type": "array",
+                            "description": "限定检索的数据集 ID 列表(可选,空则查所有)",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string", "description": "数据集 ID"},
+                                },
+                                "required": ["id"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "返回片段数上限,默认 5",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def get_schema(self) -> dict:
         return {
             "name": self.name,

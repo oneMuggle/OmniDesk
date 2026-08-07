@@ -119,6 +119,41 @@ class OfficeGenerateTool(BaseTool):
     risk_level = "write"
     require_confirmation = True
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 生成 .docx 文档(写操作,需确认)。
+
+        risk_level=write + require_confirmation=True → description 必须显式
+        提示需要用户确认,避免 LLM 把写操作当成只读查询使用。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "根据用户描述生成 .docx 文档(写操作,需要用户确认)。"
+                    "执行后会先 dry_run 返回文档结构 draft,用户确认后才真正生成文件。"
+                    "示例 query: '生成一份设备验收报告模板'、'写一份会议纪要'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "文档描述,LLM 据此规划 heading/paragraph/table 结构",
+                        },
+                        "structure_hint": {
+                            "type": "string",
+                            "description": "可选,用户指定结构关键词(如 '含表格'、'三级标题')",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def execute(self, query=None, context=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
         if ctx.get("dry_run"):

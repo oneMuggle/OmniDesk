@@ -38,6 +38,36 @@ class NewsTool(BaseTool):
             "articles": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 搜索新闻/通知。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "搜索新闻/通知文章,按标题模糊匹配。"
+                    "示例 query: '搜索关于春节的新闻'、'最近的培训通知'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,按标题 icontains 匹配",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "返回条目数上限,默认 10",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的新闻 QuerySet。"""
         return NewsArticle.objects.select_related("news_type", "personnel").all()

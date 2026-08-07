@@ -39,6 +39,36 @@ class MemoTool(BaseTool):
             "memos": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询备忘录/便签。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询备忘录/便签,按标题关键词模糊匹配。"
+                    "示例 query: '找一下会议纪要'、'搜索本周的便签'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,可含标题/内容词",
+                        },
+                        "is_completed": {
+                            "type": "boolean",
+                            "description": "是否仅返回已完成/未完成(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的备忘录 QuerySet。"""
         return Memo.objects.select_related("user").all()

@@ -22,6 +22,37 @@ class SpreadsheetTool(BaseTool):
     intent_type = "spreadsheet_qa"
     risk_level = "read"
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — Excel 表格统计与自然语言问答。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "对用户上传的 Excel 表格做数据统计(总行数/列名)或自然语言问答,"
+                    "统计走 pandas,问答复用 file_processing 的 LLM 表格问答。"
+                    "示例 query: '这个表格多少行'、'A 列的总和'、'按部门统计人数'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言问题或统计关键词",
+                        },
+                        "sheet_name": {
+                            "type": "string",
+                            "description": "指定 sheet 名(可选,默认取第一个 sheet)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def execute(self, query=None, context=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
         attachment = ctx.get("attachment") or {}

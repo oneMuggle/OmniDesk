@@ -70,6 +70,36 @@ class ExternalLinkTool(BaseTool):
 
         return {"found": True, "count": len(links), "links": links}
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询公司内网外链导航。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询公司内网外链导航(VPN/Jira 等),仅返回 active 链接。"
+                    "示例 query: 'VPN 怎么登录'、'所有 Jira 入口'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配 name/description/category;空则返回所有 active",
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "按 category 过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的外链 QuerySet(execute 中会再加 is_active filter)。"""
         return ExternalLink.objects.all()

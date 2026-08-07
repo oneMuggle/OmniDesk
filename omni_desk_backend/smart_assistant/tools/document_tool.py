@@ -55,6 +55,42 @@ class DocumentTool(BaseTool):
             "documents": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 搜索公文/文档模板与生成文档。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "搜索公文/文档(DocumentTemplate 与 GeneratedDocument),"
+                    "按名称模糊匹配。"
+                    "示例 query: '查设备验收模板'、'搜索最近的公文'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配模板/公文名",
+                        },
+                        "doc_type": {
+                            "type": "string",
+                            "enum": ["模板", "文档"],
+                            "description": "按类型过滤(模板 vs 已生成文档)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "返回条目数上限,默认 10",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的文档模板 QuerySet(主模型;execute 同时查 GeneratedDocument)。"""
         return DocumentTemplate.objects.select_related("owner").all()

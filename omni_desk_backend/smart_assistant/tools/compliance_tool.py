@@ -94,6 +94,46 @@ class ComplianceTool(BaseTool):
 
         return {"found": True, "count": len(issues), "issues": issues}
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询合规问题/待整改项。
+
+        severity 用 JSON Schema enum 限制取值(紧急/高/中/低);
+        keywords/due_within_days/severity 三个可选过滤维度。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询合规问题/待整改项(compliance.ComplianceIssue),"
+                    "仅返回待处理/处理中状态。按 severity 倒序、due_date 升序。"
+                    "示例 query: '紧急整改项'、'即将到期的合规问题'、'研发项目待整改'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配 description/issue_type/project.name",
+                        },
+                        "severity": {
+                            "type": "string",
+                            "enum": ["紧急", "高", "中", "低"],
+                            "description": "按紧急程度精确过滤(可选)",
+                        },
+                        "due_within_days": {
+                            "type": "integer",
+                            "description": "仅返回 N 天内到期的项(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的合规问题 QuerySet(主数据源,execute 中已加 status filter)。"""
         return ComplianceIssue.objects.select_related("project", "document_book", "document_template").all()

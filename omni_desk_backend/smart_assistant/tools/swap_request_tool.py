@@ -71,6 +71,37 @@ class SwapRequestQueryTool(BaseTool):
     intent_type = "swap_request_query"
     risk_level = "read"
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询换班申请。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询当前用户相关的换班申请(发起的 + 接收的),返回状态/角色/对象/日期。"
+                    "示例 query: '我有哪些换班申请'、'收到的换班请求'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,用于日志/审计",
+                        },
+                        "role": {
+                            "type": "string",
+                            "enum": ["发起方", "接收方", "all"],
+                            "description": "按角色过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def execute(self, query=None, context=None, **kwargs) -> dict:
         """查询当前用户相关的换班申请"""
         user = getattr(context, "user", None) if context else None
@@ -141,6 +172,46 @@ class SwapRequestCreateTool(BaseTool):
     intent_type = "swap_request_create"
     risk_level = "write"
     require_confirmation = True
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 发起换班申请(写,需确认)。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "基于自然语言发起换班/替班申请(写操作,需要用户确认)。"
+                    "dry_run 返回 draft,用户确认后真正落库。"
+                    "示例 query: '把 8 月 12 日的班换给张三'、'跟李四换明天'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言描述,含目标姓名/日期/原因",
+                        },
+                        "target_name": {
+                            "type": "string",
+                            "description": "接收方姓名(可选,也可由 query 解析)",
+                        },
+                        "duty_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "原始值班日期(ISO 8601,可选)",
+                        },
+                        "reason": {
+                            "type": "string",
+                            "description": "换班原因(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
 
     def execute(self, query=None, context=None, **kwargs) -> dict:
         """发起换班申请"""
@@ -263,6 +334,46 @@ class SwapRequestDecideTool(BaseTool):
     intent_type = "swap_request_decide"
     risk_level = "write"
     require_confirmation = True
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 决策换班申请(写,需确认)。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "对换班申请做出决策(accept/reject/cancel,写操作,需要用户确认)。"
+                    "接收方 accept/reject 或申请方 cancel。"
+                    "示例 query: '接受张三的换班申请'、'拒绝 5 号换班'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言描述,含动作(accept/reject/cancel)与目标 swap",
+                        },
+                        "action": {
+                            "type": "string",
+                            "enum": ["accept", "reject", "cancel"],
+                            "description": "决策动作(可选,也可由 query 解析)",
+                        },
+                        "swap_id": {
+                            "type": "integer",
+                            "description": "目标换班申请 ID(可选,不传则取最近 pending)",
+                        },
+                        "note": {
+                            "type": "string",
+                            "description": "决策备注(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
 
     def execute(self, query=None, context=None, **kwargs) -> dict:
         """对换班申请做出决策"""

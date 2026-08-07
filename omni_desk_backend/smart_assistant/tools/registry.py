@@ -59,3 +59,49 @@ class ToolRegistry:
     @classmethod
     def get_all_schemas(cls) -> list:
         return [tool.get_schema() for tool in cls._tools.values()]
+
+    @classmethod
+    def get_openai_tools(cls) -> list:
+        """返回所有已注册工具的 OpenAI tool schema 列表(Task 4:原生 function calling)。
+
+        用于 orchestrator 直接喂给 LLM 的 ``tools`` 参数。每个 schema 由
+        BaseTool.get_openai_tool_schema() 生成,统一 OpenAI strict 模式规范。
+
+        实现说明:遍历时**不**强制要求每个工具已实现 get_openai_tool_schema。
+        未实现的工具抛 NotImplementedError 时,记录 warning 后跳过,
+        让 registry 启动期不因 schema 缺失而整体挂掉(仍可走 JSON 路径降级)。
+        Lint(强制 schema 已实现)在 test_openai_tool_schemas.py 已覆盖。
+        """
+        import logging
+
+        log = logging.getLogger(__name__)
+        schemas = []
+        for tool in cls._tools.values():
+            try:
+                schemas.append(tool.get_openai_tool_schema())
+            except NotImplementedError as exc:
+                log.warning(
+                    "工具 %s 未实现 get_openai_tool_schema(),已跳过(tool_calls 路径不可用): %s",
+                    tool.intent_type,
+                    exc,
+                )
+        return schemas
+
+    @classmethod
+    def assert_all_have_openai_schema(cls) -> None:
+        """CI lint:断言所有已注册工具都已实现 get_openai_tool_schema()。
+
+        在 CI 中调用一次,可在启动期/单元测试期早期发现遗漏(避免生产环境
+        tool_calls 路径静默降级)。抛 NotImplementedError 即定位遗漏工具。
+        Task 4 实现 19 个工具后,本方法应保持静默。
+        """
+        missing: list[str] = []
+        for tool in cls._tools.values():
+            try:
+                tool.get_openai_tool_schema()
+            except NotImplementedError:
+                missing.append(tool.intent_type)
+        if missing:
+            raise AssertionError(
+                f"以下工具未实现 get_openai_tool_schema()(Task 4 遗漏): {missing}"
+            )

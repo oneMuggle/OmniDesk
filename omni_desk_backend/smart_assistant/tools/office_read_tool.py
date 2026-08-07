@@ -14,6 +14,41 @@ class OfficeReadTool(BaseTool):
     intent_type = "office_read"
     risk_level = "read"
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 读取 Office 附件切片。
+
+        chunk_index 用于长文档分片读取,从 context 拿 attachment 后
+        按索引返回对应切片(OfficeExtractor.chunk_text 分片)。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "读取本次对话已上传 Office 附件(Word/Excel/PPT)的指定切片,"
+                    "长文档按需分次读取。"
+                    "示例 query: '继续读下一页'、'看附件第 2 段'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,用于日志/审计",
+                        },
+                        "chunk_index": {
+                            "type": "integer",
+                            "description": "切片序号(从 0 开始),默认 0",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def execute(self, query=None, context=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
         attachment = ctx.get("attachment")

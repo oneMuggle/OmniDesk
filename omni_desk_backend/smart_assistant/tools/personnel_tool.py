@@ -51,6 +51,41 @@ class PersonnelTool(BaseTool):
             "personnel": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询人员信息(姓名/部门/职位)。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询人员信息(姓名、部门、职位、状态),仅返回脱敏后的手机号。"
+                    "示例 query: '查张三'、'研发部有哪些人'、'谁在岗'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,匹配姓名关键词",
+                        },
+                        "department": {
+                            "type": "string",
+                            "description": "按部门精确过滤(可选)",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["在职", "离职", "休假", "未知"],
+                            "description": "按状态过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def get_schema(self) -> dict:
         return {
             "name": self.name,

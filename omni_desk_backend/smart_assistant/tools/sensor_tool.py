@@ -59,6 +59,41 @@ class SensorTool(BaseTool):
             "sensors": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询传感器数据和校准状态。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询传感器数据(名称、编号、状态、最近校准)和校准结果。"
+                    "示例 query: '查温湿度传感器'、'所有在校传感器统计'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配名称/编号;空则返回汇总统计",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["in_use", "idle", "broken", "retired"],
+                            "description": "按传感器状态过滤(可选)",
+                        },
+                        "category": {
+                            "type": "string",
+                            "description": "按传感器分类精确过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的传感器 QuerySet(主模型;execute 同时查 SensorCalibration)。"""
         return Sensor.objects.select_related("sensor_category", "location").all()

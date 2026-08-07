@@ -66,6 +66,41 @@ class MeetingRoomTool(BaseTool):
             "module_label": "会议室",
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询会议室可用性。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询会议室可用性与预订情况,按日期聚合。"
+                    "示例 query: '明天的会议室有空吗'、'今天 3 楼会议室预订'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,可含日期/楼层关键词",
+                        },
+                        "target_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "目标日期(ISO 8601),不传则默认今天",
+                        },
+                        "capacity_min": {
+                            "type": "integer",
+                            "description": "最少容纳人数(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         from meeting_rooms.models import MeetingRoom
 

@@ -66,6 +66,37 @@ class EventTool(BaseTool):
             **results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询事件/日程/节假日。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询事件/日程/排班/节假日信息,按日期聚合。"
+                    "示例 query: '明天的安排'、'本周有什么节日'、'今天的值班'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,可含日期关键词(今天/明天/后天)",
+                        },
+                        "target_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "目标日期(ISO 8601),不传则默认今天",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的排班 QuerySet(主模型;execute 同时查 Holiday)。"""
         return Schedule.objects.select_related("duty_person", "duty_leader").all()

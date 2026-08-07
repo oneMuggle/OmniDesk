@@ -39,6 +39,41 @@ class ProjectTool(BaseTool):
             "projects": results,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询项目进度/状态。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询项目进度/状态/负责人/起止日期,按项目名模糊匹配。"
+                    "示例 query: '查 OmniDesk 项目'、'本周项目进度'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配项目名",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["planning", "in_progress", "completed", "on_hold", "cancelled"],
+                            "description": "按项目状态过滤(可选)",
+                        },
+                        "manager": {
+                            "type": "string",
+                            "description": "按项目负责人用户名过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的项目 QuerySet。"""
         return Project.objects.select_related("manager").all()
