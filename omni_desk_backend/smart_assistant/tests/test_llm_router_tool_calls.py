@@ -54,7 +54,10 @@ class TestGenerateWithToolsPassthrough:
     def test_router_generate_with_tools_passes_tools_to_endpoint(self, mock_server):
         """新方法应将 tools 参数原样透传到 OpenAI 兼容 endpoint 请求体。"""
         router = LLMRouter()
-        messages = [{"role": "user", "content": "明天排班"}]
+        # 选用不触发 TOOL_CALL_SCENARIOS 的 query,验证透传路径走默认文本;
+        # Task 10 起 mock 多了关键字场景 → 该场景的解析测见
+        # test_generate_with_tools_parses_real_tool_calls_payload
+        messages = [{"role": "user", "content": "普通问答"}]
 
         content, usage, tool_calls = router.generate_with_tools(
             messages=messages,
@@ -70,8 +73,9 @@ class TestGenerateWithToolsPassthrough:
         assert isinstance(content, str)
         assert isinstance(usage, dict)
         assert isinstance(tool_calls, list)
-        # 当前 mock server 不返回 tool_calls 场景,所以为空列表
+        # 不命中 TOOL_CALL_SCENARIOS,tool_calls 仍为空列表
         assert tool_calls == []
+
 
     def test_generate_with_tools_returns_three_tuple_with_empty_tool_calls(
         self, mock_server
@@ -114,3 +118,51 @@ class TestGenerateWithToolsPassthrough:
         content, usage, tool_calls = result
         assert content
         assert tool_calls == []
+
+    def test_generate_with_tools_parses_real_tool_calls_payload(self, mock_server):
+        """Task 3 reviewer carry-over:解析真实 ``tool_calls`` payload。
+
+        mock server(Task 10)新增 TOOL_CALL_SCENARIOS 后,带"明天排班" +
+        tools 的请求会返回真实 ``[{id, type, function: {name, arguments}}]``
+        数组。本测试验证 router 透传 + 解析层把每个 entry 准确折成
+        ``{"id", "type", "function": {"name", "arguments"}}`` 三键 dict,
+        且 ``arguments`` 原样保留(供后续 orchestrator 反序列化)。
+        """
+        import json
+
+        from smart_assistant.tests.mock_llm_server import TOOL_CALL_SCENARIOS
+
+        # 触发 TOOL_CALL_SCENARIOS 的特定关键字
+        trigger_keyword = next(iter(TOOL_CALL_SCENARIOS))
+        expected = TOOL_CALL_SCENARIOS[trigger_keyword][0]
+        first_expected_tc = expected["choices"][0]["message"]["tool_calls"][0]
+        expected_name = first_expected_tc["function"]["name"]
+
+        router = LLMRouter()
+        content, usage, tool_calls = router.generate_with_tools(
+            messages=[{"role": "user", "content": trigger_keyword}],
+            tools=SAMPLE_TOOLS,
+            tool_choice="auto",
+            endpoint_url=mock_server.url,
+        )
+
+        # router 层解析应原样保留 OpenAI spec 字段
+        assert isinstance(tool_calls, list) and len(tool_calls) >= 1, (
+            f"应至少解析 1 个 tool_call,实际: {tool_calls!r}"
+        )
+
+        first = tool_calls[0]
+        # 必有 3 个键: id / type / function (OpenAI spec)
+        assert set(first.keys()) == {"id", "type", "function"}, (
+            f"tool_call 顶层键应为 id/type/function 三键,实际 {sorted(first.keys())}"
+        )
+        # id: 必须是非空字符串,且以 mock 约定 "call_" 开头
+        assert isinstance(first["id"], str) and first["id"].startswith("call_"), first["id"]
+        # type 字段恒等于字符串 "function"
+        assert first["type"] == "function"
+        # function.{name, arguments}
+        assert first["function"]["name"] == expected_name
+        assert isinstance(first["function"]["arguments"], str)
+        # arguments 必须是合法 JSON 字符串(后续 orchestrator 要 json.loads)
+        parsed = json.loads(first["function"]["arguments"])
+        assert isinstance(parsed, dict)
