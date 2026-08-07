@@ -151,6 +151,109 @@ class LLMRouter:
         # 理论上不可达(循环末尾已抛原始异常),保留兜底并链接原始异常
         raise Exception(f"所有 LLM 端点均不可用，最后错误: {last_error}") from last_error
 
+    def generate_with_tools(
+        self,
+        messages,
+        *,
+        tools=None,
+        tool_choice=None,
+        endpoint_url=None,
+        options=None,
+    ):
+        """透传 ``tools``/``tool_choice`` 给 OpenAI 兼容端点,并返回 tool_calls 三元组。
+
+        与 ``generate()`` 的差异:
+        - 接受 ``tools``/``tool_choice`` 参数,原样写入请求体;
+        - 返回 ``(content, usage, tool_calls)`` 三元组,``tool_calls`` 是
+          ``[{"id", "type", "function": {"name", "arguments"}}]`` 列表;
+          未触发工具调用时为空列表。
+        - 接受 ``endpoint_url`` 覆盖参数,主要用于测试场景(直接命中 mock 服务),
+          真实业务调用应通过 DB LlmEndpoint 配置走正常降级链路。
+
+        当前仅命中首个候选端点(不自动降级);降级逻辑属于后续
+        orchestrator 拆分(Task 6)的范围,本任务只覆盖 router 层最小契约。
+
+        Args:
+            messages: 完整 messages 数组
+            tools: OpenAI 格式 tool schema 列表(可选)
+            tool_choice: "auto"/"none"/"required"/具体 tool dict(可选)
+            endpoint_url: 覆盖 DB 端点 URL,直接指向特定 OpenAI 兼容端点
+            options: 透传的额外参数(如 temperature、max_tokens)
+
+        Returns:
+            ``(content, usage, tool_calls)`` 三元组。
+        """
+        if not endpoint_url:
+            raise ValueError(
+                "generate_with_tools 需要 endpoint_url 参数(覆盖 DB 配置);"
+                "如需走 DB 降级链路请使用 generate()。"
+            )
+
+        # 简化版:仅命中 endpoint_url,不走降级。
+        # 选择首个活跃配置的模型名作为请求体 model 字段,模型不可用时退到类常量。
+        model_name = self.OLLAMA_MODEL
+        if self._configs:
+            model_name = self._configs[0].model_name
+
+        body = {
+            "model": model_name,
+            "messages": messages,
+            "stream": False,
+        }
+        if options:
+            body.update(options)
+        if tools is not None:
+            body["tools"] = tools
+        if tool_choice is not None:
+            body["tool_choice"] = tool_choice
+
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer ",
+        }
+
+        url = f"{endpoint_url.rstrip('/')}/v1/chat/completions"
+        response = requests.post(
+            url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT
+        )
+        response.raise_for_status()
+        resp_data = response.json()
+
+        choices = resp_data.get("choices", [])
+        if not choices or "message" not in choices[0]:
+            raise Exception("LLM API 响应结构异常")
+
+        message = choices[0]["message"]
+        content = message.get("content") or ""
+        usage_raw = resp_data.get("usage") or {}
+
+        # 解析 tool_calls 为标准 OpenAI 结构
+        tool_calls_raw = message.get("tool_calls") or []
+        tool_calls = []
+        for tc in tool_calls_raw:
+            if not isinstance(tc, dict):
+                continue
+            function_payload = tc.get("function") or {}
+            tool_calls.append(
+                {
+                    "id": tc.get("id", ""),
+                    "type": tc.get("type", "function"),
+                    "function": {
+                        "name": function_payload.get("name", ""),
+                        "arguments": function_payload.get("arguments", ""),
+                    },
+                }
+            )
+
+        # 简化场景:不写 cost 字段(endpoint_url 覆盖时无 LlmEndpoint 对象)。
+        # 调用方需自行核算(测试场景不要求)
+        usage = dict(usage_raw) if isinstance(usage_raw, dict) else {}
+        usage.setdefault("model_name", model_name)
+        usage.setdefault("estimated_cost", 0.0)
+        usage.setdefault("endpoint_id", None)
+
+        return content, usage, tool_calls
+
     @staticmethod
     def _compute_estimated_cost(endpoint, total_tokens) -> float:
         """根据命中端点的单价配置计算本次调用的预估费用（元）。
