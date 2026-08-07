@@ -144,6 +144,50 @@ def _scope_cache_sig(tool_context):
     return f"u{user_pk}_s{scope_value}"
 
 
+def _dict_to_query(validated) -> str:
+    """把原生 tool_calls 的 validated 参数 dict 拆包为 ``execute()`` 期望的 query 字符串。
+
+    F1 修复(2026-08-07):orchestrator 此前把 LLM 返回的 ``validated``(dict,
+    来自 ``json.loads(tc.function.arguments)``)直接传给
+    ``execute_with_guard(query, context)``,而 ``BaseTool.execute`` 签名期望
+    ``query: str`` —— 导致:
+
+    - **崩溃(6 工具)**:memo / document / project / sensor / news / personnel
+      内部对 query 调 ``replace()`` / ``strip()``,dict 无该方法抛
+      ``AttributeError``;
+    - **静默错乱(5+ 工具)**:schedule / event / meeting_room 等 ``"X" in query``
+      变成查 dict 的 key,恒为 ``False``(查错日期);compliance / external_link
+      迭代 dict 得到 key 而非查询词。
+
+    拆包策略:
+    - **优先取 ``query`` 字段** —— 所有 19 个工具的 OpenAI schema 均以
+      ``query`` 为必填自然语言输入,execute 实现只消费 query;LLM 额外给出的
+      结构化字段(schedule 的 date_from/date_to、personnel 的 department 等)
+      不拼接进 query,避免污染工具的关键词匹配(如 memo 的 title__icontains);
+    - **无 ``query`` 时兜底** —— 把其余非 query 字段序列化为
+      ``key: value`` 片段(``，`` 连接),保留 LLM 提供的结构化参数语义;
+    - 非 dict 输入(理论不出现)直接 ``str()`` 化,保持调用方不挂起。
+
+    JSON fallback 路径(``_legacy_process``)仍传原始 ``user_query`` 字符串,
+    本函数仅作用于原生 tool_calls 路径,不影响 A/B 对等。
+    """
+    if isinstance(validated, str):
+        return validated
+    if not isinstance(validated, dict):
+        return "" if validated is None else str(validated)
+    query = validated.get("query")
+    if query is not None and str(query).strip():
+        return str(query)
+    parts = []
+    for key, value in validated.items():
+        if key == "query" or value is None:
+            continue
+        if isinstance(value, (dict, list)):
+            value = json.dumps(value, ensure_ascii=False)
+        parts.append(f"{key}: {value}")
+    return "，".join(parts) if parts else ""
+
+
 class AgentOrchestrator:
     """Agent 编排器：意图分类 → 工具选择 → 回答生成
 
@@ -618,8 +662,12 @@ class AgentOrchestrator:
                     continue
 
                 # 3) 工具执行:走 execute_with_guard(hook + timeout 包装)
+                # F1 修复:validated 是 LLM 返回的参数 dict,而 BaseTool.execute
+                # 期望 query: str —— 先经 _dict_to_query 拆包成 query 字符串,
+                # 避免 dict 传给字符串操作的工具(memo/document 等)崩溃,或
+                # schedule/event/meeting_room 等 "X" in query 静默查错日期。
                 try:
-                    result = tool.execute_with_guard(validated, context)
+                    result = tool.execute_with_guard(_dict_to_query(validated), context)
                 except Exception as exc:
                     tool_results.append(
                         {

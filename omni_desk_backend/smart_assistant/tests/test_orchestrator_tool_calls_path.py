@@ -684,3 +684,67 @@ def test_process_legacy_signature_compatible(settings, mock_user):
 
     assert isinstance(result, dict)
     assert result["answer"] == "legacy"
+
+
+# ---------------------------------------------------------------------------
+# Step 15:F1 回归 — validated dict → query str 拆包契约
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "validated,expected",
+    [
+        # 优先取 query 字段(所有工具 schema 的必填自然语言输入)
+        ({"query": "明天排班"}, "明天排班"),
+        # query 存在时,额外结构化字段不污染 query(execute 只消费 query)
+        ({"query": "本周", "date_from": "2026-08-03"}, "本周"),
+        # 无 query → 序列化非 query 字段,兜底保留 LLM 提供的结构化参数
+        ({"date_from": "2026-08-03"}, "date_from: 2026-08-03"),
+        ({"date_from": "2026-08-03", "personnel_name": "张三"}, "date_from: 2026-08-03，personnel_name: 张三"),
+        # 空 dict / None / str 兜底
+        ({}, ""),
+        (None, ""),
+        ("直接字符串", "直接字符串"),
+    ],
+)
+def test_dict_to_query_conversion(validated, expected):
+    """F1 修复:_dict_to_query 把 LLM 参数 dict 拆包为 execute() 期望的 query 字符串。"""
+    from smart_assistant.agent.orchestrator import _dict_to_query
+
+    assert _dict_to_query(validated) == expected
+
+
+@pytest.mark.django_db
+def test_all_registered_tools_execute_via_query_string_conversion(settings):
+    """F1 回归:全部 19 个已注册工具在原生路径的 dict→str 拆包后都能正确执行。
+
+    此前 orchestrator 把 validated dict 直接传给 execute_with_guard,导致
+    memo/document/project/sensor/news/personnel 抛 AttributeError(dict 无
+    replace/strip),schedule/event/meeting_room 等把 dict 的 key 当查询词
+    静默查错日期。修复后 validated 先经 ``_dict_to_query`` 转成 str 再执行,
+    本测试对 ToolRegistry 全部工具逐一验证该契约(不崩溃、返回 dict)。
+
+    注:关闭超时熔断 —— ``TimeoutGuardHook`` 会把工具放进 worker 线程,
+    :memory: SQLite 跨连接访问会抛 database table is locked(与 E2E 文件
+    的 ``_disable_tool_timeout_guard`` fixture 同理)。
+    """
+    settings.SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED = False
+
+    from smart_assistant.agent.orchestrator import _dict_to_query
+    from smart_assistant.tools.registry import ToolRegistry
+    from smart_assistant.tools.tool_context import ToolContext
+
+    ctx = ToolContext(user=None)
+    failures: list[str] = []
+    for tool in ToolRegistry._tools.values():
+        try:
+            # 所有工具的 OpenAI schema 都以 query 为必填字段
+            validated = tool.validate_arguments({"query": "测试"})
+            query_str = _dict_to_query(validated)
+            assert isinstance(query_str, str), f"{tool.intent_type} 转换结果不是 str"
+            result = tool.execute_with_guard(query_str, ctx)
+            assert isinstance(result, dict), f"{tool.intent_type} 返回不是 dict"
+        except Exception as exc:
+            failures.append(f"{tool.intent_type}: {type(exc).__name__}: {exc}")
+
+    assert not failures, "以下工具在原生路径(拆包后)执行失败:\n" + "\n".join(failures)
