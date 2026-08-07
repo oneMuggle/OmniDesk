@@ -182,6 +182,12 @@ def test_e2e_two_tools_parallel(admin_client, native_llm_config):
     assert len(data["tool_calls_meta"]) == 2
     tools = {entry["tool"] for entry in data["tool_calls_meta"]}
     assert tools == {"schedule_query", "memo_query"}
+    # F1 收紧:原生路径下两条工具都必须真实执行成功(无 execution_failed /
+    # invalid_args)。此前 orchestrator 把 LLM 参数 dict 直接传给
+    # execute(query: str),导致 memo_query 内部 query.replace() 抛
+    # AttributeError 而被归类为 execution_failed —— 本断言让该缺陷可见。
+    for entry in data["tool_calls_meta"]:
+        assert "error" not in entry, f"工具 {entry['tool']} 原生路径执行失败: {entry.get('error')}"
 
 
 # ---------------------------------------------------------------------------
