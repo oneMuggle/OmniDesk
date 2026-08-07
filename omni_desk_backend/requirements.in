@@ -60,6 +60,7 @@ requests>=2.31,<3.0
 whitenoise
 holidays
 Unidecode
+jsonschema>=4.0  # 原生 function calling 参数校验(BaseTool.validate_arguments 默认实现)
 
 # Rate Limiting
 django-ratelimit
