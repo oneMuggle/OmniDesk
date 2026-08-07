@@ -281,6 +281,10 @@ class SmartChatViewSet(viewsets.ViewSet):
             estimated_cost=estimated_cost,
             response_time_ms=response_time_ms,
             tool_success=False if error else (result.get("tool_fallback") is not True),
+            # L1 原生 Function Calling 决策日志:透传 orchestrator 的审计字段
+            tool_call_path=result.get("tool_call_path") or "json",
+            tool_calls_meta=result.get("tool_calls_meta") or [],
+            tool_calls_rounds=result.get("tool_calls_rounds") or 0,
         )
 
         payload = {
@@ -296,6 +300,10 @@ class SmartChatViewSet(viewsets.ViewSet):
             # 透传 awaiting_confirmation + confirmation_token 给前端
             "awaiting_confirmation": result.get("awaiting_confirmation", False),
             "confirmation_token": result.get("confirmation_token"),
+            # L1 原生 Function Calling 决策日志:透传给前端(A/B 评估 / 审计展示)
+            "tool_call_path": result.get("tool_call_path"),
+            "tool_calls_meta": result.get("tool_calls_meta") or [],
+            "tool_calls_rounds": result.get("tool_calls_rounds") or 0,
         }
         # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
         if error:

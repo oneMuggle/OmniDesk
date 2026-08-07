@@ -751,11 +751,14 @@ class AgentOrchestrator:
         """
         tool_path = meta.get("tool_call_path", "native")
         if tool_path == "native":
-            # 原生路径尚未完整跑通 intent 分类/工具链规划,只能填部分字段
+            # 原生路径尚未完整跑通 intent 分类/工具链规划,只能填部分字段;
+            # tool_used 从 tool_calls_meta 首条记录派生(LLM 实际调用的工具)。
+            tool_meta = meta.get("tool_calls_meta") or []
+            tool_used = tool_meta[0].get("tool") if tool_meta and isinstance(tool_meta[0], dict) else None
             return {
                 "answer": content,
                 "intent": None,
-                "tool_used": None,
+                "tool_used": tool_used,
                 "tool_result": None,
                 "sources": None,
                 "usage": usage,
@@ -1059,9 +1062,10 @@ class AgentOrchestrator:
             stream_parts.append(chunk)
             yield sse_event({"type": "chunk", "content": chunk})
 
-        # 发送结束信号(携带错误标记,供 view 层决定是否落库)
+        # 发送结束信号(携带错误标记,供 view 层决定是否落库;
+        # finish_reason 供前端判定回答正常收尾)
         full_answer = "".join(stream_parts)
-        done = {"type": "done", "error": is_failed_answer(full_answer)}
+        done = {"type": "done", "finish_reason": "stop", "error": is_failed_answer(full_answer)}
         if done["error"]:
             annotate_error_kind(done, full_answer, tool_used=tool_name, tool_result=tool_result)
         yield sse_event(done)

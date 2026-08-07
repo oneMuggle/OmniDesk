@@ -167,11 +167,10 @@ class LLMRouter:
         - 返回 ``(content, usage, tool_calls)`` 三元组,``tool_calls`` 是
           ``[{"id", "type", "function": {"name", "arguments"}}]`` 列表;
           未触发工具调用时为空列表。
-        - 接受 ``endpoint_url`` 覆盖参数,主要用于测试场景(直接命中 mock 服务),
-          真实业务调用应通过 DB LlmEndpoint 配置走正常降级链路。
-
-        当前仅命中首个候选端点(不自动降级);降级逻辑属于后续
-        orchestrator 拆分(Task 6)的范围,本任务只覆盖 router 层最小契约。
+        - 接受 ``endpoint_url`` 覆盖参数,主要用于测试场景(直接命中 mock
+          服务)。未提供时自动走 DB ``LlmAppConfig`` 候选链路(与 ``generate()``
+          一致:按 priority 依次尝试,最后 Ollama 本地兜底),满足真实业务
+          通过 DB 端点配置调用原生 tool_calls 的需求。
 
         Args:
             messages: 完整 messages 数组
@@ -183,18 +182,91 @@ class LLMRouter:
         Returns:
             ``(content, usage, tool_calls)`` 三元组。
         """
-        if not endpoint_url:
-            raise ValueError(
-                "generate_with_tools 需要 endpoint_url 参数(覆盖 DB 配置);"
-                "如需走 DB 降级链路请使用 generate()。"
+        # 显式 endpoint_url 覆盖(测试场景):直接命中,不降级
+        if endpoint_url:
+            model_name = self._resolve_model_name_for_tools()
+            content, usage, tool_calls = self._generate_with_tools_single(
+                messages=messages,
+                tools=tools,
+                tool_choice=tool_choice,
+                base_url=endpoint_url,
+                api_key="",
+                model_name=model_name,
+                options=options,
             )
+            return content, usage, tool_calls
 
-        # 简化版:仅命中 endpoint_url,不走降级。
-        # 选择首个活跃配置的模型名作为请求体 model 字段,模型不可用时退到类常量。
-        model_name = self.OLLAMA_MODEL
+        # DB 配置链路:按 LlmAppConfig 顺序(主端点 → 备用端点),最后 Ollama 兜底
+        candidates = list(self._configs)
+        candidates.append({"_is_ollama": True})
+
+        last_error = None
+        for i, candidate in enumerate(candidates):
+            is_ollama = isinstance(candidate, dict) and candidate.get("_is_ollama", False)
+            if is_ollama:
+                base_url = self.OLLAMA_BASE
+                api_key = ""
+                model_name = self._resolve_ollama_model()
+                endpoint = None
+                label = f"Ollama ({model_name})"
+            else:
+                endpoint = candidate.endpoint
+                base_url = endpoint.api_endpoint
+                api_key = endpoint.api_key
+                model_name = candidate.model_name
+                label = f"{endpoint.name} ({model_name})"
+
+            try:
+                content, usage, tool_calls = self._generate_with_tools_single(
+                    messages=messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    base_url=base_url,
+                    api_key=api_key,
+                    model_name=model_name,
+                    options=options,
+                )
+                # 补充成本核算字段(命中的端点 ID + 预估费用)
+                usage = self._enrich_usage(usage, endpoint, model_name)
+                if i > 0:
+                    logger.info("LLM 工具调用降级成功: 切换到 %s", label)
+                return content, usage, tool_calls
+            except Exception as exc:
+                last_error = exc
+                if i == len(candidates) - 1:
+                    logger.warning(
+                        "最后 LLM 工具调用端点 %s 失败 (%s),抛出原始异常", label, type(exc).__name__
+                    )
+                    raise
+                logger.warning("LLM 工具调用端点 %s 失败 (%s),尝试下一个", label, type(exc).__name__)
+                continue
+
+        # 理论上不可达(循环末尾已抛原始异常),保留兜底并链接原始异常
+        raise Exception(f"所有 LLM 端点均不可用,最后错误: {last_error}") from last_error
+
+    def _resolve_model_name_for_tools(self) -> str:
+        """工具调用路径的默认模型名:优先首个活跃 DB 配置,缺失时回退类常量。"""
         if self._configs:
-            model_name = self._configs[0].model_name
+            return self._configs[0].model_name
+        return self.OLLAMA_MODEL
 
+    def _generate_with_tools_single(
+        self,
+        messages,
+        *,
+        tools,
+        tool_choice,
+        base_url,
+        api_key,
+        model_name,
+        options=None,
+    ):
+        """向单个端点发起 tool_calls 请求并解析为三元组。
+
+        返回 ``(content, usage, tool_calls)``;``tool_calls`` 是标准
+        OpenAI 结构 ``[{"id", "type", "function": {"name", "arguments"}}]``。
+        该助手同时服务 ``endpoint_url`` 覆盖路径与 DB 候选链路,避免重复。
+        """
         body = {
             "model": model_name,
             "messages": messages,
@@ -209,10 +281,10 @@ class LLMRouter:
 
         headers = {
             "Content-Type": "application/json",
-            "Authorization": "Bearer ",
+            "Authorization": f"Bearer {api_key}",
         }
 
-        url = f"{endpoint_url.rstrip('/')}/v1/chat/completions"
+        url = f"{base_url.rstrip('/')}/v1/chat/completions"
         response = requests.post(
             url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT
         )
@@ -245,8 +317,6 @@ class LLMRouter:
                 }
             )
 
-        # 简化场景:不写 cost 字段(endpoint_url 覆盖时无 LlmEndpoint 对象)。
-        # 调用方需自行核算(测试场景不要求)
         usage = dict(usage_raw) if isinstance(usage_raw, dict) else {}
         usage.setdefault("model_name", model_name)
         usage.setdefault("estimated_cost", 0.0)
