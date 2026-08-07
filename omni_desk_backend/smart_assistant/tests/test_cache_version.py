@@ -108,3 +108,23 @@ class TestCacheVersion:
             assert cached_v1_again == "答案 v1"
         finally:
             settings.SMART_ASSISTANT_CACHE_VERSION = original_version
+
+    def test_cache_key_includes_tool_call_path(self):
+        """Task 7 of feat/sa-office-files:同一 query 在 native/json 两种路径下
+        应生成不同的 cache key,防止 A/B 切换时的缓存污染。
+        """
+        key_native = _build_cache_key(
+            query="明天",
+            user_id=1,
+            intent="schedule_query",
+            tool_call_path="native",
+        )
+        key_json = _build_cache_key(
+            query="明天",
+            user_id=1,
+            intent="schedule_query",
+            tool_call_path="json",
+        )
+        assert key_native != key_json, (
+            "不同 tool_call_path 必须生成不同的 cache key,防 A/B 缓存污染"
+        )

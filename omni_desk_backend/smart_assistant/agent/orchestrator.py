@@ -394,7 +394,12 @@ class AgentOrchestrator:
 
             # Step 4: LLM 生成自然语言回答(先查缓存)
             if not has_history:
-                cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
+                # Task 7 of feat/sa-office-files:_legacy_process 仅在 JSON
+                # 路径下被调用,显式传入 tool_call_path="json" 以避免
+                # 与未来 native 路径的同 query 缓存污染。
+                cached_answer = get_cached_answer(
+                    user_query, intent, context_sig=scope_sig, tool_call_path="json"
+                )
                 if cached_answer:
                     answer = cached_answer
                     usage = None
@@ -402,7 +407,9 @@ class AgentOrchestrator:
                     answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
                     # 失败响应不进缓存,避免错误文本被后续请求反复命中
                     if not is_failed_answer(answer):
-                        cache_answer(user_query, intent, answer, context_sig=scope_sig)
+                        cache_answer(
+                            user_query, intent, answer, context_sig=scope_sig, tool_call_path="json"
+                        )
             else:
                 answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
@@ -868,7 +875,12 @@ class AgentOrchestrator:
                 intent = classify_intent(user_query, schemas, conversation_history)
                 cache_intent(user_query, schemas, intent, context_sig=scope_sig)
 
-            cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig)
+            # Task 7 of feat/sa-office-files:process_stream 在路径决策之前
+            # 短路,使用 tool_call_path="none" 作为"未决路径"维度,避免与
+            # legacy/原生路径的缓存互相污染。
+            cached_answer = get_cached_answer(
+                user_query, intent, context_sig=scope_sig, tool_call_path="none"
+            )
             if cached_answer:
                 # 缓存命中,直接 yield 完整 answer + done(不动 LLM)
                 yield sse_event({"type": "meta", "intent": intent, "cache_hit": True})
