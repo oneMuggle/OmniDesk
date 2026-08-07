@@ -197,6 +197,23 @@ class AgentLog(models.Model):
         default="",
         verbose_name="用户反馈（up/down）",
     )
+    # L1 原生 Function Calling(2026-08-06)决策日志
+    tool_call_path = models.CharField(
+        max_length=16,
+        choices=[("native", "native"), ("json", "json"), ("none", "none")],
+        default="none",
+        blank=True,
+        verbose_name="工具调用路径",
+    )
+    tool_calls_meta = models.JSONField(
+        default=list,
+        blank=True,
+        verbose_name="每轮工具调用的元数据(rounds/tool/arguments/duration_ms)",
+    )
+    tool_calls_rounds = models.IntegerField(
+        default=0,
+        verbose_name="实际工具调用轮数(用于审计 / 成本分析)",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

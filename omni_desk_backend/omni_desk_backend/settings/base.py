@@ -381,3 +381,13 @@ PAPERLESS_CLEANUP_INTERVAL_HOURS = int(os.environ.get("PAPERLESS_CLEANUP_INTERVA
 
 # Smart Assistant 缓存版本(部署级;工具升级时 bump 此值即可失效旧缓存)
 SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", "1.0")
+
+# === L1 原生 Function Calling(2026-08-06)===
+# 路由开关:True 走原生 tool_calls 协议,False 保留 JSON 路径。
+# 端点级能力:LlmEndpoint.model_capabilities.native_tool_calls=False 时即使本开关为 True
+# 也自动降级到 JSON 路径,保证旧端点安全兼容。
+USE_NATIVE_TOOL_CALLS = os.environ.get("USE_NATIVE_TOOL_CALLS", "true").lower() in ("1", "true", "yes")
+# 单次 agent 调用的 tool_calls 最大轮数(防无限循环 / 死循环调工具)
+MAX_TOOL_CALLS_ROUNDS = int(os.environ.get("MAX_TOOL_CALLS_ROUNDS", "3"))
+# 单次工具调用的超时(秒),超时则注入 tool_error 让 LLM 重选
+TOOL_CALLS_TIMEOUT_SECONDS = int(os.environ.get("TOOL_CALLS_TIMEOUT_SECONDS", "30"))
