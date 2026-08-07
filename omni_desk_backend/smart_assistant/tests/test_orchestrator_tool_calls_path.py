@@ -445,12 +445,15 @@ def test_tool_calls_path_execution_failed(
 
 
 @pytest.mark.django_db
-def test_process_routes_to_tool_calls_path_when_capable(settings, mock_user):
-    """settings.USE_NATIVE_TOOL_CALLS=True 且 endpoint 支持时,走 tool_calls 路径。
+def test_process_routes_to_tool_calls_path_when_capable(settings):
+    """settings.USE_NATIVE_TOOL_CALLS=True、endpoint 支持且用户为 staff 时,走 tool_calls 路径。
 
+    L1 灰度(Task 12):USE_NATIVE_TOOL_CALLS_FOR_ALL=False(默认)时,仅
+    is_staff=True 用户走原生路径;非 staff 或无用户上下文一律降级到 JSON 路径。
     process() 返回 dict(向后兼容);tuple 由 _process_tool_calls_path() 内部产出。
     """
     settings.USE_NATIVE_TOOL_CALLS = True
+    staff_user = MagicMock(is_authenticated=True, is_staff=True)
     orchestrator = AgentOrchestrator()
     orchestrator.router = MagicMock()
     orchestrator.router.generate_with_tools.return_value = ("tool_call_path answer", {}, [])
@@ -462,13 +465,92 @@ def test_process_routes_to_tool_calls_path_when_capable(settings, mock_user):
     ) as mock_tc, patch.object(
         orchestrator, "_process_json_path", return_value=("j", {}, {"tool_call_path": "json"})
     ) as mock_json:
-        result = orchestrator.process(query="q")
+        result = orchestrator.process(
+            query="q", tool_context=ToolContext(user=staff_user)
+        )
 
     assert mock_tc.called
     assert not mock_json.called
     # process() 返回 dict(向后兼容);tool_call_path="native" 表明走了 tool_calls 路径
     assert isinstance(result, dict)
     assert result["answer"] == "t"
+    assert result["tool_call_path"] == "native"
+
+
+@pytest.mark.django_db
+def test_non_staff_falls_back_to_json_path(settings, mock_user):
+    """灰度期间非 staff 用户走 JSON 路径(即 test_process_routes_to_tool_calls_path_when_capable 的对照组)。
+
+    USE_NATIVE_TOOL_CALLS=True + endpoint 支持,但 USE_NATIVE_TOOL_CALLS_FOR_ALL=False
+    且用户 is_staff=False → 强制降级到 JSON 路径。
+    """
+    settings.USE_NATIVE_TOOL_CALLS = True
+    orchestrator = AgentOrchestrator()
+    orchestrator.router = MagicMock()
+
+    with patch.object(
+        orchestrator, "_endpoint_supports_tool_calls", return_value=True
+    ), patch.object(
+        orchestrator, "_process_tool_calls_path", return_value=("t", {}, {"tool_call_path": "native"})
+    ) as mock_tc, patch.object(
+        orchestrator, "_process_json_path", return_value=("j", {}, {"tool_call_path": "json"})
+    ) as mock_json:
+        result = orchestrator.process(
+            query="q", tool_context=ToolContext(user=mock_user)
+        )
+
+    assert mock_json.called
+    assert not mock_tc.called
+    assert result["tool_call_path"] == "json"
+
+
+@pytest.mark.django_db
+def test_process_routes_to_json_when_no_user_context(settings):
+    """灰度期间无用户上下文(内部调用)也走 JSON 路径,更保守。
+
+    等价于 Task 6 时期 `process(query="q")` 不带 tool_context 的调用:
+    灰度门控把它视为非 staff → JSON,避免实验路径暴露给未知身份。
+    """
+    settings.USE_NATIVE_TOOL_CALLS = True
+    orchestrator = AgentOrchestrator()
+    orchestrator.router = MagicMock()
+
+    with patch.object(
+        orchestrator, "_endpoint_supports_tool_calls", return_value=True
+    ), patch.object(
+        orchestrator, "_process_tool_calls_path", return_value=("t", {}, {"tool_call_path": "native"})
+    ) as mock_tc, patch.object(
+        orchestrator, "_process_json_path", return_value=("j", {}, {"tool_call_path": "json"})
+    ) as mock_json:
+        result = orchestrator.process(query="q")
+
+    assert mock_json.called
+    assert not mock_tc.called
+    assert result["tool_call_path"] == "json"
+
+
+@pytest.mark.django_db
+def test_process_routes_to_native_when_for_all_enabled(settings, mock_user):
+    """USE_NATIVE_TOOL_CALLS_FOR_ALL=True 时非 staff 用户也走原生路径(全员开放)。"""
+    settings.USE_NATIVE_TOOL_CALLS = True
+    settings.USE_NATIVE_TOOL_CALLS_FOR_ALL = True
+    orchestrator = AgentOrchestrator()
+    orchestrator.router = MagicMock()
+    orchestrator.router.generate_with_tools.return_value = ("tool_call_path answer", {}, [])
+
+    with patch.object(
+        orchestrator, "_endpoint_supports_tool_calls", return_value=True
+    ), patch.object(
+        orchestrator, "_process_tool_calls_path", return_value=("t", {}, {"tool_call_path": "native"})
+    ) as mock_tc, patch.object(
+        orchestrator, "_process_json_path", return_value=("j", {}, {"tool_call_path": "json"})
+    ) as mock_json:
+        result = orchestrator.process(
+            query="q", tool_context=ToolContext(user=mock_user)
+        )
+
+    assert mock_tc.called
+    assert not mock_json.called
     assert result["tool_call_path"] == "native"
 
 

@@ -564,6 +564,54 @@ def post(self, request):
 > ⚠️ **架构注记:** chat 失败落库的关键是它走**编排层**(LangGraph / 自研 orchestrator)异常逃逸,因此可以在最外层 try/except 中捕获写库。如果未来改为把 chat 拆成 Celery 异步任务,`last_error` 写入逻辑要相应迁移到任务回调。
 
 
+## 13. 原生 Function Calling(L1,2026-08-06 实施)
+
+智能助手的 LLM router 现已支持 OpenAI 兼容协议的原生 tool_calls / tool_choice。
+实现细节见 `docs/superpowers/specs/2026-08-06-native-function-calling-design.md`。
+
+### 13.1 协议支持
+
+- LLM 端点必须支持 OpenAI `/v1/chat/completions` 的 `tools=[...]` + `tool_choice` 参数
+- doctor 自检的 `native_tool_calls` 项自动探测并缓存到 `LlmEndpoint.model_capabilities`
+- 旧端点自动降级到 JSON 路径(`AgentLog.tool_call_path="json"`)
+
+### 13.2 主循环
+
+- 最多 3 轮,3 轮后强制 `tool_choice="none"` 让 LLM 给出最终回答
+- 工具调用错误分 4 类:invalid_arguments / tool_unavailable_for_user / tool_timeout / execution_failed
+- LLM 通常会自动重选工具
+- 工具参数由 LLM 给出 dict,经 `_dict_to_query()` 统一拆包为 `execute()` 期望的
+  query 字符串后再执行(F1 修复),保证 memo/document/project/sensor/news 等
+  18 个工具在原生路径下行为与 JSON 路径一致
+
+### 13.3 决策日志
+
+`AgentLog.tool_calls_meta` 字段记录每轮:
+- `round`(0-indexed)
+- `tool`(intentional_type)
+- `arguments`(LLM 给的参数,用于 A/B 评估)
+- `duration_ms`(工具执行耗时)
+- `error`(失败原因)
+
+缓存 key 额外纳入 `tool_call_path` 维度,避免 A/B 切换时 native/json 两路径
+的缓存互相污染。
+
+### 13.4 灰度策略
+
+- 默认:仅 `is_staff=True` 用户启用新路径(无用户上下文的内部调用同样走 JSON)
+- 验证 1 周后,通过 settings `USE_NATIVE_TOOL_CALLS_FOR_ALL=True` 全员开放
+- 单次调用可用 `process(use_native_tool_calls=True/False)` kwarg 强制覆盖路由
+
+### 13.5 相关配置
+
+| settings | 默认 | 说明 |
+|---|---|---|
+| `USE_NATIVE_TOOL_CALLS` | `true` | 原生 tool_calls 总开关 |
+| `MAX_TOOL_CALLS_ROUNDS` | `3` | 单次 agent 调用最大工具轮数 |
+| `TOOL_CALLS_TIMEOUT_SECONDS` | `30` | 单次工具调用超时(秒) |
+| `USE_NATIVE_TOOL_CALLS_FOR_ALL` | `false` | L1 灰度:置 `true` 全员开放原生路径 |
+
+
 ## 10. 相关文档
 
 - [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) — 多轮对话、工具链、模型降级、成本监控

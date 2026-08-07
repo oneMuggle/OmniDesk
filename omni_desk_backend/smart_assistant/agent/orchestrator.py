@@ -234,6 +234,12 @@ class AgentOrchestrator:
         - 同时支持 ``query`` kwarg(新代码约定)与位置参数 ``user_query``(旧代码约定)。
         - 默认行为 100% 对等于旧实现(返回 dict,所有现有调用方不受影响)。
         - 新路径异常时自动降级到 JSON 路径,不抛异常给视图层。
+
+        Task 12 灰度(L1):
+        - ``use_native_tool_calls=None`` 自动判断时叠加 staff 门控:
+          默认仅 ``context.user.is_staff=True`` 用户走原生路径;
+          ``settings.USE_NATIVE_TOOL_CALLS_FOR_ALL=True`` 时全员开放。
+        - 无用户上下文(内部调用)按非 staff 处理,走 JSON 路径。
         """
         # 兼容 query=user_query(new code) 与 user_query(legacy)
         if query is None:
@@ -244,9 +250,21 @@ class AgentOrchestrator:
         # 决定走哪条路径
         if use_native_tool_calls is None:
             try:
+                # L1 灰度(Task 12):默认仅 is_staff=True 用户启用原生 tool_calls
+                # 路径;settings.USE_NATIVE_TOOL_CALLS_FOR_ALL=True 时全员开放。
+                # 无用户上下文(内部调用)按非 staff 处理,降级到 JSON 路径更保守。
+                user_is_staff = bool(
+                    tool_context is not None
+                    and getattr(tool_context, "user", None) is not None
+                    and bool(getattr(tool_context.user, "is_staff", False))
+                )
                 use_native = (
                     bool(getattr(settings, "USE_NATIVE_TOOL_CALLS", False))
                     and self._endpoint_supports_tool_calls()
+                    and (
+                        user_is_staff
+                        or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False))
+                    )
                 )
             except Exception:
                 logger.warning("_endpoint_supports_tool_calls 检查失败,降级到 JSON 路径", exc_info=True)

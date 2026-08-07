@@ -391,3 +391,6 @@ USE_NATIVE_TOOL_CALLS = os.environ.get("USE_NATIVE_TOOL_CALLS", "true").lower() 
 MAX_TOOL_CALLS_ROUNDS = int(os.environ.get("MAX_TOOL_CALLS_ROUNDS", "3"))
 # 单次工具调用的超时(秒),超时则注入 tool_error 让 LLM 重选
 TOOL_CALLS_TIMEOUT_SECONDS = int(os.environ.get("TOOL_CALLS_TIMEOUT_SECONDS", "30"))
+# L1 灰度(Task 12):默认仅 is_staff=True 用户启用原生 tool_calls 路径,
+# 非 staff 用户自动降级到 JSON 路径。验证 1 周后置 True 全员开放。
+USE_NATIVE_TOOL_CALLS_FOR_ALL = os.environ.get("USE_NATIVE_TOOL_CALLS_FOR_ALL", "false").lower() in ("1", "true", "yes")

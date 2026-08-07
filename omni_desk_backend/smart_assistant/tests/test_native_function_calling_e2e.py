@@ -279,6 +279,32 @@ def test_e2e_json_path_fallback(admin_client, native_llm_config):
 
 
 # ---------------------------------------------------------------------------
+# 9. L1 灰度(Task 12):USE_NATIVE_TOOL_CALLS_FOR_ALL=False 时非 staff 走 JSON 路径
+# ---------------------------------------------------------------------------
+
+
+def test_e2e_non_staff_gray_falls_back_to_json(auth_client, native_llm_config):
+    """灰度期间(USE_NATIVE_TOOL_CALLS_FOR_ALL=False 默认)非 staff 用户即使端点
+    支持 native_tool_calls,也走 JSON 路径。
+
+    ``auth_client`` 是普通员工(is_staff=False),``native_llm_config`` 声明了
+    native_tool_calls 能力 —— 正好验证 staff 门控:端点能力 OK 但身份不满足
+    → 降级 JSON(对照 test_e2e_happy_path_single_tool 用 admin_client=staff)。
+    """
+    resp = auth_client.post(CHAT_URL, {"query": "明天排班"}, format="json")
+
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["error"] is False
+    assert data["tool_call_path"] == "json"
+    assert data["tool_calls_rounds"] == 0
+    assert data["tool_calls_meta"] == []
+
+    log = AgentLog.objects.get(user_query="明天排班")
+    assert log.tool_call_path == "json"
+
+
+# ---------------------------------------------------------------------------
 # 7. 流式:SSE 路径对 tool_calls 能力查询保持完整事件流 + done 带 finish_reason
 # ---------------------------------------------------------------------------
 
