@@ -31,6 +31,7 @@ from smart_assistant.tools.external_link_tool import ExternalLinkTool
 from smart_assistant.tools.meeting_room_tool import MeetingRoomTool
 from smart_assistant.tools.memo_tool import MemoTool
 from smart_assistant.tools.news_tool import NewsTool
+from smart_assistant.tools.office_generate_tool import OfficeGenerateTool
 from smart_assistant.tools.personnel_tool import PersonnelTool
 from smart_assistant.tools.project_tool import ProjectTool
 from smart_assistant.tools.rag_tool import RAGTool
@@ -147,10 +148,12 @@ class TestAllToolsRiskLevel:
         ALL_TOOL_CLASSES,
         ids=lambda cls: cls.__name__,
     )
-    def test_current_tools_are_read_only(self, tool_cls):
-        """当前 13 个工具均为只读查询工具,必须标注为 "read"。
+    def test_listed_tools_are_read_only(self, tool_cls):
+        """当前 ALL_TOOL_CLASSES 列出的工具均为只读查询工具,必须标注为 "read"。
 
-        未来新增写操作工具时,本测试应替换为按工具分别断言。
+        注意:此断言仅覆盖显式枚举的工具。新增写/破坏性工具若未加入列表,
+        不会触发本测试失败——必须另写显式断言(如 test_office_generate_is_write)
+        防止出现"全 read"的假象。
         """
         assert tool_cls().risk_level == "read"
 
@@ -197,3 +200,18 @@ class TestRiskLevelSemantics:
                 f"注册工具 {getattr(tool, 'name', tool)!r} 的 risk_level 非法"
             )
             assert tool.get_schema()["risk_level"] == tool.risk_level
+
+    def test_office_generate_is_write(self):
+        """显式守卫:OfficeGenerateTool 是写操作工具,必须声明 risk_level="write"。
+
+        ALL_TOOL_CLASSES 中仅枚举 read 级工具,因此该 write 级工具不会被
+        test_listed_tools_are_read_only 覆盖;若此处声明被意外改为 "read",
+        二次确认流程会被绕过,造成真实写操作无确认即执行的隐患。
+        """
+        tool = OfficeGenerateTool()
+        assert tool.risk_level == "write", (
+            f"OfficeGenerateTool.risk_level={tool.risk_level!r},必须为 'write'"
+        )
+        assert tool.require_confirmation is True, (
+            "write 级工具必须要求二次确认"
+        )

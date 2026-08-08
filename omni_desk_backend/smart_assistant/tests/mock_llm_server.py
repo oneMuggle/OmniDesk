@@ -42,6 +42,7 @@ __all__ = [
     "FIXED_ANSWER",
     "DEFAULT_USAGE",
     "DEFAULT_TIMEOUT_DELAY",
+    "TOOL_CALL_SCENARIOS",
     "MockLLMHandler",
     "MockLLMService",
     "running_server",
@@ -67,6 +68,479 @@ TIMEOUT_KEYWORDS = ("超时", "timeout")
 DEFAULT_TIMEOUT_DELAY = 121.0
 
 _COMPLETIONS_PATH = "/v1/chat/completions"
+
+# ---------------------------------------------------------------------------
+# Tool Calling 场景字典(Task 10)
+# ---------------------------------------------------------------------------
+# 当请求体携带 ``tools`` 且最后一条 user message 文本命中下面任一关键字时,
+# 按 ``call_count`` 取预设场景的第 N 段响应(让 orchestrator 端到端跑通
+# "工具调用决策 -> tool_calls -> 工具执行 -> 自然语言回复" 链路)。
+#
+# 每个场景至少含 1 段响应(``finish_reason="tool_calls"``);
+# 可选追加第 2 段(``finish_reason="stop"``,纯文本回复),
+# 模拟"工具结果回灌给 LLM 后,模型基于结果生成自然语言"的多轮流程。
+#
+# 覆盖工具维度:**至少 5 个**(schedule / personnel / rag / memo / news),
+# 与 ToolRegistry 真实工具集对齐,便于 E2E 验证 router + orchestrator 链路。
+# ---------------------------------------------------------------------------
+TOOL_CALL_SCENARIOS = {
+    "明天排班": [
+        {
+            "id": "chatcmpl-mock-tool-001",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_schedule_001",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "明天"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-002",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "明天是张三早班(08:00-16:00)。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    "张三": [
+        {
+            "id": "chatcmpl-mock-tool-003",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_personnel_001",
+                        "type": "function",
+                        "function": {
+                            "name": "personnel_query",
+                            "arguments": json.dumps({"name": "张三"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-004",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "张三属于研发部,岗位为高级工程师。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    "哪个部门": [
+        {
+            "id": "chatcmpl-mock-tool-005",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_personnel_002",
+                        "type": "function",
+                        "function": {
+                            "name": "personnel_query",
+                            "arguments": json.dumps({"name": "李四"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    "报销制度": [
+        {
+            "id": "chatcmpl-mock-tool-006",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_rag_001",
+                        "type": "function",
+                        "function": {
+                            "name": "rag_query",
+                            "arguments": json.dumps({"query": "公司报销制度流程"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-007",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "根据公司手册,差旅需事前申请,事后凭票据在 5 个工作日内提交报销。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    "备忘录": [
+        {
+            "id": "chatcmpl-mock-tool-008",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_memo_001",
+                        "type": "function",
+                        "function": {
+                            "name": "memo_query",
+                            "arguments": json.dumps({"query": "上周待办"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    "新闻": [
+        {
+            "id": "chatcmpl-mock-tool-009",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_news_001",
+                        "type": "function",
+                        "function": {
+                            "name": "news_query",
+                            "arguments": json.dumps({"query": "今天公司新闻"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-010",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "今天的头条:公司年会定档下月 15 日。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    # --- Task 11 E2E 新增场景(仅追加,不破坏现有场景) ---
+    # 两工具并行:第一轮同时调 schedule_query + memo_query,第二轮自然语言总结
+    "本周安排": [
+        {
+            "id": "chatcmpl-mock-tool-011",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [
+                        {
+                            "id": "call_mock_schedule_002",
+                            "type": "function",
+                            "function": {
+                                "name": "schedule_query",
+                                "arguments": json.dumps({"query": "本周"}),
+                            },
+                        },
+                        {
+                            "id": "call_mock_memo_002",
+                            "type": "function",
+                            "function": {
+                                "name": "memo_query",
+                                "arguments": json.dumps({"query": "本周待办"}),
+                            },
+                        },
+                    ],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-012",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "本周安排:排班 3 人次,待办备忘录 2 条,详见汇总卡片。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    # 参数非法:第一轮 arguments 不是合法 JSON → orchestrator 注入 invalid_arguments
+    # 第二轮 LLM 修正为合法参数 → 第三轮自然语言回答
+    "乱码参数": [
+        {
+            "id": "chatcmpl-mock-tool-013",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_bad_args_001",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": "这不是合法JSON",
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-014",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_bad_args_002",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "明天"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-015",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "参数已修正,排班查询完成。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    # 越权工具:第一轮调到未注册的 admin_only_tool → orchestrator 注入 unavailable
+    # 第二轮 LLM 换用已注册的 schedule_query → 第三轮自然语言回答
+    "管理员操作": [
+        {
+            "id": "chatcmpl-mock-tool-016",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_admin_001",
+                        "type": "function",
+                        "function": {
+                            "name": "admin_only_tool",
+                            "arguments": json.dumps({"action": "delete"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-017",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_admin_002",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "明天"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-018",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "stop",
+                "message": {
+                    "role": "assistant",
+                    "content": "已改用排班查询完成。",
+                    "tool_calls": None,
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+    # 死循环:每一轮都返回 tool_calls(共 3 段),超出后回退固定文本
+    # 供 orchestrator 的 MAX_TOOL_CALLS_ROUNDS=3 兜底(强制 tool_choice="none")使用
+    "永远查询": [
+        {
+            "id": "chatcmpl-mock-tool-019",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_loop_001",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "loop"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-020",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_loop_002",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "loop"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+        {
+            "id": "chatcmpl-mock-tool-021",
+            "choices": [{
+                "index": 0,
+                "finish_reason": "tool_calls",
+                "message": {
+                    "role": "assistant",
+                    "content": None,
+                    "tool_calls": [{
+                        "id": "call_mock_loop_003",
+                        "type": "function",
+                        "function": {
+                            "name": "schedule_query",
+                            "arguments": json.dumps({"query": "loop"}),
+                        },
+                    }],
+                },
+            }],
+            "usage": dict(DEFAULT_USAGE),
+        },
+    ],
+}
+
+
+def _assistant_tool_calls_round(body: dict) -> int:
+    """根据请求体推断当前是第几轮 tool_calls 调用(从 0 开始)。
+
+    orchestrator 每执行完一轮,会向 ``messages`` 追加一条携带
+    ``tool_calls`` 的 assistant 消息 + 若干 tool 结果消息。因此
+    "已出现的 assistant tool_calls 消息条数"即当前请求应命中的轮次:
+    首轮请求 0 条 → 返回场景第 0 段;第二轮请求 1 条 → 场景第 1 段。
+    """
+    rounds = 0
+    for msg in body.get("messages") or []:
+        if isinstance(msg, dict) and msg.get("role") == "assistant" and msg.get("tool_calls"):
+            rounds += 1
+    return rounds
+
+
+def _select_scenario(body: dict, call_count: int = 0):
+    """根据 query 关键字与请求轮次选择预设 tool_calls 场景。
+
+    仅当请求体携带 ``tools`` 且最后一条 user message 文本命中
+    :data:`TOOL_CALL_SCENARIOS` 任一关键字时,返回该场景第 ``call_count``
+    段响应;否则返回 ``None``(交给调用方走原有 keyword 路由)。
+
+    ``call_count`` 由调用方传入;默认 0 保持单轮语义。orchestrator 的
+    多轮请求会携带已出现的 assistant tool_calls 消息,调用方应通过
+    :func:`_assistant_tool_calls_round` 计算真实轮次,让场景按
+    tool_calls → ... → 自然语言逐段推进。
+
+    Args:
+        body:  OpenAI 风格 chat completion 请求体(含 ``messages`` / ``tools``)
+        call_count: 当前会话中针对该关键字的累计请求次数(从 0 开始),
+            用于在多轮调用中依次返回 tool_calls → 自然语言等不同段。
+            当 ``call_count`` 超出场景长度时返回 ``None``(回到兜底)。
+
+    Returns:
+        OpenAI 兼容的 completion 响应 dict,或在无匹配场景时返回 ``None``。
+    """
+    # 未带 tools 参数 -> 不命中场景(让下游走标准文本回复路径)
+    if not body.get("tools"):
+        return None
+
+    content = _last_user_content(body)
+    for keyword, scenario in TOOL_CALL_SCENARIOS.items():
+        if keyword in content and 0 <= call_count < len(scenario):
+            return scenario[call_count]
+    return None
 
 
 def _matches_keywords(content: str, keywords) -> bool:
@@ -152,6 +626,21 @@ class MockLLMHandler(BaseHTTPRequestHandler):
                 # 睡过 router 超时阈值后再响应；此时客户端多半已断开，
                 # 后续写入异常会被外层 except 静默吞掉。
                 time.sleep(state.timeout_delay)
+
+            # Task 10/11: 优先看 tool_calls 场景。call_count 由请求体中
+            # 已出现的 assistant tool_calls 消息条数推断(每执行完一轮,
+            # orchestrator 会追加一条 assistant tool_calls 消息),让场景
+            # 按 tool_calls → ... → 自然语言逐段推进,而非永远命中第 0 段。
+            call_count = _assistant_tool_calls_round(body)
+            scenario_response = _select_scenario(body, call_count=call_count)
+            if scenario_response is not None:
+                if body.get("stream"):
+                    # 工具调用场景暂不提供流式返回 -> 退回标准文本回复
+                    # (与 `_completion_body` 行为保持一致)
+                    self._send_json(200, self._completion_body(body))
+                else:
+                    self._send_json(200, scenario_response)
+                return
 
             if body.get("stream"):
                 self._send_sse(body)

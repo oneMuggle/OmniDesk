@@ -73,6 +73,50 @@ class ScheduleTool(BaseTool):
             "risk_level": self.risk_level,
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema (Task 4 原生 function calling)。
+
+        name 与现有 intent_type 对齐;description 含 2 句中文说明 + 2 个示例 query
+        (降低 LLM 选错工具概率);parameters 每层 additionalProperties=false。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询排班/值班信息。支持日期范围、人员姓名、班次类型过滤。"
+                    "示例 query: '明天的排班'、'本周张三的值班'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,可含日期/人员/班次关键词",
+                        },
+                        "date_from": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "起始日期(ISO 8601),可选",
+                        },
+                        "date_to": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "结束日期(ISO 8601),可选",
+                        },
+                        "personnel_name": {
+                            "type": "string",
+                            "description": "人员姓名,精确匹配",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         """返回未过滤的排班 QuerySet。"""
         return Schedule.objects.select_related("duty_person", "duty_leader").all()

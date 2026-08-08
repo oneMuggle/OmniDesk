@@ -2,7 +2,7 @@
 
 > 类似贾维斯的智能助手,通过聊天快速获取信息、知识库问答、文献搜索。
 >
-> 📅 **最近更新:2026-07-29** — 同步 2026-07-28 增强轮次(P0 恢复可用 / P1 核心闭环 / P2 架构增强 / P3 主动式演进,共 16 项):失败响应不落库、成本核算、滚动摘要、反馈/数据集 CRUD、doctor 自检、输出契约、Hooks、工具风险分级、Mock LLM 等价测试、多 Agent 前端面板、每日晨报、会话 fork/导出。计划见 [2026-07-28_smart-assistant-enhancement.md](../plans/2026-07-28_smart-assistant-enhancement.md);覆盖率补齐见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md)
+> 📅 **最近更新:2026-08-06** — 同步 2026-08 阶段 1 完工:智能助手 Office 文件附件能力(`chat/` 与 `chat/stream/` 支持 multipart 上传 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv,`OfficeExtractor` 统一抽取,新增 `OfficeReadTool` / `OfficeGenerateTool` / `SpreadsheetTool` 三个工具,生成 .docx 通过签名 token 下载卡片交付)。详见 §12。计划 18 个 commit 已合入 `feat/sa-office-files`。
 
 ## 1. 架构概览
 
@@ -420,7 +420,7 @@ CI 不依赖真实 LLM 的确定性 e2e 体系:
 | Phase 5:深化设计(模型降级/多数据集 RAG/成本监控) | ✅ 已完成 | 见 [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) |
 | Phase 6:覆盖率补齐与质量守卫 | 🔄 进行中 | 见 [28-smart-assistant-coverage-roadmap.md](./28-smart-assistant-coverage-roadmap.md) |
 | Phase 7:新工具(公告/合规/外部链接) | ✅ 已完成 | 2026-06 阶段 3 落地,13 工具齐备 |
-| **2026-07-28 增强轮次(P0-P3,16 项)** | ✅ 已完成 | P0 恢复可用(失败不落库/聚合卡片修复/RAGFlow+种子)/ P1 闭环(成本/摘要/反馈/数据集 CRUD/LLM 统一)/ P2 架构(doctor/输出契约/Hooks/risk_level/Mock 测试)/ P3 主动式(多 Agent 面板/晨报/fork 导出);见 [增强计划](../plans/2026-07-28_smart-assistant-enhancement.md) |
+| **2026-07-28 增强轮次(P0-P3,16 项)** | ✅ 已完成 | P0 恢复可用(失败不落库/聚合卡片修复/RAGFlow+种子)/ P1 闭环(成本/摘要/反馈/数据集 CRUD/LLM 统一)/ P2 架构(doctor/输出契约/Hooks/risk_level/Mock 测试)/ P3 主动式(多 Agent 面板/晨报/fork 导出);细节并入 §1~§11 各对应小节 |
 | Phase 8:性能与体验(P1) | 📝 计划 | 性能基准实测见 [34-smart-assistant-perf-benchmark.md](./34-smart-assistant-perf-benchmark.md) |
 | Phase 9:架构升级(ReAct + Reflexion)(P2) | 📝 计划 | — |
 
@@ -564,6 +564,204 @@ def post(self, request):
 > ⚠️ **架构注记:** chat 失败落库的关键是它走**编排层**(LangGraph / 自研 orchestrator)异常逃逸,因此可以在最外层 try/except 中捕获写库。如果未来改为把 chat 拆成 Celery 异步任务,`last_error` 写入逻辑要相应迁移到任务回调。
 
 
+## 12. Office 文件附件能力（2026-08 阶段 1）
+
+> 📅 **归档于 2026-08-06** — 原实施计划与设计 spec 已归档后删除(`docs/superpowers/plans/2026-08-05-sa-office-files.md` + `docs/superpowers/specs/2026-08-05-sa-office-files-design.md`),本节即为该计划的完整归档。共 18 个 commit 已合入 `feat/sa-office-files` 分支。
+
+### 12.1 目标
+
+让用户**直接在智能助手聊天流中**完成"看文件 / 问表格 / 生成文档"三类操作:
+
+1. **Chat 附件上传**: `chat/` 与 `chat/stream/` 支持 multipart 附件上传
+2. **OfficeExtractor 统一抽取**: docx / pdf / xlsx / pptx / txt / md / csv → 文本 / 表格 / Markdown
+3. **3 个新工具注册**: `OfficeReadTool` / `OfficeGenerateTool` / `SpreadsheetTool`
+4. **聊天内下载卡片**: 生成的 .docx 通过下载卡片交付
+5. **附件临时读取**: 不入库、不落盘(生成产物除外),用完即弃
+
+### 12.2 架构
+
+```
+┌─ 前端 ─────────────────────────────────────┐
+│ SmartChatPage / QuickAssistant             │
+│  ├─ 输入框旁: Upload 按钮(附件选择)        │
+│  └─ 消息流: ToolResult 渲染下载卡片         │
+└──────────────┬─────────────────────────────┘
+               │ POST chat/stream/ (multipart: query + attachment)
+               ▼
+┌─ 后端 ─────────────────────────────────────┐
+│ chat.py (MultiPartParser)                   │
+│  → 附件 → magic MIME 校验 → 大小校验(10MB) │
+│  → OfficeExtractor 抽取 (docx/pdf/xlsx/     │
+│     pptx/txt/md/csv)                        │
+│  → 切片策略: <50k 字符全量注入, >50k 注入   │
+│    前 2 片 + 提示 LLM 可用 ReadTool 按需读  │
+│  → 附件上下文拼入 prompt                    │
+│  → LLM: 直接回答 / 调工具                   │
+│                                            │
+│ ToolRegistry 新增:                          │
+│  ├─ OfficeReadTool  (read)                  │
+│  ├─ OfficeGenerateTool (write+确认)         │
+│  └─ SpreadsheetTool (read)                  │
+│                                            │
+│ 生成结果 → 临时 .docx 文件 + 短期签名 token  │
+│  → GET /office-download/<token>/ 返回 blob  │
+└────────────────────────────────────────────┘
+```
+
+**关键约束**:
+
+- **附件上下文与历史消息隔离**:抽取内容只存在于本次请求内存,不写 `ChatMessage`
+- **工具层薄**:复用 `BaseTool` / `ToolRegistry` / confirm-replay 基础设施
+- **Extractor 独立**:可单测、可替换格式处理器
+- **零模型改动**:不新增持久化字段,无数据库迁移
+
+### 12.3 后端组件
+
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `extractors/office_extractor.py` | 新 | 统一抽取器,`ExtractedDocument` dataclass(text / markdown / tables / sheets / metadata) + `chunk_text()` 切片 |
+| `tools/office_read_tool.py` | 新 | `office_read` 工具,`risk_level="read"`,按 `file_index + chunk_range` 从附件上下文缓存读取切片 |
+| `tools/office_generate_tool.py` | 新 | `office_generate` 工具,`risk_level="write"` + `require_confirmation=True`,python-docx 构建标题/段落/表格 + 变量替换,支持 confirm-replay |
+| `tools/spreadsheet_tool.py` | 新 | `spreadsheet_qa` 工具,`risk_level="read"`,openpyxl → pandas DataFrame,简单聚合/groupby + 复杂问答复用 `NaturalLanguageQuery` |
+| `views/office_download.py` | 新 | `office_download` action,签名 token 验证(JWT 鉴权仍要),10 分钟过期,下载后删除 |
+
+### 12.4 格式路由表
+
+| 格式 | 处理器 | 关键库 |
+|------|--------|--------|
+| `.docx` | python-docx 抽段落+表格 + mammoth 转 Markdown | `python-docx`, `mammoth` |
+| `.pdf` | pdfplumber 抽文本 + 表格 | `pdfplumber` |
+| `.xlsx` | openpyxl 遍历 sheet → markdown / json | `openpyxl` |
+| `.pptx` | python-pptx 抽文本 + 备注 + 表格 | `python-pptx`(本批新依赖,`>=0.6.21`) |
+| `.txt` / `.md` | 直接 decode utf-8 | — |
+| `.csv` | 读取 + pandas 转 markdown + 编码回退 | `pandas` |
+
+**显式拒绝**: `.doc` / `.xls` / `.ppt`(老格式,需 LibreOffice;阶段 2+ 再考虑)。
+
+### 12.5 修改文件清单
+
+| 文件 | 改动 |
+|------|------|
+| `serializers.py` | `SmartChatRequestSerializer` 增加 `attachment = FileField(required=False, allow_null=True)` |
+| `views/chat.py` | `create` / `stream` 加 `parser_classes = [MultiPartParser, FormParser]`;附件接收 → 校验 → 抽取 → 注入 prompt |
+| `apps.py` | `ready()` 注册 3 个新工具 |
+| `urls.py` | 增加 `office-download/<str:token>/` 路由 |
+| `cache.py` / 新 `office_attachment.py` | 附件内容按 `conversation_id + file_hash` 短时缓存(TTL 10 分钟);生成临时文件注册清理 |
+| `requirements.in` / `.txt` / `-prod.txt` | 新增 `python-pptx>=0.6.21`(由 pip-compile 重生成锁) |
+
+### 12.6 SSE 契约扩展(向后兼容)
+
+`chat/stream/` 的 SSE 事件中,`tool_result` 新增可选字段:
+
+```json
+{
+  "intent": "office_generate",
+  "tool_result": {
+    "file_download": {
+      "filename": "请假单.docx",
+      "download_url": "/api/smart-assistant/office-download/<token>/",
+      "content_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    }
+  }
+}
+```
+
+旧前端忽略该字段即可,兼容。
+
+### 12.7 性能与缓存
+
+- **附件抽取**: `conversation_id + file_hash` 作 key,TTL 10 分钟;重复提问同一附件不重复抽取
+- **附件内容注入**: <50k 字符全量,>50k 只注入前 2 片约 16k 字符 + 提示 LLM 可调 `office_read`
+- **确认流**: 复用现有 confirm-replay 缓存(`set_confirmation_draft`),`_confirmed` 优先用 `ctx.draft_fields` 避免二次 LLM 规划
+
+### 12.8 错误处理
+
+| 场景 | 行为 |
+|------|------|
+| 不支持的格式(.doc/.xls/.ppt) | 前端拦截 + 后端 magic 校验 → 400「暂不支持该格式,支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv」 |
+| 文件过大(>10MB,`MAX_OFFICE_UPLOAD_SIZE`) | 前端 + 后端双重校验 → 400 |
+| MIME 伪装 | python-magic 检测真实类型不符 → 400 |
+| 损坏文件 / 抽取失败 | `OfficeExtractError` → 400「文件无法解析,请确认文件未损坏」 |
+| 空文件 / 无可抽取内容 | 提示「未从文件中提取到文本内容,可能为纯图片扫描件」 |
+| 生成确认超时 | confirm_token 过期 → 400「确认已过期,请重新发起」 |
+| 下载 token 过期 / 已使用 | 403「链接已失效,请重新生成」 |
+
+### 12.9 安全
+
+- **鉴权**: `office-download` 端点仍要求 JWT 鉴权(token 仅防 URL 猜测,不替代登录)
+- **大小**: `MAX_OFFICE_UPLOAD_SIZE = 10MB` 常量,前后端一致
+- **签名 token**: `secrets.token_urlsafe(32)` + 过期时间戳 + HMAC 签名(`settings.SECRET_KEY`)
+- **敏感信息**: 抽取文本注入 LLM 前过现有 `PiiMaskingHook`
+- **临时文件**: 下载后即删;未被下载的由 Celery 定时清理(TTL 10 分钟)
+- **零迁移**: 不新增持久化字段,无数据库迁移
+
+### 12.10 关键设计决策
+
+| 决策 | 原因 |
+|------|------|
+| 附件上下文以 `role="system"` 消息 prepend | `_select_recent_messages` 必须保留 system 消息,否则 token 截断可能丢掉附件内容 |
+| 生成产物仅写临时文件 + 签名 token | 阶段 1 无个人文档库,生成文档用完即弃;`MEDIA_ROOT/tmp_office/` |
+| `OfficeGenerateTool` 走 confirm-replay | 与现有 swap 工具一致的 UX;前端 ConfirmModal 复用 |
+| SSE 流式补充 confirm-replay 拦截(spec 未明写) | 探索发现 `process_stream`(SSE 路径)没有 confirm-replay 拦截,只有非流式 `process()` 有;不补则 `OfficeGenerateTool`(`require_confirmation=True`)在聊天主界面(SSE)下确认流不可用。此改动同时修复现有 swap 工具在 SSE 下的同类 gap |
+| python-pptx 只用于"读" | 写 PPT 复杂版式差;阶段 1 仅读不写,延后到阶段 2 再决定 |
+| 切片阈值 50k / 8000 字符 | 实测一般长文档 50k 字符 ≈ 25k token,LLM 上下文一般可承载;>50k 让 LLM 自助用 `office_read` 按需读取 |
+
+### 12.11 与现行架构的关系
+
+- **不入库**: 附件内容只读,不写 `ChatMessage`,不创建 `DocumentTemplate` / `GeneratedDocument`
+- **依赖现有工具链**: 复用 `BaseTool` / `ToolRegistry` / `confirm-replay` / `SSE` 全套基础设施
+- **不影响现有 14 个工具**: 3 个新工具独立注册,无冲突
+- **Win7 兼容**: 下载卡片用 `URL.createObjectURL` + `<a download>`,AntD 5 现有能力
+
+
+## 13. 原生 Function Calling(L1,2026-08-06 实施)
+
+智能助手的 LLM router 现已支持 OpenAI 兼容协议的原生 tool_calls / tool_choice。
+实现细节见 `docs/superpowers/specs/2026-08-06-native-function-calling-design.md`。
+
+### 13.1 协议支持
+
+- LLM 端点必须支持 OpenAI `/v1/chat/completions` 的 `tools=[...]` + `tool_choice` 参数
+- doctor 自检的 `native_tool_calls` 项自动探测并缓存到 `LlmEndpoint.model_capabilities`
+- 旧端点自动降级到 JSON 路径(`AgentLog.tool_call_path="json"`)
+
+### 13.2 主循环
+
+- 最多 3 轮,3 轮后强制 `tool_choice="none"` 让 LLM 给出最终回答
+- 工具调用错误分 4 类:invalid_arguments / tool_unavailable_for_user / tool_timeout / execution_failed
+- LLM 通常会自动重选工具
+- 工具参数由 LLM 给出 dict,经 `_dict_to_query()` 统一拆包为 `execute()` 期望的
+  query 字符串后再执行(F1 修复),保证 memo/document/project/sensor/news 等
+  18 个工具在原生路径下行为与 JSON 路径一致
+
+### 13.3 决策日志
+
+`AgentLog.tool_calls_meta` 字段记录每轮:
+- `round`(0-indexed)
+- `tool`(intentional_type)
+- `arguments`(LLM 给的参数,用于 A/B 评估)
+- `duration_ms`(工具执行耗时)
+- `error`(失败原因)
+
+缓存 key 额外纳入 `tool_call_path` 维度,避免 A/B 切换时 native/json 两路径
+的缓存互相污染。
+
+### 13.4 灰度策略
+
+- 默认:仅 `is_staff=True` 用户启用新路径(无用户上下文的内部调用同样走 JSON)
+- 验证 1 周后,通过 settings `USE_NATIVE_TOOL_CALLS_FOR_ALL=True` 全员开放
+- 单次调用可用 `process(use_native_tool_calls=True/False)` kwarg 强制覆盖路由
+
+### 13.5 相关配置
+
+| settings | 默认 | 说明 |
+|---|---|---|
+| `USE_NATIVE_TOOL_CALLS` | `true` | 原生 tool_calls 总开关 |
+| `MAX_TOOL_CALLS_ROUNDS` | `3` | 单次 agent 调用最大工具轮数 |
+| `TOOL_CALLS_TIMEOUT_SECONDS` | `30` | 单次工具调用超时(秒) |
+| `USE_NATIVE_TOOL_CALLS_FOR_ALL` | `false` | L1 灰度:置 `true` 全员开放原生路径 |
+
+
 ## 10. 相关文档
 
 - [17-ai-assistant-deep-design.md](./17-ai-assistant-deep-design.md) — 多轮对话、工具链、模型降级、成本监控
@@ -572,5 +770,4 @@ def post(self, request):
 - [33-ragflow-integration.md](./33-ragflow-integration.md) — RAGFlow API 客户端与部署
 - [34-smart-assistant-perf-benchmark.md](./34-smart-assistant-perf-benchmark.md) — 性能基准实测
 - [23-offline-deployment.md](./23-offline-deployment.md) — 离线部署三层一致性约束
-- [增强实施计划](../plans/2026-07-28_smart-assistant-enhancement.md) — 2026-07-28 增强轮次(P0-P3,16 项,进行中)
 - [用户操作手册](../user-manual/08-smart-assistant-usage.md) — 终端用户使用指南

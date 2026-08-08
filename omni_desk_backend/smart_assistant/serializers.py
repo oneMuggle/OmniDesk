@@ -112,7 +112,7 @@ class AgentLogFeedbackSerializer(serializers.Serializer):
 
 
 class SmartChatRequestSerializer(serializers.Serializer):
-    """智能聊天请求"""
+    """智能聊天请求（支持附件上传）"""
 
     query = serializers.CharField(required=True, help_text="用户问题")
     conversation_id = serializers.IntegerField(required=False, allow_null=True, help_text="可选：关联的会话ID")
@@ -120,6 +120,9 @@ class SmartChatRequestSerializer(serializers.Serializer):
         required=False,
         allow_blank=True,
         help_text="可选:二次确认 token,带此字段走 replay 路径(跳过 orchestrator 拦截,直接执行工具)",
+    )
+    attachment = serializers.FileField(
+        required=False, allow_null=True, help_text="可选：Office 附件（docx/pdf/xlsx/pptx/txt/md/csv，≤10MB）"
     )
 
 

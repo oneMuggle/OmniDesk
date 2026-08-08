@@ -28,7 +28,7 @@
 | 13 | [新闻系统](13-news-system.md) | 新闻发布与管理模块 |
 | 14 | [项目与合规](14-project-compliance.md) | 项目管理、合规追踪模块 |
 | 15 | [用户交流模块](15-communication-module.md) | ⚠️ 前端未实现，仅后端 API |
-| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手架构、13 工具、输出契约、Hooks、doctor 自检、晨报、会话 fork/导出、离线部署（2026-07-28 增强批次） |
+| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手架构、13 工具、输出契约、Hooks、doctor 自检、晨报、会话 fork/导出、Office 文件附件能力（2026-08 阶段 1 已上线） |
 | 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 多轮对话、工具链、模型降级、成本监控 |
 | 18 | [外部集成架构](18-external-integration.md) | 🔄 进行中 |
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
@@ -74,4 +74,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-07-30 — 第 41 章新增,归档 2026-07 安全/数据安全 P0 批次(12 项修复)的实施轨迹;同步更新 24-security-checklist、07-user-permissions、26-personnel-user-association、08-schedule-trial、31-paperless-integration、10-sensor-management、14-project-compliance、12-announcement-system、32-smart-assistant-multi-agent、16-smart-assistant 等章节加入本批次相关小节。原计划文档 `docs/plans/2026-08-01_security-data-safety-p0.md` 已删除。
+> 📅 最近更新:2026-08-06 — 第 16 章 §12 新增"Office 文件附件能力",归档 2026-08 阶段 1(智能助手 chat 支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv 上传 + OfficeExtractor 抽取 + OfficeRead/OfficeGenerate/Spreadsheet 三件套 + 下载卡片),共 18 个 commit 已合入 `feat/sa-office-files`。原计划文档 `docs/superpowers/plans/2026-08-05-sa-office-files.md` 按项目规范"功能完成后归入技术手册并删除计划文档"被清理。同步移除已完成的 2026-07-28 增强轮次计划链接。

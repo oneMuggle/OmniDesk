@@ -80,6 +80,36 @@ class AnnouncementTool(BaseTool):
             "module_label": "公告",
         }
 
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询公司公告/通知。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询公司公告/通知(communication.Post),仅返回未过期未归档项。"
+                    "示例 query: '最近的通知'、'本周公告'、'搜索春节公告'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配标题/内容(可选,空则返回最新 10 条)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "返回条目数上限,默认 10",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
     def build_base_queryset(self):
         from django.db.models import Q
         from django.utils import timezone

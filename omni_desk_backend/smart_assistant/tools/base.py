@@ -98,6 +98,50 @@ class BaseTool(ABC):
             "risk_level": self.risk_level,
         }
 
+    # === 原生 function calling 协议(Task 2,2026-08-07) ===
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """返回 OpenAI 兼容的 tool 描述(原生 function calling 协议)。
+
+        子类必须重写。返回值形如::
+
+            {
+                "type": "function",
+                "function": {
+                    "name": "...",
+                    "description": "...",
+                    "parameters": {"type": "object", ...},
+                    "strict": True,
+                },
+            }
+
+        注:本方法**不**标 ``@abstractmethod`` —— 现有 18 个 BaseTool 子类
+        尚未实现该方法(Task 4 才逐步接入),直接 abstractmethod 会导致所有
+        实例化失败并连带挂掉 1138 个现有测试。改为运行期 ``raise
+        NotImplementedError``,语义不变但保留向后兼容性。
+        """
+        raise NotImplementedError(
+            f"{cls.__name__} must implement get_openai_tool_schema() for native function calling"
+        )
+
+    @classmethod
+    def validate_arguments(cls, args: dict) -> dict:
+        """默认基于 ``get_openai_tool_schema()`` 的 ``parameters`` 字段做 JSON Schema 校验。
+
+        子类可覆盖以加入业务校验(例如语义一致性、跨字段约束)。
+
+        校验失败抛 ``jsonschema.ValidationError``。合法则原样返回 ``args``。
+
+        注:jsonschema 在方法内延迟 import,避免在 BaseTool 模块加载时强制
+        引入第三方依赖(测试 stub 也可省略)。
+        """
+        import jsonschema
+
+        parameters = cls.get_openai_tool_schema()["function"]["parameters"]
+        jsonschema.validate(instance=args, schema=parameters)
+        return args
+
     def execute_with_guard(self, query: str, context: ToolContext) -> dict:
         """带超时熔断的执行包装层入口(旧路径:query + context)
 
