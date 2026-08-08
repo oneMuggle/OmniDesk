@@ -526,7 +526,7 @@ operations = [
 |---|---|
 | `smart_assistant/tools/*.py` | 18 个文件加 1 个静态方法,共 ~250 行 |
 | `smart_assistant/tools/registry.py` | 加 `get_openai_tools()` |
-| `smart_assistant/tools/base.py` | 加 `validate_arguments()` 默认实现 + abstractmethod |
+| `smart_assistant/tools/base.py` | 加 `get_openai_tool_schema()`(默认 raise `NotImplementedError`,**非** `@abstractmethod`)与 `validate_arguments()`(默认按 `parameters` 做 jsonschema 校验,**非** abstract) |
 | `smart_assistant/agent/orchestrator.py` | 加 `_process_tool_calls_path()` + `_process_json_path()` 重构 |
 | `llm_service/router.py` | `generate()` 签名扩展 + OpenAI tools 透传 |
 | `smart_assistant/models.py` | AgentLog 3 字段 + LlmEndpoint 1 字段 |

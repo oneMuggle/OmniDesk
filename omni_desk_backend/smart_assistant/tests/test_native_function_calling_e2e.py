@@ -359,3 +359,200 @@ def test_e2e_decision_log_persisted(admin_client, native_llm_config, schedule_fi
     assert entry["tool"] == "schedule_query"
     assert "arguments" in entry and isinstance(entry["arguments"], dict)
     assert "duration_ms" in entry and isinstance(entry["duration_ms"], int)
+
+
+# ---------------------------------------------------------------------------
+# C-1 回归(Final review fix wave):SELF-scope 非 superuser 原生路径不得跨用户
+# ---------------------------------------------------------------------------
+
+
+def test_native_path_scope_self_memo_no_cross_user():
+    """C-1 回归:原生 tool_calls 路径必须复用 scope-aware 执行分支。
+
+    实证(review):Alice/Bob 两个 is_staff=True + SELF scope 用户,Alice 经
+    原生路径查 memo_query 返回两条数据(Bob 的泄漏)。修复后:
+    - Alice 只能看到自己的备忘录(Bob 的数据不得出现);
+    - Alice 自己的备忘录仍能命中(scope 生效,而非 fail-closed)。
+    """
+    from django.contrib.auth import get_user_model
+
+    from memos.models import Memo
+    from smart_assistant.agent.orchestrator import AgentOrchestrator
+    from smart_assistant.scope import SmartAssistantScope
+    from smart_assistant.tools.memo_tool import MemoTool
+    from smart_assistant.tools.tool_context import ToolContext
+
+    User = get_user_model()
+    # is_staff=True + 非 superuser:SELF scope(灰度过关身份,但无全局权限)
+    alice = User.objects.create_user(username="alice_c1", password="x", is_staff=True)
+    bob = User.objects.create_user(username="bob_c1", password="x", is_staff=True)
+    Memo.objects.create(user=alice, title="Alice会议纪要", content="仅Alice可见")
+    Memo.objects.create(user=bob, title="Bob秘密计划", content="仅Bob可见")
+
+    orchestrator = AgentOrchestrator()
+    ctx = ToolContext(user=alice, scope=SmartAssistantScope.SELF)
+
+    # 直接驱动原生 tool_calls 路径的单个工具执行(主循环的唯一执行入口)
+    result, confirmation, failure = orchestrator._execute_native_tool(
+        tool=MemoTool(),
+        validated={"query": "会议"},
+        context=ctx,
+    )
+
+    assert confirmation is None
+    assert result.get("found") is True, f"Alice 的备忘录应能命中: {result}"
+    titles = {item["title"] for item in result.get("memos", [])}
+    assert "Alice会议纪要" in titles
+    assert "Bob秘密计划" not in titles, "SELF scope 下不得泄漏他人备忘录"
+
+
+def test_native_path_scope_global_memo_cross_user_allowed():
+    """C-1 对照:GLOBAL scope 用户(superuser)经原生路径可查全部备忘录。
+
+    确保 scope 分支是「按 scope 过滤」而不是「一律 fail-closed」——
+    GLOBAL 是合法放大,不构成泄漏。
+    """
+    from django.contrib.auth import get_user_model
+
+    from memos.models import Memo
+    from smart_assistant.agent.orchestrator import AgentOrchestrator
+    from smart_assistant.scope import SmartAssistantScope
+    from smart_assistant.tools.memo_tool import MemoTool
+    from smart_assistant.tools.tool_context import ToolContext
+
+    User = get_user_model()
+    admin = User.objects.create_user(
+        username="admin_c1", password="x", is_staff=True, is_superuser=True
+    )
+    bob = User.objects.create_user(username="bob_c1_global", password="x", is_staff=True)
+    Memo.objects.create(user=admin, title="Admin备忘", content="a")
+    Memo.objects.create(user=bob, title="Bob备忘", content="b")
+
+    orchestrator = AgentOrchestrator()
+    ctx = ToolContext(user=admin, scope=SmartAssistantScope.GLOBAL)
+
+    result, confirmation, failure = orchestrator._execute_native_tool(
+        tool=MemoTool(),
+        validated={"query": "备忘"},
+        context=ctx,
+    )
+
+    assert confirmation is None
+    assert result.get("found") is True
+    titles = {item["title"] for item in result.get("memos", [])}
+    assert "Admin备忘" in titles
+    assert "Bob备忘" in titles  # GLOBAL scope 合法放大,不是泄漏
+
+
+# ---------------------------------------------------------------------------
+# C-2 回归(Final review fix wave):原生路径必须走完整 hook 链
+# ---------------------------------------------------------------------------
+
+
+def test_native_path_confirm_replay_require_confirmation():
+    """C-2 回归:原生路径 require_confirmation 工具必须走 confirm-replay。
+
+    注册 pre hook 返回 Reject(confirmation_required) → _execute_native_tool
+    应返回 awaiting_confirmation(draft + token)而非直接执行。修复前原生路径
+    只走 execute_with_guard,写工具永远拿不到确认流程(PII 脱敏同样被绕过)。
+    """
+    from django.contrib.auth import get_user_model
+
+    from smart_assistant.agent.orchestrator import AgentOrchestrator
+    from smart_assistant.hooks.base import HookEvent, Reject, ToolHookBase, get_registry
+    from smart_assistant.scope import SmartAssistantScope
+    from smart_assistant.tools.base import BaseTool
+    from smart_assistant.tools.tool_context import ToolContext
+
+    class _ConfirmGuardHook(ToolHookBase):
+        name = "native_confirm_guard"
+
+        async def pre_execute(self, tool, ctx, params):
+            if getattr(tool, "require_confirmation", False):
+                return Reject(
+                    reason="需要二次确认",
+                    should_abort=True,
+                    error_code="confirmation_required",
+                )
+            return params
+
+    class _NativeWriteTool(BaseTool):
+        """支持 dry_run + confirmed 的写工具(与 test_confirm_replay_e2e 同型)。"""
+
+        name = "native_write_tool"
+        description = "原生路径测试写工具"
+        intent_type = "native_write_tool"
+        risk_level = "write"
+        require_confirmation = True
+
+        def execute(self, query=None, context=None, **kwargs):
+            ctx = context if isinstance(context, dict) else {}
+            if ctx.get("dry_run"):
+                return {
+                    "found": True,
+                    "draft": {
+                        "summary": f"确认执行: {query}",
+                        "fields": {"query": query},
+                    },
+                }
+            if ctx.get("confirmed"):
+                return {"found": True, "result": "confirmed_executed"}
+            return {"found": True, "result": "unexpected_direct_execution"}
+
+    hook = _ConfirmGuardHook()
+    get_registry().register(HookEvent.PRE_EXECUTE, hook, priority=10)
+    try:
+        User = get_user_model()
+        user = User.objects.create_user(username="native_confirm_c2", password="x", is_staff=True)
+        orchestrator = AgentOrchestrator()
+        ctx = ToolContext(user=user, scope=SmartAssistantScope.SELF)
+
+        result, confirmation, failure = orchestrator._execute_native_tool(
+            tool=_NativeWriteTool(),
+            validated={"query": "生成换班申请"},
+            context=ctx,
+        )
+
+        # 走到 confirm-replay:返回 draft + token,而非直接执行
+        assert confirmation is not None
+        assert confirmation["token"]
+        assert confirmation["draft"]["summary"] == "确认执行: 生成换班申请"
+        assert result.get("found") is True
+        assert "unexpected_direct_execution" not in str(result)
+    finally:
+        get_registry().unregister(hook)
+
+
+def test_native_path_applies_post_execute_pii_masking():
+    """C-2 回归:原生路径工具结果必须经 POST_EXECUTE 钩子链(PII 脱敏)。
+
+    修复前原生路径只走 execute_with_guard(仅 TimeoutGuardHook),
+    apply_post_execute_hooks(PiiMaskingHook) 被绕过,手机号原样进入 LLM。
+    """
+    from django.contrib.auth import get_user_model
+
+    from memos.models import Memo
+    from smart_assistant.agent.orchestrator import AgentOrchestrator
+    from smart_assistant.scope import SmartAssistantScope
+    from smart_assistant.tools.memo_tool import MemoTool
+    from smart_assistant.tools.tool_context import ToolContext
+
+    User = get_user_model()
+    user = User.objects.create_user(username="pii_c2", password="x", is_staff=True)
+    Memo.objects.create(user=user, title="联系人", content="王经理电话13812345678")
+
+    orchestrator = AgentOrchestrator()
+    ctx = ToolContext(user=user, scope=SmartAssistantScope.SELF)
+
+    result, confirmation, failure = orchestrator._execute_native_tool(
+        tool=MemoTool(),
+        validated={"query": "联系人"},
+        context=ctx,
+    )
+
+    assert confirmation is None
+    assert result.get("found") is True
+    serialized = str(result)
+    # 手机号应被掩码为 138****5678,原始号码不得泄漏
+    assert "13812345678" not in serialized
+    assert "138****5678" in serialized
