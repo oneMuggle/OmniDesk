@@ -120,7 +120,8 @@ def test_tool_calls_path_executes_tool_and_returns_answer(
         return_value=openai_tool_schema,
     ):
         mock_tool.validate_arguments.return_value = {"query": "明天"}
-        mock_tool.execute_with_guard.return_value = {
+        mock_tool.supports_scope_filter = False
+        mock_tool.execute.return_value = {
             "found": True,
             "items": [{"shift": "早班"}],
         }
@@ -217,7 +218,8 @@ def test_tool_calls_path_max_rounds_fallback_to_force_no_tools(
         return_value=openai_tool_schema,
     ):
         mock_tool.validate_arguments.return_value = {"query": "loop"}
-        mock_tool.execute_with_guard.return_value = {"found": True}
+        mock_tool.supports_scope_filter = False
+        mock_tool.execute.return_value = {"found": True}
 
         content, usage, meta = orchestrator._process_tool_calls_path(
             query="loop",
@@ -375,8 +377,9 @@ def test_tool_calls_path_tool_timeout(
         return_value=openai_tool_schema,
     ):
         mock_tool.validate_arguments.return_value = {"query": "x"}
+        mock_tool.supports_scope_filter = False
         # 模拟 timeout 异常(实际由 TimeoutGuardHook 包装后抛)
-        mock_tool.execute_with_guard.side_effect = TimeoutError("tool timeout")
+        mock_tool.execute.side_effect = TimeoutError("tool timeout")
 
         _, _, meta = orchestrator._process_tool_calls_path(
             query="x",
@@ -427,7 +430,8 @@ def test_tool_calls_path_execution_failed(
         return_value=openai_tool_schema,
     ):
         mock_tool.validate_arguments.return_value = {"query": "x"}
-        mock_tool.execute_with_guard.side_effect = RuntimeError("DB connection lost")
+        mock_tool.supports_scope_filter = False
+        mock_tool.execute.side_effect = RuntimeError("DB connection lost")
 
         _, _, meta = orchestrator._process_tool_calls_path(
             query="x",

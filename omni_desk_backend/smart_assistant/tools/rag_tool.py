@@ -7,12 +7,22 @@ class RAGTool(BaseTool):
     intent_type = "knowledge_qa"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
-    def execute(self, query: str, context: dict = None) -> dict:
-        """使用 RAGRouter 搜索多个知识库，合并结果"""
+    def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
+        """使用 RAGRouter 搜索多个知识库，合并结果。
+
+        支持两种调用方式(向后兼容):
+        - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
+        - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
+          RAG 是公共知识库(无"本人"语义),``qs`` 仅作契约占位,不影响查询。
+        """
+        search_query = query or ""
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+
         from ..agent.rag_router import get_rag_router
 
         rag_router = get_rag_router()
-        chunks = rag_router.search_multi(query, top_k=5)
+        chunks = rag_router.search_multi(search_query, top_k=5)
 
         if not chunks:
             return {

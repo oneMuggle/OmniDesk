@@ -44,37 +44,50 @@ class ComplianceTool(BaseTool):
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
     required_auth = True
 
-    def execute(self, query: str, context: "ToolContext") -> dict:
+    def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         # 字符级别 strip,故停用词也用单字。
         # 注意:不在 stopwords 中放"改"/"整"等业务核心动词 —— "整改"是合规领域
         # 的核心术语,必须保留作为关键词,否则用户说"整改"会被全 strip 掉。
         stopwords = {"合", "规", "待", "已", "什", "么", "查", "看", "几", "条"}
-        keywords = "".join(c for c in query if c not in stopwords).strip()
 
-        qs = (
-            ComplianceIssue.objects.filter(status__in=["待处理", "处理中"])
-            .select_related("project", "document_book", "document_template")
-            .order_by(_SEVERITY_RANK, "due_date")
-        )
+        # 支持两种调用方式(向后兼容):
+        # - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
+        # - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
+        if qs is not None and scope is not None:
+            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
+            keywords = "".join(c for c in search_query if c not in stopwords).strip()
+            issues_qs = (
+                qs.filter(status__in=["待处理", "处理中"])
+                .select_related("project", "document_book", "document_template")
+                .order_by(_SEVERITY_RANK, "due_date")
+            )
+        else:
+            search_query = query or ""
+            keywords = "".join(c for c in search_query if c not in stopwords).strip()
+            issues_qs = (
+                ComplianceIssue.objects.filter(status__in=["待处理", "处理中"])
+                .select_related("project", "document_book", "document_template")
+                .order_by(_SEVERITY_RANK, "due_date")
+            )
 
         # 关键词过滤(至少 2 字符,避免单字过宽)
         if keywords and len(keywords) >= 2:
-            qs = qs.filter(
+            issues_qs = issues_qs.filter(
                 Q(description__icontains=keywords)
                 | Q(issue_type__icontains=keywords)
                 | Q(project__name__icontains=keywords)
             )
 
         # 即将到期(7 天内)关键词
-        if "即将" in query or "快到期" in query:
-            qs = qs.filter(due_date__lte=date.today() + timedelta(days=7))
+        if "即将" in search_query or "快到期" in search_query:
+            issues_qs = issues_qs.filter(due_date__lte=date.today() + timedelta(days=7))
 
         # 紧急
-        if "紧急" in query:
-            qs = qs.filter(severity="紧急")
+        if "紧急" in search_query:
+            issues_qs = issues_qs.filter(severity="紧急")
 
         issues: list[dict] = []
-        for i in qs[:10]:
+        for i in issues_qs[:10]:
             raw_desc = i.description or ""
             truncated = raw_desc[:200] + ("..." if len(raw_desc) > 200 else "")
             issues.append(

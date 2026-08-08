@@ -562,6 +562,99 @@ class AgentOrchestrator:
         messages.append({"role": "user", "content": user_query})
         return messages
 
+    # === 原生 tool_calls 路径的单个工具执行(Final review fix wave) ===
+
+    def _execute_native_tool(self, tool, validated: dict, context) -> tuple[dict, dict | None, dict | None]:
+        """原生 tool_calls 路径的单个工具执行(修 C-1 + C-2,2026-08-07)。
+
+        对齐 ``_legacy_process`` 的 scope-aware 执行 + 完整 hook 链,替代此前
+        直接 ``tool.execute_with_guard(_dict_to_query(validated), context)``:
+
+        - **C-1(越权/跨 scope 泄漏)**:``supports_scope_filter`` 工具经
+          ``build_base_queryset`` + ``get_queryset_for_scope`` 派生 scoped
+          queryset,再 ``execute_guarded(tool, params, scope, qs, context)``
+          执行 —— 确保 SELF/DEPARTMENT/GLOBAL 三级 scope 生效(此前完全跳过
+          scope 分支,staff 用户能查到他人数据,已实证 Alice 查 Bob 的 memo)。
+        - **C-2(Hook 系统绕过)**:与 legacy 路径一致的 hook 链 ——
+          ``require_confirmation`` 工具先经 ``apply_pre_execute_hooks`` 拦截
+          (``Reject(confirmation_required)`` → dry_run → 存 draft → 返回
+          awaiting_confirmation);执行失败经 ``apply_failure_hooks``;输出统一
+          经 ``apply_post_execute_hooks``(PII 脱敏)。此前只走
+          ``execute_with_guard``(仅 TimeoutGuardHook),PII 掩码不生效、写工具
+          永远拿不到 confirm-replay。
+
+        返回 ``(result, confirmation, failure)``:
+            result: 工具输出 dict(post hook 之后;失败时为 failure-hook 结构化兜底)
+            confirmation: ``None`` 或 ``{"token": ..., "draft": ...}`` ——
+                工具标记需要用户二次确认时返回,调用方应立即终止本轮并透传
+                awaiting_confirmation + confirmation_token 给前端。
+            failure: ``None`` 或 ``{"error": "execution_failed", "detail": ...}`` ——
+                执行抛异常时返回,供调用方写入 tool_calls_meta 审计(与
+                F1-era 契约一致,失败工具在审计轨迹中可见)。
+        """
+        query = _dict_to_query(validated)
+        hook_ctx = context if context is not None else {}
+
+        # C-2:require_confirmation 工具先走 pre-hook 确认拦截(与 legacy 对齐)
+        if getattr(tool, "require_confirmation", False):
+            hook_result = apply_pre_execute_hooks(tool, hook_ctx, {"query": query})
+            if isinstance(hook_result, Reject) and hook_result.error_code == "confirmation_required":
+                dry_run_context = {
+                    "history": [],
+                    "dry_run": True,
+                    "user": getattr(context, "user", None),
+                }
+                dry_run_result = execute_guarded(tool, query, context=dry_run_context)
+                draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None
+                if not draft:
+                    return (
+                        {
+                            "found": False,
+                            "message": f"工具 {tool.name} 标记为需要确认,但未返回预演结果(draft),请联系管理员",
+                        },
+                        None,
+                        None,
+                    )
+                token = str(uuid.uuid4())
+                set_confirmation_draft(
+                    token,
+                    {
+                        "tool_name": tool.name,
+                        "user_query": query,
+                        "context_sig": _scope_cache_sig(context),
+                        "draft": draft,
+                    },
+                )
+                return {"found": True, "draft": draft}, {"token": token, "draft": draft}, None
+            # 非 confirmation_required 的 Reject / 无 pre-hook:走既有执行路径
+
+        failure: dict | None = None
+        try:
+            # C-1:scope-aware 执行分支(与 _legacy_process 的 414-423 一致)
+            if context is not None and getattr(tool, "supports_scope_filter", False):
+                base_qs = tool.build_base_queryset()
+                scoped_qs = tool.get_queryset_for_scope(base_qs, context)
+                result = execute_guarded(
+                    tool,
+                    params={"query": query},
+                    scope=context.scope,
+                    qs=scoped_qs,
+                    context=context,
+                )
+            else:
+                result = execute_guarded(tool, query=query, context=context)
+        except Exception as exc:
+            # C-2:ON_FAILURE 钩子链(与 legacy 一致):结构化 fallback 优先
+            failure = {"error": "execution_failed", "detail": str(exc)}
+            recovery = apply_failure_hooks(tool, exc, hook_ctx)
+            if recovery.action == "fallback" and isinstance(recovery.fallback_value, dict):
+                result = recovery.fallback_value
+            else:
+                result = {"found": False, "message": f"工具执行失败: {str(exc)}"}
+        # C-2:POST_EXECUTE 钩子链(PII 脱敏,统一出口)
+        result = apply_post_execute_hooks(tool, result, hook_ctx)
+        return result, None, failure
+
     def _process_tool_calls_path(
         self,
         *,
@@ -679,14 +772,18 @@ class AgentOrchestrator:
                     )
                     continue
 
-                # 3) 工具执行:走 execute_with_guard(hook + timeout 包装)
-                # F1 修复:validated 是 LLM 返回的参数 dict,而 BaseTool.execute
-                # 期望 query: str —— 先经 _dict_to_query 拆包成 query 字符串,
-                # 避免 dict 传给字符串操作的工具(memo/document 等)崩溃,或
-                # schedule/event/meeting_room 等 "X" in query 静默查错日期。
+                # 3) 工具执行:统一经 _execute_native_tool(scope-aware + 完整 hook 链)。
+                # C-1:supports_scope_filter 工具复用 build_base_queryset +
+                #      get_queryset_for_scope 分支,确保 SELF/DEPARTMENT/GLOBAL
+                #      scope 生效(此前 execute_with_guard 直接跑全量表,跨用户泄漏)。
+                # C-2:pre(post/failure hook 链 + confirm-replay 在 helper 内统一处理,
+                #      PII 脱敏不再被绕过。
                 try:
-                    result = tool.execute_with_guard(_dict_to_query(validated), context)
+                    result, confirmation, failure = self._execute_native_tool(
+                        tool, validated, context
+                    )
                 except Exception as exc:
+                    # helper 内部已收口执行异常;此处兜底防御意外异常
                     tool_results.append(
                         {
                             "role": "tool",
@@ -709,6 +806,52 @@ class AgentOrchestrator:
                         }
                     )
                     continue
+
+                # 工具执行失败(helper 已 apply_failure_hooks):审计轨迹保留 error 标记
+                if failure is not None:
+                    tool_results.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call_id,
+                            "content": json.dumps(result, ensure_ascii=False),
+                        }
+                    )
+                    tool_calls_meta.append(
+                        {
+                            "round": round_idx,
+                            "tool": func_name,
+                            "error": failure.get("error", "execution_failed"),
+                            "duration_ms": int((time.monotonic() - t0) * 1000),
+                        }
+                    )
+                    continue
+
+                # confirm-replay:工具标记需要用户二次确认 → 立即终止本轮,
+                # 把 awaiting_confirmation + token 透传给视图层(前端再带
+                # token 重放执行)。不回灌给 LLM,避免把确认流程当成工具失败。
+                if confirmation is not None:
+                    duration_ms = int((time.monotonic() - t0) * 1000)
+                    tool_calls_meta.append(
+                        {
+                            "round": round_idx,
+                            "tool": func_name,
+                            "arguments": validated,
+                            "duration_ms": duration_ms,
+                        }
+                    )
+                    draft = confirmation.get("draft") or {}
+                    return (
+                        draft.get("summary") or "请确认以下操作",
+                        {},
+                        {
+                            "tool_calls_meta": tool_calls_meta,
+                            "tool_calls_rounds": rounds,
+                            "tool_call_path": "native",
+                            "awaiting_confirmation": True,
+                            "confirmation_token": confirmation["token"],
+                            "draft": draft,
+                        },
+                    )
 
                 duration_ms = int((time.monotonic() - t0) * 1000)
                 tool_calls_meta.append(
@@ -821,7 +964,8 @@ class AgentOrchestrator:
             # tool_used 从 tool_calls_meta 首条记录派生(LLM 实际调用的工具)。
             tool_meta = meta.get("tool_calls_meta") or []
             tool_used = tool_meta[0].get("tool") if tool_meta and isinstance(tool_meta[0], dict) else None
-            return {
+            awaiting = meta.get("awaiting_confirmation", False)
+            out = {
                 "answer": content,
                 "intent": None,
                 "tool_used": tool_used,
@@ -829,11 +973,19 @@ class AgentOrchestrator:
                 "sources": None,
                 "usage": usage,
                 "error": is_failed_answer(content),
+                # confirm-replay 透传(与 _legacy_process 的 awaiting_confirmation
+                # 契约一致):前端据此展示确认按钮,带 token 二次请求重放工具。
+                "awaiting_confirmation": awaiting,
+                "confirmation_token": meta.get("confirmation_token"),
                 # 审计字段(供 AgentLog 落库)
                 "tool_call_path": tool_path,
                 "tool_calls_meta": meta.get("tool_calls_meta", []),
                 "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
             }
+            if awaiting:
+                # 与 legacy 路径一致:确认场景下 tool_result 携带 draft 供前端展示
+                out["tool_result"] = {"draft": meta.get("draft")}
+            return out
         # JSON 路径的 meta 已经携带了旧字段,直接展开
         out = {
             "answer": content,
