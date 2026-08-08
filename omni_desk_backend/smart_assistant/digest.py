@@ -70,6 +70,13 @@ def generate_daily_digest(user, query: str = DIGEST_QUERY, today: date | None = 
             query,
             conversation_history=None,  # 晨报是独立巡检,不携带任何会话历史
             tool_context=tool_context,
+            # I-1 修复(Final review fix wave):晨报必须走 JSON 路径。
+            # 原生 tool_calls 路径产出的是「单轮自然语言回答」,而晨报依赖
+            # 多工具链(排班/会议室/备忘录/待办)聚合出的 intent="aggregated_day"
+            # 结构化卡片;且 staff + 端点支持时默认会静默切到原生路径,丢掉
+            # aggregated_day 并继承 C-1 的跨用户泄漏风险。显式禁用原生路径,
+            # 强制走 _process_json_path → _process_chain 的聚合链路。
+            use_native_tool_calls=False,
         )
     except Exception:
         logger.exception("每日晨报生成失败: user=%s date=%s", username, today.isoformat())
