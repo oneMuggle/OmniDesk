@@ -9,6 +9,12 @@ class Memo(models.Model):
     content = models.TextField(verbose_name="内容", blank=True)
     reminder_time = models.DateTimeField(verbose_name="提醒时间", null=True, blank=True, db_index=True)
     is_completed = models.BooleanField(default=False, verbose_name="是否完成", db_index=True)
+    reminder_sent = models.BooleanField(
+        default=False,
+        verbose_name="到期提醒已发送",
+        db_index=True,
+        help_text="P0-2:定时任务发送到期提醒后置 True,防止 beat 重复执行时重复提醒",
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 

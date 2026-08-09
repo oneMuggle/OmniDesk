@@ -324,6 +324,18 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": timedelta(hours=1),  # 每小时执行一次(换班申请过期清理,TTL 48h)
         "args": (),
     },
+    "send-due-memo-reminders": {
+        # P0-2:备忘录到期提醒,每分钟扫描 reminder_time 到期的未完成备忘
+        "task": "memos.tasks.send_due_memo_reminders",
+        "schedule": timedelta(minutes=1),
+        "args": (),
+    },
+    "archive-expired-communication-posts": {
+        # P0-6:过期帖子自动归档,每小时扫描 expires_at 到期且未归档的帖子
+        "task": "communication.tasks.archive_expired_posts",
+        "schedule": timedelta(hours=1),
+        "args": (),
+    },
     "paperless-process-outbox-every-minute": {
         "task": "paperless_proxy.process_outbox",
         "schedule": timedelta(minutes=1),
