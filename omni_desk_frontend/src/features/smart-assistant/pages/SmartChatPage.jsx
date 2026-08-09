@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
 import { forkSession, exportSessionMarkdown } from './sessionForkExportApi';
 import ToolResult from '../components/ToolResult';
+import QuickCommands from '../components/QuickCommands';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import FileAttachmentInput from '../../../shared/components/FileAttachmentInput';
 import { Button, Typography, Dropdown, Modal as AntdModal, message as antMessage } from 'antd';
@@ -452,11 +453,14 @@ const SmartChatPage = () => {
     }
   }, [currentSessionId, attachment, parseSSE, handleSSEEvent, flushTypewriter]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+  /**
+   * 发送一条消息的共享逻辑(P0-3):表单提交与快捷指令 onSend 均走这里。
+   * @param {string} query 要发送的用户问题文本
+   */
+  const sendMessage = useCallback(async (query) => {
+    if (!query || !query.trim() || isLoading) return;
 
-    const userMessage = { role: 'user', content: inputMessage, attachment: attachment ? attachment.name : null };
+    const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setAttachment(null);
@@ -466,7 +470,7 @@ const SmartChatPage = () => {
     resetTypewriter();
 
     try {
-      await runStream(inputMessage);
+      await runStream(query);
     } catch (error) {
       if (error.name !== 'AbortError') {
         const errText = `[错误] ${error.message}`;
@@ -478,6 +482,11 @@ const SmartChatPage = () => {
       setIsLoading(false);
       abortRef.current = null;
     }
+  }, [isLoading, attachment, runStream, resetTypewriter]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await sendMessage(inputMessage);
   };
 
   // 当流式回答完成时,追加到消息列表
@@ -709,6 +718,7 @@ const SmartChatPage = () => {
         {isLoading && !streamingAnswer && <div className="loading-indicator">思考中...</div>}
         <div ref={messagesEndRef} />
       </div>
+      <QuickCommands onSend={sendMessage} />
       <form onSubmit={handleSubmit} className="smart-chat-input-form">
         <div className="smart-chat-input-row">
           <input
