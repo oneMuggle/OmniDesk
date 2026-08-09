@@ -73,7 +73,7 @@ INTENT_PROMPT = """你是一个意图分类器。根据用户的问题，判断�
 如果用户的问题与合规检查、整改项、待办合规问题查询相关，返回 compliance_query
 如果用户的问题与公司内网工具、外链、VPN、Jira 等系统访问地址查询相关，返回 external_link_query
 如果用户想发起换班、替班、调班申请（如"我想和李四换班"），返回 swap_request_create
-如果用户想同意、接受、拒绝或撤销收到的换班申请（如"同意张三的换班"），返回 swap_request_decide
+如果用户想同意、接受、拒绝收到的换班申请，或撤销自己发起的换班申请（如"同意张三的换班"），返回 swap_request_decide
 如果用户想查询换班申请的状态或进度（如"我收到的换班申请"），返回 swap_request_query
 
 如果用户的问题涉及以下复杂任务场景，返回 complex_task：
