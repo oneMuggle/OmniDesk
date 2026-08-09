@@ -96,6 +96,7 @@ class TestOrchestratorPiiWiring:
         mock_classify.return_value = "personnel_query"
         mock_tool = MagicMock()
         mock_tool.name = "personnel_query"
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {
             "found": True,
             "contact": "联系电话 13812345678",
@@ -127,6 +128,7 @@ class TestOrchestratorPiiWiring:
         mock_classify.return_value = "personnel_query"
         mock_tool = MagicMock()
         mock_tool.name = "personnel_query"
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {"found": True, "contact": "13812345678"}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{"name": "personnel_query", "description": "人员查询"}]
@@ -154,6 +156,7 @@ class TestOrchestratorTimeoutWiring:
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
         mock_tool.name = "schedule_query"
+        mock_tool.require_confirmation = False
 
         def _slow(*args, **kwargs):
             time.sleep(0.3)
@@ -189,6 +192,7 @@ class TestOrchestratorTimeoutWiring:
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
         mock_tool.name = "schedule_query"
+        mock_tool.require_confirmation = False
 
         def _slow(*args, **kwargs):
             time.sleep(0.1)
