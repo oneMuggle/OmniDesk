@@ -13,15 +13,25 @@ class MeetingRoomTool(BaseTool):
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """查询会议室(支持新旧两种签名)"""
         target_date = timezone.now().date()
-        if query:
-            if "明天" in query:
-                target_date = (timezone.now() + timedelta(days=1)).date()
-            elif "后天" in query:
-                target_date = (timezone.now() + timedelta(days=2)).date()
-            elif "昨天" in query:
-                target_date = (timezone.now() - timedelta(days=1)).date()
-            elif "今天" in query:
-                target_date = timezone.now().date()
+        date_text = query or ""
+        if isinstance(params, dict) and params.get("target_date"):
+            date_text = str(params["target_date"])
+        if "明天" in date_text:
+            target_date = (timezone.now() + timedelta(days=1)).date()
+        elif "后天" in date_text:
+            target_date = (timezone.now() + timedelta(days=2)).date()
+        elif "昨天" in date_text:
+            target_date = (timezone.now() - timedelta(days=1)).date()
+        elif "今天" in date_text:
+            target_date = timezone.now().date()
+        elif isinstance(params, dict) and params.get("target_date"):
+            # I-2:结构化 target_date(ISO 8601 日期)直接作为目标日期
+            from datetime import date as _date
+
+            try:
+                target_date = _date.fromisoformat(str(params["target_date"])[:10])
+            except ValueError:
+                pass  # 非法日期保持默认今天
 
         if qs is None:
             qs = MeetingRoom.objects.all()
@@ -64,6 +74,40 @@ class MeetingRoomTool(BaseTool):
             "date": str(target_date),
             "rooms": room_status,
             "module_label": "会议室",
+        }
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询会议室可用性。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询会议室可用性与预订情况,按日期聚合。示例 query: '明天的会议室有空吗'、'今天 3 楼会议室预订'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,可含日期/楼层关键词",
+                        },
+                        "target_date": {
+                            "type": "string",
+                            "format": "date",
+                            "description": "目标日期(ISO 8601),不传则默认今天",
+                        },
+                        "capacity_min": {
+                            "type": "integer",
+                            "description": "最少容纳人数(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         }
 
     def build_base_queryset(self):

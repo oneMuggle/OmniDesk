@@ -52,8 +52,11 @@ class AnnouncementTool(BaseTool):
 
             qs = qs.filter(Q(title__icontains=keywords) | Q(content__icontains=keywords))
 
+        # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+        limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+
         posts = []
-        for p in qs[:10]:
+        for p in qs[:limit]:
             raw_content = p.content or ""
             truncated = raw_content[:200] + ("..." if len(raw_content) > 200 else "")
             posts.append(
@@ -78,6 +81,36 @@ class AnnouncementTool(BaseTool):
             "count": len(posts),
             "posts": posts,
             "module_label": "公告",
+        }
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询公司公告/通知。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询公司公告/通知(communication.Post),仅返回未过期未归档项。"
+                    "示例 query: '最近的通知'、'本周公告'、'搜索春节公告'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配标题/内容(可选,空则返回最新 10 条)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "返回条目数上限,默认 10",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         }
 
     def build_base_queryset(self):

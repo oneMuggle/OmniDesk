@@ -42,27 +42,42 @@ export function resolveErrorHint(event) {
  * 返回 { bodyPromise, abort } 对象
  * - bodyPromise: Promise<ReadableStream>，解析为响应体
  * - abort: 取消请求的函数
+ *
+ * 三态分支:
+ * - 有 attachment → FormData(multipart/form-data),不手工设 Content-Type,浏览器自动加 boundary
+ * - 有 confirmToken(无 attachment) → JSON,body.confirm_token
+ * - 默认 → JSON,body 仅含 query / conversation_id
  */
-export function sendSmartChatStream(query, conversationId = null) {
+export function sendSmartChatStream(query, conversationId = null, attachment = null, confirmToken = null) {
   const abortController = new AbortController();
 
   const requestPromise = (async () => {
-    const body = { query };
-    if (conversationId) {
-      body.conversation_id = conversationId;
-    }
-
     const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
     const token = authTokens.access;
+
+    const useFormData = attachment != null;
+    const headers = { Authorization: `Bearer ${token}` };
+
+    let body;
+    if (useFormData) {
+      body = new FormData();
+      body.append('query', query);
+      if (conversationId) body.append('conversation_id', conversationId);
+      if (confirmToken) body.append('confirm_token', confirmToken);
+      body.append('attachment', attachment);
+    } else {
+      const jsonBody = { query };
+      if (conversationId) jsonBody.conversation_id = conversationId;
+      if (confirmToken) jsonBody.confirm_token = confirmToken;
+      headers['Content-Type'] = 'application/json';
+      body = JSON.stringify(jsonBody);
+    }
 
     try {
       const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(body),
+        headers,
+        body,
         signal: abortController.signal,
       });
 
@@ -118,14 +133,43 @@ export async function deleteSession(sessionId) {
 }
 
 /**
- * 发送智能聊天请求
+ * 发送智能聊天请求（非流式，确认/同步场景）
+ * 三态分支与 sendSmartChatStream 一致:
+ * - attachment → FormData
+ * - confirmToken → JSON body.confirm_token
+ * - 默认 → JSON
  */
-export async function sendSmartChat(query, conversationId = null) {
-  const body = { query };
-  if (conversationId) {
-    body.conversation_id = conversationId;
+export async function sendSmartChat(query, conversationId = null, attachment = null, confirmToken = null) {
+  if (attachment != null) {
+    const formData = new FormData();
+    formData.append('query', query);
+    if (conversationId) formData.append('conversation_id', conversationId);
+    if (confirmToken) formData.append('confirm_token', confirmToken);
+    formData.append('attachment', attachment);
+    return apiClient.post(`${BASE_URL}/chat/`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
   }
+  const body = { query };
+  if (conversationId) body.conversation_id = conversationId;
+  if (confirmToken) body.confirm_token = confirmToken;
   return apiClient.post(`${BASE_URL}/chat/`, body);
+}
+
+/**
+ * 下载生成的 Office 文件(token 鉴权的一次性链接)
+ * 后端: GET /api/smart-assistant/office-download/{token}/
+ * @param {string} token 后端写入 AgentLog 的临时下载 token
+ * @returns {Promise<Blob>}
+ * @throws {Error} '下载失败，链接可能已过期'(非 2xx 时)
+ */
+export async function downloadOfficeFile(token) {
+  const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
+  const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/office-download/${token}/`, {
+    headers: { Authorization: `Bearer ${authTokens.access}` },
+  });
+  if (!response.ok) throw new Error('下载失败，链接可能已过期');
+  return response.blob();
 }
 
 /**

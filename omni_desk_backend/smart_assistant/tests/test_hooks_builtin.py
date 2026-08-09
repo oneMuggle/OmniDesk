@@ -550,10 +550,15 @@ class TestAuditLogRiskLevelPersistence:
 
 class TestHookRegistration:
     def test_builtin_package_exports_all_hooks(self):
-        """builtin/__init__ 导出全部三个已落地钩子"""
+        """builtin/__init__ 导出全部四个已落地钩子"""
         from smart_assistant.hooks import builtin
 
-        assert set(builtin.__all__) == {"AuditLogHook", "PiiMaskingHook", "TimeoutGuardHook"}
+        assert set(builtin.__all__) == {
+            "AuditLogHook",
+            "ConfirmationHook",
+            "PiiMaskingHook",
+            "TimeoutGuardHook",
+        }
 
     def test_hooks_importable_from_builtin_package(self):
         """三个钩子均可从 hooks.builtin 包路径导入"""

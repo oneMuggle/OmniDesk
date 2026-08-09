@@ -62,8 +62,15 @@ def _extract_user_id(context_sig: str) -> int:
         return 0
 
 
-def _build_cache_key(query: str, user_id: int, intent: str) -> str:
-    """构建包含 cache_version 的缓存键。
+def _build_cache_key(
+    query: str,
+    user_id: int,
+    intent: str,
+    *,
+    tool_call_path: str = "none",
+    cache_version: int | None = None,
+) -> str:
+    """构建包含 cache_version + tool_call_path 的缓存键。
 
     组合 settings 级版本 + 运行时版本 + 业务参数,任一变化即产生新键,
     旧缓存自动失效。供 ``cache_answer`` / ``get_cached_answer`` 内部使用,
@@ -73,11 +80,16 @@ def _build_cache_key(query: str, user_id: int, intent: str) -> str:
         query: 用户查询文本
         user_id: 用户主键
         intent: 意图分类名
+        tool_call_path: 工具调用路径(``"native"`` / ``"json"`` / ``"none"``)。
+            Task 7 of feat/sa-office-files:A/B 评估期间 native 与 JSON 两条
+            路径下的回答缓存必须隔离,避免切换后读到旧路径的脏缓存。
+        cache_version: 运行时版本号;默认走全局 ``CACHE_VERSION``,测试时可注入。
 
     Returns:
         带 ``smart_assistant:cache:`` 前缀的 sha256 摘要键
     """
-    raw = f"{query}|{user_id}|{intent}|{_settings_cache_version()}|v{CACHE_VERSION}"
+    version = CACHE_VERSION if cache_version is None else cache_version
+    raw = f"{query}|{user_id}|{intent}|{tool_call_path}|{_settings_cache_version()}|v{version}"
     return CACHE_PREFIX + hashlib.sha256(raw.encode()).hexdigest()[:32]  # nosec B324 — cache key, not security
 
 
@@ -139,25 +151,55 @@ def cache_tool_result(tool_name, query, result, context_sig=""):
     cache.set(key, result, TOOL_CACHE_TTL)
 
 
-def get_cached_answer(query, intent, history_sig="", context_sig=""):
+def get_cached_answer(
+    query,
+    intent,
+    history_sig="",
+    context_sig="",
+    *,
+    tool_call_path: str = "none",
+):
     """尝试从缓存获取回答。
 
     context_sig(Task 17 起):同工具缓存,按 user/scope 隔离。
+    tool_call_path(Task 7 of feat/sa-office-files):按 native/json/none 路径隔离,
+    避免 A/B 切换时读到旧路径的脏缓存。
     缓存键通过 ``_build_cache_key`` 构建,包含 settings 级 cache_version,
     运维 bump ``SMART_ASSISTANT_CACHE_VERSION`` 即可失效旧缓存。
     """
     user_id = _extract_user_id(context_sig)
-    key = _build_cache_key(query=query, user_id=user_id, intent=intent)
+    key = _build_cache_key(
+        query=query,
+        user_id=user_id,
+        intent=intent,
+        tool_call_path=tool_call_path,
+    )
     # history_sig 影响键:不同历史上下文不应共享缓存
     if history_sig:
         key += f":h{hashlib.sha256(history_sig.encode()).hexdigest()[:8]}"  # nosec B324 — cache key, not security
     return cache.get(key)
 
 
-def cache_answer(query, intent, answer, history_sig="", context_sig=""):
-    """缓存回答结果。context_sig 同上(防缓存投毒)。"""
+def cache_answer(
+    query,
+    intent,
+    answer,
+    history_sig="",
+    context_sig="",
+    *,
+    tool_call_path: str = "none",
+):
+    """缓存回答结果。context_sig 同上(防缓存投毒)。
+
+    tool_call_path:与 ``get_cached_answer`` 对称,保证读写使用同一维度。
+    """
     user_id = _extract_user_id(context_sig)
-    key = _build_cache_key(query=query, user_id=user_id, intent=intent)
+    key = _build_cache_key(
+        query=query,
+        user_id=user_id,
+        intent=intent,
+        tool_call_path=tool_call_path,
+    )
     if history_sig:
         key += f":h{hashlib.sha256(history_sig.encode()).hexdigest()[:8]}"  # nosec B324 — cache key, not security
     cache.set(key, answer, ANSWER_CACHE_TTL)

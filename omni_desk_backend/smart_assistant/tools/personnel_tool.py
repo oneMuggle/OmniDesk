@@ -20,11 +20,32 @@ class PersonnelTool(BaseTool):
     intent_type = "personnel_query"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
-    def execute(self, query: str, context: dict = None) -> dict:
-        """搜索人员信息,仅返回脱敏字段(phone_number 已做最小字段级脱敏)"""
-        keywords = query.replace("谁", "").replace("是", "").replace("的", "").strip()
+    def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
+        """搜索人员信息,仅返回脱敏字段(phone_number 已做最小字段级脱敏)。
 
-        personnel_list = Personnel.objects.filter(name__icontains=keywords).select_related("position")[:10]
+        支持两种调用方式(向后兼容):
+        - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
+        - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
+          (C-1 修复:复用 scoped queryset,确保 SELF/DEPARTMENT/GLOBAL 生效)。
+        """
+        # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
+        if qs is not None and scope is not None:
+            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
+            keywords = self._extract_keywords(search_query)
+            personnel_list = qs.filter(name__icontains=keywords)
+            if isinstance(params, dict):
+                if params.get("department"):
+                    personnel_list = personnel_list.filter(department=params["department"])
+                if params.get("status"):
+                    # schema 暴露中文枚举(在职/离职),模型存 code(active/inactive),
+                    # 先映射回 code 再过滤,否则中文值查不到任何记录
+                    label_to_code = {label: code for code, label in Personnel.STATUS_CHOICES}
+                    status_code = label_to_code.get(params["status"], params["status"])
+                    personnel_list = personnel_list.filter(status=status_code)
+            personnel_list = personnel_list[:10]
+        else:
+            keywords = self._extract_keywords(query or "")
+            personnel_list = Personnel.objects.filter(name__icontains=keywords).select_related("position")[:10]
 
         if not personnel_list.exists():
             return {
@@ -49,6 +70,46 @@ class PersonnelTool(BaseTool):
             "found": True,
             "count": len(results),
             "personnel": results,
+        }
+
+    @staticmethod
+    def _extract_keywords(query: str) -> str:
+        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
+        return query.replace("谁", "").replace("是", "").replace("的", "").strip()
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 查询人员信息(姓名/部门/职位)。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "查询人员信息(姓名、部门、职位、状态),仅返回脱敏后的手机号。"
+                    "示例 query: '查张三'、'研发部有哪些人'、'谁在岗'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言查询,匹配姓名关键词",
+                        },
+                        "department": {
+                            "type": "string",
+                            "description": "按部门精确过滤(可选)",
+                        },
+                        "status": {
+                            "type": "string",
+                            "enum": ["在职", "离职", "休假", "未知"],
+                            "description": "按状态过滤(可选)",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         }
 
     def get_schema(self) -> dict:

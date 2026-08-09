@@ -23,6 +23,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {
             'found': True,
             'schedules': [{'duty_date': '2026-05-05', 'duty_person': '张三', 'duty_leader': '李四'}],
@@ -48,6 +49,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {'found': False, 'message': '无排班记录'}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
@@ -84,6 +86,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'knowledge_qa'
+        mock_tool.require_confirmation = False
         mock_tool.execute.side_effect = Exception('Ragflow connection failed')
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'knowledge_qa', 'description': 'test'}]
@@ -104,6 +107,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'knowledge_qa'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {
             'found': True,
             'context': 'some context',
@@ -127,6 +131,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {'found': True, 'schedules': []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
@@ -152,6 +157,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {'found': True, 'schedules': []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
@@ -181,6 +187,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {'found': True, 'schedules': []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]
@@ -272,6 +279,7 @@ class TestAgentOrchestrator(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {
             'found': False,
             'message': '本周无排班',
@@ -315,6 +323,7 @@ class TestAgentOrchestratorStream(TestCase):
 
         mock_tool = MagicMock()
         mock_tool.name = 'schedule_query'
+        mock_tool.require_confirmation = False
         mock_tool.execute.return_value = {'found': True, 'schedules': []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{'name': 'schedule_query', 'description': 'test'}]

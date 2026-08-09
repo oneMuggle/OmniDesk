@@ -8,16 +8,33 @@ class DocumentTool(BaseTool):
     intent_type = "document_search"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
-    def execute(self, query: str, context: dict = None) -> dict:
-        """搜索文档模板和生成的文档"""
-        keywords = query.replace("搜索", "").replace("查找", "").replace("文档", "").replace("公文", "").strip()
+    def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
+        """搜索文档模板和生成的文档。
 
-        templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
-
-        # GeneratedDocument 无 name 字段,改用 template__name 反查
-        generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
-            "template"
-        )[:10]
+        支持两种调用方式(向后兼容):
+        - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
+        - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
+          (C-1 修复:模板从 scoped queryset 取,生成的文档按 template__in=qs
+          反查,确保 SELF/DEPARTMENT/GLOBAL 三级 scope 生效)。
+        """
+        # 新路径(scope-aware):模板用注入的 scoped queryset,生成文档按
+        # template__in 反查同一 scope(GeneratedDocument 无 owner 字段)
+        if qs is not None and scope is not None:
+            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
+            keywords = self._extract_keywords(search_query)
+            # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+            limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+            templates = qs.filter(name__icontains=keywords)[:limit]
+            generated_docs = GeneratedDocument.objects.filter(
+                template__in=qs, template__name__icontains=keywords
+            ).select_related("template")[:limit]
+        else:
+            keywords = self._extract_keywords(query or "")
+            templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
+            # GeneratedDocument 无 name 字段,改用 template__name 反查
+            generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
+                "template"
+            )[:10]
 
         if not templates.exists() and not generated_docs.exists():
             return {
@@ -53,6 +70,47 @@ class DocumentTool(BaseTool):
             "found": True,
             "count": len(results),
             "documents": results,
+        }
+
+    @staticmethod
+    def _extract_keywords(query: str) -> str:
+        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
+        return query.replace("搜索", "").replace("查找", "").replace("文档", "").replace("公文", "").strip()
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 搜索公文/文档模板与生成文档。"""
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "搜索公文/文档(DocumentTemplate 与 GeneratedDocument),"
+                    "按名称模糊匹配。"
+                    "示例 query: '查设备验收模板'、'搜索最近的公文'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "搜索关键词,匹配模板/公文名",
+                        },
+                        "doc_type": {
+                            "type": "string",
+                            "enum": ["模板", "文档"],
+                            "description": "按类型过滤(模板 vs 已生成文档)",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "description": "返回条目数上限,默认 10",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         }
 
     def build_base_queryset(self):

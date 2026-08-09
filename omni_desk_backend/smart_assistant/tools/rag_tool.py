@@ -7,12 +7,22 @@ class RAGTool(BaseTool):
     intent_type = "knowledge_qa"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
 
-    def execute(self, query: str, context: dict = None) -> dict:
-        """使用 RAGRouter 搜索多个知识库，合并结果"""
+    def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
+        """使用 RAGRouter 搜索多个知识库，合并结果。
+
+        支持两种调用方式(向后兼容):
+        - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
+        - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
+          RAG 是公共知识库(无"本人"语义),``qs`` 仅作契约占位,不影响查询。
+        """
+        search_query = query or ""
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+
         from ..agent.rag_router import get_rag_router
 
         rag_router = get_rag_router()
-        chunks = rag_router.search_multi(query, top_k=5)
+        chunks = rag_router.search_multi(search_query, top_k=5)
 
         if not chunks:
             return {
@@ -38,6 +48,52 @@ class RAGTool(BaseTool):
             "found": True,
             "context": "\n\n".join(context_parts),
             "sources": sources,
+        }
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        """OpenAI strict mode tool schema — 从知识库查询业务知识。
+
+        dataset_ids 为 array(items 也是 object 时也要 strict);
+        多数据集选择是非典型场景,description 显式说明避免 LLM 误用。
+        """
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "从知识库(RAGFlow)查询业务知识,合并多个数据集的检索结果。"
+                    "示例 query: '公司的报销流程是什么'、'查询质量手册'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言问题,作为 RAG 检索 query",
+                        },
+                        "dataset_ids": {
+                            "type": "array",
+                            "description": "限定检索的数据集 ID 列表(可选,空则查所有)",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string", "description": "数据集 ID"},
+                                },
+                                "required": ["id"],
+                                "additionalProperties": False,
+                            },
+                        },
+                        "top_k": {
+                            "type": "integer",
+                            "description": "返回片段数上限,默认 5",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
         }
 
     def get_schema(self) -> dict:

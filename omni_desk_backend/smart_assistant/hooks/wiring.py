@@ -52,7 +52,7 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
         注册完成后的注册表实例。
     """
     # 延迟导入,避免 hooks.wiring ↔ hooks.builtin 在应用加载期循环
-    from .builtin import PiiMaskingHook, TimeoutGuardHook
+    from .builtin import ConfirmationHook, PiiMaskingHook, TimeoutGuardHook
 
     reg = registry or get_registry()
     existing_names = {getattr(h, "name", None) for h in reg.list_hooks()}
@@ -60,6 +60,8 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
         reg.register(HookEvent.POST_EXECUTE, PiiMaskingHook(), priority=5)
     if "timeout_guard" not in existing_names:
         reg.register(HookEvent.ON_FAILURE, TimeoutGuardHook(), priority=10)
+    if "confirmation" not in existing_names:
+        reg.register(HookEvent.PRE_EXECUTE, ConfirmationHook(), priority=20)
     return reg
 
 

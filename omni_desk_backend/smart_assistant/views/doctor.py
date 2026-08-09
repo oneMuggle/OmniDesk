@@ -219,6 +219,107 @@ def _check_cache_rate_limit() -> list:
     return [_check("cache_rate_limit", STATUS_OK, "info", message, hint)]
 
 
+# 探测原生 tool_calls 能力时使用的最小工具 schema
+_PING_TOOL_SCHEMA = {
+    "type": "function",
+    "function": {
+        "name": "_ping",
+        "description": "连通性探测用最小工具，无需参数",
+        "parameters": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+            "additionalProperties": False,
+        },
+        "strict": True,
+    },
+}
+
+
+def _check_native_tool_calls() -> list:
+    """向激活 LlmEndpoint 发最小 tool_calls 探测,缓存 native_tool_calls 能力。
+
+    契约:
+    - 无激活端点 → warn/no_llm_endpoint
+    - 探测成功且收到 tool_calls → ok + 缓存 ``native_tool_calls=True``
+    - 探测成功但无 tool_calls → ok + 缓存 ``native_tool_calls=False``
+    - 探测异常 → error/endpoint_probe_failed(不 500)
+
+    ``model_capabilities`` 为 JSONField(default=list),历史数据是 ``list[dict]`` 形态;
+    读写路径加 ``isinstance(cap, dict)`` 类型守卫确保不破坏其它键(向后兼容)。
+    """
+    from llm_service.router import LLMRouter
+
+    endpoint = LlmEndpoint.objects.filter(is_active=True).order_by("priority").first()
+    if endpoint is None:
+        return [
+            _check(
+                "native_tool_calls",
+                STATUS_WARN,
+                "no_llm_endpoint",
+                "无激活 LLM 端点,无法探测 native tool_calls 能力",
+                "请在管理后台激活至少一个 LLM 端点",
+            )
+        ]
+
+    try:
+        router = LLMRouter()
+        _content, _usage, tool_calls = router.generate_with_tools(
+            messages=[{"role": "user", "content": "ping"}],
+            tools=[_PING_TOOL_SCHEMA],
+            tool_choice="auto",
+            endpoint_url=endpoint.api_endpoint,
+        )
+        supports = bool(tool_calls)
+    except Exception as exc:
+        logger.warning("native_tool_calls 探测失败 (%s): %s", type(exc).__name__, exc)
+        return [
+            _check(
+                "native_tool_calls",
+                STATUS_ERROR,
+                "endpoint_probe_failed",
+                f"探测端点 tool_calls 能力失败:{exc or exc.__class__.__name__}",
+                "LLM 端点暂时不可用,AgentOrchestrator 将自动降级到 JSON 路径",
+            )
+        ]
+
+    # 缓存 native_tool_calls 到 model_capabilities(``isinstance(cap, dict)`` 类型守卫)
+    caps = endpoint.model_capabilities or []
+    if isinstance(caps, list):
+        updated = False
+        for cap in caps:
+            if isinstance(cap, dict):
+                cap["native_tool_calls"] = supports
+                updated = True
+                break
+        if not updated:
+            caps.append({"native_tool_calls": supports})
+    elif isinstance(caps, dict):
+        caps["native_tool_calls"] = supports
+    else:
+        caps = [{"native_tool_calls": supports}]
+    endpoint.model_capabilities = caps
+    endpoint.save(update_fields=["model_capabilities"])
+
+    if supports:
+        return [
+            _check(
+                "native_tool_calls",
+                STATUS_OK,
+                "ok",
+                f"端点「{endpoint.name}」支持 native tool_calls=True",
+            )
+        ]
+    return [
+        _check(
+            "native_tool_calls",
+            STATUS_OK,
+            "ok",
+            f"端点「{endpoint.name}」不支持 native tool_calls=False(将走 JSON 路径)",
+        )
+    ]
+
+
 class DoctorView(APIView):
     """智能助手 doctor 自检：只读诊断，供管理后台运维面板使用。
 
@@ -235,6 +336,7 @@ class DoctorView(APIView):
         _check_ragflow,
         _check_datasets,
         _check_cache_rate_limit,
+        _check_native_tool_calls,
     )
 
     def get(self, request):

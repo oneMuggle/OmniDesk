@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
 import { forkSession, exportSessionMarkdown } from './sessionForkExportApi';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
-import { Button, Typography, Dropdown, message as antMessage } from 'antd';
+import FileAttachmentInput from '../../../shared/components/FileAttachmentInput';
+import { Button, Typography, Dropdown, Modal as AntdModal, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import './SmartChatPage.css';
@@ -91,6 +92,7 @@ const TYPEWRITER_INTERVAL = 50;
 
 const SmartChatPage = () => {
   const [inputMessage, setInputMessage] = useState('');
+  const [attachment, setAttachment] = useState(null);
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [streamingAnswer, setStreamingAnswer] = useState('');
@@ -324,6 +326,45 @@ const SmartChatPage = () => {
     return activeSessionId;
   }, []);
 
+  /**
+   * 处理 SSE confirmation 事件:弹出确认对话框,用户确认后
+   * 二次请求 sendSmartChat(inputMessage, currentSessionId, null, token)
+   * (非流式,后端 Task 8 已支持 confirm_token replay),把响应里的
+   * tool_result.file_download 推入 messages(由 ToolResult 渲染下载卡片)。
+   */
+  const handleConfirmation = useCallback(async (event) => {
+    const token = event.confirmation_token;
+    const draft = event.draft || {};
+    if (!token) return;
+    AntdModal.confirm({
+      title: '请确认操作',
+      content: event.answer || draft.summary || '确认执行该操作吗?',
+      okText: '确认生成',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const resp = await sendSmartChat(inputMessage, currentSessionId, null, token);
+          const data = resp.data;
+          if (data && data.tool_result && data.tool_result.file_download) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                role: 'assistant',
+                intent: data.tool_used,
+                content: data.answer || '文档已生成',
+                tool_result: data.tool_result,
+                sources: null,
+              },
+            ]);
+          }
+        } catch (err) {
+          antMessage.error(err.message || '确认执行失败');
+        }
+      },
+    });
+  }, [inputMessage, currentSessionId]);
+
   /** 处理单个 SSE 事件,路由到对应的处理器 */
   const handleSSEEvent = useCallback(async (event, activeSessionId) => {
     // 兼容旧版事件:无 log_id 字段时静默跳过
@@ -355,12 +396,15 @@ const SmartChatPage = () => {
         break;
       case 'session':
         return await handleSessionEvent(event, activeSessionId);
+      case 'confirmation':
+        await handleConfirmation(event);
+        break;
       default:
         // 忽略未知事件类型
         break;
     }
     return activeSessionId;
-  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent]);
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation]);
 
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
@@ -369,7 +413,7 @@ const SmartChatPage = () => {
   const runStream = useCallback(async (query) => {
     pendingLogIdRef.current = null;
     pendingErrorHintRef.current = null;
-    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId);
+    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment);
     abortRef.current = abort;
     const stream = await bodyPromise;
 
@@ -406,15 +450,16 @@ const SmartChatPage = () => {
         flushTypewriter();
       }
     }
-  }, [currentSessionId, parseSSE, handleSSEEvent, flushTypewriter]);
+  }, [currentSessionId, attachment, parseSSE, handleSSEEvent, flushTypewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!inputMessage.trim() || isLoading) return;
 
-    const userMessage = { role: 'user', content: inputMessage };
+    const userMessage = { role: 'user', content: inputMessage, attachment: attachment ? attachment.name : null };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
+    setAttachment(null);
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
@@ -665,13 +710,20 @@ const SmartChatPage = () => {
         <div ref={messagesEndRef} />
       </div>
       <form onSubmit={handleSubmit} className="smart-chat-input-form">
-        <input
-          type="text"
-          value={inputMessage}
-          onChange={(e) => setInputMessage(e.target.value)}
-          placeholder="问我任何问题，例如：明天谁值班？"
-          disabled={isLoading}
-        />
+        <div className="smart-chat-input-row">
+          <input
+            type="text"
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder="问我任何问题，例如：明天谁值班？"
+            disabled={isLoading}
+          />
+          <FileAttachmentInput
+            value={attachment}
+            onChange={setAttachment}
+            disabled={isLoading}
+          />
+        </div>
         {isLoading ? (
           <button type="button" onClick={handleStop} className="stop-btn">
             取消

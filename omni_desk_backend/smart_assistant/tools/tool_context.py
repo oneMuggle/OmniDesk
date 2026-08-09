@@ -17,12 +17,15 @@ class ToolContext:
     - request_id 默认生成,用于日志关联
     - history 可选,工具内可读但不应改
     - scope:权限范围,默认 SELF(由 from_request 自动派生)
+    - attachment:本次请求的附件抽取结果(text/markdown/sheets/format/filename),
+      仅本次请求有效,不持久化;工具读取附件数据请优先用本字段
     """
 
     user: Any
     request_id: str = field(default_factory=lambda: str(uuid4()))
     history: list[dict] = field(default_factory=list)
     scope: SmartAssistantScope = SmartAssistantScope.SELF
+    attachment: dict | None = None
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:

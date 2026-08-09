@@ -489,6 +489,7 @@ class TestOrchestratorErrorFlag:
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
         mock_tool.name = "schedule_query"
+        mock_tool.require_confirmation = False  # L1.1 fix:ConfirmationHook 全局注册后 MagicMock 隐式恒真,需显式关闭
         mock_tool.execute.return_value = {"found": True, "schedules": []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{"name": "schedule_query", "description": "t"}]
@@ -536,6 +537,7 @@ class TestOrchestratorErrorFlag:
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
         mock_tool.name = "schedule_query"
+        mock_tool.require_confirmation = False  # L1.1 fix:ConfirmationHook 全局注册后 MagicMock 隐式恒真,需显式关闭
         mock_tool.execute.return_value = {"found": True, "schedules": []}
         mock_registry.get_tool.return_value = mock_tool
         mock_registry.get_all_schemas.return_value = [{"name": "schedule_query", "description": "t"}]

@@ -131,7 +131,7 @@ class TestDoctorChecksNoConfig:
     """空库场景:核心依赖缺失应报 error/warn,且不依赖网络。"""
 
     def test_empty_config_scene(self, admin_client, monkeypatch):
-        """无任何配置:llm_config/llm_endpoints/ragflow 为 error,datasets/ollama 为 warn。"""
+        """无任何配置:llm_config/llm_endpoints/ragflow 为 error,datasets/ollama/native_tool_calls 为 warn。"""
         _mock_probe(monkeypatch, fail_keywords=[""])  # 所有探测不可达
 
         data = admin_client.get(DOCTOR_URL).json()
@@ -151,9 +151,12 @@ class TestDoctorChecksNoConfig:
         # 缓存/限流为信息级,恒 ok
         assert by_name["cache_rate_limit"]["status"] == "ok"
         assert by_name["cache_rate_limit"]["kind"] == "info"
-        # 汇总计数
+        # native_tool_calls:空库 → warn/no_llm_endpoint(Task 8 新增)
+        assert by_name["native_tool_calls"]["status"] == "warn"
+        assert by_name["native_tool_calls"]["kind"] == "no_llm_endpoint"
+        # 汇总计数(error 3 + warn 3 + ok 1 = 7 项;原 6 项 + native_tool_calls warn)
         assert data["summary"]["error"] == 3
-        assert data["summary"]["warn"] == 2
+        assert data["summary"]["warn"] == 3
         assert data["summary"]["ok"] == 1
 
 
@@ -173,6 +176,11 @@ class TestDoctorChecksWithConfig:
         )
         KnowledgeDataset.objects.create(name="数据集 1", ragflow_dataset_id="d1", is_active=True)
         _mock_probe(monkeypatch)
+        # Task 8:native_tool_calls checker 走 LLMRouter.generate_with_tools,需要 stub 避免真实 HTTP
+        monkeypatch.setattr(
+            "llm_service.router.LLMRouter.generate_with_tools",
+            lambda *args, **kwargs: ("", {}, []),
+        )
 
         data = admin_client.get(DOCTOR_URL).json()
         by_name = _checks_by_name(data)
@@ -182,6 +190,7 @@ class TestDoctorChecksWithConfig:
         assert by_name["ollama_fallback"]["status"] == "ok"
         assert by_name["ragflow"]["status"] == "ok"
         assert by_name["datasets"]["status"] == "ok"
+        assert by_name["native_tool_calls"]["status"] == "ok"
         assert data["summary"]["error"] == 0
 
     def test_endpoint_unreachable_is_error(self, admin_client, monkeypatch):

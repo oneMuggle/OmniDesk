@@ -4,13 +4,28 @@
  *
  * resolveErrorHint 契约测试(输出契约 format_version:1):
  * kind → 友好提示映射,hint 优先,旧事件(无字段)→ undefined
+ *
+ * attachment / confirm_token / downloadOfficeFile 契约测试:
+ * - FormData 路径:有附件时不手工设 Content-Type,让浏览器加 boundary
+ * - JSON 路径:confirm_token 透传
+ * - downloadOfficeFile:GET 接口拿 token 鉴权,返回 Blob
  */
-import { submitFeedback, resolveErrorHint, ERROR_KIND_MESSAGES } from '../smartAssistantApi';
+/* eslint-env node, jest */
+import {
+  sendSmartChatStream,
+  downloadOfficeFile,
+  submitFeedback,
+  resolveErrorHint,
+  ERROR_KIND_MESSAGES,
+} from '../smartAssistantApi';
 import apiClient from '../../../../shared/api/apiClient';
 
 jest.mock('../../../../shared/api/apiClient', () => ({
   __esModule: true,
-  default: { patch: jest.fn() },
+  default: {
+    patch: jest.fn(),
+    defaults: { baseURL: '/api/' },
+  },
 }));
 
 describe('submitFeedback', () => {
@@ -88,5 +103,56 @@ describe('resolveErrorHint', () => {
   it('hint 首尾空白被修剪', () => {
     expect(resolveErrorHint({ type: 'done', error: true, hint: '  服务维护中  ' }))
       .toBe('服务维护中');
+  });
+});
+
+describe('smartAssistantApi attachment & confirm', () => {
+  const originalFetch = global.fetch;
+
+  afterEach(() => {
+    global.fetch = originalFetch;
+    localStorage.clear();
+  });
+
+  beforeEach(() => {
+    localStorage.setItem('authTokens', JSON.stringify({ access: 'tok123' }));
+  });
+
+  test('sendSmartChatStream sends FormData when attachment present', async () => {
+    const mockResponse = { status: 200, ok: true, body: 'STREAM' };
+    global.fetch = jest.fn().mockResolvedValue(mockResponse);
+
+    const fakeFile = new File(['abc'], 'a.docx', { type: 'application/octet-stream' });
+    await sendSmartChatStream('问题', null, fakeFile).bodyPromise;
+
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.body).toBeInstanceOf(FormData);
+    expect(options.body.get('query')).toBe('问题');
+    expect(options.body.get('attachment')).toBe(fakeFile);
+    expect(options.headers['Content-Type']).toBeUndefined();
+  });
+
+  test('sendSmartChatStream sends JSON when no attachment', async () => {
+    const mockResponse = { status: 200, ok: true, body: 'STREAM' };
+    global.fetch = jest.fn().mockResolvedValue(mockResponse);
+    await sendSmartChatStream('问题').bodyPromise;
+    const [, options] = global.fetch.mock.calls[0];
+    expect(options.headers['Content-Type']).toBe('application/json');
+    expect(JSON.parse(options.body)).toEqual({ query: '问题' });
+  });
+
+  test('sendSmartChatStream passes confirmToken', async () => {
+    global.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true, body: 'S' });
+    await sendSmartChatStream('确认', null, null, 'tok-replay').bodyPromise;
+    const [, options] = global.fetch.mock.calls[0];
+    expect(JSON.parse(options.body).confirm_token).toBe('tok-replay');
+  });
+
+  test('downloadOfficeFile returns blob', async () => {
+    const blob = new Blob(['x'], { type: 'application/octet-stream' });
+    global.fetch = jest.fn().mockResolvedValue({ status: 200, ok: true, blob: async () => blob });
+    const result = await downloadOfficeFile('tok123');
+    expect(result).toBe(blob);
+    expect(global.fetch.mock.calls[0][0]).toContain('/office-download/tok123/');
   });
 });

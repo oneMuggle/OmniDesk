@@ -1,9 +1,59 @@
-import { useState } from 'react';
-import { Card, Descriptions, Tag, Badge, Button } from 'antd';
-import { CopyOutlined, CheckOutlined } from '@ant-design/icons';
+import React, { useState } from 'react';
+import { Card, Descriptions, Tag, Badge, Button, Space, message } from 'antd';
+import { CopyOutlined, CheckOutlined, DownloadOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import AggregatedDayCard from './AggregatedDayCard';
+import { downloadOfficeFile } from '../api/smartAssistantApi';
 import './ToolResult.css';
+
+/**
+ * Office 文件下载卡片 — 后端 office_generate 工具会返回
+ * tool_result.file_download = { filename, download_url }。
+ * download_url 末段是 token,点击下载按钮 → 调 downloadOfficeFile(token)
+ * 拿 blob → createObjectURL 触发浏览器下载。
+ */
+function FileDownloadCard({ fileDownload }) {
+  const [downloading, setDownloading] = useState(false);
+
+  const handleDownload = async () => {
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      const token = (fileDownload.download_url || '').split('/').filter(Boolean).pop();
+      const blob = await downloadOfficeFile(token);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileDownload.filename || 'document.docx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      message.error(err.message || '下载失败');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  return (
+    <Card size="small" style={{ marginTop: 8 }}>
+      <Space>
+        <span>{fileDownload.filename}</span>
+        <Button icon={<DownloadOutlined />} size="small" onClick={handleDownload} loading={downloading}>
+          下载
+        </Button>
+      </Space>
+    </Card>
+  );
+}
+
+FileDownloadCard.propTypes = {
+  fileDownload: PropTypes.shape({
+    filename: PropTypes.string,
+    download_url: PropTypes.string,
+  }).isRequired,
+};
 
 /**
  * 规范化聚合查询(aggregated_day)结果。
@@ -414,6 +464,19 @@ const ToolResult = ({ intent, result, sources }) => {
     return (
       <div className="tool-result-card">
         <Tag color="default">{result.message || '未找到相关信息'}</Tag>
+        {copyBtn}
+      </div>
+    );
+  }
+
+  // 兜底:未知 intent 但 result.found=true,尝试渲染 file_download(若存在)
+  // 与 intent-specific 分支独立,确保 office_generate 等工具的下载卡片一定能呈现
+  if (result.file_download) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title={<Tag color="cyan">生成文件</Tag>}>
+          <FileDownloadCard fileDownload={result.file_download} />
+        </Card>
         {copyBtn}
       </div>
     );
