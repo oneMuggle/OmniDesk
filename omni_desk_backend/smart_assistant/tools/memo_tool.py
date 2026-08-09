@@ -70,8 +70,7 @@ class MemoTool(BaseTool):
             "function": {
                 "name": cls.intent_type,
                 "description": (
-                    "查询备忘录/便签,按标题关键词模糊匹配。"
-                    "示例 query: '找一下会议纪要'、'搜索本周的便签'。"
+                    "查询备忘录/便签,按标题关键词模糊匹配。示例 query: '找一下会议纪要'、'搜索本周的便签'。"
                 ),
                 "parameters": {
                     "type": "object",

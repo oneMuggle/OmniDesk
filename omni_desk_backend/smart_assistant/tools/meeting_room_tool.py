@@ -84,8 +84,7 @@ class MeetingRoomTool(BaseTool):
             "function": {
                 "name": cls.intent_type,
                 "description": (
-                    "查询会议室可用性与预订情况,按日期聚合。"
-                    "示例 query: '明天的会议室有空吗'、'今天 3 楼会议室预订'。"
+                    "查询会议室可用性与预订情况,按日期聚合。示例 query: '明天的会议室有空吗'、'今天 3 楼会议室预订'。"
                 ),
                 "parameters": {
                     "type": "object",

@@ -263,10 +263,7 @@ class AgentOrchestrator:
                 use_native = (
                     bool(getattr(settings, "USE_NATIVE_TOOL_CALLS", False))
                     and self._endpoint_supports_tool_calls()
-                    and (
-                        user_is_staff
-                        or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False))
-                    )
+                    and (user_is_staff or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False)))
                 )
             except Exception:
                 logger.warning("_endpoint_supports_tool_calls 检查失败,降级到 JSON 路径", exc_info=True)
@@ -278,21 +275,18 @@ class AgentOrchestrator:
             # 新路径:返回 tuple(content, usage, meta)
             try:
                 from smart_assistant.tools.tool_context import ToolContext
+
                 if tool_context is None:
                     tool_context = ToolContext(user=None)
                 if llm_messages is None:
-                    llm_messages = self._build_initial_messages(
-                        query, tool_context, conversation_history
-                    )
+                    llm_messages = self._build_initial_messages(query, tool_context, conversation_history)
                 content, usage, meta = self._process_tool_calls_path(
                     query=query, context=tool_context, llm_messages=llm_messages
                 )
                 return self._wrap_native_to_dict(content, usage, meta)
             except Exception as exc:
                 # 降级策略:新路径异常 → JSON 路径兜底
-                logger.warning(
-                    "tool_calls 路径异常,降级到 JSON 路径: %s", exc, exc_info=True
-                )
+                logger.warning("tool_calls 路径异常,降级到 JSON 路径: %s", exc, exc_info=True)
                 # 回退:用 JSON 路径再跑一遍
                 try:
                     content, usage, meta = self._process_json_path(
@@ -461,9 +455,7 @@ class AgentOrchestrator:
                 # Task 7 of feat/sa-office-files:_legacy_process 仅在 JSON
                 # 路径下被调用,显式传入 tool_call_path="json" 以避免
                 # 与未来 native 路径的同 query 缓存污染。
-                cached_answer = get_cached_answer(
-                    user_query, intent, context_sig=scope_sig, tool_call_path="json"
-                )
+                cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig, tool_call_path="json")
                 if cached_answer:
                     answer = cached_answer
                     usage = None
@@ -471,9 +463,7 @@ class AgentOrchestrator:
                     answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
                     # 失败响应不进缓存,避免错误文本被后续请求反复命中
                     if not is_failed_answer(answer):
-                        cache_answer(
-                            user_query, intent, answer, context_sig=scope_sig, tool_call_path="json"
-                        )
+                        cache_answer(user_query, intent, answer, context_sig=scope_sig, tool_call_path="json")
             else:
                 answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
@@ -725,22 +715,23 @@ class AgentOrchestrator:
                 )
             except Exception as exc:
                 # 降级策略(来自 Task 3 reviewer):新方法异常 → 走 JSON 路径
-                logger.warning(
-                    "generate_with_tools 异常,降级到 _process_json_path: %s", exc, exc_info=True
-                )
-                content, usage, meta = self._process_json_path(
-                    query=query, context=context, llm_messages=llm_messages
-                )
+                logger.warning("generate_with_tools 异常,降级到 _process_json_path: %s", exc, exc_info=True)
+                content, usage, meta = self._process_json_path(query=query, context=context, llm_messages=llm_messages)
                 return content, usage, meta, llm_messages
 
             if not tool_calls:
                 # LLM 主动选择不调工具,直接返回 content;llm_messages 为
                 # 工具轮状态(未含本轮 content),供流式最终轮复用。
-                return content, usage, {
-                    "tool_calls_meta": tool_calls_meta,
-                    "tool_calls_rounds": rounds,
-                    "tool_call_path": "native",
-                }, llm_messages
+                return (
+                    content,
+                    usage,
+                    {
+                        "tool_calls_meta": tool_calls_meta,
+                        "tool_calls_rounds": rounds,
+                        "tool_call_path": "native",
+                    },
+                    llm_messages,
+                )
 
             rounds += 1
             tool_results = []
@@ -811,9 +802,7 @@ class AgentOrchestrator:
                 # C-2:pre(post/failure hook 链 + confirm-replay 在 helper 内统一处理,
                 #      PII 脱敏不再被绕过。
                 try:
-                    result, confirmation, failure = self._execute_native_tool(
-                        tool, validated, context
-                    )
+                    result, confirmation, failure = self._execute_native_tool(tool, validated, context)
                 except Exception as exc:
                     # helper 内部已收口执行异常;此处兜底防御意外异常
                     tool_results.append(
@@ -919,11 +908,16 @@ class AgentOrchestrator:
             tools=tools_schema,
             tool_choice="none",
         )
-        return content, usage, {
-            "tool_calls_meta": tool_calls_meta,
-            "tool_calls_rounds": rounds,
-            "tool_call_path": "native",
-        }, llm_messages
+        return (
+            content,
+            usage,
+            {
+                "tool_calls_meta": tool_calls_meta,
+                "tool_calls_rounds": rounds,
+                "tool_call_path": "native",
+            },
+            llm_messages,
+        )
 
     def _process_stream_tool_calls_path(
         self,
@@ -983,11 +977,7 @@ class AgentOrchestrator:
         # 与 confirm-replay 分支的 meta(intent="tool_call") 保持一致;JSON 降级
         # 时透传其 intent,便于前端展示。
         tool_calls_meta = meta.get("tool_calls_meta") or []
-        tool_used = (
-            tool_calls_meta[0].get("tool")
-            if tool_calls_meta and isinstance(tool_calls_meta[0], dict)
-            else None
-        )
+        tool_used = tool_calls_meta[0].get("tool") if tool_calls_meta and isinstance(tool_calls_meta[0], dict) else None
         yield sse_event(
             {
                 "type": "meta",
@@ -1238,9 +1228,7 @@ class AgentOrchestrator:
             # Task 7 of feat/sa-office-files:process_stream 在路径决策之前
             # 短路,使用 tool_call_path="none" 作为"未决路径"维度,避免与
             # legacy/原生路径的缓存互相污染。
-            cached_answer = get_cached_answer(
-                user_query, intent, context_sig=scope_sig, tool_call_path="none"
-            )
+            cached_answer = get_cached_answer(user_query, intent, context_sig=scope_sig, tool_call_path="none")
             if cached_answer:
                 # 缓存命中,直接 yield 完整 answer + done(不动 LLM)
                 yield sse_event({"type": "meta", "intent": intent, "cache_hit": True})
@@ -1263,10 +1251,7 @@ class AgentOrchestrator:
                 use_native = (
                     bool(getattr(settings, "USE_NATIVE_TOOL_CALLS", False))
                     and self._endpoint_supports_tool_calls()
-                    and (
-                        user_is_staff
-                        or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False))
-                    )
+                    and (user_is_staff or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False)))
                 )
             except Exception:
                 logger.warning("原生流式门控检查失败,走 intent 流程", exc_info=True)
@@ -1276,11 +1261,10 @@ class AgentOrchestrator:
 
         if use_native:
             from smart_assistant.tools.tool_context import ToolContext
+
             if tool_context is None:
                 tool_context = ToolContext(user=None)
-            llm_messages = self._build_initial_messages(
-                user_query, tool_context, conversation_history
-            )
+            llm_messages = self._build_initial_messages(user_query, tool_context, conversation_history)
             try:
                 yield from self._process_stream_tool_calls_path(
                     query=user_query, context=tool_context, llm_messages=llm_messages

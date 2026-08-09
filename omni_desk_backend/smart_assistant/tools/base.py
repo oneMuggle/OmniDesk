@@ -121,9 +121,7 @@ class BaseTool(ABC):
         实例化失败并连带挂掉 1138 个现有测试。改为运行期 ``raise
         NotImplementedError``,语义不变但保留向后兼容性。
         """
-        raise NotImplementedError(
-            f"{cls.__name__} must implement get_openai_tool_schema() for native function calling"
-        )
+        raise NotImplementedError(f"{cls.__name__} must implement get_openai_tool_schema() for native function calling")
 
     @classmethod
     def validate_arguments(cls, args: dict) -> dict:

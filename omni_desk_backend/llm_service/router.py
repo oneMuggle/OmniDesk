@@ -234,9 +234,7 @@ class LLMRouter:
             except Exception as exc:
                 last_error = exc
                 if i == len(candidates) - 1:
-                    logger.warning(
-                        "最后 LLM 工具调用端点 %s 失败 (%s),抛出原始异常", label, type(exc).__name__
-                    )
+                    logger.warning("最后 LLM 工具调用端点 %s 失败 (%s),抛出原始异常", label, type(exc).__name__)
                     raise
                 logger.warning("LLM 工具调用端点 %s 失败 (%s),尝试下一个", label, type(exc).__name__)
                 continue
@@ -285,9 +283,7 @@ class LLMRouter:
         }
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        response = requests.post(
-            url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT
-        )
+        response = requests.post(url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT)
         response.raise_for_status()
         resp_data = response.json()
 

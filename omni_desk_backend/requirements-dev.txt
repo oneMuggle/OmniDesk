@@ -20,6 +20,10 @@ ast-serialize==0.5.0
     # via mypy
 async-timeout==5.0.1
     # via redis
+attrs==26.1.0
+    # via
+    #   jsonschema
+    #   referencing
 babel==2.18.0
     # via docxcompose
 beautifulsoup4==4.14.3
@@ -156,6 +160,10 @@ iniconfig==2.3.0
     # via pytest
 jinja2==3.1.6
     # via docxtpl
+jsonschema==4.26.0
+    # via -r requirements.in
+jsonschema-specifications==2025.9.1
+    # via jsonschema
 kombu==5.6.2
     # via celery
 librt==0.11.0
@@ -287,12 +295,20 @@ redis==7.4.1
     # via
     #   -r requirements.in
     #   django-redis
+referencing==0.37.0
+    # via
+    #   jsonschema
+    #   jsonschema-specifications
 requests==2.34.2
     # via
     #   -r requirements.in
     #   responses
 responses==0.26.2
     # via -r requirements-dev.in
+rpds-py==0.30.0
+    # via
+    #   jsonschema
+    #   referencing
 ruff==0.15.15
     # via -r requirements-dev.in
 six==1.17.0
@@ -341,6 +357,7 @@ typing-extensions==4.15.0
     #   pytest-factoryboy
     #   python-docx
     #   python-pptx
+    #   referencing
     #   typing-inspection
 typing-inspection==0.4.2
     # via pydantic

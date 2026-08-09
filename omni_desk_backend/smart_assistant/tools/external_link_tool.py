@@ -8,16 +8,11 @@
 - SSO 信息按 sso_enabled 条件返回
 """
 
-from typing import TYPE_CHECKING
-
 from django.db.models import Q
 
 from external_integration.models import ExternalLink
 
 from .base import BaseTool
-
-if TYPE_CHECKING:
-    from .tool_context import ToolContext
 
 
 class ExternalLinkTool(BaseTool):

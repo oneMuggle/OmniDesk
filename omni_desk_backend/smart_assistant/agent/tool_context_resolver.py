@@ -11,6 +11,7 @@ risk_level 排序 / schema 结构校验)。
 后续若引入"按 user 组裁剪工具"等策略,只需在本文件内实现,
 orchestrator 不感知。
 """
+
 from __future__ import annotations
 
 from typing import Any

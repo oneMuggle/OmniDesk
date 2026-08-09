@@ -11,16 +11,12 @@
 """
 
 from datetime import date, timedelta
-from typing import TYPE_CHECKING
 
 from django.db.models import Case, IntegerField, Q, Value, When
 
 from compliance.models import ComplianceIssue
 
 from .base import BaseTool
-
-if TYPE_CHECKING:
-    from .tool_context import ToolContext
 
 # 按业务优先级定义 severity 排序:紧急 > 高 > 中 > 低
 # 不用字符串倒序是因为 CharField 的字典序与业务优先级不一致

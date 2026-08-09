@@ -26,7 +26,9 @@ class NewsTool(BaseTool):
             articles = qs.filter(title__icontains=keywords)[:limit]
         else:
             keywords = self._extract_keywords(query or "")
-            articles = NewsArticle.objects.filter(title__icontains=keywords).select_related("news_type", "personnel")[:10]
+            articles = NewsArticle.objects.filter(title__icontains=keywords).select_related("news_type", "personnel")[
+                :10
+            ]
 
         if not articles.exists():
             return {
@@ -65,8 +67,7 @@ class NewsTool(BaseTool):
             "function": {
                 "name": cls.intent_type,
                 "description": (
-                    "搜索新闻/通知文章,按标题模糊匹配。"
-                    "示例 query: '搜索关于春节的新闻'、'最近的培训通知'。"
+                    "搜索新闻/通知文章,按标题模糊匹配。示例 query: '搜索关于春节的新闻'、'最近的培训通知'。"
                 ),
                 "parameters": {
                     "type": "object",

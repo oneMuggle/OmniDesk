@@ -89,10 +89,7 @@ def _build_cache_key(
         带 ``smart_assistant:cache:`` 前缀的 sha256 摘要键
     """
     version = CACHE_VERSION if cache_version is None else cache_version
-    raw = (
-        f"{query}|{user_id}|{intent}|{tool_call_path}"
-        f"|{_settings_cache_version()}|v{version}"
-    )
+    raw = f"{query}|{user_id}|{intent}|{tool_call_path}|{_settings_cache_version()}|v{version}"
     return CACHE_PREFIX + hashlib.sha256(raw.encode()).hexdigest()[:32]  # nosec B324 — cache key, not security
 
 
