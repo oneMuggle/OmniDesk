@@ -2,7 +2,7 @@
 
 > 类似贾维斯的智能助手,通过聊天快速获取信息、知识库问答、文献搜索。
 >
-> 📅 **最近更新:2026-08-06** — 同步 2026-08 阶段 1 完工:智能助手 Office 文件附件能力(`chat/` 与 `chat/stream/` 支持 multipart 上传 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv,`OfficeExtractor` 统一抽取,新增 `OfficeReadTool` / `OfficeGenerateTool` / `SpreadsheetTool` 三个工具,生成 .docx 通过签名 token 下载卡片交付)。详见 §12。计划 18 个 commit 已合入 `feat/sa-office-files`。
+> 📅 **最近更新:2026-08-09** — L1.1 原生 Function Calling 加固:§13 新增流式原生 tool_calls(F2)、结构化参数透传(I-2);§2.10 Hook 表新增 ConfirmationHook 并修正接线现状(写工具确认 fail-open → fail-closed,I-1)。此前 2026-08-06 同步 2026-08 阶段 1 完工:智能助手 Office 文件附件能力(`chat/` 与 `chat/stream/` 支持 multipart 上传 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv,`OfficeExtractor` 统一抽取,新增 `OfficeReadTool` / `OfficeGenerateTool` / `SpreadsheetTool` 三个工具,生成 .docx 通过签名 token 下载卡片交付)。详见 §12。
 
 ## 1. 架构概览
 
@@ -287,15 +287,16 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 
 ### 2.10 Hook 系统(2026-07 新增)
 
-`hooks/builtin/` 内置 3 个 hook(借鉴 claw-code 设计):
+`hooks/builtin/` 内置 4 个 hook(借鉴 claw-code 设计):
 
 | Hook | 开关 | 默认 | 作用 |
 |------|------|------|------|
 | `AuditLogHook` | 无 | — | 工具输入/输出并入 `AgentLog.tool_input`(含 `risk_level`);destructive 额外 warning |
 | `PiiMaskingHook` | `SMART_ASSISTANT_PII_MASKING` | `True` | post_execute 递归脱敏工具输出(生成新容器,不可变);邮箱 → 身份证 → 手机号顺序匹配:手机号 `138****1234`(前 3 后 4)、身份证前 6 后 4、邮箱 local 保留前 3 位 |
 | `TimeoutGuardHook` | `SMART_ASSISTANT_TOOL_TIMEOUT`(秒)/ `SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED` | `10.0` / `True` | 钩子本身为配置入口 + 恢复策略;实际计时由 `run_guarded_sync`(daemon 线程 + `join(timeout)`)/ `run_guarded`(`asyncio.wait_for`)与 `BaseTool.execute_with_guard` 完成;超时返回 `{"found": False, "timed_out": True, "error": "tool_timeout", ...}`,`on_failure` 对 `TimeoutError` 返回 `RecoveryAction(action="fallback")` |
+| `ConfirmationHook` | 无 | — | **pre_execute**:对 `require_confirmation=True` 的写工具(office_generate / swap×2)返回 `Reject(error_code="confirmation_required")`,激活 orchestrator confirm-replay(dry_run → draft → awaiting_confirmation → 前端确认 → replay 视图执行)。2026-08-09 I-1 新增,写工具确认 fail-open → fail-closed |
 
-**接线现状(重要)**:`get_registry()` 返回**空注册表**,生产执行器(MultiAgentExecutor / ToolChainExecutor)未默认装载钩子链,`execute_with_guard` 目前仅测试引用——hook 均已实现并通过测试(`test_hooks_builtin.py`,592 行),接入生产链路需调用方显式注册(见 §9 遗留项)。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
+**接线现状(重要)**:`apps.ready()` 调用 `register_builtin_hooks()` 把 **PiiMaskingHook(POST_EXECUTE)+ TimeoutGuardHook(ON_FAILURE)+ ConfirmationHook(PRE_EXECUTE)** 注册进全局注册表(`get_registry()`),幂等(按 hook name 去重,`ready()` 多次调用不重复挂载)。生产执行器(orchestrator 单工具执行 / ToolChainExecutor 逐步执行)经 `execute_guarded` / `apply_pre_execute_hooks` 消费全局注册表。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
 
 ### 2.11 每日晨报(2026-07 新增)
 
@@ -480,7 +481,6 @@ CI 不依赖真实 LLM 的确定性 e2e 体系:
 |------|------|
 | 流式路径 `estimated_cost` 恒为 `None` | 流式调用暂无 usage 统计,成本核算仅覆盖同步路径 |
 | 数据集 CRUD 无前端页面 | 后端 `KnowledgeDatasetViewSet` 就绪,前端仍依赖 Django admin 或 API 直调 |
-| Hooks 未接入生产链路 | `get_registry()` 默认为空,MultiAgentExecutor / ToolChainExecutor 未装载钩子链;`execute_with_guard` 仅测试引用。hook 实现与测试完备,接线为后续工作 |
 | 多 Agent intervene 不支持「补充指令」 | 当前介入动作仅 `pause` / `resume` / `cancel`;如需向运行中任务注入指令,需后端扩展 intervene 端点 |
 | Mock LLM 覆盖范围 | 仅模拟 OpenAI 兼容端点,未覆盖 tool-calls 路径与 Ollama 正向输出对比 |
 
@@ -714,10 +714,12 @@ def post(self, request):
 - **Win7 兼容**: 下载卡片用 `URL.createObjectURL` + `<a download>`,AntD 5 现有能力
 
 
-## 13. 原生 Function Calling(L1,2026-08-06 实施)
+## 13. 原生 Function Calling(L1,2026-08-06 实施;L1.1 加固,2026-08-09)
 
 智能助手的 LLM router 现已支持 OpenAI 兼容协议的原生 tool_calls / tool_choice。
-实现细节见 `docs/superpowers/specs/2026-08-06-native-function-calling-design.md`。
+实现细节见 `docs/superpowers/specs/2026-08-06-native-function-calling-design.md`;
+L1.1 加固(流式原生 tool_calls / 结构化参数透传 / 写工具确认)见
+`docs/superpowers/specs/2026-08-09-native-function-calling-hardening-design.md`。
 
 ### 13.1 协议支持
 
@@ -730,9 +732,13 @@ def post(self, request):
 - 最多 3 轮,3 轮后强制 `tool_choice="none"` 让 LLM 给出最终回答
 - 工具调用错误分 4 类:invalid_arguments / tool_unavailable_for_user / tool_timeout / execution_failed
 - LLM 通常会自动重选工具
-- 工具参数由 LLM 给出 dict,经 `_dict_to_query()` 统一拆包为 `execute()` 期望的
-  query 字符串后再执行(F1 修复),保证 memo/document/project/sensor/news 等
-  18 个工具在原生路径下行为与 JSON 路径一致
+- **L1.1(I-2)**:工具参数由 LLM 给出完整 validated dict,经 `_execute_native_tool()`
+  **整体透传**给 `execute_guarded(tool, params=validated, ...)`;`query` 仍由
+  `_dict_to_query()` 提取供确认/审计/日志/回退用,但结构化字段(date_from /
+  chunk_index / department / status / is_completed / limit / target_date …)不再丢失,
+  Tier 1 工具显式消费(排班日期范围 / office_read 切片 / personnel 部门与在职状态 /
+  memo 完成态 / 条数上限 / event 与 meeting_room 目标日期)。缺失时回退现有 query
+  解析,零回归(行为与 JSON 路径一致)
 
 ### 13.3 决策日志
 
@@ -750,7 +756,8 @@ def post(self, request):
 
 - 默认:仅 `is_staff=True` 用户启用新路径(无用户上下文的内部调用同样走 JSON)
 - 验证 1 周后,通过 settings `USE_NATIVE_TOOL_CALLS_FOR_ALL=True` 全员开放
-- 单次调用可用 `process(use_native_tool_calls=True/False)` kwarg 强制覆盖路由
+- 单次调用可用 `process(use_native_tool_calls=True/False)` / `process_stream(...)`
+  kwarg 强制覆盖路由
 
 ### 13.5 相关配置
 
@@ -760,6 +767,24 @@ def post(self, request):
 | `MAX_TOOL_CALLS_ROUNDS` | `3` | 单次 agent 调用最大工具轮数 |
 | `TOOL_CALLS_TIMEOUT_SECONDS` | `30` | 单次工具调用超时(秒) |
 | `USE_NATIVE_TOOL_CALLS_FOR_ALL` | `false` | L1 灰度:置 `true` 全员开放原生路径 |
+
+### 13.6 流式原生 tool_calls(L1.1 F2,2026-08-09)
+
+`process_stream()` 现支持原生 tool_calls 流式分支,与 `process()` 对称:
+
+- **门控一致**:`USE_NATIVE_TOOL_CALLS` + endpoint 能力 + staff(或 FOR_ALL 开关);
+  原生分支异常 → 降级到现有 intent 流程(不抛给视图层)
+- **缓冲工具轮**:`_run_tool_calls_rounds()` 复用非流式工具轮(最多 3 轮,scope-aware +
+  完整 hook 链 + confirm-replay + I-2 透传),首轮无 tool_calls 时直接单 chunk 输出
+- **流式最终轮**:工具轮实际执行过后,用 `router.generate(messages=final_messages,
+  stream=True)` 重生成,逐 chunk yield —— 真打字动画(仅当工具轮执行过才重生成,
+  无工具轮零额外成本)
+- **确认透传**:写工具命中 `Reject(confirmation_required)` → dry_run → draft → yield
+  `awaiting_confirmation + confirmation_token` 事件 → 前端确认后 replay 视图执行
+- **SSE 契约**:非确认场景先发 meta(前端依赖 `types[0]=="meta"`),再 chunk,最后
+  done(`error=is_failed_answer`),与现有流式契约一致
+- **跳过 intent 路由**:原生开启时跳过 `classify_intent` 单工具路由 + `tool_chain` 检测
+  (aggregated_day 仍走非原生路径)
 
 
 ## 10. 相关文档

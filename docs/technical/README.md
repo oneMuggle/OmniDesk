@@ -28,7 +28,7 @@
 | 13 | [新闻系统](13-news-system.md) | 新闻发布与管理模块 |
 | 14 | [项目与合规](14-project-compliance.md) | 项目管理、合规追踪模块 |
 | 15 | [用户交流模块](15-communication-module.md) | ⚠️ 前端未实现，仅后端 API |
-| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手架构、13 工具、输出契约、Hooks、doctor 自检、晨报、会话 fork/导出、Office 文件附件能力（2026-08 阶段 1 已上线） |
+| 16 | [智能助手系统](16-smart-assistant.md) | 智能助手架构、13 工具、输出契约、Hooks、doctor 自检、晨报、会话 fork/导出、Office 文件附件能力（2026-08 阶段 1）、原生 Function Calling（L1 + L1.1 加固:流式 tool_calls / 结构化参数 / 写工具确认） |
 | 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 多轮对话、工具链、模型降级、成本监控 |
 | 18 | [外部集成架构](18-external-integration.md) | 🔄 进行中 |
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
@@ -74,4 +74,4 @@
 - 进行中的计划保留在项目根目录 `docs/plans/` 中
 - 过时文档立即删除，不得保留历史版本
 
-> 📅 最近更新:2026-08-06 — 第 16 章 §12 新增"Office 文件附件能力",归档 2026-08 阶段 1(智能助手 chat 支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv 上传 + OfficeExtractor 抽取 + OfficeRead/OfficeGenerate/Spreadsheet 三件套 + 下载卡片),共 18 个 commit 已合入 `feat/sa-office-files`。原计划文档 `docs/superpowers/plans/2026-08-05-sa-office-files.md` 按项目规范"功能完成后归入技术手册并删除计划文档"被清理。同步移除已完成的 2026-07-28 增强轮次计划链接。
+> 📅 最近更新:2026-08-09 — 第 16 章同步 L1.1 原生 Function Calling 加固(流式原生 tool_calls / 结构化参数透传 / 写工具确认 ConfirmationHook),§13 新增 §13.6 小节、§2.10 Hook 表新增 ConfirmationHook 并修正接线现状;2026-08-06 曾归档 2026-08 阶段 1(智能助手 chat 支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv 上传 + OfficeExtractor 抽取 + OfficeRead/OfficeGenerate/Spreadsheet 三件套 + 下载卡片)。

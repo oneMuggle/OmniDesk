@@ -2,7 +2,7 @@
 
 > 📅 **日期**:2026-08-09
 > **作者**:AI 中台规划(L1 final review 遗留项 + streaming 目标行为)
-> **状态**:✅ 已批准,待编写实施计划
+> **状态**:✅ 已实施(2026-08-09)
 > **优先级**:P0(L1 遗留 3 子项:流式 / 结构化参数 / 确认 hook)
 > **预计工时**:1-1.5 周
 
@@ -313,3 +313,13 @@ aggregated_day 迁入原生、Tier 2 全部字段一次性消费。
 - L1 实施:`docs/superpowers/plans/2026-08-06-native-function-calling.md`
 - L1 final review / fix wave:`.superpowers/sdd/2026-08-06-native-function-calling/`
 - 本文档的 spec 自检 + 用户审阅通过后,调用 writing-plans 进入实施计划
+
+## 11. 实施记录(2026-08-09)
+
+> L1.1 加固已按本 spec 落地(6 个 Task 全部完成)。以下为实施中与 spec 原文的偏离点,便于追溯。
+
+1. **F2**:`_process_stream_tool_calls_path` 非确认场景补充先发 meta 事件(否则破坏既有 SSE 契约 `types[0]=="meta"`,前端依赖首个事件为 meta 渲染意图/工具)。spec §3.2 步骤 5 未显式要求首帧 meta,实现按现有流式契约补足,与 confirm-replay 分支的 meta(`intent="tool_call"`)保持一致;JSON 降级时透传其 intent 供前端展示。
+2. **I-2**:personnel `status` 模型存 code(`active`/`inactive`),而 LLM schema 暴露的是中文枚举(在职/离职)。实现加"中文 label → code"映射回退(`label_to_code = {label: code for code, label in Personnel.STATUS_CHOICES}`),否则中文值直接过滤查不到任何记录。spec §4.3 Tier 1 表未提此映射细节。
+3. **I-2**:event / meeting_room 的 `target_date` 按各自实际模型驱动 —— `event_query` 用 `duty_date` 过滤(Schedule 模型),`meeting_room_query` 用预订窗口计算可用性(Booking 模型),而非统一按 spec 的"目标日期过滤"表述。同时修复了此前结构化 `target_date` 被 `_dict_to_query` 捕获但从未生效的 bug(L1 遗留,spec 未单列)。
+4. **I-1**:ConfirmationHook 全局注册后,MagicMock 工具测试(`test_hooks_wiring` / `test_orchestrator` / `test_hooks_builtin`)中 `require_confirmation` 隐式恒真 → mock 工具显式补 `require_confirmation=False` 适配;`test_hooks_builtin` 的 builtin 导出断言纳入新钩子。这是对 spec §5.3"注册表隔离可测"的落地细节补充。
+5. **附**:全量回归通过 —— 后端 2307 passed / 0 failed(coverage 91.76%,≥80%),前端 509 passed / 0 failed(首轮全量跑曾出现 1 例 timing-flaky 的 `SmartChatPage.feedback` waitFor 超时,该测试与本分支无关且隔离重跑通过;复查全量 0 failed)。
