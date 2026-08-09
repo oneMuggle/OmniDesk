@@ -925,6 +925,97 @@ class AgentOrchestrator:
             "tool_call_path": "native",
         }, llm_messages
 
+    def _process_stream_tool_calls_path(
+        self,
+        *,
+        query: str,
+        context,
+        llm_messages: list,
+    ):
+        """F2: 原生 tool_calls 流式路径(缓冲工具轮 + 流式最终轮)。
+
+        - 复用 ``_run_tool_calls_rounds``(与 ``_process_tool_calls_path`` 对称);
+        - confirm-replay → yield awaiting_confirmation + confirmation_token;
+        - 无工具轮(rounds==0,含 JSON 降级)→ 单 chunk 输出缓冲 content;
+        - 有工具轮(rounds>0)→ ``router.generate(messages=tool_round_messages,
+          stream=True)`` 重生成流式最终答案(真打字动画)。
+        """
+        try:
+            content, usage, meta, tool_round_messages = self._run_tool_calls_rounds(
+                query=query, context=context, llm_messages=llm_messages
+            )
+        except Exception as exc:
+            content = f"回答生成失败: {exc}"
+            meta = {"tool_call_path": "native", "tool_calls_rounds": 0}
+            tool_round_messages = llm_messages
+
+        # confirm-replay:立即透传给前端,不走最终轮
+        if meta.get("awaiting_confirmation"):
+            tool_calls_meta = meta.get("tool_calls_meta", [])
+            tool_used = tool_calls_meta[-1].get("tool", "") if tool_calls_meta else ""
+            draft = meta.get("draft", {})
+            yield sse_event(
+                {
+                    "type": "meta",
+                    "intent": "tool_call",
+                    "tool_used": tool_used,
+                    "tool_result": {"draft": draft},
+                }
+            )
+            yield sse_event(
+                {
+                    "type": "confirmation",
+                    "awaiting_confirmation": True,
+                    "confirmation_token": meta["confirmation_token"],
+                    "draft": draft,
+                    "answer": content or "请确认以下操作",
+                }
+            )
+            yield sse_event({"type": "done", "error": False, "awaiting_confirmation": True})
+            return
+
+        # 输出契约:非确认场景先发 meta(前端依赖首个事件为 meta 渲染意图/工具)。
+        # 与 confirm-replay 分支的 meta(intent="tool_call") 保持一致;JSON 降级
+        # 时透传其 intent,便于前端展示。
+        tool_calls_meta = meta.get("tool_calls_meta") or []
+        tool_used = (
+            tool_calls_meta[0].get("tool")
+            if tool_calls_meta and isinstance(tool_calls_meta[0], dict)
+            else None
+        )
+        yield sse_event(
+            {
+                "type": "meta",
+                "intent": meta.get("intent", "tool_call"),
+                "tool_used": tool_used,
+                "tool_result": None,
+            }
+        )
+
+        rounds = meta.get("tool_calls_rounds", 0)
+        if rounds > 0:
+            # 流式最终轮:重生成(真打字动画)。tool_round_messages 以工具结果
+            # 收尾,LLM 基于工具结果产出最终自然语言答案。
+            stream_parts = []
+            try:
+                stream = self.router.generate(messages=tool_round_messages, stream=True)
+                for chunk in stream:
+                    stream_parts.append(chunk)
+                    yield sse_event({"type": "chunk", "content": chunk})
+            except Exception as exc:
+                stream_parts = [content or f"回答生成失败: {exc}"]
+                yield sse_event({"type": "chunk", "content": stream_parts[0]})
+            full_answer = "".join(stream_parts)
+        else:
+            # 首轮即无 tool_calls / JSON 降级:直接输出缓冲 content 单 chunk
+            full_answer = content or ""
+            yield sse_event({"type": "chunk", "content": full_answer})
+
+        done = {"type": "done", "finish_reason": "stop", "error": is_failed_answer(full_answer)}
+        if done["error"]:
+            annotate_error_kind(done, full_answer)
+        yield sse_event(done)
+
     def _process_json_path(
         self,
         *,
@@ -1099,7 +1190,13 @@ class AgentOrchestrator:
             "error": is_failed_answer(answer),
         }
 
-    def process_stream(self, user_query: str, conversation_history: list = None, tool_context=None):
+    def process_stream(
+        self,
+        user_query: str,
+        conversation_history: list = None,
+        tool_context=None,
+        use_native_tool_calls: bool | None = None,
+    ):
         """流式处理:先发送元数据,再逐 chunk 发送 LLM 输出。
 
         Task 17 修复:在执行单工具路径前,先调用 ``generate_tool_chain_plan()``
@@ -1144,6 +1241,49 @@ class AgentOrchestrator:
                     annotate_error_kind(done, cached_answer)
                 yield sse_event(done)
                 return
+
+        # === F2 原生 tool_calls 流式分支(L1.1,2026-08-09) ===
+        # 门控与 process() 对称:USE_NATIVE_TOOL_CALLS + 端点能力 + staff/FOR_ALL
+        if use_native_tool_calls is None:
+            try:
+                user_is_staff = bool(
+                    tool_context is not None
+                    and getattr(tool_context, "user", None) is not None
+                    and bool(getattr(tool_context.user, "is_staff", False))
+                )
+                use_native = (
+                    bool(getattr(settings, "USE_NATIVE_TOOL_CALLS", False))
+                    and self._endpoint_supports_tool_calls()
+                    and (
+                        user_is_staff
+                        or bool(getattr(settings, "USE_NATIVE_TOOL_CALLS_FOR_ALL", False))
+                    )
+                )
+            except Exception:
+                logger.warning("原生流式门控检查失败,走 intent 流程", exc_info=True)
+                use_native = False
+        else:
+            use_native = bool(use_native_tool_calls)
+
+        if use_native:
+            from smart_assistant.tools.tool_context import ToolContext
+            if tool_context is None:
+                tool_context = ToolContext(user=None)
+            llm_messages = self._build_initial_messages(
+                user_query, tool_context, conversation_history
+            )
+            try:
+                yield from self._process_stream_tool_calls_path(
+                    query=user_query, context=tool_context, llm_messages=llm_messages
+                )
+            except Exception as exc:
+                # 兜底:原生流式内部未收口的异常 → 输出失败回答,不崩溃
+                logger.warning("原生流式路径异常: %s", exc, exc_info=True)
+                yield sse_event({"type": "chunk", "content": f"回答生成失败: {exc}"})
+                done = {"type": "done", "finish_reason": "stop", "error": True}
+                annotate_error_kind(done, f"回答生成失败: {exc}")
+                yield sse_event(done)
+            return
 
         # Step 1.5 (Task 17): 检测多工具链式执行
         # 与 process() 对称:命中多工具计划时,先走 _process_chain() 拿到
