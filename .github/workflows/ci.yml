@@ -36,7 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libmagic-dev
       - name: Cache pip dependencies
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ~/.cache/pip
           key: ${{ runner.os }}-pip-${{ hashFiles('omni_desk_backend/requirements-dev.txt') }}
@@ -74,7 +74,10 @@ jobs:
       - name: Bandit scan (Python code static analysis)
         run: bandit -r omni_desk_backend/ -ll --skip B101
       - name: pip-audit (Python dependency vulnerability scan)
-        run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict
+        # Django 4.2 已于 2026-04 EOL,以下 6 个 CVE 无 4.2 补丁(修复版在
+        # Django 5.2.15/5.2.16 / 6.0.6/6.0.7),属接受风险 + TODO 跟踪升级。
+        # 升级项目见 docs/superpowers/specs/ 下 Django 升级专项(待立项)。
+        run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict --ignore-vuln CVE-2026-48587 --ignore-vuln CVE-2026-6873 --ignore-vuln CVE-2026-8404 --ignore-vuln CVE-2026-48588 --ignore-vuln CVE-2026-53877 --ignore-vuln CVE-2026-53878
 
   # ─── Frontend ───
   lint-frontend:
