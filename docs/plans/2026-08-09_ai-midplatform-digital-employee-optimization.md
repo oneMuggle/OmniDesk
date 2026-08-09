@@ -1,7 +1,7 @@
 # OmniDesk 功能优化建议方案：迈向「AI 中台 + 数字员工」的桌面办公系统
 
 > 日期：2026-08-09
-> 状态：⏳ 草案（待评审确认）
+> 状态：🔄 Phase 0（修复断链）已完成，Phase 1+ 待启动
 > 调研依据：对 `omni_desk_backend/`、`omni_desk_frontend/src/`、`docs/technical/`、`docs/plans/` 的全量走查 + git 进度核实（PR #127/#174/#175/#176/#178）
 
 ---
@@ -147,12 +147,12 @@
 ## 四、实施步骤（分阶段里程碑）
 
 ### Phase 0 — 修复断链（P0-1 ~ P0-6）
-- [x] P0-1 换班写工具 LLM 接线 + 意图/关键词补齐
-- [ ] P0-2 备忘录到期提醒任务
-- [ ] P0-3 QuickCommands 接入聊天页
-- [ ] P0-4 修复死链与断头路由（projects/documents/compliance）
-- [ ] P0-5 菜单单一数据源统一
-- [ ] P0-6 communication 过期自动归档
+- [x] P0-1 换班写工具 LLM 接线 + 意图/关键词补齐（fix/sa-swap-extractor-wiring）
+- [x] P0-2 备忘录到期提醒任务（feat/backend-beat-automation）
+- [x] P0-3 QuickCommands 接入聊天页（fix/frontend-broken-links）
+- [x] P0-4 修复死链与断头路由（projects/documents/compliance）（fix/frontend-broken-links）
+- [x] P0-5 菜单单一数据源统一（fix/frontend-broken-links）
+- [x] P0-6 communication 过期自动归档（feat/backend-beat-automation）
 
 **里程碑验收**：换班写工具端到端可用（自然语言发起→确认→落库）；侧边栏所有入口可达；孤儿组件接线。
 
