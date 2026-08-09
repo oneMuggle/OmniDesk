@@ -669,21 +669,44 @@ class AgentOrchestrator:
         context,
         llm_messages: list,
     ) -> tuple[str, dict, dict]:
-        """原生 tool_calls 主循环(spec §3.4)。
+        """原生 tool_calls 主循环(非流式,spec §3.4)。
+
+        委托 ``_run_tool_calls_rounds`` 完成工具轮,取其 ``content`` 返回。
+        流式路径(``_process_stream_tool_calls_path``)复用同一工具轮,再做
+        流式最终轮。对外行为与 L1 完全一致。
+        """
+        content, usage, meta, _tool_round_messages = self._run_tool_calls_rounds(
+            query=query, context=context, llm_messages=llm_messages
+        )
+        return content, usage, meta
+
+    def _run_tool_calls_rounds(
+        self,
+        *,
+        query: str,
+        context,
+        llm_messages: list,
+    ) -> tuple[str, dict, dict, list]:
+        """原生 tool_calls 工具轮(F2 抽取,2026-08-09)。
 
         - 最多 ``settings.MAX_TOOL_CALLS_ROUNDS`` 轮(默认 3);
-        - 每轮调 ``router.generate_with_tools(messages, tools, tool_choice='auto')``;
+        - 每轮 ``router.generate_with_tools(messages, tools, tool_choice='auto')``;
         - 工具错误 4 类:
             * invalid_arguments(JSON 不合法 / schema 校验失败)
             * tool_unavailable_for_user(get_tool_for_user 返回 None)
             * tool_timeout(execute_with_guard 抛 TimeoutError;归类为 execution_failed)
             * execution_failed(任意其他异常)
-        - 3 轮后强制 ``tool_choice="none"`` 兜底,LLM 必须给自然语言回答。
+        - 3 轮后强制 ``tool_choice="none"``;
+        - confirm-replay 工具提前返回 awaiting_confirmation。
 
         返回:
-            ``(content, usage, meta)`` 三元组。meta 含 ``tool_calls_meta`` /
-            ``tool_calls_rounds`` / ``tool_call_path='native'``,供持久化到
-            AgentLog(tool_calls_meta / tool_calls_rounds / tool_call_path 字段)。
+            ``(content, usage, meta, tool_round_messages)``
+            - content: 最终答案文本(confirm-replay 时为 draft summary;
+              JSON 降级时为 JSON 路径答案)
+            - meta: 含 tool_calls_meta / tool_calls_rounds / tool_call_path,
+              confirm-replay 时含 awaiting_confirmation / confirmation_token / draft
+            - tool_round_messages: 工具结果已 append、未含最终答案轮的
+              messages(供流式最终轮复用)
         """
         from smart_assistant.agent.tool_context_resolver import resolve_tools_for_user
 
@@ -705,17 +728,19 @@ class AgentOrchestrator:
                 logger.warning(
                     "generate_with_tools 异常,降级到 _process_json_path: %s", exc, exc_info=True
                 )
-                return self._process_json_path(
+                content, usage, meta = self._process_json_path(
                     query=query, context=context, llm_messages=llm_messages
                 )
+                return content, usage, meta, llm_messages
 
             if not tool_calls:
-                # LLM 主动选择不调工具,直接返回 content
+                # LLM 主动选择不调工具,直接返回 content;llm_messages 为
+                # 工具轮状态(未含本轮 content),供流式最终轮复用。
                 return content, usage, {
                     "tool_calls_meta": tool_calls_meta,
                     "tool_calls_rounds": rounds,
                     "tool_call_path": "native",
-                }
+                }, llm_messages
 
             rounds += 1
             tool_results = []
@@ -858,6 +883,7 @@ class AgentOrchestrator:
                             "confirmation_token": confirmation["token"],
                             "draft": draft,
                         },
+                        llm_messages,
                     )
 
                 duration_ms = int((time.monotonic() - t0) * 1000)
@@ -897,7 +923,7 @@ class AgentOrchestrator:
             "tool_calls_meta": tool_calls_meta,
             "tool_calls_rounds": rounds,
             "tool_call_path": "native",
-        }
+        }, llm_messages
 
     def _process_json_path(
         self,
