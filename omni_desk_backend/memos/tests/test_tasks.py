@@ -118,3 +118,39 @@ class TestRescheduleResetsReminderSent:
         assert serializer.is_valid(), serializer.errors
         updated = serializer.save()
         assert updated.reminder_sent is True
+
+
+class TestMigrationBackfill:
+    """迁移 0004 回填逻辑(评审 M-3):防首次部署对历史过期备忘补发提醒风暴."""
+
+    def test_backfill_marks_expired_memos_sent(self, user):
+        """存量已过期备忘被回填 reminder_sent=True,未到期的不受影响"""
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module("memos.migrations.0004_memo_reminder_sent")
+
+        expired = _make_memo(user, timezone.now() - timedelta(days=30), title="历史过期")
+        future = _make_memo(user, timezone.now() + timedelta(days=1), title="未来")
+        assert expired.reminder_sent is False
+        assert future.reminder_sent is False
+
+        migration.backfill_reminder_sent(apps, None)
+
+        expired.refresh_from_db()
+        future.refresh_from_db()
+        assert expired.reminder_sent is True
+        assert future.reminder_sent is False
+
+    def test_backfill_idempotent(self, user):
+        """重复执行回填无副作用"""
+        import importlib
+
+        from django.apps import apps
+
+        migration = importlib.import_module("memos.migrations.0004_memo_reminder_sent")
+        _make_memo(user, timezone.now() - timedelta(days=1))
+        migration.backfill_reminder_sent(apps, None)
+        migration.backfill_reminder_sent(apps, None)
+        assert Memo.objects.filter(reminder_sent=True).count() == 1
