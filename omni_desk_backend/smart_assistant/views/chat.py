@@ -456,6 +456,12 @@ class SmartChatViewSet(viewsets.ViewSet):
                 # 流式路径暂无 usage 统计，成本留空
                 estimated_cost=None,
                 tool_success=False if error else (meta.get("tool_fallback") is not True),
+                # L1.1 fix(最终 review):流式原生路径决策日志落库,与非流式
+                # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
+                # (非原生 intent 流程),保持既有审计行为
+                tool_call_path=meta.get("tool_call_path") or "intent",
+                tool_calls_meta=meta.get("tool_calls_meta") or [],
+                tool_calls_rounds=meta.get("tool_calls_rounds") or 0,
             )
 
             # 输出契约：session 事件携带 format_version；失败时追加 kind + hint

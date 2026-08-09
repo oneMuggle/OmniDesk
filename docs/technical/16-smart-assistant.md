@@ -773,7 +773,8 @@ L1.1 加固(流式原生 tool_calls / 结构化参数透传 / 写工具确认)�
 `process_stream()` 现支持原生 tool_calls 流式分支,与 `process()` 对称:
 
 - **门控一致**:`USE_NATIVE_TOOL_CALLS` + endpoint 能力 + staff(或 FOR_ALL 开关);
-  原生分支异常 → 降级到现有 intent 流程(不抛给视图层)
+  原生分支外层异常 → 输出失败回答 + kind/hint(不抛给视图层、不回退 intent);
+  工具轮内 `generate_with_tools` 异常 → 降级到 JSON 路径(回答质量对等)
 - **缓冲工具轮**:`_run_tool_calls_rounds()` 复用非流式工具轮(最多 3 轮,scope-aware +
   完整 hook 链 + confirm-replay + I-2 透传),首轮无 tool_calls 时直接单 chunk 输出
 - **流式最终轮**:工具轮实际执行过后,用 `router.generate(messages=final_messages,
@@ -783,8 +784,13 @@ L1.1 加固(流式原生 tool_calls / 结构化参数透传 / 写工具确认)�
   `awaiting_confirmation + confirmation_token` 事件 → 前端确认后 replay 视图执行
 - **SSE 契约**:非确认场景先发 meta(前端依赖 `types[0]=="meta"`),再 chunk,最后
   done(`error=is_failed_answer`),与现有流式契约一致
-- **跳过 intent 路由**:原生开启时跳过 `classify_intent` 单工具路由 + `tool_chain` 检测
-  (aggregated_day 仍走非原生路径)
+- **跳过 intent 单工具路由 + tool_chain 检测**:原生开启时跳过 `classify_intent`
+  结果驱动的单工具路由与 `generate_tool_chain_plan` 检测(aggregated_day 仍走非原生
+  路径);无历史时 `classify_intent` 仍作为回答缓存键执行
+- **确认边界(仅单工具路径)**:写工具二次确认(ConfirmationHook)只保证**单工具路径**
+  (native/JSON/intent 单工具);多工具链路径(`tool_chain_executor` 只走 `execute_guarded`
+  超时守卫,不接 `apply_pre_execute_hooks`)暂不拦截 —— 链式计划不应包含写工具
+  (aggregated_day 等均为只读聚合),LLM 生成的多工具 plan 默认无写工具场景
 
 
 ## 10. 相关文档

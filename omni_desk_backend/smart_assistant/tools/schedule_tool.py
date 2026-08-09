@@ -46,6 +46,10 @@ class ScheduleTool(BaseTool):
                     elif params.get("date") == "后天":
                         target_date = (timezone.now() + timedelta(days=2)).date()
                 schedules = qs.filter(duty_date=target_date)
+                # fix(最终 review):纯人员查询(如"张三值班",params 只有
+                # personnel_name、无日期范围)同样应用人员过滤,否则静默丢过滤
+                if personnel_name:
+                    schedules = schedules.filter(duty_person__name=personnel_name)
                 range_date = str(target_date)
             results = [
                 {

@@ -136,3 +136,45 @@ def test_news_limit_respected():
     qs.__getitem__ = spy_getitem
     tool.execute(params={"query": "新闻", "limit": 3}, scope="GLOBAL", qs=base_qs)
     assert any(getattr(s, "stop", None) == 3 for s in slices)
+
+
+@pytest.mark.django_db
+def test_event_uses_structured_target_date():
+    """event 消费结构化 target_date → 按该日期过滤(而非默认今天)。"""
+    from datetime import date as _date
+    from smart_assistant.tools.event_tool import EventTool
+    tool = EventTool()
+    base_qs = MagicMock()
+    qs = base_qs.filter.return_value
+    tool.execute(
+        params={"query": "排班", "target_date": "2026-08-20"},
+        scope="GLOBAL", qs=base_qs,
+    )
+    assert base_qs.filter.called
+    call_kwargs = base_qs.filter.call_args.kwargs
+    assert call_kwargs.get("duty_date") == _date(2026, 8, 20)
+    assert "duty_date" in call_kwargs
+
+
+@pytest.mark.django_db
+def test_meeting_room_uses_structured_target_date():
+    """meeting_room 消费结构化 target_date → 预订窗口按该日期开闭区间。"""
+    from datetime import date as _date
+    from smart_assistant.tools.meeting_room_tool import MeetingRoomTool
+    tool = MeetingRoomTool()
+    base_qs = MagicMock()
+    rooms = base_qs.__getitem__.return_value
+    rooms.exists.return_value = True  # 避免 found:False 短路
+    bookings_qs = MagicMock()
+    with patch(
+        "smart_assistant.tools.meeting_room_tool.MeetingRoomBooking.objects.filter",
+        return_value=bookings_qs,
+    ) as mock_filter:
+        tool.execute(
+            params={"query": "会议室", "target_date": "2026-08-20"},
+            scope="GLOBAL", qs=base_qs,
+        )
+    assert mock_filter.called
+    call_kwargs = mock_filter.call_args.kwargs
+    assert call_kwargs["start_time__gte"].date() == _date(2026, 8, 20)
+    assert call_kwargs["start_time__lte"].date() == _date(2026, 8, 20)

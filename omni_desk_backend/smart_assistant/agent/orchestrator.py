@@ -960,6 +960,11 @@ class AgentOrchestrator:
                     "intent": "tool_call",
                     "tool_used": tool_used,
                     "tool_result": {"draft": draft},
+                    # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
+                    # (spec §3.2 步骤 6 承诺 tool_call_path/tool_calls_meta/tool_calls_rounds)
+                    "tool_call_path": meta.get("tool_call_path", "native"),
+                    "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                    "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
                 }
             )
             yield sse_event(
@@ -989,6 +994,10 @@ class AgentOrchestrator:
                 "intent": meta.get("intent", "tool_call"),
                 "tool_used": tool_used,
                 "tool_result": None,
+                # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
+                "tool_call_path": meta.get("tool_call_path", "native"),
+                "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
             }
         )
 

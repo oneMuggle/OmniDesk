@@ -102,7 +102,8 @@ use_native = (
 
 - `process_stream()` 入口新增同一段门控;`use_native=True` 走原生流式分支
 - 无用户上下文(内部调用)按非 staff 处理 → 走现有 intent 路由
-- 原生分支异常 → 降级到现有 intent 流程(不抛给视图层)
+- 原生分支外层异常 → 输出失败回答 + kind/hint(不抛给视图层、不回退 intent);
+  工具轮内 `generate_with_tools` 异常 → 降级到 JSON 路径(回答质量对等)
 
 ### 3.2 原生流式路径流程
 
@@ -152,7 +153,7 @@ use_native = (
 | `generate_tool_chain_plan` / `_process_chain` | **跳过** | 保留(aggregated_day 卡片) |
 | confirm-replay | ✅(经 ConfirmationHook + 现有拦截) | ✅ |
 | scope-aware + hook 链 | ✅(复用 `_execute_native_tool`) | ✅ |
-| 端点降级 | ✅(`generate_with_tools` 异常 → intent 流程) | ✅ |
+| 端点降级 | ✅(`generate_with_tools` 异常 → JSON 路径) | ✅ |
 
 ## 4. I-2 设计(结构化字段透传)
 
@@ -283,7 +284,8 @@ awaiting_confirmation + confirmation_token → 前端二次确认 → replay 视
 | 失败场景 | 行为 | 用户感知 |
 |---|---|---|
 | 端点不支持 tool_calls / 开关关 | 原生分支不进入 → intent 流程 | 无感知 |
-| 原生分支异常 | 降级到现有 intent 流程(与 process() 对称) | 无感知 |
+| 原生分支外层异常 | 输出失败回答 + kind/hint(不抛给视图层、不回退 intent) | 失败回答 + kind/hint |
+| 工具轮内 `generate_with_tools` 异常 | 降级到 JSON 路径(回答质量对等) | 无感知 |
 | 工具轮 3 轮后 LLM 仍调工具 | 强制 tool_choice="none" | LLM 给基于已有结果的回答 |
 | 最终流式轮失败 | 流式错误文案 + kind/hint(与现有流式一致) | 失败回答 + kind/hint |
 | 写工具无确认触发 | 不执行(ConfirmationHook Reject) | awaiting_confirmation 事件 |
@@ -323,3 +325,5 @@ aggregated_day 迁入原生、Tier 2 全部字段一次性消费。
 3. **I-2**:event / meeting_room 的 `target_date` 按各自实际模型驱动 —— `event_query` 用 `duty_date` 过滤(Schedule 模型),`meeting_room_query` 用预订窗口计算可用性(Booking 模型),而非统一按 spec 的"目标日期过滤"表述。同时修复了此前结构化 `target_date` 被 `_dict_to_query` 捕获但从未生效的 bug(L1 遗留,spec 未单列)。
 4. **I-1**:ConfirmationHook 全局注册后,MagicMock 工具测试(`test_hooks_wiring` / `test_orchestrator` / `test_hooks_builtin`)中 `require_confirmation` 隐式恒真 → mock 工具显式补 `require_confirmation=False` 适配;`test_hooks_builtin` 的 builtin 导出断言纳入新钩子。这是对 spec §5.3"注册表隔离可测"的落地细节补充。
 5. **附**:全量回归通过 —— 后端 2307 passed / 0 failed(coverage 91.76%,≥80%),前端 509 passed / 0 failed(首轮全量跑曾出现 1 例 timing-flaky 的 `SmartChatPage.feedback` waitFor 超时,该测试与本分支无关且隔离重跑通过;复查全量 0 failed)。
+6. **最终 review fix wave(2026-08-09)**:流式原生路径此前未把 `tool_call_path/tool_calls_meta/tool_calls_rounds` 写入 AgentLog(spec §3.2 步骤 6 承诺,但视图层只落 intent/tool_used/tool_input/tool_output)。修复:`_process_stream_tool_calls_path` 的 meta 事件(confirm-replay 分支与普通分支)透传三字段,流式视图 `chat.py` 的 AgentLog.create 落库(缺省 `tool_call_path="intent"`),与非流式 create 一致。同时校正本 spec §3.1/§3.3/§7 的错误处理表述:原生分支**外层异常**是输出失败回答(不抛给视图层、不回退 intent),工具轮内 `generate_with_tools` 异常才降级 JSON 路径;`classify_intent` 仍作为无历史时的回答缓存键执行,真正跳过的是 intent 单工具路由 + tool_chain 检测。
+7. **确认边界(既有,spec §1.4"复用不重写")**:写工具二次确认(ConfirmationHook)仅保证**单工具路径**(native/JSON/intent 单工具);多工具链路径 `tool_chain_executor`(`tool_chain_executor.py:346/456`)只走 `execute_guarded` 超时守卫,不接 `apply_pre_execute_hooks` —— LLM 生成的链式 plan 若含写工具(office_generate/swap×2)会无确认执行。本 fix wave **不改 chain executor 代码**(既有边界,spec §1.4 声明不重写),仅文档化约束:链式计划不应包含写工具(aggregated_day 等均为只读聚合)。
