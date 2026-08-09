@@ -3,24 +3,11 @@ import PropTypes from 'prop-types';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import {
-  AppstoreOutlined,
-  BellOutlined,
-  CalendarOutlined,
-  ClusterOutlined,
-  CommentOutlined,
   DownOutlined,
-  ExperimentOutlined,
-  FileTextOutlined,
-  FileWordOutlined,
-  HomeOutlined,
   LeftOutlined,
   LogoutOutlined,
   MenuOutlined,
-  ProfileOutlined,
-  ProjectOutlined,
-  RobotOutlined,
   SettingOutlined,
-  SoundOutlined,
   UserOutlined,
 } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
@@ -28,6 +15,7 @@ import NotificationBell from '../../features/notifications/components/Notificati
 import { Avatar, Badge, Dropdown, Tooltip, Popover } from 'antd';
 import ThemeSelector from './ThemeSelector';
 import DemoToggle from './DemoToggle';
+import { createMainMenuItems } from '../config/menuConfig';
 import { logger } from '../utils/logger';
 
 const STORAGE_KEY = 'sidebar_collapsed';
@@ -81,54 +69,12 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     }
   }, [isAuthenticated, isCollapsed]);
 
-  const menuItems = useMemo(() => [
-    { to: "/", icon: HomeOutlined, text: "首页", permission: null },
-    { to: "/announcements", icon: SoundOutlined, text: "公告栏", permission: null },
-    {
-      type: 'submenu',
-      text: '日历',
-      icon: CalendarOutlined,
-      permission: null,
-      subItems: [
-        { to: "/trial-schedule", text: "试验日程", permission: null },
-        { to: "/shift-schedule", text: "排班日程", permission: null },
-        { to: "/meeting-rooms", text: "会议室预约", permission: null },
-      ]
-    },
-    {
-      type: 'submenu',
-      text: 'AI 助手',
-      icon: AppstoreOutlined,
-      permission: null,
-      subItems: [
-        { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
-        { to: "/smart-assistant/tasks", icon: ClusterOutlined, text: "多Agent任务", permission: null },
-        { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
-        { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
-        { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
-        { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
-        { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
-      ]
-    },
-    { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
-    { to: "/memos", icon: ProfileOutlined, text: "备忘录", permission: null },
-    { to: "/communication", icon: CommentOutlined, text: "交流", permission: null },
-    { to: "/profile", icon: UserOutlined, text: "个人资料", permission: null },
-    {
-      type: 'submenu',
-      text: '项目管理',
-      icon: ProjectOutlined,
-      permission: 'admin',
-      subItems: [
-        { to: "/projects", text: "项目列表", permission: 'admin' },
-        { to: "/documents", text: "文档管理", permission: 'admin' },
-        { to: "/control-panel/compliance", text: "合规问题", permission: 'admin' },
-        { to: "/notifications", icon: BellOutlined, text: "通知中心", permission: 'admin', badgeCount: unreadNotificationCount },
-      ]
-    },
-    { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
-    { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
-  ], [logout, unreadNotificationCount]);
+  // P0-5: 菜单单一数据源 —— 由 menuConfig.createMainMenuItems 生成,
+  // Sidebar 不再硬编码一份,避免两处定义分叉。
+  const menuItems = useMemo(
+    () => createMainMenuItems({ logout, unreadNotificationCount }),
+    [logout, unreadNotificationCount]
+  );
 
   const toggleSubMenu = useCallback((text) => {
     setExpandedSubMenu(prev => ({ ...prev, [text]: !prev[text] }));

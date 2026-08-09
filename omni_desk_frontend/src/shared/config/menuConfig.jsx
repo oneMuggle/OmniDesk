@@ -2,6 +2,7 @@ import {
   AppstoreOutlined,
   BellOutlined,
   CalendarOutlined,
+  ClusterOutlined,
   CommentOutlined,
   ExperimentOutlined,
   FileTextOutlined,
@@ -14,13 +15,21 @@ import {
   SoundOutlined,
   UserOutlined,
   LogoutOutlined,
-  LinkOutlined,
 } from '@ant-design/icons';
 import { Badge } from 'antd';
 
 /**
- * Main sidebar menu configuration.
- * Each item: { to, icon, text, permission } or { type: 'submenu', text, icon, permission, subItems }
+ * 主侧边栏菜单配置 —— 单一数据源(P0-5)。
+ *
+ * Sidebar.jsx 通过 createMainMenuItems 生成本菜单,不再各自维护一份,
+ * 避免两处定义分叉。每项形如:
+ *   { to, icon, text, permission } 或 { type: 'submenu', text, icon, permission, subItems }
+ *   或 { type: 'button', icon, text, action, permission }
+ *
+ * P0-4 死链修复:
+ *   - 项目列表  /projects(无此主应用路由)→ /control-panel/projects
+ *   - 文档管理  /documents(无此主应用路由)→ /control-panel/documents
+ *   - 合规问题  /control-panel/compliance 已补列表页与路由(原为空白断头路由)
  */
 export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
   { to: "/", icon: HomeOutlined, text: "首页", permission: null },
@@ -42,25 +51,13 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: AppstoreOutlined,
     permission: null,
     subItems: [
-      { to: "/ai-showcase", icon: AppstoreOutlined, text: "AI 能力展示", permission: null },
+      { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
+      { to: "/smart-assistant/tasks", icon: ClusterOutlined, text: "多Agent任务", permission: null },
+      { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
       { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
       { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
       { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
       { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
-    ]
-  },
-  {
-    type: 'submenu',
-    text: '外部集成',
-    icon: LinkOutlined,
-    permission: null,
-    subItems: [
-      { to: "/external-links", text: "快捷外链", permission: null },
-      { to: "/integration-hub", text: "集成中心", permission: null },
-      { to: "/plugin-market", text: "插件市场", permission: null },
-      { to: "/control-panel/external-links/manage", text: "外链管理", permission: 'admin' },
-      { to: "/control-panel/integration-hub/manage", text: "集成服务管理", permission: 'admin' },
-      { to: "/control-panel/plugin-market/manage", text: "插件管理", permission: 'admin' },
     ]
   },
   { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
@@ -73,8 +70,8 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: ProjectOutlined,
     permission: 'admin',
     subItems: [
-      { to: "/projects", text: "项目列表", permission: 'admin' },
-      { to: "/documents", text: "文档管理", permission: 'admin' },
+      { to: "/control-panel/projects", text: "项目列表", permission: 'admin' },
+      { to: "/control-panel/documents", text: "文档管理", permission: 'admin' },
       { to: "/control-panel/compliance", text: "合规问题", permission: 'admin' },
       { to: "/notifications", icon: BellOutlined, text: "通知中心", permission: 'admin', badgeCount: unreadNotificationCount },
     ]

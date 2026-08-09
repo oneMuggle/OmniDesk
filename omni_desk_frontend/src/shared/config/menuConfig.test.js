@@ -37,7 +37,19 @@ describe('menuConfig', () => {
       const items = createMainMenuItems({ logout: jest.fn(), unreadNotificationCount: 0 });
       const aiSubmenu = items.find(item => item.text === 'AI 助手');
       expect(aiSubmenu).toBeDefined();
-      expect(aiSubmenu.subItems.length).toBe(5);
+      expect(aiSubmenu.subItems.length).toBe(7);
+    });
+
+    it('项目管理子菜单死链均指向有效路由(P0-4)', () => {
+      const items = createMainMenuItems({ logout: jest.fn(), unreadNotificationCount: 0 });
+      const projectSubmenu = items.find(item => item.text === '项目管理');
+      const targets = projectSubmenu.subItems.map(sub => sub.to);
+      // 项目列表/文档管理 不再指向不存在的 /projects、/documents 主应用路由
+      expect(targets).not.toContain('/projects');
+      expect(targets).not.toContain('/documents');
+      expect(targets).toContain('/control-panel/projects');
+      expect(targets).toContain('/control-panel/documents');
+      expect(targets).toContain('/control-panel/compliance');
     });
 
     it('should have admin permission on management center', () => {
