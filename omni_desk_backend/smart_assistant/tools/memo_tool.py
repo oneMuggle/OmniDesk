@@ -24,7 +24,11 @@ class MemoTool(BaseTool):
             if isinstance(params, dict) and params.get("query"):
                 search_query = params["query"]
             keywords = self._extract_keywords(search_query or "")
-            memos = qs.filter(title__icontains=keywords)[:10]
+            memos = qs
+            # I-2:is_completed 布尔过滤(缺失时回退到纯关键词)
+            if isinstance(params, dict) and params.get("is_completed") is not None:
+                memos = memos.filter(is_completed=bool(params["is_completed"]))
+            memos = memos.filter(title__icontains=keywords)[:10]
         else:
             keywords = self._extract_keywords(query or "")
             memos = Memo.objects.filter(title__icontains=keywords).select_related("user")[:10]

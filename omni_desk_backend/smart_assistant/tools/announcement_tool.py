@@ -52,8 +52,11 @@ class AnnouncementTool(BaseTool):
 
             qs = qs.filter(Q(title__icontains=keywords) | Q(content__icontains=keywords))
 
+        # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+        limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+
         posts = []
-        for p in qs[:10]:
+        for p in qs[:limit]:
             raw_content = p.content or ""
             truncated = raw_content[:200] + ("..." if len(raw_content) > 200 else "")
             posts.append(

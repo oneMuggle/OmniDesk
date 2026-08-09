@@ -22,10 +22,12 @@ class DocumentTool(BaseTool):
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
             keywords = self._extract_keywords(search_query)
-            templates = qs.filter(name__icontains=keywords)[:10]
+            # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+            limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+            templates = qs.filter(name__icontains=keywords)[:limit]
             generated_docs = GeneratedDocument.objects.filter(
                 template__in=qs, template__name__icontains=keywords
-            ).select_related("template")[:10]
+            ).select_related("template")[:limit]
         else:
             keywords = self._extract_keywords(query or "")
             templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]

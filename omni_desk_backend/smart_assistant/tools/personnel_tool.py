@@ -32,7 +32,17 @@ class PersonnelTool(BaseTool):
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
             keywords = self._extract_keywords(search_query)
-            personnel_list = qs.filter(name__icontains=keywords)[:10]
+            personnel_list = qs.filter(name__icontains=keywords)
+            if isinstance(params, dict):
+                if params.get("department"):
+                    personnel_list = personnel_list.filter(department=params["department"])
+                if params.get("status"):
+                    # schema 暴露中文枚举(在职/离职),模型存 code(active/inactive),
+                    # 先映射回 code 再过滤,否则中文值查不到任何记录
+                    label_to_code = {label: code for code, label in Personnel.STATUS_CHOICES}
+                    status_code = label_to_code.get(params["status"], params["status"])
+                    personnel_list = personnel_list.filter(status=status_code)
+            personnel_list = personnel_list[:10]
         else:
             keywords = self._extract_keywords(query or "")
             personnel_list = Personnel.objects.filter(name__icontains=keywords).select_related("position")[:10]

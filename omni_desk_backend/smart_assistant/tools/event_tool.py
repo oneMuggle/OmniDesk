@@ -34,6 +34,14 @@ class EventTool(BaseTool):
             target_date = (timezone.now() - timedelta(days=1)).date()
         elif "今天" in date_text:
             target_date = timezone.now().date()
+        elif isinstance(params, dict) and params.get("target_date"):
+            # I-2:结构化 target_date(ISO 8601 日期)直接作为目标日期过滤
+            from datetime import date as _date
+
+            try:
+                target_date = _date.fromisoformat(str(params["target_date"])[:10])
+            except ValueError:
+                pass  # 非法日期保持默认今天
 
         if qs is not None and scope is not None:
             schedules = qs.filter(duty_date=target_date).select_related("duty_person", "duty_leader")

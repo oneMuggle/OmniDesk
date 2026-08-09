@@ -84,3 +84,55 @@ def test_office_read_uses_chunk_index():
     assert result["found"] is True
     assert result["chunks"] == ["片2"]
     assert result["summary"] == "已读取附件第 3/4 片"
+
+
+@pytest.mark.django_db
+def test_personnel_department_status_filter():
+    """personnel 消费 department/status。"""
+    from unittest.mock import MagicMock
+    from smart_assistant.tools.personnel_tool import PersonnelTool
+    tool = PersonnelTool()
+    base_qs = MagicMock()
+    qs = base_qs.filter.return_value
+    qs.filter.return_value = qs
+    tool.execute(
+        params={"query": "人员", "department": "研发部", "status": "在职"},
+        scope="GLOBAL", qs=base_qs,
+    )
+    # 至少触发一次按 department 的 filter
+    filter_calls = [c for c in base_qs.filter.call_args_list] + \
+                   [c for c in qs.filter.call_args_list]
+    assert any("department" in c[1] for c in filter_calls)
+
+
+@pytest.mark.django_db
+def test_memo_is_completed_filter():
+    """memo 消费 is_completed。"""
+    from unittest.mock import MagicMock
+    from smart_assistant.tools.memo_tool import MemoTool
+    tool = MemoTool()
+    base_qs = MagicMock()
+    qs = base_qs.filter.return_value
+    qs.filter.return_value = qs
+    tool.execute(params={"query": "便签", "is_completed": True}, scope="GLOBAL", qs=base_qs)
+    assert any("is_completed" in c[1] for c in base_qs.filter.call_args_list)
+
+
+@pytest.mark.django_db
+def test_news_limit_respected():
+    """news 消费 limit(替换硬编码 [:10])。"""
+    from unittest.mock import MagicMock
+    from smart_assistant.tools.news_tool import NewsTool
+    tool = NewsTool()
+    base_qs = MagicMock()
+    qs = base_qs.filter.return_value
+    # spy 切片:记录 [:limit] 的 slice.stop
+    slices = []
+
+    def spy_getitem(self, s):
+        slices.append(s)
+        return self
+
+    qs.__getitem__ = spy_getitem
+    tool.execute(params={"query": "新闻", "limit": 3}, scope="GLOBAL", qs=base_qs)
+    assert any(getattr(s, "stop", None) == 3 for s in slices)

@@ -21,7 +21,9 @@ class NewsTool(BaseTool):
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
             keywords = self._extract_keywords(search_query)
-            articles = qs.filter(title__icontains=keywords)[:10]
+            # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+            limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+            articles = qs.filter(title__icontains=keywords)[:limit]
         else:
             keywords = self._extract_keywords(query or "")
             articles = NewsArticle.objects.filter(title__icontains=keywords).select_related("news_type", "personnel")[:10]

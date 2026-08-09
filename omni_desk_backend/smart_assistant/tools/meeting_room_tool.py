@@ -13,15 +13,25 @@ class MeetingRoomTool(BaseTool):
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """查询会议室(支持新旧两种签名)"""
         target_date = timezone.now().date()
-        if query:
-            if "明天" in query:
-                target_date = (timezone.now() + timedelta(days=1)).date()
-            elif "后天" in query:
-                target_date = (timezone.now() + timedelta(days=2)).date()
-            elif "昨天" in query:
-                target_date = (timezone.now() - timedelta(days=1)).date()
-            elif "今天" in query:
-                target_date = timezone.now().date()
+        date_text = query or ""
+        if isinstance(params, dict) and params.get("target_date"):
+            date_text = str(params["target_date"])
+        if "明天" in date_text:
+            target_date = (timezone.now() + timedelta(days=1)).date()
+        elif "后天" in date_text:
+            target_date = (timezone.now() + timedelta(days=2)).date()
+        elif "昨天" in date_text:
+            target_date = (timezone.now() - timedelta(days=1)).date()
+        elif "今天" in date_text:
+            target_date = timezone.now().date()
+        elif isinstance(params, dict) and params.get("target_date"):
+            # I-2:结构化 target_date(ISO 8601 日期)直接作为目标日期
+            from datetime import date as _date
+
+            try:
+                target_date = _date.fromisoformat(str(params["target_date"])[:10])
+            except ValueError:
+                pass  # 非法日期保持默认今天
 
         if qs is None:
             qs = MeetingRoom.objects.all()
