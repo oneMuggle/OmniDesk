@@ -51,7 +51,9 @@ const columns = [
 const CompliancePage = () => {
   const [issues, setIssues] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0 });
+  // 后端 ComplianceIssueViewSet 走全局 PageNumberPagination(固定 PAGE_SIZE,无
+  // page_size_query_param),page_size 参数被忽略;关闭 pageSize 切换器避免误导(评审 M1)
+  const [pagination, setPagination] = useState({ current: 1, pageSize: 10, total: 0, showSizeChanger: false });
 
   const fetchIssues = useCallback(async (page = 1, pageSize = 10) => {
     setLoading(true);

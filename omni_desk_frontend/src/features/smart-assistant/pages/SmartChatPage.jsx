@@ -409,7 +409,7 @@ const SmartChatPage = () => {
 
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
-   * 被 handleSubmit 和 handleRetry 共用。
+   * 被 sendMessage 和 handleRetry 共用。
    */
   const runStream = useCallback(async (query) => {
     pendingLogIdRef.current = null;
