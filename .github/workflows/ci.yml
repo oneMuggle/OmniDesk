@@ -77,7 +77,7 @@ jobs:
         # Django 4.2 已于 2026-04 EOL,以下 6 个 CVE 无 4.2 补丁(修复版在
         # Django 5.2.15/5.2.16 / 6.0.6/6.0.7),属接受风险 + TODO 跟踪升级。
         # 升级项目见 docs/superpowers/specs/ 下 Django 升级专项(待立项)。
-        run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict --ignore-vuln CVE-2026-48587 CVE-2026-6873 CVE-2026-8404 CVE-2026-48588 CVE-2026-53877 CVE-2026-53878
+        run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict --ignore-vuln CVE-2026-48587 --ignore-vuln CVE-2026-6873 --ignore-vuln CVE-2026-8404 --ignore-vuln CVE-2026-48588 --ignore-vuln CVE-2026-53877 --ignore-vuln CVE-2026-53878
 
   # ─── Frontend ───
   lint-frontend:
