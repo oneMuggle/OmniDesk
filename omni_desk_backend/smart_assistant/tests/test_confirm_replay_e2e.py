@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from rest_framework.test import APIClient
 
-from smart_assistant.hooks.base import HookEvent, Reject, ToolHookBase, get_registry
+from smart_assistant.hooks.base import HookEvent, get_registry
 from smart_assistant.tools.base import BaseTool
 
 
@@ -101,22 +101,11 @@ def user_b(db):
 
 
 def _register_confirm_guard():
-    """注册一个 pre hook,对所有 require_confirmation=True 的工具返回 Reject"""
-
-    class ConfirmGuardHook(ToolHookBase):
-        name = "e2e_confirm_guard"
-
-        async def pre_execute(self, tool, ctx, params):
-            if getattr(tool, "require_confirmation", False):
-                return Reject(
-                    reason="需要二次确认",
-                    should_abort=True,
-                    error_code="confirmation_required",
-                )
-            return params
+    """注册生产真实 ConfirmationHook(替代内联 ConfirmGuardHook)。"""
+    from smart_assistant.hooks.builtin.confirmation import ConfirmationHook
 
     registry = get_registry()
-    registry.register(HookEvent.PRE_EXECUTE, ConfirmGuardHook(), priority=10)
+    registry.register(HookEvent.PRE_EXECUTE, ConfirmationHook(), priority=20)
 
 
 # ---------------------------------------------------------------------------
