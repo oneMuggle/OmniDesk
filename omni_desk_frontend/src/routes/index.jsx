@@ -72,6 +72,7 @@ const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/
 const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
 const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
 const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
+const CompliancePage = lazy(() => import('../features/compliance/pages/CompliancePage'));
 // P2-3 / P3-3 引入
 const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
 const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
@@ -169,6 +170,10 @@ const router = createBrowserRouter([
           {
             path: "projects",
             element: <LazyComponent component={ProjectsPage} />
+          },
+          {
+            path: "compliance",
+            element: <LazyComponent component={CompliancePage} />
           },
           {
             path: "meeting-rooms",
