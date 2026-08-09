@@ -49,7 +49,7 @@ class OfficeReadTool(BaseTool):
             },
         }
 
-    def execute(self, query=None, context=None, **kwargs) -> dict:
+    def execute(self, query=None, context=None, params=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
         attachment = ctx.get("attachment")
         if not attachment or not attachment.get("text"):
@@ -57,7 +57,10 @@ class OfficeReadTool(BaseTool):
         chunks = OfficeExtractor.chunk_text(attachment["text"])
         if not chunks:
             return {"found": False, "message": "附件无可读取的文本内容"}
-        index = attachment.get("chunk_index", 0)
+        # I-2:优先用 LLM 结构化参数 chunk_index(此前永远读第 0 片)
+        index = params.get("chunk_index") if isinstance(params, dict) else None
+        if index is None:
+            index = attachment.get("chunk_index", 0)
         if not isinstance(index, int) or index < 0 or index >= len(chunks):
             return {"found": False, "message": f"切片序号越界（共 {len(chunks)} 片）"}
         return {

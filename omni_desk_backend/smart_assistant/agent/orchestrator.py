@@ -163,7 +163,9 @@ def _dict_to_query(validated) -> str:
     - **优先取 ``query`` 字段** —— 所有 19 个工具的 OpenAI schema 均以
       ``query`` 为必填自然语言输入,execute 实现只消费 query;LLM 额外给出的
       结构化字段(schedule 的 date_from/date_to、personnel 的 department 等)
-      不拼接进 query,避免污染工具的关键词匹配(如 memo 的 title__icontains);
+      不拼接进 query(保留 F1 防污染决策,避免污染关键词匹配如 memo 的
+      title__icontains),而是由 ``_execute_native_tool`` 经 ``params``
+      完整透传给工具,工具 opt-in 读取,缺失时回退 query 解析;
     - **无 ``query`` 时兜底** —— 把其余非 query 字段序列化为
       ``key: value`` 片段(``，`` 连接),保留 LLM 提供的结构化参数语义;
     - 非 dict 输入(理论不出现)直接 ``str()`` 化,保持调用方不挂起。
@@ -593,6 +595,11 @@ class AgentOrchestrator:
                 F1-era 契约一致,失败工具在审计轨迹中可见)。
         """
         query = _dict_to_query(validated)
+        # I-2:透传完整 validated 字典作为 params,LLM 提供的结构化字段
+        # (date_from / chunk_index / department / limit / …)到达工具。
+        # query 仍是自然语言主输入(不拼接进 query,保留 F1 防污染决策);
+        # 结构化字段经 params 显式传递,工具 opt-in 读取,缺失时回退 query 解析。
+        params = validated if isinstance(validated, dict) else {"query": query}
         hook_ctx = context if context is not None else {}
 
         # C-2:require_confirmation 工具先走 pre-hook 确认拦截(与 legacy 对齐)
@@ -636,13 +643,13 @@ class AgentOrchestrator:
                 scoped_qs = tool.get_queryset_for_scope(base_qs, context)
                 result = execute_guarded(
                     tool,
-                    params={"query": query},
+                    params=params,
                     scope=context.scope,
                     qs=scoped_qs,
                     context=context,
                 )
             else:
-                result = execute_guarded(tool, query=query, context=context)
+                result = execute_guarded(tool, query=query, params=params, context=context)
         except Exception as exc:
             # C-2:ON_FAILURE 钩子链(与 legacy 一致):结构化 fallback 优先
             failure = {"error": "execution_failed", "detail": str(exc)}

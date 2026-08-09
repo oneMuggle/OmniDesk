@@ -19,13 +19,34 @@ class ScheduleTool(BaseTool):
         """
         # 新路径(跨模块汇总)
         if qs is not None and scope is not None:
-            target_date = timezone.now().date()
-            if params:
-                if params.get("date") == "明天":
-                    target_date = (timezone.now() + timedelta(days=1)).date()
-                elif params.get("date") == "后天":
-                    target_date = (timezone.now() + timedelta(days=2)).date()
-            schedules = qs.filter(duty_date=target_date)
+            # I-2:结构化日期范围/人员优先于 query 关键词(此前被丢弃,LLM 拆日期查错)
+            date_from = None
+            date_to = None
+            personnel_name = None
+            if isinstance(params, dict):
+                date_from = params.get("date_from")
+                date_to = params.get("date_to")
+                personnel_name = params.get("personnel_name")
+            if date_from or date_to:
+                filters = {}
+                if date_from:
+                    filters["duty_date__gte"] = date_from
+                if date_to:
+                    filters["duty_date__lte"] = date_to
+                schedules = qs.filter(**filters)
+                if personnel_name:
+                    schedules = schedules.filter(duty_person__name=personnel_name)
+                range_date = str(date_from or date_to)
+            else:
+                # 原逻辑:相对日期 / 今日(无结构化字段时保持现状)
+                target_date = timezone.now().date()
+                if isinstance(params, dict):
+                    if params.get("date") == "明天":
+                        target_date = (timezone.now() + timedelta(days=1)).date()
+                    elif params.get("date") == "后天":
+                        target_date = (timezone.now() + timedelta(days=2)).date()
+                schedules = qs.filter(duty_date=target_date)
+                range_date = str(target_date)
             results = [
                 {
                     "duty_date": str(s.duty_date),
@@ -35,7 +56,7 @@ class ScheduleTool(BaseTool):
                 for s in schedules
             ]
             return {
-                "date": str(target_date),
+                "date": range_date,
                 "found": bool(results),
                 "count": len(results),
                 "schedules": results,
