@@ -8,8 +8,9 @@ LLM 解析"中文 query → CreateParams / DecideParams",失败兜底为 None(�
 - LLM 返回非 JSON 文本 → 用正则提取首个 {…} 块再试
 - 解析后字段缺失 → None
 
-注意:_call_llm 的真实实现依赖项目 LLM 客户端,本模块提供 stub 接口,
-单元测试全部 patch 它。生产代码接入在后续 PR 单独处理(spec §1.3 YAGNI)。
+``_call_llm`` 经 ``llm_service.router`` 的降级链(DB LlmAppConfig → Ollama 兜底)
+调用真实 LLM;单元测试既可 patch ``_call_llm`` 做纯解析测试,也可用
+``mock_llm_router`` fixture 走真实接线(见 test_swap_extractor.py)。
 """
 
 from __future__ import annotations
@@ -38,6 +39,15 @@ VALID_ACTIONS = frozenset({"accept", "reject", "cancel"})
 
 logger = logging.getLogger(__name__)
 
+# 匹配 <think>...</think> 推理块(DeepSeek/qwen 等模型会输出推理过程),
+# 剥离以避免干扰 JSON 抽取。
+_THINK_RE = re.compile(r"<think>[\s\S]*?</think>\s*", re.IGNORECASE)
+
+
+def _strip_think_tags(response: str) -> str:
+    """去除 LLM 响应中的 <think>...</think> 推理块,保留正文。"""
+    return _THINK_RE.sub("", response or "").strip()
+
 
 @dataclass
 class CreateParams:
@@ -58,13 +68,23 @@ class DecideParams:
 
 
 def _call_llm(prompt: str) -> str:
-    """调用项目现有 LLM 客户端。
+    """调用项目 LLM 客户端(LLMRouter 降级链)。
 
-    本函数作为 swap_extractor 与 LLM 客户端的唯一接触点,便于测试 mock。
-    真实实现依赖项目 LLM 客户端(YAGNI:本任务范围只到 mock level,
-    真实 LLM 接入在后续 PR 单独处理)。
+    经 ``llm_service.router.get_router()`` 调用(DB LlmAppConfig 优先级链 →
+    Ollama 本地兜底)。本函数作为 swap_extractor 与 LLM 客户端的唯一接触点,
+    便于测试 mock。任何异常向上抛,由 ``_call_llm_for_json`` 兜底为 None。
+
+    实现要点:
+    - 低温(temperature=0)以获得确定性的 JSON 抽取结果;
+    - 剥离 ``<think>`` 推理块,避免干扰后续 JSON 解析;
+    - 延迟 import get_router:既避免应用加载期 extractors ↔ llm_service 的
+      import 耦合,也让测试对 ``llm_service.router.get_router`` 的 patch 生效。
     """
-    raise NotImplementedError("_call_llm 是 stub。请在生产环境接入项目 LLM 客户端后再使用 swap_extractor。")
+    from llm_service.router import get_router  # 延迟导入,见 docstring
+
+    client = get_router()
+    content, _usage = client.generate(prompt=prompt, options={"temperature": 0})
+    return _strip_think_tags(content)
 
 
 def _call_llm_for_json(prompt: str) -> dict | None:

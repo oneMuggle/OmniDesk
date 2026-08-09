@@ -62,6 +62,12 @@ def _matches_intent(query: str, schema: dict) -> bool:
         "memo_query": ["备忘录", "便签", "提醒"],
         "project_status": ["项目", "进度", "里程碑", "负责人"],
         "news_search": ["新闻", "通知", "公告"],
+        # 换班三分支(P0-1,llm-swap-shift Phase 2)。注:换班是单工具场景,
+        # 此处关键词仅参与多工具粗筛,最终路由以 classify_intent 的 LLM 分类为准;
+        # 误命中多工具时 TOOL_CHAIN_PROMPT 会让 LLM 返回空数组回退单工具路径。
+        "swap_request_create": ["换班", "替班", "调班", "换一下", "替一下"],
+        "swap_request_decide": ["同意换班", "拒绝换班", "撤销换班", "取消换班", "接受换班", "不同意换班"],
+        "swap_request_query": ["我发起的换班", "换班进度", "换班状态", "收到的换班", "收到的换班申请", "谁要跟我换班"],
     }
 
     keywords = intent_keywords.get(intent_name, [])
