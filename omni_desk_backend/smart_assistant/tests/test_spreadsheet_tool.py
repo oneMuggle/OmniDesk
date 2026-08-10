@@ -45,6 +45,27 @@ class TestSpreadsheetTool:
         assert "8" in result["answer"]
         mock_query.query.assert_called_once()
 
+    @patch("smart_assistant.tools.spreadsheet_tool.NaturalLanguageQuery")
+    def test_spreadsheet_tool_returns_dict_with_meta_usage(self, mock_cls):
+        """P1A-1 Task 4: spreadsheet tool 应解构 (answer, usage),并通过 meta.usage 暴露 usage。"""
+        mock_query = MagicMock()
+        mock_query.query.return_value = ("回答A", {
+            "total_tokens": 5,
+            "model_name": "qwen2.5:7b",
+            "endpoint_id": None,
+            "estimated_cost": 0.0,
+        })
+        mock_cls.return_value = mock_query
+        result = self.tool.execute("哪月最高?", _ctx_with_sheets())
+        assert result["found"] is True
+        # 保留向下兼容的 key
+        assert result["answer"] == "回答A"
+        assert result["summary"] == "回答A"
+        # 新增 meta 字段携带 usage
+        assert "meta" in result
+        assert result["meta"]["usage"]["total_tokens"] == 5
+        mock_query.query.assert_called_once()
+
     def test_no_sheets_returns_not_found(self):
         result = self.tool.execute("统计", {"history": []})
         assert result["found"] is False

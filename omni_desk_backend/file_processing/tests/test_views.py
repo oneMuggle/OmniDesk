@@ -217,6 +217,31 @@ class TestFileQueryAPI:
 
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
+    @patch('file_processing.views.NaturalLanguageQuery')
+    def test_query_view_returns_answer_and_usage(self, mock_nl_class):
+        """P1A-1 Task 4: view 应解构 (answer, usage) 元组,暴露 usage 给客户端。"""
+        mock_nl = MagicMock()
+        mock_nl.query.return_value = ('回答A', {
+            'total_tokens': 10,
+            'model_name': 'qwen2.5:7b',
+            'endpoint_id': None,
+            'estimated_cost': 0.0,
+        })
+        mock_nl_class.return_value = mock_nl
+
+        user = _create_user()
+        client = _auth_client(user)
+        uploaded = _create_processed_file(user)
+
+        response = client.post(f'/api/file/{uploaded.id}/query/',
+                               {'question': '数据有多少行?'}, format='json')
+
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data['answer'] == '回答A'
+        assert 'usage' in response.data
+        assert response.data['usage']['total_tokens'] == 10
+        assert response.data['usage']['model_name'] == 'qwen2.5:7b'
+
 
 # =============================================================================
 # Export API

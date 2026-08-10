@@ -173,7 +173,7 @@ class FileProcessingViewSet(viewsets.ModelViewSet):
         result = uploaded_file.result
         nl_query = NaturalLanguageQuery()
         # P1A-1: query() 改走 LLMRouter,返回 (content, usage) 元组
-        answer, _usage = nl_query.query(question, {"sheets_data": result.sheets_data})
+        answer, usage = nl_query.query(question, {"sheets_data": result.sheets_data})
 
         analysis = AIAnalysis.objects.create(
             file=uploaded_file,
@@ -187,6 +187,7 @@ class FileProcessingViewSet(viewsets.ModelViewSet):
                 "analysis_id": str(analysis.id),
                 "question": question,
                 "answer": answer,
+                "usage": usage,  # P1A-1 Task 4: 暴露 usage 元数据
             }
         )
 
