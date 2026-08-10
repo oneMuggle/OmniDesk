@@ -349,6 +349,9 @@ class AgentOrchestrator:
         tool = ToolRegistry.get_tool(intent)
         if tool:
             hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
+            # P1A-2:在 require_confirmation 块外提前声明,让外层(下方错误返回
+            # 分支)也能访问 rate_limit_error。None = 未触发限流拦截。
+            rate_limit_error = None
 
             # === confirm-replay 框架:require_confirmation 工具拦截 ===
             # Phase B:orchestrator 在 execute 前调 pre-hook 链。若工具标记
@@ -397,8 +400,15 @@ class AgentOrchestrator:
                         "confirmation_token": token,
                         "error": False,
                     }
-                # 非 confirmation_required 的 Reject 或其他情况:走既有路径
-                # (apply_pre_execute_hooks 内部已做失败降级,透传 params)
+                # 非 confirmation_required 的 Reject(如 rate_limit_exceeded):
+                # 把 error_code / retry_after 挂到 result 上,由视图层透传给前端(P1A-2)。
+                if isinstance(hook_result, Reject):
+                    rate_limit_error = {
+                        "error_code": hook_result.error_code,
+                        "retry_after": getattr(hook_result, "retry_after", None),
+                        "message": hook_result.reason,
+                    }
+                # 既有路径(apply_pre_execute_hooks 内部已做失败降级,透传 params)
             # === confirm-replay 拦截结束 ===
 
             cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
@@ -439,7 +449,7 @@ class AgentOrchestrator:
             # 工具执行成功但未找到结果时,带工具上下文告知 LLM
             if isinstance(tool_result, dict) and not tool_result.get("found"):
                 answer, usage = generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
-                return {
+                result = {
                     "answer": answer,
                     "intent": intent,
                     "tool_used": tool.name,
@@ -449,6 +459,13 @@ class AgentOrchestrator:
                     "usage": usage,
                     "error": is_failed_answer(answer),
                 }
+                # P1A-2:限流被拒且整体判定为 error 时,把 Reject 字段挂到
+                # result(覆盖默认 fallback 回答,让前端展示退避秒数)
+                if rate_limit_error and result.get("error"):
+                    result["error_code"] = rate_limit_error["error_code"]
+                    result["retry_after"] = rate_limit_error["retry_after"]
+                    result["answer"] = rate_limit_error["message"]
+                return result
 
             # Step 4: LLM 生成自然语言回答(先查缓存)
             if not has_history:
@@ -467,7 +484,7 @@ class AgentOrchestrator:
             else:
                 answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
-            return {
+            result = {
                 "answer": answer,
                 "intent": intent,
                 "tool_used": tool.name,
@@ -476,6 +493,12 @@ class AgentOrchestrator:
                 "usage": usage,
                 "error": is_failed_answer(answer),
             }
+            # P1A-2:限流被拒且整体判定为 error 时,把 Reject 字段挂到 result
+            if rate_limit_error and result.get("error"):
+                result["error_code"] = rate_limit_error["error_code"]
+                result["retry_after"] = rate_limit_error["retry_after"]
+                result["answer"] = rate_limit_error["message"]
+            return result
         else:
             # 通用对话
             answer, usage = generate_general_answer(user_query, conversation_history)
@@ -1210,6 +1233,9 @@ class AgentOrchestrator:
         """
         has_history = conversation_history is not None and len(conversation_history) > 0
         scope_sig = _scope_cache_sig(tool_context)
+        # P1A-2:RateLimitHook 拦截后,捕获 error_code/retry_after 注入 done 事件,
+        # 供视图层 stream() 透传给前端。None = 未触发限流。
+        rate_limit_error = None
 
         # Step 1: 意图分类
         schemas = ToolRegistry.get_all_schemas()
@@ -1367,6 +1393,15 @@ class AgentOrchestrator:
                     )
                     yield sse_event({"type": "done", "error": False, "awaiting_confirmation": True})
                     return
+                # P1A-2:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
+                # 同样要被透传到 done 事件,前端展示退避秒数。
+                if isinstance(hook_result, Reject):
+                    rate_limit_error = {
+                        "error_code": hook_result.error_code,
+                        "retry_after": getattr(hook_result, "retry_after", None),
+                        "message": hook_result.reason,
+                    }
+                # 既有路径(apply_pre_execute_hooks 内部已做失败降级,透传 params)
             # === confirm-replay 流式拦截结束 ===
 
             cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
@@ -1452,4 +1487,9 @@ class AgentOrchestrator:
         done = {"type": "done", "finish_reason": "stop", "error": is_failed_answer(full_answer)}
         if done["error"]:
             annotate_error_kind(done, full_answer, tool_used=tool_name, tool_result=tool_result)
+            # P1A-2:限流被拒时,把 Reject 字段挂到 done 事件;
+            # 若触发限流但 LLM 最终仍产出"失败回答",answer 覆盖为限流文案。
+            if rate_limit_error:
+                done["error_code"] = rate_limit_error["error_code"]
+                done["retry_after"] = rate_limit_error["retry_after"]
         yield sse_event(done)

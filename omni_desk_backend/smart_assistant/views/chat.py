@@ -304,6 +304,10 @@ class SmartChatViewSet(viewsets.ViewSet):
             "tool_call_path": result.get("tool_call_path"),
             "tool_calls_meta": result.get("tool_calls_meta") or [],
             "tool_calls_rounds": result.get("tool_calls_rounds") or 0,
+            # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
+            # 旧字段缺省时为 None,前端按通用错误展示,无 breaking。
+            "error_code": result.get("error_code"),
+            "retry_after": result.get("retry_after"),
         }
         # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
         if error:
@@ -354,6 +358,10 @@ class SmartChatViewSet(viewsets.ViewSet):
             done_error = False
             done_seen = False
             stream_exc = None
+            # P1A-2:从 done 事件透传 RateLimitHook 拒答字段;
+            # 缺省 None,前端按通用错误展示,无 breaking。
+            stream_error_code = None
+            stream_retry_after = None
 
             try:
                 for chunk in orchestrator.process_stream(
@@ -375,6 +383,9 @@ class SmartChatViewSet(viewsets.ViewSet):
                     elif event_type == "done":
                         done_error = bool(data.get("error"))
                         done_seen = True
+                        # P1A-2:从 done 事件读 error_code / retry_after
+                        stream_error_code = data.get("error_code")
+                        stream_retry_after = data.get("retry_after")
             except Exception as exc:
                 # 生成器中途异常（DB/工具异常逃逸）：按失败路径收口，保证"失败必审计"——
                 # 若直接中断流，前端会把已收到的部分内容当成功回答，且 AgentLog 缺失。
@@ -471,6 +482,10 @@ class SmartChatViewSet(viewsets.ViewSet):
                 "conversation_id": cid,
                 "log_id": log.id,
                 "error": error,
+                # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
+                # 缺省 None,前端按通用错误展示,无 breaking。
+                "error_code": stream_error_code,
+                "retry_after": stream_retry_after,
             }
             if error:
                 annotate_error_kind(
