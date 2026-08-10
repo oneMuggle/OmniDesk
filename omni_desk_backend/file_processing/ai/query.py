@@ -13,6 +13,7 @@ P1A-1 改写:不再 import ollama SDK 直连 qwen2.5:7b,改走
 ``get_router(app_name="file_processing")`` 走 Ollama 本地兜底链路。
 如需后续单独配置,新增 APP_CHOICES 条目即可(``P1A-1+``)。
 """
+
 from __future__ import annotations
 
 import logging
