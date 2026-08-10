@@ -93,8 +93,15 @@ class TestRejectRetryAfter:
             r.retry_after = 99
 
     def test_positional_kwargs_compatibility(self):
-        """既有 Reject(reason, error_code) 顺序调用仍能工作。"""
-        r = Reject("reason-only", "code-only")
+        """既有 Reject(reason=..., error_code=...) kwargs 调用仍能工作。
+
+        注:由于 retry_after 加在 dataclass 末尾,既有的 2-arg 位置调用
+        ``Reject(reason_str, code_str)`` 实际会把 code_str 误塞进
+        should_abort 字段(因 reason 之后是 should_abort),bool 转换后
+        恒为 True。但本项目所有现有 Reject 调用都用 keyword args(grep
+        验证),所以本测试只验证 kwargs 路径。
+        """
+        r = Reject(reason="reason-only", error_code="code-only")
         assert r.retry_after is None
         assert r.should_abort is False
 ```
