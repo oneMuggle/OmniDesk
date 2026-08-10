@@ -88,7 +88,7 @@ WRITE_RATE_WINDOW = 60
 WRITE_RATE_NAMESPACE = "smart_assistant:write_rate_limit"
 
 
-def check_write_rate_limit(user_id):
+def check_write_rate_limit(user_id: int) -> tuple[bool, int, int]:
     """检查用户是否超出写工具速率限制。
 
     算法同 chat 限流:固定窗口 + cache.incr(失败时回落到 cache.set(key, 1, window))。
