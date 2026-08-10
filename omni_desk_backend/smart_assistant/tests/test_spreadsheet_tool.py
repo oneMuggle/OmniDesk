@@ -32,7 +32,13 @@ class TestSpreadsheetTool:
     @patch("smart_assistant.tools.spreadsheet_tool.NaturalLanguageQuery")
     def test_natural_language_query_falls_back_to_llm(self, mock_cls):
         mock_query = MagicMock()
-        mock_query.query.return_value = "总人数为 8 人"
+        # P1A-1: query() 返回 (content, usage) 元组
+        mock_query.query.return_value = ("总人数为 8 人", {
+            "total_tokens": 12,
+            "model_name": "qwen2.5:7b",
+            "endpoint_id": None,
+            "estimated_cost": 0.0,
+        })
         mock_cls.return_value = mock_query
         result = self.tool.execute("各列人数加总", _ctx_with_sheets())
         assert result["found"] is True

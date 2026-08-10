@@ -187,7 +187,13 @@ class TestFileQueryAPI:
     @patch('file_processing.views.NaturalLanguageQuery')
     def test_query_success(self, mock_nl_class):
         mock_nl = MagicMock()
-        mock_nl.query.return_value = '测试回答'
+        # P1A-1: query() 返回 (content, usage) 元组
+        mock_nl.query.return_value = ('测试回答', {
+            'total_tokens': 10,
+            'model_name': 'qwen2.5:7b',
+            'endpoint_id': None,
+            'estimated_cost': 0.0,
+        })
         mock_nl_class.return_value = mock_nl
 
         user = _create_user()
