@@ -349,9 +349,6 @@ class AgentOrchestrator:
         tool = ToolRegistry.get_tool(intent)
         if tool:
             hook_ctx = tool_context if tool_context is not None else {"history": conversation_history or []}
-            # P1A-2:在 require_confirmation 块外提前声明,让外层(下方错误返回
-            # 分支)也能访问 rate_limit_error。None = 未触发限流拦截。
-            rate_limit_error = None
 
             # === confirm-replay 框架:require_confirmation 工具拦截 ===
             # Phase B:orchestrator 在 execute 前调 pre-hook 链。若工具标记
@@ -454,7 +451,7 @@ class AgentOrchestrator:
             # 工具执行成功但未找到结果时,带工具上下文告知 LLM
             if isinstance(tool_result, dict) and not tool_result.get("found"):
                 answer, usage = generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
-                result = {
+                return {
                     "answer": answer,
                     "intent": intent,
                     "tool_used": tool.name,
@@ -464,13 +461,6 @@ class AgentOrchestrator:
                     "usage": usage,
                     "error": is_failed_answer(answer),
                 }
-                # P1A-2:限流被拒且整体判定为 error 时,把 Reject 字段挂到
-                # result(覆盖默认 fallback 回答,让前端展示退避秒数)
-                if rate_limit_error and result.get("error"):
-                    result["error_code"] = rate_limit_error["error_code"]
-                    result["retry_after"] = rate_limit_error["retry_after"]
-                    result["answer"] = rate_limit_error["message"]
-                return result
 
             # Step 4: LLM 生成自然语言回答(先查缓存)
             if not has_history:
@@ -489,7 +479,7 @@ class AgentOrchestrator:
             else:
                 answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
 
-            result = {
+            return {
                 "answer": answer,
                 "intent": intent,
                 "tool_used": tool.name,
@@ -498,12 +488,6 @@ class AgentOrchestrator:
                 "usage": usage,
                 "error": is_failed_answer(answer),
             }
-            # P1A-2:限流被拒且整体判定为 error 时,把 Reject 字段挂到 result
-            if rate_limit_error and result.get("error"):
-                result["error_code"] = rate_limit_error["error_code"]
-                result["retry_after"] = rate_limit_error["retry_after"]
-                result["answer"] = rate_limit_error["message"]
-            return result
         else:
             # 通用对话
             answer, usage = generate_general_answer(user_query, conversation_history)
