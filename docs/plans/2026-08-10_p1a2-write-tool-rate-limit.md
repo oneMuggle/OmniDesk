@@ -19,7 +19,7 @@
 
 (适用于所有任务。来源:`docs/superpowers/specs/2026-08-10-p1a2-write-tool-rate-limit-design.md`)
 
-- **Python 3.10 统一**:conda 环境 `omni_desk`,所有 Python 命令必须从 conda env 执行(`/home/fz/anaconda3/envs/omni_desk/bin/python` 或 `conda run -n omni_desk ...`)
+- **Python 3.10 统一**:conda 环境 `OmniDesk`(首字母大写;Python 3.10.19 + pytest 9.0.3 + Django 4.2.30),所有 Python 命令必须从 conda env 执行(`/home/fz/anaconda3/envs/OmniDesk/bin/python` 或 `conda run -n OmniDesk ...`)。注:Django app 名 `omni_desk_backend/smart_assistant/...` 与 conda env 名 `OmniDesk` 不同,后者首字母大写
 - **测试 settings**: `pytest --ds=omni_desk_backend.settings.test`(test.py 中 `in-memory SQLite + fast MD5 hasher + logging disabled + LocMemCache`)
 - **Django apps.ready() 多次触发幂等**:register_builtin_hooks 用 `if "<name>" not in existing_names` 守卫防重复注册
 - **不破坏既有契约**:`Reject(reason, should_abort=False, error_code=None)` 现有调用方不受影响(新字段 `retry_after` 可选)
@@ -111,7 +111,7 @@ class TestRejectRetryAfter:
 运行命令:
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_reject_retry_after.py -v
 ```
 
@@ -250,7 +250,7 @@ class TestWriteRateLimitHelper:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_middleware_chain_coverage.py::TestWriteRateLimitHelper -v
 ```
 
@@ -314,7 +314,7 @@ def check_write_rate_limit(user_id):
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_middleware_chain_coverage.py::TestWriteRateLimitHelper -v
 ```
 
@@ -324,7 +324,7 @@ cd /home/fz/project/OmniDesk && \
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_middleware_chain_coverage.py -v
 ```
 
@@ -498,7 +498,7 @@ class TestExtractUserHelper:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_rate_limit_hook.py -v
 ```
 
@@ -664,7 +664,7 @@ __all__ = [
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_rate_limit_hook.py -v
 ```
 
@@ -760,7 +760,7 @@ class TestBuiltinHooksRegistration:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_hooks_wiring.py -v
 ```
 
@@ -821,7 +821,7 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_hooks_wiring.py -v
 ```
 
@@ -994,7 +994,7 @@ class TestChatViewRateLimitPassthrough:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_views_rate_limit.py -v
 ```
 
@@ -1063,7 +1063,7 @@ class TestDoctorWriteRateLimitCheck:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_doctor.py::TestDoctorWriteRateLimitCheck -v
 ```
 
@@ -1107,7 +1107,7 @@ def _check_cache_rate_limit() -> list:
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     omni_desk_backend/smart_assistant/tests/test_doctor.py -v
 ```
 
@@ -1132,7 +1132,7 @@ cd /home/fz/project/OmniDesk && \
 
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m pytest \
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest \
     --ds=omni_desk_backend.settings.test \
     -x -q 2>&1 | tail -30
 ```
@@ -1142,7 +1142,7 @@ cd /home/fz/project/OmniDesk && \
 同时跑 ruff:
 ```bash
 cd /home/fz/project/OmniDesk && \
-  /home/fz/anaconda3/envs/omni_desk/bin/python -m ruff check omni_desk_backend/smart_assistant/
+  /home/fz/anaconda3/envs/OmniDesk/bin/python -m ruff check omni_desk_backend/smart_assistant/
 ```
 预期:无 error,warning 可忽略。
 
@@ -1245,16 +1245,16 @@ docs/plans/2026-08-10_p1a2-write-tool-rate-limit.md
 
 ```bash
 # 1. backend 全量 pytest
-/home/fz/anaconda3/envs/omni_desk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q
+/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q
 
 # 2. frontend jest
 cd omni_desk_frontend && npm test -- --watchAll=false --silent
 
 # 3. backend lint
-cd ../ && /home/fz/anaconda3/envs/omni_desk/bin/python -m ruff check omni_desk_backend/smart_assistant/
+cd ../ && /home/fz/anaconda3/envs/OmniDesk/bin/python -m ruff check omni_desk_backend/smart_assistant/
 
 # 4. doctor 端点实地检查
-cd ../ && /home/fz/anaconda3/envs/omni_desk/bin/python manage.py runserver &
+cd ../ && /home/fz/anaconda3/envs/OmniDesk/bin/python manage.py runserver &
 sleep 3
 curl -H "Authorization: Bearer <token>" http://127.0.0.1:8000/api/smart-assistant/doctor/ | jq '.checks[] | select(.name | startswith("cache_"))'
 
