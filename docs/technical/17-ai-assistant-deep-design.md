@@ -182,3 +182,14 @@ Level 4: ResultSynthesizer → 综合多工具结果生成最终回答
 | ReportTool | 周期性报告生成工具 |
 | 前端反馈按钮 UI | 后端字段已就绪，前端按钮待添加 |
 | 建议追问区 | AI 回答后显示 3 个建议追问 |
+
+## 11. P1A-1 收尾状态（2026-08-10）
+
+P1A-1「LLM 调用收口」已完成，全平台 LLM 调用统一收敛到 `llm_service/router.py` 的 `LLMRouter`。本次变更要点：
+
+- **`file_processing/ai/query.py` 已从直连 Ollama SDK 改走 `LLMRouter(app_name="file_processing")`**：不再 `import ollama`，`ollama` SDK 已从依赖清单移除。`file_processing` 未注册进 `LlmAppConfig.APP_CHOICES`，因此走 LLMRouter 的 Tier 3 本地 Ollama 兜底链路，行为与改造前等价，但统一了降级、重试与日志。
+- **`NaturalLanguageQuery.query()` 签名调整为返回 `(content, usage)` 二元组**：`usage` 为 LLMRouter 返回的 token 用量字典，可用于成本核算。
+- **调用方已适配新签名**：View 层在响应体中透出 `usage`；Tool 层在 `meta` 字典中透出 `usage`。
+- **`office_assistant` 已加入 `LlmAppConfig.APP_CHOICES`**：运维可为其配置独立端点 + 模型 + 成本核算，前端 `AppConfigManagement` 下拉框已同步新增该选项。
+
+相关提交：`edb284e6`、`74af61c8`、`51bcbd37`、`6d32d451`、`a9ca65e1`。
