@@ -48,11 +48,13 @@ class Reject:
         reason: 拒绝原因(用于日志和审计)
         should_abort: True 表示整个任务终止;False 表示跳过当前工具继续
         error_code: 可选的错误码(给前端用)
+        retry_after: 可选的退避秒数(给前端 retry 用,典型场景:限流/P1A-2)
     """
 
     reason: str
     should_abort: bool = False
     error_code: str | None = None
+    retry_after: int | None = None
 
 
 @dataclass(frozen=True)

@@ -287,7 +287,7 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 
 ### 2.10 Hook 系统(2026-07 新增)
 
-`hooks/builtin/` 内置 4 个 hook(借鉴 claw-code 设计):
+`hooks/builtin/` 内置 5 个 hook(借鉴 claw-code 设计):
 
 | Hook | 开关 | 默认 | 作用 |
 |------|------|------|------|
@@ -295,6 +295,7 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 | `PiiMaskingHook` | `SMART_ASSISTANT_PII_MASKING` | `True` | post_execute 递归脱敏工具输出(生成新容器,不可变);邮箱 → 身份证 → 手机号顺序匹配:手机号 `138****1234`(前 3 后 4)、身份证前 6 后 4、邮箱 local 保留前 3 位 |
 | `TimeoutGuardHook` | `SMART_ASSISTANT_TOOL_TIMEOUT`(秒)/ `SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED` | `10.0` / `True` | 钩子本身为配置入口 + 恢复策略;实际计时由 `run_guarded_sync`(daemon 线程 + `join(timeout)`)/ `run_guarded`(`asyncio.wait_for`)与 `BaseTool.execute_with_guard` 完成;超时返回 `{"found": False, "timed_out": True, "error": "tool_timeout", ...}`,`on_failure` 对 `TimeoutError` 返回 `RecoveryAction(action="fallback")` |
 | `ConfirmationHook` | 无 | — | **pre_execute**:对 `require_confirmation=True` 的写工具(office_generate / swap×2)返回 `Reject(error_code="confirmation_required")`,激活 orchestrator confirm-replay(dry_run → draft → awaiting_confirmation → 前端确认 → replay 视图执行)。2026-08-09 I-1 新增,写工具确认 fail-open → fail-closed |
+| `RateLimitHook` | `SMART_ASSISTANT_WRITE_RATE_LIMIT`(每窗口允许次数)/ 窗口固定 60s | `10` / `60s` | **pre_execute**、priority=25:对所有 `require_confirmation=True` 工具按用户 fixed window 限频;超限返回 `Reject(error_code="rate_limit_exceeded", retry_after=Ns)`,前端 toast 显示 Ns 后重试。Cache key `smart_assistant:write_rate_limit:{user_id}`,与 chat 限流(中间件层)共享同一缓存后端但 namespace 隔离。2026-08-10 P1A-2 新增,详情见 [`docs/superpowers/specs/2026-08-10-p1a2-write-tool-rate-limit-design.md`](../superpowers/specs/2026-08-10-p1a2-write-tool-rate-limit-design.md)(实施 plan [`docs/plans/2026-08-10_p1a2-write-tool-rate-limit.md`](../plans/2026-08-10_p1a2-write-tool-rate-limit.md)) |
 
 **接线现状(重要)**:`apps.ready()` 调用 `register_builtin_hooks()` 把 **PiiMaskingHook(POST_EXECUTE)+ TimeoutGuardHook(ON_FAILURE)+ ConfirmationHook(PRE_EXECUTE)** 注册进全局注册表(`get_registry()`),幂等(按 hook name 去重,`ready()` 多次调用不重复挂载)。生产执行器(orchestrator 单工具执行 / ToolChainExecutor 逐步执行)经 `execute_guarded` / `apply_pre_execute_hooks` 消费全局注册表。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
 

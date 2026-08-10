@@ -418,3 +418,40 @@ class TestLegacyChainHookWiring:
         assert elapsed < 0.25
         assert results[0]["result"]["timed_out"] is True
         assert results[0]["success"] is False
+
+
+@pytest.mark.django_db
+class TestBuiltinHooksRegistration:
+    """P1A-2: register_builtin_hooks 应自动挂载 RateLimitHook。"""
+
+    def setup_method(self):
+        # 强制重置全局注册表,保证测试独立
+        get_registry(reset=True)
+
+    def test_rate_limit_hook_registered_after_call(self):
+        """register_builtin_hooks() 后 PRE_EXECUTE 链应包含 RateLimitHook。"""
+        from smart_assistant.hooks.wiring import register_builtin_hooks
+
+        register_builtin_hooks()
+
+        reg = get_registry()
+        pre_hooks = reg.list_hooks(HookEvent.PRE_EXECUTE)
+        names = {getattr(h, "name", type(h).__name__) for h in pre_hooks}
+        assert "write_rate_limit" in names
+        assert "confirmation" in names  # 既有 hook 也应在
+
+    def test_register_is_idempotent(self):
+        """多次调用 register_builtin_hooks 不会重复挂载。"""
+        from smart_assistant.hooks.wiring import register_builtin_hooks
+
+        register_builtin_hooks()
+        register_builtin_hooks()
+        register_builtin_hooks()
+
+        reg = get_registry()
+        names = [
+            getattr(h, "name", type(h).__name__)
+            for h in reg.list_hooks(HookEvent.PRE_EXECUTE)
+        ]
+        # write_rate_limit 只挂一次
+        assert names.count("write_rate_limit") == 1
