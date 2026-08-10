@@ -151,13 +151,16 @@ class TestDoctorChecksNoConfig:
         # 缓存/限流为信息级,恒 ok
         assert by_name["cache_rate_limit"]["status"] == "ok"
         assert by_name["cache_rate_limit"]["kind"] == "info"
+        # P1A-2 新增:cache_write_rate_limit(写工具阈值)同为信息级恒 ok
+        assert by_name["cache_write_rate_limit"]["status"] == "ok"
+        assert by_name["cache_write_rate_limit"]["kind"] == "info"
         # native_tool_calls:空库 → warn/no_llm_endpoint(Task 8 新增)
         assert by_name["native_tool_calls"]["status"] == "warn"
         assert by_name["native_tool_calls"]["kind"] == "no_llm_endpoint"
-        # 汇总计数(error 3 + warn 3 + ok 1 = 7 项;原 6 项 + native_tool_calls warn)
+        # 汇总计数(error 3 + warn 3 + ok 2 = 8 项;原 7 项 + cache_write_rate_limit)
         assert data["summary"]["error"] == 3
         assert data["summary"]["warn"] == 3
-        assert data["summary"]["ok"] == 1
+        assert data["summary"]["ok"] == 2
 
 
 class TestDoctorChecksWithConfig:
@@ -499,3 +502,20 @@ class TestSseContract:
         assert done["type"] == "done"
         assert done["error"] is False
         assert "kind" not in done
+
+
+class TestDoctorWriteRateLimitCheck:
+    def setup_method(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_cache_write_rate_limit_check_present(self, admin_user_obj):
+        """doctor 端点应同时报告 chat 与 write-tool 两套限流配置。"""
+        from smart_assistant.views.doctor import get_doctor_status
+
+        result = get_doctor_status()
+        checks_by_name = {c["name"]: c for c in result["checks"]}
+        assert "cache_write_rate_limit" in checks_by_name
+        assert checks_by_name["cache_write_rate_limit"]["status"] == "ok"
+        assert checks_by_name["cache_write_rate_limit"]["kind"] == "info"

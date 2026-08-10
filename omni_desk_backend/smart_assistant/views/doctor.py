@@ -205,18 +205,66 @@ def _check_datasets() -> list:
     return [_check("datasets", STATUS_OK, "ok", f"已激活 {active_count} 个知识库数据集")]
 
 
-def _check_cache_rate_limit() -> list:
-    """信息级：缓存后端类型与限流中间件启用情况。"""
+def _rate_limit_check(name: str, limit_const: int, env_name: str, base_hint: str) -> dict:
+    """构建单个限流配置检查项(信息级,恒 ok)。
+
+    P1A-2 新增:被 `_check_cache_rate_limit` 调用两次,分别产出
+    `cache_rate_limit`(chat 阈值)与 `cache_write_rate_limit`(写工具阈值)两项。
+    ``base_hint`` 沿用既有缓存/中间件状态提示,保证 doctor 端点响应字段稳定。
+    """
     backend = settings.CACHES.get("default", {}).get("BACKEND", "")
-    backend_name = backend.rsplit(".", 1)[-1] or "未配置"
+    backend_short = backend.rsplit(".", 1)[-1] or "未配置"
+    config = {
+        "limit": limit_const,
+        "window_seconds": 60,
+        "env_name": env_name,
+        "cache_backend": backend,
+    }
+    return {
+        "name": name,
+        "status": STATUS_OK,
+        "kind": "info",
+        "message": (
+            f"速率限制配置：{backend_short} / 每用户 {config['limit']} 次/{config['window_seconds']}s"
+        ),
+        "hint": base_hint,
+        "config": config,
+    }
+
+
+def _check_cache_rate_limit() -> list:
+    """信息级：缓存后端类型与限流中间件启用情况(chat + 写工具 两套同时报告)。
+
+    P1A-2 改动:同时产出 ``cache_rate_limit`` 与 ``cache_write_rate_limit`` 两项,
+    分别对应 chat 中间件阈值与 RateLimitHook(PRE_EXECUTE)写工具阈值。
+    """
+    backend = settings.CACHES.get("default", {}).get("BACKEND", "")
     rate_limit_enabled = any("RateLimitMiddleware" in path for path in settings.MIDDLEWARE)
-    message = f"缓存后端：{backend_name}；限流中间件：{'已启用' if rate_limit_enabled else '未启用'}"
-    hint = ""
+    base_hint = ""
     if "LocMemCache" in backend:
-        hint = "进程内缓存仅适用于单进程/测试环境，多进程部署请改用 Redis"
+        base_hint = "进程内缓存仅适用于单进程/测试环境，多进程部署请改用 Redis"
     elif not rate_limit_enabled:
-        hint = "未检测到限流中间件，高并发场景建议启用"
-    return [_check("cache_rate_limit", STATUS_OK, "info", message, hint)]
+        base_hint = "未检测到限流中间件，高并发场景建议启用"
+    # 延迟导入避免 smart_assistant 顶层 import rate_limit 失败时拖垮整个 doctor 自检
+    from smart_assistant.middleware.rate_limit import (
+        SMART_ASSISTANT_WRITE_RATE_LIMIT,
+        SMART_CHAT_RATE_LIMIT,
+    )
+
+    return [
+        _rate_limit_check(
+            "cache_rate_limit",
+            SMART_CHAT_RATE_LIMIT,
+            "SMART_ASSISTANT_CHAT_RATE_LIMIT",
+            base_hint,
+        ),
+        _rate_limit_check(
+            "cache_write_rate_limit",
+            SMART_ASSISTANT_WRITE_RATE_LIMIT,
+            "SMART_ASSISTANT_WRITE_RATE_LIMIT",
+            base_hint,
+        ),
+    ]
 
 
 # 探测原生 tool_calls 能力时使用的最小工具 schema
@@ -340,30 +388,40 @@ class DoctorView(APIView):
     )
 
     def get(self, request):
-        checks = []
-        for checker in self.CHECKERS:
-            checker_name = getattr(checker, "__name__", "unknown_check")
-            try:
-                checks.extend(checker())
-            except Exception as exc:  # 防御性兜底：单项异常不拖垮整个自检
-                logger.exception("doctor 检查项 %s 执行异常", checker_name)
-                checks.append(
-                    _check(
-                        checker_name,
-                        STATUS_ERROR,
-                        "internal_error",
-                        f"检查项执行异常：{exc}",
-                        "服务异常，请稍后重试",
-                    )
+        return Response(get_doctor_status())
+
+
+def get_doctor_status() -> dict:
+    """构建 doctor 自检结果(P1A-2 提取,供 ``TestDoctorWriteRateLimitCheck`` 等
+    直接调用,无需走 HTTP 路径)。
+
+    复用 ``DoctorView.CHECKERS`` 注册表与 ``DoctorView.get`` 同一执行流程:
+    - 顺序遍历各 checker,``checker()`` 返回 ``list[dict]`` 检查项
+    - 单项异常被捕获并降级为 ``internal_error`` 检查项(端点不返回 500)
+    - 汇总 ``status`` 计数后组装与 API 同构响应 dict
+    """
+    checks = []
+    for checker in DoctorView.CHECKERS:
+        checker_name = getattr(checker, "__name__", "unknown_check")
+        try:
+            checks.extend(checker())
+        except Exception as exc:  # 防御性兜底：单项异常不拖垮整个自检
+            logger.exception("doctor 检查项 %s 执行异常", checker_name)
+            checks.append(
+                _check(
+                    checker_name,
+                    STATUS_ERROR,
+                    "internal_error",
+                    f"检查项执行异常：{exc}",
+                    "服务异常，请稍后重试",
                 )
-        summary = {STATUS_OK: 0, STATUS_WARN: 0, STATUS_ERROR: 0}
-        for item in checks:
-            summary[item["status"]] = summary.get(item["status"], 0) + 1
-        return Response(
-            {
-                "format_version": FORMAT_VERSION,
-                "checked_at": timezone.now().isoformat(),
-                "summary": summary,
-                "checks": checks,
-            }
-        )
+            )
+    summary = {STATUS_OK: 0, STATUS_WARN: 0, STATUS_ERROR: 0}
+    for item in checks:
+        summary[item["status"]] = summary.get(item["status"], 0) + 1
+    return {
+        "format_version": FORMAT_VERSION,
+        "checked_at": timezone.now().isoformat(),
+        "summary": summary,
+        "checks": checks,
+    }
