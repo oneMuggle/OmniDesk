@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
+import { Button, Table, Modal, Form, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
 import {
   addAppConfig,
   updateAppConfig,
