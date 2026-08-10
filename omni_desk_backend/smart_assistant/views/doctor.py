@@ -224,9 +224,7 @@ def _rate_limit_check(name: str, limit_const: int, env_name: str, base_hint: str
         "name": name,
         "status": STATUS_OK,
         "kind": "info",
-        "message": (
-            f"速率限制配置：{backend_short} / 每用户 {config['limit']} 次/{config['window_seconds']}s"
-        ),
+        "message": (f"速率限制配置：{backend_short} / 每用户 {config['limit']} 次/{config['window_seconds']}s"),
         "hint": base_hint,
         "config": config,
     }

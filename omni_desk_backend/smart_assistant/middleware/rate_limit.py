@@ -83,9 +83,7 @@ class RateLimitMiddleware:
 
 # 每用户每分钟最大写工具调用数(配合 ConfirmationHook 的二次确认,
 # 防止用户在窗口内频繁触发预演+确认)。
-SMART_ASSISTANT_WRITE_RATE_LIMIT = int(
-    os.environ.get("SMART_ASSISTANT_WRITE_RATE_LIMIT", "10")
-)
+SMART_ASSISTANT_WRITE_RATE_LIMIT = int(os.environ.get("SMART_ASSISTANT_WRITE_RATE_LIMIT", "10"))
 WRITE_RATE_WINDOW = 60
 WRITE_RATE_NAMESPACE = "smart_assistant:write_rate_limit"
 

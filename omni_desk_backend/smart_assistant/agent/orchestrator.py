@@ -654,13 +654,17 @@ class AgentOrchestrator:
             # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
             # 直接阻断工具执行,返回 error dict 携带 error_code + retry_after。
             if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
-                return {
-                    "found": False,
-                    "message": hook_result.reason,
-                    "error": True,
-                    "error_code": hook_result.error_code,
-                    "retry_after": getattr(hook_result, "retry_after", None),
-                }, None, {"error": "execution_failed", "detail": hook_result.reason}
+                return (
+                    {
+                        "found": False,
+                        "message": hook_result.reason,
+                        "error": True,
+                        "error_code": hook_result.error_code,
+                        "retry_after": getattr(hook_result, "retry_after", None),
+                    },
+                    None,
+                    {"error": "execution_failed", "detail": hook_result.reason},
+                )
             # 非 confirmation_required 的 Reject / 无 pre-hook:走既有执行路径
 
         failure: dict | None = None
