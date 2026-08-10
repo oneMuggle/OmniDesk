@@ -401,12 +401,17 @@ class AgentOrchestrator:
                         "error": False,
                     }
                 # 非 confirmation_required 的 Reject(如 rate_limit_exceeded):
-                # 把 error_code / retry_after 挂到 result 上,由视图层透传给前端(P1A-2)。
-                if isinstance(hook_result, Reject):
-                    rate_limit_error = {
+                # 直接阻断工具执行,不走 LLM 合成;返回 error_code + retry_after 给视图层透传(P1A-2 enforcement)。
+                # 与既有 confirmation 路径对称(按 error_code 判断,不动 confirmation_required 透传)。
+                if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
+                    return {
+                        "answer": hook_result.reason,
+                        "intent": intent,
+                        "tool_used": tool.name,
+                        "tool_result": None,
+                        "error": True,
                         "error_code": hook_result.error_code,
                         "retry_after": getattr(hook_result, "retry_after", None),
-                        "message": hook_result.reason,
                     }
                 # 既有路径(apply_pre_execute_hooks 内部已做失败降级,透传 params)
             # === confirm-replay 拦截结束 ===
@@ -646,6 +651,16 @@ class AgentOrchestrator:
                     },
                 )
                 return {"found": True, "draft": draft}, {"token": token, "draft": draft}, None
+            # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
+            # 直接阻断工具执行,返回 error dict 携带 error_code + retry_after。
+            if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
+                return {
+                    "found": False,
+                    "message": hook_result.reason,
+                    "error": True,
+                    "error_code": hook_result.error_code,
+                    "retry_after": getattr(hook_result, "retry_after", None),
+                }, None, {"error": "execution_failed", "detail": hook_result.reason}
             # 非 confirmation_required 的 Reject / 无 pre-hook:走既有执行路径
 
         failure: dict | None = None
@@ -1087,6 +1102,11 @@ class AgentOrchestrator:
             "sources": result.get("sources"),
             "tool_fallback": result.get("tool_fallback", False),
             "tool_chain": result.get("tool_chain"),
+            # P1A-2 enforcement:_legacy_process 在 RateLimitHook Reject 时返回的
+            # error_code / retry_after 必须透传到 meta,下游 _wrap_native_to_dict
+            # 复制给视图层,前端才能拿到 retry-after 退避秒数。
+            "error_code": result.get("error_code"),
+            "retry_after": result.get("retry_after"),
             "awaiting_confirmation": result.get("awaiting_confirmation", False),
             "confirmation_token": result.get("confirmation_token"),
             "error": result.get("error", False),
@@ -1150,6 +1170,10 @@ class AgentOrchestrator:
             "awaiting_confirmation",
             "confirmation_token",
             "error",
+            # P1A-2 enforcement:RateLimitHook Reject 时 _process_json_path 把
+            # error_code / retry_after 写入 meta,这里复制给视图层。
+            "error_code",
+            "retry_after",
         ):
             if k in meta:
                 out[k] = meta[k]
@@ -1393,14 +1417,18 @@ class AgentOrchestrator:
                     )
                     yield sse_event({"type": "done", "error": False, "awaiting_confirmation": True})
                     return
-                # P1A-2:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
-                # 同样要被透传到 done 事件,前端展示退避秒数。
-                if isinstance(hook_result, Reject):
-                    rate_limit_error = {
+                # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
+                # 直接阻断工具执行;yield done 事件(带 error_code/retry_after)后立即 return,
+                # 不走 LLM 合成,不 yield 后续 chunk/meta 事件,避免 SSE 流被前端误判网络异常。
+                if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
+                    done_event = {
+                        "type": "done",
+                        "error": True,
                         "error_code": hook_result.error_code,
                         "retry_after": getattr(hook_result, "retry_after", None),
-                        "message": hook_result.reason,
                     }
+                    yield sse_event(done_event)
+                    return
                 # 既有路径(apply_pre_execute_hooks 内部已做失败降级,透传 params)
             # === confirm-replay 流式拦截结束 ===
 
