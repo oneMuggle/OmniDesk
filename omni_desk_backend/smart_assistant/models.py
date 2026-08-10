@@ -139,6 +139,7 @@ class LlmAppConfig(models.Model):
 
     APP_CHOICES = [
         ("smart_assistant", "智能助手"),
+        ("office_assistant", "办公助手"),
     ]
     app_name = models.CharField(max_length=50, choices=APP_CHOICES, verbose_name="应用名称")
     endpoint = models.ForeignKey(
