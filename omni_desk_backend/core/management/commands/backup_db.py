@@ -407,7 +407,8 @@ class Command(BaseCommand):
         """对 _SHADOW_TABLES 每张表 SELECT count(*),返回非空表数."""
         non_empty = 0
         for table in _SHADOW_TABLES:
-            cmd = base_psql + ["-d", shadow_db, "-tAc", f"SELECT count(*) FROM {table}"]
+            # _SHADOW_TABLES 是模块级 hardcoded 字面量,不受外部输入影响 → 安全拼接
+            cmd = base_psql + ["-d", shadow_db, "-tAc", f"SELECT count(*) FROM {table}"]  # nosec B608
             try:
                 result = subprocess.run(cmd, env=env, capture_output=True, timeout=timeout, check=False)
             except FileNotFoundError as exc:
