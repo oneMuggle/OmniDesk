@@ -1,10 +1,21 @@
-"""Backup database and media files."""
+"""Backup database and media files.
+
+两种模式:
+
+- 默认(无 --db-only / --media-only):**配对批次**,生成 `database.sql.gz` +
+  `media.tar.gz` + `metadata.json` + `*.sha256` 副文件。offline-upgrade 安全
+  链路(verify_backup_batch.sh / rollback.sh / deploy_offline.sh)依赖此结构。
+- `--db-only` / `--media-only`:**legacy 单文件模式**,`backup_v*` / `media_v*`
+  命名,兼容 smoke_tests.sh 阶段 11 与 backup.sh 透传参数。
+"""
 
 import gzip
+import hashlib
+import json
 import os
 import subprocess
 import tarfile
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from django.conf import settings
@@ -12,26 +23,41 @@ from django.core.management.base import BaseCommand, CommandError
 
 
 class Command(BaseCommand):
-    help = "Backup database and media files. Usage: python manage.py backup_db [--media-only] [--db-only]"
+    help = (
+        "Backup database and media files. "
+        "Default: paired batch (database.sql.gz + media.tar.gz + metadata.json + *.sha256). "
+        "--db-only / --media-only: legacy single-file mode."
+    )
 
     def add_arguments(self, parser):
-        parser.add_argument("--media-only", action="store_true", help="Only backup media files")
-        parser.add_argument("--db-only", action="store_true", help="Only backup database")
+        parser.add_argument(
+            "--media-only", action="store_true", help="Only backup media files (legacy single-file mode)"
+        )
+        parser.add_argument("--db-only", action="store_true", help="Only backup database (legacy single-file mode)")
         parser.add_argument("--output-dir", type=str, default="/opt/omnidesk/backups", help="Backup output directory")
+        parser.add_argument("--batch-id", help="Paired batch upgrade_id (default: UTC timestamp)")
+        parser.add_argument("--verify", action="store_true", help="Mark restore_verified=true in metadata.json")
+        parser.add_argument(
+            "--skip-media", action="store_true", help="Paired batch: skip media dump (writes empty media.tar.gz)"
+        )
 
     def handle(self, *args, **options):
         output_dir = Path(options["output_dir"])
         output_dir.mkdir(parents=True, exist_ok=True)
 
+        if options["media_only"] or options["db_only"]:
+            self._legacy_backup(output_dir, options)
+        else:
+            self._paired_backup(output_dir, options)
+
+    # ─── legacy single-file mode ─────────────────────────────────
+    def _legacy_backup(self, output_dir, options):
         version = getattr(settings, "APP_VERSION", "unknown")
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        media_only = options["media_only"]
-        db_only = options["db_only"]
 
-        if not media_only:
+        if not options["media_only"]:
             self._backup_db(output_dir, version, timestamp)
-
-        if not db_only:
+        if not options["db_only"]:
             self._backup_media(output_dir, version, timestamp)
 
         self._cleanup_old_backups(output_dir)
@@ -117,3 +143,101 @@ class Command(BaseCommand):
         for old in media_backups[keep:]:
             old.unlink()
             self.stdout.write(f"Removed old media backup: {old.name}")
+
+    # ─── paired batch mode ───────────────────────────────────────
+    def _paired_backup(self, output_dir, options):
+        batch_id = options["batch_id"] or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+        channel = os.environ.get("CHANNEL", os.environ.get("RELEASE_CHANNEL", "stable"))
+        source = os.environ.get("SOURCE_VERSION", getattr(settings, "APP_VERSION", "unknown"))
+        db_file = output_dir / "database.sql.gz"
+        media_file = output_dir / "media.tar.gz"
+
+        self._dump_database(db_file)
+        if options["skip_media"]:
+            media_file.write_bytes(b"")
+        else:
+            self._dump_media(media_file)
+
+        if not db_file.exists() or not media_file.exists():
+            raise CommandError("database and media backups must both exist")
+
+        metadata = {
+            "upgrade_id": batch_id,
+            "channel": channel,
+            "source_version": source,
+            "database_file": db_file.name,
+            "media_file": media_file.name,
+            "database_sha256": self._checksum(db_file),
+            "media_sha256": self._checksum(media_file),
+            "database_size": db_file.stat().st_size,
+            "media_size": media_file.stat().st_size,
+            "restore_verified": bool(options["verify"]),
+            "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        }
+        for path, digest in ((db_file, metadata["database_sha256"]), (media_file, metadata["media_sha256"])):
+            path.with_name(path.name + ".sha256").write_text(f"{digest}  {path.name}\n")
+        (output_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
+
+        self.stdout.write(
+            self.style.SUCCESS(
+                f"Paired backup batch written to {output_dir} (upgrade_id={batch_id}, restore_verified={metadata['restore_verified']})"
+            )
+        )
+
+    def _dump_database(self, target):
+        db = settings.DATABASES["default"]
+        env = os.environ.copy()
+        env["PGPASSWORD"] = db.get("PASSWORD", "")
+        cmd = [
+            "pg_dump",
+            "-h",
+            db["HOST"],
+            "-p",
+            str(db["PORT"]),
+            "-U",
+            db["USER"],
+            "-d",
+            db["NAME"],
+            "--no-owner",
+            "--no-privileges",
+        ]
+        temp = target.with_suffix(target.suffix + ".tmp")
+        try:
+            # 逐块读 pg_dump stdout 写入 gzip,避免整个转储载入内存
+            # (plain SQL format,兼容 psql 直接管道还原,见 Fix-12)
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, env=env)
+            stdout_stream = process.stdout
+            chunks = (
+                stdout_stream
+                if hasattr(stdout_stream, "__iter__") and not hasattr(stdout_stream, "readline")
+                else iter(stdout_stream.readline, b"")
+            )
+            with temp.open("wb") as raw, gzip.GzipFile(fileobj=raw, mode="wb") as gz:
+                for chunk in chunks:
+                    gz.write(chunk)
+            stderr_stream = process.stderr
+            stderr = (stderr_stream.read() if hasattr(stderr_stream, "read") else b"").decode(errors="replace")
+            if process.wait() != 0:
+                raise CommandError(f"pg_dump failed: {stderr}")
+            temp.replace(target)
+        except FileNotFoundError as exc:
+            raise CommandError("pg_dump not found. Please install PostgreSQL client tools.") from exc
+        finally:
+            temp.unlink(missing_ok=True)
+
+    def _dump_media(self, target):
+        root = Path(getattr(settings, "MEDIA_ROOT", ""))
+        if not root.is_dir():
+            raise CommandError(f"Media directory not found: {root}")
+        temp = target.with_suffix(target.suffix + ".tmp")
+        with tarfile.open(temp, "w:gz") as archive:
+            archive.add(root, arcname="media")
+        temp.replace(target)
+
+    @staticmethod
+    def _checksum(path):
+        digest = hashlib.sha256()
+        with path.open("rb") as stream:
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                digest.update(chunk)
+        return digest.hexdigest()
