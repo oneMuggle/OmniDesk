@@ -4,6 +4,7 @@ Task 5 of offline-upgrade-data-safety: 真实枚举 Django migration graph,覆�
 DeleteModel / RemoveField / RemoveConstraint 三类 destructive 操作,并提供
 --fail-on-destructive 选项在检测到 destructive 时返回 exit 2。
 """
+
 import io
 from unittest.mock import patch, MagicMock
 

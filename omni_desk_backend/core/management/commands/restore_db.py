@@ -19,19 +19,21 @@ from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 
 
-REQUIRED_METADATA_KEYS = frozenset({
-    "upgrade_id",
-    "channel",
-    "source_version",
-    "database_file",
-    "media_file",
-    "database_sha256",
-    "media_sha256",
-    "database_size",
-    "media_size",
-    "restore_verified",
-    "created_at",
-})
+REQUIRED_METADATA_KEYS = frozenset(
+    {
+        "upgrade_id",
+        "channel",
+        "source_version",
+        "database_file",
+        "media_file",
+        "database_sha256",
+        "media_sha256",
+        "database_size",
+        "media_size",
+        "restore_verified",
+        "created_at",
+    }
+)
 
 # 拒绝任何含 .. 或以 / 开头的相对/绝对路径(防止路径穿越)
 _PATH_TRAVERSAL_RE = re.compile(r"(^|/)\.\.|^\/")
@@ -64,10 +66,7 @@ class Command(BaseCommand):
         parser.add_argument(
             "--skip-metadata-verify",
             action="store_true",
-            help=(
-                "Skip sha256 checksum verification of the batch metadata. "
-                "EMERGENCY ONLY — not for production use."
-            ),
+            help=("Skip sha256 checksum verification of the batch metadata. EMERGENCY ONLY — not for production use."),
         )
 
     def handle(self, *args, **options):
@@ -75,13 +74,9 @@ class Command(BaseCommand):
         backup_file_arg = options.get("backup_file")
 
         if not batch_dir and not backup_file_arg:
-            raise CommandError(
-                "Either provide a backup_file argument or --batch-dir option."
-            )
+            raise CommandError("Either provide a backup_file argument or --batch-dir option.")
         if batch_dir and backup_file_arg:
-            raise CommandError(
-                "backup_file positional argument and --batch-dir are mutually exclusive; pick one."
-            )
+            raise CommandError("backup_file positional argument and --batch-dir are mutually exclusive; pick one.")
 
         if batch_dir:
             db_path = self._validate_batch(Path(batch_dir), skip_verify=options["skip_metadata_verify"])
@@ -114,9 +109,7 @@ class Command(BaseCommand):
 
         meta_path = batch_dir / "metadata.json"
         if not meta_path.is_file():
-            raise CommandError(
-                f"Batch directory missing required metadata.json: {batch_dir}"
-            )
+            raise CommandError(f"Batch directory missing required metadata.json: {batch_dir}")
 
         try:
             metadata = json.loads(meta_path.read_text())
@@ -128,17 +121,13 @@ class Command(BaseCommand):
 
         missing = REQUIRED_METADATA_KEYS - set(metadata)
         if missing:
-            raise CommandError(
-                f"Batch metadata missing required fields: {sorted(missing)}"
-            )
+            raise CommandError(f"Batch metadata missing required fields: {sorted(missing)}")
 
         # 拒绝 database_file / media_file 含路径穿越 — 防 zip-slip 等攻击
         for key in ("database_file", "media_file"):
             value = metadata.get(key, "")
             if not value or _PATH_TRAVERSAL_RE.search(value) or value.startswith("/"):
-                raise CommandError(
-                    f"Batch metadata {key} contains invalid path: {value!r}"
-                )
+                raise CommandError(f"Batch metadata {key} contains invalid path: {value!r}")
 
         db_path = batch_dir / metadata["database_file"]
         media_path = batch_dir / metadata["media_file"]
@@ -148,9 +137,11 @@ class Command(BaseCommand):
             self._verify_checksum(db_path, metadata["database_sha256"], metadata["database_size"], "database")
             self._verify_checksum(media_path, metadata["media_sha256"], metadata["media_size"], "media")
         else:
-            self.stdout.write(self.style.WARNING(
-                "Skipping sha256 verification (--skip-metadata-verify); batch integrity NOT guaranteed."
-            ))
+            self.stdout.write(
+                self.style.WARNING(
+                    "Skipping sha256 verification (--skip-metadata-verify); batch integrity NOT guaranteed."
+                )
+            )
 
         return db_path
 
@@ -160,18 +151,14 @@ class Command(BaseCommand):
             raise CommandError(f"Batch {kind} file missing: {path}")
         actual_size = path.stat().st_size
         if actual_size != expected_size:
-            raise CommandError(
-                f"Batch {kind} size mismatch: actual={actual_size} expected={expected_size}"
-            )
+            raise CommandError(f"Batch {kind} size mismatch: actual={actual_size} expected={expected_size}")
         digest = hashlib.sha256()
         with path.open("rb") as stream:
             for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                 digest.update(chunk)
         actual_sha = digest.hexdigest()
         if actual_sha != expected_sha256:
-            raise CommandError(
-                f"Batch {kind} checksum mismatch: actual={actual_sha} expected={expected_sha256}"
-            )
+            raise CommandError(f"Batch {kind} checksum mismatch: actual={actual_sha} expected={expected_sha256}")
 
     # ─── 实际还原 ─────────────────────────────────────────────────
     def _run_restore(self, db_path):
@@ -214,8 +201,6 @@ class Command(BaseCommand):
                         f"psql failed (rc={result.returncode}); ON_ERROR_STOP triggers abort: {err.strip()}"
                     )
         except FileNotFoundError as exc:
-            raise CommandError(
-                "psql not found. Please install PostgreSQL client tools."
-            ) from exc
+            raise CommandError("psql not found. Please install PostgreSQL client tools.") from exc
 
         self.stdout.write(self.style.SUCCESS("Database restored successfully."))

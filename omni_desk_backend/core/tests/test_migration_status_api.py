@@ -6,6 +6,7 @@ MigrationLoader.graph 真实枚举迁移(而非 apps.get_app_configs() + app_con
 
 识别 DeleteModel / RemoveField / RemoveConstraint 三类 destructive 操作。
 """
+
 from unittest.mock import patch, MagicMock
 
 import pytest
@@ -43,6 +44,7 @@ class TestMigrationStatusAPI:
     @pytest.fixture
     def auth_client(self):
         from django.contrib.auth.models import Group
+
         User = get_user_model()
         admin_group, _ = Group.objects.get_or_create(name="Admin")
         user = User.objects.create_user(

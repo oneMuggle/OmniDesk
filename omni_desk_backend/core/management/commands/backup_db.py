@@ -30,12 +30,16 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("--media-only", action="store_true", help="Only backup media files (legacy single-file mode)")
+        parser.add_argument(
+            "--media-only", action="store_true", help="Only backup media files (legacy single-file mode)"
+        )
         parser.add_argument("--db-only", action="store_true", help="Only backup database (legacy single-file mode)")
         parser.add_argument("--output-dir", type=str, default="/opt/omnidesk/backups", help="Backup output directory")
         parser.add_argument("--batch-id", help="Paired batch upgrade_id (default: UTC timestamp)")
         parser.add_argument("--verify", action="store_true", help="Mark restore_verified=true in metadata.json")
-        parser.add_argument("--skip-media", action="store_true", help="Paired batch: skip media dump (writes empty media.tar.gz)")
+        parser.add_argument(
+            "--skip-media", action="store_true", help="Paired batch: skip media dump (writes empty media.tar.gz)"
+        )
 
     def handle(self, *args, **options):
         output_dir = Path(options["output_dir"])
@@ -172,9 +176,7 @@ class Command(BaseCommand):
         }
         for path, digest in ((db_file, metadata["database_sha256"]), (media_file, metadata["media_sha256"])):
             path.with_name(path.name + ".sha256").write_text(f"{digest}  {path.name}\n")
-        (output_dir / "metadata.json").write_text(
-            json.dumps(metadata, ensure_ascii=False, indent=2) + "\n"
-        )
+        (output_dir / "metadata.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n")
 
         self.stdout.write(
             self.style.SUCCESS(

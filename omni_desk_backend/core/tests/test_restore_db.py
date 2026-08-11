@@ -12,6 +12,7 @@
 test settings 用 SQLite — 每个用 psql 的测试用 _patch_postgres_db 把
 DATABASES 切到 PostgreSQL,这样命令内的 engine 检查放行。
 """
+
 import gzip
 import hashlib
 import json
@@ -55,11 +56,15 @@ def _make_fake_process(returncode=0, stderr=b""):
     return fake
 
 
-def _make_valid_batch(batch_dir, *, db_sql=b"CREATE TABLE sample(id integer);\n",
-                     media_bytes=b"placeholder-media-content",
-                     upgrade_id="test-batch-1",
-                     source_version="v0.7.0",
-                     channel="stable"):
+def _make_valid_batch(
+    batch_dir,
+    *,
+    db_sql=b"CREATE TABLE sample(id integer);\n",
+    media_bytes=b"placeholder-media-content",
+    upgrade_id="test-batch-1",
+    source_version="v0.7.0",
+    channel="stable",
+):
     """构造一个合法的成组备份目录,返回 metadata dict."""
     batch_dir.mkdir(parents=True, exist_ok=True)
     db_path = batch_dir / "database.sql.gz"
@@ -91,12 +96,8 @@ def test_restore_passes_on_error_stop_and_single_transaction_to_psql(tmp_path):
     with _patch_postgres_db(), patch("subprocess.run", return_value=fake) as runner:
         call_command("restore_db", str(backup), force=True)
     cmd = runner.call_args.args[0]
-    assert "-v" in cmd and "ON_ERROR_STOP=1" in cmd, (
-        f"psql 必须带 -v ON_ERROR_STOP=1,实际={cmd}"
-    )
-    assert "--single-transaction" in cmd, (
-        f"psql 必须带 --single-transaction 以保证原子回滚,实际={cmd}"
-    )
+    assert "-v" in cmd and "ON_ERROR_STOP=1" in cmd, f"psql 必须带 -v ON_ERROR_STOP=1,实际={cmd}"
+    assert "--single-transaction" in cmd, f"psql 必须带 --single-transaction 以保证原子回滚,实际={cmd}"
 
 
 def test_restore_raises_command_error_on_psql_failure(tmp_path):
