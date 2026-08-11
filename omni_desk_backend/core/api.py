@@ -3,7 +3,6 @@
 import logging
 from pathlib import Path
 
-from django.apps import apps
 from django.conf import settings
 from django.db import connection, connections
 from django.db import migrations as django_migrations
@@ -69,6 +68,13 @@ def changelog(request):
 @api_view(["GET"])
 @permission_classes([IsAuthenticated])
 def migration_status(request):
+    """枚举 migration graph,返回 applied / pending / has_destructive。
+
+    数据源: MigrationLoader.graph.nodes(而非 apps.get_app_configs() + app_config.migrations),
+    保证对第三方 app 与无 migrations 模块属性的 app 同样生效。
+
+    destructive 操作: DeleteModel / RemoveField / RemoveConstraint。
+    """
     loader = MigrationLoader(connection)
     loader.build_graph()
 
@@ -78,42 +84,56 @@ def migration_status(request):
 
     pending_list = []
     destructive = False
-    for app_config in apps.get_app_configs():
-        app_label = app_config.label
-        if not hasattr(app_config, "migrations"):
+    for node_key, migration in loader.graph.nodes.items():
+        app_label, migration_name = node_key
+        if node_key in loader.applied_migrations:
             continue
-        for migration in app_config.migrations:
-            if migration.name.startswith("__"):
-                continue
-            key = (app_label, migration.name.replace(".py", ""))
-            if key in loader.applied_migrations:
-                continue
+        # 跳过包标记(如 __init__.py)
+        if migration.name.startswith("__"):
+            continue
 
-            ops = []
-            for op in migration.operations:
-                op_type = type(op).__name__
-                if isinstance(op, django_migrations.DeleteModel):
-                    ops.append({"type": op_type, "model": op.name, "destructive": True})
-                    destructive = True
-                elif isinstance(op, django_migrations.RemoveField):
-                    ops.append({"type": op_type, "model": op.model_name, "field": op.name, "destructive": True})
-                    destructive = True
-                elif isinstance(op, django_migrations.AddField):
-                    ops.append({"type": op_type, "model": op.model_name, "field": op.name})
-                elif isinstance(op, django_migrations.AlterField):
-                    ops.append({"type": op_type, "model": op.model_name, "field": op.name})
-                elif isinstance(op, django_migrations.CreateModel):
-                    ops.append({"type": op_type, "model": op.name})
-                else:
-                    ops.append({"type": op_type})
+        ops = []
+        for op in migration.operations:
+            op_type = type(op).__name__
+            if isinstance(op, django_migrations.DeleteModel):
+                ops.append({"type": op_type, "model": op.name, "destructive": True})
+                destructive = True
+            elif isinstance(op, django_migrations.RemoveField):
+                ops.append(
+                    {
+                        "type": op_type,
+                        "model": op.model_name,
+                        "field": op.name,
+                        "destructive": True,
+                    }
+                )
+                destructive = True
+            elif isinstance(op, django_migrations.RemoveConstraint):
+                ops.append(
+                    {
+                        "type": op_type,
+                        "model": op.model_name,
+                        "name": getattr(op, "name", None),
+                        "destructive": True,
+                    }
+                )
+                destructive = True
+            elif isinstance(op, django_migrations.AddField):
+                ops.append({"type": op_type, "model": op.model_name, "field": op.name})
+            elif isinstance(op, django_migrations.AlterField):
+                ops.append({"type": op_type, "model": op.model_name, "field": op.name})
+            elif isinstance(op, django_migrations.CreateModel):
+                ops.append({"type": op_type, "model": op.name})
+            else:
+                ops.append({"type": op_type})
 
-            pending_list.append(
-                {
-                    "app": app_label,
-                    "name": migration.name.replace(".py", ""),
-                    "operations": ops,
-                }
-            )
+        pending_list.append(
+            {
+                "app": app_label,
+                "name": migration_name,
+                "operations": ops,
+            }
+        )
 
     return Response(
         {
