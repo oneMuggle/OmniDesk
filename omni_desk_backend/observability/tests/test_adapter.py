@@ -23,7 +23,7 @@ def test_adapter_event_default_when_not_provided(caplog):
     caplog.set_level(logging.INFO, logger="test.module2")
     logger.info("hello")
     record = caplog.records[0]
-    assert getattr(record, "event", "?") == "?"
+    assert record.event == "?"
 
 
 def test_adapter_extra_kwargs_override_default_event(caplog):

@@ -31,7 +31,9 @@ logger.info("用户登录成功", extra={
 })
 ```
 
-未传 `event` 时,adapter 自动填 `"unspecified"`,**测试会警告**。
+未传 `event` 时,adapter 自动填 `"?"`。
+
+此外,adapter 会自动注入 `request_id`(来自 `observability.context.request_id_var`,HTTP 请求 / Celery 任务生命周期内有效)与 `event`(默认 `"?"`);调用方通过 `extra` 显式传入的字段优先级更高,不会被覆盖。
 
 ## 三、事件清单
 
