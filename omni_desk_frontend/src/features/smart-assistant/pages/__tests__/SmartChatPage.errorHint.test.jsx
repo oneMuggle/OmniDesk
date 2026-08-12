@@ -8,7 +8,7 @@
  * 4. 失败且流未产出正文 → 兜底失败气泡 + 辅助提示行
  * 5. format_version 字段被忽略(不渲染、不报错)
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
 import { ReadableStream } from 'stream/web';
 import SmartChatPage from '../SmartChatPage';
@@ -27,17 +27,20 @@ jest.mock('../../api/smartAssistantApi', () => ({
 }));
 
 // ── 浏览器 API Mock ──
-// 与其他 SmartChatPage 测试一致:requestAnimationFrame 返回 0(假值),
-// 使 finally 中 flushTypewriter 直接显示全文
+// 与 ux 测试一致:用 jest fake timers 拦截 requestAnimationFrame,
+// 测试中通过 jest.advanceTimersByTime(N) 推进 typewriter 帧
 beforeAll(() => {
-  window.requestAnimationFrame = () => 0;
-  window.cancelAnimationFrame = jest.fn();
+  jest.useFakeTimers();
   Element.prototype.scrollIntoView = jest.fn();
   Object.defineProperty(navigator, 'clipboard', {
     value: { writeText: jest.fn().mockResolvedValue(undefined) },
     writable: true,
     configurable: true,
   });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
 });
 
 const renderWithProviders = (component) => render(<ConfigProvider>{component}</ConfigProvider>);
@@ -70,6 +73,11 @@ const sendAndWait = async (events, answer) => {
   const input = screen.getByPlaceholderText(/问我任何问题/);
   fireEvent.change(input, { target: { value: '测试问题' } });
   fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+  // 推进 typewriter 帧(fake timers 拦截 rAF)
+  await act(async () => {
+    jest.advanceTimersByTime(200);
+  });
 
   await waitFor(() => {
     expect(screen.getByText(answer)).toBeInTheDocument();
