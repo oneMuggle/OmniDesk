@@ -109,7 +109,7 @@ LOGGING = {
     "formatters": {
         "json": {
             "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(levelname)s %(name)s %(module)s %(message)s",
+            "format": "%(asctime)s %(levelname)s %(name)s %(module)s %(message)s %(request_id)s %(event)s",
             "rename_fields": {"asctime": "timestamp", "levelname": "level", "name": "logger"},
         },
     },
