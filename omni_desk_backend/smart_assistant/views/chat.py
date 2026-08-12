@@ -362,138 +362,172 @@ class SmartChatViewSet(viewsets.ViewSet):
             # 缺省 None,前端按通用错误展示,无 breaking。
             stream_error_code = None
             stream_retry_after = None
+            # 兜底:DB 写异常也保证前端能收到 done 事件。
+            # 此前 generator 仅 line 366-388 包 try,line 396-497 (DB 写)在
+            # try 之外,异常逃出 → Django 关闭 connection → 前端 reader.read()
+            # 拿不到 done → UI 永远卡在"取消"状态。
+            persist_exc = None
 
             try:
-                for chunk in orchestrator.process_stream(
-                    query,
-                    conversation_history=conversation_history,
-                    tool_context=tool_context,
-                ):
-                    yield chunk
-                    try:
-                        payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
-                        data = json.loads(payload)
-                    except (IndexError, json.JSONDecodeError):
-                        continue
-                    event_type = data.get("type")
-                    if event_type == "chunk":
-                        full_answer.append(data.get("content", ""))
-                    elif event_type == "meta":
-                        meta = data
-                    elif event_type == "done":
-                        done_error = bool(data.get("error"))
-                        done_seen = True
-                        # P1A-2:从 done 事件读 error_code / retry_after
-                        stream_error_code = data.get("error_code")
-                        stream_retry_after = data.get("retry_after")
-            except Exception as exc:
-                # 生成器中途异常（DB/工具异常逃逸）：按失败路径收口，保证"失败必审计"——
-                # 若直接中断流，前端会把已收到的部分内容当成功回答，且 AgentLog 缺失。
-                stream_exc = exc
-                done_error = True
-                logger.exception("SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id)
+                try:
+                    for chunk in orchestrator.process_stream(
+                        query,
+                        conversation_history=conversation_history,
+                        tool_context=tool_context,
+                    ):
+                        yield chunk
+                        try:
+                            payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
+                            data = json.loads(payload)
+                        except (IndexError, json.JSONDecodeError):
+                            continue
+                        event_type = data.get("type")
+                        if event_type == "chunk":
+                            full_answer.append(data.get("content", ""))
+                        elif event_type == "meta":
+                            meta = data
+                        elif event_type == "done":
+                            done_error = bool(data.get("error"))
+                            done_seen = True
+                            # P1A-2:从 done 事件读 error_code / retry_after
+                            stream_error_code = data.get("error_code")
+                            stream_retry_after = data.get("retry_after")
+                except Exception as exc:
+                    # 生成器中途异常（DB/工具异常逃逸）：按失败路径收口，保证"失败必审计"——
+                    # 若直接中断流，前端会把已收到的部分内容当成功回答，且 AgentLog 缺失。
+                    stream_exc = exc
+                    done_error = True
+                    logger.exception("SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id)
 
-            partial_answer = "".join(full_answer)
-            if stream_exc is not None:
-                # 统一采用流式失败前缀，复用 is_failed_answer 语义：
-                # 前端失败提示与"失败不落库"逻辑随之自动生效；已累积内容保留进审计记录
-                failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
-                answer = f"{failure_marker}｜已生成部分内容：{partial_answer}" if partial_answer else failure_marker
-                # 补发失败 chunk（部分内容此前已 streamed，此处仅补失败标记）
-                yield sse_event({"type": "chunk", "content": failure_marker})
-                # 生成器未发出 done 时补发携带 kind/hint 的失败 done，让前端完整收尾
-                if not done_seen:
-                    done_event = {"type": "done", "error": True}
+                partial_answer = "".join(full_answer)
+                if stream_exc is not None:
+                    # 统一采用流式失败前缀，复用 is_failed_answer 语义：
+                    # 前端失败提示与"失败不落库"逻辑随之自动生效；已累积内容保留进审计记录
+                    failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
+                    answer = f"{failure_marker}｜已生成部分内容：{partial_answer}" if partial_answer else failure_marker
+                    # 补发失败 chunk（部分内容此前已 streamed，此处仅补失败标记）
+                    yield sse_event({"type": "chunk", "content": failure_marker})
+                    # 生成器未发出 done 时补发携带 kind/hint 的失败 done，让前端完整收尾
+                    if not done_seen:
+                        done_event = {"type": "done", "error": True}
+                        annotate_error_kind(
+                            done_event,
+                            answer,
+                            tool_used=meta.get("tool_used"),
+                            tool_result=meta.get("tool_result"),
+                        )
+                        yield sse_event(done_event)
+                else:
+                    answer = partial_answer
+
+                # 失败判定：done 事件显式标记优先，回答前缀兜底
+                error = done_error or is_failed_answer(answer)
+                response_time_ms = int((time.time() - start_time) * 1000)
+
+                # 失败响应不落库：无 conversation_id 不新建会话，有则不追加消息
+                persist_session = session
+                cid = conversation_id
+                if not error:
+                    if conversation_id:
+                        try:
+                            persist_session = SmartAssistantSession.objects.get(id=conversation_id, user=request.user)
+                            messages = persist_session.messages or []
+                            persist_session.messages = messages + [
+                                {"role": "user", "content": query},
+                                {"role": "assistant", "content": answer},
+                            ]
+                            persist_session.turn_count = count_turns(persist_session.messages)
+                            if not persist_session.title:
+                                persist_session.title = query[:50]
+                            apply_rolling_summary(persist_session)
+                            persist_session.save()
+                            cid = conversation_id
+                        except SmartAssistantSession.DoesNotExist:
+                            persist_session = None
+                            cid = None
+                    else:
+                        persist_session = SmartAssistantSession.objects.create(
+                            user=request.user,
+                            title=query[:50],
+                            messages=[
+                                {"role": "user", "content": query},
+                                {"role": "assistant", "content": answer},
+                            ],
+                            turn_count=1,
+                            # 防御性:显式传 last_error=''。生产曾因部署镜像内 model 缺
+                            # 该字段,INSERT 违反 NOT NULL → IntegrityError → generator
+                            # 异常 → connection 关闭但前端 read() 拿不到 done → UI 卡死。
+                            # (ORM create 本会应用 model default;显式传保证任何 DB/
+                            # 迁移状态下都不依赖 default 是否生效。)
+                            last_error="",
+                        )
+                        cid = persist_session.id
+                elif not conversation_id:
+                    persist_session = None
+                    cid = None
+
+                # 失败时仍写 AgentLog（审计需要），tool_success=False
+                log = AgentLog.objects.create(
+                    session=persist_session,
+                    user_query=query,
+                    intent=meta.get("intent") or "unknown",
+                    tool_used=meta.get("tool_used") or "",
+                    tool_input={"query": query},
+                    tool_output=meta.get("tool_result") or {},
+                    llm_response=answer,
+                    response_time_ms=response_time_ms,
+                    # 流式路径暂无 usage 统计，成本留空
+                    estimated_cost=None,
+                    tool_success=False if error else (meta.get("tool_fallback") is not True),
+                    # L1.1 fix(最终 review):流式原生路径决策日志落库,与非流式
+                    # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
+                    # (非原生 intent 流程),保持既有审计行为
+                    tool_call_path=meta.get("tool_call_path") or "intent",
+                    tool_calls_meta=meta.get("tool_calls_meta") or [],
+                    tool_calls_rounds=meta.get("tool_calls_rounds") or 0,
+                )
+
+                # 输出契约：session 事件携带 format_version；失败时追加 kind + hint
+                session_event = {
+                    "type": "session",
+                    "format_version": FORMAT_VERSION,
+                    "conversation_id": cid,
+                    "log_id": log.id,
+                    "error": error,
+                    # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
+                    # 缺省 None,前端按通用错误展示,无 breaking。
+                    "error_code": stream_error_code,
+                    "retry_after": stream_retry_after,
+                }
+                if error:
                     annotate_error_kind(
-                        done_event,
+                        session_event,
                         answer,
                         tool_used=meta.get("tool_used"),
                         tool_result=meta.get("tool_result"),
                     )
-                    yield sse_event(done_event)
-            else:
-                answer = partial_answer
-
-            # 失败判定：done 事件显式标记优先，回答前缀兜底
-            error = done_error or is_failed_answer(answer)
-            response_time_ms = int((time.time() - start_time) * 1000)
-
-            # 失败响应不落库：无 conversation_id 不新建会话，有则不追加消息
-            persist_session = session
-            cid = conversation_id
-            if not error:
-                if conversation_id:
-                    try:
-                        persist_session = SmartAssistantSession.objects.get(id=conversation_id, user=request.user)
-                        messages = persist_session.messages or []
-                        persist_session.messages = messages + [
-                            {"role": "user", "content": query},
-                            {"role": "assistant", "content": answer},
-                        ]
-                        persist_session.turn_count = count_turns(persist_session.messages)
-                        if not persist_session.title:
-                            persist_session.title = query[:50]
-                        apply_rolling_summary(persist_session)
-                        persist_session.save()
-                        cid = conversation_id
-                    except SmartAssistantSession.DoesNotExist:
-                        persist_session = None
-                        cid = None
-                else:
-                    persist_session = SmartAssistantSession.objects.create(
-                        user=request.user,
-                        title=query[:50],
-                        messages=[
-                            {"role": "user", "content": query},
-                            {"role": "assistant", "content": answer},
-                        ],
-                        turn_count=1,
-                    )
-                    cid = persist_session.id
-            elif not conversation_id:
-                persist_session = None
-                cid = None
-
-            # 失败时仍写 AgentLog（审计需要），tool_success=False
-            log = AgentLog.objects.create(
-                session=persist_session,
-                user_query=query,
-                intent=meta.get("intent") or "unknown",
-                tool_used=meta.get("tool_used") or "",
-                tool_input={"query": query},
-                tool_output=meta.get("tool_result") or {},
-                llm_response=answer,
-                response_time_ms=response_time_ms,
-                # 流式路径暂无 usage 统计，成本留空
-                estimated_cost=None,
-                tool_success=False if error else (meta.get("tool_fallback") is not True),
-                # L1.1 fix(最终 review):流式原生路径决策日志落库,与非流式
-                # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
-                # (非原生 intent 流程),保持既有审计行为
-                tool_call_path=meta.get("tool_call_path") or "intent",
-                tool_calls_meta=meta.get("tool_calls_meta") or [],
-                tool_calls_rounds=meta.get("tool_calls_rounds") or 0,
-            )
-
-            # 输出契约：session 事件携带 format_version；失败时追加 kind + hint
-            session_event = {
-                "type": "session",
-                "format_version": FORMAT_VERSION,
-                "conversation_id": cid,
-                "log_id": log.id,
-                "error": error,
-                # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
-                # 缺省 None,前端按通用错误展示,无 breaking。
-                "error_code": stream_error_code,
-                "retry_after": stream_retry_after,
-            }
-            if error:
-                annotate_error_kind(
-                    session_event,
-                    answer,
-                    tool_used=meta.get("tool_used"),
-                    tool_result=meta.get("tool_result"),
+                yield f"data: {json.dumps(session_event, ensure_ascii=False)}\n\n"
+            except Exception as exc:
+                # 兜底:DB 写(session.save / AgentLog.create)异常也保证前端
+                # 能收到 done 事件。否则前端 reader.read() 永远 pending → UI
+                # 永远卡在"取消"状态。
+                logger.exception(
+                    "SSE 流后端持久化异常: query=%s conversation_id=%s",
+                    query,
+                    conversation_id,
                 )
-            yield f"data: {json.dumps(session_event, ensure_ascii=False)}\n\n"
+                # 兜底 done 固定 internal_error:不调用 annotate_error_kind ——
+                # 其内部 `_has_active_llm_config()` 会查 DB,若故障恰是 DB 不可达,
+                # 兜底自身会再抛 OperationalError → generator 仍无 done → 卡死复现。
+                # 也不从 err_answer 推断 kind:真实原因是后端持久化失败,固定文案
+                # 比把 DB 问题误报为 LLM/端点问题更能正确引导用户。
+                yield sse_event(
+                    {
+                        "type": "done",
+                        "error": True,
+                        "kind": "internal_error",
+                        "hint": ERROR_KIND_HINTS["internal_error"],
+                    }
+                )
 
         return StreamingHttpResponse(event_stream(), content_type="text/event-stream")

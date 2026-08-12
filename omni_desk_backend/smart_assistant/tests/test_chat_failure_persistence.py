@@ -548,3 +548,83 @@ class TestOrchestratorErrorFlag:
         last = json.loads(chunks[-1].split("data: ", 1)[1])
         assert last["type"] == "done"
         assert last["error"] is False
+
+
+# =============================================================================
+# SSE 流:DB 写阶段异常兜底(修复 B)与 last_error 契约(修复 A)
+# =============================================================================
+
+
+@pytest.mark.django_db
+class TestStreamPersistGuard:
+    """DB 写阶段(session.create / AgentLog.create)异常:view 外层兜底必须
+    yield fallback done,让前端 reader.read() 正常收到 EOF —— 否则连接被
+    Django 异常关闭,vite 代理不转发 EOF,前端 UI 永久卡在"取消"状态。
+    """
+
+    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    def test_session_create_exception_yields_fallback_done(self, mock_cls, admin_client):
+        """SmartAssistantSession.objects.create 抛异常 → 流仍完整收尾(fallback done)。"""
+        sessions_before = SmartAssistantSession.objects.count()
+        mock_cls.return_value.process_stream.return_value = _stream_events("成功回答")
+        with patch(
+            "smart_assistant.views.chat.SmartAssistantSession.objects.create",
+            side_effect=RuntimeError("db unavailable"),
+        ):
+            resp = admin_client.post(
+                "/api/smart-assistant/chat/stream/",
+                {"query": "持久化失败"},
+                format="json",
+            )
+            # 关键断言:join 不 raise —— 修复 B 前 generator 异常会在此炸掉测试
+            raw = b"".join(resp.streaming_content).decode("utf-8")
+
+        events = _parse_sse_events(raw)
+        # orchestrator 原生 done(error=False) 在前,DB 写失败后兜底 done(error=True)
+        # 在后 —— 断言最后一个事件是兜底 done,流以错误收尾且连接正常关闭
+        last = events[-1]
+        assert last["type"] == "done"
+        assert last["error"] is True
+        assert "kind" in last  # 携带错误分类,前端可精确展示而非通用提示
+        # 日志未写成 → 无 session 事件(log_id 无从生成)
+        assert not any(e["type"] == "session" for e in events)
+        assert SmartAssistantSession.objects.count() == sessions_before
+
+    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    def test_agentlog_create_exception_yields_fallback_done(self, mock_cls, admin_client):
+        """AgentLog.objects.create 抛异常 → 同样兜底收尾(会话已建,日志缺失)。"""
+        sessions_before = SmartAssistantSession.objects.count()
+        mock_cls.return_value.process_stream.return_value = _stream_events("成功回答")
+        with patch(
+            "smart_assistant.views.chat.AgentLog.objects.create",
+            side_effect=RuntimeError("log write failed"),
+        ):
+            resp = admin_client.post(
+                "/api/smart-assistant/chat/stream/",
+                {"query": "日志失败"},
+                format="json",
+            )
+            raw = b"".join(resp.streaming_content).decode("utf-8")
+
+        events = _parse_sse_events(raw)
+        last = events[-1]
+        assert last["type"] == "done"
+        assert last["error"] is True
+        assert not any(e["type"] == "session" for e in events)
+        # 会话先于日志创建,兜底优先保证流收尾(审计缺失是已知权衡)
+        assert SmartAssistantSession.objects.count() == sessions_before + 1
+
+    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    def test_stream_success_last_error_is_empty_string(self, mock_cls, admin_client):
+        """修复 A:流式成功创建会话显式传 last_error='',不依赖 PostgreSQL 端 default。"""
+        mock_cls.return_value.process_stream.return_value = _stream_events("成功回答")
+        resp = admin_client.post(
+            "/api/smart-assistant/chat/stream/",
+            {"query": "成功"},
+            format="json",
+        )
+        raw = b"".join(resp.streaming_content).decode("utf-8")
+        events = _parse_sse_events(raw)
+        session_evt = next(e for e in events if e["type"] == "session")
+        session = SmartAssistantSession.objects.get(id=session_evt["conversation_id"])
+        assert session.last_error == ""
