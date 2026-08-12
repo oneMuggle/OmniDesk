@@ -191,7 +191,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
+            "format": "{asctime} [{levelname}] {name} [req={request_id} evt={event}]: {message}",
             "style": "{",
         },
     },
