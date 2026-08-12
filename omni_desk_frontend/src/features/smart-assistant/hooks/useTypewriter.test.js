@@ -90,4 +90,15 @@ describe('useTypewriter', () => {
     act(() => result.current.markStreamingEnd());
     expect(cb).toHaveBeenCalledTimes(1);
   });
+
+  it('getReceived 同步返回已累积文本', () => {
+    const { result } = renderHook(() => useTypewriter({ intervalMs: 30 }));
+    expect(result.current.getReceived()).toBe('');
+    act(() => result.current.append('hello'));
+    act(() => result.current.append(' world'));
+    expect(result.current.getReceived()).toBe('hello world');
+    // cancel 后清空
+    act(() => result.current.cancel());
+    expect(result.current.getReceived()).toBe('');
+  });
 });

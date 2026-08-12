@@ -8,6 +8,17 @@ import { useRef, useCallback, useEffect } from 'react';
  * @param {object} opts
  * @param {(displayed: string) => void} opts.onTick  每帧揭示时触发(ref → ref,不引入额外 re-render)
  * @param {number} [opts.intervalMs=30]  渐进速率阈值(原 TYPEWRITER_INTERVAL)
+ * @returns {{
+ *   append: (text: string) => void,
+ *   markCached: () => void,
+ *   beginStreaming: () => void,
+ *   markStreamingEnd: () => void,
+ *   cancel: () => void,
+ *   onComplete: (cb: () => void) => () => void,
+ *   flush: () => void,
+ *   isComplete: () => boolean,
+ *   getReceived: () => string,
+ * }}
  */
 export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
   const rafRef = useRef(null);
@@ -138,6 +149,14 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
     );
   }, []);
 
+  /**
+   * 同步读取 hook 内部累积的完整已接收文本(SSE chunk 累积缓冲)。
+   * 与 onTick → setStreamingAnswer(异步 React state)不同,本方法在调用栈内
+   * 立即可读,适用于 done 兜底等需要在同一轮同步循环内判断"流是否已产出正文"的场景。
+   * @returns {string} hook 内部累积的完整已接收文本(同步可读)
+   */
+  const getReceived = useCallback(() => receivedTextRef.current, []);
+
   // 组件卸载时清理 rAF
   useEffect(() => {
     return () => {
@@ -148,5 +167,5 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
     };
   }, []);
 
-  return { append, markCached, beginStreaming, markStreamingEnd, cancel, onComplete, flush, isComplete };
+  return { append, markCached, beginStreaming, markStreamingEnd, cancel, onComplete, flush, isComplete, getReceived };
 }
