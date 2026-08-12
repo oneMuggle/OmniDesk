@@ -171,4 +171,36 @@ describe('SmartChatPage UX', () => {
     await screen.findByRole('button', { name: '发送' }, { timeout: 3000 });
     expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
   });
+
+  it('typewriter 自然收尾后才推入消息 + 复位按钮', async () => {
+    const { sendSmartChatStream } = require('../../api/smartAssistantApi');
+
+    sendSmartChatStream.mockReturnValue({
+      bodyPromise: Promise.resolve(
+        createMockStream([
+          { type: 'meta', intent: 'general', tool_used: null, tool_result: null, tool_fallback: false },
+          { type: 'chunk', content: '你好世界' },
+          { type: 'done', error: false },
+          { type: 'session', conversation_id: 'cid-2', error: false, log_id: 2 },
+        ])
+      ),
+      abort: jest.fn(),
+    });
+
+    renderWithProviders(<SmartChatPage />);
+
+    const input = screen.getByPlaceholderText(/问我任何问题/);
+    fireEvent.change(input, { target: { value: '测试 typewriter' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    // 推进 typewriter 帧
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // 验证:最终内容完整显示 + 按钮复位
+    await screen.findByText('你好世界', {}, { timeout: 3000 });
+    await screen.findByRole('button', { name: '发送' }, { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
+  });
 });
