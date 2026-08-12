@@ -121,6 +121,10 @@ const SmartChatPage = () => {
   const lastTickRef = useRef(0);
   const isCachedRef = useRef(false);
   const isStreamingRef = useRef(false);
+  // waitTypewriterResolveRef: typewriter 显示完整时通知 runStream 收尾。
+  // 保证 setIsLoading(false) 晚于内容显示完整,避免 useEffect 把"部分
+  // streamingAnswer"推入消息列表。
+  const waitTypewriterResolveRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -225,8 +229,12 @@ const SmartChatPage = () => {
 
     if (displayedLen >= received.length) {
       if (!isStreamingRef.current) {
-        // 流已结束且全部显示 → 停止 rAF 循环
+        // 流已结束且全部显示 → 停止 rAF 循环,并通知 runStream 收尾
         rafRef.current = null;
+        if (waitTypewriterResolveRef.current) {
+          waitTypewriterResolveRef.current();
+          waitTypewriterResolveRef.current = null;
+        }
         return;
       }
       // 流仍在接收,等待更多数据
@@ -259,6 +267,14 @@ const SmartChatPage = () => {
     displayedLenRef.current = 0;
     isCachedRef.current = false;
     isStreamingRef.current = false;
+    // 对称收尾:handleStop 若在 runStream 等待 typewriter 显示完整期间
+    // (isLoading 仍 true)被点击,rAF 被取消 → typewriterTick 不再执行 →
+    // wait 永不 resolve,runStream 悬挂。这里 resolve+null,让所有 rAF
+    // 终止路径都通知 runStream 收尾(与 typewriterTick 自然停止对称)。
+    if (waitTypewriterResolveRef.current) {
+      waitTypewriterResolveRef.current();
+      waitTypewriterResolveRef.current = null;
+    }
   }, []);
 
   /** 立即显示所有已接收文本(流结束兜底) */
@@ -319,8 +335,19 @@ const SmartChatPage = () => {
   const handleSessionEvent = useCallback(async (event, activeSessionId) => {
     if (!activeSessionId && event.conversation_id) {
       setCurrentSessionId(event.conversation_id);
-      const resp = await getSessions();
-      setSessions(resp.data || []);
+      // 会话列表后台刷新:不能 await,否则阻塞 runStream 读取循环,
+      // reader.read() 的 done:true(连接关闭)被推迟 → setIsLoading(false)
+      // 延迟 → 内容显示完整后按钮还卡在"取消"。fire-and-forget,
+      // 列表稍晚更新对用户无感。
+      getSessions()
+        .then((resp) => {
+          // 与 loadSessions 一致:解包 DRF 分页 {results},防御非数组
+          const data = resp.data?.results || resp.data;
+          setSessions(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          // 静默:列表刷新失败不影响本次对话收尾
+        });
       return event.conversation_id;
     }
     return activeSessionId;
@@ -409,6 +436,14 @@ const SmartChatPage = () => {
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
    * 被 handleSubmit 和 handleRetry 共用。
+   *
+   * 兜底超时:若后端 generator 因 DB 异常等原因未发 done 事件,前端
+   * reader.read() 永远 pending。包一层 Promise.race,超时后调用 abort
+   * 并 reject,让 handleSubmit 走到 catch + finally,isLoading 复位。
+   *
+   * 收尾顺序:流结束后若 typewriter 仍在渐进显示,先等它显示完整再
+   * resolve。这样 handleSubmit 的 setIsLoading(false) 不会早于内容显示
+   * 完整,useEffect 推入消息列表的 streamingAnswer 始终是完整内容。
    */
   const runStream = useCallback(async (query) => {
     pendingLogIdRef.current = null;
@@ -427,10 +462,26 @@ const SmartChatPage = () => {
     isStreamingRef.current = true;
     let activeSessionId = currentSessionId;
 
+    // 超时兜底:60 秒未收到下一个 chunk 视为流卡死,abort 退出。
+    // 由 catch (AbortError) 静默处理;handleSubmit finally 仍会 setIsLoading(false)。
+    const STREAM_TIMEOUT_MS = 60_000;
+    let timeoutId = null;
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        console.warn('[SmartChat] runStream timeout, aborting', { isStreamingRef: isStreamingRef.current });
+        if (abortRef.current) abortRef.current();
+      }, STREAM_TIMEOUT_MS);
+    };
+
     try {
       // eslint-disable-next-line no-constant-condition
       while (true) {
-        const { done, value } = await reader.read();
+        resetTimeout();
+        const readPromise = reader.read();
+        // 主动 timeout 不会触发 readPromise reject,只在 abort 时 reject;
+        // 此处不 race,只用 resetTimeout 推进超时重置
+        const { done, value } = await readPromise;
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
@@ -445,9 +496,17 @@ const SmartChatPage = () => {
         }
       }
     } finally {
+      if (timeoutId) clearTimeout(timeoutId);
       isStreamingRef.current = false;
       if (!rafRef.current) {
         flushTypewriter();
+      } else {
+        // typewriter 仍在渐进显示:等它显示完整(在 typewriterTick 自然
+        // 停止处 resolve)后再结束,保证 setIsLoading(false) 晚于内容显示
+        // 完整,useEffect 不会把部分 streamingAnswer 推入消息列表。
+        await new Promise((resolve) => {
+          waitTypewriterResolveRef.current = resolve;
+        });
       }
     }
   }, [currentSessionId, attachment, parseSSE, handleSSEEvent, flushTypewriter]);
