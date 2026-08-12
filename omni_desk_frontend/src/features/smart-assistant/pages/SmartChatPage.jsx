@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
 import { forkSession, exportSessionMarkdown } from './sessionForkExportApi';
+import { useTypewriter } from '../hooks/useTypewriter';
 import ToolResult from '../components/ToolResult';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import FileAttachmentInput from '../../../shared/components/FileAttachmentInput';
@@ -109,22 +110,15 @@ const SmartChatPage = () => {
   // 事件的 kind/hint 字段);旧事件无字段时保持 null,不渲染提示行
   const pendingErrorHintRef = useRef(null);
 
-  // ── 打字机效果 refs ──
-  // receivedTextRef: 从 SSE 接收到的完整文本(chunks 缓冲)
-  // displayedLenRef: 已经显示给用户的字符数
-  // rafRef / lastTickRef: requestAnimationFrame 句柄与上次刷新时间戳
-  // isCachedRef: 后端缓存命中标志(跳过打字机)
-  // isStreamingRef: 流是否仍在接收数据
-  const receivedTextRef = useRef('');
-  const displayedLenRef = useRef(0);
-  const rafRef = useRef(null);
-  const lastTickRef = useRef(0);
-  const isCachedRef = useRef(false);
-  const isStreamingRef = useRef(false);
-  // waitTypewriterResolveRef: typewriter 显示完整时通知 runStream 收尾。
-  // 保证 setIsLoading(false) 晚于内容显示完整,避免 useEffect 把"部分
-  // streamingAnswer"推入消息列表。
-  const waitTypewriterResolveRef = useRef(null);
+  // 打字机 hook 适配:onTick 同步 ref → state,避免每次揭示都触发额外渲染
+  const onTypewriterTick = useCallback(
+    (displayed) => setStreamingAnswer(displayed),
+    []
+  );
+  const typewriter = useTypewriter({
+    onTick: onTypewriterTick,
+    intervalMs: TYPEWRITER_INTERVAL,
+  });
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -146,13 +140,6 @@ const SmartChatPage = () => {
       }
     };
     loadSessions();
-  }, []);
-
-  // 组件卸载时清理 rAF
-  useEffect(() => {
-    return () => {
-      if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    };
   }, []);
 
   const handleNewSession = useCallback(async () => {
@@ -220,76 +207,6 @@ const SmartChatPage = () => {
     }
   }, [handleForkSession, handleExportSession]);
 
-  // ── 打字机效果核心函数 ──
-
-  /** rAF 回调:每 TYPEWRITER_INTERVAL ms 逐步揭示已接收的文本 */
-  const typewriterTick = useCallback(() => {
-    const received = receivedTextRef.current;
-    const displayedLen = displayedLenRef.current;
-
-    if (displayedLen >= received.length) {
-      if (!isStreamingRef.current) {
-        // 流已结束且全部显示 → 停止 rAF 循环,并通知 runStream 收尾
-        rafRef.current = null;
-        if (waitTypewriterResolveRef.current) {
-          waitTypewriterResolveRef.current();
-          waitTypewriterResolveRef.current = null;
-        }
-        return;
-      }
-      // 流仍在接收,等待更多数据
-      rafRef.current = requestAnimationFrame(typewriterTick);
-      return;
-    }
-
-    const now = performance.now();
-    if (now - lastTickRef.current >= TYPEWRITER_INTERVAL) {
-      const remaining = received.length - displayedLen;
-      // 渐进揭示:剩余越多一次揭示越多,但上限 10 字符/帧
-      const charsToAdd = Math.max(1, Math.min(Math.ceil(remaining * 0.2), 10));
-      const newLen = Math.min(displayedLen + charsToAdd, received.length);
-
-      setStreamingAnswer(received.slice(0, newLen));
-      displayedLenRef.current = newLen;
-      lastTickRef.current = now;
-    }
-
-    rafRef.current = requestAnimationFrame(typewriterTick);
-  }, []);
-
-  /** 重置打字机状态(新请求 / 取消时调用) */
-  const resetTypewriter = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    receivedTextRef.current = '';
-    displayedLenRef.current = 0;
-    isCachedRef.current = false;
-    isStreamingRef.current = false;
-    // 对称收尾:handleStop 若在 runStream 等待 typewriter 显示完整期间
-    // (isLoading 仍 true)被点击,rAF 被取消 → typewriterTick 不再执行 →
-    // wait 永不 resolve,runStream 悬挂。这里 resolve+null,让所有 rAF
-    // 终止路径都通知 runStream 收尾(与 typewriterTick 自然停止对称)。
-    if (waitTypewriterResolveRef.current) {
-      waitTypewriterResolveRef.current();
-      waitTypewriterResolveRef.current = null;
-    }
-  }, []);
-
-  /** 立即显示所有已接收文本(流结束兜底) */
-  const flushTypewriter = useCallback(() => {
-    if (rafRef.current) {
-      cancelAnimationFrame(rafRef.current);
-      rafRef.current = null;
-    }
-    const received = receivedTextRef.current;
-    if (displayedLenRef.current < received.length) {
-      setStreamingAnswer(received);
-      displayedLenRef.current = received.length;
-    }
-  }, []);
-
   // ── SSE 解析 ──
 
   const parseSSE = useCallback((text) => {
@@ -313,23 +230,14 @@ const SmartChatPage = () => {
   const handleMetaEvent = useCallback((event) => {
     setStreamingMeta(event);
     if (event.cache_hit) {
-      isCachedRef.current = true;
-      setStreamingAnswer(receivedTextRef.current);
-      displayedLenRef.current = receivedTextRef.current.length;
+      typewriter.markCached();
     }
-  }, []);
+  }, [typewriter]);
 
   /** 处理 chunk 事件:累积文本,驱动打字机 */
   const handleChunkEvent = useCallback((event) => {
-    receivedTextRef.current += event.content;
-    if (isCachedRef.current) {
-      setStreamingAnswer(receivedTextRef.current);
-      displayedLenRef.current = receivedTextRef.current.length;
-    } else if (!rafRef.current) {
-      lastTickRef.current = performance.now();
-      rafRef.current = requestAnimationFrame(typewriterTick);
-    }
-  }, [typewriterTick]);
+    typewriter.append(event.content);
+  }, [typewriter]);
 
   /** 处理 session 事件:更新会话 ID */
   const handleSessionEvent = useCallback(async (event, activeSessionId) => {
@@ -405,9 +313,9 @@ const SmartChatPage = () => {
       if (errorHint) {
         pendingErrorHintRef.current = errorHint;
         // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
-        // (只写 receivedTextRef,由 flushTypewriter 统一刷新到 streamingAnswer)
-        if (event.type === 'done' && !receivedTextRef.current) {
-          receivedTextRef.current = '回答生成失败';
+        // (走 typewriter.append 由 onTick → setStreamingAnswer 显示)
+        if (event.type === 'done' && !streamingAnswer) {
+          typewriter.append('回答生成失败');
         }
       }
     }
@@ -419,7 +327,8 @@ const SmartChatPage = () => {
         handleChunkEvent(event);
         break;
       case 'done':
-        isStreamingRef.current = false;
+        // 流结束标记由 runStream finally 统一设置 markStreamingEnd,
+        // 这里不再直接维护 isStreamingRef(已迁移至 hook 内部)
         break;
       case 'session':
         return await handleSessionEvent(event, activeSessionId);
@@ -431,7 +340,7 @@ const SmartChatPage = () => {
         break;
     }
     return activeSessionId;
-  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation]);
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation, typewriter, streamingAnswer]);
 
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
@@ -459,7 +368,7 @@ const SmartChatPage = () => {
     const reader = stream.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-    isStreamingRef.current = true;
+    typewriter.beginStreaming();
     let activeSessionId = currentSessionId;
 
     // 超时兜底:60 秒未收到下一个 chunk 视为流卡死,abort 退出。
@@ -469,7 +378,7 @@ const SmartChatPage = () => {
     const resetTimeout = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        console.warn('[SmartChat] runStream timeout, aborting', { isStreamingRef: isStreamingRef.current });
+        console.warn('[SmartChat] runStream timeout, aborting');
         if (abortRef.current) abortRef.current();
       }, STREAM_TIMEOUT_MS);
     };
@@ -497,19 +406,17 @@ const SmartChatPage = () => {
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
-      isStreamingRef.current = false;
-      if (!rafRef.current) {
-        flushTypewriter();
+      if (typewriter.isComplete()) {
+        typewriter.flush();
       } else {
-        // typewriter 仍在渐进显示:等它显示完整(在 typewriterTick 自然
-        // 停止处 resolve)后再结束,保证 setIsLoading(false) 晚于内容显示
-        // 完整,useEffect 不会把部分 streamingAnswer 推入消息列表。
-        await new Promise((resolve) => {
-          waitTypewriterResolveRef.current = resolve;
-        });
+        // typewriter 仍在渐进显示:等 hook 触发 onComplete 后再结束,
+        // 保证 setIsLoading(false) 晚于内容显示完整,useEffect 不会把
+        // 部分 streamingAnswer 推入消息列表。
+        await new Promise((resolve) => typewriter.onComplete(resolve));
       }
+      typewriter.markStreamingEnd();
     }
-  }, [currentSessionId, attachment, parseSSE, handleSSEEvent, flushTypewriter]);
+  }, [currentSessionId, attachment, parseSSE, handleSSEEvent, typewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -522,16 +429,14 @@ const SmartChatPage = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
-    resetTypewriter();
+    typewriter.cancel();
 
     try {
       await runStream(inputMessage);
     } catch (error) {
       if (error.name !== 'AbortError') {
         const errText = `[错误] ${error.message}`;
-        receivedTextRef.current = errText;
-        setStreamingAnswer(errText);
-        displayedLenRef.current = errText.length;
+        typewriter.append(errText);
       }
     } finally {
       setIsLoading(false);
@@ -610,22 +515,20 @@ const SmartChatPage = () => {
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
-    resetTypewriter();
+    typewriter.cancel();
 
     try {
       await runStream(lastUserMsg.content);
     } catch (error) {
       if (error.name !== 'AbortError') {
         const errText = `[错误] ${error.message}`;
-        receivedTextRef.current = errText;
-        setStreamingAnswer(errText);
-        displayedLenRef.current = errText.length;
+        typewriter.append(errText);
       }
     } finally {
       setIsLoading(false);
       abortRef.current = null;
     }
-  }, [messages, runStream, resetTypewriter]);
+  }, [messages, runStream, typewriter]);
 
   /** 停止生成:中止请求 + 清理打字机状态 + 显示提示 */
   const handleStop = useCallback(() => {
@@ -633,13 +536,12 @@ const SmartChatPage = () => {
       abortRef.current();
       abortRef.current = null;
     }
-    isStreamingRef.current = false;
-    resetTypewriter();
+    typewriter.cancel();
     setStreamingAnswer('');
     setStreamingMeta(null);
     setIsLoading(false);
     antMessage.info('已取消生成');
-  }, [resetTypewriter]);
+  }, [typewriter]);
 
   return (
     <div className="smart-chat-container">
