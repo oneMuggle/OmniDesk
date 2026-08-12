@@ -406,6 +406,10 @@ const SmartChatPage = () => {
       }
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
+      // 先清 isStreaming,让 typewriter tick 在下一帧自然触发 complete;
+      // 否则 displayedLen>=received.length && isStreaming=true 路径只排下个 rAF,
+      // 不调 completeCallbacks,而 markStreamingEnd 又在 await 之后,死锁。
+      typewriter.markStreamingEnd();
       if (typewriter.isComplete()) {
         typewriter.flush();
       } else {
@@ -414,7 +418,6 @@ const SmartChatPage = () => {
         // 部分 streamingAnswer 推入消息列表。
         await new Promise((resolve) => typewriter.onComplete(resolve));
       }
-      typewriter.markStreamingEnd();
     }
   }, [currentSessionId, attachment, parseSSE, handleSSEEvent, typewriter]);
 
