@@ -35,7 +35,12 @@
   background: linear-gradient(90deg, #e4eaf2 0%, #eef2f7 100%);
 }
 
-/* 折叠时底部圆角 */
+/* 折叠时(header 自身可见,无 content)需四周圆角 */
+.think-collapse.ant-collapse > .ant-collapse-item:not(.ant-collapse-item-active) > .ant-collapse-header {
+  border-radius: 8px;
+}
+
+/* 展开时(header 下方紧接 content)只需上圆 */
 .think-collapse.ant-collapse > .ant-collapse-item.ant-collapse-item-active > .ant-collapse-header {
   border-radius: 8px 8px 0 0;
 }
