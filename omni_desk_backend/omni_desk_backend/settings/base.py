@@ -191,6 +191,7 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
+            "()": "observability.formatters.SafeTextFormatter",
             "format": "{asctime} [{levelname}] {name} [req={request_id} evt={event}]: {message}",
             "style": "{",
         },

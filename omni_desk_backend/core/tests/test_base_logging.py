@@ -12,10 +12,18 @@ def _make_handler():
     """从 base 的真实 LOGGING 配置构建一个 console handler 实例。"""
     log_cfg = _BASE.LOGGING
     formatter_cfg = log_cfg["formatters"]["verbose"]
-    formatter = logging.Formatter(
-        fmt=formatter_cfg["format"],
-        style=formatter_cfg.get("style", "%"),
-    )
+    if "()" in formatter_cfg:
+        module_path, _, cls_name = formatter_cfg["()"].rpartition(".")
+        formatter_cls = getattr(import_module(module_path), cls_name)
+        formatter = formatter_cls(
+            fmt=formatter_cfg["format"],
+            style=formatter_cfg.get("style", "%"),
+        )
+    else:
+        formatter = logging.Formatter(
+            fmt=formatter_cfg["format"],
+            style=formatter_cfg.get("style", "%"),
+        )
     stream = io.StringIO()
     handler = logging.StreamHandler(stream)
     handler.setFormatter(formatter)
@@ -42,3 +50,18 @@ def test_text_formatter_includes_request_id_and_event():
     output = stream.getvalue()
     assert "req=trace-xyz" in output
     assert "evt=test.event" in output
+
+
+def test_text_formatter_survives_missing_request_id_and_event():
+    """无 extra 的日志缺 request_id/event 字段时,应输出占位符而非抛 ValueError"""
+    handler, stream = _make_handler()
+    logger = logging.getLogger("test.base.missing")
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+    try:
+        logger.info("plain")  # 无 extra,record 缺 request_id/event
+    finally:
+        logger.removeHandler(handler)
+    output = stream.getvalue()
+    assert "req=?" in output
+    assert "evt=?" in output
