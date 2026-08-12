@@ -313,8 +313,15 @@ const SmartChatPage = () => {
       if (errorHint) {
         pendingErrorHintRef.current = errorHint;
         // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
-        // (走 typewriter.append 由 onTick → setStreamingAnswer 显示)
-        if (event.type === 'done' && !streamingAnswer) {
+        // (走 typewriter.append 由 onTick → setStreamingAnswer 显示)。
+        // 必须用 typewriter.getReceived() 而非 streamingAnswer:
+        // receivedTextRef 是 hook 内部同步累积缓冲(append 内 +=,立即可读);
+        // streamingAnswer 是 React state,onTick 触发 setStreamingAnswer 是异步批处理。
+        // 当 SSE 流是 chunk+done 同轮到达时(例如 chunk:'回答生成失败' + done:{error}),
+        // append 同步更新 receivedTextRef,但 setStreamingAnswer 尚未生效,此时
+        // streamingAnswer 仍是空字符串 → 误判"流未产出正文" → 又 append 一次,
+        // UI 中"回答生成失败"出现两次。getReceived 同步可读,避免这个竞态。
+        if (event.type === 'done' && !typewriter.getReceived()) {
           typewriter.append('回答生成失败');
         }
       }
@@ -340,7 +347,7 @@ const SmartChatPage = () => {
         break;
     }
     return activeSessionId;
-  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation, typewriter, streamingAnswer]);
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation, typewriter]);
 
   /**
    * 核心流式处理:读取 SSE reader,驱动打字机显示。
