@@ -484,6 +484,7 @@ class TestSseContract:
         mock_plan.return_value = []
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
+        mock_tool.require_confirmation = False
         mock_tool.name = "schedule_query"
         mock_tool.execute.return_value = {"found": True, "schedules": []}
         mock_registry.get_tool.return_value = mock_tool
