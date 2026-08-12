@@ -78,6 +78,24 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
 
   const markStreamingEnd = useCallback(() => {
     isStreamingRef.current = false;
+    // 若已显示完整,立即触发 onComplete(对应"流已结束 + 显示完整"路径)
+    if (displayedLenRef.current >= receivedTextRef.current.length) {
+      if (completedFiredRef.current) {
+        return; // 防重复触发
+      }
+      if (rafRef.current) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
+      completeCallbacksRef.current.forEach((cb) => cb());
+      completeCallbacksRef.current = [];
+      completedFiredRef.current = true;
+    }
+  }, []);
+
+  const beginStreaming = useCallback(() => {
+    isStreamingRef.current = true;
+    completedFiredRef.current = false;
   }, []);
 
   const cancel = useCallback(() => {
@@ -130,5 +148,5 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
     };
   }, []);
 
-  return { append, markCached, markStreamingEnd, cancel, onComplete, flush, isComplete };
+  return { append, markCached, beginStreaming, markStreamingEnd, cancel, onComplete, flush, isComplete };
 }
