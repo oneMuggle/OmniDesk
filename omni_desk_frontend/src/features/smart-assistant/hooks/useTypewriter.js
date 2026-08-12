@@ -18,6 +18,7 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
   const lastTickRef = useRef(0);
   const completeCallbacksRef = useRef([]);
   const completedFiredRef = useRef(false);
+  const tickRef = useRef(null);
 
   const tick = useCallback(() => {
     const received = receivedTextRef.current;
@@ -31,7 +32,7 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
         completedFiredRef.current = true;
         return;
       }
-      rafRef.current = requestAnimationFrame(tick);
+      rafRef.current = requestAnimationFrame(tickRef.current);
       return;
     }
 
@@ -46,8 +47,13 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
       if (onTick) onTick(received.slice(0, newLen));
     }
 
-    rafRef.current = requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(tickRef.current);
   }, [onTick, intervalMs]);
+
+  // 同步 tick 函数引用到 tickRef,避免闭包失效
+  useEffect(() => {
+    tickRef.current = tick;
+  }, [tick]);
 
   const append = useCallback(
     (text) => {
@@ -60,10 +66,10 @@ export function useTypewriter({ onTick, intervalMs = 30 } = {}) {
       }
       if (!rafRef.current) {
         lastTickRef.current = performance.now();
-        rafRef.current = requestAnimationFrame(tick);
+        rafRef.current = requestAnimationFrame(tickRef.current);
       }
     },
-    [tick, onTick]
+    [onTick]
   );
 
   const markCached = useCallback(() => {
