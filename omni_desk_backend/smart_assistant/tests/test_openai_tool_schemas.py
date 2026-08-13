@@ -105,7 +105,7 @@ def test_registry_assert_all_have_openai_schema_passes():
 
 
 @pytest.mark.django_db
-def test_registry_get_openai_tools_returns_all_20():
+def test_registry_get_openai_tools_returns_all_22():
     """ToolRegistry.get_openai_tools(user) 认证用户应拿到所有 22 个工具的 schema。
 
     Task 5 调整:无参调用 user=None 视为匿名 → 过滤掉所有 required_auth=True
@@ -116,7 +116,7 @@ def test_registry_get_openai_tools_returns_all_20():
     from smart_assistant.tools.registry import ToolRegistry
 
     User = get_user_model()
-    user = User.objects.create_user(username="all20_user_t5", password="x")
+    user = User.objects.create_user(username="all22_user_t5", password="x")
 
     schemas = ToolRegistry.get_openai_tools(user)
     assert len(schemas) == len(ALL_TOOL_CLASSES) == 22
