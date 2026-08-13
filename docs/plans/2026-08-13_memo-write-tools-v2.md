@@ -1281,7 +1281,9 @@ git commit -m "fix(smart-assistant): inject user into legacy/SSE dry_run context
 
 ```python
         "memo_update": ["改备忘", "修改备忘", "更新备忘", "改提醒"],
-        "memo_delete": ["删除备忘", "删掉备忘", "移除备忘", "清除备忘"],
+        # 用动词作关键词(用户说"删除买菜备忘"时动词"删除"后跟标题"买菜",
+        # 组合词"删除备忘"不成立);且不与 memo_query/memo_update 关键词产生子串重叠
+        "memo_delete": ["删除", "删掉", "移除", "清除"],
 ```
 
 将 `_matches_intent` 替换为返回命中 keyword 列表:
@@ -1379,8 +1381,8 @@ class TestMemoKeywordOverlap(TestCase):
         from smart_assistant.agent.tool_chain_planner import _resolve_intent_overlap
 
         schemas = [{"name": "memo_query"}, {"name": "memo_delete"}]
-        # "删除备忘" 含 "备忘",但 memo_query 无 "备忘" 精确命中其 keyword("备忘录"/"便签"/"提醒"),
-        # 无重叠;结果唯一意图
+        # "删除" 是 memo_delete 动词关键词;与 memo_query("备忘录"/"便签"/"提醒")、
+        # memo_update("改备忘"/"修改备忘"/"更新备忘"/"改提醒")均无子串重叠 → 唯一意图
         result = _resolve_intent_overlap("删除买菜备忘", schemas)
         self.assertEqual(result, ["memo_delete"])
 ```
