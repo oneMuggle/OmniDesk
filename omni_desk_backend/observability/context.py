@@ -7,6 +7,7 @@ task scenarios. Celery cross-task propagation is implemented via
 current contextvar into task headers; the ``task_prerun`` signal restores
 it on the worker side).
 """
+
 from __future__ import annotations
 
 from contextvars import ContextVar

@@ -36,9 +36,11 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         logger.info(
             "meeting_rooms.view.entered",
-            extra={"event": "meeting_rooms.view.entered",
-                   "view": "MeetingRoomBookingViewSet",
-                   "user": request.user.username if request.user.is_authenticated else "anonymous"},
+            extra={
+                "event": "meeting_rooms.view.entered",
+                "view": "MeetingRoomBookingViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
         )
         return super().list(request, *args, **kwargs)
 
@@ -100,9 +102,11 @@ class MeetingRoomMaintenanceViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         logger.info(
             "meeting_rooms.view.entered",
-            extra={"event": "meeting_rooms.view.entered",
-                   "view": "MeetingRoomMaintenanceViewSet",
-                   "user": request.user.username if request.user.is_authenticated else "anonymous"},
+            extra={
+                "event": "meeting_rooms.view.entered",
+                "view": "MeetingRoomMaintenanceViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
         )
         return super().list(request, *args, **kwargs)
 

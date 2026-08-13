@@ -31,9 +31,11 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         logger.info(
             "news.view.entered",
-            extra={"event": "news.view.entered",
-                   "view": "NewsArticleViewSet",
-                   "user": request.user.username if request.user.is_authenticated else "anonymous"},
+            extra={
+                "event": "news.view.entered",
+                "view": "NewsArticleViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
         )
         return super().list(request, *args, **kwargs)
 

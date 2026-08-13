@@ -6,6 +6,7 @@ deliberately silent (retry strategies, backward-compat fallbacks, ...).
 The Task 8 AST guard counts ``except: pass`` regardless of this whitelist;
 this list only feeds the ruff LOG rule (Task 12).
 """
+
 from __future__ import annotations
 
 ALLOWED_SILENT: set[tuple[str, str]] = {

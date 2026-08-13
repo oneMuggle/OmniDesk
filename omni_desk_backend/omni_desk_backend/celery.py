@@ -1,5 +1,6 @@
 # omni_desk_backend/omni_desk_backend/celery.py
 """Celery application factory with request_id propagation."""
+
 from __future__ import annotations
 
 import os
@@ -66,9 +67,7 @@ class RequestIdTaskMiddleware:
 
 @signals.before_task_publish.connect
 def _on_before_task_publish(sender=None, headers=None, body=None, **kwargs):
-    RequestIdTaskMiddleware().before_task_publish(
-        sender=sender, headers=headers, body=body, **kwargs
-    )
+    RequestIdTaskMiddleware().before_task_publish(sender=sender, headers=headers, body=body, **kwargs)
 
 
 @signals.task_prerun.connect
