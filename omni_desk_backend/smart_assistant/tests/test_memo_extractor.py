@@ -1,10 +1,9 @@
-"""Memo 抽取器单元测试(LLM 全部 patch,无外部依赖)。
-"""
+"""Memo 抽取器单元测试(LLM 全部 patch,无外部依赖)。"""
+
 from unittest.mock import patch
 from django.test import SimpleTestCase
 
 from smart_assistant.extractors.memo_extractor import (
-    CreateParams,
     extract_create_params,
 )
 
@@ -14,9 +13,7 @@ class TestExtractCreateParamsLLM(SimpleTestCase):
 
     @patch("smart_assistant.extractors.memo_extractor._call_llm")
     def test_returns_create_params_on_valid_json(self, mock_call):
-        mock_call.return_value = (
-            '{"title": "开会", "content": "季度总结", "reminder_time": null}'
-        )
+        mock_call.return_value = '{"title": "开会", "content": "季度总结", "reminder_time": null}'
         result = extract_create_params("记一个开会")
         self.assertIsNotNone(result)
         self.assertEqual(result.title, "开会")
