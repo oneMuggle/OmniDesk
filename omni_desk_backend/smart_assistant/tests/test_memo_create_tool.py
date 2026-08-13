@@ -150,3 +150,19 @@ class TestMemoCreateToolContextContract(TestCase):
         memo = Memo.objects.get(id=confirm_result["result"]["memo_id"])
         self.assertEqual(memo.title, "周报")
         self.assertEqual(memo.user, self.user)
+
+    def test_legacy_style_dry_run_with_injected_user(self):
+        """I1 根治后:legacy 路径 dry_run context 注入 user,工具可用(不再 found=False)。"""
+        from smart_assistant.extractors.memo_extractor import CreateParams
+
+        # 模拟 orchestrator 367 行修复后的 context(带 user,无 draft)
+        ctx = {"history": [], "dry_run": True, "user": self.user}
+        with patch(
+            "smart_assistant.tools.memo_write_tools.extract_create_params"
+        ) as mock_extract:
+            mock_extract.return_value = CreateParams(
+                title="开会", content="下午3点", reminder_time=None
+            )
+            result = self.tool.execute(query="提醒明天下午3点开会", context=ctx)
+        self.assertTrue(result["found"])
+        self.assertIn("draft", result)
