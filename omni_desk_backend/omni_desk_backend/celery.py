@@ -5,8 +5,7 @@ from __future__ import annotations
 import os
 from typing import Any
 
-from celery import Celery, signals
-from celery.app.task import Task
+from celery import Celery, Task, signals
 
 from observability.context import request_id_var
 
@@ -50,15 +49,17 @@ class RequestIdTaskMiddleware:
             headers["request_id"] = rid
 
     def process_task(self, task, args, kwargs):
+        # token 存 task.request(每次执行独立的 Context),而非共享的 task 实例;
+        # 否则 --pool=threads/eventlet/gevent 下同一实例并发执行会互相覆盖 token。
         rid = (getattr(task.request, "headers", None) or {}).get("request_id")
         if rid:
             token = request_id_var.set(rid)
-            task._omni_request_id_token = token
+            task.request._omni_request_id_token = token
         else:
-            task._omni_request_id_token = None
+            task.request._omni_request_id_token = None
 
     def process_after_return(self, state=None, task=None, **kwargs: Any) -> None:
-        token = getattr(task, "_omni_request_id_token", None)
+        token = getattr(task.request, "_omni_request_id_token", None) if getattr(task, "request", None) else None
         if token is not None:
             request_id_var.reset(token)
 
@@ -84,8 +85,9 @@ def _on_task_postrun(sender=None, task_id=None, task=None, args=None, kwargs=Non
 
 app.Task = RequestIdTask  # type: ignore[misc]
 
-# 链式任务(chain/group 内子任务)继承父任务 headers,保证 request_id 跨任务链传递
-app.conf.task_inherit_parent_headers = True
+# 链式任务(chain/group)的 request_id 继承由 RequestIdTask.apply_async 的
+# contextvar 快照承担:worker 内父任务执行时 request_id_var 已持有 rid,
+# 子任务 publish 时自动注入 headers。
 
 # Using a string here means the worker doesn't have to serialize
 # the configuration object to child processes.
