@@ -19,7 +19,7 @@ CI-only Django settings for `manage.py check --deploy`.
 - 此文件只用于 CI 静态检查,**禁止**在任何运行时/WSGI 入口中引用它。
 """
 
-from .base import *  # noqa: F401,F403
+from .base import *
 
 DEBUG = False
 
@@ -52,3 +52,4 @@ SECURE_HSTS_PRELOAD = False
 # 关闭 Celery(部署检查不需要连接 broker)。
 # base.py 已声明 CELERY_BROKER_URL,这里只置 EAGER 避免 import 时检查 worker。
 CELERY_TASK_ALWAYS_EAGER = True
+
