@@ -8,6 +8,7 @@ import FileAttachmentInput from '../../../shared/components/FileAttachmentInput'
 import { Button, Typography, Dropdown, Modal as AntdModal, message as antMessage } from 'antd';
 import { CopyOutlined, RedoOutlined, LikeOutlined, DislikeOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
+import { logger } from '../../../shared/utils/logger';
 import './SmartChatPage.css';
 
 /**
@@ -385,7 +386,7 @@ const SmartChatPage = () => {
     const resetTimeout = () => {
       if (timeoutId) clearTimeout(timeoutId);
       timeoutId = setTimeout(() => {
-        console.warn('[SmartChat] runStream timeout, aborting');
+        logger.warn('[SmartChat] runStream timeout, aborting');
         if (abortRef.current) abortRef.current();
       }, STREAM_TIMEOUT_MS);
     };
