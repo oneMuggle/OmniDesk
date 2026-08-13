@@ -17,7 +17,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from smart_assistant.middleware.rate_limit import (
@@ -27,7 +26,9 @@ from smart_assistant.middleware.rate_limit import (
 
 from ..base import Reject, ToolHookBase
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def _extract_user(ctx: Any) -> Any | None:

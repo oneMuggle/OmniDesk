@@ -14,8 +14,6 @@ GET /api/smart-assistant/doctor/ 对智能助手依赖的外部服务做一次�
 ``status="error"`` 的检查项，端点本身不返回 500。仅 staff 可访问。
 """
 
-import logging
-
 import requests
 from django.conf import settings
 from django.utils import timezone
@@ -25,7 +23,9 @@ from rest_framework.views import APIView
 
 from ..models import KnowledgeDataset, LlmAppConfig, LlmEndpoint
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # 输出契约版本号（与 chat SSE 契约同源）
 FORMAT_VERSION = 1

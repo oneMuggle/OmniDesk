@@ -5,12 +5,13 @@ LLM 生成工具执行计划，指定工具顺序和依赖关系。
 """
 
 import json
-import logging
 
 from llm_service.router import get_router
 from .prompt_builder import TOOL_CHAIN_PROMPT
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def generate_tool_chain_plan(query: str, schemas: list, history: list = None) -> list | None:

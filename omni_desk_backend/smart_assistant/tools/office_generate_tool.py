@@ -8,7 +8,6 @@ confirmed 阶段：用 python-docx 按 structure 构建标题/段落/表格 + �
 from __future__ import annotations
 
 import json
-import logging
 import re
 
 from docx import Document as DocxDocument
@@ -21,7 +20,9 @@ from ..cache import get_confirmation_draft
 from ..tools_io import create_download_token, save_tmp_office_file
 from .base import BaseTool
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 

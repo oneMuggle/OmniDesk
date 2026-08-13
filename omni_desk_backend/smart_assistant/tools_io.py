@@ -10,7 +10,6 @@ from __future__ import annotations
 import base64
 import hashlib
 import hmac
-import logging
 import os
 import secrets
 import time
@@ -18,7 +17,9 @@ import time
 from django.conf import settings
 from django.core.cache import cache
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 ATTACHMENT_CACHE_TTL = 600  # 附件抽取结果缓存：10 分钟
 DOWNLOAD_TOKEN_TTL = 600  # 下载 token 有效期：10 分钟
