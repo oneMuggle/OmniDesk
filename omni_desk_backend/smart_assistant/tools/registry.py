@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from observability import get_logger
+
 from .base import BaseTool
 
 if TYPE_CHECKING:
@@ -88,15 +90,13 @@ class ToolRegistry:
         返回:
             list[dict]: 已过滤 + 排序 + 校验后的 OpenAI tool schema 列表。
         """
-        import logging
-
         from .base import (
             RISK_LEVEL_DESTRUCTIVE,
             RISK_LEVEL_READ,
             RISK_LEVEL_WRITE,
         )
 
-        log = logging.getLogger(__name__)
+        log = get_logger(__name__, "smart_assistant")
 
         is_auth = user is not None and getattr(user, "is_authenticated", False)
 

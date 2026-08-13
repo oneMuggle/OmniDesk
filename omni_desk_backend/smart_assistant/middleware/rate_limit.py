@@ -1,10 +1,11 @@
 import os
-import logging
 
 from django.core.cache import cache
 from django.http import JsonResponse
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # 每用户每分钟最大请求数
 SMART_CHAT_RATE_LIMIT = int(os.environ.get("SMART_ASSISTANT_CHAT_RATE_LIMIT", "30"))

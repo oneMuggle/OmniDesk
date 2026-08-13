@@ -7,13 +7,14 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 """
 
 import hashlib
-import logging
 import threading
 
 from django.conf import settings
 from django.core.cache import cache
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # 缓存时长
 INTENT_CACHE_TTL = 3600  # 意图分类: 1 小时
