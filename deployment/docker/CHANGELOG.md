@@ -28,8 +28,6 @@
 - **smart-assistant**: agent/orchestrator / agent/tool_chain_executor / agents/executor / cache / middleware/rate_limit / hooks/builtin/audit_log / hooks/builtin/rate_limit / hooks/wiring / agent/conversation_context / agent/rag_router / agent/tool_chain_planner / digest / extractors/swap_extractor / tasks / tools/registry / tools_io / tools/office_generate_tool / tools/swap_request_tool / views/chat / views/doctor / views/office_download 共 21 文件改用 `observability.get_logger(__name__, "smart_assistant")`
 - **ci**: `.github/workflows/ci.yml` lint-backend pin ruff `>=0.16,<0.17`(避免 0.4.10 偏离本地 0.16.2 丢失 18 个月 bug fix)
 
-### 变更
-
 - **smoke_tests.sh**: 补全阶段 10-11(业务广度 5 app GET-only 探针 + PG 备份可恢复性 shadow DB 还原验证);阶段 11 backup 文件改为容器内清理;矩阵文档同步阶段 11
 
 ## [0.7.0-alpha.2] - 2026-07-20  ← alpha

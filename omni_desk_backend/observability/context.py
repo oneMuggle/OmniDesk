@@ -2,9 +2,10 @@
 
 Provides the ``request_id_var`` ContextVar, currently injected by the
 ``RequestIdMiddleware`` during the HTTP request lifecycle and by asyncio
-task scenarios. Celery cross-task propagation via a ``RequestIdTask``
-base task is planned (Task 7 of the logging-enhancement plan) but not yet
-implemented.
+task scenarios. Celery cross-task propagation is implemented via
+``omni_desk_backend.celery.RequestIdTask`` (apply_async captures the
+current contextvar into task headers; the ``task_prerun`` signal restores
+it on the worker side).
 """
 from __future__ import annotations
 

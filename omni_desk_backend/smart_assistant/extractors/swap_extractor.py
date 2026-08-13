@@ -88,7 +88,7 @@ def _call_llm_for_json(prompt: str) -> dict | None:
     except json.JSONDecodeError:
         logger.debug(
             "smart_assistant.swap_extractor.json_parse_failed",
-            extra={"event": "smart_assistant.swap_extractor.json_parse_failed"},
+            extra={"event": "smart_assistant.swap_extractor.json_parse_failed", "raw": raw[:200]},
         )
     m = re.search(r"\{[\s\S]*\}", raw)
     if not m:

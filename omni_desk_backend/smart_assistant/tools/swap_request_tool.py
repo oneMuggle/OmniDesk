@@ -54,7 +54,7 @@ def _parse_date_string(s: str) -> date | None:
     except ValueError:
         logger.debug(
             "smart_assistant.swap_request_tool.date_parse_failed",
-            extra={"event": "smart_assistant.swap_request_tool.date_parse_failed"},
+            extra={"event": "smart_assistant.swap_request_tool.date_parse_failed", "s": s},
         )
     try:
         return datetime.strptime(s, "%m-%d").date().replace(year=date.today().year)

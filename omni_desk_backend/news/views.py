@@ -28,6 +28,15 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
     serializer_class = NewsArticleSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "news.view.entered",
+            extra={"event": "news.view.entered",
+                   "view": "NewsArticleViewSet",
+                   "user": request.user.username if request.user.is_authenticated else "anonymous"},
+        )
+        return super().list(request, *args, **kwargs)
+
     def get_queryset(self):
         queryset = NewsArticle.objects.select_related("personnel", "news_type")
         personnel_id = self.request.query_params.get("personnel_id")

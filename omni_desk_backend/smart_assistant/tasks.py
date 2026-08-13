@@ -67,7 +67,7 @@ def process_document_embedding(document_id):
     except KnowledgeBaseDocument.DoesNotExist:
         logger.debug(
             "smart_assistant.tasks.document_gone",
-            extra={"event": "smart_assistant.tasks.document_gone"},
+            extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
         )
     except Exception as e:
         logger.error("文档向量化失败: %s", e)
@@ -81,7 +81,7 @@ def process_document_embedding(document_id):
         except KnowledgeBaseDocument.DoesNotExist:
             logger.debug(
                 "smart_assistant.tasks.mark_failed_doc_gone",
-                extra={"event": "smart_assistant.tasks.mark_failed_doc_gone"},
+                extra={"event": "smart_assistant.tasks.mark_failed_doc_gone", "document_id": document_id},
             )
         raise
 
@@ -226,7 +226,7 @@ def execute_agent_task(task_id: str):
         except AgentTask.DoesNotExist:
             logger.debug(
                 "smart_assistant.tasks.event_task_gone",
-                extra={"event": "smart_assistant.tasks.event_task_gone"},
+                extra={"event": "smart_assistant.tasks.event_task_gone", "task_id": task_id},
             )
         raise
 

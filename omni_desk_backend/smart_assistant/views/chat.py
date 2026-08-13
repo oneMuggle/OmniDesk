@@ -341,7 +341,7 @@ class SmartChatViewSet(viewsets.ViewSet):
             except SmartAssistantSession.DoesNotExist:
                 logger.debug(
                     "smart_assistant.chat.session_not_found",
-                    extra={"event": "smart_assistant.chat.session_not_found"},
+                    extra={"event": "smart_assistant.chat.session_not_found", "conversation_id": conversation_id},
                 )
 
         start_time = time.time()
