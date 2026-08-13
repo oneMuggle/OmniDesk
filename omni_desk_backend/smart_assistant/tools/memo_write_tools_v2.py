@@ -8,6 +8,11 @@ memo_write_tools)与 _find_candidates(本文件模块级)。
 dry_run 多候选(>1 条)直接拒绝,防止误改/误删;draft fields 携带
 memo_id + target_title,confirmed 按 memo_id(校验 user 归属)优先定位,
 回退标题重定位。
+
+安全约定(定位/归属失败直接拒绝):confirmed 阶段若 memo_id 已携带但归属
+校验失败(非本人或已删除),直接返回 found=False,绝不静默回退到标题重定位
+—— 防止把用户已确认的 memo 悄悄替换成同标题的其他记录(安全性优先)。
+memo_id 缺失时才允许标题重定位,且要求恰 1 个候选。
 """
 
 from __future__ import annotations
@@ -17,6 +22,7 @@ from django.db import transaction
 from .base import BaseTool
 from .memo_write_tools import _parse_reminder_time
 from ..extractors.memo_update_extractor import UpdateParams, extract_update_params
+from ..extractors.memo_delete_extractor import extract_delete_params
 from memos.models import Memo
 
 from observability import get_logger
@@ -139,8 +145,9 @@ class MemoUpdateTool(BaseTool):
     def _locate(self, user, params, fields) -> Memo | None:
         """优先按 draft 的 memo_id(校验 user 归属),缺失时回退按 target_title 重定位。
 
-        memo_id 已携带但归属校验失败(非本人或已删除)时直接返回 None:
-        防止把用户已确认的 memo 悄悄替换成同标题的其他记录。
+        定位/归属失败直接拒绝:仅当 memo_id 缺失时才回退标题重定位(要求恰 1 个候选)。
+        memo_id 已携带但归属校验失败(非本人或已删除)时直接返回 None,绝不静默
+        回退标题 —— 防止把用户已确认的 memo 悄悄替换成同标题的其他记录(安全性优先)。
         """
         memo_id = fields.get("memo_id") if isinstance(fields, dict) else None
         if memo_id is not None:
@@ -202,3 +209,180 @@ class MemoUpdateTool(BaseTool):
             "result": {"memo_id": memo.id, "title": memo.title},
             "summary": f"已更新备忘录《{memo.title}》",
         }
+
+    def build_base_queryset(self):
+        """返回未过滤的备忘录 QuerySet。
+
+        供只读/汇总路径兼容使用的接口;写/删除工具当前不被 scope 路由调用
+        (execute 走 confirm-replay,不经跨模块汇总 scope 分发)。
+        """
+        return Memo.objects.select_related("user").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的备忘录(user 缺失时返回空集)。"""
+        user = getattr(ctx, "user", None)
+        if user is None:
+            return qs.none()
+        return qs.filter(user=user)
+
+
+class MemoDeleteTool(BaseTool):
+    """基于自然语言删除一条已有备忘录(destructive, require_confirmation=True)。
+
+    破坏性操作:draft summary 显式标注"永久删除 / 不可恢复",由 confirm-replay
+    框架的二次确认承担用户确认。
+    """
+
+    name = "memo_delete"
+    description = "基于自然语言删除一条已有备忘录/便签(破坏性操作,需二次确认)"
+    intent_type = "memo_delete"
+    risk_level = "destructive"
+    require_confirmation = True
+
+    @classmethod
+    def get_openai_tool_schema(cls) -> dict:
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.intent_type,
+                "description": (
+                    "基于自然语言删除一条已有备忘录(破坏性操作,必须用户二次确认)。"
+                    "dry_run 返回 draft,用户确认后真正删除。"
+                    "示例 query: '删掉明天开会的备忘'、'把采购备忘删了'。"
+                ),
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "query": {
+                            "type": "string",
+                            "description": "自然语言描述,含要删除的备忘录标题关键词",
+                        },
+                    },
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
+
+    def execute(self, query=None, context=None, **kwargs) -> dict:
+        ctx = context if isinstance(context, dict) else {}
+
+        if ctx.get("dry_run"):
+            return self._dry_run(query, ctx, context)
+
+        if ctx.get("confirmed"):
+            return self._confirmed(query, ctx, context)
+
+        return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
+
+    def _resolve_user(self, ctx, context):
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None and context is not None:
+            user = getattr(context, "user", None)
+        return user
+
+    def _resolve_params(self, query, ctx):
+        """优先使用框架注入的 draft fields,缺失时回退 LLM 提取。"""
+        draft_fields = ctx.get("draft") if isinstance(ctx, dict) else None
+        if isinstance(draft_fields, dict) and draft_fields.get("target_title"):
+            from ..extractors.memo_delete_extractor import DeleteParams
+
+            return DeleteParams(target_title=draft_fields.get("target_title"))
+        return extract_delete_params(query or "")
+
+    def _dry_run(self, query, ctx, context=None) -> dict:
+        user = self._resolve_user(ctx, context)
+        if user is None or not getattr(user, "is_authenticated", False):
+            return {"found": False, "message": "未登录用户无法删除备忘录(上下文缺失 user)"}
+
+        params = extract_delete_params(query or "")
+        if params is None:
+            return {"found": False, "message": "无法识别要删除的备忘录"}
+
+        candidates = list(_find_candidates(user, params.target_title))
+        if not candidates:
+            return {"found": False, "message": f"未找到标题包含 '{params.target_title}' 的备忘录"}
+        if len(candidates) > 1:
+            return {"found": False, "message": f"找到 {len(candidates)} 条匹配的备忘录,请指明更精确的标题"}
+
+        memo = candidates[0]
+        draft = {
+            "summary": f"⚠️ 将永久删除备忘录《{memo.title}》,此操作不可恢复。确认?",
+            "fields": {"target_title": params.target_title, "memo_id": memo.id},
+        }
+        return {"found": True, "draft": draft}
+
+    def _locate(self, user, params, fields) -> Memo | None:
+        """优先按 draft 的 memo_id(校验 user 归属),缺失时回退按 target_title 重定位。
+
+        定位/归属失败直接拒绝:仅当 memo_id 缺失时才回退标题重定位(要求恰 1 个候选)。
+        memo_id 已携带但归属校验失败(非本人或已删除)时直接返回 None,绝不静默
+        回退标题 —— 防止把用户已确认删除的 memo 悄悄替换成同标题的其他记录(安全性优先)。
+        """
+        memo_id = fields.get("memo_id") if isinstance(fields, dict) else None
+        if memo_id is not None:
+            memo = Memo.objects.filter(id=memo_id, user=user).first()
+            if memo is not None:
+                return memo
+            return None
+        candidates = list(_find_candidates(user, params.target_title))
+        if len(candidates) != 1:
+            return None
+        return candidates[0]
+
+    def _confirmed(self, query, ctx, context=None) -> dict:
+        user = self._resolve_user(ctx, context)
+        if user is None or not getattr(user, "is_authenticated", False):
+            return {"found": False, "message": "未登录用户无法删除备忘录(上下文缺失 user)"}
+
+        params = self._resolve_params(query, ctx)
+        if params is None:
+            return {"found": False, "message": "无法识别要删除的备忘录"}
+
+        memo = self._locate(user, params, ctx.get("draft") if isinstance(ctx, dict) else {})
+        if memo is None:
+            return {"found": False, "message": f"未找到标题包含 '{params.target_title}' 的备忘录"}
+
+        try:
+            with transaction.atomic():
+                memo.delete()
+        except Exception as e:
+            logger.warning(
+                "memo_delete.persist_failed",
+                extra={
+                    "event": "memo_delete.persist_failed",
+                    "user_id": getattr(user, "id", None),
+                    "error": str(e),
+                },
+            )
+            return {"found": False, "message": f"删除备忘录失败: {e!s}"}
+
+        logger.info(
+            "memo_delete.persisted",
+            extra={
+                "event": "memo_delete.persisted",
+                "memo_id": memo.id,
+                "user_id": user.id,
+            },
+        )
+        return {
+            "found": True,
+            "result": {"memo_id": memo.id, "title": memo.title},
+            "summary": f"已删除备忘录《{memo.title}》",
+        }
+
+    def build_base_queryset(self):
+        """返回未过滤的备忘录 QuerySet。
+
+        供只读/汇总路径兼容使用的接口;写/删除工具当前不被 scope 路由调用
+        (execute 走 confirm-replay,不经跨模块汇总 scope 分发)。
+        """
+        return Memo.objects.select_related("user").all()
+
+    def _scope_self(self, qs, ctx):
+        """本人范围:仅返回 ctx.user 名下的备忘录(user 缺失时返回空集)。"""
+        user = getattr(ctx, "user", None)
+        if user is None:
+            return qs.none()
+        return qs.filter(user=user)
