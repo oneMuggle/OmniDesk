@@ -1,10 +1,10 @@
-import logging
-
 from celery import shared_task
 
 from ragflow_service.client import RagflowClient, RagflowClientError
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 @shared_task(
@@ -65,7 +65,10 @@ def process_document_embedding(document_id):
         doc.save(update_fields=["embedding_status"])
 
     except KnowledgeBaseDocument.DoesNotExist:
-        pass
+        logger.debug(
+            "smart_assistant.tasks.document_gone",
+            extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
+        )
     except Exception as e:
         logger.error("文档向量化失败: %s", e)
         from smart_assistant.models import KnowledgeBaseDocument
@@ -76,7 +79,10 @@ def process_document_embedding(document_id):
             doc.content_text = str(e)
             doc.save(update_fields=["embedding_status", "content_text"])
         except KnowledgeBaseDocument.DoesNotExist:
-            pass
+            logger.debug(
+                "smart_assistant.tasks.mark_failed_doc_gone",
+                extra={"event": "smart_assistant.tasks.mark_failed_doc_gone", "document_id": document_id},
+            )
         raise
 
 
@@ -218,7 +224,10 @@ def execute_agent_task(task_id: str):
                 payload={"task_id": str(task.task_id), "error": str(e)},
             )
         except AgentTask.DoesNotExist:
-            pass
+            logger.debug(
+                "smart_assistant.tasks.event_task_gone",
+                extra={"event": "smart_assistant.tasks.event_task_gone", "task_id": task_id},
+            )
         raise
 
 

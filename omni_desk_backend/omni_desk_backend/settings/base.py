@@ -106,6 +106,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "core.middleware.RequestIdMiddleware",  # MUST be first
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -190,7 +191,8 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
+            "()": "observability.formatters.SafeTextFormatter",
+            "format": "{asctime} [{levelname}] {name} [req={request_id} evt={event}]: {message}",
             "style": "{",
         },
     },

@@ -19,7 +19,6 @@
 
 from __future__ import annotations
 
-import logging
 from datetime import date
 
 from django.utils import timezone
@@ -28,7 +27,9 @@ from .agent.orchestrator import AgentOrchestrator
 from .scope import resolve_scope
 from .tools.tool_context import ToolContext
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # 触发聚合链路的晨检查询语(命中多工具计划 → intent="aggregated_day")
 DIGEST_QUERY = "今天我有哪些安排？请汇总今日的排班、会议室、备忘录和待办事项。"

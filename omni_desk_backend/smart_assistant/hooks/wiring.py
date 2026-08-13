@@ -21,12 +21,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from .base import HookEvent, HookRegistry, RecoveryAction, Reject, get_registry
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 # ---------------------------------------------------------------------------

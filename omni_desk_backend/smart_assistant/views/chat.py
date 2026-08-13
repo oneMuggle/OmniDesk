@@ -1,5 +1,4 @@
 import json
-import logging
 import time
 
 from django.http import StreamingHttpResponse
@@ -34,7 +33,9 @@ from ..tools_io import cache_attachment, file_sha256
 from ..cache import get_confirmation_draft, clear_confirmation_draft
 from ..hooks.wiring import execute_guarded
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def _resolve_error(result: dict) -> bool:
@@ -338,7 +339,10 @@ class SmartChatViewSet(viewsets.ViewSet):
                 session = SmartAssistantSession.objects.get(id=conversation_id, user=request.user)
                 conversation_history = build_effective_history(session.messages, session.summary_text)
             except SmartAssistantSession.DoesNotExist:
-                pass
+                logger.debug(
+                    "smart_assistant.chat.session_not_found",
+                    extra={"event": "smart_assistant.chat.session_not_found", "conversation_id": conversation_id},
+                )
 
         start_time = time.time()
 

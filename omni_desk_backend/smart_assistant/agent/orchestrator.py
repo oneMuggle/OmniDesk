@@ -1,9 +1,10 @@
 import json
-import logging
 import time
 import uuid
 
 from django.conf import settings
+
+from observability import get_logger
 
 from .intent_classifier import (
     classify_intent,
@@ -40,7 +41,7 @@ from ..hooks.wiring import (
 )
 
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 
 # ---------------------------------------------------------------------------

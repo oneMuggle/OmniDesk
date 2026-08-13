@@ -7,11 +7,11 @@
 4. 滚动摘要触发（含失败退避，防止 LLM 故障期重试风暴）
 """
 
-import logging
-
 from django.core.cache import cache
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # Token 阈值
 SOFT_TOKEN_LIMIT = 3000  # 超过此值时压缩旧消息

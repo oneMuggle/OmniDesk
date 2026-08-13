@@ -5,6 +5,7 @@ exclude = ["*/migrations/*", "*/test_*.py", "*/tests/*", "*/tests.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+extend-select = ["LOG"]
 ignore = [
     "E501",      # line length handled by formatter
     "F403",      # star imports from settings (intentional)

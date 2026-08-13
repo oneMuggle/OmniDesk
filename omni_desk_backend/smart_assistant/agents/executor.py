@@ -23,17 +23,18 @@
 from __future__ import annotations
 
 import json
-import logging
 import time
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from observability import get_logger
+
 from .roles import ROLE_PROFILES, AgentRole, RoleProfile
 from .shared_context import SharedContext
 from .task_packet import ExecutionMode, FailureMode, SubTask, TaskPacket
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 # 延迟导入,避免循环依赖
 # from llm_service.router import LLMRouter
