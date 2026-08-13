@@ -24,7 +24,7 @@ def _count_except_pass(app_dir: pathlib.Path) -> int:
             continue
         try:
             tree = ast.parse(py_file.read_text(encoding="utf-8"))
-        except SyntaxError:
+        except (SyntaxError, UnicodeDecodeError):
             continue
         for node in ast.walk(tree):
             if isinstance(node, ast.ExceptHandler):
@@ -55,4 +55,16 @@ def test_except_pass_count_does_not_grow():
     assert not regressions, (
         f"except:pass count grew in: "
         + ", ".join(f"{app} ({a} > {b})" for app, (a, b) in regressions.items())
+    )
+
+    # 新增目录守卫:任何不在 baseline 且含 except:pass 的目录直接 FAIL
+    # (新增 app 或向非 baseline 目录写入 except:pass 时,需刷新 baseline)
+    new_dirs = {
+        app: count
+        for app, count in actual.items()
+        if app not in baseline and count > 0
+    }
+    assert not new_dirs, (
+        "except:pass found in directories not in baseline: "
+        + ", ".join(f"{app} ({count})" for app, count in sorted(new_dirs.items()))
     )
