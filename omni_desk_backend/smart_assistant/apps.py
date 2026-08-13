@@ -17,6 +17,7 @@ class SmartAssistantConfig(AppConfig):
         from .tools.document_tool import DocumentTool
         from .tools.event_tool import EventTool
         from .tools.memo_tool import MemoTool
+        from .tools.memo_write_tools import MemoCreateTool
         from .tools.project_tool import ProjectTool
         from .tools.news_tool import NewsTool
         from .tools.meeting_room_tool import MeetingRoomTool
@@ -39,6 +40,7 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(DocumentTool())
         ToolRegistry.register(EventTool())
         ToolRegistry.register(MemoTool())
+        ToolRegistry.register(MemoCreateTool())
         ToolRegistry.register(ProjectTool())
         ToolRegistry.register(NewsTool())
         ToolRegistry.register(MeetingRoomTool())

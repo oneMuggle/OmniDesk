@@ -67,7 +67,7 @@
 | `KnowledgeDataset` | name, ragflow_dataset_id, tags, is_active | 多数据集 RAG 路由(全局共享资源,无属主字段) |
 | `LlmEndpoint` / `LlmAppConfig` | name, priority, is_fallback, model_capabilities, **api_key(加密存储)** | 多 LLM 端点配置 |
 
-### 2.2 工具系统(13 个)
+### 2.2 工具系统(14 个)
 
 | 工具 | 功能 | 数据源 |
 |------|------|--------|
@@ -77,6 +77,7 @@
 | `DocumentTool` | 公文/文档搜索 | `documents` 模块 |
 | `EventTool` | 事件/日程/节假日查询 | `events` 模块 |
 | `MemoTool` | 备忘录查询 | `memos.Memo` |
+| `MemoCreateTool` | 创建备忘录(写, 需确认) | `memos.Memo` |
 | `ProjectTool` | 项目进度查询 | `projects.Project` |
 | `NewsTool` | 新闻/通知搜索 | `news.NewsArticle` |
 | `MeetingRoomTool` | 会议室可用性 | `meeting_rooms` |
