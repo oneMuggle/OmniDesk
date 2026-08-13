@@ -28,6 +28,14 @@ class UpdateParams:
     new_reminder_time: str | None = None  # ISO 8601 字符串
 
 
+def _as_str(value) -> str | None:
+    """字符串值归一化:非 str 返回 None,str 去空白后空串也返回 None。"""
+    if not isinstance(value, str):
+        return None
+    s = value.strip()
+    return s or None
+
+
 def _call_update_llm(query: str, today_str: str | None = None) -> str | None:
     """调用 LLM 抽取参数,失败兜底 None。today_str 供测试注入(默认今日)。"""
     if today_str is None:
@@ -55,12 +63,12 @@ def extract_update_params(query: str, today_str: str | None = None) -> UpdatePar
         logger.debug("memo_update_extractor JSON 解析失败: %s", json_text[:200])
         return None
 
-    target = (data.get("target_title") or "").strip()
+    target = _as_str(data.get("target_title"))
     if not target:
         return None
 
-    new_title = (data.get("new_title") or "").strip() or None
-    new_content = (data.get("new_content") or "").strip() or None
+    new_title = _as_str(data.get("new_title"))
+    new_content = _as_str(data.get("new_content"))
     reminder = data.get("new_reminder_time")
     if reminder in (None, "", "null"):
         reminder = None
