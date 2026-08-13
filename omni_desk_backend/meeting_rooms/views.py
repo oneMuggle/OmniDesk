@@ -24,6 +24,10 @@ class MeetingRoomViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingRoomSerializer
     permission_classes = [IsAuthenticated]  # 允许所有认证用户管理会议室，包括查看
 
+    def list(self, request, *args, **kwargs):
+        logger.info("meeting_rooms.view.entered", extra={"event": "meeting_rooms.view.entered"})
+        return super().list(request, *args, **kwargs)
+
 
 class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingRoomBookingSerializer
@@ -89,7 +93,6 @@ class MeetingRoomStatsAPIView(APIView):
     permission_classes = [IsAdminOrManager]  # 只有管理员和经理可以访问统计报告
 
     def get(self, request, *args, **kwargs):
-        logger.info("meeting_rooms.view.entered", extra={"event": "meeting_rooms.view.entered"})
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
         meeting_room_id = request.query_params.get("meeting_room_id")

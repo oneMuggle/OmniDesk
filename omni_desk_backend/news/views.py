@@ -18,6 +18,10 @@ class NewsTypeViewSet(viewsets.ModelViewSet):
     serializer_class = NewsTypeSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def list(self, request, *args, **kwargs):
+        logger.info("news.view.entered", extra={"event": "news.view.entered"})
+        return super().list(request, *args, **kwargs)
+
 
 class NewsArticleViewSet(viewsets.ModelViewSet):
     queryset = NewsArticle.objects.select_related("personnel", "news_type").all()
@@ -49,7 +53,6 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
 
 class NewsStatsView(APIView):
     def get(self, request, *args, **kwargs):
-        logger.info("news.view.entered", extra={"event": "news.view.entered"})
         total_articles = NewsArticle.objects.count()
 
         by_person_monthly = (
