@@ -10,6 +10,10 @@ PR1 范围:仅 MemoCreateTool。PR2 在新文件 memo_write_tools_v2.py(避免�
 2. dry_run 模式下返回 draft(供 confirm-replay 框架存缓存)
 3. confirmed 模式下调用业务逻辑落库
 
+调用契约:execute 签名与框架一致 —— ``execute(query=None, context=None, **kwargs)``,
+框架所有调用点(orchestrator / chat.py replay / tool_chain_executor)都以 ``context=``
+关键字传参,经 ``execute_guarded`` 原样透传。context 可为 dict 或 ToolContext 实例。
+
 上游依赖:
 - confirm-replay 框架:Reference docs/plans/2026-08-04_sa-confirm-framework.md
 - smart_assistant.extractors.memo_extractor.extract_create_params(LLM 解析)
@@ -17,15 +21,40 @@ PR1 范围:仅 MemoCreateTool。PR2 在新文件 memo_write_tools_v2.py(避免�
 """
 from __future__ import annotations
 
+from datetime import datetime
+
 from django.db import transaction
 
 from .base import BaseTool
-from ..extractors.memo_extractor import extract_create_params
+from ..extractors.memo_extractor import CreateParams, extract_create_params
 from memos.models import Memo
 
 from observability import get_logger
 
 logger = get_logger(__name__, "smart_assistant")
+
+
+def _parse_reminder_time(s: str) -> datetime | None:
+    """鲁棒地解析提醒时间字符串,失败返回 None。
+
+    接受格式:
+    - "2026-08-12T15:00:00"(ISO datetime)
+    - "2026-08-12 15:00:00"(空格分隔)
+    - "2026-08-12"(date-only,默认当日 00:00)
+    """
+    if not s:
+        return None
+    s = s.strip()
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+        try:
+            return datetime.strptime(s, fmt)
+        except ValueError:
+            continue
+    logger.debug(
+        "smart_assistant.memo_write_tools.reminder_time_parse_failed",
+        extra={"event": "smart_assistant.memo_write_tools.reminder_time_parse_failed", "s": s},
+    )
+    return None
 
 
 class MemoCreateTool(BaseTool):
@@ -68,27 +97,45 @@ class MemoCreateTool(BaseTool):
             },
         }
 
-    def execute(self, query=None, ctx=None, **kwargs) -> dict:
-        """执行备忘录创建(双调用模式:dry_run / confirmed)。"""
-        ctx_dict = ctx if isinstance(ctx, dict) else {}
+    def execute(self, query=None, context=None, **kwargs) -> dict:
+        """执行备忘录创建(双调用模式 + 兜底)。
 
-        if ctx_dict.get("dry_run"):
-            return self._dry_run(query, ctx_dict)
+        - dry_run:返回 draft(供 confirm-replay 框架存缓存)
+        - confirmed:真正落库
+        - 兜底:防御性兜底(测试显式覆盖),正常流程被 orchestrator 拦截
+        """
+        ctx = context if isinstance(context, dict) else {}
 
-        if ctx_dict.get("confirmed"):
-            return self._confirmed(query, ctx_dict)
+        if ctx.get("dry_run"):
+            return self._dry_run(query, ctx, context)
 
-        # 兜底(理论上不可达:orchestrator 会拦截)
+        if ctx.get("confirmed"):
+            return self._confirmed(query, ctx, context)
+
+        # 防御性兜底(正常流程不可达:orchestrator 会先走 dry_run/confirmed)
         return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
 
-    def _dry_run(self, query, ctx) -> dict:
-        user = ctx.get("user")
+    def _resolve_user(self, ctx, context):
+        """解析当前用户:优先 ctx dict,其次 ToolContext 实例;缺失返回 None。"""
+        user = ctx.get("user") if isinstance(ctx, dict) else None
+        if user is None and context is not None:
+            user = getattr(context, "user", None)
+        return user
+
+    def _dry_run(self, query, ctx, context=None) -> dict:
+        user = self._resolve_user(ctx, context)
         if user is None or not getattr(user, "is_authenticated", False):
-            return {"found": False, "message": "未登录用户无法创建备忘录"}
+            return {"found": False, "message": "未登录用户无法创建备忘录(上下文缺失 user)"}
 
         params = extract_create_params(query or "")
         if params is None:
             return {"found": False, "message": "无法识别备忘内容,请明确想记什么"}
+
+        if params.reminder_time and _parse_reminder_time(params.reminder_time) is None:
+            return {
+                "found": False,
+                "message": f"无法解析提醒时间 '{params.reminder_time}',请确认时间格式",
+            }
 
         draft = {
             "summary": f"将创建备忘录: 《{params.title}》",
@@ -103,14 +150,31 @@ class MemoCreateTool(BaseTool):
 
         return {"found": True, "draft": draft}
 
-    def _confirmed(self, query, ctx) -> dict:
-        user = ctx.get("user")
-        if user is None or not getattr(user, "is_authenticated", False):
-            return {"found": False, "message": "未登录用户无法创建备忘录"}
+    def _resolve_params(self, query, ctx) -> CreateParams | None:
+        """优先使用框架注入的 draft fields,缺失时回退 LLM 提取。
 
-        params = extract_create_params(query or "")
+        chat.py replay 路径注入 ``draft=f"{fields}"``,此时不二次调 LLM
+        (避免 2-4s 延迟 + LLM 非确定性导致落库内容与用户确认漂移)。
+        """
+        draft_fields = ctx.get("draft") if isinstance(ctx, dict) else None
+        if isinstance(draft_fields, dict) and draft_fields.get("title"):
+            return CreateParams(
+                title=draft_fields.get("title"),
+                content=draft_fields.get("content") or "",
+                reminder_time=draft_fields.get("reminder_time"),
+            )
+        return extract_create_params(query or "")
+
+    def _confirmed(self, query, ctx, context=None) -> dict:
+        user = self._resolve_user(ctx, context)
+        if user is None or not getattr(user, "is_authenticated", False):
+            return {"found": False, "message": "未登录用户无法创建备忘录(上下文缺失 user)"}
+
+        params = self._resolve_params(query, ctx)
         if params is None:
             return {"found": False, "message": "无法识别备忘内容"}
+
+        reminder_time = _parse_reminder_time(params.reminder_time) if params.reminder_time else None
 
         try:
             with transaction.atomic():
@@ -118,10 +182,17 @@ class MemoCreateTool(BaseTool):
                     user=user,
                     title=params.title,
                     content=params.content,
-                    reminder_time=params.reminder_time or None,
+                    reminder_time=reminder_time,
                 )
         except Exception as e:
-            logger.warning("memo_create 落库失败: %s", e)
+            logger.warning(
+                "memo_create.persist_failed",
+                extra={
+                    "event": "memo_create.persist_failed",
+                    "user_id": getattr(user, "id", None),
+                    "error": str(e),
+                },
+            )
             return {"found": False, "message": f"创建备忘录失败: {e!s}"}
 
         logger.info(
@@ -144,9 +215,16 @@ class MemoCreateTool(BaseTool):
         }
 
     def build_base_queryset(self):
-        """返回未过滤的备忘录 QuerySet(跨模块汇总路径使用)。"""
+        """返回未过滤的备忘录 QuerySet。
+
+        供只读/汇总路径兼容使用的接口;写工具当前不被 scope 路由调用
+        (execute 走 confirm-replay,不经跨模块汇总 scope 分发)。
+        """
         return Memo.objects.select_related("user").all()
 
     def _scope_self(self, qs, ctx):
-        """本人范围:仅返回 ctx.user 名下的备忘录。"""
-        return qs.filter(user=ctx.user)
+        """本人范围:仅返回 ctx.user 名下的备忘录(user 缺失时返回空集)。"""
+        user = getattr(ctx, "user", None)
+        if user is None:
+            return qs.none()
+        return qs.filter(user=user)
