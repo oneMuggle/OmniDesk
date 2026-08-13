@@ -78,6 +78,11 @@ jobs:
         # Django 5.2.15/5.2.16 / 6.0.6/6.0.7),属接受风险 + TODO 跟踪升级。
         # 升级项目见 docs/superpowers/specs/ 下 Django 升级专项(待立项)。
         run: pip-audit -r omni_desk_backend/requirements-prod.txt --strict --ignore-vuln CVE-2026-48587 --ignore-vuln CVE-2026-6873 --ignore-vuln CVE-2026-8404 --ignore-vuln CVE-2026-48588 --ignore-vuln CVE-2026-53877 --ignore-vuln CVE-2026-53878
+      - name: pip-audit advisory (high+ non-blocking)
+        continue-on-error: true
+        run: |
+          echo "ℹ️ Advisory-only scan for high+ severity (not blocking)"
+          pip-audit -r omni_desk_backend/requirements-prod.txt --ignore-vuln CVE-2026-48587 --ignore-vuln CVE-2026-6873 --ignore-vuln CVE-2026-8404 --ignore-vuln CVE-2026-48588 --ignore-vuln CVE-2026-53877 --ignore-vuln CVE-2026-53878 || echo "⚠️ High+ vulnerabilities present (see output above); tracked separately"
 
   # ─── Frontend ───
   lint-frontend:
