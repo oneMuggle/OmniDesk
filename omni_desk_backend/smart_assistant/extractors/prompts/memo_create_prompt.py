@@ -2,6 +2,7 @@
 
 自然语言 → Memo 创建参数 LLM 提取 prompt 模板。
 """
+
 from __future__ import annotations
 
 MEMO_CREATE_SYSTEM_PROMPT = """你是 memo_create_extractor,负责把中文自然语言转换为备忘录创建结构化参数。

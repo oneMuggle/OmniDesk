@@ -10,13 +10,13 @@ LLM 解析"中文 query → CreateParams",失败兜底为 None(由调用方
 
 参考 smart_assistant.extractors.swap_extractor 的同款 stub 接口。
 """
+
 from __future__ import annotations
 
 import json
 import re
 from dataclasses import dataclass
 from datetime import date as date_cls
-from typing import Optional
 
 from .prompts.memo_create_prompt import (
     MEMO_CREATE_SYSTEM_PROMPT,
@@ -34,10 +34,10 @@ class CreateParams:
 
     title: str
     content: str = ""
-    reminder_time: Optional[str] = None  # ISO 8601 字符串
+    reminder_time: str | None = None  # ISO 8601 字符串
 
 
-def _call_llm(query: str) -> Optional[str]:
+def _call_llm(query: str) -> str | None:
     """调用 LLM 抽取参数,失败兜底 None。
 
     注:stub 接口,生产代码接入 LLM 路由在 Task 3 dry_run 路径调用方注入;
