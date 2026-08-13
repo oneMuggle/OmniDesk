@@ -14,6 +14,10 @@ from users.permissions import IsAdminOrManager  # 假设users应用中有IsAdmin
 from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
 from .serializers import MeetingRoomBookingSerializer, MeetingRoomMaintenanceSerializer, MeetingRoomSerializer
 
+from observability import get_logger
+
+logger = get_logger(__name__, "meeting_rooms")
+
 
 class MeetingRoomViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoom.objects.all().order_by("id")
@@ -85,6 +89,7 @@ class MeetingRoomStatsAPIView(APIView):
     permission_classes = [IsAdminOrManager]  # 只有管理员和经理可以访问统计报告
 
     def get(self, request, *args, **kwargs):
+        logger.info("meeting_rooms.view.entered", extra={"event": "meeting_rooms.view.entered"})
         start_date_str = request.query_params.get("start_date")
         end_date_str = request.query_params.get("end_date")
         meeting_room_id = request.query_params.get("meeting_room_id")

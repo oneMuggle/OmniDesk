@@ -5,8 +5,12 @@ from users.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from observability import get_logger
+
 from .models import NewsArticle, NewsType
 from .serializers import NewsArticleSerializer, NewsTypeSerializer
+
+logger = get_logger(__name__, "news")
 
 
 class NewsTypeViewSet(viewsets.ModelViewSet):
@@ -45,6 +49,7 @@ class NewsArticleViewSet(viewsets.ModelViewSet):
 
 class NewsStatsView(APIView):
     def get(self, request, *args, **kwargs):
+        logger.info("news.view.entered", extra={"event": "news.view.entered"})
         total_articles = NewsArticle.objects.count()
 
         by_person_monthly = (

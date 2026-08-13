@@ -6,10 +6,14 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
+from observability import get_logger
+
 from users.permissions import IsAdminOrReadOnly
 
 from .models import OllamaConfig, Page, PageVisibility
 from .serializers import GroupSerializer, OllamaConfigSerializer, PageSerializer
+
+logger = get_logger(__name__, "config")
 
 
 @api_view(["GET"])
@@ -18,6 +22,7 @@ def get_ollama_config(request):
     """
     返回Ollama配置。
     """
+    logger.info("config.view.entered", extra={"event": "config.view.entered"})
     return Response({"OLLAMA_ENDPOINT": settings.OLLAMA_BASE_URL})
 
 
