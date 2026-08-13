@@ -61,6 +61,7 @@ def _matches_intent(query: str, schema: dict) -> bool:
         "knowledge_qa": ["知识", "文档", "文档库", "怎么", "如何", "是什么"],
         "document_search": ["文档", "公文", "模板", "搜索文档"],
         "memo_query": ["备忘录", "便签", "提醒"],
+        "memo_create": ["建一条", "创建备忘", "新增备忘", "记一条", "提醒我", "记一下"],
         "project_status": ["项目", "进度", "里程碑", "负责人"],
         "news_search": ["新闻", "通知", "公告"],
     }
