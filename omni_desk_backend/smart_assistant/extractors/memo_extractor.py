@@ -37,6 +37,14 @@ class CreateParams:
     reminder_time: str | None = None  # ISO 8601 字符串
 
 
+def _as_str(value) -> str | None:
+    """非字符串(如 LLM 输出的数字/dict)→ None;strip 后空串 → None。"""
+    if not isinstance(value, str):
+        return None
+    s = value.strip()
+    return s or None
+
+
 def _call_llm(query: str, today_str: str | None = None) -> str | None:
     """调用 LLM 抽取参数,失败兜底 None。today_str 供测试注入(默认今日)。"""
     if today_str is None:
@@ -78,7 +86,7 @@ def extract_create_params(query: str, today_str: str | None = None) -> CreatePar
         logger.debug("memo_extractor JSON 解析失败: %s", json_text[:200])
         return None
 
-    title = (data.get("title") or "").strip()
+    title = _as_str(data.get("title")) or ""
     if not title:
         return None
 
@@ -88,6 +96,6 @@ def extract_create_params(query: str, today_str: str | None = None) -> CreatePar
 
     return CreateParams(
         title=title[:200],  # 防御性 truncate 到模型字段上限
-        content=(data.get("content") or "").strip(),
+        content=_as_str(data.get("content")) or "",
         reminder_time=reminder if isinstance(reminder, str) else None,
     )

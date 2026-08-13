@@ -34,3 +34,18 @@ class TestExtractCreateParamsLLM(SimpleTestCase):
         mock_call.return_value = "抱歉,我无法识别"  # 非 JSON
         result = extract_create_params("记一个开会")
         self.assertIsNone(result)
+
+    @patch("smart_assistant.extractors.memo_extractor._call_llm")
+    def test_returns_none_when_title_non_string(self, mock_call):
+        """title 为非字符串(数字)→ 失败契约,返回 None,不抛 AttributeError。"""
+        mock_call.return_value = '{"title": 123, "content": "x"}'
+        result = extract_create_params("记一个开会")
+        self.assertIsNone(result)
+
+    @patch("smart_assistant.extractors.memo_extractor._call_llm")
+    def test_returns_create_params_with_empty_content_when_content_non_string(self, mock_call):
+        """content 为非字符串(数组)→ 降级为空串,返回 CreateParams,不抛 AttributeError。"""
+        mock_call.return_value = '{"title": "买菜", "content": ["番茄"]}'
+        result = extract_create_params("记一个买菜")
+        self.assertIsNotNone(result)
+        self.assertEqual(result.content, "")
