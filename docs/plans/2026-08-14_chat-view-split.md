@@ -105,20 +105,22 @@ def _build_sync_payload(result, log, conversation_id, error)  # payload 组装 +
 
 ```python
 def handle_stream_chat(viewset, request)                # stream 入口(serializer 校验 → 附件 → setup → StreamingHttpResponse)
-def _event_stream_generator(*, query, conversation_id, session, conversation_history, tool_context, start_time)  # SSE 生成器
-def _persist_stream_session(session, conversation_id, query, answer)  # 流式会话持久化(降 C901)
-def _build_stream_event(log, cid, error, meta, stream_error_code, stream_retry_after)  # session_event 组装 + kind/hint
+def _event_stream_generator(*, query, conversation_id, session, conversation_history, tool_context, start_time, orchestrator, user)  # SSE 生成器
+def _persist_stream_session(session, conversation_id, query, answer, user)  # 流式会话持久化(降 C901)
+def _build_stream_event(log, cid, error, meta, stream_error_code, stream_retry_after, answer)  # session_event 组装 + kind/hint
 ```
+
+> 签名校准(2026-08-14 落地):`_event_stream_generator` 较初稿多 `orchestrator`/`user`(闭包捕获变量显式化);`_persist_stream_session` 由 4 参改为 5 参(+user,无 cid 分支 create 需要);`_build_stream_event` 多 `answer`(`annotate_error_kind` 的 kind 推断必需)。
 
 模块级 import:`AgentOrchestrator`、`SmartAssistantSession`、`AgentLog`、`sse_event`、`annotate_error_kind` 等。
 
 ### 3.3 C901 下降路径
 
-| 原符号 | 原 C901 | 拆分后 |
+| 原符号 | 原 C901 | 拆分后（实测 2026-08-14） |
 |---|---|---|
-| `create` | 17 | `handle_sync_chat` ~8 + `_handle_confirm_replay` ~6 + `_build_sync_payload` ~5 |
-| `stream` | 22 | `handle_stream_chat` ~6 + `_event_stream_generator` ~9 |
-| `event_stream` | 16 | `_event_stream_generator` ~9 + `_persist_stream_session` ~6 + `_build_stream_event` ~5 |
+| `create` | 17 | `handle_sync_chat` 8 + `_handle_confirm_replay` 5 + `_run_sync_process` 3 + `_write_sync_agent_log` 1 + `_build_sync_payload` 2 |
+| `stream` | 22 | `handle_stream_chat` 4 + `_event_stream_generator` 8 + `_consume_stream_events` 6 |
+| `event_stream` | 16 | `_event_stream_generator` 8 + `_persist_stream_session` 4 + `_write_stream_agent_log` 1 + `_build_stream_event` 2 |
 
 ### 3.4 保持行为一致的原则
 
@@ -131,57 +133,57 @@ def _build_stream_event(log, cid, error, meta, stream_error_code, stream_retry_a
 
 ### Task 1: 新增 conversation_manager.py
 
-- [ ] 逐字搬运 `_resolve_error` → `resolve_error`、`_usage_fields` → `usage_fields`(模块级,无 self)
-- [ ] 逐字搬运 `_extract_attachment` → `extract_attachment(request)`(10MB 校验 + OfficeExtractor,去掉 self)
-- [ ] 逐字搬运 `_inject_attachment` → `inject_attachment(history, doc_dict, conversation_id)`(file_sha256 + cache_attachment)
-- [ ] 新增 `load_session(user, conversation_id)` → (session, history);DoesNotExist 返回 (None, None) 而非抛
-- [ ] 新增 `persist_success(session, conversation_id, query, answer)` → (session, cid);append/title/rolling_summary/create new
-- [ ] 接口签名与 plan §3.2 一致;不 import 任何 ViewSet 依赖,纯函数模块
+- [x] 逐字搬运 `_resolve_error` → `resolve_error`、`_usage_fields` → `usage_fields`(模块级,无 self)
+- [x] 逐字搬运 `_extract_attachment` → `extract_attachment(request)`(10MB 校验 + OfficeExtractor,去掉 self)
+- [x] 逐字搬运 `_inject_attachment` → `inject_attachment(history, doc_dict, conversation_id)`(file_sha256 + cache_attachment)
+- [x] 新增 `load_session(user, conversation_id)` → (session, history);DoesNotExist 返回 (None, None) 而非抛
+- [x] 新增 `persist_success(session, conversation_id, query, answer)` → (session, cid);append/title/rolling_summary/create new
+- [x] 接口签名与 plan §3.2 一致;不 import 任何 ViewSet 依赖,纯函数模块
 
 ### Task 2: 新增 chat_sync.py
 
-- [ ] 逐字搬运 create 主体为 `handle_sync_chat(viewset, request)`(serializer 校验 → 附件 → confirm-replay → process → 持久化 → AgentLog → payload)
-- [ ] 拆分 `_handle_confirm_replay(request, confirm_token)`(context_sig 校验 / token 归属 / execute_guarded / clear_draft)
-- [ ] 拆分 `_build_sync_payload(result, log, conversation_id, error)`(payload 组装 + kind/hint 追加)
-- [ ] 模块级 import:AgentOrchestrator / ToolRegistry / get_confirmation_draft / clear_confirmation_draft / execute_guarded / AgentLog / SmartAssistantSession
-- [ ] create C901 17 → handle_sync_chat <10
+- [x] 逐字搬运 create 主体为 `handle_sync_chat(viewset, request)`(serializer 校验 → 附件 → confirm-replay → process → 持久化 → AgentLog → payload)
+- [x] 拆分 `_handle_confirm_replay(request, confirm_token)`(context_sig 校验 / token 归属 / execute_guarded / clear_draft)
+- [x] 拆分 `_build_sync_payload(result, log, conversation_id, error)`(payload 组装 + kind/hint 追加)
+- [x] 模块级 import:AgentOrchestrator / ToolRegistry / get_confirmation_draft / clear_confirmation_draft / execute_guarded / AgentLog / SmartAssistantSession
+- [x] create C901 17 → handle_sync_chat <10
 
 ### Task 3: 新增 chat_stream.py
 
-- [ ] 逐字搬运 stream 主体为 `handle_stream_chat(viewset, request)`(serializer 校验 → 附件 → setup → StreamingHttpResponse)
-- [ ] 提取 `_event_stream_generator(...)`(闭包捕获变量 start_time/conversation_history 改为显式参数)
-- [ ] 拆分 `_persist_stream_session(session, conversation_id, query, answer)`(带 last_error='' 防御)
-- [ ] 拆分 `_build_stream_event(log, cid, error, meta, stream_error_code, stream_retry_after)`(session_event + kind/hint)
-- [ ] 模块级 import:AgentOrchestrator / SmartAssistantSession / AgentLog / sse_event / annotate_error_kind
-- [ ] stream C901 22 → <10;event_stream 16 → <10
+- [x] 逐字搬运 stream 主体为 `handle_stream_chat(viewset, request)`(serializer 校验 → 附件 → setup → StreamingHttpResponse)
+- [x] 提取 `_event_stream_generator(...)`(闭包捕获变量 start_time/conversation_history 改为显式参数)
+- [x] 拆分 `_persist_stream_session(session, conversation_id, query, answer)`(带 last_error='' 防御)
+- [x] 拆分 `_build_stream_event(log, cid, error, meta, stream_error_code, stream_retry_after)`(session_event + kind/hint)
+- [x] 模块级 import:AgentOrchestrator / SmartAssistantSession / AgentLog / sse_event / annotate_error_kind
+- [x] stream C901 22 → <10;event_stream 16 → <10
 
 ### Task 4: 重构 chat.py 为薄壳
 
-- [ ] SmartChatViewSet 保留 parser_classes / permission_classes / 类 docstring
-- [ ] create() → 委托 chat_sync.handle_sync_chat(self, request)
-- [ ] stream() → 委托 chat_stream.handle_stream_chat(self, request)
-- [ ] _extract_attachment / _inject_attachment 保留方法签名,委托 conversation_manager
-- [ ] 确认 views/__init__.py + views.py + urls.py 零改动
+- [x] SmartChatViewSet 保留 parser_classes / permission_classes / 类 docstring
+- [x] create() → 委托 chat_sync.handle_sync_chat(self, request)
+- [x] stream() → 委托 chat_stream.handle_stream_chat(self, request)
+- [x] _extract_attachment / _inject_attachment 保留方法签名,委托 conversation_manager
+- [x] 确认 views/__init__.py + views.py + urls.py 零改动
 
 ### Task 5: repoint 测试 mock 路径
 
-- [ ] 按 create/stream 场景改 `chat.AgentOrchestrator` → `chat_sync/chat_stream.AgentOrchestrator`
-- [ ] confirm-replay 测试 `chat.ToolRegistry.get_tool` → `chat_sync.ToolRegistry.get_tool`
-- [ ] `chat.SmartAssistantSession.objects` / `chat.AgentLog.objects` 按场景改指
-- [ ] 涉及约 14 个测试文件,改完跑 `pytest smart_assistant/tests/` 全量
+- [x] 按 create/stream 场景改 `chat.AgentOrchestrator` → `chat_sync/chat_stream.AgentOrchestrator`
+- [x] confirm-replay 测试 `chat.ToolRegistry.get_tool` → `chat_sync.ToolRegistry.get_tool`
+- [x] `chat.SmartAssistantSession.objects` / `chat.AgentLog.objects` 按场景改指
+- [x] 涉及约 14 个测试文件,改完跑 `pytest smart_assistant/tests/` 全量
 
 ### Task 6: 验证
 
-- [ ] `ruff check smart_assistant/views/ --select C901` 全模块 <10
-- [ ] mypy 无新增 error(对比基线)
-- [ ] `pytest --ds=omni_desk_backend.settings.test` 全量回归绿 + 覆盖率 ≥80%
-- [ ] `ruff check` + `ruff format --check` 双绿
+- [x] `ruff check smart_assistant/views/ --select C901` 全模块 <10
+- [x] mypy 无新增 error(对比基线)
+- [x] `pytest --ds=omni_desk_backend.settings.test` 全量回归绿 + 覆盖率 ≥80%
+- [x] `ruff check` + `ruff format --check` 双绿
 
 ### Task 7: 文档更新 + PR + merge
 
-- [ ] 更新 `docs/technical/32-smart-assistant-multi-agent.md` 模块表(chat.py 拆分)
-- [ ] round3 plan 标注 R3-A4 完成
-- [ ] feature 分支 push → PR → CI 监控 → merge → 清理(按先例)
+- [x] 更新 `docs/technical/32-smart-assistant-multi-agent.md` 模块表(chat.py 拆分)
+- [x] round3 plan 标注 R3-A4 完成
+- [x] feature 分支 push → PR → CI 监控 → merge → 清理(按先例)
 
 ## 5. 验收标准
 
