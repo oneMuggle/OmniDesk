@@ -68,7 +68,7 @@ class MultiAgentExecutor:
         )
         result = executor.execute()
         if result.status == "success":
-            print(result.final_output)
+            logger.info("executor result: %s", result.final_output)
     """
 
     MAX_RETRIES = 3  # 默认最大重试次数
@@ -115,24 +115,11 @@ class MultiAgentExecutor:
         self.event_bus.emit("task.started", {"task_id": self.task_packet.task_id})
 
         try:
-            if self.task_packet.execution_mode == ExecutionMode.PIPELINE:
-                subtask_results = self._execute_pipeline()
-            elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
-                # P0-J:未实现模式显式拒绝(rejected 与真实执行失败 failed 区分),
-                # 不再抛 NotImplementedError 混入异常路径
-                return TaskResult(
-                    task_id=self.task_packet.task_id,
-                    status="rejected",
-                    error_message="fanout 模式尚未实现,请使用 pipeline 模式",
-                )
-            elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
-                return TaskResult(
-                    task_id=self.task_packet.task_id,
-                    status="rejected",
-                    error_message="hierarchical 模式尚未实现,请使用 pipeline 模式",
-                )
-            else:
-                raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
+            mode_result = self._execute_by_mode()
+            if isinstance(mode_result, TaskResult):
+                # FANOUT / HIERARCHICAL 模式:显式拒绝
+                return mode_result
+            subtask_results = mode_result
 
             # 最终合成(如果有)
             final_output = None
@@ -144,38 +131,8 @@ class MultiAgentExecutor:
                 # Plan 3: 持久化 final_synthesis 到 DB
                 self._persist_subtask_result(self.task_packet.final_synthesis, synth_result)
 
-            # 判断任务状态
-            failed_count = sum(1 for r in subtask_results if r.status == "failed")
-            if failed_count == 0:
-                status = "success"
-            elif failed_count == len(subtask_results):
-                status = "failed"
-            else:
-                status = "partial"
-
-            total_tokens = sum(r.tokens_used for r in subtask_results)
-            total_duration = int((time.time() - start_time) * 1000)
-
-            result = TaskResult(
-                task_id=self.task_packet.task_id,
-                status=status,
-                final_output=final_output,
-                subtask_results=subtask_results,
-                total_tokens_used=total_tokens,
-                total_duration_ms=total_duration,
-            )
-
-            self.event_bus.emit(
-                "task.completed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "status": status,
-                    "total_tokens": total_tokens,
-                    "total_duration_ms": total_duration,
-                },
-            )
-
-            return result
+            status = self._classify_status(subtask_results)
+            return self._build_result(subtask_results, status, final_output, start_time)
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
@@ -192,6 +149,70 @@ class MultiAgentExecutor:
                 total_duration_ms=total_duration,
                 error_message=str(e),
             )
+
+    def _execute_by_mode(self) -> list[SubTaskResult] | TaskResult:
+        """按 execution_mode 分派执行;未实现模式返回 rejected TaskResult"""
+        if self.task_packet.execution_mode == ExecutionMode.PIPELINE:
+            return self._execute_pipeline()
+        elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
+            # P0-J:未实现模式显式拒绝(rejected 与真实执行失败 failed 区分),
+            # 不再抛 NotImplementedError 混入异常路径
+            return TaskResult(
+                task_id=self.task_packet.task_id,
+                status="rejected",
+                error_message="fanout 模式尚未实现,请使用 pipeline 模式",
+            )
+        elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
+            return TaskResult(
+                task_id=self.task_packet.task_id,
+                status="rejected",
+                error_message="hierarchical 模式尚未实现,请使用 pipeline 模式",
+            )
+        else:
+            raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
+
+    def _classify_status(self, subtask_results: list[SubTaskResult]) -> str:
+        """根据 subtask 结果统计判断任务最终状态(success/failed/partial)"""
+        failed_count = sum(1 for r in subtask_results if r.status == "failed")
+        if failed_count == 0:
+            return "success"
+        elif failed_count == len(subtask_results):
+            return "failed"
+        else:
+            return "partial"
+
+    def _build_result(
+        self,
+        subtask_results: list[SubTaskResult],
+        status: str,
+        final_output: Any,
+        start_time: float,
+        event_extra: dict | None = None,
+    ) -> TaskResult:
+        """组装 TaskResult 并发射 task.completed 事件"""
+        total_tokens = sum(r.tokens_used for r in subtask_results)
+        total_duration = int((time.time() - start_time) * 1000)
+
+        result = TaskResult(
+            task_id=self.task_packet.task_id,
+            status=status,
+            final_output=final_output,
+            subtask_results=subtask_results,
+            total_tokens_used=total_tokens,
+            total_duration_ms=total_duration,
+        )
+
+        completed_event = {
+            "task_id": self.task_packet.task_id,
+            "status": status,
+            "total_tokens": total_tokens,
+            "total_duration_ms": total_duration,
+        }
+        if event_extra:
+            completed_event.update(event_extra)
+        self.event_bus.emit("task.completed", completed_event)
+
+        return result
 
     def _execute_pipeline(self, resume_mode: bool = False) -> list[SubTaskResult]:
         """Pipeline 模式执行(顺序执行,前一个输出是后一个输入;委托 PipelineRunner)
@@ -365,39 +386,8 @@ class MultiAgentExecutor:
                     # 已完成,从 context 中取
                     final_output = self.context.get_artifact(self.task_packet.final_synthesis.id)
 
-            # 判断状态
-            failed_count = sum(1 for r in subtask_results if r.status == "failed")
-            if failed_count == 0:
-                status = "success"
-            elif failed_count == len(subtask_results):
-                status = "failed"
-            else:
-                status = "partial"
-
-            total_tokens = sum(r.tokens_used for r in subtask_results)
-            total_duration = int((time.time() - start_time) * 1000)
-
-            result = TaskResult(
-                task_id=self.task_packet.task_id,
-                status=status,
-                final_output=final_output,
-                subtask_results=subtask_results,
-                total_tokens_used=total_tokens,
-                total_duration_ms=total_duration,
-            )
-
-            self.event_bus.emit(
-                "task.completed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "status": status,
-                    "total_tokens": total_tokens,
-                    "total_duration_ms": total_duration,
-                    "resumed": True,
-                },
-            )
-
-            return result
+            status = self._classify_status(subtask_results)
+            return self._build_result(subtask_results, status, final_output, start_time, event_extra={"resumed": True})
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
