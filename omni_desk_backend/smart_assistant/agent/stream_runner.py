@@ -276,7 +276,9 @@ class StreamRunner:
             )
         yield sse_event(done)
 
-    def _stream_single_tool(self, user_query, intent, conversation_history, tool_context, scope_sig, has_history, schemas):
+    def _stream_single_tool(
+        self, user_query, intent, conversation_history, tool_context, scope_sig, has_history, schemas
+    ):
         """原 1356-1520 行:单工具确认拦截 + 执行 + 流式生成 + done。
 
         ``rate_limit_error`` 在本方法内声明并使用(不跨助手传递),与移动前一致。
@@ -382,9 +384,7 @@ class StreamRunner:
                 },
             )
             events = [
-                sse_event(
-                    {"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": draft}}
-                ),
+                sse_event({"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": draft}}),
                 sse_event(
                     {
                         "type": "confirmation",
@@ -458,7 +458,9 @@ class StreamRunner:
         sources = tool_result.get("sources") if isinstance(tool_result, dict) else None
         return tool.name, sources, False
 
-    def _emit_single_answer(self, user_query, intent, tool_name, tool_result, tool_fallback, tool, conversation_history):
+    def _emit_single_answer(
+        self, user_query, intent, tool_name, tool_result, tool_fallback, tool, conversation_history
+    ):
         """原 Step 3:构造流式生成源并逐 chunk 发送,返回完整答案。"""
         if tool_fallback:
             # 工具已执行但未找到结果,带工具上下文告知 LLM

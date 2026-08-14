@@ -98,15 +98,11 @@ def run_tool_calls_rounds(router, *, query, context, llm_messages, json_fallback
             )
 
         # 把 assistant(tool_calls) + tool 结果 append 到 messages
-        llm_messages.append(
-            {"role": "assistant", "content": content or "", "tool_calls": tool_calls}
-        )
+        llm_messages.append({"role": "assistant", "content": content or "", "tool_calls": tool_calls})
         llm_messages.extend(tool_results)
 
     # 3 轮后兜底:强制 tool_choice="none"
-    content, usage, _ = router.generate_with_tools(
-        messages=llm_messages, tools=tools_schema, tool_choice="none"
-    )
+    content, usage, _ = router.generate_with_tools(messages=llm_messages, tools=tools_schema, tool_choice="none")
     return (
         content,
         usage,
@@ -126,9 +122,7 @@ def _run_round_tool_calls(tool_calls, context, round_idx, tool_calls_meta):
     tool_results = []
     confirm_triple = None
     for tc in tool_calls:
-        tool_result_msg, meta_entry, confirm_or_none = _process_single_tool_call(
-            tc, context, round_idx
-        )
+        tool_result_msg, meta_entry, confirm_or_none = _process_single_tool_call(tc, context, round_idx)
         tool_calls_meta.append(meta_entry)
         if confirm_or_none is not None:
             confirm_triple = confirm_or_none

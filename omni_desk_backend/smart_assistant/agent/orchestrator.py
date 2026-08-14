@@ -384,7 +384,6 @@ class AgentOrchestrator:
             "error": is_failed_answer(answer),
         }
 
-
     # === Task 6:原生 tool_calls 路径(L1 §3.4)===
 
     def _endpoint_supports_tool_calls(self) -> bool:
