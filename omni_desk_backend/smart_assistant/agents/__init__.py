@@ -12,8 +12,12 @@
 - roles.py: AgentRole 枚举 + RoleProfile + ROLE_PROFILES 注册表
 - task_packet.py: TaskPacket / SubTask / ExecutionMode / FailureMode + TaskPacketValidator
 - shared_context.py: SharedContext 跨 agent 共享上下文 + Decision + ErrorRecord
-- executor.py: MultiAgentExecutor 主执行器(Pipeline 模式已实现)+ SubTaskResult / TaskResult / EventBus
-- pipeline.py / fanout.py / hierarchical.py: 三种执行模式(待抽出)
+- dataclasses.py: SubTaskResult / TaskResult / Event / EventBus 数据类(零依赖)
+- executor.py: MultiAgentExecutor 主执行器(编排层,委托 subtask_runner / pipeline / checkpoint)
+- subtask_runner.py: SubTaskRunner 单子任务执行(重试 / LLM 调用 / 输出解析)
+- pipeline.py: PipelineRunner 流水线编排(依赖排序 / ABORT / SKIP / resume)
+- checkpoint.py: CheckpointManager 检查点持久化 / 暂停 / 恢复
+- fanout.py / hierarchical.py: 另两种执行模式(待抽出)
 - quality_gate.py: 质量门禁(待实现)
 - recovery.py: Recovery Recipes 故障自愈(待实现)
 - supervisor.py: Supervisor LLM 任务分解(待实现)
