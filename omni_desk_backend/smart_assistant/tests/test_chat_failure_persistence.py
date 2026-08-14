@@ -501,10 +501,10 @@ class TestOrchestratorErrorFlag:
         mock_cache.assert_called_once()
 
     @pytest.mark.django_db
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_general_answer")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_general_answer")
     def test_stream_done_carries_error_on_failure(
         self, mock_general, mock_classify, mock_registry, mock_plan
     ):
@@ -521,14 +521,15 @@ class TestOrchestratorErrorFlag:
 
         chunks = list(AgentOrchestrator().process_stream("你好"))
 
+        assert mock_general.call_count == 1
         last = json.loads(chunks[-1].split("data: ", 1)[1])
         assert last["type"] == "done"
         assert last["error"] is True
 
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_answer_stream")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_answer_stream")
     def test_stream_done_error_false_on_success(
         self, mock_stream, mock_classify, mock_registry, mock_plan
     ):
@@ -545,6 +546,7 @@ class TestOrchestratorErrorFlag:
 
         chunks = list(AgentOrchestrator().process_stream("问题"))
 
+        assert mock_stream.call_count == 1
         last = json.loads(chunks[-1].split("data: ", 1)[1])
         assert last["type"] == "done"
         assert last["error"] is False

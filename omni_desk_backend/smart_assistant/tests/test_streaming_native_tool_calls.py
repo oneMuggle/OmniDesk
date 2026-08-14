@@ -89,12 +89,13 @@ def test_streaming_native_disabled_uses_intent_path():
     ctx = _FakeCtx()
     orch = AgentOrchestrator()
 
-    with patch("smart_assistant.agent.orchestrator.classify_intent", return_value="general"), \
-         patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan", return_value=[]), \
-         patch("smart_assistant.agent.orchestrator.generate_general_answer",
-               return_value=("普通回答", {})):
+    with patch("smart_assistant.agent.stream_runner.classify_intent", return_value="general"), \
+         patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan", return_value=[]), \
+         patch("smart_assistant.agent.stream_runner.generate_general_answer",
+               return_value=("普通回答", {})) as mock_general:
         events = list(orch.process_stream("你好", [], ctx, use_native_tool_calls=False))
 
+    assert mock_general.call_count == 1
     data_blob = "\n".join(events)
     assert "普通回答" in data_blob
 

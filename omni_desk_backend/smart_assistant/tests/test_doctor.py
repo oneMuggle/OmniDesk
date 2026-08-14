@@ -446,10 +446,10 @@ class TestSseContract:
         assert session_evt["error"] is False
         assert "kind" not in session_evt
 
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_general_answer")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_general_answer")
     def test_real_orchestrator_failure_events_carry_contract(
         self, mock_general, mock_classify, mock_registry, mock_plan
     ):
@@ -465,6 +465,7 @@ class TestSseContract:
             json.loads(c.split("data: ", 1)[1].rsplit("\n\n", 1)[0]) for c in chunks
         ]
 
+        assert mock_general.call_count == 1
         assert events, "事件流不应为空"
         assert all(e.get("format_version") == 1 for e in events)
         done = events[-1]
@@ -473,10 +474,10 @@ class TestSseContract:
         assert done["kind"] == "no_llm_endpoint"  # 空库
         assert done["hint"] == ERROR_KIND_HINTS["no_llm_endpoint"]
 
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_answer_stream")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_answer_stream")
     def test_real_orchestrator_success_done_has_no_kind(
         self, mock_stream, mock_classify, mock_registry, mock_plan
     ):
@@ -498,6 +499,7 @@ class TestSseContract:
             json.loads(c.split("data: ", 1)[1].rsplit("\n\n", 1)[0]) for c in chunks
         ]
 
+        assert mock_stream.call_count == 1
         assert all(e.get("format_version") == 1 for e in events)
         done = events[-1]
         assert done["type"] == "done"

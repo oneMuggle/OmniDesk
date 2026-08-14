@@ -394,14 +394,15 @@ class TestStreamConfirmationInterception:
 
         # mock classify_intent 直接返回 office_generate,跳过 LLM 调用
         # mock execute_guarded 返回一个包含 draft 的 dry_run_result,模拟工具正常 dry_run
+        # (R3-A1 Task 6:流式调用点在 stream_runner 命名空间解析,mock 迁移至此)
         with patch(
-            "smart_assistant.agent.orchestrator.classify_intent",
+            "smart_assistant.agent.stream_runner.classify_intent",
             return_value="office_generate",
         ), patch(
-            "smart_assistant.agent.orchestrator.generate_tool_chain_plan",
+            "smart_assistant.agent.stream_runner.generate_tool_chain_plan",
             return_value=[],
         ), patch(
-            "smart_assistant.agent.orchestrator.execute_guarded",
+            "smart_assistant.agent.stream_runner.execute_guarded",
             return_value={
                 "found": True,
                 "draft": {
@@ -409,8 +410,10 @@ class TestStreamConfirmationInterception:
                     "fields": {"query": "生成请假单"},
                 },
             },
-        ):
+        ) as mock_execute_guarded:
             events = list(AgentOrchestrator().process_stream("生成请假单", [], None))
+
+        assert mock_execute_guarded.call_count == 1
 
         data_blob = "\n".join(events)
         assert "awaiting_confirmation" in data_blob or "confirmation_token" in data_blob

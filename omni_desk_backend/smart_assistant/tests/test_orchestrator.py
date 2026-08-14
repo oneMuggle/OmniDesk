@@ -314,9 +314,9 @@ class TestAgentOrchestratorStream(TestCase):
     def setUp(self):
         self.orchestrator = AgentOrchestrator()
 
-    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
-    @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_answer_stream')
+    @patch('smart_assistant.agent.stream_runner.ToolRegistry')
+    @patch('smart_assistant.agent.stream_runner.classify_intent')
+    @patch('smart_assistant.agent.stream_runner.generate_answer_stream')
     def test_stream_meta_then_chunks(self, mock_stream, mock_classify, mock_registry):
         """流式处理先发送 meta 再发送 chunk."""
         mock_classify.return_value = 'schedule_query'
@@ -332,6 +332,7 @@ class TestAgentOrchestratorStream(TestCase):
 
         chunks = list(self.orchestrator.process_stream('问题'))
 
+        assert mock_stream.call_count == 1
         # 第一个 chunk 是 meta
         first_data = chunks[0].split('data: ', 1)[1]
         meta = json.loads(first_data)
@@ -347,9 +348,9 @@ class TestAgentOrchestratorStream(TestCase):
         done = json.loads(last_data)
         self.assertEqual(done['type'], 'done')
 
-    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
-    @patch('smart_assistant.agent.orchestrator.classify_intent')
-    @patch('smart_assistant.agent.orchestrator.generate_general_answer')
+    @patch('smart_assistant.agent.stream_runner.ToolRegistry')
+    @patch('smart_assistant.agent.stream_runner.classify_intent')
+    @patch('smart_assistant.agent.stream_runner.generate_general_answer')
     def test_stream_general_chat_no_tool(self, mock_general, mock_classify, mock_registry):
         """通用对话流式处理."""
         mock_classify.return_value = 'general_chat'
@@ -359,6 +360,7 @@ class TestAgentOrchestratorStream(TestCase):
 
         chunks = list(self.orchestrator.process_stream('你好'))
 
+        assert mock_general.call_count == 1
         # 应该有 meta + content + done
         self.assertTrue(len(chunks) >= 2)
         first_data = chunks[0].split('data: ', 1)[1]
@@ -368,9 +370,9 @@ class TestAgentOrchestratorStream(TestCase):
 
     @patch('smart_assistant.agent.tool_chain_runner.synthesize_chain_answer')
     @patch('smart_assistant.agent.tool_chain_runner.ToolChainExecutor')
-    @patch('smart_assistant.agent.orchestrator.generate_tool_chain_plan')
-    @patch('smart_assistant.agent.orchestrator.ToolRegistry')
-    @patch('smart_assistant.agent.orchestrator.classify_intent')
+    @patch('smart_assistant.agent.stream_runner.generate_tool_chain_plan')
+    @patch('smart_assistant.agent.stream_runner.ToolRegistry')
+    @patch('smart_assistant.agent.stream_runner.classify_intent')
     def test_process_stream_returns_aggregated_day_for_multi_tool(
         self, mock_classify, mock_registry, mock_plan, mock_executor_cls,
         mock_synthesize
