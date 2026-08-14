@@ -46,7 +46,8 @@
 | 文件 | 职责 |
 |---|---|
 | `agents/roles.py` | `AgentRole` 枚举 + `RoleProfile` 注册表（researcher / analyst / writer / coder / supervisor） |
-| `agents/task_packet.py` | `TaskPacket` / `SubTask` 数据类，承载跨 Agent 任务数据 |
+| `agents/packet.py` | `TaskPacket` / `SubTask` 数据类 + `ExecutionMode` / `FailureMode` 枚举，承载跨 Agent 任务数据（2026-08 R3-A3 拆分自 `task_packet.py`，C901 全部 <10） |
+| `agents/validator.py` | `TaskPacketValidator`：JSON Schema 校验器（Supervisor LLM 输出入口，2026-08 R3-A3 拆分自 `task_packet.py`，validate C901 25→<10） |
 | `agents/shared_context.py` | `SharedContext`：跨 SubTask 共享上下文（tool 输出、变量、partial result） |
 | `agents/executor.py` | `MultiAgentExecutor`：主执行器，编排 Pipeline / Fanout / Hierarchical |
 | `agents/supervisor.py` | `Supervisor` LLM 任务分解 + 动态调整 |

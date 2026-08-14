@@ -1,11 +1,10 @@
-"""TaskPacket 任务包定义
+"""TaskPacket 任务包数据类
 
-定义多 Agent 协作中的结构化任务:
+定义多 Agent 协作中的结构化任务数据模型:
 - ExecutionMode: 执行模式(顺序 / 并行 / 层级)
 - FailureMode: 失败处理策略
 - SubTask: 单个子任务
 - TaskPacket: 完整任务包(含多个 subtask)
-- TaskPacketValidator: JSON Schema 校验(验证 Supervisor 生成的 JSON)
 
 Supervisor LLM 生成的 JSON 经过 TaskPacketValidator 校验后,
 通过 TaskPacket.from_dict() 构造 TaskPacket 实例。
@@ -74,38 +73,51 @@ class SubTask:
 
     def __post_init__(self):
         """验证字段合法性(frozen dataclass 的 post_init 在 __new__ 后调用)"""
-        # id 必须是非空字符串
+        self._validate_id()
+        self._validate_role()
+        self._validate_objective()
+        self._validate_inputs()
+        self._validate_failure_mode()
+        self._validate_depends_on()
+        self._validate_quality_gate()
+
+    def _validate_id(self) -> None:
+        """id 必须是非空字符串且只含合法标识符字符"""
         if not self.id or not isinstance(self.id, str):
             raise ValueError(f"SubTask.id 必须是非空字符串,收到 {self.id!r}")
-
-        # id 必须是合法的标识符(字母/数字/下划线/短横线)
         if not re.match(r"^[a-zA-Z0-9_-]+$", self.id):
             raise ValueError(f"SubTask.id 只能包含字母/数字/下划线/短横线,收到 {self.id!r}")
 
-        # role 必须是 AgentRole 枚举
+    def _validate_role(self) -> None:
+        """role 必须是 AgentRole 枚举"""
         if not isinstance(self.role, AgentRole):
             raise ValueError(f"SubTask.role 必须是 AgentRole 枚举,收到 {self.role!r}")
 
-        # objective 必须是非空字符串
+    def _validate_objective(self) -> None:
+        """objective 必须是非空字符串"""
         if not self.objective or not isinstance(self.objective, str):
             raise ValueError(f"SubTask.objective 必须是非空字符串,收到 {self.objective!r}")
 
-        # inputs 必须是 dict
+    def _validate_inputs(self) -> None:
+        """inputs 必须是 dict"""
         if not isinstance(self.inputs, dict):
             raise ValueError(f"SubTask.inputs 必须是 dict,收到 {type(self.inputs)}")
 
-        # failure_mode 必须是 FailureMode 枚举
+    def _validate_failure_mode(self) -> None:
+        """failure_mode 必须是 FailureMode 枚举"""
         if not isinstance(self.failure_mode, FailureMode):
             raise ValueError(f"SubTask.failure_mode 必须是 FailureMode 枚举,收到 {self.failure_mode!r}")
 
-        # depends_on 必须是 list[str]
+    def _validate_depends_on(self) -> None:
+        """depends_on 必须是 list[str]"""
         if not isinstance(self.depends_on, list):
             raise ValueError(f"SubTask.depends_on 必须是 list,收到 {type(self.depends_on)}")
         for dep in self.depends_on:
             if not isinstance(dep, str):
                 raise ValueError(f"SubTask.depends_on 元素必须是字符串,收到 {type(dep)}")
 
-        # quality_gate 必须是 list[str]
+    def _validate_quality_gate(self) -> None:
+        """quality_gate 必须是 list[str]"""
         if not isinstance(self.quality_gate, list):
             raise ValueError(f"SubTask.quality_gate 必须是 list,收到 {type(self.quality_gate)}")
         for criterion in self.quality_gate:
@@ -147,7 +159,13 @@ class TaskPacket:
 
     def __post_init__(self):
         """验证字段合法性 + 内部一致性"""
-        # 基础字段校验
+        self._validate_basic_fields()
+        self._validate_numeric_limits()
+        self._validate_subtask_consistency()
+        self._validate_final_synthesis()
+
+    def _validate_basic_fields(self) -> None:
+        """基础字段校验(task_id / objective / execution_mode / subtasks)"""
         if not self.task_id or not isinstance(self.task_id, str):
             raise ValueError("TaskPacket.task_id 必须是非空字符串")
         if not self.objective or not isinstance(self.objective, str):
@@ -156,12 +174,16 @@ class TaskPacket:
             raise ValueError("TaskPacket.execution_mode 必须是 ExecutionMode 枚举")
         if not isinstance(self.subtasks, list) or len(self.subtasks) == 0:
             raise ValueError("TaskPacket.subtasks 必须是非空 list")
+
+    def _validate_numeric_limits(self) -> None:
+        """预算与超时数值校验"""
         if not isinstance(self.global_budget, int) or self.global_budget <= 0:
             raise ValueError("TaskPacket.global_budget 必须是正整数")
         if not isinstance(self.timeout_seconds, int) or self.timeout_seconds <= 0:
             raise ValueError("TaskPacket.timeout_seconds 必须是正整数")
 
-        # 内部一致性校验
+    def _validate_subtask_consistency(self) -> None:
+        """子任务内部一致性校验(id 唯一 / 依赖引用存在 / 无自依赖 / 无循环)"""
         subtask_ids = {st.id for st in self.subtasks}
 
         # subtask id 必须唯一
@@ -180,7 +202,8 @@ class TaskPacket:
         # 检测循环依赖(简单 DFS)
         self._check_circular_dependencies()
 
-        # final_synthesis 校验(如果存在)
+    def _validate_final_synthesis(self) -> None:
+        """final_synthesis 必须是 SubTask 或 None"""
         if self.final_synthesis is not None and not isinstance(self.final_synthesis, SubTask):
             raise ValueError("TaskPacket.final_synthesis 必须是 SubTask 或 None")
 
@@ -253,7 +276,9 @@ class TaskPacket:
         if len(order) != len(self.subtasks):
             raise ValueError("无法拓扑排序,可能存在循环依赖")
 
-        return [self.get_subtask(sid) for sid in order]  # type: ignore[return-value]
+        # lookup 保证所有 sid 都能取到 SubTask,返回类型为 list[SubTask]
+        lookup = {st.id: st for st in self.subtasks}
+        return [lookup[sid] for sid in order]
 
     @classmethod
     def from_dict(
@@ -287,64 +312,10 @@ class TaskPacket:
             raise ValueError(f"data 字段值不合法: {e}")
 
         # 解析 subtasks
-        subtasks = []
-        for i, st_data in enumerate(subtasks_data):
-            if not isinstance(st_data, dict):
-                raise ValueError(f"subtasks[{i}] 必须是 dict")
-
-            # 解析 role(支持字符串或 AgentRole 枚举)
-            role_raw = st_data.get("role")
-            if isinstance(role_raw, str):
-                role = get_role_by_name(role_raw)
-                if role is None:
-                    raise ValueError(f"subtasks[{i}].role='{role_raw}' 不是合法的 AgentRole")
-            elif isinstance(role_raw, AgentRole):
-                role = role_raw
-            else:
-                raise ValueError(f"subtasks[{i}].role 必须是字符串或 AgentRole,收到 {type(role_raw)}")
-
-            # 解析 failure_mode
-            failure_mode_raw = st_data.get("failure_mode", "retry")
-            try:
-                failure_mode = FailureMode(failure_mode_raw)
-            except ValueError:
-                raise ValueError(f"subtasks[{i}].failure_mode='{failure_mode_raw}' 不是合法的 FailureMode")
-
-            subtask = SubTask(
-                id=st_data["id"],
-                role=role,
-                objective=st_data["objective"],
-                inputs=st_data.get("inputs", {}),
-                failure_mode=failure_mode,
-                depends_on=st_data.get("depends_on", []),
-                quality_gate=st_data.get("quality_gate", []),
-            )
-            subtasks.append(subtask)
+        subtasks = [cls._parse_subtask_data(st_data, i) for i, st_data in enumerate(subtasks_data)]
 
         # 解析 final_synthesis(可选)
-        final_synthesis_data = data.get("final_synthesis")
-        final_synthesis = None
-        if final_synthesis_data is not None:
-            if not isinstance(final_synthesis_data, dict):
-                raise ValueError("final_synthesis 必须是 dict 或 None")
-            role_raw = final_synthesis_data.get("role")
-            if isinstance(role_raw, str):
-                role = get_role_by_name(role_raw)
-                if role is None:
-                    raise ValueError(f"final_synthesis.role='{role_raw}' 不是合法的 AgentRole")
-            elif isinstance(role_raw, AgentRole):
-                role = role_raw
-            else:
-                raise ValueError("final_synthesis.role 必须是字符串或 AgentRole")
-            final_synthesis = SubTask(
-                id=final_synthesis_data.get("id", "final_synthesis"),
-                role=role,
-                objective=final_synthesis_data["objective"],
-                inputs=final_synthesis_data.get("inputs", {}),
-                failure_mode=FailureMode(final_synthesis_data.get("failure_mode", "retry")),
-                depends_on=final_synthesis_data.get("depends_on", []),
-                quality_gate=final_synthesis_data.get("quality_gate", []),
-            )
+        final_synthesis = cls._parse_final_synthesis(data.get("final_synthesis"))
 
         return cls(
             task_id=task_id or data.get("task_id") or uuid.uuid4().hex,
@@ -356,6 +327,74 @@ class TaskPacket:
             global_budget=data.get("global_budget", 20000),
             timeout_seconds=data.get("timeout_seconds", 600),
         )
+
+    @classmethod
+    def _parse_subtask_data(cls, st_data: Any, index: int) -> SubTask:
+        """解析单个 subtask dict"""
+        if not isinstance(st_data, dict):
+            raise ValueError(f"subtasks[{index}] 必须是 dict")
+
+        # 解析 role(支持字符串或 AgentRole 枚举)
+        role_raw = st_data.get("role")
+        role = cls._resolve_role(
+            role_raw,
+            f"subtasks[{index}]",
+            type_error_suffix=f",收到 {type(role_raw)}",
+        )
+
+        # 解析 failure_mode
+        failure_mode_raw = st_data.get("failure_mode", "retry")
+        try:
+            failure_mode = FailureMode(failure_mode_raw)
+        except ValueError:
+            raise ValueError(f"subtasks[{index}].failure_mode='{failure_mode_raw}' 不是合法的 FailureMode")
+
+        return SubTask(
+            id=st_data["id"],
+            role=role,
+            objective=st_data["objective"],
+            inputs=st_data.get("inputs", {}),
+            failure_mode=failure_mode,
+            depends_on=st_data.get("depends_on", []),
+            quality_gate=st_data.get("quality_gate", []),
+        )
+
+    @classmethod
+    def _parse_final_synthesis(cls, final_synthesis_data: Any) -> SubTask | None:
+        """解析 final_synthesis dict(可选)"""
+        if final_synthesis_data is None:
+            return None
+        if not isinstance(final_synthesis_data, dict):
+            raise ValueError("final_synthesis 必须是 dict 或 None")
+
+        # 解析 role(支持字符串或 AgentRole 枚举)
+        role = cls._resolve_role(final_synthesis_data.get("role"), "final_synthesis")
+
+        return SubTask(
+            id=final_synthesis_data.get("id", "final_synthesis"),
+            role=role,
+            objective=final_synthesis_data["objective"],
+            inputs=final_synthesis_data.get("inputs", {}),
+            failure_mode=FailureMode(final_synthesis_data.get("failure_mode", "retry")),
+            depends_on=final_synthesis_data.get("depends_on", []),
+            quality_gate=final_synthesis_data.get("quality_gate", []),
+        )
+
+    @staticmethod
+    def _resolve_role(role_raw: Any, prefix: str, type_error_suffix: str = "") -> AgentRole:
+        """解析 role(支持字符串或 AgentRole 枚举)
+
+        prefix 用于错误消息定位(subtasks[i] / final_synthesis),
+        type_error_suffix 用于追加"收到类型"信息(与旧行为逐字一致)。
+        """
+        if isinstance(role_raw, str):
+            role = get_role_by_name(role_raw)
+            if role is None:
+                raise ValueError(f"{prefix}.role='{role_raw}' 不是合法的 AgentRole")
+            return role
+        if isinstance(role_raw, AgentRole):
+            return role_raw
+        raise ValueError(f"{prefix}.role 必须是字符串或 AgentRole{type_error_suffix}")
 
     def to_dict(self) -> dict:
         """序列化为 dict(用于存储到数据库 task_packet 字段)"""
@@ -390,145 +429,3 @@ class TaskPacket:
             "global_budget": self.global_budget,
             "timeout_seconds": self.timeout_seconds,
         }
-
-
-# ---------------------------------------------------------------------------
-# TaskPacket 校验器(给 Supervisor LLM 输出用)
-# ---------------------------------------------------------------------------
-
-
-class TaskPacketValidator:
-    """TaskPacket JSON Schema 校验器
-
-    Supervisor LLM 生成的 JSON 先经过此校验器校验,
-    通过后才能用 TaskPacket.from_dict() 构造实例。
-
-    Example:
-        validator = TaskPacketValidator()
-        errors = validator.validate(supervisor_output)
-        if errors:
-            # 让 Supervisor 重新生成
-            ...
-        else:
-            task_packet = TaskPacket.from_dict(supervisor_output)
-    """
-
-    # 简化的 JSON Schema(给 Supervisor 参考,不强制依赖 jsonschema 库)
-    SCHEMA = {
-        "type": "object",
-        "required": ["objective", "execution_mode", "subtasks"],
-        "properties": {
-            "objective": {"type": "string", "minLength": 1},
-            "execution_mode": {"enum": ["pipeline", "fanout", "hierarchical"]},
-            "subtasks": {
-                "type": "array",
-                "minItems": 1,
-                "items": {
-                    "type": "object",
-                    "required": ["id", "role", "objective"],
-                    "properties": {
-                        "id": {"type": "string", "pattern": "^[a-zA-Z0-9_-]+$"},
-                        "role": {"type": "string"},
-                        "objective": {"type": "string", "minLength": 1},
-                        "inputs": {"type": "object"},
-                        "failure_mode": {"enum": ["skip", "retry", "fallback", "abort"]},
-                        "depends_on": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                        "quality_gate": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                        },
-                    },
-                },
-            },
-            "final_synthesis": {
-                "type": ["object", "null"],
-                "required": ["id", "role", "objective"],
-            },
-            "user_context": {"type": "object"},
-            "global_budget": {"type": "integer", "minimum": 1},
-            "timeout_seconds": {"type": "integer", "minimum": 1},
-        },
-    }
-
-    def validate(self, data: Any) -> list[str]:
-        """校验 Supervisor 生成的 dict
-
-        Args:
-            data: Supervisor 生成的 dict
-
-        Returns:
-            错误消息列表(空列表表示校验通过)
-        """
-        errors: list[str] = []
-
-        # 基础类型检查
-        if not isinstance(data, dict):
-            return [f"data 必须是 dict,收到 {type(data).__name__}"]
-
-        # 必需字段检查
-        for required_field in ["objective", "execution_mode", "subtasks"]:
-            if required_field not in data:
-                errors.append(f"缺少必需字段: {required_field}")
-
-        if errors:
-            return errors  # 缺少必需字段,直接返回
-
-        # objective 检查
-        if not isinstance(data["objective"], str) or not data["objective"].strip():
-            errors.append("objective 必须是非空字符串")
-
-        # execution_mode 检查
-        valid_modes = {"pipeline", "fanout", "hierarchical"}
-        if data["execution_mode"] not in valid_modes:
-            errors.append(f"execution_mode 必须是 {valid_modes} 之一,收到 {data['execution_mode']!r}")
-
-        # subtasks 检查
-        if not isinstance(data["subtasks"], list) or len(data["subtasks"]) == 0:
-            errors.append("subtasks 必须是非空数组")
-            return errors
-
-        subtask_ids: set[str] = set()
-        for i, st_data in enumerate(data["subtasks"]):
-            if not isinstance(st_data, dict):
-                errors.append(f"subtasks[{i}] 必须是对象")
-                continue
-
-            # 必需字段
-            for required_field in ["id", "role", "objective"]:
-                if required_field not in st_data:
-                    errors.append(f"subtasks[{i}] 缺少必需字段: {required_field}")
-
-            if "id" in st_data:
-                st_id = st_data["id"]
-                if not isinstance(st_id, str) or not re.match(r"^[a-zA-Z0-9_-]+$", st_id):
-                    errors.append(f"subtasks[{i}].id 必须是合法标识符(字母/数字/下划线/短横线)")
-                elif st_id in subtask_ids:
-                    errors.append(f"subtasks[{i}].id='{st_id}' 重复")
-                else:
-                    subtask_ids.add(st_id)
-
-            if "role" in st_data:
-                role_name = get_role_by_name(st_data["role"])
-                if role_name is None:
-                    errors.append(f"subtasks[{i}].role='{st_data['role']}' 不是合法的 AgentRole")
-
-            if "failure_mode" in st_data:
-                if st_data["failure_mode"] not in {"skip", "retry", "fallback", "abort"}:
-                    errors.append(f"subtasks[{i}].failure_mode='{st_data['failure_mode']}' 不合法")
-
-            if "depends_on" in st_data:
-                if not isinstance(st_data["depends_on"], list):
-                    errors.append(f"subtasks[{i}].depends_on 必须是数组")
-
-        # depends_on 引用检查
-        for i, st_data in enumerate(data["subtasks"]):
-            if not isinstance(st_data, dict):
-                continue
-            for dep_id in st_data.get("depends_on", []):
-                if dep_id not in subtask_ids:
-                    errors.append(f"subtasks[{i}].depends_on 引用了不存在的 id '{dep_id}'")
-
-        return errors

@@ -18,7 +18,7 @@ from observability import get_logger
 
 from .dataclasses import SubTaskResult
 from .shared_context import SharedContext
-from .task_packet import SubTask
+from .packet import SubTask
 
 logger = get_logger(__name__, "smart_assistant")
 

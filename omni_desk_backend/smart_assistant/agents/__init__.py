@@ -10,7 +10,8 @@
 
 包结构:
 - roles.py: AgentRole 枚举 + RoleProfile + ROLE_PROFILES 注册表
-- task_packet.py: TaskPacket / SubTask / ExecutionMode / FailureMode + TaskPacketValidator
+- packet.py: TaskPacket / SubTask / ExecutionMode / FailureMode 数据类
+- validator.py: TaskPacketValidator 任务包校验器
 - shared_context.py: SharedContext 跨 agent 共享上下文 + Decision + ErrorRecord
 - dataclasses.py: SubTaskResult / TaskResult / Event / EventBus 数据类(零依赖)
 - executor.py: MultiAgentExecutor 主执行器(编排层,委托 subtask_runner / pipeline / checkpoint)
@@ -24,13 +25,13 @@
 """
 
 from .roles import AgentRole, RoleProfile, ROLE_PROFILES, get_profile
-from .task_packet import (
+from .packet import (
     ExecutionMode,
     FailureMode,
     SubTask,
     TaskPacket,
-    TaskPacketValidator,
 )
+from .validator import TaskPacketValidator
 from .shared_context import Decision, ErrorRecord, SharedContext
 from .executor import (
     EventBus,
@@ -47,7 +48,7 @@ __all__ = [
     "RoleProfile",
     "ROLE_PROFILES",
     "get_profile",
-    # task_packet.py
+    # packet.py / validator.py
     "ExecutionMode",
     "FailureMode",
     "SubTask",

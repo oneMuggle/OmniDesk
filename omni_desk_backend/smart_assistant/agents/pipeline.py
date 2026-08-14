@@ -20,7 +20,7 @@ from collections.abc import Callable
 from .dataclasses import EventBus, SubTaskResult
 from .shared_context import SharedContext
 from .subtask_runner import SubTaskRunner
-from .task_packet import FailureMode, SubTask, TaskPacket
+from .packet import FailureMode, SubTask, TaskPacket
 
 
 # ---------------------------------------------------------------------------

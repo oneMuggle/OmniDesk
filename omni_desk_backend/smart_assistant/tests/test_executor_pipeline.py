@@ -23,7 +23,7 @@ from smart_assistant.agents.executor import (
     TaskResult,
 )
 from smart_assistant.agents.roles import AgentRole
-from smart_assistant.agents.task_packet import (
+from smart_assistant.agents.packet import (
     ExecutionMode,
     FailureMode,
     SubTask,
