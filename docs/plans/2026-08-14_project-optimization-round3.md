@@ -29,7 +29,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-A5 | `smart_assistant/tools/swap_request_tool.py` | 485 行,`_legacy_process` C901=17 | 拆分遗留实现路径,移除 `_legacy_process` | B1 + B2 |
 | R3-A6 | `events/models.py` | 453 行 + F811 双重 `timezone` import(第 3 + 232 行) | 拆为 `events/models/__init__.py` + `events/models/occurrence.py` 等子模块;删除 line 232 重复 import | B1 + B2 |
 | R3-A7 | `smart_assistant/hooks/base.py` | 449 行 | 拆为 `hooks/base.py` + `hooks/lifecycle.py` + `hooks/registry.py` | B1 |
-| R3-A8 | `smart_assistant/agents/executor.py` | 893 行 + `execute` C901=11 + `print(result.final_output)` 残留(L165) | round2 R2-A1 已规划;round3 增加 print→logger 修复 | round2 + B4 |
+| R3-A8 | `smart_assistant/agents/executor.py` | 893 行 + `execute` C901=11 + `print(result.final_output)` 残留(L165) | round2 R2-A1 已规划;round3 增加 print→logger 修复 | round2 + B4 ✅ 已完成(拆分结果并入 docs/technical/16-smart-assistant.md §1.1) |
 | R3-A9 | `core/management/commands/generate_release.py` | F541 f-string + F811 重复 + E402 import + E501 行长 | 清理一处 f-string、删除重复 CustomUser import、整理顶部 import | B2 |
 
 **涉及模块:** `smart_assistant/agent/`、`smart_assistant/agents/`、`smart_assistant/views/chat.py`、`smart_assistant/tools/`、`smart_assistant/hooks/`、`events/models/`、`core/management/`

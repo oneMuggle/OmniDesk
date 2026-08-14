@@ -36,6 +36,11 @@
 | | 工具链规划 | `agent/tool_chain_planner.py` | LLM 生成多工具执行计划 |
 | | 工具链执行 | `agent/tool_chain_executor.py` | 按依赖顺序执行,支持 `$variable` 替换 |
 | **多 Agent** | 执行器 | `agents/` | MultiAgentExecutor / Pipeline / Fanout / Hierarchical,详见 [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md) |
+| | 执行器(编排收敛层) | `agents/executor.py` | MultiAgentExecutor 主执行器(R3-A8 拆分后收敛为编排层,委托 subtask_runner / pipeline / checkpoint) |
+| | 执行器 | `agents/dataclasses.py` | SubTaskResult / TaskResult / Event / EventBus 数据类(零依赖) |
+| | 执行器 | `agents/subtask_runner.py` | SubTaskRunner 单子任务执行(重试 / LLM 调用 / 输出解析) |
+| | 执行器 | `agents/pipeline.py` | PipelineRunner 流水线编排(依赖排序 / ABORT / SKIP / resume) |
+| | 执行器 | `agents/checkpoint.py` | CheckpointManager 检查点持久化 / 暂停 / 恢复 |
 | **工具(13)** | 见 §2.1 | `tools/*.py` | 单例注册中心 `tools/registry.py`;全部声明 `risk_level="read"` |
 | **视图(8)** | 聊天 | `views/chat.py` | 非流式 + SSE 流式两路(失败不落库 + 错误 kind 标注) |
 | | 知识库 | `views/knowledge_base.py` | 文档上传/列表/删除/状态 + 数据集 CRUD |
