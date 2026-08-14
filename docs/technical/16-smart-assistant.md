@@ -22,8 +22,14 @@
 
 | 类别 | 模块 | 文件 | 说明 |
 |------|------|------|------|
-| **Agent(7)** | 意图分类 | `agent/intent_classifier.py` | Ollama 本地 LLM 识别用户意图 |
-| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成(支持单/多工具链);含输出契约(`FORMAT_VERSION`、`classify_error_kind`、`annotate_error_kind`) |
+| **Agent(13)** | 意图分类 | `agent/intent_classifier.py` | Ollama 本地 LLM 识别用户意图 |
+| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成入口(单/多工具链、流式/非流式);2026-08 R3-A1 拆分为 7 个模块,自身从 1520 行降到 661 行,C901 归零 |
+| | 编排辅助 | `agent/sse_contract.py` | SSE 输出契约(`FORMAT_VERSION`、`sse_event`)与错误分类单一事实源(`classify_error_kind`、`annotate_error_kind`) |
+| | 编排辅助 | `agent/orchestrator_helpers.py` | 缓存 scope 签名(`_scope_cache_sig`)、结构化参数转 query(`_dict_to_query`) |
+| | 编排辅助 | `agent/native_tool_runner.py` | 原生 tool_calls 单工具执行(`execute_native_tool`,I-2 结构化参数透传) |
+| | 编排辅助 | `agent/tool_rounds_runner.py` | 工具轮主循环(`run_tool_calls_rounds`,最多 3 轮 + confirm-replay + JSON 降级) |
+| | 编排辅助 | `agent/tool_chain_runner.py` | 多工具链执行(`process_chain`,aggregated_day) |
+| | 编排辅助 | `agent/stream_runner.py` | 流式路径(`StreamRunner`,SSE 逐 chunk 输出) |
 | | Prompt 构建 | `agent/prompt_builder.py` | 系统 prompt + 工具链 prompt |
 | | 对话上下文 | `agent/conversation_context.py` | 多轮历史 + 滚动摘要 + 失败回答判定(`is_failed_answer`) |
 | | RAG 路由 | `agent/rag_router.py` | 多数据集关键词匹配 + 并行搜索 |
@@ -190,9 +196,9 @@ class ToolContext:
 
 ### 2.4 输出契约与错误分类(2026-07 新增)
 
-**SSE 契约**:所有 SSE 事件(meta/chunk/done/session)经 `orchestrator.sse_event()` 统一注入 `format_version: 1`(`FORMAT_VERSION` 常量)。同步(非 SSE)响应的 JSON **不带** `format_version`,仅在失败时追加 `kind`/`hint`。
+**SSE 契约**:所有 SSE 事件(meta/chunk/done/session)经 `sse_contract.sse_event()` 统一注入 `format_version: 1`(`FORMAT_VERSION` 常量)。同步(非 SSE)响应的 JSON **不带** `format_version`,仅在失败时追加 `kind`/`hint`。
 
-**错误分类单一事实源**:`classify_error_kind(result)` 位于 `agent/orchestrator.py` 顶部,纯函数 + 单次 DB 查询,同步路径与流式 done/session 帧经 `annotate_error_kind()` 复用同一分类,保证各出口一致。
+**错误分类单一事实源**:`classify_error_kind(result)` 位于 `agent/sse_contract.py`(2026-08 R3-A1 从 orchestrator 拆出),纯函数 + 单次 DB 查询,同步路径与流式 done/session 帧经 `annotate_error_kind()` 复用同一分类,保证各出口一致。
 
 | kind | 触发条件 | hint(中文指引) |
 |------|----------|-----------------|

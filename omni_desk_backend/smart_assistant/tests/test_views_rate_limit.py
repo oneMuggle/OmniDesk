@@ -156,7 +156,12 @@ class TestOrchestratorEnforcement:
       2. ``process_stream`` (SSE 流式路径)
       3. ``_execute_native_tool`` (原生 Function Calling 路径,仅 staff)
 
-    spy 模式:patch ``smart_assistant.agent.orchestrator.execute_guarded`` 计数;
+    spy 模式:patch ``execute_guarded`` 计数。命名空间说明:``_legacy_process`` 仍
+    patch ``orchestrator.*``;``_execute_native_tool`` 提取至 ``native_tool_runner``,
+    其 ``execute_guarded`` 在该命名空间解析,故 patch ``native_tool_runner.*``;
+    ``process_stream`` 已提取至 ``StreamRunner``,其 ``execute_guarded``/
+    ``generate_tool_chain_plan``/``classify_intent`` 在 ``stream_runner`` 命名空间解析,
+    故 patch ``stream_runner.*``。
     若 enforcement 生效,被 RateLimitHook Reject 后 ``execute_guarded`` 不被调用。
 
     实现选择说明(相对 brief Step 1 verbatim):
@@ -206,9 +211,9 @@ class TestOrchestratorEnforcement:
         # 关键断言 4:不是 confirmation_required 路径(不应有 awaiting_confirmation)
         assert result.get("awaiting_confirmation") is not True
 
-    @patch("smart_assistant.agent.orchestrator.execute_guarded")
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.execute_guarded")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
     def test_process_stream_blocks_tool_when_rate_limited(
         self, mock_classify, mock_chain_plan, mock_exec_guarded, rate_limit_tool_context
     ):
@@ -267,7 +272,7 @@ class TestOrchestratorEnforcement:
         validated = {"query": "写一个换班申请"}
 
         with patch(
-            "smart_assistant.agent.orchestrator.execute_guarded"
+            "smart_assistant.agent.native_tool_runner.execute_guarded"
         ) as mock_exec_guarded:
             result, confirmation, failure = AgentOrchestrator()._execute_native_tool(
                 tool, validated, rate_limit_tool_context

@@ -554,7 +554,7 @@ def test_e2e_aggregation_returns_scope_filtered_data(
 
     mock_llm_router.generate.return_value = ("已汇总。", {"total_tokens": 30})
 
-    with patch("smart_assistant.agent.orchestrator.ToolChainExecutor.execute", fake_execute), \
+    with patch("smart_assistant.agent.tool_chain_runner.ToolChainExecutor.execute", fake_execute), \
          patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan") as mock_plan:
         # 强制走多工具路径(让 orchestrator 选 _process_chain)
         mock_plan.return_value = [{"tool": "schedule_query", "params": {}}]
