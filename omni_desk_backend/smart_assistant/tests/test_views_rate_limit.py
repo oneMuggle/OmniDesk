@@ -270,7 +270,7 @@ class TestOrchestratorEnforcement:
         validated = {"query": "写一个换班申请"}
 
         with patch(
-            "smart_assistant.agent.orchestrator.execute_guarded"
+            "smart_assistant.agent.native_tool_runner.execute_guarded"
         ) as mock_exec_guarded:
             result, confirmation, failure = AgentOrchestrator()._execute_native_tool(
                 tool, validated, rate_limit_tool_context
