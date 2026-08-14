@@ -22,7 +22,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 
 | # | 文件 | 当前规模 / 问题 | 拆分/修复目标 | 来源 |
 |---|---|---|---|---|
-| R3-A1 | `smart_assistant/agent/orchestrator.py` | **1520 行**,含 5 处 C901 告警(`handle`=31, `process_stream`=30, `stream`=22, `event_stream`=16, `_run_tool_calls_rounds`=12) | 拆为 `orchestrator.py`(orchestration 主流程)+ `stream_runner.py` + `tool_chain_runner.py` + `error_recovery.py` | B1 + B2 |
+| R3-A1 | `smart_assistant/agent/orchestrator.py` | **1520 行**,含 5 处 C901 告警(`handle`=31, `process_stream`=30, `stream`=22, `event_stream`=16, `_run_tool_calls_rounds`=12) | 拆为 `orchestrator.py`(orchestration 主流程)+ `stream_runner.py` + `tool_chain_runner.py` + `error_recovery.py` | B1 + B2 ✅ 已完成(见 docs/superpowers/plans/2026-08-14-orchestrator-split.md) |
 | R3-A2 | `smart_assistant/agent/tool_chain_executor.py` | 589 行,`validate` 函数 C901=25 | 拆为 `validator.py` + `chain_executor.py` + `dependency_resolver.py` | B1 + B2 |
 | R3-A3 | `smart_assistant/agents/task_packet.py` | 534 行,5 处 C901 告警(`create`=17, `execute`=16, `from_dict`=15, `__post_init__`=13, `_execute_pipeline`=11) | 拆为 `packet.py`(数据类)+ `pipeline.py`(执行)+ `validator.py`(校验) | B1 + B2 |
 | R3-A4 | `smart_assistant/views/chat.py` | 537 行 | 拆为 `chat_stream.py` + `chat_sync.py` + `conversation_manager.py` | B1 |
