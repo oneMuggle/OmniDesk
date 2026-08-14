@@ -1,6 +1,6 @@
 """RAGTool 端到端测试 — 走真实 RAGTool 链路(view → AgentOrchestrator → RAGTool → RAGRouter → RagflowClient).
 
-Task 4 Fix(post-review):原实现通过 ``@patch('smart_assistant.views.chat.AgentOrchestrator')``
+Task 4 Fix(post-review):原实现通过 ``@patch('smart_assistant.views.chat_sync.AgentOrchestrator')``
 mock 整个编排器,未真正执行 RAGTool 链路。Reviewer 指出此偏离 brief,要求改用:
 
 - 真实 ``AgentOrchestrator.process()`` 运行

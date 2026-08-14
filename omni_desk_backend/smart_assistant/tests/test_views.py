@@ -23,7 +23,7 @@ class TestSmartChatViewSet(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_success(self, mock_orchestrator_cls):
         """POST /api/smart-assistant/chat/ 成功返回."""
         mock_orchestrator = MagicMock()
@@ -56,7 +56,7 @@ class TestSmartChatViewSet(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_creates_session(self, mock_orchestrator_cls):
         """不带 conversation_id 时自动创建新会话."""
         mock_orchestrator = MagicMock()
@@ -79,7 +79,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertIn('conversation_id', response.data)
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_with_conversation_id(self, mock_orchestrator_cls):
         """带 conversation_id 时复用已有会话."""
         session = SmartAssistantSession.objects.create(
@@ -118,7 +118,7 @@ class TestSmartChatViewSet(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_with_nonexistent_conversation_id_returns_404(self, mock_orchestrator_cls):
         """P0-W:conversation_id 不存在时返回 404,不再静默创建新会话."""
         mock_orchestrator = MagicMock()
@@ -142,7 +142,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
         self.assertEqual(response.data['detail'], 'session not found')
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_turn_count_increments(self, mock_orchestrator_cls):
         """同一会话连续多次对话,turn_count 应递增."""
         mock_orchestrator = MagicMock()
@@ -178,7 +178,7 @@ class TestSmartChatViewSet(TestCase):
         # messages 列表应有 4 条(2 user + 2 assistant)
         self.assertEqual(len(session.messages), 4)
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_title_truncated_to_50_chars(self, mock_orchestrator_cls):
         """超长 query(>50 字)作为 title 应被截断到 50 字."""
         mock_orchestrator = MagicMock()
@@ -206,7 +206,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(len(session.title), 50)
         self.assertEqual(session.title, long_query[:50])
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_tool_fallback_marks_log_as_failure(self, mock_orchestrator_cls):
         """orchestrator 返回 tool_fallback=True 时,AgentLog.tool_success=False."""
         mock_orchestrator = MagicMock()
@@ -233,7 +233,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertIsNotNone(log)
         self.assertFalse(log.tool_success, "tool_fallback=True 时,tool_success 应为 False")
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_usage_parsed_into_agent_log(self, mock_orchestrator_cls):
         """usage 字典正确解析到 AgentLog 的 input/output/total_tokens 字段."""
         mock_orchestrator = MagicMock()
@@ -266,7 +266,7 @@ class TestSmartChatViewSet(TestCase):
         self.assertEqual(log.total_tokens, 150)
         self.assertEqual(log.model_name, 'deepseek-r1:1.5b')
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_stream.AgentOrchestrator')
     def test_chat_stream_endpoint_yields_sse_chunks(self, mock_orchestrator_cls):
         """流式 stream 端点产生 SSE 事件流."""
         mock_orchestrator = MagicMock()

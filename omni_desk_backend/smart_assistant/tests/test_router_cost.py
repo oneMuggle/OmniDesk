@@ -117,7 +117,7 @@ class TestRouterCostEnrichment:
 class TestAgentLogCostWrite:
     """view 层把 estimated_cost 写入 AgentLog。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_estimated_cost_written_to_agent_log(self, mock_cls, admin_client):
         """usage 携带 estimated_cost 时写入 AgentLog.estimated_cost。"""
         mock_cls.return_value.process.return_value = {
@@ -146,7 +146,7 @@ class TestAgentLogCostWrite:
         assert float(log.estimated_cost) == pytest.approx(0.123456)
         assert log.total_tokens == 150
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_estimated_cost_none_when_no_usage(self, mock_cls, admin_client):
         """无 usage(如缓存命中)时 estimated_cost 为空,不报错。"""
         mock_cls.return_value.process.return_value = {

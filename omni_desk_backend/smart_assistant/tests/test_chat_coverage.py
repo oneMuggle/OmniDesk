@@ -59,7 +59,7 @@ def _mock_orchestrator_for_stream(answer="流式测试回答", intent="general_c
 class TestChatCreateCoverage:
     """补 chat create() 的边界条件."""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_chat_with_invalid_conversation_id_returns_404(self, mock_orch_cls, admin_client):
         """P0-W:conversation_id 不存在 → 404,不再静默新建会话."""
         mock_orch_cls.return_value = _mock_orchestrator_for_chat(answer="新回答")
@@ -75,7 +75,7 @@ class TestChatCreateCoverage:
         # 不再悄悄创建新会话
         assert not SmartAssistantSession.objects.filter(title="测试").exists()
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_chat_records_token_usage_in_agent_log(self, mock_orch_cls, admin_client):
         """当 usage 不为空时,token 用量被正确写入 AgentLog."""
         usage = {
@@ -124,7 +124,7 @@ class TestChatStreamCoverage:
         )
         assert resp.status_code == 400
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_chat_stream_creates_session_when_no_conversation_id(self, mock_orch_cls, admin_client):
         """无 conversation_id 时,流式响应结束自动创建新会话."""
         mock_orch_cls.return_value = _mock_orchestrator_for_stream(answer="流式回答 A")
@@ -150,7 +150,7 @@ class TestChatStreamCoverage:
         assert session is not None
         assert session.title == "你好"
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_chat_stream_appends_to_existing_session(self, mock_orch_cls, admin_client, admin_user_obj):
         """有 conversation_id 时,流式响应追加到已有会话."""
         session = SmartAssistantSession.objects.create(
@@ -177,7 +177,7 @@ class TestChatStreamCoverage:
         assert session.messages[-2]["content"] == "续问"
         assert session.messages[-1]["content"] == "流式续答"
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_chat_stream_handles_invalid_conversation_id(self, mock_orch_cls, admin_client):
         """conversation_id 不存在时,流式响应也走新建会话路径."""
         mock_orch_cls.return_value = _mock_orchestrator_for_stream(answer="流式 X")

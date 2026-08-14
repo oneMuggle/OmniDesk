@@ -13,7 +13,7 @@ from smart_assistant.models import SmartAssistantSession
 
 @pytest.mark.django_db
 class TestChatLastError:
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_exception_persisted_to_session_last_error(self, mock_orch_cls, admin_user_obj):
         session = SmartAssistantSession.objects.create(
             user=admin_user_obj, title="历史会话", messages=[]
@@ -33,7 +33,7 @@ class TestChatLastError:
         session.refresh_from_db()
         assert session.last_error == "boom"
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_exception_without_session_returns_500(self, mock_orch_cls, admin_user_obj):
         """无会话上下文时同样返回 500(无 session 可写,不崩溃)。"""
         mock_orch_cls.return_value.process.side_effect = RuntimeError("boom")
@@ -46,7 +46,7 @@ class TestChatLastError:
         assert resp.data["detail"] == "boom"
         assert not SmartAssistantSession.objects.exists()
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_success_clears_path_without_error(self, mock_orch_cls, admin_user_obj):
         """成功路径不触发 last_error 逻辑。"""
         session = SmartAssistantSession.objects.create(
