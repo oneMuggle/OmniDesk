@@ -51,9 +51,9 @@ def test_streaming_native_tool_calls_executes_then_streams():
 
     with patch.object(orch.router, "generate_with_tools", side_effect=fake_generate_with_tools), \
          patch.object(orch.router, "generate", return_value=iter(["明天", "是", "张三", "早班"])), \
-         patch("smart_assistant.agent.orchestrator.ToolRegistry.get_tool_for_user",
+         patch("smart_assistant.agent.tool_rounds_runner.ToolRegistry.get_tool_for_user",
                return_value=_FakeScheduleTool()), \
-         patch("smart_assistant.agent.orchestrator.execute_native_tool",
+         patch("smart_assistant.agent.tool_rounds_runner.execute_native_tool",
                return_value=({"found": True, "schedules": [{"duty_date": "2026-08-10"}]}, None, None)) as mock_execute:
         events = list(orch.process_stream(
             "明天排班", [], ctx, use_native_tool_calls=True,
