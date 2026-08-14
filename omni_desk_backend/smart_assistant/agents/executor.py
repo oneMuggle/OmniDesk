@@ -34,10 +34,11 @@ from .dataclasses import (
     SubTaskResult as SubTaskResult,
     TaskResult as TaskResult,
 )  # re-export(兼容 agents.executor 路径,勿删)
+from .pipeline import PipelineRunner
 from .roles import RoleProfile
 from .shared_context import SharedContext
 from .subtask_runner import SubTaskRunner
-from .task_packet import ExecutionMode, FailureMode, SubTask, TaskPacket
+from .task_packet import ExecutionMode, SubTask, TaskPacket
 
 logger = get_logger(__name__, "smart_assistant")
 
@@ -93,6 +94,14 @@ class MultiAgentExecutor:
             original_query=task_packet.objective,
             user_context=task_packet.user_context,
             global_budget=task_packet.global_budget,
+        )
+        self.pipeline_runner = PipelineRunner(
+            task_packet=self.task_packet,
+            context=self.context,
+            event_bus=self.event_bus,
+            subtask_runner=self.subtask_runner,
+            is_paused=lambda: self._paused,
+            persist_subtask=self._persist_subtask_result,
         )
 
     def execute(self) -> TaskResult:
@@ -184,7 +193,7 @@ class MultiAgentExecutor:
             )
 
     def _execute_pipeline(self, resume_mode: bool = False) -> list[SubTaskResult]:
-        """Pipeline 模式执行(顺序执行,前一个输出是后一个输入)
+        """Pipeline 模式执行(顺序执行,前一个输出是后一个输入;委托 PipelineRunner)
 
         Args:
             resume_mode: 如果为 True,跳过已完成的 subtask(断点恢复用)
@@ -192,125 +201,7 @@ class MultiAgentExecutor:
         Returns:
             所有 subtask 的执行结果列表
         """
-        results: list[SubTaskResult] = []
-
-        # 获取拓扑排序后的执行顺序
-        execution_order = self.task_packet.get_execution_order()
-
-        for subtask in execution_order:
-            # Plan 3: 检查暂停标志
-            if self._paused:
-                self.event_bus.emit(
-                    "subtask.skipped",
-                    {
-                        "subtask_id": subtask.id,
-                        "reason": "task_paused",
-                    },
-                )
-                results.append(
-                    SubTaskResult(
-                        subtask_id=subtask.id,
-                        role=subtask.role,
-                        output={},
-                        status="skipped",
-                        error_message="任务已暂停",
-                    )
-                )
-                continue
-
-            # Plan 3: resume 模式下跳过已完成的 subtask
-            if resume_mode and self.context.has_artifact(subtask.id):
-                self.event_bus.emit(
-                    "subtask.skipped",
-                    {
-                        "subtask_id": subtask.id,
-                        "reason": "already_completed_in_checkpoint",
-                    },
-                )
-                # 构造一个"虚拟"的 SubTaskResult 表示已完成
-                completed_artifact = self.context.get_artifact(subtask.id)
-                results.append(
-                    SubTaskResult(
-                        subtask_id=subtask.id,
-                        role=subtask.role,
-                        output=completed_artifact or {},
-                        artifacts=completed_artifact or {},
-                        status="success",
-                    )
-                )
-                continue
-
-            # 检查 Token 预算
-            if self.context.is_budget_exhausted():
-                self.event_bus.emit(
-                    "subtask.skipped",
-                    {
-                        "subtask_id": subtask.id,
-                        "reason": "token_budget_exhausted",
-                    },
-                )
-                results.append(
-                    SubTaskResult(
-                        subtask_id=subtask.id,
-                        role=subtask.role,
-                        output={},
-                        status="skipped",
-                        error_message="Token 预算已耗尽",
-                    )
-                )
-                continue
-
-            # 检查依赖 subtask 是否成功
-            deps_failed = False
-            for dep_id in subtask.depends_on:
-                dep_result = next((r for r in results if r.subtask_id == dep_id), None)
-                if dep_result is None or dep_result.status != "success":
-                    deps_failed = True
-                    break
-
-            if deps_failed:
-                # 依赖失败,根据 failure_mode 决定行为
-                if subtask.failure_mode == FailureMode.ABORT:
-                    self.event_bus.emit(
-                        "task.aborted",
-                        {
-                            "subtask_id": subtask.id,
-                            "reason": "dependency_failed",
-                        },
-                    )
-                    raise RuntimeError(f"Subtask '{subtask.id}' 的依赖失败,任务终止")
-                elif subtask.failure_mode == FailureMode.SKIP:
-                    self.event_bus.emit(
-                        "subtask.skipped",
-                        {
-                            "subtask_id": subtask.id,
-                            "reason": "dependency_failed",
-                        },
-                    )
-                    results.append(
-                        SubTaskResult(
-                            subtask_id=subtask.id,
-                            role=subtask.role,
-                            output={},
-                            status="skipped",
-                            error_message="依赖的 subtask 失败",
-                        )
-                    )
-                    continue
-                # FALLBACK / RETRY: 继续执行,让 subtask 自己处理
-
-            # 执行 subtask
-            result = self._run_subtask_with_retry(subtask, self.context)
-            results.append(result)
-
-            # 存储产物
-            if result.status == "success" and result.artifacts:
-                self.context.add_artifact(subtask.id, result.artifacts)
-
-            # Plan 3: 持久化到 DB(如果启用)
-            self._persist_subtask_result(subtask, result)
-
-        return results
+        return self.pipeline_runner.run(resume_mode=resume_mode)
 
     def _run_subtask_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask,支持重试(委托 SubTaskRunner)"""
