@@ -40,22 +40,31 @@ def _parse_reminder_time(s: str) -> datetime | None:
 
     接受格式:
     - "2026-08-12T15:00:00"(ISO datetime)
+    - "2026-08-12T15:00"(ISO datetime 无秒)
     - "2026-08-12 15:00:00"(空格分隔)
     - "2026-08-12"(date-only,默认当日 00:00)
+
+    返回 aware datetime(按 settings.TIME_ZONE),消除 USE_TZ=True 下
+    落库 naive datetime 的 RuntimeWarning。
     """
     if not s:
         return None
     s = s.strip()
-    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
+    for fmt in ("%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M", "%Y-%m-%d %H:%M:%S", "%Y-%m-%d"):
         try:
-            return datetime.strptime(s, fmt)
+            dt = datetime.strptime(s, fmt)
+            break
         except ValueError:
             continue
-    logger.debug(
-        "smart_assistant.memo_write_tools.reminder_time_parse_failed",
-        extra={"event": "smart_assistant.memo_write_tools.reminder_time_parse_failed", "s": s},
-    )
-    return None
+    else:
+        logger.debug(
+            "smart_assistant.memo_write_tools.reminder_time_parse_failed",
+            extra={"event": "smart_assistant.memo_write_tools.reminder_time_parse_failed", "s": s},
+        )
+        return None
+    from django.utils import timezone
+
+    return timezone.make_aware(dt) if timezone.is_naive(dt) else dt
 
 
 class MemoCreateTool(BaseTool):
@@ -138,16 +147,17 @@ class MemoCreateTool(BaseTool):
                 "message": f"无法解析提醒时间 '{params.reminder_time}',请确认时间格式",
             }
 
+        summary = f"将创建备忘录: 《{params.title}》"
+        if params.reminder_time:
+            summary += f", 提醒时间 {params.reminder_time}"
         draft = {
-            "summary": f"将创建备忘录: 《{params.title}》",
+            "summary": summary,
             "fields": {
                 "title": params.title,
                 "content": params.content,
                 "reminder_time": params.reminder_time,
             },
         }
-        if params.reminder_time:
-            draft["summary"] += f", 提醒时间 {params.reminder_time}"
 
         return {"found": True, "draft": draft}
 
@@ -158,12 +168,14 @@ class MemoCreateTool(BaseTool):
         (避免 2-4s 延迟 + LLM 非确定性导致落库内容与用户确认漂移)。
         """
         draft_fields = ctx.get("draft") if isinstance(ctx, dict) else None
-        if isinstance(draft_fields, dict) and draft_fields.get("title"):
-            return CreateParams(
-                title=draft_fields.get("title"),
-                content=draft_fields.get("content") or "",
-                reminder_time=draft_fields.get("reminder_time"),
-            )
+        if isinstance(draft_fields, dict):
+            title = draft_fields.get("title")
+            if isinstance(title, str) and title:
+                return CreateParams(
+                    title=title,
+                    content=draft_fields.get("content") or "",
+                    reminder_time=draft_fields.get("reminder_time"),
+                )
         return extract_create_params(query or "")
 
     def _confirmed(self, query, ctx, context=None) -> dict:

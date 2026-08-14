@@ -364,7 +364,11 @@ class AgentOrchestrator:
                     dry_run_result = execute_guarded(
                         tool,
                         user_query,
-                        context={"history": conversation_history or [], "dry_run": True},
+                        context={
+                            "history": conversation_history or [],
+                            "dry_run": True,
+                            "user": getattr(tool_context, "user", None),
+                        },
                     )
                     draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None
                     if not draft:
@@ -1369,7 +1373,11 @@ class AgentOrchestrator:
                     dry_run_result = execute_guarded(
                         tool,
                         user_query,
-                        context={"history": conversation_history or [], "dry_run": True},
+                        context={
+                            "history": conversation_history or [],
+                            "dry_run": True,
+                            "user": getattr(tool_context, "user", None),
+                        },
                     )
                     draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None
                     if not draft:

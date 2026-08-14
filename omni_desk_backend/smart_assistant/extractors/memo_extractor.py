@@ -14,10 +14,10 @@ LLM 解析"中文 query → CreateParams",失败兜底为 None(由调用方
 from __future__ import annotations
 
 import json
-import re
 from dataclasses import dataclass
 from datetime import date as date_cls
 
+from .llm_helpers import call_extractor_llm, extract_json_block
 from .prompts.memo_create_prompt import (
     MEMO_CREATE_SYSTEM_PROMPT,
     build_create_user_prompt,
@@ -37,49 +37,27 @@ class CreateParams:
     reminder_time: str | None = None  # ISO 8601 字符串
 
 
-def _call_llm(query: str) -> str | None:
-    """调用 LLM 抽取参数,失败兜底 None。
-
-    注:stub 接口,生产代码接入 LLM 路由在 Task 3 dry_run 路径调用方注入;
-    本单元测试直接 patch 此函数,无需 mock LLM 路由层。
-    """
-    try:
-        from llm_service.router import get_router
-
-        today_str = date_cls.today().isoformat()
-        prompt = build_create_user_prompt(query, today_str)
-        response, _usage = get_router(app_name="smart_assistant").generate(
-            prompt=prompt,
-            system_message=MEMO_CREATE_SYSTEM_PROMPT,
-            stream=False,
-        )
-        return response
-    except Exception as e:
-        logger.warning("memo_extractor._call_llm 失败: %s", e)
+def _as_str(value) -> str | None:
+    """非字符串(如 LLM 输出的数字/dict)→ None;strip 后空串 → None。"""
+    if not isinstance(value, str):
         return None
+    s = value.strip()
+    return s or None
+
+
+def _call_llm(query: str, today_str: str | None = None) -> str | None:
+    """调用 LLM 抽取参数,失败兜底 None。today_str 供测试注入(默认今日)。"""
+    if today_str is None:
+        today_str = date_cls.today().isoformat()
+    return call_extractor_llm(
+        MEMO_CREATE_SYSTEM_PROMPT,
+        build_create_user_prompt(query, today_str),
+    )
 
 
 def _extract_json_block(text: str) -> str | None:
-    """从 LLM 输出里用正则抓首个 {…} JSON 块,失败 None。"""
-    match = re.search(r"\{[\s\S]*?\}", text)
-    return match.group(0) if match else None
-
-
-def _call_llm_with_today(query: str, today_str: str) -> str | None:
-    """测试注入 today_str 的入口(避免单测依赖 date.today)。"""
-    try:
-        from llm_service.router import get_router
-
-        prompt = build_create_user_prompt(query, today_str)
-        response, _usage = get_router(app_name="smart_assistant").generate(
-            prompt=prompt,
-            system_message=MEMO_CREATE_SYSTEM_PROMPT,
-            stream=False,
-        )
-        return response
-    except Exception as e:
-        logger.warning("memo_extractor._call_llm_with_today 失败: %s", e)
-        return None
+    """兼容入口:委托 llm_helpers.extract_json_block。"""
+    return extract_json_block(text)
 
 
 def extract_create_params(query: str, today_str: str | None = None) -> CreateParams | None:
@@ -93,7 +71,7 @@ def extract_create_params(query: str, today_str: str | None = None) -> CreatePar
     Returns:
         CreateParams | None
     """
-    raw = _call_llm(query) if today_str is None else _call_llm_with_today(query, today_str)
+    raw = _call_llm(query, today_str)
     if raw is None:
         return None
 
@@ -108,7 +86,7 @@ def extract_create_params(query: str, today_str: str | None = None) -> CreatePar
         logger.debug("memo_extractor JSON 解析失败: %s", json_text[:200])
         return None
 
-    title = (data.get("title") or "").strip()
+    title = _as_str(data.get("title")) or ""
     if not title:
         return None
 
@@ -118,6 +96,6 @@ def extract_create_params(query: str, today_str: str | None = None) -> CreatePar
 
     return CreateParams(
         title=title[:200],  # 防御性 truncate 到模型字段上限
-        content=(data.get("content") or "").strip(),
+        content=_as_str(data.get("content")) or "",
         reminder_time=reminder if isinstance(reminder, str) else None,
     )
