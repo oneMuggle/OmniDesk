@@ -20,8 +20,8 @@ class _FakeCtx:
 
 
 class _FakeScheduleTool:
-    """mock 工具桩:_execute_native_tool 已被 patch,此桩仅用于 get_tool_for_user
-    返回值占位(不真正执行)。"""
+    """mock 工具桩:execute_native_tool 已被模块级 patch,此桩仅用于
+    get_tool_for_user 返回值占位(工具执行被 mock 替代,不真正执行)。"""
 
     name = "schedule_query"
     require_confirmation = False
@@ -53,8 +53,8 @@ def test_streaming_native_tool_calls_executes_then_streams():
          patch.object(orch.router, "generate", return_value=iter(["明天", "是", "张三", "早班"])), \
          patch("smart_assistant.agent.orchestrator.ToolRegistry.get_tool_for_user",
                return_value=_FakeScheduleTool()), \
-         patch.object(orch, "_execute_native_tool",
-                      return_value=({"found": True, "schedules": [{"duty_date": "2026-08-10"}]}, None, None)):
+         patch("smart_assistant.agent.orchestrator.execute_native_tool",
+               return_value=({"found": True, "schedules": [{"duty_date": "2026-08-10"}]}, None, None)) as mock_execute:
         events = list(orch.process_stream(
             "明天排班", [], ctx, use_native_tool_calls=True,
         ))
@@ -63,6 +63,8 @@ def test_streaming_native_tool_calls_executes_then_streams():
     assert 'type": "chunk"' in data_blob
     assert "明天" in data_blob and "张三" in data_blob  # 流式最终轮 chunk
     assert 'finish_reason": "stop"' in data_blob
+    # 验证工具执行确实经模块级 execute_native_tool(mock 被调用,未绕过)
+    assert mock_execute.call_count == 1
 
 
 @pytest.mark.django_db
