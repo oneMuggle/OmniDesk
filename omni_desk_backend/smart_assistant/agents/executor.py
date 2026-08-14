@@ -231,6 +231,7 @@ class MultiAgentExecutor:
 
     def _run_subtask(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask(无重试,委托 SubTaskRunner)"""
+        # compat-only shim:生产路径经 pipeline_runner → subtask_runner,勿在此 patch 期望拦截行为
         return self.subtask_runner.run(subtask, ctx)
 
     def _invoke_llm_for_subtask(
@@ -240,10 +241,13 @@ class MultiAgentExecutor:
         messages: list[dict],
     ) -> tuple[str, dict]:
         """调用 LLM 生成 subtask 的输出(委托 SubTaskRunner)"""
+        # compat-only shim:生产路径经 pipeline_runner → subtask_runner,勿在此 patch 期望拦截行为
         return self.subtask_runner.invoke_llm(subtask, profile, messages)
 
     def _parse_llm_output(self, content: str, subtask: SubTask) -> tuple[dict | str, dict]:
         """解析 LLM 输出(委托 SubTaskRunner)"""
+        # compat-only shim:生产路径走 subtask_runner.parse_output(测试直接调此方法,保留即为此),
+        # 勿在此 patch 期望拦截生产解析行为
         return self.subtask_runner.parse_output(content, subtask)
 
     # ------------------------------------------------------------------
