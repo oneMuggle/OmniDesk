@@ -1,5 +1,3 @@
-import json
-import time
 import uuid
 
 from django.conf import settings
@@ -39,7 +37,7 @@ from .sse_contract import (
     classify_error_kind as classify_error_kind,
     sse_event,
 )
-from .orchestrator_helpers import _dict_to_query, _scope_cache_sig
+from .orchestrator_helpers import _dict_to_query as _dict_to_query, _scope_cache_sig
 from .native_tool_runner import execute_native_tool
 from ..hooks.base import Reject
 from ..hooks.wiring import (
@@ -464,246 +462,23 @@ class AgentOrchestrator:
         context,
         llm_messages: list,
     ) -> tuple[str, dict, dict, list]:
-        """原生 tool_calls 工具轮(F2 抽取,2026-08-09)。
+        """原生 tool_calls 工具轮(已提取至 tool_rounds_runner,保留薄委托)。
 
+        行为与提取前一致:
         - 最多 ``settings.MAX_TOOL_CALLS_ROUNDS`` 轮(默认 3);
-        - 每轮 ``router.generate_with_tools(messages, tools, tool_choice='auto')``;
-        - 工具错误 4 类:
-            * invalid_arguments(JSON 不合法 / schema 校验失败)
-            * tool_unavailable_for_user(get_tool_for_user 返回 None)
-            * tool_timeout(execute_with_guard 抛 TimeoutError;归类为 execution_failed)
-            * execution_failed(任意其他异常)
-        - 3 轮后强制 ``tool_choice="none"``;
         - confirm-replay 工具提前返回 awaiting_confirmation。
 
-        返回:
-            ``(content, usage, meta, tool_round_messages)``
-            - content: 最终答案文本(confirm-replay 时为 draft summary;
-              JSON 降级时为 JSON 路径答案)
-            - meta: 含 tool_calls_meta / tool_calls_rounds / tool_call_path,
-              confirm-replay 时含 awaiting_confirmation / confirmation_token / draft
-            - tool_round_messages: 工具结果已 append、未含最终答案轮的
-              messages(供流式最终轮复用)
+        返回 ``(content, usage, meta, tool_round_messages)``(语义见
+        ``tool_rounds_runner.run_tool_calls_rounds`` docstring)。
         """
-        from smart_assistant.agent.tool_context_resolver import resolve_tools_for_user
+        from .tool_rounds_runner import run_tool_calls_rounds
 
-        # 注入 user 参数(required_auth 工具对未登录用户不可见)
-        tools_schema = resolve_tools_for_user(context.user)
-        tool_calls_meta: list = []
-        rounds = 0
-        max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
-
-        for round_idx in range(max_rounds):
-            try:
-                content, usage, tool_calls = self.router.generate_with_tools(
-                    messages=llm_messages,
-                    tools=tools_schema,
-                    tool_choice="auto",
-                )
-            except Exception as exc:
-                # 降级策略(来自 Task 3 reviewer):新方法异常 → 走 JSON 路径
-                logger.warning("generate_with_tools 异常,降级到 _process_json_path: %s", exc, exc_info=True)
-                content, usage, meta = self._process_json_path(query=query, context=context, llm_messages=llm_messages)
-                return content, usage, meta, llm_messages
-
-            if not tool_calls:
-                # LLM 主动选择不调工具,直接返回 content;llm_messages 为
-                # 工具轮状态(未含本轮 content),供流式最终轮复用。
-                return (
-                    content,
-                    usage,
-                    {
-                        "tool_calls_meta": tool_calls_meta,
-                        "tool_calls_rounds": rounds,
-                        "tool_call_path": "native",
-                    },
-                    llm_messages,
-                )
-
-            rounds += 1
-            tool_results = []
-
-            for tc in tool_calls:
-                t0 = time.monotonic()
-                func_name = tc.get("function", {}).get("name", "")
-                tool_call_id = tc.get("id", "")
-
-                # 1) 工具可用性:required_auth / 匿名用户 / 不存在 → unavailable
-                tool = ToolRegistry.get_tool_for_user(func_name, context.user)
-                if tool is None:
-                    tool_results.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": json.dumps(
-                                {"error": "tool_unavailable_for_user"},
-                                ensure_ascii=False,
-                            ),
-                        }
-                    )
-                    tool_calls_meta.append(
-                        {
-                            "round": round_idx,
-                            "tool": func_name,
-                            "error": "unavailable",
-                            "duration_ms": 0,
-                        }
-                    )
-                    continue
-
-                # 2) 参数解析 + schema 校验
-                try:
-                    raw_args = tc.get("function", {}).get("arguments", "{}")
-                    if isinstance(raw_args, str):
-                        args = json.loads(raw_args)
-                    elif isinstance(raw_args, dict):
-                        args = raw_args
-                    else:
-                        args = {}
-                    validated = tool.validate_arguments(args)
-                except Exception as exc:
-                    tool_results.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": json.dumps(
-                                {"error": "invalid_arguments", "detail": str(exc)},
-                                ensure_ascii=False,
-                            ),
-                        }
-                    )
-                    tool_calls_meta.append(
-                        {
-                            "round": round_idx,
-                            "tool": func_name,
-                            "error": "invalid_args",
-                            "duration_ms": 0,
-                        }
-                    )
-                    continue
-
-                # 3) 工具执行:统一经 _execute_native_tool(scope-aware + 完整 hook 链)。
-                # C-1:supports_scope_filter 工具复用 build_base_queryset +
-                #      get_queryset_for_scope 分支,确保 SELF/DEPARTMENT/GLOBAL
-                #      scope 生效(此前 execute_with_guard 直接跑全量表,跨用户泄漏)。
-                # C-2:pre(post/failure hook 链 + confirm-replay 在 helper 内统一处理,
-                #      PII 脱敏不再被绕过。
-                try:
-                    result, confirmation, failure = execute_native_tool(tool, validated, context)
-                except Exception as exc:
-                    # helper 内部已收口执行异常;此处兜底防御意外异常
-                    tool_results.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": json.dumps(
-                                {
-                                    "error": "execution_failed",
-                                    "detail": str(exc),
-                                },
-                                ensure_ascii=False,
-                            ),
-                        }
-                    )
-                    tool_calls_meta.append(
-                        {
-                            "round": round_idx,
-                            "tool": func_name,
-                            "error": "execution_failed",
-                            "duration_ms": 0,
-                        }
-                    )
-                    continue
-
-                # 工具执行失败(helper 已 apply_failure_hooks):审计轨迹保留 error 标记
-                if failure is not None:
-                    tool_results.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": tool_call_id,
-                            "content": json.dumps(result, ensure_ascii=False),
-                        }
-                    )
-                    tool_calls_meta.append(
-                        {
-                            "round": round_idx,
-                            "tool": func_name,
-                            "error": failure.get("error", "execution_failed"),
-                            "duration_ms": int((time.monotonic() - t0) * 1000),
-                        }
-                    )
-                    continue
-
-                # confirm-replay:工具标记需要用户二次确认 → 立即终止本轮,
-                # 把 awaiting_confirmation + token 透传给视图层(前端再带
-                # token 重放执行)。不回灌给 LLM,避免把确认流程当成工具失败。
-                if confirmation is not None:
-                    duration_ms = int((time.monotonic() - t0) * 1000)
-                    tool_calls_meta.append(
-                        {
-                            "round": round_idx,
-                            "tool": func_name,
-                            "arguments": validated,
-                            "duration_ms": duration_ms,
-                        }
-                    )
-                    draft = confirmation.get("draft") or {}
-                    return (
-                        draft.get("summary") or "请确认以下操作",
-                        {},
-                        {
-                            "tool_calls_meta": tool_calls_meta,
-                            "tool_calls_rounds": rounds,
-                            "tool_call_path": "native",
-                            "awaiting_confirmation": True,
-                            "confirmation_token": confirmation["token"],
-                            "draft": draft,
-                        },
-                        llm_messages,
-                    )
-
-                duration_ms = int((time.monotonic() - t0) * 1000)
-                tool_calls_meta.append(
-                    {
-                        "round": round_idx,
-                        "tool": func_name,
-                        "arguments": validated,
-                        "duration_ms": duration_ms,
-                    }
-                )
-                tool_results.append(
-                    {
-                        "role": "tool",
-                        "tool_call_id": tool_call_id,
-                        "content": json.dumps(result, ensure_ascii=False),
-                    }
-                )
-
-            # 把 assistant(tool_calls) + tool 结果 append 到 messages
-            llm_messages.append(
-                {
-                    "role": "assistant",
-                    "content": content or "",
-                    "tool_calls": tool_calls,
-                }
-            )
-            llm_messages.extend(tool_results)
-
-        # 3 轮后兜底:强制 tool_choice="none"
-        content, usage, _ = self.router.generate_with_tools(
-            messages=llm_messages,
-            tools=tools_schema,
-            tool_choice="none",
-        )
-        return (
-            content,
-            usage,
-            {
-                "tool_calls_meta": tool_calls_meta,
-                "tool_calls_rounds": rounds,
-                "tool_call_path": "native",
-            },
-            llm_messages,
+        return run_tool_calls_rounds(
+            self.router,
+            query=query,
+            context=context,
+            llm_messages=llm_messages,
+            json_fallback=self._process_json_path,
         )
 
     def _process_stream_tool_calls_path(
