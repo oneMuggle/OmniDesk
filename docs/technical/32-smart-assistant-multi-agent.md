@@ -57,6 +57,10 @@
 | `hooks/base.py` | `ToolHook` 协议 + `HookRegistry` |
 | `hooks/builtin/audit_log.py` | 审计日志钩子 |
 | `hooks/builtin/pii_sanitizer.py` | PII 脱敏钩子 |
+| `views/chat.py` | `SmartChatViewSet` 薄壳：保留 parser / permission / `@action` / 类 docstring，`create`/`stream`/`_extract_attachment`/`_inject_attachment` 委托新模块（2026-08 R3-A4 拆分后 537→39 行，C901 全部 <10） |
+| `views/conversation_manager.py` | 会话领域纯函数：`extract_attachment` / `inject_attachment` / `load_session` / `persist_success` / `resolve_error` / `usage_fields`（2026-08 R3-A4 拆分自 chat.py，create/stream 共享） |
+| `views/chat_sync.py` | 同步路径 create 编排：confirm-replay、`orchestrator.process`、`persist_success`、AgentLog、payload 组装（2026-08 R3-A4，create C901 17→8） |
+| `views/chat_stream.py` | 流式路径 stream 编排：`process_stream` 消费、SSE 生成器三层 try/兜底、流式持久化 `last_error=''` 防御（2026-08 R3-A4，stream C901 22→4 / event_stream 16→8） |
 
 ## 4. 数据库模型
 
@@ -274,7 +278,7 @@ elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
     )
 ```
 
-[`views/chat.py`](omni_desk_backend/smart_assistant/views/chat.py) 在编排层把 `status='rejected'` 翻译为 HTTP **400 Bad Request**,body 含原始 `error_message` —— 前端能精确提示用户改用 `pipeline` 模式。
+[`views/chat_sync.py`](omni_desk_backend/smart_assistant/views/chat_sync.py)（R3-A4 拆分自 `views/chat.py`）在编排层把 `status='rejected'` 翻译为 HTTP **400 Bad Request**,body 含原始 `error_message` —— 前端能精确提示用户改用 `pipeline` 模式。
 
 ### 测试覆盖
 

@@ -90,8 +90,8 @@ class TestChatPerformance:
             )
 
         # 在线程池外应用 patch,避免多线程竞争
-        with patch("smart_assistant.views.chat.SmartAssistantSession.objects") as mock_session_objs, \
-             patch("smart_assistant.views.chat.AgentLog.objects") as mock_log_objs:
+        with patch("smart_assistant.views.conversation_manager.SmartAssistantSession.objects") as mock_session_objs, \
+             patch("smart_assistant.views.chat_sync.AgentLog.objects") as mock_log_objs:
             mock_session_objs.create = mock_session_create
             mock_log_objs.create = mock_log_create
 

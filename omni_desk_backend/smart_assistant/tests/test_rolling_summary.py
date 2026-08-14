@@ -178,7 +178,7 @@ class TestApplyRollingSummary:
 class TestViewRollingSummary:
     """POST /api/smart-assistant/chat/ 的滚动摘要集成行为。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_chat_triggers_summary_and_truncates(self, mock_cls, admin_client, admin_user_obj, mock_llm_router):
         """长会话新一轮后触发摘要:summary_text 写入,messages 截断。"""
         mock_llm_router.generate.return_value = ("这是早期对话的摘要", None)
@@ -214,7 +214,7 @@ class TestViewRollingSummary:
         assert session.messages[-2]["content"] == "新问题"
         assert session.messages[-1]["content"] == "新回答"
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_summary_failure_does_not_break_chat(self, mock_cls, admin_client, admin_user_obj, mock_llm_router):
         """摘要生成失败:主对话正常返回,历史保留全量。"""
         mock_llm_router.generate.side_effect = Exception("LLM 不可用")
@@ -248,7 +248,7 @@ class TestViewRollingSummary:
         assert len(session.messages) == 18
         assert session.turn_count == 9
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_session_with_summary_sends_summary_history(self, mock_cls, admin_client, admin_user_obj):
         """有摘要的会话:送入 orchestrator 的历史为「摘要 + 最近消息」。"""
         session = SmartAssistantSession.objects.create(

@@ -352,7 +352,7 @@ class TestClassifyErrorKind:
 class TestSyncFailureContract:
     """POST /chat/ 失败响应:error=true + kind + hint。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_sync_failure_carries_kind_and_hint(self, mock_cls, admin_client):
         """空库失败 → kind=no_llm_endpoint,hint 为契约文案。"""
         mock_cls.return_value.process.return_value = {
@@ -371,7 +371,7 @@ class TestSyncFailureContract:
         assert data["kind"] == "no_llm_endpoint"
         assert data["hint"] == ERROR_KIND_HINTS["no_llm_endpoint"]
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_sync_success_has_no_kind(self, mock_cls, admin_client):
         """成功响应不携带 kind/hint(保持响应体精简)。"""
         mock_cls.return_value.process.return_value = {
@@ -394,7 +394,7 @@ class TestSyncFailureContract:
 class TestSseContract:
     """SSE 事件契约:所有事件 format_version;失败 done/session 携带 kind+hint。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_stream_failure_session_event_carries_kind_hint(self, mock_cls, admin_client):
         """流式失败:session 事件携带 format_version + kind + hint(ragflow 场景)。"""
         events = [
@@ -426,7 +426,7 @@ class TestSseContract:
         assert session_evt["kind"] == "ragflow_unavailable"
         assert session_evt["hint"] == ERROR_KIND_HINTS["ragflow_unavailable"]
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_stream_success_session_event_has_format_version_no_kind(self, mock_cls, admin_client):
         """流式成功:session 事件携带 format_version,无 kind。"""
         events = [
