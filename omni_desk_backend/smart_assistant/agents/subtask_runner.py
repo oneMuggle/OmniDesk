@@ -20,7 +20,7 @@ from observability import get_logger
 from .dataclasses import SubTaskResult
 from .roles import ROLE_PROFILES, RoleProfile
 from .shared_context import SharedContext
-from .task_packet import FailureMode, SubTask
+from .packet import FailureMode, SubTask
 
 logger = get_logger(__name__, "smart_assistant")
 

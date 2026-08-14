@@ -24,7 +24,8 @@ from typing import Any
 from django.core.exceptions import ValidationError
 
 from .roles import ROLE_PROFILES, AgentRole
-from .task_packet import ExecutionMode, TaskPacket, TaskPacketValidator
+from .packet import ExecutionMode, TaskPacket
+from .validator import TaskPacketValidator
 
 
 class Supervisor:

@@ -18,7 +18,7 @@ from smart_assistant.agents.shared_context import (
     ErrorRecord,
     SharedContext,
 )
-from smart_assistant.agents.task_packet import SubTask
+from smart_assistant.agents.packet import SubTask
 
 
 # ---------------------------------------------------------------------------

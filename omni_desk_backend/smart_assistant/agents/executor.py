@@ -38,7 +38,7 @@ from .pipeline import PipelineRunner
 from .roles import RoleProfile
 from .shared_context import SharedContext
 from .subtask_runner import SubTaskRunner
-from .task_packet import ExecutionMode, SubTask, TaskPacket
+from .packet import ExecutionMode, SubTask, TaskPacket
 
 logger = get_logger(__name__, "smart_assistant")
 
@@ -304,7 +304,7 @@ class MultiAgentExecutor:
             TaskResult
         """
         from smart_assistant.models import AgentTask
-        from .task_packet import TaskPacket
+        from .packet import TaskPacket
         from django.db import transaction
 
         # 加载 AgentTask(使用 select_for_update 防并发恢复竞争)

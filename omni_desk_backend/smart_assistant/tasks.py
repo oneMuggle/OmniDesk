@@ -110,7 +110,7 @@ def execute_agent_task(task_id: str):
     from django.utils import timezone
 
     from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
-    from smart_assistant.agents.task_packet import TaskPacket
+    from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
     from llm_service.router import get_router
     from smart_assistant.tools.registry import ToolRegistry
