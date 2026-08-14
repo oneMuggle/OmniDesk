@@ -203,8 +203,8 @@ class TestAgentOrchestrator(TestCase):
         mock_classify.assert_called_once()
         self.assertEqual(result['intent'], 'schedule_query')
 
-    @patch('smart_assistant.agent.orchestrator.synthesize_chain_answer')
-    @patch('smart_assistant.agent.orchestrator.execute_tool_chain')
+    @patch('smart_assistant.agent.tool_chain_runner.synthesize_chain_answer')
+    @patch('smart_assistant.agent.tool_chain_runner.execute_tool_chain')
     @patch('smart_assistant.agent.orchestrator.generate_tool_chain_plan')
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
@@ -366,8 +366,8 @@ class TestAgentOrchestratorStream(TestCase):
         self.assertEqual(meta['type'], 'meta')
         self.assertIsNone(meta['tool_used'])
 
-    @patch('smart_assistant.agent.orchestrator.synthesize_chain_answer')
-    @patch('smart_assistant.agent.orchestrator.ToolChainExecutor')
+    @patch('smart_assistant.agent.tool_chain_runner.synthesize_chain_answer')
+    @patch('smart_assistant.agent.tool_chain_runner.ToolChainExecutor')
     @patch('smart_assistant.agent.orchestrator.generate_tool_chain_plan')
     @patch('smart_assistant.agent.orchestrator.ToolRegistry')
     @patch('smart_assistant.agent.orchestrator.classify_intent')
