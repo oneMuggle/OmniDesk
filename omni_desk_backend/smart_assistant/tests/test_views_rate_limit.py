@@ -156,10 +156,12 @@ class TestOrchestratorEnforcement:
       2. ``process_stream`` (SSE 流式路径)
       3. ``_execute_native_tool`` (原生 Function Calling 路径,仅 staff)
 
-    spy 模式:patch ``execute_guarded`` 计数。命名空间说明:``_legacy_process`` 与
-    ``_execute_native_tool`` 仍 patch ``orchestrator.*``;``process_stream`` 已提取至
-    ``StreamRunner``,其 ``execute_guarded``/``generate_tool_chain_plan``/``classify_intent``
-    在 ``stream_runner`` 命名空间解析,故 patch ``stream_runner.*``。
+    spy 模式:patch ``execute_guarded`` 计数。命名空间说明:``_legacy_process`` 仍
+    patch ``orchestrator.*``;``_execute_native_tool`` 提取至 ``native_tool_runner``,
+    其 ``execute_guarded`` 在该命名空间解析,故 patch ``native_tool_runner.*``;
+    ``process_stream`` 已提取至 ``StreamRunner``,其 ``execute_guarded``/
+    ``generate_tool_chain_plan``/``classify_intent`` 在 ``stream_runner`` 命名空间解析,
+    故 patch ``stream_runner.*``。
     若 enforcement 生效,被 RateLimitHook Reject 后 ``execute_guarded`` 不被调用。
 
     实现选择说明(相对 brief Step 1 verbatim):
