@@ -135,7 +135,10 @@ const useAgentTaskPanel = () => {
     loadTaskDetailRef.current = loadTaskDetail;
   });
 
+  // 初始加载:同步触发 loading 态(既有逻辑,自拆分前原文件逐字保留;
+  // react-hooks/set-state-in-effect 规则新启用,行为优化留待后续)
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadTasks();
   }, [loadTasks]);
 
