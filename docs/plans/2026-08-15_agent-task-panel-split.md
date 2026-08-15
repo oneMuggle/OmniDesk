@@ -175,6 +175,7 @@ const {
 - [x] 新增 utils 单测通过
 - [x] `npm test` 全量回归绿(与 baseline 对比)
 - [x] `npm run lint` 通过
+- [x] 代码检阅后补齐 6 个子组件 propTypes 契约(修复 code-reviewer 发现的 MEDIUM:40 个 react/prop-types warning)
 - [x] `npm run build` 通过(generate-routes + vite build)
 
 ### Task 7: 文档更新 + PR + merge
