@@ -6,37 +6,39 @@ from .models import Contract, Education, FamilyMember, Personnel, Position, Prof
 class PositionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Position
-        fields = "__all__"
+        fields = ["id", "name"]
 
 
 class ContractSerializer(serializers.ModelSerializer):
     class Meta:
         model = Contract
-        fields = "__all__"
+        fields = ["id", "personnel", "contract_number", "contract_type", "start_date", "end_date"]
 
 
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Education
-        fields = "__all__"
+        fields = ["id", "personnel", "school", "degree", "major", "start_date", "end_date"]
 
 
 class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkExperience
-        fields = "__all__"
+        fields = ["id", "personnel", "company", "position", "start_date", "end_date", "description"]
 
 
 class ProfessionalQualificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfessionalQualification
-        fields = "__all__"
+        # R3-B1: 剔除 certificate_id(证件编号,前端未消费)
+        fields = ["id", "personnel", "qualification_name", "issue_date", "expiry_date"]
 
 
 class FamilyMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = FamilyMember
-        fields = "__all__"
+        # R3-B1: 剔除 id_card_number(身份证号,Fernet 加密,读取解密,前端未消费)
+        fields = ["id", "personnel", "name", "relationship", "contact_number"]
 
 
 class PersonnelSerializer(serializers.ModelSerializer):

@@ -155,10 +155,10 @@
 
 ### PR-2: personnel(P0)
 
-- [ ] 分支 `refactor/r3-b1-serializer-whitelist-personnel`
-- [ ] 写 `personnel/tests/` serializer 测试:FamilyMember 读响应**不含** `id_card_number`、ProfessionalQualification 不含 `certificate_id`
-- [ ] 白名单化 6 个 serializer
-- [ ] 后端全量 pytest + 前端人员详情页冒烟
+- [x] 分支 `refactor/r3-b1-serializer-whitelist-personnel`
+- [x] 写 `personnel/tests/` serializer 测试:FamilyMember 读响应**不含** `id_card_number`、ProfessionalQualification 不含 `certificate_id`
+- [x] 白名单化 6 个 serializer
+- [x] 后端全量 pytest(2503 passed)+ 前端 build 冒烟 + 人员详情页字段消费安全网确认(前端仅消费 Personnel 主表 id_card_number,FamilyMember 嵌套零消费)
 
 ### PR-3: events + meeting_rooms(P1)
 
