@@ -2,27 +2,30 @@ import {
   AppstoreOutlined,
   BellOutlined,
   CalendarOutlined,
+  ClusterOutlined,
   CommentOutlined,
   ExperimentOutlined,
   FileTextOutlined,
   FileWordOutlined,
   HomeOutlined,
+  LogoutOutlined,
   ProfileOutlined,
   ProjectOutlined,
   RobotOutlined,
   SettingOutlined,
   SoundOutlined,
   UserOutlined,
-  LogoutOutlined,
-  LinkOutlined,
 } from '@ant-design/icons';
-import { Badge } from 'antd';
 
 /**
- * Main sidebar menu configuration.
- * Each item: { to, icon, text, permission } or { type: 'submenu', text, icon, permission, subItems }
+ * 生成侧边栏主菜单配置。
+ * 逐字搬自原 Sidebar.jsx 的 menuItems useMemo（L84-131），行为零变化。
+ * 含 JSX 图标引用 → 本文件扩展名必须为 .jsx（Vite 拒绝 .js 内 JSX）。
+ *
+ * @param {{ logout: Function, unreadNotificationCount: number }} params
+ * @returns {Array<object>} 菜单项数组（{to, icon, text, permission} | {type:'submenu',...} | {type:'button',...}）
  */
-export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
+export const createMenuItems = ({ logout, unreadNotificationCount }) => [
   { to: "/", icon: HomeOutlined, text: "首页", permission: null },
   { to: "/announcements", icon: SoundOutlined, text: "公告栏", permission: null },
   {
@@ -42,25 +45,13 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: AppstoreOutlined,
     permission: null,
     subItems: [
-      { to: "/ai-showcase", icon: AppstoreOutlined, text: "AI 能力展示", permission: null },
+      { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
+      { to: "/smart-assistant/tasks", icon: ClusterOutlined, text: "多Agent任务", permission: null },
+      { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
       { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
       { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
       { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
       { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
-    ]
-  },
-  {
-    type: 'submenu',
-    text: '外部集成',
-    icon: LinkOutlined,
-    permission: null,
-    subItems: [
-      { to: "/external-links", text: "快捷外链", permission: null },
-      { to: "/integration-hub", text: "集成中心", permission: null },
-      { to: "/plugin-market", text: "插件市场", permission: null },
-      { to: "/control-panel/external-links/manage", text: "外链管理", permission: 'admin' },
-      { to: "/control-panel/integration-hub/manage", text: "集成服务管理", permission: 'admin' },
-      { to: "/control-panel/plugin-market/manage", text: "插件管理", permission: 'admin' },
     ]
   },
   { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },
@@ -84,18 +75,34 @@ export const createMainMenuItems = ({ logout, unreadNotificationCount }) => [
 ];
 
 /**
- * Attach permission-checking and badge-rendering helpers to submenu items.
+ * 生成用户下拉菜单配置。
+ * 逐字搬自原 Sidebar.jsx 的 userDropdownItems useMemo（L336-360），行为零变化。
+ *
+ * @param {{ navigate: Function, logout: Function }} params
+ * @returns {Array<object>} 下拉项数组（profile/settings/divider/logout danger）
  */
-export const enrichMenuItems = (items, hasPermission) => {
-  return items.map(item => {
-    if (item.type === 'submenu') {
-      return {
-        ...item,
-        _hasPermission: hasPermission,
-        _renderBadge: (count) => <Badge count={count} size="small" />,
-        subItems: item.subItems?.map(sub => ({ ...sub })),
-      };
-    }
-    return item;
-  });
-};
+export const createUserDropdownItems = ({ navigate, logout }) => [
+  {
+    key: 'profile',
+    icon: <UserOutlined />,
+    label: '个人资料',
+    onClick: () => navigate('/profile'),
+  },
+  {
+    key: 'settings',
+    icon: <SettingOutlined />,
+    label: '设置',
+    onClick: () => navigate('/control-panel'),
+  },
+  { type: 'divider' },
+  {
+    key: 'logout',
+    icon: <LogoutOutlined />,
+    label: '退出登录',
+    danger: true,
+    onClick: () => {
+      logout();
+      navigate('/login');
+    },
+  },
+];
