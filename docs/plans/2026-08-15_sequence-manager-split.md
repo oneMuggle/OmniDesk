@@ -14,7 +14,7 @@
 |---|---|---|
 | `SequenceForm`(Modal 弹窗:名称 + 人员搜索/职位筛选 + 左侧人员列表 + 右侧拖拽排序) | L14-185 | ~172 |
 | `SequenceList`(Card 列表:新建按钮 + 每条顺序的编辑/删除) | L188-239 | ~52 |
-| `SequenceManager`(容器:6 个 state + 数据获取 + CRUD 调用 + onDragEnd + 双列布局) | L241-397 | ~157 |
+| `SequenceManager`(容器:8 个 state + 数据获取 + CRUD 调用 + onDragEnd + 双列布局) | L241-397 | ~157 |
 | `handleSave` 内 payload 构建(create/update × personnel/leader 4 分支) | L306-323 | ~15 |
 
 与 R3-D1~D7 同类,是 round3 计划 R3-D 前端大组件系列的一部分,明确列为 R3-D8(拆为 SequenceList + SequenceForm + 薄壳容器)。
@@ -23,7 +23,7 @@
 
 1. **唯一引用**:`src/features/schedule/pages/ScheduleSettingsPage.jsx` L1 `import SequenceManager from '../../../shared/components/SequenceManager'`。SequenceManager 是懒加载路由组件的**子组件**,非 ProtectedRoute 直接引用 → **不受 generate-routes.js Babel AST 契约约束**,拆子组件对 `public/routes.json` 零影响。
 2. **测试 mock 路径**:`ScheduleSettingsPage.test.js` L6-9 `jest.mock('../../shared/components/SequenceManager', ...)`(相对路径)。拆分后 `SequenceManager.jsx` **原地不动** → mock 路径零改动。
-3. **既有测试**:`src/shared/components/SequenceManager.test.js` **6 个用例**(render + fetch + 新建/编辑/删除 + 弹窗内添加/移除人员),mock 了 `@hello-pangea/dnd` 三个组件 + 8 个 sequenceApi + 2 个 personnelApi。拆分后默认导出 `SequenceManager` 不变 → 应零回归。
+3. **既有测试**:`src/shared/components/SequenceManager.test.js` **5 个用例**(render + fetch + 新建/编辑/删除 + 弹窗内添加/移除人员),mock 了 `@hello-pangea/dnd` 三个组件 + 8 个 sequenceApi + 2 个 personnelApi。拆分后默认导出 `SequenceManager` 不变 → 应零回归。
 4. **round3 计划命名 vs 代码现实**:计划"SequenceEditor/SequenceRunner"不存在。实际是 `SequenceForm`(编辑器)+ 无 Runner。与 R3-D7 同款"计划目标 vs 代码现实"冲突 → 范围调整声明。
 5. **纯业务逻辑**:`handleSave` L306-323 的 payload 构建是唯一可提取的纯函数(无 React/无副作用),适合独立单测。
 
@@ -32,7 +32,7 @@
 1. 将 172 行 `SequenceForm` + 52 行 `SequenceList` + ~15 行 payload 构建逻辑拆出,`SequenceManager.jsx` 398 → **~160 行**薄壳,聚焦状态管理与 CRUD 编排
 2. **对外契约零变化**:默认导出 `SequenceManager` 不变;`ScheduleSettingsPage.jsx` import 零改动;`public/routes.json` 不变
 3. 沿用 R3-D1~D7 模式:新文件职责单一 + propTypes 完整(子组件自带)
-4. 新增 `buildSequencePayload` 纯函数单测(4 分支)作为回归兜底;既有 6 用例零回归
+4. 新增 `buildSequencePayload` 纯函数单测(4 分支)作为回归兜底;既有 5 用例零回归
 
 ## 2. 涉及的文件与模块
 
@@ -57,7 +57,7 @@
 |---|---|
 | `src/features/schedule/pages/ScheduleSettingsPage.jsx` | `import SequenceManager from '../../../shared/components/SequenceManager'` 零改动 |
 | `src/features/schedule/pages/ScheduleSettingsPage.test.js` | `jest.mock('../../shared/components/SequenceManager', ...)` 零改动(文件原地不动) |
-| `src/shared/components/SequenceManager.test.js` | 既有 6 用例,默认导出不变 → 零回归验证 |
+| `src/shared/components/SequenceManager.test.js` | 既有 5 用例,默认导出不变 → 零回归验证 |
 
 ## 3. 技术方案(架构/接口设计)
 
@@ -68,7 +68,7 @@ src/shared/components/SequenceManager.jsx(薄壳 ~160 行,聚焦状态 + CRUD �
   ├── import SequenceForm from './sequence/SequenceForm'   # Modal 弹窗表单
   ├── import SequenceList from './sequence/SequenceList'   # Card 列表
   ├── import { buildSequencePayload } from './sequence/sequenceUtils'
-  └── 容器:6 个 state + fetchData + handleAdd/Edit/Delete/Save + onDragEnd + 双列布局
+  └── 容器:8 个 state + fetchData + handleAdd/Edit/Delete/Save + onDragEnd + 双列布局
 
 src/shared/components/sequence/SequenceForm.jsx(~172 行)
   └── 默认导出 SequenceForm(Modal + Form + 搜索/筛选 + Droppable/Draggable 排序)+ propTypes
@@ -117,7 +117,7 @@ export const buildSequencePayload = (values, isEditingLeader) => {
 
 ### 3.4 回归验证(本轮核心验收)
 
-1. `npx jest src/shared/components/SequenceManager.test.js` → 既有 6 用例零回归
+1. `npx jest src/shared/components/SequenceManager.test.js` → 既有 5 用例零回归
 2. `npx jest src/shared/components/sequence/__tests__/sequenceUtils.test.js` → 新增 4 分支单测通过
 3. `npm run build` 后 `git diff public/routes.json` 为空(SequenceManager 非路由组件,验证零影响)
 4. `git diff` 确认 `ScheduleSettingsPage.jsx` / `ScheduleSettingsPage.test.js` 零改动
@@ -126,41 +126,41 @@ export const buildSequencePayload = (values, isEditingLeader) => {
 
 ### Task 1: 新增 `sequence/SequenceForm.jsx`
 
-- [ ] 逐字搬 L14-185(Modal + Form + 搜索/筛选 + Droppable/Draggable)
-- [ ] `const SequenceForm = ...` → 默认导出 + propTypes 原样
-- [ ] 扩展名 `.jsx`(含 JSX)
+- [x] 逐字搬 L14-185(Modal + Form + 搜索/筛选 + Droppable/Draggable)
+- [x] `const SequenceForm = ...` → 默认导出 + propTypes 原样
+- [x] 扩展名 `.jsx`(含 JSX),import 精简为实际使用项(antd 6 个 + Droppable/Draggable + logger `../../utils/logger`)
 
 ### Task 2: 新增 `sequence/SequenceList.jsx`
 
-- [ ] 逐字搬 L188-239(Card + List + 新建/编辑/删除)
-- [ ] 默认导出 + propTypes 原样
-- [ ] 扩展名 `.jsx`(含 JSX)
+- [x] 逐字搬 L188-239(Card + List + 新建/编辑/删除)
+- [x] 默认导出 + propTypes 原样
+- [x] 扩展名 `.jsx`(含 JSX),import 精简为 Card/Button/List/Popconfirm
 
 ### Task 3: 新增 `sequence/sequenceUtils.js`
 
-- [ ] 从 handleSave L306-323 提取 `buildSequencePayload`(行为逐字保留,含 leader update 的"死注释"实现)
-- [ ] 扩展名 `.js`(无 JSX)
+- [x] 从 handleSave L306-323 提取 `buildSequencePayload`(行为逐字保留,含 leader update 的"死注释"实现)
+- [x] 扩展名 `.js`(无 JSX)
 
 ### Task 4: 重构 `SequenceManager.jsx`
 
-- [ ] 删除 `SequenceForm`(L14-185)+ `SequenceList`(L188-239)定义
-- [ ] 新增 `import SequenceForm from './sequence/SequenceForm'` + `import SequenceList from './sequence/SequenceList'` + `import { buildSequencePayload } from './sequence/sequenceUtils'`
-- [ ] `handleSave` payload 构建段替换为 `const payload = buildSequencePayload(values, isEditingLeader);`
-- [ ] 确认默认导出 `SequenceManager` 不变、props 传递不变、`DragDropContext` 包裹结构不变
+- [x] 删除 `SequenceForm`(L14-185)+ `SequenceList`(L188-239)定义
+- [x] 新增 `import SequenceForm from './sequence/SequenceForm'` + `import SequenceList from './sequence/SequenceList'` + `import { buildSequencePayload } from './sequence/sequenceUtils'`
+- [x] `handleSave` payload 构建段替换为 `const payload = buildSequencePayload(values, isEditingLeader);`
+- [x] 确认默认导出 `SequenceManager` 不变、props 传递不变、`DragDropContext` 包裹结构不变
 
 ### Task 5: 新增 `sequence/__tests__/sequenceUtils.test.js`
 
-- [ ] 4 分支单测:人员 create(sequence→personnel rename)、人员 update(sequence+holiday_sequence 合并去重)、领导 create、领导 update
-- [ ] 断言 payload 结构与原逻辑逐字一致
+- [x] 4 分支单测:人员 create(sequence→personnel rename)、人员 update(sequence+holiday_sequence 合并去重)、领导 create、领导 update
+- [x] 断言 payload 结构与原逻辑逐字一致(5 用例,含无 holiday_sequence 边界)
 
 ### Task 6: 验证
 
-- [ ] 既有 6 用例零回归(`npx jest src/shared/components/SequenceManager.test.js`)
-- [ ] 新增 sequenceUtils 单测通过
-- [ ] `npm run build` 后 `git diff public/routes.json` 为空
-- [ ] 全量 `npm test` 三绿(既有 575 + 新增,零回归)
-- [ ] `npm run lint` 通过
-- [ ] `npm run build` 通过
+- [x] 既有 5 用例零回归(`npx jest src/shared/components/SequenceManager.test.js`)
+- [x] 新增 sequenceUtils 单测通过(5 用例)
+- [x] `npm run build` 后 `git diff public/routes.json` 为空
+- [x] 全量 `npm test` 三绿(580 passed = 575 既有 + 5 新增,零回归)
+- [x] `npm run lint` 通过
+- [x] `npm run build` 通过
 
 ### Task 7: 文档更新 + PR + merge
 
@@ -173,7 +173,7 @@ export const buildSequencePayload = (values, isEditingLeader) => {
 |---|---|
 | `SequenceManager.jsx` 398→~160 行(减 ~238,净 ~40%),聚焦容器职责 | `wc -l` + `git diff` |
 | `sequence/SequenceForm.jsx` ~172 行 / `sequence/SequenceList.jsx` ~52 行 / `sequence/sequenceUtils.js` ~25 行,均 <800 行/函数 <50 行 | `wc -l` + 目检 |
-| 既有 6 个 SequenceManager 用例零回归 | `npx jest src/shared/components/SequenceManager.test.js` |
+| 既有 5 个 SequenceManager 用例零回归 | `npx jest src/shared/components/SequenceManager.test.js` |
 | 新增 sequenceUtils 单测通过(4 分支) | `npx jest src/shared/components/sequence/__tests__/sequenceUtils.test.js` |
 | `ScheduleSettingsPage.jsx` / `ScheduleSettingsPage.test.js` import/mock 零改动 | `git diff` |
 | `public/routes.json` 不变 | `npm run build` 后 `git diff public/routes.json` 为空 |
@@ -184,7 +184,7 @@ export const buildSequencePayload = (values, isEditingLeader) => {
 | 风险 | 缓解 |
 |---|---|
 | **低**:子组件拆分后 import 路径错 | 逐字搬运 + 单测 + `npm run build` 兜底(Vite 暴露解析错误) |
-| **低**:payload 提取改变行为 | 提取为纯函数(§3.2 逐字保留实现,含 leader update 死注释行为)+ 4 分支单测 + 既有 6 用例兜底 |
+| **低**:payload 提取改变行为 | 提取为纯函数(§3.2 逐字保留实现,含 leader update 死注释行为)+ 4 分支单测 + 既有 5 用例兜底 |
 | **低**:round3 计划"SequenceEditor/SequenceRunner"命名与代码现实不符 | 范围调整声明(§顶部)+ 计划如实修订;不强行造 Runner 概念 |
 | **低**:.jsx 文件 lint 盲区(memory: `frontend-eslint-jsx-blindspot`) | 依赖 code review 检查新文件 propTypes 与死 props;单测兜底 |
 | **低**:`ScheduleSettingsPage.test.js` 的 jest.mock 路径 | `SequenceManager.jsx` 原地不动,mock 相对路径零改动 |
