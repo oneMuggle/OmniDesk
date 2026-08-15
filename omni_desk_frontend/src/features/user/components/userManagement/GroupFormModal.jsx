@@ -20,7 +20,7 @@ const GroupFormModal = ({ visible, editingGroup, form, onOk, onCancel }) => (
                 label="用户组名称"
                 rules={[{ required: true, message: '请输入用户组名称' }]}
             >
-                <Input placeholder="请输入用户组名称" />
+                <Input />
             </Form.Item>
         </Form>
     </Modal>

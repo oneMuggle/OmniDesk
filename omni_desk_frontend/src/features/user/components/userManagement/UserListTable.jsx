@@ -96,10 +96,20 @@ const UserListTable = ({ users, personnel, groups, currentUserId, onGroupsChange
 };
 
 UserListTable.propTypes = {
-    users: PropTypes.array,
-    personnel: PropTypes.array,
-    groups: PropTypes.array,
-    currentUserId: PropTypes.number,
+    users: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        username: PropTypes.string,
+        email: PropTypes.string,
+    })),
+    personnel: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        name: PropTypes.string,
+    })),
+    groups: PropTypes.arrayOf(PropTypes.shape({
+        id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+        name: PropTypes.string,
+    })),
+    currentUserId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
     onGroupsChange: PropTypes.func.isRequired,
     onAssociationChange: PropTypes.func.isRequired,
 };

@@ -50,7 +50,6 @@ const useUserManagementPage = () => {
     // react-hooks/set-state-in-effect 规则新启用,行为优化留待后续)
     useEffect(() => {
         const fetchData = async () => {
-            // eslint-disable-next-line react-hooks/set-state-in-effect
             setLoading(true);
             try {
                 await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);

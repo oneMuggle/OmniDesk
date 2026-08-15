@@ -8,13 +8,11 @@ const { Search } = Input;
  * 由 GroupPermissionManager 拆出,原 JSX 逐字搬入。
  */
 const PermissionTreePanel = ({
-    permissions,
     checkedKeys,
     expandedKeys,
     autoExpandParent,
     loading,
     selectedGroupId,
-    allKeys,
     generatedTreeData,
     onExpand,
     onCheck,
@@ -47,17 +45,11 @@ const PermissionTreePanel = ({
 );
 
 PermissionTreePanel.propTypes = {
-    permissions: PropTypes.arrayOf(PropTypes.shape({
-        title: PropTypes.oneOfType([PropTypes.string, PropTypes.node]),
-        key: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-        children: PropTypes.array,
-    })),
     checkedKeys: PropTypes.oneOfType([PropTypes.array, PropTypes.object]),
     expandedKeys: PropTypes.array,
     autoExpandParent: PropTypes.bool,
     loading: PropTypes.bool,
     selectedGroupId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
-    allKeys: PropTypes.array,
     generatedTreeData: PropTypes.array,
     onExpand: PropTypes.func.isRequired,
     onCheck: PropTypes.func.isRequired,

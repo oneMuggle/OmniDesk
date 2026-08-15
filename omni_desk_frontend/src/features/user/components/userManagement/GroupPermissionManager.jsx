@@ -13,7 +13,7 @@ import GroupFormModal from './GroupFormModal';
 const GroupPermissionManager = ({ groups, fetchGroups }) => {
     const {
         selectedGroupId, permissions, loading, checkedKeys, expandedKeys,
-        searchValue, autoExpandParent, isModalVisible, editingGroup, form,
+        autoExpandParent, isModalVisible, editingGroup, form,
         setExpandedKeys,
         handleGroupChange, handleSavePermissions,
         onExpand, onCheck, onSearch,
@@ -37,13 +37,11 @@ const GroupPermissionManager = ({ groups, fetchGroups }) => {
                 </Col>
                 <Col span={24}>
                     <PermissionTreePanel
-                        permissions={permissions}
                         checkedKeys={checkedKeys}
                         expandedKeys={expandedKeys}
                         autoExpandParent={autoExpandParent}
                         loading={loading}
                         selectedGroupId={selectedGroupId}
-                        allKeys={allKeys}
                         generatedTreeData={generatedTreeData}
                         onExpand={onExpand}
                         onCheck={onCheck}
@@ -65,7 +63,10 @@ const GroupPermissionManager = ({ groups, fetchGroups }) => {
 };
 
 GroupPermissionManager.propTypes = {
-  groups: PropTypes.array.isRequired,
+  groups: PropTypes.arrayOf(PropTypes.shape({
+    id: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    name: PropTypes.string,
+  })).isRequired,
   fetchGroups: PropTypes.func.isRequired,
 };
 
