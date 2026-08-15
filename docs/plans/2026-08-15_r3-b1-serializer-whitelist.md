@@ -151,6 +151,7 @@
 - [x] 写 `smart_assistant/tests/` AgentLogSerializer 测试:断言字段白名单
 - [x] 白名单化 AgentLogSerializer
 - [x] 后端全量 pytest(2490 passed)+ 前端 build 冒烟(✓ built in 23.82s)
+- [x] AI 检阅(PR #271)修复:① ragflow_service.RagflowConfigSerializer 同类 CRITICAL(api_key write_only,IsAdminOrReadOnly 下任意登录用户可读明文密钥)② 前端 IntegrationManagementPage 编辑表单回归(openEditModal 先 resetFields + 编辑时空 api_key 不提交,防残留密钥覆盖)③ 补 API 层契约测试(GET 不含 api_key / PUT 不带 api_key 保留原密钥)。修复后全量 2495 passed,前端 build ✓
 
 ### PR-2: personnel(P0)
 

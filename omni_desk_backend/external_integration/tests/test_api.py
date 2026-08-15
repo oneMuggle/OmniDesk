@@ -102,6 +102,46 @@ class TestIntegrationServiceAPI:
 
 
 @pytest.mark.django_db
+class TestIntegrationServiceApiKeyContract:
+    """API 层契约 (R3-B1):读响应不暴露明文 api_key;PUT 不带 api_key 保留原密钥。"""
+
+    def test_get_response_does_not_expose_api_key(self, authenticated_client, integration_service):
+        integration_service.api_key = "super-secret-key"
+        integration_service.save(update_fields=["api_key"])
+
+        resp = authenticated_client.get(f"/api/external/integrations/{integration_service.slug}/")
+
+        assert resp.status_code == 200
+        assert "api_key" not in resp.data
+
+    def test_update_without_api_key_keeps_existing(self, admin_client):
+        """编辑流程契约:PUT 不带 api_key 时保留原密钥(前端「留空不修改」)。"""
+        svc = IntegrationService.objects.create(
+            name="Keep Key",
+            slug="keep-key",
+            integration_type="api",
+            endpoint_url="http://example.com/api",
+            api_key="original-secret",
+        )
+
+        resp = admin_client.put(
+            f"/api/external/integrations/{svc.slug}/",
+            {
+                "name": "Keep Key Renamed",
+                "slug": "keep-key",
+                "integration_type": "api",
+                "endpoint_url": "http://example.com/api",
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 200, resp.data
+        svc.refresh_from_db()
+        assert svc.api_key == "original-secret"
+        assert svc.name == "Keep Key Renamed"
+
+
+@pytest.mark.django_db
 class TestIntegrationServiceSecurity:
     """SSRF 防护与写操作权限收紧测试。"""
 

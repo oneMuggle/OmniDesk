@@ -101,7 +101,7 @@ class AgentLogSerializer(serializers.ModelSerializer):
             "llm_response",
             "created_at",
         ]
-        read_only_fields = ["created_at"]
+        read_only_fields = ("created_at",)
 
 
 class AgentLogFeedbackSerializer(serializers.Serializer):
