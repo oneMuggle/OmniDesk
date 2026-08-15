@@ -10,7 +10,8 @@ import QuickStatsRow from './dashboard/QuickStatsRow';
 import WeeklyOverview from './dashboard/WeeklyOverview';
 import './DashboardPage.css';
 
-// dayjs 副作用面唯一保留点：extend / locale 仅在此注册，子组件只用纯函数 format()/fromNow()
+// dayjs relativeTime/zh-cn 已由应用入口 index.jsx 全局注册;
+// 此处保留原页面独立注册作双保险(幂等),子组件 fromNow() 在直接渲染时亦可用
 dayjs.extend(relativeTime);
 dayjs.locale('zh-cn');
 
