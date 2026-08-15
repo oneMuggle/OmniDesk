@@ -178,7 +178,8 @@ useDashboardData() → {
 ### Task 7: 文档更新 + PR + merge
 
 - [x] round3 plan 标注 R3-D6 完成
-- [ ] feature 分支 push → PR → CI 监控 → code review → merge → 清理(按 R3-D1~D5 先例)
+- [x] feature 分支 push(`refactor/dashboard-page-split`)→ PR #261 → CI 8/8 全绿 → code review(1 Maintainability 已修复:dayjs relativeTime 全局注册至 index.jsx,commit df65ad38)
+- [ ] 用户 merge PR #261 → 清理分支(按 R3-D1~D5 先例)
 
 ## 5. 验收标准
 
