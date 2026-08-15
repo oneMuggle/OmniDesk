@@ -153,8 +153,9 @@ SidebarSubMenu.propTypes = {
   item: PropTypes.shape({
     text: PropTypes.string.isRequired,
     icon: PropTypes.elementType,
+    permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
     subItems: PropTypes.arrayOf(PropTypes.shape({
-      to: PropTypes.string,
+      to: PropTypes.string.isRequired,
       text: PropTypes.string.isRequired,
       icon: PropTypes.elementType,
       permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),

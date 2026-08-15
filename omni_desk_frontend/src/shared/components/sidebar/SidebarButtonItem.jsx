@@ -44,6 +44,7 @@ SidebarButtonItem.propTypes = {
     icon: PropTypes.elementType.isRequired,
     text: PropTypes.string.isRequired,
     action: PropTypes.func.isRequired,
+    permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
   }).isRequired,
   isCollapsed: PropTypes.bool,
   isMobileMenuOpen: PropTypes.bool,

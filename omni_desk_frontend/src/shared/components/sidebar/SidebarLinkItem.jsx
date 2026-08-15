@@ -44,6 +44,7 @@ SidebarLinkItem.propTypes = {
     to: PropTypes.string.isRequired,
     icon: PropTypes.elementType.isRequired,
     text: PropTypes.string.isRequired,
+    permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
   }).isRequired,
   isCollapsed: PropTypes.bool,
   isMobileMenuOpen: PropTypes.bool,

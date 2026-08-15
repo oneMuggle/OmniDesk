@@ -182,7 +182,7 @@ createUserDropdownItems({ navigate, logout }) => DropdownItem[]
 
 | 标准 | 验证方式 |
 |---|---|
-| `Sidebar.jsx` ≤130 行薄壳 | `wc -l` |
+| `Sidebar.jsx` ≤152 行薄壳(446→152,减 66%) | `wc -l` |
 | 各新文件 <800 行 / 函数 <50 行 | `wc -l` + 目检 |
 | 既有 7 用例零改动通过 + 新增菜单单测通过 | `npx jest shared/components` |
 | 全量 jest / lint / build 三绿 | `npm test` + `npm run lint` + `npm run build` |

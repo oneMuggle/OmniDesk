@@ -91,7 +91,12 @@ SidebarHeader.propTypes = {
   isGuest: PropTypes.bool,
   isCollapsed: PropTypes.bool,
   isMobileMenuOpen: PropTypes.bool,
-  userDropdownItems: PropTypes.arrayOf(PropTypes.object),
+  userDropdownItems: PropTypes.arrayOf(PropTypes.shape({
+    key: PropTypes.string,
+    label: PropTypes.string,
+    danger: PropTypes.bool,
+    type: PropTypes.oneOf(['divider']),
+  })),
   onToggleCollapsed: PropTypes.func.isRequired,
   onCloseMobile: PropTypes.func.isRequired,
   onNavigate: PropTypes.func.isRequired,
