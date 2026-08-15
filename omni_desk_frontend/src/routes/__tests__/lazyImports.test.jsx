@@ -5,7 +5,7 @@ import LazyComponent from '../LazyComponent';
 const LAZY_TYPE = Symbol.for('react.lazy');
 
 describe('lazyImports 注册中心', () => {
-  it('导出 72 个懒加载页面组件', () => {
+  it('导出 72 个懒加载组件(页面/布局/认证)', () => {
     expect(Object.keys(lazyImports)).toHaveLength(72);
   });
 
