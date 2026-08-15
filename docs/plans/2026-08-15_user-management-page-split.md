@@ -206,8 +206,8 @@ R3-D4 拆分**直接携带 propTypes 契约**(R3-D3 检阅沉淀:components/ 下
 
 ### Task 8: 文档更新 + PR + merge
 
-- [ ] round3 plan 标注 R3-D4 完成
-- [ ] feature 分支 push → PR → CI 监控 → merge → 清理(按 R3-D1/D2/D3 先例)
+- [x] round3 plan 标注 R3-D4 完成
+- [x] feature 分支 push → PR #255 → CI 监控(8/8 绿)→ code review(4 条 MEDIUM/LOW 已修)→ **等待用户 merge** → 清理(按 R3-D1/D2/D3 先例)
 
 ## 5. 验收标准
 
