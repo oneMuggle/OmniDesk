@@ -30,15 +30,18 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
 class ProfessionalQualificationSerializer(serializers.ModelSerializer):
     class Meta:
         model = ProfessionalQualification
-        # R3-B1: 剔除 certificate_id(证件编号,前端未消费)
-        fields = ["id", "personnel", "qualification_name", "issue_date", "expiry_date"]
+        # R3-B1: certificate_id(证件编号)仅允许写入,读响应不返回;与 api_key write_only 决策一致
+        fields = ["id", "personnel", "qualification_name", "issue_date", "expiry_date", "certificate_id"]
+        extra_kwargs = {"certificate_id": {"write_only": True}}
 
 
 class FamilyMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = FamilyMember
-        # R3-B1: 剔除 id_card_number(身份证号,Fernet 加密,读取解密,前端未消费)
-        fields = ["id", "personnel", "name", "relationship", "contact_number"]
+        # R3-B1: id_card_number(身份证,Fernet 加密)仅允许写入,读响应不返回明文;
+        # 保留写能力避免 HR 经 API 录入身份证被静默丢弃
+        fields = ["id", "personnel", "name", "relationship", "contact_number", "id_card_number"]
+        extra_kwargs = {"id_card_number": {"write_only": True}}
 
 
 class PersonnelSerializer(serializers.ModelSerializer):

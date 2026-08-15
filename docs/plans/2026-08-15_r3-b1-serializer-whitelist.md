@@ -74,8 +74,8 @@
 | ContractSerializer (L15) | `("id","personnel","contract_number","contract_type","start_date","end_date")` | 前端详情/编辑消费 + 写回 personnel |
 | EducationSerializer (L21) | `("id","personnel","school","degree","major","start_date","end_date")` | 全消费 |
 | WorkExperienceSerializer (L27) | `("id","personnel","company","position","start_date","end_date","description")` | 全消费 |
-| ProfessionalQualificationSerializer (L33) | `("id","personnel","qualification_name","issue_date","expiry_date")` | 🟠 剔除 `certificate_id`(证件编号) |
-| FamilyMemberSerializer (L39) | `("id","personnel","name","relationship","contact_number")` | 🔴 剔除 `id_card_number`(身份证,前端未消费) |
+| ProfessionalQualificationSerializer (L33) | `("id","personnel","qualification_name","issue_date","expiry_date")` + `certificate_id` write_only | 🟠 `certificate_id`(证件编号)改 write_only,读响应不返回 |
+| FamilyMemberSerializer (L39) | `("id","personnel","name","relationship","contact_number")` + `id_card_number` write_only | 🔴 `id_card_number`(身份证)改 write_only,读响应不返回明文 |
 
 ---
 
@@ -159,6 +159,7 @@
 - [x] 写 `personnel/tests/` serializer 测试:FamilyMember 读响应**不含** `id_card_number`、ProfessionalQualification 不含 `certificate_id`
 - [x] 白名单化 6 个 serializer
 - [x] 后端全量 pytest(2503 passed)+ 前端 build 冒烟 + 人员详情页字段消费安全网确认(前端仅消费 Personnel 主表 id_card_number,FamilyMember 嵌套零消费)
+- [x] AI 检阅(PR #274)修复:`id_card_number`/`certificate_id` 由「剔除」改为 **write_only**(保留写能力,读响应不返回;与 api_key 决策一致,避免 API 写路径静默丢弃);补 2 个写路径测试
 
 ### PR-3: events + meeting_rooms(P1)
 

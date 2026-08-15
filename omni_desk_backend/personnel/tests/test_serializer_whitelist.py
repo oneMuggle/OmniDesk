@@ -61,6 +61,21 @@ class TestFamilyMemberSerializerWhitelist:
 
         assert set(data.keys()) == {"id", "personnel", "name", "relationship", "contact_number"}
 
+    def test_write_accepts_id_card_number(self, personnel):
+        """写路径仍接受 id_card_number(保留 HR 经 API 录入能力,读侧不暴露)。"""
+        serializer = FamilyMemberSerializer(
+            data={
+                "personnel": personnel.id,
+                "name": "李四",
+                "relationship": "配偶",
+                "contact_number": "13800000000",
+                "id_card_number": "110101199001011234",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["id_card_number"] == "110101199001011234"
+
 
 @pytest.mark.django_db
 class TestProfessionalQualificationSerializerWhitelist:
@@ -88,6 +103,20 @@ class TestProfessionalQualificationSerializerWhitelist:
         data = ProfessionalQualificationSerializer(q).data
 
         assert set(data.keys()) == {"id", "personnel", "qualification_name", "issue_date", "expiry_date"}
+
+    def test_write_accepts_certificate_id(self, personnel):
+        """写路径仍接受 certificate_id(读侧不暴露)。"""
+        serializer = ProfessionalQualificationSerializer(
+            data={
+                "personnel": personnel.id,
+                "qualification_name": "电工证",
+                "issue_date": "2024-01-01",
+                "certificate_id": "CERT-001",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["certificate_id"] == "CERT-001"
 
 
 @pytest.mark.django_db
