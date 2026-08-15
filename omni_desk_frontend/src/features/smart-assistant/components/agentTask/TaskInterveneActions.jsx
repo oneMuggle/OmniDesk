@@ -1,5 +1,6 @@
 import { Button, Popconfirm, Space } from 'antd';
 import { PauseCircleOutlined, PlayCircleOutlined, StopOutlined } from '@ant-design/icons';
+import PropTypes from 'prop-types';
 
 const TaskInterveneActions = ({ status, interveneLoading, onIntervene }) => {
   const canPause = status === 'running';
@@ -46,6 +47,12 @@ const TaskInterveneActions = ({ status, interveneLoading, onIntervene }) => {
       </Popconfirm>
     </Space>
   );
+};
+
+TaskInterveneActions.propTypes = {
+  status: PropTypes.string,
+  interveneLoading: PropTypes.bool,
+  onIntervene: PropTypes.func.isRequired,
 };
 
 export default TaskInterveneActions;

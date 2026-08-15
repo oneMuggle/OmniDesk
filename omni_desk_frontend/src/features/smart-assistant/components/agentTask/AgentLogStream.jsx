@@ -1,4 +1,5 @@
 import { Empty, Space, Spin, Tag, Timeline, Typography } from 'antd';
+import PropTypes from 'prop-types';
 import { EVENT_TYPE_LABELS } from '../../api/agentTaskApi';
 import { eventColor, formatPayload, formatTime } from '../../utils/agentTaskUtils';
 
@@ -45,5 +46,10 @@ const AgentLogStream = ({ events, detailLoading }) => (
     )}
   </div>
 );
+
+AgentLogStream.propTypes = {
+  events: PropTypes.array,
+  detailLoading: PropTypes.bool,
+};
 
 export default AgentLogStream;

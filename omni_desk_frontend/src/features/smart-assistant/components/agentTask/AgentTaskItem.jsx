@@ -1,4 +1,5 @@
 import { List, Space, Tag } from 'antd';
+import PropTypes from 'prop-types';
 import { TASK_STATUS_MAP } from '../../api/agentTaskApi';
 import { formatTime, statusInfoOf } from '../../utils/agentTaskUtils';
 
@@ -23,6 +24,17 @@ const AgentTaskItem = ({ task, selected, onClick }) => {
       />
     </List.Item>
   );
+};
+
+AgentTaskItem.propTypes = {
+  task: PropTypes.shape({
+    task_id: PropTypes.string,
+    objective: PropTypes.string,
+    status: PropTypes.string,
+    created_at: PropTypes.string,
+  }),
+  selected: PropTypes.bool,
+  onClick: PropTypes.func.isRequired,
 };
 
 export default AgentTaskItem;

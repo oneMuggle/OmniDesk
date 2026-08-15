@@ -1,4 +1,5 @@
 import { Alert, Card, Empty, List, Space, Spin, Tag, Typography } from 'antd';
+import PropTypes from 'prop-types';
 import { SUBTASK_STATUS_MAP, TASK_STATUS_MAP } from '../../api/agentTaskApi';
 import { statusInfoOf } from '../../utils/agentTaskUtils';
 import AgentLogStream from './AgentLogStream';
@@ -95,6 +96,24 @@ const TaskDetailPanel = ({
       )}
     </Card>
   );
+};
+
+TaskDetailPanel.propTypes = {
+  selectedTaskId: PropTypes.string,
+  taskDetail: PropTypes.shape({
+    task_id: PropTypes.string,
+    objective: PropTypes.string,
+    status: PropTypes.string,
+    final_output: PropTypes.any,
+  }),
+  subtasks: PropTypes.array,
+  events: PropTypes.array,
+  detailLoading: PropTypes.bool,
+  detailError: PropTypes.string,
+  streaming: PropTypes.bool,
+  streamError: PropTypes.string,
+  interveneLoading: PropTypes.bool,
+  onIntervene: PropTypes.func.isRequired,
 };
 
 export default TaskDetailPanel;

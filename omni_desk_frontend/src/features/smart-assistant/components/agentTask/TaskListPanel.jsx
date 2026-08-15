@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Empty, List } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
+import PropTypes from 'prop-types';
 import AgentTaskItem from './AgentTaskItem';
 
 const TaskListPanel = ({ tasks, tasksLoading, tasksError, selectedTaskId, onSelect, onRefresh }) => (
@@ -31,5 +32,14 @@ const TaskListPanel = ({ tasks, tasksLoading, tasksError, selectedTaskId, onSele
     )}
   </Card>
 );
+
+TaskListPanel.propTypes = {
+  tasks: PropTypes.array,
+  tasksLoading: PropTypes.bool,
+  tasksError: PropTypes.string,
+  selectedTaskId: PropTypes.string,
+  onSelect: PropTypes.func.isRequired,
+  onRefresh: PropTypes.func.isRequired,
+};
 
 export default TaskListPanel;

@@ -1,5 +1,6 @@
 import { Alert, Button, Card, Input, Space } from 'antd';
 import { SendOutlined } from '@ant-design/icons';
+import PropTypes from 'prop-types';
 
 const TaskCreateForm = ({ goal, createLoading, createError, onGoalChange, onCreate }) => (
   <Card size="small" style={{ marginBottom: 16 }}>
@@ -21,5 +22,13 @@ const TaskCreateForm = ({ goal, createLoading, createError, onGoalChange, onCrea
     )}
   </Card>
 );
+
+TaskCreateForm.propTypes = {
+  goal: PropTypes.string,
+  createLoading: PropTypes.bool,
+  createError: PropTypes.string,
+  onGoalChange: PropTypes.func.isRequired,
+  onCreate: PropTypes.func.isRequired,
+};
 
 export default TaskCreateForm;
