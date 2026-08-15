@@ -24,8 +24,8 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 |---|---|---|---|---|
 | R3-A1 | `smart_assistant/agent/orchestrator.py` | **1520 行**,含 5 处 C901 告警(`handle`=31, `process_stream`=30, `stream`=22, `event_stream`=16, `_run_tool_calls_rounds`=12) | 拆为 `orchestrator.py`(orchestration 主流程)+ `stream_runner.py` + `tool_chain_runner.py` + `error_recovery.py` | B1 + B2 ✅ 已完成(见 docs/superpowers/plans/2026-08-14-orchestrator-split.md) |
 | R3-A2 | `smart_assistant/agent/tool_chain_executor.py` | 589 行,`validate` 函数 C901=25 | 拆为 `validator.py` + `chain_executor.py` + `dependency_resolver.py` | B1 + B2 ✅ 已完成(2026-08-15 实证:validate C901 已在前序重构 #212 消解,ruff --select C901,F541,F811,E402 全过,无需处理) |
-| R3-A3 | `smart_assistant/agents/task_packet.py` | 534 行,5 处 C901 告警(`create`=17, `execute`=16, `from_dict`=15, `__post_init__`=13, `_execute_pipeline`=11) | 拆为 `packet.py`(数据类)+ `validator.py`(校验),删除 `task_packet.py`;"pipeline.py(执行)"腿已由 R3-A8 交付(实际 C901:`from_dict`=15 / `validate`=25 / `__post_init__`×2=13) | B1 + B2 ✅ 已完成(见 docs/plans/2026-08-14_task-packet-split.md;模块职责并入 docs/technical/32-smart-assistant-multi-agent.md §3) |
-| R3-A4 | `smart_assistant/views/chat.py` | 537 行 | 拆为 `chat_stream.py` + `chat_sync.py` + `conversation_manager.py` | B1 ✅ 已完成(见 docs/plans/2026-08-14_chat-view-split.md;chat.py 537→39 行薄壳,create C901 17→8 / stream 22→4 / event_stream 16→8,全项目 2483 passed/覆盖率 92.42%) |
+| R3-A3 | `smart_assistant/agents/task_packet.py` | 534 行,5 处 C901 告警(`create`=17, `execute`=16, `from_dict`=15, `__post_init__`=13, `_execute_pipeline`=11) | 拆为 `packet.py`(数据类)+ `validator.py`(校验),删除 `task_packet.py`;"pipeline.py(执行)"腿已由 R3-A8 交付(实际 C901:`from_dict`=15 / `validate`=25 / `__post_init__`×2=13) | B1 + B2 ✅ 已完成(见拆分计划(已归档);模块职责并入 docs/technical/32-smart-assistant-multi-agent.md §3) |
+| R3-A4 | `smart_assistant/views/chat.py` | 537 行 | 拆为 `chat_stream.py` + `chat_sync.py` + `conversation_manager.py` | B1 ✅ 已完成(见拆分计划(已归档);chat.py 537→39 行薄壳,create C901 17→8 / stream 22→4 / event_stream 16→8,全项目 2483 passed/覆盖率 92.42%) |
 | R3-A5 | `smart_assistant/tools/swap_request_tool.py` | 485 行,`_legacy_process` C901=17 | 拆分遗留实现路径,移除 `_legacy_process` | B1 + B2 ✅ 已完成(2026-08-15 实证:`_legacy_process` 已在前序重构 #212 移除,ruff --select C901,F541,F811,E402 全过,无需处理) |
 | R3-A6 | `events/models.py` | 453 行 + F811 双重 `timezone` import(第 3 + 232 行) | 拆为 `events/models/__init__.py` + `events/models/occurrence.py` 等子模块;删除 line 232 重复 import | B1 + B2 ✅ 已完成(PR #240,merge 4ab19304;仅删除 L232 重复 import,结构拆分 YAGNI——453 行<800 上限,未拆包) |
 | R3-A7 | `smart_assistant/hooks/base.py` | 449 行 | 拆为 `hooks/base.py` + `hooks/lifecycle.py` + `hooks/registry.py` | B1 ✅ 已完成(2026-08-15 实证:C901 已在前序重构消解,ruff --select C901 全过,无需处理) |
@@ -67,14 +67,14 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 
 | # | 文件 | 问题 | 修复方向 | 来源 |
 |---|---|---|---|---|
-| R3-D1 | `src/features/smart-assistant/pages/SmartChatPage.jsx` | 713 行 | round2 R2-A2 已拆 ScheduleManagementPage;round3 接力拆 SmartChatPage(拆为 `ChatView` + `MessageList` + `InputBar` + `HookLayer`) | B3 + round2 R2-A2 ✅ 已完成(见 docs/plans/2026-08-15_smart-chat-page-split.md;713→67 行薄壳,拆为 utils/chatUtils + hooks/useSmartChat + 5 子组件,全量 524 用例 + lint 0 warning + build 全绿) |
-| R3-D2 | `src/features/smart-assistant/components/ToolResult.jsx` | 588 行 | 按工具类型拆分子组件 + 注册中心 | B3 ✅ 已完成(见 docs/plans/2026-08-15_tool-result-split.md;588→174 行薄壳(含 98 行 propTypes 契约),拆为 utils/ + 13 子组件 + 注册中心,全量 538 用例 + lint 0 warning + build 全绿) |
-| R3-D3 | `src/features/smart-assistant/pages/AgentTaskPanel.jsx` | 522 行 | 拆为 `AgentTaskPanel` + `AgentTaskItem` + `AgentLogStream` | B3 ✅ 已完成(见 docs/plans/2026-08-15_agent-task-panel-split.md;522→78 行薄壳,拆为 utils/agentTaskUtils + hooks/useAgentTaskPanel + 6 子组件,既有 12 用例零改动 + 新增 19 utils 单测,全量 557 用例 + lint 0 warning + build 全绿) |
-| R3-D4 | `src/features/user/pages/UserManagementPage.jsx` | 474 行 | 列表 + 表单 + 权限矩阵拆开 | B3 ✅ 已完成(见 docs/plans/2026-08-15_user-management-page-split.md;474→60 行薄壳,拆为 utils/userManagementUtils + hooks/useUserManagementPage + hooks/useGroupPermissionManager(.jsx) + 5 子组件,既有 3 用例零改动 + 新增 4 utils 单测,user feature 17 用例 + lint 0 warning + build 全绿) |
-| R3-D5 | `src/shared/components/Sidebar.jsx` | 446 行 | 按角色(管理员/普通/访客)拆分路由表 + Sidebar 渲染 | B3 ✅ 已完成(见 docs/plans/2026-08-15_sidebar-split.md;446→152 行薄壳,拆为 sidebar/sidebarMenuItems 数据工厂 + 4 渲染子组件(全带 propTypes),删除死代码 menuConfig.jsx + 2 过时测试,既有 7 用例零改动 + 新增 9 菜单单测,全量 560 用例 + lint 0 warning + build 全绿) |
-| R3-D6 | `src/shared/pages/DashboardPage.jsx` | 428 行 | 拆为 DashboardShell + 各 widget(统计/待办/快速入口) | B3 ✅ 已完成(见 docs/plans/2026-08-15_dashboard-page-split.md;428→54 行薄壳,拆为 dashboard/dashboardData 数据工厂 + hooks/useDashboardData + 5 子组件(全带 propTypes),新增 6 数据层单测,全量 572 用例 + lint 0 warning + build 全绿) |
-| R3-D7 | `src/routes/index.jsx` | 416 行 | 拆为路由表 + lazy wrapper + permission wrapper | B3 ✅ 已完成(见 docs/plans/2026-08-15_routes-split.md;416→399 行,拆为 lazyImports 注册中心(72 个 lazy import)+ LazyComponent 独立组件;因 generate-routes.js 字面量 AST 契约,路由表/权限 wrapper 拆分不可行,收敛为 lazy wrapper 聚焦版;新增 3 单测,全量 575 用例 + lint 0 warning + build 全绿,public/routes.json 与拆分前逐字一致) |
-| R3-D8 | `src/shared/components/SequenceManager.jsx` | 398 行 | 拆为 SequenceList + SequenceEditor + SequenceRunner | B3 ✅ 已完成(见 docs/plans/2026-08-15_sequence-manager-split.md;398→154 行薄壳,拆为 sequence/SequenceForm.jsx(182 行)+ sequence/SequenceList.jsx(57 行)+ sequence/sequenceUtils.js(20 行,buildSequencePayload 纯函数);因代码无 Runner 概念、编辑器实为 SequenceForm,收敛为 SequenceList + SequenceForm + 薄壳 + 纯函数;新增 5 单测,全量 580 用例 + lint 0 warning + build 全绿,public/routes.json 不变) |
+| R3-D1 | `src/features/smart-assistant/pages/SmartChatPage.jsx` | 713 行 | round2 R2-A2(ScheduleManagementPage 拆分)未落地,文件仍 909 行;round3 接力拆 SmartChatPage(拆为 `ChatView` + `MessageList` + `InputBar` + `HookLayer`) | B3 ✅ 已完成(见拆分计划(已归档);713→67 行薄壳,拆为 utils/chatUtils + hooks/useSmartChat + 5 子组件,全量 524 用例 + lint 0 warning + build 全绿) |
+| R3-D2 | `src/features/smart-assistant/components/ToolResult.jsx` | 588 行 | 按工具类型拆分子组件 + 注册中心 | B3 ✅ 已完成(见拆分计划(已归档);588→174 行薄壳(含 98 行 propTypes 契约),拆为 utils/ + 13 子组件 + 注册中心,全量 538 用例 + lint 0 warning + build 全绿) |
+| R3-D3 | `src/features/smart-assistant/pages/AgentTaskPanel.jsx` | 522 行 | 拆为 `AgentTaskPanel` + `AgentTaskItem` + `AgentLogStream` | B3 ✅ 已完成(见拆分计划(已归档);522→78 行薄壳,拆为 utils/agentTaskUtils + hooks/useAgentTaskPanel + 6 子组件,既有 12 用例零改动 + 新增 19 utils 单测,全量 557 用例 + lint 0 warning + build 全绿) |
+| R3-D4 | `src/features/user/pages/UserManagementPage.jsx` | 474 行 | 列表 + 表单 + 权限矩阵拆开 | B3 ✅ 已完成(见拆分计划(已归档);474→60 行薄壳,拆为 utils/userManagementUtils + hooks/useUserManagementPage + hooks/useGroupPermissionManager(.jsx) + 5 子组件,既有 3 用例零改动 + 新增 4 utils 单测,user feature 17 用例 + lint 0 warning + build 全绿) |
+| R3-D5 | `src/shared/components/Sidebar.jsx` | 446 行 | 按角色(管理员/普通/访客)拆分路由表 + Sidebar 渲染 | B3 ✅ 已完成(见拆分计划(已归档);446→152 行薄壳,拆为 sidebar/sidebarMenuItems 数据工厂 + 4 渲染子组件(全带 propTypes),删除死代码 menuConfig.jsx + 2 过时测试,既有 7 用例零改动 + 新增 9 菜单单测,全量 560 用例 + lint 0 warning + build 全绿) |
+| R3-D6 | `src/shared/pages/DashboardPage.jsx` | 428 行 | 拆为 DashboardShell + 各 widget(统计/待办/快速入口) | B3 ✅ 已完成(见拆分计划(已归档);428→54 行薄壳,拆为 dashboard/dashboardData 数据工厂 + hooks/useDashboardData + 5 子组件(全带 propTypes),新增 6 数据层单测,全量 572 用例 + lint 0 warning + build 全绿) |
+| R3-D7 | `src/routes/index.jsx` | 416 行 | 拆为路由表 + lazy wrapper + permission wrapper | B3 ✅ 已完成(见拆分计划(已归档);416→399 行,拆为 lazyImports 注册中心(72 个 lazy import)+ LazyComponent 独立组件;因 generate-routes.js 字面量 AST 契约,路由表/权限 wrapper 拆分不可行,收敛为 lazy wrapper 聚焦版;新增 3 单测,全量 575 用例 + lint 0 warning + build 全绿,public/routes.json 与拆分前逐字一致) |
+| R3-D8 | `src/shared/components/SequenceManager.jsx` | 398 行 | 拆为 SequenceList + SequenceEditor + SequenceRunner | B3 ✅ 已完成(见拆分计划(已归档);398→154 行薄壳,拆为 sequence/SequenceForm.jsx(182 行)+ sequence/SequenceList.jsx(57 行)+ sequence/sequenceUtils.js(20 行,buildSequencePayload 纯函数);因代码无 Runner 概念、编辑器实为 SequenceForm,收敛为 SequenceList + SequenceForm + 薄壳 + 纯函数;新增 5 单测,全量 580 用例 + lint 0 warning + build 全绿,public/routes.json 不变) |
 
 **涉及模块:** `src/features/smart-assistant/`、`src/features/schedule/`、`src/features/user/`、`src/shared/`、`src/routes/`
 **风险:** 中(R3-D1/D2/D3 是 smart-assistant 集群,改动影响核心 UX)
@@ -87,7 +87,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-E1 | ruff 一次性 sweep(C901/F841/F811/F541/E402/E501) | ~58 处问题 | 一次性修复并把 `--select C901,F,E,LOG` 收紧到 CI(已含 LOG,本轮加 C901 + F 大类) | B2 + roadmap BE |
 | R3-E2 | mypy 硬门禁(round2 R2-E1) | warnings-only | 接力 round2 切 `--strict` 作为 merge blocker | round2 R2-E1 |
 | R3-E3 | `pip-audit` 与 `npm audit` | 已加 advisory(non-blocking),roadmap §5 阶段 5 待落地硬门禁 | 升级为 blocking,按依赖类型分类(直接依赖 vs dev) | roadmap §5 阶段 5 |
-| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 |
+| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 ✅ 已完成(PR #270:清理 12 个已完成 plan = R3-A4/R3-D1~D8 拆分计划 9 + round1/round2 各 1 + p1a2-rate-limit 1;保留 12 个(11 个存疑/进行中 + round3 本体) |
 
 **涉及模块:** `.github/workflows/ci.yml`、`pyproject.toml`、`ruff.toml`、`mypy.ini`、`docs/plans/`
 **风险:** 低-中(E3/E2 短期可能解不开存量)
@@ -124,7 +124,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | 扫描面 | 工具 / 来源 | 产出的候选编号 |
 |---|---|---|
 | **A** roadmap 残留 | `docs/plans/2026-06-05_project-optimization-roadmap.md` §3-5(roadmap 自身清单)+ round1/round2 中未落地 | R3-B3 / R3-C4 / R3-C5 / R3-E2 / R3-E3 / R3-E4 / R3-F4 / R3-G1 / R3-G2 |
-| **A** round2 接力项 | round2 P0/P1/P2 中明确推到下轮的(R2-A1 完成需继续 / R2-B1 实施 / R2-D1 接力 / R2-E2 接力) | R3-A8 / R3-B4 / R3-C4 / R3-C5 / R3-E2 / R3-D1 |
+| **A** round2 接力项 | round2 P0/P1/P2 中明确推到下轮的(R2-A1 完成需继续 / R2-B1 实施 / R2-D1 接力 / R2-E2 接力;R2-A2+A3 ScheduleManagementPage 拆分与全量拉取→分页 round3 未覆盖,遗留待后续轮次) | R3-A8 / R3-B4 / R3-C4 / R3-C5 / R3-E2 / R3-D1 |
 | **B** 静态扫描 | ruff C901/F/E 大类 + 大文件 Top10 + 大组件 Top10 + .all() / Serializer `__all__` / print 残留 / type: ignore | R3-A1~A9 / R3-B1 / R3-B2 / R3-C2 / R3-C3 / R3-D1~D8 |
 | **C** docs 对齐 | `docs/technical/27-logging-standards.md` / `28-smart-assistant-coverage-roadmap.md` / `29-performance-profiling.md` 中描述但未完成 | R3-C1 / R3-F1 / R3-F2 / R3-G3 / R3-G4 |
 | **D** PR 轻量 | 近 2 月 merged PR 中 `perf/refactor/tech-debt` 标签(LLM token 治理、smart_assistant 错误提示、限流) | R3-F3 |
@@ -170,7 +170,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 
 - 上游:
   - `docs/plans/2026-07-30_project-optimization-round1.md`(已合并,PR #127,文档已删)
-  - `docs/plans/2026-07-31_project-optimization-round2.md`(P0/P1 阶段合并后,本轮接力 P2 与新发现)
+  - `docs/plans/2026-07-31_project-optimization-round2.md`(P0/P1 阶段合并后,本轮接力 P2 与新发现;文档已随 R3-E4 清理)
   - `docs/plans/2026-06-05_project-optimization-roadmap.md`(整体 12 周路线图,R3 候选与其 P1/P2/P3 中未在 round1/round2 落地的对齐)
 - 同源:
   - `docs/technical/25-api-performance-audit.md`(R3-B3 直接复用其审计模板)

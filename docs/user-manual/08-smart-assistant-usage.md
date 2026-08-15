@@ -347,7 +347,6 @@ A: 阶段 1 仅生成简单版式(标题/段落/表格);复杂版式请下载后
 📚 **相关文档**:
 - 技术架构:[docs/technical/16-smart-assistant.md](../technical/16-smart-assistant.md)
 - 深化设计:[docs/technical/17-ai-assistant-deep-design.md](../technical/17-ai-assistant-deep-design.md)
-- 优化路线图:[docs/plans/2026-06-06_smart-assistant-optimization.md](../plans/2026-06-06_smart-assistant-optimization.md)
 
 ## 跨模块汇总查询(2026-07-07 新增)
 
