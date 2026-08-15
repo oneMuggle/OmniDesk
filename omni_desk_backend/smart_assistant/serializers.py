@@ -91,7 +91,16 @@ class SessionForkSerializer(serializers.Serializer):
 class AgentLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentLog
-        fields = "__all__"
+        fields = [
+            "id",
+            "user_query",
+            "intent",
+            "tool_used",
+            "tool_input",
+            "tool_output",
+            "llm_response",
+            "created_at",
+        ]
         read_only_fields = ["created_at"]
 
 
