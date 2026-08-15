@@ -74,7 +74,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-D5 | `src/shared/components/Sidebar.jsx` | 446 行 | 按角色(管理员/普通/访客)拆分路由表 + Sidebar 渲染 | B3 ✅ 已完成(见 docs/plans/2026-08-15_sidebar-split.md;446→152 行薄壳,拆为 sidebar/sidebarMenuItems 数据工厂 + 4 渲染子组件(全带 propTypes),删除死代码 menuConfig.jsx + 2 过时测试,既有 7 用例零改动 + 新增 9 菜单单测,全量 560 用例 + lint 0 warning + build 全绿) |
 | R3-D6 | `src/shared/pages/DashboardPage.jsx` | 428 行 | 拆为 DashboardShell + 各 widget(统计/待办/快速入口) | B3 ✅ 已完成(见 docs/plans/2026-08-15_dashboard-page-split.md;428→54 行薄壳,拆为 dashboard/dashboardData 数据工厂 + hooks/useDashboardData + 5 子组件(全带 propTypes),新增 6 数据层单测,全量 572 用例 + lint 0 warning + build 全绿) |
 | R3-D7 | `src/routes/index.jsx` | 416 行 | 拆为路由表 + lazy wrapper + permission wrapper | B3 ✅ 已完成(见 docs/plans/2026-08-15_routes-split.md;416→399 行,拆为 lazyImports 注册中心(72 个 lazy import)+ LazyComponent 独立组件;因 generate-routes.js 字面量 AST 契约,路由表/权限 wrapper 拆分不可行,收敛为 lazy wrapper 聚焦版;新增 3 单测,全量 575 用例 + lint 0 warning + build 全绿,public/routes.json 与拆分前逐字一致) |
-| R3-D8 | `src/shared/components/SequenceManager.jsx` | 398 行 | 拆为 SequenceList + SequenceEditor + SequenceRunner | B3 |
+| R3-D8 | `src/shared/components/SequenceManager.jsx` | 398 行 | 拆为 SequenceList + SequenceEditor + SequenceRunner | B3 ✅ 已完成(见 docs/plans/2026-08-15_sequence-manager-split.md;398→154 行薄壳,拆为 sequence/SequenceForm.jsx(182 行)+ sequence/SequenceList.jsx(57 行)+ sequence/sequenceUtils.js(20 行,buildSequencePayload 纯函数);因代码无 Runner 概念、编辑器实为 SequenceForm,收敛为 SequenceList + SequenceForm + 薄壳 + 纯函数;新增 5 单测,全量 580 用例 + lint 0 warning + build 全绿,public/routes.json 不变) |
 
 **涉及模块:** `src/features/smart-assistant/`、`src/features/schedule/`、`src/features/user/`、`src/shared/`、`src/routes/`
 **风险:** 中(R3-D1/D2/D3 是 smart-assistant 集群,改动影响核心 UX)
