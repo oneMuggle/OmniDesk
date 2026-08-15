@@ -160,8 +160,9 @@ LazyComponent.propTypes = { component: PropTypes.elementType.isRequired };
 
 ### Task 6: 文档更新 + PR + merge
 
-- [ ] round3 plan 标注 R3-D7 完成(注明范围调整为 lazy wrapper 聚焦版 + 原因)
-- [ ] feature 分支 push → PR → CI 监控 → code review → merge → 清理(按 R3-D1~D6 先例)
+- [x] round3 plan 标注 R3-D7 完成(注明范围调整为 lazy wrapper 聚焦版 + 原因)
+- [x] feature 分支 push(`refactor/routes-split`)→ PR #264 → CI 8/8 全绿 → code review(0 Critical/High/Medium,1 LOW 描述措辞已修正,commit 4d066822)
+- [ ] 用户 merge PR #264 → 清理分支(按 R3-D1~D6 先例)
 
 ## 5. 验收标准
 
