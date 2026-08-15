@@ -71,7 +71,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-D2 | `src/features/smart-assistant/components/ToolResult.jsx` | 588 行 | 按工具类型拆分子组件 + 注册中心 | B3 ✅ 已完成(见 docs/plans/2026-08-15_tool-result-split.md;588→174 行薄壳(含 98 行 propTypes 契约),拆为 utils/ + 13 子组件 + 注册中心,全量 538 用例 + lint 0 warning + build 全绿) |
 | R3-D3 | `src/features/smart-assistant/pages/AgentTaskPanel.jsx` | 522 行 | 拆为 `AgentTaskPanel` + `AgentTaskItem` + `AgentLogStream` | B3 ✅ 已完成(见 docs/plans/2026-08-15_agent-task-panel-split.md;522→78 行薄壳,拆为 utils/agentTaskUtils + hooks/useAgentTaskPanel + 6 子组件,既有 12 用例零改动 + 新增 19 utils 单测,全量 557 用例 + lint 0 warning + build 全绿) |
 | R3-D4 | `src/features/user/pages/UserManagementPage.jsx` | 474 行 | 列表 + 表单 + 权限矩阵拆开 | B3 ✅ 已完成(见 docs/plans/2026-08-15_user-management-page-split.md;474→60 行薄壳,拆为 utils/userManagementUtils + hooks/useUserManagementPage + hooks/useGroupPermissionManager(.jsx) + 5 子组件,既有 3 用例零改动 + 新增 4 utils 单测,user feature 17 用例 + lint 0 warning + build 全绿) |
-| R3-D5 | `src/shared/components/Sidebar.jsx` | 446 行 | 按角色(管理员/普通/访客)拆分路由表 + Sidebar 渲染 | B3 |
+| R3-D5 | `src/shared/components/Sidebar.jsx` | 446 行 | 按角色(管理员/普通/访客)拆分路由表 + Sidebar 渲染 | B3 ✅ 已完成(见 docs/plans/2026-08-15_sidebar-split.md;446→152 行薄壳,拆为 sidebar/sidebarMenuItems 数据工厂 + 4 渲染子组件(全带 propTypes),删除死代码 menuConfig.jsx + 2 过时测试,既有 7 用例零改动 + 新增 9 菜单单测,全量 560 用例 + lint 0 warning + build 全绿) |
 | R3-D6 | `src/shared/pages/DashboardPage.jsx` | 428 行 | 拆为 DashboardShell + 各 widget(统计/待办/快速入口) | B3 |
 | R3-D7 | `src/routes/index.jsx` | 416 行 | 拆为路由表 + lazy wrapper + permission wrapper | B3 |
 | R3-D8 | `src/shared/components/SequenceManager.jsx` | 398 行 | 拆为 SequenceList + SequenceEditor + SequenceRunner | B3 |
