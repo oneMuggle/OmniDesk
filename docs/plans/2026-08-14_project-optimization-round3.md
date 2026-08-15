@@ -67,7 +67,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 
 | # | 文件 | 问题 | 修复方向 | 来源 |
 |---|---|---|---|---|
-| R3-D1 | `src/features/smart-assistant/pages/SmartChatPage.jsx` | 713 行 | round2 R2-A2 已拆 ScheduleManagementPage;round3 接力拆 SmartChatPage(拆为 `ChatView` + `MessageList` + `InputBar` + `HookLayer`) | B3 + round2 R2-A2 ✅ 已完成(见拆分计划(已归档);713→67 行薄壳,拆为 utils/chatUtils + hooks/useSmartChat + 5 子组件,全量 524 用例 + lint 0 warning + build 全绿) |
+| R3-D1 | `src/features/smart-assistant/pages/SmartChatPage.jsx` | 713 行 | round2 R2-A2(ScheduleManagementPage 拆分)未落地,文件仍 909 行;round3 接力拆 SmartChatPage(拆为 `ChatView` + `MessageList` + `InputBar` + `HookLayer`) | B3 ✅ 已完成(见拆分计划(已归档);713→67 行薄壳,拆为 utils/chatUtils + hooks/useSmartChat + 5 子组件,全量 524 用例 + lint 0 warning + build 全绿) |
 | R3-D2 | `src/features/smart-assistant/components/ToolResult.jsx` | 588 行 | 按工具类型拆分子组件 + 注册中心 | B3 ✅ 已完成(见拆分计划(已归档);588→174 行薄壳(含 98 行 propTypes 契约),拆为 utils/ + 13 子组件 + 注册中心,全量 538 用例 + lint 0 warning + build 全绿) |
 | R3-D3 | `src/features/smart-assistant/pages/AgentTaskPanel.jsx` | 522 行 | 拆为 `AgentTaskPanel` + `AgentTaskItem` + `AgentLogStream` | B3 ✅ 已完成(见拆分计划(已归档);522→78 行薄壳,拆为 utils/agentTaskUtils + hooks/useAgentTaskPanel + 6 子组件,既有 12 用例零改动 + 新增 19 utils 单测,全量 557 用例 + lint 0 warning + build 全绿) |
 | R3-D4 | `src/features/user/pages/UserManagementPage.jsx` | 474 行 | 列表 + 表单 + 权限矩阵拆开 | B3 ✅ 已完成(见拆分计划(已归档);474→60 行薄壳,拆为 utils/userManagementUtils + hooks/useUserManagementPage + hooks/useGroupPermissionManager(.jsx) + 5 子组件,既有 3 用例零改动 + 新增 4 utils 单测,user feature 17 用例 + lint 0 warning + build 全绿) |
@@ -87,7 +87,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-E1 | ruff 一次性 sweep(C901/F841/F811/F541/E402/E501) | ~58 处问题 | 一次性修复并把 `--select C901,F,E,LOG` 收紧到 CI(已含 LOG,本轮加 C901 + F 大类) | B2 + roadmap BE |
 | R3-E2 | mypy 硬门禁(round2 R2-E1) | warnings-only | 接力 round2 切 `--strict` 作为 merge blocker | round2 R2-E1 |
 | R3-E3 | `pip-audit` 与 `npm audit` | 已加 advisory(non-blocking),roadmap §5 阶段 5 待落地硬门禁 | 升级为 blocking,按依赖类型分类(直接依赖 vs dev) | roadmap §5 阶段 5 |
-| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 ✅ 已完成(PR #270:清理 12 个已完成 plan = R3-A4/R3-D1~D8 拆分计划 9 + round1/round2 各 1 + p1a2-rate-limit 1;保留 11 个存疑/进行中 plan) |
+| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 ✅ 已完成(PR #270:清理 12 个已完成 plan = R3-A4/R3-D1~D8 拆分计划 9 + round1/round2 各 1 + p1a2-rate-limit 1;保留 12 个(11 个存疑/进行中 + round3 本体) |
 
 **涉及模块:** `.github/workflows/ci.yml`、`pyproject.toml`、`ruff.toml`、`mypy.ini`、`docs/plans/`
 **风险:** 低-中(E3/E2 短期可能解不开存量)
@@ -124,7 +124,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | 扫描面 | 工具 / 来源 | 产出的候选编号 |
 |---|---|---|
 | **A** roadmap 残留 | `docs/plans/2026-06-05_project-optimization-roadmap.md` §3-5(roadmap 自身清单)+ round1/round2 中未落地 | R3-B3 / R3-C4 / R3-C5 / R3-E2 / R3-E3 / R3-E4 / R3-F4 / R3-G1 / R3-G2 |
-| **A** round2 接力项 | round2 P0/P1/P2 中明确推到下轮的(R2-A1 完成需继续 / R2-B1 实施 / R2-D1 接力 / R2-E2 接力) | R3-A8 / R3-B4 / R3-C4 / R3-C5 / R3-E2 / R3-D1 |
+| **A** round2 接力项 | round2 P0/P1/P2 中明确推到下轮的(R2-A1 完成需继续 / R2-B1 实施 / R2-D1 接力 / R2-E2 接力;R2-A2+A3 ScheduleManagementPage 拆分与全量拉取→分页 round3 未覆盖,遗留待后续轮次) | R3-A8 / R3-B4 / R3-C4 / R3-C5 / R3-E2 / R3-D1 |
 | **B** 静态扫描 | ruff C901/F/E 大类 + 大文件 Top10 + 大组件 Top10 + .all() / Serializer `__all__` / print 残留 / type: ignore | R3-A1~A9 / R3-B1 / R3-B2 / R3-C2 / R3-C3 / R3-D1~D8 |
 | **C** docs 对齐 | `docs/technical/27-logging-standards.md` / `28-smart-assistant-coverage-roadmap.md` / `29-performance-profiling.md` 中描述但未完成 | R3-C1 / R3-F1 / R3-F2 / R3-G3 / R3-G4 |
 | **D** PR 轻量 | 近 2 月 merged PR 中 `perf/refactor/tech-debt` 标签(LLM token 治理、smart_assistant 错误提示、限流) | R3-F3 |
