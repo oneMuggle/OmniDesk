@@ -229,9 +229,6 @@ class LeaderSequence(models.Model):
         return self.name
 
 
-from django.utils import timezone
-
-
 class Holiday(models.Model):
     name = models.CharField(max_length=100)
     start_date = models.DateField(default=timezone.now)
