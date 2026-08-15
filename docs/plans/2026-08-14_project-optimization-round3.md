@@ -23,14 +23,14 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | # | 文件 | 当前规模 / 问题 | 拆分/修复目标 | 来源 |
 |---|---|---|---|---|
 | R3-A1 | `smart_assistant/agent/orchestrator.py` | **1520 行**,含 5 处 C901 告警(`handle`=31, `process_stream`=30, `stream`=22, `event_stream`=16, `_run_tool_calls_rounds`=12) | 拆为 `orchestrator.py`(orchestration 主流程)+ `stream_runner.py` + `tool_chain_runner.py` + `error_recovery.py` | B1 + B2 ✅ 已完成(见 docs/superpowers/plans/2026-08-14-orchestrator-split.md) |
-| R3-A2 | `smart_assistant/agent/tool_chain_executor.py` | 589 行,`validate` 函数 C901=25 | 拆为 `validator.py` + `chain_executor.py` + `dependency_resolver.py` | B1 + B2 |
+| R3-A2 | `smart_assistant/agent/tool_chain_executor.py` | 589 行,`validate` 函数 C901=25 | 拆为 `validator.py` + `chain_executor.py` + `dependency_resolver.py` | B1 + B2 ✅ 已完成(2026-08-15 实证:validate C901 已在前序重构 #212 消解,ruff --select C901,F541,F811,E402 全过,无需处理) |
 | R3-A3 | `smart_assistant/agents/task_packet.py` | 534 行,5 处 C901 告警(`create`=17, `execute`=16, `from_dict`=15, `__post_init__`=13, `_execute_pipeline`=11) | 拆为 `packet.py`(数据类)+ `validator.py`(校验),删除 `task_packet.py`;"pipeline.py(执行)"腿已由 R3-A8 交付(实际 C901:`from_dict`=15 / `validate`=25 / `__post_init__`×2=13) | B1 + B2 ✅ 已完成(见 docs/plans/2026-08-14_task-packet-split.md;模块职责并入 docs/technical/32-smart-assistant-multi-agent.md §3) |
 | R3-A4 | `smart_assistant/views/chat.py` | 537 行 | 拆为 `chat_stream.py` + `chat_sync.py` + `conversation_manager.py` | B1 ✅ 已完成(见 docs/plans/2026-08-14_chat-view-split.md;chat.py 537→39 行薄壳,create C901 17→8 / stream 22→4 / event_stream 16→8,全项目 2483 passed/覆盖率 92.42%) |
-| R3-A5 | `smart_assistant/tools/swap_request_tool.py` | 485 行,`_legacy_process` C901=17 | 拆分遗留实现路径,移除 `_legacy_process` | B1 + B2 |
-| R3-A6 | `events/models.py` | 453 行 + F811 双重 `timezone` import(第 3 + 232 行) | 拆为 `events/models/__init__.py` + `events/models/occurrence.py` 等子模块;删除 line 232 重复 import | B1 + B2 |
-| R3-A7 | `smart_assistant/hooks/base.py` | 449 行 | 拆为 `hooks/base.py` + `hooks/lifecycle.py` + `hooks/registry.py` | B1 |
+| R3-A5 | `smart_assistant/tools/swap_request_tool.py` | 485 行,`_legacy_process` C901=17 | 拆分遗留实现路径,移除 `_legacy_process` | B1 + B2 ✅ 已完成(2026-08-15 实证:`_legacy_process` 已在前序重构 #212 移除,ruff --select C901,F541,F811,E402 全过,无需处理) |
+| R3-A6 | `events/models.py` | 453 行 + F811 双重 `timezone` import(第 3 + 232 行) | 拆为 `events/models/__init__.py` + `events/models/occurrence.py` 等子模块;删除 line 232 重复 import | B1 + B2 ✅ 已完成(PR #240,merge 4ab19304;仅删除 L232 重复 import,结构拆分 YAGNI——453 行<800 上限,未拆包) |
+| R3-A7 | `smart_assistant/hooks/base.py` | 449 行 | 拆为 `hooks/base.py` + `hooks/lifecycle.py` + `hooks/registry.py` | B1 ✅ 已完成(2026-08-15 实证:C901 已在前序重构消解,ruff --select C901 全过,无需处理) |
 | R3-A8 | `smart_assistant/agents/executor.py` | 893 行 + `execute` C901=11 + `print(result.final_output)` 残留(L165) | round2 R2-A1 已规划;round3 增加 print→logger 修复 | round2 + B4 ✅ 已完成(拆分结果并入 docs/technical/16-smart-assistant.md §1.1) |
-| R3-A9 | `core/management/commands/generate_release.py` | F541 f-string + F811 重复 + E402 import + E501 行长 | 清理一处 f-string、删除重复 CustomUser import、整理顶部 import | B2 |
+| R3-A9 | `core/management/commands/generate_release.py` | F541 f-string + F811 重复 + E402 import + E501 行长 | 清理一处 f-string、删除重复 CustomUser import、整理顶部 import | B2 ✅ 已完成(PR #241,merge 245bc542;_generate_changelog/_update_changelog C901 11→5,F541 归零;E402×2 为 sys.path 刻意模式保留;F811 前序已消) |
 
 **涉及模块:** `smart_assistant/agent/`、`smart_assistant/agents/`、`smart_assistant/views/chat.py`、`smart_assistant/tools/`、`smart_assistant/hooks/`、`events/models/`、`core/management/`
 **风险:** 中-高(R3-A1 是核心链路,需配套回归测试)
