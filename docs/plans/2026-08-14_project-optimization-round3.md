@@ -87,7 +87,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 | R3-E1 | ruff 一次性 sweep(C901/F841/F811/F541/E402/E501) | ~58 处问题 | 一次性修复并把 `--select C901,F,E,LOG` 收紧到 CI(已含 LOG,本轮加 C901 + F 大类) | B2 + roadmap BE |
 | R3-E2 | mypy 硬门禁(round2 R2-E1) | warnings-only | 接力 round2 切 `--strict` 作为 merge blocker | round2 R2-E1 |
 | R3-E3 | `pip-audit` 与 `npm audit` | 已加 advisory(non-blocking),roadmap §5 阶段 5 待落地硬门禁 | 升级为 blocking,按依赖类型分类(直接依赖 vs dev) | roadmap §5 阶段 5 |
-| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 ✅ 已完成(PR #268:清理 12 个已完成 plan = R3-A4/R3-D1~D8 拆分计划 9 + round1/round2 各 1 + p1a2-rate-limit 1;保留 11 个存疑/进行中 plan) |
+| R3-E4 | `docs/plans/` 已完成计划清理(roadmap DOC-2) | 7+ 已完成 plan 未清 | 合并后删除(round3 完成后同步删除 round3 plan 本体) | roadmap DOC-2 ✅ 已完成(PR #270:清理 12 个已完成 plan = R3-A4/R3-D1~D8 拆分计划 9 + round1/round2 各 1 + p1a2-rate-limit 1;保留 11 个存疑/进行中 plan) |
 
 **涉及模块:** `.github/workflows/ci.yml`、`pyproject.toml`、`ruff.toml`、`mypy.ini`、`docs/plans/`
 **风险:** 低-中(E3/E2 短期可能解不开存量)
