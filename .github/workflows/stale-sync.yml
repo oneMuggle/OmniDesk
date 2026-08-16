@@ -12,7 +12,7 @@ jobs:
   stale-close:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/github-script@v7
+      - uses: actions/github-script@v9
         with:
           script: |
             const STALE_DAYS = 14;      // 无活动 N 天 → 打 stale 标记
