@@ -336,7 +336,7 @@ jobs:
 
       - name: Upload conflict bundle
         if: steps.pick.outputs.has_conflict == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: conflict-${{ matrix.target }}
           path: |
