@@ -11,6 +11,8 @@ logger = logging.getLogger(__name__)
     autoretry_for=(RagflowClientError,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
+    task_time_limit=300,  # 硬超时 5 分钟：整文件读内存 + 上传 Ragflow 兜底
+    task_soft_time_limit=240,  # 软超时 4 分钟（触发 SoftTimeLimitExceeded）
 )
 def process_document_embedding(document_id):
     """异步处理文档向量化：上传到 Ragflow 并触发解析。
