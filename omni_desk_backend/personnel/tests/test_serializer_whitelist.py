@@ -22,6 +22,7 @@ from personnel.serializers import (
     ContractSerializer,
     EducationSerializer,
     FamilyMemberSerializer,
+    PersonnelSerializer,
     PositionSerializer,
     ProfessionalQualificationSerializer,
     WorkExperienceSerializer,
@@ -200,3 +201,41 @@ class TestWorkExperienceSerializerWhitelist:
             "end_date",
             "description",
         }
+
+
+@pytest.mark.django_db
+class TestPersonnelSerializerWhitelist:
+    """R4-A7: PersonnelSerializer.id_card_number 收敛为 write_only,与 R3-B1 隐私方向对齐。"""
+
+    def test_read_response_does_not_expose_id_card_number(self, personnel):
+        """🔴 PersonnelSerializer 读响应不得暴露身份证号。"""
+        personnel.id_card_number = "110101199001011234"
+        personnel.save()
+
+        data = PersonnelSerializer(personnel).data
+
+        assert "id_card_number" not in data
+        assert set(data.keys()) == {
+            "id",
+            "name",
+            "date_of_birth",
+            "phone_number",
+            "address",
+            "hire_date",
+            "department",
+            "position",
+            "status",
+        }
+
+    def test_write_accepts_id_card_number(self, personnel):
+        """写路径仍接受 id_card_number(保留 HR 录入能力,读侧不暴露)。"""
+        serializer = PersonnelSerializer(
+            data={
+                "name": "张三",
+                "department": "研发部",
+                "id_card_number": "110101199001011234",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["id_card_number"] == "110101199001011234"

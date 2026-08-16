@@ -52,6 +52,7 @@ class PersonnelSerializer(serializers.ModelSerializer):
     id_card_number = serializers.CharField(
         allow_null=True,
         required=False,
+        write_only=True,
     )
 
     class Meta:
