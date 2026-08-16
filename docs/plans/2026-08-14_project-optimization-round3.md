@@ -40,7 +40,7 @@ R2-B1 / R2-E1 / R2-D2 部分子项已进入 PR/合并流程。
 
 | # | 文件 | 问题 | 修复方向 | 来源 |
 |---|---|---|---|---|
-| R3-B1 | 8 个 app ≥40 处 `fields = "__all__"`(`personnel`/`events`/`external_integration`/`documents`/`meeting_rooms`/`users`/`config`/`news`/`projects`/`sensor_management`/`smart_assistant`) | 敏感字段直暴露 | 逐个白名单化,先攻 `personnel/serializers.py`(6/6 全部 `__all__`) + `events/serializers.py`(7 处) + `external_integration/serializers.py`(3 处) | B6 |
+| R3-B1 | 8 个 app ≥40 处 `fields = "__all__"`(`personnel`/`events`/`external_integration`/`documents`/`meeting_rooms`/`users`/`config`/`news`/`projects`/`sensor_management`/`smart_assistant`) | 敏感字段直暴露 | 逐个白名单化,先攻 `personnel/serializers.py`(6/6 全部 `__all__`) + `events/serializers.py`(7 处) + `external_integration/serializers.py`(3 处) | B6 ✅ 已完成(4 PR:#271 #274 #277 #280,详见 `2026-08-15_r3-b1-serializer-whitelist.md`) |
 | R3-B2 | `external_integration/views.py:97` 等 ≥10 处裸 `.objects.all()` 在 view / serializer field queryset | 一次性加载全部记录,生产数据量上去后 OOM | 加 `.filter(is_active=True)` 或分页;serializer field 加 `limit_choices_to` | B5 |
 | R3-B3 | 30+ 处原始 SQL 查询(roadmap BE-6,未在 R2 落地) | N+1 / 性能隐患 | 逐个加 `select_related/prefetch_related`,参考 `docs/technical/25-api-performance-audit.md` 模板 | roadmap BE-6 |
 | R3-B4 | `users/views.py:271-303` `django_admin_login` JWT 走 POST body(round2 R2-B1 已规划) | deep-link / 刷新掉会话 | round3 跟踪 R2-B1 实施进度,不再重新立项 | round2 R2-B1 |
