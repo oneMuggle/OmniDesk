@@ -57,13 +57,19 @@ export function useSmartChat() {
     intervalMs: TYPEWRITER_INTERVAL,
   });
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
+  // R4-B7: smooth 滚动仅在新消息落地时触发;打字机流式揭示(每 ~50ms tick)
+  // 改为瞬时滚动,避免高频 scrollIntoView({behavior:'smooth'}) 动画堆积。
+  const scrollToBottom = useCallback((behavior) => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, streamingAnswer]);
+    scrollToBottom('smooth');
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottom('auto');
+  }, [streamingAnswer, scrollToBottom]);
 
   // 加载会话列表
   useEffect(() => {
