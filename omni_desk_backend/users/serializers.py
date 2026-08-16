@@ -10,7 +10,6 @@ from django.core.cache import cache
 from rest_framework import serializers
 
 from permissions.models import GroupPagePermission
-from personnel.models import Position
 
 # Re-export all serializers for backward compatibility
 from .user_serializers import (
@@ -88,9 +87,3 @@ def _get_group_page_permissions(group_id):
     perms = set(GroupPagePermission.objects.filter(group_id=group_id).values_list("page__path", flat=True))
     cache.set(cache_key, perms, _PERMISSION_CACHE_TIMEOUT)
     return perms
-
-
-class PositionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Position
-        fields = "__all__"
