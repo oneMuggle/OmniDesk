@@ -4,7 +4,7 @@ import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportAp
 import { Modal as AntdModal, message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
-import { parseSSE, toDisplayMessages } from '../utils/chatUtils';
+import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -292,9 +292,6 @@ export function useSmartChat() {
       return;
     }
 
-    const reader = stream.getReader();
-    const decoder = new TextDecoder();
-    let buffer = '';
     typewriter.beginStreaming();
     let activeSessionId = currentSessionId;
 
@@ -311,26 +308,12 @@ export function useSmartChat() {
     };
 
     try {
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        resetTimeout();
-        const readPromise = reader.read();
-        // 主动 timeout 不会触发 readPromise reject,只在 abort 时 reject;
-        // 此处不 race,只用 resetTimeout 推进超时重置
-        const { done, value } = await readPromise;
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const events = parseSSE(part);
-          for (const event of events) {
-            activeSessionId = await handleSSEEvent(event, activeSessionId);
-          }
-        }
-      }
+      // R4-B2:SSE 读取骨架收敛到共享 consumeSSEStream(chatUtils.js)。
+      // onBeforeRead = resetTimeout,保持"每次 read 前重置超时"兜底语义;
+      // 主动 timeout 不会触发 readPromise reject,只在 abort 时 reject。
+      await consumeSSEStream(stream, async (event) => {
+        activeSessionId = await handleSSEEvent(event, activeSessionId);
+      }, { onBeforeRead: resetTimeout });
     } finally {
       if (timeoutId) clearTimeout(timeoutId);
       // 先清 isStreaming,让 typewriter tick 在下一帧自然触发 complete;
