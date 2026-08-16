@@ -116,16 +116,17 @@ jobs:
         run: npm ci
       - name: Run ESLint
         run: npm run lint
-      - name: Run npm audit (block only on critical severity)
+      - name: Run npm audit (block on high severity)
         run: |
-          output=$(npm audit --json --audit-level=critical 2>&1) || true
+          output=$(npm audit --json --audit-level=high 2>&1) || true
+          high_count=$(echo "$output" | jq '.metadata.vulnerabilities.high // 0')
           critical_count=$(echo "$output" | jq '.metadata.vulnerabilities.critical // 0')
-          if [ "$critical_count" -gt 0 ]; then
-            echo "❌ Critical severity vulnerabilities found: $critical_count"
-            npm audit --audit-level=critical
+          if [ "$high_count" -gt 0 ] || [ "$critical_count" -gt 0 ]; then
+            echo "❌ High+ severity vulnerabilities found: high=$high_count critical=$critical_count"
+            npm audit --audit-level=high
             exit 1
           fi
-          echo "✅ No critical severity vulnerabilities"
+          echo "✅ No high severity vulnerabilities"
 
   test-frontend:
     runs-on: ubuntu-latest
