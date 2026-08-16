@@ -25,8 +25,9 @@ const CalendarEventModal = ({
   isProcessing,
   trials: passedTrials,
 }) => {
-  const { user } = useAuth();
-  const canEdit = user?.role === 'admin' || user?.role === 'manager';
+  // R4-B5: 权限判断收敛到 hasPermission(superuser 恒 true,语义与全局守卫一致)
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission(['admin', 'manager']);
   const { personnel } = useScheduleData();
   const trials = passedTrials || [];
   const [pickerOpen, setPickerOpen] = useState(false);

@@ -1,6 +1,8 @@
 import React from 'react';
-import { Upload, message, Typography } from 'antd';
+import { Upload, Typography } from 'antd';
 import { InboxOutlined, FileExcelOutlined, FileWordOutlined, FilePdfOutlined } from '@ant-design/icons';
+import { notifications } from '../../utils/notifications';
+import { validateFileSize } from '../../utils/upload';
 
 const { Dragger } = Upload;
 const { Text } = Typography;
@@ -20,10 +22,10 @@ const FileUploadSection = ({ onFileUpload, disabled }) => {
     showUploadList: false,
     disabled,
     beforeUpload: (file) => {
-      // 验证文件大小（10MB）
-      const maxSize = 10 * 1024 * 1024;
-      if (file.size > maxSize) {
-        message.error('文件大小不能超过 10MB');
+      // R4-B5: 文件大小校验走公共 util(与 FileAttachmentInput 同源)
+      const sizeCheck = validateFileSize(file);
+      if (!sizeCheck.ok) {
+        notifications.showError(sizeCheck.reason);
         return Upload.LIST_IGNORE;
       }
 

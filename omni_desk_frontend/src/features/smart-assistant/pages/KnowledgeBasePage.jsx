@@ -1,7 +1,10 @@
-import { useState, useEffect } from 'react';
-import { Card, Table, Tag, Button, Upload, Space, Popconfirm, message, Typography } from 'antd';
+import { useState } from 'react';
+import { Card, Table, Tag, Button, Upload, Space, Popconfirm, Typography } from 'antd';
 import { UploadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getKnowledgeDocs, deleteKnowledgeDoc, uploadKnowledgeDoc } from '../api/smartAssistantApi';
+import { notifications } from '../../../shared/utils/notifications';
+import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import './KnowledgeBasePage.css';
 
 const { Title } = Typography;
@@ -13,43 +16,48 @@ const STATUS_MAP = {
   failed: { color: 'error', text: '失败' },
 };
 
+const KNOWLEDGE_DOCS_KEY = ['knowledgeDocs'];
+/** 存在 processing 文档时的轮询间隔(ms) */
+const PROCESSING_REFETCH_INTERVAL = 5000;
+
 const KnowledgeBasePage = () => {
-  const [documents, setDocuments] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
 
-  const fetchDocuments = async () => {
-    setLoading(true);
-    try {
-      const response = await getKnowledgeDocs();
-      setDocuments(response.data.results || response.data || []);
-    } catch {
-      message.error('获取文档列表失败');
-    } finally {
-      setLoading(false);
-    }
+  const fetchDocs = async () => {
+    const response = await getKnowledgeDocs();
+    return response.data.results || response.data || [];
   };
 
-  useEffect(() => {
-    fetchDocuments();
-  }, []);
+  const {
+    data: documents = [],
+    isFetching: loading,
+    refetch,
+  } = useQuery({
+    queryKey: KNOWLEDGE_DOCS_KEY,
+    queryFn: fetchDocs,
+    // R4-B6: 手写 setInterval 轮询 → RQ refetchInterval。
+    // 仅当存在 processing 文档时 5s 一次,其余时间静止;与通知未读数单轨一致。
+    refetchInterval: (query) => {
+      const docs = query.state.data || [];
+      return docs.some((d) => d.embedding_status === 'processing')
+        ? PROCESSING_REFETCH_INTERVAL
+        : false;
+    },
+    onError: () => notifications.showError('获取文档列表失败'),
+    retry: 0,
+    refetchOnWindowFocus: false,
+  });
 
-  // 自动刷新处理中的文档状态
-  useEffect(() => {
-    const hasProcessing = documents.some(d => d.embedding_status === 'processing');
-    if (!hasProcessing) return;
-
-    const timer = setInterval(fetchDocuments, 5000);
-    return () => clearInterval(timer);
-  }, [documents]);
+  const invalidateDocs = () => queryClient.invalidateQueries({ queryKey: KNOWLEDGE_DOCS_KEY });
 
   const handleDelete = async (docId) => {
     try {
       await deleteKnowledgeDoc(docId);
-      message.success('文档已删除');
-      fetchDocuments();
-    } catch {
-      message.error('删除文档失败');
+      notifications.showSuccess('文档已删除');
+      invalidateDocs();
+    } catch (error) {
+      notifications.showError(getApiErrorMessage(error, '删除文档失败'));
     }
   };
 
@@ -57,10 +65,10 @@ const KnowledgeBasePage = () => {
     setUploading(true);
     try {
       await uploadKnowledgeDoc(file, file.name);
-      message.success(`"${file.name}" 上传成功，正在处理中`);
-      fetchDocuments();
-    } catch {
-      message.error(`"${file.name}" 上传失败`);
+      notifications.showSuccess(`"${file.name}" 上传成功，正在处理中`);
+      invalidateDocs();
+    } catch (error) {
+      notifications.showError(getApiErrorMessage(error, `"${file.name}" 上传失败`));
     } finally {
       setUploading(false);
     }
@@ -118,7 +126,7 @@ const KnowledgeBasePage = () => {
         <Space>
           <Button
             icon={<ReloadOutlined />}
-            onClick={fetchDocuments}
+            onClick={() => refetch()}
             loading={loading}
           >
             刷新

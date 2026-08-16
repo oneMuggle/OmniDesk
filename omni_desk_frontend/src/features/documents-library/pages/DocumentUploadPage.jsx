@@ -10,6 +10,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   Form, Input, Select, Upload, Button, message, Card, Space, Alert,
 } from 'antd';
+import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import { InboxOutlined, UploadOutlined } from '@ant-design/icons';
 import axiosInstance from '../../../shared/api/axiosConfig';
 import PaperlessHealthBanner from '../components/PaperlessHealthBanner';
@@ -52,11 +53,7 @@ export default function DocumentUploadPage() {
       navigate('/documents-library');
     },
     onError: (error) => {
-      const msg = error.response?.data?.detail
-        || error.response?.data?.message
-        || error.message
-        || '上传失败';
-      message.error(msg);
+      message.error(getApiErrorMessage(error, '上传失败'));
     },
   });
 

@@ -1,10 +1,11 @@
 import React from 'react';
-import { Upload, Button, Space, Typography, message } from 'antd';
+import { Upload, Button, Space, Typography } from 'antd';
 import { PaperClipOutlined, CloseOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
+import { notifications } from '../utils/notifications';
+import { validateFileSize } from '../utils/upload';
 
 const ALLOWED_EXTENSIONS = ['.docx', '.pdf', '.xlsx', '.pptx', '.txt', '.md', '.csv'];
-const MAX_SIZE = 10 * 1024 * 1024;
 
 /**
  * 校验附件是否合法。导出为纯函数便于单测。
@@ -16,8 +17,9 @@ export function validateFile({ name = '', size = 0 } = {}) {
   if (!ALLOWED_EXTENSIONS.includes(ext)) {
     return { ok: false, reason: '仅支持 .docx/.pdf/.xlsx/.pptx/.txt/.md/.csv' };
   }
-  if (size > MAX_SIZE) {
-    return { ok: false, reason: '文件超过 10MB 上限' };
+  const sizeCheck = validateFileSize({ name, size });
+  if (!sizeCheck.ok) {
+    return sizeCheck;
   }
   return { ok: true };
 }
@@ -29,7 +31,7 @@ export default function FileAttachmentInput({ value = null, onChange, disabled =
   const handleBeforeUpload = (file) => {
     const result = validateFile(file);
     if (!result.ok) {
-      message.error(result.reason);
+      notifications.showError(result.reason);
       return false;
     }
     onChange(file);
