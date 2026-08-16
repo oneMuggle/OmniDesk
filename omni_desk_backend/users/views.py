@@ -349,35 +349,51 @@ class GuestLoginView(generics.CreateAPIView):
 
 
 @csrf_exempt
-@api_view(["GET"])
+@ratelimit(key="ip", rate="5/15m", method="POST", block=False)
+@api_view(["POST"])
 @permission_classes([permissions.AllowAny])
 def django_admin_login(request):
     """
     JWT → Session 转换端点。
-    接受 token 查询参数，验证 JWT 后建立 Django session，
-    然后重定向到 /admin/。
 
-    使用 @csrf_exempt 因为此端点通过 URL 参数认证而非 session。
-    使用 @permission_classes([AllowAny]) 因为浏览器跳转不携带 Authorization header，
+    仅接受 POST, JWT 通过 ``Authorization: Bearer <token>`` header 携带
+    (不在 query string 中,避免 token 进入 nginx 日志 / 浏览器历史 / Referer)。
+
+    使用 @csrf_exempt 因为认证完全依赖 JWT header(非 session cookie),
+    CSRF 防护对无 cookie 的 Bearer 认证不适用;JWT 本身即凭证。
+    使用 @permission_classes([AllowAny]) 因为浏览器跳转不携带 session,
     本视图在内部通过 AccessToken 自行验证 JWT。
     """
     from rest_framework_simplejwt.exceptions import TokenError, InvalidToken
 
-    token_str = request.GET.get("token")
+    # 限流:同一 IP 15 分钟内最多 5 次(与注册/游客端点对齐,5/15m)
+    if getattr(request, "limited", False):
+        return Response({"detail": "请求过于频繁,请稍后再试"}, status=status.HTTP_429_TOO_MANY_REQUESTS)
+
+    auth_header = request.headers.get("Authorization", "")
+    token_str = auth_header[len("Bearer ") :] if auth_header.startswith("Bearer ") else ""
     if not token_str:
-        return Response({"detail": "缺少 token 参数"}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            {"detail": "缺少 token(请通过 Authorization: Bearer <token> 携带)"},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
 
     try:
         # 验证 JWT token
         token = AccessToken(token_str)
-        user_id = token["user_id"]
+        user_id = token.get("user_id")
+        if user_id is None:
+            # 防御:持有效签名但缺 user_id 声明的畸形 token
+            return Response({"detail": "无效的 token"}, status=status.HTTP_401_UNAUTHORIZED)
         user = CustomUser.objects.get(id=user_id)
     except (TokenError, InvalidToken):
         return Response({"detail": "无效的 token"}, status=status.HTTP_401_UNAUTHORIZED)
     except CustomUser.DoesNotExist:
         return Response({"detail": "用户不存在"}, status=status.HTTP_401_UNAUTHORIZED)
 
-    if not (user.is_staff or user.is_superuser):
+    if not user.is_active or not (user.is_staff or user.is_superuser):
+        # is_active 为纵深防御(JWTAuthentication 已拦截停用用户),
+        # 防止未来认证类配置变更导致停用用户建立 session
         return Response({"detail": "需要管理员权限才能访问 Django 后台"}, status=status.HTTP_403_FORBIDDEN)
 
     # 建立 Django session
