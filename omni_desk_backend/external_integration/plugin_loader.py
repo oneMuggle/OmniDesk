@@ -58,14 +58,35 @@ def validate_manifest(manifest_data):
 def execute_plugin(extract_dir, entry_point, input_data, timeout=None, memory_limit_mb=None):
     """通过子进程执行插件，stdin/stdout JSON 协议通信"""
     timeout = timeout or DEFAULT_TIMEOUT
-    executable = os.path.join(extract_dir, entry_point.lstrip("./"))
-    if not os.path.isfile(executable):
-        raise FileNotFoundError(f"插件入口不存在: {executable}")
+    memory_limit_mb = memory_limit_mb or DEFAULT_MEMORY_LIMIT_MB
+
+    # SECURITY: 入口路径白名单 — resolve 后必须位于解压目录内,防止 ../ 逃逸
+    # (旧的 entry_point.lstrip("./") 只清前导字符,拦不住 "sub/../../evil" 形式)
+    extract_dir_resolved = Path(extract_dir).resolve()
+    entry_path = (extract_dir_resolved / entry_point).resolve()
+    if not entry_path.is_relative_to(extract_dir_resolved):
+        raise FileNotFoundError(f"插件入口路径不合法(必须位于解压目录内): {entry_point}")
+    if not entry_path.is_file():
+        raise FileNotFoundError(f"插件入口不存在: {entry_point}")
+    executable = str(entry_path)
 
     os.chmod(executable, 0o700)  # owner read/write/execute only
     input_json = json.dumps(input_data, ensure_ascii=False)
     env = os.environ.copy()
     env["PYTHONPATH"] = ""
+
+    def _apply_resource_limits():
+        """preexec_fn: fork 后 exec 前落地资源限制。
+
+        仅调用 resource.setrlimit(纯进程内状态,无锁/无 IO),
+        在多线程 worker 下使用是安全的。
+        落地 DEFAULT_MEMORY_LIMIT_MB(原为死配置)与 CPU 超时。
+        """
+        import resource
+
+        limit_bytes = memory_limit_mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+        resource.setrlimit(resource.RLIMIT_CPU, (timeout + 10, timeout + 10))
 
     import time
 
@@ -79,6 +100,7 @@ def execute_plugin(extract_dir, entry_point, input_data, timeout=None, memory_li
             timeout=timeout,
             env=env,
             cwd=extract_dir,
+            preexec_fn=_apply_resource_limits,
         )
         elapsed_ms = int((time.time() - start) * 1000)
 
