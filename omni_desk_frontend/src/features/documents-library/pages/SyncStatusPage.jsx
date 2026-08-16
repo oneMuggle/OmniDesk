@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Table, Tabs, Button, Space, Tag, message, Tooltip, Popconfirm, Empty, Spin, Typography,
 } from 'antd';
+import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import {
   ReloadOutlined, RedoOutlined, DeleteOutlined,
 } from '@ant-design/icons';
@@ -69,7 +70,7 @@ export default function SyncStatusPage() {
       queryClient.invalidateQueries({ queryKey: ['paperless-outbox'] });
     },
     onError: (error) => {
-      message.error(error.response?.data?.detail || '重试失败');
+      message.error(getApiErrorMessage(error, '重试失败'));
     },
   });
 
@@ -80,7 +81,7 @@ export default function SyncStatusPage() {
       queryClient.invalidateQueries({ queryKey: ['paperless-outbox'] });
     },
     onError: (error) => {
-      message.error(error.response?.data?.detail || '删除失败');
+      message.error(getApiErrorMessage(error, '删除失败'));
     },
   });
 

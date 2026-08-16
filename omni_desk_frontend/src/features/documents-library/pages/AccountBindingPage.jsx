@@ -16,6 +16,7 @@ import {
 } from '@ant-design/icons';
 import axiosInstance from '../../../shared/api/axiosConfig';
 import PaperlessHealthBanner from '../components/PaperlessHealthBanner';
+import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 
 const { Title, Text } = Typography;
 
@@ -51,11 +52,7 @@ export default function AccountBindingPage() {
       queryClient.invalidateQueries({ queryKey: ['paperless-binding'] });
     },
     onError: (error) => {
-      const msg = error.response?.data?.detail
-        || error.response?.data?.message
-        || error.message
-        || '绑定失败';
-      message.error(msg);
+      message.error(getApiErrorMessage(error, '绑定失败'));
     },
   });
 
@@ -66,11 +63,7 @@ export default function AccountBindingPage() {
       queryClient.invalidateQueries({ queryKey: ['paperless-binding'] });
     },
     onError: (error) => {
-      const msg = error.response?.data?.detail
-        || error.response?.data?.message
-        || error.message
-        || '解绑失败';
-      message.error(msg);
+      message.error(getApiErrorMessage(error, '解绑失败'));
     },
   });
 

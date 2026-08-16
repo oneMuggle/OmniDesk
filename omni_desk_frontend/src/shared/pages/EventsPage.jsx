@@ -3,13 +3,14 @@ import { useAuth } from '../../features/auth/context/AuthContext';
 import apiClient from '../api/apiClient';
 
 const EventsPage = () => {
-  const { user } = useAuth();
+  const { hasPermission } = useAuth();
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [newEventTitle, setNewEventTitle] = useState('');
 
-  const canManageEvents = user?.role === 'admin' || user?.role === 'manager';
+  // R4-B5: 权限判断收敛到 hasPermission(与导航守卫同源,超管恒 true)
+  const canManageEvents = hasPermission(['admin', 'manager']);
 
   // 实接后端 API: GET /api/events/
   // 响应可能是分页结构 {results: [...]} 或纯数组,统一归一化

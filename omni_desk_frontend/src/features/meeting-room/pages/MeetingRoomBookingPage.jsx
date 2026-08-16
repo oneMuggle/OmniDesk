@@ -47,7 +47,7 @@ MeetingRoomLegend.propTypes = {
 };
 
 const MeetingRoomBookingPage = () => {
-    const { user, isAuthenticated } = useAuth();
+    const { user, isAuthenticated, hasPermission } = useAuth();
     const navigate = useNavigate();
     const [form] = Form.useForm();
     const [isModalVisible, setIsModalVisible] = useState(false);
@@ -75,9 +75,10 @@ const MeetingRoomBookingPage = () => {
         return map;
     }, [meetingRooms, roomColors]);
 
+    // R4-B5: 权限判断收敛到 hasPermission(superuser 恒 true)
     const isAdminOrManager = useMemo(() => {
-        return isAuthenticated && (user?.role === 'admin' || user?.role === 'manager');
-    }, [isAuthenticated, user]);
+        return isAuthenticated && hasPermission(['admin', 'manager']);
+    }, [isAuthenticated, hasPermission]);
 
     const handleSelect = ({ start, end }) => {
         if (!user.real_name || !user.phone_numbers || user.phone_numbers.length === 0) {
