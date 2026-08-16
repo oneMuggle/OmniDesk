@@ -158,7 +158,7 @@ lxml==6.1.1
     #   python-pptx
 mammoth==1.12.0
     # via -r requirements.in
-markdown==3.10.2
+markdown==3.10.3
     # via
     #   -r requirements.in
     #   pymdown-extensions
