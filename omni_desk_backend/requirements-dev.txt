@@ -53,7 +53,7 @@ click-repl==0.3.0
     # via celery
 cobble==0.1.4
     # via mammoth
-coverage[toml]==7.14.1
+coverage[toml]==7.15.4
     # via
     #   -r requirements-dev.in
     #   pytest-cov
