@@ -22,7 +22,8 @@ from .models import (
 class TimeSlotSerializer(serializers.ModelSerializer):
     class Meta:
         model = TimeSlot
-        fields = "__all__"
+        # R3-B1: 白名单化,不随 __all__ 暴露未来新增模型字段
+        fields = ["id", "trial", "start_time", "end_time", "description"]
 
 
 class EquipmentSerializer(serializers.ModelSerializer):
@@ -39,7 +40,24 @@ class TrialSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Trial
-        fields = "__all__"
+        # R3-B1: 白名单化。time_slots_data 为 write_only 自定义字段保留;
+        # time_slots/responsible_persons/equipments 嵌套为前端深度消费字段(§3.1),必须显式列出
+        fields = [
+            "id",
+            "title",
+            "version",
+            "client",
+            "description",
+            "start_date",
+            "end_date",
+            "equipments",
+            "responsible_persons",
+            "status",
+            "created_at",
+            "updated_at",
+            "time_slots_data",
+            "time_slots",
+        ]
 
     def create(self, validated_data):
         time_slots_data = validated_data.pop("time_slots_data", [])
@@ -64,7 +82,8 @@ class TrialSerializer(serializers.ModelSerializer):
 class DocumentTemplateSerializer(serializers.ModelSerializer):
     class Meta:
         model = DocumentTemplate
-        fields = "__all__"
+        # R3-B1: 后端无 API 出口(仅 admin),白名单化收敛
+        fields = ["id", "name", "experiment_type", "template_file", "created_at", "owner"]
 
 
 class ScheduleSerializer(serializers.ModelSerializer):
@@ -73,19 +92,22 @@ class ScheduleSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Schedule
-        fields = "__all__"
+        # R3-B1: 白名单化,保留 duty_person/duty_leader 嵌套
+        fields = ["id", "duty_date", "duty_person", "duty_leader"]
 
 
 class AnnouncementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Announcement
-        fields = "__all__"
+        # R3-B1: 白名单化,前端消费字段
+        fields = ["id", "title", "content", "author", "created_at", "updated_at"]
 
 
 class UploadedImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = UploadedImage
-        fields = "__all__"
+        # R3-B1: 白名单化(前端读幻字段 url,保留 image)
+        fields = ["id", "image", "uploaded_at"]
 
 
 class PersonnelSimpleSerializer(serializers.ModelSerializer):
@@ -230,7 +252,8 @@ class LeaderSequenceSerializer(serializers.ModelSerializer):
 class HolidaySerializer(serializers.ModelSerializer):
     class Meta:
         model = Holiday
-        fields = "__all__"
+        # R3-B1: 白名单化,前端消费字段
+        fields = ["id", "name", "start_date", "end_date"]
 
 
 class PositionSerializer(serializers.ModelSerializer):

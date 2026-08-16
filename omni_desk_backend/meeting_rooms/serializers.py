@@ -8,7 +8,8 @@ from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
 class MeetingRoomSerializer(serializers.ModelSerializer):
     class Meta:
         model = MeetingRoom
-        fields = "__all__"
+        # R3-B1: 白名单化,前端消费字段
+        fields = ["id", "name", "description", "capacity", "location"]
 
 
 class MeetingRoomBookingSerializer(serializers.ModelSerializer):
@@ -17,7 +18,20 @@ class MeetingRoomBookingSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MeetingRoomBooking
-        fields = "__all__"
+        # R3-B1: 白名单化,保留 user 嵌套 + meeting_room_name(前端深度消费)
+        fields = [
+            "id",
+            "meeting_room",
+            "user",
+            "start_time",
+            "end_time",
+            "title",
+            "participants",
+            "description",
+            "created_at",
+            "updated_at",
+            "meeting_room_name",
+        ]
         read_only_fields = ("user",)  # 用户信息由后端自动填充
 
 
@@ -26,4 +40,14 @@ class MeetingRoomMaintenanceSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = MeetingRoomMaintenance
-        fields = "__all__"
+        # R3-B1: 白名单化,保留 meeting_room_name
+        fields = [
+            "id",
+            "meeting_room",
+            "start_time",
+            "end_time",
+            "reason",
+            "created_at",
+            "updated_at",
+            "meeting_room_name",
+        ]
