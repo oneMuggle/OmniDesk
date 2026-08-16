@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Table, Button, Modal, Form, Input, message, Popconfirm, DatePicker, Select, Card, Statistic, Row, Col } from 'antd';
 import PropTypes from 'prop-types';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import meetingRoomApi from '../api/meetingRoomApi';
+import { useMeetingRooms } from '../hooks/useMeetingRoomData';
 import dayjs from 'dayjs';
 import { logger } from '../../../shared/utils/logger';
 
@@ -18,71 +20,54 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
     const [isMaintenanceModalVisible, setIsMaintenanceModalVisible] = useState(false);
     const [editingRoom, setEditingRoom] = useState(null);
     const [editingMaintenance, setEditingMaintenance] = useState(null);
-    const [meetingRooms, setMeetingRooms] = useState([]);
-    const [maintenances, setMaintenances] = useState([]);
-    const [stats, setStats] = useState({});
     const [statsFilter, setStatsFilter] = useState({
         startDate: dayjs().subtract(30, 'days'),
         endDate: dayjs(),
         meetingRoomId: null
     });
-    const [loading, setLoading] = useState(false);
+    const queryClient = useQueryClient();
 
-    const fetchMeetingRooms = useCallback(async () => {
-        setLoading(true);
-        try {
-            const response = await meetingRoomApi.getMeetingRooms();
-            setMeetingRooms(response.data.results);
-        } catch (error) {
-            message.error('获取会议室列表失败。');
-            logger.error('Failed to fetch meeting rooms:', error.response || error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+    // R4-B3: 手动 fetch + useEffect 并发 3 次 setState → 统一走 RQ。
+    // 会议室复用 useMeetingRooms(useMeetingRoomData.js 既有共享 queryKey ['meetingRooms']),缓存跨页去重。
+    const { data: meetingRooms = [], isFetching: roomsFetching } = useMeetingRooms();
 
-    const fetchMaintenances = useCallback(async () => {
-        setLoading(true);
-        try {
+    const { data: maintenances = [], isFetching: maintenancesFetching } = useQuery({
+        queryKey: ['meetingRoomMaintenances'],
+        queryFn: async () => {
             const response = await meetingRoomApi.getMeetingRoomMaintenances();
-            setMaintenances(response.data.results.map(m => ({
+            return response.data.results.map(m => ({
                 ...m,
                 start: new Date(m.start_time),
                 end: new Date(m.end_time)
-            })));
-        } catch (error) {
-            message.error('获取维护记录失败。');
-            logger.error('Failed to fetch maintenances:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, []);
+            }));
+        },
+    });
 
-    const fetchStats = useCallback(async () => {
-        setLoading(true);
-        try {
+    // 统计依赖筛选条件:queryKey 随 statsFilter 变化 → 自动 refetch,
+    // 替代原 useEffect 依赖 fetchStats 重建的手动轮询
+    const statsQueryKey = [
+        'meetingRoomStats',
+        statsFilter.startDate ? statsFilter.startDate.format('YYYY-MM-DD') : '',
+        statsFilter.endDate ? statsFilter.endDate.format('YYYY-MM-DD') : '',
+        statsFilter.meetingRoomId || null,
+    ];
+    const { data: stats = {}, isFetching: statsFetching, refetch: refetchStats } = useQuery({
+        queryKey: statsQueryKey,
+        queryFn: async () => {
             const params = {
-                start_date: statsFilter.startDate.format('YYYY-MM-DD'),
-                end_date: statsFilter.endDate.format('YYYY-MM-DD'),
+                start_date: statsFilter.startDate ? statsFilter.startDate.format('YYYY-MM-DD') : '',
+                end_date: statsFilter.endDate ? statsFilter.endDate.format('YYYY-MM-DD') : '',
             };
             if (statsFilter.meetingRoomId) {
                 params.meeting_room_id = statsFilter.meetingRoomId;
             }
             const response = await meetingRoomApi.getMeetingRoomStats(params);
-            setStats(response.data);
-        } catch (error) {
-            message.error('获取统计数据失败。');
-            logger.error('Failed to fetch stats:', error);
-        } finally {
-            setLoading(false);
-        }
-    }, [statsFilter]);
+            return response.data;
+        },
+    });
 
-    useEffect(() => {
-        fetchMeetingRooms();
-        fetchMaintenances();
-        fetchStats();
-    }, [fetchMeetingRooms, fetchMaintenances, fetchStats]);
+    // 三个请求任一在途即视为加载中(原单一 loading 被并发 fetch 竞争,现按 query 合并)
+    const loading = roomsFetching || maintenancesFetching || statsFetching;
 
     // Meeting Room Management
     const handleAddRoom = () => {
@@ -108,7 +93,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
                 message.success('会议室添加成功！');
             }
             setIsRoomModalVisible(false);
-            fetchMeetingRooms();
+            queryClient.invalidateQueries({ queryKey: ['meetingRooms'] });
         } catch (error) {
             const errorMsg = error.response?.data?.name?.[0] || '操作失败，请重试。';
             message.error(errorMsg);
@@ -120,7 +105,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         try {
             await meetingRoomApi.deleteMeetingRoom(id);
             message.success('会议室删除成功！');
-            fetchMeetingRooms();
+            queryClient.invalidateQueries({ queryKey: ['meetingRooms'] });
         } catch (error) {
             message.error('删除会议室失败。');
             logger.error('Failed to delete room:', error);
@@ -182,7 +167,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
                 message.success('维护记录添加成功！');
             }
             setIsMaintenanceModalVisible(false);
-            fetchMaintenances();
+            queryClient.invalidateQueries({ queryKey: ['meetingRoomMaintenances'] });
         } catch (error) {
             const errorMsg = error.response?.data?.non_field_errors?.[0] || '操作失败，请重试。';
             message.error(errorMsg);
@@ -194,7 +179,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         try {
             await meetingRoomApi.deleteMeetingRoomMaintenance(id);
             message.success('维护记录删除成功！');
-            fetchMaintenances();
+            queryClient.invalidateQueries({ queryKey: ['meetingRoomMaintenances'] });
         } catch (error) {
             message.error('删除维护记录失败。');
             logger.error('Failed to delete maintenance:', error);
@@ -336,7 +321,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
                         </Select>
                     </Col>
                     <Col>
-                        <Button type="primary" onClick={fetchStats} loading={loading}>刷新统计</Button>
+                        <Button type="primary" onClick={refetchStats} loading={loading}>刷新统计</Button>
                     </Col>
                 </Row>
                 <Row gutter={16}>
