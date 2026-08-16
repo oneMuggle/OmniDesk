@@ -14,7 +14,11 @@ from .models import OutboxItem
 logger = logging.getLogger(__name__)
 
 
-@shared_task(name="paperless_proxy.process_outbox")
+@shared_task(
+    name="paperless_proxy.process_outbox",
+    task_time_limit=360,  # 硬超时 6 分钟：单批可能上传多个文件，比 execute_agent_task 放宽
+    task_soft_time_limit=300,  # 软超时 5 分钟（触发 SoftTimeLimitExceeded）
+)
 def process_paperless_outbox():
     """处理 Outbox 中的 pending 项,推送到 paperless"""
     items = OutboxService.fetch_pending()
@@ -109,7 +113,11 @@ def _process_update_metadata(item, client: PaperlessClient) -> None:
         binding.save(update_fields=fields_to_save)
 
 
-@shared_task(name="paperless_proxy.check_health")
+@shared_task(
+    name="paperless_proxy.check_health",
+    task_time_limit=60,  # 硬超时 1 分钟：30s 周期健康检查应快速返回，HTTP 挂起时兜底
+    task_soft_time_limit=30,  # 软超时 30 秒（触发 SoftTimeLimitExceeded）
+)
 def check_paperless_health():
     """定时检查 paperless 健康状态"""
     from .models import PaperlessHealth
