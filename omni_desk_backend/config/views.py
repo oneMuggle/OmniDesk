@@ -39,7 +39,8 @@ class PageVisibilityViewSet(viewsets.ViewSet):
         """
         pages = Page.objects.all()
         groups = Group.objects.all()
-        visibility = PageVisibility.objects.all()
+        # select_related:循环内 v.page.id / v.group.id 触发 2N 查询
+        visibility = PageVisibility.objects.select_related("page", "group").all()
 
         page_serializer = PageSerializer(pages, many=True)
         group_serializer = GroupSerializer(groups, many=True)
