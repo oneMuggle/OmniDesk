@@ -175,7 +175,7 @@
 - [x] 写各 app serializer 测试(5 个测试文件,20 个用例:字段集契约 + write-path + 嵌套保留)
 - [x] 白名单化 13 处 + 删除 users.PositionSerializer
 - [x] 后端全量 pytest(2547 passed)+ 前端 build 冒烟
-- [x] AI 检阅修复:① `projects.ProjectSerializer.manager` 由「剔除」改为 **write_only**——发现 `projects/views.py` perform_create 契约:Admin 创建项目**必须**经请求体指定 manager,剔除会破坏该功能且使既有测试 `test_create_project_with_specified_manager` 失败;改为 write_only 后读响应收敛(前端零消费)写路径保留,与 api_key/id_card_number 决策一致。补 1 个 write-path 测试(test_write_accepts_manager)
+- [x] AI 检阅修复(两轮):① `projects.ProjectSerializer.manager` 由「剔除」改为 **write_only**——发现 `projects/views.py` perform_create 契约:Admin 创建项目可经请求体指定 manager,剔除会破坏该功能且使既有测试 `test_create_project_with_specified_manager` 失败;改为 write_only 后读响应收敛(前端零消费)写路径保留,与 api_key/id_card_number 决策一致。补 1 个 write-path 测试(test_write_accepts_manager) ② M1/M2 误导性注释准确化(manager 是"可指定"非"必须指定",且不可设 required——Manager 路径由 perform_create 注入);补 L1 更新保留契约测试(test_update_without_manager_keeps_existing_manager,防未来数据丢失)。修复后全量 2547 passed + CI 8/8 绿
 
 ### 收尾
 
