@@ -213,7 +213,7 @@ pyjwt==2.13.0
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
-pymdown-extensions==10.21.3
+pymdown-extensions==11.0.1
     # via -r requirements-dev.in
 pypdf==6.15.0
     # via -r requirements.in
