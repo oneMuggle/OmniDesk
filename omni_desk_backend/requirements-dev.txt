@@ -266,7 +266,7 @@ pyyaml==6.0.3
     #   -r requirements.in
     #   pymdown-extensions
     #   responses
-redis==7.4.1
+redis==8.1.0
     # via
     #   -r requirements.in
     #   django-redis
