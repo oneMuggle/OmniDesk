@@ -38,6 +38,19 @@ class TestMeetingRoomSerializerWhitelist:
 
         assert set(data.keys()) == {"id", "name", "description", "capacity", "location"}
 
+    def test_write_accepts_fields(self):
+        serializer = MeetingRoomSerializer(
+            data={
+                "name": "第二会议室",
+                "description": "研讨室",
+                "capacity": 20,
+                "location": "B栋",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["name"] == "第二会议室"
+
 
 @pytest.mark.django_db
 class TestMeetingRoomBookingSerializerWhitelist:
@@ -82,6 +95,24 @@ class TestMeetingRoomBookingSerializerWhitelist:
         assert data["meeting_room_name"] == "第一会议室"
         assert data["user"]["username"] == regular_user_obj.username
 
+    def test_write_accepts_fields(self, meeting_room):
+        """写路径接受白名单字段;user 为只读(视图 perform_create 注入)。"""
+        serializer = MeetingRoomBookingSerializer(
+            data={
+                "meeting_room": meeting_room.id,
+                "start_time": _future(1),
+                "end_time": _future(2),
+                "title": "需求评审",
+                "participants": "王五",
+                "description": "desc",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["meeting_room"] == meeting_room
+        assert serializer.validated_data["title"] == "需求评审"
+        assert "user" not in serializer.validated_data
+
 
 @pytest.mark.django_db
 class TestMeetingRoomMaintenanceSerializerWhitelist:
@@ -117,3 +148,16 @@ class TestMeetingRoomMaintenanceSerializerWhitelist:
         data = MeetingRoomMaintenanceSerializer(maint).data
 
         assert data["meeting_room_name"] == "第一会议室"
+
+    def test_write_accepts_fields(self, meeting_room):
+        serializer = MeetingRoomMaintenanceSerializer(
+            data={
+                "meeting_room": meeting_room.id,
+                "start_time": _future(1),
+                "end_time": _future(2),
+                "reason": "网络布线",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["reason"] == "网络布线"

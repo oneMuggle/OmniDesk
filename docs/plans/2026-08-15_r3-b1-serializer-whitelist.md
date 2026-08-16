@@ -167,6 +167,7 @@
 - [x] 写 events / meeting_rooms serializer 测试(15 个:7 serializer 字段集契约 + Trial 嵌套/写路径 + meeting_rooms 嵌套)
 - [x] 白名单化 events 7 处 + meeting_rooms 3 处(发现:TrialSerializer 表格原漏 `time_slots` 嵌套,§3.1 原则保留,已修正表格)
 - [x] 后端全量 pytest(2520 passed)+ 前端 build 冒烟(✓ built in 22.48s)
+- [x] AI 检阅(PR #277)修复:无 CRITICAL/HIGH;补 7 个写路径契约测试(Booking/Maintenance/MeetingRoom/Holiday/Announcement/Schedule/DocumentTemplate 写接受,防未来误删可写字段)。修复后全量 2527 passed
 
 ### PR-4: documents + config + users + news + projects + sensor_management(P2)
 

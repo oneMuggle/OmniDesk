@@ -144,6 +144,21 @@ class TestDocumentTemplateSerializerWhitelist:
             "owner",
         }
 
+    def test_write_accepts_fields(self, regular_user_obj):
+        """写路径仍接受全部白名单可写字段(防未来误删可写字段)。"""
+        serializer = DocumentTemplateSerializer(
+            data={
+                "name": "生物实验模板",
+                "experiment_type": "biological",
+                "template_file": SimpleUploadedFile("tpl2.docx", b"x"),
+                "owner": regular_user_obj.id,
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["name"] == "生物实验模板"
+        assert serializer.validated_data["owner"] == regular_user_obj
+
 
 @pytest.mark.django_db
 class TestScheduleSerializerWhitelist:
@@ -168,6 +183,13 @@ class TestScheduleSerializerWhitelist:
 
         assert data["duty_person"]["name"] == "张三"
 
+    def test_write_accepts_duty_date(self):
+        """duty_person/duty_leader 为只读嵌套(写入走视图层),写路径接受 duty_date。"""
+        serializer = ScheduleSerializer(data={"duty_date": "2026-08-22"})
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["duty_date"].isoformat() == "2026-08-22"
+
 
 @pytest.mark.django_db
 class TestAnnouncementSerializerWhitelist:
@@ -188,6 +210,18 @@ class TestAnnouncementSerializerWhitelist:
             "created_at",
             "updated_at",
         }
+
+    def test_write_accepts_fields(self, regular_user_obj):
+        serializer = AnnouncementSerializer(
+            data={
+                "title": "新公告",
+                "content": "新内容",
+                "author": regular_user_obj.id,
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["author"] == regular_user_obj
 
 
 @pytest.mark.django_db
@@ -214,3 +248,15 @@ class TestHolidaySerializerWhitelist:
         data = HolidaySerializer(holiday).data
 
         assert set(data.keys()) == {"id", "name", "start_date", "end_date"}
+
+    def test_write_accepts_fields(self):
+        serializer = HolidaySerializer(
+            data={
+                "name": "元旦",
+                "start_date": "2027-01-01",
+                "end_date": "2027-01-03",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["name"] == "元旦"
