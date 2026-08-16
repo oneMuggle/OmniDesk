@@ -48,9 +48,15 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                     except Project.DoesNotExist:
                         return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
 
+                # 修复:DocumentTemplate model 无 file 字段,移除 file=file_obj;
+                # content/template_type 为非空字段,content 取提取文本,
+                # template_type 允许请求体传入、缺省用首个 choices(前端暂不传)。
                 template = DocumentTemplate.objects.create(
                     name=file_obj.name,
-                    file=file_obj,
+                    template_type=request.data.get(
+                        "template_type", DocumentTemplate.TEMPLATE_TYPES[0][0]
+                    ),
+                    content=extracted_text,
                     owner=request.user,
                     extracted_text=extracted_text,
                     project=project_instance,
