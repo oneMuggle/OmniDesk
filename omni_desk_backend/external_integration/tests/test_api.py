@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
-from ..models import IntegrationService, Plugin
+from ..models import ExternalLink, IntegrationService, Plugin
 from ..serializers import is_forbidden_host
 
 CustomUser = get_user_model()
@@ -276,6 +276,40 @@ class TestPluginPermissions:
         plugin.save(update_fields=['status'])
         resp = authenticated_client.post(f'/api/external/plugins/{plugin.id}/execute/', {}, format='json')
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestExternalLinkListGrouping:
+    """R4-A14: list() 返回按 category 分组的外链(many=True 序列化后再分组)。"""
+
+    def test_list_groups_by_category(self, authenticated_client):
+        ExternalLink.objects.bulk_create(
+            [
+                ExternalLink(name='A', url='https://example.com/a', category='工具', sort_order=1, is_active=True),
+                ExternalLink(name='B', url='https://example.com/b', category='系统', sort_order=1, is_active=True),
+                ExternalLink(name='C', url='https://example.com/c', category='工具', sort_order=2, is_active=True),
+            ]
+        )
+
+        resp = authenticated_client.get('/api/external/external-links/')
+
+        assert resp.status_code == 200
+        data = resp.json()
+        # 分类升序
+        assert [g['category'] for g in data] == sorted(['系统', '工具'])
+        # 组内按 sort_order,name 排序
+        tools = next(g['links'] for g in data if g['category'] == '工具')
+        assert [l['name'] for l in tools] == ['A', 'C']
+
+    def test_list_inactive_hidden(self, authenticated_client):
+        ExternalLink.objects.create(
+            name='隐藏', url='https://example.com/hidden', category='系统', is_active=False
+        )
+
+        resp = authenticated_client.get('/api/external/external-links/')
+
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 class TestIsForbiddenHost:

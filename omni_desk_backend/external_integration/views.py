@@ -32,11 +32,11 @@ class ExternalLinkViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         """返回按分类分组的外链列表"""
         queryset = self.get_queryset()
+        # R4-A14: many=True 一次序列化再分组,避免循环内逐条序列化(N 倍开销)
+        items = ExternalLinkSerializer(queryset, many=True).data
         groups = {}
-        for link in queryset:
-            if link.category not in groups:
-                groups[link.category] = []
-            groups[link.category].append(ExternalLinkSerializer(link).data)
+        for item in items:
+            groups.setdefault(item["category"], []).append(item)
 
         result = [{"category": cat, "links": links} for cat, links in sorted(groups.items())]
         return Response(result)
