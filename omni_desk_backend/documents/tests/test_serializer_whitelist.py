@@ -1,7 +1,8 @@
 """documents serializer 白名单化测试 (R3-B1 PR-4)。
 
 契约(plan §3.2 PR-4):
-- DocumentTemplateSerializer 剔除 `variables`(前端零消费),保留 project_name/template_type_display 之外的消费字段
+- DocumentTemplateSerializer 剔除 `variables` 与 `template_type_display`(前端零消费),
+  保留 project_name/owner 等消费字段
 - GeneratedDocumentSerializer 剔除 `variables_used`
 - TagSerializer / EBookSerializer 显式白名单字段
 """
