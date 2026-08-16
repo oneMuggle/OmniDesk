@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthContext } from '../../features/auth/context/AuthContext';
 import { ThemeProvider } from '../../shared/context/ThemeContext';
 import { DemoProvider } from '../../shared/context/DemoContext';
@@ -26,16 +27,22 @@ const mockAuthContext = {
 };
 
 const renderSidebar = (authContext = mockAuthContext) => {
+  // R4-B1: Sidebar 通过 RQ 共享 ['unreadCount'] query → 需要 QueryClientProvider
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <ThemeProvider>
-      <DemoProvider>
-        <AuthContext.Provider value={authContext}>
-          <MemoryRouter>
-            <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
-          </MemoryRouter>
-        </AuthContext.Provider>
-      </DemoProvider>
-    </ThemeProvider>
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider>
+        <DemoProvider>
+          <AuthContext.Provider value={authContext}>
+            <MemoryRouter>
+              <Sidebar isMobileMenuOpen={false} toggleMobileMenu={() => {}} />
+            </MemoryRouter>
+          </AuthContext.Provider>
+        </DemoProvider>
+      </ThemeProvider>
+    </QueryClientProvider>
   );
 };
 
