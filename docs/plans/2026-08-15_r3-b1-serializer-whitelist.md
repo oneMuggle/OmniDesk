@@ -132,7 +132,7 @@
 | Serializer | 白名单 fields | 说明 |
 |---|---|---|
 | news.NewsTypeSerializer (L11) | `("id","name")` | 嵌套于 NewsArticleSerializer |
-| projects.ProjectSerializer (L9) | `("id","name","description","start_date","end_date","status","created_at","updated_at")` | 剔除 `manager` FK(前端未消费) |
+| projects.ProjectSerializer (L9) | `("id","name","description","start_date","end_date","status","manager","created_at","updated_at")` + `extra_kwargs={"manager":{"write_only":True}}` | 读响应收敛 manager(前端未消费);写路径保留——`projects/views.py` perform_create 要求 Admin 创建项目必须指定 manager |
 | sensor.SensorCategorySerializer (L17) | `("id","name","description","created_at","updated_at")` | 前端消费 |
 | sensor.StorageLocationSerializer (L24) | `("id","name","description","created_at","updated_at")` | 前端消费 |
 | sensor.CalibrationDataPointSerializer (L31) | `("id","sensor_calibration","pressure_value","positive_trip_voltage_1","positive_trip_voltage_2","positive_trip_voltage_3","negative_trip_voltage_1","negative_trip_voltage_2","negative_trip_voltage_3")` | 嵌套于 SensorCalibrationSerializer |
@@ -171,10 +171,11 @@
 
 ### PR-4: documents + config + users + news + projects + sensor_management(P2)
 
-- [ ] 分支 `refactor/r3-b1-serializer-whitelist-misc`
-- [ ] 写各 app serializer 测试
-- [ ] 白名单化 10 处 + 删除 users.PositionSerializer
-- [ ] 后端全量 pytest + 前端文档/图书/传感器冒烟
+- [x] 分支 `refactor/r3-b1-serializer-whitelist-misc`
+- [x] 写各 app serializer 测试(5 个测试文件,20 个用例:字段集契约 + write-path + 嵌套保留)
+- [x] 白名单化 13 处 + 删除 users.PositionSerializer
+- [x] 后端全量 pytest(2547 passed)+ 前端 build 冒烟
+- [x] AI 检阅修复:① `projects.ProjectSerializer.manager` 由「剔除」改为 **write_only**——发现 `projects/views.py` perform_create 契约:Admin 创建项目**必须**经请求体指定 manager,剔除会破坏该功能且使既有测试 `test_create_project_with_specified_manager` 失败;改为 write_only 后读响应收敛(前端零消费)写路径保留,与 api_key/id_card_number 决策一致。补 1 个 write-path 测试(test_write_accepts_manager)
 
 ### 收尾
 

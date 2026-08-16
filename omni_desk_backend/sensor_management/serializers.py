@@ -14,21 +14,34 @@ from .models import (
 class SensorCategorySerializer(serializers.ModelSerializer):
     class Meta:
         model = SensorCategory
-        fields = "__all__"
+        # R3-B1: 白名单化
+        fields = ["id", "name", "description", "created_at", "updated_at"]
         read_only_fields = ("created_at", "updated_at")
 
 
 class StorageLocationSerializer(serializers.ModelSerializer):
     class Meta:
         model = StorageLocation
-        fields = "__all__"
+        # R3-B1: 白名单化
+        fields = ["id", "name", "description", "created_at", "updated_at"]
         read_only_fields = ("created_at", "updated_at")
 
 
 class CalibrationDataPointSerializer(serializers.ModelSerializer):
     class Meta:
         model = CalibrationDataPoint
-        fields = "__all__"
+        # R3-B1: 白名单化,嵌套于 SensorCalibrationSerializer
+        fields = [
+            "id",
+            "sensor_calibration",
+            "pressure_value",
+            "positive_trip_voltage_1",
+            "positive_trip_voltage_2",
+            "positive_trip_voltage_3",
+            "negative_trip_voltage_1",
+            "negative_trip_voltage_2",
+            "negative_trip_voltage_3",
+        ]
 
 
 class SensorCalibrationSerializer(serializers.ModelSerializer):
@@ -119,19 +132,35 @@ class SensorSerializer(serializers.ModelSerializer):
 
 
 class SensorMovementSerializer(serializers.ModelSerializer):
-    operator_username = serializers.CharField(source="operator.username", read_only=True)
-    sensor_serial_number = serializers.CharField(source="sensor.serial_number", read_only=True)
-
     class Meta:
         model = SensorMovement
-        fields = "__all__"
+        # R3-B1: 白名单化。operator_username/sensor_serial_number 声明字段前端零消费,收敛剔除
+        fields = [
+            "id",
+            "sensor",
+            "movement_type",
+            "movement_date",
+            "operator",
+            "quantity",
+            "reason",
+            "destination_source",
+        ]
         read_only_fields = ("movement_date",)
 
 
 class CalibrationReminderSerializer(serializers.ModelSerializer):
-    sensor_serial_number = serializers.CharField(source="sensor.serial_number", read_only=True)
-
     class Meta:
         model = CalibrationReminder
-        fields = "__all__"
+        # R3-B1: 白名单化。sensor_serial_number 声明字段前端零消费,收敛剔除
+        fields = [
+            "id",
+            "sensor",
+            "remind_date",
+            "is_sent",
+            "sent_date",
+            "notes",
+            "reminded_users",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ("created_at", "updated_at")
