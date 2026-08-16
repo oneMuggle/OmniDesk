@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import PropTypes from 'prop-types';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/context/AuthContext';
 import { MenuOutlined } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
@@ -26,7 +27,17 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
   const { isAuthenticated, user, logout, hasPermission, isGuest } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [unreadNotificationCount, setUnreadNotificationCount] = useState(0);
+
+  // R4-B1: 未读数与 NotificationBell 共享同一 RQ query(['unreadCount']),
+  // 删除 Sidebar 自己的 setInterval 手写轮询(双轨轮询 → 单轨)。
+  // refetchInterval 由 NotificationBell(5s)驱动,此处只读共享缓存,不再重复发请求。
+  const { data: unreadData } = useQuery({
+    queryKey: ['unreadCount'],
+    queryFn: () => notificationApi.getUnreadCount().then((r) => r.data),
+    enabled: isAuthenticated,
+    refetchOnWindowFocus: false,
+  });
+  const unreadNotificationCount = unreadData?.unread_count || 0;
 
   // Persist collapse state
   useEffect(() => {
@@ -42,24 +53,6 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     document.body.style.overflow = isMobileMenuOpen ? 'hidden' : '';
     return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen]);
-
-  // Notification polling — pause when sidebar is collapsed
-  useEffect(() => {
-    const fetchUnreadCount = async () => {
-      try {
-        const response = await notificationApi.getUnreadCount();
-        setUnreadNotificationCount(response.data.unread_count);
-      } catch (error) {
-        logger.error('Error fetching unread notification count:', error);
-      }
-    };
-
-    if (isAuthenticated && !isCollapsed) {
-      fetchUnreadCount();
-      const interval = setInterval(fetchUnreadCount, 60000);
-      return () => clearInterval(interval);
-    }
-  }, [isAuthenticated, isCollapsed]);
 
   const menuItems = useMemo(
     () => createMenuItems({ logout, unreadNotificationCount }),
