@@ -59,4 +59,4 @@ def process_file_task(self, file_id):
             pass
 
         # 重试（最多 3 次，指数退避：60s → 120s → 240s）
-        raise self.retry(exc=exc, countdown=60 * (2 ** self.request.retries))
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))
