@@ -32,6 +32,8 @@
 | 17 | [AI 助手深化设计](17-ai-assistant-deep-design.md) | 多轮对话、工具链、模型降级、成本监控 |
 | 18 | [外部集成架构](18-external-integration.md) | 🔄 进行中 |
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
+| 35 | [通知中心](35-notifications.md) | 站内通知落库 + 轮询 API、类型/优先级/去重、信号触发(2026-08 R4-E5) |
+| 36 | [文件处理](36-file-processing.md) | Office / PDF 上传、异步解析与 AI 分析(Processor 策略模式 + Celery 异步,2026-08 R4-E5) |
 
 ### 专项主题
 
@@ -52,6 +54,8 @@
 | 32 | [Smart Assistant 多 Agent](32-smart-assistant-multi-agent.md) | MultiAgentExecutor / Pipeline / Fanout / Hierarchical + Hook 系统（v0.5.0 已实现） |
 | 33 | [RAGFlow 集成](33-ragflow-integration.md) | RAGFlow API 客户端、Dataset/Chat 管理、docker-compose 部署、健康检查（v0.6.0-alpha.2 已实现） |
 | 34 | [Smart Assistant 性能基准](34-smart-assistant-perf-benchmark.md) | P95 / 50 并发 / 缓存 TTFB 实测数据与优化手段（SAIS 分支 4 性能验收） |
+| 38 | [LLM 服务层](38-llm-service.md) | 多端点 LLM 路由器:DB LlmAppConfig 降级 → Ollama 本地兜底、usage 成本核算、工具调用(2026-08 R4-E5) |
+| 39 | [可观测性](39-observability.md) | 统一 logger、事件常量、request_id HTTP / Celery 全链路传播、SafeTextFormatter(2026-08 R4-E5) |
 | 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 | 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
 
@@ -59,11 +63,7 @@
 
 | 编号 | 主题 | 计划来源 |
 |------|------|----------|
-| 35 | 通知中心 (notifications app) | 站内 + 邮件通知,文档待补 |
-| 36 | 文件处理 (file_processing app) | Office / MinerU 文件解析通道,文档待补 |
 | 37 | 联培生管理 (joint_students app) | 设计草案见 [superpowers 计划](../superpowers/specs/2026-07-28-联培生管理模块-design.md) |
-| 38 | LLM 服务层 (llm_service app) | 多 LLM Provider 抽象,文档待补 |
-| 39 | 可观测性 (observability app) | 日志聚合、监控指标,文档待补 |
 
 ---
 
