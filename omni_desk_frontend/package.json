@@ -34,7 +34,7 @@
     "react-toastify": "^11.0.5",
     "remark-gfm": "^4.0.1",
     "whatwg-fetch": "^3.6.20",
-    "zod": "^3.25.76"
+    "zod": "^4.4.3"
   },
   "scripts": {
     "start": "vite",
