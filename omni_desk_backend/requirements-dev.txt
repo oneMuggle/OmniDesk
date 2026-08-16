@@ -6,11 +6,11 @@
 #
 amqp==5.3.1
     # via kombu
-asgiref==3.11.1
+asgiref==3.12.1
     # via
     #   django
     #   django-cors-headers
-ast-serialize==0.5.0
+ast-serialize==0.8.0
     # via mypy
 async-timeout==5.0.1
     # via redis
@@ -20,7 +20,7 @@ attrs==26.1.0
     #   referencing
 babel==2.18.0
     # via docxcompose
-beautifulsoup4==4.14.3
+beautifulsoup4==4.15.0
     # via -r requirements.in
 billiard==4.2.4
     # via celery
@@ -30,15 +30,15 @@ celery==5.6.3
     # via
     #   -r requirements.in
     #   django-celery-beat
-certifi==2026.5.20
+certifi==2026.7.22
     # via requests
-cffi==2.0.0
+cffi==2.1.1
     # via cryptography
-charset-normalizer==3.4.7
+charset-normalizer==3.5.1
     # via
     #   pdfminer-six
     #   requests
-click==8.4.1
+click==8.4.2
     # via
     #   celery
     #   click-didyoumean
@@ -53,7 +53,7 @@ click-repl==0.3.0
     # via celery
 cobble==0.1.4
     # via mammoth
-coverage[toml]==7.14.1
+coverage[toml]==7.15.4
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -94,9 +94,9 @@ django-ratelimit==4.1.0
     # via -r requirements.in
 django-redis==6.0.0
     # via -r requirements.in
-django-silk==5.5.0
+django-silk==5.5.2
     # via -r requirements-dev.in
-django-timezone-field==7.2.1
+django-timezone-field==7.2.2
     # via
     #   -r requirements.in
     #   django-celery-beat
@@ -107,11 +107,11 @@ djangorestframework==3.15.2
     #   drf-nested-routers
 djangorestframework-simplejwt==5.5.1
     # via -r requirements.in
-docxcompose==2.1.0
+docxcompose==2.2.0
     # via -r requirements.in
 docxtpl==0.20.2
     # via -r requirements.in
-drf-nested-routers==0.95.0
+drf-nested-routers==0.95.3
     # via -r requirements.in
 et-xmlfile==2.0.0
     # via openpyxl
@@ -123,7 +123,7 @@ factory-boy==3.3.3
     # via
     #   -r requirements-dev.in
     #   pytest-factoryboy
-faker==40.19.1
+faker==40.36.0
     # via factory-boy
 freezegun==1.5.5
     # via -r requirements-dev.in
@@ -131,9 +131,9 @@ gprof2dot==2025.4.14
     # via django-silk
 gunicorn==26.0.0
     # via -r requirements.in
-holidays==0.97
+holidays==0.102
     # via -r requirements.in
-idna==3.17
+idna==3.18
     # via requests
 inflection==0.5.1
     # via pytest-factoryboy
@@ -147,7 +147,7 @@ jsonschema-specifications==2025.9.1
     # via jsonschema
 kombu==5.6.2
     # via celery
-librt==0.11.0
+librt==0.15.0
     # via mypy
 lxml==6.1.1
     # via
@@ -156,17 +156,17 @@ lxml==6.1.1
     #   docxtpl
     #   python-docx
     #   python-pptx
-mammoth==1.12.0
+mammoth==1.12.1
     # via -r requirements.in
-markdown==3.10.2
+markdown==3.10.3
     # via
     #   -r requirements.in
     #   pymdown-extensions
 markupsafe==3.0.3
     # via jinja2
-model-bakery==1.23.4
+model-bakery==1.23.5
     # via -r requirements-dev.in
-mypy==2.1.0
+mypy==2.3.1
     # via -r requirements-dev.in
 mypy-extensions==1.1.0
     # via mypy
@@ -174,7 +174,7 @@ numpy==2.2.6
     # via pandas
 openpyxl==3.1.5
     # via -r requirements.in
-packaging==26.2
+packaging==26.3
     # via
     #   build
     #   gunicorn
@@ -190,18 +190,18 @@ pdfminer-six==20260107
     # via pdfplumber
 pdfplumber==0.11.10
     # via -r requirements.in
-pillow==12.2.0
+pillow==12.3.0
     # via
     #   -r requirements.in
     #   pdfplumber
     #   python-pptx
-pip-tools==7.5.3
+pip-tools==7.6.1
     # via -r requirements-dev.in
 pluggy==1.6.0
     # via
     #   pytest
     #   pytest-cov
-prompt-toolkit==3.0.52
+prompt-toolkit==3.0.53
     # via click-repl
 psycopg2-binary==2.9.12
     # via -r requirements.in
@@ -213,17 +213,17 @@ pyjwt==2.13.0
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
-pymdown-extensions==10.21.3
+pymdown-extensions==11.0.1
     # via -r requirements-dev.in
-pypdf==6.15.0
+pypdf==6.16.1
     # via -r requirements.in
-pypdfium2==5.11.0
+pypdfium2==5.13.0
     # via pdfplumber
 pyproject-hooks==1.2.0
     # via
     #   build
     #   pip-tools
-pytest==9.0.3
+pytest==9.1.1
     # via
     #   -r requirements-dev.in
     #   pytest-cov
@@ -232,7 +232,7 @@ pytest==9.0.3
     #   pytest-mock
 pytest-cov==7.1.0
     # via -r requirements-dev.in
-pytest-django==4.12.0
+pytest-django==4.14.0
     # via -r requirements-dev.in
 pytest-factoryboy==2.8.1
     # via -r requirements-dev.in
@@ -259,7 +259,7 @@ python-magic==0.4.27
     # via -r requirements.in
 python-pptx==1.0.2
     # via -r requirements.in
-pytz==2026.2
+pytz==2026.3.post1
     # via pandas
 pyyaml==6.0.3
     # via
@@ -284,15 +284,15 @@ rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.15.15
+ruff==0.16.3
     # via -r requirements-dev.in
 six==1.17.0
     # via python-dateutil
-soupsieve==2.8.4
+soupsieve==2.9.2
     # via
     #   -r requirements.in
     #   beautifulsoup4
-sqlparse==0.5.5
+sqlparse==0.6.0
     # via
     #   django
     #   django-silk
@@ -309,33 +309,34 @@ types-cffi==2.0.0.20260518
     # via types-pyopenssl
 types-pyopenssl==24.1.0.20240722
     # via types-redis
-types-python-dateutil==2.9.0.20260518
+types-python-dateutil==2.9.0.20260807
     # via -r requirements-dev.in
 types-redis==4.6.0.20241004
     # via -r requirements-dev.in
-types-requests==2.33.0.20260518
+types-requests==2.33.0.20260712
     # via -r requirements-dev.in
-types-setuptools==82.0.0.20260518
+types-setuptools==84.0.0.20260812
     # via types-cffi
-typing-extensions==4.15.0
+typing-extensions==4.16.0
     # via
     #   asgiref
     #   beautifulsoup4
     #   cryptography
     #   exceptiongroup
     #   mypy
+    #   pip-tools
     #   pyjwt
     #   pypdf
     #   pytest-factoryboy
     #   python-docx
     #   python-pptx
     #   referencing
-tzdata==2026.2
+tzdata==2026.3
     # via
     #   django-celery-beat
     #   kombu
     #   pandas
-tzlocal==5.3.1
+tzlocal==5.4.4
     # via celery
 unidecode==1.4.0
     # via -r requirements.in
@@ -349,9 +350,9 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.7.0
+wcwidth==0.8.2
     # via prompt-toolkit
-wheel==0.47.0
+wheel==0.48.0
     # via pip-tools
 whitenoise==6.12.0
     # via -r requirements.in

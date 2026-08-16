@@ -27,7 +27,10 @@ run_backend() {
         exit 1
     fi
 
-    pytest --cov=. --cov-report=term-missing --cov-report=html -v
+    # R4-E4: 显式指定 test settings + 覆盖率门槛,防御 cwd 异常时 pytest.ini
+    # 兜底失效(pytest.ini 已含 DJANGO_SETTINGS_MODULE=test 与 --cov-fail-under=80,
+    # 此处冗余显式化以自文档化)
+    pytest --ds=omni_desk_backend.settings.test --cov=. --cov-report=term-missing --cov-report=html --cov-fail-under=80 -v
     echo -e "${GREEN}Backend 测试完成!${NC}"
     echo -e "覆盖率报告: $PROJECT_ROOT/omni_desk_backend/htmlcov/index.html"
 }

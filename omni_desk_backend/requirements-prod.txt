@@ -30,7 +30,7 @@ certifi==2026.7.22
     # via requests
 cffi==2.1.1
     # via cryptography
-charset-normalizer==3.4.9
+charset-normalizer==3.5.1
     # via
     #   pdfminer-six
     #   requests
@@ -158,9 +158,9 @@ pyjwt==2.13.0
     # via
     #   -r requirements.in
     #   djangorestframework-simplejwt
-pypdf==6.15.0
+pypdf==6.16.1
     # via -r requirements.in
-pypdfium2==5.12.1
+pypdfium2==5.13.0
     # via pdfplumber
 python-crontab==3.3.0
     # via django-celery-beat
@@ -206,7 +206,7 @@ soupsieve==2.9.2
     # via
     #   -r requirements.in
     #   beautifulsoup4
-sqlparse==0.5.5
+sqlparse==0.6.0
     # via django
 tabulate==0.10.0
     # via -r requirements.in

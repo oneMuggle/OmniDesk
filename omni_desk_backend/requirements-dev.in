@@ -13,8 +13,8 @@ freezegun  # paperless_proxy outbox time mocking
 responses  # paperless_proxy HTTP mocking
 
 # Linting & Formatting
-ruff
-mypy
+ruff>=0.16,<0.17  # R4-E2: 对齐 CI lint job(>=0.16,<0.17)与 requirements.txt 锁
+mypy>=2.3,<2.4    # R4-E2: 对齐 requirements.txt 锁(mypy 2.3.0)
 types-requests
 types-redis
 types-python-dateutil
