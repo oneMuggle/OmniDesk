@@ -66,11 +66,39 @@ class TestUploadTemplate:
         assert response.status_code == status.HTTP_201_CREATED
         assert DocumentTemplate.objects.get(name="plan.docx").template_type == "test_case"
 
+    def test_upload_with_empty_template_type_falls_back_to_default(
+        self, api_client, regular_user_obj, mock_process_uploaded_file
+    ):
+        response = self._upload(api_client, regular_user_obj, template_type="")
+
+        assert response.status_code == status.HTTP_201_CREATED
+        assert DocumentTemplate.objects.get(name="plan.docx").template_type == "tech_design"
+
+    def test_upload_with_invalid_template_type_returns_400(
+        self, api_client, regular_user_obj, mock_process_uploaded_file
+    ):
+        response = self._upload(api_client, regular_user_obj, template_type="garbage")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid template_type" in response.data["error"]
+        assert DocumentTemplate.objects.count() == 0
+
     def test_upload_without_file_returns_400(self, api_client, regular_user_obj):
         api_client.force_authenticate(user=regular_user_obj)
         response = api_client.post("/api/documents/templates/upload/", {}, format="multipart")
         assert response.status_code == status.HTTP_400_BAD_REQUEST
 
-    def test_upload_with_nonexistent_project_returns_404(self, api_client, regular_user_obj, mock_process_uploaded_file):
+    def test_upload_with_nonexistent_project_returns_404(
+        self, api_client, regular_user_obj, mock_process_uploaded_file
+    ):
         response = self._upload(api_client, regular_user_obj, project_id=99999)
         assert response.status_code == status.HTTP_404_NOT_FOUND
+
+    def test_upload_with_non_numeric_project_id_returns_400(
+        self, api_client, regular_user_obj, mock_process_uploaded_file
+    ):
+        response = self._upload(api_client, regular_user_obj, project_id="abc")
+
+        assert response.status_code == status.HTTP_400_BAD_REQUEST
+        assert "Invalid project_id" in response.data["error"]
+        assert DocumentTemplate.objects.count() == 0
