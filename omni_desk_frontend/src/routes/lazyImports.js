@@ -71,7 +71,6 @@ export const PluginManagementPage = lazy(() => import('../features/plugin-market
 // P2-3 / P3-3 引入
 export const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
 export const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
-export const NotificationBell = lazy(() => import('../features/notifications/components/NotificationBell'));
 // 文档库路由 (paperless-ngx 集成)
 export const DocumentLibraryPage = lazy(() => import('../features/documents-library/pages/DocumentLibraryPage'));
 export const DocumentUploadPage = lazy(() => import('../features/documents-library/pages/DocumentUploadPage'));
