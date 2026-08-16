@@ -1,6 +1,7 @@
 from datetime import timedelta
 from django.utils import timezone
 from django.db.models import Count, Q, Avg, Sum
+from django.db.models.functions import TruncDate
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -71,7 +72,7 @@ class StatsViewSet(viewsets.ViewSet):
 
         daily_stats = (
             AgentLog.objects.filter(created_at__gte=since)
-            .extra(select={"date": "DATE(created_at)"})
+            .annotate(date=TruncDate("created_at"))
             .values("date")
             .annotate(
                 conversations=Count("id"),
