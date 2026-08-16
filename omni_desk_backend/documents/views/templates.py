@@ -53,9 +53,7 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                 # template_type 允许请求体传入、缺省用首个 choices(前端暂不传)。
                 template = DocumentTemplate.objects.create(
                     name=file_obj.name,
-                    template_type=request.data.get(
-                        "template_type", DocumentTemplate.TEMPLATE_TYPES[0][0]
-                    ),
+                    template_type=request.data.get("template_type", DocumentTemplate.TEMPLATE_TYPES[0][0]),
                     content=extracted_text,
                     owner=request.user,
                     extracted_text=extracted_text,
