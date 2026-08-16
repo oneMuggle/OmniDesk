@@ -47,10 +47,24 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                         project_instance = Project.objects.get(id=project_id)
                     except Project.DoesNotExist:
                         return Response({"error": "Project not found"}, status=status.HTTP_404_NOT_FOUND)
+                    except (ValueError, TypeError):
+                        # 非数字 project_id(如 'abc')→ 格式非法,返回 400 而非 500
+                        return Response({"error": "Invalid project_id"}, status=status.HTTP_400_BAD_REQUEST)
+
+                # 修复:DocumentTemplate model 无 file 字段,移除 file=file_obj;
+                # content/template_type 为非空字段,content 取提取文本,
+                # template_type 允许请求体传入、缺省用首个 choices(前端暂不传)。
+                template_type = request.data.get("template_type") or DocumentTemplate.TEMPLATE_TYPES[0][0]
+                if template_type not in dict(DocumentTemplate.TEMPLATE_TYPES):
+                    return Response(
+                        {"error": f"Invalid template_type: {template_type}"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
 
                 template = DocumentTemplate.objects.create(
                     name=file_obj.name,
-                    file=file_obj,
+                    template_type=template_type,
+                    content=extracted_text,
                     owner=request.user,
                     extracted_text=extracted_text,
                     project=project_instance,
