@@ -7,6 +7,41 @@ on:
     branches: [main, develop]
 
 jobs:
+  # ─── Lockfile freshness gate (R4-E3) ───
+  # 锁文件门禁:两份 dev 锁必须同批编译保持一致(requirements.txt 供生产镜像,
+  # requirements-dev.txt 供 CI test),dev/prod 锁均须与 .in 最新解析一致。
+  # --rebuild 忽略本地已安装包,纯 PyPI 解析,保证可复现(与本地 pip-compile 同语义)。
+  check-lockfiles:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: 'pip'
+      - name: Install pip-tools
+        run: pip install pip-tools
+      - name: Check dev locks are identical
+        working-directory: omni_desk_backend
+        # 两份 dev 锁头部注释各自记录 -o 命令,先 tail +6 跳过头部再比 body
+        run: |
+          diff <(tail -n +6 requirements.txt) <(tail -n +6 requirements-dev.txt) \
+            || { echo "❌ requirements.txt 与 requirements-dev.txt 漂移,请用 pip-compile 同批重编译"; exit 1; }
+      - name: Check dev lock freshness
+        working-directory: omni_desk_backend
+        # pip-compile 无 --check(pip-tools 7.6.1),用 --rebuild 生成临时对照 + diff body 实现门禁
+        run: |
+          pip-compile --rebuild --output-file=/tmp/expected-dev.txt requirements-dev.in
+          diff <(tail -n +6 /tmp/expected-dev.txt) <(tail -n +6 requirements-dev.txt) \
+            || { echo "❌ requirements-dev.txt 过期,请 pip-compile --rebuild 重编译"; exit 1; }
+      - name: Check prod lock freshness
+        working-directory: omni_desk_backend
+        run: |
+          pip-compile --rebuild --output-file=/tmp/expected-prod.txt requirements.in
+          diff <(tail -n +6 /tmp/expected-prod.txt) <(tail -n +6 requirements-prod.txt) \
+            || { echo "❌ requirements-prod.txt 过期,请 pip-compile --rebuild 重编译"; exit 1; }
+
   # ─── Backend ───
   lint-backend:
     runs-on: ubuntu-latest
