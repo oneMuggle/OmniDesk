@@ -60,3 +60,43 @@ export const parseSSE = (text) => {
   }
   return events;
 };
+
+/**
+ * 消费 SSE ReadableStream:解析出 JSON 事件,逐个交给 onEvent 处理。
+ * R4-B2 提取自 QuickAssistant 与 useSmartChat.runStream 中重复的流式读取循环,
+ * 收敛为单一共享实现。
+ *
+ * @param {ReadableStream} stream 服务端 SSE 响应体
+ * @param {(event: object) => (void | Promise<*> | boolean)} onEvent 每个解析出的事件回调;
+ *   返回 false 立即中止读取(丢弃剩余 buffer)。
+ * @param {object} [opts]
+ * @param {() => void} [opts.onBeforeRead] 每次 reader.read() 之前调用
+ *   (用于重置超时计时等;done 前的最后一次 read 也会触发,消费方需自行在收尾清理)
+ * @returns {Promise<void>}
+ */
+export async function consumeSSEStream(stream, onEvent, { onBeforeRead } = {}) {
+  const reader = stream.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    if (onBeforeRead) onBeforeRead();
+    const { done, value } = await reader.read();
+    if (done) break;
+
+    buffer += decoder.decode(value, { stream: true });
+    const parts = buffer.split('\n\n');
+    buffer = parts.pop() || '';
+
+    for (const part of parts) {
+      const events = parseSSE(part);
+      for (const event of events) {
+        const result = onEvent(event);
+        // 支持 async onEvent(如 useSmartChat.handleSSEEvent 返回会话 ID)
+        if (result === false) return;
+        await result;
+      }
+    }
+  }
+}
