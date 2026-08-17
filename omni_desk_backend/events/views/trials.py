@@ -85,7 +85,7 @@ class TimeSlotViewSet(viewsets.ModelViewSet):
                 trial.update_time_range()
                 logger.debug("Finished updating trial %s time range", trial.id)
         except Exception as e:
-            logger.error("Error updating time slot: %s", e)
+            logger.error("Error updating time slot: %s", e, exc_info=True)
             raise
 
     def perform_destroy(self, instance):
