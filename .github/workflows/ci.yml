@@ -351,6 +351,15 @@ jobs:
             exit 1
           fi
 
+      # ─── Smoke (P1-4: SKIP→FAIL) ─────────────────────────────
+      # 跑项目自带的部署冒烟测试,SMOKE_STRICT=1 让 SKIP 升级为 FAIL,
+      # 避免"探测被悄悄放过"在 PR 阶段把 bug 漏到 main。
+      # smoke_tests.sh 默认 base_url 是 http://localhost,容器端口映射匹配。
+      - name: Smoke tests (strict)
+        run: |
+          SMOKE_STRICT=1 ./smoke_tests.sh http://localhost
+        continue-on-error: false
+
       - name: Cleanup
         if: always()
         run: docker compose down

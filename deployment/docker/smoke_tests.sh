@@ -18,6 +18,9 @@ SKIP=0
 WARN=0
 # O1: WARN 详情数组 — STATUS 框前 echo,让 operator 不用 grep 翻日志
 WARN_DETAILS=()
+# SMOKE_STRICT=1:SKIP 升级为 FAIL(CI 严格模式,部署现场保持默认 0 = 容错)
+# CI 在 PR 上跑 smoke,任何"我跳过了"的探测都不能蒙混过关,必须显式通过。
+SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
@@ -101,7 +104,14 @@ result() {
     case "$status" in
         PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
         FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
-        SKIP) echo "  SKIP: $msg"; SKIP=$((SKIP + 1)) ;;
+        # SMOKE_STRICT=1 (CI): SKIP 必须升级为 FAIL,
+        # 避免"探测被悄悄放过"在 PR 阶段把 bug 漏到 main
+        SKIP) if [ "$SMOKE_STRICT" = "1" ]; then
+                  echo "  FAIL(strict): $msg (was SKIP)"; FAIL=$((FAIL + 1))
+                  [ -n "$detail" ] && echo "    -> $detail"
+              else
+                  echo "  SKIP: $msg"; SKIP=$((SKIP + 1))
+              fi ;;
         # O1: WARN 详情也收集到 WARN_DETAILS,STATUS 框前 echo
         WARN) echo "  WARN: $msg"; WARN=$((WARN + 1))
               [ -n "$detail" ] && echo "    -> $detail"
