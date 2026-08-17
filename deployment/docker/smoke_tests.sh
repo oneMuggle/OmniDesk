@@ -25,6 +25,25 @@ SMOKE_STRICT="${SMOKE_STRICT:-0}"
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
 
+# set -u 兜底初始化:后续脚本会 `read` 这些变量,在 CI 环境(无 .env.production、
+# 无外部 env 注入)下用 :- 兜底空值,避免 "unbound variable" 早退。
+# 真值仍由下方 .env.production 读取与 fallback 决定,这里只是"先占位"。
+: "${COMPOSE_PROJECT_NAME:=}"
+: "${OMNIDESK_BACKUP_ROOT:=}"
+: "${OMNIDESK_RUNTIME_ROOT:=}"
+: "${SMOKE_TEST_USER:=}"
+: "${SMOKE_TEST_PASSWORD:=}"
+: "${USE_HTTPS:=}"
+: "${POSTGRES_USER:=}"
+: "${POSTGRES_DB:=}"
+: "${CELERY_RESP:=}"
+: "${GUEST_TOKEN:=}"
+: "${SECURE_ATTR:=}"
+: "${MISSING:=}"
+: "${INDEX_HTML:=}"
+: "${CHUNK_URLS:=}"
+: "${LATEST:=}"
+
 # ─── Task 8: 环境变量设置与校验 ────────────────────────────────
 # 设置并校验 COMPOSE_PROJECT_NAME / OMNIDESK_BACKUP_ROOT / OMNIDESK_RUNTIME_ROOT
 # 这些变量用于确保 smoke 测试与升级/备份脚本使用一致的运行时路径
