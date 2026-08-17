@@ -83,8 +83,8 @@ round1/round2/round3 已完成:
 | R4-D1 | `features/documents-library/`(8 文件) | **完全零测试**;paperless-ngx 集成 + `usePaperlessHealth.js` 30s 轮询 hook,全库集成逻辑最复杂 | 补 hook + 页面最小单测 | MEDIUM ✅ PR #365 |
 | R4-D2 | `features/profile/`(4 文件,含 EditProfileForm/ChangePasswordForm)、`features/search-federation/`(3 文件,含 useUnifiedSearch hook) | 完全零测试,含表单/鉴权 hook | 补最小单测 | MEDIUM ✅ PR #365 |
 | R4-D3 | `features/integration-hub/`(5 文件)、`features/system/`(1 文件) | 完全零测试 | 补集成卡片 + 版本页最小单测 | LOW ✅ PR #365 |
-| R4-D4 | 14 处 icon-only Button 无 `aria-label`/`title` | `IntegrationManagementPage.jsx:100,102`、`PluginManagementPage.jsx:90,97`、`ExternalLinkManagementPage.jsx:86,88`、`ProjectsPage.jsx:112-114`、`GroupPermissionManager.jsx:189-190`、`KnowledgeBasePage.jsx:106` 等 | 逐个补 `aria-label`,或统一包 Tooltip(全库仅 6 文件在用) | MEDIUM |
-| R4-D5 | 120 个文件用内联 `style={{`,sensor feature 最严重(SensorDetailPage/AddCalibrationRecordPage 各 13 处) | 主题系统(themeSchemes/tokens.css)未利用 | 先攻 sensor feature,提取到主题 token | LOW/MEDIUM |
+| R4-D4 | 14 处 icon-only Button 无 `aria-label`/`title` | `IntegrationManagementPage.jsx:100,102`、`PluginManagementPage.jsx:90,97`、`ExternalLinkManagementPage.jsx:86,88`、`ProjectsPage.jsx:112-114`、`GroupPermissionManager.jsx:189-190`、`KnowledgeBasePage.jsx:106` 等 | 逐个补 `aria-label`,或统一包 Tooltip(全库仅 6 文件在用) | MEDIUM ✅ PR #366 |
+| R4-D5 | 120 个文件用内联 `style={{`,sensor feature 最严重(SensorDetailPage/AddCalibrationRecordPage 各 13 处) | 主题系统(themeSchemes/tokens.css)未利用 | 先攻 sensor feature,提取到主题 token | LOW/MEDIUM ✅ PR #367 |
 
 **涉及模块:** 5 个零测试 feature + 全库 action 按钮
 **风险:** 低
