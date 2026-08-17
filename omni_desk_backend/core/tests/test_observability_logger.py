@@ -17,6 +17,7 @@ REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 BASELINE = {
     "compliance/tasks.py",
     "core/api.py",
+    "core/exception_handler.py",  # P1-8: DRF EXCEPTION_HANDLER,暂未迁移 get_logger
     "documents/file_processing.py",
     "events/signals.py",
     "events/tasks.py",
