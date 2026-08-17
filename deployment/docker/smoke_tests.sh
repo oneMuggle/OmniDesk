@@ -914,6 +914,69 @@ else
 fi
 echo ""
 
+# ─── 阶段 13: readiness + 静态 chunk(P1-7) ────────────────────
+# 校验 /api/system/ready/ 真业务检查(DB + cache + celery),不止 healthcheck 的 DB-only
+# 同时解析 index.html 的 lazy chunk 引用并逐个 curl,
+# 离线包最容易出问题的就是 chunk hash 漂移导致 404
+echo "阶段 13: readiness + 静态 chunk"
+
+# 13.1 readiness 端点要求 200 + 三依赖全 ok
+READY_BODY=""
+READY_HTTP=$(curl -s -o /tmp/_smoke_ready.json -w "%{http_code}" \
+    "${BASE_URL}/api/system/ready/" 2>/dev/null || echo "000")
+READY_BODY=$(cat /tmp/_smoke_ready.json 2>/dev/null || echo "")
+rm -f /tmp/_smoke_ready.json
+
+if [ "$READY_HTTP" != "200" ]; then
+    result "FAIL" "/api/system/ready/ 状态码" "HTTP $READY_HTTP (期望 200)"
+else
+    # 校验 body 三个核心检查项
+    MISSING=""
+    for key in database cache celery; do
+        if ! echo "$READY_BODY" | grep -q "\"$key\"[[:space:]]*:[[:space:]]*\"ok\""; then
+            MISSING="$MISSING $key"
+        fi
+    done
+    if [ -z "$MISSING" ]; then
+        result "PASS" "/api/system/ready/ 三依赖全 ok" "database/cache/celery 全部 ok"
+    else
+        result "FAIL" "/api/system/ready/ 三依赖不全 ok" "缺失:${MISSING# }"
+    fi
+fi
+
+# 13.2 前端 lazy chunk 引用校验
+INDEX_HTML=$(curl -sf "${BASE_URL}/" 2>/dev/null || echo "")
+if [ -z "$INDEX_HTML" ]; then
+    result "FAIL" "前端 index.html 获取" "curl / 失败"
+else
+    # 提取形如 assets/<name>-<hash>.js 或 assets/<name>-<hash>.css 的引用
+    CHUNK_URLS=$(echo "$INDEX_HTML" \
+        | grep -oE 'assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]+\.(js|css)' \
+        | sort -u | head -20 || true)
+    if [ -z "$CHUNK_URLS" ]; then
+        result "WARN" "前端 lazy chunk 引用" "未在 index.html 找到 assets/*-*.{js,css} 模式(可能 build 配置变更)"
+    else
+        CHUNK_FAIL=0
+        CHUNK_TOTAL=0
+        while IFS= read -r chunk; do
+            [ -z "$chunk" ] && continue
+            CHUNK_TOTAL=$((CHUNK_TOTAL + 1))
+            CHUNK_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+                "${BASE_URL}/${chunk}" || echo "000")
+            if [ "$CHUNK_HTTP" != "200" ]; then
+                CHUNK_FAIL=$((CHUNK_FAIL + 1))
+            fi
+        done <<< "$CHUNK_URLS"
+        if [ "$CHUNK_FAIL" -eq 0 ]; then
+            result "PASS" "前端 lazy chunk 全部 200" "$CHUNK_TOTAL 个 chunk 全部可达"
+        else
+            result "FAIL" "前端 lazy chunk 部分 404" "$CHUNK_FAIL/$CHUNK_TOTAL 个 chunk 返回非 200"
+        fi
+    fi
+fi
+
+echo ""
+
 # ─── 总结 ────────────────────────────────────────────────────
 echo "=========================================="
 echo "  测试结果"
