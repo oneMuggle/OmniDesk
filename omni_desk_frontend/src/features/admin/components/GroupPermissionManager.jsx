@@ -168,7 +168,7 @@ const GroupPermissionManager = () => {
       <Sider width={300} style={{ background: '#fff', borderRight: '1px solid #f0f0f0', paddingRight: '16px' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
           <Title level={5} style={{ margin: 0 }}>用户组</Title>
-          <Button icon={<PlusOutlined />} onClick={() => showModal()} />
+          <Button icon={<PlusOutlined />} aria-label="新建用户组" onClick={() => showModal()} />
         </div>
         <Spin spinning={loadingGroups}>
           <List
@@ -186,8 +186,8 @@ const GroupPermissionManager = () => {
               >
                 <span>{item.name}</span>
                 <Space>
-                  <Button type="text" icon={<EditOutlined />} onClick={(e) => { e.stopPropagation(); showModal(item); }} />
-                  <Button type="text" danger icon={<DeleteOutlined />} onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} />
+                  <Button type="text" icon={<EditOutlined />} aria-label="编辑用户组" onClick={(e) => { e.stopPropagation(); showModal(item); }} />
+                  <Button type="text" danger icon={<DeleteOutlined />} aria-label="删除用户组" onClick={(e) => { e.stopPropagation(); handleDelete(item.id); }} />
                 </Space>
               </List.Item>
             )}

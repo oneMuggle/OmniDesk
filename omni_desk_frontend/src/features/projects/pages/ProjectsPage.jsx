@@ -109,9 +109,9 @@ const ProjectsPage = () => {
             key: 'action',
             render: (_, record) => (
                 <Space>
-                    <Button type="link" icon={<EditOutlined />} onClick={() => handleOpenDialog(record)} />
-                    <Button type="link" danger icon={<DeleteOutlined />} onClick={() => handleDelete(record.id)} />
-                    <Button type="link" icon={<UploadOutlined />} onClick={() => navigate(`/documents?project_id=${record.id}`)} />
+                    <Button type="link" icon={<EditOutlined />} aria-label="编辑" onClick={() => handleOpenDialog(record)} />
+                    <Button type="link" danger icon={<DeleteOutlined />} aria-label="删除" onClick={() => handleDelete(record.id)} />
+                    <Button type="link" icon={<UploadOutlined />} aria-label="上传文档" onClick={() => navigate(`/documents?project_id=${record.id}`)} />
                 </Space>
             ),
         },
