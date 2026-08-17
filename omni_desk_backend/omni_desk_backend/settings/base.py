@@ -244,6 +244,12 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
     ),
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    # 限流速率:anon 用于 IP 维度;client_error 是 core.throttles.ClientErrorAnonThrottle 的 scope,
+    # 防止前端错误上报端点被错误循环/异常刷屏打爆。10/min/IP 在内网足够宽松但又能挡住滥用。
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "client_error": "10/min",
+    },
 }
 
 # JWT配置
