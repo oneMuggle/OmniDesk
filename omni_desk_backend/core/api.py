@@ -44,11 +44,7 @@ def _sanitize_client_error_payload(payload: dict) -> dict:
             cleaned[k] = v[:5000] if k == "stack" else v[:500]
         elif isinstance(v, dict):
             # extra 字段:递归清敏感键
-            cleaned[k] = {
-                ek: ev
-                for ek, ev in v.items()
-                if not _CLIENT_ERROR_SENSITIVE_KEYS.search(str(ek))
-            }
+            cleaned[k] = {ek: ev for ek, ev in v.items() if not _CLIENT_ERROR_SENSITIVE_KEYS.search(str(ek))}
         else:
             cleaned[k] = v
     return cleaned

@@ -85,18 +85,14 @@ class Command(BaseCommand):
             return
 
         if not password:
-            raise CommandError(
-                "password 不能为空(传 --password 或设 $SMOKE_TEST_PASSWORD);"
-                "若要禁用账号请用 --disable"
-            )
+            raise CommandError("password 不能为空(传 --password 或设 $SMOKE_TEST_PASSWORD);若要禁用账号请用 --disable")
 
         user, created = User.objects.get_or_create(username=username)
         action = "create" if created else "update"
 
         if dry_run:
             self.stdout.write(
-                f"[DRY-RUN] 将 {action} smoke 账号: {username} "
-                f"(is_staff=False, is_superuser=False, email=None)"
+                f"[DRY-RUN] 将 {action} smoke 账号: {username} (is_staff=False, is_superuser=False, email=None)"
             )
             # dry-run 路径如果触发了 create,需要回滚避免污染测试
             if created:

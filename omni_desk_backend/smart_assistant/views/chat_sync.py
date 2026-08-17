@@ -141,11 +141,7 @@ def _handle_confirm_replay(request, confirm_token) -> Response:
     expected_prefix = f"u{request.user.pk}_"
     if not draft_entry.get("context_sig", "").startswith(expected_prefix):
         # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
-        masked = (
-            f"{confirm_token[:4]}***{confirm_token[-4:]}"
-            if len(confirm_token) >= 8
-            else "***"
-        )
+        masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
         logger.warning(
             "confirm token 跨用户重放: token=%s expected_user=%s draft_user_sig=%s",
             masked,

@@ -70,9 +70,7 @@ def omnidesk_exception_handler(exc: Exception, context: dict[str, Any]) -> Respo
     status_code = getattr(response, "status_code", 500)
     if status_code >= 500:
         view = context.get("view")
-        view_name = (
-            f"{view.__class__.__module__}.{view.__class__.__name__}" if view else "unknown"
-        )
+        view_name = f"{view.__class__.__module__}.{view.__class__.__name__}" if view else "unknown"
         # LOG014:此函数本身就是 DRF 的 EXCEPTION_HANDLER 入口,
         # 进入时 DRF 已捕获原始异常,我们拿到的 `exc` 是已脱离 except 块的对象。
         # 此处显式传 exc_info=True 让 logger 输出完整堆栈,是设计意图。
