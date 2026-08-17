@@ -87,7 +87,7 @@ const SensorDetailPage = () => {
             key: 'action',
             render: (_, record) => (
                 <div>
-                    <Button size="small" onClick={() => showModal(record)} style={{ marginRight: 4 }}>查看详情</Button>
+                    <Button size="small" onClick={() => showModal(record)} style={{ marginRight: 'var(--spacing-xs)' }}>查看详情</Button>
                     <Button size="small" danger onClick={() => handleDeleteCalibration(record.id)}>删除</Button>
                 </div>
             ),
@@ -107,14 +107,14 @@ const SensorDetailPage = () => {
     }
 
     return (
-        <div style={{ padding: '20px' }}>
+        <div style={{ padding: 'var(--spacing-20)' }}>
             <Card title={`传感器详情: ${sensor?.name}`}>
                 <p><strong>传感器编号:</strong> {sensor?.sensor_number}</p>
                 <p><strong>序列号:</strong> {sensor?.serial_number}</p>
                 <p><strong>状态:</strong> {sensor?.status_display}</p>
             </Card>
 
-            <Card title="校准记录" style={{ marginTop: '20px' }} extra={<Button type="primary" onClick={handleAddCalibration}>添加校准记录</Button>}>
+            <Card title="校准记录" style={{ marginTop: 'var(--spacing-20)' }} extra={<Button type="primary" onClick={handleAddCalibration}>添加校准记录</Button>}>
                 <Table
                     dataSource={calibrations}
                     columns={columns}
@@ -148,23 +148,23 @@ const SensorDetailPage = () => {
                             <Descriptions.Item label="校准人">{selectedRecord.calibrated_by_username || selectedRecord.calibrated_by || '无'}</Descriptions.Item>
                         </Descriptions>
 
-                        <Divider orientation="left" style={{ margin: '16px 0 12px' }}>性能指标</Divider>
-                        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-                            <Tag color="blue" style={{ padding: '4px 12px', fontSize: 14 }}>非线性度: {selectedRecord.non_linearity ?? '—'}%</Tag>
-                            <Tag color="green" style={{ padding: '4px 12px', fontSize: 14 }}>迟滞: {selectedRecord.hysteresis ?? '—'}%</Tag>
-                            <Tag color="orange" style={{ padding: '4px 12px', fontSize: 14 }}>重复性: {selectedRecord.repeatability ?? '—'}%</Tag>
-                            <Tag color="purple" style={{ padding: '4px 12px', fontSize: 14 }}>精度: {selectedRecord.accuracy ?? '—'}%</Tag>
-                            <Tag color="cyan" style={{ padding: '4px 12px', fontSize: 14 }}>灵敏度: {selectedRecord.sensitivity ?? '—'} mV/V</Tag>
+                        <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>性能指标</Divider>
+                        <div style={{ display: 'flex', gap: 'var(--spacing-12)', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
+                            <Tag color="blue" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>非线性度: {selectedRecord.non_linearity ?? '—'}%</Tag>
+                            <Tag color="green" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>迟滞: {selectedRecord.hysteresis ?? '—'}%</Tag>
+                            <Tag color="orange" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>重复性: {selectedRecord.repeatability ?? '—'}%</Tag>
+                            <Tag color="purple" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>精度: {selectedRecord.accuracy ?? '—'}%</Tag>
+                            <Tag color="cyan" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>灵敏度: {selectedRecord.sensitivity ?? '—'} mV/V</Tag>
                         </div>
 
-                        <Descriptions bordered column={1} size="small" style={{ marginBottom: 16 }}>
+                        <Descriptions bordered column={1} size="small" style={{ marginBottom: 'var(--spacing-md)' }}>
                             <Descriptions.Item label="校准方程">{selectedRecord.calibration_equation || '无'}</Descriptions.Item>
                             <Descriptions.Item label="备注">{selectedRecord.remarks || '无'}</Descriptions.Item>
                         </Descriptions>
 
                         {selectedRecord.data_points && selectedRecord.data_points.length > 0 && (
                             <>
-                                <Divider orientation="left" style={{ margin: '16px 0 12px' }}>数据点</Divider>
+                                <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>数据点</Divider>
                                 <Table
                                     bordered
                                     dataSource={selectedRecord.data_points}

@@ -106,7 +106,7 @@ const SensorArchiveLocationManagementPage = () => {
 
   return (
     <div>
-      <Button type="primary" onClick={() => showModal()} style={{ marginBottom: 16 }}>
+      <Button type="primary" onClick={() => showModal()} style={{ marginBottom: 'var(--spacing-md)' }}>
         添加存档位置
       </Button>
       <Table columns={columns} dataSource={locations} rowKey="id" />

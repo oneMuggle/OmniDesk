@@ -137,7 +137,7 @@ const SensorCalibrationManagementPage = () => {
     return (
         <div>
             <h1>Sensor Calibration Management for Sensor ID: {sensorId}</h1>
-            <Button type="primary" onClick={handleAdd} style={{ marginBottom: 16 }}>
+            <Button type="primary" onClick={handleAdd} style={{ marginBottom: 'var(--spacing-md)' }}>
                 Add New Calibration
             </Button>
             <Table columns={columns} dataSource={calibrations} rowKey="id" loading={loading} />

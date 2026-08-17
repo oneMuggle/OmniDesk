@@ -229,7 +229,7 @@ const AddCalibrationRecordPage = () => {
           </Col>
         </Row>
 
-        <Card title="数据记录" type="inner" style={{ marginTop: 16 }}>
+        <Card title="数据记录" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Table
             bordered
             dataSource={dataSource}
@@ -239,7 +239,7 @@ const AddCalibrationRecordPage = () => {
           />
         </Card>
 
-        <Card title="性能指标" type="inner" style={{ marginTop: 16 }}>
+        <Card title="性能指标" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Row gutter={16}>
             <Col span={6}>
               <Form.Item name="non_linearity" label="非线性度 (%)">
@@ -264,7 +264,7 @@ const AddCalibrationRecordPage = () => {
           </Row>
         </Card>
 
-        <Card title="校准信息" type="inner" style={{ marginTop: 16 }}>
+        <Card title="校准信息" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="sensitivity" label="灵敏度 (mV/V)">
@@ -299,8 +299,8 @@ const AddCalibrationRecordPage = () => {
           </Row>
         </Card>
 
-        <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
-          <Button onClick={() => navigate('/sensor-management')} style={{ marginRight: 8 }}>
+        <Form.Item style={{ marginTop: 'var(--spacing-lg)', textAlign: 'right' }}>
+          <Button onClick={() => navigate('/sensor-management')} style={{ marginRight: 'var(--spacing-sm)' }}>
             返回
           </Button>
           <Button type="primary" htmlType="submit">
