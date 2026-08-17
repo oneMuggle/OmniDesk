@@ -302,6 +302,15 @@ echo ""
 COMPOSE_FILE="-f docker-compose.offline.yml"
 ENV_FILE="--env-file .env.production"
 
+# CI docker-integration job 用默认 docker-compose.yml(端口 3000:3000 等)起服务,
+# 而 smoke 默认指向 docker-compose.offline.yml(端口 80,需 nginx)。
+# 探测:若 -f docker-compose.offline.yml ps 找不到 db 服务,fallback 到默认 compose。
+# 这样同一份脚本既支持 CI 默认 compose,又支持离线包部署现场的 offline compose。
+if ! docker compose $COMPOSE_FILE $ENV_FILE ps --services 2>/dev/null | grep -qx db; then
+    echo "WARN: docker-compose.offline.yml 中未找到 db 服务,fallback 到默认 compose 文件" >&2
+    COMPOSE_FILE=""
+fi
+
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
 }
