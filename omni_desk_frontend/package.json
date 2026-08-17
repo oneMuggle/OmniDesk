@@ -48,7 +48,8 @@
   },
   "browserslist": {
     "production": [
-      "chrome >= 86"
+      "chrome >= 109",
+      "edge >= 109"
     ],
     "development": [
       "last 1 chrome version",
