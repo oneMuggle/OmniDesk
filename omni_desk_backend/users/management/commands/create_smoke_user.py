@@ -1,7 +1,7 @@
 """create_smoke_user — 创建/更新部署冒烟测试专用账号(P0-5)。
 
 依据 docs/plans/2026-08-17_pre-deploy-hardening.md §6.3 决策项 3:
-smoke 阶段 12 需真实账密登录覆盖 argon2 hasher 与 Cookie Secure 差异,
+smoke 阶段 12 需真实账密登录覆盖 argon2 hasher(production 与 test 的 MD5 差异),
 不能用管理员账号(凭据混入 .env / CI secrets 风险大)。
 
 此命令幂等:已存在则只更新密码 + 锁定属性;不存在则创建。
@@ -46,8 +46,10 @@ class Command(BaseCommand):
     def add_arguments(self, parser):
         parser.add_argument(
             "--username",
-            default=os.environ.get("SMOKE_TEST_USER", DEFAULT_USERNAME),
-            help=f"smoke 账号用户名(默认读 $SMOKE_TEST_USER,fallback {DEFAULT_USERNAME!r})",
+            # 变量存在但为空(如示例文件占位行 SMOKE_TEST_USER=)时必须 fallback 到默认名,
+            # 不能直接 .get(key, default) — 那只在变量"未设置"时才返回 default,空值会传空串。
+            default=os.environ.get("SMOKE_TEST_USER") or DEFAULT_USERNAME,
+            help=f"smoke 账号用户名(默认读 $SMOKE_TEST_USER,未设置/为空时 fallback {DEFAULT_USERNAME!r})",
         )
         parser.add_argument(
             "--password",

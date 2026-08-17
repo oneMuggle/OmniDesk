@@ -2,11 +2,23 @@ import { isDev } from './env';
 import { getEnv } from './env';
 
 const SENSITIVE_KEY_PATTERN = /(password|passwd|token|refresh|secret|authorization|cookie|session|api[_-]?key)/i;
+// URL 查询串里的敏感参数(登录/重置/OAuth 回调常带)。url 字段必须整值打码,
+// 与后端 core/api.py:_scrub_url 保持同一清单(defense in depth)。
+const SENSITIVE_URL_PARAMS = /([?&])(access_token|refresh_token|token|password|passwd|secret|api[_-]?key|code|sessionid)=[^&]*/gi;
 const ALLOWED_KEYS = ['kind', 'message', 'stack', 'source', 'url', 'ua', 'extra', 'request_id'];
 const API_BASE = getEnv('VITE_API_BASE_URL', '/api');
 
 // 截断长度上限(stack 更长因含完整调用栈,其他 500 字符够用)
 const TRUNCATE = { stack: 5000, default: 500 };
+
+/**
+ * 对 url 字段应用敏感 query 参数打码(如 ?token=xxx → ?token=<redacted>)。
+ * 数组拼接/查询串里夹带 :// 的情形都只匹配 [?&] 之后的参数名,不会误删路径。
+ */
+function scrubUrl(url) {
+  if (typeof url !== 'string') return url;
+  return url.replace(SENSITIVE_URL_PARAMS, '$1$2=<redacted>');
+}
 
 /**
  * 服务端兜底脱敏(白名单 + 嵌套敏感键清理)。即便前端被改坏或恶意构造 payload,
@@ -20,7 +32,8 @@ function sanitizeReport(payload) {
     if (!(key in payload)) continue;
     const val = payload[key];
     if (typeof val === 'string') {
-      out[key] = val.slice(0, TRUNCATE[key] || TRUNCATE.default);
+      const truncated = val.slice(0, TRUNCATE[key] || TRUNCATE.default);
+      out[key] = key === 'url' ? scrubUrl(truncated) : truncated;
     } else if (val && typeof val === 'object' && key === 'extra') {
       // 递归清敏感键
       const cleanExtra = {};

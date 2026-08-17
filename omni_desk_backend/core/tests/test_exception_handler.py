@@ -89,6 +89,8 @@ def test_5xx_debug_field_only_when_settings_debug(fake_context, settings):
     assert response.data["debug"]["type"] == "RuntimeError"
     assert isinstance(response.data["debug"]["stack"], list)
     assert len(response.data["debug"]["stack"]) <= 20
+    # stack 必须含真实异常信息,而非 "NoneType: None"(format_exc 在无活动异常时的陷阱值)
+    assert any("boom2" in line for line in response.data["debug"]["stack"])
 
 
 def test_no_request_id_does_not_inject_empty(fake_context):

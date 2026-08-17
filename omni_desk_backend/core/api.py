@@ -25,6 +25,16 @@ _CLIENT_ERROR_SENSITIVE_KEYS = re.compile(
     r"(password|passwd|token|refresh|secret|authorization|cookie|session|api[_-]?key)",
     re.IGNORECASE,
 )
+# URL 查询串里的敏感参数(登录/重置/OAuth 回调常带)。url 字段整值打码,
+# 清单与前端 logger.js 的 SENSITIVE_URL_PARAMS 保持一致(defense in depth)。
+_URL_SENSITIVE_QUERY = re.compile(
+    r"([?&])(access_token|refresh_token|token|password|passwd|secret|api[_-]?key|code|sessionid)=[^&]*",
+    re.IGNORECASE,
+)
+
+
+def _scrub_url(url: str) -> str:
+    return _URL_SENSITIVE_QUERY.sub(r"\1\2=<redacted>", url)
 
 
 def _sanitize_client_error_payload(payload: dict) -> dict:
@@ -40,8 +50,9 @@ def _sanitize_client_error_payload(payload: dict) -> dict:
         if k not in _CLIENT_ERROR_ALLOWED_KEYS:
             continue
         if isinstance(v, str):
-            # 字符串值做长度截断,防止恶意大 payload 撑爆日志
-            cleaned[k] = v[:5000] if k == "stack" else v[:500]
+            # 字符串值做长度截断,防止恶意大 payload 撑爆日志;url 额外做敏感参数打码
+            truncated = v[:5000] if k == "stack" else v[:500]
+            cleaned[k] = _scrub_url(truncated) if k == "url" else truncated
         elif isinstance(v, dict):
             # extra 字段:递归清敏感键
             cleaned[k] = {ek: ev for ek, ev in v.items() if not _CLIENT_ERROR_SENSITIVE_KEYS.search(str(ek))}

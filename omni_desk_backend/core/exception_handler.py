@@ -85,7 +85,10 @@ def omnidesk_exception_handler(exc: Exception, context: dict[str, Any]) -> Respo
         if settings.DEBUG and isinstance(response.data, dict):
             response.data["debug"] = {
                 "type": type(exc).__name__,
-                "stack": traceback.format_exc().splitlines()[-20:],
+                # 不能用 format_exc():它读 sys.exc_info(),但 handler 常被直接调用
+                # (测试/外部调用)或异常对象传入时已脱离 except 块,此时返回 "NoneType: None"。
+                # 用显式传入的 exc 对象重构 stack,任何路径都拿到真实调用栈。
+                "stack": "".join(traceback.format_exception(type(exc), exc, exc.__traceback__)).splitlines()[-20:],
             }
 
     return response

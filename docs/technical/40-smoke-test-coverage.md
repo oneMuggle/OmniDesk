@@ -19,8 +19,8 @@
 | 9 | 业务 happy-path (memos) | POST→GET→DELETE | memos view/serializer 挂 |
 | **10** | **业务广度 (5 app GET)** | **events/news/documents/projects/ragflow** | **某 app URL/view 挂** |
 | **11** | **PG 备份可恢复性 (shadow DB)** | **`backup_db` → base64 → 容器内落地 → `CREATE DATABASE` → `gunzip \| psql` → 4 核心表 SELECT** | **pg_dump 失败 / restore 报错 / 核心表大量缺失** |
-| **12** | **鉴权与跨域链路 (P0-5)** | **CORS 预检 + 真实账密登录 (argon2) + Cookie Secure** | **hasher 不匹配 / Cookie Secure 配错(登录即丢会话)** |
-| **13** | **readiness + 静态 chunk (P1-7)** | **`/api/system/ready/` 三依赖 ok + index.html lazy chunk 全 200** | **DB/Redis/Celery 弱依赖挂 / 离线包 chunk hash 漂移** |
+| **12** | **鉴权与跨域链路 (P0-5)** | **CORS 预检 + 真实账密登录 (argon2)** | **hasher 不匹配 (MD5 vs argon2) 导致登录失败** |
+| **13** | **readiness + 静态 chunk (P1-7)** | **`/api/system/ready/` 核心依赖 ok (celery 分级) + index.html lazy chunk 全 200** | **DB/Redis 不可用 / 离线包 chunk hash 漂移** |
 
 > 阶段 14/15 已规划但尚未实现(后续 PR 落地),见下方"已知缺口"段。
 
@@ -95,7 +95,10 @@ bash deployment/docker/tests/test_upgrade_integration.sh --scenario=upgrade_succ
 
 ## Smoke 账号生命周期 (P0-5,2026-08-17)
 
-阶段 12 真实账密登录链路覆盖 `test.py`(MD5)与 `production.py`(argon2)的 hasher 差异,以及 `Cookie Secure` 配置错导致登录立即丢会话的 CLAUDE.md 第 10 条坑。
+阶段 12 真实账密登录链路覆盖 `test.py`(MD5)与 `production.py`(argon2)的 hasher 差异。
+
+> 注:本项目登录为 JWT-in-body(localStorage),全链路无 session/cookie;原先的"Cookie Secure 属性"检查(12.3)因登录响应永不携带 Set-Cookie 属不可达死检查,已删除。
+CLAUDE.md 第 10 条(USE_HTTPS + `*_COOKIE_SECURE`)针对 cookie/session 认证部署,与此处 JWT 认证不冲突。
 
 ### 账号属性
 
@@ -116,9 +119,11 @@ bash deployment/docker/tests/test_upgrade_integration.sh --scenario=upgrade_succ
 # 1. 生成密码(部署机本地生成,不入 git)
 SMOKE_TEST_PASSWORD=$(openssl rand -base64 24)
 
-# 2. .env.production 填两行
-echo "SMOKE_TEST_USER=smoke-test-bot" >> deployment/docker/.env.production
-echo "SMOKE_TEST_PASSWORD=${SMOKE_TEST_PASSWORD}" >> deployment/docker/.env.production
+# 2. .env.production 填两行 — 用 sed 原地替换占位行(勿用 >> 追加:
+#    示例文件已含 SMOKE_TEST_USER=/SMOKE_TEST_PASSWORD= 占位,
+#    追加会得到两行同名变量,smoke 脚本 grep|cut 取到带换行的值 → 登录 JSON 非法 → 假 FAIL 卡 upgrade)
+sed -i "s#^SMOKE_TEST_USER=.*#SMOKE_TEST_USER=smoke-test-bot#" deployment/docker/.env.production
+sed -i "s#^SMOKE_TEST_PASSWORD=.*#SMOKE_TEST_PASSWORD=${SMOKE_TEST_PASSWORD}#" deployment/docker/.env.production
 
 # 3. 在 backend 容器里创建账号
 docker compose exec backend python manage.py create_smoke_user

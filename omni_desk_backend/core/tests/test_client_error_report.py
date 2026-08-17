@@ -83,6 +83,33 @@ def test_nested_extra_sensitive_keys_are_dropped(api_client):
     assert resp.status_code == 204
 
 
+def test_url_query_sensitive_params_are_scrubbed(api_client):
+    """url 查询串里的敏感参数被整值打码(与前端 logger.js 同清单)。"""
+    from core.api import _sanitize_client_error_payload
+
+    cleaned = _sanitize_client_error_payload(
+        {
+            "kind": "boundary",
+            "message": "boom",
+            "url": "https://example.com/oauth?access_token=abc&refresh_token=def&code=xyz&token=tok&password=pw&keep=1",
+        }
+    )
+    assert cleaned["url"] == (
+        "https://example.com/oauth?access_token=<redacted>&refresh_token=<redacted>"
+        "&code=<redacted>&token=<redacted>&password=<redacted>&keep=1"
+    )
+
+
+def test_scrub_url_survives_truncation(api_client):
+    """url 先截断再打码,顺序不破坏 redacted 结果。"""
+    from core.api import _sanitize_client_error_payload
+
+    url = "https://example.com/reset?" + "token=" + "a" * 600
+    cleaned = _sanitize_client_error_payload({"url": url})
+    assert cleaned["url"].startswith("https://example.com/reset?token=<redacted>")
+    assert len(cleaned["url"]) <= 500
+
+
 # ── Edge cases ──────────────────────────────────────────────────────
 
 

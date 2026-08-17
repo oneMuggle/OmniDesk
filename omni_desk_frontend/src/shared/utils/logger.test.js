@@ -63,6 +63,16 @@ describe('logger.sanitizeReport', () => {
     expect(out.extra).toEqual({ username: 'alice' });
   });
 
+  it('should scrub sensitive query params from url', () => {
+    const out = logger.sanitizeReport({
+      kind: 'test',
+      url: 'https://example.com/oauth?access_token=abc&refresh_token=def&code=xyz&token=tok&keep=1',
+    });
+    expect(out.url).toBe(
+      'https://example.com/oauth?access_token=<redacted>&refresh_token=<redacted>&code=<redacted>&token=<redacted>&keep=1'
+    );
+  });
+
   it('should truncate long strings', () => {
     const out = logger.sanitizeReport({
       kind: 'test',
