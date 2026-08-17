@@ -39,6 +39,19 @@ if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
 fi
 export COMPOSE_PROJECT_NAME
 
+# P0-5: 阶段 12 需要 SMOKE_TEST_USER/PASSWORD + USE_HTTPS
+# 同上策略:.env.production 缺凭据时 SKIP(默认),有凭据时 PASS/FAIL 严格判定
+if [ -z "${SMOKE_TEST_USER:-}" ] && [ -f ".env.production" ]; then
+    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+fi
+if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -f ".env.production" ]; then
+    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+fi
+if [ -z "${USE_HTTPS:-}" ] && [ -f ".env.production" ]; then
+    USE_HTTPS=$(grep -E '^USE_HTTPS=' .env.production 2>/dev/null | cut -d= -f2- || echo "false")
+fi
+export SMOKE_TEST_USER SMOKE_TEST_PASSWORD USE_HTTPS
+
 # OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
 # 若未设置,从 .env.production 读取或使用默认值
 if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ]; then
@@ -912,6 +925,79 @@ else
         fi
     fi
 fi
+echo ""
+
+# ─── 阶段 12: 鉴权与跨域链路 (P0-5) ─────────────────────────
+# 真实账密登录覆盖 argon2 hasher 与 Cookie Secure 配置差异
+# 配合 client-error 上报,事故现场能拿到 login → 业务调用全链路 rid
+echo "阶段 12: 鉴权与跨域链路"
+
+# 12.1 CORS:合法 Origin 必须返回 Access-Control-Allow-Origin
+CORS_ALLOWED_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
+    "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+if [ "$CORS_ALLOWED_HTTP" = "200" ] || [ "$CORS_ALLOWED_HTTP" = "405" ] || [ "$CORS_ALLOWED_HTTP" = "400" ]; then
+    # OPTIONS 预检可能 200/405;POST 没 body 时 400 也属正常(说明端点存在)
+    # 关键是看响应头里有没有 Access-Control-Allow-Origin
+    CORS_HEADER=$(curl -sI -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
+        "${BASE_URL}/api/auth/login/" 2>/dev/null \
+        | grep -i "access-control-allow-origin" | head -1 || true)
+    if [ -n "$CORS_HEADER" ]; then
+        result "PASS" "CORS 合法 Origin 放行" "Origin=${SMOKE_CORS_ORIGIN:-http://localhost}"
+    else
+        result "FAIL" "CORS 合法 Origin 响应头缺失" "请求未返回 Access-Control-Allow-Origin"
+    fi
+else
+    result "FAIL" "CORS 合法 Origin 探测失败" "HTTP $CORS_ALLOWED_HTTP"
+fi
+
+# 12.2 真实账密登录(POST /api/auth/login/)必须 200 + 拿到 JWT
+if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
+    result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
+else
+    LOGIN_RESP=$(curl -s -o /tmp/_smoke_login.json -w "%{http_code}" \
+        -H "Content-Type: application/json" \
+        -X POST -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+        "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+    if [ "$LOGIN_RESP" = "200" ]; then
+        LOGIN_BODY=$(cat /tmp/_smoke_login.json 2>/dev/null || echo "")
+        HAS_ACCESS=$(echo "$LOGIN_BODY" | grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 || true)
+        if [ -n "$HAS_ACCESS" ]; then
+            result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access"
+        else
+            result "FAIL" "真实账密登录响应格式异常" "200 但 response 无 access 字段"
+        fi
+    else
+        result "FAIL" "真实账密登录" "HTTP $LOGIN_RESP(期望 200,常见原因:账号未创建/密码错/argon2 校验失败)"
+    fi
+    rm -f /tmp/_smoke_login.json
+fi
+
+# 12.3 Set-Cookie 的 Secure 属性应与 USE_HTTPS 一致
+SECURE_ATTR=$(curl -sI -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
+    -X POST -H "Content-Type: application/json" \
+    -d "{\"username\":\"${SMOKE_TEST_USER:-x}\",\"password\":\"${SMOKE_TEST_PASSWORD:-x}\"}" \
+    "${BASE_URL}/api/auth/login/" 2>/dev/null \
+    | grep -i "set-cookie" | head -1 || true)
+if [ -z "$SECURE_ATTR" ]; then
+    # 401 响应通常不带 Set-Cookie → 无法验证;降级为 WARN
+    result "WARN" "Cookie Secure 属性" "登录响应无 Set-Cookie(可能 401 无 cookie),无法验证"
+else
+    if [ "${USE_HTTPS:-false}" = "true" ]; then
+        if echo "$SECURE_ATTR" | grep -qi "Secure"; then
+            result "PASS" "Cookie Secure 属性" "USE_HTTPS=true,响应带 Secure"
+        else
+            result "FAIL" "Cookie Secure 属性" "USE_HTTPS=true 但 Set-Cookie 缺 Secure(CLAUDE.md 第 10 条坑)"
+        fi
+    else
+        if echo "$SECURE_ATTR" | grep -qi "Secure"; then
+            result "FAIL" "Cookie Secure 属性" "USE_HTTPS=false 但响应带 Secure(浏览器会拒绝发送 cookie,登录立即失效)"
+        else
+            result "PASS" "Cookie Secure 属性" "USE_HTTPS=false,响应无 Secure(HTTP 内网正确配置)"
+        fi
+    fi
+fi
+
 echo ""
 
 # ─── 阶段 13: readiness + 静态 chunk(P1-7) ────────────────────

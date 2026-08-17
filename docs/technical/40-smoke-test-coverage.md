@@ -1,6 +1,6 @@
 # 冒烟测试覆盖矩阵
 
-> 最后更新:2026-07-27
+> 最后更新:2026-08-17
 
 ## 阶段清单
 
@@ -19,8 +19,10 @@
 | 9 | 业务 happy-path (memos) | POST→GET→DELETE | memos view/serializer 挂 |
 | **10** | **业务广度 (5 app GET)** | **events/news/documents/projects/ragflow** | **某 app URL/view 挂** |
 | **11** | **PG 备份可恢复性 (shadow DB)** | **`backup_db` → base64 → 容器内落地 → `CREATE DATABASE` → `gunzip \| psql` → 4 核心表 SELECT** | **pg_dump 失败 / restore 报错 / 核心表大量缺失** |
+| **12** | **鉴权与跨域链路 (P0-5)** | **CORS 预检 + 真实账密登录 (argon2) + Cookie Secure** | **hasher 不匹配 / Cookie Secure 配错(登录即丢会话)** |
+| **13** | **readiness + 静态 chunk (P1-7)** | **`/api/system/ready/` 三依赖 ok + index.html lazy chunk 全 200** | **DB/Redis/Celery 弱依赖挂 / 离线包 chunk hash 漂移** |
 
-> 阶段 12/13/14/15 已规划但尚未实现(后续 PR 落地),见下方"已知缺口"段。
+> 阶段 14/15 已规划但尚未实现(后续 PR 落地),见下方"已知缺口"段。
 
 ## Task 8: 升级集成测试与环境变量校验 (2026-07-27)
 
@@ -87,8 +89,52 @@ bash deployment/docker/tests/test_upgrade_integration.sh --scenario=upgrade_succ
 
 ## 已知缺口(后续阶段)
 
-- 阶段 12:外部依赖降级(paperless/llm 502/503 行为,降级路径是 stack trace)
-- 阶段 13:HTTP 安全头 + bundle(X-CTO/X-FO/HSTS + bundle.js,Nginx 配置缺头/资源 404)
 - 阶段 14:资源基线(CPU/mem/disk 阈值)
 - 阶段 15:rollback 闭环(独立脚本 `test_smoke_rollback_loop.sh`)
 - API 响应时间基线:需先建立生产 P95(后续 sprint)
+
+## Smoke 账号生命周期 (P0-5,2026-08-17)
+
+阶段 12 真实账密登录链路覆盖 `test.py`(MD5)与 `production.py`(argon2)的 hasher 差异,以及 `Cookie Secure` 配置错导致登录立即丢会话的 CLAUDE.md 第 10 条坑。
+
+### 账号属性
+
+| 属性 | 值 | 说明 |
+|------|----|------|
+| `username` | `smoke-test-bot` | 默认名,可被 `--username` / `$SMOKE_TEST_USER` 覆盖 |
+| `is_staff` | `False` | 禁止 Django admin |
+| `is_superuser` | `False` | 禁止任何 superuser 权限 |
+| `is_active` | `True`(默认)/ `False`(止血) | `--disable` 关闭 |
+| `email` | `NULL` | 防恢复攻击面 |
+| `groups` | 无 | 默认只能 `/api/auth/login/` |
+
+凭据只够登录、改不了业务数据。
+
+### 创建流程
+
+```bash
+# 1. 生成密码(部署机本地生成,不入 git)
+SMOKE_TEST_PASSWORD=$(openssl rand -base64 24)
+
+# 2. .env.production 填两行
+echo "SMOKE_TEST_USER=smoke-test-bot" >> deployment/docker/.env.production
+echo "SMOKE_TEST_PASSWORD=${SMOKE_TEST_PASSWORD}" >> deployment/docker/.env.production
+
+# 3. 在 backend 容器里创建账号
+docker compose exec backend python manage.py create_smoke_user
+
+# 4. 同步凭据到 GH Actions secrets(只供 smoke-tests job 使用)
+gh secret set SMOKE_TEST_USER --body "smoke-test-bot"
+gh secret set SMOKE_TEST_PASSWORD --body "${SMOKE_TEST_PASSWORD}"
+```
+
+### 轮换建议
+
+- 频率:季度(与 `SECRET_KEY` 同步检查)
+- 流程:`create_smoke_user --reset --password=<new>` + 同步 GH secret + 旧密码失效
+- 事故止血:`create_smoke_user --disable`,smoke 阶段 12 自动 SKIP,不阻塞运维
+
+### CI 行为
+
+- 默认 `SMOKE_STRICT=0`:阶段 12 缺凭据时 SKIP,不阻断
+- `SMOKE_STRICT=1`(P1-4):缺凭据 → `result FAIL`,PR 红。需保证 GH secrets 与 .env.production 同值
