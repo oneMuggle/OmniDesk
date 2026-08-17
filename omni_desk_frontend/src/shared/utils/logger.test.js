@@ -86,14 +86,14 @@ describe('logger.report', () => {
 
   beforeEach(() => {
     originalSendBeacon = navigator.sendBeacon;
-    originalFetch = global.fetch;
+    originalFetch = globalThis.fetch;
     navigator.sendBeacon = jest.fn().mockReturnValue(true);
-    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+    globalThis.fetch = jest.fn().mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
     navigator.sendBeacon = originalSendBeacon;
-    global.fetch = originalFetch;
+    globalThis.fetch = originalFetch;
   });
 
   it('should call navigator.sendBeacon with sanitized payload', () => {
@@ -112,7 +112,7 @@ describe('logger.report', () => {
   it('should not throw when navigator is unavailable', () => {
     const tmp = navigator.sendBeacon;
     delete navigator.sendBeacon;
-    delete global.fetch;
+    delete globalThis.fetch;
     expect(() => logger.report({ kind: 'test' })).not.toThrow();
     navigator.sendBeacon = tmp;
   });

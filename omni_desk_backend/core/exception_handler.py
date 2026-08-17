@@ -73,14 +73,16 @@ def omnidesk_exception_handler(exc: Exception, context: dict[str, Any]) -> Respo
         view_name = (
             f"{view.__class__.__module__}.{view.__class__.__name__}" if view else "unknown"
         )
-        # exc_info=True 让 logger 自动 dump stack 到 logging 配置的 handler
+        # LOG014:此函数本身就是 DRF 的 EXCEPTION_HANDLER 入口,
+        # 进入时 DRF 已捕获原始异常,我们拿到的 `exc` 是已脱离 except 块的对象。
+        # 此处显式传 exc_info=True 让 logger 输出完整堆栈,是设计意图。
         logger.error(
             "unhandled exception in %s (status=%s, request_id=%s): %s",
             view_name,
             status_code,
             rid,
             exc,
-            exc_info=True,
+            exc_info=True,  # noqa: LOG014
         )
         if settings.DEBUG and isinstance(response.data, dict):
             response.data["debug"] = {
