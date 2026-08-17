@@ -43,15 +43,13 @@
     "preview": "vite preview",
     "test": "jest --config jest.config.js --maxWorkers=2",
     "test:coverage": "jest --config jest.config.js --maxWorkers=2 --coverage",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:report": "playwright show-report",
     "dev": "vite",
     "lint": "eslint ."
   },
   "browserslist": {
     "production": [
-      "chrome >= 86"
+      "chrome >= 109",
+      "edge >= 109"
     ],
     "development": [
       "last 1 chrome version",
@@ -65,7 +63,6 @@
     "@babel/preset-react": "^7.28.5",
     "@babel/preset-typescript": "^7.29.7",
     "@babel/traverse": "^7.24.7",
-    "@playwright/test": "^1.62.0",
     "@tanstack/react-query-devtools": "^5.101.4",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",

@@ -70,7 +70,7 @@ class GroupPermissionView(APIView):
             group.permissions.set(permissions)
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
-            logger.error(f"Error updating permissions for group {group_id}: {e}")
+            logger.error(f"Error updating permissions for group {group_id}: {e}", exc_info=True)
             return Response(status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

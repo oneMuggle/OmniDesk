@@ -351,6 +351,20 @@ jobs:
             exit 1
           fi
 
+      # ─── Smoke (P1-4: 部署现场 SKIP→FAIL,CI 宽松) ──────────
+      # CI 故意用 SMOKE_STRICT=0:
+      #   - docker-integration job 用 docker-compose.yml 起服务(backend 8000 直连 + frontend 3000 vite dev),
+      #     与 smoke_tests.sh 默认指向的 docker-compose.offline.yml(nginx 80 反代)架构不同。
+      #     阶段 7/8/11/12/13 等需要 .env.production + offline 拓扑的探测在 CI 中合理 SKIP。
+      #   - 严格模式(SMOKE_STRICT=1)的真实场景是部署现场:`.env.production` 已填 + offline compose 已就位,
+      #     任何 SKIP 都不能蒙混过关,需 PR 红阻断。
+      # 保留此 step: 冒烟脚本本身必须在 CI 中能跑通语法/参数解析/容器探测,
+      # 真正的 strict 阻断放到 deployment-test workflow(后续 PR 覆盖 .env.production + offline 拓扑)。
+      - name: Smoke tests (informational)
+        run: |
+          SMOKE_STRICT=0 ./smoke_tests.sh http://localhost:8000
+        continue-on-error: true
+
       - name: Cleanup
         if: always()
         run: docker compose down

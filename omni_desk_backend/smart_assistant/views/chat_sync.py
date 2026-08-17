@@ -140,9 +140,11 @@ def _handle_confirm_replay(request, confirm_token) -> Response:
     # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
     expected_prefix = f"u{request.user.pk}_"
     if not draft_entry.get("context_sig", "").startswith(expected_prefix):
+        # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
+        masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
         logger.warning(
             "confirm token 跨用户重放: token=%s expected_user=%s draft_user_sig=%s",
-            confirm_token,
+            masked,
             request.user.pk,
             draft_entry.get("context_sig", ""),
         )
@@ -181,7 +183,12 @@ def _handle_confirm_replay(request, confirm_token) -> Response:
             }
         )
     except Exception as exc:
-        logger.exception("confirm replay 执行失败: token=%s", confirm_token)
+        # token 是一次性确认票据,明文写日志有泄露风险;记前缀+长度足以定位
+        logger.exception(
+            "confirm replay 执行失败: token_prefix=%s len=%d",
+            confirm_token[:6],
+            len(confirm_token),
+        )
         return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

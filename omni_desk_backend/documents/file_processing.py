@@ -56,7 +56,7 @@ def extract_text_from_pdf(file_path):
         logger.warning("Could not read text directly from %s. Will try Mineru OCR.", file_path)
         return None
     except Exception as e:
-        logger.error("Error extracting text from PDF %s: %s", file_path, e)
+        logger.error("Error extracting text from PDF %s: %s", file_path, e, exc_info=True)
         return None
 
 
@@ -71,7 +71,7 @@ def extract_text_from_docx(file_path):
             text += paragraph.text + "\n"
         return text
     except Exception as e:
-        logger.error("Error extracting text from DOCX %s: %s", file_path, e)
+        logger.error("Error extracting text from DOCX %s: %s", file_path, e, exc_info=True)
         return None
 
 
@@ -101,7 +101,7 @@ def process_uploaded_file(file_obj, temp_dir):
                 extracted_text = call_mineru_ocr(temp_file_path)
                 logger.info("Text extracted from PDF via Mineru OCR: %d characters", len(extracted_text))
             except Exception as e:
-                logger.error("Error calling Mineru OCR for PDF %s: %s", file_obj.name, e)
+                logger.error("Error calling Mineru OCR for PDF %s: %s", file_obj.name, e, exc_info=True)
                 extracted_text = ""
     elif file_extension in [".doc", ".docx"]:
         extracted_text = extract_text_from_docx(temp_file_path)
@@ -111,7 +111,7 @@ def process_uploaded_file(file_obj, temp_dir):
                 extracted_text = call_mineru_ocr(temp_file_path)
                 logger.info("Text extracted from DOCX via Mineru OCR: %d characters", len(extracted_text))
             except Exception as e:
-                logger.error("Error calling Mineru OCR for DOCX %s: %s", file_obj.name, e)
+                logger.error("Error calling Mineru OCR for DOCX %s: %s", file_obj.name, e, exc_info=True)
                 extracted_text = ""
     elif file_extension in [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff"]:
         extracted_text = call_mineru_ocr(temp_file_path)
@@ -123,7 +123,7 @@ def process_uploaded_file(file_obj, temp_dir):
             logger.warning("Could not decode text from %s. Returning empty string.", file_obj.name)
             extracted_text = ""
         except Exception as e:
-            logger.error("Error processing unknown file type %s: %s", file_obj.name, e)
+            logger.error("Error processing unknown file type %s: %s", file_obj.name, e, exc_info=True)
             extracted_text = ""
 
     return extracted_text

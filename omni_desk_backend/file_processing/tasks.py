@@ -34,7 +34,7 @@ def process_file_task(self, file_id):
 
     except ValueError as exc:
         # 不可重试的错误（如不支持的文件类型、格式错误）
-        logger.error(f"文件处理失败（不可重试）: {exc}")
+        logger.error(f"文件处理失败（不可重试）: {exc}", exc_info=True)
         try:
             uploaded_file = UploadedFile.objects.get(id=file_id)
             uploaded_file.status = "failed"

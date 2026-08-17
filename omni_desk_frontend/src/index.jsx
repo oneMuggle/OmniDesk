@@ -31,6 +31,30 @@ import './shared/styles/global.css';
 import router from './routes';
 import { AuthProvider } from './features/auth/context/AuthContext';
 import { ApiProvider } from './shared/context/ApiProvider';
+import { logger } from './shared/utils/logger';
+
+// 注册全局错误监听(部署前 P0-1:浏览器侧错误上报)
+// - window.onerror:同步运行时错误(ReferenceError、TypeError 等)
+// - window.unhandledrejection:Promise 拒绝未捕获
+// 必须在 React 渲染前注册,确保初始化阶段错误也能捕获
+window.addEventListener('error', (event) => {
+  logger.report({
+    kind: 'window.onerror',
+    message: event.message || String(event.error),
+    stack: (event.error && event.error.stack) || '',
+    source: event.filename ? `${event.filename}:${event.lineno}:${event.colno}` : 'window.onerror',
+  });
+});
+
+window.addEventListener('unhandledrejection', (event) => {
+  const reason = event.reason;
+  logger.report({
+    kind: 'unhandledrejection',
+    message: (reason && reason.message) || String(reason),
+    stack: (reason && reason.stack) || '',
+    source: 'unhandledrejection',
+  });
+});
 
 // dayjs 全局配置
 dayjs.extend(utc);

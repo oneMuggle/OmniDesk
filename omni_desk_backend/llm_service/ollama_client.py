@@ -86,7 +86,7 @@ class OllamaClient:
             logger.info("Ollama model pull response: %s", response)
             return response
         except Exception as e:
-            logger.error("Failed to pull Ollama model %s: %s", model_name, e)
+            logger.error("Failed to pull Ollama model %s: %s", model_name, e, exc_info=True)
             raise
 
     def list_models(self):
@@ -121,4 +121,4 @@ if __name__ == "__main__":
         # client.pull_model("qwen2.5:7b")
 
     except Exception as e:
-        logger.error("Error: %s", e)
+        logger.error("Error: %s", e, exc_info=True)
