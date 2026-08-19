@@ -111,10 +111,12 @@ jobs:
                 continue;
               }
 
+              // pulls.list 的 head 参数必须用 "<owner>:<branch>" 格式才能精确匹配分支,
+              // 仅传 branch 会回退到默认 PR 列表(返回最近 PR),导致误判 PR 状态与 updated_at。
               let prs;
               try {
                 const r = await github.rest.pulls.list({
-                  owner, repo, head: name, state: 'all', per_page: 1,
+                  owner, repo, head: `${owner}:${name}`, state: 'all', per_page: 1,
                 });
                 prs = r.data;
               } catch (e) {
