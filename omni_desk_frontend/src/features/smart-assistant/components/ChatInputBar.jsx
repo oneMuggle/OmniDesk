@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
 import FileAttachmentInput from '../../../shared/components/FileAttachmentInput';
+import QuickCommands from './QuickCommands';
 
 /**
  * 输入表单:文本输入 + 附件 + 发送/取消(R3-D1 拆分)。
@@ -13,8 +14,11 @@ const ChatInputBar = ({
   onAttachmentChange,
   onSubmit,
   onStop,
+  onSend,
 }) => (
-  <form onSubmit={onSubmit} className="smart-chat-input-form">
+  <>
+    <QuickCommands onSend={onSend} />
+    <form onSubmit={onSubmit} className="smart-chat-input-form">
     <div className="smart-chat-input-row">
       <input
         type="text"
@@ -39,6 +43,7 @@ const ChatInputBar = ({
       </button>
     )}
   </form>
+  </>
 );
 
 ChatInputBar.propTypes = {
@@ -49,6 +54,7 @@ ChatInputBar.propTypes = {
   onAttachmentChange: PropTypes.func.isRequired,
   onSubmit: PropTypes.func.isRequired,
   onStop: PropTypes.func.isRequired,
+  onSend: PropTypes.func.isRequired,
 };
 
 export default ChatInputBar;

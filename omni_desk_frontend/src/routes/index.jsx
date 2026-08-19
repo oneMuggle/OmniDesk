@@ -18,6 +18,7 @@ import {
   BookReaderPage,
   ChapterEditorPage,
   CommunicationPage,
+  CompliancePage,
   DashboardPage,
   DifyAppList,
   DifyAppViewer,
@@ -125,6 +126,10 @@ const router = createBrowserRouter([
           {
             path: "documents",
             element: <LazyComponent component={DocumentsPage} />
+          },
+          {
+            path: "compliance",
+            element: <LazyComponent component={CompliancePage} />
           },
           {
             path: "announcements/manage",

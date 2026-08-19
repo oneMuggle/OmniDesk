@@ -20,7 +20,7 @@ const SmartChatPage = () => {
     messagesEndRef,
     handleNewSession, handleSwitchSession, handleDeleteSession,
     handleSessionMenuClick,
-    handleSubmit, handleStop, handleRetry, handleFeedback,
+    handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
   } = useSmartChat();
 
   return (
@@ -59,6 +59,7 @@ const SmartChatPage = () => {
         onAttachmentChange={setAttachment}
         onSubmit={handleSubmit}
         onStop={handleStop}
+        onSend={sendMessage}
       />
     </div>
   );

@@ -64,10 +64,24 @@ export const createMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: ProjectOutlined,
     permission: 'admin',
     subItems: [
-      { to: "/projects", text: "项目列表", permission: 'admin' },
-      { to: "/documents", text: "文档管理", permission: 'admin' },
+      { to: "/control-panel/projects", text: "项目列表", permission: 'admin' },
+      { to: "/control-panel/documents", text: "文档管理", permission: 'admin' },
       { to: "/control-panel/compliance", text: "合规问题", permission: 'admin' },
       { to: "/notifications", icon: BellOutlined, text: "通知中心", permission: 'admin', badgeCount: unreadNotificationCount },
+    ]
+  },
+  {
+    type: 'submenu',
+    text: '外部集成',
+    icon: SettingOutlined,
+    permission: ['admin', 'manager'],
+    subItems: [
+      { to: "/external-links", text: "快捷外链", permission: ['admin', 'manager'] },
+      { to: "/integration-hub", text: "集成中心", permission: ['admin', 'manager'] },
+      { to: "/plugin-market", text: "插件市场", permission: ['admin', 'manager'] },
+      { to: "/control-panel/external-links/manage", text: "外链管理", permission: 'admin' },
+      { to: "/control-panel/integration-hub/manage", text: "集成管理", permission: 'admin' },
+      { to: "/control-panel/plugin-market/manage", text: "插件管理", permission: 'admin' },
     ]
   },
   { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },

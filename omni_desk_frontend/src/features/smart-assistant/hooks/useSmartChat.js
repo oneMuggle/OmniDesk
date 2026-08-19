@@ -40,6 +40,7 @@ export function useSmartChat() {
   const [showSessionList, setShowSessionList] = useState(false);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
+  const activeRequestRef = useRef(null);
   // 当前流式响应携带的 AgentLog ID(done/session 等事件的 log_id 字段),
   // 流结束后附加到 assistant 消息上,用于赞踩反馈写后端
   const pendingLogIdRef = useRef(null);
@@ -337,11 +338,11 @@ export function useSmartChat() {
     }
   }, [currentSessionId, attachment, handleSSEEvent, typewriter]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!inputMessage.trim() || isLoading) return;
+  const sendMessage = useCallback(async (query) => {
+    if (!query || !query.trim() || isLoading || activeRequestRef.current) return;
+    activeRequestRef.current = true;
 
-    const userMessage = { role: 'user', content: inputMessage, attachment: attachment ? attachment.name : null };
+    const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
     setMessages(prev => [...prev, userMessage]);
     setInputMessage('');
     setAttachment(null);
@@ -351,16 +352,24 @@ export function useSmartChat() {
     typewriter.cancel();
 
     try {
-      await runStream(inputMessage);
+      await runStream(query);
     } catch (error) {
       if (error.name !== 'AbortError') {
         const errText = `[错误] ${error.message}`;
         typewriter.append(errText);
       }
     } finally {
-      setIsLoading(false);
-      abortRef.current = null;
+      if (activeRequestRef.current) {
+        activeRequestRef.current = null;
+        abortRef.current = null;
+        setIsLoading(false);
+      }
     }
+  }, [attachment, isLoading, runStream, typewriter]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await sendMessage(inputMessage);
   };
 
   // 当流式回答完成时,追加到消息列表
@@ -451,6 +460,7 @@ export function useSmartChat() {
 
   /** 停止生成:中止请求 + 清理打字机状态 + 显示提示 */
   const handleStop = useCallback(() => {
+    if (!activeRequestRef.current) return;
     if (abortRef.current) {
       abortRef.current();
       abortRef.current = null;
@@ -458,6 +468,7 @@ export function useSmartChat() {
     typewriter.cancel();
     setStreamingAnswer('');
     setStreamingMeta(null);
+    activeRequestRef.current = null;
     setIsLoading(false);
     antMessage.info('已取消生成');
   }, [typewriter]);
@@ -470,6 +481,6 @@ export function useSmartChat() {
     messagesEndRef,
     handleNewSession, handleSwitchSession, handleDeleteSession,
     handleForkSession, handleExportSession, handleSessionMenuClick,
-    handleSubmit, handleStop, handleRetry, handleFeedback,
+    handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
   };
 }

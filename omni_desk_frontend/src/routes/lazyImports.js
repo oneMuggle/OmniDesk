@@ -68,6 +68,7 @@ export const IntegrationHubPage = lazy(() => import('../features/integration-hub
 export const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
 export const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
 export const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
+export const CompliancePage = lazy(() => import('../features/compliance/pages/CompliancePage'));
 // P2-3 / P3-3 引入
 export const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
 export const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
