@@ -1,0 +1,178 @@
+name: Cleanup stale channel-sync branches
+
+on:
+  schedule:
+    - cron: '42 4 * * *'  # 每天 04:42,与 stale-sync(42 3)错开一小时
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: '只扫描不删除 (默认 true,首次手动跑必须先 dry-run 验证)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: write          # DELETE git refs/heads/<branch>
+  pull-requests: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Read keep file
+        id: keep
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = '.github/channel-sync-keep.yml';
+            try {
+              const content = fs.readFileSync(path, 'utf8');
+              const matches = content.match(/^\s*-\s*(\S+)\s*$/gm) || [];
+              // 内层 match 防御:理论上外层 \S+ 已保证非空,但未来若放宽正则,这里加 filter 避免 [1] 抛 TypeError
+              const list = matches
+                .map(m => (m.match(/-\s*(\S+)/) || [])[1])
+                .filter(Boolean);
+              core.setOutput('list', JSON.stringify(list));
+              core.info(`豁免清单: ${list.length} 项`);
+            } catch (e) {
+              if (e.code === 'ENOENT') {
+                core.setOutput('list', '[]');
+                core.info('无豁免文件,使用空清单');
+              } else {
+                core.setFailed(`豁免文件解析失败: ${e.message}`);
+                return;
+              }
+            }
+
+      - name: Cleanup
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const DRY_RUN = ${{ inputs.dry_run || false }};
+            const PR_AGE_DAYS = 14;
+            const COMMIT_AGE_DAYS = 14;
+            const CHANNEL_SYNC_PREFIX = 'channel-sync/';
+            const KEEP_LIST = JSON.parse('${{ steps.keep.outputs.list }}');
+
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            const now = Date.now();
+            const daysSince = (s) => (now - new Date(s).getTime()) / 86400000;
+
+            const allBranches = [];
+            let truncatedByHardCap = false;
+            for (let page = 1; page <= 5; page++) {
+              const { data } = await github.rest.repos.listBranches({
+                owner, repo, per_page: 100, page,
+              });
+              allBranches.push(...data);
+              if (data.length < 100) break;
+              // 第 5 页仍返回 100 条,说明还有下一页但已撞硬上限 500,需告警
+              if (page === 5 && data.length === 100) {
+                truncatedByHardCap = true;
+              }
+            }
+            if (truncatedByHardCap) {
+              core.warning(`已达到硬上限 500 分支,可能存在截断 — 余下 channel-sync/* 未被扫描`);
+            }
+
+            const targets = allBranches.filter(b => b.name.startsWith(CHANNEL_SYNC_PREFIX));
+            core.info(`共 ${allBranches.length} 个分支,其中 ${targets.length} 个 channel-sync/*`);
+
+            const stats = { scanned: 0, kept: 0, skipped_open: 0, skipped_recent: 0, deleted: 0, failed: 0 };
+            const deletedLog = [];
+
+            for (const branch of targets) {
+              stats.scanned++;
+              const name = branch.name;
+
+              if (KEEP_LIST.includes(name)) {
+                stats.kept++;
+                core.info(`[KEEP] ${name} (豁免清单)`);
+                continue;
+              }
+
+              let commitDate;
+              try {
+                const { data: commit } = await github.rest.repos.getCommit({
+                  owner, repo, ref: branch.commit.sha,
+                });
+                commitDate = commit.commit.committer.date;
+              } catch (e) {
+                stats.failed++;
+                core.warning(`[FAIL] ${name} getCommit 失败: ${e.message}`);
+                continue;
+              }
+
+              if (daysSince(commitDate) < COMMIT_AGE_DAYS) {
+                stats.skipped_recent++;
+                core.info(`[SKIP-RECENT] ${name} (commit ${Math.floor(daysSince(commitDate))} 天前)`);
+                continue;
+              }
+
+              let prs;
+              try {
+                const r = await github.rest.pulls.list({
+                  owner, repo, head: name, state: 'all', per_page: 1,
+                });
+                prs = r.data;
+              } catch (e) {
+                stats.failed++;
+                core.warning(`[FAIL] ${name} pulls.list 失败: ${e.message}`);
+                continue;
+              }
+              if (prs.length === 0) {
+                stats.kept++;
+                core.info(`[KEEP] ${name} (无关联 PR,异常保留)`);
+                continue;
+              }
+              const pr = prs[0];
+              if (pr.state === 'open') {
+                stats.skipped_open++;
+                core.info(`[SKIP-OPEN] ${name} (PR #${pr.number} 仍 open)`);
+                continue;
+              }
+              if (daysSince(pr.updated_at) < PR_AGE_DAYS) {
+                stats.skipped_recent++;
+                core.info(`[SKIP-RECENT] ${name} (PR ${Math.floor(daysSince(pr.updated_at))} 天前更新)`);
+                continue;
+              }
+
+              const logEntry = `${name}  pr=#${pr.number} state=${pr.state} sha=${branch.commit.sha.slice(0,7)} pr_updated=${pr.updated_at.slice(0,10)} commit_date=${commitDate.slice(0,10)}`;
+
+              if (DRY_RUN) {
+                stats.deleted++;
+                core.info(`[DRY-RUN-DEL] ${logEntry}`);
+                deletedLog.push(logEntry);
+                continue;
+              }
+
+              try {
+                await github.rest.git.deleteRef({
+                  owner, repo, ref: `heads/${name}`,
+                });
+                stats.deleted++;
+                deletedLog.push(logEntry);
+                core.info(`[DEL] ${logEntry}`);
+              } catch (e) {
+                stats.failed++;
+                core.warning(`[FAIL-DEL] ${name}: ${e.message}`);
+              }
+            }
+
+            const summary = [
+              `## Channel-Sync 分支清理${DRY_RUN ? ' (DRY RUN)' : ''}`,
+              '',
+              `| 指标 | 数量 |`,
+              `| --- | --- |`,
+              `| 扫描分支 | ${stats.scanned} |`,
+              `| 豁免保留 | ${stats.kept} |`,
+              `| 跳过(PR OPEN) | ${stats.skipped_open} |`,
+              `| 跳过(14 天内活跃) | ${stats.skipped_recent} |`,
+              `| ${DRY_RUN ? '将删除' : '已删除'} | ${stats.deleted} |`,
+              `| 失败 | ${stats.failed} |`,
+              '',
+              deletedLog.length ? '### 删除清单\n\n```\n' + deletedLog.join('\n') + '\n```' : '### 无删除项',
+            ].join('\n');
+            await core.summary.addRaw(summary).write();
