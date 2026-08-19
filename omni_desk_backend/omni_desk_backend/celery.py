@@ -7,6 +7,7 @@ import os
 from typing import Any
 
 from celery import Celery, Task, signals
+from django.conf import settings
 
 from observability.context import request_id_var
 
@@ -96,3 +97,16 @@ app.config_from_object("django.conf:settings", namespace="CELERY")
 
 # Load task modules from all registered Django app configs.
 app.autodiscover_tasks()
+
+# --- 联培生考核批次自动创建 (2026-08-19 从归档分支恢复) ---
+# 每月 N 号 02:00 触发(N 来自 settings.JOINT_STUDENT_CYCLE_DAY)；
+# 使用 update() 而非赋值,保留 settings.CELERY_BEAT_SCHEDULE 或其他模块追加的条目。
+app.conf.beat_schedule.update(
+    {
+        "create-monthly-assessment-cycle": {
+            "task": "joint_students.check_and_create_assessment_cycle",
+            "cron": f"0 2 {settings.JOINT_STUDENT_CYCLE_DAY} * *",
+            "kwargs": {"trigger_source": "auto"},
+        },
+    }
+)

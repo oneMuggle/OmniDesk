@@ -49,6 +49,7 @@ urlpatterns = [
                 path("paperless/", include("paperless_proxy.urls")),  # paperless 代理（Outbox 管理）
                 path("search/", include("search_federation.urls")),  # 联邦搜索
                 path("", include("file_processing.urls")),  # 文件处理（上传/预览/分析/导出）
+                path("joint-students/", include("joint_students.urls")),  # 联培生管理 (2026-08-19 恢复)
             ]
         ),
     ),
