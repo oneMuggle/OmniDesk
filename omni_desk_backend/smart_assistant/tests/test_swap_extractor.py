@@ -7,6 +7,7 @@ import pytest
 from smart_assistant.extractors.swap_extractor import (
     CreateParams,
     DecideParams,
+    _call_llm,
     _call_llm_for_json,
     extract_create_params,
     extract_decide_params,
@@ -169,4 +170,62 @@ class TestExtractDecideParams:
             mock_actor = MagicMock()
             mock_actor.personnel.name = "李四"
             result = extract_decide_params("query", mock_actor)
+        assert result is None
+
+
+class TestCallLlmWiring:
+    """_call_llm 真实接线:经 LLMRouter 降级链调用(mock_llm_router fixture)。
+
+    区别于上方 patch 掉 _call_llm 的纯解析测试,本类不 patch _call_llm,
+    让真实的 _call_llm 跑起来,验证它正确调用 get_router().generate()。
+    """
+
+    def test_call_llm_returns_router_content(self, mock_llm_router):
+        """_call_llm 返回 router.generate 的文本内容"""
+        mock_llm_router.generate.return_value = ('{"action": "accept"}', {"total_tokens": 5})
+        result = _call_llm("some prompt")
+        assert result == '{"action": "accept"}'
+        assert mock_llm_router.generate.called
+
+    def test_call_llm_strips_think_tags(self, mock_llm_router):
+        """推理块 <think>...</think> 被剥离,只留 JSON"""
+        mock_llm_router.generate.return_value = (
+            '<think>用户想接受...</think>{"action": "reject"}',
+            {},
+        )
+        result = _call_llm("prompt")
+        assert result == '{"action": "reject"}'
+
+    def test_call_llm_uses_low_temperature(self, mock_llm_router):
+        """JSON 抽取使用低温 temperature=0 保证确定性"""
+        mock_llm_router.generate.return_value = ("{}", {})
+        _call_llm("prompt")
+        _, kwargs = mock_llm_router.generate.call_args
+        assert kwargs.get("options", {}).get("temperature") == 0
+
+    def test_call_llm_empty_content_returns_empty_string(self, mock_llm_router):
+        """router 返回 None/空内容 → 返回空字符串(不抛异常)"""
+        mock_llm_router.generate.return_value = (None, {})
+        result = _call_llm("prompt")
+        assert result == ""
+
+    def test_extract_create_params_via_real_wiring(self, mock_llm_router):
+        """不 patch _call_llm,端到端走真实 router → 成功抽取 CreateParams"""
+        mock_llm_router.generate.return_value = (
+            '{"target_name": "李四", "duty_date": "2026-08-12", "reason": "出差"}',
+            {"total_tokens": 20},
+        )
+        mock_requester = MagicMock()
+        mock_requester.name = "张三"
+        result = extract_create_params("我想和李四换 8月12日 的班,因出差", mock_requester)
+        assert isinstance(result, CreateParams)
+        assert result.target_name == "李四"
+        assert result.duty_date == "2026-08-12"
+
+    def test_extract_returns_none_when_router_raises(self, mock_llm_router):
+        """router 所有端点不可用(抛异常)→ extract 返回 None(兜底)"""
+        mock_llm_router.generate.side_effect = RuntimeError("all endpoints down")
+        mock_requester = MagicMock()
+        mock_requester.name = "张三"
+        result = extract_create_params("query", mock_requester)
         assert result is None

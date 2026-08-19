@@ -166,6 +166,16 @@ class TestPromptConstants:
         assert "knowledge_qa" in INTENT_PROMPT
         assert "general_chat" in INTENT_PROMPT
 
+    def test_intent_prompt_lists_swap_intents(self):
+        """INTENT_PROMPT 覆盖换班三分支(P0-1 意图接入)."""
+        assert "swap_request_create" in INTENT_PROMPT
+        assert "swap_request_decide" in INTENT_PROMPT
+        assert "swap_request_query" in INTENT_PROMPT
+
+    def test_intent_prompt_swap_branches_use_keywords(self):
+        """换班分支说明含'换班/替班/调班'关键词,引导 LLM 正确分流."""
+        assert "换班" in INTENT_PROMPT
+
     def test_tool_chain_prompt_has_placeholders(self):
         """TOOL_CHAIN_PROMPT 包含 {tool_schemas} 和 {user_query}."""
         assert "{tool_schemas}" in TOOL_CHAIN_PROMPT
