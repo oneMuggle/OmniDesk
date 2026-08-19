@@ -58,6 +58,7 @@
 | 39 | [可观测性](39-observability.md) | 统一 logger、事件常量、request_id HTTP / Celery 全链路传播、SafeTextFormatter(2026-08 R4-E5) |
 | 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 | 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
+| 42 | [channel-sync 远程分支自动清理](42-channel-sync-branch-cleanup.md) | cron 清理 `channel-sync/*` 归档分支、commit ≥14 天规则、豁免清单维护、误删恢复(2026-08) |
 
 ### 新增功能点(待建章节预留编号)
 
