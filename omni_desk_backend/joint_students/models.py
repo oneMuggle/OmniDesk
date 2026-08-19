@@ -1,4 +1,5 @@
 """联培生管理 - 数据模型 (5 张表)。"""
+
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
@@ -16,18 +17,26 @@ class JointStudent(models.Model):
     ]
 
     personnel = models.OneToOneField(
-        Personnel, on_delete=models.PROTECT, related_name="joint_student",
+        Personnel,
+        on_delete=models.PROTECT,
+        related_name="joint_student",
         verbose_name="关联人员",
     )
     student_type = models.CharField(
-        max_length=10, choices=STUDENT_TYPE_CHOICES, verbose_name="培养类型",
+        max_length=10,
+        choices=STUDENT_TYPE_CHOICES,
+        verbose_name="培养类型",
     )
     student_id = models.CharField(max_length=50, unique=True, verbose_name="学号")
     enrollment_date = models.DateField(verbose_name="入学日期")
     graduation_date = models.DateField(null=True, blank=True, verbose_name="毕业日期")
     mentor = models.ForeignKey(
-        Personnel, on_delete=models.SET_NULL, null=True, blank=True,
-        related_name="mentored_joint_students", verbose_name="导师",
+        Personnel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mentored_joint_students",
+        verbose_name="导师",
     )
     is_active = models.BooleanField(default=True, verbose_name="在读")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -57,28 +66,42 @@ class MonthlyReport(models.Model):
     ]
 
     joint_student = models.ForeignKey(
-        JointStudent, on_delete=models.CASCADE,
-        related_name="monthly_reports", verbose_name="联培生",
+        JointStudent,
+        on_delete=models.CASCADE,
+        related_name="monthly_reports",
+        verbose_name="联培生",
     )
     year = models.PositiveSmallIntegerField(verbose_name="年")
     month = models.PositiveSmallIntegerField(verbose_name="月")
     work_progress = models.TextField(verbose_name="工作进展")
     work_highlights = models.TextField(verbose_name="工作亮点")
     attendance_days_actual = models.DecimalField(
-        max_digits=5, decimal_places=1, verbose_name="实际出勤天数",
+        max_digits=5,
+        decimal_places=1,
+        verbose_name="实际出勤天数",
     )
     attendance_days_expected = models.DecimalField(
-        max_digits=5, decimal_places=1, default=22, verbose_name="应出勤天数",
+        max_digits=5,
+        decimal_places=1,
+        default=22,
+        verbose_name="应出勤天数",
     )
     attendance_notes = models.TextField(blank=True, verbose_name="出勤说明")
     status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, default=STATUS_DRAFT, verbose_name="状态",
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_DRAFT,
+        verbose_name="状态",
     )
     submitted_at = models.DateTimeField(null=True, blank=True, verbose_name="提交时间")
     reviewed_at = models.DateTimeField(null=True, blank=True, verbose_name="审核时间")
     reviewer = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="reviewed_reports", verbose_name="审核人",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="reviewed_reports",
+        verbose_name="审核人",
     )
     reviewer_comment = models.TextField(blank=True, verbose_name="审核意见")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -121,15 +144,25 @@ class AssessmentCycle(models.Model):
     cycle_end_date = models.DateField(verbose_name="报告审核截止")
     scoring_deadline = models.DateField(verbose_name="专家打分截止")
     status = models.CharField(
-        max_length=15, choices=STATUS_CHOICES, default=STATUS_COLLECTING, verbose_name="状态",
+        max_length=15,
+        choices=STATUS_CHOICES,
+        default=STATUS_COLLECTING,
+        verbose_name="状态",
     )
     trigger_source = models.CharField(
-        max_length=10, choices=TRIGGER_CHOICES, default=TRIGGER_MANUAL, verbose_name="触发来源",
+        max_length=10,
+        choices=TRIGGER_CHOICES,
+        default=TRIGGER_MANUAL,
+        verbose_name="触发来源",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="created_cycles", verbose_name="创建人",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="created_cycles",
+        verbose_name="创建人",
     )
 
     class Meta:
@@ -148,19 +181,26 @@ class ExpertScore(models.Model):
     """专家打分。"""
 
     cycle = models.ForeignKey(
-        AssessmentCycle, on_delete=models.CASCADE,
-        related_name="scores", verbose_name="考核批次",
+        AssessmentCycle,
+        on_delete=models.CASCADE,
+        related_name="scores",
+        verbose_name="考核批次",
     )
     expert = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.PROTECT,
-        related_name="expert_scores", verbose_name="专家",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="expert_scores",
+        verbose_name="专家",
     )
     joint_student = models.ForeignKey(
-        JointStudent, on_delete=models.PROTECT,
-        related_name="expert_scores", verbose_name="联培生",
+        JointStudent,
+        on_delete=models.PROTECT,
+        related_name="expert_scores",
+        verbose_name="联培生",
     )
     score = models.DecimalField(
-        max_digits=5, decimal_places=2,
+        max_digits=5,
+        decimal_places=2,
         validators=[MinValueValidator(0), MaxValueValidator(100)],
         verbose_name="分数",
     )
@@ -194,12 +234,16 @@ class StipendRecord(models.Model):
     GRADE_CHOICES = [(GRADE_A, "A档"), (GRADE_B, "B档")]
 
     cycle = models.ForeignKey(
-        AssessmentCycle, on_delete=models.CASCADE,
-        related_name="stipends", verbose_name="考核批次",
+        AssessmentCycle,
+        on_delete=models.CASCADE,
+        related_name="stipends",
+        verbose_name="考核批次",
     )
     joint_student = models.ForeignKey(
-        JointStudent, on_delete=models.PROTECT,
-        related_name="stipends", verbose_name="联培生",
+        JointStudent,
+        on_delete=models.PROTECT,
+        related_name="stipends",
+        verbose_name="联培生",
     )
     average_score = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="平均分")
     rank_in_cycle = models.PositiveSmallIntegerField(verbose_name="周期内排名")
@@ -209,12 +253,19 @@ class StipendRecord(models.Model):
     attendance_ratio = models.DecimalField(max_digits=5, decimal_places=2, verbose_name="出勤比")
     final_amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="最终金额")
     status = models.CharField(
-        max_length=10, choices=STATUS_CHOICES, default=STATUS_PENDING, verbose_name="状态",
+        max_length=10,
+        choices=STATUS_CHOICES,
+        default=STATUS_PENDING,
+        verbose_name="状态",
     )
     locked_at = models.DateTimeField(null=True, blank=True, verbose_name="锁定时间")
     locked_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL,
-        null=True, blank=True, related_name="locked_stipends", verbose_name="锁定操作人",
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="locked_stipends",
+        verbose_name="锁定操作人",
     )
     notes = models.TextField(blank=True, verbose_name="备注")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
@@ -225,7 +276,8 @@ class StipendRecord(models.Model):
         verbose_name_plural = "补助记录"
         constraints = [
             models.UniqueConstraint(
-                fields=["cycle", "joint_student"], name="stipend_unique_per_cycle_student",
+                fields=["cycle", "joint_student"],
+                name="stipend_unique_per_cycle_student",
             ),
         ]
 

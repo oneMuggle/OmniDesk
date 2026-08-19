@@ -1,4 +1,5 @@
 """联培生模块 DRF ViewSets。"""
+
 from datetime import datetime
 
 from django.utils import timezone
@@ -39,11 +40,7 @@ def _user_can_see_all_reports(user) -> bool:
 
 def _own_joint_student_ids(user):
     """返回该 user 名下 Personnel 关联的 JointStudent id 列表。"""
-    return list(
-        JointStudent.objects
-        .filter(personnel__user_account=user)
-        .values_list("id", flat=True)
-    )
+    return list(JointStudent.objects.filter(personnel__user_account=user).values_list("id", flat=True))
 
 
 class JointStudentViewSet(viewsets.ModelViewSet):
@@ -131,9 +128,14 @@ class MonthlyReportViewSet(viewsets.ModelViewSet):
         report.reviewed_at = timezone.now()
         report.reviewer = request.user
         report.reviewer_comment = comment
-        report.save(update_fields=[
-            "status", "reviewed_at", "reviewer", "reviewer_comment",
-        ])
+        report.save(
+            update_fields=[
+                "status",
+                "reviewed_at",
+                "reviewer",
+                "reviewer_comment",
+            ]
+        )
         return Response({"status": "rejected"})
 
 
@@ -194,7 +196,9 @@ class ExpertScoreViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         return ExpertScore.objects.filter(expert=self.request.user).select_related(
-            "expert", "joint_student__personnel", "cycle",
+            "expert",
+            "joint_student__personnel",
+            "cycle",
         )
 
     def perform_create(self, serializer):
@@ -226,7 +230,8 @@ class StipendRecordViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     queryset = StipendRecord.objects.select_related(
-        "joint_student__personnel", "cycle",
+        "joint_student__personnel",
+        "cycle",
     ).all()
     serializer_class = StipendRecordSerializer
     permission_classes = [IsJointStudentManager]
@@ -265,14 +270,8 @@ class StipendRecordViewSet(viewsets.ReadOnlyModelViewSet):
             Notification.objects.create(
                 user=owner,
                 type="stipend_locked",
-                title=(
-                    f"您 {stipend.cycle.year}-{stipend.cycle.month:02d} "
-                    "的补助已锁定"
-                ),
-                content=(
-                    f"本月补助: {stipend.final_amount} 元 "
-                    f"({stipend.get_grade_display()})"
-                ),
+                title=(f"您 {stipend.cycle.year}-{stipend.cycle.month:02d} 的补助已锁定"),
+                content=(f"本月补助: {stipend.final_amount} 元 ({stipend.get_grade_display()})"),
                 link="/joint-students/student/stipends",
             )
         return Response({"status": "locked"})
@@ -293,9 +292,7 @@ class PersonnelPoolView(APIView):
 
         personnel_qs = Personnel.objects.all().order_by("name")
         # 标记是否已有关联的 JointStudent
-        js_personnel_ids = set(
-            JointStudent.objects.values_list("personnel_id", flat=True)
-        )
+        js_personnel_ids = set(JointStudent.objects.values_list("personnel_id", flat=True))
         data = [
             {
                 "id": p.id,

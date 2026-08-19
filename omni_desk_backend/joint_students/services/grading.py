@@ -1,4 +1,5 @@
 """A 档名额优先算法 (名额硬限制 ≤ 40%)。"""
+
 import logging
 import math
 from decimal import Decimal
@@ -25,8 +26,7 @@ def assign_grades(cycle: AssessmentCycle) -> list[dict]:
     """
     # 1. 找本月所有已审核通过的月度报告对应的联培生
     approved_student_ids = (
-        MonthlyReport.objects
-        .filter(year=cycle.year, month=cycle.month, status=MonthlyReport.STATUS_APPROVED)
+        MonthlyReport.objects.filter(year=cycle.year, month=cycle.month, status=MonthlyReport.STATUS_APPROVED)
         .values_list("joint_student_id", flat=True)
         .distinct()
     )
@@ -35,7 +35,8 @@ def assign_grades(cycle: AssessmentCycle) -> list[dict]:
     student_scores: list[tuple[int, Decimal]] = []
     for js_id in approved_student_ids:
         avg = ExpertScore.objects.filter(
-            cycle=cycle, joint_student_id=js_id,
+            cycle=cycle,
+            joint_student_id=js_id,
         ).aggregate(avg=Avg("score"))["avg"]
         if avg is None:
             continue
@@ -54,12 +55,14 @@ def assign_grades(cycle: AssessmentCycle) -> list[dict]:
     records = []
     for rank, (js_id, avg_score) in enumerate(student_scores, start=1):
         grade = "A" if rank <= a_count else "B"
-        records.append({
-            "js_id": js_id,
-            "rank": rank,
-            "grade": grade,
-            "avg_score": avg_score,
-        })
+        records.append(
+            {
+                "js_id": js_id,
+                "rank": rank,
+                "grade": grade,
+                "avg_score": avg_score,
+            }
+        )
 
     if a_count == 0 and total > 0:
         logger.info(f"周期 {cycle.year}-{cycle.month:02d} 总人数 {total} < 3, 全部 B 档")

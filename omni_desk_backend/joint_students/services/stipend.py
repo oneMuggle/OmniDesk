@@ -2,6 +2,7 @@
 
 final_amount = base_amount × grade_coefficient × attendance_ratio
 """
+
 from decimal import Decimal
 
 from joint_students.models import JointStudent, StipendRecord
@@ -28,13 +29,7 @@ def compute_stipend_amount(
     attendance_expected: Decimal,
 ) -> Decimal:
     """根据培养类型、档次和出勤情况计算最终补助金额。"""
-    base_amount = (
-        BASE_AMOUNT_MASTER
-        if js.student_type == JointStudent.STUDENT_TYPE_MASTER
-        else BASE_AMOUNT_PHD
-    )
-    grade_coefficient = (
-        GRADE_COEFFICIENT_A if grade == StipendRecord.GRADE_A else GRADE_COEFFICIENT_B
-    )
+    base_amount = BASE_AMOUNT_MASTER if js.student_type == JointStudent.STUDENT_TYPE_MASTER else BASE_AMOUNT_PHD
+    grade_coefficient = GRADE_COEFFICIENT_A if grade == StipendRecord.GRADE_A else GRADE_COEFFICIENT_B
     attendance_ratio = compute_attendance_ratio(attendance_actual, attendance_expected)
     return (base_amount * grade_coefficient * attendance_ratio).quantize(Decimal("0.01"))

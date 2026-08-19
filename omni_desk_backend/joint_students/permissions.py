@@ -1,4 +1,5 @@
 """联培生模块的 DRF 权限类。"""
+
 from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 MANAGER_GROUP = "联培生管理员"

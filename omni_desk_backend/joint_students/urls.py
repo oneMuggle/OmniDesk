@@ -18,6 +18,7 @@
     GET    /api/joint-students/stipends/               补助记录
     POST   /api/joint-students/stipends/{id}/lock/     管理员复核锁定
 """
+
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
 

@@ -1,4 +1,5 @@
 """考核批次生命周期管理。"""
+
 import logging
 from datetime import date
 
@@ -148,15 +149,9 @@ def close_cycle(cycle: AssessmentCycle) -> None:
             rank_in_cycle=gr["rank"],
             grade=gr["grade"],
             base_amount=(
-                BASE_AMOUNT_MASTER
-                if js.student_type == JointStudent.STUDENT_TYPE_MASTER
-                else BASE_AMOUNT_PHD
+                BASE_AMOUNT_MASTER if js.student_type == JointStudent.STUDENT_TYPE_MASTER else BASE_AMOUNT_PHD
             ),
-            grade_coefficient=(
-                GRADE_COEFFICIENT_A
-                if gr["grade"] == "A"
-                else GRADE_COEFFICIENT_B
-            ),
+            grade_coefficient=(GRADE_COEFFICIENT_A if gr["grade"] == "A" else GRADE_COEFFICIENT_B),
             attendance_ratio=compute_attendance_ratio(
                 report.attendance_days_actual,
                 report.attendance_days_expected,

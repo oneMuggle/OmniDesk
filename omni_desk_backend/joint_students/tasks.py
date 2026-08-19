@@ -1,4 +1,5 @@
 """联培生模块的 Celery 任务。"""
+
 import logging
 
 from celery import shared_task
