@@ -103,6 +103,8 @@ INSTALLED_APPS = [
     "search_federation",
     # 文件处理
     "file_processing.apps.FileProcessingConfig",
+    # 联培生管理 (2026-08-19 恢复)
+    "joint_students.apps.JointStudentsConfig",
 ]
 
 MIDDLEWARE = [
@@ -416,3 +418,7 @@ TOOL_CALLS_TIMEOUT_SECONDS = int(os.environ.get("TOOL_CALLS_TIMEOUT_SECONDS", "3
 # L1 灰度(Task 12):默认仅 is_staff=True 用户启用原生 tool_calls 路径,
 # 非 staff 用户自动降级到 JSON 路径。验证 1 周后置 True 全员开放。
 USE_NATIVE_TOOL_CALLS_FOR_ALL = os.environ.get("USE_NATIVE_TOOL_CALLS_FOR_ALL", "false").lower() in ("1", "true", "yes")
+
+# === 联培生管理 (2026-08-19 恢复) ===
+# 每月几号 02:00 触发考核批次自动创建任务 (Celery Beat cron)
+JOINT_STUDENT_CYCLE_DAY = int(os.environ.get("JOINT_STUDENT_CYCLE_DAY", "25"))
