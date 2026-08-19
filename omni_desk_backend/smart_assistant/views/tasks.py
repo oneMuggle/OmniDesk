@@ -93,7 +93,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
     def list(self, request):
         """GET /api/smart-assistant/tasks/"""
-        tasks = AgentTask.objects.filter(user=request.user).order_by("-created_at")
+        tasks = AgentTask.objects.filter(user=request.user).order_by("-created_at").prefetch_related("subtasks")
         serializer = AgentTaskSerializer(tasks, many=True)
         return Response(serializer.data)
 

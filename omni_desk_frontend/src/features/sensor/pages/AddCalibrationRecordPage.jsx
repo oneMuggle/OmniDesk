@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import {
   Form,
   Input,
@@ -32,7 +33,6 @@ const initialDataPoint = {
 const AddCalibrationRecordPage = () => {
   const navigate = useNavigate();
   const [form] = Form.useForm();
-  const [sensors, setSensors] = useState([]);
   const [dataSource, setDataSource] = useState([
     { ...initialDataPoint, key: 0 },
     { ...initialDataPoint, key: 1 },
@@ -42,18 +42,14 @@ const AddCalibrationRecordPage = () => {
     { ...initialDataPoint, key: 5 },
   ]);
 
-  useEffect(() => {
-    const fetchSensors = async () => {
-      try {
-        const response = await getSensors();
-        setSensors(Array.isArray(response.data) ? response.data : response.data?.results || []);
-      } catch (error) {
-        message.error('获取传感器列表失败');
-        logger.error('Failed to fetch sensors:', error);
-      }
-    };
-    fetchSensors();
-  }, []);
+  // R4-B3: 手动 fetch + useEffect → RQ,共享 ['sensors'] queryKey
+  // (与 SensorListPage/SensorManagementPage 同一缓存,跨页去重)
+  const { data: sensors = [] } = useQuery({
+    queryKey: ['sensors'],
+    queryFn: getSensors,
+    select: (response) =>
+      Array.isArray(response.data) ? response.data : response.data?.results || [],
+  });
 
   const handleTableChange = (key, field, value) => {
     const newData = [...dataSource];
@@ -233,7 +229,7 @@ const AddCalibrationRecordPage = () => {
           </Col>
         </Row>
 
-        <Card title="数据记录" type="inner" style={{ marginTop: 16 }}>
+        <Card title="数据记录" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Table
             bordered
             dataSource={dataSource}
@@ -243,7 +239,7 @@ const AddCalibrationRecordPage = () => {
           />
         </Card>
 
-        <Card title="性能指标" type="inner" style={{ marginTop: 16 }}>
+        <Card title="性能指标" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Row gutter={16}>
             <Col span={6}>
               <Form.Item name="non_linearity" label="非线性度 (%)">
@@ -268,7 +264,7 @@ const AddCalibrationRecordPage = () => {
           </Row>
         </Card>
 
-        <Card title="校准信息" type="inner" style={{ marginTop: 16 }}>
+        <Card title="校准信息" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
           <Row gutter={16}>
             <Col span={8}>
               <Form.Item name="sensitivity" label="灵敏度 (mV/V)">
@@ -303,8 +299,8 @@ const AddCalibrationRecordPage = () => {
           </Row>
         </Card>
 
-        <Form.Item style={{ marginTop: 24, textAlign: 'right' }}>
-          <Button onClick={() => navigate('/sensor-management')} style={{ marginRight: 8 }}>
+        <Form.Item style={{ marginTop: 'var(--spacing-lg)', textAlign: 'right' }}>
+          <Button onClick={() => navigate('/sensor-management')} style={{ marginRight: 'var(--spacing-sm)' }}>
             返回
           </Button>
           <Button type="primary" htmlType="submit">

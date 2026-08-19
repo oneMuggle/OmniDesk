@@ -6,6 +6,9 @@
 - TimeoutGuardHook: 工具超时熔断(配置入口 + 执行包装层,详见模块文档)
 - ConfirmationHook: 写工具二次确认(PRE_EXECUTE,require_confirmation=True 时
   返回 Reject(confirmation_required),见模块文档)
+- RateLimitHook: 写工具速率限制(PRE_EXECUTE,require_confirmation=True 时
+  按 user_id 固定窗口计 count,超限返回 Reject(rate_limit_exceeded),
+  P1A-2,见模块文档)
 
 规划中:
 - SensitiveDataGateHook: 权限门控(替代硬编码 required_auth=True)
@@ -14,11 +17,13 @@
 from .audit_log import AuditLogHook
 from .confirmation import ConfirmationHook
 from .pii_masking import PiiMaskingHook
+from .rate_limit import RateLimitHook
 from .timeout_guard import TimeoutGuardHook
 
 __all__ = [
     "AuditLogHook",
     "ConfirmationHook",
     "PiiMaskingHook",
+    "RateLimitHook",
     "TimeoutGuardHook",
 ]

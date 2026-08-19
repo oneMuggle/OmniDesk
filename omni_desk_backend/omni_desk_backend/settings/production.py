@@ -29,7 +29,7 @@ if not os.getenv("POSTGRES_DB"):
         "Production settings require POSTGRES_DB environment variable. Running on SQLite in production is not allowed."
     )
 
-ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",")
+ALLOWED_HOSTS = [h for h in os.environ.get("DJANGO_ALLOWED_HOSTS", "").split(",") if h]
 
 # Disable Browsable API in production
 REST_FRAMEWORK = {
@@ -109,7 +109,7 @@ LOGGING = {
     "formatters": {
         "json": {
             "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(levelname)s %(name)s %(module)s %(message)s",
+            "format": "%(asctime)s %(levelname)s %(name)s %(module)s %(message)s %(request_id)s %(event)s",
             "rename_fields": {"asctime": "timestamp", "levelname": "level", "name": "logger"},
         },
     },

@@ -289,3 +289,55 @@ class TestToolChainPlannerCoverage:
             None,
         )
         assert result is None
+
+
+# =============================================================================
+# P1A-2: middleware/rate_limit.py write-tool helper
+# =============================================================================
+
+
+from smart_assistant.middleware.rate_limit import (
+    SMART_ASSISTANT_WRITE_RATE_LIMIT,
+    WRITE_RATE_WINDOW,
+    check_write_rate_limit,
+)
+
+
+class TestWriteRateLimitHelper:
+    def setup_method(self):
+        from django.core.cache import cache
+        cache.clear()
+
+    def test_first_call_allowed_with_remaining(self):
+        """首次调用应放行,remaining = limit - 1。"""
+        allowed, remaining, _ = check_write_rate_limit(1001)
+        assert allowed is True
+        assert remaining == SMART_ASSISTANT_WRITE_RATE_LIMIT - 1
+        # cache key 已被设置,值 = 1
+        from django.core.cache import cache
+        assert cache.get(f"smart_assistant:write_rate_limit:1001") == 1
+
+    def test_at_limit_returns_reject_with_retry_after(self):
+        """第 N+1 次调用应被拒,retry_after > 0。"""
+        for _ in range(SMART_ASSISTANT_WRITE_RATE_LIMIT):
+            check_write_rate_limit(1002)
+        allowed, remaining, retry_after = check_write_rate_limit(1002)
+        assert allowed is False
+        assert remaining == 0
+        assert 0 < retry_after <= WRITE_RATE_WINDOW
+
+    def test_independent_user_counters(self):
+        """用户 A 满不影响用户 B。"""
+        for _ in range(SMART_ASSISTANT_WRITE_RATE_LIMIT):
+            check_write_rate_limit(1003)
+        allowed_b, _, _ = check_write_rate_limit(1004)  # 不同 user
+        assert allowed_b is True
+
+    def test_namespace_separation_from_chat(self):
+        """写工具 cache key 与 chat 不共享。"""
+        check_write_rate_limit(1005)
+        from django.core.cache import cache
+        # 写工具 key 命中
+        assert cache.get("smart_assistant:write_rate_limit:1005") == 1
+        # chat key 不存在
+        assert cache.get("smart_assistant:rate_limit:1005") is None

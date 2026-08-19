@@ -7,12 +7,23 @@ from .models import DocumentTemplate, GeneratedDocument
 
 class DocumentTemplateSerializer(serializers.ModelSerializer):
     owner = serializers.StringRelatedField(read_only=True)
-    template_type_display = serializers.CharField(source="get_template_type_display", read_only=True)
     project_name = serializers.CharField(source="project.name", read_only=True, allow_null=True)  # 新增
 
     class Meta:
         model = DocumentTemplate
-        fields = "__all__"
+        # R3-B1: 白名单化。剔除 variables(前端零消费);template_type_display 声明字段同步移除
+        fields = [
+            "id",
+            "project",
+            "name",
+            "template_type",
+            "content",
+            "extracted_text",
+            "created_at",
+            "updated_at",
+            "owner",
+            "project_name",
+        ]
         read_only_fields = ("created_at", "updated_at")
 
 
@@ -23,7 +34,16 @@ class GeneratedDocumentSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = GeneratedDocument
-        fields = "__all__"
+        # R3-B1: 白名单化。剔除 variables_used(前端零消费)
+        fields = [
+            "id",
+            "template",
+            "content",
+            "generated_by",
+            "generated_at",
+            "is_final",
+            "content_preview",
+        ]
         read_only_fields = ("generated_at",)
 
     def get_content_preview(self, obj):
@@ -36,7 +56,8 @@ from .models import Annotation, Book, Chapter, Comment, Tag
 class TagSerializer(serializers.ModelSerializer):
     class Meta:
         model = Tag
-        fields = "__all__"
+        # R3-B1: 白名单化,嵌套于 BookSerializer
+        fields = ["id", "name"]
 
 
 class CommentSerializer(serializers.ModelSerializer):
@@ -101,4 +122,5 @@ from .models import EBook
 class EBookSerializer(serializers.ModelSerializer):
     class Meta:
         model = EBook
-        fields = "__all__"
+        # R3-B1: 白名单化(前端无消费,收敛)
+        fields = ["id", "title", "author", "content", "created_at"]

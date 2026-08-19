@@ -23,6 +23,7 @@ from core.git_utils import (
 )
 from core.version_utils import (
     CHANNEL_NAMES,
+    ParsedVersion,
     format_version,
     parse_version,
     try_parse_version,
@@ -247,47 +248,48 @@ class Command(BaseCommand):
         breaking_lines = []
 
         for c in commits:
-            # 跳过非用户可见的提交类型
-            if c.type in ("chore", "ci"):
+            entry = self._format_commit_entry(c)
+            if entry is None:
                 continue
-
-            # 格式化条目
-            if c.scope:
-                entry = f"- **{c.scope}**: {c.description}"
-            else:
-                entry = f"- {c.description}"
-
             if c.is_breaking:
                 breaking_lines.append(entry)
-
-            section_key = c.type
-            if section_key in CHANGELOG_SECTIONS:
-                section_name = CHANGELOG_SECTIONS[section_key]
-            else:
-                continue
-
-            sections.setdefault(section_name, []).append(entry)
+            section_name = CHANGELOG_SECTIONS.get(c.type)
+            if section_name:
+                sections.setdefault(section_name, []).append(entry)
 
         # 渠道标注(中文)
         channel_label = CHANNEL_NAMES.get(channel, channel)
         lines = [f"## [{version}] - {date_str}  ← {channel_label}"]
+        self._append_changelog_blocks(lines, breaking_lines, sections)
+        return "\n".join(lines)
 
+    def _format_commit_entry(self, c: CommitInfo) -> str | None:
+        """格式化单条提交;非用户可见类型(chore/ci)返回 None。"""
+        if c.type in ("chore", "ci"):
+            return None
+        if c.scope:
+            return f"- **{c.scope}**: {c.description}"
+        return f"- {c.description}"
+
+    def _append_changelog_blocks(
+        self,
+        lines: list[str],
+        breaking_lines: list[str],
+        sections: dict[str, list[str]],
+    ) -> None:
+        """按 Keep a Changelog 顺序追加破坏性变更与各分节。"""
         if breaking_lines:
             lines.append("")
             lines.append("### 破坏性变更")
             lines.append("")
-            for line in breaking_lines:
-                lines.append(line)
+            lines.extend(breaking_lines)
 
         for section_name in ["### 新增", "### 变更", "### 修复", "### 移除"]:
             if section_name in sections:
                 lines.append("")
                 lines.append(section_name)
                 lines.append("")
-                for line in sections[section_name]:
-                    lines.append(line)
-
-        return "\n".join(lines)
+                lines.extend(sections[section_name])
 
     def _update_changelog(self, new_entry: str) -> None:
         """在 CHANGELOG.md 中按 SemVer 顺序插入新条目.
@@ -303,18 +305,10 @@ class Command(BaseCommand):
 
         # 提取新条目的版本号(同样容错)
         m = re.match(r"## \[([^\]]+)\]", new_entry)
-        new_version: str | None = None
-        if m:
-            new_version = normalize_changelog_header(m.group(1))
+        new_version: str | None = normalize_changelog_header(m.group(1)) if m else None
         if not new_version:
             # 新条目无法提取版本号,走兜底:插到 [未发布] 之后
-            pattern = r"(## \[未发布\][^\n]*\n)"
-            match = re.search(pattern, content)
-            if match:
-                pos = match.end()
-                CHANGELOG_FILE.write_text(content[:pos] + "\n" + new_entry + "\n" + content[pos:])
-            else:
-                CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
+            self._insert_after_unreleased(content, new_entry)
             return
         new_parsed = try_parse_version(new_version)
         if new_parsed is None:
@@ -322,9 +316,29 @@ class Command(BaseCommand):
             CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
             return
 
-        # 扫描所有 ## [...] header,跳过 [未发布] 和无法解析的,找第一个比 new 大的位置插入
+        insert_pos = self._find_changelog_insert_pos(content, new_parsed)
+        if insert_pos is None:
+            CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
+        else:
+            CHANGELOG_FILE.write_text(content[:insert_pos] + new_entry + "\n\n" + content[insert_pos:])
+
+    def _insert_after_unreleased(self, content: str, new_entry: str) -> None:
+        """新条目无法提取版本号时,兜底插到 [未发布] 段之后。"""
+        pattern = r"(## \[未发布\][^\n]*\n)"
+        match = re.search(pattern, content)
+        if match:
+            pos = match.end()
+            CHANGELOG_FILE.write_text(content[:pos] + "\n" + new_entry + "\n" + content[pos:])
+        else:
+            CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
+
+    def _find_changelog_insert_pos(self, content: str, new_parsed: ParsedVersion) -> int | None:
+        """扫描所有 ## [...] header,返回首个应插入的位置;无则 None。
+
+        跳过 [未发布] 与无法解析的非版本标题(如 '渠道机制引入'),
+        找第一个比 new 大的位置;规范化后仍无法解析的同样跳过。
+        """
         existing_pattern = re.compile(r"^## \[([^\]]+)\]", re.MULTILINE)
-        insert_pos = None
         for match in existing_pattern.finditer(content):
             raw = match.group(1)
             if raw == "未发布":
@@ -336,13 +350,8 @@ class Command(BaseCommand):
             if not existing_parsed:
                 continue  # 规范化后仍无法解析,跳过
             if _rank_tuple(new_parsed) > _rank_tuple(existing_parsed):
-                insert_pos = match.start()
-                break
-
-        if insert_pos is None:
-            CHANGELOG_FILE.write_text(content.rstrip() + "\n\n" + new_entry + "\n")
-        else:
-            CHANGELOG_FILE.write_text(content[:insert_pos] + new_entry + "\n\n" + content[insert_pos:])
+                return match.start()
+        return None
 
     def _create_git_tag(self, version: str, channel: str = "stable") -> None:
         """创建 git tag(含渠道信息注释)."""
@@ -391,4 +400,4 @@ class Command(BaseCommand):
         self.stdout.write("")
         self.stdout.write("将更新的文件:")
         self.stdout.write(f"  - deployment/docker/VERSION ({current_version} → {new_version})")
-        self.stdout.write(f"  - deployment/docker/CHANGELOG.md (插入新条目)")
+        self.stdout.write("  - deployment/docker/CHANGELOG.md (插入新条目)")

@@ -75,8 +75,14 @@ class SpreadsheetTool(BaseTool):
             }
 
         # 复杂自然语言问题 → 复用 file_processing 的 LLM 表格问答
-        answer = NaturalLanguageQuery().query(
+        # P1A-1: query() 改走 LLMRouter,返回 (content, usage) 元组
+        answer, usage = NaturalLanguageQuery().query(
             query or "",
             {"sheets_data": [{"name": sheet["name"], "headers": sheet["headers"], "data": sheet["data"]}]},
         )
-        return {"found": True, "answer": answer, "summary": answer}
+        return {
+            "found": True,
+            "answer": answer,
+            "summary": answer,
+            "meta": {"usage": usage},  # P1A-1 Task 4: 暴露 usage 元数据
+        }

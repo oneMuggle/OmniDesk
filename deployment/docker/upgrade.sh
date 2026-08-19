@@ -343,11 +343,20 @@ echo ""
 
 # Step 6: Backup
 echo "Step 6: Creating backup..."
+# 默认带 --verify 触发 shadow DB 端到端验证。
+# BACKUP_NO_VERIFY=1 是紧急旁路(写 audit log)。
 if $DRY_RUN; then
-    echo "  [DRY-RUN] would run: compose exec -T backend python manage.py backup_db --output-dir $CONTAINER_BACKUP_DIR"
+    echo "  [DRY-RUN] would run: compose exec -T backend python manage.py backup_db --output-dir $CONTAINER_BACKUP_DIR --verify --verify-timeout ${BACKUP_VERIFY_TIMEOUT:-600}"
 else
     mkdir -p "$BACKUP_DIR"
-    compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" || {
+    BACKUP_ARGS="--verify --verify-timeout ${BACKUP_VERIFY_TIMEOUT:-600}"
+    if [ "${BACKUP_NO_VERIFY:-0}" = "1" ]; then
+        AUDIT_LOG_PATH="${AUDIT_LOG:-${UPGRADE_STATE_DIR:-/opt/omnidesk}/upgrade-audit.log}"
+        mkdir -p "$(dirname "$AUDIT_LOG_PATH")" 2>/dev/null || true
+        printf '%s WARN: BACKUP_NO_VERIFY=1 set, skipping shadow verification\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" >> "$AUDIT_LOG_PATH" 2>/dev/null || true
+        BACKUP_ARGS="--no-verify"
+    fi
+    compose exec -T backend python manage.py backup_db --output-dir "$CONTAINER_BACKUP_DIR" $BACKUP_ARGS || {
         echo "WARNING: Backup failed. Proceed with caution."
         read -p "Type 'yes' to continue without backup: " confirm2
         if [ "$confirm2" != "yes" ]; then

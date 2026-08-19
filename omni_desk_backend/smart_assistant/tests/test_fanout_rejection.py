@@ -12,7 +12,7 @@ from django.core.exceptions import ValidationError
 
 from smart_assistant.agents.executor import MultiAgentExecutor
 from smart_assistant.agents.supervisor import Supervisor
-from smart_assistant.agents.task_packet import ExecutionMode, TaskPacket
+from smart_assistant.agents.packet import ExecutionMode, TaskPacket
 
 
 def _make_packet(mode: str) -> TaskPacket:

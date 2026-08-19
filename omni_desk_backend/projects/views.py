@@ -3,16 +3,24 @@ from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 
+from observability import get_logger
+
 from paperless_proxy.services.upload import PaperlessUploadService
 
 from .models import Project
 from .permissions import IsProjectOwnerOrAdmin
 from .serializers import ProjectSerializer
 
+logger = get_logger(__name__, "projects")
+
 
 class ProjectViewSet(viewsets.ModelViewSet):
     serializer_class = ProjectSerializer
     permission_classes = [permissions.IsAuthenticated, IsProjectOwnerOrAdmin]
+
+    def list(self, request, *args, **kwargs):
+        logger.info("projects.view.entered", extra={"event": "projects.view.entered"})
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         user = self.request.user

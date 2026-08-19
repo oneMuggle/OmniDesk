@@ -16,12 +16,12 @@ import json
 import pytest
 
 from smart_assistant.agents.supervisor import Supervisor
-from smart_assistant.agents.task_packet import (
+from smart_assistant.agents.packet import (
     ExecutionMode,
     FailureMode,
     TaskPacket,
-    TaskPacketValidator,
 )
+from smart_assistant.agents.validator import TaskPacketValidator
 from smart_assistant.agents.roles import AgentRole
 
 

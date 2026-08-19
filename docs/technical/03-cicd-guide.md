@@ -73,6 +73,31 @@ docker-compose up
 ```
 现在，您可以在本地浏览器中访问应用，进行与生产环境一致的完整测试。
 
-## 4. 总结
+## 4. R3 治理增强（2026-08-13 合并）
+
+PR #213 ~ #216 在 R3 轮次合并到 `main`，在不破坏既有契约的前提下，补齐 4 项 CI 治理能力：
+
+| PR | 改动 | 文件 |
+|---|---|---|
+| #213 | 前端 3 处 `console.*` → `logger.*`，统一接入既有 logger 框架 | `SmartChatPage.jsx`, `AIAnalysisSection.jsx`, `SystemUpdatePage.jsx` |
+| #214 | 删除 4 个未使用 npm 依赖（slick-carousel / cross-env / flush-promises / eslint-plugin-jest）+ 68 个 transitive | `package.json`, `package-lock.json` |
+| #215 | `pip-audit` 改 advisory-only，高危漏洞不再阻断 CI，只 echo 到日志 | `.github/workflows/ci.yml` |
+| #216 | 新增 `python manage.py check --deploy` CI 步骤 + 配套 `settings/check.py`（`--fail-level ERROR`，警告不阻断） | `.github/workflows/ci.yml`, `omni_desk_backend/settings/check.py` |
+
+**`settings/check.py` 设计要点**（避免后续混淆）：
+
+- 仅 CI 静态检查使用，**禁止**任何运行时 / WSGI 入口引用
+- `SECRET_KEY` 必须在 CI shell 层通过 `env:` 注入。原因：`settings/__init__.py` 在被 import 时会立即 `from .base import *`，触发 base.py 顶层读取 `SECRET_KEY`；Python 层 `os.environ.setdefault` 来不及
+- 用 SQLite 内存数据库 + `CELERY_TASK_ALWAYS_EAGER=True` 避免 deploy check 触发外部连接
+- `ALLOWED_HOSTS=["*"]`、`CORS_ALLOWED_ORIGINS=[]`、`USE_HTTPS=False` 故意触发现有警告（W004 / W008 / W012 / W016），让 CI 真正能"发现"潜在配置问题
+
+**后续治理待办**（未在本轮做）：
+
+- `R3-A2`：SECRET_KEY 管理规范文档（env var / 启动校验 / 轮换策略）
+- `R3-C`：Ruff 规则集扩展（后续专项）
+- `R3-D`：Dockerfile 多阶段镜像瘦身（后续专项）
+- `R3-E`：可观测性深化（后续专项）
+
+## 5. 总结
 
 通过分离自动化部署流程和本地测试流程，我们既保证了生产环境部署的自动化和可靠性，又为开发人员提供了利用 CI 产物进行高效本地测试的灵活性。

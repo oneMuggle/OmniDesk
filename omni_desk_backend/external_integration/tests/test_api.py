@@ -4,7 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework.test import APIClient
-from ..models import IntegrationService, Plugin
+from ..models import ExternalLink, IntegrationService, Plugin
 from ..serializers import is_forbidden_host
 
 CustomUser = get_user_model()
@@ -99,6 +99,46 @@ class TestIntegrationServiceAPI:
         )
         resp = admin_client.post(f'/api/external/integrations/{svc.slug}/proxy/', {})
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestIntegrationServiceApiKeyContract:
+    """API 层契约 (R3-B1):读响应不暴露明文 api_key;PUT 不带 api_key 保留原密钥。"""
+
+    def test_get_response_does_not_expose_api_key(self, authenticated_client, integration_service):
+        integration_service.api_key = "super-secret-key"
+        integration_service.save(update_fields=["api_key"])
+
+        resp = authenticated_client.get(f"/api/external/integrations/{integration_service.slug}/")
+
+        assert resp.status_code == 200
+        assert "api_key" not in resp.data
+
+    def test_update_without_api_key_keeps_existing(self, admin_client):
+        """编辑流程契约:PUT 不带 api_key 时保留原密钥(前端「留空不修改」)。"""
+        svc = IntegrationService.objects.create(
+            name="Keep Key",
+            slug="keep-key",
+            integration_type="api",
+            endpoint_url="http://example.com/api",
+            api_key="original-secret",
+        )
+
+        resp = admin_client.put(
+            f"/api/external/integrations/{svc.slug}/",
+            {
+                "name": "Keep Key Renamed",
+                "slug": "keep-key",
+                "integration_type": "api",
+                "endpoint_url": "http://example.com/api",
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 200, resp.data
+        svc.refresh_from_db()
+        assert svc.api_key == "original-secret"
+        assert svc.name == "Keep Key Renamed"
 
 
 @pytest.mark.django_db
@@ -236,6 +276,40 @@ class TestPluginPermissions:
         plugin.save(update_fields=['status'])
         resp = authenticated_client.post(f'/api/external/plugins/{plugin.id}/execute/', {}, format='json')
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestExternalLinkListGrouping:
+    """R4-A14: list() 返回按 category 分组的外链(many=True 序列化后再分组)。"""
+
+    def test_list_groups_by_category(self, authenticated_client):
+        ExternalLink.objects.bulk_create(
+            [
+                ExternalLink(name='A', url='https://example.com/a', category='工具', sort_order=1, is_active=True),
+                ExternalLink(name='B', url='https://example.com/b', category='系统', sort_order=1, is_active=True),
+                ExternalLink(name='C', url='https://example.com/c', category='工具', sort_order=2, is_active=True),
+            ]
+        )
+
+        resp = authenticated_client.get('/api/external/external-links/')
+
+        assert resp.status_code == 200
+        data = resp.json()
+        # 分类升序
+        assert [g['category'] for g in data] == sorted(['系统', '工具'])
+        # 组内按 sort_order,name 排序
+        tools = next(g['links'] for g in data if g['category'] == '工具')
+        assert [l['name'] for l in tools] == ['A', 'C']
+
+    def test_list_inactive_hidden(self, authenticated_client):
+        ExternalLink.objects.create(
+            name='隐藏', url='https://example.com/hidden', category='系统', is_active=False
+        )
+
+        resp = authenticated_client.get('/api/external/external-links/')
+
+        assert resp.status_code == 200
+        assert resp.json() == []
 
 
 class TestIsForbiddenHost:

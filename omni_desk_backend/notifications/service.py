@@ -18,24 +18,29 @@ class NotificationService:
 
     @staticmethod
     def create(user, type, title, content, link="", priority=Notification.PRIORITY_NORMAL, dedupe_key=""):
-        """创建通知,或合并到未读原通知(当 dedupe_key 非空且 24h 内存在同 key 未读通知时)。"""
-        if dedupe_key:
-            existing = (
-                Notification.objects.filter(
-                    user=user,
-                    dedupe_key=dedupe_key,
-                    is_read=False,
-                    created_at__gte=timezone.now() - NotificationService.DEDUPE_WINDOW,
-                )
-                .order_by("-created_at")
-                .first()
-            )
-            if existing:
-                existing.content = f"{existing.content}\n[追加] {content}"
-                existing.save(update_fields=["content", "updated_at"])
-                return existing
+        """创建通知,或合并到未读原通知(当 dedupe_key 非空且 24h 内存在同 key 未读通知时)。
 
+        R4-A13: dedupe 检查与新建统一放进同一事务,并对窗口行加 select_for_update 锁,
+        避免并发下同一 user+key 在 24h 内创建出多条(生产 PostgreSQL 生效,SQLite 下为 no-op)。
+        """
         with transaction.atomic():
+            if dedupe_key:
+                existing = (
+                    Notification.objects.select_for_update()
+                    .filter(
+                        user=user,
+                        dedupe_key=dedupe_key,
+                        is_read=False,
+                        created_at__gte=timezone.now() - NotificationService.DEDUPE_WINDOW,
+                    )
+                    .order_by("-created_at")
+                    .first()
+                )
+                if existing:
+                    existing.content = f"{existing.content}\n[追加] {content}"
+                    existing.save(update_fields=["content", "updated_at"])
+                    return existing
+
             return Notification.objects.create(
                 user=user,
                 type=type,

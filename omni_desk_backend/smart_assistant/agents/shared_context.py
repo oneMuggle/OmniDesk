@@ -34,7 +34,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
-from .task_packet import SubTask
+from .packet import SubTask
 
 
 # ---------------------------------------------------------------------------

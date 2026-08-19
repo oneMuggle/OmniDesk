@@ -46,6 +46,7 @@ const IntegrationManagementPage = () => {
 
   const openEditModal = (record) => {
     setEditingService(record);
+    form.resetFields();
     form.setFieldsValue(record);
     setIsModalOpen(true);
   };
@@ -54,7 +55,10 @@ const IntegrationManagementPage = () => {
     try {
       const values = await form.validateFields();
       if (editingService) {
-        await updateIntegration(editingService.slug, values);
+        // R3-B1: 读响应不再返回 api_key,留空则不修改(避免残留/过期密钥覆盖真实密钥)
+        const payload = { ...values };
+        if (!payload.api_key) { delete payload.api_key; }
+        await updateIntegration(editingService.slug, payload);
         message.success('更新成功');
       } else {
         await createIntegration(values);
@@ -93,9 +97,9 @@ const IntegrationManagementPage = () => {
       title: '操作', key: 'action', width: 150,
       render: (_, record) => (
         <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+          <Button size="small" icon={<EditOutlined />} aria-label="编辑" onClick={() => openEditModal(record)} />
           <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.slug)}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="small" danger icon={<DeleteOutlined />} aria-label="删除" />
           </Popconfirm>
         </Space>
       ),
@@ -121,7 +125,7 @@ const IntegrationManagementPage = () => {
         title={editingService ? '编辑集成服务' : '添加集成服务'}
         open={isModalOpen}
         onOk={handleSave}
-        onCancel={() => setIsModalOpen(false)}
+        onCancel={() => { setIsModalOpen(false); setEditingService(null); form.resetFields(); }}
         width={600}
       >
         <Form form={form} layout="vertical">
@@ -141,7 +145,7 @@ const IntegrationManagementPage = () => {
             <Input placeholder="iframe 嵌入时的路径" />
           </Form.Item>
           <Form.Item name="api_key" label="API 密钥">
-            <Input.Password />
+            <Input.Password placeholder={editingService ? '留空则不修改' : ''} />
           </Form.Item>
           <Form.Item name="description" label="描述">
             <Input.TextArea rows={2} />

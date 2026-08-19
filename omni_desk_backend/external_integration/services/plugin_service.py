@@ -6,17 +6,6 @@ import requests
 logger = logging.getLogger(__name__)
 
 
-class SsoService:
-    """SSO token generation and redirect URL construction."""
-
-    @staticmethod
-    def generate_redirect_url(link) -> dict:
-        """Generate SSO redirect URL for a given external link."""
-        token = f"sso_placeholder_{link.id}"
-        redirect_url = f"{link.url}?token={token}"
-        return {"redirect_url": redirect_url}
-
-
 class ProxyService:
     """API proxy for forwarding requests to external services."""
 

@@ -1,0 +1,9 @@
+# 不应被 cleanup workflow 自动删除的 channel-sync/* 分支名清单
+# 仅写分支名（不含 refs/heads/ 前缀）
+# 注释以 # 开头,空 branches: 表示无豁免
+#
+# 维护方式: 直接编辑此文件并提交 PR。
+# workflow 解析失败时整个 cleanup job 会失败(不删任何分支)。
+branches:
+  # 示例:
+  # - channel-sync/139-main

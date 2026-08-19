@@ -80,9 +80,32 @@ instance.interceptors.request.use(
     }
 );
 
+// X-Request-ID 链路传播(部署前 P0-2):
+// 后端 RequestIdMiddleware 会读入站 X-Request-ID 头,与 Django/Celery/DB 日志串起来。
+// 前端拿到响应头后回填,保证同一用户在一次"操作→失败上报"过程中的 rid 一致。
+let lastRequestId: string | null = null;
+
+instance.interceptors.request.use(
+    (config: InternalAxiosRequestConfig) => {
+        // 只在用户主动操作产生请求时回传(非重试刷新)
+        if (lastRequestId && !config._retry) {
+            config.headers['X-Request-ID'] = lastRequestId;
+        }
+        return config;
+    },
+    (error: AxiosError) => Promise.reject(error)
+);
+
 // Auto-refresh access token on 401
 instance.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        // 从响应头里抓 X-Request-ID,缓存给下一次请求用
+        const rid = response.headers['x-request-id'];
+        if (typeof rid === 'string' && rid.length > 0) {
+            lastRequestId = rid;
+        }
+        return response;
+    },
     async (error: AxiosError) => {
         const originalRequest = error.config;
 

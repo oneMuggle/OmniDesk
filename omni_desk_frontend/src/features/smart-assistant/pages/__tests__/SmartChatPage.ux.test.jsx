@@ -6,7 +6,7 @@
  * 1. 流式响应中显示停止(取消)按钮
  * 2. <thinking> 标签内容在 Collapse 中与正文分离渲染
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
 import { ReadableStream } from 'stream/web';
 import SmartChatPage from '../SmartChatPage';
@@ -25,10 +25,9 @@ jest.mock('../../api/smartAssistantApi', () => ({
 // ── 浏览器 API Mock ──
 // jsdom 不提供 requestAnimationFrame / scrollIntoView / ReadableStream / performance.now
 beforeAll(() => {
-  // requestAnimationFrame 返回 0(假值),使 flushTypewriter 在 finally 块中被调用
-  // (!rafRef.current → !0 → true),打字机回调不会被触发
-  window.requestAnimationFrame = () => 0;
-  window.cancelAnimationFrame = jest.fn();
+  // 用 jest fake timers 替换 rAF 假值:fake timers 会拦截 requestAnimationFrame,
+  // 测试中通过 jest.advanceTimersByTime(N) 推进 typewriter 帧
+  jest.useFakeTimers();
   // jsdom 未实现 scrollIntoView,Mock 为空函数
   Element.prototype.scrollIntoView = jest.fn();
   Object.defineProperty(navigator, 'clipboard', {
@@ -36,6 +35,10 @@ beforeAll(() => {
     writable: true,
     configurable: true,
   });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
 });
 
 const renderWithProviders = (component) => {
@@ -131,5 +134,73 @@ describe('SmartChatPage UX', () => {
     await waitFor(() => {
       expect(screen.getByText('分析中')).toBeInTheDocument();
     });
+  });
+
+  it('resets button and shows full answer even when session list refresh hangs', async () => {
+    // fire-and-forget 回归探针:handleSessionEvent 里的 getSessions 若被 await,
+    // 流读取循环(reader.read)被 pending promise 阻塞 → 收不到 EOF → 按钮永不复位,
+    // 本测试超时失败。fire-and-forget 保证会话列表刷新不阻塞本次对话收尾。
+    const { sendSmartChatStream, getSessions } = require('../../api/smartAssistantApi');
+    getSessions.mockReturnValue(new Promise(() => {}));
+
+    sendSmartChatStream.mockReturnValue({
+      bodyPromise: Promise.resolve(
+        createMockStream([
+          { type: 'meta', intent: 'general', tool_used: null, tool_result: null, tool_fallback: false },
+          { type: 'chunk', content: '完整回答内容' },
+          { type: 'done', error: false },
+          { type: 'session', conversation_id: 'cid-1', error: false, log_id: 1 },
+        ])
+      ),
+      abort: jest.fn(),
+    });
+
+    renderWithProviders(<SmartChatPage />);
+
+    const input = screen.getByPlaceholderText(/问我任何问题/);
+    fireEvent.change(input, { target: { value: '测试问题' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    // 内容显示完整(非部分 streamingAnswer)
+    await screen.findByText('完整回答内容', {}, { timeout: 3000 });
+    // 推进 typewriter 帧(原假值 rAF 直接 flush,现在用 fake timer 推进)
+    act(() => {
+      jest.advanceTimersByTime(100);
+    });
+    // 按钮复位:"发送"恢复、无"取消"
+    await screen.findByRole('button', { name: '发送' }, { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
+  });
+
+  it('typewriter 自然收尾后才推入消息 + 复位按钮', async () => {
+    const { sendSmartChatStream } = require('../../api/smartAssistantApi');
+
+    sendSmartChatStream.mockReturnValue({
+      bodyPromise: Promise.resolve(
+        createMockStream([
+          { type: 'meta', intent: 'general', tool_used: null, tool_result: null, tool_fallback: false },
+          { type: 'chunk', content: '你好世界' },
+          { type: 'done', error: false },
+          { type: 'session', conversation_id: 'cid-2', error: false, log_id: 2 },
+        ])
+      ),
+      abort: jest.fn(),
+    });
+
+    renderWithProviders(<SmartChatPage />);
+
+    const input = screen.getByPlaceholderText(/问我任何问题/);
+    fireEvent.change(input, { target: { value: '测试 typewriter' } });
+    fireEvent.click(screen.getByRole('button', { name: '发送' }));
+
+    // 推进 typewriter 帧
+    await act(async () => {
+      jest.advanceTimersByTime(200);
+    });
+
+    // 验证:最终内容完整显示 + 按钮复位
+    await screen.findByText('你好世界', {}, { timeout: 3000 });
+    await screen.findByRole('button', { name: '发送' }, { timeout: 3000 });
+    expect(screen.queryByRole('button', { name: '取消' })).not.toBeInTheDocument();
   });
 });

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Modal, Form, Input, DatePicker, Select, Button, Typography, Space, message } from 'antd';
 import dayjs from 'dayjs';
 import PropTypes from 'prop-types';
+import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../auth/context/AuthContext';
 import { useScheduleData } from '../hooks/useScheduleData';
 import { trialApi } from '../../../shared/api/trialApi';
@@ -24,19 +25,20 @@ const CalendarEventModal = ({
   isProcessing,
   trials: passedTrials,
 }) => {
-  const { user } = useAuth();
-  const canEdit = user?.role === 'admin' || user?.role === 'manager';
+  // R4-B5: 权限判断收敛到 hasPermission(superuser 恒 true,语义与全局守卫一致)
+  const { hasPermission } = useAuth();
+  const canEdit = hasPermission(['admin', 'manager']);
   const { personnel } = useScheduleData();
   const trials = passedTrials || [];
   const [pickerOpen, setPickerOpen] = useState(false);
-  const [equipment, setEquipment] = useState([]);
 
-  useEffect(() => {
-    scheduleApi.fetchEquipment().then(setEquipment).catch(() => {
-      message.error('设备信息获取失败');
-      setEquipment([]);
-    });
-  }, []);
+  // R4-B3: 设备列表手动 fetch → RQ。独立 queryKey ['scheduleEquipments'],
+  // 避免与 TrialsPage ['equipments'](queryFn=getEquipmentOptions)缓存互相污染
+  const { data: equipment = [] } = useQuery({
+    queryKey: ['scheduleEquipments'],
+    queryFn: () => scheduleApi.fetchEquipment(),
+    staleTime: 5 * 60 * 1000,
+  });
 
   useEffect(() => {
     if (currentEvent) {

@@ -5,12 +5,13 @@ LLM 生成工具执行计划，指定工具顺序和依赖关系。
 """
 
 import json
-import logging
 
 from llm_service.router import get_router
 from .prompt_builder import TOOL_CHAIN_PROMPT
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def generate_tool_chain_plan(query: str, schemas: list, history: list = None) -> list | None:
@@ -29,11 +30,8 @@ def generate_tool_chain_plan(query: str, schemas: list, history: list = None) ->
 
     primary_intent = classify_intent(query, schemas, history)
 
-    # 检查查询中是否包含多个意图的关键词
-    relevant_tools = []
-    for schema in schemas:
-        if _matches_intent(query, schema):
-            relevant_tools.append(schema["name"])
+    # 检查查询中是否包含多个意图的关键词(子串重叠已消解)
+    relevant_tools = _resolve_intent_overlap(query, schemas)
 
     # 如果只有一个工具匹配，不需要链式执行
     if len(relevant_tools) <= 1:
@@ -48,24 +46,57 @@ def generate_tool_chain_plan(query: str, schemas: list, history: list = None) ->
         return None
 
 
-def _matches_intent(query: str, schema: dict) -> bool:
-    """基于关键词判断查询是否匹配某个工具意图。"""
+# 意图关键词映射(模块级常量,供 _matches_intent 只读使用)
+intent_keywords = {
+    "schedule_query": ["排班", "值班", "谁值班", "值班表"],
+    "event_query": ["事件", "日程", "节假日", "假期", "放假"],
+    "personnel_query": ["人员", "谁", "部门", "职位", "电话", "联系人"],
+    "knowledge_qa": ["知识", "文档", "文档库", "怎么", "如何", "是什么"],
+    "document_search": ["文档", "公文", "模板", "搜索文档"],
+    "memo_query": ["备忘录", "便签", "提醒"],
+    "memo_create": ["建一条", "创建备忘", "新增备忘", "记一条", "提醒我", "记一下"],
+    "memo_update": ["改备忘", "修改备忘", "更新备忘", "改提醒"],
+    # 用动词作关键词(用户说"删除买菜备忘"时动词"删除"后跟标题"买菜",
+    # 组合词"删除备忘"不成立);且不与 memo_query/memo_update 关键词产生子串重叠
+    "memo_delete": ["删除", "删掉", "移除", "清除"],
+    "project_status": ["项目", "进度", "里程碑", "负责人"],
+    "news_search": ["新闻", "通知", "公告"],
+}
+
+
+def _matches_intent(query: str, schema: dict) -> list:
+    """返回查询命中的 keyword 列表(空 = 不匹配)。
+
+    返回 list 而非 bool,供 generate_tool_chain_plan 做子串重叠消解
+    (短 keyword 命中被更长且包含它的命中覆盖)。
+    """
     intent_name = schema.get("name", "").lower()
-
-    # 意图关键词映射
-    intent_keywords = {
-        "schedule_query": ["排班", "值班", "谁值班", "值班表"],
-        "event_query": ["事件", "日程", "节假日", "假期", "放假"],
-        "personnel_query": ["人员", "谁", "部门", "职位", "电话", "联系人"],
-        "knowledge_qa": ["知识", "文档", "文档库", "怎么", "如何", "是什么"],
-        "document_search": ["文档", "公文", "模板", "搜索文档"],
-        "memo_query": ["备忘录", "便签", "提醒"],
-        "project_status": ["项目", "进度", "里程碑", "负责人"],
-        "news_search": ["新闻", "通知", "公告"],
-    }
-
     keywords = intent_keywords.get(intent_name, [])
-    return any(kw in query for kw in keywords)
+    return [kw for kw in keywords if kw in query]
+
+
+def _resolve_intent_overlap(query: str, schemas: list) -> list:
+    """消解 keyword 子串重叠后,返回匹配的意图名列表。
+
+    规则:若命中 kw_a 是另一命中 kw_b 的严格子串(kw_a in kw_b 且不同),
+    则 kw_a 的命中被覆盖丢弃。例:「提醒我明天开会」——
+    memo_query 命中 "提醒"(2),memo_create 命中 "提醒我"(3);
+    "提醒" in "提醒我" → memo_query 命中被覆盖,只剩 memo_create(单意图)。
+    """
+    hits = []  # [(intent, kw)]
+    for schema in schemas:
+        for kw in _matches_intent(query, schema):
+            hits.append((schema["name"], kw))
+
+    resolved: list = []
+    seen: set = set()
+    for name, kw in hits:
+        covered = any(kw in other_kw and kw != other_kw for _, other_kw in hits)
+        if covered or name in seen:
+            continue
+        seen.add(name)
+        resolved.append(name)
+    return resolved
 
 
 def _ask_llm_for_plan(query: str, schemas: list, history: list = None) -> list | None:

@@ -83,9 +83,9 @@ const ExternalLinkManagementPage = () => {
       title: '操作', key: 'action', width: 150,
       render: (_, record) => (
         <Space>
-          <Button size="small" icon={<EditOutlined />} onClick={() => openEditModal(record)} />
+          <Button size="small" icon={<EditOutlined />} aria-label="编辑" onClick={() => openEditModal(record)} />
           <Popconfirm title="确认删除？" onConfirm={() => handleDelete(record.id)}>
-            <Button size="small" danger icon={<DeleteOutlined />} />
+            <Button size="small" danger icon={<DeleteOutlined />} aria-label="删除" />
           </Popconfirm>
         </Space>
       ),

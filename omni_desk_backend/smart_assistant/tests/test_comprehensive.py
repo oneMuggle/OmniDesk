@@ -143,7 +143,7 @@ class TestSmartChatViewSet:
         resp = admin_client.post('/api/smart-assistant/chat/', {}, format='json')
         assert resp.status_code == 400
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_success(self, mock_orchestrator_cls, admin_client, admin_user_obj):
         """聊天成功返回响应"""
         mock_orchestrator = MagicMock()

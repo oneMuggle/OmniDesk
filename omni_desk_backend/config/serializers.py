@@ -21,7 +21,8 @@ class PageSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Page
-        fields = "__all__"
+        # R3-B1: 白名单化,前端消费 id/name
+        fields = ["id", "name", "path"]
 
 
 class PageVisibilitySerializer(serializers.ModelSerializer):
@@ -34,7 +35,8 @@ class PageVisibilitySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = PageVisibility
-        fields = "__all__"
+        # R3-B1: 白名单化。保留嵌套 page/group;后端未使用(裸 ViewSet 手工组装),收敛即可
+        fields = ["id", "page", "group", "is_visible"]
 
 
 class OllamaConfigSerializer(serializers.ModelSerializer):

@@ -1,0 +1,486 @@
+import { useState, useRef, useEffect, useCallback } from 'react';
+import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
+import { Modal as AntdModal, message as antMessage } from 'antd';
+import { logger } from '../../../shared/utils/logger';
+import { useTypewriter } from './useTypewriter';
+import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
+
+/** 打字机节流间隔(ms) */
+const TYPEWRITER_INTERVAL = 50;
+
+/**
+ * 智能助手聊天页 HookLayer(R3-D1 拆分)。
+ * 承载全部业务状态与逻辑:会话管理、SSE 流式编排、打字机适配、
+ * 提交/重试/停止/反馈。自 SmartChatPage.jsx 逐字搬运,不改语义。
+ *
+ * @returns {{
+ *   inputMessage: string, setInputMessage: (v: string) => void,
+ *   attachment: object|null, setAttachment: (a: object|null) => void,
+ *   messages: Array, isLoading: boolean, streamingAnswer: string, streamingMeta: object|null,
+ *   sessions: Array, currentSessionId: number|null,
+ *   showSessionList: boolean, setShowSessionList: (v: boolean) => void,
+ *   messagesEndRef: React.RefObject,
+ *   handleNewSession: () => void, handleSwitchSession: (s) => void,
+ *   handleDeleteSession: (id) => void, handleForkSession: (s) => void,
+ *   handleExportSession: (s) => void, handleSessionMenuClick: (s, info) => void,
+ *   handleSubmit: (e) => void, handleStop: () => void,
+ *   handleRetry: () => void, handleFeedback: (idx, type) => void,
+ * }}
+ */
+export function useSmartChat() {
+  const [inputMessage, setInputMessage] = useState('');
+  const [attachment, setAttachment] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [streamingAnswer, setStreamingAnswer] = useState('');
+  const [streamingMeta, setStreamingMeta] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [currentSessionId, setCurrentSessionId] = useState(null);
+  const [showSessionList, setShowSessionList] = useState(false);
+  const messagesEndRef = useRef(null);
+  const abortRef = useRef(null);
+  const activeRequestRef = useRef(null);
+  // 当前流式响应携带的 AgentLog ID(done/session 等事件的 log_id 字段),
+  // 流结束后附加到 assistant 消息上,用于赞踩反馈写后端
+  const pendingLogIdRef = useRef(null);
+  // 当前流式响应携带的失败辅助提示(输出契约 format_version:1,done/session
+  // 事件的 kind/hint 字段);旧事件无字段时保持 null,不渲染提示行
+  const pendingErrorHintRef = useRef(null);
+
+  // 打字机 hook 适配:onTick 同步 ref → state,避免每次揭示都触发额外渲染
+  const onTypewriterTick = useCallback(
+    (displayed) => setStreamingAnswer(displayed),
+    []
+  );
+  const typewriter = useTypewriter({
+    onTick: onTypewriterTick,
+    intervalMs: TYPEWRITER_INTERVAL,
+  });
+
+  // R4-B7: smooth 滚动仅在新消息落地时触发;打字机流式揭示(每 ~50ms tick)
+  // 改为瞬时滚动,避免高频 scrollIntoView({behavior:'smooth'}) 动画堆积。
+  const scrollToBottom = useCallback((behavior) => {
+    messagesEndRef.current?.scrollIntoView({ behavior });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom('smooth');
+  }, [messages, scrollToBottom]);
+
+  useEffect(() => {
+    scrollToBottom('auto');
+  }, [streamingAnswer, scrollToBottom]);
+
+  // 加载会话列表
+  useEffect(() => {
+    const loadSessions = async () => {
+      try {
+        const response = await getSessions();
+        const data = response.data.results || response.data;
+        setSessions(Array.isArray(data) ? data : []);
+      } catch {
+        // 静默失败
+      }
+    };
+    loadSessions();
+  }, []);
+
+  const handleNewSession = useCallback(async () => {
+    try {
+      const response = await createSession('新会话');
+      setSessions(prev => [response.data, ...prev]);
+      setCurrentSessionId(response.data.id);
+      setMessages([]);
+    } catch {
+      // 静默失败
+    }
+  }, []);
+
+  const handleSwitchSession = useCallback((session) => {
+    setCurrentSessionId(session.id);
+    setShowSessionList(false);
+    setMessages(toDisplayMessages(session.messages));
+  }, []);
+
+  const handleDeleteSession = useCallback(async (sessionId) => {
+    try {
+      await deleteSession(sessionId);
+      setSessions(prev => prev.filter(s => s.id !== sessionId));
+      if (currentSessionId === sessionId) {
+        setCurrentSessionId(null);
+        setMessages([]);
+      }
+    } catch {
+      // 静默失败
+    }
+  }, [currentSessionId]);
+
+  /** 创建副本（fork）：成功后切入新会话并展示其历史消息 */
+  const handleForkSession = useCallback(async (session) => {
+    try {
+      const response = await forkSession(session.id);
+      const newSession = response.data;
+      setSessions(prev => [newSession, ...prev]);
+      setCurrentSessionId(newSession.id);
+      setShowSessionList(false);
+      setMessages(toDisplayMessages(newSession.messages));
+      antMessage.success('已创建会话副本');
+    } catch {
+      antMessage.error('创建副本失败，请稍后重试');
+    }
+  }, []);
+
+  /** 导出 Markdown：fetch + blob 下载，失败统一提示 */
+  const handleExportSession = useCallback(async (session) => {
+    try {
+      await exportSessionMarkdown(session.id, session.title);
+      antMessage.success('导出成功');
+    } catch {
+      antMessage.error('导出失败，请稍后重试');
+    }
+  }, []);
+
+  /** 会话操作菜单路由（fork / export） */
+  const handleSessionMenuClick = useCallback((session, { key, domEvent }) => {
+    domEvent.stopPropagation();
+    if (key === 'fork') {
+      handleForkSession(session);
+    } else if (key === 'export') {
+      handleExportSession(session);
+    }
+  }, [handleForkSession, handleExportSession]);
+
+  // ── SSE 事件处理器 ──
+
+  /** 处理 meta 事件:设置元数据,缓存命中时跳过打字机 */
+  const handleMetaEvent = useCallback((event) => {
+    setStreamingMeta(event);
+    if (event.cache_hit) {
+      typewriter.markCached();
+    }
+  }, [typewriter]);
+
+  /** 处理 chunk 事件:累积文本,驱动打字机 */
+  const handleChunkEvent = useCallback((event) => {
+    typewriter.append(event.content);
+  }, [typewriter]);
+
+  /** 处理 session 事件:更新会话 ID */
+  const handleSessionEvent = useCallback(async (event, activeSessionId) => {
+    if (!activeSessionId && event.conversation_id) {
+      setCurrentSessionId(event.conversation_id);
+      // 会话列表后台刷新:不能 await,否则阻塞 runStream 读取循环,
+      // reader.read() 的 done:true(连接关闭)被推迟 → setIsLoading(false)
+      // 延迟 → 内容显示完整后按钮还卡在"取消"。fire-and-forget,
+      // 列表稍晚更新对用户无感。
+      getSessions()
+        .then((resp) => {
+          // 与 loadSessions 一致:解包 DRF 分页 {results},防御非数组
+          const data = resp.data?.results || resp.data;
+          setSessions(Array.isArray(data) ? data : []);
+        })
+        .catch(() => {
+          // 静默:列表刷新失败不影响本次对话收尾
+        });
+      return event.conversation_id;
+    }
+    return activeSessionId;
+  }, []);
+
+  /**
+   * 处理 SSE confirmation 事件:弹出确认对话框,用户确认后
+   * 二次请求 sendSmartChat(inputMessage, currentSessionId, null, token)
+   * (非流式,后端 Task 8 已支持 confirm_token replay),把响应里的
+   * tool_result.file_download 推入 messages(由 ToolResult 渲染下载卡片)。
+   */
+  const handleConfirmation = useCallback(async (event) => {
+    const token = event.confirmation_token;
+    const draft = event.draft || {};
+    if (!token) return;
+    AntdModal.confirm({
+      title: '请确认操作',
+      content: event.answer || draft.summary || '确认执行该操作吗?',
+      okText: '确认生成',
+      cancelText: '取消',
+      onOk: async () => {
+        try {
+          const resp = await sendSmartChat(inputMessage, currentSessionId, null, token);
+          const data = resp.data;
+          if (data && data.tool_result && data.tool_result.file_download) {
+            setMessages((prev) => [
+              ...prev,
+              {
+                id: Date.now(),
+                role: 'assistant',
+                intent: data.tool_used,
+                content: data.answer || '文档已生成',
+                tool_result: data.tool_result,
+                sources: null,
+              },
+            ]);
+          }
+        } catch (err) {
+          antMessage.error(err.message || '确认执行失败');
+        }
+      },
+    });
+  }, [inputMessage, currentSessionId]);
+
+  /** 处理单个 SSE 事件,路由到对应的处理器 */
+  const handleSSEEvent = useCallback(async (event, activeSessionId) => {
+    // 兼容旧版事件:无 log_id 字段时静默跳过
+    if (event.log_id !== undefined && event.log_id !== null) {
+      pendingLogIdRef.current = event.log_id;
+    }
+    // 输出契约(format_version:1):失败时 done/session 事件携带 kind/hint。
+    // 旧事件无这些字段 → resolveErrorHint 返回 undefined,行为与旧版一致。
+    if (event.type === 'done' || event.type === 'session') {
+      const errorHint = resolveErrorHint(event);
+      if (errorHint) {
+        pendingErrorHintRef.current = errorHint;
+        // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
+        // (走 typewriter.append 由 onTick → setStreamingAnswer 显示)。
+        // 必须用 typewriter.getReceived() 而非 streamingAnswer:
+        // receivedTextRef 是 hook 内部同步累积缓冲(append 内 +=,立即可读);
+        // streamingAnswer 是 React state,onTick 触发 setStreamingAnswer 是异步批处理。
+        // 当 SSE 流是 chunk+done 同轮到达时(例如 chunk:'回答生成失败' + done:{error}),
+        // append 同步更新 receivedTextRef,但 setStreamingAnswer 尚未生效,此时
+        // streamingAnswer 仍是空字符串 → 误判"流未产出正文" → 又 append 一次,
+        // UI 中"回答生成失败"出现两次。getReceived 同步可读,避免这个竞态。
+        if (event.type === 'done' && !typewriter.getReceived()) {
+          typewriter.append('回答生成失败');
+        }
+      }
+    }
+    switch (event.type) {
+      case 'meta':
+        handleMetaEvent(event);
+        break;
+      case 'chunk':
+        handleChunkEvent(event);
+        break;
+      case 'done':
+        // 流结束标记由 runStream finally 统一设置 markStreamingEnd,
+        // 这里不再直接维护 isStreamingRef(已迁移至 hook 内部)
+        break;
+      case 'session':
+        return await handleSessionEvent(event, activeSessionId);
+      case 'confirmation':
+        await handleConfirmation(event);
+        break;
+      default:
+        // 忽略未知事件类型
+        break;
+    }
+    return activeSessionId;
+  }, [handleMetaEvent, handleChunkEvent, handleSessionEvent, handleConfirmation, typewriter]);
+
+  /**
+   * 核心流式处理:读取 SSE reader,驱动打字机显示。
+   * 被 handleSubmit 和 handleRetry 共用。
+   *
+   * 兜底超时:若后端 generator 因 DB 异常等原因未发 done 事件,前端
+   * reader.read() 永远 pending。包一层 Promise.race,超时后调用 abort
+   * 并 reject,让 handleSubmit 走到 catch + finally,isLoading 复位。
+   *
+   * 收尾顺序:流结束后若 typewriter 仍在渐进显示,先等它显示完整再
+   * resolve。这样 handleSubmit 的 setIsLoading(false) 不会早于内容显示
+   * 完整,useEffect 推入消息列表的 streamingAnswer 始终是完整内容。
+   */
+  const runStream = useCallback(async (query) => {
+    pendingLogIdRef.current = null;
+    pendingErrorHintRef.current = null;
+    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment);
+    abortRef.current = abort;
+    const stream = await bodyPromise;
+
+    if (!stream) {
+      return;
+    }
+
+    typewriter.beginStreaming();
+    let activeSessionId = currentSessionId;
+
+    // 超时兜底:60 秒未收到下一个 chunk 视为流卡死,abort 退出。
+    // 由 catch (AbortError) 静默处理;handleSubmit finally 仍会 setIsLoading(false)。
+    const STREAM_TIMEOUT_MS = 60_000;
+    let timeoutId = null;
+    const resetTimeout = () => {
+      if (timeoutId) clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        logger.warn('[SmartChat] runStream timeout, aborting');
+        if (abortRef.current) abortRef.current();
+      }, STREAM_TIMEOUT_MS);
+    };
+
+    try {
+      // R4-B2:SSE 读取骨架收敛到共享 consumeSSEStream(chatUtils.js)。
+      // onBeforeRead = resetTimeout,保持"每次 read 前重置超时"兜底语义;
+      // 主动 timeout 不会触发 readPromise reject,只在 abort 时 reject。
+      await consumeSSEStream(stream, async (event) => {
+        activeSessionId = await handleSSEEvent(event, activeSessionId);
+      }, { onBeforeRead: resetTimeout });
+    } finally {
+      if (timeoutId) clearTimeout(timeoutId);
+      // 先清 isStreaming,让 typewriter tick 在下一帧自然触发 complete;
+      // 否则 displayedLen>=received.length && isStreaming=true 路径只排下个 rAF,
+      // 不调 completeCallbacks,而 markStreamingEnd 又在 await 之后,死锁。
+      typewriter.markStreamingEnd();
+      if (typewriter.isComplete()) {
+        typewriter.flush();
+      } else {
+        // typewriter 仍在渐进显示:等 hook 触发 onComplete 后再结束,
+        // 保证 setIsLoading(false) 晚于内容显示完整,useEffect 不会把
+        // 部分 streamingAnswer 推入消息列表。
+        await new Promise((resolve) => typewriter.onComplete(resolve));
+      }
+    }
+  }, [currentSessionId, attachment, handleSSEEvent, typewriter]);
+
+  const sendMessage = useCallback(async (query) => {
+    if (!query || !query.trim() || isLoading || activeRequestRef.current) return;
+    activeRequestRef.current = true;
+
+    const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
+    setMessages(prev => [...prev, userMessage]);
+    setInputMessage('');
+    setAttachment(null);
+    setIsLoading(true);
+    setStreamingAnswer('');
+    setStreamingMeta(null);
+    typewriter.cancel();
+
+    try {
+      await runStream(query);
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        const errText = `[错误] ${error.message}`;
+        typewriter.append(errText);
+      }
+    } finally {
+      if (activeRequestRef.current) {
+        activeRequestRef.current = null;
+        abortRef.current = null;
+        setIsLoading(false);
+      }
+    }
+  }, [attachment, isLoading, runStream, typewriter]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    await sendMessage(inputMessage);
+  };
+
+  // 当流式回答完成时,追加到消息列表
+  useEffect(() => {
+    if (!isLoading && streamingAnswer && messages.length > 0) {
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg.role !== 'user') return;
+
+      const assistantMessage = {
+        role: 'assistant',
+        content: streamingAnswer,
+        intent: streamingMeta?.intent,
+        tool_used: streamingMeta?.tool_used,
+        tool_result: streamingMeta?.tool_result,
+        sources: streamingMeta?.sources,
+        logId: pendingLogIdRef.current,
+        // 失败辅助提示(输出契约);旧事件无 kind/hint 时为 null,不渲染提示行
+        errorHint: pendingErrorHintRef.current,
+      };
+      setMessages(prev => [...prev, assistantMessage]);
+      setStreamingAnswer('');
+      setStreamingMeta(null);
+      pendingLogIdRef.current = null;
+      pendingErrorHintRef.current = null;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoading, streamingAnswer, streamingMeta]);
+
+  // 处理消息反馈(赞/踩):乐观更新本地状态并写后端,失败时回滚并提示
+  const handleFeedback = useCallback(async (msgIndex, type) => {
+    const msg = messages[msgIndex];
+    if (!msg || msg.role !== 'assistant' || msg.feedbackSubmitting) return;
+    // 防重复提交:相同反馈不重复调用 API(允许 up/down 互相改选)
+    if (msg.feedback === type) return;
+
+    // 无 logId 的历史消息(旧版事件未携带)仅记录本地状态
+    if (!msg.logId) {
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedback: type } : m
+      ));
+      return;
+    }
+
+    const prevFeedback = msg.feedback ?? null;
+    setMessages(prev => prev.map((m, i) =>
+      i === msgIndex ? { ...m, feedback: type, feedbackSubmitting: true } : m
+    ));
+    try {
+      await submitFeedback(msg.logId, type);
+    } catch {
+      // API 失败 → 回滚到提交前的反馈状态
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedback: prevFeedback } : m
+      ));
+      antMessage.error('反馈提交失败,请稍后重试');
+    } finally {
+      setMessages(prev => prev.map((m, i) =>
+        i === msgIndex ? { ...m, feedbackSubmitting: false } : m
+      ));
+    }
+  }, [messages]);
+
+  // 重试最后一条消息
+  const handleRetry = useCallback(async () => {
+    if (messages.length < 2) return;
+    const lastUserMsg = messages[messages.length - 2];
+    if (lastUserMsg.role !== 'user') return;
+
+    // 移除最后一条 AI 回复
+    setMessages(prev => prev.slice(0, -1));
+    setIsLoading(true);
+    setStreamingAnswer('');
+    setStreamingMeta(null);
+    typewriter.cancel();
+
+    try {
+      await runStream(lastUserMsg.content);
+    } catch (error) {
+      if (error.name !== 'AbortError') {
+        const errText = `[错误] ${error.message}`;
+        typewriter.append(errText);
+      }
+    } finally {
+      setIsLoading(false);
+      abortRef.current = null;
+    }
+  }, [messages, runStream, typewriter]);
+
+  /** 停止生成:中止请求 + 清理打字机状态 + 显示提示 */
+  const handleStop = useCallback(() => {
+    if (!activeRequestRef.current) return;
+    if (abortRef.current) {
+      abortRef.current();
+      abortRef.current = null;
+    }
+    typewriter.cancel();
+    setStreamingAnswer('');
+    setStreamingMeta(null);
+    activeRequestRef.current = null;
+    setIsLoading(false);
+    antMessage.info('已取消生成');
+  }, [typewriter]);
+
+  return {
+    inputMessage, setInputMessage,
+    attachment, setAttachment,
+    messages, isLoading, streamingAnswer, streamingMeta,
+    sessions, currentSessionId, showSessionList, setShowSessionList,
+    messagesEndRef,
+    handleNewSession, handleSwitchSession, handleDeleteSession,
+    handleForkSession, handleExportSession, handleSessionMenuClick,
+    handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
+  };
+}

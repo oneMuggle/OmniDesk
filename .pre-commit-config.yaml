@@ -1,13 +1,15 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.0
+    # R4-E2: rev 对齐 requirements-dev.txt 锁(ruff 0.16.3,与 CI lint `>=0.16,<0.17` 同族)
+    rev: v0.16.3
     hooks:
       - id: ruff
         args: [--fix]
       - id: ruff-format
 
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.15.0
+    # R4-E2: rev 对齐 requirements-dev.txt 锁(mypy 2.3.1)
+    rev: v2.3.1
     hooks:
       - id: mypy
         args: [--ignore-missing-imports]

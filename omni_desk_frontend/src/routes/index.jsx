@@ -1,99 +1,83 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
-import { lazy, Suspense } from 'react';
-import PropTypes from 'prop-types';
 import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
 import AdminAppWrapper from '../AdminAppWrapper';
-import PageSuspenseFallback from '../shared/components/PageSuspenseFallback';
-
-// Lazy load all page components for code splitting
-const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
-const SchedulePage = lazy(() => import('../features/schedule/pages/SchedulePage'));
-const SystemSettingsPage = lazy(() => import('../shared/pages/SystemSettingsPage'));
-const RagflowChatPage = lazy(() => import('../shared/pages/RagflowChatPage'));
-const EventsPage = lazy(() => import('../shared/pages/EventsPage'));
-const AdminLayout = lazy(() => import('../features/admin/components/AdminLayout'));
-const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage'));
-const PersonnelDetailPage = lazy(() => import('../features/personnel/pages/PersonnelDetailPage'));
-const Login = lazy(() => import('../features/auth/pages/Login'));
-const Register = lazy(() => import('../features/auth/pages/Register'));
-const DocumentsPage = lazy(() => import('../features/documents/pages/DocumentsPage'));
-const AnnouncementsPage = lazy(() => import('../features/announcements/pages/AnnouncementsPage'));
-const EquipmentPage = lazy(() => import('../features/equipment/pages/EquipmentPage'));
-const FileAnalysisPage = lazy(() => import('../shared/pages/FileAnalysisPage'));
-const DocsPage = lazy(() => import('../shared/pages/DocsPage'));
-const BookPage = lazy(() => import('../shared/pages/BookPage'));
-const BookReaderPage = lazy(() => import('../shared/pages/BookReaderPage'));
-const LibraryPage = lazy(() => import('../shared/pages/LibraryPage'));
-const ChapterEditorPage = lazy(() => import('../shared/pages/ChapterEditorPage'));
-const TrialsPage = lazy(() => import('../shared/pages/TrialsPage'));
-const PersonnelManagementPage = lazy(() => import('../features/personnel/pages/PersonnelManagementPage'));
-const PersonnelEditPage = lazy(() => import('../features/personnel/pages/PersonnelEditPage'));
-const TrialScheduleContainer = lazy(() => import('../features/schedule/components/TrialScheduleContainer'));
-const ShiftScheduleContainer = lazy(() => import('../features/schedule/components/ShiftScheduleContainer'));
-const MemoPage = lazy(() => import('../features/memo/pages/MemoPage'));
-const ManageAnnouncementsPage = lazy(() => import('../features/announcements/pages/ManageAnnouncementsPage'));
-const AnnouncementForm = lazy(() => import('../features/announcements/components/AnnouncementForm'));
-const DifyAppList = lazy(() => import('../features/dify-apps/pages/DifyAppList'));
-const DifyAppViewer = lazy(() => import('../features/dify-apps/pages/DifyAppViewer'));
-const ScheduleManagementPage = lazy(() => import('../features/schedule/pages/ScheduleManagementPage'));
-const ScheduleSettingsPage = lazy(() => import('../features/schedule/pages/ScheduleSettingsPage'));
-const OfficeAssistant = lazy(() => import('../features/office-assistant/pages/OfficeAssistant'));
-const ProjectsPage = lazy(() => import('../features/projects/pages/ProjectsPage'));
-const MeetingRoomBookingPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomBookingPage.jsx'));
-const MeetingRoomManagementPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomManagementPage'));
-const UserManagementPage = lazy(() => import('../features/user/pages/UserManagementPage'));
-const SensorManagementPage = lazy(() => import('../features/sensor/pages/SensorManagementPage'));
-const SensorListPage = lazy(() => import('../features/sensor/pages/SensorListPage'));
-const SensorCategoryManagementPage = lazy(() => import('../features/sensor/pages/SensorCategoryManagementPage.jsx'));
-const SensorArchiveLocationManagementPage = lazy(() => import('../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'));
-const SensorCalibrationManagementPage = lazy(() => import('../features/sensor/pages/SensorCalibrationManagementPage'));
-const SensorDetailPage = lazy(() => import('../features/sensor/pages/SensorDetailPage'));
-const EBookManagementPage = lazy(() => import('../features/ebook/pages/EBookManagementPage'));
-const HolidayManagementPage = lazy(() => import('../features/schedule/pages/HolidayManagementPage'));
-const CommunicationPage = lazy(() => import('../features/communication/pages/CommunicationPage'));
-const PostDetailPage = lazy(() => import('../shared/pages/PostDetailPage'));
-const NewsStatsPage = lazy(() => import('../features/news/pages/NewsStatsPage'));
-const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/AddCalibrationRecordPage'));
-const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
-const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));
-const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
-const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
-const StatsPage = lazy(() => import('../features/smart-assistant/pages/StatsPage'));
-const AgentTaskPanel = lazy(() => import('../features/smart-assistant/pages/AgentTaskPanel'));
-const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
-const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
-const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
-const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
-const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
-const AIShowcasePage = lazy(() => import('../shared/pages/AIShowcasePage'));
-const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
-const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
-const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
-const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
-const CompliancePage = lazy(() => import('../features/compliance/pages/CompliancePage'));
-// P2-3 / P3-3 引入
-const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
-const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
-const NotificationBell = lazy(() => import('../features/notifications/components/NotificationBell'));
-// 文档库路由 (paperless-ngx 集成)
-const DocumentLibraryPage = lazy(() => import('../features/documents-library/pages/DocumentLibraryPage'));
-const DocumentUploadPage = lazy(() => import('../features/documents-library/pages/DocumentUploadPage'));
-const SyncStatusPage = lazy(() => import('../features/documents-library/pages/SyncStatusPage'));
-const AccountBindingPage = lazy(() => import('../features/documents-library/pages/AccountBindingPage'));
-
-const LazyComponent = ({ component: Component, ...props }) => (
-  <Suspense fallback={<PageSuspenseFallback />}>
-    <Component {...props} />
-  </Suspense>
-);
-
-LazyComponent.propTypes = {
-  component: PropTypes.elementType.isRequired,
-};
-
-const UnauthorizedPage = lazy(() => import('../features/auth/pages/UnauthorizedPage'));
+import LazyComponent from './LazyComponent';
+import {
+  AccountBindingPage,
+  AddCalibrationRecordPage,
+  AdminLayout,
+  AgentAuditPanel,
+  AgentTaskPanel,
+  AiAppManagementPage,
+  AIShowcasePage,
+  AnnouncementForm,
+  AnnouncementsPage,
+  BookPage,
+  BookReaderPage,
+  ChapterEditorPage,
+  CommunicationPage,
+  CompliancePage,
+  DashboardPage,
+  DifyAppList,
+  DifyAppViewer,
+  DocsPage,
+  DocumentLibraryPage,
+  DocumentsPage,
+  DocumentUploadPage,
+  EBookManagementPage,
+  EquipmentPage,
+  EventsPage,
+  ExternalLinkManagementPage,
+  ExternalLinksPage,
+  FileAnalysisPage,
+  HolidayManagementPage,
+  IntegrationHubPage,
+  IntegrationManagementPage,
+  KnowledgeBasePage,
+  LibraryPage,
+  Login,
+  ManageAnnouncementsPage,
+  MeetingRoomBookingPage,
+  MeetingRoomManagementPage,
+  MemoPage,
+  MyPersonnelInfo,
+  NewPostPage,
+  NewsStatsPage,
+  NotificationCenter,
+  OfficeAssistant,
+  PersonnelDetailPage,
+  PersonnelEditPage,
+  PersonnelManagementPage,
+  PluginManagementPage,
+  PluginMarketPage,
+  PostDetailPage,
+  ProfilePage,
+  ProjectsPage,
+  RagflowChatPage,
+  Register,
+  ScheduleManagementPage,
+  SchedulePage,
+  ScheduleSettingsPage,
+  SensorArchiveLocationManagementPage,
+  SensorCalibrationHistoryPage,
+  SensorCalibrationManagementPage,
+  SensorCategoryManagementPage,
+  SensorDetailPage,
+  SensorListPage,
+  SensorManagementPage,
+  ShiftScheduleContainer,
+  SmartChatPage,
+  StatsPage,
+  SyncStatusPage,
+  SystemSettingsPage,
+  SystemUpdatePage,
+  TrialScheduleContainer,
+  TrialsPage,
+  UnauthorizedPage,
+  UserManagementPage,
+} from './lazyImports';
 
 const router = createBrowserRouter([
   // 认证相关路由 - 不使用 App 布局（无侧边栏）
@@ -144,6 +128,10 @@ const router = createBrowserRouter([
             element: <LazyComponent component={DocumentsPage} />
           },
           {
+            path: "compliance",
+            element: <LazyComponent component={CompliancePage} />
+          },
+          {
             path: "announcements/manage",
             element: <LazyComponent component={ManageAnnouncementsPage} />
           },
@@ -170,10 +158,6 @@ const router = createBrowserRouter([
           {
             path: "projects",
             element: <LazyComponent component={ProjectsPage} />
-          },
-          {
-            path: "compliance",
-            element: <LazyComponent component={CompliancePage} />
           },
           {
             path: "meeting-rooms",

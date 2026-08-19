@@ -136,22 +136,22 @@ const SensorCalibrationHistoryPage = () => {
             <Descriptions.Item label="相对湿度">{selectedRecord.relative_humidity ? `${selectedRecord.relative_humidity}%` : '—'}</Descriptions.Item>
           </Descriptions>
 
-          <Divider orientation="left" style={{ margin: '16px 0 12px' }}>性能指标</Divider>
-          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 16 }}>
-            <Tag color="blue" style={{ padding: '4px 12px', fontSize: 14 }}>非线性度: {selectedRecord.non_linearity ?? '—'}%</Tag>
-            <Tag color="green" style={{ padding: '4px 12px', fontSize: 14 }}>迟滞: {selectedRecord.hysteresis ?? '—'}%</Tag>
-            <Tag color="orange" style={{ padding: '4px 12px', fontSize: 14 }}>重复性: {selectedRecord.repeatability ?? '—'}%</Tag>
-            <Tag color="purple" style={{ padding: '4px 12px', fontSize: 14 }}>准确度: {selectedRecord.accuracy ?? '—'}%</Tag>
-            <Tag color="cyan" style={{ padding: '4px 12px', fontSize: 14 }}>灵敏度: {selectedRecord.sensitivity ?? '—'} mV/V</Tag>
+          <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>性能指标</Divider>
+          <div style={{ display: 'flex', gap: 'var(--spacing-12)', flexWrap: 'wrap', marginBottom: 'var(--spacing-md)' }}>
+            <Tag color="blue" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>非线性度: {selectedRecord.non_linearity ?? '—'}%</Tag>
+            <Tag color="green" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>迟滞: {selectedRecord.hysteresis ?? '—'}%</Tag>
+            <Tag color="orange" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>重复性: {selectedRecord.repeatability ?? '—'}%</Tag>
+            <Tag color="purple" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>准确度: {selectedRecord.accuracy ?? '—'}%</Tag>
+            <Tag color="cyan" style={{ padding: 'var(--spacing-xs) var(--spacing-12)', fontSize: 'var(--font-size-base)' }}>灵敏度: {selectedRecord.sensitivity ?? '—'} mV/V</Tag>
           </div>
 
-          <Descriptions bordered column={1} size="small" style={{ marginBottom: 16 }}>
+          <Descriptions bordered column={1} size="small" style={{ marginBottom: 'var(--spacing-md)' }}>
             <Descriptions.Item label="校准方程">{selectedRecord.calibration_equation || '无'}</Descriptions.Item>
           </Descriptions>
 
           {selectedRecord.data_points && selectedRecord.data_points.length > 0 && (
             <>
-              <Divider orientation="left" style={{ margin: '16px 0 12px' }}>数据点</Divider>
+              <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>数据点</Divider>
               <Table
                 bordered
                 dataSource={selectedRecord.data_points}

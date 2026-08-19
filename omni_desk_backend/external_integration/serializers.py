@@ -88,15 +88,44 @@ def validate_endpoint_url(value):
 class ExternalLinkSerializer(serializers.ModelSerializer):
     class Meta:
         model = ExternalLink
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "url",
+            "icon",
+            "description",
+            "category",
+            "sso_enabled",
+            "sso_token_endpoint",
+            "sort_order",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ("created_at", "updated_at")
 
 
 class IntegrationServiceSerializer(serializers.ModelSerializer):
     class Meta:
         model = IntegrationService
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "integration_type",
+            "endpoint_url",
+            "api_key",
+            "embed_path",
+            "config_schema",
+            "metadata",
+            "is_active",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ("created_at", "updated_at")
+        # R3-B1: api_key 加密存储,不得在读响应中返回明文密钥;仅允许写入
+        extra_kwargs = {"api_key": {"write_only": True}}
 
     def validate_endpoint_url(self, value):
         """SSRF 防护：委托给模块级 ``validate_endpoint_url`` 以保证 Admin/ORM 路径也能复用。"""
@@ -115,7 +144,20 @@ class PluginSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Plugin
-        fields = "__all__"
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "description",
+            "author",
+            "category",
+            "icon",
+            "status",
+            "interface_version",
+            "versions",
+            "created_at",
+            "updated_at",
+        ]
         read_only_fields = ("created_at", "updated_at")
 
 

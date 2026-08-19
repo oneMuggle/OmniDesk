@@ -16,7 +16,6 @@
 - 前端 QuickAssistant:识别 awaiting_confirmation 信号 → 弹 Modal.confirm → 二次请求带 confirm_token
 """
 
-import logging
 from datetime import date, datetime
 
 from django.db.models import Q
@@ -35,7 +34,9 @@ from events.services.swap_service import (
 )
 from .base import BaseTool
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def _parse_date_string(s: str) -> date | None:
@@ -51,7 +52,10 @@ def _parse_date_string(s: str) -> date | None:
     try:
         return datetime.strptime(s, "%Y-%m-%d").date()
     except ValueError:
-        pass
+        logger.debug(
+            "smart_assistant.swap_request_tool.date_parse_failed",
+            extra={"event": "smart_assistant.swap_request_tool.date_parse_failed", "s": s},
+        )
     try:
         return datetime.strptime(s, "%m-%d").date().replace(year=date.today().year)
     except ValueError:

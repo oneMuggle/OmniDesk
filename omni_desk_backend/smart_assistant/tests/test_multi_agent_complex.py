@@ -15,7 +15,7 @@ from unittest.mock import MagicMock
 
 from smart_assistant.agents.supervisor import Supervisor
 from smart_assistant.agents.executor import MultiAgentExecutor
-from smart_assistant.agents.task_packet import TaskPacket, ExecutionMode
+from smart_assistant.agents.packet import TaskPacket, ExecutionMode
 from smart_assistant.agents.roles import AgentRole
 
 

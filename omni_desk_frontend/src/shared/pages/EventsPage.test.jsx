@@ -5,7 +5,8 @@ import apiClient from '../api/apiClient';
 
 jest.mock('../api/apiClient');
 
-const renderPage = (authValue = { user: { role: 'user' } }) =>
+// R4-B5: canManageEvents 改由 hasPermission 提供,测试 mock 补齐
+const renderPage = (authValue = { user: { role: 'user' }, hasPermission: () => false }) =>
   render(
     <AuthContext.Provider value={authValue}>
       <EventsPage />

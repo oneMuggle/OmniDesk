@@ -12,7 +12,7 @@ import json
 import pytest
 
 from smart_assistant.agents.supervisor import Supervisor
-from smart_assistant.agents.task_packet import ExecutionMode, TaskPacket
+from smart_assistant.agents.packet import ExecutionMode, TaskPacket
 
 
 # ---------------------------------------------------------------------------

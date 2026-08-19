@@ -1,6 +1,6 @@
 """TaskPacket 任务包单元测试
 
-覆盖 agents/task_packet.py 的所有公开接口:
+覆盖 agents/packet.py + agents/validator.py 的所有公开接口:
 - ExecutionMode / FailureMode 枚举
 - SubTask 字段校验(合法性 + 内部一致性)
 - TaskPacket 字段校验(合法性 + 循环依赖检测 + 拓扑排序)
@@ -12,13 +12,13 @@
 import pytest
 
 from smart_assistant.agents.roles import AgentRole
-from smart_assistant.agents.task_packet import (
+from smart_assistant.agents.packet import (
     ExecutionMode,
     FailureMode,
     SubTask,
     TaskPacket,
-    TaskPacketValidator,
 )
+from smart_assistant.agents.validator import TaskPacketValidator
 
 
 # ---------------------------------------------------------------------------
