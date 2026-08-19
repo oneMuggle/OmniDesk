@@ -4,12 +4,11 @@
 通知(notifications/signals.py::notify_memo_due),到期后无任何定时提醒。
 """
 
-import logging
-
 from celery import shared_task
 from django.utils import timezone
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "memos")
 
 
 @shared_task

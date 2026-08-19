@@ -5,8 +5,8 @@ import LazyComponent from '../LazyComponent';
 const LAZY_TYPE = Symbol.for('react.lazy');
 
 describe('lazyImports 注册中心', () => {
-  it('导出 71 个懒加载组件(页面/布局/认证)', () => {
-    expect(Object.keys(lazyImports)).toHaveLength(71);
+  it('导出 72 个懒加载组件(页面/布局/认证)', () => {
+    expect(Object.keys(lazyImports)).toHaveLength(72);
   });
 
   it('每个导出均为 React.lazy 包装组件,且命名无重复', () => {
@@ -17,7 +17,7 @@ describe('lazyImports 注册中心', () => {
       expect(seen.has(name)).toBe(false);
       seen.add(name);
     });
-    expect(seen.size).toBe(71);
+    expect(seen.size).toBe(72);
   });
 });
 

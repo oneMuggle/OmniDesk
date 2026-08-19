@@ -4,12 +4,11 @@
 但无任何归档逻辑,过期帖子仍停留在默认列表(views 过滤 is_archived=False)。
 """
 
-import logging
-
 from celery import shared_task
 from django.utils import timezone
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "communication")
 
 
 @shared_task
