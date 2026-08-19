@@ -1,14 +1,13 @@
 """联培生模块的 Celery 任务。"""
 
-import logging
-
 from celery import shared_task
 from django.utils import timezone
 
 from joint_students.models import AssessmentCycle
 from joint_students.services.cycle import create_cycle
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 @shared_task(name="joint_students.check_and_create_assessment_cycle")

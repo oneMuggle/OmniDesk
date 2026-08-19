@@ -14,6 +14,54 @@ from ..models import GroupPagePermission, PageRoute
 
 pytestmark = pytest.mark.django_db
 
+# 联培生模块的 data migration (0003_seed_page_routes) 会创建 12 个 PageRoute。
+# 本文件中测试需要在受控计数下验证视图集行为,故用 fixture 临时移除这些种子路由,
+# 测试结束后按拓扑顺序恢复 — 避免污染其他测试。
+_JOINT_STUDENT_SEED_PATHS = [
+    "/joint-students/admin/students",
+    "/joint-students/admin/students/new",
+    "/joint-students/admin/students/:id",
+    "/joint-students/admin/reports",
+    "/joint-students/admin/cycles",
+    "/joint-students/admin/cycles/:id",
+    "/joint-students/admin/stipends",
+    "/joint-students/expert/scoring",
+    "/joint-students/student/reports",
+    "/joint-students/student/reports/new",
+    "/joint-students/student/stipends",
+    "/joint-students/mentor/overview",
+]
+
+
+@pytest.fixture
+def isolated_page_routes():
+    """测试期间屏蔽联培生模块的 12 个 PageRoute 种子,结束后按拓扑顺序恢复。"""
+    seed_routes = list(
+        PageRoute.objects.filter(path__in=_JOINT_STUDENT_SEED_PATHS).order_by("id")
+    )
+    snapshots = [(r.id, r.parent_id, r.name, r.path, r.component) for r in seed_routes]
+    if seed_routes:
+        PageRoute.objects.filter(path__in=_JOINT_STUDENT_SEED_PATHS).delete()
+    yield
+    # 按 parent_id 拓扑顺序恢复:parent 为 None 的先建,parent 已建后建
+    id_map = {}
+    pending = list(snapshots)
+    while pending:
+        progress = False
+        for snap in pending[:]:
+            old_id, parent_old_id, name, path, component = snap
+            if parent_old_id is None or parent_old_id in id_map:
+                new_parent_id = id_map.get(parent_old_id)
+                new_route = PageRoute.objects.create(
+                    name=name, path=path, component=component,
+                    parent_id=new_parent_id,
+                )
+                id_map[old_id] = new_route.id
+                pending.remove(snap)
+                progress = True
+        if not progress:
+            break
+
 
 @pytest.fixture
 def api_client():
@@ -121,13 +169,13 @@ class TestPageRouteViewSet:
         })
         assert response.status_code == status.HTTP_403_FORBIDDEN
 
-    def test_page_list_only_returns_top_level(self, admin_client, page_route, child_page):
+    def test_page_list_only_returns_top_level(self, admin_client, page_route, child_page, isolated_page_routes):
         response = admin_client.get('/api/permissions/pages/')
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data) == 1
         assert response.data[0]['id'] == page_route.id
 
-    def test_page_includes_children(self, admin_client, page_route, child_page):
+    def test_page_includes_children(self, admin_client, page_route, child_page, isolated_page_routes):
         response = admin_client.get('/api/permissions/pages/')
         assert response.status_code == status.HTTP_200_OK
         assert len(response.data[0]['children']) == 1

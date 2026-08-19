@@ -1,6 +1,5 @@
 """考核批次生命周期管理。"""
 
-import logging
 from datetime import date
 
 from django.contrib.auth.models import Group
@@ -20,8 +19,9 @@ from joint_students.services.stipend import (
     compute_attendance_ratio,
     compute_stipend_amount,
 )
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def notify_experts(cycle: AssessmentCycle) -> None:

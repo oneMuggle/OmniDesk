@@ -1,14 +1,14 @@
 """A 档名额优先算法 (名额硬限制 ≤ 40%)。"""
 
-import logging
 import math
 from decimal import Decimal
 
 from django.db.models import Avg
 
 from joint_students.models import AssessmentCycle, ExpertScore, MonthlyReport
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def assign_grades(cycle: AssessmentCycle) -> list[dict]:
