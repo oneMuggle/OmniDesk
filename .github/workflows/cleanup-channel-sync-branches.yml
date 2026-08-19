@@ -50,7 +50,6 @@ jobs:
         with:
           script: |
             const DRY_RUN = ${{ inputs.dry_run || false }};
-            const PR_AGE_DAYS = 14;
             const COMMIT_AGE_DAYS = 14;
             const CHANNEL_SYNC_PREFIX = 'channel-sync/';
             const KEEP_LIST = JSON.parse('${{ steps.keep.outputs.list }}');
@@ -80,7 +79,7 @@ jobs:
             const targets = allBranches.filter(b => b.name.startsWith(CHANNEL_SYNC_PREFIX));
             core.info(`共 ${allBranches.length} 个分支,其中 ${targets.length} 个 channel-sync/*`);
 
-            const stats = { scanned: 0, kept: 0, skipped_open: 0, skipped_recent: 0, deleted: 0, failed: 0 };
+            const stats = { scanned: 0, kept: 0, skipped_recent: 0, deleted: 0, failed: 0 };
             const deletedLog = [];
 
             for (const branch of targets) {
@@ -111,37 +110,12 @@ jobs:
                 continue;
               }
 
-              // pulls.list 的 head 参数必须用 "<owner>:<branch>" 格式才能精确匹配分支,
-              // 仅传 branch 会回退到默认 PR 列表(返回最近 PR),导致误判 PR 状态与 updated_at。
-              let prs;
-              try {
-                const r = await github.rest.pulls.list({
-                  owner, repo, head: `${owner}:${name}`, state: 'all', per_page: 1,
-                });
-                prs = r.data;
-              } catch (e) {
-                stats.failed++;
-                core.warning(`[FAIL] ${name} pulls.list 失败: ${e.message}`);
-                continue;
-              }
-              if (prs.length === 0) {
-                stats.kept++;
-                core.info(`[KEEP] ${name} (无关联 PR,异常保留)`);
-                continue;
-              }
-              const pr = prs[0];
-              if (pr.state === 'open') {
-                stats.skipped_open++;
-                core.info(`[SKIP-OPEN] ${name} (PR #${pr.number} 仍 open)`);
-                continue;
-              }
-              if (daysSince(pr.updated_at) < PR_AGE_DAYS) {
-                stats.skipped_recent++;
-                core.info(`[SKIP-RECENT] ${name} (PR ${Math.floor(daysSince(pr.updated_at))} 天前更新)`);
-                continue;
-              }
-
-              const logEntry = `${name}  pr=#${pr.number} state=${pr.state} sha=${branch.commit.sha.slice(0,7)} pr_updated=${pr.updated_at.slice(0,10)} commit_date=${commitDate.slice(0,10)}`;
+              // channel-sync bot 用长寿命 open PR 维护每个归档分支,PR 状态永远是 open,
+              // 改用 search API 也无法可靠定位"原始 PR 已 close"的状态。
+              // 改为只依赖 commit 时间:bot force-push 会刷新 commit date,
+              // commit ≥ 14 天意味着 bot 14 天未活动,可安全删除。
+              // 仍然保护活跃归档(commit < 14 天不删)——见上方 if (daysSince < COMMIT_AGE_DAYS) 检查。
+              const logEntry = `${name}  sha=${branch.commit.sha.slice(0,7)} commit_date=${commitDate.slice(0,10)}`;
 
               if (DRY_RUN) {
                 stats.deleted++;
@@ -170,8 +144,7 @@ jobs:
               `| --- | --- |`,
               `| 扫描分支 | ${stats.scanned} |`,
               `| 豁免保留 | ${stats.kept} |`,
-              `| 跳过(PR OPEN) | ${stats.skipped_open} |`,
-              `| 跳过(14 天内活跃) | ${stats.skipped_recent} |`,
+              `| 跳过(${COMMIT_AGE_DAYS} 天内活跃) | ${stats.skipped_recent} |`,
               `| ${DRY_RUN ? '将删除' : '已删除'} | ${stats.deleted} |`,
               `| 失败 | ${stats.failed} |`,
               '',
