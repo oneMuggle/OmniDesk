@@ -129,11 +129,11 @@ freezegun==1.5.5
     # via -r requirements-dev.in
 gprof2dot==2025.4.14
     # via django-silk
-gunicorn==26.0.0
+gunicorn==26.1.0
     # via -r requirements.in
-holidays==0.102
+holidays==0.103
     # via -r requirements.in
-idna==3.18
+idna==3.19
     # via requests
 inflection==0.5.1
     # via pytest-factoryboy
@@ -149,7 +149,7 @@ kombu==5.6.2
     # via celery
 librt==0.15.0
     # via mypy
-lxml==6.1.1
+lxml==6.1.2
     # via
     #   -r requirements.in
     #   docxcompose
@@ -177,7 +177,6 @@ openpyxl==3.1.5
 packaging==26.3
     # via
     #   build
-    #   gunicorn
     #   kombu
     #   pytest
     #   pytest-factoryboy
