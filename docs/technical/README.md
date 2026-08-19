@@ -34,6 +34,7 @@
 | 19 | [版本管理系统](19-version-management.md) | 版本号、CHANGELOG、升级/回滚系统 |
 | 35 | [通知中心](35-notifications.md) | 站内通知落库 + 轮询 API、类型/优先级/去重、信号触发(2026-08 R4-E5) |
 | 36 | [文件处理](36-file-processing.md) | Office / PDF 上传、异步解析与 AI 分析(Processor 策略模式 + Celery 异步,2026-08 R4-E5) |
+| 37 | [联培生管理](37-joint-students-module.md) | 联合培养硕博研究生档案、月度报告、A 档名额算法、月补助自动计算(后端完整 / 前端待补,2026-08-19 恢复) |
 
 ### 专项主题
 
