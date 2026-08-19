@@ -4,13 +4,13 @@
 使用 RagflowClient 统一封装 RAGFlow API 调用。
 """
 
-import logging
-
 from django.conf import settings
 
 from ragflow_service.client import RagflowClient, RagflowClientError
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 def get_ragflow_config():

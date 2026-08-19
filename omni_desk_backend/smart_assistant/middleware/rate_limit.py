@@ -1,10 +1,11 @@
 import os
-import logging
 
 from django.core.cache import cache
 from django.http import JsonResponse
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 # 每用户每分钟最大请求数
 SMART_CHAT_RATE_LIMIT = int(os.environ.get("SMART_ASSISTANT_CHAT_RATE_LIMIT", "30"))
@@ -75,3 +76,49 @@ class RateLimitMiddleware:
         response["X-RateLimit-Remaining"] = str(remaining)
         response["X-RateLimit-Limit"] = str(SMART_CHAT_RATE_LIMIT)
         return response
+
+
+# ---------------------------------------------------------------------------
+# P1A-2: 写工具速率限制(per user, fixed window)
+# ---------------------------------------------------------------------------
+
+# 每用户每分钟最大写工具调用数(配合 ConfirmationHook 的二次确认,
+# 防止用户在窗口内频繁触发预演+确认)。
+SMART_ASSISTANT_WRITE_RATE_LIMIT = int(os.environ.get("SMART_ASSISTANT_WRITE_RATE_LIMIT", "10"))
+WRITE_RATE_WINDOW = 60
+WRITE_RATE_NAMESPACE = "smart_assistant:write_rate_limit"
+
+
+def check_write_rate_limit(user_id: int) -> tuple[bool, int, int]:
+    """检查用户是否超出写工具速率限制。
+
+    算法同 chat 限流:固定窗口 + cache.incr(失败时回落到 cache.set(key, 1, window))。
+    Cache key 命名空间分离,与 chat 限流互不干扰。
+
+    Args:
+        user_id: 用户 ID(int)
+
+    Returns:
+        (allowed, remaining, retry_after): 同 check_rate_limit 语义。
+        retry_after 仅在 allowed=False 时 > 0。
+    """
+    key = f"{WRITE_RATE_NAMESPACE}:{user_id}"
+    current = cache.get(key, 0)
+
+    if current >= SMART_ASSISTANT_WRITE_RATE_LIMIT:
+        try:
+            ttl = cache.ttl(key) or WRITE_RATE_WINDOW
+        except (AttributeError, NotImplementedError):
+            ttl = WRITE_RATE_WINDOW
+        return False, 0, ttl
+
+    try:
+        new_value = cache.incr(key)
+    except ValueError:
+        cache.set(key, 1, WRITE_RATE_WINDOW)
+        new_value = 1
+    else:
+        cache.set(key, new_value, WRITE_RATE_WINDOW)
+
+    remaining = SMART_ASSISTANT_WRITE_RATE_LIMIT - new_value
+    return True, max(remaining, 0), 0

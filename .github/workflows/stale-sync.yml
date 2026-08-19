@@ -1,0 +1,86 @@
+name: Stale channel-sync PRs
+
+on:
+  schedule:
+    - cron: '42 3 * * *'  # 每天 03:42,避开整点 runner 负载
+  workflow_dispatch:      # 支持手动触发(如一次性清理积压)
+
+permissions:
+  pull-requests: write
+
+jobs:
+  stale-close:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const STALE_DAYS = 14;      // 无活动 N 天 → 打 stale 标记
+            const CLOSE_DAYS = 7;       // stale 后再 N 天无活动 → 自动关闭
+            const STALE_LABEL = 'stale-sync';
+            const EXEMPT_LABEL = 'keep-open';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+
+            // channel-sync bot 创建的同步 PR:head 分支 channel-sync/* 或标题 🔁 [sync]/[resume]
+            const isSyncPr = (pr) =>
+              (pr.head && pr.head.ref.startsWith('channel-sync/')) ||
+              pr.title.startsWith('🔁 [sync]') ||
+              pr.title.startsWith('🔁 [resume]');
+
+            const daysSince = (dateStr) =>
+              (Date.now() - new Date(dateStr).getTime()) / 86400000;
+
+            const getLabels = async (pr) => {
+              const { data } = await github.rest.issues.listLabelsOnIssue({
+                owner, repo, issue_number: pr.number,
+              });
+              return data.map((l) => l.name);
+            };
+
+            // 分页拉取全部 open PR
+            const prs = [];
+            for (let page = 1; page <= 5; page++) {
+              const { data } = await github.rest.pulls.list({
+                owner, repo, state: 'open', per_page: 100, page,
+              });
+              prs.push(...data);
+              if (data.length < 100) break;
+            }
+
+            let staleCount = 0;
+            let closeCount = 0;
+
+            for (const pr of prs) {
+              if (!isSyncPr(pr)) continue;
+              const prLabels = await getLabels(pr);
+              if (prLabels.includes(EXEMPT_LABEL)) continue; // 人工豁免
+
+              const age = Math.floor(daysSince(pr.updated_at));
+              const isStale = prLabels.includes(STALE_LABEL);
+
+              if (!isStale && age >= STALE_DAYS) {
+                await github.rest.issues.addLabels({
+                  owner, repo, issue_number: pr.number, labels: [STALE_LABEL],
+                });
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: pr.number,
+                  body: `⏰ 此 channel-sync 同步 PR 已 ${age} 天无活动,标记为 stale。\n\n` +
+                        `如需人工处理(如冲突解决),请添加 \`${EXEMPT_LABEL}\` label 豁免;` +
+                        `否则将在 stale 后再 ${CLOSE_DAYS} 天(累计 ${STALE_DAYS + CLOSE_DAYS} 天)自动关闭。`,
+                });
+                staleCount++;
+              } else if (isStale && age >= STALE_DAYS + CLOSE_DAYS) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: pr.number,
+                  body: `🗑️ 此 channel-sync 同步 PR 累计 ${age} 天无活动,自动关闭。` +
+                        `若该同步仍需要,请 reopen(会重新纳入 stale 流程)。`,
+                });
+                await github.rest.pulls.update({
+                  owner, repo, pull_number: pr.number, state: 'closed',
+                });
+                closeCount++;
+              }
+            }
+
+            console.log(`channel-sync stale 标记: ${staleCount}, 自动关闭: ${closeCount}`);

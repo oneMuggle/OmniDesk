@@ -27,7 +27,13 @@ logger = logging.getLogger(__name__)
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):
-    queryset = Schedule.objects.select_related("duty_person", "duty_leader")
+    queryset = Schedule.objects.select_related(
+        "duty_person",
+        "duty_leader",
+        # PersonnelSerializer.to_representation 访问 instance.position → 追一层防 N+1
+        "duty_person__position",
+        "duty_leader__position",
+    )
     serializer_class = ScheduleSerializer
 
     @action(detail=False, methods=["post"])
@@ -315,7 +321,13 @@ class MyScheduleView(generics.ListAPIView):
                 duty_date__gte=today,
                 duty_date__lte=today + timedelta(days=days),
             )
-            .select_related("duty_person", "duty_leader")
+            .select_related(
+                "duty_person",
+                "duty_leader",
+                # PersonnelSerializer.to_representation 访问 instance.position → 追一层防 N+1
+                "duty_person__position",
+                "duty_leader__position",
+            )
             .order_by("duty_date")
         )
 

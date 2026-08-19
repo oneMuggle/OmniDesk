@@ -4,7 +4,8 @@
 而钩子契约(``hooks/base.py``)是 async 的。本模块桥接两者:
 
 - ``register_builtin_hooks()``:在 ``apps.ready()`` 中调用,把
-  ``PiiMaskingHook`` / ``TimeoutGuardHook`` 幂等注册进全局 HookRegistry;
+  ``PiiMaskingHook`` / ``TimeoutGuardHook`` / ``ConfirmationHook`` /
+  ``RateLimitHook`` 幂等注册进全局 HookRegistry;
 - ``execute_guarded()``:同步工具执行的超时熔断包装(委托
   ``TimeoutGuardHook.run_guarded_sync``,阈值/开关每次动态读 settings);
 - ``apply_post_execute_hooks()``:同步驱动 POST_EXECUTE 钩子链
@@ -20,12 +21,13 @@
 from __future__ import annotations
 
 import asyncio
-import logging
 from typing import Any
 
 from .base import HookEvent, HookRegistry, RecoveryAction, Reject, get_registry
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 # ---------------------------------------------------------------------------
@@ -41,6 +43,11 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
     - ``TimeoutGuardHook`` → ``ON_FAILURE``,priority=10
       (超时异常泄漏到钩子链时提供结构化 fallback 兜底;真正的计时
       由 ``execute_guarded`` 执行包装层完成,见模块级文档)
+    - ``ConfirmationHook`` → ``PRE_EXECUTE``,priority=20
+      (写工具二次确认,配合前端 confirm-replay 流程)
+    - ``RateLimitHook`` → ``PRE_EXECUTE``,priority=25
+      (写工具速率限制,P1A-2;优先级高于 ConfirmationHook 是因
+      为被限流时不应再触发 draft 缓存,先频次再确认)
 
     幂等保证:Django ``apps.ready()`` 在测试环境可能被多次调用,按 hook
     ``name`` 去重,避免同一钩子重复挂载导致输出被多次处理。
@@ -52,7 +59,12 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
         注册完成后的注册表实例。
     """
     # 延迟导入,避免 hooks.wiring ↔ hooks.builtin 在应用加载期循环
-    from .builtin import ConfirmationHook, PiiMaskingHook, TimeoutGuardHook
+    from .builtin import (
+        ConfirmationHook,
+        PiiMaskingHook,
+        RateLimitHook,
+        TimeoutGuardHook,
+    )
 
     reg = registry or get_registry()
     existing_names = {getattr(h, "name", None) for h in reg.list_hooks()}
@@ -62,6 +74,8 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
         reg.register(HookEvent.ON_FAILURE, TimeoutGuardHook(), priority=10)
     if "confirmation" not in existing_names:
         reg.register(HookEvent.PRE_EXECUTE, ConfirmationHook(), priority=20)
+    if "write_rate_limit" not in existing_names:
+        reg.register(HookEvent.PRE_EXECUTE, RateLimitHook(), priority=25)
     return reg
 
 

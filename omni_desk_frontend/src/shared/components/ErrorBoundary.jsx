@@ -15,6 +15,16 @@ class ErrorBoundary extends React.Component {
 
   componentDidCatch(error, errorInfo) {
     logger.error('ErrorBoundary caught an error:', error, errorInfo);
+    // 上报到后端 /api/system/client-error/,内网现场可定位
+    logger.report({
+      kind: 'react-error-boundary',
+      message: (error && error.message) || String(error),
+      stack: (error && error.stack) || '',
+      source: 'ErrorBoundary',
+      extra: {
+        componentStack: (errorInfo && errorInfo.componentStack) || '',
+      },
+    });
   }
 
   handleRetry = () => {

@@ -1,8 +1,12 @@
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
+from observability import get_logger
+
 from .models import Memo
 from .serializers import MemoSerializer
+
+logger = get_logger(__name__, "memos")
 
 
 class MemoViewSet(viewsets.ModelViewSet):
@@ -12,6 +16,10 @@ class MemoViewSet(viewsets.ModelViewSet):
 
     serializer_class = MemoSerializer
     permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        logger.info("memos.view.entered", extra={"event": "memos.view.entered"})
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         """

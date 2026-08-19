@@ -5,6 +5,7 @@ import PropTypes from 'prop-types';
 import '@testing-library/jest-dom';
 import dayjs from 'dayjs';
 import { Form } from 'antd';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import MeetingRoomManagementPage from './MeetingRoomManagementPage';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { AuthContext } from '../../auth/context/AuthContext';
@@ -44,8 +45,14 @@ const mockStats = {
 const mockUser = { id: 1, username: 'testuser', role: 'admin' };
 
 const renderWithAuth = (ui, { providerProps, ...renderOptions }) => {
+  // R4-B3: 页面迁 RQ 后使用 useQuery → 测试需 QueryClientProvider 包装
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <AuthContext.Provider value={providerProps}>{ui}</AuthContext.Provider>,
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider value={providerProps}>{ui}</AuthContext.Provider>
+    </QueryClientProvider>,
     renderOptions
   );
 };

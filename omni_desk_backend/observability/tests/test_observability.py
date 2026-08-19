@@ -13,12 +13,12 @@ def test_get_logger_returns_adapter():
 
 
 def test_event_field_auto_added_when_missing(caplog):
-    """未传 event 字段时,自动填 'unspecified'。"""
+    """未传 event 字段时,自动填默认值 '?'。"""
     logger = get_logger("test.module")
     with caplog.at_level(logging.INFO):
         logger.info("hello world")
     assert len(caplog.records) == 1
-    assert caplog.records[0].event == "unspecified"
+    assert caplog.records[0].event == "?"
 
 
 def test_event_field_preserved_when_provided(caplog):

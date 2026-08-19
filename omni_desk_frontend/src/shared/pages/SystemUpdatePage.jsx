@@ -3,6 +3,7 @@ import { Card, Tabs, Spin, Tag, Descriptions, Table, Alert, Typography, Button }
 import { DownloadOutlined, WindowsOutlined } from '@ant-design/icons';
 import axiosInstance from '../api/axiosConfig';
 import ReactMarkdown from 'react-markdown';
+import { logger } from '../utils/logger';
 
 const { Title } = Typography;
 
@@ -24,7 +25,7 @@ function SystemUpdatePage() {
         setChangelog(changelogRes.data.changelog);
         setMigrationData(migrationRes.data);
       } catch (error) {
-        console.error('Failed to load system update info:', error);
+        logger.error('Failed to load system update info:', error);
       } finally {
         setLoading(false);
       }

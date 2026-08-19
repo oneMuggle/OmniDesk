@@ -151,13 +151,16 @@ class TestDoctorChecksNoConfig:
         # 缓存/限流为信息级,恒 ok
         assert by_name["cache_rate_limit"]["status"] == "ok"
         assert by_name["cache_rate_limit"]["kind"] == "info"
+        # P1A-2 新增:cache_write_rate_limit(写工具阈值)同为信息级恒 ok
+        assert by_name["cache_write_rate_limit"]["status"] == "ok"
+        assert by_name["cache_write_rate_limit"]["kind"] == "info"
         # native_tool_calls:空库 → warn/no_llm_endpoint(Task 8 新增)
         assert by_name["native_tool_calls"]["status"] == "warn"
         assert by_name["native_tool_calls"]["kind"] == "no_llm_endpoint"
-        # 汇总计数(error 3 + warn 3 + ok 1 = 7 项;原 6 项 + native_tool_calls warn)
+        # 汇总计数(error 3 + warn 3 + ok 2 = 8 项;原 7 项 + cache_write_rate_limit)
         assert data["summary"]["error"] == 3
         assert data["summary"]["warn"] == 3
-        assert data["summary"]["ok"] == 1
+        assert data["summary"]["ok"] == 2
 
 
 class TestDoctorChecksWithConfig:
@@ -349,7 +352,7 @@ class TestClassifyErrorKind:
 class TestSyncFailureContract:
     """POST /chat/ 失败响应:error=true + kind + hint。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_sync_failure_carries_kind_and_hint(self, mock_cls, admin_client):
         """空库失败 → kind=no_llm_endpoint,hint 为契约文案。"""
         mock_cls.return_value.process.return_value = {
@@ -368,7 +371,7 @@ class TestSyncFailureContract:
         assert data["kind"] == "no_llm_endpoint"
         assert data["hint"] == ERROR_KIND_HINTS["no_llm_endpoint"]
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_sync_success_has_no_kind(self, mock_cls, admin_client):
         """成功响应不携带 kind/hint(保持响应体精简)。"""
         mock_cls.return_value.process.return_value = {
@@ -391,7 +394,7 @@ class TestSyncFailureContract:
 class TestSseContract:
     """SSE 事件契约:所有事件 format_version;失败 done/session 携带 kind+hint。"""
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_stream_failure_session_event_carries_kind_hint(self, mock_cls, admin_client):
         """流式失败:session 事件携带 format_version + kind + hint(ragflow 场景)。"""
         events = [
@@ -423,7 +426,7 @@ class TestSseContract:
         assert session_evt["kind"] == "ragflow_unavailable"
         assert session_evt["hint"] == ERROR_KIND_HINTS["ragflow_unavailable"]
 
-    @patch("smart_assistant.views.chat.AgentOrchestrator")
+    @patch("smart_assistant.views.chat_stream.AgentOrchestrator")
     def test_stream_success_session_event_has_format_version_no_kind(self, mock_cls, admin_client):
         """流式成功:session 事件携带 format_version,无 kind。"""
         events = [
@@ -443,10 +446,10 @@ class TestSseContract:
         assert session_evt["error"] is False
         assert "kind" not in session_evt
 
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_general_answer")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_general_answer")
     def test_real_orchestrator_failure_events_carry_contract(
         self, mock_general, mock_classify, mock_registry, mock_plan
     ):
@@ -462,6 +465,7 @@ class TestSseContract:
             json.loads(c.split("data: ", 1)[1].rsplit("\n\n", 1)[0]) for c in chunks
         ]
 
+        assert mock_general.call_count == 1
         assert events, "事件流不应为空"
         assert all(e.get("format_version") == 1 for e in events)
         done = events[-1]
@@ -470,10 +474,10 @@ class TestSseContract:
         assert done["kind"] == "no_llm_endpoint"  # 空库
         assert done["hint"] == ERROR_KIND_HINTS["no_llm_endpoint"]
 
-    @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
-    @patch("smart_assistant.agent.orchestrator.ToolRegistry")
-    @patch("smart_assistant.agent.orchestrator.classify_intent")
-    @patch("smart_assistant.agent.orchestrator.generate_answer_stream")
+    @patch("smart_assistant.agent.stream_runner.generate_tool_chain_plan")
+    @patch("smart_assistant.agent.stream_runner.ToolRegistry")
+    @patch("smart_assistant.agent.stream_runner.classify_intent")
+    @patch("smart_assistant.agent.stream_runner.generate_answer_stream")
     def test_real_orchestrator_success_done_has_no_kind(
         self, mock_stream, mock_classify, mock_registry, mock_plan
     ):
@@ -481,6 +485,7 @@ class TestSseContract:
         mock_plan.return_value = []
         mock_classify.return_value = "schedule_query"
         mock_tool = MagicMock()
+        mock_tool.require_confirmation = False
         mock_tool.name = "schedule_query"
         mock_tool.execute.return_value = {"found": True, "schedules": []}
         mock_registry.get_tool.return_value = mock_tool
@@ -494,8 +499,26 @@ class TestSseContract:
             json.loads(c.split("data: ", 1)[1].rsplit("\n\n", 1)[0]) for c in chunks
         ]
 
+        assert mock_stream.call_count == 1
         assert all(e.get("format_version") == 1 for e in events)
         done = events[-1]
         assert done["type"] == "done"
         assert done["error"] is False
         assert "kind" not in done
+
+
+class TestDoctorWriteRateLimitCheck:
+    def setup_method(self):
+        from django.core.cache import cache
+
+        cache.clear()
+
+    def test_cache_write_rate_limit_check_present(self, admin_user_obj):
+        """doctor 端点应同时报告 chat 与 write-tool 两套限流配置。"""
+        from smart_assistant.views.doctor import get_doctor_status
+
+        result = get_doctor_status()
+        checks_by_name = {c["name"]: c for c in result["checks"]}
+        assert "cache_write_rate_limit" in checks_by_name
+        assert checks_by_name["cache_write_rate_limit"]["status"] == "ok"
+        assert checks_by_name["cache_write_rate_limit"]["kind"] == "info"

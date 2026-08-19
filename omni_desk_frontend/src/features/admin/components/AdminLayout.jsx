@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
+import { message } from 'antd';
 import { useAuth } from '../../auth/context/AuthContext';
 import './AdminLayout.css';
 import {
@@ -56,13 +57,37 @@ const AdminLayout = () => {
     return [];
   }, [isAuthenticated, user, hasPermission]);
 
-  const handleDjangoAdminClick = () => {
+  const handleDjangoAdminClick = async () => {
     const tokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
     const accessToken = tokens.access;
-    if (accessToken) {
-      window.location.href = `/api/users/django-admin-login/?token=${encodeURIComponent(accessToken)}`;
-    } else {
+    if (!accessToken) {
       window.location.href = '/admin/';
+      return;
+    }
+    try {
+      // JWT 通过 Authorization header 携带,不再放 query string
+      // (避免 token 进入 nginx 日志 / 浏览器历史 / Referer)。
+      const resp = await fetch('/api/users/django-admin-login/', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${accessToken}` },
+        credentials: 'same-origin',
+        redirect: 'manual', // 手动处理 302,避免 Authorization header 被浏览器转发到 /admin/
+      });
+      if (resp.type === 'opaqueredirect' || resp.ok) {
+        // session 已建立,跳转 Django admin
+        window.location.href = '/admin/';
+      } else {
+        let detail = '无法进入 Django 后台';
+        try {
+          const data = await resp.json();
+          if (data && data.detail) detail = data.detail;
+        } catch (e) {
+          // 忽略非 JSON 错误响应,使用默认提示
+        }
+        message.error(detail);
+      }
+    } catch (err) {
+      message.error('网络错误,无法连接 Django 后台');
     }
   };
 

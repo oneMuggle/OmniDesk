@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Card, Statistic, Row, Col, Input, Button, List, Typography, Space } from 'antd';
 import { BarChartOutlined, SearchOutlined } from '@ant-design/icons';
+import { logger } from '../../utils/logger';
 
 const { TextArea } = Input;
 const { Text, Title } = Typography;
@@ -27,7 +28,7 @@ const AIAnalysisSection = ({ summary, onQuery }) => {
       const answer = await onQuery(queryText);
       setQueryResult(answer);
     } catch (err) {
-      console.error('Query failed:', err);
+      logger.error('Query failed:', err);
     } finally {
       setQueryLoading(false);
     }

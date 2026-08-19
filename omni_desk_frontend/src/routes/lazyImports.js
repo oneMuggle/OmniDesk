@@ -1,0 +1,80 @@
+import { lazy } from 'react';
+
+// 全站页面组件懒加载注册中心
+// 由 scripts/generate-routes.js 通过 routes/index.jsx(Babel AST)解析受保护路由;
+// 本文件仅声明 lazy import,index.jsx 按需引用,组件名与 JSX 引用保持一致。
+
+export const DashboardPage = lazy(() => import('../shared/pages/DashboardPage'));
+export const SchedulePage = lazy(() => import('../features/schedule/pages/SchedulePage'));
+export const SystemSettingsPage = lazy(() => import('../shared/pages/SystemSettingsPage'));
+export const RagflowChatPage = lazy(() => import('../shared/pages/RagflowChatPage'));
+export const EventsPage = lazy(() => import('../shared/pages/EventsPage'));
+export const AdminLayout = lazy(() => import('../features/admin/components/AdminLayout'));
+export const ProfilePage = lazy(() => import('../features/profile/pages/ProfilePage'));
+export const PersonnelDetailPage = lazy(() => import('../features/personnel/pages/PersonnelDetailPage'));
+export const Login = lazy(() => import('../features/auth/pages/Login'));
+export const Register = lazy(() => import('../features/auth/pages/Register'));
+export const DocumentsPage = lazy(() => import('../features/documents/pages/DocumentsPage'));
+export const AnnouncementsPage = lazy(() => import('../features/announcements/pages/AnnouncementsPage'));
+export const EquipmentPage = lazy(() => import('../features/equipment/pages/EquipmentPage'));
+export const FileAnalysisPage = lazy(() => import('../shared/pages/FileAnalysisPage'));
+export const DocsPage = lazy(() => import('../shared/pages/DocsPage'));
+export const BookPage = lazy(() => import('../shared/pages/BookPage'));
+export const BookReaderPage = lazy(() => import('../shared/pages/BookReaderPage'));
+export const LibraryPage = lazy(() => import('../shared/pages/LibraryPage'));
+export const ChapterEditorPage = lazy(() => import('../shared/pages/ChapterEditorPage'));
+export const TrialsPage = lazy(() => import('../shared/pages/TrialsPage'));
+export const PersonnelManagementPage = lazy(() => import('../features/personnel/pages/PersonnelManagementPage'));
+export const PersonnelEditPage = lazy(() => import('../features/personnel/pages/PersonnelEditPage'));
+export const TrialScheduleContainer = lazy(() => import('../features/schedule/components/TrialScheduleContainer'));
+export const ShiftScheduleContainer = lazy(() => import('../features/schedule/components/ShiftScheduleContainer'));
+export const MemoPage = lazy(() => import('../features/memo/pages/MemoPage'));
+export const ManageAnnouncementsPage = lazy(() => import('../features/announcements/pages/ManageAnnouncementsPage'));
+export const AnnouncementForm = lazy(() => import('../features/announcements/components/AnnouncementForm'));
+export const DifyAppList = lazy(() => import('../features/dify-apps/pages/DifyAppList'));
+export const DifyAppViewer = lazy(() => import('../features/dify-apps/pages/DifyAppViewer'));
+export const ScheduleManagementPage = lazy(() => import('../features/schedule/pages/ScheduleManagementPage'));
+export const ScheduleSettingsPage = lazy(() => import('../features/schedule/pages/ScheduleSettingsPage'));
+export const OfficeAssistant = lazy(() => import('../features/office-assistant/pages/OfficeAssistant'));
+export const ProjectsPage = lazy(() => import('../features/projects/pages/ProjectsPage'));
+export const MeetingRoomBookingPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomBookingPage.jsx'));
+export const MeetingRoomManagementPage = lazy(() => import('../features/meeting-room/pages/MeetingRoomManagementPage'));
+export const UserManagementPage = lazy(() => import('../features/user/pages/UserManagementPage'));
+export const SensorManagementPage = lazy(() => import('../features/sensor/pages/SensorManagementPage'));
+export const SensorListPage = lazy(() => import('../features/sensor/pages/SensorListPage'));
+export const SensorCategoryManagementPage = lazy(() => import('../features/sensor/pages/SensorCategoryManagementPage.jsx'));
+export const SensorArchiveLocationManagementPage = lazy(() => import('../features/sensor/pages/SensorArchiveLocationManagementPage.jsx'));
+export const SensorCalibrationManagementPage = lazy(() => import('../features/sensor/pages/SensorCalibrationManagementPage'));
+export const SensorDetailPage = lazy(() => import('../features/sensor/pages/SensorDetailPage'));
+export const EBookManagementPage = lazy(() => import('../features/ebook/pages/EBookManagementPage'));
+export const HolidayManagementPage = lazy(() => import('../features/schedule/pages/HolidayManagementPage'));
+export const CommunicationPage = lazy(() => import('../features/communication/pages/CommunicationPage'));
+export const PostDetailPage = lazy(() => import('../shared/pages/PostDetailPage'));
+export const NewsStatsPage = lazy(() => import('../features/news/pages/NewsStatsPage'));
+export const AddCalibrationRecordPage = lazy(() => import('../features/sensor/pages/AddCalibrationRecordPage'));
+export const SensorCalibrationHistoryPage = lazy(() => import('../features/sensor/pages/SensorCalibrationHistoryPage'));
+export const NewPostPage = lazy(() => import('../features/communication/pages/NewPostPage'));
+export const SmartChatPage = lazy(() => import('../features/smart-assistant/pages/SmartChatPage'));
+export const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/pages/KnowledgeBasePage'));
+export const StatsPage = lazy(() => import('../features/smart-assistant/pages/StatsPage'));
+export const AgentTaskPanel = lazy(() => import('../features/smart-assistant/pages/AgentTaskPanel'));
+export const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
+export const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
+export const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
+export const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
+export const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
+export const AIShowcasePage = lazy(() => import('../shared/pages/AIShowcasePage'));
+export const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
+export const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
+export const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));
+export const PluginManagementPage = lazy(() => import('../features/plugin-market/pages/PluginManagementPage'));
+// P2-3 / P3-3 引入
+export const MyPersonnelInfo = lazy(() => import('../features/personnel/components/MyPersonnelInfo'));
+export const NotificationCenter = lazy(() => import('../features/notifications/components/NotificationCenter'));
+// 文档库路由 (paperless-ngx 集成)
+export const DocumentLibraryPage = lazy(() => import('../features/documents-library/pages/DocumentLibraryPage'));
+export const DocumentUploadPage = lazy(() => import('../features/documents-library/pages/DocumentUploadPage'));
+export const SyncStatusPage = lazy(() => import('../features/documents-library/pages/SyncStatusPage'));
+export const AccountBindingPage = lazy(() => import('../features/documents-library/pages/AccountBindingPage'));
+// 认证相关
+export const UnauthorizedPage = lazy(() => import('../features/auth/pages/UnauthorizedPage'));

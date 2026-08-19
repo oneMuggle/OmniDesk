@@ -130,7 +130,7 @@ const SensorManagementPage = () => {
   return (
     <div>
       <h1>传感器管理</h1>
-      <div style={{ marginBottom: 16 }}>
+      <div style={{ marginBottom: 'var(--spacing-md)' }}>
         <Button type="primary" onClick={handleAdd}>
           新增传感器
         </Button>

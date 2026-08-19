@@ -5,7 +5,7 @@ Task 3 of feat/sa-e2e-scenarios: 补齐 PersonnelTool 端到端测试,
 
 参考模板:``test_e2e_smart_chat.py:TestSmartChatE2EAnnouncementQuery`` 等
 三个 E2E 类(announcement / compliance / external_link)均使用
-``@patch('smart_assistant.views.chat.AgentOrchestrator')`` 直接 mock 编排器,
+``@patch('smart_assistant.views.chat_sync.AgentOrchestrator')`` 直接 mock 编排器,
 本测试沿用同一模式(mock 整个编排器,验证 view 层的完整集成 —
 参数解析 + 意图识别 + 工具分发 + session/AgentLog 写入)。
 
@@ -29,7 +29,7 @@ from rest_framework import status
 class TestSmartChatE2EPersonnelQuery:
     """用户问"帮我找开发部的李四" → PersonnelTool → 返回脱敏的人员列表。"""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_personnel_query_returns_dept_member(
         self, mock_orch_cls, auth_client, personnel_user_factory,
     ):
@@ -83,7 +83,7 @@ class TestSmartChatE2EPersonnelQuery:
         assert body["tool_result"]["personnel"][0]["name"] == "李四"
         assert body["tool_result"]["personnel"][0]["department"] == "开发部"
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_personnel_query_returns_empty_when_no_match(
         self, mock_orch_cls, auth_client,
     ):
@@ -123,7 +123,7 @@ class TestSmartChatE2EPersonnelQuery:
         assert "未找到" in body["answer"] or "没有" in body["answer"]
         assert body["tool_result"]["found"] is False
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_personnel_query_does_not_leak_sensitive_fields(
         self, mock_orch_cls, auth_client, personnel_user_factory,
     ):

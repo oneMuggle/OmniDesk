@@ -8,7 +8,8 @@ from .models import NewsArticle, NewsType
 class NewsTypeSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsType
-        fields = "__all__"
+        # R3-B1: 白名单化,嵌套于 NewsArticleSerializer
+        fields = ["id", "name"]
 
 
 class NewsArticleSerializer(serializers.ModelSerializer):

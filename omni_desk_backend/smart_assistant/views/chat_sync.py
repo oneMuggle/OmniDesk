@@ -1,0 +1,296 @@
+"""同步聊天路径编排(create 主体)——从 views/chat.py 拆分。
+
+职责:同步 create 的完整编排(serializer 校验 → 附件 → confirm-replay →
+编排执行 → 持久化 → AgentLog → payload),独立成模块以把 chat.py 的
+create 路径 C901 复杂度降至 <10。
+
+纯函数依赖复用 ``conversation_manager``(附件/会话/持久化),本模块不持有
+ViewSet 状态;``handle_sync_chat`` 的 ``viewset`` 参数仅为与 Task 4 委托
+(原 ``self._extract_attachment`` / ``self._inject_attachment`` 调用点)保持
+兼容而保留,内部不直接使用。
+"""
+
+import time
+
+from observability import get_logger
+from rest_framework import status
+from rest_framework.response import Response
+
+from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_error_kind
+from ..cache import clear_confirmation_draft, get_confirmation_draft
+from ..hooks.wiring import execute_guarded
+from ..models import AgentLog
+from ..scope import resolve_scope
+from ..serializers import SmartChatRequestSerializer
+from ..tools.registry import ToolRegistry
+from ..tools.tool_context import ToolContext
+
+from .conversation_manager import (
+    extract_attachment,
+    inject_attachment,
+    load_session,
+    persist_success,
+    resolve_error,
+    usage_fields,
+)
+
+logger = get_logger(__name__, "smart_assistant")
+
+
+def handle_sync_chat(viewset, request) -> Response:
+    """POST /api/smart-assistant/chat/ 同步路径主体(create 编排)。
+
+    ``viewset`` 参数仅用于与 Task 4 委托的调用点保持兼容,本函数内不使用
+    (附件/会话/持久化均走 ``conversation_manager`` 纯函数版本)。
+    """
+    serializer = SmartChatRequestSerializer(data=request.data)
+    if not serializer.is_valid():
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    query = serializer.validated_data["query"]
+    conversation_id = serializer.validated_data.get("conversation_id")
+    confirm_token = (serializer.validated_data.get("confirm_token") or "").strip()
+
+    # === 附件抽取:无论是否 confirm-replay 都要先处理(让 confirm 路径
+    # 也能看到附件上下文;若确认时无附件,doc_dict 保持 None) ===
+    doc_dict, err_resp = extract_attachment(request)
+    if err_resp:
+        return err_resp
+
+    # === confirm-replay:replay 路径(跳过 orchestrator,直接执行工具) ===
+    if confirm_token:
+        return _handle_confirm_replay(request, confirm_token)
+    # === replay 路径结束 ===
+
+    orchestrator = AgentOrchestrator()
+
+    session, conversation_history = load_session(request.user, conversation_id)
+    if conversation_id and session is None:
+        # P0-W:不再静默吞掉无效会话 id —— 避免客户端误以为仍在原上下文中,
+        # 实际上却悄悄开了新会话(由 Task 1 review 强化,防 persist_success
+        # 静默新建会话)
+        logger.warning(
+            "会话不存在或不属于当前用户: conversation_id=%s user_id=%s",
+            conversation_id,
+            request.user.id,
+        )
+        return Response({"detail": "session not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    tool_context = ToolContext(
+        user=request.user,
+        scope=resolve_scope(request.user),
+        attachment=doc_dict,
+    )
+    # 附件注入历史(在 build_effective_history 之后,确保 system 消息排在最前)
+    if doc_dict:
+        conversation_history = inject_attachment(conversation_history, doc_dict, conversation_id)
+
+    result, response_time_ms, err_response = _run_sync_process(
+        orchestrator,
+        query,
+        conversation_history,
+        tool_context,
+        session=session,
+        conversation_id=conversation_id,
+    )
+    if err_response is not None:
+        return err_response
+
+    error = resolve_error(result)
+    answer = result["answer"]
+
+    # 失败响应不落库：不新建会话、不追加消息，避免错误文本污染多轮上下文
+    if not error:
+        session, cid = persist_success(session, conversation_id, query, answer, request.user)
+        result["conversation_id"] = cid
+
+    # 解析 token 与成本信息
+    input_tokens, output_tokens, total_tokens, estimated_cost, model_name = usage_fields(result.get("usage"))
+
+    # 失败时仍写 AgentLog(审计需要),tool_success=False;session 可为空
+    log = _write_sync_agent_log(
+        session=session,
+        query=query,
+        answer=answer,
+        result=result,
+        model_name=model_name,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        estimated_cost=estimated_cost,
+        response_time_ms=response_time_ms,
+        error=error,
+    )
+
+    return _build_sync_payload(result, log, conversation_id, error)
+
+
+def _handle_confirm_replay(request, confirm_token) -> Response:
+    """confirm-replay 子流程:校验 draft / 用户归属 / 工具注册后直接执行工具。
+
+    前端带 confirm_token 二次请求 → 视图层直接执行工具,不走 orchestrator
+    (orchestrator 已在首次请求时把 draft 存到短期缓存,这里只 replay)。
+    """
+    draft_entry = get_confirmation_draft(confirm_token)
+    if not draft_entry:
+        return Response(
+            {"detail": "确认已过期或不存在,请重新发起", "code": "confirmation_expired"},
+            status=status.HTTP_410_GONE,
+        )
+    # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
+    expected_prefix = f"u{request.user.pk}_"
+    if not draft_entry.get("context_sig", "").startswith(expected_prefix):
+        # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
+        masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
+        logger.warning(
+            "confirm token 跨用户重放: token=%s expected_user=%s draft_user_sig=%s",
+            masked,
+            request.user.pk,
+            draft_entry.get("context_sig", ""),
+        )
+        return Response(
+            {"detail": "该确认不属于当前用户", "code": "confirmation_user_mismatch"},
+            status=status.HTTP_403_FORBIDDEN,
+        )
+    # replay:跳过 orchestrator,直接执行工具
+    tool = ToolRegistry.get_tool(draft_entry["tool_name"])
+    if not tool:
+        logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
+        return Response(
+            {"detail": f"工具 {draft_entry['tool_name']} 未注册"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
+    try:
+        tool_result = execute_guarded(
+            tool,
+            draft_entry["user_query"],
+            context={
+                "history": [],
+                "confirmed": True,
+                "confirm_token": confirm_token,
+                "user": request.user,
+                "draft": draft_entry.get("draft", {}).get("fields"),
+            },
+        )
+        clear_confirmation_draft(confirm_token)  # 清理,防止重放
+        return Response(
+            {
+                "answer": tool_result.get("summary") or "操作已完成",
+                "tool_used": tool.name,
+                "tool_result": tool_result,
+                "confirmed": True,
+                "error": False,
+            }
+        )
+    except Exception as exc:
+        # token 是一次性确认票据,明文写日志有泄露风险;记前缀+长度足以定位
+        logger.exception(
+            "confirm replay 执行失败: token_prefix=%s len=%d",
+            confirm_token[:6],
+            len(confirm_token),
+        )
+        return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+def _run_sync_process(
+    orchestrator,
+    query,
+    conversation_history,
+    tool_context,
+    *,
+    session,
+    conversation_id,
+):
+    """执行编排并统一收口异常(P0-K:持久化 last_error 供前端展示/运维排查)。
+
+    返回 ``(result, response_time_ms, err_response)``;编排正常时
+    ``err_response`` 为 None,异常时 ``result`` 为 None 且 ``err_response``
+    是 500 Response。C-1:conversation_history 保持位置参数(测试用 args[1]
+    取参),tool_context 仅以 kwarg 传入(避免与 orchestrator.process 签名冲突)。
+    """
+    start_time = time.time()
+    try:
+        result = orchestrator.process(
+            query,
+            conversation_history,
+            tool_context=tool_context,
+        )
+    except Exception as exc:
+        # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
+        # 不再把 500 裸抛给客户端而不留痕迹
+        logger.warning("智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc)
+        if session is not None:
+            session.last_error = str(exc)
+            session.save(update_fields=["last_error"])
+        return None, 0, Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+    response_time_ms = int((time.time() - start_time) * 1000)
+    return result, response_time_ms, None
+
+
+def _write_sync_agent_log(
+    *,
+    session,
+    query,
+    answer,
+    result,
+    model_name,
+    input_tokens,
+    output_tokens,
+    total_tokens,
+    estimated_cost,
+    response_time_ms,
+    error,
+):
+    """create 路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
+    return AgentLog.objects.create(
+        session=session,
+        user_query=query,
+        intent=result.get("intent") or "unknown",
+        tool_used=result.get("tool_used") or "",
+        tool_input={"query": query},
+        tool_output=result.get("tool_result") or {},
+        llm_response=answer,
+        model_name=result.get("model_name") or model_name,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        total_tokens=total_tokens,
+        estimated_cost=estimated_cost,
+        response_time_ms=response_time_ms,
+        tool_success=False if error else (result.get("tool_fallback") is not True),
+        # L1 原生 Function Calling 决策日志:透传 orchestrator 的审计字段
+        tool_call_path=result.get("tool_call_path") or "json",
+        tool_calls_meta=result.get("tool_calls_meta") or [],
+        tool_calls_rounds=result.get("tool_calls_rounds") or 0,
+    )
+
+
+def _build_sync_payload(result, log, conversation_id, error) -> Response:
+    """组装同步响应 payload;失败响应在 error=true 基础上追加 kind + hint。"""
+    payload = {
+        "answer": result["answer"],
+        "intent": result.get("intent"),
+        "tool_used": result.get("tool_used"),
+        "tool_result": result.get("tool_result"),
+        "sources": result.get("sources"),
+        "conversation_id": result.get("conversation_id") or conversation_id,
+        "log_id": log.id,
+        "error": error,
+        # confirm-replay 框架:若 orchestrator 拦截并返回 awaiting_confirmation,
+        # 透传 awaiting_confirmation + confirmation_token 给前端
+        "awaiting_confirmation": result.get("awaiting_confirmation", False),
+        "confirmation_token": result.get("confirmation_token"),
+        # L1 原生 Function Calling 决策日志:透传给前端(A/B 评估 / 审计展示)
+        "tool_call_path": result.get("tool_call_path"),
+        "tool_calls_meta": result.get("tool_calls_meta") or [],
+        "tool_calls_rounds": result.get("tool_calls_rounds") or 0,
+        # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
+        # 旧字段缺省时为 None,前端按通用错误展示,无 breaking。
+        "error_code": result.get("error_code"),
+        "retry_after": result.get("retry_after"),
+    }
+    # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
+    if error:
+        kind = classify_error_kind(result)
+        payload["kind"] = kind
+        payload["hint"] = ERROR_KIND_HINTS.get(kind, ERROR_KIND_HINTS["internal_error"])
+    return Response(payload)

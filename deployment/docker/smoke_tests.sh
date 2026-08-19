@@ -18,9 +18,31 @@ SKIP=0
 WARN=0
 # O1: WARN 详情数组 — STATUS 框前 echo,让 operator 不用 grep 翻日志
 WARN_DETAILS=()
+# SMOKE_STRICT=1:SKIP 升级为 FAIL(CI 严格模式,部署现场保持默认 0 = 容错)
+# CI 在 PR 上跑 smoke,任何"我跳过了"的探测都不能蒙混过关,必须显式通过。
+SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
+
+# set -u 兜底初始化:后续脚本会 `read` 这些变量,在 CI 环境(无 .env.production、
+# 无外部 env 注入)下用 :- 兜底空值,避免 "unbound variable" 早退。
+# 真值仍由下方 .env.production 读取与 fallback 决定,这里只是"先占位"。
+: "${COMPOSE_PROJECT_NAME:=}"
+: "${OMNIDESK_BACKUP_ROOT:=}"
+: "${OMNIDESK_RUNTIME_ROOT:=}"
+: "${SMOKE_TEST_USER:=}"
+: "${SMOKE_TEST_PASSWORD:=}"
+: "${USE_HTTPS:=}"
+: "${POSTGRES_USER:=}"
+: "${POSTGRES_DB:=}"
+: "${CELERY_RESP:=}"
+: "${GUEST_TOKEN:=}"
+: "${SECURE_ATTR:=}"
+: "${MISSING:=}"
+: "${INDEX_HTML:=}"
+: "${CHUNK_URLS:=}"
+: "${LATEST:=}"
 
 # ─── Task 8: 环境变量设置与校验 ────────────────────────────────
 # 设置并校验 COMPOSE_PROJECT_NAME / OMNIDESK_BACKUP_ROOT / OMNIDESK_RUNTIME_ROOT
@@ -35,6 +57,19 @@ if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
     [ -z "$COMPOSE_PROJECT_NAME" ] && COMPOSE_PROJECT_NAME="omnidesk"
 fi
 export COMPOSE_PROJECT_NAME
+
+# P0-5: 阶段 12 需要 SMOKE_TEST_USER/PASSWORD + USE_HTTPS
+# 同上策略:.env.production 缺凭据时 SKIP(默认),有凭据时 PASS/FAIL 严格判定
+if [ -z "${SMOKE_TEST_USER:-}" ] && [ -f ".env.production" ]; then
+    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+fi
+if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -f ".env.production" ]; then
+    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+fi
+if [ -z "${USE_HTTPS:-}" ] && [ -f ".env.production" ]; then
+    USE_HTTPS=$(grep -E '^USE_HTTPS=' .env.production 2>/dev/null | cut -d= -f2- || echo "false")
+fi
+export SMOKE_TEST_USER SMOKE_TEST_PASSWORD USE_HTTPS
 
 # OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
 # 若未设置,从 .env.production 读取或使用默认值
@@ -101,7 +136,14 @@ result() {
     case "$status" in
         PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
         FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
-        SKIP) echo "  SKIP: $msg"; SKIP=$((SKIP + 1)) ;;
+        # SMOKE_STRICT=1 (CI): SKIP 必须升级为 FAIL,
+        # 避免"探测被悄悄放过"在 PR 阶段把 bug 漏到 main
+        SKIP) if [ "$SMOKE_STRICT" = "1" ]; then
+                  echo "  FAIL(strict): $msg (was SKIP)"; FAIL=$((FAIL + 1))
+                  [ -n "$detail" ] && echo "    -> $detail"
+              else
+                  echo "  SKIP: $msg"; SKIP=$((SKIP + 1))
+              fi ;;
         # O1: WARN 详情也收集到 WARN_DETAILS,STATUS 框前 echo
         WARN) echo "  WARN: $msg"; WARN=$((WARN + 1))
               [ -n "$detail" ] && echo "    -> $detail"
@@ -259,6 +301,20 @@ echo ""
 
 COMPOSE_FILE="-f docker-compose.offline.yml"
 ENV_FILE="--env-file .env.production"
+
+# CI docker-integration job 用默认 docker-compose.yml(端口 3000:3000 等)起服务,
+# 而 smoke 默认指向 docker-compose.offline.yml(端口 80,需 nginx)。
+# 探测:若 -f docker-compose.offline.yml ps 找不到 db 服务,fallback 到默认 compose。
+# 这样同一份脚本既支持 CI 默认 compose,又支持离线包部署现场的 offline compose。
+if ! docker compose $COMPOSE_FILE $ENV_FILE ps --services 2>/dev/null | grep -qx db; then
+    echo "WARN: docker-compose.offline.yml 中未找到 db 服务,fallback 到默认 compose 文件" >&2
+    COMPOSE_FILE=""
+fi
+
+# CI 的 docker-integration job 只检查出 deployment/docker 里有 .env.production.example,
+# 不生成 .env.production;--env-file 指向不存在的文件会让每个 compose 调用直接报
+# "no such file" 失败。探测文件存在性,缺失时降级为空串(compose 默认读同目录 .env)。
+[ -f .env.production ] || ENV_FILE=""
 
 compose() {
     docker compose $COMPOSE_FILE $ENV_FILE "$@"
@@ -902,6 +958,122 @@ else
         fi
     fi
 fi
+echo ""
+
+# ─── 阶段 12: 鉴权与跨域链路 (P0-5) ─────────────────────────
+# 真实账密登录覆盖 argon2 hasher 与 Cookie Secure 配置差异
+# 配合 client-error 上报,事故现场能拿到 login → 业务调用全链路 rid
+echo "阶段 12: 鉴权与跨域链路"
+
+# 12.1 CORS:合法 Origin 必须返回 Access-Control-Allow-Origin
+CORS_ALLOWED_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+    -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
+    "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+if [ "$CORS_ALLOWED_HTTP" = "200" ] || [ "$CORS_ALLOWED_HTTP" = "405" ] || [ "$CORS_ALLOWED_HTTP" = "400" ]; then
+    # OPTIONS 预检可能 200/405;POST 没 body 时 400 也属正常(说明端点存在)
+    # 关键是看响应头里有没有 Access-Control-Allow-Origin
+    CORS_HEADER=$(curl -sI -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
+        "${BASE_URL}/api/auth/login/" 2>/dev/null \
+        | grep -i "access-control-allow-origin" | head -1 || true)
+    if [ -n "$CORS_HEADER" ]; then
+        result "PASS" "CORS 合法 Origin 放行" "Origin=${SMOKE_CORS_ORIGIN:-http://localhost}"
+    else
+        result "FAIL" "CORS 合法 Origin 响应头缺失" "请求未返回 Access-Control-Allow-Origin"
+    fi
+else
+    result "FAIL" "CORS 合法 Origin 探测失败" "HTTP $CORS_ALLOWED_HTTP"
+fi
+
+# 12.2 真实账密登录(POST /api/auth/login/)必须 200 + 拿到 JWT
+if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
+    result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
+else
+    LOGIN_RESP=$(curl -s -o /tmp/_smoke_login.json -w "%{http_code}" \
+        -H "Content-Type: application/json" \
+        -X POST -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+        "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+    if [ "$LOGIN_RESP" = "200" ]; then
+        LOGIN_BODY=$(cat /tmp/_smoke_login.json 2>/dev/null || echo "")
+        HAS_ACCESS=$(echo "$LOGIN_BODY" | grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 || true)
+        if [ -n "$HAS_ACCESS" ]; then
+            result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access"
+        else
+            result "FAIL" "真实账密登录响应格式异常" "200 但 response 无 access 字段"
+        fi
+    else
+        result "FAIL" "真实账密登录" "HTTP $LOGIN_RESP(期望 200,常见原因:账号未创建/密码错/argon2 校验失败)"
+    fi
+    rm -f /tmp/_smoke_login.json
+fi
+
+echo ""
+
+# ─── 阶段 13: readiness + 静态 chunk(P1-7) ────────────────────
+# 校验 /api/system/ready/ 真业务检查(DB + cache + celery),不止 healthcheck 的 DB-only
+# 同时解析 index.html 的 lazy chunk 引用并逐个 curl,
+# 离线包最容易出问题的就是 chunk hash 漂移导致 404
+echo "阶段 13: readiness + 静态 chunk"
+
+# 13.1 readiness 端点要求 200 + 核心依赖(database/cache)全 ok。
+# celery 按 backend 语义分级:ok=PASS;warning/skipped 降级 WARN(不阻断 upgrade gate);
+# 仅 "error"/HTTP 非 200 判定 FAIL — 避免升级瞬时无 worker(ping 超时)误阻 upgrade.sh(set -e 中止)。
+# 用 python3 解析 JSON(脚本依赖 python3,GUEST_TOKEN 处已在使用),不用 grep 精确匹配。
+READY_BODY=""
+READY_HTTP=$(curl -s -o /tmp/_smoke_ready.json -w "%{http_code}" \
+    "${BASE_URL}/api/system/ready/" 2>/dev/null || echo "000")
+READY_BODY=$(cat /tmp/_smoke_ready.json 2>/dev/null || echo "")
+rm -f /tmp/_smoke_ready.json
+
+_readiness_status() {
+    echo "$READY_BODY" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('checks',{}).get('$1',{}).get('status','missing'))" 2>/dev/null || echo "missing"
+}
+
+if [ "$READY_HTTP" != "200" ]; then
+    result "FAIL" "/api/system/ready/ 状态码" "HTTP $READY_HTTP (期望 200)"
+else
+    DB_ST=$(_readiness_status database)
+    CACHE_ST=$(_readiness_status cache)
+    CELERY_ST=$(_readiness_status celery)
+    if [ "$DB_ST" = "ok" ] && [ "$CACHE_ST" = "ok" ] && [ "$CELERY_ST" = "ok" ]; then
+        result "PASS" "/api/system/ready/ 三依赖全 ok" "database/cache/celery 全部 ok"
+    elif [ "$DB_ST" = "ok" ] && [ "$CACHE_ST" = "ok" ] && { [ "$CELERY_ST" = "warning" ] || [ "$CELERY_ST" = "skipped" ]; }; then
+        result "WARN" "/api/system/ready/ celery 非阻塞降级" "celery=$CELERY_ST (worker 未响应,不阻断升级)"
+    else
+        result "FAIL" "/api/system/ready/ 核心依赖非 ok" "database=$DB_ST cache=$CACHE_ST celery=$CELERY_ST"
+    fi
+fi
+
+# 13.2 前端 lazy chunk 引用校验
+INDEX_HTML=$(curl -sf "${BASE_URL}/" 2>/dev/null || echo "")
+if [ -z "$INDEX_HTML" ]; then
+    result "FAIL" "前端 index.html 获取" "curl / 失败"
+else
+    # 提取形如 assets/<name>-<hash>.js 或 assets/<name>-<hash>.css 的引用
+    CHUNK_URLS=$(echo "$INDEX_HTML" \
+        | grep -oE 'assets/[A-Za-z0-9_.-]+-[A-Za-z0-9_-]+\.(js|css)' \
+        | sort -u | head -20 || true)
+    if [ -z "$CHUNK_URLS" ]; then
+        result "WARN" "前端 lazy chunk 引用" "未在 index.html 找到 assets/*-*.{js,css} 模式(可能 build 配置变更)"
+    else
+        CHUNK_FAIL=0
+        CHUNK_TOTAL=0
+        while IFS= read -r chunk; do
+            [ -z "$chunk" ] && continue
+            CHUNK_TOTAL=$((CHUNK_TOTAL + 1))
+            CHUNK_HTTP=$(curl -s -o /dev/null -w "%{http_code}" \
+                "${BASE_URL}/${chunk}" || echo "000")
+            if [ "$CHUNK_HTTP" != "200" ]; then
+                CHUNK_FAIL=$((CHUNK_FAIL + 1))
+            fi
+        done <<< "$CHUNK_URLS"
+        if [ "$CHUNK_FAIL" -eq 0 ]; then
+            result "PASS" "前端 lazy chunk 全部 200" "$CHUNK_TOTAL 个 chunk 全部可达"
+        else
+            result "FAIL" "前端 lazy chunk 部分 404" "$CHUNK_FAIL/$CHUNK_TOTAL 个 chunk 返回非 200"
+        fi
+    fi
+fi
+
 echo ""
 
 # ─── 总结 ────────────────────────────────────────────────────

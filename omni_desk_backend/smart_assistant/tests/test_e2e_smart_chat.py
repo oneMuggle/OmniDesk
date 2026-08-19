@@ -32,7 +32,7 @@ from smart_assistant.models import SmartAssistantSession, AgentLog
 class TestSmartChatE2EScheduleHappy:
     """E2E 场景 1:排班查询 happy path(完整链路)."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_schedule_query_happy_path(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -91,7 +91,7 @@ class TestSmartChatE2EScheduleHappy:
 class TestSmartChatE2EToolFailureFallback:
     """E2E 场景 2:工具失败降级."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_tool_failure_falls_back_to_general_answer(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -128,7 +128,7 @@ class TestSmartChatE2EToolFailureFallback:
 class TestSmartChatE2EMultiTurnConversation:
     """E2E 场景 3:多轮对话."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_multi_turn_turn_count_increments(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -172,7 +172,7 @@ class TestSmartChatE2EMultiTurnConversation:
 class TestSmartChatE2EValidation:
     """E2E 场景 4:输入验证."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_missing_query_returns_400(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -186,7 +186,7 @@ class TestSmartChatE2EValidation:
         # 不应调用 orchestrator
         mock_orch_cls.assert_not_called()
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_chat_unauthenticated_returns_401(
         self, mock_orch_cls, admin_user_obj,
     ):
@@ -206,7 +206,7 @@ class TestSmartChatE2EValidation:
 class TestSmartChatE2EAnnouncementQuery:
     """E2E 场景 5:公告工具 happy path."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_e2e_announcement_query(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -255,7 +255,7 @@ class TestSmartChatE2EAnnouncementQuery:
 class TestSmartChatE2EComplianceQuery:
     """E2E 场景 6:合规工具 happy path."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_e2e_compliance_query(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -312,7 +312,7 @@ class TestSmartChatE2EComplianceQuery:
 class TestSmartChatE2EExternalLinkQuery:
     """E2E 场景 7:外链工具 happy path."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_e2e_external_link_query(
         self, mock_orch_cls, admin_user_obj, admin_client,
     ):
@@ -367,7 +367,7 @@ class TestSmartChatE2EExternalLinkQuery:
 class TestSmartChatE2EUnauthToolRejection:
     """E2E 场景 8:未认证用户被拒绝."""
 
-    @patch('smart_assistant.views.chat.AgentOrchestrator')
+    @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_e2e_unauthenticated_request_rejected(
         self, mock_orch_cls, admin_user_obj,
     ):
@@ -554,7 +554,7 @@ def test_e2e_aggregation_returns_scope_filtered_data(
 
     mock_llm_router.generate.return_value = ("已汇总。", {"total_tokens": 30})
 
-    with patch("smart_assistant.agent.orchestrator.ToolChainExecutor.execute", fake_execute), \
+    with patch("smart_assistant.agent.tool_chain_runner.ToolChainExecutor.execute", fake_execute), \
          patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan") as mock_plan:
         # 强制走多工具路径(让 orchestrator 选 _process_chain)
         mock_plan.return_value = [{"tool": "schedule_query", "params": {}}]

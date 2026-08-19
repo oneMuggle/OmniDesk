@@ -16,7 +16,6 @@ LLM 解析"中文 query → CreateParams / DecideParams",失败兜底为 None(�
 from __future__ import annotations
 
 import json
-import logging
 import re
 from dataclasses import dataclass
 
@@ -35,9 +34,11 @@ from .prompts.swap_decide_prompt import (
     build_decide_user_prompt,
 )
 
+from observability import get_logger
+
 VALID_ACTIONS = frozenset({"accept", "reject", "cancel"})
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 # 匹配 <think>...</think> 推理块(DeepSeek/qwen 等模型会输出推理过程),
 # 剥离以避免干扰 JSON 抽取。
@@ -105,7 +106,10 @@ def _call_llm_for_json(prompt: str) -> dict | None:
     try:
         return json.loads(raw)
     except json.JSONDecodeError:
-        pass
+        logger.debug(
+            "smart_assistant.swap_extractor.json_parse_failed",
+            extra={"event": "smart_assistant.swap_extractor.json_parse_failed", "raw": raw[:200]},
+        )
     m = re.search(r"\{[\s\S]*\}", raw)
     if not m:
         logger.warning("_call_llm_for_json: 找不到 JSON 块. raw=%r", raw[:200])

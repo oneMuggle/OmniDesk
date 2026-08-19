@@ -106,6 +106,7 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    "core.middleware.RequestIdMiddleware",  # MUST be first
     "corsheaders.middleware.CorsMiddleware",
     "django.middleware.security.SecurityMiddleware",
     "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -190,7 +191,8 @@ LOGGING = {
     "disable_existing_loggers": False,
     "formatters": {
         "verbose": {
-            "format": "{levelname} {asctime} {module} {message}",
+            "()": "observability.formatters.SafeTextFormatter",
+            "format": "{asctime} [{levelname}] {name} [req={request_id} evt={event}]: {message}",
             "style": "{",
         },
     },
@@ -233,6 +235,8 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": ("rest_framework_simplejwt.authentication.JWTAuthentication",),
     "DEFAULT_PERMISSION_CLASSES": ("rest_framework.permissions.IsAuthenticated",),
+    # P1-8: 全局异常出口 — 5xx 强制 exc_info 日志 + 注入 request_id;4xx 只追加 request_id
+    "EXCEPTION_HANDLER": "core.exception_handler.omnidesk_exception_handler",
     "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
     "PAGE_SIZE": 10,
     "DEFAULT_RENDERER_CLASSES": ("rest_framework.renderers.JSONRenderer",),
@@ -242,6 +246,12 @@ REST_FRAMEWORK = {
         "rest_framework.parsers.MultiPartParser",
     ),
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
+    # 限流速率:anon 用于 IP 维度;client_error 是 core.throttles.ClientErrorAnonThrottle 的 scope,
+    # 防止前端错误上报端点被错误循环/异常刷屏打爆。10/min/IP 在内网足够宽松但又能挡住滥用。
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "client_error": "10/min",
+    },
 }
 
 # JWT配置

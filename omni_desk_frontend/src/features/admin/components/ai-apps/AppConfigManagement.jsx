@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
+import { Button, Table, Modal, Form, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
 import {
   addAppConfig,
   updateAppConfig,
@@ -8,6 +8,18 @@ import {
   fetchEndpointModels,
 } from '../../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../../shared/utils/logger';
+
+// 应用名称下拉选项;与后端 APP_CHOICES 保持一致
+export const APP_NAME_OPTIONS = [
+  { label: '智能助手', value: 'smart_assistant' },
+  { label: '办公助手', value: 'office_assistant' },
+];
+
+// value → 中文 label 映射,用于表格列渲染
+export const APP_NAME_LABELS = APP_NAME_OPTIONS.reduce((acc, { value, label }) => {
+  acc[value] = label;
+  return acc;
+}, {});
 
 const AppConfigManagement = ({ appConfigs, endpoints, loadAppConfigs }) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -104,10 +116,7 @@ const AppConfigManagement = ({ appConfigs, endpoints, loadAppConfigs }) => {
   };
 
   const columns = [
-    { title: '应用', dataIndex: 'app_name', key: 'app_name', render: (text) => {
-      const map = { smart_assistant: '智能助手' };
-      return map[text] || text;
-    }},
+    { title: '应用', dataIndex: 'app_name', key: 'app_name', render: (text) => APP_NAME_LABELS[text] || text },
     { title: '关联端点', dataIndex: 'endpoint_name', key: 'endpoint_name' },
     { title: '模型', dataIndex: 'model_name', key: 'model_name' },
     {
@@ -140,7 +149,7 @@ const AppConfigManagement = ({ appConfigs, endpoints, loadAppConfigs }) => {
       >
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item label="应用" name="app_name" rules={[{ required: true, message: '请选择应用!' }]}>
-            <Select options={[{ label: '智能助手', value: 'smart_assistant' }]} />
+            <Select options={APP_NAME_OPTIONS} />
           </Form.Item>
           <Form.Item label="关联端点" name="endpoint" rules={[{ required: true, message: '请选择 API 端点!' }]}>
             <Select

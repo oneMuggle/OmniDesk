@@ -106,11 +106,11 @@ class RagflowClient:
             return response.json()
         except requests.exceptions.HTTPError as e:
             error_msg = f"RAGFlow API 错误: {e.response.status_code} - {e.response.text}"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             raise RagflowClientError(error_msg) from e
         except requests.exceptions.RequestException as e:
             error_msg = f"RAGFlow 请求失败: {e}"
-            logger.error(error_msg)
+            logger.error(error_msg, exc_info=True)
             raise RagflowClientError(error_msg) from e
 
     # ── Dataset 管理 ──────────────────────────────────────────

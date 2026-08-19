@@ -25,7 +25,7 @@ def test_execute_native_tool_passes_full_params_to_scope_tool(tool_context):
             captured["params"] = params
             return {"found": True, "count": 0}
 
-    with patch("smart_assistant.agent.orchestrator.execute_guarded",
+    with patch("smart_assistant.agent.native_tool_runner.execute_guarded",
                side_effect=lambda tool, **kw: tool.execute(**kw)):
         result = AgentOrchestrator()._execute_native_tool(_SpySchedule(), validated, tool_context)
 
@@ -43,7 +43,7 @@ def test_execute_native_tool_passes_params_to_nonscope_tool(tool_context):
             captured["params"] = params
             return {"found": True, "count": 0}
 
-    with patch("smart_assistant.agent.orchestrator.execute_guarded",
+    with patch("smart_assistant.agent.native_tool_runner.execute_guarded",
                side_effect=lambda tool, **kw: tool.execute(**kw)):
         AgentOrchestrator()._execute_native_tool(_SpyOffice(), validated, tool_context)
 

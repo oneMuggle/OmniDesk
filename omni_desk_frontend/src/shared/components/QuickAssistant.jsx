@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { FloatButton, Drawer, Input, Button, Spin, Typography } from 'antd';
 import { RobotOutlined, SendOutlined, FullscreenOutlined, CloseOutlined, StopOutlined } from '@ant-design/icons';
 import { sendSmartChatStream, createSession, resolveErrorHint } from '../../features/smart-assistant/api/smartAssistantApi';
+import { consumeSSEStream } from '../../features/smart-assistant/utils/chatUtils';
 import ToolResult from '../../features/smart-assistant/components/ToolResult';
 import FileAttachmentInput from './FileAttachmentInput';
 import { useNavigate } from 'react-router-dom';
@@ -46,21 +47,6 @@ const QuickAssistant = () => {
     }
   };
 
-  const parseSSE = (text) => {
-    const lines = text.split('\n');
-    const events = [];
-    for (const line of lines) {
-      if (line.startsWith('data: ')) {
-        try {
-          events.push(JSON.parse(line.slice(6)));
-        } catch {
-          // 忽略解析失败
-        }
-      }
-    }
-    return events;
-  };
-
   const handleSend = async () => {
     if (!inputMessage.trim() || isLoading) return;
 
@@ -88,44 +74,30 @@ const QuickAssistant = () => {
         return;
       }
 
-      const reader = stream.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
       // 本次流是否已产出正文(用于失败无内容时的兜底气泡)
       let receivedContent = false;
 
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const events = parseSSE(part);
-          for (const event of events) {
-            if (event.type === 'meta') {
-              setStreamingMeta(event);
-            } else if (event.type === 'chunk') {
-              receivedContent = true;
-              setStreamingAnswer(prev => prev + event.content);
-            } else if (event.type === 'done' || event.type === 'session') {
-              // 输出契约(format_version:1):失败时 done/session 事件携带 kind/hint;
-              // 旧事件无这些字段 → resolveErrorHint 返回 undefined,行为与旧版一致
-              const hint = resolveErrorHint(event);
-              if (hint) {
-                setErrorHint(hint);
-                // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
-                if (event.type === 'done' && !receivedContent) {
-                  setStreamingAnswer('回答生成失败');
-                }
-              }
+      // R4-B2:SSE 读取骨架收敛到共享 consumeSSEStream(chatUtils.js),
+      // 事件处理在此回调内完成,行为与旧版内联循环一致
+      await consumeSSEStream(stream, (event) => {
+        if (event.type === 'meta') {
+          setStreamingMeta(event);
+        } else if (event.type === 'chunk') {
+          receivedContent = true;
+          setStreamingAnswer(prev => prev + event.content);
+        } else if (event.type === 'done' || event.type === 'session') {
+          // 输出契约(format_version:1):失败时 done/session 事件携带 kind/hint;
+          // 旧事件无这些字段 → resolveErrorHint 返回 undefined,行为与旧版一致
+          const hint = resolveErrorHint(event);
+          if (hint) {
+            setErrorHint(hint);
+            // 失败但流未产出任何正文时,兜底一条失败气泡,保证提示行有载体
+            if (event.type === 'done' && !receivedContent) {
+              setStreamingAnswer('回答生成失败');
             }
           }
         }
-      }
+      });
     } catch (error) {
       if (!isCancelled) {
         setStreamingAnswer(`[错误] ${error.message}`);

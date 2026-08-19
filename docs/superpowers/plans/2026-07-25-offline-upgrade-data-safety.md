@@ -704,3 +704,33 @@ git diff origin/main...HEAD --stat
 - **占位符检查：** 未使用 `TBD` 或“稍后补充”等计划占位语句；测试场景和接口均已给出具体名称、命令或结构。
 - **接口一致性：** `upgrade_id`、`state.json`、`verify_backup_batch`、`restore_media_batch`、`SKIP_MIGRATE`、固定 Compose 变量在相关任务间保持一致。
 - **环境约束：** 后端命令均使用 `conda run -n omni_desk`，未安排 base 或系统 Python 安装操作。
+
+---
+
+## 实现补完记录 — shadow DB 端到端验证
+
+**补完日期**：2026-08-11
+
+**背景**：原 Task 3 (L210/L257) 写明「失败时不写 `restore_verified=true`，DB + media 同时成功才允许写」，但 PR #199 提交时仅把 `options["verify"]` 透写到 `metadata["restore_verified"]`，未真正执行端到端恢复验证。`deploy_offline.sh:467` 干净清理门禁 c 严格断言 `restore_verified=true`，因此该门禁在生产环境形同虚设。
+
+**补完内容**（PR `fix/backup-db-shadow-verify`）：
+
+1. `backup_db` 命令新增：
+   - `--verify` / `--no-verify` / `--verify-timeout` / `--verify-shadow-db-prefix` 选项
+   - `_verify_restore_in_shadow()` 方法：4 步 subprocess 校验
+     - CREATE DATABASE `<shadow>`（冲突 → DROP → CREATE 重试一次）
+     - gunzip `<db_file>` | `psql -v ON_ERROR_STOP=1 -d <shadow>`（Popen 流式避免 Fix-12 关闭顺序 bug）
+     - SELECT count(\*) × 4 张核心表 (`users_customuser` / `memos_memo` / `auth_group` / `django_migrations`)，≥3/4 非空
+     - DROP DATABASE `<shadow>`（放 `finally` 兜底，失败仅 warning）
+   - `_atomic_write_json()` 方法：`temp + os.replace` 原子写 metadata.json，写失败不留半成品
+   - 任一步失败抛 `CommandError`，**不写 metadata.json**
+
+2. `upgrade.sh` Step 6 + `backup.sh`：默认传 `--verify --verify-timeout ${BACKUP_VERIFY_TIMEOUT:-600}`，`BACKUP_NO_VERIFY=1` 是紧急旁路（upgrade.sh 会写 audit log）。
+
+3. 测试 8 个（1 原 + 7 新）全部通过，覆盖：4 步全跑、verify=False 不触发、finally DROP 兜底、count 阈值失败、CREATE 冲突重试、os.replace 失败无半成品、verify 失败 metadata.json 不写盘。
+
+**合约兼容**：metadata schema（`REQUIRED_METADATA_KEYS`）、`verify_backup_batch.sh`、`restore_db --batch-dir` 全部不变；CLI 接口是 superset（新增旗标，旧调用不受影响）。
+
+**已知偏差已闭合**：
+- L210「失败时不写 `restore_verified=true`」 — 现在严格成立（shadow verify 抛错 → metadata.json 不写盘）
+- L257「数据库和媒体必须同时成功才允许写 `restore_verified`」 — 现在是「DB + media + shadow verify 三者同时成功」

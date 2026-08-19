@@ -84,3 +84,61 @@ class TestApiKeyEncryption:
         assert RagflowConfig.objects.get(pk=null.pk).api_key is None
         assert _read_raw_api_key(empty.pk) == ""
         assert _read_raw_api_key(null.pk) is None
+
+
+@pytest.mark.django_db
+class TestRagflowConfigSerializerWhitelist:
+    """RagflowConfigSerializer 白名单契约 (R3-B1)。
+
+    契约:api_key 加密存储,读响应**不得**返回明文密钥(write_only);
+    写入路径仍接受 api_key(管理端可设置/更新密钥)。
+    """
+
+    def test_read_response_does_not_expose_api_key(self):
+        config = RagflowConfig.objects.create(
+            name="dify",
+            api_endpoint="https://ragflow.example.com/api",
+            api_key="super-secret-key",
+        )
+
+        from ragflow_service.serializers import RagflowConfigSerializer
+
+        data = RagflowConfigSerializer(config).data
+
+        assert "api_key" not in data
+
+    def test_write_accepts_api_key(self):
+        from ragflow_service.serializers import RagflowConfigSerializer
+
+        serializer = RagflowConfigSerializer(
+            data={
+                "name": "dify-2",
+                "api_endpoint": "https://ragflow.example.com/api",
+                "api_key": "new-secret",
+            }
+        )
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data["api_key"] == "new-secret"
+
+    def test_update_without_api_key_keeps_existing(self):
+        """编辑流程契约:PUT 不带 api_key 时保留原密钥(前端「留空不修改」)。"""
+        from ragflow_service.serializers import RagflowConfigSerializer
+
+        config = RagflowConfig.objects.create(
+            name="dify",
+            api_endpoint="https://ragflow.example.com/api",
+            api_key="original-secret",
+        )
+
+        serializer = RagflowConfigSerializer(
+            config,
+            data={"name": "dify-renamed", "api_endpoint": "https://ragflow.example.com/api"},
+            partial=True,
+        )
+        assert serializer.is_valid(), serializer.errors
+        serializer.save()
+
+        config.refresh_from_db()
+        assert config.api_key == "original-secret"
+        assert config.name == "dify-renamed"

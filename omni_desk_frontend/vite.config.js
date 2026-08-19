@@ -82,7 +82,7 @@ export default defineConfig({
           // 文档处理(PDF/图片)
           docprocessing: ['jspdf', 'html2canvas', 'dompurify'],
           // 通知
-          notify: ['react-toastify', 'tippy.js'],
+          notify: ['react-toastify'],
           // Markdown 渲染
           markdown: ['react-markdown', 'remark-gfm'],
         },

@@ -8,7 +8,7 @@
  * 4. 防重复提交(同值不重复调用),允许 up/down 改选
  * 5. 旧版事件(无 log_id)→ 仅本地状态,不调用 API
  */
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { ConfigProvider, message } from 'antd';
 import { ReadableStream } from 'stream/web';
 import SmartChatPage from '../SmartChatPage';
@@ -27,16 +27,19 @@ jest.mock('../../api/smartAssistantApi', () => ({
 
 // ── 浏览器 API Mock ──
 // jsdom 不提供 requestAnimationFrame / scrollIntoView;与 ux 测试保持一致:
-// requestAnimationFrame 返回 0(假值)使 finally 中 flushTypewriter 直接显示全文
+// 用 jest fake timers 拦截 rAF,测试中 advanceTimersByTime 推进 typewriter 帧
 beforeAll(() => {
-  window.requestAnimationFrame = () => 0;
-  window.cancelAnimationFrame = jest.fn();
+  jest.useFakeTimers();
   Element.prototype.scrollIntoView = jest.fn();
   Object.defineProperty(navigator, 'clipboard', {
     value: { writeText: jest.fn().mockResolvedValue(undefined) },
     writable: true,
     configurable: true,
   });
+});
+
+afterAll(() => {
+  jest.useRealTimers();
 });
 
 const renderWithProviders = (component) => render(<ConfigProvider>{component}</ConfigProvider>);
@@ -78,9 +81,17 @@ const sendQuestion = async (question, answer, logId) => {
   const input = screen.getByPlaceholderText(/问我任何问题/);
   fireEvent.change(input, { target: { value: question } });
   fireEvent.click(screen.getByRole('button', { name: '发送' }));
+  // 推进 typewriter 帧(fake timers 拦截 rAF)
+  await act(async () => {
+    jest.advanceTimersByTime(200);
+  });
   await waitFor(() => {
     expect(screen.getByText(answer)).toBeInTheDocument();
   }, { timeout: 3000 });
+  // 再推进一轮:等 typewriter 收尾 → isLoading 复位 → 消息推入列表(赞踩按钮渲染)
+  await act(async () => {
+    jest.advanceTimersByTime(200);
+  });
 };
 
 // antd 图标按钮的无障碍名来自图标 aria-label(赞: like / 踩: dislike)

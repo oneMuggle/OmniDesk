@@ -12,10 +12,11 @@
 - 保留 dict 路径(向后兼容现有调用方)
 """
 
-import logging
 import re
 import time
 from typing import TYPE_CHECKING
+
+from observability import get_logger
 
 from ..hooks.wiring import (
     apply_failure_hooks,
@@ -28,7 +29,7 @@ from .plan_serializer import Plan, PlanStep
 if TYPE_CHECKING:
     from ..tools.tool_context import ToolContext
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 # {{step_name.output.path.to.value}} 占位符正则
 NESTED_VAR_PATTERN = re.compile(r"\{\{([^}]+)\}\}")

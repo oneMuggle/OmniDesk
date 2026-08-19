@@ -22,14 +22,15 @@ Example:
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from django.db import DatabaseError, IntegrityError
 
+from observability import get_logger
+
 from ..base import RecoveryAction, ToolHookBase
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 
 # 关键异常类型(审计功能失效,需要立即关注)

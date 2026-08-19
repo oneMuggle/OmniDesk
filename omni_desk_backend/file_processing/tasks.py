@@ -6,7 +6,12 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-@shared_task(bind=True, max_retries=3)
+@shared_task(
+    bind=True,
+    max_retries=3,
+    task_time_limit=300,  # 硬超时 5 分钟：OCR/PDF 处理兜底，避免 worker 被粘死
+    task_soft_time_limit=240,  # 软超时 4 分钟（触发 SoftTimeLimitExceeded）
+)
 def process_file_task(self, file_id):
     """异步处理文件"""
     try:
@@ -29,7 +34,7 @@ def process_file_task(self, file_id):
 
     except ValueError as exc:
         # 不可重试的错误（如不支持的文件类型、格式错误）
-        logger.error(f"文件处理失败（不可重试）: {exc}")
+        logger.error(f"文件处理失败（不可重试）: {exc}", exc_info=True)
         try:
             uploaded_file = UploadedFile.objects.get(id=file_id)
             uploaded_file.status = "failed"
@@ -53,5 +58,5 @@ def process_file_task(self, file_id):
         except UploadedFile.DoesNotExist:
             pass
 
-        # 重试（最多 3 次，指数退避）
-        raise self.retry(exc=exc, countdown=60)
+        # 重试（最多 3 次，指数退避：60s → 120s → 240s）
+        raise self.retry(exc=exc, countdown=60 * (2**self.request.retries))

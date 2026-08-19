@@ -13,7 +13,20 @@
 
 ## [未发布]
 
+### 新增
+
+- **observability**: request_id 全链路追踪(ContextVar + RequestIdMiddleware + Celery RequestIdTask 链式继承)
+- **observability**: `_EventLoggerAdapter` 自动注入 `request_id`/`event` 至所有日志条目
+- **settings**: dev 文本 formatter 与 production JsonFormatter 都暴露 `request_id`/`event` 字段,缺字段不丢日志(SafeTextFormatter 兜底)
+- **ci**: ruff LOG 规则(`extend-select = ["LOG"]`) + `core/tests/test_observability_logger.py` AST 守卫强制业务代码用 `observability.get_logger`(BASELINE 29 文件允许保留)
+- **smart-assistant**: 21 个文件从 `logging.getLogger` 迁移至 `observability.get_logger`
+- **smart-assistant**: 9 个迁移文件 + 1 个新目录守卫加入 `core/tests/test_silent_exceptions.py` AST 守卫;6 处 `except: pass` 转 `logger.debug`,1 处(office_download temp cleanup)保留 silent 进 `ALLOWED_SILENT` 白名单
+- **9 个 0% app**: office_assistant / meeting_rooms / dify_apps / projects / memos / communication / news / ebooks / config 加基线 logger(首 view.entered 事件) + `core/tests/test_zero_coverage_apps.py` 9 参数化测试守卫
+
 ### 变更
+
+- **smart-assistant**: agent/orchestrator / agent/tool_chain_executor / agents/executor / cache / middleware/rate_limit / hooks/builtin/audit_log / hooks/builtin/rate_limit / hooks/wiring / agent/conversation_context / agent/rag_router / agent/tool_chain_planner / digest / extractors/swap_extractor / tasks / tools/registry / tools_io / tools/office_generate_tool / tools/swap_request_tool / views/chat / views/doctor / views/office_download 共 21 文件改用 `observability.get_logger(__name__, "smart_assistant")`
+- **ci**: `.github/workflows/ci.yml` lint-backend pin ruff `>=0.16,<0.17`(避免 0.4.10 偏离本地 0.16.2 丢失 18 个月 bug fix)
 
 - **smoke_tests.sh**: 补全阶段 10-11(业务广度 5 app GET-only 探针 + PG 备份可恢复性 shadow DB 还原验证);阶段 11 backup 文件改为容器内清理;矩阵文档同步阶段 11
 

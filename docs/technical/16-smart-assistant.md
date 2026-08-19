@@ -22,14 +22,25 @@
 
 | 类别 | 模块 | 文件 | 说明 |
 |------|------|------|------|
-| **Agent(7)** | 意图分类 | `agent/intent_classifier.py` | Ollama 本地 LLM 识别用户意图 |
-| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成(支持单/多工具链);含输出契约(`FORMAT_VERSION`、`classify_error_kind`、`annotate_error_kind`) |
+| **Agent(13)** | 意图分类 | `agent/intent_classifier.py` | Ollama 本地 LLM 识别用户意图 |
+| | 编排器 | `agent/orchestrator.py` | 分类→路由→生成入口(单/多工具链、流式/非流式);2026-08 R3-A1 拆分为 7 个模块,自身从 1520 行降到 661 行,C901 归零 |
+| | 编排辅助 | `agent/sse_contract.py` | SSE 输出契约(`FORMAT_VERSION`、`sse_event`)与错误分类单一事实源(`classify_error_kind`、`annotate_error_kind`) |
+| | 编排辅助 | `agent/orchestrator_helpers.py` | 缓存 scope 签名(`_scope_cache_sig`)、结构化参数转 query(`_dict_to_query`) |
+| | 编排辅助 | `agent/native_tool_runner.py` | 原生 tool_calls 单工具执行(`execute_native_tool`,I-2 结构化参数透传) |
+| | 编排辅助 | `agent/tool_rounds_runner.py` | 工具轮主循环(`run_tool_calls_rounds`,最多 3 轮 + confirm-replay + JSON 降级) |
+| | 编排辅助 | `agent/tool_chain_runner.py` | 多工具链执行(`process_chain`,aggregated_day) |
+| | 编排辅助 | `agent/stream_runner.py` | 流式路径(`StreamRunner`,SSE 逐 chunk 输出) |
 | | Prompt 构建 | `agent/prompt_builder.py` | 系统 prompt + 工具链 prompt |
 | | 对话上下文 | `agent/conversation_context.py` | 多轮历史 + 滚动摘要 + 失败回答判定(`is_failed_answer`) |
 | | RAG 路由 | `agent/rag_router.py` | 多数据集关键词匹配 + 并行搜索 |
 | | 工具链规划 | `agent/tool_chain_planner.py` | LLM 生成多工具执行计划 |
 | | 工具链执行 | `agent/tool_chain_executor.py` | 按依赖顺序执行,支持 `$variable` 替换 |
 | **多 Agent** | 执行器 | `agents/` | MultiAgentExecutor / Pipeline / Fanout / Hierarchical,详见 [32-smart-assistant-multi-agent.md](./32-smart-assistant-multi-agent.md) |
+| | 执行器(编排收敛层) | `agents/executor.py` | MultiAgentExecutor 主执行器(R3-A8 拆分后收敛为编排层,委托 subtask_runner / pipeline / checkpoint) |
+| | 执行器 | `agents/dataclasses.py` | SubTaskResult / TaskResult / Event / EventBus 数据类(零依赖) |
+| | 执行器 | `agents/subtask_runner.py` | SubTaskRunner 单子任务执行(重试 / LLM 调用 / 输出解析) |
+| | 执行器 | `agents/pipeline.py` | PipelineRunner 流水线编排(依赖排序 / ABORT / SKIP / resume) |
+| | 执行器 | `agents/checkpoint.py` | CheckpointManager 检查点持久化 / 暂停 / 恢复 |
 | **工具(13)** | 见 §2.1 | `tools/*.py` | 单例注册中心 `tools/registry.py`;全部声明 `risk_level="read"` |
 | **视图(8)** | 聊天 | `views/chat.py` | 非流式 + SSE 流式两路(失败不落库 + 错误 kind 标注) |
 | | 知识库 | `views/knowledge_base.py` | 文档上传/列表/删除/状态 + 数据集 CRUD |
@@ -67,7 +78,7 @@
 | `KnowledgeDataset` | name, ragflow_dataset_id, tags, is_active | 多数据集 RAG 路由(全局共享资源,无属主字段) |
 | `LlmEndpoint` / `LlmAppConfig` | name, priority, is_fallback, model_capabilities, **api_key(加密存储)** | 多 LLM 端点配置 |
 
-### 2.2 工具系统(13 个)
+### 2.2 工具系统(16 个)
 
 | 工具 | 功能 | 数据源 |
 |------|------|--------|
@@ -77,6 +88,9 @@
 | `DocumentTool` | 公文/文档搜索 | `documents` 模块 |
 | `EventTool` | 事件/日程/节假日查询 | `events` 模块 |
 | `MemoTool` | 备忘录查询 | `memos.Memo` |
+| `MemoCreateTool` | 创建备忘录(写, 需确认) | `memos.Memo` |
+| `MemoUpdateTool` | 修改备忘录(写, 需确认) | `memos.Memo` |
+| `MemoDeleteTool` | 删除备忘录(破坏性, 需确认) | `memos.Memo` |
 | `ProjectTool` | 项目进度查询 | `projects.Project` |
 | `NewsTool` | 新闻/通知搜索 | `news.NewsArticle` |
 | `MeetingRoomTool` | 会议室可用性 | `meeting_rooms` |
@@ -187,9 +201,9 @@ class ToolContext:
 
 ### 2.4 输出契约与错误分类(2026-07 新增)
 
-**SSE 契约**:所有 SSE 事件(meta/chunk/done/session)经 `orchestrator.sse_event()` 统一注入 `format_version: 1`(`FORMAT_VERSION` 常量)。同步(非 SSE)响应的 JSON **不带** `format_version`,仅在失败时追加 `kind`/`hint`。
+**SSE 契约**:所有 SSE 事件(meta/chunk/done/session)经 `sse_contract.sse_event()` 统一注入 `format_version: 1`(`FORMAT_VERSION` 常量)。同步(非 SSE)响应的 JSON **不带** `format_version`,仅在失败时追加 `kind`/`hint`。
 
-**错误分类单一事实源**:`classify_error_kind(result)` 位于 `agent/orchestrator.py` 顶部,纯函数 + 单次 DB 查询,同步路径与流式 done/session 帧经 `annotate_error_kind()` 复用同一分类,保证各出口一致。
+**错误分类单一事实源**:`classify_error_kind(result)` 位于 `agent/sse_contract.py`(2026-08 R3-A1 从 orchestrator 拆出),纯函数 + 单次 DB 查询,同步路径与流式 done/session 帧经 `annotate_error_kind()` 复用同一分类,保证各出口一致。
 
 | kind | 触发条件 | hint(中文指引) |
 |------|----------|-----------------|
@@ -287,7 +301,7 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 
 ### 2.10 Hook 系统(2026-07 新增)
 
-`hooks/builtin/` 内置 4 个 hook(借鉴 claw-code 设计):
+`hooks/builtin/` 内置 5 个 hook(借鉴 claw-code 设计):
 
 | Hook | 开关 | 默认 | 作用 |
 |------|------|------|------|
@@ -295,6 +309,7 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 | `PiiMaskingHook` | `SMART_ASSISTANT_PII_MASKING` | `True` | post_execute 递归脱敏工具输出(生成新容器,不可变);邮箱 → 身份证 → 手机号顺序匹配:手机号 `138****1234`(前 3 后 4)、身份证前 6 后 4、邮箱 local 保留前 3 位 |
 | `TimeoutGuardHook` | `SMART_ASSISTANT_TOOL_TIMEOUT`(秒)/ `SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED` | `10.0` / `True` | 钩子本身为配置入口 + 恢复策略;实际计时由 `run_guarded_sync`(daemon 线程 + `join(timeout)`)/ `run_guarded`(`asyncio.wait_for`)与 `BaseTool.execute_with_guard` 完成;超时返回 `{"found": False, "timed_out": True, "error": "tool_timeout", ...}`,`on_failure` 对 `TimeoutError` 返回 `RecoveryAction(action="fallback")` |
 | `ConfirmationHook` | 无 | — | **pre_execute**:对 `require_confirmation=True` 的写工具(office_generate / swap×2)返回 `Reject(error_code="confirmation_required")`,激活 orchestrator confirm-replay(dry_run → draft → awaiting_confirmation → 前端确认 → replay 视图执行)。2026-08-09 I-1 新增,写工具确认 fail-open → fail-closed |
+| `RateLimitHook` | `SMART_ASSISTANT_WRITE_RATE_LIMIT`(每窗口允许次数)/ 窗口固定 60s | `10` / `60s` | **pre_execute**、priority=25:对所有 `require_confirmation=True` 工具按用户 fixed window 限频;超限返回 `Reject(error_code="rate_limit_exceeded", retry_after=Ns)`,前端 toast 显示 Ns 后重试。Cache key `smart_assistant:write_rate_limit:{user_id}`,与 chat 限流(中间件层)共享同一缓存后端但 namespace 隔离。2026-08-10 P1A-2 新增,详情见 [`docs/superpowers/specs/2026-08-10-p1a2-write-tool-rate-limit-design.md`](../superpowers/specs/2026-08-10-p1a2-write-tool-rate-limit-design.md)|
 
 **接线现状(重要)**:`apps.ready()` 调用 `register_builtin_hooks()` 把 **PiiMaskingHook(POST_EXECUTE)+ TimeoutGuardHook(ON_FAILURE)+ ConfirmationHook(PRE_EXECUTE)** 注册进全局注册表(`get_registry()`),幂等(按 hook name 去重,`ready()` 多次调用不重复挂载)。生产执行器(orchestrator 单工具执行 / ToolChainExecutor 逐步执行)经 `execute_guarded` / `apply_pre_execute_hooks` 消费全局注册表。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
 

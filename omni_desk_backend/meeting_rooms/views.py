@@ -14,16 +14,35 @@ from users.permissions import IsAdminOrManager  # 假设users应用中有IsAdmin
 from .models import MeetingRoom, MeetingRoomBooking, MeetingRoomMaintenance
 from .serializers import MeetingRoomBookingSerializer, MeetingRoomMaintenanceSerializer, MeetingRoomSerializer
 
+from observability import get_logger
+
+logger = get_logger(__name__, "meeting_rooms")
+
 
 class MeetingRoomViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoom.objects.all().order_by("id")
     serializer_class = MeetingRoomSerializer
     permission_classes = [IsAuthenticated]  # 允许所有认证用户管理会议室，包括查看
 
+    def list(self, request, *args, **kwargs):
+        logger.info("meeting_rooms.view.entered", extra={"event": "meeting_rooms.view.entered"})
+        return super().list(request, *args, **kwargs)
+
 
 class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
     serializer_class = MeetingRoomBookingSerializer
     permission_classes = [IsAuthenticated]
+
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "meeting_rooms.view.entered",
+            extra={
+                "event": "meeting_rooms.view.entered",
+                "view": "MeetingRoomBookingViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
+        )
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         # 所有认证用户都可以看到所有预约
@@ -79,6 +98,17 @@ class MeetingRoomMaintenanceViewSet(viewsets.ModelViewSet):
     queryset = MeetingRoomMaintenance.objects.select_related("meeting_room").order_by("start_time")
     serializer_class = MeetingRoomMaintenanceSerializer
     permission_classes = [IsAdminOrManager]  # 只有管理员和经理可以管理维护时间
+
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "meeting_rooms.view.entered",
+            extra={
+                "event": "meeting_rooms.view.entered",
+                "view": "MeetingRoomMaintenanceViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
+        )
+        return super().list(request, *args, **kwargs)
 
 
 class MeetingRoomStatsAPIView(APIView):

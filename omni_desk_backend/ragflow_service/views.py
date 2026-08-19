@@ -61,7 +61,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
 
             return Response(result, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow Chat API 调用失败: %s", e)
+            logger.error("RAGFlow Chat API 调用失败: %s", e, exc_info=True)
             return Response({"detail": f"Ragflow API 请求失败: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
@@ -76,7 +76,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             else:
                 return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
-            logger.error("RAGFlow 健康检查失败: %s", e)
+            logger.error("RAGFlow 健康检查失败: %s", e, exc_info=True)
             return Response(
                 {"status": "error", "message": f"健康检查异常: {e}"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -91,7 +91,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             datasets = client.list_datasets()
             return Response({"data": datasets}, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow 列出数据集失败: %s", e)
+            logger.error("RAGFlow 列出数据集失败: %s", e, exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
@@ -103,7 +103,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             chats = client.list_chats()
             return Response({"data": chats}, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow 列出聊天助手失败: %s", e)
+            logger.error("RAGFlow 列出聊天助手失败: %s", e, exc_info=True)
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 

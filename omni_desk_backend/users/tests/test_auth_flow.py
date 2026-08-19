@@ -2,8 +2,10 @@
 Authentication flow tests: registration, login, token refresh, guest login.
 """
 import pytest
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from users.models import CustomUser
 
@@ -109,3 +111,63 @@ class TestChangePassword:
         }
         response = regular_client.put(reverse('users:change-password'), data, format='json')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+@pytest.mark.django_db
+class TestDjangoAdminLogin:
+    """R4-A4: JWT → Session 转换端点的安全改造测试。
+
+    端点仅接受 POST + ``Authorization: Bearer <token>`` header,
+    token 不再通过 query string 携带(避免泄露到 nginx 日志/浏览器历史/Referer)。
+    同时要求 staff/superuser 权限,并套上 5/15m 限流。
+    """
+
+    def _admin_token(self, user):
+        return str(RefreshToken.for_user(user).access_token)
+
+    def test_login_success_redirects_to_admin(self, api_client, admin_user_obj):
+        url = reverse('users:django-admin-login')
+        resp = api_client.post(
+            url,
+            HTTP_AUTHORIZATION=f"Bearer {self._admin_token(admin_user_obj)}",
+        )
+        assert resp.status_code == status.HTTP_302_FOUND
+        assert resp['Location'] == '/admin/'
+
+    def test_missing_token_returns_400(self, api_client):
+        resp = api_client.post(reverse('users:django-admin-login'))
+        assert resp.status_code == status.HTTP_400_BAD_REQUEST
+
+    def test_invalid_token_returns_401(self, api_client):
+        resp = api_client.post(
+            reverse('users:django-admin-login'),
+            HTTP_AUTHORIZATION="Bearer invalid.token.value",
+        )
+        assert resp.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_non_staff_user_returns_403(self, api_client, regular_user_obj):
+        resp = api_client.post(
+            reverse('users:django-admin-login'),
+            HTTP_AUTHORIZATION=f"Bearer {self._admin_token(regular_user_obj)}",
+        )
+        assert resp.status_code == status.HTTP_403_FORBIDDEN
+
+    def test_get_method_returns_405(self, api_client, admin_user_obj):
+        resp = api_client.get(reverse('users:django-admin-login'))
+        assert resp.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
+    @override_settings(RATELIMIT_ENABLE=True)
+    def test_rate_limited_after_five_requests(self, api_client, admin_user_obj):
+        """同 IP 15 分钟内超过 5 次 POST 触发限流(429)。
+
+        测试 settings 默认 RATELIMIT_ENABLE=False(禁用限流),
+        本用例显式开启以验证装饰器生效。
+        """
+        url = reverse('users:django-admin-login')
+        auth = {'HTTP_AUTHORIZATION': f"Bearer {self._admin_token(admin_user_obj)}"}
+        for _ in range(5):
+            resp = api_client.post(url, **auth)
+            assert resp.status_code == status.HTTP_302_FOUND
+        # 第 6 次触发限流
+        resp = api_client.post(url, **auth)
+        assert resp.status_code == status.HTTP_429_TOO_MANY_REQUESTS

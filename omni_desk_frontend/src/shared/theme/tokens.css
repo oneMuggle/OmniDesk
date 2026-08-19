@@ -70,7 +70,9 @@
   /* ===== 间距 ===== */
   --spacing-xs: 4px;
   --spacing-sm: 8px;
+  --spacing-12: 12px;
   --spacing-md: 16px;
+  --spacing-20: 20px;
   --spacing-lg: 24px;
   --spacing-xl: 32px;
   --spacing-xxl: 48px;

@@ -49,21 +49,3 @@ updates:
     commit-message:
       prefix: "ci"
       include: "scope"
-
-# 安全更新
-security-updates:
-  - package-ecosystem: "npm"
-    directory: "/omni_desk_frontend"
-    schedule:
-      interval: "daily"
-    labels:
-      - "security"
-      - "npm"
-
-  - package-ecosystem: "pip"
-    directory: "/omni_desk_backend"
-    schedule:
-      interval: "daily"
-    labels:
-      - "security"
-      - "python"

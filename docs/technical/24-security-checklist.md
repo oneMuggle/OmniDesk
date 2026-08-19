@@ -70,6 +70,7 @@
 | 项 | 实现位置 | 状态 |
 |---|---|---|
 | A01:访问控制破损 | `users/permissions.py`、`permissions/` app、ProtectedRoute | ✅ |
+| A01:序列化字段白名单化 | 11 app 34 处 `fields="__all__"` 全部显式白名单;敏感字段 `api_key`/`id_card_number`/`certificate_id`/`manager` 设 write_only(读收敛、写保留) | ✅(2026-08 R3-B1,见 §10) |
 | A01:行级访问控制 | `personnel/permissions.py:IsOwnerOrManagerOrReadOnly` + 5 个子 ViewSet `get_queryset` 过滤 `personnel__user_account` | ✅(2026-07 P0-A) |
 | A01:作者隔离 | `communication/views.py:IsAuthorOrReadOnly`(仅作者可改/删帖子) | ✅(2026-07 P0-D) |
 | A01:权限体系清理 | `users/permissions.py` 去重 `IsAdminOrManagerOrReadOnly`、删除不可达 return | ✅(2026-07 P0-C) |
@@ -171,3 +172,31 @@ pip install safety pip-audit bandit
 2. **is_privileged_user() 替代 role 字段:** `Personnel` 模型无 `role` 字段,行级权限统一调 `is_privileged_user()`(Admin/Manager 组 + superuser)。
 3. **chat 失败落 `SmartAssistantSession.last_error`:** 走编排层(LangGraph)异常逃逸时持久化,前端可读 `last_error` 字段调试。
 4. **`jest.config.js` moduleNameMapper:** 必须用 `'^axios$'` 锚定,否则 `axiosConfig` 测试会劫持所有 import —— 已在测试中加 anchor guard 防回归。
+
+---
+
+## 十、2026-08 R3-B1 serializer 白名单化批次（已合入 main）
+
+> 来源:round3 plan §R3-B1。4 个 PR 分 app 推进:各 PR 独立 feature 分支 → 单测锁定字段集契约(RED)→ 白名单化(GREEN)→ 后端全量 pytest + 前端 build 冒烟 → AI 检阅 → merge。
+
+### 10.1 批次覆盖
+
+| PR | 范围 | 白名单化 serializer 数 | 处理要点 |
+|---|---|---|---|
+| #271 (PR-1, P0) | external_integration + smart_assistant + ragflow_service | 4 | 🔴 `IntegrationServiceSerializer.api_key`、`RagflowConfigSerializer.api_key` → write_only(任意登录用户可读明文密钥);`AgentLogSerializer` 收敛内部审计字段(session/token/费用/tool_call_* 剔除) |
+| #274 (PR-2, P0) | personnel | 6 | 🔴 `FamilyMemberSerializer.id_card_number`(Fernet 加密但读取解密)、🟠 `ProfessionalQualificationSerializer.certificate_id` → write_only |
+| #277 (PR-3, P1) | events + meeting_rooms | 10 | 全量收敛;保留前端深度消费嵌套(Trial.time_slots / Schedule.duty_person / Booking.user 等) |
+| #280 (PR-4, P2) | documents + config + news + projects + sensor_management + users | 13 + 删 1 | documents 剔 variables/variables_used;sensor 收敛 operator_username/sensor_serial_number;删除 users.PositionSerializer 死代码 |
+
+### 10.2 关键决策摘录
+
+1. **write_only 优于剔除:** 敏感字段从 `fields` 移除会静默禁用写入(DRF 丢弃未知输入字段,不报错)。统一改为 `write_only=True`:读响应不返回,写路径保留。适用于 `api_key`、`id_card_number`、`certificate_id`、`manager`。
+2. **`ProjectSerializer.manager` → write_only:** `projects/views.py` `perform_create` 要求 Admin 创建项目经请求体指定 manager;Manager 路径由 `serializer.save(manager=...)` 注入(故不可设 `required`)。剔除会破坏 admin 功能,write_only 读收敛 + 写保留。
+3. **嵌套/声明字段必须列进 `Meta.fields`:** 自定义字段(`time_slots`、`duty_person`、`user`、`project_name`、`content_preview` 等)若不显式列出,DRF 会静默忽略。
+4. **防御性白名单:** 部分 serializer 的 model 字段集恰等于白名单(纯防御,防止未来 model 加字段自动经 API 暴露),仍按契约显式声明 + 单测锁定。
+
+### 10.3 验收
+
+- 后端全量 pytest **2548 passed**,覆盖率 **92.50%**(`--cov-fail-under=80` 门槛达标)
+- 前端 build 冒烟 ✓
+- 各 PR CI 全绿

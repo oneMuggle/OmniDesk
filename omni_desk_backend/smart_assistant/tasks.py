@@ -1,16 +1,18 @@
-import logging
-
 from celery import shared_task
 
 from ragflow_service.client import RagflowClient, RagflowClientError
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 @shared_task(
     autoretry_for=(RagflowClientError,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 3},
+    task_time_limit=300,  # 硬超时 5 分钟：整文件读内存 + 上传 Ragflow 兜底
+    task_soft_time_limit=240,  # 软超时 4 分钟（触发 SoftTimeLimitExceeded）
 )
 def process_document_embedding(document_id):
     """异步处理文档向量化：上传到 Ragflow 并触发解析。
@@ -65,7 +67,10 @@ def process_document_embedding(document_id):
         doc.save(update_fields=["embedding_status"])
 
     except KnowledgeBaseDocument.DoesNotExist:
-        pass
+        logger.debug(
+            "smart_assistant.tasks.document_gone",
+            extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
+        )
     except Exception as e:
         logger.error("文档向量化失败: %s", e)
         from smart_assistant.models import KnowledgeBaseDocument
@@ -76,7 +81,10 @@ def process_document_embedding(document_id):
             doc.content_text = str(e)
             doc.save(update_fields=["embedding_status", "content_text"])
         except KnowledgeBaseDocument.DoesNotExist:
-            pass
+            logger.debug(
+                "smart_assistant.tasks.mark_failed_doc_gone",
+                extra={"event": "smart_assistant.tasks.mark_failed_doc_gone", "document_id": document_id},
+            )
         raise
 
 
@@ -104,7 +112,7 @@ def execute_agent_task(task_id: str):
     from django.utils import timezone
 
     from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
-    from smart_assistant.agents.task_packet import TaskPacket
+    from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
     from llm_service.router import get_router
     from smart_assistant.tools.registry import ToolRegistry
@@ -218,7 +226,10 @@ def execute_agent_task(task_id: str):
                 payload={"task_id": str(task.task_id), "error": str(e)},
             )
         except AgentTask.DoesNotExist:
-            pass
+            logger.debug(
+                "smart_assistant.tasks.event_task_gone",
+                extra={"event": "smart_assistant.tasks.event_task_gone", "task_id": task_id},
+            )
         raise
 
 

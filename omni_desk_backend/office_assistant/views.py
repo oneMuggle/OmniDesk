@@ -10,6 +10,10 @@ from rest_framework.views import APIView
 # 统一走 LLMRouter：享受 DB 端点配置与优先级降级，不再直连 OllamaClient
 from llm_service.router import get_router
 
+from observability import get_logger
+
+logger = get_logger(__name__, "office_assistant")
+
 # 本应用在 LlmAppConfig 中的标识；无专属配置时 router 自动落到 Ollama 全局兜底
 APP_NAME = "office_assistant"
 
@@ -27,6 +31,7 @@ class OfficeAssistantProcessView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, *args, **kwargs):
+        logger.info("office_assistant.view.entered", extra={"event": "office_assistant.view.entered"})
         action = request.data.get("action")
         text = request.data.get("text")
         stream = request.data.get("stream", False)

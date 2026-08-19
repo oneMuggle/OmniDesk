@@ -100,7 +100,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -134,7 +134,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -214,7 +214,7 @@ class TestReplayFailure:
 
         # ToolRegistry.get_tool 返回 None
         with patch(
-            "smart_assistant.views.chat.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
             return_value=None,
         ):
             response = api_client.post(
@@ -242,7 +242,7 @@ class TestNoConfirmToken:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat.AgentOrchestrator"
+            "smart_assistant.views.chat_sync.AgentOrchestrator"
         ) as MockOrchestrator:
             mock_instance = MockOrchestrator.return_value
             mock_instance.process.return_value = {

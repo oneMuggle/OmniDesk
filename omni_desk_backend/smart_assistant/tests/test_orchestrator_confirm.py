@@ -5,7 +5,7 @@
 - require_confirmation=True + 无 hook → 直接执行(apply_pre_execute_hooks 透传)
 - require_confirmation=True + Reject(confirmation_required) + dry_run 返回 draft → awaiting_confirmation
 - require_confirmation=True + Reject + dry_run 未返回 draft → 错误
-- require_confirmation=True + Reject(其他 error_code) → 不拦截,走既有路径
+- require_confirmation=True + Reject(其他 error_code) → P1A-2 enforcement:阻断工具执行,返回 error_code dict
 - require_confirmation=True + pre-hook 返回 dict → 不拦截,走既有路径
 
 Task 10 (process_stream 流式拦截):
@@ -279,12 +279,20 @@ class TestConfirmationInterception:
     @patch("smart_assistant.agent.orchestrator.classify_intent")
     @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
     @patch("smart_assistant.agent.orchestrator.generate_answer")
-    def test_pre_hook_reject_other_error_code_not_intercepted(
+    def test_pre_hook_reject_other_error_code_blocks_tool(
         self, mock_generate, mock_chain_plan, mock_classify, tool_context
     ):
-        """require_confirmation=True + Reject(其他 error_code) → 不拦截,走既有路径"""
+        """P1A-2 enforcement:require_confirmation=True + Reject(其他 error_code)
+        → 直接阻断工具执行,不走 LLM 合成;返回 error_code + retry_after。
+
+        行为变化:T5 之前非 confirmation_required 的 Reject 会 fall-through 到
+        既有执行路径,P1A-2 enforcement 后 orchestrator 在确认 error_code !=
+        confirmation_required 时直接 return error dict,工具不再执行。
+        """
         mock_classify.return_value = "write_confirm_intent"
         mock_chain_plan.return_value = []
+        # mock_generate 不会被调用(工具被阻断,不走 LLM 合成);保留 mock 仅为
+        # 兼容性防御。
         mock_generate.return_value = ("written", None)
 
         class PermissionDenyHook(ToolHookBase):
@@ -302,12 +310,18 @@ class TestConfirmationInterception:
         with patch(
             "smart_assistant.agent.orchestrator.ToolRegistry.get_tool",
             return_value=_WriteToolWithConfirmation(),
-        ):
+        ), patch(
+            "smart_assistant.agent.orchestrator.execute_guarded"
+        ) as mock_exec_guarded:
             result = AgentOrchestrator().process("test", tool_context=tool_context)
 
-        # 不拦截,走既有路径
+        # P1A-2 enforcement:工具未执行(LLM 也未被调用),返回 error dict
+        assert mock_exec_guarded.call_count == 0
+        assert result["error"] is True
+        assert result["error_code"] == "permission_denied"
+        assert result["answer"] == "权限不足"
+        # 不是 confirmation 路径
         assert result.get("awaiting_confirmation") is not True
-        assert result["answer"] == "written"
 
     @patch("smart_assistant.agent.orchestrator.classify_intent")
     @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")
@@ -380,14 +394,15 @@ class TestStreamConfirmationInterception:
 
         # mock classify_intent 直接返回 office_generate,跳过 LLM 调用
         # mock execute_guarded 返回一个包含 draft 的 dry_run_result,模拟工具正常 dry_run
+        # (R3-A1 Task 6:流式调用点在 stream_runner 命名空间解析,mock 迁移至此)
         with patch(
-            "smart_assistant.agent.orchestrator.classify_intent",
+            "smart_assistant.agent.stream_runner.classify_intent",
             return_value="office_generate",
         ), patch(
-            "smart_assistant.agent.orchestrator.generate_tool_chain_plan",
+            "smart_assistant.agent.stream_runner.generate_tool_chain_plan",
             return_value=[],
         ), patch(
-            "smart_assistant.agent.orchestrator.execute_guarded",
+            "smart_assistant.agent.stream_runner.execute_guarded",
             return_value={
                 "found": True,
                 "draft": {
@@ -395,8 +410,10 @@ class TestStreamConfirmationInterception:
                     "fields": {"query": "生成请假单"},
                 },
             },
-        ):
+        ) as mock_execute_guarded:
             events = list(AgentOrchestrator().process_stream("生成请假单", [], None))
+
+        assert mock_execute_guarded.call_count == 1
 
         data_blob = "\n".join(events)
         assert "awaiting_confirmation" in data_blob or "confirmation_token" in data_blob

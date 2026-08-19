@@ -5,8 +5,12 @@ from users.permissions import IsAdminOrReadOnly
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from observability import get_logger
+
 from .models import NewsArticle, NewsType
 from .serializers import NewsArticleSerializer, NewsTypeSerializer
+
+logger = get_logger(__name__, "news")
 
 
 class NewsTypeViewSet(viewsets.ModelViewSet):
@@ -14,11 +18,26 @@ class NewsTypeViewSet(viewsets.ModelViewSet):
     serializer_class = NewsTypeSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def list(self, request, *args, **kwargs):
+        logger.info("news.view.entered", extra={"event": "news.view.entered"})
+        return super().list(request, *args, **kwargs)
+
 
 class NewsArticleViewSet(viewsets.ModelViewSet):
     queryset = NewsArticle.objects.select_related("personnel", "news_type").all()
     serializer_class = NewsArticleSerializer
     permission_classes = [IsAdminOrReadOnly]
+
+    def list(self, request, *args, **kwargs):
+        logger.info(
+            "news.view.entered",
+            extra={
+                "event": "news.view.entered",
+                "view": "NewsArticleViewSet",
+                "user": request.user.username if request.user.is_authenticated else "anonymous",
+            },
+        )
+        return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
         queryset = NewsArticle.objects.select_related("personnel", "news_type")
