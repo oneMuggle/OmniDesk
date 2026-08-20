@@ -1,4 +1,5 @@
 """API 权限矩阵测试。"""
+
 from datetime import date
 from decimal import Decimal
 
@@ -176,9 +177,9 @@ class TestMonthlyReportAPI:
                 "year": 2026,
                 "month": 10,
                 "work_progress": "未授权提交",
-            "work_highlights": "亮点",
-            "attendance_days_actual": "22.0",
-            "attendance_days_expected": "22.0",
+                "work_highlights": "亮点",
+                "attendance_days_actual": "22.0",
+                "attendance_days_expected": "22.0",
             },
             format="json",
         )

@@ -1,4 +1,5 @@
 """为联培生管理员、考核专家组与联培生导师绑定页面权限。"""
+
 from django.db import migrations
 
 

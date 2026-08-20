@@ -47,9 +47,7 @@ class MonthlyReportSerializer(serializers.ModelSerializer):
     def validate(self, attrs):
         """禁止通过普通报告更新接口改绑联培生。"""
         if self.instance is not None and "joint_student" in self.initial_data:
-            raise serializers.ValidationError(
-                {"joint_student": "报告归属不可修改"}
-            )
+            raise serializers.ValidationError({"joint_student": "报告归属不可修改"})
         return attrs
 
     class Meta:
