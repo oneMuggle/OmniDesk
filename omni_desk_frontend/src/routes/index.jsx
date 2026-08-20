@@ -77,6 +77,15 @@ import {
   TrialsPage,
   UnauthorizedPage,
   UserManagementPage,
+  StudentListPage,
+  StudentEditPage,
+  ReportReviewPage,
+  CycleManagementPage,
+  StipendReviewPage,
+  ExpertScoringPage,
+  MyReportsPage,
+  MyStipendsPage,
+  MentorOverviewPage,
 } from './lazyImports';
 
 const router = createBrowserRouter([
@@ -394,6 +403,59 @@ const router = createBrowserRouter([
       {
         path: "documents-library/account",
         element: <ProtectedRoute pageName="账户绑定"><LazyComponent component={AccountBindingPage} /></ProtectedRoute>
+      },
+      // 联培生模块(4 角色 13 路由)
+      {
+        path: "joint-students/admin/students",
+        element: <ProtectedRoute permissions="/joint-students/admin/students"><LazyComponent component={StudentListPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/students/new",
+        element: <ProtectedRoute permissions="/joint-students/admin/students/new"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/students/:id",
+        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/students/:id/edit",
+        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/reports",
+        element: <ProtectedRoute permissions="/joint-students/admin/reports"><LazyComponent component={ReportReviewPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/cycles",
+        element: <ProtectedRoute permissions="/joint-students/admin/cycles"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/cycles/:id",
+        element: <ProtectedRoute permissions="/joint-students/admin/cycles/:id"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/admin/stipends",
+        element: <ProtectedRoute permissions="/joint-students/admin/stipends"><LazyComponent component={StipendReviewPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/expert/scoring",
+        element: <ProtectedRoute permissions="/joint-students/expert/scoring"><LazyComponent component={ExpertScoringPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/student/reports",
+        element: <ProtectedRoute permissions="/joint-students/student/reports"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/student/reports/new",
+        element: <ProtectedRoute permissions="/joint-students/student/reports/new"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/student/stipends",
+        element: <ProtectedRoute permissions="/joint-students/student/stipends"><LazyComponent component={MyStipendsPage} /></ProtectedRoute>
+      },
+      {
+        path: "joint-students/mentor/overview",
+        element: <ProtectedRoute permissions="/joint-students/mentor/overview"><LazyComponent component={MentorOverviewPage} /></ProtectedRoute>
       },
       {
         path: "*",

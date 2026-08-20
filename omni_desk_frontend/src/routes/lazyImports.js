@@ -79,3 +79,13 @@ export const SyncStatusPage = lazy(() => import('../features/documents-library/p
 export const AccountBindingPage = lazy(() => import('../features/documents-library/pages/AccountBindingPage'));
 // 认证相关
 export const UnauthorizedPage = lazy(() => import('../features/auth/pages/UnauthorizedPage'));
+// 联培生模块(4 角色 9 页面)
+export const StudentListPage = lazy(() => import('../features/joint-students/pages/admin/StudentListPage'));
+export const StudentEditPage = lazy(() => import('../features/joint-students/pages/admin/StudentEditPage'));
+export const ReportReviewPage = lazy(() => import('../features/joint-students/pages/admin/ReportReviewPage'));
+export const CycleManagementPage = lazy(() => import('../features/joint-students/pages/admin/CycleManagementPage'));
+export const StipendReviewPage = lazy(() => import('../features/joint-students/pages/admin/StipendReviewPage'));
+export const ExpertScoringPage = lazy(() => import('../features/joint-students/pages/expert/ExpertScoringPage'));
+export const MyReportsPage = lazy(() => import('../features/joint-students/pages/student/MyReportsPage'));
+export const MyStipendsPage = lazy(() => import('../features/joint-students/pages/student/MyStipendsPage'));
+export const MentorOverviewPage = lazy(() => import('../features/joint-students/pages/mentor/MentorOverviewPage'));

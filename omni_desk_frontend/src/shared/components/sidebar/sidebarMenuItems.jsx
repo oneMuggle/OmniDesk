@@ -4,6 +4,7 @@ import {
   CalendarOutlined,
   ClusterOutlined,
   CommentOutlined,
+  EditOutlined,
   ExperimentOutlined,
   FileTextOutlined,
   FileWordOutlined,
@@ -13,6 +14,7 @@ import {
   ProjectOutlined,
   RobotOutlined,
   SettingOutlined,
+  SolutionOutlined,
   SoundOutlined,
   UserOutlined,
 } from '@ant-design/icons';
@@ -85,6 +87,27 @@ export const createMenuItems = ({ logout, unreadNotificationCount }) => [
     ]
   },
   { to: "/control-panel", icon: SettingOutlined, text: "管理中心", permission: ["admin", "manager"] },
+  {
+    type: 'submenu',
+    text: '联培生管理',
+    icon: SolutionOutlined,
+    // permission=null 表示所有登录用户都能看到外层入口,具体子项按角色过滤
+    permission: null,
+    subItems: [
+      // 联培生管理员
+      { to: "/joint-students/admin/students", text: "联培生列表", permission: '联培生管理员' },
+      { to: "/joint-students/admin/reports", text: "月度报告审核", permission: '联培生管理员' },
+      { to: "/joint-students/admin/cycles", text: "考核批次", permission: '联培生管理员' },
+      { to: "/joint-students/admin/stipends", text: "补助复核", permission: '联培生管理员' },
+      // 专家
+      { to: "/joint-students/expert/scoring", icon: EditOutlined, text: "专家打分", permission: '考核专家组' },
+      // 联培生本人 / 导师:permission 均为 null(所有登录用户可见),
+      // 真实角色校验由 ProtectedRoute + 后端 PageRoute 权限承担
+      { to: "/joint-students/student/reports", text: "我的月度报告", permission: null },
+      { to: "/joint-students/student/stipends", text: "我的补助", permission: null },
+      { to: "/joint-students/mentor/overview", text: "我的联培生", permission: null },
+    ]
+  },
   { type: 'button', icon: LogoutOutlined, text: '退出登录', action: logout, permission: null },
 ];
 

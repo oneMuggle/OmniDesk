@@ -148,5 +148,70 @@
     "name": "账户绑定",
     "path": "/documents-library/account",
     "component": "LazyComponent"
+  },
+  {
+    "name": "联培生列表",
+    "path": "/joint-students/admin/students",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "联培生新增",
+    "path": "/joint-students/admin/students/new",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "联培生详情",
+    "path": "/joint-students/admin/students/:id",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "联培生编辑",
+    "path": "/joint-students/admin/students/:id/edit",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "月度报告审核",
+    "path": "/joint-students/admin/reports",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "考核批次管理",
+    "path": "/joint-students/admin/cycles",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "考核批次详情",
+    "path": "/joint-students/admin/cycles/:id",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "补助复核",
+    "path": "/joint-students/admin/stipends",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "专家打分",
+    "path": "/joint-students/expert/scoring",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "我的月度报告",
+    "path": "/joint-students/student/reports",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "新建月度报告",
+    "path": "/joint-students/student/reports/new",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "我的补助",
+    "path": "/joint-students/student/stipends",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "我的联培生",
+    "path": "/joint-students/mentor/overview",
+    "component": "LazyComponent"
   }
 ]

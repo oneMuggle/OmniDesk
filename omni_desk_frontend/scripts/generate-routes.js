@@ -44,13 +44,15 @@ function processRouteObject(routeObject, parentPath) {
 
         if (openingElement.name.name === 'ProtectedRoute') {
             const pageName = getAttributeValue(openingElement.attributes, 'pageName');
+            const permissionsPath = getAttributeValue(openingElement.attributes, 'permissions');
             const pagePath = getAttributeValue(openingElement.attributes, 'pagePath');
             const componentChild = jsxElement.children.find(child => child.type === 'JSXElement');
 
-            if (pageName && componentChild) {
+            if ((pageName || permissionsPath) && componentChild) {
                 const componentName = componentChild.openingElement.name.name;
-                
-                let routePath = pagePath;
+                const routePermission = permissionsPath || pagePath;
+
+                let routePath = routePermission;
                 if (!routePath) {
                     if (indexProp && indexProp.value.value === true) {
                         routePath = parentPath;
@@ -58,13 +60,13 @@ function processRouteObject(routeObject, parentPath) {
                         routePath = currentPath;
                     }
                 }
-                
+
                 if (!routePath.startsWith('/')) {
                     routePath = '/' + routePath;
                 }
 
                 protectedRoutes.push({
-                    name: pageName,
+                    name: pageName || routePath,
                     path: routePath,
                     component: componentName,
                 });
