@@ -44,6 +44,85 @@ class TestJointStudentAPI:
         resp = client.get("/api/joint-students/students/")
         assert resp.status_code == 200
 
+    def test_regular_user_only_sees_own_joint_student_scope(self):
+        user = create_user(username="student_scope")
+        user_personnel = create_personnel(name="本人")
+        user.personnel = user_personnel
+        user.save(update_fields=["personnel"])
+        own = create_joint_student(personnel=user_personnel)
+        create_joint_student(personnel=create_personnel(name="其他人"))
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.get("/api/joint-students/students/")
+
+        assert resp.status_code == 200
+        assert [item["id"] for item in resp.json()["results"]] == [own.id]
+
+    def test_mentor_only_sees_assigned_joint_students(self):
+        user = create_user(username="mentor_scope")
+        create_group("联培生导师", user)
+        mentor_personnel = create_personnel(name="导师")
+        user.personnel = mentor_personnel
+        user.save(update_fields=["personnel"])
+        assigned = create_joint_student(
+            personnel=create_personnel(name="名下学生"),
+            mentor=mentor_personnel,
+        )
+        create_joint_student(
+            personnel=create_personnel(name="其他学生"),
+            mentor=create_personnel(name="其他导师"),
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.get("/api/joint-students/students/")
+
+        assert resp.status_code == 200
+        assert [item["id"] for item in resp.json()["results"]] == [assigned.id]
+
+    def test_mentor_only_sees_assigned_reports(self):
+        user = create_user(username="mentor_report_scope")
+        create_group("联培生导师", user)
+        mentor_personnel = create_personnel(name="报告导师")
+        user.personnel = mentor_personnel
+        user.save(update_fields=["personnel"])
+        assigned = create_joint_student(
+            personnel=create_personnel(name="报告名下学生"),
+            mentor=mentor_personnel,
+        )
+        other = create_joint_student(
+            personnel=create_personnel(name="报告其他学生"),
+            mentor=create_personnel(name="报告其他导师"),
+        )
+        create_report(joint_student=assigned, year=2026, month=7)
+        create_report(joint_student=other, year=2026, month=7)
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.get("/api/joint-students/reports/")
+
+        assert resp.status_code == 200
+        assert [item["joint_student"] for item in resp.json()["results"]] == [assigned.id]
+
+    def test_non_mentor_user_without_group_cannot_see_mentor_scope(self):
+        """非联培生导师组的用户即使被设为 mentor 也不能读取名下学生数据。"""
+        user = create_user(username="plain_mentor_candidate")
+        mentor_personnel = create_personnel(name="平级用户")
+        user.personnel = mentor_personnel
+        user.save(update_fields=["personnel"])
+        create_joint_student(
+            personnel=create_personnel(name="未授权学生"),
+            mentor=mentor_personnel,
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.get("/api/joint-students/students/")
+
+        assert resp.status_code == 200
+        assert resp.json()["results"] == []
+
     def test_manager_can_create(self):
         manager = create_user(username="manager1")
         create_group("联培生管理员", manager)
@@ -86,6 +165,74 @@ class TestJointStudentAPI:
 class TestMonthlyReportAPI:
     """月度报告 submit 流转测试。"""
 
+    def test_unauthenticated_cannot_create_report(self):
+        js = create_joint_student()
+        client = APIClient()
+
+        resp = client.post(
+            "/api/joint-students/reports/",
+            {
+                "joint_student": js.id,
+                "year": 2026,
+                "month": 10,
+                "work_progress": "未授权提交",
+            "work_highlights": "亮点",
+            "attendance_days_actual": "22.0",
+            "attendance_days_expected": "22.0",
+            },
+            format="json",
+        )
+
+        assert resp.status_code == 401
+
+    def test_student_can_create_only_own_report(self):
+        user = create_user(username="report_owner")
+        personnel = create_personnel(name="报告本人")
+        user.personnel = personnel
+        user.save(update_fields=["personnel"])
+        own = create_joint_student(personnel=personnel)
+        other = create_joint_student(personnel=create_personnel(name="报告他人"))
+        client = APIClient()
+        client.force_authenticate(user)
+        payload = {
+            "joint_student": own.id,
+            "year": 2026,
+            "month": 10,
+            "work_progress": "本月进展",
+            "work_highlights": "亮点",
+            "attendance_days_actual": "22.0",
+            "attendance_days_expected": "22.0",
+        }
+
+        own_resp = client.post("/api/joint-students/reports/", payload, format="json")
+        other_resp = client.post(
+            "/api/joint-students/reports/",
+            {**payload, "joint_student": other.id},
+            format="json",
+        )
+
+        assert own_resp.status_code == 201
+        assert other_resp.status_code == 403
+
+    def test_student_cannot_rebind_report_to_other_student(self):
+        user = create_user(username="report_rebind")
+        personnel = create_personnel(name="报告归属人")
+        user.personnel = personnel
+        user.save(update_fields=["personnel"])
+        own = create_joint_student(personnel=personnel)
+        other = create_joint_student(personnel=create_personnel(name="报告被改绑人"))
+        report = create_report(joint_student=own)
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.patch(
+            f"/api/joint-students/reports/{report.id}/",
+            {"joint_student": other.id},
+            format="json",
+        )
+
+        assert resp.status_code == 400
+
     def test_student_can_submit_own_report(self):
         """联培生管理员代为提交草稿 → submitted。"""
         user = create_user(username="student1")
@@ -99,6 +246,22 @@ class TestMonthlyReportAPI:
         report.refresh_from_db()
         assert report.status == "submitted"
 
+    def test_student_cannot_approve_own_report(self):
+        user = create_user(username="report_submitter")
+        personnel = create_personnel(name="报告提交人")
+        user.personnel = personnel
+        user.save(update_fields=["personnel"])
+        report = create_report(
+            joint_student=create_joint_student(personnel=personnel),
+            status="submitted",
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.post(f"/api/joint-students/reports/{report.id}/approve/")
+
+        assert resp.status_code == 403
+
     def test_manager_can_approve_submitted_report(self):
         """submitted → approved。"""
         user = create_user(username="manager_approve")
@@ -111,6 +274,26 @@ class TestMonthlyReportAPI:
         assert resp.status_code == 200
         report.refresh_from_db()
         assert report.status == "approved"
+
+    def test_student_cannot_reject_own_report(self):
+        user = create_user(username="report_rejector")
+        personnel = create_personnel(name="报告驳回人")
+        user.personnel = personnel
+        user.save(update_fields=["personnel"])
+        report = create_report(
+            joint_student=create_joint_student(personnel=personnel),
+            status="submitted",
+        )
+        client = APIClient()
+        client.force_authenticate(user)
+
+        resp = client.post(
+            f"/api/joint-students/reports/{report.id}/reject/",
+            {"reviewer_comment": "自行驳回"},
+            format="json",
+        )
+
+        assert resp.status_code == 403
 
     def test_manager_can_reject_submitted_report(self):
         """submitted → rejected (必须传 reviewer_comment)。"""

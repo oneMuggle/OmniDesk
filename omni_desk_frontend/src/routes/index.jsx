@@ -407,55 +407,55 @@ const router = createBrowserRouter([
       // 联培生模块(4 角色 13 路由)
       {
         path: "joint-students/admin/students",
-        element: <ProtectedRoute pageName="联培生列表"><LazyComponent component={StudentListPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/students"><LazyComponent component={StudentListPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/new",
-        element: <ProtectedRoute pageName="联培生新增"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/students/new"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/:id",
-        element: <ProtectedRoute pageName="联培生详情"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/:id/edit",
-        element: <ProtectedRoute pageName="联培生编辑"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/reports",
-        element: <ProtectedRoute pageName="月度报告审核"><LazyComponent component={ReportReviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/reports"><LazyComponent component={ReportReviewPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/cycles",
-        element: <ProtectedRoute pageName="考核批次管理"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/cycles"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/cycles/:id",
-        element: <ProtectedRoute pageName="考核批次详情"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/cycles/:id"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/stipends",
-        element: <ProtectedRoute pageName="补助复核"><LazyComponent component={StipendReviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/admin/stipends"><LazyComponent component={StipendReviewPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/expert/scoring",
-        element: <ProtectedRoute pageName="专家打分"><LazyComponent component={ExpertScoringPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/expert/scoring"><LazyComponent component={ExpertScoringPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/reports",
-        element: <ProtectedRoute pageName="我的月度报告"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/student/reports"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/reports/new",
-        element: <ProtectedRoute pageName="新建月度报告"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/student/reports/new"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/stipends",
-        element: <ProtectedRoute pageName="我的补助"><LazyComponent component={MyStipendsPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/student/stipends"><LazyComponent component={MyStipendsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/mentor/overview",
-        element: <ProtectedRoute pageName="我的联培生"><LazyComponent component={MentorOverviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute permissions="/joint-students/mentor/overview"><LazyComponent component={MentorOverviewPage} /></ProtectedRoute>
       },
       {
         path: "*",

@@ -4,6 +4,7 @@ from rest_framework.permissions import SAFE_METHODS, BasePermission
 
 MANAGER_GROUP = "联培生管理员"
 EXPERT_GROUP = "考核专家组"
+MENTOR_GROUP = "联培生导师"
 
 
 class IsJointStudentManager(BasePermission):
@@ -29,6 +30,9 @@ class IsExpertGroupMember(BasePermission):
 class IsJointStudentSelfOrManager(BasePermission):
     """联培生自己或联培生管理员。"""
 
+    def has_permission(self, request, view):
+        return bool(request.user and request.user.is_authenticated)
+
     def has_object_permission(self, request, view, obj):
         if not request.user or not request.user.is_authenticated:
             return False
@@ -38,3 +42,14 @@ class IsJointStudentSelfOrManager(BasePermission):
             return True
         owner = getattr(obj.joint_student.personnel, "user_account", None)
         return owner == request.user
+
+
+def user_is_mentor(user) -> bool:
+    """当前用户是否属于"联培生导师"组。"""
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    if user.groups.filter(name=MANAGER_GROUP).exists():
+        return True
+    return user.groups.filter(name=MENTOR_GROUP).exists()

@@ -16,9 +16,11 @@ from joint_students.models import (
     StipendRecord,
 )
 from joint_students.permissions import (
+    MANAGER_GROUP,
     IsExpertGroupMember,
     IsJointStudentManager,
     IsJointStudentSelfOrManager,
+    user_is_mentor,
 )
 from joint_students.serializers import (
     AssessmentCycleSerializer,
@@ -43,15 +45,34 @@ def _own_joint_student_ids(user):
     return list(JointStudent.objects.filter(personnel__user_account=user).values_list("id", flat=True))
 
 
+def _mentor_joint_student_ids(user):
+    """返回该 user 作为导师时名下的 JointStudent id 列表。"""
+    return list(JointStudent.objects.filter(mentor__user_account=user).values_list("id", flat=True))
+
+
+def _user_can_see_all_students(user) -> bool:
+    """联培生管理员 / superuser 可见全部联培生。"""
+    if not user or not user.is_authenticated:
+        return False
+    return user.is_superuser or user.groups.filter(name=MANAGER_GROUP).exists()
+
+
 class JointStudentViewSet(viewsets.ModelViewSet):
-    """联培生 CRUD (联培生管理员 only)。
+    """联培生 CRUD (管理员写入,本人/导师按关联范围读取)。"""
 
-    任何已登录用户可读(简化),只有联培生管理员可 create/update/delete。
-    """
-
-    queryset = JointStudent.objects.select_related("personnel", "mentor").all()
+    queryset = JointStudent.objects.select_related("personnel", "mentor").order_by("id")
     serializer_class = JointStudentSerializer
     permission_classes = [IsJointStudentManager]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        user = self.request.user
+        if _user_can_see_all_students(user):
+            return qs
+        scoped_ids = set(_own_joint_student_ids(user))
+        if user_is_mentor(user):
+            scoped_ids |= set(_mentor_joint_student_ids(user))
+        return qs.filter(id__in=scoped_ids)
 
     @action(detail=True, methods=["post"])
     def graduate(self, request, pk=None):
@@ -71,14 +92,45 @@ class MonthlyReportViewSet(viewsets.ModelViewSet):
 
     serializer_class = MonthlyReportSerializer
     permission_classes = [IsJointStudentSelfOrManager]
+    http_method_names = ["get", "post", "patch", "head", "options"]
 
     def get_queryset(self):
         qs = MonthlyReport.objects.select_related("joint_student__personnel").all()
         user = self.request.user
         if _user_can_see_all_reports(user):
             return qs
-        own_ids = _own_joint_student_ids(user)
-        return qs.filter(joint_student_id__in=own_ids)
+        scoped_ids = set(_own_joint_student_ids(user))
+        if user_is_mentor(user):
+            scoped_ids |= set(_mentor_joint_student_ids(user))
+        return qs.filter(joint_student_id__in=scoped_ids)
+
+    def perform_create(self, serializer):
+        """仅管理员或报告所属联培生本人可创建报告。"""
+        joint_student = serializer.validated_data["joint_student"]
+        user = self.request.user
+        if not _user_can_see_all_reports(user):
+            owner = getattr(joint_student.personnel, "user_account", None)
+            if owner != user:
+                from rest_framework.exceptions import PermissionDenied
+
+                raise PermissionDenied("只能创建本人报告")
+        serializer.save()
+
+    def perform_update(self, serializer):
+        """普通报告接口不允许修改报告归属或终态内容。"""
+        instance = getattr(self, "get_object", lambda: None)()
+        if instance and instance.status in (
+            MonthlyReport.STATUS_APPROVED,
+            MonthlyReport.STATUS_REJECTED,
+        ):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("已审核报告不可修改")
+        if "joint_student" in self.request.data:
+            from rest_framework.exceptions import ValidationError
+
+            raise ValidationError({"joint_student": "报告归属不可修改"})
+        serializer.save()
 
     @action(detail=True, methods=["post"])
     def submit(self, request, pk=None):
@@ -97,6 +149,10 @@ class MonthlyReportViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def approve(self, request, pk=None):
         """联培生管理员通过 (submitted → approved)。"""
+        if not _user_can_see_all_reports(request.user):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("仅联培生管理员可审核")
         report = self.get_object()
         if report.status != MonthlyReport.STATUS_SUBMITTED:
             return Response(
@@ -112,6 +168,10 @@ class MonthlyReportViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["post"])
     def reject(self, request, pk=None):
         """联培生管理员驳回 (submitted → rejected)。需 reviewer_comment。"""
+        if not _user_can_see_all_reports(request.user):
+            from rest_framework.exceptions import PermissionDenied
+
+            raise PermissionDenied("仅联培生管理员可审核")
         report = self.get_object()
         if report.status != MonthlyReport.STATUS_SUBMITTED:
             return Response(
