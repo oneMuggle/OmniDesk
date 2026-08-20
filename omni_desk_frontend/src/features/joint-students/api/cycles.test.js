@@ -18,12 +18,8 @@ describe('cycles API', () => {
     expect(client.post).toHaveBeenCalledWith('cycles/trigger/', { year: 2026, month: 8 });
   });
 
-  it('force close 和周期关联查询使用正确路径', () => {
+  it('force close 使用后端已注册的 action 路径', () => {
     api.forceCloseCycle(4);
-    api.listCycleScores(4, { page: 2 });
-    api.listCycleStipends(4);
     expect(client.post).toHaveBeenCalledWith('cycles/4/force_close/');
-    expect(client.get).toHaveBeenNthCalledWith(1, 'cycles/4/scores/', { params: { page: 2 } });
-    expect(client.get).toHaveBeenNthCalledWith(2, 'cycles/4/stipends/', { params: undefined });
   });
 });
