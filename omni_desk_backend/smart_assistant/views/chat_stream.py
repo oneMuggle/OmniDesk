@@ -1,13 +1,18 @@
 """流式聊天路径编排(SSE)——从 views/chat.py 拆分。
 
-职责:stream 入口(serializer 校验 → 附件 → 会话加载 → setup → StreamingHttpResponse)
+职责:stream 入口(前置上下文 → setup → StreamingHttpResponse)
 与 SSE 生成器(消费 process_stream → 失败收口 → 流式持久化 → AgentLog → session 事件)。
 
 与 create 路径的关键语义差异(plan §3.4,两套持久化不强行合并):
-- 无效会话 id 不返回 404:``load_session`` 返回 (None, None) 后继续流式,
-  无效 cid 的兜底在持久化分支二次 get(捕获 DoesNotExist → (None, None))。
+- 无效会话 id 不返回 404:``prepare_chat_context(require_session=False)``
+  静默继续(session=None),无效 cid 的兜底在持久化分支二次 get
+  (捕获 DoesNotExist → (None, None))。
 - 持久化走 ``_persist_stream_session``(新建会话带 last_error='' 防御),与
   create 版 ``persist_success``(无 last_error 防御)语义有差异。
+
+R5-D3:前置段(serializer 校验 → 附件抽取 → 会话加载 → ToolContext 构造 →
+附件注入)收敛为 ``prepare_chat_context`` 单次调用(require_session=False
+表达 stream 的"无效会话不 404"语义)。
 """
 
 import json
@@ -15,8 +20,6 @@ import time
 
 from django.http import StreamingHttpResponse
 from observability import get_logger
-from rest_framework import status
-from rest_framework.response import Response
 
 from ..agent.conversation_context import (
     FAILED_ANSWER_STREAM_PREFIX,
@@ -32,11 +35,8 @@ from ..agent.orchestrator import (
     sse_event,
 )
 from ..models import AgentLog, SmartAssistantSession
-from ..scope import resolve_scope
-from ..serializers import SmartChatRequestSerializer
-from ..tools.tool_context import ToolContext
 
-from .conversation_manager import extract_attachment, inject_attachment, load_session
+from .conversation_manager import prepare_chat_context
 
 logger = get_logger(__name__, "smart_assistant")
 
@@ -44,35 +44,18 @@ logger = get_logger(__name__, "smart_assistant")
 def handle_stream_chat(viewset, request) -> StreamingHttpResponse:
     """POST /api/smart-assistant/chat/stream/ 流式路径主体(SSE)。
 
-    ``viewset`` 参数仅用于与 Task 4 委托的调用点保持兼容,本函数内不使用
-    (附件/会话加载均走 ``conversation_manager`` 纯函数版本)。
+    ``viewset`` 参数仅用于与 Task 4 委托的调用点保持兼容,本函数内不使用。
     """
-    serializer = SmartChatRequestSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    query = serializer.validated_data["query"]
-    conversation_id = serializer.validated_data.get("conversation_id")
-
-    # 附件抽取(同 create 路径)
-    doc_dict, err_resp = extract_attachment(request)
-    if err_resp:
-        return err_resp
-
-    # 无效会话 id 不返回 404(stream 语义):load_session 返回 (None, None)
-    # 后继续流式;无效 cid 的兜底在持久化分支二次 get 处处理。
-    session, conversation_history = load_session(request.user, conversation_id)
+    query, tool_context, conversation_history, session, conversation_id, err = prepare_chat_context(
+        request,
+        # stream 语义:无效会话 id 不返回 404,静默继续流式
+        require_session=False,
+    )
+    if err is not None:
+        return err[0]
 
     start_time = time.time()
     orchestrator = AgentOrchestrator()
-    tool_context = ToolContext(
-        user=request.user,
-        scope=resolve_scope(request.user),
-        attachment=doc_dict,
-    )
-    # 附件注入历史
-    if doc_dict:
-        conversation_history = inject_attachment(conversation_history, doc_dict, conversation_id)
 
     return StreamingHttpResponse(
         _event_stream_generator(

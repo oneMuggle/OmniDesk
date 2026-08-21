@@ -1,13 +1,16 @@
 """同步聊天路径编排(create 主体)——从 views/chat.py 拆分。
 
-职责:同步 create 的完整编排(serializer 校验 → 附件 → confirm-replay →
+职责:同步 create 的完整编排(前置上下文 → confirm-replay →
 编排执行 → 持久化 → AgentLog → payload),独立成模块以把 chat.py 的
 create 路径 C901 复杂度降至 <10。
 
-纯函数依赖复用 ``conversation_manager``(附件/会话/持久化),本模块不持有
-ViewSet 状态;``handle_sync_chat`` 的 ``viewset`` 参数仅为与 Task 4 委托
-(原 ``self._extract_attachment`` / ``self._inject_attachment`` 调用点)保持
-兼容而保留,内部不直接使用。
+纯函数依赖复用 ``conversation_manager``(前置上下文/附件/会话/持久化),
+本模块不持有 ViewSet 状态;``handle_sync_chat`` 的 ``viewset`` 参数仅为与
+Task 4 委托保持兼容而保留,内部不直接使用。
+
+R5-D3:前置段(serializer 校验 → 附件抽取 → 会话加载 → ToolContext 构造 →
+附件注入)收敛为 ``prepare_chat_context`` 单次调用;confirm-replay 分支经
+``short_circuit`` 回调表达,保持"确认请求在会话加载前短路、绝不 404"的原语义。
 """
 
 import time
@@ -20,16 +23,11 @@ from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_e
 from ..cache import clear_confirmation_draft, get_confirmation_draft
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
-from ..scope import resolve_scope
-from ..serializers import SmartChatRequestSerializer
 from ..tools.registry import ToolRegistry
-from ..tools.tool_context import ToolContext
 
 from .conversation_manager import (
-    extract_attachment,
-    inject_attachment,
-    load_session,
     persist_success,
+    prepare_chat_context,
     resolve_error,
     usage_fields,
 )
@@ -40,50 +38,19 @@ logger = get_logger(__name__, "smart_assistant")
 def handle_sync_chat(viewset, request) -> Response:
     """POST /api/smart-assistant/chat/ 同步路径主体(create 编排)。
 
-    ``viewset`` 参数仅用于与 Task 4 委托的调用点保持兼容,本函数内不使用
-    (附件/会话/持久化均走 ``conversation_manager`` 纯函数版本)。
+    ``viewset`` 参数仅用于与 Task 4 委托的调用点保持兼容,本函数内不使用。
     """
-    serializer = SmartChatRequestSerializer(data=request.data)
-    if not serializer.is_valid():
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-
-    query = serializer.validated_data["query"]
-    conversation_id = serializer.validated_data.get("conversation_id")
-    confirm_token = (serializer.validated_data.get("confirm_token") or "").strip()
-
-    # === 附件抽取:无论是否 confirm-replay 都要先处理(让 confirm 路径
-    # 也能看到附件上下文;若确认时无附件,doc_dict 保持 None) ===
-    doc_dict, err_resp = extract_attachment(request)
-    if err_resp:
-        return err_resp
-
-    # === confirm-replay:replay 路径(跳过 orchestrator,直接执行工具) ===
-    if confirm_token:
-        return _handle_confirm_replay(request, confirm_token)
-    # === replay 路径结束 ===
+    query, tool_context, conversation_history, session, conversation_id, err = prepare_chat_context(
+        request,
+        require_session=True,
+        # confirm-replay 在会话加载前短路(原语义:确认请求绝不因无效
+        # conversation_id 返回 404)
+        short_circuit=lambda validated: _handle_confirm_replay(request, (validated.get("confirm_token") or "").strip()),
+    )
+    if err is not None:
+        return err[0]
 
     orchestrator = AgentOrchestrator()
-
-    session, conversation_history = load_session(request.user, conversation_id)
-    if conversation_id and session is None:
-        # P0-W:不再静默吞掉无效会话 id —— 避免客户端误以为仍在原上下文中,
-        # 实际上却悄悄开了新会话(由 Task 1 review 强化,防 persist_success
-        # 静默新建会话)
-        logger.warning(
-            "会话不存在或不属于当前用户: conversation_id=%s user_id=%s",
-            conversation_id,
-            request.user.id,
-        )
-        return Response({"detail": "session not found"}, status=status.HTTP_404_NOT_FOUND)
-
-    tool_context = ToolContext(
-        user=request.user,
-        scope=resolve_scope(request.user),
-        attachment=doc_dict,
-    )
-    # 附件注入历史(在 build_effective_history 之后,确保 system 消息排在最前)
-    if doc_dict:
-        conversation_history = inject_attachment(conversation_history, doc_dict, conversation_id)
 
     result, response_time_ms, err_response = _run_sync_process(
         orchestrator,
@@ -125,12 +92,17 @@ def handle_sync_chat(viewset, request) -> Response:
     return _build_sync_payload(result, log, conversation_id, error)
 
 
-def _handle_confirm_replay(request, confirm_token) -> Response:
+def _handle_confirm_replay(request, confirm_token) -> Response | None:
     """confirm-replay 子流程:校验 draft / 用户归属 / 工具注册后直接执行工具。
 
-    前端带 confirm_token 二次请求 → 视图层直接执行工具,不走 orchestrator
-    (orchestrator 已在首次请求时把 draft 存到短期缓存,这里只 replay)。
+    作为 ``prepare_chat_context`` 的 ``short_circuit`` 回调在会话加载之前调用
+    —— 原 sync 语义:前端带 confirm_token 二次请求时跳过 orchestrator 与会话
+    加载(orchestrator 已在首次请求时把 draft 存到短期缓存,这里只 replay);
+    ``confirm_token`` 为空返回 None,走正常编排路径。
     """
+    if not confirm_token:
+        return None
+
     draft_entry = get_confirmation_draft(confirm_token)
     if not draft_entry:
         return Response(
