@@ -162,7 +162,7 @@ jobs:
         # --ignore-scripts:纯锁文件重解析,不执行任何包生命周期脚本。
         # ⚠️ 锁文件元数据与 npm 大版本耦合(如 npm 10 不写 "libc" 字段、npm 11 写):
         #    本地生成锁文件须用与 CI 相同的 Node 20(npm 10),否则纯元数据抖动
-        #    会触发本门禁误报。2026-08 已归一化去除全部 libc 条目(commit 8e37a280)。
+        #    会触发本门禁误报。2026-08 已归一化去除全部 libc 条目(commit 093f206b)。
         run: |
           npm install --package-lock-only --ignore-scripts
           if ! git diff --exit-code -- package.json package-lock.json; then
