@@ -149,9 +149,31 @@ jobs:
           cache-dependency-path: omni_desk_frontend/package-lock.json
       - name: Install dependencies
         run: npm ci
+      # ─── Lockfile drift gate (R5-C1) ───
+      # 与后端 check-lockfiles job 同思路:防止绕过审计的依赖改动直接进 main。
+      - name: Verify dependency tree consistency
+        # npm ci 只校验"锁与清单一致",不保证依赖树本身完整(npm ls 才查 peer/missing)
+        run: npm ls --depth=0
+      - name: Check lockfile drift
+        # 注意不能用 --dry-run:dry-run 不落盘,diff 永远空,门禁失效(本地已实测)。
+        # 无 --dry-run 时把 package.json 当前状态重解析进锁文件,再 diff:
+        #   清单与锁漂移 -> 锁文件被改写 -> git diff 非 0 -> 红灯。
+        # 实测还能捕获 npm ci 静默通过的 spec 范围漂移(如 18.3.1 -> ~18.3.1)。
+        # --ignore-scripts:纯锁文件重解析,不执行任何包生命周期脚本。
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          if ! git diff --exit-code -- package.json package-lock.json; then
+            echo "❌ package.json 与 package-lock.json 漂移(或清单改动未同步锁文件)"
+            echo "   修复:npm install 后一并提交两份文件"
+            exit 1
+          fi
       - name: Run ESLint
         run: npm run lint
       - name: Run npm audit (block on high severity)
+        # 阈值裁定(R5-C1):曾评估收紧到 moderate,但当前依赖树存在 2 个 moderate
+        # (react-router GHSA-wrjc-x8rr-h8h6 / GHSA-337j-9hxr-rhxg,npm audit fix 可修),
+        # 收紧会立即红灯。按 brief 裁定 CI 必须保持绿,漏洞修复走独立任务,
+        # 故保留 high;修复落地后再收紧。
         run: |
           output=$(npm audit --json --audit-level=high 2>&1) || true
           high_count=$(echo "$output" | jq '.metadata.vulnerabilities.high // 0')
