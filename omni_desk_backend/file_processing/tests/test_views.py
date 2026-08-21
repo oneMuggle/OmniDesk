@@ -1,6 +1,8 @@
 import pytest
 from unittest.mock import patch, MagicMock
+from django.conf import settings
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import override_settings
 from rest_framework.test import APIClient
 from rest_framework import status
 from file_processing.models import UploadedFile, ProcessingResult
@@ -91,6 +93,52 @@ class TestFileUploadAPI:
         client = _auth_client(user)
         response = client.post('/api/file/upload/', {}, format='multipart')
         assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+class TestUploadThrottle:
+    """R5-A3: upload 端点限流(10/h/user)。"""
+
+    def _upload(self, client):
+        file_content = _read_fixture()
+        file = SimpleUploadedFile(
+            "test.xlsx", file_content,
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        return client.post('/api/file/upload/', {'file': file}, format='multipart')
+
+    @patch('file_processing.views.process_file_task')
+    @pytest.mark.django_db
+    def test_upload_throttled_after_limit(self, mock_task):
+        mock_task.delay = MagicMock()
+        user = _create_user()
+        client = _auth_client(user)
+
+        from file_processing.throttles import UploadRateThrottle
+
+        # DRF 的 SimpleRateThrottle.__init__ 缓存了 THROTTLE_RATES dict 引用,
+        # override_settings 替换整个 REST_FRAMEWORK 无效;改类属性让 get_rate 生效。
+        original_rates = dict(UploadRateThrottle.THROTTLE_RATES)
+        UploadRateThrottle.THROTTLE_RATES['upload'] = '3/min'
+        try:
+            statuses = [self._upload(client).status_code for _ in range(4)]
+        finally:
+            UploadRateThrottle.THROTTLE_RATES.clear()
+            UploadRateThrottle.THROTTLE_RATES.update(original_rates)
+            from django.core.cache import cache
+            cache.clear()
+
+        assert statuses[:3] == [status.HTTP_201_CREATED] * 3
+        assert statuses[3] == status.HTTP_429_TOO_MANY_REQUESTS
+
+    @patch('file_processing.views.process_file_task')
+    @pytest.mark.django_db
+    def test_upload_no_throttle_by_default_in_tests(self, mock_task):
+        """默认测试配置下不应误触发限流(避免既有测试 flaky)。"""
+        mock_task.delay = MagicMock()
+        user = _create_user()
+        client = _auth_client(user)
+        response = self._upload(client)
+        assert response.status_code == status.HTTP_201_CREATED
 
 
 # =============================================================================

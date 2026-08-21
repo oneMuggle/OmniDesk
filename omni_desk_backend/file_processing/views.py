@@ -14,6 +14,7 @@ from .serializers import UploadedFileSerializer
 from .tasks import process_file_task
 from .ai.summarizer import DataSummarizer
 from .ai.query import NaturalLanguageQuery
+from .throttles import UploadRateThrottle
 
 
 # 支持的文件大小限制（10MB）
@@ -40,7 +41,7 @@ class FileProcessingViewSet(viewsets.ModelViewSet):
         """只返回当前用户的文件"""
         return UploadedFile.objects.filter(user=self.request.user)
 
-    @action(detail=False, methods=["post"])
+    @action(detail=False, methods=["post"], throttle_classes=[UploadRateThrottle])
     def upload(self, request):
         """上传文件"""
         file = request.FILES.get("file")
