@@ -114,16 +114,15 @@ round1~round4 + pre-deploy-hardening 已完成:
 ## 4. 状态追踪
 
 ### 已合并
-_(暂无 — 本轮为调研产物,尚未启动实施)_
+- [x] R5-A1 `.env` 凭据外移(PR #393,含 dev 锁文件 ruff 0.16.4 同批升级)
+- [x] R5-A2 游客账号 expiry(PR #396,`guest_until` 字段 + 24h TTL + 清理任务改造)
+- [x] R5-A3 写接口 throttle(PR #397,upload 10/h/user + 中间件扩展 `/api/file/`;guest_create 经核实已有 django-ratelimit 覆盖,`/api/smart-assistant/tools/` 路由不存在,均按实况修正)
+- [x] R5-A4 AuditLogEntry 推广(PR #398,category 字段 + 组/权限写操作审计)
 
 ### 进行中
 _(暂无)_
 
 ### 调研产物本轮未启动
-- [ ] R5-A1 `.env` 凭据外移
-- [ ] R5-A2 游客账号 expiry
-- [ ] R5-A3 写接口 throttle
-- [ ] R5-A4 AuditLogEntry 推广
 - [ ] R5-B1 UserPermissionView 缓存
 - [ ] R5-B2 MeetingRoomBooking 嵌套 N+1
 - [ ] R5-B3 dashboard_stats 5 SQL 合并
