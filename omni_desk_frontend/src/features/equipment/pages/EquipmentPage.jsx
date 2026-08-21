@@ -1,32 +1,43 @@
 import React, { useState, useEffect } from 'react';
 import { Button, Table, Modal, Form, Input, message } from 'antd';
-import { 
+import {
   getEquipment,
   createEquipment,
   updateEquipment,
   deleteEquipment
 } from '../api/equipment';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
 import '../../../shared/pages/EquipmentPage.css';
 
+const EQUIPMENTS_QUERY_KEY = ['equipments'];
+
+// 与原实现等价的错误提示(getEquipment 抛出的对象可能携带后端 message)
+const showLoadError = (error) => {
+  message.error(error?.message || '获取设备列表失败');
+};
+
 const EquipmentPage = () => {
-  const [equipmentList, setEquipmentList] = useState([]);
   const [form] = Form.useForm();
   const [modalVisible, setModalVisible] = useState(false);
   const [editingEquipment, setEditingEquipment] = useState(null);
+  const queryClient = useQueryClient();
 
-  const loadEquipment = React.useCallback(async () => {
-    try {
-      const response = await getEquipment();
-      setEquipmentList(response.data);
-    } catch (error) {
-      message.error(error.message || '获取设备列表失败');
-    }
-  }, []);
+  // getEquipment 内部已做分页收口,直接返回 data 数组
+  const equipmentsQuery = useCrudQuery(EQUIPMENTS_QUERY_KEY, async () => {
+    const response = await getEquipment();
+    return response.data;
+  }, { errorMessage: null });
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    loadEquipment();
-  }, [loadEquipment]);
+    if (equipmentsQuery.isError && equipmentsQuery.error) {
+      showLoadError(equipmentsQuery.error);
+    }
+  }, [equipmentsQuery.isError, equipmentsQuery.error]);
+
+  const equipmentList = equipmentsQuery.data ?? [];
+
+  const loadEquipment = () => queryClient.invalidateQueries({ queryKey: EQUIPMENTS_QUERY_KEY });
 
   const handleSubmit = async (values) => {
     try {
@@ -94,9 +105,9 @@ const EquipmentPage = () => {
         </Button>
       </div>
 
-      <Table 
-        dataSource={equipmentList} 
-        columns={columns} 
+      <Table
+        dataSource={equipmentList}
+        columns={columns}
         rowKey="id"
         bordered
         pagination={{ pageSize: 8 }}

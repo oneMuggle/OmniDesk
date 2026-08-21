@@ -1,12 +1,12 @@
 import apiClient from '../../../shared/api/apiClient';
-import { handleError } from '../../../shared/api/responseHandler';
+import { extractResults, handleError } from '../../../shared/api/responseHandler';
 
 export const holidayApi = {
   getHolidays: async (year) => {
     try {
       const params = year ? { year } : {};
       const response = await apiClient.get('events/holidays/', { params });
-      return response.data.results || [];
+      return extractResults(response.data);
     } catch (error) {
       handleError(error);
       throw error;

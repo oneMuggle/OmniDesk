@@ -1,6 +1,20 @@
 import { message } from 'antd'; // 引入 Ant Design 的 message 组件
 import { logger } from '../utils/logger';
 
+/**
+ * 从分页/非分页两种响应形态提取列表(R5-D6)。
+ * 处理 {results, count}(DRF 分页)与裸数组两种形态;异常输入(null/undefined/
+ * 非对象/results 非数组/无 results 键的普通对象)统一返回 [],调用方无需再写
+ * `res.data.results || []` 兜底。
+ */
+export const extractResults = (data: unknown): unknown[] => {
+    if (Array.isArray(data)) return data;
+    if (data === null || typeof data !== 'object') return [];
+    const results = (data as Record<string, unknown>).results;
+    if (!Array.isArray(results)) return [];
+    return results;
+};
+
 // 描述 axios / 业务代码可能挂在错误对象上的运行时字段
 interface ErrorWithExtras extends Error {
     response?: {

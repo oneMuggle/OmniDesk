@@ -1,38 +1,41 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Table, Button, Modal, Form, Input, Switch, InputNumber, Select,
   message, Popconfirm, Typography, Space, Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { useQueryClient } from '@tanstack/react-query';
 import {
   fetchExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink,
 } from '../api/externalLinksApi';
+import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
 
 const { Title } = Typography;
 
 const CATEGORIES = ['开发工具', 'CI/CD', '文档管理', '云服务', '其他'];
 
+const EXTERNAL_LINKS_QUERY_KEY = ['external-links'];
+
 const ExternalLinkManagementPage = () => {
-  const [links, setLinks] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingLink, setEditingLink] = useState(null);
   const [form] = Form.useForm();
+  const queryClient = useQueryClient();
 
-  useEffect(() => { loadLinks(); }, []);
-
-  const loadLinks = async () => {
-    setLoading(true);
-    try {
+  // fetchExternalLinks 返回分组数组,扁平化在 queryFn 内完成
+  const linksQuery = useCrudQuery(
+    EXTERNAL_LINKS_QUERY_KEY,
+    async () => {
       const data = await fetchExternalLinks();
-      const flat = data.flatMap((g) => g.links);
-      setLinks(flat);
-    } catch {
-      message.error('加载外链列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return data.flatMap((g) => g.links);
+    },
+    { errorMessage: '加载外链列表失败' }
+  );
+  const links = linksQuery.data ?? [];
+  const loading = linksQuery.isLoading;
+
+  // 增删改后刷新列表(等价原手动 loadLinks)
+  const loadLinks = () => queryClient.invalidateQueries({ queryKey: EXTERNAL_LINKS_QUERY_KEY });
 
   const openCreateModal = () => {
     setEditingLink(null);
