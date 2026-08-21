@@ -1,6 +1,7 @@
 import logging
 
 from django.contrib.auth.models import Group, Permission
+from django.core.cache import cache
 from rest_framework import status, viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -9,6 +10,7 @@ from rest_framework.views import APIView
 from users.models import AuditLogEntry
 from users.permissions import IsAdminOrReadOnly
 
+from .cache import MENU_CACHE_TIMEOUT
 from .models import GroupPagePermission, PageRoute
 from .serializers import (
     GroupSerializer,
@@ -130,6 +132,13 @@ class UserPermissionView(APIView):
 
     def get(self, request):
         user = request.user
+        # 最高频读接口(前端每次路由切换触发),整树缓存 5 分钟;
+        # GroupPagePermission / PageRoute / user.groups 变更由 signals.py 即时失效
+        cache_key = f"user_menu_{user.pk}"
+        data = cache.get(cache_key)
+        if data is not None:
+            return Response(data)
+
         # 一次取全表构建 children 映射,避免 PageRouteSerializer 递归 get_children 的逐节点 N+1
         all_routes = list(PageRoute.objects.all().order_by("id"))
         children_map = build_page_route_children_map(all_routes)
@@ -142,6 +151,7 @@ class UserPermissionView(APIView):
             pages = PageRoute.objects.filter(id__in=page_ids)
 
         data = [build_page_route_node(page, children_map) for page in pages]
+        cache.set(cache_key, data, MENU_CACHE_TIMEOUT)
         return Response(data)
 
 

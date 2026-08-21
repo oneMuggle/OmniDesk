@@ -9,6 +9,9 @@ class PermissionsConfig(AppConfig):
     name = "permissions"
 
     def ready(self):
+        # R5-B1: 注册菜单缓存失效信号(GroupPagePermission / PageRoute / user.groups)
+        from . import signals  # noqa: F401
+
         # Only run this when running the development server
         if "runserver" in sys.argv:
             sys.stdout.write("Running initial route synchronization...\n")
