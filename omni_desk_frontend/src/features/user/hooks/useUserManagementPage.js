@@ -3,64 +3,57 @@
  *
  * 由 UserManagementPage.jsx 拆分而来,承接用户/用户组/人员数据加载与更新:
  * 列表数据获取、用户组与人员关联更新。
+ * R5-D6:数据来源切换为 useCrudQuery(React Query),增删改后的手动刷新
+ * 换为 invalidateQueries;对外返回接口保持不变。
  */
-import { useEffect, useState } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import userManagementApi from '../api/userManagementApi';
 import { getAllPersonnel } from '../../personnel/api/personnelApi';
 import { permissionsApi } from '../../../shared/api/permissionsApi';
 import { useAuth } from '../../auth/context/AuthContext';
-import { logger } from '../../../shared/utils/logger';
+import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
+
+// 与原实现等价的错误文案(useCrudQuery 默认文案不同,故逐项显式指定)
+const USERS_ERROR = '获取用户列表失败';
+const GROUPS_ERROR = '获取用户组列表失败';
+const PERSONNEL_ERROR = '获取人员数据失败';
+
+const usersFetcher = async () => {
+    const res = await userManagementApi.getAllUsers();
+    return res.data;
+};
+
+const groupsFetcher = async () => {
+    const res = await permissionsApi.getGroups();
+    return res.data;
+};
+
+const personnelFetcher = async () => {
+    const response = await getAllPersonnel();
+    return response.data;
+};
 
 const useUserManagementPage = () => {
     const { user: currentUser } = useAuth();
-    const [users, setUsers] = useState([]);
-    const [groups, setGroups] = useState([]);
-    const [personnel, setPersonnel] = useState([]);
-    const [loading, setLoading] = useState(true);
+    const queryClient = useQueryClient();
 
-    const fetchUsers = async () => {
-        try {
-            const res = await userManagementApi.getAllUsers();
-            setUsers(res.data.results || []);
-        } catch (error) {
-            message.error('获取用户列表失败');
-        }
-    };
+    const usersQuery = useCrudQuery(['user-management', 'users'], usersFetcher, {
+        errorMessage: USERS_ERROR,
+    });
+    const groupsQuery = useCrudQuery(['user-management', 'groups'], groupsFetcher, {
+        errorMessage: GROUPS_ERROR,
+    });
+    const personnelQuery = useCrudQuery(['user-management', 'personnel'], personnelFetcher, {
+        errorMessage: PERSONNEL_ERROR,
+    });
 
-    const fetchGroups = async () => {
-        try {
-            const res = await permissionsApi.getGroups();
-            setGroups(res.data.results || []);
-        } catch (error) {
-            message.error('获取用户组列表失败');
-        }
-    };
+    // 列表刷新(增删改后调用),等价于原手动 fetchUsers/fetchGroups/fetchPersonnel
+    const invalidateList = (key) => queryClient.invalidateQueries({ queryKey: key });
 
-    const fetchPersonnel = async () => {
-        try {
-            const response = await getAllPersonnel();
-            setPersonnel(response.data.results || []);
-        } catch (error) {
-            message.error('获取人员数据失败');
-        }
-    };
-
-    // 初始加载:同步触发 loading 态(既有逻辑,自拆分前原文件逐字保留;
-    // react-hooks/set-state-in-effect 规则新启用,行为优化留待后续)
-    useEffect(() => {
-        const fetchData = async () => {
-            setLoading(true);
-            try {
-                await Promise.all([fetchUsers(), fetchGroups(), fetchPersonnel()]);
-            } catch (error) {
-                logger.error("An error occurred during initial data fetch:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-        fetchData();
-    }, []);
+    const fetchUsers = () => invalidateList(['user-management', 'users']);
+    const fetchGroups = () => invalidateList(['user-management', 'groups']);
+    const fetchPersonnel = () => invalidateList(['user-management', 'personnel']);
 
     const handleGroupsChange = async (userId, groupIds) => {
         try {
@@ -83,7 +76,10 @@ const useUserManagementPage = () => {
     };
 
     return {
-        users, groups, personnel, loading,
+        users: usersQuery.data ?? [],
+        groups: groupsQuery.data ?? [],
+        personnel: personnelQuery.data ?? [],
+        loading: usersQuery.isLoading || groupsQuery.isLoading || personnelQuery.isLoading,
         currentUserId: currentUser.id,
         fetchUsers, fetchGroups, fetchPersonnel,
         handleGroupsChange, handleAssociationChange,

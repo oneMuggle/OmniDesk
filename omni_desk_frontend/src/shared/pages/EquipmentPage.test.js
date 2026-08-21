@@ -1,4 +1,5 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@testing-library/jest-dom';
 import EquipmentPage from '../../features/equipment/pages/EquipmentPage';
 import {
@@ -9,6 +10,18 @@ import {
 } from '../../features/equipment/api/equipment';
 
 jest.mock('../../features/equipment/api/equipment');
+
+const renderWithClient = (ui) => {
+  // R5-D6:页面数据层迁移到 React Query 后需 QueryClientProvider
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
+  return render(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+    ),
+  });
+};
 
 const mockEquipment = {
   data: [
@@ -30,7 +43,7 @@ describe('EquipmentPage', () => {
   });
 
   test('renders the component and fetches equipment', async () => {
-    render(<EquipmentPage />);
+    renderWithClient(<EquipmentPage />);
 
     expect(screen.getByRole('heading', { name: /试验设备管理/i })).toBeInTheDocument();
     await waitFor(() => {
@@ -42,7 +55,7 @@ describe('EquipmentPage', () => {
   });
 
   test('adds a new piece of equipment', async () => {
-    render(<EquipmentPage />);
+    renderWithClient(<EquipmentPage />);
 
     fireEvent.click(screen.getByRole('button', { name: /添加设备/i }));
     await screen.findByRole('dialog', { name: /新增设备/i });
@@ -57,7 +70,7 @@ describe('EquipmentPage', () => {
   });
 
   test('edits an existing piece of equipment', async () => {
-    render(<EquipmentPage />);
+    renderWithClient(<EquipmentPage />);
 
     await screen.findByText('Microscope');
     const editButtons = await screen.findAllByRole('button', { name: /编辑/i });
@@ -75,7 +88,7 @@ describe('EquipmentPage', () => {
   });
 
   test('deletes an existing piece of equipment', async () => {
-    render(<EquipmentPage />);
+    renderWithClient(<EquipmentPage />);
 
     await screen.findByText('Microscope');
     const deleteButtons = await screen.findAllByRole('button', { name: /删除/i });

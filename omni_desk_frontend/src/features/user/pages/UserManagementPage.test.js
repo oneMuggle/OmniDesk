@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import UserManagementPage from './UserManagementPage';
 import userManagementApi from '../api/userManagementApi';
 import { getAllPersonnel } from '../../personnel/api/personnelApi';
@@ -28,10 +29,16 @@ const mockedGetGroups = jest.mocked(permissionsApi.getGroups);
 const mockUser = { id: 1, username: 'test-admin', is_superuser: true };
 
 const renderPage = () => {
+  // R5-D6:hook 数据层迁移到 React Query 后需 QueryClientProvider
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <AuthContext.Provider value={{ user: mockUser, isAuthenticated: true, isGuest: false, hasPermission: () => true }}>
-      <UserManagementPage />
-    </AuthContext.Provider>
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider value={{ user: mockUser, isAuthenticated: true, isGuest: false, hasPermission: () => true }}>
+        <UserManagementPage />
+      </AuthContext.Provider>
+    </QueryClientProvider>
   );
 };
 

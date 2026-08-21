@@ -1,8 +1,43 @@
-import { handleResponse, handleError } from './responseHandler';
+import { handleResponse, handleError, extractResults } from './responseHandler';
 
 jest.mock('antd', () => ({
   message: { error: jest.fn() },
 }));
+
+describe('extractResults', () => {
+  it('DRF 分页形态 {results} → 返回 results 数组', () => {
+    const data = { results: [{ id: 1 }, { id: 2 }], count: 2 };
+    expect(extractResults(data)).toEqual([{ id: 1 }, { id: 2 }]);
+  });
+
+  it('裸数组形态 → 原样返回', () => {
+    const data = [{ id: 1 }, { id: 2 }];
+    expect(extractResults(data)).toEqual(data);
+    expect(extractResults(data)).toBe(data);
+  });
+
+  it('{results: []}(空页)→ 返回空数组', () => {
+    expect(extractResults({ results: [], count: 0 })).toEqual([]);
+  });
+
+  it('null / undefined → 返回 []', () => {
+    expect(extractResults(null)).toEqual([]);
+    expect(extractResults(undefined)).toEqual([]);
+  });
+
+  it('非对象非数组输入(字符串/数字)→ 返回 []', () => {
+    expect(extractResults('oops')).toEqual([]);
+    expect(extractResults(42)).toEqual([]);
+  });
+
+  it('results 非数组({results: null})→ 返回 []', () => {
+    expect(extractResults({ results: null })).toEqual([]);
+  });
+
+  it('无 results 键的普通对象 → 返回 []', () => {
+    expect(extractResults({ count: 5 })).toEqual([]);
+  });
+});
 
 describe('responseHandler', () => {
   beforeEach(() => {

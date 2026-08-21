@@ -1,30 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, Table, Button, Modal, Form, Input, DatePicker, message, Popconfirm, Spin } from 'antd';
 import dayjs from 'dayjs';
+import { useQueryClient } from '@tanstack/react-query';
 import { holidayApi } from '../api/holidayApi';
+import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
+
+const HOLIDAYS_QUERY_KEY = ['holidays'];
 
 const HolidayManagementPage = () => {
-  const [holidays, setHolidays] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [isModalVisible, setIsModalVisible] = useState(false);
   const [currentHoliday, setCurrentHoliday] = useState(null);
   const [form] = Form.useForm();
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    fetchHolidays();
-  }, []);
+  // holidayApi.getHolidays 内部已做 results 收口,返回裸数组
+  const holidaysQuery = useCrudQuery(HOLIDAYS_QUERY_KEY, () => holidayApi.getHolidays(), {
+    errorMessage: '获取节假日列表失败',
+  });
 
-  const fetchHolidays = async () => {
-    setLoading(true);
-    try {
-      const data = await holidayApi.getHolidays();
-      setHolidays(data);
-    } catch (error) {
-      message.error('获取节假日列表失败');
-    } finally {
-      setLoading(false);
-    }
-  };
+  const holidays = holidaysQuery.data ?? [];
+  const loading = holidaysQuery.isLoading;
+
+  // 增删改后刷新列表(等价原手动 fetchHolidays)
+  const fetchHolidays = () => queryClient.invalidateQueries({ queryKey: HOLIDAYS_QUERY_KEY });
 
   const showAddModal = () => {
     setCurrentHoliday(null);

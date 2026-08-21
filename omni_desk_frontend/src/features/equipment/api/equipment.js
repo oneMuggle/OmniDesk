@@ -1,4 +1,5 @@
 import apiClient from '../../../shared/api/apiClient';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 export const getEquipment = async (params = {}) => {
   try {
@@ -8,9 +9,9 @@ export const getEquipment = async (params = {}) => {
         page_size: params.pageSize
       }
     });
-    
+
     return {
-      data: response.data.results || [],
+      data: extractResults(response.data),
       pagination: {
         current: response.data.current_page || 1,
         total: response.data.count || 0,
