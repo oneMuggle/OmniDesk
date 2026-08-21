@@ -122,20 +122,20 @@ round1~round4 + pre-deploy-hardening 已完成:
 - [x] R5-B2 MeetingRoomBooking 嵌套 N+1(PR #400,select_related 扩 user__assigned_by/user__personnel + prefetch phone_numbers,21→4 SQL)
 - [x] R5-B3 dashboard 性能(PR #401,**方案调整**:核实后 6 条查询均为小表 top-5/count 聚合,SQL 合并收益微小,经用户确认改为 Project.updated_at 加 db_index(迁移 0004)+ 前端 dashboard-stats refetchInterval 60s)
 - [x] R5-B4 LLMRouter 配置缓存(PR #402,`_load_configs` 结果缓存 60s + LlmAppConfig/LlmEndpoint 信号全量失效;llm_service 不在 INSTALLED_APPS,信号挂 smart_assistant.apps.ready())
+- [x] R5-C1 前端 lockfile drift gate(PR #403,npm ls + 无 dry-run 的 package-lock-only + git diff 门禁;libc 元数据归一化;audit 保留 high——react-router 2 moderate 未修,收紧需独立任务)
+- [x] R5-B5 AgentLog/AgentEvent 索引(PR #404,[-created_at,intent]/[task,-sequence] 复合索引;timeline subtask 经实证无 N+1,防御性 select_related + 查询数锁定)
+- [x] R5-B6 /health/ 探针扩展(PR #405,Redis 硬失败 503 + Celery 软降级 degraded;database_error 字段删除经消费方核实安全)
+- [x] R5-D2 extract_keywords 统一(PR #406,BaseTool 基类 command_words+stopwords 有序元组;6 工具收敛;120k 随机模糊对比旧链 0 不匹配)
+- [x] R5-D6 useCrudQuery 收口(PR #407,extractResults + useCrudQuery(staleTime 5min);4 页面改造;剩余散点 29 处留后续)
+- [x] R5-D3 chat 前置上下文合并(PR #408,prepare_chat_context 六元组;sync/stream 收敛;对外可见面零变化经逐行比对)
 
 ### 进行中
 _(暂无)_
 
 ### 调研产物本轮未启动
-- [ ] R5-B5 AgentLog/AgentEvent 索引
-- [ ] R5-B6 /health/ 探针扩 Redis+Celery
 - [ ] R5-B7 30 文件迁移 observability
-- [ ] R5-C1 前端 lockfile drift gate
 - [ ] R5-C2 前端 depcheck 收尾
 - [ ] R5-D1 smart-assistant 工具 execute() 统一
-- [ ] R5-D2 BaseTool.extract_keywords 统一
-- [ ] R5-D3 chat_sync/chat_stream 前置上下文合并
 - [ ] R5-D4 DataTable 推广 46 文件
 - [ ] R5-D5 orchestrator 拆 3 子模块
-- [ ] R5-D6 useState 模式 + staleTime 收口
 - [ ] R5-D7 communication 双轨合并 + test-utils 单一入口
