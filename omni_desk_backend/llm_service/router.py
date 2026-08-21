@@ -3,8 +3,17 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
 from django.conf import settings
+from django.core.cache import cache
 
 logger = logging.getLogger(__name__)
+
+# R5-B4: 配置加载缓存。所有 LLM 调用路径都构造 router,每次 chat/embedding
+# 省 1 条 LlmAppConfig 查询;LlmAppConfig/LlmEndpoint 变更由 signals 即时失效
+ROUTER_CACHE_TIMEOUT = 60
+
+
+def _router_cache_key(app_name):
+    return f"llm_router_configs_{app_name}"
 
 
 class LLMRouter:
@@ -29,9 +38,19 @@ class LLMRouter:
         self._load_configs()
 
     def _load_configs(self):
-        """从数据库加载当前应用所有活跃的 LlmAppConfig，按 priority 升序。"""
+        """从数据库加载当前应用所有活跃的 LlmAppConfig，按 priority 升序。
+
+        结果缓存 60s(R5-B4);LlmAppConfig/LlmEndpoint 变更由 signals 失效。
+        直接缓存配置对象列表(模型实例可 pickle,LocMemCache/Redis 兼容)。
+        """
+        cache_key = _router_cache_key(self.app_name)
         try:
             from smart_assistant.models import LlmAppConfig
+
+            cached = cache.get(cache_key)
+            if cached is not None:
+                self._configs = cached
+                return
 
             self._configs = list(
                 LlmAppConfig.objects.select_related("endpoint")
@@ -41,6 +60,7 @@ class LLMRouter:
                 )
                 .order_by("endpoint__priority", "endpoint__is_fallback")
             )
+            cache.set(cache_key, self._configs, ROUTER_CACHE_TIMEOUT)
         except Exception as e:
             logger.warning("无法从数据库加载 LLM 应用配置: %s", e)
             self._configs = []
