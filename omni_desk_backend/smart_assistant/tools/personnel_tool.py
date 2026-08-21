@@ -19,6 +19,10 @@ class PersonnelTool(BaseTool):
     description = "查询人员信息（姓名、部门、职位、状态）"
     intent_type = "personnel_query"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
+    # R5-D2 收敛到 BaseTool.extract_keywords:旧链只剥 谁→是→的,
+    # 不含通用指令词 搜索/查找,故显式置空 command_words 保证行为逐字等价。
+    command_words = ()
+    stopwords = ("谁", "是", "的")
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """搜索人员信息,仅返回脱敏字段(phone_number 已做最小字段级脱敏)。
@@ -31,7 +35,7 @@ class PersonnelTool(BaseTool):
         # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self._extract_keywords(search_query)
+            keywords = self.extract_keywords(search_query)
             personnel_list = qs.filter(name__icontains=keywords)
             if isinstance(params, dict):
                 if params.get("department"):
@@ -44,7 +48,7 @@ class PersonnelTool(BaseTool):
                     personnel_list = personnel_list.filter(status=status_code)
             personnel_list = personnel_list[:10]
         else:
-            keywords = self._extract_keywords(query or "")
+            keywords = self.extract_keywords(query or "")
             personnel_list = Personnel.objects.filter(name__icontains=keywords).select_related("position")[:10]
 
         if not personnel_list.exists():
@@ -71,11 +75,6 @@ class PersonnelTool(BaseTool):
             "count": len(results),
             "personnel": results,
         }
-
-    @staticmethod
-    def _extract_keywords(query: str) -> str:
-        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
-        return query.replace("谁", "").replace("是", "").replace("的", "").strip()
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:

@@ -5,8 +5,6 @@
 / validate_result / extract_keywords。
 """
 
-import pytest
-
 from smart_assistant.tools.base import BaseTool, ValidationResult
 
 
@@ -140,70 +138,45 @@ class TestValidateResult:
 
 
 # =============================================================================
-# BaseTool.extract_keywords
+# BaseTool.extract_keywords(R5-D2 统一后:str -> str replace 链语义)
 # =============================================================================
 
 
 class TestExtractKeywords:
-    """BaseTool.extract_keywords: 去除停用词后提取关键词."""
+    """BaseTool.extract_keywords: 剥离指令词与 stopwords 后返回字符串.
 
-    def test_removes_single_char_stopwords(self):
-        """单字停用词('的' '了' '吗' '呢')被过滤."""
+    R5-D2 重构后默认指令词为 搜索/查找;裸子类无领域 stopwords。
+    更细粒度的等价性断言见 test_extract_keywords_unified.py。
+    """
+
+    def test_returns_str(self):
+        """返回类型是 str(重构前为 list)."""
         tool = _ConcreteTool()
-        keywords = tool.extract_keywords("张三的信息吗")
+        keywords = tool.extract_keywords("张三的信息")
 
-        # 单字停用词被过滤
-        assert "的" not in keywords
-        assert "吗" not in keywords
-        # 实际关键词保留
-        assert "张" in keywords
-        assert "三" in keywords
-        assert "信" in keywords
-        assert "息" in keywords
+        assert isinstance(keywords, str)
 
-    def test_filters_phrase_stopword(self):
-        """完整词停用词('帮我'/'查询'/'有没有' 等)被过滤.
-
-        注意:停用词按完整词匹配,不是按字符。'帮'是单字不在 stopwords 集合中,
-        所以 '帮' 不会被过滤(只有 '帮我' 整体才会被过滤)。
-        """
+    def test_strips_default_command_words(self):
+        """默认指令词 搜索/查找 被剥离."""
         tool = _ConcreteTool()
-        keywords = tool.extract_keywords("帮我查询张三")
 
-        # 完整停用词 '帮我' 和 '查询' 整体被过滤(若 query 中存在的话)
-        # 由于 extract_keywords 是逐字符迭代,'帮我' 不会被识别(它需要 query 包含 '帮我' 整体)
-        # 这里测单字 '查' 也不会被过滤(因为 stopwords 是 '查询' 不是 '查')
-        # 所以这个测试主要验证 单字 '我' 也不在 stopwords 中
-        assert "我" in keywords  # '我' 不是停用词
-        assert "帮" in keywords  # '帮' 不是停用词
-        # '的' 是单字停用词,验证 '的' 会被过滤
-        keywords2 = tool.extract_keywords("张的三")
-        assert "的" not in keywords2
+        assert tool.extract_keywords("搜索张三") == "张三"
+        assert tool.extract_keywords("查找张三") == "张三"
 
-    def test_keeps_all_chars_when_no_stopword_present(self):
+    def test_keeps_non_command_chars(self):
+        """非指令词内容原样保留."""
         tool = _ConcreteTool()
-        keywords = tool.extract_keywords("排班值班")
 
-        assert keywords == ["排", "班", "值", "班"]
+        assert tool.extract_keywords("排班值班") == "排班值班"
 
-    def test_filters_multiple_stopwords(self):
-        """'的'/'了'/'吗'/'呢' 单字停用词同时出现,全部过滤."""
+    def test_no_whitespace_only_strip_ends(self):
+        """仅首尾空白被 strip,中间空白保留."""
         tool = _ConcreteTool()
-        keywords = tool.extract_keywords("张三和李四的事了吗呢")
 
-        # 多个单字停用词被过滤
-        assert "的" not in keywords
-        assert "了" not in keywords
-        assert "吗" not in keywords
-        assert "呢" not in keywords
-        # 实际关键词保留
-        assert "张" in keywords
-        assert "三" in keywords
-        assert "李" in keywords
-        assert "四" in keywords
+        assert tool.extract_keywords("  张三 李四  ") == "张三 李四"
 
-    def test_empty_string_returns_empty_list(self):
+    def test_empty_string_returns_empty_string(self):
         tool = _ConcreteTool()
         keywords = tool.extract_keywords("")
 
-        assert keywords == []
+        assert keywords == ""
