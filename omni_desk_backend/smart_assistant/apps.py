@@ -9,6 +9,9 @@ class SmartAssistantConfig(AppConfig):
 
     def ready(self):
         """注册所有工具,然后在 DEBUG 模式下校验每个工具已实现 scope 方法。"""
+        # R5-B4: LLMRouter 配置缓存失效信号(LlmAppConfig/LlmEndpoint 变更时)
+        from llm_service import signals as llm_signals  # noqa: F401
+
         # 工具注册(原逻辑保留,必须在校验之前完成)
         from .tools.registry import ToolRegistry
         from .tools.schedule_tool import ScheduleTool
