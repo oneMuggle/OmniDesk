@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from users.models import AuditLogEntry
 from users.permissions import IsAdminOrReadOnly
 
 from .models import GroupPagePermission, PageRoute
@@ -19,6 +20,21 @@ from .serializers import (
 logger = logging.getLogger(__name__)
 
 
+def _write_group_audit(*, actor, action, category, target_user=None, metadata=None):
+    """敏感权限/组操作写审计留痕(R5-A4)。失败不阻断主流程,仅记日志。"""
+    try:
+        AuditLogEntry.objects.create(
+            batch_id="",
+            actor=f"user:{actor.username}",
+            category=category,
+            action=action,
+            target_user=target_user or actor,
+            metadata=metadata or {},
+        )
+    except Exception:
+        logger.exception("审计日志写入失败: category=%s action=%s", category, action)
+
+
 class GroupViewSet(viewsets.ModelViewSet):
     queryset = Group.objects.all().order_by("id")
     serializer_class = GroupSerializer
@@ -27,6 +43,35 @@ class GroupViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         logger.info(f"User: {request.user}, is_staff: {request.user.is_staff}")
         return super().list(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        group = serializer.save()
+        _write_group_audit(
+            actor=self.request.user,
+            action="create",
+            category=AuditLogEntry.CATEGORY_GROUP_CHANGE,
+            metadata={"name": group.name},
+        )
+
+    def perform_update(self, serializer):
+        before_name = serializer.instance.name
+        group = serializer.save()
+        _write_group_audit(
+            actor=self.request.user,
+            action="update",
+            category=AuditLogEntry.CATEGORY_GROUP_CHANGE,
+            metadata={"before": {"name": before_name}, "after": {"name": group.name}},
+        )
+
+    def perform_destroy(self, instance):
+        name = instance.name
+        instance.delete()
+        _write_group_audit(
+            actor=self.request.user,
+            action="delete",
+            category=AuditLogEntry.CATEGORY_GROUP_CHANGE,
+            metadata={"name": name},
+        )
 
 
 class PageRouteViewSet(viewsets.ReadOnlyModelViewSet):
@@ -68,6 +113,12 @@ class GroupPermissionView(APIView):
         try:
             permissions = Permission.objects.filter(id__in=permission_ids)
             group.permissions.set(permissions)
+            _write_group_audit(
+                actor=request.user,
+                action="set",
+                category=AuditLogEntry.CATEGORY_PERMISSION_CHANGE,
+                metadata={"group_id": group.id, "permission_ids": sorted(permissions.values_list("id", flat=True))},
+            )
             return Response(status=status.HTTP_204_NO_CONTENT)
         except Exception as e:
             logger.error(f"Error updating permissions for group {group_id}: {e}", exc_info=True)
