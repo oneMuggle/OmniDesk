@@ -119,15 +119,14 @@ round1~round4 + pre-deploy-hardening 已完成:
 - [x] R5-A3 写接口 throttle(PR #397,upload 10/h/user + 中间件扩展 `/api/file/`;guest_create 经核实已有 django-ratelimit 覆盖,`/api/smart-assistant/tools/` 路由不存在,均按实况修正)
 - [x] R5-A4 AuditLogEntry 推广(PR #398,category 字段 + 组/权限写操作审计)
 - [x] R5-B1 UserPermissionView 缓存(PR #399,`user_menu_<pk>` TTL 300s + 三路信号失效:GroupPagePermission/PageRoute/user.groups m2m;失效按 pk 逐键删兼容 LocMemCache)
+- [x] R5-B2 MeetingRoomBooking 嵌套 N+1(PR #400,select_related 扩 user__assigned_by/user__personnel + prefetch phone_numbers,21→4 SQL)
+- [x] R5-B3 dashboard 性能(PR #401,**方案调整**:核实后 6 条查询均为小表 top-5/count 聚合,SQL 合并收益微小,经用户确认改为 Project.updated_at 加 db_index(迁移 0004)+ 前端 dashboard-stats refetchInterval 60s)
+- [x] R5-B4 LLMRouter 配置缓存(PR #402,`_load_configs` 结果缓存 60s + LlmAppConfig/LlmEndpoint 信号全量失效;llm_service 不在 INSTALLED_APPS,信号挂 smart_assistant.apps.ready())
 
 ### 进行中
-- [ ] R5-B2 MeetingRoomBooking 嵌套 N+1(PR #400,select_related 扩 user__assigned_by/user__personnel + prefetch phone_numbers,21→4 SQL)
+_(暂无)_
 
 ### 调研产物本轮未启动
-- [ ] R5-B1 UserPermissionView 缓存
-- [ ] R5-B2 MeetingRoomBooking 嵌套 N+1
-- [ ] R5-B3 dashboard_stats 5 SQL 合并
-- [ ] R5-B4 LLMRouter 缓存
 - [ ] R5-B5 AgentLog/AgentEvent 索引
 - [ ] R5-B6 /health/ 探针扩 Redis+Celery
 - [ ] R5-B7 30 文件迁移 observability
