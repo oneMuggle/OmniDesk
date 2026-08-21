@@ -250,9 +250,11 @@ REST_FRAMEWORK = {
     "TEST_REQUEST_DEFAULT_FORMAT": "json",
     # 限流速率:anon 用于 IP 维度;client_error 是 core.throttles.ClientErrorAnonThrottle 的 scope,
     # 防止前端错误上报端点被错误循环/异常刷屏打爆。10/min/IP 在内网足够宽松但又能挡住滥用。
+    # upload 是 file_processing.throttles.UploadRateThrottle 的 scope,限制文件上传 10/h/user。
     "DEFAULT_THROTTLE_RATES": {
         "anon": "60/min",
         "client_error": "10/min",
+        "upload": "10/h",
     },
 }
 

@@ -47,14 +47,20 @@ def check_rate_limit(user_id):
 class RateLimitMiddleware:
     """智能助手速率限制中间件。
 
-    仅对 /api/smart-assistant/chat/ 路径生效，基于用户 ID + 固定窗口。
+    对 /api/smart-assistant/chat/ 与 /api/file/ 路径生效,基于用户 ID + 固定窗口。
     """
+
+    # R5-A3: 扩展保护范围到文件上传/分析端点(写接口,触发 Celery 任务)
+    PROTECTED_PREFIXES = (
+        "/api/smart-assistant/chat/",
+        "/api/file/",
+    )
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if not request.path.startswith("/api/smart-assistant/chat/"):
+        if not request.path.startswith(self.PROTECTED_PREFIXES):
             return self.get_response(request)
 
         if not hasattr(request, "user") or not request.user.is_authenticated:
