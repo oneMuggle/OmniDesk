@@ -45,8 +45,14 @@ class MeetingRoomBookingViewSet(viewsets.ModelViewSet):
         return super().list(request, *args, **kwargs)
 
     def get_queryset(self):
-        # 所有认证用户都可以看到所有预约
-        return MeetingRoomBooking.objects.select_related("user", "meeting_room").order_by("start_time")
+        # 所有认证用户都可以看到所有预约。
+        # R5-B2: 嵌套 UserDetailSerializer 访问 user.assigned_by / user.personnel /
+        # user.phone_numbers,不预取则每条 booking 多 3 条 N+1
+        return (
+            MeetingRoomBooking.objects.select_related("user", "meeting_room", "user__assigned_by", "user__personnel")
+            .prefetch_related("user__phone_numbers")
+            .order_by("start_time")
+        )
 
     @action(detail=False, methods=["get"], url_path="this-week")
     def get_this_week_bookings(self, request):
