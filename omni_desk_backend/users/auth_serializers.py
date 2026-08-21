@@ -1,10 +1,12 @@
 """认证相关序列化器：注册、登录、JWT、密码修改、Guest 登录。"""
 
 import uuid
+from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Group
 from django.core.validators import RegexValidator
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -110,6 +112,8 @@ class ChangePasswordSerializer(serializers.Serializer):
 class GuestLoginSerializer(serializers.Serializer):
     """游客登录序列化器，创建临时游客用户并返回 JWT token。"""
 
+    GUEST_TTL_HOURS = 24
+
     def create(self, validated_data):
         guest_group = ensure_guest_group()
         username = f"guest_{uuid.uuid4().hex[:12]}"
@@ -119,6 +123,7 @@ class GuestLoginSerializer(serializers.Serializer):
             username=username,
             password=password,
             is_active=True,
+            guest_until=timezone.now() + timedelta(hours=self.GUEST_TTL_HOURS),
         )
         user.groups.add(guest_group)
         return user

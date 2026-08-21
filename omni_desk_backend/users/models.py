@@ -24,6 +24,12 @@ class CustomUser(AbstractUser):
         related_name="user_account",
         verbose_name="关联人员",
     )
+    guest_until = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="游客过期时间",
+        help_text="仅游客账号使用;超过此时间后账号被拦截并由定时任务清理",
+    )
 
     # 使用用户名作为唯一标识
     USERNAME_FIELD = "username"

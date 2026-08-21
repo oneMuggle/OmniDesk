@@ -1,6 +1,8 @@
 """
 Authentication flow tests: registration, login, token refresh, guest login.
 """
+import uuid
+
 import pytest
 from django.test import override_settings
 from django.urls import reverse
@@ -78,6 +80,70 @@ class TestGuestLogin:
         assert 'access' in response.data
         assert 'refresh' in response.data
         assert response.data.get('is_guest') is True
+
+    def test_guest_login_sets_expiry(self, api_client):
+        """游客登录后 guest_until 应为 now()+24h 左右。"""
+        from datetime import timedelta
+        from django.utils import timezone
+
+        response = api_client.post(reverse('users_auth:guest-login'), {}, format='json')
+        assert response.status_code == status.HTTP_200_OK
+
+        user = CustomUser.objects.filter(username__startswith='guest_').latest('date_joined')
+        assert user.guest_until is not None
+        expected = timezone.now() + timedelta(hours=24)
+        assert abs((user.guest_until - expected).total_seconds()) < 60
+
+
+@pytest.mark.django_db
+class TestGuestExpiry:
+    """R5-A2: 游客账号过期拦截与清理。"""
+
+    def _make_guest(self, hours_delta):
+        from datetime import timedelta
+        from django.utils import timezone
+
+        user = CustomUser.objects.create_user(
+            username=f'guest_{uuid.uuid4().hex[:12]}',
+            password=uuid.uuid4().hex,
+        )
+        user.guest_until = timezone.now() + timedelta(hours=hours_delta)
+        user.save()
+        return user
+
+    def test_expired_guest_blocked_on_me(self, api_client):
+        """已过期游客访问 /users/me/ 应返回 401。"""
+        user = self._make_guest(hours_delta=-1)
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse('users:current-user'))
+        assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+    def test_active_guest_allowed_on_me(self, api_client):
+        """未过期游客可正常访问 /users/me/。"""
+        user = self._make_guest(hours_delta=24)
+        api_client.force_authenticate(user=user)
+        response = api_client.get(reverse('users:current-user'))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_regular_user_unaffected(self, regular_user_obj, api_client):
+        """普通用户无 guest_until,不受过期拦截影响。"""
+        api_client.force_authenticate(user=regular_user_obj)
+        response = api_client.get(reverse('users:current-user'))
+        assert response.status_code == status.HTTP_200_OK
+
+    def test_cleanup_deletes_only_expired(self):
+        """清理任务只删除已过期游客,保留活跃游客和普通用户。"""
+        from users.tasks import cleanup_expired_guest_users
+
+        expired = self._make_guest(hours_delta=-1)
+        active = self._make_guest(hours_delta=24)
+        regular = CustomUser.objects.create_user(username='regular_keep', password='x')
+
+        result = cleanup_expired_guest_users()
+
+        assert not CustomUser.objects.filter(id=expired.id).exists()
+        assert CustomUser.objects.filter(id=active.id).exists()
+        assert CustomUser.objects.filter(id=regular.id).exists()
 
 
 @pytest.mark.django_db
