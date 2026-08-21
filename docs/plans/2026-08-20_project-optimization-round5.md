@@ -118,9 +118,10 @@ round1~round4 + pre-deploy-hardening 已完成:
 - [x] R5-A2 游客账号 expiry(PR #396,`guest_until` 字段 + 24h TTL + 清理任务改造)
 - [x] R5-A3 写接口 throttle(PR #397,upload 10/h/user + 中间件扩展 `/api/file/`;guest_create 经核实已有 django-ratelimit 覆盖,`/api/smart-assistant/tools/` 路由不存在,均按实况修正)
 - [x] R5-A4 AuditLogEntry 推广(PR #398,category 字段 + 组/权限写操作审计)
+- [x] R5-B1 UserPermissionView 缓存(PR #399,`user_menu_<pk>` TTL 300s + 三路信号失效:GroupPagePermission/PageRoute/user.groups m2m;失效按 pk 逐键删兼容 LocMemCache)
 
 ### 进行中
-_(暂无)_
+- [ ] R5-B2 MeetingRoomBooking 嵌套 N+1(PR #400,select_related 扩 user__assigned_by/user__personnel + prefetch phone_numbers,21→4 SQL)
 
 ### 调研产物本轮未启动
 - [ ] R5-B1 UserPermissionView 缓存
