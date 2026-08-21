@@ -1,6 +1,7 @@
 from django.contrib.auth import login as django_login
 from django.http import HttpResponseRedirect, JsonResponse
 from django.middleware.csrf import get_token
+from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.views.decorators.csrf import csrf_exempt
 from django_ratelimit.decorators import ratelimit
@@ -37,6 +38,21 @@ RATELIMIT_CONFIG = {
     "method": "POST",
     "block": False,
 }
+
+
+class GuestNotExpiredPermission(permissions.BasePermission):
+    """已过期的游客账号视为未认证,返回 401。"""
+
+    message = "游客会话已过期,请重新登录"
+
+    def has_permission(self, request, view):
+        user = request.user
+        if not user or not user.is_authenticated:
+            return False
+        guest_until = getattr(user, "guest_until", None)
+        if guest_until is not None and guest_until <= timezone.now():
+            raise exceptions.NotAuthenticated(self.message)
+        return True
 
 
 class UserRegistrationView(generics.CreateAPIView):
@@ -94,7 +110,7 @@ class UserRegistrationView(generics.CreateAPIView):
 
 class UserDetailView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, GuestNotExpiredPermission]
 
     def get_object(self):
         return self.request.user
@@ -102,7 +118,7 @@ class UserDetailView(generics.RetrieveAPIView):
 
 class CurrentUserView(generics.RetrieveAPIView):
     serializer_class = UserDetailSerializer
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticated, GuestNotExpiredPermission]
 
     def get_object(self):
         return self.request.user
