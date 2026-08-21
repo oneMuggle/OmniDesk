@@ -28,7 +28,8 @@ class Project(models.Model):
         verbose_name="项目状态",
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
+    # R5-B3: dashboard recent_projects 按 -updated_at 排序,加索引避免 filesort
+    updated_at = models.DateTimeField(auto_now=True, db_index=True, verbose_name="更新时间")
 
     class Meta:
         verbose_name = "项目"

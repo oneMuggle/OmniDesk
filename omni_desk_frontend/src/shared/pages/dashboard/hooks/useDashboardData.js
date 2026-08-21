@@ -12,10 +12,11 @@ export const useDashboardData = () => {
     queryFn: fetchWeeklyOverview,
   });
 
-  // 仪表盘聚合数据
+  // 仪表盘聚合数据(60s 轮询刷新,保持通知/排班/项目概览新鲜度)
   const { data: dashboardStats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
+    refetchInterval: 60000,
   });
 
   return {
