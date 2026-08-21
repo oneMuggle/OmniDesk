@@ -7,6 +7,8 @@ class DocumentTool(BaseTool):
     description = "搜索公文/文档（按标题/类型/状态）"
     intent_type = "document_search"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
+    # 领域停用词(R5-D2 收敛到 BaseTool.extract_keywords;顺序与旧 replace 链一致)
+    stopwords = ("文档", "公文")
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """搜索文档模板和生成的文档。
@@ -21,7 +23,7 @@ class DocumentTool(BaseTool):
         # template__in 反查同一 scope(GeneratedDocument 无 owner 字段)
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self._extract_keywords(search_query)
+            keywords = self.extract_keywords(search_query)
             # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
             limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
             templates = qs.filter(name__icontains=keywords)[:limit]
@@ -29,7 +31,7 @@ class DocumentTool(BaseTool):
                 template__in=qs, template__name__icontains=keywords
             ).select_related("template")[:limit]
         else:
-            keywords = self._extract_keywords(query or "")
+            keywords = self.extract_keywords(query or "")
             templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
             # GeneratedDocument 无 name 字段,改用 template__name 反查
             generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
@@ -71,11 +73,6 @@ class DocumentTool(BaseTool):
             "count": len(results),
             "documents": results,
         }
-
-    @staticmethod
-    def _extract_keywords(query: str) -> str:
-        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
-        return query.replace("搜索", "").replace("查找", "").replace("文档", "").replace("公文", "").strip()
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:

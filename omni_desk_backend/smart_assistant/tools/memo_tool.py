@@ -7,6 +7,8 @@ class MemoTool(BaseTool):
     description = "查询备忘录/便签"
     intent_type = "memo_query"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
+    # 领域停用词(R5-D2 收敛到 BaseTool.extract_keywords;顺序与旧 replace 链一致)
+    stopwords = ("备忘录", "便签")
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """搜索备忘录。
@@ -23,14 +25,14 @@ class MemoTool(BaseTool):
             search_query = query
             if isinstance(params, dict) and params.get("query"):
                 search_query = params["query"]
-            keywords = self._extract_keywords(search_query or "")
+            keywords = self.extract_keywords(search_query or "")
             memos = qs
             # I-2:is_completed 布尔过滤(缺失时回退到纯关键词)
             if isinstance(params, dict) and params.get("is_completed") is not None:
                 memos = memos.filter(is_completed=bool(params["is_completed"]))
             memos = memos.filter(title__icontains=keywords)[:10]
         else:
-            keywords = self._extract_keywords(query or "")
+            keywords = self.extract_keywords(query or "")
             memos = Memo.objects.filter(title__icontains=keywords).select_related("user")[:10]
         if not memos.exists():
             return {
@@ -56,11 +58,6 @@ class MemoTool(BaseTool):
             "count": len(results),
             "memos": results,
         }
-
-    @staticmethod
-    def _extract_keywords(query: str) -> str:
-        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
-        return query.replace("搜索", "").replace("查找", "").replace("备忘录", "").replace("便签", "").strip()
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:

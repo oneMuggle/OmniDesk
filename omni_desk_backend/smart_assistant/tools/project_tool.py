@@ -7,6 +7,8 @@ class ProjectTool(BaseTool):
     description = "查询项目进度/状态/负责人"
     intent_type = "project_status"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
+    # 领域停用词(R5-D2 收敛到 BaseTool.extract_keywords;顺序与旧 replace 链一致)
+    stopwords = ("项目",)
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """查询项目信息。
@@ -19,10 +21,10 @@ class ProjectTool(BaseTool):
         # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self._extract_keywords(search_query)
+            keywords = self.extract_keywords(search_query)
             projects = qs.filter(name__icontains=keywords)[:10]
         else:
-            keywords = self._extract_keywords(query or "")
+            keywords = self.extract_keywords(query or "")
             projects = Project.objects.filter(name__icontains=keywords).select_related("manager")[:10]
 
         if not projects.exists():
@@ -49,11 +51,6 @@ class ProjectTool(BaseTool):
             "count": len(results),
             "projects": results,
         }
-
-    @staticmethod
-    def _extract_keywords(query: str) -> str:
-        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
-        return query.replace("搜索", "").replace("查找", "").replace("项目", "").strip()
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:

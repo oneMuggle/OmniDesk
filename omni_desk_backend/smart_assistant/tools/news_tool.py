@@ -7,6 +7,8 @@ class NewsTool(BaseTool):
     description = "搜索新闻/通知"
     intent_type = "news_search"
     risk_level = "read"  # 显式声明:只读查询工具,无副作用
+    # 领域停用词(R5-D2 收敛到 BaseTool.extract_keywords;顺序与旧 replace 链一致)
+    stopwords = ("新闻", "通知")
 
     def execute(self, query=None, context=None, params=None, scope=None, qs=None) -> dict:
         """搜索新闻文章。
@@ -20,12 +22,12 @@ class NewsTool(BaseTool):
         # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
         if qs is not None and scope is not None:
             search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self._extract_keywords(search_query)
+            keywords = self.extract_keywords(search_query)
             # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
             limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
             articles = qs.filter(title__icontains=keywords)[:limit]
         else:
-            keywords = self._extract_keywords(query or "")
+            keywords = self.extract_keywords(query or "")
             articles = NewsArticle.objects.filter(title__icontains=keywords).select_related("news_type", "personnel")[
                 :10
             ]
@@ -53,11 +55,6 @@ class NewsTool(BaseTool):
             "count": len(results),
             "articles": results,
         }
-
-    @staticmethod
-    def _extract_keywords(query: str) -> str:
-        """从查询文本中剥离停用词(新旧路径共用,保证关键词口径一致)。"""
-        return query.replace("搜索", "").replace("查找", "").replace("新闻", "").replace("通知", "").strip()
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:

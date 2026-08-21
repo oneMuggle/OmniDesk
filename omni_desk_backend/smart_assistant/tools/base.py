@@ -30,6 +30,12 @@ RISK_LEVEL_DESTRUCTIVE = "destructive"
 VALID_RISK_LEVELS: frozenset = frozenset({RISK_LEVEL_READ, RISK_LEVEL_WRITE, RISK_LEVEL_DESTRUCTIVE})
 
 
+#: 默认指令词:查询类工具通用的"剥离词"(R5-D2 统一前的 replace 链中,
+#: 除 PersonnelTool 外的 5 个查询工具均以 搜索→查找 开头)。
+#: 有序元组 —— replace 链语义对顺序敏感,禁止改成 set。
+_COMMAND_WORDS: tuple = ("搜索", "查找")
+
+
 class BaseTool(ABC):
     """工具基类"""
 
@@ -183,14 +189,35 @@ class BaseTool(ABC):
             )
         return ValidationResult(is_valid=True)
 
-    def extract_keywords(self, query: str) -> list:
-        """从用户查询中提取关键词。默认去除停用词。"""
-        stopwords = {"搜索", "查找", "查询", "请问", "帮我", "看看", "有没有", "的", "了", "吗", "呢"}
-        keywords = []
-        for word in query:
-            if word not in stopwords:
-                keywords.append(word)
-        return keywords
+    stopwords: tuple = ()
+    """领域停用词(有序元组),子类声明后由 ``extract_keywords`` 统一剥离。
+
+    R5-D2 重构前各查询工具各自维护静态 ``_extract_keywords`` replace 链,
+    现统一收敛到本属性。**顺序敏感**:替换按 元素顺序 链式进行,与旧链
+    同序即可保证任意输入逐字等价;禁止改成 set(迭代顺序不确定)。
+    例:``MemoTool.stopwords = ("备忘录", "便签")``。
+    """
+
+    command_words: tuple = _COMMAND_WORDS
+    """指令词(有序元组),默认 ``("搜索", "查找")``,子类可整体覆盖或置空。
+
+    与 ``stopwords`` 一样按序链式 replace,且先于领域停用词执行
+    (与旧实现 搜索→查找→领域词 的顺序一致)。特殊工具如 PersonnelTool
+    (旧链只剥 谁/是/的)应显式置空:``command_words = ()``。
+    """
+
+    def extract_keywords(self, query: str) -> str:
+        """剥离指令词与领域 stopwords,返回清洗后的关键词字符串。
+
+        R5-D2 统一实现:替代重构前分散在 6 个查询工具中的静态
+        ``_extract_keywords`` replace 链。行为等价性由
+        test_extract_keywords_unified.py::TestLegacyEquivalence 以旧链为
+        oracle 全量断言。
+        """
+        text = query
+        for word in self.command_words + self.stopwords:
+            text = text.replace(word, "")
+        return text.strip()
 
     # === 新增:跨模块汇总权限抽象(2026-07-07) ===
 
