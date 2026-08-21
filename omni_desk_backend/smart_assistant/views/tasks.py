@@ -293,7 +293,8 @@ class AgentTaskViewSet(viewsets.ViewSet):
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        events = AgentEvent.objects.filter(task=task).order_by("sequence")
+        # R5-B5: select_related 一次取齐 subtask FK,避免序列化时按事件逐条回表(N+1)
+        events = AgentEvent.objects.filter(task=task).select_related("subtask").order_by("sequence")
         subtasks = AgentSubTask.objects.filter(task=task).order_by("subtask_id")
 
         return Response(

@@ -221,6 +221,10 @@ class AgentLog(models.Model):
         verbose_name = "Agent 日志"
         verbose_name_plural = verbose_name
         ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["intent"]),
+        ]
 
 
 # ---------------------------------------------------------------------------
@@ -404,6 +408,9 @@ class AgentEvent(models.Model):
         verbose_name_plural = verbose_name
         ordering = ["task", "sequence"]
         unique_together = [("task", "sequence")]
+        indexes = [
+            models.Index(fields=["task", "-sequence"]),
+        ]
 
     def __str__(self):
         return f"Event#{self.sequence} {self.event_type}"
