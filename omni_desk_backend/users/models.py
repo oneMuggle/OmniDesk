@@ -88,9 +88,26 @@ class AuditLogEntry(models.Model):
         (ACTION_UNLINK_SKIPPED, "解绑跳过"),
     ]
 
+    # R5-A4: 审计类别 — 区分人员关联与权限/组变更等敏感操作
+    CATEGORY_PERSONNEL_LINK = "personnel_link"
+    CATEGORY_GROUP_CHANGE = "group_change"
+    CATEGORY_PERMISSION_CHANGE = "permission_change"
+    CATEGORY_CHOICES = [
+        (CATEGORY_PERSONNEL_LINK, "用户-人员关联"),
+        (CATEGORY_GROUP_CHANGE, "组变更"),
+        (CATEGORY_PERMISSION_CHANGE, "权限变更"),
+    ]
+
     batch_id = models.CharField(max_length=64, db_index=True, verbose_name="批次ID")
     actor = models.CharField(max_length=100, blank=True, verbose_name="操作者")
-    action = models.CharField(max_length=32, choices=ACTION_CHOICES, verbose_name="动作")
+    category = models.CharField(
+        max_length=32,
+        choices=CATEGORY_CHOICES,
+        default=CATEGORY_PERSONNEL_LINK,
+        db_index=True,
+        verbose_name="审计类别",
+    )
+    action = models.CharField(max_length=32, verbose_name="动作")
     target_user = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.CASCADE,
