@@ -270,3 +270,29 @@ class BaseTool(ABC):
     def _scope_department(self, qs, ctx):
         """部门范围过滤(默认 = 透传,子类可重写)。"""
         return qs
+
+    def scoped_queryset(self, context: ToolContext, qs=None, scope=None):
+        """统一新旧路径的 queryset 获取(R5-D1)。
+
+        优先用调用方注入的 ``qs``(scope-aware 执行分支);未注入时经
+        ``build_base_queryset() + get_queryset_for_scope()`` 自取 —— **禁止**
+        直接 ``Model.objects.filter``(旧路径曾造成 SELF scope 泄露他人数据,
+        见 C-1 与 test_tool_scope_regression.py)。
+
+        参数:
+            context: ToolContext(SELF/DEPARTMENT/GLOBAL 语义来源)
+            qs: 调用方注入的 scoped queryset(可选)
+            scope: 注入路径携带的 scope 枚举(与 qs 成对出现)
+
+        返回:scoped QuerySet。若工具未实现 build_base_queryset(非 scope-aware
+        工具)且无注入,返回 None——调用方按各自旧语义兜底。
+        """
+        if qs is not None and scope is not None:
+            return qs
+        if context is None:
+            return None
+        try:
+            base_qs = self.build_base_queryset()
+        except NotImplementedError:
+            return None
+        return self.get_queryset_for_scope(base_qs, context)

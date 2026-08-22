@@ -67,7 +67,8 @@ class ScheduleTool(BaseTool):
                 "module_label": "排班",
             }
 
-        # 旧路径(向后兼容)
+        # 旧路径(向后兼容)—— R5-D1 统一:经 scoped_queryset 自取,SELF/DEPARTMENT/
+        # GLOBAL 三级 scope 与跨模块汇总路径语义一致(修复旧路径全表查询)
         target_date = timezone.now().date()
         if query:
             if "明天" in query:
@@ -76,7 +77,11 @@ class ScheduleTool(BaseTool):
                 target_date = (timezone.now() + timedelta(days=2)).date()
             elif "昨天" in query:
                 target_date = (timezone.now() - timedelta(days=1)).date()
-        schedules = Schedule.objects.filter(duty_date=target_date).select_related("duty_person", "duty_leader")
+        schedules_qs = self.scoped_queryset(context, qs=None, scope=None)
+        if schedules_qs is None:
+            # 非 scope-aware 兜底(ScheduleTool 实现了 build_base_queryset,不应触发)
+            schedules_qs = Schedule.objects.select_related("duty_person", "duty_leader").all()
+        schedules = schedules_qs.filter(duty_date=target_date)
         if not schedules.exists():
             return {"date": str(target_date), "found": False, "message": f"{target_date} 暂无排班记录"}
         results = [

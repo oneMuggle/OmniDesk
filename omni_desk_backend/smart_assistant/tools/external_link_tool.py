@@ -34,14 +34,18 @@ class ExternalLinkTool(BaseTool):
         # 支持两种调用方式(向后兼容):
         # - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
         # - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
-        if qs is not None and scope is not None:
-            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = "".join(c for c in search_query if c not in stopwords).strip()
-            links_qs = qs.filter(is_active=True)
-        else:
-            search_query = query or ""
-            keywords = "".join(c for c in search_query if c not in stopwords).strip()
-            links_qs = ExternalLink.objects.filter(is_active=True)
+        #
+        # R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数。外链是公共资源,
+        # 工具的 _scope_self 为透传,故行为不变;统一入口消除裸表查询。
+        links_qs = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = "".join(c for c in (search_query or "") if c not in stopwords).strip()
+        if links_qs is None:
+            # 非 scope-aware 兜底(不应发生:ExternalLinkTool 实现了 build_base_queryset)
+            links_qs = ExternalLink.objects.all()
+        links_qs = links_qs.filter(is_active=True)
 
         # 用户说"所有"/"全部"或没有关键词时,返回所有 active
         list_all = "所有" in search_query or "全部" in search_query or not keywords
@@ -109,5 +113,10 @@ class ExternalLinkTool(BaseTool):
         return ExternalLink.objects.all()
 
     def _scope_self(self, qs, ctx):
-        """本人范围:外链是公共导航数据,无"本人"语义;返回空 QuerySet。"""
-        return qs.none()
+        """本人范围:外链是公共导航数据(VPN/Jira 入口),无"本人"语义。
+
+        R5-D1 修正:原实现返回 ``qs.none()``,在 execute(query, context) 旧入口
+        (context 默认 SELF)下会把可见面收到空,功能等于废掉。公共资源对 SELF
+        与 GLOBAL 同权可见(仅 is_active 过滤由 execute 承担),故透传。
+        """
+        return qs

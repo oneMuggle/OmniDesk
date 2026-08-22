@@ -30,26 +30,29 @@ class PersonnelTool(BaseTool):
         支持两种调用方式(向后兼容):
         - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
         - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
-          (C-1 修复:复用 scoped queryset,确保 SELF/DEPARTMENT/GLOBAL 生效)。
+
+        R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数,SELF/DEPARTMENT/GLOBAL
+        三级 scope 在两个入口下语义一致。
         """
-        # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
-        if qs is not None and scope is not None:
-            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self.extract_keywords(search_query)
-            personnel_list = qs.filter(name__icontains=keywords)
-            if isinstance(params, dict):
-                if params.get("department"):
-                    personnel_list = personnel_list.filter(department=params["department"])
-                if params.get("status"):
-                    # schema 暴露中文枚举(在职/离职),模型存 code(active/inactive),
-                    # 先映射回 code 再过滤,否则中文值查不到任何记录
-                    label_to_code = {label: code for code, label in Personnel.STATUS_CHOICES}
-                    status_code = label_to_code.get(params["status"], params["status"])
-                    personnel_list = personnel_list.filter(status=status_code)
-            personnel_list = personnel_list[:10]
-        else:
-            keywords = self.extract_keywords(query or "")
-            personnel_list = Personnel.objects.filter(name__icontains=keywords).select_related("position")[:10]
+        personnel_qs = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = self.extract_keywords(search_query or "")
+        if personnel_qs is None:
+            # 非 scope-aware 兜底(不应发生:PersonnelTool 实现了 build_base_queryset)
+            personnel_qs = Personnel.objects.select_related("position").all()
+        personnel_list = personnel_qs.filter(name__icontains=keywords)
+        if isinstance(params, dict):
+            if params.get("department"):
+                personnel_list = personnel_list.filter(department=params["department"])
+            if params.get("status"):
+                # schema 暴露中文枚举(在职/离职),模型存 code(active/inactive),
+                # 先映射回 code 再过滤,否则中文值查不到任何记录
+                label_to_code = {label: code for code, label in Personnel.STATUS_CHOICES}
+                status_code = label_to_code.get(params["status"], params["status"])
+                personnel_list = personnel_list.filter(status=status_code)
+        personnel_list = personnel_list[:10]
 
         if not personnel_list.exists():
             return {

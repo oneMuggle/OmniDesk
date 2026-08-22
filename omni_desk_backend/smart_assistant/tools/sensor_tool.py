@@ -16,16 +16,19 @@ class SensorTool(BaseTool):
         支持两种调用方式(向后兼容):
         - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
         - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
-          (C-1 修复:复用 scoped queryset,确保 SELF/DEPARTMENT/GLOBAL 生效)。
+
+        R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数,SELF/DEPARTMENT/GLOBAL
+        三级 scope 在两个入口下语义一致。
         """
-        # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
-        if qs is not None and scope is not None:
-            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self.extract_keywords(search_query)
-            sensors = qs.filter(name__icontains=keywords)[:10]
-        else:
-            keywords = self.extract_keywords(query or "")
-            sensors = Sensor.objects.filter(name__icontains=keywords).select_related("sensor_category", "location")[:10]
+        sensors_qs = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = self.extract_keywords(search_query or "")
+        if sensors_qs is None:
+            # 非 scope-aware 兜底(不应发生:SensorTool 实现了 build_base_queryset)
+            sensors_qs = Sensor.objects.select_related("sensor_category", "location").all()
+        sensors = sensors_qs.filter(name__icontains=keywords)[:10]
 
         if not sensors.exists():
             # 如果没有关键词，返回传感器统计

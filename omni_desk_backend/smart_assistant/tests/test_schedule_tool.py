@@ -72,9 +72,12 @@ def test_new_execute_signature_accepts_scoped_qs(tool, db):
 @pytest.mark.django_db
 def test_old_execute_signature_still_works(tool, db):
     """旧签名 execute(query, context) 仍工作(向后兼容)"""
+    from django.contrib.auth import get_user_model
     from events.models import Schedule
+
+    user = get_user_model().objects.create_user(username="sched_old_sig", password="x")
     Schedule.objects.create(duty_date=timezone.now().date())
-    ctx = ToolContext(user="u")
+    ctx = ToolContext(user=user)  # 默认 SELF;R5-D1 后旧签名同样走 scoped 路径
     result = tool.execute("今天", ctx)
     assert "found" in result
 

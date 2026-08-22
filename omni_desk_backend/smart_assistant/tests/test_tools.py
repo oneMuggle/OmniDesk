@@ -57,7 +57,9 @@ class TestScheduleTool(TestCase):
     @patch('smart_assistant.tools.schedule_tool.Schedule')
     def test_no_schedules_returns_not_found(self, mock_schedule):
         """无排班记录时返回 found=False."""
-        mock_schedule.objects.filter.return_value.select_related.return_value.exists.return_value = False
+        base_sched = mock_schedule.objects.select_related.return_value.all.return_value
+        base_sched.exists.return_value = False
+        base_sched.filter.return_value.exists.return_value = False
         result = self.tool.execute('明天的排班')
         self.assertFalse(result['found'])
         self.assertIn('message', result)
@@ -78,7 +80,8 @@ class TestScheduleTool(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
 
         result = self.tool.execute('明天的排班')
         self.assertTrue(result['found'])
@@ -106,7 +109,8 @@ class TestPersonnelTool(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__.return_value = mock_qs
-        mock_personnel.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_personnel.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute('张三是谁')
         self.assertFalse(result['found'])
@@ -129,7 +133,8 @@ class TestPersonnelTool(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_p]))
         mock_qs.__getitem__.return_value = mock_qs
-        mock_personnel.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_personnel.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute('查询张三')
         self.assertTrue(result['found'])

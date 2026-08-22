@@ -68,11 +68,12 @@ class TestSensorToolKeywordCleaning(TestCase):
         """去除"搜索"停用词."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索温度传感器")
 
-        call_args = mock_sensor.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "温度")
 
     @patch("smart_assistant.tools.sensor_tool.SensorCalibration")
@@ -81,11 +82,12 @@ class TestSensorToolKeywordCleaning(TestCase):
         """去除多个停用词("查找"/"传感器"/"设备")."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("查找湿度传感器设备型号A")
 
-        call_args = mock_sensor.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "湿度型号A")
 
     @patch("smart_assistant.tools.sensor_tool.SensorCalibration")
@@ -94,11 +96,12 @@ class TestSensorToolKeywordCleaning(TestCase):
         """query 仅含停用词时,清理后为空字符串."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索传感器设备")
 
-        call_args = mock_sensor.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "")
 
 
@@ -121,7 +124,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = False
         # mock 切片 [:10] 后链式调用:让 __getitem__ 返回 self 以保持 exists() 行为
         mock_qs.__getitem__.return_value = mock_qs
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("查询 XYZ-不存在的型号")
 
@@ -151,7 +155,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("温度传感器 T01")
 
@@ -182,7 +187,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 S1")
 
@@ -208,7 +214,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 S2")
 
@@ -236,7 +243,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         mock_calib.objects.filter.return_value.order_by.return_value.first.return_value = None
 
@@ -267,7 +275,8 @@ class TestSensorToolResultStructure(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         mock_calib_obj = MagicMock()
         mock_calib_obj.calibration_date = datetime(2026, 5, 1, 10, 0, 0)
@@ -299,7 +308,8 @@ class TestSensorToolSummaryMode(TestCase):
         mock_qs.exists.return_value = False
         # mock 切片 [:10] 后链式调用:让 __getitem__ 返回 self 以保持 exists() 行为
         mock_qs.__getitem__.return_value = mock_qs
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         mock_sensor.objects.count.return_value = 42
         mock_sensor.objects.filter.return_value.count.return_value = 30
@@ -321,7 +331,8 @@ class TestSensorToolSummaryMode(TestCase):
         mock_qs.exists.return_value = False
         # mock 切片 [:10] 后链式调用:让 __getitem__ 返回 self 以保持 exists() 行为
         mock_qs.__getitem__.return_value = mock_qs
-        mock_sensor.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_sensor.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         mock_sensor.objects.count.return_value = 5
         mock_sensor.objects.filter.return_value.count.return_value = 3
