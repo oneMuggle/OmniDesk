@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '../../../../test-utils';
+import { render, screen, waitFor } from '../../../../test-utils/test-utils';
 import StudentListPage from './StudentListPage';
 import { listStudents } from '../../api/students';
 

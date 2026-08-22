@@ -1,10 +1,10 @@
 import { useState, useEffect, useContext } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { RefreshContext } from '../../shared/context/RefreshContext';
+import { RefreshContext } from '../../../shared/context/RefreshContext';
 import { List, Card, Button, Spin } from 'antd';
-import { getPosts } from '../../features/communication/api/communicationApi';
+import { getPosts } from '../api/communicationApi';
 import './Communication.css';
-import { logger } from '../../shared/utils/logger';
+import { logger } from '../../../shared/utils/logger';
 
 const PostList = () => {
     const [posts, setPosts] = useState([]);

@@ -1,4 +1,4 @@
-import PostForm from '../../../components/communication/PostForm';
+import PostForm from '../components/PostForm';
 
 const NewPostPage = () => {
     return <PostForm />;

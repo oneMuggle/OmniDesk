@@ -1,43 +1,41 @@
-import PropTypes from 'prop-types';
-import { MemoryRouter } from 'react-router-dom';
+import { render } from '@testing-library/react';
+import { ConfigProvider } from 'antd';
+import zhCN from 'antd/locale/zh_CN';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { MemoryRouter } from 'react-router-dom';
+import PropTypes from 'prop-types';
 
-const queryClient = new QueryClient({
+const createTestQueryClient = () => new QueryClient({
   defaultOptions: {
-    queries: { retry: false },
+    queries: {
+      retry: false, // Turn off retries for tests
+    },
   },
 });
 
-/**
- * Wraps components with providers needed for testing:
- * - MemoryRouter (with optional initialEntries)
- * - QueryClientProvider
- */
-export function TestWrapper({ children, initialEntries }) {
+const AllTheProviders = ({ children }) => {
+  const testQueryClient = createTestQueryClient();
   return (
-    <QueryClientProvider client={queryClient}>
-      <MemoryRouter initialEntries={initialEntries}>
-        {children}
-      </MemoryRouter>
-    </QueryClientProvider>
+    <MemoryRouter>
+      <QueryClientProvider client={testQueryClient}>
+        <ConfigProvider locale={zhCN}>
+          {children}
+        </ConfigProvider>
+      </QueryClientProvider>
+    </MemoryRouter>
   );
-}
-
-TestWrapper.propTypes = {
-  children: PropTypes.node.isRequired,
-  initialEntries: PropTypes.arrayOf(PropTypes.string),
 };
 
-/**
- * Creates a custom wrapper for render() calls.
- * Usage: render(<MyComponent />, { wrapper: renderWithProviders({ initialEntries: ['/test'] }) })
- */
-export function renderWithProviders(options = {}) {
-  return function Wrapper({ children }) {
-    return (
-      <TestWrapper initialEntries={options.initialEntries}>
-        {children}
-      </TestWrapper>
-    );
-  };
-}
+AllTheProviders.propTypes = {
+    children: PropTypes.node.isRequired,
+};
+
+
+const renderWithProviders = (ui, options) =>
+  render(ui, { wrapper: AllTheProviders, ...options });
+
+// re-export everything
+export * from '@testing-library/react';
+
+// override render method
+export { renderWithProviders as render };

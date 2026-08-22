@@ -3,7 +3,7 @@ import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import CommunicationPage from './CommunicationPage';
 
-jest.mock('../../../components/communication/PostList', () => () => <div>PostList</div>);
+jest.mock('../components/PostList', () => () => <div>PostList</div>);
 
 describe('CommunicationPage', () => {
   it('renders with PostList', () => {

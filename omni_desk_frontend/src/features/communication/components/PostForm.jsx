@@ -1,9 +1,9 @@
 import { useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Form, Input, Button, DatePicker, Card, Space, message } from 'antd';
-import RichTextEditor from '../../shared/components/RichTextEditor';
-import * as communicationApi from '../../features/communication/api/communicationApi';
-import { RefreshContext } from '../../shared/context/RefreshContext';
+import RichTextEditor from '../../../shared/components/RichTextEditor';
+import * as communicationApi from '../api/communicationApi';
+import { RefreshContext } from '../../../shared/context/RefreshContext';
 
 const PostForm = () => {
     const navigate = useNavigate();

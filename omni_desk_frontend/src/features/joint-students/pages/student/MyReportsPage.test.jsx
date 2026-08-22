@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '../../../../test-utils';
+import { render, screen, waitFor } from '../../../../test-utils/test-utils';
 import MyReportsPage from './MyReportsPage';
 import { listReports } from '../../api/reports';
 

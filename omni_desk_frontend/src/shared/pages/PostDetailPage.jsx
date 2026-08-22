@@ -1,4 +1,4 @@
-import PostDetail from '../../components/communication/PostDetail';
+import PostDetail from '../../features/communication/components/PostDetail';
 
 const PostDetailPage = () => {
   return <PostDetail />;
