@@ -16,24 +16,23 @@ class MemoTool(BaseTool):
         支持两种调用方式(向后兼容):
         - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
         - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
-          (C-1 修复:原生路径必须复用 build_base_queryset +
-          get_queryset_for_scope 的 scoped queryset,否则 SELF scope
-          用户会查到他人备忘录)。
+
+        R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数 —— 注入 qs 优先,
+        未注入时经 build_base_queryset + get_queryset_for_scope 自取,
+        SELF/DEPARTMENT/GLOBAL 三级 scope 在两个入口下语义一致。
         """
-        # 新路径(scope-aware):用调用方注入的 scoped queryset 替代全量表查询
-        if qs is not None and scope is not None:
-            search_query = query
-            if isinstance(params, dict) and params.get("query"):
-                search_query = params["query"]
-            keywords = self.extract_keywords(search_query or "")
-            memos = qs
-            # I-2:is_completed 布尔过滤(缺失时回退到纯关键词)
-            if isinstance(params, dict) and params.get("is_completed") is not None:
-                memos = memos.filter(is_completed=bool(params["is_completed"]))
-            memos = memos.filter(title__icontains=keywords)[:10]
-        else:
-            keywords = self.extract_keywords(query or "")
-            memos = Memo.objects.filter(title__icontains=keywords).select_related("user")[:10]
+        memos = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = self.extract_keywords(search_query or "")
+        if memos is None:
+            # 非 scope-aware 兜底(不应发生:MemoTool 实现了 build_base_queryset)
+            memos = Memo.objects.select_related("user").all()
+        # I-2:is_completed 布尔过滤(缺失时回退到纯关键词)
+        if isinstance(params, dict) and params.get("is_completed") is not None:
+            memos = memos.filter(is_completed=bool(params["is_completed"]))
+        memos = memos.filter(title__icontains=keywords)[:10]
         if not memos.exists():
             return {
                 "found": False,

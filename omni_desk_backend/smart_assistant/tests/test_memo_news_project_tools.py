@@ -78,11 +78,12 @@ class TestKeywordCleaning(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_memo.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_memo.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         MemoTool().execute("搜索查找备忘录便签内容")
 
-        call_args = mock_memo.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("title__icontains"), "内容")
 
     @patch("smart_assistant.tools.news_tool.NewsArticle")
@@ -91,11 +92,12 @@ class TestKeywordCleaning(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_news.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_news.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         NewsTool().execute("搜索查找新闻通知标题")
 
-        call_args = mock_news.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("title__icontains"), "标题")
 
     @patch("smart_assistant.tools.project_tool.Project")
@@ -104,11 +106,12 @@ class TestKeywordCleaning(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_project.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_project.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         ProjectTool().execute("搜索查找项目内容")
 
-        call_args = mock_project.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "内容")
 
 
@@ -129,7 +132,8 @@ class TestMemoToolResults(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_memo.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_memo.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 XYZ-不存在的备忘录")
 
@@ -153,7 +157,8 @@ class TestMemoToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_m]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_memo.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_memo.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索重要提醒")
 
@@ -180,7 +185,8 @@ class TestMemoToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_m]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_memo.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_memo.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索短便签")
 
@@ -203,7 +209,8 @@ class TestMemoToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_m]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_memo.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_memo.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索无主便签")
 
@@ -222,7 +229,8 @@ class TestNewsToolResults(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_news.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_news.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 XYZ-不存在的新闻")
 
@@ -248,7 +256,8 @@ class TestNewsToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_a]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_news.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_news.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 AI")
 
@@ -273,7 +282,8 @@ class TestNewsToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_a]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_news.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_news.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索无元数据")
 
@@ -293,7 +303,8 @@ class TestProjectToolResults(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_project.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_project.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 XYZ-不存在的项目")
 
@@ -317,7 +328,8 @@ class TestProjectToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_p]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_project.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_project.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 OmniDesk")
 
@@ -344,7 +356,8 @@ class TestProjectToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_p]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_project.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_project.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索无主项目")
 
@@ -366,7 +379,8 @@ class TestProjectToolResults(TestCase):
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_p]))
         mock_qs.__getitem__ = MagicMock(return_value=mock_qs)
-        mock_project.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_project.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
 
         result = self.tool.execute("搜索 Long")
 

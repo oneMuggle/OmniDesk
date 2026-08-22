@@ -68,14 +68,15 @@ class TestDocumentToolKeywordCleaning(TestCase):
         """去除"搜索"停用词."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_template.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
         mock_qs.__getitem__.return_value = mock_qs
         mock_doc.objects.filter.return_value.select_related.return_value = mock_qs
 
         result = self.tool.execute("搜索测试文档")
 
         # 验证 template filter 被调用时,关键词是清理后的字符串
-        call_args = mock_template.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "测试")
 
     @patch("smart_assistant.tools.document_tool.GeneratedDocument")
@@ -85,12 +86,13 @@ class TestDocumentToolKeywordCleaning(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__.return_value = mock_qs
-        mock_template.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
         mock_doc.objects.filter.return_value.select_related.return_value = mock_qs
 
         result = self.tool.execute("搜索查找公文文档关键内容")
 
-        call_args = mock_template.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "关键内容")
 
     @patch("smart_assistant.tools.document_tool.GeneratedDocument")
@@ -100,12 +102,13 @@ class TestDocumentToolKeywordCleaning(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__.return_value = mock_qs
-        mock_template.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
         mock_doc.objects.filter.return_value.select_related.return_value = mock_qs
 
         result = self.tool.execute("搜索文档")
 
-        call_args = mock_template.objects.filter.call_args
+        call_args = mock_qs.filter.call_args
         self.assertEqual(call_args.kwargs.get("name__icontains"), "")
 
 
@@ -127,7 +130,8 @@ class TestDocumentToolResultStructure(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
         mock_qs.__getitem__.return_value = mock_qs
-        mock_template.objects.filter.return_value.select_related.return_value = mock_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_qs
+        mock_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_qs)
         mock_doc.objects.filter.return_value.select_related.return_value = mock_qs
 
         result = self.tool.execute("搜索 XYZ-不存在的内容")
@@ -150,7 +154,8 @@ class TestDocumentToolResultStructure(TestCase):
         mock_template_qs.exists.return_value = True
         mock_template_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_t]))
         mock_template_qs.__getitem__ = MagicMock(return_value=mock_template_qs)
-        mock_template.objects.filter.return_value.select_related.return_value = mock_template_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_template_qs
+        mock_template_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_template_qs)
 
         # 无 generated docs
         mock_doc_qs = MagicMock()
@@ -181,7 +186,8 @@ class TestDocumentToolResultStructure(TestCase):
         mock_template_qs.exists.return_value = True
         mock_template_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_t]))
         mock_template_qs.__getitem__ = MagicMock(return_value=mock_template_qs)
-        mock_template.objects.filter.return_value.select_related.return_value = mock_template_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_template_qs
+        mock_template_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_template_qs)
 
         mock_doc_qs = MagicMock()
         mock_doc_qs.exists.return_value = False
@@ -206,7 +212,8 @@ class TestDocumentToolResultStructure(TestCase):
         mock_template_qs.exists.return_value = True
         mock_template_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_t]))
         mock_template_qs.__getitem__ = MagicMock(return_value=mock_template_qs)
-        mock_template.objects.filter.return_value.select_related.return_value = mock_template_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_template_qs
+        mock_template_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_template_qs)
 
         # GeneratedDocument mock(字段都需 mock 出来)
         mock_d = MagicMock()
@@ -250,7 +257,8 @@ class TestDocumentToolResultStructure(TestCase):
         mock_template_qs.exists.return_value = True
         mock_template_qs.__iter__ = MagicMock(side_effect=lambda: iter([mock_t]))
         mock_template_qs.__getitem__ = MagicMock(return_value=mock_template_qs)
-        mock_template.objects.filter.return_value.select_related.return_value = mock_template_qs
+        mock_template.objects.select_related.return_value.all.return_value = mock_template_qs
+        mock_template_qs.filter.return_value.__getitem__ = MagicMock(return_value=mock_template_qs)
 
         mock_doc_qs = MagicMock()
         mock_doc_qs.exists.return_value = True

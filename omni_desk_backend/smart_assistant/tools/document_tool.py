@@ -19,24 +19,24 @@ class DocumentTool(BaseTool):
           (C-1 修复:模板从 scoped queryset 取,生成的文档按 template__in=qs
           反查,确保 SELF/DEPARTMENT/GLOBAL 三级 scope 生效)。
         """
-        # 新路径(scope-aware):模板用注入的 scoped queryset,生成文档按
-        # template__in 反查同一 scope(GeneratedDocument 无 owner 字段)
-        if qs is not None and scope is not None:
-            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = self.extract_keywords(search_query)
-            # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
-            limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
-            templates = qs.filter(name__icontains=keywords)[:limit]
-            generated_docs = GeneratedDocument.objects.filter(
-                template__in=qs, template__name__icontains=keywords
-            ).select_related("template")[:limit]
-        else:
-            keywords = self.extract_keywords(query or "")
-            templates = DocumentTemplate.objects.filter(name__icontains=keywords).select_related("owner")[:10]
-            # GeneratedDocument 无 name 字段,改用 template__name 反查
-            generated_docs = GeneratedDocument.objects.filter(template__name__icontains=keywords).select_related(
-                "template"
-            )[:10]
+        # R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数(注入 qs 优先,未注入
+        # 时自取),SELF/DEPARTMENT/GLOBAL 三级 scope 在两个入口下语义一致
+        # (修复旧路径 SELF scope 泄露)。生成文档按 template__in=templates_qs 反查
+        # 同一 scope(GeneratedDocument 无 owner 字段)。
+        templates_qs = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = self.extract_keywords(search_query or "")
+        if templates_qs is None:
+            # 非 scope-aware 兜底(不应发生:DocumentTool 实现了 build_base_queryset)
+            templates_qs = DocumentTemplate.objects.select_related("owner").all()
+        # I-2:limit 结构化字段替换硬编码 [:10](缺失时保持 10)
+        limit = params.get("limit") if isinstance(params, dict) and params.get("limit") else 10
+        templates = templates_qs.filter(name__icontains=keywords)[:limit]
+        generated_docs = GeneratedDocument.objects.filter(
+            template__in=templates_qs, template__name__icontains=keywords
+        ).select_related("template")[:limit]
 
         if not templates.exists() and not generated_docs.exists():
             return {

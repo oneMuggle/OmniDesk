@@ -16,7 +16,9 @@ class EventTool(BaseTool):
         支持两种调用方式(向后兼容):
         - 旧:execute(query, context) — 由原生 tool_calls 旧签名/直调路径使用
         - 新:execute(params, scope, qs) — 由 scope-aware 执行分支使用
-          (C-1 修复:排班从 scoped queryset 取;节假日是公共数据,保持全量)。
+
+        R5-D1 统一:排班两条路径都经 ``scoped_queryset`` 取数;节假日是公共
+        数据,保持全量(与原行为一致)。
         """
         # 日期关键词解析(新旧路径共用)
         target_date = timezone.now().date()
@@ -43,10 +45,11 @@ class EventTool(BaseTool):
             except ValueError:
                 pass  # 非法日期保持默认今天
 
-        if qs is not None and scope is not None:
-            schedules = qs.filter(duty_date=target_date).select_related("duty_person", "duty_leader")
-        else:
-            schedules = Schedule.objects.filter(duty_date=target_date).select_related("duty_person", "duty_leader")
+        schedules_qs = self.scoped_queryset(context, qs=qs, scope=scope)
+        if schedules_qs is None:
+            # 非 scope-aware 兜底(不应发生:EventTool 实现了 build_base_queryset)
+            schedules_qs = Schedule.objects.select_related("duty_person", "duty_leader").all()
+        schedules = schedules_qs.filter(duty_date=target_date)
 
         holidays = Holiday.objects.filter(
             start_date__lte=target_date,

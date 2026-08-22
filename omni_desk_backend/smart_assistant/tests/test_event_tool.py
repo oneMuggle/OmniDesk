@@ -68,7 +68,8 @@ class TestEventToolDateParsing(TestCase):
         """无日期关键词时,查询今天."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         result = self.tool.execute("查询事件")
@@ -80,7 +81,8 @@ class TestEventToolDateParsing(TestCase):
         """包含"今天"时,目标日期为今天."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         result = self.tool.execute("今天有什么安排")
@@ -92,7 +94,8 @@ class TestEventToolDateParsing(TestCase):
         """包含"明天"时,目标日期为明天."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         expected = (timezone.now() + timedelta(days=1)).date()
@@ -105,7 +108,8 @@ class TestEventToolDateParsing(TestCase):
         """包含"后天"时,目标日期为后天."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         expected = (timezone.now() + timedelta(days=2)).date()
@@ -118,7 +122,8 @@ class TestEventToolDateParsing(TestCase):
         """包含"昨天"时,目标日期为昨天."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         expected = (timezone.now() - timedelta(days=1)).date()
@@ -131,7 +136,8 @@ class TestEventToolDateParsing(TestCase):
         """"明天" 关键词优先级高于默认(无关键词 → 今天)."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         t_today = self.tool.execute("今天")
@@ -163,7 +169,8 @@ class TestEventToolResultStructure(TestCase):
         """无排班无节假日时,found=False 且 message 非空."""
         mock_qs = MagicMock()
         mock_qs.exists.return_value = False
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         result = self.tool.execute("今天有什么")
@@ -191,7 +198,8 @@ class TestEventToolResultStructure(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         result = self.tool.execute("明天的排班")
@@ -239,7 +247,8 @@ class TestEventToolResultStructure(TestCase):
         mock_qs = MagicMock()
         mock_qs.exists.return_value = True
         mock_qs.__iter__ = MagicMock(return_value=iter([mock_s]))
-        mock_schedule.objects.filter.return_value.select_related.return_value = mock_qs
+        base_qs = mock_schedule.objects.select_related.return_value.all.return_value
+        base_qs.filter.return_value = mock_qs
         mock_holiday.objects.filter.return_value.exists.return_value = False
 
         result = self.tool.execute("明天的排班")

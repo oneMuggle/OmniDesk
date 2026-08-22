@@ -49,22 +49,18 @@ class ComplianceTool(BaseTool):
         # 支持两种调用方式(向后兼容):
         # - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
         # - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
-        if qs is not None and scope is not None:
-            search_query = params.get("query") if isinstance(params, dict) and params.get("query") else (query or "")
-            keywords = "".join(c for c in search_query if c not in stopwords).strip()
-            issues_qs = (
-                qs.filter(status__in=["待处理", "处理中"])
-                .select_related("project", "document_book", "document_template")
-                .order_by(_SEVERITY_RANK, "due_date")
-            )
-        else:
-            search_query = query or ""
-            keywords = "".join(c for c in search_query if c not in stopwords).strip()
-            issues_qs = (
-                ComplianceIssue.objects.filter(status__in=["待处理", "处理中"])
-                .select_related("project", "document_book", "document_template")
-                .order_by(_SEVERITY_RANK, "due_date")
-            )
+        #
+        # R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数。合规问题是公共
+        # 资源(工具 _scope_self 为透传),行为不变;统一入口消除裸表查询。
+        issues_base = self.scoped_queryset(context, qs=qs, scope=scope)
+        search_query = query
+        if isinstance(params, dict) and params.get("query"):
+            search_query = params["query"]
+        keywords = "".join(c for c in (search_query or "") if c not in stopwords).strip()
+        if issues_base is None:
+            # 非 scope-aware 兜底(不应发生:ComplianceTool 实现了 build_base_queryset)
+            issues_base = ComplianceIssue.objects.select_related("project", "document_book", "document_template").all()
+        issues_qs = issues_base.filter(status__in=["待处理", "处理中"]).order_by(_SEVERITY_RANK, "due_date")
 
         # 关键词过滤(至少 2 字符,避免单字过宽)
         if keywords and len(keywords) >= 2:
