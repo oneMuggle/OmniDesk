@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
 import { Card, Table, Button, message, Space, Radio, Switch } from 'antd';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
+// R5-C2: jspdf/html2canvas 仅"导出为PDF"时使用,改为动态 import 拆 chunk,
+// 避免进入首屏依赖图(docprocessing chunk 约 620 kB raw / 188 kB gzip)。
 import { scheduleApi } from '../api/scheduleApi';
 import { getPositions, getAllPersonnel } from '../../personnel/api/personnelApi';
 import { getPersonnelSequences, getLeaderSequences } from '../../../shared/api/sequenceApi';
@@ -377,8 +377,12 @@ const ScheduleManagementPage = () => {
     calendarEl.style.width = 'auto';
     calendarEl.style.height = 'auto';
     try {
+      const [{ default: html2canvas }, { default: JsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ]);
       const canvas = await html2canvas(calendarEl, { scale: 2, useCORS: true });
-      const pdf = new jsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
+      const pdf = new JsPDF({ orientation: 'landscape', unit: 'px', format: [canvas.width, canvas.height] });
       pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
       pdf.save('schedule.pdf');
     } catch (error) {

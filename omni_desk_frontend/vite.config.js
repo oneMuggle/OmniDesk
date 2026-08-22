@@ -68,7 +68,7 @@ export default defineConfig({
           // 时间处理
           datetime: ['dayjs'],
           // 服务端状态管理
-          data: ['@tanstack/react-query', '@tanstack/react-query-devtools'],
+          data: ['@tanstack/react-query'],
           // Ant Design 生态
           antd: ['antd', '@ant-design/icons'],
           // 图标库
@@ -79,12 +79,14 @@ export default defineConfig({
           editor: ['@tiptap/react', '@tiptap/starter-kit'],
           // 日历
           fullcalendar: ['@fullcalendar/core', '@fullcalendar/react', '@fullcalendar/daygrid', '@fullcalendar/timegrid', '@fullcalendar/interaction', '@fullcalendar/list'],
-          // 文档处理(PDF/图片)
-          docprocessing: ['jspdf', 'html2canvas', 'dompurify'],
           // 通知
           notify: ['react-toastify'],
           // Markdown 渲染
           markdown: ['react-markdown', 'remark-gfm'],
+          // R5-C2: dompurify 不再与 jspdf/html2canvas 捆绑(原 docprocessing chunk
+          // 623 kB 被 82 个路由 chunk 静态引用)。dompurify 归入共享依赖;
+          // jspdf/html2canvas 已改为动态 import,由 Rollup 自动拆为 async chunk,
+          // 仅"导出为PDF"时加载。
         },
       },
     },
