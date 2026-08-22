@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Card, Table, Button, Modal, Form, Input, DatePicker, message, Popconfirm, Spin } from 'antd';
+import { Card, Button, Modal, Form, Input, DatePicker, message, Popconfirm, Spin } from 'antd';
 import dayjs from 'dayjs';
 import { useQueryClient } from '@tanstack/react-query';
 import { holidayApi } from '../api/holidayApi';
 import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
+import DataTable from '../../../shared/components/DataTable';
 
 const HOLIDAYS_QUERY_KEY = ['holidays'];
 
@@ -120,11 +121,14 @@ const HolidayManagementPage = () => {
         添加节假日
       </Button>
       <Spin spinning={loading}>
-        <Table
+        {/* 原 Table 未传 pagination(antd 默认 10/页),DataTable 缺省关闭分页,故显式对齐 */}
+        <DataTable
           columns={columns}
           dataSource={holidays}
           rowKey="id"
           bordered
+          pagination={{ pageSize: 10 }}
+          showActions={false}
         />
       </Spin>
       <Modal

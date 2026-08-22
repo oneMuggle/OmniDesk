@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Table, Modal, Form, Input, message } from 'antd';
+import { Button, Modal, Form, Input, message } from 'antd';
 import {
   getEquipment,
   createEquipment,
@@ -8,6 +8,7 @@ import {
 } from '../api/equipment';
 import { useQueryClient } from '@tanstack/react-query';
 import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
+import DataTable from '../../../shared/components/DataTable';
 import '../../../shared/pages/EquipmentPage.css';
 
 const EQUIPMENTS_QUERY_KEY = ['equipments'];
@@ -105,12 +106,13 @@ const EquipmentPage = () => {
         </Button>
       </div>
 
-      <Table
+      <DataTable
         dataSource={equipmentList}
         columns={columns}
         rowKey="id"
         bordered
         pagination={{ pageSize: 8 }}
+        showActions={false}
       />
 
       <Modal

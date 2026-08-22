@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Popconfirm } from 'antd';
+import { Button, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { getSensorCategories, createSensorCategory, updateSensorCategory, deleteSensorCategory } from '../api/sensorApi';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorCategoryManagementPage = () => {
   const [categories, setCategories] = useState([]);
@@ -109,7 +110,8 @@ const SensorCategoryManagementPage = () => {
       <Button type="primary" onClick={() => showModal()} style={{ marginBottom: 'var(--spacing-md)' }}>
         添加传感器类别
       </Button>
-      <Table columns={columns} dataSource={categories} rowKey="id" />
+      {/* 原 Table 未传 pagination(antd 默认 10/页),DataTable 缺省关闭分页,故显式对齐 */}
+      <DataTable columns={columns} dataSource={categories} rowKey="id" pagination={{ pageSize: 10 }} showActions={false} />
       <Modal
         title={editingCategory ? '编辑传感器类别' : '添加传感器类别'}
         visible={isModalVisible}
