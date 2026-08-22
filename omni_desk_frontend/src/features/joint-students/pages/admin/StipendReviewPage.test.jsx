@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '../../../../test-utils';
+import { render, screen, waitFor } from '../../../../test-utils/test-utils';
 import StipendReviewPage from './StipendReviewPage';
 import { listStipends } from '../../api/stipends';
 import { listCycles } from '../../api/cycles';

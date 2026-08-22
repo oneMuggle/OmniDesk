@@ -25,7 +25,17 @@
   "rules": {
     "no-unused-vars": "warn",
     "react/prop-types": "warn",
-    "react/jsx-key": "warn"
+    "react/jsx-key": "warn",
+    "no-restricted-imports": ["error", {
+      "patterns": [{
+        "group": [
+          "**/test-utils",
+          "!**/test-utils/",
+          "!**/test-utils/test-utils"
+        ],
+        "message": "Use test-utils/test-utils (the jsx entry with ConfigProvider zh_CN)"
+      }]
+    }]
   },
   "settings": {
     "react": {

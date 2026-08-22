@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '../../../test-utils';
+import { render, screen, waitFor } from '../../../test-utils/test-utils';
 import userEvent from '@testing-library/user-event';
 import * as ReactQuery from '@tanstack/react-query';
 import ScheduleManagementPage from './ScheduleManagementPage';

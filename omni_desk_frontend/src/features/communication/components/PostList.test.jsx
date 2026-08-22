@@ -3,11 +3,11 @@ import '@testing-library/jest-dom';
 import { MemoryRouter } from 'react-router-dom';
 import PostList from './PostList';
 
-jest.mock('../../features/communication/api/communicationApi', () => ({
+jest.mock('../api/communicationApi', () => ({
   getPosts: jest.fn(),
 }));
 
-jest.mock('../../shared/context/RefreshContext', () => {
+jest.mock('../../../shared/context/RefreshContext', () => {
   const { createContext } = require('react');
   return { RefreshContext: createContext({ refreshKey: 0 }) };
 });
@@ -26,14 +26,14 @@ describe('PostList', () => {
   });
 
   it('shows loading spinner initially', () => {
-    const { getPosts } = require('../../features/communication/api/communicationApi');
+    const { getPosts } = require('../api/communicationApi');
     getPosts.mockReturnValue(new Promise(() => {}));
     renderWithRouter(<PostList />);
     expect(document.querySelector('.ant-spin-spinning')).toBeInTheDocument();
   });
 
   it('renders posts when loaded', async () => {
-    const { getPosts } = require('../../features/communication/api/communicationApi');
+    const { getPosts } = require('../api/communicationApi');
     getPosts.mockResolvedValue({
       data: {
         results: [
@@ -55,7 +55,7 @@ describe('PostList', () => {
   });
 
   it('shows empty list when no posts', async () => {
-    const { getPosts } = require('../../features/communication/api/communicationApi');
+    const { getPosts } = require('../api/communicationApi');
     getPosts.mockResolvedValue({ data: { results: [] } });
     renderWithRouter(<PostList />);
     await waitFor(() => {
@@ -64,7 +64,7 @@ describe('PostList', () => {
   });
 
   it('shows empty posts array on fetch error', async () => {
-    const { getPosts } = require('../../features/communication/api/communicationApi');
+    const { getPosts } = require('../api/communicationApi');
     getPosts.mockRejectedValue(new Error('Failed'));
     renderWithRouter(<PostList />);
     await waitFor(() => {

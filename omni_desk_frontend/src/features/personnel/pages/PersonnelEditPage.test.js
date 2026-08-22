@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen, waitFor, act } from '../../../test-utils';
+import { render, screen, waitFor, act } from '../../../test-utils/test-utils';
 import userEvent from '@testing-library/user-event';
 import { message, Form } from 'antd';
 import dayjs from 'dayjs';

@@ -1,4 +1,4 @@
-import PostList from '../../../components/communication/PostList';
+import PostList from '../components/PostList';
 
 const CommunicationPage = () => {
   return (
