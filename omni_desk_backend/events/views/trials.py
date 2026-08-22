@@ -6,7 +6,7 @@
 - TimeSlotViewSet: 时间段 CRUD + 批量创建
 """
 
-import logging
+from observability import get_logger
 from datetime import timedelta
 
 from django.db import transaction
@@ -21,7 +21,7 @@ from users.permissions import IsAdminOrManagerOrReadOnly
 from ..models import Equipment, TimeSlot, Trial
 from ..serializers import EquipmentSerializer, TimeSlotSerializer, TrialSerializer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "events.views.trials")
 
 
 class EquipmentViewSet(viewsets.ModelViewSet):

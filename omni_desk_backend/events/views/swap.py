@@ -1,13 +1,12 @@
 """events.views.swap — 换班申请 ViewSet(薄包装,业务逻辑在 services.swap_service)"""
 
-import logging
-
 from django.db.models import Q
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError as DRFValidationError
 from rest_framework.response import Response
 
+from observability import get_logger
 from events.services import swap_service
 from events.services.swap_service import (
     SwapNotFoundError,
@@ -24,7 +23,7 @@ from ..serializers import (
     SwapRequestTargetActionSerializer,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "events.views.swap")
 
 
 class SwapRequestViewSet(viewsets.ModelViewSet):

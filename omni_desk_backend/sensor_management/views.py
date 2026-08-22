@@ -1,10 +1,9 @@
-import logging
-
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from observability import get_logger
 from users.permissions import IsAdminOrManager, IsAdminOrManagerOrReadOnly  # 假设有这些权限类
 
 from .models import CalibrationReminder, Sensor, SensorCalibration, SensorCategory, SensorMovement, StorageLocation
@@ -19,7 +18,7 @@ from .serializers import (
 
 from .services.inventory_service import InventoryService, CalibrationService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "sensor_management.views")
 
 
 class SensorViewSet(viewsets.ModelViewSet):

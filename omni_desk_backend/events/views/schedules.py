@@ -6,7 +6,6 @@
 """
 
 import calendar
-import logging
 from datetime import datetime, timedelta
 
 from django.db import IntegrityError, transaction
@@ -22,8 +21,9 @@ from users.permissions import IsAdminOrManagerOrReadOnly
 from ..models import LeaderSequence, PersonnelSequence, Schedule
 from ..schedule_generator import ScheduleGenerator
 from ..serializers import GenerateScheduleSerializer, ScheduleSerializer
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "events.views.schedules")
 
 
 class ScheduleViewSet(viewsets.ModelViewSet):

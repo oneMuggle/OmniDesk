@@ -10,15 +10,14 @@
 L3 防护:所有通知失败仅 logger.warning,绝不抛(不阻塞主流程)。
 """
 
-import logging
-
 from django.contrib.auth.models import Group
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
 
 from .models import ScheduleSwapRequest
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "events.signals")
 
 
 # ---- helpers ----

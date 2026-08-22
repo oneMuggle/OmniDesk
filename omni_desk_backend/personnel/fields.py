@@ -11,13 +11,13 @@ XOR 流密码不具备抗已知明文攻击能力,任何能读到源码 + SECRET
 
 import base64
 import hashlib
-import logging
 
+from observability import get_logger
 from cryptography.fernet import Fernet, InvalidToken
 from django.conf import settings
 from django.db import models
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "personnel.fields")
 
 
 class EncryptedCharField(models.CharField):

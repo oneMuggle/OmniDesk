@@ -1,11 +1,11 @@
-import logging
+from observability import get_logger
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
 from django.conf import settings
 from django.core.cache import cache
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "llm_service.router")
 
 # R5-B4: 配置加载缓存。所有 LLM 调用路径都构造 router,每次 chat/embedding
 # 省 1 条 LlmAppConfig 查询;LlmAppConfig/LlmEndpoint 变更由 signals 即时失效

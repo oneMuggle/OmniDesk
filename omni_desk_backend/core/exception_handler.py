@@ -21,7 +21,6 @@ DRF 默认 exception_handler 把所有非 2xx 都包装成 ``{"detail": ...}``,
 
 from __future__ import annotations
 
-import logging
 import traceback
 from typing import Any
 
@@ -30,9 +29,10 @@ from django.http import Http404
 from rest_framework.response import Response
 from rest_framework.views import exception_handler as drf_default_handler
 
+from observability import get_logger
 from observability.context import request_id_var
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "core.exception_handler")
 
 
 def omnidesk_exception_handler(exc: Exception, context: dict[str, Any]) -> Response | None:

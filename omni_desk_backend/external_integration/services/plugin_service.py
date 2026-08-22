@@ -1,9 +1,9 @@
-import logging
+from observability import get_logger
 from urllib.parse import urlparse
 
 import requests
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "external_integration.services.plugin_service")
 
 
 class ProxyService:

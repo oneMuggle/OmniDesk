@@ -1,5 +1,5 @@
 # omni_desk_backend/search_federation/views.py
-import logging
+from observability import get_logger
 from concurrent.futures import ThreadPoolExecutor
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from paperless_proxy.models import PaperlessHealth
 from paperless_proxy.services.search import PaperlessSearchService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "search_federation.views")
 
 
 def _search_internal(query: str) -> list:

@@ -1,6 +1,5 @@
 """Version info, changelog, and migration status API endpoints."""
 
-import logging
 import re
 from pathlib import Path
 
@@ -15,8 +14,9 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from core.throttles import ClientErrorAnonThrottle
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "core.api")
 
 # 服务端字段脱敏白名单:仅保留这些字段,其余键直接丢弃,防止前端漏脱敏或恶意 payload
 _CLIENT_ERROR_ALLOWED_KEYS = {"kind", "message", "stack", "source", "url", "ua", "extra", "request_id"}

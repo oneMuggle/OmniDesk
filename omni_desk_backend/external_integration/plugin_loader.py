@@ -1,16 +1,16 @@
 import hashlib
 import json
-import logging
 import os
 import shutil
 import subprocess
 import tempfile
 import zipfile
+from observability import get_logger
 from pathlib import Path
 
 from django.conf import settings
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "external_integration.plugin_loader")
 
 PLUGIN_DIR = getattr(settings, "PLUGIN_UPLOAD_DIR", os.path.join(settings.MEDIA_ROOT, "plugins"))
 DEFAULT_TIMEOUT = 30
