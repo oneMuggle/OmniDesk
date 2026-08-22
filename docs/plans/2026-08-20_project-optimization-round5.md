@@ -128,14 +128,21 @@ round1~round4 + pre-deploy-hardening 已完成:
 - [x] R5-D2 extract_keywords 统一(PR #406,BaseTool 基类 command_words+stopwords 有序元组;6 工具收敛;120k 随机模糊对比旧链 0 不匹配)
 - [x] R5-D6 useCrudQuery 收口(PR #407,extractResults + useCrudQuery(staleTime 5min);4 页面改造;剩余散点 29 处留后续)
 - [x] R5-D3 chat 前置上下文合并(PR #408,prepare_chat_context 六元组;sync/stream 收敛;对外可见面零变化经逐行比对)
+- [x] R5-D7 communication 组件迁移 + test-utils 单一入口(PR #415,7 文件 git mv 至 features/communication/components;test-utils.js 删除、单一 jsx 入口含 ConfigProvider zh_CN;no-restricted-imports 禁旧路径)
+- [x] R5-B7 30 文件迁移 observability(PR #416,get_logger `<app>.<module>` 事件名 + scripts/check_logging_imports.py AST 守卫接入 CI lint-backend)
+- [x] R5-C2 前端依赖收尾(PR #422,copy-to-clipboard→原生 clipboard.js(Chrome109 兼容降级)、react-query-devtools 移除、jspdf/html2canvas 动态 import、docprocessing chunk 解绑——常规页首访省约 594kB raw;react-slick/react-markdown 经评估保留)
+- [x] R5-D4 DataTable 样板推广(PR #419,扩展 actionAlign/rowSelection/extraColumns + 8 页样板迁移 showActions=false 统一;剩余 38 文件全量迁移留后续)
+- [x] R5-D5 orchestrator 拆分子模块(PR #423,660 行单文件 → 包 5 文件 entry/run_path/persistence/result_wrap 均 ≤250 行;patch 兼容经 _root() 动态解析;AST 级逐字等价实证)
+- [x] R5-D1 工具 execute() 双分支统一(PR #430,BaseTool.scoped_queryset 收敛 10 工具双分支;**修复 memo/document/news 3 个 SELF scope 泄露**(TDD 先红后绿)+ external_link _scope_self none()→透传真 bug;新增 test_tool_scope_regression.py 黑盒回归)
 
 ### 进行中
 _(暂无)_
 
 ### 调研产物本轮未启动
-- [ ] R5-B7 30 文件迁移 observability
-- [ ] R5-C2 前端 depcheck 收尾
-- [ ] R5-D1 smart-assistant 工具 execute() 统一
-- [ ] R5-D4 DataTable 推广 46 文件
-- [ ] R5-D5 orchestrator 拆 3 子模块
-- [ ] R5-D7 communication 双轨合并 + test-utils 单一入口
+_(全部完成——20/20 项已合并)_
+
+### 留给后续轮次的遗留项
+- R5-D4 剩余 38 个裸 Table 文件全量迁移 + CI lint 禁令
+- R5-D6 剩余 29 处 `res.data.results` 散点收口
+- R5-C1 react-router 2 个 moderate 漏洞未修(audit 阈值收紧的前置)
+- R5-B7 遗留:core/tests/test_observability_logger.py BASELINE 冗余清理、events/_obs_logger 合并
