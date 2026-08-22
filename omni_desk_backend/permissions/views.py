@@ -1,5 +1,3 @@
-import logging
-
 from django.contrib.auth.models import Group, Permission
 from django.core.cache import cache
 from rest_framework import status, viewsets
@@ -7,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from observability import get_logger
 from users.models import AuditLogEntry
 from users.permissions import IsAdminOrReadOnly
 
@@ -19,7 +18,7 @@ from .serializers import (
     build_page_route_node,
 )
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "permissions.views")
 
 
 def _write_group_audit(*, actor, action, category, target_user=None, metadata=None):

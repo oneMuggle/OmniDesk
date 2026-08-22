@@ -3,10 +3,10 @@
 通过子进程隔离 + 资源限制实现安全执行环境。
 """
 
-import logging
+from observability import get_logger
 from .plugin_loader import execute_plugin, cleanup_plugin_dir
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "external_integration.plugin_sandbox")
 
 
 def execute_plugin_safely(extract_dir, manifest, input_data):

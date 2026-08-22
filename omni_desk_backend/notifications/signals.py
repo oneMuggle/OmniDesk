@@ -1,13 +1,13 @@
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
-import logging
 
+from observability import get_logger
 from events.models import Schedule, Announcement
 from compliance.models import ComplianceIssue
 from memos.models import Memo
 from personnel.models import FamilyMember, Personnel
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "notifications.signals")
 
 
 def _notify(user, type, title, content, link=""):

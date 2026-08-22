@@ -1,14 +1,14 @@
 """Outbox 写降级核心服务"""
 
-import logging
 from django.utils import timezone
 from django.db import transaction
 from django.conf import settings
+from observability import get_logger
 from datetime import timedelta
 
 from ..models import OutboxItem
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "paperless_proxy.services.outbox")
 
 
 class OutboxDeadError(Exception):

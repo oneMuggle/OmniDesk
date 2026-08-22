@@ -1,6 +1,6 @@
 """paperless HTTP 客户端,基于 requests + 手动重试"""
 
-import logging
+from observability import get_logger
 from typing import BinaryIO, Any
 
 import requests
@@ -8,7 +8,7 @@ from django.conf import settings
 
 from ..exceptions import PaperlessError, PaperlessUnavailableError, PaperlessAuthError, PaperlessNotFoundError
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "paperless_proxy.services.client")
 
 
 class PaperlessClient:

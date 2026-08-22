@@ -8,7 +8,6 @@ L3 防护:批量处理用 transaction.atomic 单条 update,失败仅 logger 不�
 可观测性:使用 logged_task 装饰器,自动记录 celery.task.start / .success / .failure。
 """
 
-import logging
 import time
 from functools import wraps
 
@@ -16,12 +15,12 @@ from celery import shared_task as celery_shared_task
 from django.db import transaction
 from django.utils import timezone
 
-from observability import get_logger
 from observability.events import CeleryEvent
 
 from .models import ScheduleSwapRequest
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "events.tasks")
 _obs_logger = get_logger(__name__)
 
 

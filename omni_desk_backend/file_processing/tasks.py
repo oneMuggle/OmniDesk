@@ -1,9 +1,9 @@
 from celery import shared_task
+from observability import get_logger
 from .services import FileProcessingService
 from .models import UploadedFile
-import logging
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "file_processing.tasks")
 
 
 @shared_task(

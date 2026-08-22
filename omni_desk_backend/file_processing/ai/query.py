@@ -16,12 +16,13 @@ P1A-1 改写:不再 import ollama SDK 直连 qwen2.5:7b,改走
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import pandas as pd
 
-logger = logging.getLogger(__name__)
+from observability import get_logger
+
+logger = get_logger(__name__, "file_processing.ai.query")
 
 
 class NaturalLanguageQuery:

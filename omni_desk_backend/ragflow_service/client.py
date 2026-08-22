@@ -3,11 +3,10 @@
 统一封装 RAGFlow 的 HTTP API 调用，提供类型安全的接口。
 """
 
-import logging
-
 import requests
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "ragflow_service.client")
 
 
 class RagflowClientError(Exception):

@@ -1,14 +1,14 @@
-import logging
 from datetime import timedelta
 
 from celery import shared_task
 from django.utils import timezone
 
+from observability import get_logger
 from notifications.models import Notification
 
 from .models import ComplianceIssue
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "compliance.tasks")
 
 
 @shared_task

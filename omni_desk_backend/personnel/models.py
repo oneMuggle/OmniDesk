@@ -1,14 +1,14 @@
 import base64
 import hashlib
-import logging
 
 from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.db import models
 
+from observability import get_logger
 from .fields import EncryptedCharField as FernetEncryptedCharField
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "personnel.models")
 
 
 def _encrypt_field(value, key):

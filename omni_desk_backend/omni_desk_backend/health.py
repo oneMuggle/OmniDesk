@@ -1,4 +1,4 @@
-import logging
+from observability import get_logger
 from datetime import datetime, timezone
 
 import redis as redis_lib
@@ -8,7 +8,7 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "omni_desk_backend.health")
 
 
 def _get_redis_client():

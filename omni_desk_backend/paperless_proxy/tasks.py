@@ -1,12 +1,12 @@
 """paperless_proxy Celery 任务"""
 
-import logging
 import os
 import time
 from celery import shared_task
 from django.conf import settings
 from django.db.models import Q
 
+from observability import get_logger
 from notifications.models import Notification
 from notifications.service import NotificationService
 from users.models import CustomUser
@@ -16,7 +16,7 @@ from .services.client import PaperlessClient
 from .exceptions import PaperlessError
 from .models import OutboxItem
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "paperless_proxy.tasks")
 
 
 @shared_task(

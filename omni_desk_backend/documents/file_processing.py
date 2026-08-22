@@ -1,6 +1,6 @@
 # omni_desk_backend/documents/file_processing.py
 
-import logging
+from observability import get_logger
 import mimetypes
 import os
 from pathlib import Path
@@ -11,7 +11,7 @@ from django.conf import settings
 from django.utils.text import get_valid_filename
 from docx import Document as DocxDocument
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "documents.file_processing")
 
 # Mineru OCR API 配置
 MINERU_API_URL = getattr(settings, "MINERU_API_URL", None)

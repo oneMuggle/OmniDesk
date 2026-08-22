@@ -1,5 +1,5 @@
+from observability import get_logger
 from datetime import timedelta
-import logging
 
 from celery import shared_task
 from django.db.models import Q
@@ -9,7 +9,7 @@ from users.models import CustomUser  # 假设需要关联到用户
 
 from .models import CalibrationReminder, Sensor
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "sensor_management.tasks")
 
 # 导入Django的User模型，如果需要发送邮件给特定用户
 # from django.contrib.auth import get_user_model

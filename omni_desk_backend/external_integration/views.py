@@ -1,4 +1,4 @@
-import logging
+from observability import get_logger
 from pathlib import Path
 
 from rest_framework import viewsets, permissions, status
@@ -17,7 +17,7 @@ from .plugin_loader import (
 )
 from .services.plugin_service import ProxyService, PluginExecutionService
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "external_integration.views")
 
 
 class ExternalLinkViewSet(viewsets.ModelViewSet):

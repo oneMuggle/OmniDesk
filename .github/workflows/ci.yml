@@ -57,6 +57,9 @@ jobs:
         run: ruff check omni_desk_backend/
       - name: Ruff format check
         run: ruff format --check omni_desk_backend/
+      # R5-B7 AST 守卫:业务代码禁止 stdlib logging.getLogger,统一走 observability.get_logger
+      - name: Check logging imports (observability guard)
+        run: python scripts/check_logging_imports.py
 
   test-backend:
     runs-on: ubuntu-latest

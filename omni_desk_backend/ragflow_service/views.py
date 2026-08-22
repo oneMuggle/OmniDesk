@@ -1,16 +1,15 @@
-import logging
-
 from django.http import JsonResponse
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from observability import get_logger
 from users.permissions import IsAdminOrReadOnly
 
 from .client import RagflowClient, RagflowClientError
 from .models import RagflowConfig
 from .serializers import RagflowConfigSerializer
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "ragflow_service.views")
 
 
 class RagflowConfigViewSet(viewsets.ModelViewSet):

@@ -1,12 +1,12 @@
 # omni_desk_backend/llm_service/ollama_client.py
 
 import json
-import logging
 import os
 
 import requests
+from observability import get_logger
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "llm_service.ollama_client")
 
 
 class OllamaClient:
