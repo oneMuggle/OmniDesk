@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, message, Popconfirm } from 'antd';
+import { Button, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { getStorageLocations, createStorageLocation, updateStorageLocation, deleteStorageLocation } from '../api/sensorApi';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorArchiveLocationManagementPage = () => {
   const [locations, setLocations] = useState([]);
@@ -109,7 +110,8 @@ const SensorArchiveLocationManagementPage = () => {
       <Button type="primary" onClick={() => showModal()} style={{ marginBottom: 'var(--spacing-md)' }}>
         添加存档位置
       </Button>
-      <Table columns={columns} dataSource={locations} rowKey="id" />
+      {/* 原 Table 未传 pagination(antd 默认 10/页),DataTable 缺省关闭分页,故显式对齐 */}
+      <DataTable columns={columns} dataSource={locations} rowKey="id" pagination={{ pageSize: 10 }} showActions={false} />
       <Modal
         title={editingLocation ? '编辑存档位置' : '添加存档位置'}
         visible={isModalVisible}

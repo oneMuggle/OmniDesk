@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import {
-  Table, Button, Modal, Form, Input, Switch, InputNumber, Select,
+  Button, Modal, Form, Input, Switch, InputNumber, Select,
   message, Popconfirm, Typography, Space, Tag,
 } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -9,6 +9,7 @@ import {
   fetchExternalLinks, createExternalLink, updateExternalLink, deleteExternalLink,
 } from '../api/externalLinksApi';
 import { useCrudQuery } from '../../../shared/hooks/useCrudQuery';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 
@@ -103,12 +104,13 @@ const ExternalLinkManagementPage = () => {
           添加外链
         </Button>
       </div>
-      <Table
+      <DataTable
         columns={columns}
         dataSource={links}
         rowKey="id"
         loading={loading}
         pagination={{ pageSize: 10 }}
+        showActions={false}
       />
       <Modal
         title={editingLink ? '编辑外链' : '添加外链'}

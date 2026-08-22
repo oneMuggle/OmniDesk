@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Table, Tag, Typography, message } from 'antd';
+import { Tag, Typography, message } from 'antd';
 import complianceApi from '../../../shared/api/compliance';
 import { logger } from '../../../shared/utils/logger';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 
@@ -82,12 +83,12 @@ const CompliancePage = () => {
   return (
     <div style={{ padding: 24 }}>
       <Title level={3}>合规问题</Title>
-      <Table
-        rowKey="id"
+      <DataTable
         columns={columns}
         dataSource={issues}
         loading={loading}
         pagination={pagination}
+        showActions={false}
         onChange={handleTableChange}
       />
     </div>

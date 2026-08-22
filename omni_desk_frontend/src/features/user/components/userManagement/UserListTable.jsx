@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
-import { Table, Select, Button, Space, Avatar } from 'antd';
+import { Select, Button, Space, Avatar } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import DataTable from '../../../../shared/components/DataTable';
 import { logger } from '../../../../shared/utils/logger';
 
 const { Option } = Select;
@@ -86,11 +87,12 @@ const UserListTable = ({ users, personnel, groups, currentUserId, onGroupsChange
     ];
 
     return (
-        <Table
+        <DataTable
             columns={userColumns}
             dataSource={users}
             rowKey="id"
             pagination={{ pageSize: 10 }}
+            showActions={false}
         />
     );
 };

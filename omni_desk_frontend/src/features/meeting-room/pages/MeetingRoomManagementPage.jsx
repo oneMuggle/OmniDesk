@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Table, Button, Modal, Form, Input, message, Popconfirm, DatePicker, Select, Card, Statistic, Row, Col } from 'antd';
+import { Button, Modal, Form, Input, message, Popconfirm, DatePicker, Select, Card, Statistic, Row, Col } from 'antd';
 import PropTypes from 'prop-types';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { useMeetingRooms } from '../hooks/useMeetingRoomData';
+import DataTable from '../../../shared/components/DataTable';
 import dayjs from 'dayjs';
 import { logger } from '../../../shared/utils/logger';
 
@@ -228,12 +229,13 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             <h1>会议室管理</h1>
 
             <Card title="会议室列表" extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddRoom}>添加会议室</Button>} style={{ marginBottom: 20 }}>
-                <Table
+                <DataTable
                     columns={roomColumns}
                     dataSource={meetingRooms}
                     rowKey="id"
                     loading={loading}
                     pagination={false}
+                    showActions={false}
                 />
             </Card>
 
@@ -261,12 +263,13 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
             </Modal>
 
             <Card title="会议室维护管理" extra={<Button type="primary" icon={<PlusOutlined />} onClick={handleAddMaintenance}>添加维护记录</Button>} style={{ marginBottom: 20 }}>
-                <Table
+                <DataTable
                     columns={maintenanceColumns}
                     dataSource={maintenances}
                     rowKey="id"
                     loading={loading}
                     pagination={false}
+                    showActions={false}
                 />
             </Card>
 
@@ -339,7 +342,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
                 {stats.room_stats && stats.room_stats.length > 0 && (
                     <div style={{ marginTop: 20 }}>
                         <h3>各会议室使用情况</h3>
-                        <Table
+                        <DataTable
                             columns={[
                                 { title: '会议室', dataIndex: 'meeting_room_name', key: 'name' },
                                 { title: '预约次数', dataIndex: 'booking_count', key: 'count' },
@@ -349,6 +352,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
                             rowKey="meeting_room_name"
                             pagination={false}
                             loading={loading}
+                            showActions={false}
                         />
                     </div>
                 )}
