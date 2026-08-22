@@ -3,6 +3,10 @@
 从 orchestrator.py 原样搬运的「意图分类(缓存优先)→ confirm 拦截 → 工具执行
 (超时熔断+钩子链)→ LLM 答案生成(缓存策略)」家族,以 LegacyProcessMixin 形式
 供 AgentOrchestrator 继承,行为零变化。
+
+patch 兼容:方法体经 ``_root()`` 动态读取 orchestrator 包根的 patch 目标名
+(classify_intent / generate_* / ToolRegistry / cache_*),而非 from-import
+静态绑定——测试 ``patch("smart_assistant.agent.orchestrator.X")`` 语义保持。
 """
 
 import uuid
@@ -10,42 +14,21 @@ import uuid
 from observability import get_logger
 
 from ..conversation_context import is_failed_answer
-from ..intent_classifier import (
-    classify_intent,
-    generate_answer,
-    generate_general_answer,
-    generate_tool_empty_answer,
-)
-from ..tool_chain_planner import generate_tool_chain_plan
 from ..orchestrator_helpers import _scope_cache_sig
-from ..tools.registry import ToolRegistry
-from ...cache import (
-    get_cached_intent,
-    cache_intent,
-    get_cached_tool_result,
-    cache_tool_result,
-    get_cached_answer,
-    cache_answer,
-    set_confirmation_draft,
-)
 from ...hooks.base import Reject
 from ...hooks.wiring import (
     apply_failure_hooks,
     apply_post_execute_hooks,
     apply_pre_execute_hooks,
-    execute_guarded,
 )
+from .result_wrap import _root as _root  # re-export: patch 解析点
 
 
 logger = get_logger(__name__, "smart_assistant")
 
 
 class LegacyProcessMixin:
-    """原 orchestrator.py 的 legacy JSON 路径方法集(逐字搬运)。
-
-    方法解析:AgentOrchestrator(LegacyProcessMixin, ...) 继承后 ``self.*``
-    与原单类实现完全一致。
-    """
+    """原 orchestrator.py 的 legacy JSON 路径方法集(逐字搬运;继承后 self.* 与原单类一致)。"""
 
     def _legacy_process(
         self,
@@ -53,12 +36,8 @@ class LegacyProcessMixin:
         conversation_history: list | None,
         tool_context,
     ) -> dict:
-        """旧 process() 实现的逐字提取(Task 6 拆分)。
-
-        行为完全对等于 Task 6 之前的 process();A/B 评估期间
-        ``_process_json_path()`` 调用时同样跑这套逻辑。
-        """
-        schemas = ToolRegistry.get_all_schemas()
+        """旧 process() 的逐字提取;行为对等 Task 6 前的 process()。"""
+        schemas = _root().ToolRegistry.get_all_schemas()
         has_history = conversation_history is not None and len(conversation_history) > 0
 
         # Step 1: 意图分类(先查缓存)
@@ -68,21 +47,21 @@ class LegacyProcessMixin:
         intent = self._classify_legacy_intent(user_query, schemas, conversation_history, has_history, scope_sig)
 
         # Step 2: 检测是否需要多工具
-        tool_chain = generate_tool_chain_plan(user_query, schemas, conversation_history)
+        tool_chain = _root().generate_tool_chain_plan(user_query, schemas, conversation_history)
 
         if tool_chain:
             # 多工具链式执行 — Task 17: 走 scope-aware 路径
             return self._process_chain(user_query, tool_chain, conversation_history, tool_context)
 
         # Step 3: 单工具路由(保持现有路径)
-        tool = ToolRegistry.get_tool(intent)
+        tool = _root().ToolRegistry.get_tool(intent)
         if tool:
             return self._legacy_single_tool(
                 user_query, intent, tool, conversation_history, tool_context, scope_sig, has_history
             )
 
         # 通用对话
-        answer, usage = generate_general_answer(user_query, conversation_history)
+        answer, usage = _root().generate_general_answer(user_query, conversation_history)
         return {
             "answer": answer,
             "intent": "general_chat",
@@ -96,13 +75,13 @@ class LegacyProcessMixin:
     def _classify_legacy_intent(self, user_query, schemas, conversation_history, has_history, scope_sig):
         """原 _legacy_process 的意图分类段(缓存优先)。"""
         if not has_history:
-            cached_intent = get_cached_intent(user_query, schemas, context_sig=scope_sig)
+            cached_intent = _root().get_cached_intent(user_query, schemas, context_sig=scope_sig)
             if cached_intent:
                 return cached_intent
-            intent = classify_intent(user_query, schemas, conversation_history)
-            cache_intent(user_query, schemas, intent, context_sig=scope_sig)
+            intent = _root().classify_intent(user_query, schemas, conversation_history)
+            _root().cache_intent(user_query, schemas, intent, context_sig=scope_sig)
             return intent
-        return classify_intent(user_query, schemas, conversation_history)
+        return _root().classify_intent(user_query, schemas, conversation_history)
 
     def _legacy_confirm_intercept(self, tool, user_query, conversation_history, tool_context, scope_sig, intent):
         """confirm-replay 拦截段(原 _legacy_process 的 confirm 块)。
@@ -121,7 +100,7 @@ class LegacyProcessMixin:
             hook_result = apply_pre_execute_hooks(tool, hook_ctx, {"query": user_query})
             if isinstance(hook_result, Reject) and hook_result.error_code == "confirmation_required":
                 # 工具预演:dry_run=True 让工具内部跳过副作用,只返回 draft
-                dry_run_result = execute_guarded(
+                dry_run_result = _root().execute_guarded(
                     tool,
                     user_query,
                     context={
@@ -143,7 +122,7 @@ class LegacyProcessMixin:
                     }
                 # 存 draft 到短期缓存(TTL 10 分钟)
                 token = str(uuid.uuid4())
-                set_confirmation_draft(
+                _root().set_confirmation_draft(
                     token,
                     {
                         "tool_name": tool.name,
@@ -192,7 +171,7 @@ class LegacyProcessMixin:
         if intercepted is not None:
             return intercepted
 
-        cached_result = get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
+        cached_result = _root().get_cached_tool_result(tool.name, user_query, context_sig=scope_sig)
         if cached_result is not None:
             tool_result = cached_result
         else:
@@ -202,14 +181,14 @@ class LegacyProcessMixin:
                     # scope-aware 路径(工具实现了 scope 抽象)
                     base_qs = tool.build_base_queryset()
                     scoped_qs = tool.get_queryset_for_scope(base_qs, tool_context)
-                    tool_result = execute_guarded(
+                    tool_result = _root().execute_guarded(
                         tool,
                         params={"query": user_query},
                         scope=tool_context.scope,
                         qs=scoped_qs,
                     )
                 else:
-                    tool_result = execute_guarded(
+                    tool_result = _root().execute_guarded(
                         tool,
                         user_query,
                         context={"history": conversation_history or []},
@@ -225,11 +204,11 @@ class LegacyProcessMixin:
             # POST_EXECUTE 钩子链:统一出口 PII 脱敏。必须在缓存之前,
             # 否则缓存命中路径会绕过脱敏
             tool_result = apply_post_execute_hooks(tool, tool_result, hook_ctx)
-            cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
+            _root().cache_tool_result(tool.name, user_query, tool_result, context_sig=scope_sig)
 
         # 工具执行成功但未找到结果时,带工具上下文告知 LLM
         if isinstance(tool_result, dict) and not tool_result.get("found"):
-            answer, usage = generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
+            answer, usage = _root().generate_tool_empty_answer(user_query, tool.name, tool_result, conversation_history)
             return {
                 "answer": answer,
                 "intent": intent,
@@ -245,7 +224,7 @@ class LegacyProcessMixin:
         # 行为与原 _legacy_process 的 has_history 分支完全对等:has_history 时
         # 不读缓存、不回写缓存;无历史时先查缓存,miss 才生成并缓存未失败回答。
         cached_answer = (
-            get_cached_answer(user_query, intent, context_sig=scope_sig, tool_call_path="json")
+            _root().get_cached_answer(user_query, intent, context_sig=scope_sig, tool_call_path="json")
             if not has_history
             else None
         )
@@ -253,10 +232,10 @@ class LegacyProcessMixin:
             answer = cached_answer
             usage = None
         else:
-            answer, usage = generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
+            answer, usage = _root().generate_answer(user_query, intent, tool.name, tool_result, conversation_history)
             # 失败响应不进缓存,避免错误文本被后续请求反复命中
             if not is_failed_answer(answer) and not has_history:
-                cache_answer(user_query, intent, answer, context_sig=scope_sig, tool_call_path="json")
+                _root().cache_answer(user_query, intent, answer, context_sig=scope_sig, tool_call_path="json")
 
         return {
             "answer": answer,

@@ -8,7 +8,7 @@ from django.conf import settings
 
 from observability import get_logger
 
-from ..models import LlmAppConfig
+from ...models import LlmAppConfig
 
 
 logger = get_logger(__name__, "smart_assistant")

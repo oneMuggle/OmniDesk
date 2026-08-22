@@ -7,16 +7,16 @@ AgentOrchestrator 主类:公开 process / process_stream 入口与原生 tool_ca
 
 from observability import get_logger
 
-from ..conversation_context import is_failed_answer
-from .native_tool_runner import execute_native_tool
+from ..native_tool_runner import execute_native_tool
 from .run_path import RunPathResolver
 from .persistence import LegacyProcessMixin
+from .result_wrap import ResultWrapMixin
 
 
 logger = get_logger(__name__, "smart_assistant")
 
 
-class AgentOrchestrator(LegacyProcessMixin):
+class AgentOrchestrator(ResultWrapMixin, LegacyProcessMixin):
     """Agent 编排器：意图分类 → 工具选择 → 回答生成
 
     支持单工具执行和多工具链式执行。
@@ -208,132 +208,6 @@ class AgentOrchestrator(LegacyProcessMixin):
             llm_messages=llm_messages,
             json_fallback=self._process_json_path,
         )
-
-    def _process_json_path(
-        self,
-        *,
-        query: str,
-        context,
-        llm_messages: list | None,
-        conversation_history: list | None = None,
-    ) -> tuple[str, dict, dict]:
-        """JSON 解析路径(spec §3.4)。
-
-        业务行为 100% 对等于旧 ``process()`` —— 这是 fallback 路径,
-        A/B 评估期间两条路径的回答质量必须对等。
-
-        当前实现:委托 ``_legacy_process`` 执行旧逻辑,再把 dict 结果
-        转换为 ``(content, usage, meta)`` 三元组。
-
-        参数:
-            query: 用户问题
-            context: ToolContext(用于 scope 派生)
-            llm_messages: LLM 初始 messages(可选);若未提供,从
-                conversation_history 派生。
-            conversation_history: 对话历史(优先于 llm_messages,旧版约定)
-        """
-        # 把 llm_messages 转换为旧版 conversation_history(若提供且未传 history)
-        if conversation_history is None and llm_messages:
-            conversation_history = []
-            for msg in llm_messages:
-                if isinstance(msg, dict) and msg.get("role") in ("user", "assistant", "tool"):
-                    role = msg["role"]
-                    if role == "tool":
-                        continue  # tool 消息不进入历史(legacy 不识别)
-                    conversation_history.append({"role": role, "content": msg.get("content", "")})
-
-        result = self._legacy_process(query, conversation_history, context)
-
-        # 从 dict 提取 content / usage,构造 meta
-        content = result.get("answer", "")
-        usage = result.get("usage") or {}
-        meta = {
-            "tool_calls_meta": [],
-            "tool_calls_rounds": 0,
-            "tool_call_path": "json",
-            # 透传旧字段供下游审计使用
-            "intent": result.get("intent"),
-            "tool_used": result.get("tool_used"),
-            "tool_result": result.get("tool_result"),
-            "sources": result.get("sources"),
-            "tool_fallback": result.get("tool_fallback", False),
-            "tool_chain": result.get("tool_chain"),
-            # P1A-2 enforcement:_legacy_process 在 RateLimitHook Reject 时返回的
-            # error_code / retry_after 必须透传到 meta,下游 _wrap_native_to_dict
-            # 复制给视图层,前端才能拿到 retry-after 退避秒数。
-            "error_code": result.get("error_code"),
-            "retry_after": result.get("retry_after"),
-            "awaiting_confirmation": result.get("awaiting_confirmation", False),
-            "confirmation_token": result.get("confirmation_token"),
-            "error": result.get("error", False),
-        }
-        return content, usage, meta
-
-    def _wrap_native_to_dict(
-        self,
-        content: str,
-        usage: dict,
-        meta: dict,
-    ) -> dict:
-        """把原生路径的三元组包装为旧版 dict 格式(向后兼容)。
-
-        现有视图层(digest.py / views/chat.py)读 ``result["answer"]`` /
-        ``result["tool_used"]`` 等字段;包装器保证这些键仍可用。
-        """
-        tool_path = meta.get("tool_call_path", "native")
-        if tool_path == "native":
-            # 原生路径尚未完整跑通 intent 分类/工具链规划,只能填部分字段;
-            # tool_used 从 tool_calls_meta 首条记录派生(LLM 实际调用的工具)。
-            tool_meta = meta.get("tool_calls_meta") or []
-            tool_used = tool_meta[0].get("tool") if tool_meta and isinstance(tool_meta[0], dict) else None
-            awaiting = meta.get("awaiting_confirmation", False)
-            out = {
-                "answer": content,
-                "intent": None,
-                "tool_used": tool_used,
-                "tool_result": None,
-                "sources": None,
-                "usage": usage,
-                "error": is_failed_answer(content),
-                # confirm-replay 透传(与 _legacy_process 的 awaiting_confirmation
-                # 契约一致):前端据此展示确认按钮,带 token 二次请求重放工具。
-                "awaiting_confirmation": awaiting,
-                "confirmation_token": meta.get("confirmation_token"),
-                # 审计字段(供 AgentLog 落库)
-                "tool_call_path": tool_path,
-                "tool_calls_meta": meta.get("tool_calls_meta", []),
-                "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
-            }
-            if awaiting:
-                # 与 legacy 路径一致:确认场景下 tool_result 携带 draft 供前端展示
-                out["tool_result"] = {"draft": meta.get("draft")}
-            return out
-        # JSON 路径的 meta 已经携带了旧字段,直接展开
-        out = {
-            "answer": content,
-            "usage": usage,
-            "tool_call_path": tool_path,
-            "tool_calls_meta": meta.get("tool_calls_meta", []),
-            "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
-        }
-        for k in (
-            "intent",
-            "tool_used",
-            "tool_result",
-            "sources",
-            "tool_fallback",
-            "tool_chain",
-            "awaiting_confirmation",
-            "confirmation_token",
-            "error",
-            # P1A-2 enforcement:RateLimitHook Reject 时 _process_json_path 把
-            # error_code / retry_after 写入 meta,这里复制给视图层。
-            "error_code",
-            "retry_after",
-        ):
-            if k in meta:
-                out[k] = meta[k]
-        return out
 
     def _process_chain(
         self,

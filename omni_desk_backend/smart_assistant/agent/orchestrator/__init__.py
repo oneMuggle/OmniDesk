@@ -17,7 +17,7 @@ from ..intent_classifier import (
     generate_tool_empty_answer,
 )
 from ..tool_chain_planner import generate_tool_chain_plan
-from ..tools.registry import ToolRegistry
+from ...tools.registry import ToolRegistry
 from ...cache import (
     get_cached_intent,
     cache_intent,
@@ -35,6 +35,7 @@ from ..sse_contract import (
     sse_event as sse_event,
 )
 from ..orchestrator_helpers import _dict_to_query as _dict_to_query, _scope_cache_sig
+from ...hooks.wiring import execute_guarded as execute_guarded
 from .entry import AgentOrchestrator
 
 __all__ = [
