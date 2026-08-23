@@ -34,6 +34,11 @@
           "!**/test-utils/test-utils"
         ],
         "message": "Use test-utils/test-utils (the jsx entry with ConfigProvider zh_CN)"
+      },
+      {
+        "group": ["antd"],
+        "importNames": ["Table"],
+        "message": "R6-5: 使用 shared/components/DataTable 替代 antd Table(内建 loading/scroll/locale/操作列);确需原生 Table 请在 .eslintrc.json overrides 中白名单说明"
       }]
     }]
   },
