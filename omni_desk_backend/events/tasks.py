@@ -21,7 +21,6 @@ from .models import ScheduleSwapRequest
 from observability import get_logger
 
 logger = get_logger(__name__, "events.tasks")
-_obs_logger = get_logger(__name__)
 
 
 def logged_task(*celery_args, **celery_kwargs):
@@ -46,7 +45,7 @@ def logged_task(*celery_args, **celery_kwargs):
         def wrapper(*args, **kwargs):
             task_name = func.__name__
             task_id = getattr(wrapper.request, "id", None)
-            _obs_logger.info(
+            logger.info(
                 "celery 任务开始",
                 extra={
                     "event": CeleryEvent.TASK_START,
@@ -58,7 +57,7 @@ def logged_task(*celery_args, **celery_kwargs):
             try:
                 result = func(*args, **kwargs)
             except Exception as exc:
-                _obs_logger.error(
+                logger.error(
                     "celery 任务失败",
                     extra={
                         "event": CeleryEvent.TASK_FAILURE,
@@ -69,7 +68,7 @@ def logged_task(*celery_args, **celery_kwargs):
                 )
                 raise
             duration_ms = (time.monotonic() - start) * 1000
-            _obs_logger.info(
+            logger.info(
                 "celery 任务成功",
                 extra={
                     "event": CeleryEvent.TASK_SUCCESS,
