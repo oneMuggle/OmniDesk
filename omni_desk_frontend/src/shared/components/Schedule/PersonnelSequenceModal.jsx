@@ -5,6 +5,7 @@ import apiClient from '../../api/apiClient';
 import { DragDropContext, Draggable } from '@hello-pangea/dnd';
 import StrictModeDroppable from './StrictModeDroppable';
 import { getPersonnel, getPositions } from '../../../features/personnel/api/personnelApi';
+import { extractResults } from '../../api/responseHandler';
 
 const { Option } = Select;
 const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () => {}, sequence = null }) => {
@@ -28,7 +29,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
       
       getPositions()
         .then(response => {
-          setPositions(response.data.results || []);
+          setPositions(extractResults(response.data));
         })
         .catch(() => {
           message.error('获取职位列表失败');
@@ -45,7 +46,7 @@ const PersonnelSequenceModal = ({ open = false, onCancel = () => {}, onOk = () =
       setLoading(true);
       getPersonnel({ search: searchTerm, position_id: selectedPosition })
         .then(response => {
-          setPersonnel(response.data.results || []);
+          setPersonnel(extractResults(response.data));
         })
         .catch(() => {
           message.error('获取人员列表失败');

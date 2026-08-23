@@ -7,6 +7,7 @@ import {
   updatePosition,
   deletePosition
 } from '../api/personnelApi';
+import { extractResults } from '../../../shared/api/responseHandler';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 
 /**
@@ -25,8 +26,7 @@ const PositionManagementTab = ({ onPositionsChanged }) => {
     const fetchPositionData = async () => {
       try {
         const response = await getPositions();
-        // 兼容两种返回形态：axios 响应（data.results）与已解包的 { results }（如单测 mock）
-        setPositionData(response?.data?.results ?? response?.results ?? []);
+        setPositionData(extractResults(response?.data || response));
       } catch (error) {
         message.error('获取职位数据失败');
         setPositionData([]);

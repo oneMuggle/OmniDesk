@@ -1,3 +1,4 @@
+import { extractResults } from '../../../shared/api/responseHandler';
 import apiClient from '../../../shared/api/apiClient';
 import { handleError } from '../../../shared/api/responseHandler';
 
@@ -7,7 +8,7 @@ export const scheduleApi = {
       const response = await apiClient.get('events/schedules/', {
         params: { duty_date: date }
       });
-      return (response.data.results || []).length > 0;
+      return extractResults(response.data).length > 0;
     } catch (error) {
       handleError(error);
       throw error;
@@ -58,7 +59,7 @@ export const scheduleApi = {
           break;
         }
 
-        const results = Array.isArray(response.data.results) ? response.data.results : [];
+        const results = extractResults(response.data);
         allSchedules = allSchedules.concat(results);
         
         url = response.data.next;
@@ -185,7 +186,7 @@ export const scheduleApi = {
   fetchEquipment: async () => {
     try {
       const response = await apiClient.get('events/equipments/');
-      return response.data.results || [];
+      return extractResults(response.data);
     } catch (error) {
       handleError(error);
       return [];
@@ -195,7 +196,7 @@ export const scheduleApi = {
   getPersonnel: async () => {
     try {
       const response = await apiClient.get('personnel/personnel/');
-      return response.data.results || [];
+      return extractResults(response.data);
     } catch (error) {
       handleError(error);
       return [];

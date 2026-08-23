@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { getStorageLocations, createStorageLocation, updateStorageLocation, deleteStorageLocation } from '../api/sensorApi';
 import DataTable from '../../../shared/components/DataTable';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const SensorArchiveLocationManagementPage = () => {
   const [locations, setLocations] = useState([]);
@@ -12,7 +13,7 @@ const SensorArchiveLocationManagementPage = () => {
   const fetchLocations = async () => {
     try {
       const response = await getStorageLocations();
-      setLocations(response.data.results);
+      setLocations(extractResults(response.data));
     } catch (error) {
       message.error('获取存档位置失败');
     }
@@ -24,7 +25,7 @@ const SensorArchiveLocationManagementPage = () => {
       try {
         const response = await getStorageLocations();
         if (isMounted) {
-          setLocations(response.data.results);
+          setLocations(extractResults(response.data));
         }
       } catch (error) {
         message.error('获取存档位置失败');

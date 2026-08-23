@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import projectsApi from '../api/projects';
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -25,7 +26,7 @@ const ProjectsPage = () => {
     const fetchProjects = React.useCallback(async () => {
         try {
             const response = await projectsApi.getAllProjects();
-            setProjects(response.data.results || []); // Ensure projects is an array
+            setProjects(extractResults(response.data)); // Ensure projects is an array
         } catch (error) {
             logger.error('Error fetching projects:', error);
         }

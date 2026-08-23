@@ -5,6 +5,7 @@ import { Modal as AntdModal, message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -77,7 +78,7 @@ export function useSmartChat() {
     const loadSessions = async () => {
       try {
         const response = await getSessions();
-        const data = response.data.results || response.data;
+        const data = extractResults(response.data) || response.data;
         setSessions(Array.isArray(data) ? data : []);
       } catch {
         // 静默失败

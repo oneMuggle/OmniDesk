@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { getOllamaConfigs, addOllamaConfig, updateOllamaConfig, deleteOllamaConfig, getOllamaModelsFromEndpoint } from '../api/ollama';
 import { Card, Button, Table, Modal, Form, Input, InputNumber, Checkbox, Select, Space, Typography, message } from 'antd';
 import { logger } from '../utils/logger';
+import { extractResults } from '../api/responseHandler';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -16,7 +17,7 @@ const SystemSettingsPage = () => {
   const loadConfigs = React.useCallback(async () => {
     try {
       const response = await getOllamaConfigs();
-      setConfigs(response.data.results || []);
+      setConfigs(extractResults(response.data));
     } catch (error) {
       message.error('加载配置失败。');
       logger.error("加载 Ollama 配置失败:", error);

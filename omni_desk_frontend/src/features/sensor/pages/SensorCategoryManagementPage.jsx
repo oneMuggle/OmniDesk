@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button, Modal, Form, Input, message, Popconfirm } from 'antd';
 import { getSensorCategories, createSensorCategory, updateSensorCategory, deleteSensorCategory } from '../api/sensorApi';
 import DataTable from '../../../shared/components/DataTable';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const SensorCategoryManagementPage = () => {
   const [categories, setCategories] = useState([]);
@@ -12,7 +13,7 @@ const SensorCategoryManagementPage = () => {
   const fetchCategories = async () => {
     try {
       const response = await getSensorCategories();
-      setCategories(response.data.results);
+      setCategories(extractResults(response.data));
     } catch (error) {
       message.error('获取传感器类别失败');
     }
@@ -24,7 +25,7 @@ const SensorCategoryManagementPage = () => {
       try {
         const response = await getSensorCategories();
         if (isMounted) {
-          setCategories(response.data.results);
+          setCategories(extractResults(response.data));
         }
       } catch (error) {
         message.error('获取传感器类别失败');

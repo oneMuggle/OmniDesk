@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getNewsStats, getNewsArticles } from '../api/newsApi';
 import { Table, Typography, Card, Row, Col } from 'antd';
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Title, Text } = Typography;
 
@@ -17,7 +18,7 @@ const NewsStatsPage = () => {
         const statsRes = await getNewsStats();
         setStats(statsRes.data);
         const articlesRes = await getNewsArticles();
-        setArticles(articlesRes.data.results || []);
+        setArticles(extractResults(articlesRes.data));
       } catch (error) {
         logger.error('Failed to fetch news data:', error);
       } finally {

@@ -5,6 +5,7 @@ import { List, Card, Button, Spin } from 'antd';
 import { getPosts } from '../api/communicationApi';
 import './Communication.css';
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const PostList = () => {
     const [posts, setPosts] = useState([]);
@@ -17,7 +18,7 @@ const PostList = () => {
             setLoading(true);
             try {
                 const response = await getPosts();
-                setPosts([...(response.data.results || [])]);
+                setPosts([...extractResults(response.data)]);
             } catch (error) {
                 logger.error('Failed to fetch posts:', error);
                 setPosts([]);

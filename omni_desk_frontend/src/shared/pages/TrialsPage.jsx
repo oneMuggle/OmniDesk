@@ -9,6 +9,7 @@ import {
   Spin, Alert, Empty
 } from 'antd';
 import { UploadOutlined, DownloadOutlined } from '@ant-design/icons';
+import { extractResults } from '../api/responseHandler';
 import dayjs from 'dayjs';
 import './TrialsPage.css';
 import { isValidDate } from '../utils/dateUtils';
@@ -28,11 +29,7 @@ const TrialsPage = () => {
   const trialsQuery = useQuery({
     queryKey: ['trials'],
     queryFn: fetchTrials,
-    select: (data) => {
-      if (Array.isArray(data)) return data;
-      if (data?.results && Array.isArray(data.results)) return data.results;
-      return [];
-    },
+    select: (data) => extractResults(data),
   });
   const { data: trials = [] } = trialsQuery;
 

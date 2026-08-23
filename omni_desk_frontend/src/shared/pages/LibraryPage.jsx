@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
 import api from '../api/apiClient';
 import './LibraryPage.css';
+import { extractResults } from '../api/responseHandler';
 
 const BookCard = ({ book }) => (
     <a href={`/read-book/${book.id}`} target="_blank" rel="noopener noreferrer" className="book-card">
@@ -44,7 +45,7 @@ const LibraryPage = () => {
         const fetchBooks = async () => {
             try {
                 const response = await api.get('documents/books/');
-                setBooks(response.data.results || response.data); // Handle paginated or non-paginated response
+                setBooks(extractResults(response.data) || response.data); // Handle paginated or non-paginated response
                 setLoading(false);
             } catch (err) {
                 setError('无法加载书籍列表，请稍后再试。');

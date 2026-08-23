@@ -3,6 +3,7 @@ import { Card, Table, Tag, Button, Space, Modal, Descriptions, Input, DatePicker
 import { EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import apiClient from '../../../shared/api/apiClient';
 import './AgentAuditPanel.css';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { RangePicker } = DatePicker;
 const { Search } = Input;
@@ -37,7 +38,7 @@ const AgentAuditPanel = () => {
         params.set('end_time', filters.dateRange[1].format('YYYY-MM-DD'));
       }
       const response = await apiClient.get(`/smart-assistant/agent-logs/?${params}`);
-      setLogs(response.data.results || response.data || []);
+      setLogs(extractResults(response.data) || response.data || []);
       setTotal(response.data.count || 0);
     } catch {
       // 静默失败

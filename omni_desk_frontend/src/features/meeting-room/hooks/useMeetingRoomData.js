@@ -2,13 +2,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { message } from 'antd';
 import meetingRoomApi from '../api/meetingRoomApi';
 import { handleError } from '../../../shared/api/responseHandler';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 export const useMeetingRooms = () => {
   return useQuery({
     queryKey: ['meetingRooms'],
     queryFn: async () => {
       const response = await meetingRoomApi.getMeetingRooms();
-      return response.data.results || [];
+      return extractResults(response.data) || [];
     },
     staleTime: 5 * 60 * 1000,
   });
@@ -19,7 +20,7 @@ export const useMeetingRoomBookings = () => {
     queryKey: ['meetingRoomBookings'],
     queryFn: async () => {
       const response = await meetingRoomApi.getMeetingRoomBookings();
-      const bookingsData = response.data.results || [];
+      const bookingsData = extractResults(response.data) || [];
       return bookingsData.map((booking) => ({
         ...booking,
         start: new Date(booking.start_time),
