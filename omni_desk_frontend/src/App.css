@@ -107,7 +107,6 @@
 .sidebar-header .sidebar-theme {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 6px;
   padding: 4px 16px;
   margin: 0 12px;
@@ -120,6 +119,25 @@
 
 .sidebar-header .sidebar-theme:hover {
   background: rgba(255, 255, 255, 0.08);
+}
+
+/* 头部工具行统一缩进:通知铃 / 演示模式 与上方用户下拉行对齐 */
+.sidebar-notification-bell {
+  display: flex;
+  justify-content: center;
+  margin: 2px 12px 4px;
+}
+
+.sidebar-demo-toggle {
+  display: flex;
+  align-items: center;
+  padding: 2px 16px;
+  margin: 0 12px;
+}
+
+.sidebar-demo-label {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-secondary-dark);
 }
 
 .sidebar-header h2 {
@@ -439,8 +457,14 @@
 .sidebar.collapsed .user-dropdown-trigger,
 .sidebar.collapsed .username,
 .sidebar.collapsed .login-hint,
-.sidebar.collapsed .sidebar-theme {
+.sidebar.collapsed .sidebar-theme,
+.sidebar.collapsed .sidebar-demo-toggle {
   display: none;
+}
+
+.sidebar.collapsed .sidebar-notification-bell {
+  justify-content: center;
+  margin: 4px 0;
 }
 
 /* Ensure collapse toggle is positioned correctly in collapsed state */

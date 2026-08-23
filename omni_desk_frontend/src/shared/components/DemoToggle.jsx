@@ -16,8 +16,8 @@ const DemoToggle = () => {
   };
 
   return (
-    <Space>
-      <span style={{ fontSize: 12, color: '#666' }}>演示模式</span>
+    <Space className="sidebar-demo-toggle">
+      <span className="sidebar-demo-label">演示模式</span>
       <Switch
         size="small"
         checked={isDemoMode}
