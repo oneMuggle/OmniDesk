@@ -7,6 +7,7 @@ import projectsApi from '../../projects/api/projects'; // Add projectsApi
 import '../../../shared/pages/DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Option } = Select;
 
@@ -23,7 +24,7 @@ const DocumentsPage = () => {
   const loadTemplates = async (projectId) => {
     try {
       const response = await documentsApi.getDocumentTemplates(projectId);
-      setTemplates(response.data.results || []); // 确保返回的是数组
+      setTemplates(extractResults(response.data)); // 确保返回的是数组
     } catch (error) {
       message.error('加载模板列表失败');
       logger.error('Error loading templates:', error);
@@ -35,7 +36,7 @@ const DocumentsPage = () => {
     const loadInitialData = async () => {
       try {
         const projectsResponse = await projectsApi.getAllProjects();
-        setProjects(projectsResponse.data.results || []);
+        setProjects(extractResults(projectsResponse.data));
 
         const queryParams = new URLSearchParams(location.search);
         const projectIdFromUrl = queryParams.get('project_id');

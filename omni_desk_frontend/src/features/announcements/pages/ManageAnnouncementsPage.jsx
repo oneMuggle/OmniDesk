@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import apiClient from '../../../shared/api/apiClient'; // 导入 apiClient
 import './ManageAnnouncementsPage.css';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const ManageAnnouncementsPage = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -11,7 +12,7 @@ const ManageAnnouncementsPage = () => {
   const fetchAnnouncements = async () => {
     try {
       const response = await apiClient.get('events/announcements/');
-      setAnnouncements(response.data.results); // 提取 results 字段
+      setAnnouncements(extractResults(response.data)); // 提取 results 字段
     } catch (e) {
       setError(e.message);
     } finally {

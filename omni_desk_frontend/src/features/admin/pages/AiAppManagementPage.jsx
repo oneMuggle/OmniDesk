@@ -12,6 +12,7 @@ import EndpointManagement from '../components/ai-apps/EndpointManagement';
 import AppConfigManagement from '../components/ai-apps/AppConfigManagement';
 import DifyAppManagement from '../components/ai-apps/DifyAppManagement';
 import RagflowConfigManagement from '../components/ai-apps/RagflowConfigManagement';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Title } = Typography;
 
@@ -24,7 +25,7 @@ const AiAppManagementPage = () => {
   const loadEndpoints = useCallback(async () => {
     try {
       const response = await getEndpoints();
-      setEndpoints(response.data.results || response.data || []);
+      setEndpoints(extractResults(response.data) || response.data || []);
     } catch (error) {
       message.error('加载端点配置失败。');
       logger.error('加载端点配置失败:', error);
@@ -34,7 +35,7 @@ const AiAppManagementPage = () => {
   const loadAppConfigs = useCallback(async () => {
     try {
       const response = await getAppConfigs();
-      setAppConfigs(response.data.results || response.data || []);
+      setAppConfigs(extractResults(response.data) || response.data || []);
     } catch (error) {
       message.error('加载应用配置失败。');
       logger.error('加载应用配置失败:', error);
@@ -44,7 +45,7 @@ const AiAppManagementPage = () => {
   const loadDifyApps = useCallback(async () => {
     try {
       const response = await getDifyApps();
-      setDifyApps(response.data.results || response.data || []);
+      setDifyApps(extractResults(response.data) || response.data || []);
     } catch (error) {
       message.error('加载 Dify 应用失败。');
       logger.error('加载 Dify 应用失败:', error);
@@ -54,7 +55,7 @@ const AiAppManagementPage = () => {
   const loadRagflowConfigs = useCallback(async () => {
     try {
       const response = await getRagflowConfigs();
-      setRagflowConfigs(response.data.results || response.data || []);
+      setRagflowConfigs(extractResults(response.data) || response.data || []);
     } catch (error) {
       message.error('加载 Ragflow 配置失败。');
       logger.error('加载 Ragflow 配置失败:', error);

@@ -4,6 +4,7 @@ import ThinkContent from '../components/ThinkContent';
 import './RagflowChatPage.css'; // 稍后创建此CSS文件
 import apiClient from '../api/apiClient'; // 假设你有一个通用的API客户端
 import { logger } from '../utils/logger';
+import { extractResults } from '../api/responseHandler';
 
 const parseThinkContent = (content) => {
   if (!content) return { mainContent: '', thinkContent: '' };
@@ -41,16 +42,16 @@ const RagflowChatPage = () => {
     const fetchRagflowConfigs = async () => {
       try {
         const response = await apiClient.get('ragflow-service/configs/');
-        setRagflowConfigs(response.data.results || []);
-        if (response.data.results && response.data.results.length > 0) {
+        setRagflowConfigs(extractResults(response.data));
+        if (extractResults(response.data) && extractResults(response.data).length > 0) {
           // 默认选中第一个激活的配置
-          const activeConfig = response.data.results.find(config => config.is_active);
+          const activeConfig = extractResults(response.data).find(config => config.is_active);
           if (activeConfig) {
             setSelectedConfigId(activeConfig.id);
             setRagflowConfig(activeConfig);
           } else {
-            setSelectedConfigId(response.data.results[0].id);
-            setRagflowConfig(response.data.results[0]);
+            setSelectedConfigId(extractResults(response.data)[0].id);
+            setRagflowConfig(extractResults(response.data)[0]);
           }
         }
       } catch (error) {

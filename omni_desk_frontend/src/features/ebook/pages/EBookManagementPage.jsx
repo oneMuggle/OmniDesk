@@ -5,6 +5,7 @@ import { logger } from '../../../shared/utils/logger';
 import FileUpload from '../components/FileUpload';
 import BookList from '../components/BookList';
 import BookForm from '../components/BookForm';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Header, Content } = Layout;
 const { Title } = Typography;
@@ -20,7 +21,7 @@ const EBookManagementPage = () => {
       setIsLoading(true);
       try {
         const response = await axiosInstance.get('ebooks');
-        const booksList = response.data.results || response.data;
+        const booksList = extractResults(response.data) || response.data;
         setBooks(booksList);
         setFilteredBooks(booksList);
       } catch (error) {

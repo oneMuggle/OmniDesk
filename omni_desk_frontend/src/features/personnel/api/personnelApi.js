@@ -1,3 +1,4 @@
+import { extractResults } from '../../../shared/api/responseHandler';
 import apiClient from '../../../shared/api/apiClient';
 
 // Centralized error handler
@@ -17,7 +18,7 @@ const handleError = (error, defaultMessage = '操作失败') => {
 // Centralized handler for paginated responses
 const handlePaginatedResponse = (response) => {
   return {
-    data: response.data.results || [],
+    data: extractResults(response.data),
     pagination: {
       current: response.data.current_page || 1,
       total: response.data.count || 0,
@@ -84,7 +85,7 @@ export const getPositions = (params = {}) => {
 export const getAllPositions = async () => {
   try {
     const response = await apiClient.get('personnel/positions/', { params: { page_size: 1000 } });
-    return response.data.results || [];
+    return extractResults(response.data);
   } catch (error) {
     return handleError(error, '获取所有职位信息失败');
   }

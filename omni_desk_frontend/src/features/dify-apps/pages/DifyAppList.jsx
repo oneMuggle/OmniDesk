@@ -5,6 +5,7 @@ import { Card, Row, Col, Typography, Tag, Spin } from 'antd';
 import { RobotOutlined, MessageOutlined, FileSearchOutlined, SafetyOutlined } from '@ant-design/icons';
 import apiClient from '../../../shared/api/apiClient';
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Title, Paragraph, Text } = Typography;
 
@@ -18,7 +19,7 @@ const DifyAppList = () => {
         const fetchDifyApps = async () => {
             try {
                 const response = await apiClient.get('dify-apps/');
-                setDifyApps(response.data.results || []);
+                setDifyApps(extractResults(response.data));
             } catch (err) {
                 setError('Failed to fetch Dify applications.');
                 logger.error('Error fetching Dify apps:', err);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Tag, Typography, message } from 'antd';
 import complianceApi from '../../../shared/api/compliance';
+import { extractResults } from '../../../shared/api/responseHandler';
 import { logger } from '../../../shared/utils/logger';
 import DataTable from '../../../shared/components/DataTable';
 
@@ -61,7 +62,7 @@ const CompliancePage = () => {
     try {
       const response = await complianceApi.getAllComplianceIssues({ page, page_size: pageSize });
       const data = response.data;
-      const list = Array.isArray(data) ? data : data.results || [];
+      const list = extractResults(data);
       setIssues(list);
       setPagination((prev) => ({ ...prev, current: page, pageSize, total: data.count ?? list.length }));
     } catch (error) {

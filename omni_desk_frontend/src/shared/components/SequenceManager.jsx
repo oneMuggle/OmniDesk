@@ -10,6 +10,7 @@ import { logger } from '../utils/logger';
 import SequenceForm from './sequence/SequenceForm';
 import SequenceList from './sequence/SequenceList';
 import { buildSequencePayload } from './sequence/sequenceUtils';
+import { extractResults } from '../api/responseHandler';
 
 const SequenceManager = () => {
   const [personnelSequences, setPersonnelSequences] = useState([]);
@@ -29,8 +30,8 @@ const SequenceManager = () => {
         getAllPersonnel(),
         getPositions()
       ]);
-      setPersonnelSequences(Array.isArray(personnelRes?.data?.results) ? personnelRes.data.results : []);
-      setLeaderSequences(Array.isArray(leaderRes?.data?.results) ? leaderRes.data.results : []);
+      setPersonnelSequences(extractResults(personnelRes?.data));
+      setLeaderSequences(extractResults(leaderRes?.data));
       setAllPersonnel(personnelListRes?.data?.results || []);
       setPositions(positionsRes?.data?.results || []);
     } catch (error) {

@@ -8,6 +8,7 @@ import { useMeetingRooms } from '../hooks/useMeetingRoomData';
 import DataTable from '../../../shared/components/DataTable';
 import dayjs from 'dayjs';
 import { logger } from '../../../shared/utils/logger';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { RangePicker } = DatePicker;
 const { Option } = Select;
@@ -36,7 +37,7 @@ const MeetingRoomManagementPage = ({ maintenanceForm: maintenanceFormFromProps }
         queryKey: ['meetingRoomMaintenances'],
         queryFn: async () => {
             const response = await meetingRoomApi.getMeetingRoomMaintenances();
-            return response.data.results.map(m => ({
+            return extractResults(response.data).map(m => ({
                 ...m,
                 start: new Date(m.start_time),
                 end: new Date(m.end_time)

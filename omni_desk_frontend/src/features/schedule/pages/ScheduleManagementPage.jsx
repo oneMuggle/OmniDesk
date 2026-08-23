@@ -20,6 +20,7 @@ import { computeWeeklyLeaders } from '../utils/computeWeeklyLeaders';
 import ScheduleFormModal from '../components/ScheduleFormModal';
 import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import { createScheduleColumns } from '../utils/scheduleColumns.jsx';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const ScheduleManagementPage = () => {
   const queryClient = useQueryClient();
@@ -49,22 +50,22 @@ const ScheduleManagementPage = () => {
   // R4-B4: 手动 while 翻页拉全量 personnel → 复用 getAllPersonnel(personnelApi.js)
   const personnelQuery = useQuery({
     queryKey: ['personnel'],
-    queryFn: () => getAllPersonnel().then(res => res.data.results),
+    queryFn: () => getAllPersonnel().then(res => extractResults(res.data)),
   });
 
   const positionsQuery = useQuery({
     queryKey: ['positions'],
-    queryFn: () => getPositions().then(res => res.data.results),
+    queryFn: () => getPositions().then(res => extractResults(res.data)),
   });
 
   const personnelSequencesQuery = useQuery({
     queryKey: ['personnelSequences'],
-    queryFn: () => getPersonnelSequences().then(res => res.data.results),
+    queryFn: () => getPersonnelSequences().then(res => extractResults(res.data)),
   });
 
   const leaderSequencesQuery = useQuery({
     queryKey: ['leaderSequences'],
-    queryFn: () => getLeaderSequences().then(res => res.data.results),
+    queryFn: () => getLeaderSequences().then(res => extractResults(res.data)),
   });
 
   const schedules = useMemo(() => schedulesQuery.data || [], [schedulesQuery.data]);

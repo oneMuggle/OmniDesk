@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { Form, Input, Select } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { getSensorCategories, getStorageLocations } from '../api/sensorApi';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Option } = Select;
 
@@ -9,12 +10,12 @@ const SensorForm = ({ form, initialValues }) => {
   const { data: categories = [], isPending: categoriesPending } = useQuery({
     queryKey: ['sensorCategories'],
     queryFn: () => getSensorCategories({ page_size: 1000 }),
-    select: (data) => data.data.results,
+    select: (data) => extractResults(data.data),
   });
   const { data: locations = [], isPending: locationsPending } = useQuery({
     queryKey: ['storageLocations'],
     queryFn: () => getStorageLocations({ page_size: 1000 }),
-    select: (data) => data.data.results,
+    select: (data) => extractResults(data.data),
   });
 
   return (

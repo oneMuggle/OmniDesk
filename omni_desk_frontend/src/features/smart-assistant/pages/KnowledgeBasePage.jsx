@@ -6,6 +6,7 @@ import { getKnowledgeDocs, deleteKnowledgeDoc, uploadKnowledgeDoc } from '../api
 import { notifications } from '../../../shared/utils/notifications';
 import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import './KnowledgeBasePage.css';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const { Title } = Typography;
 
@@ -26,7 +27,7 @@ const KnowledgeBasePage = () => {
 
   const fetchDocs = async () => {
     const response = await getKnowledgeDocs();
-    return response.data.results || response.data || [];
+    return extractResults(response.data) || response.data || [];
   };
 
   const {

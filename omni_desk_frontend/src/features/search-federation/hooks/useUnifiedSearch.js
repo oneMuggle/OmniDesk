@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { extractResults } from '../../../shared/api/responseHandler';
 import { unifiedSearch } from '../api/searchApi';
 
 /**
@@ -25,7 +26,7 @@ export const useUnifiedSearch = () => {
     setLoading(true);
     try {
       const data = await unifiedSearch(query);
-      setResults(data.results || []);
+      setResults(extractResults(data));
       setDegraded(!!data.degraded);
     } catch {
       setResults([]);

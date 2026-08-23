@@ -4,6 +4,7 @@ import Slider from 'react-slick';
 import apiClient from '../../../shared/api/apiClient'; // 修正导入路径
 import './AnnouncementsPage.css';
 import { sanitizeHtml } from '../../../shared/utils/sanitizeHtml';
+import { extractResults } from '../../../shared/api/responseHandler';
 
 const AnnouncementsPage = () => {
   const [announcements, setAnnouncements] = useState([]);
@@ -20,7 +21,7 @@ const AnnouncementsPage = () => {
       try {
         // 使用 apiClient 发起请求
         const response = await apiClient.get('/events/announcements/');
-        setAnnouncements(response.data.results); // 提取 results 字段
+        setAnnouncements(extractResults(response.data)); // 提取 results 字段
       } catch (e) {
         setError(e.message);
       } finally {

@@ -7,6 +7,7 @@ import ChapterView from '../components/ChapterView';
 import complianceApi from '../api/compliance';
 import './BookReaderPage.css';
 import { logger } from '../utils/logger';
+import { extractResults } from '../api/responseHandler';
 
 const { Title, Text } = Typography;
 
@@ -27,7 +28,7 @@ const BookReaderPage = () => {
                     complianceApi.getAllComplianceIssues({ document_book: bookId }) // 获取与书籍相关的合规问题
                 ]);
                 setBook(bookResponse.data);
-                setComplianceIssues(complianceResponse.data.results || complianceResponse.data);
+                setComplianceIssues(extractResults(complianceResponse.data));
 
                 if (bookResponse.data.chapters && bookResponse.data.chapters.length > 0) {
                     // Select the first chapter by default
