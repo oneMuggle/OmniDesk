@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Table, Button, Card, Spin, Alert, Modal, message, Descriptions, Tag, Divider } from 'antd';
+import { Button, Card, Spin, Alert, Modal, message, Descriptions, Tag, Divider } from 'antd';
 import apiClient from '../../../shared/api/apiClient';
 import SensorCalibrationForm from '../components/SensorCalibrationForm';
 import { logger } from '../../../shared/utils/logger';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorDetailPage = () => {
     const { sensorId } = useParams();
@@ -115,11 +116,12 @@ const SensorDetailPage = () => {
             </Card>
 
             <Card title="校准记录" style={{ marginTop: 'var(--spacing-20)' }} extra={<Button type="primary" onClick={handleAddCalibration}>添加校准记录</Button>}>
-                <Table
+                <DataTable
                     dataSource={calibrations}
                     columns={columns}
                     rowKey="id"
                     pagination={false}
+                    showActions={false}
                 />
             </Card>
             <Modal
@@ -165,7 +167,7 @@ const SensorDetailPage = () => {
                         {selectedRecord.data_points && selectedRecord.data_points.length > 0 && (
                             <>
                                 <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>数据点</Divider>
-                                <Table
+                                <DataTable
                                     bordered
                                     dataSource={selectedRecord.data_points}
                                     columns={[
@@ -181,6 +183,7 @@ const SensorDetailPage = () => {
                                     rowKey="id"
                                     size="small"
                                     scroll={{ x: true }}
+                                    showActions={false}
                                 />
                             </>
                         )}

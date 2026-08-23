@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Button, Table, Modal, Form, message, Space } from 'antd';
+import { Button, Modal, Form, message, Space } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSensors, createSensor, updateSensor, deleteSensor } from '../api/sensorApi';
 import SensorForm from '../components/SensorForm';
 import { Link } from 'react-router-dom';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorListPage = () => {
   const [isModalVisible, setIsModalVisible] = useState(false);
@@ -126,11 +127,13 @@ const SensorListPage = () => {
           新增传感器
         </Button>
       </div>
-      <Table
+      <DataTable
         columns={columns}
         dataSource={sensors}
         loading={sensorsQuery.isLoading}
         rowKey="id"
+        pagination={{ pageSize: 10 }}
+        showActions={false}
       />
       <Modal
         title={editingSensor ? '编辑传感器' : '新增传感器'}

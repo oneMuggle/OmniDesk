@@ -7,15 +7,14 @@
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Table, Input, Space, Button, message, Empty, Spin, Tooltip, Typography,
-} from 'antd';
+import { Input, Space, Button, message, Empty, Spin, Tooltip, Typography } from 'antd';
 import {
   SearchOutlined, DownloadOutlined, EyeOutlined, ExportOutlined, ReloadOutlined,
 } from '@ant-design/icons';
 import axiosInstance from '../../../shared/api/axiosConfig';
 import PaperlessHealthBanner from '../components/PaperlessHealthBanner';
 import SyncStatusBadge from '../components/SyncStatusBadge';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Text } = Typography;
 
@@ -173,7 +172,7 @@ export default function DocumentLibraryPage() {
         {documents.length === 0 && !isLoading ? (
           <Empty description="暂无文档" />
         ) : (
-          <Table
+          <DataTable
             rowKey="id"
             columns={columns}
             dataSource={documents}
@@ -189,6 +188,7 @@ export default function DocumentLibraryPage() {
                 setPageSize(ps);
               },
             }}
+            showActions={false}
           />
         )}
       </Spin>

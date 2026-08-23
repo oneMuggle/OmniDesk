@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Input, Select, Upload, Button, message, Form, Table } from 'antd';
+import { Input, Select, Upload, Button, message, Form } from 'antd';
 import { FileAddOutlined } from '@ant-design/icons';
 import documentsApi from '../api/documents'; // 统一使用 documentsApi
 import ChatInterface from '../../../shared/components/ChatInterface';
@@ -8,6 +8,7 @@ import '../../../shared/pages/DocumentsPage.css';
 import { useLocation, useNavigate } from 'react-router-dom'; // 导入 useLocation 和 useNavigate
 import { logger } from '../../../shared/utils/logger';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Option } = Select;
 
@@ -140,7 +141,7 @@ const DocumentsPage = () => {
           </Select>
         </div>
 
-        <Table
+        <DataTable
           dataSource={templates}
           columns={[
             { title: '模板名称', dataIndex: 'name' },
@@ -157,10 +158,12 @@ const DocumentsPage = () => {
                   <Button style={{ marginRight: 8 }} onClick={() => setSelectedTemplate(record)}>生成文档</Button>
                   <Button type="primary" onClick={() => handleAnalyze(record.id)}>智能分析</Button>
                 </>
-              )
-            }
+              ),
+            },
           ]}
           rowKey="id"
+          pagination={{ pageSize: 10 }}
+          showActions={false}
         />
       </div>
 

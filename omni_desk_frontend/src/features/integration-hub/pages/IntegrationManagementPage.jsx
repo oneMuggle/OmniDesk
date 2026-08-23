@@ -1,12 +1,10 @@
 import { useState, useEffect } from 'react';
-import {
-  Table, Button, Modal, Form, Input, Switch, Select, message, Popconfirm,
-  Typography, Space, Tag,
-} from 'antd';
+import { Button, Modal, Form, Input, Switch, Select, message, Popconfirm, Typography, Space, Tag } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import {
   fetchIntegrations, createIntegration, updateIntegration, deleteIntegration,
 } from '../api/integrationApi';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 
@@ -114,12 +112,13 @@ const IntegrationManagementPage = () => {
           添加服务
         </Button>
       </div>
-      <Table
+      <DataTable
         columns={columns}
         dataSource={services}
         rowKey="slug"
         loading={loading}
         pagination={{ pageSize: 10 }}
+        showActions={false}
       />
       <Modal
         title={editingService ? '编辑集成服务' : '添加集成服务'}
