@@ -80,8 +80,10 @@ class TestProjectScopeLeak:
         from projects.models import Project
         from smart_assistant.tools.project_tool import ProjectTool
 
-        Project.objects.create(name="B的秘密项目ZXC", manager=user_b)
-        result = ProjectTool().execute(query="秘密项目ZXC", context=_self_ctx(user_a))
+        # fixture 名避开 stopwords("项目"会被 extract_keywords 剥离导致 icontains
+        # 不命中、测试虚过——R6-2 修正):用不含停用词的独异词
+        Project.objects.create(name="B的绝密工程ZXC", manager=user_b)
+        result = ProjectTool().execute(query="绝密工程ZXC", context=_self_ctx(user_a))
         assert result.get("found") is False
 
 
@@ -89,14 +91,15 @@ class TestScheduleScopeLeak:
     """SELF scope 用户查询他人排班必须返回空(duty_person 经 Personnel 关联)。"""
 
     def test_self_scope_cannot_see_others_schedule(self, db, user_a, user_b):
-        from datetime import date
+        from django.utils import timezone
         from events.models import Schedule
         from personnel.models import Personnel
         from smart_assistant.tools.schedule_tool import ScheduleTool
 
-        # user_b 绑定 Personnel 后创建其名下排班;user_a 无 personnel → 任何排班都不可见
+        # user_b 绑定 Personnel 后创建其名下排班;user_a 无 personnel → 任何排班都不可见。
+        # R6-2 修正:旧 fixture 用固定未来日期 + ISO 字符串 query,而 ScheduleTool 只解析
+        # 今天/明天/后天/昨天 → target 恒今天查不到行,测试虚过。改用今天数据 + "今天 值班"。
         p_b = Personnel.objects.create(name="鲍勃测试", user_account=user_b)
-        Schedule.objects.create(duty_date=date(2026, 8, 30), duty_person=p_b)
-        result = ScheduleTool().execute(query="2026-08-30 值班", context=_self_ctx(user_a))
-        if result.get("found"):
-            assert "鲍勃测试" not in str(result), f"SELF scope 泄露他人排班: {result}"
+        Schedule.objects.create(duty_date=timezone.now().date(), duty_person=p_b)
+        result = ScheduleTool().execute(query="今天 值班", context=_self_ctx(user_a))
+        assert result.get("found") is False
