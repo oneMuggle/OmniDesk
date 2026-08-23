@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { Table, Button, Space, Popconfirm } from 'antd';
+import { Button, Space, Popconfirm } from 'antd';
+import DataTable from '../../../shared/components/DataTable';
 
 const BookList = ({ books, onEdit, onDelete, onExport, loading }) => {
   const columns = [
@@ -45,12 +46,13 @@ const BookList = ({ books, onEdit, onDelete, onExport, loading }) => {
   ];
 
   return (
-    <Table
+    <DataTable
       columns={columns}
       dataSource={books}
       rowKey="id"
       loading={loading}
       pagination={{ pageSize: 10 }}
+      showActions={false}
     />
   );
 };

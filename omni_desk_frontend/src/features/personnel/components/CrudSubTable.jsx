@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input } from 'antd';
+import { Button, Modal, Form, Input } from 'antd';
+import DataTable from '../../../shared/components/DataTable';
 import { logger } from '../../../shared/utils/logger';
 
 /**
@@ -115,7 +116,13 @@ const CrudSubTable = ({
       <Button type="primary" onClick={showCreateModal} style={{ marginBottom: 16 }}>
         {`添加${title}`}
       </Button>
-      <Table dataSource={Array.isArray(items) ? items : []} columns={allColumns} rowKey="id" />
+      <DataTable
+        dataSource={Array.isArray(items) ? items : []}
+        columns={allColumns}
+        rowKey="id"
+        pagination={{ pageSize: 10 }}
+        showActions={false}
+      />
       <Modal
         title={editingItem ? `编辑${title}` : `添加${title}`}
         open={isModalVisible}
