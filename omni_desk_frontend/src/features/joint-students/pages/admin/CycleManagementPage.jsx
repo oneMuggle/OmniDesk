@@ -1,7 +1,8 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Form, InputNumber, message } from 'antd';
+import { Tag, Button, Space, Modal, Form, InputNumber, message } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listCycles, triggerCycle, forceCloseCycle } from '../../api/cycles';
+import DataTable from '../../../../shared/components/DataTable';
 
 const STATUS_LABEL = {
   collecting: { label: '收集中', color: 'gold' },
@@ -97,12 +98,13 @@ export default function CycleManagementPage() {
           手动触发本月批次
         </Button>
       </Space>
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={Array.isArray(rows) ? rows : []}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
       <Modal
         title="手动触发批次"

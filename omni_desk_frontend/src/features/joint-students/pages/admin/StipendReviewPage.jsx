@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { Table, Tag, Button, Space, Modal, Input, message, Select } from 'antd';
+import { Tag, Button, Space, Modal, Input, message, Select } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listStipends, lockStipend } from '../../api/stipends';
 import { listCycles } from '../../api/cycles';
 import GradeBadge from '../../components/GradeBadge';
+import DataTable from '../../../../shared/components/DataTable';
 
 const STATUS_LABEL = {
   pending: { label: '待复核', color: 'gold' },
@@ -118,12 +119,13 @@ export default function StipendReviewPage() {
           style={{ width: 140 }}
         />
       </Space>
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={Array.isArray(rows) ? rows : []}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
       <Modal
         title="复核并锁定"

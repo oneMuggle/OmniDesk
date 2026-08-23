@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input, InputNumber, Checkbox, Space, Tag, message } from 'antd';
+import { Button, Modal, Form, Input, InputNumber, Checkbox, Space, Tag, message } from 'antd';
 import { CheckOutlined } from '@ant-design/icons';
 import {
   addEndpoint,
@@ -10,6 +10,7 @@ import {
   testEndpoint as apiTestEndpoint,
 } from '../../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../../shared/utils/logger';
+import DataTable from '../../../../shared/components/DataTable';
 
 const EndpointManagement = ({ endpoints, loadEndpoints, loadAppConfigs }) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -138,7 +139,7 @@ const EndpointManagement = ({ endpoints, loadEndpoints, loadAppConfigs }) => {
       <div style={{ marginBottom: 16 }}>
         <Button type="primary" onClick={handleAdd}>添加 API 端点</Button>
       </div>
-      <Table columns={columns} dataSource={endpoints} rowKey="id" pagination={false} />
+      <DataTable columns={columns} dataSource={endpoints} rowKey="id" pagination={false} showActions={false} />
 
       <Modal
         title={editing ? '编辑 API 端点' : '添加 API 端点'}

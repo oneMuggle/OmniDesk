@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
-import { Table, Tag, Button, Modal, Form, InputNumber, Input, message, Space } from 'antd';
+import { Tag, Button, Modal, Form, InputNumber, Input, message, Space } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listReports } from '../../api/reports';
 import { listCycles } from '../../api/cycles';
 import { listScores, createScore } from '../../api/scores';
+import DataTable from '../../../../shared/components/DataTable';
 
 export default function ExpertScoringPage() {
   const queryClient = useQueryClient();
@@ -121,12 +122,13 @@ export default function ExpertScoringPage() {
           ))
         )}
       </Space>
-      <Table
+      <DataTable
         rowKey="id"
         loading={reportsLoading || scoresLoading}
         dataSource={reports}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
       <Modal
         title="专家打分"

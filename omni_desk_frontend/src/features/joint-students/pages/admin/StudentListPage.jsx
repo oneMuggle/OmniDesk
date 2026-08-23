@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Table, Tag, Button, Space, Input, Select } from 'antd';
+import { Tag, Button, Space, Input, Select } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { listStudents } from '../../api/students';
+import DataTable from '../../../../shared/components/DataTable';
 
 const { Search } = Input;
 
@@ -93,12 +94,13 @@ export default function StudentListPage() {
           新增联培生
         </Button>
       </Space>
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={Array.isArray(rows) ? rows : []}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
     </div>
   );
