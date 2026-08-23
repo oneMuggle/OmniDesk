@@ -1,9 +1,10 @@
 import { useState, useEffect } from 'react';
-import { Card, Table, Tag, Button, Space, Modal, Descriptions, Input, DatePicker, Select } from 'antd';
+import { Card, Tag, Button, Space, Modal, Descriptions, Input, DatePicker, Select } from 'antd';
 import { EyeOutlined, SearchOutlined, ReloadOutlined } from '@ant-design/icons';
 import apiClient from '../../../shared/api/apiClient';
 import './AgentAuditPanel.css';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const { RangePicker } = DatePicker;
 const { Search } = Input;
@@ -143,7 +144,7 @@ const AgentAuditPanel = () => {
         </Space>
       </Card>
       <Card className="audit-table">
-        <Table
+        <DataTable
           columns={columns}
           dataSource={logs}
           rowKey="id"
@@ -156,6 +157,7 @@ const AgentAuditPanel = () => {
             showTotal: (t) => `共 ${t} 条`,
           }}
           locale={{ emptyText: '暂无审计记录' }}
+          showActions={false}
         />
       </Card>
 

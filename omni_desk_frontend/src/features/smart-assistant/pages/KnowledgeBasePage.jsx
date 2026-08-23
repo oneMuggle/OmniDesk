@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Card, Table, Tag, Button, Upload, Space, Popconfirm, Typography } from 'antd';
+import { Card, Tag, Button, Upload, Space, Popconfirm, Typography } from 'antd';
 import { UploadOutlined, DeleteOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getKnowledgeDocs, deleteKnowledgeDoc, uploadKnowledgeDoc } from '../api/smartAssistantApi';
@@ -7,6 +7,7 @@ import { notifications } from '../../../shared/utils/notifications';
 import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import './KnowledgeBasePage.css';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 
@@ -150,14 +151,14 @@ const KnowledgeBasePage = () => {
       </div>
 
       <Card className="knowledge-base-table">
-        <Table
+        <DataTable
           columns={columns}
           dataSource={documents}
           rowKey="id"
           loading={loading}
           locale={{ emptyText: '暂无文档，请上传文件开始构建知识库' }}
           pagination={{ pageSize: 20, showSizeChanger: false }}
-        />
+        showActions={false} />
       </Card>
     </div>
   );
