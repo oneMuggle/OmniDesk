@@ -4,10 +4,10 @@ import PublicHousingInfoTable from './PublicHousingInfoTable';
 describe('PublicHousingInfoTable', () => {
   it('renders table with correct columns', () => {
     render(<PublicHousingInfoTable data={[]} />);
-    expect(screen.getByText('门牌号')).toBeInTheDocument();
-    expect(screen.getByText('房屋地址')).toBeInTheDocument();
-    expect(screen.getByText('房屋类型')).toBeInTheDocument();
-    expect(screen.getByText('房屋面积')).toBeInTheDocument();
+    expect(screen.getAllByText('门牌号').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('房屋地址').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('房屋类型').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('房屋面积').length).toBeGreaterThan(0);
   });
 
  it('renders table with data', () => {

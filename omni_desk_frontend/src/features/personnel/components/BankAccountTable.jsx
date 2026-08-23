@@ -1,5 +1,6 @@
 import PropTypes from 'prop-types';
-import { Table, Button } from 'antd';
+import { Button } from 'antd';
+import DataTable from '../../../shared/components/DataTable';
 
 const BankAccountTable = ({ data = [], isEditing = false }) => {
   const columns = [
@@ -28,11 +29,12 @@ const BankAccountTable = ({ data = [], isEditing = false }) => {
           添加银行账号
         </Button>
       )}
-      <Table
+      <DataTable
         dataSource={Array.isArray(data) ? data : []}
         columns={columns}
         rowKey="id"
         pagination={false}
+        showActions={false}
       />
     </div>
   );

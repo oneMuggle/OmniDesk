@@ -4,9 +4,9 @@ import BankAccountTable from './BankAccountTable';
 describe('BankAccountTable', () => {
   it('renders table with correct columns', () => {
     render(<BankAccountTable data={[]} />);
-    expect(screen.getByText('开户行')).toBeInTheDocument();
-    expect(screen.getByText('账号')).toBeInTheDocument();
-    expect(screen.getByText('卡类型')).toBeInTheDocument();
+    expect(screen.getAllByText('开户行').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('账号').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('卡类型').length).toBeGreaterThan(0);
   });
 
   it('renders table rows when data is provided', () => {
