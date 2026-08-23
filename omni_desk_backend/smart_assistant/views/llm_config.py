@@ -13,6 +13,19 @@ from ..serializers import (
 )
 
 
+def _models_url(api_endpoint):
+    """由端点基础地址拼出上游 /v1/models URL.
+
+    兼容两种填写习惯:https://host 或 https://host/v1 都只拼一次 /v1/models。
+    """
+    base = api_endpoint.rstrip("/")
+    if base.lower().endswith("/models"):
+        base = base[: -len("/models")]
+    if base.lower().endswith("/v1"):
+        base = base[: -len("/v1")]
+    return f"{base}/v1/models"
+
+
 class LlmEndpointViewSet(viewsets.ModelViewSet):
     """LLM API 端点管理：CRUD + fetch-models"""
 
@@ -40,12 +53,11 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
     def fetch_models(self, request, pk=None):
         """根据端点配置调用上游 /v1/models 获取可用模型列表"""
         endpoint = self.get_object()
-        api_endpoint = endpoint.api_endpoint.rstrip("/")
         api_key = endpoint.api_key
 
         try:
             resp = http_requests.get(
-                f"{api_endpoint}/v1/models",
+                _models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -89,12 +101,11 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
     def test_endpoint(self, request, pk=None):
         """测试端点是否可达且认证是否有效"""
         endpoint = self.get_object()
-        api_endpoint = endpoint.api_endpoint.rstrip("/")
         api_key = endpoint.api_key
 
         try:
             resp = http_requests.get(
-                f"{api_endpoint}/v1/models",
+                _models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
