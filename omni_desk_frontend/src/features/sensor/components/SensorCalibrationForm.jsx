@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Form, Input, Button, DatePicker, Table, Space, InputNumber, Tabs } from 'antd';
+import { Form, Input, Button, DatePicker, Space, InputNumber, Tabs } from 'antd';
 import { PlusOutlined, MinusCircleOutlined } from '@ant-design/icons';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorCalibrationForm = ({ onSubmit, onCancel }) => {
     const [form] = Form.useForm();
@@ -140,12 +141,13 @@ const SensorCalibrationForm = ({ onSubmit, onCancel }) => {
                     </Form.Item>
                 </Tabs.TabPane>
                 <Tabs.TabPane tab="校准数据点" key="2">
-                    <Table
+                    <DataTable
                         dataSource={dataPoints}
                         columns={dataPointColumns}
                         pagination={false}
                         bordered
                         scroll={{ x: 'max-content' }}
+                        showActions={false}
                     />
                     <Button type="dashed" onClick={addDataPoint} style={{ width: '100%', marginTop: '10px' }} icon={<PlusOutlined />}>
                         添加数据点

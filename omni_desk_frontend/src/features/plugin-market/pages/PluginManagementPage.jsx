@@ -1,13 +1,12 @@
 import { useState } from 'react';
-import {
-  Table, Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Space, Typography,
-} from 'antd';
+import { Button, Modal, Form, Input, Select, Tag, message, Popconfirm, Space, Typography } from 'antd';
 import { PlusOutlined, EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import {
   fetchPlugins, createPlugin, updatePlugin, deletePlugin,
 } from '../api/pluginApi';
 import PluginUploadModal from '../components/PluginUploadModal';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 
@@ -112,12 +111,13 @@ const PluginManagementPage = () => {
           创建插件
         </Button>
       </div>
-      <Table
+      <DataTable
         columns={columns}
         dataSource={plugins}
         rowKey="id"
         loading={isLoading}
         pagination={{ pageSize: 10 }}
+        showActions={false}
       />
       <Modal
         title={editingPlugin ? '编辑插件' : '创建插件'}

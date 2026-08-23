@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Table, Button, Modal, Form, Input, DatePicker, Select, Tag, Space, Typography } from 'antd';
+import { Button, Modal, Form, Input, DatePicker, Select, Tag, Space, Typography } from 'antd';
 import { EditOutlined, DeleteOutlined, UploadOutlined } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import dayjs from 'dayjs';
 import projectsApi from '../api/projects';
 import { logger } from '../../../shared/utils/logger';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title } = Typography;
 const { Option } = Select;
@@ -125,7 +126,7 @@ const ProjectsPage = () => {
                 创建新项目
             </Button>
 
-            <Table columns={columns} dataSource={projects.map(p => ({ ...p, key: p.id }))} pagination={{ pageSize: 10 }} />
+            <DataTable columns={columns} dataSource={projects.map(p => ({ ...p, key: p.id }))} pagination={{ pageSize: 10 }} showActions={false} />
 
             <Modal
                 title={currentProject ? '编辑项目' : '创建新项目'}

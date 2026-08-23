@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react';
 import { getNewsStats, getNewsArticles } from '../api/newsApi';
-import { Table, Typography, Card, Row, Col } from 'antd';
+import { Typography, Card, Row, Col } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Title, Text } = Typography;
 
@@ -87,11 +88,13 @@ const NewsStatsPage = () => {
         )
       )}
       <Title level={3} style={{ marginTop: '20px' }}>新闻列表</Title>
-      <Table
+      <DataTable
         columns={columns}
         dataSource={articles}
         rowKey="id"
         loading={loading}
+        pagination={{ pageSize: 10 }}
+        showActions={false}
       />
     </div>
   );

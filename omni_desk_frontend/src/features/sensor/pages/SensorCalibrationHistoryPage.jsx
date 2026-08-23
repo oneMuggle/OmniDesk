@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Table, Button, Modal, message, Spin, Card, Descriptions, Tag, Divider } from 'antd';
+import { Button, Modal, message, Spin, Card, Descriptions, Tag, Divider } from 'antd';
 import { getCalibrationRecords, deleteCalibrationRecord } from '../api/sensorApi';
 import dayjs from 'dayjs';
 import { logger } from '../../../shared/utils/logger';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorCalibrationHistoryPage = () => {
   const { sensorId } = useParams();
@@ -107,11 +108,12 @@ const SensorCalibrationHistoryPage = () => {
   return (
     <Spin spinning={loading}>
       <Card title={`传感器 #${sensorId} 的校准历史`}>
-        <Table
+        <DataTable
           columns={columns}
           dataSource={records}
           rowKey="id"
           pagination={{ pageSize: 10 }}
+          showActions={false}
         />
       </Card>
       {selectedRecord && (
@@ -152,7 +154,7 @@ const SensorCalibrationHistoryPage = () => {
           {selectedRecord.data_points && selectedRecord.data_points.length > 0 && (
             <>
               <Divider orientation="left" style={{ margin: 'var(--spacing-md) 0 var(--spacing-12)' }}>数据点</Divider>
-              <Table
+              <DataTable
                 bordered
                 dataSource={selectedRecord.data_points}
                 columns={[
@@ -168,6 +170,7 @@ const SensorCalibrationHistoryPage = () => {
                 rowKey="id"
                 size="small"
                 scroll={{ x: true }}
+                showActions={false}
               />
             </>
           )}

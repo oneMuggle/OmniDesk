@@ -6,9 +6,7 @@
  */
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import {
-  Table, Tabs, Button, Space, Tag, message, Tooltip, Popconfirm, Empty, Spin, Typography,
-} from 'antd';
+import { Tabs, Button, Space, Tag, message, Tooltip, Popconfirm, Empty, Spin, Typography } from 'antd';
 import { getApiErrorMessage } from '../../../shared/utils/apiErrors';
 import {
   ReloadOutlined, RedoOutlined, DeleteOutlined,
@@ -16,6 +14,7 @@ import {
 import axiosInstance from '../../../shared/api/axiosConfig';
 import PaperlessHealthBanner from '../components/PaperlessHealthBanner';
 import SyncStatusBadge from '../components/SyncStatusBadge';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Text } = Typography;
 
@@ -207,7 +206,7 @@ export default function SyncStatusPage() {
         {items.length === 0 && !isLoading ? (
           <Empty description="暂无同步记录" />
         ) : (
-          <Table
+          <DataTable
             rowKey="id"
             columns={columns}
             dataSource={items}
@@ -226,6 +225,7 @@ export default function SyncStatusPage() {
                 setPageSize(ps);
               },
             }}
+            showActions={false}
           />
         )}
       </Spin>

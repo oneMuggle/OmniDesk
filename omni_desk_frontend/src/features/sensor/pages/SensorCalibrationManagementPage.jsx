@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { Table, Button, Modal, Form, Input, message, Popconfirm, Space, Collapse } from 'antd';
+import { Button, Modal, Form, Input, message, Popconfirm, Space, Collapse } from 'antd';
 import axiosInstance from '../../../shared/api/axiosConfig';
 import { logger } from '../../../shared/utils/logger';
+import DataTable from '../../../shared/components/DataTable';
 
 const SensorCalibrationManagementPage = () => {
     const { sensorId } = useParams();
@@ -140,7 +141,7 @@ const SensorCalibrationManagementPage = () => {
             <Button type="primary" onClick={handleAdd} style={{ marginBottom: 'var(--spacing-md)' }}>
                 Add New Calibration
             </Button>
-            <Table columns={columns} dataSource={calibrations} rowKey="id" loading={loading} />
+            <DataTable columns={columns} dataSource={calibrations} rowKey="id" loading={loading} pagination={{ pageSize: 10 }} showActions={false} />
 
             <Modal
                 title={editingCalibration ? 'Edit Calibration' : 'Add New Calibration'}

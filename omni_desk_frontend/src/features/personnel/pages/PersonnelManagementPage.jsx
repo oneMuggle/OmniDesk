@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Table, Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
+import { Button, Form, Input, Modal, message, Select, Tabs, Space } from 'antd'; // Add Select, Tabs, Space
 import {
   getPersonnel,
   createPersonnel,
@@ -11,6 +11,7 @@ import {
 import { PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { logger } from '../../../shared/utils/logger';
 import PositionManagementTab from '../components/PositionManagementTab';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Option } = Select; // Destructure Option from Select
 
@@ -205,7 +206,7 @@ const PersonnelManagementPage = () => {
             </Button>
           </div>
 
-          <Table
+          <DataTable
             columns={columns}
             dataSource={Array.isArray(data) ? data : []}
             rowKey="id"
@@ -217,6 +218,7 @@ const PersonnelManagementPage = () => {
               showTotal: (total) => `共 ${total} 条`,
             }}
             onChange={handleTableChange}
+            showActions={false}
           />
 
           <Modal

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import PropTypes from 'prop-types';
-import { Table, Button, Form, Input, Modal, message } from 'antd';
+import { Button, Form, Input, Modal, message } from 'antd';
 import {
   getPositions,
   createPosition,
@@ -9,6 +9,7 @@ import {
 } from '../api/personnelApi';
 import { extractResults } from '../../../shared/api/responseHandler';
 import { PlusOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import DataTable from '../../../shared/components/DataTable';
 
 /**
  * 职位管理 Tab（独立组件）。
@@ -130,13 +131,14 @@ const PositionManagementTab = ({ onPositionsChanged }) => {
           新增职位
         </Button>
       </div>
-      <Table
+      <DataTable
         columns={positionColumns}
         dataSource={Array.isArray(positionData) ? positionData : []}
         rowKey="id"
         bordered
         pagination={false} // Positional data often doesn't need pagination
         data-testid="position-table"
+        showActions={false}
       />
       <Modal
         title={editingPositionId ? '编辑职位' : '新增职位'}

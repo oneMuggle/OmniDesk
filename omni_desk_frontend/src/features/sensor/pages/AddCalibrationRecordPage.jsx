@@ -1,21 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import {
-  Form,
-  Input,
-  DatePicker,
-  Select,
-  Table,
-  Button,
-  Card,
-  Row,
-  Col,
-  message,
-  InputNumber,
-} from 'antd';
+import { Form, Input, DatePicker, Select, Button, Card, Row, Col, message, InputNumber } from 'antd';
 import { getSensors, createCalibrationRecord } from '../api/sensorApi';
 import { logger } from '../../../shared/utils/logger';
+import DataTable from '../../../shared/components/DataTable';
 
 const { Option } = Select;
 
@@ -230,12 +219,13 @@ const AddCalibrationRecordPage = () => {
         </Row>
 
         <Card title="数据记录" type="inner" style={{ marginTop: 'var(--spacing-md)' }}>
-          <Table
+          <DataTable
             bordered
             dataSource={dataSource}
             columns={columns}
             pagination={false}
             rowKey="key"
+            showActions={false}
           />
         </Card>
 

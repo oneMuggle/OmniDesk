@@ -1,7 +1,8 @@
-import { Modal, Descriptions, Tag, Table, Button, message } from 'antd';
+import { Modal, Descriptions, Tag, Button, message } from 'antd';
 import { PlayCircleOutlined } from '@ant-design/icons';
 import { useState } from 'react';
 import { executePlugin } from '../api/pluginApi';
+import DataTable from '../../../shared/components/DataTable';
 
 const STATUS_MAP = {
   draft: { color: 'default', text: '草稿' },
@@ -76,12 +77,13 @@ const PluginDetailModal = ({ visible, plugin, onClose }) => {
         </div>
       )}
       {plugin.versions && plugin.versions.length > 0 && (
-        <Table
+        <DataTable
           columns={versionColumns}
           dataSource={plugin.versions}
           rowKey="id"
           size="small"
           pagination={false}
+          showActions={false}
         />
       )}
       {execResult && (
