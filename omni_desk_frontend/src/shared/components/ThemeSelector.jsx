@@ -45,16 +45,7 @@ function ThemeSelector() {
       trigger={['click']}
       placement="bottomRight"
     >
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 6,
-          cursor: 'pointer',
-          padding: '4px 8px',
-          borderRadius: 6,
-        }}
-      >
+      <div className="sidebar-theme">
         <BgColorsOutlined />
         <span>主题</span>
       </div>

@@ -110,7 +110,21 @@ class LlmEndpointSerializer(serializers.ModelSerializer):
 
 
 class LlmEndpointCreateSerializer(serializers.ModelSerializer):
-    """创建/更新时包含 api_key 和降级相关字段"""
+    """创建/更新时包含 api_key 和降级相关字段
+
+    api_key 语义:
+    - create: 必填(空值在 validate 中拒绝)
+    - update: 空/None 表示"保持原值"(前端编辑表单"留空则不修改")
+    - 响应不回显 api_key(write_only)
+    """
+
+    api_key = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        allow_null=True,
+        write_only=True,
+        max_length=500,
+    )
 
     class Meta:
         model = LlmEndpoint
@@ -128,6 +142,18 @@ class LlmEndpointCreateSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def validate(self, attrs):
+        if self.instance is None and not (attrs.get("api_key") or "").strip():
+            raise serializers.ValidationError({"api_key": ["创建端点时必须提供 API 密钥。"]})
+        return attrs
+
+    def update(self, instance, validated_data):
+        # 空/空白密钥 → 保持原值;非空才替换
+        api_key = validated_data.pop("api_key", None)
+        if api_key and str(api_key).strip():
+            validated_data["api_key"] = api_key
+        return super().update(instance, validated_data)
 
 
 class LlmAppConfigSerializer(serializers.ModelSerializer):
