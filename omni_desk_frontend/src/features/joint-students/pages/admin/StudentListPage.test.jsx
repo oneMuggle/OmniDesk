@@ -30,6 +30,6 @@ describe('StudentListPage', () => {
     await waitFor(() => {
       expect(screen.getByText('联培生列表')).toBeInTheDocument();
     });
-    expect(screen.getByText('学号')).toBeInTheDocument();
+    expect(screen.getAllByText('学号').length).toBeGreaterThan(0);
   });
 });

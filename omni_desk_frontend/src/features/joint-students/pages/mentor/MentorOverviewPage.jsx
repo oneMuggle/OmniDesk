@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Table, Tag, Empty } from 'antd';
+import { Tag, Empty } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { listStudents } from '../../api/students';
 import { listReports } from '../../api/reports';
+import DataTable from '../../../../shared/components/DataTable';
 
 const STATUS_LABEL = {
   draft: { label: '草稿', color: 'default' },
@@ -76,12 +77,13 @@ export default function MentorOverviewPage() {
   return (
     <div style={{ padding: 24 }}>
       <h2 style={{ marginBottom: 16 }}>我的联培生</h2>
-      <Table
+      <DataTable
         rowKey="id"
         loading={studentsLoading}
         dataSource={students}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
     </div>
   );

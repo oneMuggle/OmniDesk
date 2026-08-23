@@ -1,8 +1,9 @@
 import { useMemo } from 'react';
-import { Table, Card, Row, Col, Statistic } from 'antd';
+import { Card, Row, Col, Statistic } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { listStipends } from '../../api/stipends';
 import GradeBadge from '../../components/GradeBadge';
+import DataTable from '../../../../shared/components/DataTable';
 
 export default function MyStipendsPage() {
   const { data, isLoading } = useQuery({
@@ -60,12 +61,13 @@ export default function MyStipendsPage() {
           </Card>
         </Col>
       </Row>
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={rows}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
     </div>
   );

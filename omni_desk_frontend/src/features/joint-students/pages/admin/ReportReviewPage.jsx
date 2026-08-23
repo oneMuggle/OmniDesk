@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import {
-  Table,
   Tag,
   Button,
   Space,
@@ -11,6 +10,7 @@ import {
 } from 'antd';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { listReports, approveReport, rejectReport } from '../../api/reports';
+import DataTable from '../../../../shared/components/DataTable';
 
 const STATUS_LABEL = {
   draft: { label: '草稿', color: 'default' },
@@ -118,12 +118,13 @@ export default function ReportReviewPage() {
           style={{ width: 140 }}
         />
       </Space>
-      <Table
+      <DataTable
         rowKey="id"
         loading={isLoading}
         dataSource={Array.isArray(rows) ? rows : []}
         columns={columns}
         pagination={{ pageSize: 20, showTotal: (total) => `共 ${total} 条` }}
+        showActions={false}
       />
       <Modal
         title="驳回报告"

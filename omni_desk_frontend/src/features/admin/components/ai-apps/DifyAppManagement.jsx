@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input, Checkbox, Space, Tag, message } from 'antd';
+import { Button, Modal, Form, Input, Checkbox, Space, Tag, message } from 'antd';
 import { addDifyApp, updateDifyApp, deleteDifyApp } from '../../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../../shared/utils/logger';
+import DataTable from '../../../../shared/components/DataTable';
 
 const DifyAppManagement = ({ difyApps, loadDifyApps }) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -46,7 +47,7 @@ const DifyAppManagement = ({ difyApps, loadDifyApps }) => {
   return (
     <>
       <div style={{ marginBottom: 16 }}><Button type="primary" onClick={handleAdd}>添加 Dify 应用</Button></div>
-      <Table columns={columns} dataSource={difyApps} rowKey="id" pagination={false} />
+      <DataTable columns={columns} dataSource={difyApps} rowKey="id" pagination={false} showActions={false} />
       <Modal title={editing ? '编辑 Dify 应用' : '添加 Dify 应用'} open={modalVisible} onCancel={() => { setModalVisible(false); setEditing(null); form.resetFields(); }} footer={null}>
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item label="应用名称" name="name" rules={[{ required: true, message: '请输入应用名称!' }]}><Input /></Form.Item>

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
+import { Button, Modal, Form, InputNumber, Checkbox, Space, Select, Tag, message } from 'antd';
 import {
   addAppConfig,
   updateAppConfig,
@@ -8,6 +8,7 @@ import {
   fetchEndpointModels,
 } from '../../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../../shared/utils/logger';
+import DataTable from '../../../../shared/components/DataTable';
 
 // 应用名称下拉选项;与后端 APP_CHOICES 保持一致
 export const APP_NAME_OPTIONS = [
@@ -139,7 +140,7 @@ const AppConfigManagement = ({ appConfigs, endpoints, loadAppConfigs }) => {
       <div style={{ marginBottom: 16 }}>
         <Button type="primary" onClick={handleAdd}>添加应用配置</Button>
       </div>
-      <Table columns={columns} dataSource={appConfigs} rowKey="id" pagination={false} />
+      <DataTable columns={columns} dataSource={appConfigs} rowKey="id" pagination={false} showActions={false} />
 
       <Modal
         title={editing ? '编辑应用配置' : '添加应用配置'}

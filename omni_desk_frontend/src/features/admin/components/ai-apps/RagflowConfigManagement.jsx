@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Table, Modal, Form, Input, Checkbox, Space, Tag, message } from 'antd';
+import { Button, Modal, Form, Input, Checkbox, Space, Tag, message } from 'antd';
 import { addRagflowConfig, updateRagflowConfig, deleteRagflowConfig } from '../../../smart-assistant/api/smartAssistantApi';
 import { logger } from '../../../../shared/utils/logger';
+import DataTable from '../../../../shared/components/DataTable';
 
 const RagflowConfigManagement = ({ ragflowConfigs, loadRagflowConfigs }) => {
   const [modalVisible, setModalVisible] = useState(false);
@@ -47,7 +48,7 @@ const RagflowConfigManagement = ({ ragflowConfigs, loadRagflowConfigs }) => {
   return (
     <>
       <div style={{ marginBottom: 16 }}><Button type="primary" onClick={handleAdd}>添加 Ragflow 配置</Button></div>
-      <Table columns={columns} dataSource={ragflowConfigs} rowKey="id" pagination={false} />
+      <DataTable columns={columns} dataSource={ragflowConfigs} rowKey="id" pagination={false} showActions={false} />
       <Modal title={editing ? '编辑 Ragflow 配置' : '添加 Ragflow 配置'} open={modalVisible} onCancel={() => { setModalVisible(false); setEditing(null); form.resetFields(); }} footer={null}>
         <Form form={form} layout="vertical" onFinish={handleSave}>
           <Form.Item label="配置名称" name="name" rules={[{ required: true, message: '请输入配置名称!' }]}><Input /></Form.Item>
