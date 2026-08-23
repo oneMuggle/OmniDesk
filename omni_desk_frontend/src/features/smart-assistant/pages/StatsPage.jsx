@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Card, Statistic, Row, Col, Table, Spin } from 'antd';
+import { Card, Statistic, Row, Col, Spin } from 'antd';
 import { getStatsOverview, getStatsDaily } from '../api/smartAssistantApi';
 import './StatsPage.css';
+import DataTable from '../../../shared/components/DataTable';
 
 const StatsPage = () => {
   const [loading, setLoading] = useState(false);
@@ -99,21 +100,21 @@ const StatsPage = () => {
           <Row gutter={16}>
             <Col span={12}>
               <Card title="意图分布" size="small">
-                <Table
+                <DataTable
                   columns={intentColumns}
                   dataSource={intentData}
                   size="small"
-                  pagination={false}
+                  pagination={false}                  showActions={false}
                 />
               </Card>
             </Col>
             <Col span={12}>
               <Card title="工具调用" size="small">
-                <Table
+                <DataTable
                   columns={toolColumns}
                   dataSource={toolData}
                   size="small"
-                  pagination={false}
+                  pagination={false}                  showActions={false}
                 />
               </Card>
             </Col>
@@ -122,22 +123,22 @@ const StatsPage = () => {
           <Row gutter={16} style={{ marginTop: 16 }}>
             <Col span={12}>
               <Card title="热门问题 Top 10" size="small">
-                <Table
+                <DataTable
                   columns={questionColumns}
                   dataSource={overview?.top_questions || []}
                   size="small"
-                  pagination={false}
+                  pagination={false}                  showActions={false}
                 />
               </Card>
             </Col>
             <Col span={12}>
               <Card title="每日趋势" size="small">
-                <Table
+                <DataTable
                   columns={dailyColumns}
                   dataSource={dailyStats}
                   size="small"
                   pagination={false}
-                  scroll={{ y: 300 }}
+                  scroll={{ y: 300 }}                  showActions={false}
                 />
               </Card>
             </Col>

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQueryClient, useQuery, useMutation } from '@tanstack/react-query';
-import { Card, Table, Button, message, Space, Radio, Switch } from 'antd';
+import { Card, Button, message, Space, Radio, Switch } from 'antd';
 // R5-C2: jspdf/html2canvas 仅"导出为PDF"时使用,改为动态 import 拆 chunk,
 // 避免进入首屏依赖图(docprocessing chunk 约 620 kB raw / 188 kB gzip)。
 import { scheduleApi } from '../api/scheduleApi';
@@ -21,6 +21,7 @@ import ScheduleFormModal from '../components/ScheduleFormModal';
 import GenerateScheduleModal from '../components/GenerateScheduleModal';
 import { createScheduleColumns } from '../utils/scheduleColumns.jsx';
 import { extractResults } from '../../../shared/api/responseHandler';
+import DataTable from '../../../shared/components/DataTable';
 
 const ScheduleManagementPage = () => {
   const queryClient = useQueryClient();
@@ -471,7 +472,7 @@ const ScheduleManagementPage = () => {
              <Button onClick={handleInvertSelection} data-testid="invert-selection-button">反选</Button>
              <Button danger onClick={handleBulkDelete} disabled={selectedSchedules.length === 0 || bulkDeleteMutation.isPending} data-testid="bulk-delete-button">批量删除</Button>
            </Space>
-           <Table
+           <DataTable
              columns={columns}
              dataSource={filteredSchedules}
              rowKey="id"
@@ -479,6 +480,7 @@ const ScheduleManagementPage = () => {
              rowSelection={rowSelection}
              pagination={{ pageSize: 10 }}
              data-testid="schedule-table"
+             showActions={false}
            />
          </div>
        )}

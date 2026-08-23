@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { getPersonnelDetails } from '../api/personnelApi';
-import { Descriptions, Table, Spin, message, Button, Card } from 'antd';
+import { Descriptions, Spin, message, Button, Card } from 'antd';
 import { ArrowLeftOutlined } from '@ant-design/icons';
+import DataTable from '../../../shared/components/DataTable';
 import {
     ProfessionalQualificationTable,
     FamilyMemberTable,
@@ -84,13 +85,13 @@ const PersonnelDetailPage = () => {
                 </Descriptions>
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">合同信息</h2>
-                <Table dataSource={personnel.contracts || []} columns={contractColumns} rowKey="id" pagination={false} bordered />
+                <DataTable dataSource={personnel.contracts || []} columns={contractColumns} rowKey="id" pagination={false} bordered  showActions={false} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">教育背景</h2>
-                <Table dataSource={personnel.educations || []} columns={educationColumns} rowKey="id" pagination={false} bordered />
+                <DataTable dataSource={personnel.educations || []} columns={educationColumns} rowKey="id" pagination={false} bordered  showActions={false} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">工作经历</h2>
-                <Table dataSource={personnel.work_experiences || []} columns={workExperienceColumns} rowKey="id" pagination={false} bordered />
+                <DataTable dataSource={personnel.work_experiences || []} columns={workExperienceColumns} rowKey="id" pagination={false} bordered  showActions={false} />
 
                 <h2 className="text-xl font-semibold mt-8 mb-4">职业资质</h2>
                 <ProfessionalQualificationTable data={personnel.professional_qualifications || []} />
