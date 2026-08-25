@@ -5,30 +5,24 @@
 # 默认测试 http://localhost
 # 所有 API 请求通过 Nginx 代理 ($base_url/api/) 访问后端
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
 
-BASE_URL="${1:-http://localhost}"
-# backend 不再暴露 8000 端口，所有 API 请求通过 Nginx 代理走 $BASE_URL
-# 非 API 端点（如 /admin/）通过 docker compose exec 直接访问容器
+if ! init_smoke_context "${1:-}"; then
+    echo "ERROR: smoke context init failed; required compose/env not found" >&2
+    exit 1
+fi
 
-PASS=0
-FAIL=0
-SKIP=0
-WARN=0
-# O1: WARN 详情数组 — STATUS 框前 echo,让 operator 不用 grep 翻日志
-WARN_DETAILS=()
 # SMOKE_STRICT=1:SKIP 升级为 FAIL(CI 严格模式,部署现场保持默认 0 = 容错)
 # CI 在 PR 上跑 smoke,任何"我跳过了"的探测都不能蒙混过关,必须显式通过。
-SMOKE_STRICT="${SMOKE_STRICT:-0}"
+export SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
 
 # set -u 兜底初始化:后续脚本会 `read` 这些变量,在 CI 环境(无 .env.production、
 # 无外部 env 注入)下用 :- 兜底空值,避免 "unbound variable" 早退。
-# 真值仍由下方 .env.production 读取与 fallback 决定,这里只是"先占位"。
-: "${COMPOSE_PROJECT_NAME:=}"
+# 真值仍由 .env.production 读取与 fallback 决定,这里只是"先占位"。
 : "${OMNIDESK_BACKUP_ROOT:=}"
 : "${OMNIDESK_RUNTIME_ROOT:=}"
 : "${SMOKE_TEST_USER:=}"
@@ -44,19 +38,7 @@ set -uo pipefail
 : "${CHUNK_URLS:=}"
 : "${LATEST:=}"
 
-# ─── Task 8: 环境变量设置与校验 ────────────────────────────────
-# 设置并校验 COMPOSE_PROJECT_NAME / OMNIDESK_BACKUP_ROOT / OMNIDESK_RUNTIME_ROOT
-# 这些变量用于确保 smoke 测试与升级/备份脚本使用一致的运行时路径
-
-# COMPOSE_PROJECT_NAME: 必须与 .env.production 或 bundle identity 一致
-# 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
-    if [ -f ".env.production" ]; then
-        COMPOSE_PROJECT_NAME=$(grep -E '^COMPOSE_PROJECT_NAME=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$COMPOSE_PROJECT_NAME" ] && COMPOSE_PROJECT_NAME="omnidesk"
-fi
-export COMPOSE_PROJECT_NAME
+# COMPOSE_PROJECT_NAME 由 init_smoke_context 从 .env.production 解析后 export
 
 # P0-5: 阶段 12 需要 SMOKE_TEST_USER/PASSWORD + USE_HTTPS
 # 同上策略:.env.production 缺凭据时 SKIP(默认),有凭据时 PASS/FAIL 严格判定
@@ -299,29 +281,21 @@ echo "  Frontend/API: $BASE_URL"
 echo "=========================================="
 echo ""
 
-COMPOSE_FILE="-f docker-compose.offline.yml"
-ENV_FILE="--env-file .env.production"
-
 # CI docker-integration job 用默认 docker-compose.yml(端口 3000:3000 等)起服务,
 # 而 smoke 默认指向 docker-compose.offline.yml(端口 80,需 nginx)。
 # 探测:若 -f docker-compose.offline.yml ps 找不到 db 服务,fallback 到默认 compose。
 # 这样同一份脚本既支持 CI 默认 compose,又支持离线包部署现场的 offline compose。
-if ! docker compose $COMPOSE_FILE $ENV_FILE ps --services 2>/dev/null | grep -qx db; then
+# 覆盖 COMPOSE_FILE_PATH(已 export),让 helper 的 compose() 自动跟随。
+SCRIPT_DIR_ALT="$(cd "$(dirname "$0")" && pwd)"
+if ! compose ps --services 2>/dev/null | grep -qx db; then
     echo "WARN: docker-compose.offline.yml 中未找到 db 服务,fallback 到默认 compose 文件" >&2
-    COMPOSE_FILE=""
+    if [ -f "$SCRIPT_DIR_ALT/docker-compose.yml" ]; then
+        export COMPOSE_FILE_PATH="$SCRIPT_DIR_ALT/docker-compose.yml"
+    fi
 fi
 
-# CI 的 docker-integration job 只检查出 deployment/docker 里有 .env.production.example,
-# 不生成 .env.production;--env-file 指向不存在的文件会让每个 compose 调用直接报
-# "no such file" 失败。探测文件存在性,缺失时降级为空串(compose 默认读同目录 .env)。
-[ -f .env.production ] || ENV_FILE=""
-
-compose() {
-    docker compose $COMPOSE_FILE $ENV_FILE "$@"
-}
-
-# Fix-12: 把 compose() 函数 export 到子 shell,让 $(compose ...) 等命令可用
-# 否则 timeout / $() 子进程不继承 bash 函数
+# compose() 来自 smoke_common.sh(已 export -f 通过 source 自动在同 shell 可见,
+# 但子 shell 不会继承 bash 函数,所以下面再次显式 export)。
 export -f compose
 
 # ─── 阶段 1: 容器状态 ───────────────────────────────────────

@@ -1,33 +1,49 @@
 #!/bin/bash
-set -e
+set -uo pipefail
 
-# validate_artifacts.sh — 验证构建产物（.tar 文件）的完整性
-# 使用方法: ./validate_artifacts.sh [images_dir]
-# 默认检查 exported_images/ 目录
+# validate_artifacts.sh — 验证构建产物(.tar 文件)的完整性
+# 使用方法:
+#   ./validate_artifacts.sh [images_dir]
+#   ./validate_artifacts.sh --image-dir <dir> [--manifest <file>] [--checksums <file>]
+# 默认检查顺序:显式参数 > bundle images/ > source exported_images/
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
 
-IMAGE_DIR="${1:-exported_images}"
+# 解析参数,支持位置参数与长选项
+IMAGE_DIR=""
+MANIFEST_FILE=""
+CHECKSUMS_FILE=""
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --image-dir) IMAGE_DIR="${2:-}"; shift 2 ;;
+        --manifest) MANIFEST_FILE="${2:-}"; shift 2 ;;
+        --checksums) CHECKSUMS_FILE="${2:-}"; shift 2 ;;
+        --help|-h) sed -n '2,11p' "$0"; exit 0 ;;
+        *)
+            # 第一个非选项位置参数作为 IMAGE_DIR
+            if [ -z "$IMAGE_DIR" ]; then IMAGE_DIR="$1"; fi; shift ;;
+    esac
+done
+
+# resolve_artifact_dir 自动在 bundle images/ 与 source exported_images/ 之间选择
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUNDLE_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+if [ -z "$IMAGE_DIR" ]; then
+    IMAGE_DIR="$(resolve_artifact_dir "" || true)"
+    if [ -z "$IMAGE_DIR" ]; then
+        echo "ERROR: No image dir given and none found in $BUNDLE_DIR/images or $SCRIPT_DIR/exported_images" >&2
+        exit 1
+    fi
+fi
 
 if [ ! -d "$IMAGE_DIR" ]; then
     echo "ERROR: Directory '$IMAGE_DIR' not found."
     exit 1
 fi
 
-PASS=0
-FAIL=0
-WARN=0
-
-result() {
-    local status="$1"
-    local msg="$2"
-    case "$status" in
-        PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
-        FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)) ;;
-        WARN) echo "  WARN: $msg"; WARN=$((WARN + 1)) ;;
-    esac
-}
+# result() 来自 smoke_common.sh(已 export),无需本地定义
+export SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
 echo "=========================================="
 echo "  构建产物验证"

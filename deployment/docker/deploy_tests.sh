@@ -5,34 +5,19 @@
 # 使用方法: ./deploy_tests.sh [base_url]
 # 默认测试 http://localhost
 
-set -euo pipefail
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+if ! init_smoke_context "${1:-}"; then
+    echo "ERROR: deploy context init failed; required compose/env not found" >&2
+    exit 1
+fi
 
-BASE_URL="${1:-http://localhost}"
+# 不加 -e:result() 自控制流程,需要宽容失败
+set -uo pipefail
 
-PASS=0
-FAIL=0
-SKIP=0
-
-result() {
-    local status="$1"
-    local msg="$2"
-    local detail="${3:-}"
-    case "$status" in
-        PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
-        FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
-        SKIP) echo "  SKIP: $msg"; SKIP=$((SKIP + 1)) ;;
-    esac
-}
-
-COMPOSE_FILE="-f docker-compose.offline.yml"
-ENV_FILE="--env-file .env.production"
-
-compose() {
-    docker compose $COMPOSE_FILE $ENV_FILE "$@"
-}
+# compose() 来自 smoke_common.sh;export 给子 shell 使用
+export -f compose
 
 echo "=========================================="
 echo "  OmniDesk 部署测试"
