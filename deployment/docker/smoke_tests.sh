@@ -88,10 +88,10 @@ fi
 #   smoke_common.sh 的 cleanup_smoke_artifacts 处理 record_smoke_resource 注册的文件型资源(按 run-id 隔离);
 #   本函数保留 docker-exec 级别的 stage 状态清理(marker/影子库/备份等)
 cleanup_smoke_deploy_state() {
-    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
                 "DROP TABLE IF EXISTS _smoke_persist;" >/dev/null 2>&1 && break
             sleep 2
         done
@@ -101,15 +101,15 @@ cleanup_smoke_deploy_state() {
     # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$SHADOW_DB' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
                 "DROP DATABASE IF EXISTS $SHADOW_DB;" >/dev/null 2>&1 && break
             sleep 2
         done
     fi
     # 阶段 11 备份文件清理
-    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
 
 # 全局 trap:同时调用 smoke_common.sh 的按 run-id 文件清理 + 本地 docker-exec 清理
@@ -410,8 +410,8 @@ fi
 # 已配置为每 6h 自动运行 — 显式触发 = 强制一次后台 cleanup。
 # 若 worker 进程在但 broker 切了 / task 未注册 / task 模块未加载,这一步 30s 超时失败。
 # Fix-12: compose() 是 bash 函数,timeout / sh -c 都不会继承,必须用 docker compose 直接调用
-# COMPOSE_PROJECT_NAME/COMPOSE_FILE/ENV_FILE 是 smoke 顶部定义的全局变量
-timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python -c "
+# COMPOSE_PROJECT_NAME/COMPOSE_FILE_PATH/ENV_FILE_PATH 是 smoke_common.sh init_smoke_context 导出的全局变量
+timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend python -c "
 import django; django.setup()
 from paperless_proxy.tasks import cleanup_paperless_cache
 r = cleanup_paperless_cache.delay()
@@ -613,7 +613,7 @@ if compose exec -T backend sh -c "echo '$MEDIA_MARKER' > $MARKER_FILE" 2>/dev/nu
     fi
     # 注意:trap EXIT 也会清理 marker_file,这里显式 rm 是双保险
     # B·F: 主流程 marker 清理也加 timeout 10,与 trap 内 backend rm 对称
-    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
 else
     result "SKIP" "Backend media persist" "Cannot write to /usr/src/app/media/"
 fi
@@ -815,7 +815,7 @@ else
         result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"
     else
         # 11.1 触发 backup_db — Fix-12: compose() 是 bash 函数,timeout 不继承,直接 docker compose
-        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
+        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
         BACKUP_RC=$?
         BACKUP_OUT=$(cat /tmp/.smoke_backup_$$.out 2>/dev/null)
         rm -f /tmp/.smoke_backup_$$.out
@@ -826,7 +826,7 @@ else
             # 11.2 定位最新备份文件
             # Fix-11: backup_db 默认 output_dir 是 /opt/omnidesk/backups (见 core/management/commands/backup_db.py:20)
             # Fix-12: timeout 是新进程,不继承 bash 函数,必须用 docker compose 直接调用
-            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
+            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
             LATEST=$(cat /tmp/.smoke_bkls_$$.out 2>/dev/null | tr -d '\r\n')
             rm -f /tmp/.smoke_bkls_$$.out
             if [ -z "$LATEST" ]; then
@@ -834,25 +834,25 @@ else
             else
                 # 11.3 base64 传输(50MB 以内可接受)
                 # Fix-12: 所有 docker compose 子进程调用都展开为完整命令,避免 timeout/$() 不继承 bash 函数
-                docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
+                docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
                 B64=$(cat /tmp/.smoke_b64_$$.out 2>/dev/null | tr -d '\r\n ')
                 rm -f /tmp/.smoke_b64_$$.out
                 if [ -z "$B64" ]; then
                     result "FAIL" "PG backup 传输" "backend base64 编码失败"
                 else
                     SMOKE_BACKUP_FILE="/tmp/.smoke_backup_$$.sql.gz"
-                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
-                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
+                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
+                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
                         result "FAIL" "PG backup 落地" "db 端 $SMOKE_BACKUP_FILE 写入失败或为空"
                     else
                         # 11.4 CREATE 影子库
-                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                             "CREATE DATABASE $SHADOW_DB;" 2>&1) || true
                         if ! echo "$CREATE_OUT" | grep -q "CREATE DATABASE"; then
                             result "FAIL" "PG shadow DB 创建" "${CREATE_OUT:0:200}"
                         else
                             # 11.5 还原到影子库
-                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c \
+                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db sh -c \
                                 "gunzip -c $SMOKE_BACKUP_FILE | psql -U $POSTGRES_USER -d $SHADOW_DB -v ON_ERROR_STOP=1" 2>&1) || true
                             if echo "$RESTORE_OUT" | grep -qE "ERROR|FATAL"; then
                                 result "FAIL" "PG restore 还原" "psql 报错: $(echo "$RESTORE_OUT" | grep -E 'ERROR|FATAL' | head -3)"
@@ -860,7 +860,7 @@ else
                                 # 11.6 验证 4 张核心表非空
                                 NON_EMPTY=0
                                 for tbl in users_customuser memos_memo auth_group django_migrations; do
-                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
+                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
                                         "SELECT count(*) FROM $tbl;" 2>/dev/null | tr -d ' \r\n' || echo "0")
                                     if [ -n "$CNT" ] && [ "$CNT" -gt 0 ] 2>/dev/null; then
                                         NON_EMPTY=$((NON_EMPTY + 1))
