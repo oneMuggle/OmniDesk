@@ -272,20 +272,28 @@ fi
 echo "Services restarted."
 echo ""
 
-# Step 7: Health check
+# Step 7: Health check (Task 6 Step 6:硬门禁)
+# 之前 Step 7 只 WARN 不 return 非零;现在若 backend 健康检查非 healthy,
+# 直接返回 1 → 触发 on_rollback_failure trap → enter_safe_stop。
 echo "Step 7: Running health check..."
 sleep 5
+HEALTH_GATE_RC=0
 CONTAINER_ID=$(compose ps -q backend 2>/dev/null || true)
 if [ -n "$CONTAINER_ID" ]; then
     HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}unknown{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
     if [ "$HEALTH" = "healthy" ]; then
         echo "Health check: PASSED"
     else
-        echo "WARNING: Backend health status: $HEALTH"
-        echo "Services may still be starting. Check manually."
+        echo "ERROR: Backend health status: $HEALTH (期望 healthy)" >&2
+        echo "       进入 SAFE_STOPPED 兜底(由 on_rollback_failure trap 处理)" >&2
+        HEALTH_GATE_RC=1
     fi
 else
-    echo "WARNING: Backend container not running."
+    echo "ERROR: Backend container not running." >&2
+    HEALTH_GATE_RC=1
+fi
+if [ "$HEALTH_GATE_RC" -ne 0 ]; then
+    return $HEALTH_GATE_RC 2>/dev/null || exit $HEALTH_GATE_RC
 fi
 echo ""
 
