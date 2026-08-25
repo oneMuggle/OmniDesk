@@ -84,7 +84,10 @@ fi
 # B1: db exec 加 timeout 30 防止 db restarting 状态挂死
 # B·E1: backend rm 也加 timeout 10 — 对称补漏,防 trap 期间 backend 处于 restart/starting 时 exec 挂死
 # B·G: db cleanup 重试 3 次防 _smoke_persist 表永久残留
-cleanup_smoke_artifacts() {
+# B·H: 原 cleanup_smoke_artifacts 重命名为 cleanup_smoke_deploy_state,避免覆盖 smoke_common.sh 的同名函数。
+#   smoke_common.sh 的 cleanup_smoke_artifacts 处理 record_smoke_resource 注册的文件型资源(按 run-id 隔离);
+#   本函数保留 docker-exec 级别的 stage 状态清理(marker/影子库/备份等)
+cleanup_smoke_deploy_state() {
     [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ]; then
         for _attempt in 1 2 3; do
@@ -94,7 +97,6 @@ cleanup_smoke_artifacts() {
         done
     fi
     # S5: GUEST_JSON 在阶段 6 末尾会 unset,这里用 ${VAR:-} 兼容已 unset 的情况
-    #   (单 trap 不可叠加,合并到此函数避免覆盖原 trap)
     [ -n "${GUEST_JSON:-}" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
     # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
@@ -109,7 +111,10 @@ cleanup_smoke_artifacts() {
     # 阶段 11 备份文件清理
     [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
-trap cleanup_smoke_artifacts EXIT
+
+# 全局 trap:同时调用 smoke_common.sh 的按 run-id 文件清理 + 本地 docker-exec 清理
+# trap handler 保留 test_exit(test 自身的退出码),cleanup 失败时记 FAIL 但不覆盖 test_exit
+trap 'cleanup_smoke_artifacts; cleanup_smoke_deploy_state' EXIT
 
 # result() 来自 smoke_common.sh(已 export),不再本地覆盖
 
@@ -413,6 +418,8 @@ r = cleanup_paperless_cache.delay()
 print('OK', r.get(timeout=30, propagate=False))
 " > /tmp/.smoke_celery_$$.out 2>/dev/null
 CELERY_RESP=$(cat /tmp/.smoke_celery_$$.out 2>/dev/null)
+# 若脚本中途崩溃 trap 兜底清理(record_smoke_resource 按 run-id 隔离)
+record_smoke_resource celery-out "celery-$$" "/tmp/.smoke_celery_$$.out" || true
 rm -f /tmp/.smoke_celery_$$.out
 if [ -z "$CELERY_RESP" ]; then CELERY_RESP="FAIL_TIMEOUT"; fi
 if echo "$CELERY_RESP" | grep -q "^OK {"; then
@@ -674,6 +681,8 @@ if [ -n "$GUEST_TOKEN_H83" ]; then
     # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
     SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
     printf '%%PDF-1.4\n' > "$SMOKE_PDF"
+    # 按 run-id 隔离登记,trap 兜底清理
+    record_smoke_resource upload-pdf "upload-$$" "$SMOKE_PDF" || true
     UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
         -H "Authorization: Bearer $GUEST_TOKEN_H83" \
         -F "file=@$SMOKE_PDF;type=application/pdf" \

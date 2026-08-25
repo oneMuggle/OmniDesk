@@ -253,6 +253,82 @@ classify_http_status() {
     esac
 }
 
+# ─── 认证 Token(同 run 缓存一次) ────────────────────────────
+# obtain_auth_token
+#   优先用 SMOKE_TEST_USER/SMOKE_TEST_PASSWORD 走 /api/auth/login/;
+#   否则走 /api/auth/guest-login/。
+#   第一次成功后缓存到 $SMOKE_AUTH_TOKEN,后续调用直接返回。
+#   stdout:access token;失败时返回非 0。
+obtain_auth_token() {
+    if [ -n "${SMOKE_AUTH_TOKEN:-}" ]; then
+        printf '%s' "$SMOKE_AUTH_TOKEN"
+        return 0
+    fi
+    local body_file code token login_url
+    body_file="$(mktemp)"
+    login_url="$BASE_URL/api/auth/guest-login/"
+    if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+        login_url="$BASE_URL/api/auth/login/"
+        code=$(curl -sS -X POST -o "$body_file" \
+            --write-out '%{http_code}' \
+            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
+            -H 'Content-Type: application/json' \
+            -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+            "$login_url" 2>/dev/null || echo "000")
+    else
+        code=$(curl -sS -X POST -o "$body_file" \
+            --write-out '%{http_code}' \
+            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
+            -H 'Content-Type: application/json' -d '{}' \
+            "$login_url" 2>/dev/null || echo "000")
+    fi
+    if [ "$code" != "200" ]; then
+        rm -f "$body_file"
+        return 1
+    fi
+    token="$(SMOKE_RUN_ID="$SMOKE_RUN_ID" python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('access',''))" "$body_file" 2>/dev/null || echo "")"
+    rm -f "$body_file"
+    if [ -z "$token" ]; then
+        return 1
+    fi
+    SMOKE_AUTH_TOKEN="$token"
+    export SMOKE_AUTH_TOKEN
+    printf '%s' "$token"
+}
+
+# ─── Smoke 资源追踪(按 run-id 隔离) ─────────────────────────
+# record_smoke_resource <kind> <id> <path>
+#   向 $(smoke_temp_file resources) 追加一行:`<SMOKE_RUN_ID>\t<kind>\t<id>\t<path>`
+#   后续 cleanup_smoke_artifacts 仅删 SMOKE_RUN_ID 匹配的行。
+record_smoke_resource() {
+    local kind="${1:-file}" id="${2:-$RANDOM}" path="${3:-}"
+    [ -z "$path" ] && return 1
+    local res_file
+    res_file="$(smoke_temp_file resources)"
+    printf '%s\t%s\t%s\t%s\n' "$SMOKE_RUN_ID" "$kind" "$id" "$path" >> "$res_file"
+}
+
+# cleanup_smoke_artifacts
+#   读取 $(smoke_temp_file resources),仅删除 run-id == SMOKE_RUN_ID 的资源。
+#   任何删除失败累计到返回值(成功=0,失败次数=exit code)。
+#   无 resources 文件视为 0(幂等)。
+cleanup_smoke_artifacts() {
+    local res_file
+    res_file="$(smoke_temp_file resources)"
+    if [ ! -f "$res_file" ]; then
+        return 0
+    fi
+    local failures=0 run_id kind id path
+    while IFS=$'\t' read -r run_id kind id path; do
+        [ -z "$run_id" ] && continue
+        [ "$run_id" = "$SMOKE_RUN_ID" ] || continue
+        if [ -e "$path" ]; then
+            rm -f "$path" 2>/dev/null || failures=$((failures + 1))
+        fi
+    done < "$res_file"
+    return "$failures"
+}
+
 # ─── finalize_results ────────────────────────────────
 finalize_results() {
     if [ "${SMOKE_STRICT:-0}" = "1" ] && [ "$WARN" -gt 0 ]; then
