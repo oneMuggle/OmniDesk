@@ -102,7 +102,7 @@ compose() {
 
 # ─── 临时文件 ──────────────────────────────────────────
 smoke_temp_file() {
-    printf '/tmp/omnidesk-smoke-%s-%s' "$SMOKE_RUN_ID" "$1"
+    printf '/tmp/omnidesk-smoke-%s-%s' "${SMOKE_RUN_ID:-norunid}" "$1"
 }
 
 # ─── 锁(同 project flock 互斥) ────────────────────────
@@ -345,4 +345,158 @@ finalize_results() {
     echo "  WARN: $WARN"
     [ "$FAIL" -gt 0 ] && return 1
     return 0
+}
+
+# ─── 协议层辅助函数(纯函数,从 inputs 推 contract) ─────────
+# check_version_endpoint <http_code> <body_file> <expected_version> <expected_channel>
+#   解析 body JSON,对 version+channel 严格匹配。
+#   不一致 → FAIL;HTTP 非 200 → FAIL;body 字段缺失 → FAIL。
+check_version_endpoint() {
+    local code="$1" body_file="$2" expected_version="$3" expected_channel="$4"
+    if [ "$code" != "200" ]; then
+        result FAIL "version endpoint" "HTTP $code (expected 200)"
+        return 1
+    fi
+    if [ ! -f "$body_file" ]; then
+        result FAIL "version endpoint" "body file missing: $body_file"
+        return 1
+    fi
+    local actual_version actual_channel
+    actual_version="$(python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('version',''))" "$body_file" 2>/dev/null || echo "")"
+    actual_channel="$(python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('channel',''))" "$body_file" 2>/dev/null || echo "")"
+    if [ -z "$actual_version" ] || [ -z "$actual_channel" ]; then
+        result FAIL "version endpoint" "missing version/channel field"
+        return 1
+    fi
+    if [ "$actual_version" != "$expected_version" ]; then
+        result FAIL "version mismatch" "expected=$expected_version actual=$actual_version"
+        return 1
+    fi
+    if [ "$actual_channel" != "$expected_channel" ]; then
+        result FAIL "channel mismatch" "expected=$expected_channel actual=$actual_channel"
+        return 1
+    fi
+    result PASS "version+channel match" "v${actual_version}-${actual_channel}"
+    return 0
+}
+
+# check_cors_preflight <http_code> <headers_file> <origin> <method> <request_headers_csv>
+#   合法 origin(白名单来源 CORS_ALLOWED_ORIGINS,默认 "http://localhost:3000"):
+#     必须 2xx + Access-Control-Allow-Origin + Allow-Methods + Allow-Headers,且 Allow-Headers
+#     涵盖请求头(逗号分隔)。
+#   非法 origin:不得被反射 Access-Control-Allow-Origin,2xx 但无 ACAO 即视为被拒;4xx 也视为被拒。
+check_cors_preflight() {
+    local code="$1" headers_file="$2" origin="$3" method="$4" request_headers="$5"
+    local allowed_origins="${CORS_ALLOWED_ORIGINS:-http://localhost:3000}"
+    local is_legal=false
+    if [[ " ${allowed_origins} " == *" ${origin} "* ]]; then
+        is_legal=true
+    fi
+    local allow_origin_line allow_methods_line allow_headers_line
+    allow_origin_line="$(grep -i '^Access-Control-Allow-Origin:' "$headers_file" 2>/dev/null | head -1 | sed 's/^[A-Za-z-]*:[[:space:]]*//' | tr -d '\r' || echo "")"
+    allow_methods_line="$(grep -i '^Access-Control-Allow-Methods:' "$headers_file" 2>/dev/null | head -1 | sed 's/^[A-Za-z-]*:[[:space:]]*//' | tr -d '\r' || echo "")"
+    allow_headers_line="$(grep -i '^Access-Control-Allow-Headers:' "$headers_file" 2>/dev/null | head -1 | sed 's/^[A-Za-z-]*:[[:space:]]*//' | tr -d '\r' || echo "")"
+
+    if [ "$is_legal" = false ]; then
+        # 非法 origin:不得被反射 ACAO
+        if [ -n "$allow_origin_line" ] && [ "$allow_origin_line" != "null" ]; then
+            result FAIL "CORS reflection of illegal origin" "ACAO='$allow_origin_line' for $origin"
+            return 1
+        fi
+        result PASS "CORS rejects illegal origin" "$origin"
+        return 0
+    fi
+
+    # 合法 origin:必须 2xx
+    case "$code" in
+        2??) ;;
+        *) result FAIL "CORS preflight" "HTTP $code (expected 2xx) for $origin"; return 1 ;;
+    esac
+    [ -n "$allow_origin_line" ] || { result FAIL "CORS preflight missing ACAO" "$origin"; return 1; }
+    [ -n "$allow_methods_line" ] || { result FAIL "CORS preflight missing Allow-Methods"; return 1; }
+    [ -n "$allow_headers_line" ] || { result FAIL "CORS preflight missing Allow-Headers"; return 1; }
+    # 校验请求头是否被允许(去除所有空格避免 ", Authorization" 与 ",Authorization," 失配)
+    local missing=""
+    local normalized_headers
+    normalized_headers="$(echo "$allow_headers_line" | tr -d ' ')"
+    IFS=',' read -ra REQ <<< "$request_headers"
+    for h in "${REQ[@]}"; do
+        h="$(echo "$h" | tr -d ' ')"
+        [ -z "$h" ] && continue
+        if ! echo ",$normalized_headers," | grep -qi ",$h,"; then
+            missing="$missing $h"
+        fi
+    done
+    if [ -n "$missing" ]; then
+        result FAIL "CORS Allow-Headers missing" "$missing"
+        return 1
+    fi
+    result PASS "CORS preflight" "origin=$origin method=$method"
+    return 0
+}
+
+# check_optional_ragflow <enabled> <mysql_state,health> <ragflow_state,health>
+#   enabled == "disabled" → SKIP(不得 PASS);
+#   enabled == "enabled"  → 两服务(state=running & health=healthy) 必须 PASS;
+#   任一服务未达要求 → FAIL。
+check_optional_ragflow() {
+    local enabled="$1" mysql_state_health="$2" ragflow_state_health="$3"
+    if [ "$enabled" = "disabled" ]; then
+        result SKIP "RAGFlow optional service disabled"
+        return 0
+    fi
+    local mysql_state="${mysql_state_health%%,*}"
+    local mysql_health="${mysql_state_health##*,}"
+    local ragflow_state="${ragflow_state_health%%,*}"
+    local ragflow_health="${ragflow_state_health##*,}"
+    if [ "$mysql_state" != "running" ] || [ "$mysql_health" != "healthy" ]; then
+        result FAIL "ragflow-mysql" "state=$mysql_state health=$mysql_health"
+        return 1
+    fi
+    if [ "$ragflow_state" != "running" ] || [ "$ragflow_health" != "healthy" ]; then
+        result FAIL "ragflow" "state=$ragflow_state health=$ragflow_health"
+        return 1
+    fi
+    result PASS "RAGFlow services healthy"
+    return 0
+}
+
+# check_lazy_routes <manifest_json_file>
+#   manifest 形如 { "routes": [{"path":"/x","asset":"/static/x.js"}, ...] }
+#   逐个请求 <BASE_URL><asset>,2xx 视为 PASS,否则 FAIL。
+#   走 request_with_status 复用以尊重 SMOKE_ALLOW_NETWORK_SKIP 等策略。
+check_lazy_routes() {
+    local manifest="$1"
+    if [ ! -f "$manifest" ]; then
+        result FAIL "lazy routes manifest missing" "$manifest"
+        return 1
+    fi
+    local base="${BASE_URL:-http://localhost}"
+    local total=0 failures=0
+    while IFS=$'\t' read -r route asset; do
+        [ -z "$asset" ] && continue
+        total=$((total + 1))
+        local url="${base}${asset}"
+        local body code
+        body="$(smoke_temp_file lazy-route-body)"
+        code=$(request_with_status GET "$url" "$body")
+        if [ "$code" = "200" ]; then
+            result PASS "lazy route asset" "$route -> $asset (HTTP 200)"
+        else
+            result FAIL "lazy route asset" "$route -> $asset (HTTP $code)"
+            failures=$((failures + 1))
+        fi
+    done < <(python3 -c "
+import json, sys
+try:
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    for r in d.get('routes', []):
+        a = r.get('asset', '')
+        if a:
+            print(f\"{r.get('path','')}\t{a}\")
+except Exception:
+    pass
+" "$manifest")
+    return "$failures"
 }
