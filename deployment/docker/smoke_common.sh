@@ -158,6 +158,101 @@ resolve_artifact_dir() {
     return 1
 }
 
+# ─── 服务健康检查(纯函数 + docker 包装) ──────────────────────
+# 状态契约:
+#   running + healthy       → PASS
+#   running + unhealthy     → FAIL(required 与 optional 一视同仁)
+#   starting                → FAIL
+#   exited/created/restarting/absent → FAIL(可选服务 absent 才 SKIP)
+# 不得出现 "running+unhealthy 视作 OK" 的分支。
+#
+# check_service_health_from_values <service> <state> <health> [required|optional]
+check_service_health_from_values() {
+    local service="$1" state="$2" health="$3" requirement="${4:-required}"
+    if [ "$state" = "running" ] && [ "$health" = "healthy" ]; then
+        result PASS "$service healthy"
+        return 0
+    fi
+    # 可选服务只在 absent 时 SKIP;即便 optional,若 unhealthy 也必须 FAIL
+    if [ "$requirement" = "optional" ] && [ "$state" = "absent" ]; then
+        result SKIP "$service optional service disabled"
+        return 0
+    fi
+    result FAIL "$service unhealthy" "state=$state health=$health requirement=$requirement"
+    return 1
+}
+
+# check_service_health <service> [required|optional]
+# 用 docker inspect 解析 STATE 与 health.Status,再委托给 from_values。
+check_service_health() {
+    local service="$1"
+    local requirement="${2:-required}"
+    local cid state health
+    cid=$(compose ps -q "$service" 2>/dev/null || true)
+    if [ -z "$cid" ]; then
+        check_service_health_from_values "$service" absent absent "$requirement"
+        return $?
+    fi
+    state=$(docker inspect --format='{{.State.Status}}' "$cid" 2>/dev/null || echo "unknown")
+    health=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$cid" 2>/dev/null || echo "unknown")
+    # 没有 healthcheck 配置(none)=等同于 unhealthy,核心服务必须 FAIL
+    if [ "$health" = "none" ] || [ "$health" = "" ]; then
+        health="none"
+    fi
+    check_service_health_from_values "$service" "$state" "$health" "$requirement"
+}
+
+# ─── HTTP 请求辅助 ────────────────────────────────────
+# request_with_status <method> <url> <body_file> [curl args...]
+# 把响应体写入 body_file,stdout 输出数字 HTTP code。
+# curl 网络错误 → 返回 "000";curl 进程失败码通过 $? 传递。
+request_with_status() {
+    local method="$1" url="$2" body_file="$3"
+    shift 3
+    local code
+    code=$(curl -sS -X "$method" -o "$body_file" \
+        --write-out '%{http_code}' \
+        --max-time "${SMOKE_CURL_TIMEOUT:-15}" "$@" "$url" 2>/dev/null || echo "000")
+    printf '%s' "$code"
+}
+
+# classify_http_status <code> <label>
+# 判定并通过 result() 报告:
+#   - 2xx                    → PASS
+#   - 429 + ALLOW_RATE_LIMIT_SKIP=1 → WARN;否则 FAIL
+#   - 000 + ALLOW_NETWORK_SKIP=1   → SKIP;否则 FAIL
+#   - 其他 4xx/5xx/未知      → FAIL
+# 在 SMOKE_STRICT=1 时,result() 内部已把 SKIP 升级为 FAIL。
+classify_http_status() {
+    local code="$1" label="$2"
+    case "$code" in
+        2??)
+            result PASS "$label" "HTTP $code"
+            return 0
+            ;;
+        429)
+            if [ "${SMOKE_ALLOW_RATE_LIMIT_SKIP:-0}" = "1" ]; then
+                result WARN "$label" "rate-limited HTTP $code (ALLOW_RATE_LIMIT_SKIP=1)"
+                return 0
+            fi
+            result FAIL "$label" "rate-limited HTTP $code"
+            return 1
+            ;;
+        000)
+            if [ "${SMOKE_ALLOW_NETWORK_SKIP:-0}" = "1" ]; then
+                result SKIP "$label" "network error (ALLOW_NETWORK_SKIP=1)"
+                return 0
+            fi
+            result FAIL "$label" "network error / unreachable"
+            return 1
+            ;;
+        *)
+            result FAIL "$label" "HTTP $code"
+            return 1
+            ;;
+    esac
+}
+
 # ─── finalize_results ────────────────────────────────
 finalize_results() {
     if [ "${SMOKE_STRICT:-0}" = "1" ] && [ "$WARN" -gt 0 ]; then

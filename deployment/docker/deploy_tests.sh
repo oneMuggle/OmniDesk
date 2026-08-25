@@ -33,81 +33,90 @@ if compose ps >/dev/null 2>&1; then
     result "PASS" "Docker compose services available"
 else
     result "FAIL" "Docker compose not available"
-    echo "FAIL: 无法访问 Docker Compose，退出测试"
+    echo "FAIL: 无法访问 Docker Compose,退出测试"
     exit 1
 fi
 
-ALL_RUNNING=true
+# 用 check_service_health 强制 fail-closed:running+unhealthy 必须 FAIL
+SERVICES_HEALTHY=true
 for service in db redis backend frontend worker nginx; do
-    CONTAINER_ID=$(compose ps -q "$service" 2>/dev/null || true)
-    if [ -n "$CONTAINER_ID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-        if [ "$STATE" = "running" ]; then
-            echo "  OK: $service (state=$STATE)"
-        else
-            echo "  FAIL: $service not running (state=$STATE)"
-            ALL_RUNNING=false
-        fi
+    if check_service_health "$service" required; then
+        :
     else
-        echo "  SKIP: $service not found (optional service)"
+        SERVICES_HEALTHY=false
     fi
 done
 
-if [ "$ALL_RUNNING" = true ]; then
-    result "PASS" "All required services running"
+if [ "$SERVICES_HEALTHY" = true ]; then
+    result "PASS" "All required services healthy"
 else
-    result "FAIL" "Some services not running"
+    result "FAIL" "One or more required services unhealthy"
 fi
 echo ""
 
 # ─── 阶段 2: 前端可访问性 ───────────────────────────────────
 echo "阶段 2: 前端可访问性"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/" 2>/dev/null || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-    result "PASS" "Frontend serves HTTP 200 at $BASE_URL/"
-else
-    result "FAIL" "Frontend HTTP check" "Expected 200, got $HTTP_CODE"
-fi
+FRONTEND_BODY="$(smoke_temp_file deploy-frontend-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+classify_http_status "$HTTP_CODE" "Frontend GET $BASE_URL/"
+rm -f "$FRONTEND_BODY"
 
-HTML_CONTENT=$(curl -s --max-time 10 "$BASE_URL/" 2>/dev/null || echo "")
-if echo "$HTML_CONTENT" | grep -q '<div id="root"'; then
+FRONTEND_BODY="$(smoke_temp_file deploy-frontend-html)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+if [ "$HTTP_CODE" = "200" ] && grep -q '<div id="root"' "$FRONTEND_BODY" 2>/dev/null; then
     result "PASS" "Frontend HTML contains root element"
 else
-    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\">"
+    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\"> (HTTP $HTTP_CODE)"
 fi
+rm -f "$FRONTEND_BODY"
 echo ""
 
 # ─── 阶段 3: 后端 API 连通性 ────────────────────────────────
 echo "阶段 3: 后端 API 连通性"
 
-HEALTH_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/health/" 2>/dev/null || echo "")
-if echo "$HEALTH_RESPONSE" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
-    result "PASS" "Backend /api/health/ returns JSON"
-    DB_STATUS=$(echo "$HEALTH_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin).get('database','unknown'))" 2>/dev/null)
-    if [ "$DB_STATUS" = "ok" ]; then
-        result "PASS" "Database connection healthy"
+HEALTH_BODY="$(smoke_temp_file deploy-health-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/api/health/" "$HEALTH_BODY")
+if [ "$HTTP_CODE" = "200" ]; then
+    STATUS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('status',''))" 2>/dev/null || echo "")
+    DB_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('database',''))" 2>/dev/null || echo "")
+    REDIS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('redis',''))" 2>/dev/null || echo "")
+    if [ "$STATUS_OK" = "ok" ] && [ "$DB_OK" = "ok" ] && [ "$REDIS_OK" = "ok" ]; then
+        result "PASS" "Backend /api/health/ status=database=redis=ok"
     else
-        result "FAIL" "Database connection" "Status: $DB_STATUS"
+        result "FAIL" "Backend /api/health/ body" "status=$STATUS_OK database=$DB_OK redis=$REDIS_OK"
     fi
 else
-    result "FAIL" "Backend /api/health/ not responding"
+    classify_http_status "$HTTP_CODE" "Backend /api/health/"
 fi
+rm -f "$HEALTH_BODY"
 
-VERSION_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/system/version/" 2>/dev/null || echo "")
-if echo "$VERSION_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'version' in d" 2>/dev/null; then
-    VERSION=$(echo "$VERSION_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null)
-    result "PASS" "Backend version: $VERSION"
+VERSION_BODY="$(smoke_temp_file deploy-version-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+if [ "$HTTP_CODE" = "200" ]; then
+    if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
+        VERSION=$(python3 -c "import sys,json; print(json.load(open('$VERSION_BODY'))['version'])" 2>/dev/null || echo unknown)
+        result "PASS" "Backend version: $VERSION"
+    else
+        result "FAIL" "Backend /api/system/version/ missing version field"
+    fi
 else
-    result "SKIP" "Backend version endpoint" "Not available"
+    classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
 fi
+rm -f "$VERSION_BODY"
 
-PROXY_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-if [ "$PROXY_CODE" != "000" ] && [ "$PROXY_CODE" != "502" ] && [ "$PROXY_CODE" != "503" ]; then
-    result "PASS" "Nginx reverse proxy to backend (HTTP $PROXY_CODE)"
-else
-    result "FAIL" "Nginx reverse proxy" "Got HTTP $PROXY_CODE"
-fi
+PROXY_BODY="$(smoke_temp_file deploy-proxy-body)"
+HTTP_CODE=$(request_with_status POST "$BASE_URL/api/auth/guest-login/" "$PROXY_BODY" \
+    -H "Content-Type: application/json" -d '{}')
+case "$HTTP_CODE" in
+    2??|400|401|403|405)
+        result "PASS" "Nginx reverse proxy to backend (HTTP $HTTP_CODE)"
+        ;;
+    *)
+        result "FAIL" "Nginx reverse proxy" "Got HTTP $HTTP_CODE"
+        ;;
+esac
+rm -f "$PROXY_BODY"
 echo ""
 
 # ─── 阶段 4: 数据库连接验证 ─────────────────────────────────

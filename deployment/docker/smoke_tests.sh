@@ -111,28 +111,7 @@ cleanup_smoke_artifacts() {
 }
 trap cleanup_smoke_artifacts EXIT
 
-result() {
-    local status="$1"
-    local msg="$2"
-    local detail="${3:-}"
-    case "$status" in
-        PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
-        FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
-        # SMOKE_STRICT=1 (CI): SKIP 必须升级为 FAIL,
-        # 避免"探测被悄悄放过"在 PR 阶段把 bug 漏到 main
-        SKIP) if [ "$SMOKE_STRICT" = "1" ]; then
-                  echo "  FAIL(strict): $msg (was SKIP)"; FAIL=$((FAIL + 1))
-                  [ -n "$detail" ] && echo "    -> $detail"
-              else
-                  echo "  SKIP: $msg"; SKIP=$((SKIP + 1))
-              fi ;;
-        # O1: WARN 详情也收集到 WARN_DETAILS,STATUS 框前 echo
-        WARN) echo "  WARN: $msg"; WARN=$((WARN + 1))
-              [ -n "$detail" ] && echo "    -> $detail"
-              WARN_DETAILS+=("$msg${detail:+ — $detail}")
-              ;;
-    esac
-}
+# result() 来自 smoke_common.sh(已 export),不再本地覆盖
 
 # ─── 通用等待 helper ──────────────────────────────────────
 # Fix-9:db 重启后 gunicorn worker 持有 stale conn 500 的根因修复
@@ -307,132 +286,91 @@ else
     result "FAIL" "Docker compose not available"
 fi
 
-# 检查每个容器
-ALL_RUNNING=true
+# 检查每个容器 — 用 smoke_common.sh 的 check_service_health 强制 fail-closed
+# running+unhealthy 必须 FAIL,不被吞成 NOTE/WARN;absent required 也必须 FAIL
+SERVICES_ALL_HEALTHY=true
 for service in db redis backend frontend worker; do
-    CONTAINER_ID=$(compose ps -q "$service" 2>/dev/null || true)
-    if [ -n "$CONTAINER_ID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-        HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-
-        if [ "$STATE" = "running" ]; then
-            # running 状态视为通过
-            if [ "$HEALTH" = "unhealthy" ]; then
-                # unhealthy 但有响应，检查是否因为端点不存在
-                if [ "$service" = "backend" ] || [ "$service" = "worker" ]; then
-                    # 后端/worker：如果进程在运行但 healthcheck 失败，可能是旧镜像没有端点
-                    if [ "$service" = "backend" ]; then
-                        # 后端在运行但 healthcheck 失败，用容器内部检查
-                        HTTP_CODE_BACKEND=$(compose exec -T backend python -c "
-import urllib.request
-try:
-    r = urllib.request.urlopen('http://127.0.0.1:8000/')
-    print(r.getcode())
-except Exception:
-    print('000')
-" 2>/dev/null || echo "000")
-                        if [ "$HTTP_CODE_BACKEND" != "000" ]; then
-                            echo "  NOTE: $service running (health: $HEALTH, but responding HTTP $HTTP_CODE_BACKEND)"
-                        else
-                            echo "  WARN: $service unhealthy (state=$STATE health=$HEALTH)"
-                        fi
-                    else
-                        echo "  NOTE: $service running (health: $HEALTH)"
-                    fi
-                else
-                    echo "  WARN: $service unhealthy (state=$state health=$health)"
-                fi
-            fi
-        else
-            echo "  FAIL: $service not running (state=$state)"
-            ALL_RUNNING=false
-        fi
+    if check_service_health "$service" required; then
+        :
     else
-        echo "  FAIL: $service not found"
-        ALL_RUNNING=false
+        SERVICES_ALL_HEALTHY=false
     fi
 done
 
-if [ "$ALL_RUNNING" = true ]; then
-    result "PASS" "All services running"
+if [ "$SERVICES_ALL_HEALTHY" = true ]; then
+    result "PASS" "All required services healthy"
 else
-    result "FAIL" "Some services not running"
+    result "FAIL" "One or more required services unhealthy"
 fi
 echo ""
 
 # ─── 阶段 2: 前端可访问性 ───────────────────────────────────
 echo "阶段 2: 前端可访问性"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/" 2>/dev/null || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-    result "PASS" "Frontend serves HTTP 200 at $BASE_URL/"
-else
-    result "FAIL" "Frontend HTTP check" "Expected 200, got $HTTP_CODE"
-fi
+FRONTEND_BODY="$(smoke_temp_file frontend-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+classify_http_status "$HTTP_CODE" "Frontend GET $BASE_URL/"
+rm -f "$FRONTEND_BODY"
 
-HTML_CONTENT=$(curl -s --max-time 10 "$BASE_URL/" 2>/dev/null || echo "")
-if echo "$HTML_CONTENT" | grep -q '<div id="root"'; then
+# 抓 body 验证 root 元素 — body 来自 request_with_status 写入的文件
+FRONTEND_BODY="$(smoke_temp_file frontend-html)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+if [ "$HTTP_CODE" = "200" ] && grep -q '<div id="root"' "$FRONTEND_BODY" 2>/dev/null; then
     result "PASS" "Frontend HTML contains root element"
 else
-    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\">"
+    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\"> (HTTP $HTTP_CODE)"
 fi
+rm -f "$FRONTEND_BODY"
 echo ""
 
 # ─── 阶段 3: 后端 API 连通性 ────────────────────────────────
 echo "阶段 3: 后端 API 连通性"
 
-# 首先尝试健康端点（新版镜像）— 通过 Nginx 代理访问
-HEALTH_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/health/" 2>/dev/null || echo "")
-if [ -n "$HEALTH_RESPONSE" ] && echo "$HEALTH_RESPONSE" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
-    result "PASS" "Backend /api/health/ returns JSON"
-else
-    # 旧版镜像没有 health 端点，用 Gunicorn 进程检查替代
-    BACKEND_PID=$(compose ps -q backend 2>/dev/null || true)
-    if [ -n "$BACKEND_PID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$BACKEND_PID" 2>/dev/null || echo "unknown")
-        if [ "$STATE" = "running" ]; then
-            # 通过 Nginx 代理验证后端 API 在响应
-            AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-            if [ "$AUTH_CODE" != "000" ]; then
-                result "PASS" "Backend Gunicorn responding (HTTP $AUTH_CODE)"
-            else
-                result "FAIL" "Backend not responding" "Gunicorn may not be running"
-            fi
-        else
-            result "FAIL" "Backend container state: $STATE"
-        fi
+# /api/health/: 严格检查 HTTP 200 + JSON status=ok + database=ok + redis=ok
+HEALTH_BODY="$(smoke_temp_file health-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/api/health/" "$HEALTH_BODY")
+if [ "$HTTP_CODE" = "200" ]; then
+    STATUS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('status',''))" 2>/dev/null || echo "")
+    DB_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('database',''))" 2>/dev/null || echo "")
+    REDIS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('redis',''))" 2>/dev/null || echo "")
+    if [ "$STATUS_OK" = "ok" ] && [ "$DB_OK" = "ok" ] && [ "$REDIS_OK" = "ok" ]; then
+        result "PASS" "Backend /api/health/ status=database=redis=ok"
     else
-        result "FAIL" "Backend container not found"
+        result "FAIL" "Backend /api/health/ body" "status=$STATUS_OK database=$DB_OK redis=$REDIS_OK"
     fi
-fi
-
-# 尝试版本端点 — 通过 Nginx 代理访问
-VERSION_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/system/version/" 2>/dev/null || echo "")
-if echo "$VERSION_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'version' in d" 2>/dev/null; then
-    VERSION=$(echo "$VERSION_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null)
-    result "PASS" "Backend version endpoint (v${VERSION})"
 else
-    # 旧版镜像可能没有此端点，检查后端是否在运行即可
-    BACKEND_PID=$(compose ps -q backend 2>/dev/null || true)
-    if [ -n "$BACKEND_PID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$BACKEND_PID" 2>/dev/null || echo "unknown")
-        if [ "$STATE" = "running" ]; then
-            result "SKIP" "Backend version endpoint" "Not available in this version"
-        else
-            result "FAIL" "Backend /api/system/version/" "Response: ${VERSION_RESPONSE:0:200}"
-        fi
+    classify_http_status "$HTTP_CODE" "Backend /api/health/"
+fi
+rm -f "$HEALTH_BODY"
+
+# /api/system/version/: 验证 version 字段;严格模式必须 FAIL,不能 SKIP 蒙混
+VERSION_BODY="$(smoke_temp_file version-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+if [ "$HTTP_CODE" = "200" ]; then
+    if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
+        VERSION=$(python3 -c "import sys,json; print(json.load(open('$VERSION_BODY'))['version'])" 2>/dev/null || echo unknown)
+        result "PASS" "Backend version endpoint (v${VERSION})"
     else
-        result "FAIL" "Backend /api/system/version/" "Response: ${VERSION_RESPONSE:0:200}"
+        result "FAIL" "Backend /api/system/version/ missing version field"
     fi
-fi
-
-# 测试通过 Nginx 代理访问后端 API
-PROXY_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-if [ "$PROXY_CODE" != "000" ] && [ "$PROXY_CODE" != "502" ] && [ "$PROXY_CODE" != "503" ]; then
-    result "PASS" "Nginx reverse proxy to backend API (HTTP $PROXY_CODE)"
 else
-    result "FAIL" "Nginx reverse proxy" "Got HTTP $PROXY_CODE (expected non-error response)"
+    classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
 fi
+rm -f "$VERSION_BODY"
+
+# Nginx 反代:guest-login 端点必须返回可接受的状态,401/404/500/502/503 均 FAIL
+PROXY_BODY="$(smoke_temp_file proxy-body)"
+HTTP_CODE=$(request_with_status POST "$BASE_URL/api/auth/guest-login/" "$PROXY_BODY" \
+    -H "Content-Type: application/json" -d '{}')
+case "$HTTP_CODE" in
+    2??|400|401|403|405)
+        result "PASS" "Nginx reverse proxy to backend API (HTTP $HTTP_CODE)"
+        ;;
+    *)
+        result "FAIL" "Nginx reverse proxy" "Got HTTP $HTTP_CODE (expected non-error response)"
+        ;;
+esac
+rm -f "$PROXY_BODY"
 echo ""
 
 # ─── 阶段 4: Redis 连通性 ───────────────────────────────────
