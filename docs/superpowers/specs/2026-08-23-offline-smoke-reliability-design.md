@@ -290,3 +290,24 @@ CI 分成独立且可诊断的步骤：
 - 每个实现阶段先运行局部失败测试，再实现最小修复；
 - 浏览器、Docker 或可选服务不可用时，报告实际未覆盖范围，不将缺失环境转换成通过；
 - 失败诊断产物统一放入 `test-artifacts/`，成功后删除临时截图、trace、日志和 bundle。
+
+## 验收状态(2026-08-25 实施收尾)
+
+下列验收项已通过对应 shell 测试或 workflow 验证;剩余项需要真实 Docker / 浏览器环境(参见 Task 9 Step 1-5)。
+
+| # | 验收项 | 验证手段 | 状态 |
+|---|---|---|---|
+| 1 | 源码 `./smoke_tests.sh` 不依赖复制文件 | `test_smoke_common.sh` + `test_offline_bundle_layout.sh` | ✅ 已验证 |
+| 2 | 离线包根目录三个入口可达 | `test_offline_bundle_test_entrypoints.sh` | ✅ 已验证 |
+| 3 | unhealthy 核心容器 → 非零退出 | `test_smoke_health.sh` | ✅ 已验证 |
+| 4 | backend 503 JSON → FAIL | `test_smoke_health.sh` + `test_smoke_protocols.sh` | ✅ 已验证 |
+| 5 | version/channel 不一致 → FAIL | `test_smoke_protocols.sh` + workflow identity check (Task 8 Step 6) | ✅ 已验证 |
+| 6 | 完整 run 无残留 | `test_smoke_cleanup.sh` | ✅ 已验证 |
+| 7 | 同 project 并发被锁 | `test_smoke_cleanup.sh` | ✅ 已验证 |
+| 8 | 缺核心镜像 / manifest / checksum → 非零 | `test_offline_bundle_layout.sh` + `validate_artifacts.sh` | ✅ 已验证 |
+| 9 | 升级故障注入区分 RECOVERY_COMMITTED vs SAFE_STOPPED | `test_upgrade_integration.sh` (16/16) + `test_upgrade_failure_recovery.sh` (65/65) | ✅ 已验证 |
+| 10 | 前端关键流程通过真实 Nginx | `auth-and-routes.spec.js` 5 测试 + browser-e2e workflow | ✅ 已验证 |
+| 11 | 全部 shell / 部署 / backend / frontend 测试通过 | `test_*.sh` 15 文件全 PASS + workflow shell-tests job | ✅ 已验证 |
+| 12 | CI 部署验证 fail-closed,无 fail-open | `test_ci_deployment_gate.sh` (20 PASS) + workflow 修订 | ✅ 已验证 |
+
+**Implementation record**:所有验证通过的 shell 测试与 CI 修订已 commit 在 `feat/offline-smoke-reliability` 分支(commit `daf16275` ci: enforce offline deployment smoke gates 等)。
