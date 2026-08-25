@@ -63,10 +63,68 @@ jobs:
       - name: Set up Docker Compose
         run: docker compose version
 
+      - name: Verify workflow identity (Task 8 Step 6)
+        # 加载 image 前比较 VERSION、manifest version/channel/commit、当前 commit SHA。
+        # 任一 required identity 不一致即失败,避免用过期镜像/标签/版本部署。
+        working-directory: ./deployment/docker
+        run: |
+          set -euo pipefail
+          echo "=== Identity verification ==="
+          # 1) VERSION 文件(部署 docker/VERSION 顶层文件)
+          if [ ! -f VERSION ]; then
+            echo "❌ deployment/docker/VERSION 不存在"
+            exit 1
+          fi
+          VERSION_VAL=$(cat VERSION | tr -d '[:space:]')
+          echo "VERSION file: $VERSION_VAL"
+          # 2) 当前 commit SHA
+          COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
+          COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-12)
+          echo "Current commit: $COMMIT_SHA (short=$COMMIT_SHORT)"
+          # 3) BUILD-MANIFEST.json(若存在,verify version/channel/commit 一致)
+          if [ -f BUILD-MANIFEST.json ]; then
+            if command -v jq >/dev/null 2>&1; then
+              MANIFEST_VERSION=$(jq -r '.version // ""' BUILD-MANIFEST.json)
+              MANIFEST_CHANNEL=$(jq -r '.channel // ""' BUILD-MANIFEST.json)
+              MANIFEST_COMMIT=$(jq -r '.commit // ""' BUILD-MANIFEST.json)
+              echo "Manifest version: $MANIFEST_VERSION"
+              echo "Manifest channel: $MANIFEST_CHANNEL"
+              echo "Manifest commit: $MANIFEST_COMMIT"
+              # version 与 VERSION 文件一致
+              if [ -n "$MANIFEST_VERSION" ] && [ "$MANIFEST_VERSION" != "$VERSION_VAL" ]; then
+                echo "❌ BUILD-MANIFEST.json version ($MANIFEST_VERSION) != VERSION ($VERSION_VAL)"
+                exit 1
+              fi
+              # commit 与当前 commit 一致(短前缀 7 字符比对即可)
+              MANIFEST_SHORT=$(echo "$MANIFEST_COMMIT" | cut -c1-7)
+              CURRENT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
+              if [ -n "$MANIFEST_SHORT" ] && [ "$MANIFEST_SHORT" != "$CURRENT_SHORT" ]; then
+                echo "❌ BUILD-MANIFEST.json commit ($MANIFEST_SHORT) != current ($CURRENT_SHORT)"
+                exit 1
+              fi
+            else
+              echo "⚠️ jq 未安装,跳过 manifest 字段解析"
+            fi
+          else
+            echo "ℹ️ BUILD-MANIFEST.json 不存在(本地 build 跳过 manifest 校验)"
+          fi
+          # 4) Compose env file 检查
+          if [ -f compose/.env.production ]; then
+            BACKEND_TAG=$(grep '^BACKEND_IMAGE_TAG=' compose/.env.production | cut -d= -f2- || echo "")
+            FRONTEND_TAG=$(grep '^FRONTEND_IMAGE_TAG=' compose/.env.production | cut -d= -f2- || echo "")
+            COMPOSE_PROJ=$(grep '^COMPOSE_PROJECT_NAME=' compose/.env.production | cut -d= -f2- || echo "")
+            echo "Compose BACKEND_IMAGE_TAG: $BACKEND_TAG"
+            echo "Compose FRONTEND_IMAGE_TAG: $FRONTEND_TAG"
+            echo "Compose COMPOSE_PROJECT_NAME: $COMPOSE_PROJ"
+          else
+            echo "ℹ️ compose/.env.production 不存在(待 Build steps 生成)"
+          fi
+          echo "✅ Identity check passed: $VERSION_VAL @ $COMMIT_SHORT"
+
       - name: Build backend image locally
         # deploy-test 在 workflow_run 触发的 job 中 GITHUB_TOKEN 没有 packages:read scope,
         # 无法拉取 GHCR 镜像。改为本地 build + tag 成 GHCR 全名,
-        # 让 offline.yml 用本地镜像 (pull_policy: missing 允许 fallback)。
+        # 保留 docker-compose.offline.yml 的 pull_policy: never(契约要求;Task 8 强制)。
         # 镜像 tag 锁死 v0.4.0(与 .env.production.example / docker-compose.offline.yml 默认值一致)
         run: |
           docker build \
@@ -105,10 +163,10 @@ jobs:
       - name: Start services
         working-directory: ./deployment/docker
         run: |
-          # 临时把 backend/frontend 的 pull_policy 从 'never' 改为 'missing',
-          # 让 deploy test runner 在本地无镜像时从 GHCR 拉取(已 login)
-          # (本 job 已经在前面步骤本地 build 了镜像,所以会优先用本地)
-          sed -i 's|pull_policy: never|pull_policy: missing|g' docker-compose.offline.yml
+          # 不降级 pull_policy: never:
+          #   deploy-test job 已本地 build 镜像并 tag 成 GHCR 全名(见 Build backend/frontend image locally),
+          #   docker-compose.offline.yml 默认 pull_policy: never 直接命中本地 tag,无需 fallback 到 missing。
+          #   保留 never 是离线部署契约(Task 8 Step 4 强制要求)。
           # 显式 --env-file 避免 docker compose 自动加载 cwd 中的 .env 文件污染变量
           # (deployment/docker/.env 是 dev 用,含 POSTGRES_USER=user 等值会覆盖 .env.production 的 testuser)
           docker compose --env-file .env.production -f docker-compose.offline.yml up -d
@@ -134,6 +192,15 @@ jobs:
 
       - name: Run deploy tests
         working-directory: ./deployment/docker
+        env:
+          # Task 8 Step 4 严格部署契约:
+          #   - SMOKE_STRICT=1:任何 SKIP / WARN 必须使最终测试失败
+          #   - SMOKE_ALLOW_NETWORK_SKIP=0:网络瞬态必须 FAIL,不允许降级为 SKIP
+          #   - SMOKE_RUN_ID:由 job id 隔离,避免与本地开发或其他 CI run 串扰
+          SMOKE_STRICT: "1"
+          SMOKE_ALLOW_NETWORK_SKIP: "0"
+          SMOKE_ALLOW_RATE_LIMIT_SKIP: "0"
+          SMOKE_RUN_ID: deploy-test-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           chmod +x deploy_tests.sh
           ./deploy_tests.sh http://localhost
@@ -156,3 +223,52 @@ jobs:
           # 避免 docker compose 自动加载 cwd 的 .env(不含 COMPOSE_PROJECT_NAME)
           docker compose --env-file .env.production -f docker-compose.offline.yml down -v
           echo "Services stopped and volumes removed"
+
+  # Task 8 Step 5:Browser E2E(浏览器级前端部署验收)
+  # 启动 real Nginx-backed stack(已由 deploy-test job 完成),运行 npm run test:e2e
+  # 覆盖:登录、token refresh、admin 权限、lazy route、静态资源(无 CDN)。
+  # 凭据只来自 GitHub Actions secrets 或 job-local 生成用户,不写入 trace。
+  browser-e2e:
+    runs-on: ubuntu-latest
+    needs: deploy-test
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: omni_desk_frontend/package-lock.json
+      - name: Install frontend dependencies
+        working-directory: ./omni_desk_frontend
+        run: npm ci
+      - name: Install Playwright browsers
+        working-directory: ./omni_desk_frontend
+        run: npx playwright install --with-deps chromium
+      - name: Run browser E2E tests
+        working-directory: ./omni_desk_frontend
+        env:
+          # 凭据只来自 secrets(Task 7 设计:不写入 logs/screenshots/traces)
+          E2E_BASE_URL: http://localhost
+          E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
+          E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          E2E_AUTH_MODE: env
+          # 隔离 run id
+          SMOKE_RUN_ID: browser-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+        run: |
+          if [ -z "$E2E_USERNAME" ] || [ -z "$E2E_PASSWORD" ]; then
+            echo "❌ secrets.E2E_USERNAME / E2E_PASSWORD 未配置"
+            echo "   在 repo Settings → Secrets → Actions 配置凭据后重跑"
+            exit 1
+          fi
+          npm run test:e2e
+      - name: Upload Playwright report (failure diagnostics only)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: browser-e2e-results
+          path: omni_desk_frontend/test-artifacts/screenshots/
+          retention-days: 7
+          if-no-files-found: ignore

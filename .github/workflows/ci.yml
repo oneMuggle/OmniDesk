@@ -244,6 +244,27 @@ jobs:
         working-directory: omni_desk_backend
         run: mypy . --ignore-missing-imports
 
+  # ─── Shell tests for deployment reliability (Task 8 Step 3) ───
+  # 任务 8:CI 必须执行严格部署契约。Shell 测试覆盖 upgrade / rollback / smoke / CI gate 等
+  # 全部分支,从 repo root 走绝对路径调用以避免 cwd 依赖。
+  # 不上传 trace / screenshot / 临时文件到 artifacts(plan 约束:成功 run 清理临时产物)。
+  shell-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run shell unit tests (deployment reliability)
+        working-directory: ./deployment/docker
+        run: |
+          chmod +x tests/*.sh
+          for test_script in tests/test_*.sh; do
+            echo "Running $test_script..."
+            bash "$test_script"
+          done
+      - name: Run workflow contract test (Task 8 Step 1)
+        run: |
+          bash deployment/docker/tests/test_ci_deployment_gate.sh
+
   # ─── Docker Integration Test ───
   docker-integration:
     runs-on: ubuntu-latest
