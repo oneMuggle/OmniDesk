@@ -90,6 +90,7 @@ done
 echo ""
 
 # ─── 3. Checksum 验证 ─────────────────────────────────────
+# Step 4(Task 5):checksums.sha256 是 bundle 必备契约,缺失或失配必须 FAIL-closed。
 echo "3. Checksum 验证"
 if [ -f "$IMAGE_DIR/checksums.sha256" ]; then
     cd "$IMAGE_DIR"
@@ -98,24 +99,47 @@ if [ -f "$IMAGE_DIR/checksums.sha256" ]; then
     else
         result "FAIL" "Checksum mismatch — files may be corrupted"
     fi
-    cd "$COMPOSE_DIR"
+    cd "$SCRIPT_DIR"
 else
-    result "WARN" "checksums.sha256 not found, skipping"
+    result "FAIL" "checksums.sha256 missing — bundle 必须包含 checksum 文件"
 fi
 echo ""
 
 # ─── 4. 构建元数据检查 ─────────────────────────────────────
+# Step 4(Task 5):BUILD-MANIFEST.json 是 bundle 必备契约,缺失或字段缺失必须 FAIL-closed。
 echo "4. 构建元数据检查"
 if [ -f "$IMAGE_DIR/build-manifest.json" ]; then
-    result "PASS" "build-manifest.json exists"
-    VERSION=$(python3 -c "import json; print(json.load(open('$IMAGE_DIR/build-manifest.json'))['version'])" 2>/dev/null || echo "unknown")
-    GIT_SHA=$(python3 -c "import json; print(json.load(open('$IMAGE_DIR/build-manifest.json'))['git_sha'])" 2>/dev/null || echo "unknown")
-    BUILD_TIME=$(python3 -c "import json; print(json.load(open('$IMAGE_DIR/build-manifest.json'))['build_time'])" 2>/dev/null || echo "unknown")
-    echo "  Version: $VERSION"
-    echo "  Git SHA: $GIT_SHA"
-    echo "  Built:   $BUILD_TIME"
+    MANIFEST="$IMAGE_DIR/build-manifest.json"
+    VERSION=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version',''))" "$MANIFEST" 2>/dev/null || echo "")
+    CHANNEL=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('channel',''))" "$MANIFEST" 2>/dev/null || echo "")
+    GIT_SHA=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('git_sha',''))" "$MANIFEST" 2>/dev/null || echo "")
+    BUILD_TIME=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('build_time',''))" "$MANIFEST" 2>/dev/null || echo "")
+    BACKEND_NAME=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('images',{}).get('backend',{}).get('name',''))" "$MANIFEST" 2>/dev/null || echo "")
+    BACKEND_DIGEST=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('images',{}).get('backend',{}).get('digest',''))" "$MANIFEST" 2>/dev/null || echo "")
+    FRONTEND_NAME=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('images',{}).get('frontend',{}).get('name',''))" "$MANIFEST" 2>/dev/null || echo "")
+    FRONTEND_DIGEST=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('images',{}).get('frontend',{}).get('digest',''))" "$MANIFEST" 2>/dev/null || echo "")
+    MISSING=""
+    [ -z "$VERSION" ] && MISSING="$MISSING version"
+    [ -z "$CHANNEL" ] && MISSING="$MISSING channel"
+    [ -z "$GIT_SHA" ] && MISSING="$MISSING git_sha"
+    [ -z "$BUILD_TIME" ] && MISSING="$MISSING build_time"
+    [ -z "$BACKEND_NAME" ] && MISSING="$MISSING images.backend.name"
+    [ -z "$BACKEND_DIGEST" ] && MISSING="$MISSING images.backend.digest"
+    [ -z "$FRONTEND_NAME" ] && MISSING="$MISSING images.frontend.name"
+    [ -z "$FRONTEND_DIGEST" ] && MISSING="$MISSING images.frontend.digest"
+    if [ -n "$MISSING" ]; then
+        result "FAIL" "build-manifest.json missing fields:$MISSING"
+    else
+        result "PASS" "build-manifest.json fields complete"
+        echo "  Version:    $VERSION"
+        echo "  Channel:    $CHANNEL"
+        echo "  Git SHA:    $GIT_SHA"
+        echo "  Built:      $BUILD_TIME"
+        echo "  Backend:    $BACKEND_NAME @ ${BACKEND_DIGEST:0:19}..."
+        echo "  Frontend:   $FRONTEND_NAME @ ${FRONTEND_DIGEST:0:19}..."
+    fi
 else
-    result "WARN" "build-manifest.json not found"
+    result "FAIL" "build-manifest.json missing — bundle 必须包含构建清单"
 fi
 echo ""
 

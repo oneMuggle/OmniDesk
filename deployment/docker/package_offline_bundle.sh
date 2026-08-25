@@ -457,14 +457,47 @@ case "${1:-start}" in
         docker compose -f compose/docker-compose.offline.yml --env-file compose/.env.production exec -T backend python manage.py seed_llm_endpoint
         ;;
     verify)
-        if [ -f "scripts/verify.sh" ]; then
-            bash scripts/verify.sh
-        else
-            echo "verify.sh 不存在"
+        # Step 5: 执行 bundle validator,原样传播 exit code
+        [ -f "scripts/verify.sh" ] || { echo "ERROR: scripts/verify.sh missing" >&2; exit 1; }
+        bash scripts/verify.sh
+        exit $?
+        ;;
+    deploy-test)
+        # Step 6:verify → 加载 images → compose up(隔离 project)→ deploy_tests.sh → 清理
+        [ -f BUILD-MANIFEST.json ] || { echo "ERROR: BUILD-MANIFEST.json missing" >&2; exit 1; }
+        [ -f CHECKSUMS.sha256 ] || { echo "ERROR: CHECKSUMS.sha256 missing" >&2; exit 1; }
+        bash scripts/verify.sh || exit $?
+        echo "[deploy-test] 加载镜像..."
+        for tar in images/*.tar; do
+            [ -f "$tar" ] || continue
+            docker load -i "$tar" >/dev/null 2>&1 || { echo "ERROR: docker load failed for $tar" >&2; exit 1; }
+        done
+        DEPLOY_TEST_PROJECT="${SMOKE_PROJECT_NAME:-omnidesk-deploy-test}"
+        export SMOKE_COMPOSE_FILE="${SMOKE_COMPOSE_FILE:-compose/docker-compose.offline.yml}"
+        export SMOKE_ENV_FILE="${SMOKE_ENV_FILE:-compose/.env.production}"
+        export SMOKE_PROJECT_NAME="$DEPLOY_TEST_PROJECT"
+        echo "[deploy-test] 启动 compose project=$DEPLOY_TEST_PROJECT"
+        docker compose -p "$DEPLOY_TEST_PROJECT" -f "$SMOKE_COMPOSE_FILE" --env-file "$SMOKE_ENV_FILE" up -d
+        echo "[deploy-test] 运行 deploy_tests.sh"
+        bash scripts/deploy_tests.sh "$@"
+        rc=$?
+        echo "[deploy-test] 清理 compose project=$DEPLOY_TEST_PROJECT"
+        docker compose -p "$DEPLOY_TEST_PROJECT" -f "$SMOKE_COMPOSE_FILE" --env-file "$SMOKE_ENV_FILE" down -v >/dev/null 2>&1 || true
+        exit "$rc"
+        ;;
+    smoke)
+        # Step 7:解析 BASE_URL → source smoke_common.sh → 锁 → 全量 smoke
+        if [ "${1:-}" = "--base-url" ]; then
+            export BASE_URL="${2:?ERROR: --base-url requires value}"
+            shift 2
         fi
+        export SMOKE_COMPOSE_FILE="${SMOKE_COMPOSE_FILE:-compose/docker-compose.offline.yml}"
+        export SMOKE_ENV_FILE="${SMOKE_ENV_FILE:-compose/.env.production}"
+        export SMOKE_PROJECT_NAME="${SMOKE_PROJECT_NAME:-omnidesk-smoke}"
+        bash scripts/smoke_tests.sh "$@"
         ;;
     *)
-        echo "使用方法: ./deploy.sh {start|stop|status|logs|exec|migrate|verify}"
+        echo "使用方法: ./deploy.sh {start|stop|status|logs|exec|migrate|verify|deploy-test|smoke}"
         ;;
 esac
 DEPLOY_EOF
@@ -472,11 +505,39 @@ DEPLOY_EOF
 chmod +x "$BUNDLE_DIR/scripts/deploy.sh"
 echo "  OK: deploy.sh"
 
-# 复制 verify.sh
+# ─── 复制 scripts/*(清单与执行入口)───────────────────────
+# Step 3(Task 5):补齐 smoke_common.sh + deploy_tests.sh + validate_artifacts.sh,
+# 这些脚本被 deploy.sh 子命令(smoke / deploy-test / verify)直接调用,
+# 必须打进 bundle 才能在生产环境自检。
+echo "复制 scripts/*..."
 cp "$SCRIPT_DIR/verify.sh" "$BUNDLE_DIR/scripts/"
 echo "  OK: verify.sh"
 
+# smoke_common.sh 是 smoke_tests.sh / deploy_tests.sh 的共享 helper,
+# 缺它 bundle 跑 smoke 或 deploy-test 时会 source 失败。
+if [ -f "$SCRIPT_DIR/smoke_common.sh" ]; then
+    cp "$SCRIPT_DIR/smoke_common.sh" "$BUNDLE_DIR/scripts/"
+    chmod +x "$BUNDLE_DIR/scripts/smoke_common.sh"
+    echo "  OK: smoke_common.sh"
+fi
+
+# deploy_tests.sh 是 deploy.sh deploy-test 调用的合约检查入口。
+if [ -f "$SCRIPT_DIR/deploy_tests.sh" ]; then
+    cp "$SCRIPT_DIR/deploy_tests.sh" "$BUNDLE_DIR/scripts/"
+    chmod +x "$BUNDLE_DIR/scripts/deploy_tests.sh"
+    echo "  OK: deploy_tests.sh"
+fi
+
+# validate_artifacts.sh 是构建产物(.tar)完整性验证器,可供运维在生产环境
+# 自检镜像是否在传输中损坏。
+if [ -f "$SCRIPT_DIR/validate_artifacts.sh" ]; then
+    cp "$SCRIPT_DIR/validate_artifacts.sh" "$BUNDLE_DIR/scripts/"
+    chmod +x "$BUNDLE_DIR/scripts/validate_artifacts.sh"
+    echo "  OK: validate_artifacts.sh"
+fi
+
 # 复制 rollback.sh / backup.sh / upgrade.sh / deploy_offline.sh /
+# upgrade_state.sh / test_helpers.sh(如果存在)
 # upgrade_state.sh / test_helpers.sh(如果存在)
 #
 # 背景(Task 1 + Task 2 brief):
