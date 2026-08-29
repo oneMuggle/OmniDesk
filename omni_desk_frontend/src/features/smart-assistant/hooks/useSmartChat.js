@@ -6,6 +6,7 @@ import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 import { extractResults } from '../../../shared/api/responseHandler';
+import { matchScenarioByInput } from '../scenario/data/scenarios';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -344,9 +345,36 @@ export function useSmartChat() {
     activeRequestRef.current = true;
 
     const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
-    setMessages(prev => [...prev, userMessage]);
+
+    // 业务场景命中检测:用户 query 命中"出差/文档/设备/合规"等关键词时,
+    // 不走真实 LLM 流,改为注入 type='collab_card' 的协作卡片消息,
+    // 由 MessageList 渲染 ScenarioCollabCard(剧本化多智能体回放)。
+    // 这是前端独立的"快速演示"通道,与后端 SmartChat 链路互斥,避免双发。
+    // matchScenarioByInput 返回场景对象(非 id),取其 id 注入卡片消息
+    const matchedScenario = matchScenarioByInput(query);
+    const collabCardMessage = matchedScenario
+      ? {
+          id: Date.now(),
+          role: 'assistant',
+          type: 'collab_card',
+          scenarioId: matchedScenario.id,
+          userInput: query,
+        }
+      : null;
+
+    setMessages(prev => collabCardMessage
+      ? [...prev, userMessage, collabCardMessage]
+      : [...prev, userMessage]);
     setInputMessage('');
     setAttachment(null);
+
+    if (collabCardMessage) {
+      // 走协作卡片通道:不调后端,不进打字机,不 loading。
+      // 真正协作推进由 ScenarioCollabCard 内部 useScenarioPlayer 完成。
+      activeRequestRef.current = null;
+      return;
+    }
+
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
