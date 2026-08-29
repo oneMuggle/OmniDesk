@@ -21,6 +21,7 @@ _JOINT_STUDENT_SEED_PATHS = [
     "/joint-students/admin/students",
     "/joint-students/admin/students/new",
     "/joint-students/admin/students/:id",
+    "/joint-students/admin/students/:id/edit",  # migration 0005 新增
     "/joint-students/admin/reports",
     "/joint-students/admin/cycles",
     "/joint-students/admin/cycles/:id",

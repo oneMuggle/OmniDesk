@@ -3,6 +3,12 @@ import PropTypes from 'prop-types';
 import apiClient from '../../../shared/api/axiosConfig';
 import pageConfigApi from '../../../shared/api/pageConfigApi';
 import { logger } from '../../../shared/utils/logger';
+import {
+  clearAuthTokenStorage,
+  clearAuthTokens,
+  readAuthTokens,
+  writeAuthTokens,
+} from '../../../shared/utils/authTokens';
 
 export const AuthContext = createContext({
   user: null,
@@ -35,29 +41,19 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const storedTokens = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens');
-      if (storedTokens) {
+      const storedTokens = readAuthTokens();
+      if (storedTokens?.access) {
         try {
-          const { access } = JSON.parse(storedTokens);
-          if (access) {
-            try {
-              const res = await apiClient.get('users/me/');
-              const isGuestUser = res.data.username?.startsWith('guest_');
-              setUser(res.data);
-              setIsGuest(isGuestUser);
-              if (!isGuestUser) {
-                await fetchPageConfigs();
-              }
-            } catch (error) {
-              logger.error('Failed to fetch user data:', error);
-              localStorage.removeItem('authTokens');
-              sessionStorage.removeItem('authTokens');
-            }
+          const res = await apiClient.get('users/me/');
+          const isGuestUser = res.data.username?.startsWith('guest_');
+          setUser(res.data);
+          setIsGuest(isGuestUser);
+          if (!isGuestUser) {
+            await fetchPageConfigs();
           }
         } catch (error) {
-          logger.error('Error parsing authTokens:', error);
-          localStorage.removeItem('authTokens');
-          sessionStorage.removeItem('authTokens');
+          logger.error('Failed to fetch user data:', error);
+          clearAuthTokens();
         }
       }
       setIsInitializing(false);
@@ -78,18 +74,17 @@ export function AuthProvider({ children }) {
         refresh: res.data.refresh
       };
 
-      if (rememberMe) {
-        localStorage.setItem('authTokens', JSON.stringify(authTokens));
-      } else {
-        sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
-      }
+      clearAuthTokens();
+      clearAuthTokenStorage('localStorage');
+      clearAuthTokenStorage('sessionStorage');
+      const targetStorage = rememberMe ? 'localStorage' : 'sessionStorage';
+      writeAuthTokens(authTokens, targetStorage);
 
       if (res.data.permissions) {
-        if (rememberMe) {
-          localStorage.setItem('userPermissions', JSON.stringify(res.data.permissions));
-        } else {
-          sessionStorage.setItem('userPermissions', JSON.stringify(res.data.permissions));
-        }
+        localStorage.removeItem('userPermissions');
+        sessionStorage.removeItem('userPermissions');
+        const permissionsStorage = rememberMe ? localStorage : sessionStorage;
+        permissionsStorage.setItem('userPermissions', JSON.stringify(res.data.permissions));
       }
 
       const userRes = await apiClient.get('users/me/');
@@ -135,8 +130,7 @@ export function AuthProvider({ children }) {
   }, []);
 
   const logout = useCallback(() => {
-    localStorage.removeItem('authTokens');
-    sessionStorage.removeItem('authTokens');
+    clearAuthTokens();
     localStorage.removeItem('userPermissions');
     sessionStorage.removeItem('userPermissions');
     setUser(null);
@@ -147,8 +141,9 @@ export function AuthProvider({ children }) {
 
   const loginAsGuest = useCallback(async () => {
     try {
-      localStorage.removeItem('authTokens');
-      sessionStorage.removeItem('authTokens');
+      clearAuthTokens();
+      localStorage.removeItem('userPermissions');
+      sessionStorage.removeItem('userPermissions');
       setUser(null);
 
       const res = await apiClient.post('auth/guest-login/', {});
@@ -156,7 +151,7 @@ export function AuthProvider({ children }) {
         access: res.data.access,
         refresh: res.data.refresh,
       };
-      sessionStorage.setItem('authTokens', JSON.stringify(authTokens));
+      writeAuthTokens(authTokens, 'sessionStorage');
 
       const userRes = await apiClient.get('users/me/');
       const guestUser = { ...userRes.data, is_guest: true };

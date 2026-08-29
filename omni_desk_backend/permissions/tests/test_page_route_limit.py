@@ -5,13 +5,14 @@ from rest_framework import status
 
 from permissions.models import PageRoute
 
-# 联培生模块的 data migration (0003_seed_page_routes) 会创建 12 个 PageRoute。
-# 本测试需要在受控计数下验证视图集行为,故用 fixture 临时移除这些种子路由,
-# 测试结束后恢复 — 避免污染其他测试。
+# 联培生模块的 data migration (0003_seed_page_routes + 0005_add_edit_page_permission)
+# 会创建 13 个 PageRoute。本测试需要在受控计数下验证视图集行为,故用 fixture
+# 临时移除这些种子路由,测试结束后恢复 — 避免污染其他测试。
 _JOINT_STUDENT_SEED_PATHS = [
     "/joint-students/admin/students",
     "/joint-students/admin/students/new",
     "/joint-students/admin/students/:id",
+    "/joint-students/admin/students/:id/edit",  # migration 0005 新增
     "/joint-students/admin/reports",
     "/joint-students/admin/cycles",
     "/joint-students/admin/cycles/:id",
@@ -26,7 +27,7 @@ _JOINT_STUDENT_SEED_PATHS = [
 
 @pytest.fixture
 def isolated_page_routes():
-    """测试期间屏蔽联培生模块的 12 个 PageRoute 种子,结束后按拓扑顺序恢复。"""
+    """测试期间屏蔽联培生模块的 13 个 PageRoute 种子,结束后按拓扑顺序恢复。"""
     seed_routes = list(
         PageRoute.objects.filter(path__in=_JOINT_STUDENT_SEED_PATHS).order_by("id")
     )
