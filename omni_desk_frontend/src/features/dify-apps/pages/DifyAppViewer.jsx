@@ -2,8 +2,8 @@ import './DifyApps.css';
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import axiosInstance from '../../../shared/api/axiosConfig';
-import './DifyApps.css'; // 稍后创建此CSS文件
 import { logger } from '../../../shared/utils/logger';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const DifyAppViewer = () => {
     const { appId } = useParams();
@@ -14,18 +14,20 @@ const DifyAppViewer = () => {
     useEffect(() => {
         const fetchAppDetails = async () => {
             try {
-                // 假设后端API地址为 /api/dify-apps/{appId}/
-                const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
-                const token = authTokens.access; // 从localStorage或sessionStorage获取Token
-                const config = token ? {
-                    headers: {
-                        Authorization: `Bearer ${token}` // 添加Authorization头
-                    }
-                } : {};
-                const response = await axiosInstance.get(`dify-apps/${appId}/`, config);
-                setEmbedUrl(response.data.embed_url);
+                const token = readAuthTokens()?.access;
+                if (!token) {
+                    throw new Error('AUTH_ERROR');
+                }
+                const response = await axiosInstance.get(`dify-apps/${appId}/`);
+                const nextEmbedUrl = response.data?.embed_url;
+                if (typeof nextEmbedUrl !== 'string' || !nextEmbedUrl.trim()) {
+                    throw new Error('INVALID_RESPONSE');
+                }
+                setEmbedUrl(nextEmbedUrl);
             } catch (err) {
-                setError('Failed to load Dify application.');
+                setError(err.message === 'AUTH_ERROR'
+                    ? '认证已过期，请重新登录'
+                    : '无法加载 Dify 应用，请稍后重试');
                 logger.error('Error fetching Dify app details:', err);
             } finally {
                 setLoading(false);

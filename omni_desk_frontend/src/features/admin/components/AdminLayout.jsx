@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { message } from 'antd';
 import { useAuth } from '../../auth/context/AuthContext';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 import './AdminLayout.css';
 import {
   UserOutlined,
@@ -58,10 +59,9 @@ const AdminLayout = () => {
   }, [isAuthenticated, user, hasPermission]);
 
   const handleDjangoAdminClick = async () => {
-    const tokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
-    const accessToken = tokens.access;
+    const accessToken = readAuthTokens()?.access;
     if (!accessToken) {
-      window.location.href = '/admin/';
+      message.error('认证已过期，请重新登录');
       return;
     }
     try {
@@ -77,14 +77,7 @@ const AdminLayout = () => {
         // session 已建立,跳转 Django admin
         window.location.href = '/admin/';
       } else {
-        let detail = '无法进入 Django 后台';
-        try {
-          const data = await resp.json();
-          if (data && data.detail) detail = data.detail;
-        } catch (e) {
-          // 忽略非 JSON 错误响应,使用默认提示
-        }
-        message.error(detail);
+        message.error(`无法进入 Django 后台（HTTP ${resp.status}）`);
       }
     } catch (err) {
       message.error('网络错误,无法连接 Django 后台');
