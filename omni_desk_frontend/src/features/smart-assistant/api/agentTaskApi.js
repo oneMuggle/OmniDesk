@@ -14,6 +14,8 @@
  * 终态事件: `{type: 'done', task_id}` / `{type: 'timeout'}` (服务端 60 秒轮询超时)
  */
 import apiClient from '../../../shared/api/apiClient';
+import { authFetch } from '../../../shared/api/authFetch';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant/tasks';
 
@@ -126,23 +128,25 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
   const abortController = new AbortController();
 
   const run = async () => {
-    const authTokens = JSON.parse(
-      localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
-    );
-    const token = authTokens.access;
+    const token = readAuthTokens()?.access;
+    if (!token) {
+      onError?.(new Error('认证已过期，请重新登录'));
+      return;
+    }
 
     let response;
     try {
-      response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/`, {
+      response = await authFetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/`, {
         method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         signal: abortController.signal,
       });
     } catch (error) {
       if (error.name === 'AbortError') {
         // 调用方主动断开,不视为错误
+        return;
+      }
+      if (error.message === 'AUTH_ERROR') {
+        onError?.(new Error('认证已过期，请重新登录'));
         return;
       }
       onError?.(new Error('网络连接失败，请检查网络'));
@@ -158,9 +162,39 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
       return;
     }
 
+    if (!response.body || typeof response.body.getReader !== 'function') {
+      onError?.(new Error('任务进度流连接失败'));
+      return;
+    }
+
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
+
+    const dispatch = (part) => {
+      const line = part.trim();
+      if (!line.startsWith('data:')) return false;
+      const jsonText = line.slice(5).trim();
+      if (!jsonText) return false;
+
+      let event;
+      try {
+        event = JSON.parse(jsonText);
+      } catch {
+        return false;
+      }
+
+      if (event.type === 'done') {
+        onDone?.(event);
+        return true;
+      }
+      if (event.type === 'timeout') {
+        onTimeout?.();
+        return true;
+      }
+      onEvent?.(event);
+      return false;
+    };
 
     try {
       // eslint-disable-next-line no-constant-condition
@@ -169,41 +203,22 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
+        const parts = buffer.split(/\r?\n\r?\n/);
         buffer = parts.pop() || '';
 
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data:')) continue;
-          const jsonText = line.slice(5).trim();
-          if (!jsonText) continue;
-
-          let event;
-          try {
-            event = JSON.parse(jsonText);
-          } catch {
-            // 畸形数据行,跳过不中断流
-            continue;
-          }
-
-          if (event.type === 'done') {
-            onDone?.(event);
-            return;
-          }
-          if (event.type === 'timeout') {
-            onTimeout?.();
-            return;
-          }
-          onEvent?.(event);
-        }
+        if (parts.some(dispatch)) return;
       }
-      // 服务端正常关闭连接(未显式发送 done)
+
+      buffer += decoder.decode();
+      if (buffer.trim() && dispatch(buffer)) return;
       onDone?.();
     } catch (error) {
       if (error.name === 'AbortError') {
         return;
       }
       onError?.(error);
+    } finally {
+      await reader.cancel?.();
     }
   };
 

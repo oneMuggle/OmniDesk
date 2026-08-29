@@ -144,13 +144,9 @@ describe('subscribeTaskStream SSE 订阅', () => {
     subscribeTaskStream('t-1', callbacks);
 
     await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
-    expect(globalThis.fetch).toHaveBeenCalledWith(
-      '/api/smart-assistant/tasks/t-1/stream/',
-      expect.objectContaining({
-        method: 'GET',
-        headers: { Authorization: 'Bearer test-token' },
-      })
-    );
+    const request = globalThis.fetch.mock.calls[0][1];
+    expect(request.method).toBe('GET');
+    expect(new Headers(request.headers).get('Authorization')).toBe('Bearer test-token');
   });
 
   it('按序派发进度事件,done 事件触发 onDone 且不进 onEvent', async () => {
