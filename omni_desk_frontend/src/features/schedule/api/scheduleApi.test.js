@@ -63,6 +63,31 @@ describe('scheduleApi', () => {
         { id: 2, duty_date: '2023-10-02', duty_person: 'Charlie', duty_leader: 'Dave' },
       ]);
     });
+
+    it('converts an absolute paginated next URL to an apiClient-relative path', async () => {
+      apiClient.get
+        .mockResolvedValueOnce({
+          data: {
+            results: [{ id: 1, duty_date: '2023-10-01' }],
+            next: 'http://backend:8000/api/events/schedules/?page=2',
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            results: [{ id: 2, duty_date: '2023-10-02' }],
+            next: null,
+          },
+        });
+
+      const result = await scheduleApi.fetchSchedules();
+
+      expect(apiClient.get).toHaveBeenNthCalledWith(1, 'events/schedules/');
+      expect(apiClient.get).toHaveBeenNthCalledWith(2, 'events/schedules/?page=2');
+      expect(result).toEqual([
+        { id: 1, duty_date: '2023-10-01', duty_person: {}, duty_leader: {} },
+        { id: 2, duty_date: '2023-10-02', duty_person: {}, duty_leader: {} },
+      ]);
+    });
   });
 
   describe('createSchedule', () => {

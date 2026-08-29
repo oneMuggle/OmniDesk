@@ -24,7 +24,10 @@ const ChangePasswordForm = () => {
     }
     setLoading(true);
     try {
-      await apiClient.post('users/change_password/', {
+      // 后端路由:users/urls.py path("me/change-password/", ChangePasswordView)
+      // ChangePasswordView 继承 UpdateAPIView,允许 PUT/PATCH。测试(test_auth_flow.py:168)
+      // 与生产部署一致使用 PUT。
+      await apiClient.put('users/me/change-password/', {
         old_password: passwordData.old_password,
         new_password: passwordData.new_password,
       });
