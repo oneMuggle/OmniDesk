@@ -189,12 +189,21 @@ def _run_sync_process(
         )
     except Exception as exc:
         # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
-        # 不再把 500 裸抛给客户端而不留痕迹
-        logger.warning("智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc)
+        # 不再把 500 裸抛给客户端而不留痕迹。日志仅记长度与异常类型摘要,
+        # 避免敏感 query 与完整 traceback 内容进入日志与响应
+        logger.warning(
+            "智能聊天处理异常: conversation_id=%s query_len=%d exc_type=%s",
+            conversation_id,
+            len(query) if isinstance(query, str) else 0,
+            type(exc).__name__,
+        )
         if session is not None:
-            session.last_error = str(exc)
+            session.last_error = type(exc).__name__
             session.save(update_fields=["last_error"])
-        return None, 0, Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return None, 0, Response(
+            {"detail": "智能助手处理失败，请稍后重试"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
     response_time_ms = int((time.time() - start_time) * 1000)
     return result, response_time_ms, None
 

@@ -112,7 +112,11 @@ def _event_stream_generator(
             # 若直接中断流,前端会把已收到的部分内容当成功回答,且 AgentLog 缺失。
             stream_exc = exc
             state["done_error"] = True
-            logger.exception("SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id)
+            logger.exception(
+                "SSE 流式生成中途异常: conversation_id=%s query_len=%d",
+                conversation_id,
+                len(query) if isinstance(query, str) else 0,
+            )
 
         partial_answer = "".join(state["full_answer"])
         if stream_exc is not None:
@@ -172,9 +176,9 @@ def _event_stream_generator(
         # 兜底:DB 写(session.save / AgentLog.create)异常也保证前端能收到 done 事件。
         # 否则前端 reader.read() 永远 pending → UI 永远卡在"取消"状态。
         logger.exception(
-            "SSE 流后端持久化异常: query=%s conversation_id=%s",
-            query,
+            "SSE 流后端持久化异常: conversation_id=%s query_len=%d",
             conversation_id,
+            len(query) if isinstance(query, str) else 0,
         )
         # 兜底 done 固定 internal_error:不调用 annotate_error_kind ——
         # 其内部 `_has_active_llm_config()` 会查 DB,若故障恰是 DB 不可达,

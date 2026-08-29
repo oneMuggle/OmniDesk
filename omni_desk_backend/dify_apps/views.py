@@ -12,7 +12,11 @@ logger = get_logger(__name__, "dify_apps")
 class DifyAppViewSet(viewsets.ModelViewSet):
     queryset = DifyApp.objects.all()
     serializer_class = DifyAppSerializer
-    permission_classes = [permissions.IsAuthenticated]
+
+    def get_permissions(self):
+        if self.action in {"create", "update", "partial_update", "destroy"}:
+            return [permissions.IsAdminUser()]
+        return [permissions.IsAuthenticated()]
 
     def list(self, request, *args, **kwargs):
         logger.info("dify_apps.view.entered", extra={"event": "dify_apps.view.entered"})

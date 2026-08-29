@@ -45,6 +45,7 @@ class TestOfficeGenerateTool:
                 "生成请假单",
                 _ctx(
                     confirmed=True,
+                    user={"pk": 7, "id": 7},  # mock 风格 dict，模拟 ToolContext.user.pk
                     draft={
                         "structure": [{"type": "paragraph", "content": "正文 {name}"}],
                         "variables": {"name": "张三"},
