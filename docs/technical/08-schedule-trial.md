@@ -98,6 +98,9 @@ L1 + L2 + L3 三层防护（与 v0.4.0 Personnel 字段防护同模式）：
 - **API 视图**:
   - **`TrialViewSet`**: [`omni_desk_backend/events/views.py`](omni_desk_backend/events/views.py:441)
     - 提供对 `Trial` 模型的完整CRUD操作。
+    - **`get_this_week_trials` (自定义 Action)**: `GET /api/events/trials/this-week/` — 返回本周日程内的试验。
+    - **`update_time_slots` (自定义 Action)**: `POST/PATCH /api/events/trials/{id}/update-time-slots/` — 原子化批量更新时间段。
+    - **`export` (自定义 Action,2026-08 P2 补齐)**: `GET /api/events/trials/export/?status=&start_date__gte=&start_date__lte=` — 当前过滤条件下导出 xlsx。复用 `filterset_fields`,与列表过滤语义一致;权限同列表(`IsAdminOrManagerOrReadOnly`,已认证用户 GET 均允许)。输出四列:试验名称 / 状态(中文)/ 主开始时间 / 主结束时间。`Content-Disposition: attachment; filename="trials-YYYY-MM-DD.xlsx"`。
   - **`TimeSlotViewSet`**: [`omni_desk_backend/events/views.py`](omni_desk_backend/events/views.py:39)
     - 提供对 `TimeSlot` 模型的CRUD操作。
 

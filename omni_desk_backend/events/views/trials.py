@@ -1,17 +1,21 @@
 """events.views.trials — 试验/设备/时间段 ViewSet
 
 拆分自原 events/views.py(Phase 3 优化)。包含:
-- TrialViewSet: 试验 CRUD + 本周查询 + 时间段管理
+- TrialViewSet: 试验 CRUD + 本周查询 + 时间段管理 + 导出
 - EquipmentViewSet: 设备 CRUD
 - TimeSlotViewSet: 时间段 CRUD + 批量创建
 """
+
+from io import BytesIO
 
 from observability import get_logger
 from datetime import timedelta
 
 from django.db import transaction
+from django.http import HttpResponse
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
+from openpyxl import Workbook
 from rest_framework import serializers, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -100,15 +104,17 @@ class TrialViewSet(viewsets.ModelViewSet):
     serializer_class = TrialSerializer
     permission_classes = [IsAdminOrManagerOrReadOnly]
     filter_backends = [DjangoFilterBackend]
-    filterset_fields = [
-        "status",
-        "equipments",
-        "responsible_persons",
-        "start_date",
-        "end_date",
-        "time_slots__start_time",
-        "time_slots__end_time",
-    ]
+    # 使用 dict 显式声明每个字段支持的 lookup,
+    # 否则 list 模式下 DjangoFilterBackend 不会自动开启 __gte/__lte 等查询。
+    filterset_fields = {
+        "status": ["exact"],
+        "equipments": ["exact"],
+        "responsible_persons": ["exact"],
+        "start_date": ["exact", "gte", "lte"],
+        "end_date": ["exact", "gte", "lte"],
+        "time_slots__start_time": ["exact", "gte", "lte"],
+        "time_slots__end_time": ["exact", "gte", "lte"],
+    }
     ordering_fields = ["start_date", "end_date", "time_slots__start_time"]
 
     @action(detail=False, methods=["get"], url_path="this-week")
@@ -129,6 +135,58 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(queryset, many=True)
         return Response(serializer.data)
+
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """导出当前过滤条件下的试验列表为 xlsx。
+
+        URL: GET /api/events/trials/export/?format=xlsx&status=...&...
+        复用 filterset_fields(状态、设备、负责人、起止日期),
+        与 TrialsPage 列表视图的过滤语义保持一致。
+        输出列:试验名称 / 状态(中文)/ 主开始时间 / 主结束时间。
+        """
+        queryset = self.filter_queryset(self.get_queryset())
+
+        wb = Workbook()
+        ws = wb.active
+        ws.title = "试验列表"
+        ws.append(["试验名称", "状态", "主开始时间", "主结束时间"])
+
+        status_label_map = dict(Trial.STATUS_CHOICES)
+        for trial in queryset:
+            start_local = (
+                timezone.localtime(trial.start_date).replace(tzinfo=None)
+                if trial.start_date
+                else None
+            )
+            end_local = (
+                timezone.localtime(trial.end_date).replace(tzinfo=None)
+                if trial.end_date
+                else None
+            )
+            ws.append([
+                trial.title,
+                status_label_map.get(trial.status, trial.status),
+                start_local,
+                end_local,
+            ])
+
+        ws.column_dimensions["A"].width = 32
+        ws.column_dimensions["B"].width = 12
+        ws.column_dimensions["C"].width = 22
+        ws.column_dimensions["D"].width = 22
+
+        buffer = BytesIO()
+        wb.save(buffer)
+        buffer.seek(0)
+
+        today = timezone.now().date().isoformat()
+        response = HttpResponse(
+            buffer.getvalue(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="trials-{today}.xlsx"'
+        return response
 
     def get_queryset(self):
         queryset = super().get_queryset().prefetch_related("equipments", "responsible_persons", "time_slots")
