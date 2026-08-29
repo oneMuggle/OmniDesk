@@ -91,25 +91,44 @@ echo ""
 
 # ─── 3. Checksum 验证 ─────────────────────────────────────
 # Step 4(Task 5):checksums.sha256 是 bundle 必备契约,缺失或失配必须 FAIL-closed。
+# bundle 标准布局:images/ 下放 .tar,CHECKSUMS.sha256/BUILD-MANIFEST.json 在 bundle 根。
+# 先查 IMAGE_DIR(直接参数模式),再查 BUNDLE_DIR(bundle 标准布局),兼容两种打包约定。
 echo "3. Checksum 验证"
-if [ -f "$IMAGE_DIR/checksums.sha256" ]; then
-    cd "$IMAGE_DIR"
-    if sha256sum -c checksums.sha256 >/dev/null 2>&1; then
+CHECKSUMS_PATH=""
+if [ -n "${CHECKSUMS_FILE:-}" ] && [ -f "$CHECKSUMS_FILE" ]; then
+    CHECKSUMS_PATH="$CHECKSUMS_FILE"
+elif [ -f "$IMAGE_DIR/CHECKSUMS.sha256" ]; then
+    CHECKSUMS_PATH="$IMAGE_DIR/CHECKSUMS.sha256"
+elif [ -n "${BUNDLE_DIR:-}" ] && [ -f "$BUNDLE_DIR/CHECKSUMS.sha256" ]; then
+    CHECKSUMS_PATH="$BUNDLE_DIR/CHECKSUMS.sha256"
+fi
+if [ -n "$CHECKSUMS_PATH" ]; then
+    CHECKSUMS_DIR="$(dirname "$CHECKSUMS_PATH")"
+    cd "$CHECKSUMS_DIR"
+    if sha256sum -c CHECKSUMS.sha256 >/dev/null 2>&1; then
         result "PASS" "All checksums match"
     else
         result "FAIL" "Checksum mismatch — files may be corrupted"
     fi
     cd "$SCRIPT_DIR"
 else
-    result "FAIL" "checksums.sha256 missing — bundle 必须包含 checksum 文件"
+    result "FAIL" "CHECKSUMS.sha256 missing — bundle 必须包含 checksum 文件"
 fi
 echo ""
 
 # ─── 4. 构建元数据检查 ─────────────────────────────────────
 # Step 4(Task 5):BUILD-MANIFEST.json 是 bundle 必备契约,缺失或字段缺失必须 FAIL-closed。
+# 同样支持 IMAGE_DIR 与 BUNDLE_DIR 两种来源。
 echo "4. 构建元数据检查"
-if [ -f "$IMAGE_DIR/build-manifest.json" ]; then
-    MANIFEST="$IMAGE_DIR/build-manifest.json"
+MANIFEST=""
+if [ -n "${MANIFEST_FILE:-}" ] && [ -f "$MANIFEST_FILE" ]; then
+    MANIFEST="$MANIFEST_FILE"
+elif [ -f "$IMAGE_DIR/BUILD-MANIFEST.json" ]; then
+    MANIFEST="$IMAGE_DIR/BUILD-MANIFEST.json"
+elif [ -n "${BUNDLE_DIR:-}" ] && [ -f "$BUNDLE_DIR/BUILD-MANIFEST.json" ]; then
+    MANIFEST="$BUNDLE_DIR/BUILD-MANIFEST.json"
+fi
+if [ -n "$MANIFEST" ] && [ -f "$MANIFEST" ]; then
     VERSION=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('version',''))" "$MANIFEST" 2>/dev/null || echo "")
     CHANNEL=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('channel',''))" "$MANIFEST" 2>/dev/null || echo "")
     GIT_SHA=$(python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(d.get('git_sha',''))" "$MANIFEST" 2>/dev/null || echo "")
@@ -128,9 +147,9 @@ if [ -f "$IMAGE_DIR/build-manifest.json" ]; then
     [ -z "$FRONTEND_NAME" ] && MISSING="$MISSING images.frontend.name"
     [ -z "$FRONTEND_DIGEST" ] && MISSING="$MISSING images.frontend.digest"
     if [ -n "$MISSING" ]; then
-        result "FAIL" "build-manifest.json missing fields:$MISSING"
+        result "FAIL" "BUILD-MANIFEST.json missing fields:$MISSING"
     else
-        result "PASS" "build-manifest.json fields complete"
+        result "PASS" "BUILD-MANIFEST.json fields complete"
         echo "  Version:    $VERSION"
         echo "  Channel:    $CHANNEL"
         echo "  Git SHA:    $GIT_SHA"
@@ -139,7 +158,7 @@ if [ -f "$IMAGE_DIR/build-manifest.json" ]; then
         echo "  Frontend:   $FRONTEND_NAME @ ${FRONTEND_DIGEST:0:19}..."
     fi
 else
-    result "FAIL" "build-manifest.json missing — bundle 必须包含构建清单"
+    result "FAIL" "BUILD-MANIFEST.json missing — bundle 必须包含构建清单"
 fi
 echo ""
 

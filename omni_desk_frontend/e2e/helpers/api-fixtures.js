@@ -1,12 +1,16 @@
 // e2e/helpers/api-fixtures.js — Task 7 共享 fixtures
 //
 // 提供:
-//   - getCredentials():从 E2E_USERNAME/PASSWORD 或 guest fixture 取凭据
+//   - getCredentials():从 E2E_USERNAME/PASSWORD 或 E2E_USER_USERNAME/PASSWORD
+//     或 guest fixture(E2E_GUEST_USERNAME/PASSWORD)取"普通用户"凭据(优先级从高到低)
+//   - getUserCredentials():从 E2E_USER_USERNAME/PASSWORD 或 guest fixture
+//     取"普通用户"凭据(用于需要显式普通用户的断言,如 J6)
 //   - requireCredentials():无凭据时 fail 而非 skip(部署验收要求)
 //   - performLogin(page, creds):走真实 /api/auth/login flow,不 mock Axios
 //
 // 注意:不写入 logs / screenshots / traces 中敏感字段;Authorization header
-// 由 Playwright 内部上下文管理,不进 trace。
+// 由 Playwright 内部上下文管理,不进 trace。所有凭据必须从 secrets 注入,
+// 禁止硬编码。
 
 /**
  * @typedef {Object} Credentials
@@ -15,7 +19,11 @@
  */
 
 /**
- * 读取凭据。优先级:E2E_USERNAME/PASSWORD env > guest fixture(测试用)。
+ * 读取"普通用户"凭据。优先级:
+ *   1. E2E_USERNAME/PASSWORD(传统 env,所有测试通用)
+ *   2. E2E_USER_USERNAME/PASSWORD(Task 8 引入的显式普通用户变量)
+ *   3. E2E_GUEST_USERNAME/PASSWORD(deployment 注入的 guest 凭据,
+ *      仅当 E2E_AUTH_MODE=guest 时启用;两变量均须存在,缺一即拒)
  * @returns {Credentials|null} null 表示无凭据可用
  */
 function getCredentials() {
@@ -25,11 +33,55 @@ function getCredentials() {
       password: process.env.E2E_PASSWORD,
     };
   }
-  // guest fixture(部署测试机预置的弱口令账号,用于部署 smoke)
+  if (process.env.E2E_USER_USERNAME && process.env.E2E_USER_PASSWORD) {
+    return {
+      username: process.env.E2E_USER_USERNAME,
+      password: process.env.E2E_USER_PASSWORD,
+    };
+  }
   if (process.env.E2E_AUTH_MODE === 'guest') {
-    return { username: 'smoketest', password: 'smoketest-pass-2026' };
+    return _getGuestCredentialsOrNull('getCredentials');
   }
   return null;
+}
+
+/**
+ * 读取"普通用户"凭据的专用版本。仅从 E2E_USER_USERNAME/PASSWORD 或
+ * guest fixture 解析,不接受传统 E2E_USERNAME/PASSWORD。
+ *
+ * 用途:J6 等需要"明确是普通用户"断言的场景。禁止再用
+ * username.includes('admin') 之类的关键字做 skip 判定。
+ *
+ * @returns {Credentials|null}
+ */
+function getUserCredentials() {
+  if (process.env.E2E_USER_USERNAME && process.env.E2E_USER_PASSWORD) {
+    return {
+      username: process.env.E2E_USER_USERNAME,
+      password: process.env.E2E_USER_PASSWORD,
+    };
+  }
+  if (process.env.E2E_AUTH_MODE === 'guest') {
+    return _getGuestCredentialsOrNull('getUserCredentials');
+  }
+  return null;
+}
+
+/**
+ * Guest 凭据必须来自 secrets(E2E_GUEST_USERNAME/E2E_GUEST_PASSWORD),
+ * 两变量同时存在才返回凭据;任一缺失即抛错而非返回弱口令占位。
+ * @param {string} source 供错误信息定位调用方
+ * @returns {Credentials}
+ */
+function _getGuestCredentialsOrNull(source) {
+  const u = process.env.E2E_GUEST_USERNAME;
+  const p = process.env.E2E_GUEST_PASSWORD;
+  if (u && p) {
+    return { username: u, password: p };
+  }
+  throw new Error(
+    `[${source}] E2E_AUTH_MODE=guest 但 E2E_GUEST_USERNAME/E2E_GUEST_PASSWORD 未注入 — 禁止硬编码弱口令`,
+  );
 }
 
 /**
@@ -41,7 +93,22 @@ function requireCredentials(testName) {
   const creds = getCredentials();
   if (!creds) {
     throw new Error(
-      `[${testName}] 需要 E2E_USERNAME/E2E_PASSWORD 或 E2E_AUTH_MODE=guest — 无凭据不可部署验收`,
+      `[${testName}] 需要 E2E_USERNAME/E2E_PASSWORD、E2E_USER_USERNAME/E2E_USER_PASSWORD 或 E2E_AUTH_MODE=guest(且 E2E_GUEST_USERNAME/E2E_GUEST_PASSWORD 已注入) — 无凭据不可部署验收`,
+    );
+  }
+  return creds;
+}
+
+/**
+ * 强制要求"普通用户"凭据存在。无凭据时抛错。
+ * @param {string} testName
+ * @returns {Credentials}
+ */
+function requireUserCredentials(testName) {
+  const creds = getUserCredentials();
+  if (!creds) {
+    throw new Error(
+      `[${testName}] 需要 E2E_USER_USERNAME/E2E_USER_PASSWORD 或 E2E_AUTH_MODE=guest(且 E2E_GUEST_USERNAME/E2E_GUEST_PASSWORD 已注入) — 无显式普通用户凭据不可做角色化断言`,
     );
   }
   return creds;
@@ -54,7 +121,6 @@ function requireCredentials(testName) {
  * @returns {Promise<boolean>}
  */
 async function performLogin(page, creds) {
-  // 后端登录端点:返回 access + refresh JWT
   const response = await page.request.post('/api/auth/login/', {
     data: { username: creds.username, password: creds.password },
     headers: { 'Content-Type': 'application/json' },
@@ -62,13 +128,26 @@ async function performLogin(page, creds) {
   if (!response.ok()) {
     return false;
   }
-  // 后端会通过 Set-Cookie 下发 access + refresh;
-  // Playwright request context 自动维护 cookie,page.goto 后续请求自动带上。
+
+  const data = await response.json();
+  if (typeof data.access !== 'string' || typeof data.refresh !== 'string') {
+    return false;
+  }
+
+  const authTokens = JSON.stringify({
+    access: data.access,
+    refresh: data.refresh,
+  });
+  await page.addInitScript((tokens) => {
+    window.sessionStorage.setItem('authTokens', tokens);
+  }, authTokens);
   return true;
 }
 
 module.exports = {
   getCredentials,
+  getUserCredentials,
   requireCredentials,
+  requireUserCredentials,
   performLogin,
 };

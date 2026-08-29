@@ -238,6 +238,55 @@ assert_workflow_contract "$WORKFLOWS_DIR/ci.yml"
 # ─── 检查 deploy-test.yml ───────────────────────────────
 assert_workflow_contract "$WORKFLOWS_DIR/deploy-test.yml"
 
+# ─── P0:部署拓扑、前端代理和镜像身份契约 ───────────────────
+DEPLOY_TESTS_SH="$REPO_ROOT/deployment/docker/deploy_tests.sh"
+DEPLOY_WORKFLOW="$WORKFLOWS_DIR/deploy-test.yml"
+
+if grep -qE 'for service in .*nginx' "$DEPLOY_TESTS_SH"; then
+    fail "  [$DEPLOY_TESTS_SH] required service 不得包含不存在的 nginx service"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+else
+    pass "  [$DEPLOY_TESTS_SH] required service 不包含独立 nginx"
+    PASS_COUNT=$((PASS_COUNT + 1))
+fi
+
+if grep -q 'REACT_APP_API_BASE_URL' "$DEPLOY_TESTS_SH"; then
+    fail "  [$DEPLOY_TESTS_SH] 不得依赖构建后 frontend 容器中的 REACT_APP_API_BASE_URL"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+else
+    pass "  [$DEPLOY_TESTS_SH] 使用 HTTP 代理行为验证前端 API"
+    PASS_COUNT=$((PASS_COUNT + 1))
+fi
+
+if grep -qE 'omni-desk-(backend|frontend):v0\.4\.0' "$DEPLOY_WORKFLOW"; then
+    fail "  [$DEPLOY_WORKFLOW] required build 不得固定使用 v0.4.0 镜像标签"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+else
+    pass "  [$DEPLOY_WORKFLOW] required build 不固定使用旧镜像标签"
+    PASS_COUNT=$((PASS_COUNT + 1))
+fi
+
+if grep -qE '^  browser-e2e:' "$DEPLOY_WORKFLOW" || grep -qE '^    needs: deploy-test$' "$DEPLOY_WORKFLOW"; then
+    fail "  [$DEPLOY_WORKFLOW] Browser E2E 不得依赖另一 Runner 的 deploy-test localhost"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+else
+    pass "  [$DEPLOY_WORKFLOW] Browser E2E 与部署服务保持同一 job 生命周期"
+    PASS_COUNT=$((PASS_COUNT + 1))
+fi
+
+if awk '
+    /^  deploy-test:/ { in_deploy=1; next }
+    /^  [a-zA-Z_][a-zA-Z0-9_-]*:/ && in_deploy { exit found ? 0 : 1 }
+    in_deploy && /npm run test:e2e/ { found=1 }
+    END { if (in_deploy && found) exit 0; if (in_deploy) exit 1; exit 1 }
+' "$DEPLOY_WORKFLOW"; then
+    pass "  [$DEPLOY_WORKFLOW] deploy-test job 包含 Browser E2E"
+    PASS_COUNT=$((PASS_COUNT + 1))
+else
+    fail "  [$DEPLOY_WORKFLOW] deploy-test job 必须执行 Browser E2E"
+    FAIL_COUNT=$((FAIL_COUNT + 1))
+fi
+
 # ─── 总结 ────────────────────────────────────────────────
 echo ""
 echo "=========================================="

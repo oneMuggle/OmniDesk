@@ -375,9 +375,16 @@ case "${1:-start}" in
         }
 
         # ─── 门禁 a:无 active upgrade ────────────────────────────────
+        # 注:用 mktemp 临时文件替代 bash 进程替换 `done < <(find ...)`。
+        # bash 在 case 解析阶段会扫描所有分支的语法(含未被选中的),
+        # 若 clean 分支残留 bash-only 语法,即使只跑 start 也会在解析期
+        # 撞 "syntax error near unexpected token '<'"。临时文件方案 POSIX 兼容,
+        # 且 while 在当前 shell 跑,变量作用域不变(ACTIVE_BLOCKED 仍生效)。
         RUNTIME_ROOT_VAL="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
         ACTIVE_BLOCKED=0
         if [ -d "$RUNTIME_ROOT_VAL/upgrades" ]; then
+            SF_LIST="$(mktemp)"
+            find "$RUNTIME_ROOT_VAL/upgrades" -maxdepth 2 -name state.json 2>/dev/null > "$SF_LIST" || true
             while IFS= read -r sf; do
                 local_st=$(jq -r '.state // "UNKNOWN"' "$sf" 2>/dev/null || echo "UNKNOWN")
                 if [ "$local_st" != "UNKNOWN" ] && [ "$local_st" != "RECOVERY_STARTED" ] \
@@ -385,7 +392,8 @@ case "${1:-start}" in
                     echo "ERROR: 门禁 a 失败:存在 active upgrade(状态=$local_st, file=$sf)" >&2
                     ACTIVE_BLOCKED=1
                 fi
-            done < <(find "$RUNTIME_ROOT_VAL/upgrades" -maxdepth 2 -name state.json 2>/dev/null)
+            done < "$SF_LIST"
+            rm -f "$SF_LIST"
         fi
         if [ "$ACTIVE_BLOCKED" -ne 0 ]; then
             write_audit "REJECTED" "active upgrade in progress"

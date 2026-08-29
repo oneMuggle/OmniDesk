@@ -267,4 +267,65 @@ else
     fail "V10: report should mention database_sha256"
 fi
 
+# ─── V11: restore_verified 字段缺失 → exit 非零 ───────────────
+echo "--- V11: restore_verified missing ---"
+BATCH_V11="$TEST_TMPDIR/v11"
+make_valid_batch "$BATCH_V11"
+# 删除 restore_verified 字段(其它字段保留)
+jq 'del(.restore_verified)' "$BATCH_V11/metadata.json" > "$BATCH_V11/metadata.json.tmp"
+mv "$BATCH_V11/metadata.json.tmp" "$BATCH_V11/metadata.json"
+if bash "$VERIFY_SCRIPT" "$BATCH_V11" >/dev/null 2>&1; then
+    fail "V11: missing restore_verified should fail"
+else
+    pass "V11: missing restore_verified → rejected (strict boolean check)"
+fi
+
+# ─── V12: restore_verified 是 false → exit 非零 ──────────────
+echo "--- V12: restore_verified false ---"
+BATCH_V12="$TEST_TMPDIR/v12"
+make_valid_batch "$BATCH_V12"
+jq '.restore_verified = false' "$BATCH_V12/metadata.json" > "$BATCH_V12/metadata.json.tmp"
+mv "$BATCH_V12/metadata.json.tmp" "$BATCH_V12/metadata.json"
+if bash "$VERIFY_SCRIPT" "$BATCH_V12" >/dev/null 2>&1; then
+    fail "V12: false restore_verified should fail"
+else
+    pass "V12: false restore_verified → rejected"
+fi
+
+# ─── V13: restore_verified 是字符串 "true" → exit 非零 ───────
+echo "--- V13: restore_verified string 'true' ---"
+BATCH_V13="$TEST_TMPDIR/v13"
+make_valid_batch "$BATCH_V13"
+jq '.restore_verified = "true"' "$BATCH_V13/metadata.json" > "$BATCH_V13/metadata.json.tmp"
+mv "$BATCH_V13/metadata.json.tmp" "$BATCH_V13/metadata.json"
+if bash "$VERIFY_SCRIPT" "$BATCH_V13" >/dev/null 2>&1; then
+    fail "V13: string 'true' should fail (semantic drift)"
+else
+    pass "V13: string 'true' → rejected (类型校验生效)"
+fi
+
+# ─── V14: restore_verified 是数字 1 → exit 非零 ─────────────
+echo "--- V14: restore_verified integer 1 ---"
+BATCH_V14="$TEST_TMPDIR/v14"
+make_valid_batch "$BATCH_V14"
+jq '.restore_verified = 1' "$BATCH_V14/metadata.json" > "$BATCH_V14/metadata.json.tmp"
+mv "$BATCH_V14/metadata.json.tmp" "$BATCH_V14/metadata.json"
+if bash "$VERIFY_SCRIPT" "$BATCH_V14" >/dev/null 2>&1; then
+    fail "V14: integer 1 should fail (semantic drift)"
+else
+    pass "V14: integer 1 → rejected (类型校验生效)"
+fi
+
+# ─── V15: restore_verified 是 null → exit 非零 ──────────────
+echo "--- V15: restore_verified null ---"
+BATCH_V15="$TEST_TMPDIR/v15"
+make_valid_batch "$BATCH_V15"
+jq '.restore_verified = null' "$BATCH_V15/metadata.json" > "$BATCH_V15/metadata.json.tmp"
+mv "$BATCH_V15/metadata.json.tmp" "$BATCH_V15/metadata.json"
+if bash "$VERIFY_SCRIPT" "$BATCH_V15" >/dev/null 2>&1; then
+    fail "V15: null restore_verified should fail"
+else
+    pass "V15: null restore_verified → rejected"
+fi
+
 print_test_summary "test_verify_backup_batch"

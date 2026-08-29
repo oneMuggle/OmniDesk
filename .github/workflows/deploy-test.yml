@@ -1,5 +1,8 @@
 name: Deploy Test
 
+permissions:
+  contents: read
+
 on:
   workflow_run:
     workflows: ["Build and Push Docker Images"]
@@ -13,11 +16,16 @@ jobs:
   # Task 8: Shell 单元测试 + Django 测试(独立 job,不依赖 Docker 服务)
   shell-and-django-tests:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'develop')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -54,84 +62,54 @@ jobs:
 
   deploy-test:
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.head_repository.full_name == github.repository &&
+      (github.event.workflow_run.head_branch == 'main' || github.event.workflow_run.head_branch == 'develop')
+    timeout-minutes: 45
+    # 同分支 deploy-test 串行,避免并发 run 用同一个 COMPOSE_PROJECT_NAME
+    # 把对方容器/volume down 掉。
+    concurrency:
+      group: deploy-test-${{ github.event.workflow_run.head_branch || github.ref }}
+      cancel-in-progress: false
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
 
       - name: Set up Docker Compose
         run: docker compose version
 
-      - name: Verify workflow identity (Task 8 Step 6)
-        # 加载 image 前比较 VERSION、manifest version/channel/commit、当前 commit SHA。
-        # 任一 required identity 不一致即失败,避免用过期镜像/标签/版本部署。
+      - name: Prepare deployment identity
         working-directory: ./deployment/docker
         run: |
           set -euo pipefail
-          echo "=== Identity verification ==="
-          # 1) VERSION 文件(部署 docker/VERSION 顶层文件)
-          if [ ! -f VERSION ]; then
-            echo "❌ deployment/docker/VERSION 不存在"
+          VERSION_VAL=$(tr -d '[:space:]' < VERSION)
+          if [[ ! "$VERSION_VAL" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid VERSION: $VERSION_VAL" >&2
             exit 1
           fi
-          VERSION_VAL=$(cat VERSION | tr -d '[:space:]')
+          IMAGE_TAG="v${VERSION_VAL}"
+          echo "VERSION_VAL=$VERSION_VAL" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=$IMAGE_TAG" >> "$GITHUB_ENV"
+          echo "COMMIT_SHA=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_ENV"
           echo "VERSION file: $VERSION_VAL"
-          # 2) 当前 commit SHA
-          COMMIT_SHA="${GITHUB_SHA:-$(git rev-parse HEAD)}"
-          COMMIT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-12)
-          echo "Current commit: $COMMIT_SHA (short=$COMMIT_SHORT)"
-          # 3) BUILD-MANIFEST.json(若存在,verify version/channel/commit 一致)
-          if [ -f BUILD-MANIFEST.json ]; then
-            if command -v jq >/dev/null 2>&1; then
-              MANIFEST_VERSION=$(jq -r '.version // ""' BUILD-MANIFEST.json)
-              MANIFEST_CHANNEL=$(jq -r '.channel // ""' BUILD-MANIFEST.json)
-              MANIFEST_COMMIT=$(jq -r '.commit // ""' BUILD-MANIFEST.json)
-              echo "Manifest version: $MANIFEST_VERSION"
-              echo "Manifest channel: $MANIFEST_CHANNEL"
-              echo "Manifest commit: $MANIFEST_COMMIT"
-              # version 与 VERSION 文件一致
-              if [ -n "$MANIFEST_VERSION" ] && [ "$MANIFEST_VERSION" != "$VERSION_VAL" ]; then
-                echo "❌ BUILD-MANIFEST.json version ($MANIFEST_VERSION) != VERSION ($VERSION_VAL)"
-                exit 1
-              fi
-              # commit 与当前 commit 一致(短前缀 7 字符比对即可)
-              MANIFEST_SHORT=$(echo "$MANIFEST_COMMIT" | cut -c1-7)
-              CURRENT_SHORT=$(echo "$COMMIT_SHA" | cut -c1-7)
-              if [ -n "$MANIFEST_SHORT" ] && [ "$MANIFEST_SHORT" != "$CURRENT_SHORT" ]; then
-                echo "❌ BUILD-MANIFEST.json commit ($MANIFEST_SHORT) != current ($CURRENT_SHORT)"
-                exit 1
-              fi
-            else
-              echo "⚠️ jq 未安装,跳过 manifest 字段解析"
-            fi
-          else
-            echo "ℹ️ BUILD-MANIFEST.json 不存在(本地 build 跳过 manifest 校验)"
-          fi
-          # 4) Compose env file 检查
-          if [ -f compose/.env.production ]; then
-            BACKEND_TAG=$(grep '^BACKEND_IMAGE_TAG=' compose/.env.production | cut -d= -f2- || echo "")
-            FRONTEND_TAG=$(grep '^FRONTEND_IMAGE_TAG=' compose/.env.production | cut -d= -f2- || echo "")
-            COMPOSE_PROJ=$(grep '^COMPOSE_PROJECT_NAME=' compose/.env.production | cut -d= -f2- || echo "")
-            echo "Compose BACKEND_IMAGE_TAG: $BACKEND_TAG"
-            echo "Compose FRONTEND_IMAGE_TAG: $FRONTEND_TAG"
-            echo "Compose COMPOSE_PROJECT_NAME: $COMPOSE_PROJ"
-          else
-            echo "ℹ️ compose/.env.production 不存在(待 Build steps 生成)"
-          fi
-          echo "✅ Identity check passed: $VERSION_VAL @ $COMMIT_SHORT"
+          echo "Image tag: $IMAGE_TAG"
 
       - name: Build backend image locally
         # deploy-test 在 workflow_run 触发的 job 中 GITHUB_TOKEN 没有 packages:read scope,
         # 无法拉取 GHCR 镜像。改为本地 build + tag 成 GHCR 全名,
         # 保留 docker-compose.offline.yml 的 pull_policy: never(契约要求;Task 8 强制)。
-        # 镜像 tag 锁死 v0.4.0(与 .env.production.example / docker-compose.offline.yml 默认值一致)
+        # 镜像 tag 由 deployment/docker/VERSION 推导(见 Prepare deployment identity),
+        # 与当前 checkout 的 commit 自洽;CI 不再固定使用 v0.4.0 等历史 tag。
         run: |
           docker build \
             -f deployment/docker/omni_desk_backend/Dockerfile \
             --target production \
             --platform linux/amd64 \
-            -t ghcr.io/onemuggle/omni-desk-backend:v0.4.0 \
+            -t "ghcr.io/onemuggle/omni-desk-backend:${IMAGE_TAG}" \
             .
 
       - name: Build frontend image locally
@@ -140,7 +118,7 @@ jobs:
             -f omni_desk_frontend/Dockerfile \
             --target production \
             --platform linux/amd64 \
-            -t ghcr.io/onemuggle/omni-desk-frontend:v0.4.0 \
+            -t "ghcr.io/onemuggle/omni-desk-frontend:${IMAGE_TAG}" \
             omni_desk_frontend/
 
       - name: Create .env.production for CI
@@ -156,14 +134,35 @@ jobs:
           sed -i "s/DJANGO_ALLOWED_HOSTS=.*/DJANGO_ALLOWED_HOSTS=localhost,127.0.0.1/" .env.production
           sed -i "s/CORS_ALLOWED_ORIGINS=.*/CORS_ALLOWED_ORIGINS=http:\/\/localhost/" .env.production
           sed -i "s/CSRF_TRUSTED_ORIGINS=.*/CSRF_TRUSTED_ORIGINS=http:\/\/localhost/" .env.production
-          # 强制覆盖 COMPOSE_PROJECT_NAME 为 CI 专用名,避免与本地开发容器冲突
-          sed -i "s/^COMPOSE_PROJECT_NAME=.*/COMPOSE_PROJECT_NAME=omnidesk-ci-test/" .env.production
-          echo "Generated .env.production for CI"
+          # 强制覆盖 COMPOSE_PROJECT_NAME 为 CI 专用名(每次运行唯一),
+          # 避免与本地开发容器或并发 CI run 共享项目/卷。
+          sed -i "s/^COMPOSE_PROJECT_NAME=.*/COMPOSE_PROJECT_NAME=omnidesk-ci-${{ github.run_id }}-${{ github.run_attempt }}/" .env.production
+          sed -i "s/^BACKEND_IMAGE_TAG=.*/BACKEND_IMAGE_TAG=$IMAGE_TAG/" .env.production
+          sed -i "s/^FRONTEND_IMAGE_TAG=.*/FRONTEND_IMAGE_TAG=$IMAGE_TAG/" .env.production
+          echo "Generated .env.production for CI with IMAGE_TAG=$IMAGE_TAG"
+
+      - name: Verify workflow identity
+        working-directory: ./deployment/docker
+        run: |
+          set -euo pipefail
+          BACKEND_TAG=$(grep '^BACKEND_IMAGE_TAG=' .env.production | cut -d= -f2-)
+          FRONTEND_TAG=$(grep '^FRONTEND_IMAGE_TAG=' .env.production | cut -d= -f2-)
+          COMPOSE_PROJ=$(grep '^COMPOSE_PROJECT_NAME=' .env.production | cut -d= -f2-)
+          test "$BACKEND_TAG" = "$IMAGE_TAG"
+          test "$FRONTEND_TAG" = "$IMAGE_TAG"
+          test "$BACKEND_TAG" = "$FRONTEND_TAG"
+          test -n "$COMPOSE_PROJ"
+          COMPOSE_CONFIG=$(mktemp)
+          trap 'rm -f "$COMPOSE_CONFIG"' EXIT
+          docker compose --env-file .env.production -f docker-compose.offline.yml config > "$COMPOSE_CONFIG"
+          grep -Fq "ghcr.io/onemuggle/omni-desk-backend:${IMAGE_TAG}" "$COMPOSE_CONFIG"
+          grep -Fq "ghcr.io/onemuggle/omni-desk-frontend:${IMAGE_TAG}" "$COMPOSE_CONFIG"
+          COMMIT_SHORT=$(printf '%s' "$COMMIT_SHA" | cut -c1-12)
+          echo "✅ Identity verified: VERSION=$VERSION_VAL IMAGE_TAG=$IMAGE_TAG commit=$COMMIT_SHORT"
 
       - name: Start services
         working-directory: ./deployment/docker
         run: |
-          # 不降级 pull_policy: never:
           #   deploy-test job 已本地 build 镜像并 tag 成 GHCR 全名(见 Build backend/frontend image locally),
           #   docker-compose.offline.yml 默认 pull_policy: never 直接命中本地 tag,无需 fallback 到 missing。
           #   保留 never 是离线部署契约(Task 8 Step 4 强制要求)。
@@ -205,57 +204,59 @@ jobs:
           chmod +x deploy_tests.sh
           ./deploy_tests.sh http://localhost
 
-      - name: Upload test results
-        if: always()
-        continue-on-error: true
-        uses: actions/upload-artifact@v7
-        with:
-          name: deploy-test-results
-          path: deployment/docker/test-results/
-          retention-days: 14
-          if-no-files-found: ignore
-
-      - name: Cleanup
-        if: always()
+      - name: Create smoke test user
         working-directory: ./deployment/docker
+        env:
+          # 部署验收要求:J2/J3 等登录步骤与 J6 角色化断言
+          # 都必须基于一个真实存在的非管理员账号。
+          # 优先读 SMOKE_TEST_USER/PASSWORD secrets(语义最准);
+          # fallback 到 E2E_USERNAME/PASSWORD(避免 secrets 重复维护)。
+          # 都没设 → fail-fast,不留静默 SKIP。
+          SMOKE_TEST_USER: ${{ secrets.SMOKE_TEST_USER || secrets.E2E_USERNAME }}
+          SMOKE_TEST_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD || secrets.E2E_PASSWORD }}
         run: |
-          # 用 --env-file .env.production 与 Start 步骤保持一致,
-          # 避免 docker compose 自动加载 cwd 的 .env(不含 COMPOSE_PROJECT_NAME)
-          docker compose --env-file .env.production -f docker-compose.offline.yml down -v
-          echo "Services stopped and volumes removed"
+          set -euo pipefail
+          if [ -z "$SMOKE_TEST_USER" ] || [ -z "$SMOKE_TEST_PASSWORD" ]; then
+            echo "❌ smoke 账号凭据未配置:需要 secrets.SMOKE_TEST_USER/PASSWORD 或 secrets.E2E_USERNAME/PASSWORD"
+            exit 1
+          fi
+          # 在 backend 容器内调用 Django 管理命令,生产 settings;
+          # --reset 强制幂等:不论是否已存在都把密码与锁定属性对齐 CI 期望。
+          docker compose --env-file .env.production -f docker-compose.offline.yml \
+            exec -T \
+            -e SMOKE_TEST_USER \
+            -e SMOKE_TEST_PASSWORD \
+            -e DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.production \
+            backend python manage.py create_smoke_user --reset
+          echo "✅ smoke user created/reset: $SMOKE_TEST_USER"
 
-  # Task 8 Step 5:Browser E2E(浏览器级前端部署验收)
-  # 启动 real Nginx-backed stack(已由 deploy-test job 完成),运行 npm run test:e2e
-  # 覆盖:登录、token refresh、admin 权限、lazy route、静态资源(无 CDN)。
-  # 凭据只来自 GitHub Actions secrets 或 job-local 生成用户,不写入 trace。
-  browser-e2e:
-    runs-on: ubuntu-latest
-    needs: deploy-test
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    timeout-minutes: 20
-    steps:
-      - uses: actions/checkout@v4
-      - name: Set up Node.js
+      - name: Set up Node.js for Browser E2E
         uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: 'npm'
           cache-dependency-path: omni_desk_frontend/package-lock.json
-      - name: Install frontend dependencies
+
+      - name: Install frontend dependencies for Browser E2E
         working-directory: ./omni_desk_frontend
         run: npm ci
+
       - name: Install Playwright browsers
         working-directory: ./omni_desk_frontend
         run: npx playwright install --with-deps chromium
-      - name: Run browser E2E tests
+
+      - name: Run Browser E2E
         working-directory: ./omni_desk_frontend
         env:
-          # 凭据只来自 secrets(Task 7 设计:不写入 logs/screenshots/traces)
           E2E_BASE_URL: http://localhost
+          # J2/J3 等通用登录用 E2E_USERNAME/PASSWORD
           E2E_USERNAME: ${{ secrets.E2E_USERNAME }}
           E2E_PASSWORD: ${{ secrets.E2E_PASSWORD }}
+          # J6 角色化用 E2E_USER_USERNAME/PASSWORD;
+          # 显式注入同一 smoke 账号,禁止再以 username 关键字 skip。
+          E2E_USER_USERNAME: ${{ secrets.SMOKE_TEST_USER || secrets.E2E_USERNAME }}
+          E2E_USER_PASSWORD: ${{ secrets.SMOKE_TEST_PASSWORD || secrets.E2E_PASSWORD }}
           E2E_AUTH_MODE: env
-          # 隔离 run id
           SMOKE_RUN_ID: browser-e2e-${{ github.run_id }}-${{ github.run_attempt }}
         run: |
           if [ -z "$E2E_USERNAME" ] || [ -z "$E2E_PASSWORD" ]; then
@@ -264,11 +265,25 @@ jobs:
             exit 1
           fi
           npm run test:e2e
-      - name: Upload Playwright report (failure diagnostics only)
-        if: failure()
+
+      - name: Upload test results
+        if: always()
+        continue-on-error: true
         uses: actions/upload-artifact@v7
         with:
-          name: browser-e2e-results
-          path: omni_desk_frontend/test-artifacts/screenshots/
-          retention-days: 7
+          name: deploy-test-results
+          path: |
+            deployment/docker/test-results/
+            omni_desk_frontend/test-artifacts/screenshots/
+          retention-days: 14
           if-no-files-found: ignore
+
+      - name: Cleanup
+        if: always()
+        working-directory: ./deployment/docker
+        run: |
+          set -euo pipefail
+          # 用 --env-file .env.production 与 Start 步骤保持一致,
+          # 避免 docker compose 自动加载 cwd 的 .env(不含 COMPOSE_PROJECT_NAME)
+          docker compose --env-file .env.production -f docker-compose.offline.yml down -v
+          echo "Services stopped and volumes removed"

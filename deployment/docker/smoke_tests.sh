@@ -42,35 +42,33 @@ set -uo pipefail
 
 # P0-5: 阶段 12 需要 SMOKE_TEST_USER/PASSWORD + USE_HTTPS
 # 同上策略:.env.production 缺凭据时 SKIP(默认),有凭据时 PASS/FAIL 严格判定
-if [ -z "${SMOKE_TEST_USER:-}" ] && [ -f ".env.production" ]; then
-    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+# 用 init_smoke_context 解析的 $ENV_FILE_PATH(绝对路径)而非 cwd 相对路径,
+# 让 smoke 既能从 scripts/ 也能从 bundle 根或其他位置启动。
+if [ -z "${SMOKE_TEST_USER:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
-if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -f ".env.production" ]; then
-    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
-if [ -z "${USE_HTTPS:-}" ] && [ -f ".env.production" ]; then
-    USE_HTTPS=$(grep -E '^USE_HTTPS=' .env.production 2>/dev/null | cut -d= -f2- || echo "false")
+if [ -z "${USE_HTTPS:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    USE_HTTPS=$(grep -E '^USE_HTTPS=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "false")
 fi
 export SMOKE_TEST_USER SMOKE_TEST_PASSWORD USE_HTTPS
 
 # OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
 # 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_BACKUP_ROOT=$(grep -E '^OMNIDESK_BACKUP_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_BACKUP_ROOT" ] && OMNIDESK_BACKUP_ROOT="/opt/omnidesk/backups"
+if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    OMNIDESK_BACKUP_ROOT=$(grep -E '^OMNIDESK_BACKUP_ROOT=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
+[ -z "${OMNIDESK_BACKUP_ROOT:-}" ] && OMNIDESK_BACKUP_ROOT="/opt/omnidesk/backups"
 export OMNIDESK_BACKUP_ROOT
 
 # OMNIDESK_RUNTIME_ROOT: 运行时持久化目录(升级状态/日志)
 # 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_RUNTIME_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_RUNTIME_ROOT=$(grep -E '^OMNIDESK_RUNTIME_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_RUNTIME_ROOT" ] && OMNIDESK_RUNTIME_ROOT="/opt/omnidesk/runtime"
+if [ -z "${OMNIDESK_RUNTIME_ROOT:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    OMNIDESK_RUNTIME_ROOT=$(grep -E '^OMNIDESK_RUNTIME_ROOT=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
+[ -z "${OMNIDESK_RUNTIME_ROOT:-}" ] && OMNIDESK_RUNTIME_ROOT="/opt/omnidesk/runtime"
 export OMNIDESK_RUNTIME_ROOT
 
 # 校验:确保变量非空
@@ -194,17 +192,14 @@ _app_happy_path_get() {
     fi
 
     if [ -z "${!token_var:-}" ]; then
-        # 5 个 probe 共享 1 次 guest-login 调用(原本各调 1 次 × 10s 超时 = 最坏 50s 浪费)
-        local guest_resp guest_http new_token
-        guest_resp=$(curl -s --max-time 10 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' \
-            "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "")
-        guest_http=$(echo "$guest_resp" | tail -1)
-        guest_resp=$(echo "$guest_resp" | sed '$d')
-        new_token=$(echo "$guest_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+        # 用 obtain_auth_token 替代直接 guest-login:
+        # 当 SMOKE_TEST_USER/PASSWORD 注入时走 /api/auth/login/(避免 5/15min guest 限流);
+        # 当未注入时仍走 guest-login(原有行为,符合默认 SKIP 策略)。
+        local new_token
+        new_token="$(obtain_auth_token || true)"
         if [ -z "$new_token" ]; then
-            # F4 修复:把 HTTP 码带进 SKIP 详情,5 个 probe 不再全相同,便于 root cause 区分
             printf -v "$token_var" '%s' "__FAILED__"
-            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 HTTP ${guest_http:-000} (JWT 空,本次 run 后续 probe 复用此结果) path=$path"
+            result "SKIP" "业务 happy-path ($label)" "auth 不可达 (JWT 空,obtain_auth_token 失败,本次 run 后续 probe 复用此结果) path=$path"
             return 0
         fi
         printf -v "$token_var" '%s' "$new_token"
@@ -349,8 +344,15 @@ fi
 rm -f "$HEALTH_BODY"
 
 # /api/system/version/: 验证 version 字段;严格模式必须 FAIL,不能 SKIP 蒙混
+# core/api.py:97 IsAuthenticated — 必须先拿 JWT,否则 401
 VERSION_BODY="$(smoke_temp_file version-body)"
-HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+VERSION_TOKEN="$(obtain_auth_token || true)"
+if [ -n "$VERSION_TOKEN" ]; then
+    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
+        -H "Authorization: Bearer $VERSION_TOKEN")
+else
+    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+fi
 if [ "$HTTP_CODE" = "200" ]; then
     if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
         VERSION=$(python3 -c "import sys,json; print(json.load(open('$VERSION_BODY'))['version'])" 2>/dev/null || echo unknown)
@@ -381,8 +383,8 @@ echo ""
 # ─── 阶段 4: Redis 连通性 ───────────────────────────────────
 echo "阶段 4: Redis 连通性"
 
-if [ -f ".env.production" ]; then
-    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" "$ENV_FILE_PATH" | cut -d= -f2-)
     REDIS_PING=$(compose exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null || echo "FAIL")
     if echo "$REDIS_PING" | grep -q "PONG"; then
         result "PASS" "Redis responds to PING"
@@ -439,9 +441,19 @@ echo "阶段 6: 版本/迁移/CHANGELOG 端点"
 #   (因为 bash EXIT trap 是单值,不能与已有 trap 叠加,见 trap 函数实现)
 GUEST_JSON="/tmp/.smoke_guest_$$.json"
 (umask 077; : > "$GUEST_JSON")  # S5: 设 restrictive 权限
-GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
-    -X POST -H "Content-Type: application/json" -d '{}' \
-    "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+# 走 obtain_auth_token:SMOKE_TEST_USER 注入时用 /api/auth/login/(5/15m 限流与 guest 独立),
+# 未注入时仍走 /api/auth/guest-login/(默认 SKIP 行为保持兼容)。
+# GUEST_HTTP 同时捕获,保留精细告警分支(429/真业务错误/网络瞬态)。
+if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
+        -X POST -H "Content-Type: application/json" \
+        -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+        "$BASE_URL/api/auth/login/" 2>/dev/null || echo "000")
+else
+    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
+        -X POST -H "Content-Type: application/json" -d '{}' \
+        "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+fi
 
 case "$GUEST_HTTP" in
     200)
@@ -560,7 +572,7 @@ echo ""
 echo "阶段 7: 离线包元数据/可加载性校验"
 
 if [ -x "./validate_artifacts.sh" ]; then
-    VA_OUTPUT=$(./validate_artifacts.sh exported_images/ 2>&1)
+    VA_OUTPUT=$(./validate_artifacts.sh "$BUNDLE_DIR/images" 2>&1)
     VA_RC=$?
     if [ "$VA_RC" -eq 0 ]; then
         VA_PASS=$(echo "$VA_OUTPUT" | grep -c "PASS:")
@@ -619,9 +631,9 @@ else
 fi
 
 # 8.2 Postgres data volume (用 INSERT + restart db)
-if [ -f ".env.production" ]; then
-    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
-    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" "$ENV_FILE_PATH" | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" "$ENV_FILE_PATH" | cut -d= -f2-)
     if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB" ]; then
         # I 安全注释: PG_MARKER_VAL 仅含 PID + unix_ts + 下划线,无 SQL 注入风险。
         #   若改值规则(如追加 user input),须保证仅含 [A-Za-z0-9_],否则需 quote 转义
@@ -673,9 +685,9 @@ echo "阶段 8.3: 文件上传链路"
 # 权限 IsAuthenticated(guest JWT 即可;见 file_processing/views.py:8,37,42)
 # 生产 /media/ 路由不可用(DEBUG=False,Django 不挂),但 201 + Celery 分发仍能验证
 # 用最小 magic 可识别 PDF — libmagic 看 %PDF- 前缀即识别 application/pdf
-GUEST_TOKEN_H83=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
-    "$BASE_URL/api/auth/guest-login/" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+# 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(5/15m 限流独立 bucket),
+# 未注入时 fallback guest-login(原行为)
+GUEST_TOKEN_H83="$(obtain_auth_token || true)"
 
 if [ -n "$GUEST_TOKEN_H83" ]; then
     # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
@@ -712,13 +724,11 @@ if ! wait_for_healthy backend 30; then
     result "SKIP" "业务 happy-path (memos)" "阶段 8 重启后 backend 30s 内未 healthy"
     echo ""
 else
-    # 用 curl_with_retry 处理 5xx/网络瞬态(配合 production.py CONN_HEALTH_CHECKS=True 双重保险)
-    GUEST_TOKEN_H9=$(curl_with_retry 3 -X POST -H "Content-Type: application/json" -d '{}' \
-        "$BASE_URL/api/auth/guest-login/" 2>/dev/null | head -n -1 | \
-        python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+    # 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(避免 5/15m guest 限流)
+    GUEST_TOKEN_H9="$(obtain_auth_token || true)"
 
     if [ -z "$GUEST_TOKEN_H9" ]; then
-        result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+        result "SKIP" "业务 happy-path (memos)" "auth 不可达 (JWT 空,obtain_auth_token 失败)"
     else
         # 9.1 POST 创建 — 加 retry,db 重启瞬态 5xx 自动恢复
         MEMO_TITLE="smoke-test-$$-$(date +%s)"
@@ -805,11 +815,9 @@ echo "阶段 11: PG 备份可恢复性"
 SHADOW_DB="omnidesk_shadow_restore_$$"
 SMOKE_BACKUP_FILE=""
 
-if [ ! -f ".env.production" ]; then
-    result "SKIP" "PG backup restore" ".env.production not found"
-else
-    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
-    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" "$ENV_FILE_PATH" | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" "$ENV_FILE_PATH" | cut -d= -f2-)
 
     if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_DB" ]; then
         result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"

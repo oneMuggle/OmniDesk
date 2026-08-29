@@ -47,6 +47,7 @@ REQUIRED_FILES=(
     "scripts/smoke_common.sh"
     "scripts/deploy_tests.sh"
     "scripts/validate_artifacts.sh"
+    "scripts/verify_backup_batch.sh"
     "scripts/upgrade_state.sh"
     "scripts/test_helpers.sh"
     "scripts/tests/test_upgrade_state.sh"

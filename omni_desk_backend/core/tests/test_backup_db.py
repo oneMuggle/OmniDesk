@@ -61,6 +61,10 @@ class _FakePsqlPopen:
     def __init__(self, *args, **kwargs):
         self.stdin = MagicMock()
 
+    def poll(self):
+        # 模拟进程仍在运行(broken-pipe 防御分支不触发)
+        return None
+
     def wait(self, timeout=None):
         return 0
 
@@ -350,3 +354,41 @@ def test_verify_omits_metadata_when_validation_fails(tmp_path):
         )
 
     assert not (output_dir / "metadata.json").exists(), "verify 失败时 metadata.json 不应写盘"
+
+
+def test_verify_lowercases_shadow_db_name_for_postgres(tmp_path):
+    """shadow DB 名必须 lowercase — PostgreSQL 在 CREATE DATABASE 时会把未加引号的
+    标识符自动小写化;若保留 batch_id 中的大写字母,后续 `psql -d <shadow>` 会以原
+    大小写查询 → "database does not exist"。修法:sanitized[:20].lower()。
+    """
+    from unittest.mock import patch
+
+    output_dir = tmp_path / "batch"
+    output_dir.mkdir()
+    captured_shadow_db = []
+
+    def fake_run(cmd, *args, **kwargs):
+        # 抓 CREATE DATABASE 命令的 DB 名
+        for s in cmd:
+            if isinstance(s, str) and s.startswith("CREATE DATABASE "):
+                captured_shadow_db.append(s.split()[-1])
+        return _fake_completed(returncode=0, stdout=b"5")
+
+    with (
+        _patch_postgres_db(),
+        patch("subprocess.Popen", side_effect=_popen_router),
+        patch("subprocess.run", side_effect=fake_run),
+    ):
+        call_command(
+            "backup_db",
+            batch_id="Mixed-Case-Batch-Id-ABC-XYZ-12345",
+            output_dir=str(output_dir),
+            verify=True,
+            skip_media=True,
+        )
+
+    assert captured_shadow_db, "应至少调用一次 CREATE DATABASE"
+    for name in captured_shadow_db:
+        assert name == name.lower(), f"shadow DB 名必须 lowercase,实际={name!r}"
+        # 默认前缀 omnidesk_shadow_ + sanitized[:20].lower()
+        assert name.startswith("omnidesk_shadow_"), f"shadow DB 必须以默认前缀开头,实际={name!r}"

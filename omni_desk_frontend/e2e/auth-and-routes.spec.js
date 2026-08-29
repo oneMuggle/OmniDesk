@@ -7,13 +7,18 @@
 //   J4: 过期 access token → 自动 refresh → 不掉登录
 //   J5: refresh 失败 → 回 /login
 //   J6: 普通用户访问 admin route → 看到 unauthorized UI(不 500)
+//       凭据必须来自 E2E_USER_USERNAME/PASSWORD,禁止以用户名关键字 skip
 //   J7: 静态资源 (JS/CSS/font/manifest) 200 + 来自本地打包
 //
 // 注意:不要把 Authorization header / cookie 写入截图/trace;
 // 失败信息只包含 URL / status,不包含 token。
 
 const { test, expect } = require('@playwright/test');
-const { requireCredentials, performLogin } = require('./helpers/api-fixtures');
+const {
+  requireCredentials,
+  requireUserCredentials,
+  performLogin,
+} = require('./helpers/api-fixtures');
 
 test.describe('auth & routes — 部署验收', () => {
   // J1: 未登录访问 protected route → 重定向到 /login
@@ -52,14 +57,11 @@ test.describe('auth & routes — 部署验收', () => {
   });
 
   // J6: 普通用户访问 admin route → 看到 unauthorized UI(不 500)
-  test('non-admin accessing admin route gets unauthorized UI', async ({ page }) => {
-    const creds = requireCredentials('J6-non-admin-admin-route');
-    // 仅当凭据不是 admin 才跑这个测试;否则反向断言无意义
-    test.skip(
-      creds.username.toLowerCase().includes('admin'),
-      '当前凭据是 admin,跳过非 admin 检查',
-    );
-
+  // 角色化:凭据必须来自 E2E_USER_USERNAME/PASSWORD(env 注入的普通用户),
+  // 禁止以 username.includes('admin') 之类的关键字判断后 skip —
+  // 后者会让"刚好是 admin 的凭据"绕过测试,失去断言意义。
+  test('non-admin user accessing admin route gets unauthorized UI', async ({ page }) => {
+    const creds = requireUserCredentials('J6-non-admin-admin-route');
     const ok = await performLogin(page, creds);
     expect(ok).toBe(true);
 

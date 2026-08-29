@@ -257,12 +257,21 @@ classify_http_status() {
 # obtain_auth_token
 #   优先用 SMOKE_TEST_USER/SMOKE_TEST_PASSWORD 走 /api/auth/login/;
 #   否则走 /api/auth/guest-login/。
-#   第一次成功后缓存到 $SMOKE_AUTH_TOKEN,后续调用直接返回。
+#   第一次成功后缓存到 $SMOKE_AUTH_TOKEN_FILE(文件级,跨 subshell 共享 —
+#   之前用 $SMOKE_AUTH_TOKEN env var 在 `$(obtain_auth_token)` subshell 内
+#   export,不传播到父 shell,导致每次调用都重新登录,6 次 > 5/15m IP 限流)。
+#   文件权限 0600 + umask 077 防 token 泄漏到其他用户。
 #   stdout:access token;失败时返回非 0。
 obtain_auth_token() {
-    if [ -n "${SMOKE_AUTH_TOKEN:-}" ]; then
-        printf '%s' "$SMOKE_AUTH_TOKEN"
-        return 0
+    local token_file="${SMOKE_AUTH_TOKEN_FILE:-/tmp/.smoke_auth_token.$$}"
+    # 优先读缓存 — 跨 subshell 共享的关键(文件 I/O 不受 subshell 边界影响)
+    if [ -f "$token_file" ]; then
+        local cached
+        cached="$(cat "$token_file" 2>/dev/null || true)"
+        if [ -n "$cached" ]; then
+            printf '%s' "$cached"
+            return 0
+        fi
     fi
     local body_file code token login_url
     body_file="$(mktemp)"
@@ -291,8 +300,9 @@ obtain_auth_token() {
     if [ -z "$token" ]; then
         return 1
     fi
-    SMOKE_AUTH_TOKEN="$token"
-    export SMOKE_AUTH_TOKEN
+    # 写文件缓存 — umask 077 + chmod 0600 双保险,owner-only 读写
+    (umask 077; printf '%s' "$token" > "$token_file") || true
+    chmod 0600 "$token_file" 2>/dev/null || true
     printf '%s' "$token"
 }
 

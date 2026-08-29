@@ -39,7 +39,7 @@ fi
 
 # 用 check_service_health 强制 fail-closed:running+unhealthy 必须 FAIL
 SERVICES_HEALTHY=true
-for service in db redis backend frontend worker nginx; do
+for service in db redis backend frontend worker; do
     if check_service_health "$service" required; then
         :
     else
@@ -217,8 +217,8 @@ else
 fi
 echo ""
 
-# ─── 阶段 9: 环境变量注入验证 ──────────────────────────────
-echo "阶段 9: 环境变量注入"
+# ─── 阶段 9: 后端环境变量注入验证 ───────────────────────────
+echo "阶段 9: 后端环境变量注入"
 
 for var in DJANGO_SETTINGS_MODULE POSTGRES_DB; do
     VALUE=$(compose exec -T backend env 2>/dev/null | grep "^${var}=" | cut -d= -f2- || echo "")
@@ -228,13 +228,6 @@ for var in DJANGO_SETTINGS_MODULE POSTGRES_DB; do
         result "FAIL" "Backend env: $var" "Not found"
     fi
 done
-
-REACT_API_URL=$(compose exec -T frontend env 2>/dev/null | grep "^REACT_APP_API_BASE_URL=" | cut -d= -f2- || echo "")
-if [ -n "$REACT_API_URL" ]; then
-    result "PASS" "Frontend env: REACT_APP_API_BASE_URL=$REACT_API_URL"
-else
-    result "SKIP" "Frontend env: REACT_APP_API_BASE_URL" "Not found (may be baked into build)"
-fi
 echo ""
 
 # ─── 阶段 10: 静态文件路径验证 ─────────────────────────────

@@ -550,7 +550,7 @@ fi
 #     若 bundle 不带它,bundle 用户跑任何升级/回滚命令都会因 source 缺文件失败。
 #   - test_helpers.sh(Task 2):共享断言库;tests/test_*.sh 会 source 它。
 #     把测试与 helpers 一并打包,bundle 用户可在生产环境做自检。
-for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh upgrade_state.sh test_helpers.sh; do
+for script in rollback.sh backup.sh upgrade.sh deploy_offline.sh upgrade_state.sh test_helpers.sh verify_backup_batch.sh; do
     if [ -f "$SCRIPT_DIR/$script" ]; then
         cp "$SCRIPT_DIR/$script" "$BUNDLE_DIR/scripts/"
         chmod +x "$BUNDLE_DIR/scripts/$script"
