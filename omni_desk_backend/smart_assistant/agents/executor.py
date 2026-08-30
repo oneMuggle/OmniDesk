@@ -370,13 +370,20 @@ class MultiAgentExecutor:
         def fail_claimed_task(reason: str) -> TaskResult:
             with transaction.atomic():
                 claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
-                if claimed.status == "running" and claimed.resume_claim_id == claim_id:
+                owns_claim = claimed.status == "running" and claimed.resume_claim_id == claim_id
+                if owns_claim:
                     claimed.status = "failed"
                     claimed.completed_at = timezone.now()
                     claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
                     if event_bus is not None:
                         event_bus.emit("task.failed", {"task_id": task_id, "status": "failed", "error": reason, "reason": reason})
-            return TaskResult(task_id=task_id, status="failed", error_message=reason)
+            return TaskResult(
+                task_id=task_id,
+                status="failed",
+                error_message=reason,
+                resume_claim_id=str(claim_id),
+                claim_lost=not owns_claim,
+            )
 
         try:
             task_packet = TaskPacket.from_dict(agent_task.task_packet)
@@ -405,7 +412,8 @@ class MultiAgentExecutor:
         # 继续执行(跳过已完成的 subtask)
         result = executor._execute_resume()
         if result.status == "failed":
-            fail_claimed_task(result.error_message or "任务恢复执行失败")
+            return fail_claimed_task(result.error_message or "任务恢复执行失败")
+        result.resume_claim_id = str(claim_id)
         return result
 
     def _execute_resume(self) -> TaskResult:

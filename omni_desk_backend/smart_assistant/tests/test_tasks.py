@@ -6,6 +6,7 @@ from uuid import uuid4
 from django.test import TestCase
 
 from smart_assistant.tasks import _notify_agent_task_result, process_document_embedding
+from smart_assistant.agents.dataclasses import TaskResult
 
 
 class TestAgentTaskResultNotification(TestCase):
@@ -129,6 +130,61 @@ class TestAgentTaskTimeouts(TestCase):
         events = AgentEvent.objects.filter(task=task)
         assert events.filter(event_type="task.failed").count() == 1
         assert not events.filter(event_type="task.completed").exists()
+
+    @patch("smart_assistant.agents.executor.MultiAgentExecutor")
+    def test_executor_failed_result_persists_failed_event_with_safe_payload(self, executor_cls):
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentEvent, AgentTask
+        from smart_assistant.tasks import execute_agent_task
+
+        task = AgentTask.objects.create(
+            task_id=uuid4(),
+            user=get_user_model().objects.create_user(username="executor-failed-result"),
+            objective="执行失败结果",
+            task_packet={"objective": "执行失败结果", "execution_mode": "pipeline", "subtasks": [{"id": "step1", "role": "researcher", "objective": "失败"}]},
+        )
+        executor_cls.return_value.execute.return_value = TaskResult(
+            task_id=str(task.task_id), status="failed", final_output={"raw": "partial output"},
+            total_tokens_used=17, error_message="模型失败",
+        )
+
+        result = execute_agent_task.run(str(task.task_id))
+
+        task.refresh_from_db()
+        assert result["status"] == "failed"
+        assert task.status == "failed"
+        event = AgentEvent.objects.get(task=task, event_type="task.failed")
+        assert event.payload["error"] == "模型失败"
+        assert event.payload["final_output"] == {"raw": "partial output"}
+        assert event.payload["total_tokens"] == 17
+        assert "dropped_events" in event.payload
+        assert not AgentEvent.objects.filter(task=task, event_type="task.completed").exists()
+
+    @patch("smart_assistant.agents.executor.MultiAgentExecutor.resume_from_checkpoint")
+    def test_stale_resume_result_cannot_overwrite_new_claim(self, resume_mock):
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentEvent, AgentTask
+        from smart_assistant.tasks import execute_agent_task
+
+        task = AgentTask.objects.create(
+            task_id=uuid4(), user=get_user_model().objects.create_user(username="stale-resume-worker"), objective="旧恢复 claim", status="paused",
+            task_packet={"execution_mode": "pipeline", "subtasks": []},
+        )
+        def replace_claim(*args, **kwargs):
+            current = AgentTask.objects.get(task_id=task.task_id)
+            current.status = "running"
+            current.resume_claim_id = uuid4()
+            current.save(update_fields=["status", "resume_claim_id", "updated_at"])
+            return TaskResult(task_id=str(task.task_id), status="failed", error_message="旧 worker 失败")
+        resume_mock.side_effect = replace_claim
+
+        result = execute_agent_task.run(str(task.task_id))
+        task.refresh_from_db()
+        assert result["status"] == "running"
+        assert task.status == "running"
+        assert task.completed_at is None
+        assert task.final_output is None
+        assert not AgentEvent.objects.filter(task=task, event_type__in=["task.failed", "task.completed"]).exists()
 
     @patch("smart_assistant.agents.executor.MultiAgentExecutor.resume_from_checkpoint")
     def test_paused_task_uses_checkpoint_resume(self, resume_mock):

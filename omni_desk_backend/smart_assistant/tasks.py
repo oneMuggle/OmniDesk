@@ -233,6 +233,16 @@ def execute_agent_task(task_id: str):
 
         with transaction.atomic():
             locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            if was_paused and (
+                result.claim_lost
+                or result.resume_claim_id != str(locked_task.resume_claim_id)
+                or locked_task.status != "running"
+            ):
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": locked_task.status,
+                    "total_tokens": locked_task.tokens_used,
+                }
             # resume_from_checkpoint owns initialization-failure convergence. Do
             # not turn its already-terminal failed state into task.completed.
             if result.status == "failed" and locked_task.status == "failed":
@@ -265,7 +275,7 @@ def execute_agent_task(task_id: str):
                 else None
             )
             locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
-            event_type = "task.completed"
+            event_type = "task.failed" if persisted_status == "failed" else "task.completed"
             event_payload = {
                 "task_id": str(locked_task.task_id),
                 "status": persisted_status,
@@ -273,10 +283,12 @@ def execute_agent_task(task_id: str):
                 "final_output": locked_task.final_output,
                 "dropped_events": event_bus.persistence_failure_count,
             }
-            if persisted_status in {"failed", "partial"}:
-                event_payload["error" if persisted_status == "failed" else "reason"] = (
-                    result.error_message or ("任务部分完成" if persisted_status == "partial" else "任务执行失败")
-                )
+            if persisted_status == "failed":
+                failure_reason = result.error_message or "任务执行失败"
+                event_payload["error"] = failure_reason
+                event_payload["reason"] = failure_reason
+            elif persisted_status == "partial":
+                event_payload["reason"] = result.error_message or "任务部分完成"
             event_bus.emit(event_type, event_payload)
             _schedule_agent_task_notification(locked_task, persisted_status, transaction)
             subtask_objs = {
@@ -336,7 +348,13 @@ def execute_agent_task(task_id: str):
                 task.save(update_fields=["status", "completed_at"])
                 event_bus.emit(
                     "task.failed",
-                    {"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed", "dropped_events": event_bus.persistence_failure_count},
+                    {
+                        "task_id": str(task.task_id),
+                        "status": "failed",
+                        "error": "agent task execution failed",
+                        "reason": "agent task execution failed",
+                        "dropped_events": event_bus.persistence_failure_count,
+                    },
                 )
                 _schedule_agent_task_notification(task, "failed", transaction)
         raise

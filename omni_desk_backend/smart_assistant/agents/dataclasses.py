@@ -73,6 +73,8 @@ class TaskResult:
     total_tokens_used: int = 0
     total_duration_ms: int = 0
     error_message: str | None = None
+    resume_claim_id: str | None = None
+    claim_lost: bool = False
 
 
 @dataclass
