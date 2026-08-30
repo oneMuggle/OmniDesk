@@ -125,9 +125,14 @@ class EventBus:
 class PersistentEventBus(EventBus):
     """同时记录内存事件并尽力持久化到 AgentEvent。"""
 
-    def __init__(self, agent_task_id: str | None = None):
+    def __init__(
+        self,
+        agent_task_id: str | None = None,
+        resume_claim_id: str | None = None,
+    ):
         super().__init__()
         self.agent_task_id = agent_task_id
+        self.resume_claim_id = resume_claim_id
         self.persistence_failure_count = 0
 
     def emit(self, event_type: str, payload: dict | None = None) -> None:
@@ -152,9 +157,15 @@ class PersistentEventBus(EventBus):
         from django.db import transaction
         from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
 
-        # savepoint 隔离事件写入失败，避免破坏调用方正在进行的事务。
+        # 恢复 worker 只允许持有当前 claim 的事件落库；失效事件仍可留在
+        # 当前 worker 的内存流中，但不能污染新 worker 的持久化轨迹。
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=self.agent_task_id)
+            if self.resume_claim_id is not None and (
+                task.status != "running"
+                or str(task.resume_claim_id) != str(self.resume_claim_id)
+            ):
+                return
             subtask = None
             subtask_id = payload.get("subtask_id")
             if subtask_id is not None:

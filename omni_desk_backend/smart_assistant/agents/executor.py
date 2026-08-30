@@ -87,6 +87,7 @@ class MultiAgentExecutor:
         agent_task_id: str | None = None,  # Plan 3: DB 持久化 + 断点恢复用
         user: Any | None = None,
         tool_context: Any | None = None,
+        resume_claim_id: str | None = None,
     ):
         self.task_packet = task_packet
         self.llm_router = llm_router
@@ -94,6 +95,9 @@ class MultiAgentExecutor:
         self.hook_registry = hook_registry
         self.event_bus = event_bus or EventBus()
         self.agent_task_id = agent_task_id  # Plan 3: DB 持久化用
+        self.resume_claim_id = resume_claim_id
+        if hasattr(self.event_bus, "resume_claim_id") and resume_claim_id is not None:
+            self.event_bus.resume_claim_id = str(resume_claim_id)
         if tool_context is not None and getattr(tool_context, "user", user) is not user:
             raise ValueError("工具上下文用户与任务所有者不一致")
         if tool_context is None and user is not None:
@@ -107,6 +111,7 @@ class MultiAgentExecutor:
             context=tool_context,
         )
         self.checkpoint = CheckpointManager(agent_task_id)  # Plan 3: DB checkpoint 底层
+        self.checkpoint.resume_claim_id = resume_claim_id
         self._paused = False  # Plan 3: 暂停标志
         self.context = SharedContext(
             original_query=task_packet.objective,
@@ -121,6 +126,7 @@ class MultiAgentExecutor:
             is_paused=lambda: self._paused or self._persisted_status() == "paused",
             persist_subtask=self._persist_subtask_result,
             is_cancelled=lambda: self._persisted_status() == "cancelled",
+            is_claim_valid=self._is_resume_claim_valid,
         )
 
     def _persisted_status(self) -> str | None:
@@ -129,6 +135,18 @@ class MultiAgentExecutor:
         from smart_assistant.models import AgentTask
 
         return AgentTask.objects.filter(task_id=self.agent_task_id).values_list("status", flat=True).first()
+
+    def _is_resume_claim_valid(self) -> bool:
+        if self.resume_claim_id is None or not self.agent_task_id:
+            return True
+        from smart_assistant.models import AgentTask
+
+        task = AgentTask.objects.filter(task_id=self.agent_task_id).values("status", "resume_claim_id").first()
+        return bool(
+            task
+            and task["status"] == "running"
+            and str(task["resume_claim_id"]) == str(self.resume_claim_id)
+        )
 
     def execute(self) -> TaskResult:
         """执行主任务
@@ -281,7 +299,7 @@ class MultiAgentExecutor:
             subtask: 当前 subtask
             result: 执行结果
         """
-        self.checkpoint.persist_subtask(subtask, result)
+        self.checkpoint.persist_subtask(subtask, result, resume_claim_id=self.resume_claim_id)
 
     def pause(self) -> None:
         """暂停任务执行(设置暂停标志)
@@ -365,9 +383,6 @@ class MultiAgentExecutor:
                 claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
                 owns_claim = claimed.status == "running" and claimed.resume_claim_id == claim_id
                 if owns_claim:
-                    claimed.status = "failed"
-                    claimed.completed_at = timezone.now()
-                    claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
                     if event_bus is not None:
                         event_bus.emit(
                             "task.failed",
@@ -381,6 +396,9 @@ class MultiAgentExecutor:
                                 "dropped_events": event_bus.persistence_failure_count,
                             },
                         )
+                    claimed.status = "failed"
+                    claimed.completed_at = timezone.now()
+                    claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
             return TaskResult(
                 task_id=task_id,
                 status="failed",
@@ -403,6 +421,7 @@ class MultiAgentExecutor:
                 event_bus=event_bus,
                 agent_task_id=task_id,
                 user=agent_task.user,
+                resume_claim_id=str(claim_id),
             )
             # 加载已完成的 subtask,重建 SharedContext
             completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
@@ -438,10 +457,28 @@ class MultiAgentExecutor:
 
             # 执行 pipeline,自动跳过已完成的 subtask
             subtask_results = self._execute_pipeline(resume_mode=True)
+            if self.resume_claim_id is not None and not self._is_resume_claim_valid():
+                return TaskResult(
+                    task_id=self.task_packet.task_id,
+                    status="partial",
+                    subtask_results=subtask_results,
+                    total_tokens_used=sum(r.tokens_used for r in subtask_results),
+                    claim_lost=True,
+                    resume_claim_id=str(self.resume_claim_id),
+                )
 
             # 最终合成
             final_output = None
             if self.task_packet.final_synthesis:
+                if self.resume_claim_id is not None and not self._is_resume_claim_valid():
+                    return TaskResult(
+                        task_id=self.task_packet.task_id,
+                        status="partial",
+                        subtask_results=subtask_results,
+                        total_tokens_used=sum(r.tokens_used for r in subtask_results),
+                        claim_lost=True,
+                        resume_claim_id=str(self.resume_claim_id),
+                    )
                 # 检查 final_synthesis 是否已完成
                 if self.task_packet.final_synthesis.id not in self.context.completed_subtask_ids:
                     synth_result = self._run_subtask_with_retry(self.task_packet.final_synthesis, self.context)

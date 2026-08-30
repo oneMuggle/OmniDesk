@@ -201,7 +201,7 @@ class NotifyTool(BaseTool):
                         failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
                 except Exception:
                     failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
-        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id, "sent": sent, "failed": failed}
+        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id, "sent": sent, "failed": failed, "sent_count": len(sent), "failed_count": len(failed), "recipient_count": len(users)}
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
             event_bus.emit(

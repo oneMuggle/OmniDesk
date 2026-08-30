@@ -40,6 +40,7 @@ class PipelineRunner:
         is_paused: Callable[[], bool],
         persist_subtask: Callable[[SubTask, SubTaskResult], None],
         is_cancelled: Callable[[], bool] | None = None,
+        is_claim_valid: Callable[[], bool] | None = None,
     ):
         self._task_packet = task_packet
         self._context = context
@@ -48,6 +49,7 @@ class PipelineRunner:
         self._is_paused = is_paused
         self._persist_subtask = persist_subtask
         self._is_cancelled = is_cancelled or (lambda: False)
+        self._is_claim_valid = is_claim_valid or (lambda: True)
 
     def run(self, resume_mode: bool = False) -> list[SubTaskResult]:
         """Pipeline 模式执行(顺序执行,前一个输出是后一个输入)
@@ -62,6 +64,8 @@ class PipelineRunner:
         results: list[SubTaskResult] = []
         execution_order = self._task_packet.get_execution_order()
         for subtask in execution_order:
+            if not self._is_claim_valid():
+                break
             if self._is_cancelled():
                 break
             if self._is_paused():
@@ -87,6 +91,8 @@ class PipelineRunner:
             results.append(result)
             if result.status == "success" and result.artifacts:
                 self._context.add_artifact(subtask.id, result.artifacts)
+            if not self._is_claim_valid():
+                break
             self._persist_subtask(subtask, result)
         return results
 

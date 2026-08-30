@@ -7,6 +7,10 @@ import pytest
 
 from smart_assistant.agents.dataclasses import PersistentEventBus
 from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+from smart_assistant.agents.checkpoint import CheckpointManager
+from smart_assistant.agents.packet import SubTask
+from smart_assistant.agents.roles import AgentRole
+from smart_assistant.agents.dataclasses import SubTaskResult
 from users.models import CustomUser
 
 
@@ -64,6 +68,45 @@ def test_emit_db_failure_does_not_interrupt_or_count_as_memory_failure(agent_tas
 
     assert [event.event_type for event in bus.get_events()] == ["task.started"]
     assert bus.persistence_failure_count == 1
+
+
+@pytest.mark.django_db
+def test_resume_claim_loss_does_not_persist_subtask(agent_task):
+    from uuid import uuid4
+
+    agent_task.status = "running"
+    agent_task.resume_claim_id = uuid4()
+    agent_task.save(update_fields=["status", "resume_claim_id", "updated_at"])
+    subtask = SubTask(id="research", role=AgentRole.RESEARCHER, objective="检索")
+    result = SubTaskResult(
+        subtask_id="research", role=AgentRole.RESEARCHER, output={"new": "stale"},
+        artifacts={"new": "stale"}, tokens_used=99,
+    )
+
+    persisted = CheckpointManager(str(agent_task.task_id)).persist_subtask(
+        subtask, result, resume_claim_id=str(uuid4())
+    )
+
+    assert persisted is False
+    assert not AgentSubTask.objects.filter(task=agent_task, subtask_id="research").exists()
+
+
+@pytest.mark.django_db
+def test_resume_claim_loss_event_stays_memory_only(agent_task):
+    from uuid import uuid4
+
+    agent_task.status = "running"
+    agent_task.resume_claim_id = uuid4()
+    agent_task.save(update_fields=["status", "resume_claim_id", "updated_at"])
+    bus = PersistentEventBus(
+        agent_task_id=str(agent_task.task_id), resume_claim_id=str(uuid4())
+    )
+
+    bus.emit("subtask.completed", {"subtask_id": "research", "output": "stale"})
+
+    assert len(bus.get_events()) == 1
+    assert not AgentEvent.objects.filter(task=agent_task).exists()
+    assert bus.persistence_failure_count == 0
 
 
 @pytest.mark.django_db
