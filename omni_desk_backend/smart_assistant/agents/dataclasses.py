@@ -147,24 +147,32 @@ class PersistentEventBus(EventBus):
         if not self.agent_task_id:
             raise ValueError("agent_task_id 未设置")
 
+        from django.db import transaction
         from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
 
-        task = AgentTask.objects.get(task_id=self.agent_task_id)
-        subtask = None
-        subtask_id = payload.get("subtask_id")
-        if subtask_id is not None:
-            subtask = AgentSubTask.objects.filter(task=task, subtask_id=str(subtask_id)).first()
-        sequence = (
-            AgentEvent.objects.filter(task=task)
-            .order_by("-sequence")
-            .values_list("sequence", flat=True)
-            .first()
-            or 0
-        ) + 1
-        AgentEvent.objects.create(
-            task=task,
-            subtask=subtask,
-            sequence=sequence,
-            event_type=event_type,
-            payload=payload,
-        )
+        # savepoint 隔离事件写入失败，避免破坏调用方正在进行的事务。
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=self.agent_task_id)
+            subtask = None
+            subtask_id = payload.get("subtask_id")
+            if subtask_id is not None:
+                subtask = AgentSubTask.objects.filter(task=task, subtask_id=str(subtask_id)).first()
+            terminal_events = {"task.completed", "task.failed", "task.cancelled", "task.aborted"}
+            if event_type in terminal_events and AgentEvent.objects.filter(
+                task=task, event_type=event_type
+            ).exists():
+                return
+            sequence = (
+                AgentEvent.objects.filter(task=task)
+                .order_by("-sequence")
+                .values_list("sequence", flat=True)
+                .first()
+                or 0
+            ) + 1
+            AgentEvent.objects.create(
+                task=task,
+                subtask=subtask,
+                sequence=sequence,
+                event_type=event_type,
+                payload=payload,
+            )

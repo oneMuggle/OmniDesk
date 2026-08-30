@@ -151,7 +151,7 @@ def process_document_embedding(document_id):
 
 
 @shared_task(
-    autoretry_for=(),
+    autoretry_for=(Exception,),
     retry_backoff=60,
     retry_kwargs={"max_retries": 2},
     task_time_limit=300,  # 硬超时 5 分钟
@@ -222,6 +222,8 @@ def execute_agent_task(task_id: str):
                     terminal_type,
                     {"task_id": str(locked_task.task_id), "status": locked_task.status},
                 )
+                if locked_task.status == "cancelled":
+                    _notify_agent_task_result(locked_task, "cancelled")
                 return {
                     "task_id": str(locked_task.task_id),
                     "status": locked_task.status,
@@ -248,6 +250,7 @@ def execute_agent_task(task_id: str):
                     "final_output": locked_task.final_output,
                 },
             )
+            _notify_agent_task_result(locked_task, persisted_status)
             subtask_objs = {
                 str(obj.subtask_id): obj
                 for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
