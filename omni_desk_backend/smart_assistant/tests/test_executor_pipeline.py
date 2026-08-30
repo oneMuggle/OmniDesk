@@ -256,7 +256,8 @@ class TestExecutorBasic:
         assert "task.started" in event_types
         assert "subtask.started" in event_types
         assert "subtask.completed" in event_types
-        assert "task.completed" in event_types
+        # 任务级终态事件由 Celery 持久化事务负责；内存 executor 仅保留 subtask 事件。
+        assert "task.completed" not in event_types
 
     def test_execute_stores_artifacts_in_context(self):
         """执行后 artifacts 存储在 context 中"""

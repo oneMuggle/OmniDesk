@@ -117,9 +117,17 @@ class MultiAgentExecutor:
             context=self.context,
             event_bus=self.event_bus,
             subtask_runner=self.subtask_runner,
-            is_paused=lambda: self._paused,
+            is_paused=lambda: self._paused or self._persisted_status() == "paused",
             persist_subtask=self._persist_subtask_result,
+            is_cancelled=lambda: self._persisted_status() == "cancelled",
         )
+
+    def _persisted_status(self) -> str | None:
+        if not self.agent_task_id:
+            return None
+        from smart_assistant.models import AgentTask
+
+        return AgentTask.objects.filter(task_id=self.agent_task_id).values_list("status", flat=True).first()
 
     def execute(self) -> TaskResult:
         """执行主任务
@@ -188,18 +196,20 @@ class MultiAgentExecutor:
             raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
 
     def _classify_status(self, subtask_results: list[SubTaskResult]) -> str:
-        """根据 subtask 结果统计判断任务最终状态。"""
-        if any(r.status == "awaiting_confirmation" for r in subtask_results):
+        """将内存结果映射为 success/failed/partial/paused。"""
+        if any(r.status in {"awaiting_confirmation", "paused"} for r in subtask_results):
             return "paused"
         failed_count = sum(1 for r in subtask_results if r.status == "failed")
-        if failed_count == 0:
-            if any(r.status in {"skipped", "awaiting_confirmation"} for r in subtask_results):
-                return "partial"
-            return "success"
-        elif failed_count == len(subtask_results):
-            return "failed"
-        else:
+        skipped_count = sum(1 for r in subtask_results if r.status == "skipped")
+        if skipped_count or not subtask_results:
+            if any(r.error_message == "任务已暂停" for r in subtask_results):
+                return "paused"
             return "partial"
+        if failed_count == len(subtask_results):
+            return "failed"
+        if failed_count:
+            return "partial"
+        return "success"
 
     def _build_result(
         self,
@@ -209,7 +219,7 @@ class MultiAgentExecutor:
         start_time: float,
         event_extra: dict | None = None,
     ) -> TaskResult:
-        """组装 TaskResult 并发射 task.completed 事件"""
+        """组装 TaskResult；任务级终态事件由 Celery 持久化层负责。"""
         total_tokens = sum(r.tokens_used for r in subtask_results)
         total_duration = int((time.time() - start_time) * 1000)
 
@@ -228,10 +238,6 @@ class MultiAgentExecutor:
             "total_tokens": total_tokens,
             "total_duration_ms": total_duration,
         }
-        if event_extra:
-            completed_event.update(event_extra)
-        self.event_bus.emit("task.completed", completed_event)
-
         return result
 
     def _execute_pipeline(self, resume_mode: bool = False) -> list[SubTaskResult]:

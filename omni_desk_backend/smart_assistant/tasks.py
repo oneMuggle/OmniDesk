@@ -143,14 +143,29 @@ def execute_agent_task(task_id: str):
             user=task.user,
         )
         result = executor.execute()
-        persisted_status = "failed" if result.status == "rejected" else result.status
+        persisted_status = {
+            "success": "completed",
+            "partial": "partial",
+            "failed": "failed",
+            "paused": "paused",
+            "cancelled": "cancelled",
+            "rejected": "failed",
+        }.get(result.status, "failed")
 
         with transaction.atomic():
             locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
-            if locked_task.status == "cancelled":
+            if locked_task.status in {"cancelled", "paused"}:
+                terminal_type = "task.cancelled" if locked_task.status == "cancelled" else "task.paused"
+                if not AgentEvent.objects.filter(task=locked_task, event_type=terminal_type).exists():
+                    AgentEvent.objects.create(
+                        task=locked_task,
+                        sequence=AgentEvent.objects.filter(task=locked_task).count() + 1,
+                        event_type=terminal_type,
+                        payload={"task_id": str(locked_task.task_id), "status": locked_task.status},
+                    )
                 return {
                     "task_id": str(locked_task.task_id),
-                    "status": "cancelled",
+                    "status": locked_task.status,
                     "total_tokens": locked_task.tokens_used,
                 }
             locked_task.status = persisted_status
@@ -164,6 +179,19 @@ def execute_agent_task(task_id: str):
                 else None
             )
             locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
+            event_type = "task.completed" if persisted_status in {"completed", "partial"} else "task.failed"
+            if not AgentEvent.objects.filter(task=locked_task, event_type=event_type).exists():
+                AgentEvent.objects.create(
+                    task=locked_task,
+                    sequence=AgentEvent.objects.filter(task=locked_task).count() + 1,
+                    event_type=event_type,
+                    payload={
+                        "task_id": str(locked_task.task_id),
+                        "status": persisted_status,
+                        "total_tokens": result.total_tokens_used,
+                        "final_output": locked_task.final_output,
+                    },
+                )
             subtask_objs = {
                 str(obj.subtask_id): obj
                 for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
@@ -208,10 +236,17 @@ def execute_agent_task(task_id: str):
             except AgentTask.DoesNotExist:
                 logger.debug("smart_assistant.tasks.event_task_gone", extra={"task_id": task_id})
                 raise
-            if task.status != "cancelled" and task.status not in {"completed", "failed", "partial"}:
+            if task.status != "cancelled" and task.status not in {"completed", "failed", "partial", "paused"}:
                 task.status = "failed"
                 task.completed_at = timezone.now()
                 task.save(update_fields=["status", "completed_at"])
+                if not AgentEvent.objects.filter(task=task, event_type="task.failed").exists():
+                    AgentEvent.objects.create(
+                        task=task,
+                        sequence=AgentEvent.objects.filter(task=task).count() + 1,
+                        event_type="task.failed",
+                        payload={"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed"},
+                    )
         raise
 
 
