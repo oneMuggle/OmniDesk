@@ -120,6 +120,78 @@ class TestDraftCacheIsolation:
         assert get_confirmation_draft("token-A") == {"who": "A"}
         assert get_confirmation_draft("token-B") == {"who": "B"}
 
+    def test_consume_locmem_gets_and_deletes_once(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": MagicMock()}
+            mock_cache._connections["default"].__class__.__module__ = (
+                "django.core.cache.backends.locmem"
+            )
+            mock_cache.get.return_value = {"value": 1}
+            assert consume_confirmation_draft("token-consume") == {"value": 1}
+            mock_cache.get.assert_called_once_with(_draft_key("token-consume"))
+            mock_cache.delete.assert_called_once_with(_draft_key("token-consume"))
+
+    def test_locmem_repeated_consume_has_at_most_one_success(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        values = [{"value": 1}, None]
+        backend_get = lambda key: values.pop(0)
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.side_effect = backend_get
+            assert consume_confirmation_draft("token-repeat") == {"value": 1}
+            assert consume_confirmation_draft("token-repeat") is None
+            assert mock_cache.delete.call_count == 1
+
+    def test_unknown_backend_fails_closed(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": MagicMock()}
+            mock_cache._connections["default"].__class__.__module__ = "custom.cache"
+            with pytest.raises(ConfirmationDraftConsumeError) as exc_info:
+                consume_confirmation_draft("token-unknown")
+            assert exc_info.value.failure_kind == "unsupported_backend"
+            mock_cache.get.assert_not_called()
+            mock_cache.delete.assert_not_called()
+
+    def test_redis_backend_uses_lock_before_get_and_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        events = []
+        lock = MagicMock()
+        lock.__enter__.side_effect = lambda: events.append("lock-enter") or lock
+        lock.__exit__.side_effect = lambda *args: events.append("lock-exit")
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.side_effect = lambda *args, **kwargs: events.append("lock") or lock
+        backend.get.side_effect = lambda key: events.append("get") or {"value": 1}
+        backend.delete.side_effect = lambda key: events.append("delete")
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            assert consume_confirmation_draft("token-redis") == {"value": 1}
+
+        assert events == ["lock", "lock-enter", "get", "delete", "lock-exit"]
+
+    def test_cache_lock_failure_is_not_treated_as_replay(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.side_effect = TimeoutError("lock unavailable")
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            with pytest.raises(ConfirmationDraftConsumeError) as exc_info:
+                consume_confirmation_draft("token-lock-error")
+            assert exc_info.value.failure_kind == "backend_failure"
+            backend.get.assert_not_called()
+            backend.delete.assert_not_called()
+
     def test_draft_key_uses_cache_version(self):
         """draft key 包含 CACHE_VERSION,bump 后旧 draft 自动失效(同 token 不同 key)"""
         from smart_assistant import cache as cache_module

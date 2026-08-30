@@ -295,6 +295,14 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
 CONFIRMATION_DRAFT_TTL = 600  # 秒
 
 
+class ConfirmationDraftConsumeError(RuntimeError):
+    """确认草稿缓存无法可靠消费时抛出的受控异常。"""
+
+    def __init__(self, failure_kind: str):
+        self.failure_kind = failure_kind
+        super().__init__(failure_kind)
+
+
 def _draft_key(token: str) -> str:
     """confirmation draft 缓存 key。
 
@@ -326,22 +334,34 @@ def set_confirmation_draft(
 def consume_confirmation_draft(token: str) -> dict | None:
     """分布式原子占用确认草稿；不支持可靠锁时 fail closed。"""
     key = _draft_key(token)
-    backend = cache._connections["default"]
-    module = backend.__class__.__module__
-    if module.startswith("django_redis"):
-        lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
-        with lock:
-            value = backend.get(key)
-            if value is not None:
-                backend.delete(key)
-            return value
-    if module.startswith("django.core.cache.backends.locmem"):
-        with _inflight_global:
-            value = cache.get(key)
-            if value is not None:
-                cache.delete(key)
-            return value
-    raise RuntimeError("confirmation cache backend lacks atomic consume support")
+    try:
+        backend = cache._connections["default"]
+        module = backend.__class__.__module__
+        if module.startswith("django_redis"):
+            lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
+            with lock:
+                value = backend.get(key)
+                if value is not None:
+                    backend.delete(key)
+                return value
+        if module.startswith("django.core.cache.backends.locmem"):
+            with _inflight_global:
+                value = cache.get(key)
+                if value is not None:
+                    cache.delete(key)
+                return value
+    except Exception as exc:
+        logger.warning(
+            "confirmation draft consume backend failure: backend=%s exc_type=%s",
+            type(backend).__name__ if "backend" in locals() else "unknown",
+            type(exc).__name__,
+        )
+        raise ConfirmationDraftConsumeError("backend_failure") from exc
+    logger.warning(
+        "confirmation draft consume unsupported backend: backend=%s",
+        type(backend).__name__,
+    )
+    raise ConfirmationDraftConsumeError("unsupported_backend")
 
 def get_confirmation_draft(token: str) -> dict | None:
     """取 confirmation draft。过期/不存在返回 None。"""

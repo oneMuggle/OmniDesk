@@ -20,7 +20,12 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_error_kind
-from ..cache import consume_confirmation_draft, clear_confirmation_draft, get_confirmation_draft
+from ..cache import (
+    ConfirmationDraftConsumeError,
+    consume_confirmation_draft,
+    clear_confirmation_draft,
+    get_confirmation_draft,
+)
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
 from ..tools.registry import ToolRegistry
@@ -134,8 +139,25 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
         )
     try:
         claimed = consume_confirmation_draft(confirm_token)
-    except Exception:
-        claimed = None
+    except ConfirmationDraftConsumeError as exc:
+        logger.error(
+            "confirm replay token consume unavailable: failure_kind=%s exc_type=%s",
+            exc.failure_kind,
+            type(exc).__name__,
+        )
+        return Response(
+            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except Exception as exc:
+        logger.error(
+            "confirm replay token consume unexpected failure: exc_type=%s",
+            type(exc).__name__,
+        )
+        return Response(
+            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
     if claimed is None:
         return Response({"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT)
     draft_entry = claimed

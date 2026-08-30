@@ -197,6 +197,67 @@ class TestReplayFailure:
         data = response.json()
         assert data["code"] == "confirmation_user_mismatch"
 
+    def test_consume_backend_failure_returns_503_and_does_not_execute_tool(self, api_client, mock_user):
+        token = "test-token-backend-failure"
+        draft = {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {},
+        }
+        api_client.force_authenticate(user=mock_user)
+        tool = _MockReplayTool()
+        with (
+            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch(
+                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                side_effect=RuntimeError("cache unavailable"),
+            ),
+            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool", return_value=tool),
+            patch.object(tool, "execute") as execute,
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 503
+        assert response.json() == {
+            "detail": "确认服务暂不可用，请稍后重试",
+            "code": "confirmation_service_unavailable",
+        }
+        execute.assert_not_called()
+
+    def test_repeated_consumption_returns_409_and_does_not_execute_tool(self, api_client, mock_user):
+        token = "test-token-repeated"
+        draft = {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {},
+        }
+        api_client.force_authenticate(user=mock_user)
+        tool = _MockReplayTool()
+        with (
+            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch(
+                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                return_value=None,
+            ),
+            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool", return_value=tool),
+            patch.object(tool, "execute") as execute,
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "confirmation_already_used"
+        execute.assert_not_called()
+
     def test_tool_not_registered_returns_500(self, api_client, mock_user):
         """draft 中的 tool_name 未注册 → 500"""
         token = "test-token-unregistered"
