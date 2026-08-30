@@ -99,8 +99,9 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
     }
     if (stopped) return;
     if (response.ok === false) { onError?.(new Error(response.status === 401 ? '认证已过期，请重新登录' : '任务进度流连接失败')); return; }
-    if (!response.body || typeof response.body.getReader !== 'function') { pollTimeline(); return; }
+    if (!response.body || typeof response.body.getReader !== 'function' || (typeof ReadableStream === 'function' && !(response.body instanceof ReadableStream))) { pollTimeline(); return; }
     const reader = response.body.getReader();
+    if (typeof TextDecoder !== 'function') { pollTimeline(); return; }
     const decoder = new TextDecoder();
     let buffer = '';
     let finished = false;
@@ -114,7 +115,7 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
           const line = part.trim().split('\n').find((item) => item.startsWith('data:'));
           if (!line) return;
           let event;
-          try { event = JSON.parse(line.slice(5).trim()); } catch (error) { return; }
+          try { event = JSON.parse(line.slice(5).trim()); } catch (error) { finished = true; stop(); onError?.(new Error('任务进度数据格式错误')); return; }
           if (event.type === 'done') {
             if (event.sequence != null) sequence = normaliseSequence(event.sequence, sequence);
             finished = true; onDone?.({ ...event, sequence }, sequence); return;

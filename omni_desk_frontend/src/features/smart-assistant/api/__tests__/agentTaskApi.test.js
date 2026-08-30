@@ -265,9 +265,9 @@ describe('subscribeTaskStream SSE 订阅', () => {
 
     subscribeTaskStream('t-1', callbacks);
 
-    await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
-    expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
-    expect(callbacks.onError).not.toHaveBeenCalled();
+    await waitFor(() => expect(callbacks.onError).toHaveBeenCalledWith(expect.objectContaining({ message: '任务进度数据格式错误' })));
+    expect(callbacks.onEvent).toHaveBeenCalledTimes(0);
+    expect(callbacks.onDone).not.toHaveBeenCalled();
   });
 
   it('abort 断开连接后不触发 onError', async () => {

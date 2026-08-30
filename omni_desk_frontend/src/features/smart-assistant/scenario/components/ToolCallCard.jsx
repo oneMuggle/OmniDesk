@@ -1,4 +1,5 @@
 // 工具调用卡片：展示 tool_call + tool_result
+import { createElement } from 'react';
 import { Avatar, Card, Empty, Tag, Typography, theme } from 'antd';
 import {
   ApiOutlined,
@@ -38,15 +39,15 @@ export default function ToolCallCard({ agent, tool, input, output }) {
   return (
     <div className="tool-call-card" data-tool={tool}>
       <div className="tool-call-rail">
-        <Avatar size={32} style={{ backgroundColor: color }} icon={<AgentIcon />} />
+        <Avatar size={32} style={{ backgroundColor: color }} icon={createElement(AgentIcon)} />
         <div className="tool-call-rail-line" />
-        <Avatar size={28} style={{ backgroundColor: token.colorPrimary }} icon={<ToolIcon />} />
+        <Avatar size={28} style={{ backgroundColor: token.colorPrimary }} icon={createElement(ToolIcon)} />
       </div>
       <div className="tool-call-body">
         <div className="tool-call-header">
           <Tag color={color} bordered={false}>{agentMeta?.name || agent}</Tag>
           <ApiOutlined style={{ margin: '0 8px', color: token.colorTextTertiary }} />
-          <Tag icon={<ToolIcon />} bordered={false} color="processing">{toolMeta?.name || tool}</Tag>
+          <Tag icon={createElement(ToolIcon)} bordered={false} color="processing">{toolMeta?.name || tool}</Tag>
         </div>
 
         <Card size="small" className="tool-call-section" title="调用参数" styles={{ body: { padding: 12 } }}>
@@ -66,50 +67,31 @@ export default function ToolCallCard({ agent, tool, input, output }) {
 }
 
 function ToolResultView({ output }) {
-  return <Text>{safeDisplay(output)}</Text>;
-}
+  if (output === null || output === undefined) {
+    return <Text type="secondary">—</Text>;
+  }
+  if (typeof output !== 'object') {
+    return <Text>{safeDisplay(output)}</Text>;
+  }
+  if (Array.isArray(output)) {
     return (
       <div className="tool-call-list">
-        {output.map((item, idx) => (
-          <Card
-            key={idx}
-            size="small"
-            style={{ marginBottom: 8 }}
-            styles={{ body: { padding: 8 } }}
-          >
-            <pre className="tool-call-json">{JSON.stringify(item, null, 2)}</pre>
+        {output.slice(0, 20).map((item, index) => (
+          <Card key={index} size="small" style={{ marginBottom: 8 }} styles={{ body: { padding: 8 } }}>
+            <Text className="tool-call-json">{safeDisplay(item)}</Text>
           </Card>
         ))}
       </div>
     );
   }
-  if (typeof output === 'object') {
-    const o = /** @type {Record<string, unknown>} */ (output);
-    const entries = Object.entries(o);
-    return (
-      <div className="tool-call-object">
-        {entries.map(([k, v]) => {
-          if (Array.isArray(v)) {
-            return (
-              <div key={k} className="tool-call-object-row">
-                <Text type="secondary" strong style={{ marginRight: 8 }}>{k}:</Text>
-                <div className="tool-call-list">
-                  {v.map((item, idx) => (
-                    <pre key={idx} className="tool-call-json small">{JSON.stringify(item, null, 2)}</pre>
-                  ))}
-                </div>
-              </div>
-            );
-          }
-          return (
-            <div key={k} className="tool-call-object-row">
-              <Text type="secondary" strong style={{ marginRight: 8 }}>{k}:</Text>
-              <span>{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
-            </div>
-          );
-        })}
-      </div>
-    );
-  }
-  return <Text>{String(output)}</Text>;
+  return (
+    <div className="tool-call-object">
+      {Object.keys(output).filter((key) => !SENSITIVE_KEYS.test(key)).slice(0, 20).map((key) => (
+        <div key={key} className="tool-call-object-row">
+          <Text type="secondary" strong style={{ marginRight: 8 }}>{key}:</Text>
+          <span>{safeDisplay(output[key])}</span>
+        </div>
+      ))}
+    </div>
+  );
 }
