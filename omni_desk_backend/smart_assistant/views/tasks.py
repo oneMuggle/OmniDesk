@@ -181,8 +181,12 @@ class AgentEventSerializer(serializers.ModelSerializer):
 
 
 class AgentTaskSerializer(serializers.ModelSerializer):
+    objective = serializers.SerializerMethodField()
     subtasks = AgentSubTaskSerializer(many=True, read_only=True)
     final_output = serializers.SerializerMethodField()
+
+    def get_objective(self, obj):
+        return _sanitize_text(obj.objective or "")
 
     def get_final_output(self, obj):
         return _safe_public_value(obj.final_output)
@@ -390,7 +394,11 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 "error": "确认操作执行失败", "phase": "confirm", "operation": tool_name,
             })
             return Response({"found": False, "message": "确认操作执行失败，请稍后重试"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        return Response(result)
+        event_bus.emit("user.intervention", {
+            "task_id": str(task_id), "status": "confirmed", "operation_id": operation_id,
+            "operation": tool_name, "phase": "confirm",
+        })
+        return Response({**result, "status": "confirmed", "task_id": str(task_id)})
 
     @action(detail=True, methods=["POST"])
     def intervene(self, request, pk=None):
@@ -529,8 +537,20 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
         return Response(
             {
-                "task": {"task_id": str(task.task_id), "status": task.status, "objective": task.objective},
-                "subtasks": [{"subtask_id": subtask.subtask_id, "status": subtask.status, "role": subtask.role} for subtask in subtasks],
+                "task": {
+                    "task_id": str(task.task_id),
+                    "status": task.status,
+                    "objective": _sanitize_text(task.objective or ""),
+                },
+                "subtasks": [
+                    {
+                        "subtask_id": subtask.subtask_id,
+                        "status": subtask.status,
+                        "role": subtask.role,
+                        "objective": _sanitize_text(subtask.objective or ""),
+                    }
+                    for subtask in subtasks
+                ],
                 "timeline": timeline,
             }
         )

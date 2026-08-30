@@ -134,6 +134,15 @@ describe('mapAgentEvent', () => {
     expect(missing.sequence).toBeNull();
   });
 
+  test('仅接受非负整数 number 或十进制整数串 sequence', () => {
+    [null, '', ' ', true, -1, 1.5, '1.5', ' 1', '1 '].forEach((value) => {
+      const mapped = mapAgentEvent({ type: 'subtask.progress', sequence: value });
+      expect(mapped.sequence).toBeNull();
+      expect(mapped.id).toMatch(/^evt-invalid-/);
+    });
+    expect(mapAgentEvent({ type: 'subtask.progress', sequence: '0012' })).toMatchObject({ sequence: 12, id: 'evt-12' });
+  });
+
   test('畸形 payload 不抛异常并使用安全默认值', () => {
     expect(mapAgentEvent({ type: 'subtask.progress', sequence: 12, payload: null })).toEqual({
       id: 'evt-12',

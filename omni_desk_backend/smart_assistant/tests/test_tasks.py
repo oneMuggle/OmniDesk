@@ -67,7 +67,7 @@ class TestAgentTaskResultNotification(TestCase):
         with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=__import__("smart_assistant.tools.notify_tool", fromlist=["NotifyTool"]).NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
             response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data["found"] is False)
+        self.assertEqual(response.data["status"], "confirmed")
         self.assertEqual(response.data["result"]["failed_count"], 1)
 
     def test_confirm_replay_rejects_running_and_completed_tasks(self):
@@ -102,6 +102,59 @@ class TestAgentTaskResultNotification(TestCase):
         self.assertEqual(summary["execution_mode"], "pipeline")
         self.assertEqual(summary["subtasks"][0]["id"], "s1")
 
+    def test_confirm_response_contract_keeps_task_paused_and_records_intervention(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.models import AgentEvent
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-contract-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-contract"}},
+        })
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token, "operation_id": "op-contract"}, format="json")
+        force_authenticate(request, user=self.user)
+        with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
+            response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "confirmed")
+        self.task.refresh_from_db()
+        self.assertEqual(self.task.status, "paused")
+        event = AgentEvent.objects.get(task=self.task, event_type="user.intervention")
+        self.assertEqual(event.payload["operation_id"], "op-contract")
+        self.assertEqual(event.payload["status"], "confirmed")
+
+    def test_notify_audit_persists_no_title_content_or_sensitive_text(self):
+        from smart_assistant.models import AgentEvent
+        from smart_assistant.tools.notify_tool import NotifyTool
+        from smart_assistant.tools.tool_context import ToolContext
+        from smart_assistant.agents.dataclasses import PersistentEventBus
+
+        bus = PersistentEventBus(agent_task_id=str(self.task.task_id))
+        tool = NotifyTool(resolver=lambda _name, _actor: [self.user])
+        result = tool.execute(context=ToolContext(
+            user=self.user,
+            confirmed=True,
+            event_bus=bus,
+            task_id=self.task.task_id,
+            draft={"fields": {
+                "recipient_ids": [self.user.id], "recipient_names": ["安全用户"],
+                "title": "secret@example.com", "content": "phone 13800138000 prompt 原文",
+                "scope": "self", "operation_id": "op-audit",
+            }, "_resolved_users": [self.user]},
+        ))
+        event = AgentEvent.objects.get(task=self.task, event_type="subtask.tool_result")
+        self.assertEqual(result["result"]["operation_id"], "op-audit")
+        self.assertNotIn("title", event.payload)
+        self.assertNotIn("content", event.payload)
+        self.assertNotIn("secret@example.com", str(event.payload))
+        self.assertNotIn("13800138000", str(event.payload))
+        self.assertNotIn("prompt 原文", str(event.payload))
+
     def test_confirm_notify_without_channel_returns_safe_failure(self):
         from rest_framework.test import APIRequestFactory, force_authenticate
         from smart_assistant.cache import set_confirmation_draft
@@ -120,7 +173,7 @@ class TestAgentTaskResultNotification(TestCase):
         with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
             response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
         self.assertEqual(response.status_code, 200)
-        self.assertFalse(response.data["found"])
+        self.assertEqual(response.data["status"], "confirmed")
         self.assertEqual(response.data["result"]["failed_count"], 1)
 
     def test_calculate_time_limits_uses_task_budget_and_packet_shape(self):
