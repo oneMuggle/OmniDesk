@@ -50,6 +50,100 @@ class TestAgentTaskResultNotification(TestCase):
         self.assertIn("取消", notifications.get().content)
 
 
+    def test_confirm_replay_rate_limit_rejects_without_consuming_token(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import get_confirmation_draft, set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, Reject, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-rate-limit-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"operation_id": "op-rate"}},
+        })
+        registry = get_registry()
+        class RateReject(ToolHookBase):
+            name = "rate_limit"
+            async def pre_execute(self, tool, ctx, params):
+                return Reject("too many", error_code="rate_limit_exceeded", retry_after=9)
+        registry.register(HookEvent.PRE_EXECUTE, RateReject(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool()):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+        self.assertEqual(response.status_code, 429)
+        self.assertEqual(response.data["error_code"], "rate_limit_exceeded")
+        self.assertIsNotNone(get_confirmation_draft(token))
+
+    def test_confirm_replay_permission_rejection_keeps_token(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import get_confirmation_draft, set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, Reject, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-permission-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"operation_id": "op-permission"}},
+        })
+        registry = get_registry()
+
+        class PermissionReject(ToolHookBase):
+            name = "permission"
+
+            async def pre_execute(self, tool, ctx, params):
+                return Reject("forbidden", error_code="permission_denied")
+
+        registry.register(HookEvent.PRE_EXECUTE, PermissionReject(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool()):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+        self.assertEqual(response.status_code, 403)
+        self.assertEqual(response.data["error_code"], "permission_denied")
+        self.assertIsNotNone(get_confirmation_draft(token))
+
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import get_confirmation_draft, set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, Reject, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+        token = "task-confirm-pre-hook-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"operation_id": "op-pre"}},
+        })
+        registry = get_registry()
+        calls = []
+        class AuditPreHook(ToolHookBase):
+            name = "audit_pre"
+            async def pre_execute(self, tool, ctx, params):
+                calls.append(getattr(ctx, "confirmed", False))
+                return params
+        registry.register(HookEvent.PRE_EXECUTE, AuditPreHook(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(calls, [False])
+        self.assertIsNone(get_confirmation_draft(token))
+        self.assertTrue(response.data["status"] == "confirmed")
+
     def test_confirm_notify_replay_uses_confirmed_tool_context_and_persists_event(self):
         from rest_framework.test import APIRequestFactory, force_authenticate
         from smart_assistant.cache import set_confirmation_draft

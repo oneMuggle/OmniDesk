@@ -6,12 +6,13 @@ jest.mock('../api/agentTaskApi', () => ({
   subscribeTaskStream: jest.fn(),
   interveneAgentTask: jest.fn().mockResolvedValue({ data: { status: 'paused' } }),
 }));
-jest.mock('../scenario/utils/mapAgentEvent', () => jest.fn((event) => ({ ...event, type: 'thinking' })));
 
 describe('useAgentTaskStream', () => {
   afterEach(() => {
     jest.useRealTimers();
-    jest.clearAllMocks();
+    jest.resetAllMocks();
+    const { interveneAgentTask } = require('../api/agentTaskApi');
+    interveneAgentTask.mockResolvedValue({ data: { status: 'paused' } });
   });
 
   it('订阅真实 taskId 并从 lastSeq 继续，按 sequence 去重事件', () => {
@@ -23,9 +24,31 @@ describe('useAgentTaskStream', () => {
     const { result } = renderHook(() => useAgentTaskStream('task-9', { lastSeq: 2 }));
 
     expect(subscribeTaskStream).toHaveBeenCalledWith('task-9', expect.any(Object), { lastSeq: 2 });
-    expect(result.current.events).toEqual([{ type: 'thinking', sequence: 3 }]);
+    expect(result.current.events).toEqual([expect.objectContaining({ type: 'thinking', sequence: 3 })]);
     expect(result.current.lastSeq).toBe(3);
     expect(result.current.status).toBe('completed');
+  });
+
+  it('非法 sequence 不推进游标且仍生成稳定 invalid id', () => {
+    const { result } = renderHook(() => useAgentTaskStream('task-invalid-sequence'));
+    const invalidSequences = [true, null, '   ', '1.2', -1];
+    invalidSequences.forEach((sequence) => {
+      act(() => result.current.onEvent({ type: 'progress', sequence, payload: { content: String(sequence) } }));
+    });
+    expect(result.current.lastSeq).toBe(0);
+    expect(result.current.events).toHaveLength(invalidSequences.length);
+    expect(result.current.events.every((event) => event.sequence === null)).toBe(true);
+    expect(new Set(result.current.events.map((event) => event.id)).size).toBe(invalidSequences.length);
+  });
+
+  it('正常非负整数 sequence 与严格十进制字符串推进游标并去重', () => {
+    const { result } = renderHook(() => useAgentTaskStream('task-valid-sequence'));
+    act(() => result.current.onEvent({ type: 'progress', sequence: '2' }));
+    act(() => result.current.onEvent({ type: 'progress', sequence: 2 }));
+    act(() => result.current.onEvent({ type: 'progress', sequence: 3 }));
+    expect(result.current.lastSeq).toBe(3);
+    expect(result.current.events).toHaveLength(2);
+    expect(result.current.events.map((event) => event.sequence)).toEqual([2, 3]);
   });
 
   it('synthetic done 不推进 lastSeq，后续真实 sequence 仍可继续派发', () => {

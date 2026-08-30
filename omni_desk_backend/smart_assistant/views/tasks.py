@@ -25,7 +25,8 @@ from ..agents.supervisor import Supervisor
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from ..agents.dataclasses import PersistentEventBus
-from ..hooks.wiring import apply_failure_hooks, apply_post_execute_hooks, execute_guarded
+from ..hooks.base import Reject
+from ..hooks.wiring import apply_failure_hooks, apply_post_execute_hooks, apply_pre_execute_hooks, execute_guarded
 from ..tools.tool_context import ToolContext
 from ..scope import resolve_scope
 from llm_service.router import get_router
@@ -354,6 +355,35 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 requested_operation_id = request.data.get("operation_id")
                 if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
                     return Response({"error": "确认操作不匹配"}, status=status.HTTP_403_FORBIDDEN)
+                task_id = task.task_id
+                tool_name = entry.get("tool_name")
+                user_query = entry.get("user_query", "")
+                event_bus = PersistentEventBus(agent_task_id=str(task_id))
+                pre_context = ToolContext(
+                    user=request.user,
+                    scope=resolve_scope(request.user),
+                    task_id=task_id,
+                    event_bus=event_bus,
+                    draft=draft,
+                )
+                pre_result = apply_pre_execute_hooks(
+                    tool,
+                    pre_context,
+                    fields if isinstance(fields, dict) else {},
+                    excluded_hook_names={"confirmation"},
+                )
+                if isinstance(pre_result, Reject):
+                    error_code = pre_result.error_code or "confirmation_rejected"
+                    event_bus.emit("hook.rejected", {
+                        "task_id": str(task_id), "operation_id": operation_id,
+                        "operation": tool_name, "phase": "confirm",
+                        "error_code": error_code,
+                    })
+                    response_data = {"error": "确认操作未通过，请稍后重试", "error_code": error_code}
+                    if pre_result.retry_after is not None:
+                        response_data["retry_after"] = pre_result.retry_after
+                    reject_status = status.HTTP_429_TOO_MANY_REQUESTS if error_code == "rate_limit_exceeded" else status.HTTP_403_FORBIDDEN
+                    return Response(response_data, status=reject_status)
                 try:
                     claimed = consume_confirmation_draft(token)
                 except ConfirmationDraftConsumeError:
@@ -367,9 +397,6 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 if isinstance(recipient_ids, list):
                     from django.contrib.auth import get_user_model
                     resolved_users = list(get_user_model().objects.filter(id__in=recipient_ids))
-                task_id = task.task_id
-                tool_name = entry.get("tool_name")
-                user_query = claimed.get("user_query", "")
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 

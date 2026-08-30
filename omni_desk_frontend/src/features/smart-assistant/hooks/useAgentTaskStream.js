@@ -51,12 +51,19 @@ export default function useAgentTaskStream(taskId, options = {}) {
   }, []);
 
   const handleEvent = useCallback((event) => {
-    if (event.sequence != null && event.sequence <= lastSeqRef.current) return;
-    if (event.sequence != null) {
-      lastSeqRef.current = event.sequence;
-      setLastSeq(event.sequence);
+    const rawSequence = event?.sequence;
+    const sequence = typeof rawSequence === 'number'
+      ? Number.isSafeInteger(rawSequence) && rawSequence >= 0 ? rawSequence : null
+      : typeof rawSequence === 'string' && /^\d+$/.test(rawSequence)
+        ? Number(rawSequence)
+        : null;
+    const hasValidSequence = sequence !== null && Number.isSafeInteger(sequence);
+    if (hasValidSequence && sequence <= lastSeqRef.current) return;
+    if (hasValidSequence) {
+      lastSeqRef.current = sequence;
+      setLastSeq(sequence);
     }
-    const mappedEvent = mapAgentEvent(event);
+    const mappedEvent = mapAgentEvent({ ...event, sequence: hasValidSequence ? sequence : null });
     setEvents((previous) => [...previous, mappedEvent]);
     const eventStatus = event.payload?.status || event.status;
     const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[eventStatus] || TERMINAL_TYPES[mappedEvent.type];

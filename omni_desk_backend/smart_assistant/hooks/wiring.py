@@ -180,7 +180,7 @@ def apply_failure_hooks(tool: Any, error: Exception, ctx: Any) -> RecoveryAction
     return default  # 防御:钩子链返回值类型异常时降级为 ignore
 
 
-def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict) -> dict | Reject:
+def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict, excluded_hook_names: set[str] | None = None) -> dict | Reject:
     """同步执行全局 PRE_EXECUTE 钩子链。
 
     典型用途:``require_confirmation=True`` 的工具在执行前通过钩子返回
@@ -205,7 +205,7 @@ def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict) -> dict | Reject:
     if not registry.list_hooks(HookEvent.PRE_EXECUTE):
         return params  # 快速路径:无 pre 钩子(如注册表被测试重置)
     result = _run_coroutine_sync(
-        lambda: registry.run_pre_hooks(tool, ctx, params),
+        lambda: registry.run_pre_hooks(tool, ctx, params, excluded_hook_names=excluded_hook_names),
         "PRE_EXECUTE 钩子链",
         params,  # 异常时降级为原样透传,工具继续执行
     )
