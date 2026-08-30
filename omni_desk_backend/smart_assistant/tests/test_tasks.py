@@ -519,6 +519,34 @@ class TestAgentTaskResultNotification(TransactionTestCase):
         self.assertNotIn("content", event.payload)
 
 
+    def test_notify_dry_run_summary_is_short_and_excludes_body_and_secret_title(self):
+        from smart_assistant.tools.notify_tool import NotifyTool
+        from smart_assistant.tools.tool_context import ToolContext
+
+        tool = NotifyTool(resolver=lambda _name, _actor: [self.user])
+        result = tool.execute(
+            params={
+                "recipients": [self.user.username],
+                "title": "api_key=secret@example.com 标题",
+                "content": "正文中的 credential=super-secret 不应进入摘要",
+                "scope": "self",
+            },
+            context={"user": self.user, "dry_run": True},
+        )
+        summary = result["draft"]["summary"]
+        assert "agent_notify" in summary
+        assert "收件人数：1" in summary
+        assert "正文中的" not in summary
+        assert "super-secret" not in summary
+        assert "secret@example.com" not in summary
+        assert len(summary) < 180
+        # server-side draft 保留 confirmed replay 所需字段；API 只暴露安全摘要。
+        assert result["draft"]["fields"]["content"].startswith("正文中的")
+        from smart_assistant.views.tasks import _safe_replay_draft
+        public_draft = _safe_replay_draft(result["draft"], {"operation_id": result["draft"]["fields"]["operation_id"]})
+        assert "content" not in public_draft["fields"]
+        assert "super-secret" not in str(public_draft)
+
     def test_confirm_notify_without_channel_returns_safe_failure(self):
         from rest_framework.test import APIRequestFactory, force_authenticate
         from smart_assistant.cache import set_confirmation_draft

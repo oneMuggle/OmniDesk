@@ -354,17 +354,19 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
         backend = cache._connections["default"]
         module = backend.__class__.__module__
         if module.startswith("django_redis"):
+            client = backend.get_client(write=True)
+            redis_key = backend.make_key(key)
             lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
+            # 只在读取/最终 CAS 的短临界区持锁；validator 不得占用固定锁超时。
             with lock:
-                client = backend.get_client(write=True)
-                redis_key = backend.make_key(key)
                 raw_value = client.get(redis_key)
-                if raw_value is None:
-                    return None
-                original = backend.decode(raw_value)
-                prepared = prepare(original)
-                if prepared is None:
-                    return None
+            if raw_value is None:
+                return None
+            original = backend.decode(raw_value)
+            prepared = prepare(original)
+            if prepared is None:
+                return None
+            with lock:
                 result = client.eval(
                     "local current = redis.call('GET', KEYS[1]); "
                     "if current == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
@@ -372,16 +374,17 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
                     redis_key,
                     raw_value,
                 )
-                if result != 1:
-                    return None
-                return prepared
+            if result != 1:
+                return None
+            return prepared
         if module.startswith("django.core.cache.backends.locmem"):
             with _inflight_global:
                 original = cache.get(key)
-                prepared = prepare(original)
-                if prepared is None:
-                    return None
-                # 必须在同一锁内重新读取实际值；validator 期间替换 token 时 fail closed。
+            prepared = prepare(original)
+            if prepared is None:
+                return None
+            # validator 在锁外执行；锁内重新读取实际值，替换 token 时 fail closed。
+            with _inflight_global:
                 if cache.get(key) != original:
                     return None
                 delete_result = cache.delete(key)
