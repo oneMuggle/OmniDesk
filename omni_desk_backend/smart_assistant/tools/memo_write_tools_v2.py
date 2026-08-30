@@ -18,12 +18,14 @@ memo_id 缺失时才允许标题重定位,且要求恰 1 个候选。
 from __future__ import annotations
 
 from django.db import transaction
+from django.utils import timezone
 
 from .base import BaseTool
 from .memo_write_tools import _parse_reminder_time
 from ..extractors.memo_update_extractor import UpdateParams, extract_update_params
 from ..extractors.memo_delete_extractor import extract_delete_params
 from memos.models import Memo
+from smart_assistant.models import AgentWriteLog
 
 from observability import get_logger
 
@@ -75,7 +77,7 @@ class MemoUpdateTool(BaseTool):
         }
 
     def execute(self, query=None, context=None, **kwargs) -> dict:
-        ctx = context if isinstance(context, dict) else {}
+        ctx = context if isinstance(context, dict) else (vars(context) if context is not None else {})
 
         if ctx.get("dry_run"):
             return self._dry_run(query, ctx, context)
@@ -175,6 +177,7 @@ class MemoUpdateTool(BaseTool):
 
         try:
             with transaction.atomic():
+                old_title, old_content, old_reminder = memo.title, memo.content, memo.reminder_time
                 if params.new_title is not None:
                     memo.title = params.new_title[:200]
                 if params.new_content is not None:
@@ -185,6 +188,11 @@ class MemoUpdateTool(BaseTool):
                         return {"found": False, "message": f"无法解析提醒时间 '{params.new_reminder_time}'"}
                     memo.reminder_time = parsed
                 memo.save(update_fields=["title", "content", "reminder_time", "updated_at"])
+                AgentWriteLog.objects.create(
+                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
+                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": False}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted},
+                )
         except Exception as e:
             logger.warning(
                 "memo_update.persist_failed",
@@ -266,7 +274,7 @@ class MemoDeleteTool(BaseTool):
         }
 
     def execute(self, query=None, context=None, **kwargs) -> dict:
-        ctx = context if isinstance(context, dict) else {}
+        ctx = context if isinstance(context, dict) else (vars(context) if context is not None else {})
 
         if ctx.get("dry_run"):
             return self._dry_run(query, ctx, context)
@@ -346,7 +354,15 @@ class MemoDeleteTool(BaseTool):
 
         try:
             with transaction.atomic():
-                memo.delete()
+                before = {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted}
+                memo.is_deleted = True
+                memo.deleted_at = timezone.now()
+                memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+                AgentWriteLog.objects.create(
+                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo", target_pk=str(memo.pk),
+                    operation="delete", before=before, after={**before, "is_deleted": True},
+                )
         except Exception as e:
             logger.warning(
                 "memo_delete.persist_failed",

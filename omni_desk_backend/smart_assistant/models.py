@@ -164,6 +164,28 @@ class LlmAppConfig(models.Model):
         return f"{self.get_app_name_display()} - {self.model_name}"
 
 
+class AgentWriteLog(models.Model):
+    """智能助手确认写操作的可回滚审计记录。"""
+
+    task = models.ForeignKey("AgentTask", null=True, blank=True, on_delete=models.SET_NULL, related_name="write_logs")
+    session_id = models.CharField(max_length=255, null=True, blank=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_write_logs")
+    tool_name = models.CharField(max_length=100)
+    target_model = models.CharField(max_length=255)
+    target_pk = models.CharField(max_length=64)
+    operation = models.CharField(max_length=20, choices=[("create", "create"), ("update", "update"), ("delete", "delete"), ("revert", "revert")])
+    before = models.JSONField(null=True, blank=True)
+    after = models.JSONField(null=True, blank=True)
+    revert_of = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="revert_logs")
+    reverted_at = models.DateTimeField(null=True, blank=True)
+    reverted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="performed_write_reverts")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["user", "-created_at"]), models.Index(fields=["target_model", "target_pk"])]
+
+
 class AgentLog(models.Model):
     """Agent 执行日志（用于调试和审计）"""
 

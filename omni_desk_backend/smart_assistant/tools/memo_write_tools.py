@@ -29,6 +29,7 @@ from django.db import transaction
 from .base import BaseTool
 from ..extractors.memo_extractor import CreateParams, extract_create_params
 from memos.models import Memo
+from smart_assistant.models import AgentWriteLog
 
 from observability import get_logger
 
@@ -114,7 +115,7 @@ class MemoCreateTool(BaseTool):
         - confirmed:真正落库
         - 兜底:防御性兜底(测试显式覆盖),正常流程被 orchestrator 拦截
         """
-        ctx = context if isinstance(context, dict) else {}
+        ctx = context if isinstance(context, dict) else (vars(context) if context is not None else {})
 
         if ctx.get("dry_run"):
             return self._dry_run(query, ctx, context)
@@ -196,6 +197,12 @@ class MemoCreateTool(BaseTool):
                     title=params.title,
                     content=params.content,
                     reminder_time=reminder_time,
+                )
+                AgentWriteLog.objects.create(
+                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
+                    target_pk=str(memo.pk), operation="create", before=None,
+                    after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": False},
                 )
         except Exception as e:
             logger.warning(

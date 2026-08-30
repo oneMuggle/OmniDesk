@@ -26,6 +26,10 @@ class ToolContext:
     history: list[dict] = field(default_factory=list)
     scope: SmartAssistantScope = SmartAssistantScope.SELF
     attachment: dict | None = None
+    session_id: Any = None
+    task_id: Any = None
+    model_name: str | None = None
+    tool_name: str | None = None
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:
