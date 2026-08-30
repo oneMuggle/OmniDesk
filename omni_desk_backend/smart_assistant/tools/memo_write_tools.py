@@ -198,11 +198,16 @@ class MemoCreateTool(BaseTool):
                     content=params.content,
                     reminder_time=reminder_time,
                 )
+                task = None
+                task_id = ctx.get("task_id")
+                if task_id:
+                    from smart_assistant.models import AgentTask
+                    task = AgentTask.objects.filter(task_id=task_id).first()
                 AgentWriteLog.objects.create(
-                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
                     target_pk=str(memo.pk), operation="create", before=None,
-                    after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": False},
+                    after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": False, "deleted_at": None},
                 )
         except Exception as e:
             logger.warning(

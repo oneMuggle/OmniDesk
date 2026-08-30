@@ -188,10 +188,15 @@ class MemoUpdateTool(BaseTool):
                         return {"found": False, "message": f"无法解析提醒时间 '{params.new_reminder_time}'"}
                     memo.reminder_time = parsed
                 memo.save(update_fields=["title", "content", "reminder_time", "updated_at"])
+                task = None
+                task_id = ctx.get("task_id")
+                if task_id:
+                    from smart_assistant.models import AgentTask
+                    task = AgentTask.objects.filter(task_id=task_id).first()
                 AgentWriteLog.objects.create(
-                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
-                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": False}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted},
+                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": False, "deleted_at": None}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
                 )
         except Exception as e:
             logger.warning(
@@ -354,14 +359,19 @@ class MemoDeleteTool(BaseTool):
 
         try:
             with transaction.atomic():
-                before = {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted}
+                before = {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None}
                 memo.is_deleted = True
                 memo.deleted_at = timezone.now()
                 memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+                task = None
+                task_id = ctx.get("task_id")
+                if task_id:
+                    from smart_assistant.models import AgentTask
+                    task = AgentTask.objects.filter(task_id=task_id).first()
                 AgentWriteLog.objects.create(
-                    task_id=ctx.get("task_id"), session_id=ctx.get("session_id"), user=user,
+                    task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo", target_pk=str(memo.pk),
-                    operation="delete", before=before, after={**before, "is_deleted": True},
+                    operation="delete", before=before, after={**before, "is_deleted": True, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
                 )
         except Exception as e:
             logger.warning(

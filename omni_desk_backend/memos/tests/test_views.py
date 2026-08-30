@@ -71,6 +71,7 @@ class TestMemoViewSet:
         response = client_a.delete(f'/api/memos/{memo.id}/')
         assert response.status_code == status.HTTP_204_NO_CONTENT
         assert not Memo.objects.filter(id=memo.id).exists()
+        assert Memo.all_objects.filter(id=memo.id, is_deleted=True).exists()
 
     def test_unauthenticated_cannot_access(self, api_client):
         response = api_client.get('/api/memos/')

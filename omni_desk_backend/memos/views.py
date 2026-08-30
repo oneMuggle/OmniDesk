@@ -1,3 +1,4 @@
+from django.utils import timezone
 from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 
@@ -33,3 +34,8 @@ class MemoViewSet(viewsets.ModelViewSet):
         创建新备忘录时，将用户设置为当前登录用户。
         """
         serializer.save(user=self.request.user)
+
+    def perform_destroy(self, instance):
+        instance.is_deleted = True
+        instance.deleted_at = timezone.now()
+        instance.save(update_fields=["is_deleted", "deleted_at", "updated_at"])

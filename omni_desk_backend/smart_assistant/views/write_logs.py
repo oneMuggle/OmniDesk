@@ -39,12 +39,20 @@ class AgentWriteLogViewSet(viewsets.ReadOnlyModelViewSet):
             if memo is None:
                 return Response({"detail": "目标备忘录不存在。"}, status=status.HTTP_404_NOT_FOUND)
             current = _memo_snapshot(memo)
-            expected = log.after or {}
-            if any(current.get(key) != value for key, value in expected.items()):
-                return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=409)
-            before = current
-            _apply_memo_snapshot(memo, log.before or {})
-            memo.save(update_fields=["title", "content", "reminder_time", "is_deleted", "deleted_at", "updated_at"])
+            if log.operation == "create":
+                if current != (log.after or {}):
+                    return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=409)
+                before = current
+                memo.is_deleted = True
+                memo.deleted_at = timezone.now()
+                memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+            else:
+                expected = log.after or {}
+                if any(current.get(key) != value for key, value in expected.items()):
+                    return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=409)
+                before = current
+                _apply_memo_snapshot(memo, log.before or {})
+                memo.save(update_fields=["title", "content", "reminder_time", "is_deleted", "deleted_at", "updated_at"])
             revert = AgentWriteLog.objects.create(
                 task=log.task, session_id=log.session_id, user=request.user,
                 tool_name="write_log.revert", target_model=log.target_model, target_pk=log.target_pk,
@@ -57,14 +65,24 @@ class AgentWriteLogViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 def _memo_snapshot(memo):
-    return {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted}
+    return {
+        "title": memo.title,
+        "content": memo.content,
+        "reminder_time": str(memo.reminder_time) if memo.reminder_time else None,
+        "is_deleted": memo.is_deleted,
+        "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+    }
 
 
 def _apply_memo_snapshot(memo, snapshot):
     memo.title = snapshot.get("title", memo.title)
     memo.content = snapshot.get("content", memo.content)
     memo.is_deleted = snapshot.get("is_deleted", memo.is_deleted)
-    memo.deleted_at = timezone.now() if memo.is_deleted else None
+    deleted_at = snapshot.get("deleted_at")
+    if memo.is_deleted:
+        memo.deleted_at = timezone.datetime.fromisoformat(deleted_at) if deleted_at else timezone.now()
+    else:
+        memo.deleted_at = None
     if snapshot.get("reminder_time"):
         from smart_assistant.tools.memo_write_tools import _parse_reminder_time
         memo.reminder_time = _parse_reminder_time(snapshot["reminder_time"])

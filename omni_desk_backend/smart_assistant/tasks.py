@@ -140,6 +140,7 @@ def execute_agent_task(task_id: str):
             tool_registry=ToolRegistry,
             event_bus=event_bus,
             agent_task_id=task_id,
+            user=task.user,
         )
         result = executor.execute()
         persisted_status = "failed" if result.status == "rejected" else result.status
