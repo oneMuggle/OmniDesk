@@ -148,3 +148,49 @@ class TestNotificationServiceDedupe:
         assert n1.pk != n2.pk
         assert n1.user == regular_user_obj
         assert n2.user == admin_user_obj
+
+    def test_agent_task_dedupe_is_unique_per_user_and_type(self, regular_user_obj):
+        """终态通知的唯一键按用户和任务结果类型隔离。"""
+        first = NotificationService.create(
+            user=regular_user_obj,
+            type="agent_task_result",
+            title="完成",
+            content="第一次",
+            dedupe_key="agent_task:42",
+        )
+        second = NotificationService.create(
+            user=regular_user_obj,
+            type="agent_task_result",
+            title="完成",
+            content="第二次",
+            dedupe_key="agent_task:42",
+        )
+        assert second.pk == first.pk
+        assert Notification.objects.filter(
+            user=regular_user_obj, type="agent_task_result", dedupe_key="agent_task:42"
+        ).count() == 1
+
+    def test_agent_task_key_does_not_merge_other_notification_type(self, regular_user_obj):
+        """相同任务键不能把不同通知类型合并。"""
+        result = Notification.objects.create(
+            user=regular_user_obj,
+            type="agent_task_result",
+            title="结果",
+            content="结果内容",
+            dedupe_key="agent_task:43",
+        )
+        other = NotificationService.create(
+            user=regular_user_obj,
+            type="agent_notify",
+            title="提醒",
+            content="提醒内容",
+            dedupe_key="agent_task:43",
+        )
+        assert other.pk != result.pk
+        assert other.type == "agent_notify"
+
+    def test_empty_dedupe_key_is_not_unique(self, regular_user_obj):
+        """空键不参与数据库唯一约束。"""
+        Notification.objects.create(user=regular_user_obj, type="system", title="一", content="一")
+        Notification.objects.create(user=regular_user_obj, type="system", title="二", content="二")
+        assert Notification.objects.filter(user=regular_user_obj, dedupe_key="").count() == 2

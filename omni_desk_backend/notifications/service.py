@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from django.db import transaction
+from django.db import IntegrityError, transaction
 from django.utils import timezone
 
 from .models import Notification
@@ -29,6 +29,7 @@ class NotificationService:
                     Notification.objects.select_for_update()
                     .filter(
                         user=user,
+                        type=type,
                         dedupe_key=dedupe_key,
                         is_read=False,
                         created_at__gte=timezone.now() - NotificationService.DEDUPE_WINDOW,
@@ -41,15 +42,27 @@ class NotificationService:
                     existing.save(update_fields=["content", "updated_at"])
                     return existing
 
-            return Notification.objects.create(
-                user=user,
-                type=type,
-                title=title,
-                content=content,
-                link=link,
-                priority=priority,
-                dedupe_key=dedupe_key,
-            )
+            try:
+                with transaction.atomic():
+                    return Notification.objects.create(
+                        user=user,
+                        type=type,
+                        title=title,
+                        content=content,
+                        link=link,
+                        priority=priority,
+                        dedupe_key=dedupe_key,
+                    )
+            except IntegrityError:
+                # 另一进程可能在检查后先插入；唯一约束胜出后重新读取并合并。
+                if not dedupe_key:
+                    raise
+                existing = Notification.objects.select_for_update().get(
+                    user=user, type=type, dedupe_key=dedupe_key
+                )
+                existing.content = f"{existing.content}\n[追加] {content}"
+                existing.save(update_fields=["content", "updated_at"])
+                return existing
 
     @staticmethod
     def mark_read(notification_id, user):

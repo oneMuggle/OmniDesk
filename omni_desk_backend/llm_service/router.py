@@ -16,6 +16,10 @@ def _router_cache_key(app_name):
     return f"llm_router_configs_{app_name}"
 
 
+class _DefaultRequestTimeout(int):
+    """标记类默认值，使显式类赋值(包括 120)可与 settings 区分。"""
+
+
 class LLMRouter:
     """多端点 LLM 路由器：按优先级尝试端点，自动降级。
 
@@ -29,7 +33,7 @@ class LLMRouter:
     OLLAMA_BASE = "http://localhost:11434"
     # Ollama 兜底模型的最终回退值；运行时优先读 settings.OLLAMA_MODEL_NAME
     OLLAMA_MODEL = "qwen2.5:7b"
-    REQUEST_TIMEOUT = 120
+    REQUEST_TIMEOUT = _DefaultRequestTimeout(120)
 
     def __init__(self, app_name="smart_assistant", request_timeout=None):
         # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
@@ -37,10 +41,10 @@ class LLMRouter:
         try:
             class_timeout = type(self).__dict__.get("REQUEST_TIMEOUT")
             configured_timeout = getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)
-            # 显式构造参数优先；非默认类体 override 保留兼容性。
+            # 显式构造参数优先；类体中的普通整数(包括显式 120)保留覆盖。
             if request_timeout is not None:
                 timeout = request_timeout
-            elif class_timeout is not None and class_timeout != 120:
+            elif class_timeout is not None and not isinstance(class_timeout, _DefaultRequestTimeout):
                 timeout = class_timeout
             else:
                 timeout = configured_timeout

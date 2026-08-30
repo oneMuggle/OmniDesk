@@ -105,6 +105,35 @@ class TestAppNameIsolation:
         assert called_url == "http://localhost:11434/v1/chat/completions"
 
 
+
+
+class TestRequestTimeoutResolution:
+    """请求超时配置不得通过实例化或 monkeypatch 污染全局状态。"""
+
+    def test_base_default_uses_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+        assert LLMRouter().REQUEST_TIMEOUT == 37
+
+    def test_explicit_base_class_timeout_wins_over_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+        with patch.object(LLMRouter, "REQUEST_TIMEOUT", 120):
+            assert LLMRouter().REQUEST_TIMEOUT == 120
+
+    def test_subclass_override_wins_over_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+
+        class CustomRouter(LLMRouter):
+            REQUEST_TIMEOUT = 88
+
+        assert CustomRouter().REQUEST_TIMEOUT == 88
+
+    def test_monkeypatch_restore_does_not_pollute_following_instances(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 41
+        with patch.object(LLMRouter, "REQUEST_TIMEOUT", 9):
+            assert LLMRouter().REQUEST_TIMEOUT == 9
+        assert LLMRouter().REQUEST_TIMEOUT == 41
+
+
 class TestGetRouterSingleton:
     """get_router 按 app_name 缓存独立单例。"""
 

@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from users.models import CustomUser
 
 
@@ -66,6 +67,13 @@ class Notification(models.Model):
         indexes = [
             models.Index(fields=["user", "is_read", "-created_at"], name="notif_user_read_idx"),
             models.Index(fields=["dedupe_key", "created_at"], name="notif_dedupe_idx"),
+        ]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "type", "dedupe_key"],
+                condition=Q(type="agent_task_result") & ~Q(dedupe_key=""),
+                name="notif_agent_task_dedupe_uniq",
+            ),
         ]
 
     def __str__(self):
