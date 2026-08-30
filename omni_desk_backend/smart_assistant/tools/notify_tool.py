@@ -182,26 +182,35 @@ class NotifyTool(BaseTool):
         from notifications.channels import resolve_channels
         operation_id = fields.get("operation_id") or ctx.get("operation_id") or str(uuid4())
         audit_recipients = []
+        sent = []
+        failed = []
         for user in users:
             audit_recipients.append({"id": user.id, "name": user.get_full_name() or user.username})
             for channel in resolve_channels(user, "agent_notify"):
-                result = channel.send(
-                    user=user,
-                    type="agent_notify",
-                    title=fields["title"],
-                    content=fields["content"],
-                    dedupe_key=f"agent_notify:{operation_id}:{user.id}",
-                )
-                if not result.success:
-                    return {"found": False, "message": result.message or "通知发送失败"}
-        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id}
+                try:
+                    result = channel.send(
+                        user=user,
+                        type="agent_notify",
+                        title=fields["title"],
+                        content=fields["content"],
+                        dedupe_key=f"agent_notify:{operation_id}:{user.id}",
+                    )
+                    if result.success:
+                        sent.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__)})
+                    else:
+                        failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
+                except Exception:
+                    failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
+        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id, "sent": sent, "failed": failed}
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
             event_bus.emit(
                 "subtask.tool_result",
                 {**audit_payload, "phase": "notify", "operation": "agent_notify"},
             )
-        return {"found": True, "result": {"sent_count": len(users)}, "summary": f"已发送 {len(users)} 条站内通知"}
+        if failed:
+            return {"found": False, "message": "部分通知发送失败", "result": {"operation_id": operation_id, "sent": sent, "failed": failed}}
+        return {"found": True, "result": {"operation_id": operation_id, "sent_count": len(users), "sent": sent, "failed": []}, "summary": f"已发送 {len(users)} 条站内通知"}
 
 
 AgentNotifyTool = NotifyTool

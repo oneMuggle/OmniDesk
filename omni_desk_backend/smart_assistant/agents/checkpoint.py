@@ -114,9 +114,10 @@ class CheckpointManager:
 
         completed_subtasks = AgentSubTask.objects.filter(task=agent_task, status="completed")
         for agent_subtask in completed_subtasks:
-            if agent_subtask.output:
+            context.completed_subtask_ids.add(str(agent_subtask.subtask_id))
+            if isinstance(agent_subtask.output, dict):
                 context.add_artifact(agent_subtask.subtask_id, agent_subtask.output)
-                context.consume_tokens(agent_subtask.tokens_used)
+            context.consume_tokens(agent_subtask.tokens_used)
         return len(completed_subtasks)
 
     @staticmethod

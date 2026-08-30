@@ -328,7 +328,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
                 task.refresh_from_db(fields=["status"])
                 if task.status in terminal_statuses:
-                    terminal_sequence = last_seq
+                    terminal_sequence = last_seq + 1
                     done_data = {
                         "type": "done",
                         "task_id": str(task.task_id),
@@ -346,8 +346,12 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 time.sleep(0.5)
 
             if timed_out:
-                timeout_sequence = last_seq
-                yield f"id: {timeout_sequence}\n{sse_event({'type': 'timeout', 'task_id': str(task.task_id), 'sequence': timeout_sequence})}"
+                timeout_sequence = last_seq + 1
+                timeout_data = {
+                    "type": "timeout", "task_id": str(task.task_id),
+                    "sequence": timeout_sequence, "status": task.status,
+                }
+                yield f"id: {timeout_sequence}\n{sse_event(timeout_data)}"
 
         response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache"

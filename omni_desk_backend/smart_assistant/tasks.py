@@ -257,16 +257,23 @@ def execute_agent_task(task_id: str):
                 else None
             )
             locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
-            event_type = "task.completed" if persisted_status in {"completed", "partial"} else "task.failed"
-            event_bus.emit(
-                event_type,
-                {
-                    "task_id": str(locked_task.task_id),
-                    "status": persisted_status,
-                    "total_tokens": result.total_tokens_used,
-                    "final_output": locked_task.final_output,
-                },
+            event_type = (
+                "task.completed" if persisted_status == "completed"
+                else "task.partial" if persisted_status == "partial"
+                else "task.failed"
             )
+            event_payload = {
+                "task_id": str(locked_task.task_id),
+                "status": persisted_status,
+                "total_tokens": result.total_tokens_used,
+                "final_output": locked_task.final_output,
+                "dropped_events": event_bus.persistence_failure_count,
+            }
+            if persisted_status in {"failed", "partial"}:
+                event_payload["error" if persisted_status == "failed" else "reason"] = (
+                    result.error_message or ("任务部分完成" if persisted_status == "partial" else "任务执行失败")
+                )
+            event_bus.emit(event_type, event_payload)
             _schedule_agent_task_notification(locked_task, persisted_status, transaction)
             subtask_objs = {
                 str(obj.subtask_id): obj
@@ -325,7 +332,7 @@ def execute_agent_task(task_id: str):
                 task.save(update_fields=["status", "completed_at"])
                 event_bus.emit(
                     "task.failed",
-                    {"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed"},
+                    {"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed", "dropped_events": event_bus.persistence_failure_count},
                 )
                 _schedule_agent_task_notification(task, "failed", transaction)
         raise

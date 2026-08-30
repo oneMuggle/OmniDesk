@@ -110,7 +110,7 @@ class PipelineRunner:
                 error_message="任务已暂停",
             )
         # 2) resume 模式跳过已完成
-        if self._resume_mode and self._context.has_artifact(subtask.id):
+        if self._resume_mode and subtask.id in self._context.completed_subtask_ids:
             self._event_bus.emit(
                 "subtask.skipped",
                 {"subtask_id": subtask.id, "reason": "already_completed_in_checkpoint"},

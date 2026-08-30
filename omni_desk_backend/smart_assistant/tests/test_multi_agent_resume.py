@@ -128,6 +128,26 @@ def three_subtask_packet():
 
 
 @pytest.mark.django_db
+class TestResumeEmptyCompletedOutput:
+    def test_completed_empty_output_is_not_rerun(self, agent_task, three_subtask_packet):
+        from smart_assistant.models import AgentSubTask
+
+        agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.status = "paused"
+        agent_task.save(update_fields=["task_packet", "status"])
+        AgentSubTask.objects.create(
+            task=agent_task, subtask_id="step1", role="researcher", objective="第一步",
+            status="completed", output={}, tokens_used=0,
+        )
+        router = MockLLMRouter({"step2": {"a": 1}, "step3": {"b": 2}})
+        result = MultiAgentExecutor.resume_from_checkpoint(
+            task_id=str(agent_task.task_id), llm_router=router, tool_registry=MagicMock()
+        )
+        assert result.status == "success"
+        assert router.call_count == 2
+
+
+@pytest.mark.django_db
 class TestFullPipelineWithDBPersistence:
     """测试 1: 全流程跑完 3 个 subtask,DB 持久化正确"""
 

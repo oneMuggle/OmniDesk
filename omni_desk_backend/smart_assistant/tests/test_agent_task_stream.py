@@ -105,8 +105,8 @@ def test_terminal_sse_frames_have_monotonic_ids(api_client, regular_user_obj):
     api_client.force_authenticate(regular_user_obj)
     response = api_client.get(f"/api/smart-assistant/tasks/{task.task_id}/stream/?last_seq=4")
     body = b"".join(response.streaming_content).decode()
-    assert "id: 4\n" in body
-    assert '"sequence": 4' in body
+    assert "id: 5\n" in body
+    assert '"sequence": 5' in body
 
 
 @pytest.mark.django_db
@@ -120,6 +120,6 @@ def test_task_stream_timeout_contains_resume_sequence(api_client, regular_user_o
         chunks = b"".join(response.streaming_content).decode()
 
     assert '"type": "timeout"' in chunks
-    assert "id: 4\n" in chunks
-    assert '"sequence": 4' in chunks
+    assert "id: 5\n" in chunks
+    assert '"sequence": 5' in chunks
     assert '"format_version": 1' in chunks

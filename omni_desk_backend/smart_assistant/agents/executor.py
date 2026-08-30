@@ -413,7 +413,7 @@ class MultiAgentExecutor:
             final_output = None
             if self.task_packet.final_synthesis:
                 # 检查 final_synthesis 是否已完成
-                if not self.context.has_artifact(self.task_packet.final_synthesis.id):
+                if self.task_packet.final_synthesis.id not in self.context.completed_subtask_ids:
                     synth_result = self._run_subtask_with_retry(self.task_packet.final_synthesis, self.context)
                     subtask_results.append(synth_result)
                     if synth_result.status == "success":
