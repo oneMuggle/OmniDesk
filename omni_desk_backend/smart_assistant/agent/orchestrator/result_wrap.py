@@ -9,6 +9,7 @@ patch 兼容:与 persistence 同理,经 ``persistence._root`` 同源的包根动
 
 from observability import get_logger
 
+from ...cache import public_confirmation_draft, public_tool_calls_meta
 from ..conversation_context import is_failed_answer
 
 
@@ -117,19 +118,19 @@ class ResultWrapMixin:
                 "confirmation_token": meta.get("confirmation_token"),
                 # 审计字段(供 AgentLog 落库)
                 "tool_call_path": tool_path,
-                "tool_calls_meta": meta.get("tool_calls_meta", []),
+                "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta", [])),
                 "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
             }
             if awaiting:
                 # 与 legacy 路径一致:确认场景下 tool_result 携带 draft 供前端展示
-                out["tool_result"] = {"draft": meta.get("draft")}
+                out["tool_result"] = {"draft": public_confirmation_draft(meta.get("draft"), tool_used)}
             return out
         # JSON 路径的 meta 已经携带了旧字段,直接展开
         out = {
             "answer": content,
             "usage": usage,
             "tool_call_path": tool_path,
-            "tool_calls_meta": meta.get("tool_calls_meta", []),
+            "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta", [])),
             "tool_calls_rounds": meta.get("tool_calls_rounds", 0),
         }
         for k in (

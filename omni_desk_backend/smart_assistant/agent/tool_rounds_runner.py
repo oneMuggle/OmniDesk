@@ -22,6 +22,7 @@ from django.conf import settings
 
 from observability import get_logger
 
+from ..cache import public_tool_arguments
 from ..tools.registry import ToolRegistry
 from .native_tool_runner import execute_native_tool
 from .tool_call_core import run_tool_call_loop
@@ -236,7 +237,7 @@ def _process_single_tool_call(tc, context, round_idx):
             {
                 "round": round_idx,
                 "tool": func_name,
-                "arguments": validated,
+                "arguments": public_tool_arguments(validated),
                 "duration_ms": int((time.monotonic() - t0) * 1000),
             },
             (tc, result, confirmation, failure),

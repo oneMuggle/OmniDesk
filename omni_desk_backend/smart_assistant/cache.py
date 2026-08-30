@@ -419,21 +419,121 @@ def get_confirmation_draft(token: str) -> dict | None:
     return cache.get(_draft_key(token))
 
 
+_SECRET_TEXT_RE = re.compile(
+    r"(?is)(?:bearer\s+[a-z0-9._~+/=-]+|"
+    r"(?:api[_ -]?key|apikey|credential|token|password|secret|authorization|access[_ -]?token)"
+    r"\s*(?:=|:|：)\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;，；。}]+))"
+)
+_PII_TEXT_RE = (
+    re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"),
+    re.compile(r"(?<!\d)1\d{10}(?!\d)"),
+    re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)"),
+)
+_PUBLIC_SAFE_KEYS = {
+    "operation_id", "operation", "phase", "scope", "status", "count", "total",
+    "recipient_count", "sent_count", "failed_count", "channel", "channels",
+}
+_PUBLIC_SENSITIVE_KEYS = {
+    "content", "body", "recipients", "recipient_names", "email", "phone", "prompt",
+    "internal_prompt", "credentials", "credential", "token", "secret", "password",
+    "authorization", "api_key", "access_token", "arguments", "args",
+}
+
+
+def _canonical_public_key(value):
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+
+def _is_public_sensitive_key(value):
+    canonical = _canonical_public_key(value)
+    return canonical in {_canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS} or any(
+        marker in canonical for marker in ("password", "credential", "secret", "token", "prompt", "apikey", "authorization")
+    )
+
+
+def sanitize_public_text(value, limit=2000):
+    """脱敏公开文本中的 secret/PII，兼容 JSON、quoted、key:value 和 Bearer。"""
+    result = str(value or "")[:limit]
+    result = _SECRET_TEXT_RE.sub("[已隐藏]", result)
+    for pattern in _PII_TEXT_RE:
+        result = pattern.sub("[已隐藏]", result)
+    return result
+
+
+def safe_public_value(value, depth=0):
+    """递归生成公开摘要；过滤敏感键，限制深度、集合大小和文本长度。"""
+    if depth >= 3:
+        return "[已隐藏]"
+    if isinstance(value, str):
+        return sanitize_public_text(value)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [safe_public_value(item, depth + 1) for item in value[:20]]
+    if isinstance(value, dict):
+        return {
+            str(key): safe_public_value(item, depth + 1)
+            for key, item in list(value.items())[:30]
+            if not _is_public_sensitive_key(key)
+        }
+    return "[已隐藏]"
+
+
+def public_tool_arguments(arguments):
+    """生成对外 tool_calls_meta.arguments；审计原始参数不在此公开。"""
+    if not isinstance(arguments, dict):
+        return {}
+    return {
+        str(key): safe_public_value(value)
+        for key, value in list(arguments.items())[:30]
+        if not _is_public_sensitive_key(key)
+    }
+
+
 def public_confirmation_draft(draft: dict, tool_name: str = "") -> dict:
-    """把 server-side replay draft 转为最小安全的公开确认摘要。"""
+    """把 server-side replay draft 转为统一的最小安全公开摘要。"""
     if not isinstance(draft, dict):
         return {"summary": "请确认以下操作", "fields": {}}
     fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else {}
-    public_fields = {"operation_id": fields.get("operation_id")} if fields.get("operation_id") else {}
+    operation_id = fields.get("operation_id")
+    public_fields = {"operation_id": sanitize_public_text(operation_id, 128)} if operation_id else {}
     if tool_name == "agent_notify":
-        title = str(fields.get("title") or "")[:80]
-        title = re.sub(r"(?i)\b(?:api[_ -]?key|credential|token|password|secret)\s*=\s*[^\s;，。]+", "[已隐藏]", title)
-        title = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\d)1\d{10}(?!\d)", "[已隐藏]", title)
-        public_fields.update({"operation": "agent_notify", "recipient_count": len(fields.get("recipient_ids", [])), "title": title})
-    return {"summary": str(draft.get("summary") or "请确认以下操作")[:180], "fields": public_fields}
+        recipient_ids = fields.get("recipient_ids")
+        public_fields.update({
+            "operation": "agent_notify",
+            "recipient_count": len(recipient_ids) if isinstance(recipient_ids, list) else 0,
+            "title": sanitize_public_text(fields.get("title"), 80),
+        })
+    else:
+        for key in ("operation", "phase", "scope", "status", "count", "total"):
+            if key in fields and not _is_public_sensitive_key(key):
+                public_fields[key] = safe_public_value(fields[key])
+    raw_summary = sanitize_public_text(draft.get("summary") or "", 180)
+    if tool_name == "agent_notify":
+        summary = (
+            f"待执行站内通知（操作：agent_notify；收件人数：{public_fields['recipient_count']}；"
+            f"标题：{public_fields['title']}）"
+        )
+    else:
+        summary = raw_summary or f"请确认工具操作：{sanitize_public_text(tool_name, 80) or '未知工具'}"
+    return {"summary": summary[:180], "fields": public_fields}
 
-    """取 confirmation draft。过期/不存在返回 None。"""
-    return cache.get(_draft_key(token))
+
+def public_tool_calls_meta(meta):
+    """统一过滤对外 tool_calls_meta；保留执行状态而不暴露原始参数。"""
+    if not isinstance(meta, list):
+        return []
+    result = []
+    for item in meta[:30]:
+        if not isinstance(item, dict):
+            continue
+        entry = {key: safe_public_value(value) for key, value in item.items() if key != "arguments" and not _is_public_sensitive_key(key)}
+        if "arguments" in item:
+            entry["arguments"] = public_tool_arguments(item["arguments"])
+        result.append(entry)
+    return result
+
+
 
 
 def clear_confirmation_draft(token: str) -> None:

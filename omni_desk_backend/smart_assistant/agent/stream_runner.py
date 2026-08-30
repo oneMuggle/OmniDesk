@@ -28,6 +28,7 @@ from ..cache import (
     get_cached_answer,
     set_confirmation_draft,
     public_confirmation_draft,
+    public_tool_calls_meta,
 )
 from .intent_classifier import (
     classify_intent,
@@ -188,7 +189,7 @@ class StreamRunner:
                 "tool_result": None,
                 # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
                 "tool_call_path": meta.get("tool_call_path", "native"),
-                "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta") or []),
                 "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
             }
         )
@@ -223,7 +224,7 @@ class StreamRunner:
                 # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
                 # (spec §3.2 步骤 6 承诺 tool_call_path/tool_calls_meta/tool_calls_rounds)
                 "tool_call_path": meta.get("tool_call_path", "native"),
-                "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta") or []),
                 "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
             }
         )
@@ -395,7 +396,7 @@ class StreamRunner:
                         "awaiting_confirmation": True,
                         "confirmation_token": token,
                         "draft": public_draft,
-                        "answer": draft.get("summary") or "请确认以下操作",
+                        "answer": public_draft["summary"],
                     }
                 ),
                 sse_event({"type": "done", "error": False, "awaiting_confirmation": True}),

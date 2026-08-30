@@ -25,6 +25,8 @@ from ..cache import (
     consume_confirmation_draft,
     clear_confirmation_draft,
     get_confirmation_draft,
+    public_confirmation_draft,
+    public_tool_calls_meta,
 )
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
@@ -269,7 +271,7 @@ def _write_sync_agent_log(
         tool_success=False if error else (result.get("tool_fallback") is not True),
         # L1 原生 Function Calling 决策日志:透传 orchestrator 的审计字段
         tool_call_path=result.get("tool_call_path") or "json",
-        tool_calls_meta=result.get("tool_calls_meta") or [],
+        tool_calls_meta=public_tool_calls_meta(result.get("tool_calls_meta") or []),
         tool_calls_rounds=result.get("tool_calls_rounds") or 0,
     )
 
@@ -291,7 +293,7 @@ def _build_sync_payload(result, log, conversation_id, error) -> Response:
         "confirmation_token": result.get("confirmation_token"),
         # L1 原生 Function Calling 决策日志:透传给前端(A/B 评估 / 审计展示)
         "tool_call_path": result.get("tool_call_path"),
-        "tool_calls_meta": result.get("tool_calls_meta") or [],
+        "tool_calls_meta": public_tool_calls_meta(result.get("tool_calls_meta") or []),
         "tool_calls_rounds": result.get("tool_calls_rounds") or 0,
         # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
         # 旧字段缺省时为 None,前端按通用错误展示,无 breaking。

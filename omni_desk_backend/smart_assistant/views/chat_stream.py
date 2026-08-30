@@ -34,6 +34,7 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
+from ..cache import public_tool_calls_meta
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -288,7 +289,7 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
         # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
         # (非原生 intent 流程),保持既有审计行为
         tool_call_path=meta.get("tool_call_path") or "intent",
-        tool_calls_meta=meta.get("tool_calls_meta") or [],
+        tool_calls_meta=public_tool_calls_meta(meta.get("tool_calls_meta") or []),
         tool_calls_rounds=meta.get("tool_calls_rounds") or 0,
     )
 

@@ -566,7 +566,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
             "task_id": str(task_id), "status": "confirmed", "operation_id": operation_id,
             "operation": tool_name, "phase": "confirm",
         })
-        return Response({**result, "status": "confirmed", "task_id": str(task_id)})
+        return Response({**_safe_public_value(result), "status": "confirmed", "task_id": str(task_id)})
 
     @action(detail=True, methods=["POST"])
     def intervene(self, request, pk=None):
