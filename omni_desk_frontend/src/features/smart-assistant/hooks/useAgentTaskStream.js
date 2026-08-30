@@ -84,7 +84,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
 
   const subscribe = useCallback((showRunning = true) => {
     if (!taskId || manuallyPausedRef.current) return;
-    stop();
+    stop(false);
     setError(null);
     if (showRunning) setStatus('running');
     subscriptionRef.current = subscribeTaskStream(taskId, {
