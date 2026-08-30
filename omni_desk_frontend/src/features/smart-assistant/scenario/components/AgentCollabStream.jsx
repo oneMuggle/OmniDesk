@@ -70,7 +70,7 @@ export default function AgentCollabStream({ events, isRunning, isCompleted, stat
     <div className="collab-stream">
       <div className="collab-stream-meta">
         <span className="collab-stream-status">
-          状态:{status === 'running' ? '运行中' : status === 'paused' ? '已暂停' : status === 'completed' ? '已完成' : '空闲'}
+          状态:{status === 'running' ? '运行中' : status === 'paused' ? '已暂停' : status === 'completed' ? '已完成' : status === 'partial' ? '部分完成' : status === 'failed' ? '已失败' : '空闲'}
         </span>
         <span className="collab-stream-count">事件:{events.length}</span>
         {isRunning && <span className="collab-stream-pulse" />}
@@ -94,6 +94,17 @@ export default function AgentCollabStream({ events, isRunning, isCompleted, stat
               key={node.key}
               agent={node.event.agent}
               content={node.event.content}
+              variant="thinking"
+            />
+          );
+        }
+        if (node.kind === 'error') {
+          return (
+            <AgentCard
+              key={node.key}
+              agent={node.event.agent || 'system'}
+              content={node.event.content || '任务执行失败'}
+              payload={node.event.payload}
               variant="thinking"
             />
           );

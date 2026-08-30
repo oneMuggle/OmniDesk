@@ -46,8 +46,10 @@ export default function useAgentTaskStream(taskId, options = {}) {
     }
     const mappedEvent = mapAgentEvent(event);
     setEvents((previous) => [...previous, mappedEvent]);
-    const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[mappedEvent.type];
-    if (nextStatus) setStatus(nextStatus);
+    const eventStatus = event.payload?.status || event.status;
+    const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[eventStatus] || TERMINAL_TYPES[mappedEvent.type];
+    if (eventStatus === 'partial') setStatus('partial');
+    else if (nextStatus) setStatus(nextStatus);
     if (event.type === 'task.paused') setStatus('paused');
     if (event.type === 'task.resumed') {
       manuallyPausedRef.current = false;
@@ -67,6 +69,11 @@ export default function useAgentTaskStream(taskId, options = {}) {
         if (doneSequence != null) {
           lastSeqRef.current = Math.max(lastSeqRef.current, doneSequence);
           setLastSeq(lastSeqRef.current);
+        }
+        const terminalStatus = event?.status;
+        if (terminalStatus === 'partial' || terminalStatus === 'failed' || terminalStatus === 'cancelled') {
+          setStatus(terminalStatus);
+          return;
         }
         setStatus((current) => (current === 'running' ? 'completed' : current));
       },

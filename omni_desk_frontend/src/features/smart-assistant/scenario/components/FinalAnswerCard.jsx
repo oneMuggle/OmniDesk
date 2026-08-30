@@ -31,7 +31,7 @@ const PAYLOAD_META = {
  *   payload?: Record<string, unknown>,
  * }} props
  */
-export default function FinalAnswerCard({ agent, payloadKind, payload }) {
+export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutput }) {
   const meta = payloadKind ? PAYLOAD_META[payloadKind] : null;
   const Icon = meta?.icon || CheckCircleOutlined;
   const color = meta?.color || 'green';
@@ -58,7 +58,11 @@ export default function FinalAnswerCard({ agent, payloadKind, payload }) {
             <Tag color={color} bordered={false}>{payloadKind}</Tag>
           </Space>
 
-          {payloadKind === 'email_draft' && <EmailDraftBody payload={payload} />}
+          {finalOutput !== undefined && (
+            <Paragraph data-testid="agent-final-output">
+              {typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput)}
+            </Paragraph>
+          )}
           {payloadKind === 'card_preview' && <CardPreviewBody payload={payload} />}
           {payloadKind === 'workorder' && <WorkorderBody payload={payload} />}
           {payloadKind === 'announcement' && <AnnouncementBody payload={payload} />}

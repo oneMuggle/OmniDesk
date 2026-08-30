@@ -14,6 +14,8 @@
  * 终态事件: `{type: 'done', task_id}` / `{type: 'timeout'}` (服务端 60 秒轮询超时)
  */
 import apiClient from '../../../shared/api/apiClient';
+import { authFetch } from '../../../shared/api/authFetch';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant/tasks';
 
@@ -127,19 +129,17 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
   const abortController = new AbortController();
 
   const run = async () => {
-    const authTokens = JSON.parse(
-      localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
-    );
-    const token = authTokens.access;
+    const token = readAuthTokens()?.access;
+    if (!token) {
+      onError?.(new Error('认证已过期，请重新登录'));
+      return;
+    }
 
     let response;
     try {
       const streamUrl = `${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/${lastSeq ? `?last_seq=${encodeURIComponent(lastSeq)}` : ''}`;
-      response = await fetch(streamUrl, {
+      response = await authFetch(streamUrl, {
         method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
         signal: abortController.signal,
       });
     } catch (error) {
