@@ -66,7 +66,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
       onEvent: handleEvent,
       onDone: (event, doneSequence) => {
         subscriptionRef.current = null;
-        if (doneSequence != null) {
+        if (doneSequence != null && !event?.synthetic) {
           lastSeqRef.current = Math.max(lastSeqRef.current, doneSequence);
           setLastSeq(lastSeqRef.current);
         }

@@ -332,6 +332,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     done_data = {
                         "type": "done",
                         "task_id": str(task.task_id),
+                        # synthetic 终态帧仅用于展示；最后一条持久化事件才是可恢复游标。
                         "sequence": terminal_sequence,
                         "status": task.status,
                         "synthetic": True,

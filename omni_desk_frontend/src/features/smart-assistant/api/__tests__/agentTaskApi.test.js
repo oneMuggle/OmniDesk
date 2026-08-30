@@ -171,6 +171,23 @@ describe('subscribeTaskStream SSE 订阅', () => {
     expect(callbacks.onDone).toHaveBeenCalledWith(undefined, 6);
   });
 
+  it('SSE synthetic done 保留展示 sequence 但回调真实 lastSeq', async () => {
+    mockFetchResponse(createMockStream([
+      { type: 'task.started', sequence: 1 },
+      { type: 'done', task_id: 't-1', sequence: 2, status: 'completed', synthetic: true, format_version: 1 },
+    ]));
+    const callbacks = createCallbacks();
+
+    subscribeTaskStream('t-1', callbacks, { lastSeq: 0 });
+
+    await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
+    expect(callbacks.onDone).toHaveBeenCalledWith(
+      expect.objectContaining({ sequence: 2, synthetic: true, format_version: 1 }),
+      1
+    );
+  });
+
+
   it('done sequence 倒退时仍保持本地 lastSeq 单调', async () => {
     mockFetchResponse(createMockStream([
       { type: 'task.started', sequence: 5 },
@@ -357,7 +374,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
 
       expect(body.getReader).not.toHaveBeenCalled();
       expect(callbacks.onEvent).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
-      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 2, synthetic: true, format_version: 1 }), 1);
       expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
@@ -406,7 +423,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
 
       expect(callbacks.onEvent).toHaveBeenCalledTimes(3);
       expect(callbacks.onEvent).toHaveBeenLastCalledWith(expect.objectContaining({ sequence: 3 }));
-      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 3 }));
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 4, synthetic: true, format_version: 1 }), 3);
       expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
@@ -430,7 +447,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
       subscription.abort();
 
       expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
-      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 2, synthetic: true, format_version: 1 }), 1);
       globalThis.AbortController = originalAbortController;
     });
 

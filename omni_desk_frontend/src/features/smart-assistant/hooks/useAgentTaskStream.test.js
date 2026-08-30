@@ -28,6 +28,28 @@ describe('useAgentTaskStream', () => {
     expect(result.current.status).toBe('completed');
   });
 
+  it('synthetic done 不推进 lastSeq，后续真实 sequence 仍可继续派发', () => {
+    jest.useFakeTimers();
+    const subscriptions = [];
+    subscribeTaskStream.mockImplementation((taskId, callbacks, options) => {
+      const subscription = { callbacks, options, abort: jest.fn() };
+      subscriptions.push(subscription);
+      if (subscriptions.length === 1) {
+        callbacks.onEvent({ type: 'progress', sequence: 4 });
+        callbacks.onDone({ type: 'done', sequence: 5, synthetic: true }, 4);
+      }
+      return { abort: subscription.abort };
+    });
+
+    const { result } = renderHook(() => useAgentTaskStream('task-synthetic'));
+    expect(result.current.lastSeq).toBe(4);
+    act(() => result.current.retry());
+    expect(subscriptions[1].options).toEqual({ lastSeq: 4 });
+    act(() => subscriptions[1].callbacks.onEvent({ type: 'progress', sequence: 5 }));
+    expect(result.current.lastSeq).toBe(5);
+  });
+
+
   it('SSE done paused 时保持 paused，不误判为 completed', () => {
     subscribeTaskStream.mockImplementation((taskId, callbacks) => {
       callbacks.onDone({ type: 'done', status: 'paused', sequence: 4 }, 4);

@@ -71,15 +71,16 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
   const dispatch = (event) => {
     if (!event || event.sequence == null) { onEvent?.(event); return true; }
     const eventSequence = Number(event.sequence);
-    if (!Number.isFinite(eventSequence) || eventSequence <= sequence) return false;
-    sequence = eventSequence;
+    if (!Number.isFinite(eventSequence)) return false;
+    if (!event.synthetic && eventSequence <= sequence) return false;
+    if (!event.synthetic) sequence = eventSequence;
     onEvent?.(event);
     return true;
   };
   const pollTimeline = async () => {
     if (stopped) return;
     if (pollCount >= FALLBACK_MAX_POLLS) {
-      onTimeout?.({ type: 'timeout', task_id: taskId, sequence }); stop(); return;
+      onTimeout?.({ type: 'timeout', task_id: taskId, sequence: sequence + 1, synthetic: true, format_version: 1 }); stop(); return;
     }
     pollCount += 1;
     try {
@@ -91,8 +92,11 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
       events.forEach(dispatch);
       const status = data.task && data.task.status;
       if (TERMINAL_TASK_STATUSES.indexOf(status) !== -1) {
-        const done = { type: 'done', task_id: taskId, status, sequence, synthetic: true };
-        stop(); onDone?.(done); return;
+        const done = {
+          type: 'done', task_id: taskId, status, sequence: sequence + 1,
+          synthetic: true, format_version: 1,
+        };
+        stop(); onDone?.(done, sequence); return;
       }
       pollTimer = setTimeout(pollTimeline, FALLBACK_POLL_INTERVAL_MS);
     } catch (error) {
@@ -133,8 +137,12 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
           let event;
           try { event = JSON.parse(line.slice(5).trim()); } catch (error) { finished = true; stop(); onError?.(new Error('任务进度数据格式错误')); return; }
             if (event.type === 'done') {
-            if (!event.synthetic && event.sequence != null) sequence = Math.max(sequence, normaliseSequence(event.sequence, sequence));
-            finished = true; onDone?.({ ...event, sequence }, sequence); return;
+            if (!event.synthetic && event.sequence != null) {
+              sequence = Math.max(sequence, normaliseSequence(event.sequence, sequence));
+            }
+            finished = true;
+            onDone?.({ ...event, sequence: event.synthetic ? event.sequence : sequence }, sequence);
+            return;
           }
           if (event.type === 'timeout') { finished = true; onTimeout?.(event); return; }
           dispatch(event);
