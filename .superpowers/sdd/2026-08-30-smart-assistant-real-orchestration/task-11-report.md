@@ -73,3 +73,8 @@
 - `git diff --check`：通过。
 
 对应提交：`2ddadfb9 fix: 收口智能助手任务恢复与事件契约`。工作区原有 spec 尾部格式改动未纳入该提交，保持不覆盖。
+
+### 后续审查修复
+
+- 修复恢复竞态：`resume_from_checkpoint` 在同一 `select_for_update` 事务内完成 `paused → running` 原子 claim；重复 worker 返回幂等 `running`，不再把正常任务误标记为 failed。
+- 恢复测试：`17 passed`（含 `test_multi_agent_resume.py` 与任务测试）。
