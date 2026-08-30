@@ -119,7 +119,7 @@ def test_registry_get_openai_tools_returns_all_22():
     user = User.objects.create_user(username="all22_user_t5", password="x")
 
     schemas = ToolRegistry.get_openai_tools(user)
-    assert len(schemas) == len(ALL_TOOL_CLASSES) == 22
+    assert len(schemas) == len(ALL_TOOL_CLASSES) == 23
     names = {s["function"]["name"] for s in schemas}
     # 抽样校验关键工具都在
     assert "schedule_query" in names
@@ -156,7 +156,7 @@ def test_get_openai_tools_with_user_returns_all_for_authenticated_user():
 
     tools = ToolRegistry.get_openai_tools(user)
     assert isinstance(tools, list)
-    assert len(tools) == len(ALL_TOOL_CLASSES) == 22
+    assert len(tools) == len(ALL_TOOL_CLASSES) == 23
     names = {t["function"]["name"] for t in tools}
     assert "schedule_query" in names
     assert "office_generate" in names
@@ -274,7 +274,7 @@ def test_get_openai_tools_signature_accepts_optional_user():
     User = get_user_model()
     user = User.objects.create_user(username="compat_t5", password="x")
     schemas_user = ToolRegistry.get_openai_tools(user)
-    assert len(schemas_user) == 22
+    assert len(schemas_user) == 23
 
 
 # ---------------------------------------------------------------------------

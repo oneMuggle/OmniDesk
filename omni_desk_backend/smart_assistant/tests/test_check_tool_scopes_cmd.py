@@ -107,4 +107,4 @@ def test_command_outputs_tool_count(restore_tool_registry, capsys):
     call_command("check_tool_scopes", stdout=out)
     output = out.getvalue()
     # 22 = 13 基线 + 3 swap_request + 3 office/spreadsheet + MemoCreateTool + MemoUpdateTool + MemoDeleteTool
-    assert "22" in output or "tools" in output.lower()
+    assert "23" in output or "tools" in output.lower()
