@@ -57,16 +57,21 @@ def _notify_agent_task_result(task, status):
     """为已进入终态的 AgentTask 创建一次安全的站内结果通知。"""
     if status not in _AGENT_TASK_NOTIFICATION_STATUSES:
         return
-    dedupe_key = f"agent_task:{task.task_id}"
-    if Notification.objects.filter(user=task.user, dedupe_key=dedupe_key).exists():
-        return
-    NotificationService.create(
-        user=task.user,
-        type="agent_task_result",
-        title="智能助手任务结果",
-        content=f"任务 {str(task.task_id)[:8]} {_AGENT_TASK_NOTIFICATION_LABELS[status]}。",
-        dedupe_key=dedupe_key,
-    )
+    try:
+        NotificationService.create(
+            user=task.user,
+            type="agent_task_result",
+            title="智能助手任务结果",
+            content=f"任务 {str(task.task_id)[:8]} {_AGENT_TASK_NOTIFICATION_LABELS[status]}。",
+            dedupe_key=f"agent_task:{task.task_id}",
+        )
+    except Exception:
+        logger.exception("智能助手任务结果通知失败: task_id=%s status=%s", task.task_id, status)
+
+
+def _schedule_agent_task_notification(task, status, transaction):
+    """在状态事务提交后安全发送通知，避免通知失败回滚业务状态。"""
+    transaction.on_commit(lambda: _notify_agent_task_result(task, status))
 
 
 @shared_task(
@@ -223,7 +228,7 @@ def execute_agent_task(task_id: str):
                     {"task_id": str(locked_task.task_id), "status": locked_task.status},
                 )
                 if locked_task.status == "cancelled":
-                    _notify_agent_task_result(locked_task, "cancelled")
+                    _schedule_agent_task_notification(locked_task, "cancelled", transaction)
                 return {
                     "task_id": str(locked_task.task_id),
                     "status": locked_task.status,
@@ -250,7 +255,7 @@ def execute_agent_task(task_id: str):
                     "final_output": locked_task.final_output,
                 },
             )
-            _notify_agent_task_result(locked_task, persisted_status)
+            _schedule_agent_task_notification(locked_task, persisted_status, transaction)
             subtask_objs = {
                 str(obj.subtask_id): obj
                 for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
@@ -297,8 +302,11 @@ def execute_agent_task(task_id: str):
             try:
                 task = AgentTask.objects.select_for_update().get(task_id=task_id)
             except AgentTask.DoesNotExist:
-                logger.debug("smart_assistant.tasks.event_task_gone", extra={"task_id": task_id})
-                raise
+                logger.info(
+                    "smart_assistant.tasks.cleanup_task_gone",
+                    extra={"event": "smart_assistant.tasks.cleanup_task_gone", "task_id": task_id},
+                )
+                return None
             if task.status != "cancelled" and task.status not in {"completed", "failed", "partial", "paused"}:
                 task.status = "failed"
                 task.completed_at = timezone.now()
@@ -307,6 +315,7 @@ def execute_agent_task(task_id: str):
                     "task.failed",
                     {"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed"},
                 )
+                _schedule_agent_task_notification(task, "failed", transaction)
         raise
 
 
