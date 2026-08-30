@@ -56,7 +56,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
     const eventStatus = event.payload?.status || event.status;
     const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[eventStatus] || TERMINAL_TYPES[mappedEvent.type];
     if (eventStatus === 'partial') setStatus('partial');
-    else if (nextStatus) setStatus(nextStatus);
+    else if (nextStatus && event.type !== 'task.paused' && event.type !== 'task.resumed') setStatus(nextStatus);
     if (event.type === 'task.paused') {
       manuallyPausedRef.current = true;
       if (pendingInterventionRef.current === 'pause') {
@@ -137,7 +137,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
 
   const intervene = useCallback(async (action) => {
     if (!taskId) return;
-    if (action === 'pause') manuallyPausedRef.current = true;
+    if (action === 'pause') manuallyPausedRef.current = false;
     if (action === 'pause') setStatus('pausing');
     if (action === 'resume') setStatus('resuming');
     try {
@@ -162,6 +162,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
       }, INTERVENTION_CONFIRM_TIMEOUT_MS);
       if (action === 'resume') {
         retryCountRef.current = 0;
+        manuallyPausedRef.current = false;
         subscribe(false);
       }
       return;

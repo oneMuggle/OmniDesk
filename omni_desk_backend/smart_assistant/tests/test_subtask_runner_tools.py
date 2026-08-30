@@ -1,5 +1,6 @@
 import json
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
+from uuid import uuid4
 
 from smart_assistant.agents.dataclasses import EventBus
 from smart_assistant.agents.packet import SubTask
@@ -176,6 +177,44 @@ def test_tool_call_event_redacts_pii_and_credentials():
     assert "13812345678" not in rendered
     assert "credential-value" not in rendered
     assert "[REDACTED]" in rendered
+
+
+def test_notify_confirmed_tool_context_persists_sanitized_audit_event(db):
+    from django.contrib.auth import get_user_model
+    from smart_assistant.agents.dataclasses import PersistentEventBus
+    from smart_assistant.models import AgentEvent, AgentTask
+    from smart_assistant.tools.notify_tool import NotifyTool
+    from smart_assistant.tools.tool_context import ToolContext
+
+    user = get_user_model().objects.create_user(username="notify-audit-user", real_name="审计用户")
+    task = AgentTask.objects.create(task_id=uuid4(), user=user, objective="通知审计")
+    bus = PersistentEventBus(agent_task_id=str(task.task_id))
+    context = ToolContext(
+        user=user, task_id=task.task_id, event_bus=bus, confirmed=True,
+        draft={"fields": {"recipient_ids": [user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-1"}},
+    )
+    tool = NotifyTool(resolver=lambda _name, _actor: [user])
+    values = {
+        "recipients": [user.username], "title": "标题 alice@example.com",
+        "content": "正文 13812345678", "scope": "self",
+        "recipient_ids": [user.id], "operation_id": "op-1",
+    }
+
+    with patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
+        result = tool.execute(params=values, context=context)
+
+    assert result["found"] is True, result
+    event = AgentEvent.objects.get(task=task, event_type="subtask.tool_result")
+    assert event.payload["phase"] == "notify"
+    assert event.payload["operation"] == "agent_notify"
+    assert event.payload["operation_id"] == "op-1"
+    assert event.payload["recipients"][0]["name"] == "notify-audit-user"
+    assert event.payload["sent_count"] == 1
+    assert event.payload["failed_count"] == 0
+    rendered = json.dumps(event.payload, ensure_ascii=False)
+    assert "alice@example.com" not in rendered
+    assert "13812345678" not in rendered
+    assert "credentials" not in rendered
 
 
 def test_safe_summary_redacts_key_variants_and_preserves_nested_structure():

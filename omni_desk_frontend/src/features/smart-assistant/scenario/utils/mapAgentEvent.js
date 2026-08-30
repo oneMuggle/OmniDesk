@@ -39,9 +39,10 @@ export function mapAgentEvent(event) {
   const payload = isObject(source.payload) ? source.payload : {};
   const eventType = firstDefined(source.type, source.event_type, 'unknown');
   const mappedType = EVENT_TYPE_MAP[eventType] || 'thinking';
+  const sequence = Number.isFinite(Number(source.sequence)) ? Number(source.sequence) : 0;
   const result = {
-    id: `evt-${source.sequence}`,
-    sequence: source.sequence,
+    id: `evt-${sequence}`,
+    sequence,
     eventType,
     type: mappedType,
   };

@@ -78,6 +78,38 @@ describe('useAgentTaskStream', () => {
     expect(result.current.status).toBe('running');
   });
 
+  it('resume 在 manuallyPaused 状态仍订阅并等待 task.resumed 事件', async () => {
+    jest.useFakeTimers();
+    const subscriptions = [];
+    subscribeTaskStream.mockImplementation((taskId, callbacks, options) => {
+      const subscription = { callbacks, options, abort: jest.fn() };
+      subscriptions.push(subscription);
+      return subscription;
+    });
+    const { result } = renderHook(() => useAgentTaskStream('task-resume'));
+
+    await act(async () => { await result.current.pause(); });
+    expect(result.current.status).toBe('pausing');
+    await act(async () => { await result.current.resume(); });
+
+    expect(result.current.status).toBe('resuming');
+    expect(subscriptions.length).toBeGreaterThan(1);
+    act(() => subscriptions[subscriptions.length - 1].callbacks.onEvent({ type: 'task.resumed', sequence: 2 }));
+    expect(result.current.status).toBe('running');
+    expect(result.current.error).toBeNull();
+  });
+
+  it('pause 未收到确认事件时五秒后回滚并报告错误', async () => {
+    jest.useFakeTimers();
+    subscribeTaskStream.mockImplementation(() => ({ abort: jest.fn() }));
+    const { result } = renderHook(() => useAgentTaskStream('task-pause-timeout'));
+
+    await act(async () => { await result.current.pause(); });
+    expect(result.current.status).toBe('pausing');
+    act(() => jest.advanceTimersByTime(5000));
+    expect(result.current.status).toBe('running');
+    expect(result.current.error).toEqual(expect.objectContaining({ message: '暂停确认超时' }));
+  });
   it('连接错误最多退避三次后才标记失败', () => {
     jest.useFakeTimers();
     const subscriptions = [];

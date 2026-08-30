@@ -30,11 +30,10 @@ const safeOutputText = (value) => {
     return value.map((item) => safeOutputText(item)).filter(Boolean).join('\n');
   }
   if (value && typeof value === 'object') {
-    const preferred = value.summary || value.message || value.output || value.result;
-    if (preferred !== undefined) return safeOutputText(preferred);
     return Object.entries(value)
       .filter(([key]) => !['credentials', 'token', 'password', 'prompt', 'internal_prompt'].includes(key))
       .map(([key, item]) => `${key}: ${safeOutputText(item)}`)
+      .filter(Boolean)
       .join('\n');
   }
   return value == null ? '' : String(value);

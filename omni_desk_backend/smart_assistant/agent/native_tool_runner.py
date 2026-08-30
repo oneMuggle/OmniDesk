@@ -78,7 +78,7 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                 return (
                     {
                         "found": False,
-                        "message": f"工具 {tool.name} 标记为需要确认,但未返回预演结果(draft),请联系管理员",
+                        "message": "该操作暂时无法完成，请稍后重试",
                     },
                     None,
                     None,

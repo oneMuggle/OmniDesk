@@ -1,7 +1,7 @@
 # 智能助手真实多智能体编排 — 设计文档
 
 **日期**：2026-08-30
-**状态**：待评审
+**状态**：已实现，待最终验收
 **分支**：`feat/smart-assistant-real-orchestration`
 
 ## 1. 背景与目标
@@ -541,7 +541,8 @@ idle → running → { pausing → paused → resuming → running } → complet
 
 `scenarios.js`（1270 行）的 `steps` 数组全部删除，只留 `id` / `title` / `userInput` / `icon` 作示例入口，文件缩至约 80 行。
 
-### 7.7 IE11 降级
+React 18 整体不支持 IE11；仅任务流的旧 `fetch` / `ReadableStream` 能力提供降级，不能表述为完整 IE11 支持。
+
 
 `response.body.getReader()` **IE11 不支持**（无 `ReadableStream`）。现有代码 `agentTaskApi.js:167` 已有可用性检测但只是报错。IE11 下降级为**轮询 `/timeline/`**（该端点已存在，`views/tasks.py:285`），每 2s 拉全量事件按 sequence 去重。
 

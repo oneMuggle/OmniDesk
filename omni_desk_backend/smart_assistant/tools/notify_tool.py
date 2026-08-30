@@ -55,10 +55,12 @@ class NotifyTool(BaseTool):
     def execute(self, query=None, context=None, params=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
         if context is not None and not isinstance(context, dict):
-            ctx = {"user": getattr(context, "user", None)}
-            event_bus = getattr(context, "event_bus", None)
-            if event_bus is not None:
-                ctx["event_bus"] = event_bus
+            ctx = {
+                "user": getattr(context, "user", None),
+                "event_bus": getattr(context, "event_bus", None),
+                "confirmed": getattr(context, "confirmed", False),
+                "draft": getattr(context, "draft", None),
+            }
         values = params if isinstance(params, dict) else (query if isinstance(query, dict) else {})
         if isinstance(query, str):
             import json

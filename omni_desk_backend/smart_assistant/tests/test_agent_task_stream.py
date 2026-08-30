@@ -81,9 +81,31 @@ def test_nested_sanitizer_redacts_pii_and_sensitive_keys():
     assert "api_key" not in sanitized["result"]
     assert sanitized["result"]["visible"] == "ok"
 
-def test_safe_payload_keeps_failure_partial_and_terminal_fields():
+
+
+def test_safe_payload_keeps_sanitized_notify_audit_fields_and_drops_sensitive_values():
     from types import SimpleNamespace
     from smart_assistant.views.tasks import _safe_event_payload
+
+    event = SimpleNamespace(payload={
+        "operation_id": "op-9", "phase": "notify", "operation": "agent_notify",
+        "recipients": [{"id": 1, "name": "alice@example.com"}], "sent": [{"user_id": 1, "channel": "in_app"}],
+        "failed": [], "sent_count": 1, "failed_count": 0, "recipient_count": 1,
+        "channel": "in_app", "channels": ["in_app"], "prompt": "secret prompt",
+        "credentials": {"token": "do-not-show"},
+    })
+
+    payload = _safe_event_payload(event)
+
+    assert payload["operation_id"] == "op-9"
+    assert payload["phase"] == "notify"
+    assert payload["operation"] == "agent_notify"
+    assert payload["sent_count"] == 1
+    assert payload["recipient_count"] == 1
+    assert "alice@example.com" not in str(payload)
+    assert "do-not-show" not in str(payload)
+    assert "prompt" not in payload
+    assert "credentials" not in payload
 
     event = SimpleNamespace(payload={
         "status": "partial", "error": "安全失败原因", "reason": "部分完成",
@@ -98,7 +120,36 @@ def test_safe_payload_keeps_failure_partial_and_terminal_fields():
 
 
 @pytest.mark.django_db
-def test_terminal_sse_frames_have_monotonic_ids(api_client, regular_user_obj):
+def test_notify_audit_fields_survive_real_stream_and_timeline_responses(api_client, regular_user_obj):
+    task = AgentTask.objects.create(task_id=uuid.uuid4(), user=regular_user_obj, objective="通知流")
+    AgentEvent.objects.create(
+        task=task, sequence=1, event_type="subtask.tool_result",
+        payload={
+            "operation_id": "op-stream", "phase": "notify", "operation": "agent_notify",
+            "recipients": [{"id": 1, "name": "alice@example.com"}],
+            "sent": [{"user_id": 1, "channel": "in_app"}], "failed": [],
+            "sent_count": 1, "failed_count": 0, "recipient_count": 1, "channel": "in_app",
+            "prompt": "hidden", "credentials": {"token": "hidden-token"},
+        },
+    )
+    task.status = "completed"
+    task.save(update_fields=["status"])
+    api_client.force_authenticate(regular_user_obj)
+
+    stream = api_client.get(f"/api/smart-assistant/tasks/{task.task_id}/stream/")
+    timeline = api_client.get(f"/api/smart-assistant/tasks/{task.task_id}/timeline/")
+    stream_body = b"".join(stream.streaming_content).decode()
+    timeline_body = str(timeline.data)
+
+    for body in (stream_body, timeline_body):
+        assert "op-stream" in body
+        assert "notify" in body
+        assert "agent_notify" in body
+        assert "alice@example.com" not in body
+        assert "hidden-token" not in body
+        assert "credentials" not in body
+
+
     task = AgentTask.objects.create(task_id=uuid.uuid4(), user=regular_user_obj, objective="终态帧")
     task.status = "completed"
     task.save(update_fields=["status"])

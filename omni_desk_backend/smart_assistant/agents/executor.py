@@ -106,6 +106,7 @@ class MultiAgentExecutor:
                 scope=resolve_scope(user),
                 task_id=agent_task_id,
                 event_bus=self.event_bus,
+                confirmed=False,
             )
         self.subtask_runner = SubTaskRunner(
             llm_router,
