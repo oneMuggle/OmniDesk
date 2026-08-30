@@ -112,6 +112,32 @@ class TestWriteLogAPI:
         assert revert.before["title"] == "new"
         assert revert.after["title"] == "old"
 
+    def test_create_revert_soft_deletes_created_memo(self, user):
+        memo = Memo.objects.create(user=user, title="new", content="body")
+        log = AgentWriteLog.objects.create(
+            user=user,
+            tool_name="memo_create",
+            target_model="memos.Memo",
+            target_pk=str(memo.pk),
+            operation="create",
+            before=None,
+            after={
+                "title": "new",
+                "content": "body",
+                "reminder_time": None,
+                "is_deleted": False,
+                "deleted_at": None,
+            },
+        )
+        self.client.force_authenticate(user=user)
+
+        response = self.client.post(f"/api/smart-assistant/write-logs/{log.pk}/revert/")
+
+        assert response.status_code == 200
+        memo.refresh_from_db()
+        assert memo.is_deleted is True
+        assert memo.deleted_at is not None
+
     def test_revert_conflict_is_409_and_delete_is_not_reversible(self, user):
         memo = Memo.objects.create(user=user, title="changed")
         log = AgentWriteLog.objects.create(

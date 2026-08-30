@@ -119,11 +119,14 @@ class NotifyTool(BaseTool):
         if actor is None or not getattr(actor, "is_authenticated", False):
             return {"found": False, "message": "未登录用户无法发送通知"}
         fields = ctx.get("draft") if isinstance(ctx.get("draft"), dict) else values
+        fields = fields.get("fields", fields) if isinstance(fields, dict) else {}
         ids = fields.get("recipient_ids")
-        if not isinstance(ids, list) or not 1 <= len(ids) <= 10:
+        if not isinstance(ids, list) or not 1 <= len(ids) <= 10 or len(set(ids)) != len(ids):
             return {"found": False, "message": "确认草稿中的收件人无效"}
         from django.contrib.auth import get_user_model
         users = list(get_user_model().objects.filter(id__in=ids))
+        users_by_id = {user.id: user for user in users}
+        users = [users_by_id[user_id] for user_id in ids if user_id in users_by_id]
         if len(users) != len(ids):
             return {"found": False, "message": "确认草稿中的收件人不存在"}
         required = ("title", "content", "scope")
