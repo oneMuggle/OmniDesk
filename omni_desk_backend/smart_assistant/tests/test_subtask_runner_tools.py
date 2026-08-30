@@ -178,6 +178,31 @@ def test_tool_call_event_redacts_pii_and_credentials():
     assert "[REDACTED]" in rendered
 
 
+def test_safe_summary_redacts_key_variants_and_preserves_nested_structure():
+    value = {
+        "emailAddress": "alice@example.com",
+        "phoneNumber": "13812345678",
+        "apiKey": "api-secret",
+        "accessToken": "access-secret",
+        "authorizationHeader": "Bearer credential",
+        "nested": [{"身份证号": "110101900101123", "keep": "value"}, {"email_address": "bob@example.com"}],
+    }
+
+    summary = SubTaskRunner._safe_summary(value)
+
+    assert list(summary) == list(value)
+    assert len(summary["nested"]) == 2
+    assert list(summary["nested"][0]) == ["身份证号", "keep"]
+    assert summary["nested"][0]["keep"] == "value"
+    for key in ("emailAddress", "phoneNumber", "apiKey", "accessToken", "authorizationHeader"):
+        assert summary[key] == "[REDACTED]"
+    assert summary["nested"][0]["身份证号"] == "[REDACTED]"
+    assert summary["nested"][1]["email_address"] == "[REDACTED]"
+    rendered = json.dumps(summary, ensure_ascii=False)
+    for secret in ("alice@example.com", "13812345678", "api-secret", "access-secret", "Bearer credential", "110101900101123", "bob@example.com"):
+        assert secret not in rendered
+
+
 def test_budget_exhaustion_does_not_report_success():
     user = MagicMock(is_authenticated=True)
     router = FakeRouter([

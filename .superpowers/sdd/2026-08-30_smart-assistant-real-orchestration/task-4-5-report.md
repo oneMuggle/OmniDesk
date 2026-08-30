@@ -68,3 +68,9 @@
 - `_safe_summary()` 增强敏感 key 规范化匹配，覆盖 email/email_address、phone/phone_number、身份证/id_card、apiKey/accessToken/authorization_header 等变体，并覆盖 15 位身份证及嵌套结构。
 - Fix round 2 focused tests：`84 passed, 1 warning in 15.02s`；`py_compile` 与 `git diff --check` 通过。
 - 既有 `SECRET_KEY not set` warning 仍存在，为测试配置既有提示。
+
+## Fix round 3 追加
+
+- 仅更新 `tests/test_subtask_runner_tools.py`，新增 `_safe_summary` 回归断言，覆盖 `emailAddress`、`phoneNumber`、`apiKey`、`accessToken`、`authorizationHeader`、嵌套 dict/list 与 15 位身份证。
+- 测试同时验证敏感 key 保留、嵌套结构及列表长度保留，且所有原始 PII/credentials 值均不出现在脱敏结果中。
+- 验证：`7 passed, 1 warning in 0.18s`；`py_compile` 与 `git diff --check` 通过。
