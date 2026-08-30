@@ -192,11 +192,13 @@ class MemoUpdateTool(BaseTool):
                 task_id = ctx.get("task_id")
                 if task_id:
                     from smart_assistant.models import AgentTask
-                    task = AgentTask.objects.filter(task_id=task_id).first()
+                    task = AgentTask.objects.filter(task_id=task_id, user=user).first()
+                    if task is None:
+                        raise ValueError("任务不存在或不属于当前用户")
                 AgentWriteLog.objects.create(
                     task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
-                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": False, "deleted_at": None}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
+                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
                 )
         except Exception as e:
             logger.warning(
@@ -367,7 +369,9 @@ class MemoDeleteTool(BaseTool):
                 task_id = ctx.get("task_id")
                 if task_id:
                     from smart_assistant.models import AgentTask
-                    task = AgentTask.objects.filter(task_id=task_id).first()
+                    task = AgentTask.objects.filter(task_id=task_id, user=user).first()
+                    if task is None:
+                        raise ValueError("任务不存在或不属于当前用户")
                 AgentWriteLog.objects.create(
                     task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo", target_pk=str(memo.pk),

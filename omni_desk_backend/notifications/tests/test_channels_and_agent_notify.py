@@ -95,3 +95,15 @@ def test_agent_notify_filters_recipients_by_scope(regular_user_obj, admin_user_o
     )
     assert result["found"] is False
     assert "范围" in result["message"] or "scope" in result["message"]
+
+@pytest.mark.django_db
+def test_agent_notify_draft_contains_safe_recipient_audit_fields(regular_user_obj, monkeypatch):
+    tool = AgentNotifyTool(resolver=lambda name, actor: [regular_user_obj])
+    result = tool.execute(params={"recipients": ["张三"], "title": "  标题  ", "content": "  正文  ", "scope": "self"}, context={"dry_run": True, "user": regular_user_obj})
+    fields = result["draft"]["fields"]
+    assert fields["recipient_ids"] == [regular_user_obj.id]
+    assert fields["recipient_names"] == [regular_user_obj.username]
+    assert fields["title"] == "标题"
+    assert fields["content"] == "正文"
+    assert "credential" not in str(fields).lower()
+    assert "prompt" not in str(fields).lower()

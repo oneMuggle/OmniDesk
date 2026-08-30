@@ -57,7 +57,17 @@ class TestMemoToolWriteAudit:
         assert log.after["title"] == "标题"
         assert log.session_id == "s1"
 
-    def test_update_and_soft_delete_write_before_after_audit(self, user):
+    def test_create_rejects_task_owned_by_other_user_without_persisting(self, user, other_user):
+        from smart_assistant.models import AgentTask
+        task = AgentTask.objects.create(task_id=uuid4(), user=other_user, objective="other", task_packet={})
+        with patch("smart_assistant.tools.memo_write_tools.extract_create_params") as extract:
+            from smart_assistant.extractors.memo_extractor import CreateParams
+            extract.return_value = CreateParams("标题", "内容", None)
+            result = MemoCreateTool().execute(query="记", context={"confirmed": True, "user": user, "task_id": task.task_id})
+        assert result["found"] is False
+        assert Memo.all_objects.filter(user=user, title="标题").count() == 0
+        assert not AgentWriteLog.objects.filter(user=user).exists()
+
         memo = Memo.objects.create(user=user, title="旧", content="原文")
         with patch("smart_assistant.tools.memo_write_tools_v2.extract_update_params") as extract:
             from smart_assistant.extractors.memo_update_extractor import UpdateParams
@@ -81,6 +91,22 @@ class TestMemoToolWriteAudit:
         assert delete_log.before["is_deleted"] is False
         assert delete_log.after["is_deleted"] is True
         assert Memo.all_objects.get(pk=memo.pk).is_deleted
+
+    def test_update_rejects_task_owned_by_other_user_without_persisting(self, user, other_user):
+        from smart_assistant.models import AgentTask
+        task = AgentTask.objects.create(task_id=uuid4(), user=other_user, objective="other", task_packet={})
+        memo = Memo.objects.create(user=user, title="旧", content="原文")
+        with patch("smart_assistant.tools.memo_write_tools_v2.extract_update_params") as extract:
+            from smart_assistant.extractors.memo_update_extractor import UpdateParams
+            extract.return_value = UpdateParams("旧", "新", None, None)
+            result = MemoUpdateTool().execute(
+                query="改", context={"confirmed": True, "user": user, "task_id": task.task_id,
+                "draft": {"memo_id": memo.pk, "target_title": "旧"}}
+            )
+        assert result["found"] is False
+        memo.refresh_from_db()
+        assert memo.title == "旧"
+        assert not AgentWriteLog.objects.filter(user=user).exists()
 
 
 @pytest.mark.django_db

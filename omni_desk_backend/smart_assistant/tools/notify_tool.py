@@ -2,8 +2,10 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
+from uuid import uuid4
+
 from .base import BaseTool
-from notifications.channels import resolve_channel
+from notifications.channels import resolve_channels
 from smart_assistant.scope import SmartAssistantScope, resolve_scope
 
 _SCOPE_RANK = {"self": 0, "department": 1, "global": 2}
@@ -118,13 +120,19 @@ class NotifyTool(BaseTool):
             return {"found": False, "message": "未登录用户无法发送通知"}
         if any(not values.get(key) for key in ("recipients", "title", "content", "scope")):
             return {"found": False, "message": "recipients、title、content、scope 均为必填"}
+        title = values.get("title")
+        content = values.get("content")
+        if not isinstance(title, str) or not title.strip() or not isinstance(content, str) or not content.strip():
+            return {"found": False, "message": "title 和 content 不能为空"}
+        values = {**values, "title": title.strip(), "content": content.strip()}
         error = self._validate_scope(values["scope"], ctx, context)
         if error:
             return {"found": False, "message": error}
         users, error = self._resolve_recipients(values["recipients"], actor, values["scope"])
         if error:
             return {"found": False, "message": error}
-        return {"found": True, "draft": {"summary": f"向 {len(users)} 人发送通知: {values['title']}", "fields": {"recipient_ids": [u.id for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"]}}}
+        operation_id = str(uuid4())
+        return {"found": True, "draft": {"summary": f"向 {len(users)} 人发送通知: {values['title']}", "fields": {"recipient_ids": [u.id for u in users], "recipient_names": [u.get_full_name() or u.username for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"], "operation_id": operation_id}}}
 
     def _confirmed(self, values, ctx, context):
         actor = self._user(ctx, context)
@@ -144,6 +152,7 @@ class NotifyTool(BaseTool):
         required = ("title", "content", "scope")
         if any(not isinstance(fields.get(key), str) or not fields[key].strip() for key in required):
             return {"found": False, "message": "确认草稿缺少有效的 title、content 或 scope"}
+        fields = {**fields, "title": fields["title"].strip(), "content": fields["content"].strip(), "scope": fields["scope"].strip()}
         error = self._validate_scope(fields.get("scope"), ctx, context)
         if error:
             return {"found": False, "message": error}
@@ -151,18 +160,24 @@ class NotifyTool(BaseTool):
         if error:
             return {"found": False, "message": error}
         from notifications.channels import resolve_channels
+        operation_id = fields.get("operation_id") or ctx.get("operation_id") or str(uuid4())
+        audit_recipients = []
         for user in users:
-            dedupe_key = f"agent_notify:{actor.id}:{user.id}:{fields['title']}"
+            audit_recipients.append({"id": user.id, "name": user.get_full_name() or user.username})
             for channel in resolve_channels(user, "agent_notify"):
                 result = channel.send(
                     user=user,
                     type="agent_notify",
                     title=fields["title"],
                     content=fields["content"],
-                    dedupe_key=dedupe_key,
+                    dedupe_key=f"agent_notify:{operation_id}:{user.id}",
                 )
                 if not result.success:
                     return {"found": False, "message": result.message or "通知发送失败"}
+        audit_payload = {"recipients": audit_recipients, "title": fields["title"], "content": fields["content"]}
+        event_bus = ctx.get("event_bus")
+        if event_bus is not None:
+            event_bus.emit("agent.notify", audit_payload)
         return {"found": True, "result": {"sent_count": len(users)}, "summary": f"已发送 {len(users)} 条站内通知"}
 
 

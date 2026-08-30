@@ -202,7 +202,9 @@ class MemoCreateTool(BaseTool):
                 task_id = ctx.get("task_id")
                 if task_id:
                     from smart_assistant.models import AgentTask
-                    task = AgentTask.objects.filter(task_id=task_id).first()
+                    task = AgentTask.objects.filter(task_id=task_id, user=user).first()
+                    if task is None:
+                        raise ValueError("任务不存在或不属于当前用户")
                 AgentWriteLog.objects.create(
                     task=task, session_id=ctx.get("session_id"), user=user,
                     tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
