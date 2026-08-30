@@ -233,6 +233,9 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     return Response({"error": f"任务状态为 {task.status},无法取消"}, status=status.HTTP_400_BAD_REQUEST)
                 task.status = "cancelled"
                 task.save(update_fields=["status"])
+                from ..tasks import _schedule_agent_task_notification
+
+                _schedule_agent_task_notification(task, "cancelled", transaction)
 
         return Response({"status": task.status})
 

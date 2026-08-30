@@ -16,16 +16,7 @@ def _router_cache_key(app_name):
     return f"llm_router_configs_{app_name}"
 
 
-class _LLMRouterMeta(type):
-    """记录运行时对类级 timeout 的显式覆盖。"""
-
-    def __setattr__(cls, name, value):
-        if name == "REQUEST_TIMEOUT" and hasattr(cls, "REQUEST_TIMEOUT"):
-            type.__setattr__(cls, "_timeout_overridden", True)
-        super().__setattr__(name, value)
-
-
-class LLMRouter(metaclass=_LLMRouterMeta):
+class LLMRouter:
     """多端点 LLM 路由器：按优先级尝试端点，自动降级。
 
     降级链路：数据库 LlmAppConfig（按 priority 排序，按 app_name 隔离）
@@ -39,16 +30,20 @@ class LLMRouter(metaclass=_LLMRouterMeta):
     # Ollama 兜底模型的最终回退值；运行时优先读 settings.OLLAMA_MODEL_NAME
     OLLAMA_MODEL = "qwen2.5:7b"
     REQUEST_TIMEOUT = 120
-    _timeout_overridden = False
 
-    def __init__(self, app_name="smart_assistant"):
+    def __init__(self, app_name="smart_assistant", request_timeout=None):
         # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
         self.app_name = app_name
         try:
-            class_timeout = type(self).REQUEST_TIMEOUT
+            class_timeout = type(self).__dict__.get("REQUEST_TIMEOUT")
             configured_timeout = getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)
-            # 显式 monkeypatch/子类覆盖优先（包括覆盖为 120）。
-            timeout = class_timeout if type(self)._timeout_overridden else configured_timeout
+            # 显式构造参数优先；非默认类体 override 保留兼容性。
+            if request_timeout is not None:
+                timeout = request_timeout
+            elif class_timeout is not None and class_timeout != 120:
+                timeout = class_timeout
+            else:
+                timeout = configured_timeout
             self.REQUEST_TIMEOUT = max(1, int(timeout))
         except Exception:
             # 允许在 Django settings 尚未配置时实例化；运行时使用默认值。
