@@ -366,6 +366,10 @@ class MemoDeleteTool(BaseTool):
 
         try:
             with transaction.atomic():
+                memo = Memo.all_objects.select_for_update().filter(pk=memo.pk, user=user).first()
+                fields = ctx.get("draft") if isinstance(ctx, dict) else {}
+                if memo is None or (fields.get("version") and memo.updated_at.isoformat() != fields["version"]):
+                    return {"found": False, "error_code": "stale_confirmation", "message": "确认内容已过期，请重新确认"}
                 before = {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None}
                 memo.is_deleted = True
                 memo.deleted_at = timezone.now()
@@ -391,7 +395,7 @@ class MemoDeleteTool(BaseTool):
                     "error": str(e),
                 },
             )
-            return {"found": False, "message": f"删除备忘录失败: {e!s}"}
+            return {"found": False, "message": "删除备忘录失败，请稍后重试", "error_code": "memo_delete_failed"}
 
         logger.info(
             "memo_delete.persisted",

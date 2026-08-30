@@ -380,6 +380,7 @@ class StreamRunner:
                     "tool_name": tool.name,
                     "user_query": user_query,
                     "context_sig": scope_sig,
+                    "task_id": getattr(tool_context, "task_id", None),
                     "draft": draft,
                 },
             )

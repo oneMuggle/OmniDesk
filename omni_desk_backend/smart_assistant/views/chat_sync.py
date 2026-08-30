@@ -20,7 +20,7 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_error_kind
-from ..cache import clear_confirmation_draft, get_confirmation_draft
+from ..cache import consume_confirmation_draft, clear_confirmation_draft, get_confirmation_draft
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
 from ..tools.registry import ToolRegistry
@@ -133,6 +133,13 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     try:
+        claimed = consume_confirmation_draft(confirm_token)
+    except Exception:
+        claimed = None
+    if claimed is None:
+        return Response({"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT)
+    draft_entry = claimed
+    try:
         tool_result = execute_guarded(
             tool,
             draft_entry["user_query"],
@@ -145,7 +152,6 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
                 "draft": draft_entry.get("draft", {}).get("fields"),
             },
         )
-        clear_confirmation_draft(confirm_token)  # 清理,防止重放
         return Response(
             {
                 "answer": tool_result.get("summary") or "操作已完成",

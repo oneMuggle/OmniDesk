@@ -323,12 +323,19 @@ def set_confirmation_draft(
     cache.set(_draft_key(token), draft, ttl)
 
 
-def get_confirmation_draft(token: str) -> dict | None:
-    """取 confirmation draft。过期/不存在返回 None。
+def consume_confirmation_draft(token: str) -> dict | None:
+    """原子占用确认草稿；不支持原子 pop 的 backend 返回 None。"""
+    key = _draft_key(token)
+    if hasattr(cache, "pop"):
+        return cache.pop(key, None)
+    with _inflight_global:
+        value = cache.get(key)
+        if value is not None:
+            cache.delete(key)
+        return value
 
-    Returns:
-        draft 字典;token 无效或已过期时为 None
-    """
+def get_confirmation_draft(token: str) -> dict | None:
+    """取 confirmation draft。过期/不存在返回 None。"""
     return cache.get(_draft_key(token))
 
 
