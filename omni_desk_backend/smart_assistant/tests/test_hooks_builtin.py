@@ -220,13 +220,21 @@ class TestTimeoutResolution:
         settings.SMART_ASSISTANT_TOOL_TIMEOUT = 3.0
         assert resolve_timeout(5.5) == 5.5
 
-    def test_resolve_timeout_from_settings(self, settings):
-        settings.SMART_ASSISTANT_TOOL_TIMEOUT = 3.0
+    def test_resolve_timeout_from_tool_calls_setting(self, settings):
+        """统一读取原生工具调用超时配置"""
+        settings.TOOL_CALLS_TIMEOUT_SECONDS = 3.0
+        settings.SMART_ASSISTANT_TOOL_TIMEOUT = 9.0
         assert resolve_timeout() == 3.0
 
+    def test_resolve_timeout_legacy_fallback(self, settings):
+        """旧配置仅在统一配置缺失时兼容读取"""
+        del settings.TOOL_CALLS_TIMEOUT_SECONDS
+        settings.SMART_ASSISTANT_TOOL_TIMEOUT = 4.0
+        assert resolve_timeout() == 4.0
+
     def test_resolve_timeout_default(self):
-        """test settings 未定义该项 → 默认 10 秒"""
-        assert resolve_timeout() == DEFAULT_TOOL_TIMEOUT == 10.0
+        """未覆盖配置时使用统一工具调用超时默认值"""
+        assert resolve_timeout() == DEFAULT_TOOL_TIMEOUT == 30.0
 
     def test_resolve_enabled_explicit_wins(self, settings):
         settings.SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED = True
@@ -258,6 +266,7 @@ class TestBuildTimeoutResult:
 class TestTimeoutGuardHookInit:
     def test_reads_settings_at_init(self, settings):
         """构造时从 settings 读取阈值与开关"""
+        settings.TOOL_CALLS_TIMEOUT_SECONDS = 2.5
         settings.SMART_ASSISTANT_TOOL_TIMEOUT = 2.5
         settings.SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED = False
         hook = TimeoutGuardHook()
@@ -405,6 +414,7 @@ class TestTimeoutGuardHookInterface:
 
     def test_execute_with_guard_integration(self, settings):
         """BaseTool.execute_with_guard 胶合层:读 settings 阈值并熔断"""
+        settings.TOOL_CALLS_TIMEOUT_SECONDS = SHORT_TIMEOUT
         settings.SMART_ASSISTANT_TOOL_TIMEOUT = SHORT_TIMEOUT
 
         class _SlowTool(BaseTool):
