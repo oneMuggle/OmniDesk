@@ -290,4 +290,88 @@ describe('subscribeTaskStream SSE 订阅', () => {
     expect(callbacks.onError).not.toHaveBeenCalled();
     expect(callbacks.onDone).not.toHaveBeenCalled();
   });
+
+  describe('无 ReadableStream 时的 timeline 降级', () => {
+    beforeEach(() => {
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
+    });
+
+    it('轮询 timeline 并仅派发 sequence 大于 lastSeq 的事件，终态带最终 sequence', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, body: {} });
+      apiClient.get
+        .mockResolvedValueOnce({
+          data: {
+            task: { status: 'running' },
+            timeline: [
+              { type: 'task.started', sequence: 1 },
+              { type: 'subtask.progress', sequence: 2 },
+            ],
+          },
+        })
+        .mockResolvedValueOnce({
+          data: {
+            task: { status: 'completed' },
+            timeline: [
+              { type: 'task.started', sequence: 1 },
+              { type: 'subtask.progress', sequence: 2 },
+              { type: 'task.completed', sequence: 3 },
+            ],
+          },
+        });
+      const callbacks = createCallbacks();
+
+      subscribeTaskStream('t-1', callbacks);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(callbacks.onEvent).toHaveBeenCalledTimes(2);
+      expect(apiClient.get).toHaveBeenCalledWith(
+        'smart-assistant/tasks/t-1/timeline/',
+        expect.objectContaining({ signal: expect.any(AbortSignal) })
+      );
+
+      jest.advanceTimersByTime(2000);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+
+      expect(callbacks.onEvent).toHaveBeenCalledTimes(3);
+      expect(callbacks.onEvent).toHaveBeenLastCalledWith(expect.objectContaining({ sequence: 3 }));
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 3 }));
+      expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+
+    it('abort 会清理轮询 timer 并取消进行中的 timeline 请求', async () => {
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, body: {} });
+      apiClient.get.mockImplementation(
+        (url, options) =>
+          new Promise((resolve, reject) => {
+            options.signal.addEventListener('abort', () => {
+              const error = new Error('Aborted');
+              error.name = 'AbortError';
+              reject(error);
+            });
+          })
+      );
+      const callbacks = createCallbacks();
+      const subscription = subscribeTaskStream('t-1', callbacks);
+
+      await Promise.resolve();
+      subscription.abort();
+      jest.advanceTimersByTime(10000);
+      await Promise.resolve();
+
+      expect(apiClient.get).toHaveBeenCalledTimes(1);
+      expect(callbacks.onDone).not.toHaveBeenCalled();
+      expect(callbacks.onError).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -14,10 +14,17 @@
  * 终态事件: `{type: 'done', task_id}` / `{type: 'timeout'}` (服务端 60 秒轮询超时)
  */
 import apiClient from '../../../shared/api/apiClient';
-import { authFetch } from '../../../shared/api/authFetch';
-import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant/tasks';
+const FALLBACK_POLL_INTERVAL_MS = 2000;
+const FALLBACK_MAX_POLLS = 30;
+const TERMINAL_TASK_STATUSES = [
+  'completed',
+  'partial',
+  'failed',
+  'cancelled',
+  'paused',
+];
 
 /**
  * 主任务状态 → AntD Tag 颜色 + 中文文案
@@ -76,8 +83,9 @@ export async function getAgentTasks() {
 /**
  * 获取任务完整时间线: {task, subtasks, timeline}
  */
-export async function getAgentTaskTimeline(taskId) {
-  return apiClient.get(`${BASE_URL}/${taskId}/timeline/`);
+export async function getAgentTaskTimeline(taskId, config) {
+  const url = `${BASE_URL}/${taskId}/timeline/`;
+  return config ? apiClient.get(url, config) : apiClient.get(url);
 }
 
 /**
@@ -123,23 +131,83 @@ export async function interveneAgentTask(taskId, action) {
  * @param {(error: Error) => void} [callbacks.onError] 连接/认证/解析错误
  * @returns {{ abort: () => void }} 调用 abort() 断开 SSE 连接
  */
-export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
+export function subscribeTaskStream(taskId, callbacks = {}) {
   const { onEvent, onDone, onTimeout, onError } = callbacks;
-  const { lastSeq = 0 } = options;
   const abortController = new AbortController();
+  let fallbackTimer = null;
+  let fallbackRequestController = null;
+  let fallbackPollCount = 0;
+  let stopped = false;
 
-  const run = async () => {
-    const token = readAuthTokens()?.access;
-    if (!token) {
-      onError?.(new Error('认证已过期，请重新登录'));
+  const stopFallback = () => {
+    stopped = true;
+    if (fallbackTimer !== null) {
+      clearTimeout(fallbackTimer);
+      fallbackTimer = null;
+    }
+    if (fallbackRequestController) {
+      fallbackRequestController.abort();
+      fallbackRequestController = null;
+    }
+  };
+
+  const runTimelineFallback = async () => {
+    if (stopped || fallbackPollCount >= FALLBACK_MAX_POLLS) {
+      if (!stopped) onTimeout?.();
+      stopFallback();
       return;
     }
 
+    fallbackPollCount += 1;
+    fallbackRequestController = new AbortController();
+    try {
+      const response = await getAgentTaskTimeline(taskId, {
+        signal: fallbackRequestController.signal,
+      });
+      if (stopped) return;
+
+      const data = response.data || {};
+      const events = Array.isArray(data.timeline) ? data.timeline : [];
+      events
+        .filter((event) => Number(event.sequence) > lastSeq)
+        .sort((a, b) => Number(a.sequence) - Number(b.sequence))
+        .forEach((event) => {
+          if (Number(event.sequence) <= lastSeq) return;
+          lastSeq = Number(event.sequence);
+          onEvent?.(event);
+        });
+
+      const status = data.task && data.task.status;
+      if (TERMINAL_TASK_STATUSES.indexOf(status) !== -1) {
+        stopFallback();
+        onDone?.({ type: 'done', task_id: taskId, status, sequence: lastSeq });
+        return;
+      }
+      fallbackTimer = setTimeout(runTimelineFallback, FALLBACK_POLL_INTERVAL_MS);
+    } catch (error) {
+      if (stopped || error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;
+      stopFallback();
+      onError?.(error);
+    } finally {
+      fallbackRequestController = null;
+    }
+  };
+
+  let lastSeq = 0;
+
+  const run = async () => {
+    const authTokens = JSON.parse(
+      localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
+    );
+    const token = authTokens.access;
+
     let response;
     try {
-      const streamUrl = `${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/${lastSeq ? `?last_seq=${encodeURIComponent(lastSeq)}` : ''}`;
-      response = await authFetch(streamUrl, {
+      response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/`, {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         signal: abortController.signal,
       });
     } catch (error) {
@@ -160,17 +228,8 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
       return;
     }
 
-    let sequence = lastSeq;
-    let timedOut = false;
     if (!response.body || typeof response.body.getReader !== 'function') {
-      const timeline = await getAgentTaskTimeline(taskId);
-      const events = timeline.data?.timeline || [];
-      events.forEach((event) => {
-        if (event.sequence != null && event.sequence <= sequence) return;
-        if (event.sequence != null) sequence = event.sequence;
-        onEvent?.(event);
-      });
-      onDone?.(undefined, sequence);
+      runTimelineFallback();
       return;
     }
 
@@ -188,38 +247,33 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
         const parts = buffer.split('\n\n');
         buffer = parts.pop() || '';
 
-        let sawDone = false;
-        parts.forEach((part) => {
+        for (const part of parts) {
           const line = part.trim();
-          if (!line.startsWith('data:')) return;
+          if (!line.startsWith('data:')) continue;
           const jsonText = line.slice(5).trim();
-          if (!jsonText) return;
+          if (!jsonText) continue;
 
           let event;
           try {
             event = JSON.parse(jsonText);
           } catch {
-            return;
+            // 畸形数据行,跳过不中断流
+            continue;
           }
 
           if (event.type === 'done') {
-            onDone?.(event, sequence);
-            sawDone = true;
+            onDone?.(event);
             return;
           }
           if (event.type === 'timeout') {
-            timedOut = true;
-            onTimeout?.(event);
+            onTimeout?.();
             return;
           }
-          if (event.sequence != null && event.sequence <= sequence) return;
-          if (event.sequence != null) sequence = event.sequence;
           onEvent?.(event);
-        });
-        if (sawDone) return;
+        }
       }
       // 服务端正常关闭连接(未显式发送 done)
-      if (!timedOut) onDone?.(undefined, sequence);
+      onDone?.();
     } catch (error) {
       if (error.name === 'AbortError') {
         return;
@@ -231,6 +285,9 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
   run();
 
   return {
-    abort: () => abortController.abort(),
+    abort: () => {
+      abortController.abort();
+      stopFallback();
+    },
   };
 }
