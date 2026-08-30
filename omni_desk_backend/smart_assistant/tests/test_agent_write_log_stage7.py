@@ -1,5 +1,6 @@
 import pytest
 from unittest.mock import patch
+from uuid import uuid4
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 from django.utils import timezone
@@ -108,11 +109,20 @@ class TestWriteLogAPI:
         memo.refresh_from_db()
         assert memo.title == "old"
         revert = AgentWriteLog.objects.get(revert_of=log)
-        assert revert.operation == "revert"
+        assert revert.operation == "update"
         assert revert.before["title"] == "new"
         assert revert.after["title"] == "old"
 
-    def test_create_revert_soft_deletes_created_memo(self, user):
+    def test_list_filters_by_task_id(self, user):
+        from smart_assistant.models import AgentTask
+        task = AgentTask.objects.create(task_id=uuid4(), user=user, objective="t", task_packet={})
+        other_task = AgentTask.objects.create(task_id=uuid4(), user=user, objective="o", task_packet={})
+        first = AgentWriteLog.objects.create(user=user, task=task, tool_name="memo_create", target_model="memos.Memo", target_pk="1", operation="create")
+        AgentWriteLog.objects.create(user=user, task=other_task, tool_name="memo_create", target_model="memos.Memo", target_pk="2", operation="create")
+        self.client.force_authenticate(user=user)
+        response = self.client.get(f"/api/smart-assistant/write-logs/?task_id={task.task_id}")
+        assert [item["id"] for item in response.data["results"]] == [first.pk]
+
         memo = Memo.objects.create(user=user, title="new", content="body")
         log = AgentWriteLog.objects.create(
             user=user,
@@ -154,4 +164,4 @@ class TestWriteLogAPI:
             operation="delete", before={"is_deleted": False}, after={"is_deleted": True},
         )
         response = self.client.post(f"/api/smart-assistant/write-logs/{delete_log.pk}/revert/")
-        assert response.status_code == 400
+        assert response.status_code == 409

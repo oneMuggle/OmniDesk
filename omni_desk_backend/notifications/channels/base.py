@@ -8,5 +8,14 @@ class NotifyChannel(ABC):
     name = ""
 
     @abstractmethod
-    def send(self, *, user: Any, type: str, title: str, content: str, link: str = "") -> NotifyResult:
+    def send(
+        self,
+        *,
+        user: Any,
+        type: str,
+        title: str,
+        content: str,
+        link: str = "",
+        dedupe_key: str = "",
+    ) -> NotifyResult:
         raise NotImplementedError

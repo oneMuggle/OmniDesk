@@ -21,42 +21,51 @@ class AgentWriteLogViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return AgentWriteLog.objects.filter(user=self.request.user).select_related("task", "revert_of")
+        queryset = AgentWriteLog.objects.filter(user=self.request.user).select_related("task", "revert_of")
+        task_id = self.request.query_params.get("task_id")
+        if task_id:
+            queryset = queryset.filter(task__task_id=task_id)
+        return queryset
 
     @action(detail=True, methods=["post"])
     def revert(self, request, pk=None):
         with transaction.atomic():
+            # The owner filter is deliberately inside the row lock: neither an
+            # ID leak nor a concurrent second revert is possible.
             log = self.get_queryset().select_for_update().filter(pk=pk).first()
             if log is None:
                 return Response({"detail": "写操作日志不存在。"}, status=status.HTTP_404_NOT_FOUND)
             if log.operation == "delete":
-                return Response({"detail": "删除操作不可回滚。"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "删除操作不可回滚。"}, status=status.HTTP_409_CONFLICT)
+            if log.operation not in {"create", "update"}:
+                return Response({"detail": "该操作类型不支持回滚。"}, status=status.HTTP_409_CONFLICT)
             if log.reverted_at is not None:
-                return Response({"detail": "该写操作已回滚。"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "该写操作已回滚。"}, status=status.HTTP_409_CONFLICT)
             if log.target_model != "memos.Memo":
-                return Response({"detail": "暂不支持该目标模型。"}, status=status.HTTP_400_BAD_REQUEST)
+                return Response({"detail": "暂不支持该目标模型。"}, status=status.HTTP_409_CONFLICT)
             memo = Memo.all_objects.select_for_update().filter(pk=log.target_pk, user=request.user).first()
             if memo is None:
-                return Response({"detail": "目标备忘录不存在。"}, status=status.HTTP_404_NOT_FOUND)
+                return Response({"detail": "目标备忘录不存在或归属已变化。"}, status=status.HTTP_409_CONFLICT)
             current = _memo_snapshot(memo)
+            expected = log.after or {}
             if log.operation == "create":
-                if current != (log.after or {}):
-                    return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=409)
-                before = current
+                matches = current == expected
+            else:
+                matches = all(current.get(key) == value for key, value in expected.items())
+            if not matches:
+                return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=status.HTTP_409_CONFLICT)
+            before = current
+            if log.operation == "create":
                 memo.is_deleted = True
                 memo.deleted_at = timezone.now()
                 memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
             else:
-                expected = log.after or {}
-                if any(current.get(key) != value for key, value in expected.items()):
-                    return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=409)
-                before = current
                 _apply_memo_snapshot(memo, log.before or {})
                 memo.save(update_fields=["title", "content", "reminder_time", "is_deleted", "deleted_at", "updated_at"])
             revert = AgentWriteLog.objects.create(
                 task=log.task, session_id=log.session_id, user=request.user,
                 tool_name="write_log.revert", target_model=log.target_model, target_pk=log.target_pk,
-                operation="revert", before=before, after=_memo_snapshot(memo), revert_of=log,
+                operation="update", before=before, after=_memo_snapshot(memo), revert_of=log,
             )
             log.reverted_at = timezone.now()
             log.reverted_by = request.user

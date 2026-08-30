@@ -70,6 +70,18 @@ class NotifyTool(BaseTool):
             return f"scope 超出当前权限: {requested}"
         return None
 
+    def _validate_users_scope(self, users, actor, requested_scope):
+        """确认阶段按当前收件人对象重新执行范围闸门。"""
+        for user in users:
+            if requested_scope == "self" and user.id != actor.id:
+                return "收件人超出当前范围"
+            if requested_scope == "department":
+                actor_department = getattr(getattr(actor, "personnel", None), "department", None)
+                user_department = getattr(getattr(user, "personnel", None), "department", None)
+                if not actor_department or actor_department != user_department:
+                    return "收件人超出当前部门范围"
+        return None
+
     def _resolve_recipients(self, names, actor, requested_scope):
         if not isinstance(names, list) or not names:
             return None, "收件人数量必须在 1 到 10 人之间"
@@ -135,10 +147,22 @@ class NotifyTool(BaseTool):
         error = self._validate_scope(fields.get("scope"), ctx, context)
         if error:
             return {"found": False, "message": error}
+        error = self._validate_users_scope(users, actor, fields["scope"])
+        if error:
+            return {"found": False, "message": error}
+        from notifications.channels import resolve_channels
         for user in users:
-            result = resolve_channel(user, "agent_notify").send(user=user, type="agent_notify", title=fields["title"], content=fields["content"])
-            if not result.success:
-                return {"found": False, "message": result.message or "通知发送失败"}
+            dedupe_key = f"agent_notify:{actor.id}:{user.id}:{fields['title']}"
+            for channel in resolve_channels(user, "agent_notify"):
+                result = channel.send(
+                    user=user,
+                    type="agent_notify",
+                    title=fields["title"],
+                    content=fields["content"],
+                    dedupe_key=dedupe_key,
+                )
+                if not result.success:
+                    return {"found": False, "message": result.message or "通知发送失败"}
         return {"found": True, "result": {"sent_count": len(users)}, "summary": f"已发送 {len(users)} 条站内通知"}
 
 
