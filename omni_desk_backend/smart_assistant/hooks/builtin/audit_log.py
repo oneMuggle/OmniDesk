@@ -1,23 +1,8 @@
 """AuditLogHook 审计日志钩子
 
-统一写入 AgentLog(工具级) + AgentEvent(多 Agent 任务级):
-- 工具执行前后 → AgentLog(每次工具调用一条)
-- Subtask 生命周期 → AgentEvent(每个 subtask 的 started/completed/failed)
-- Task 生命周期 → AgentEvent(任务的 started/completed/failed)
-
-事件流 sequence 在 AgentTask 内严格递增,保证审计回放时状态一致。
-
-Example:
-    from smart_assistant.hooks.builtin.audit_log import AuditLogHook
-
-    hook = AuditLogHook(agent_task_id=task.task_id)
-
-    # 工具级审计(通过 HookRegistry)
-    registry.register(HookEvent.POST_EXECUTE, hook, priority=10)
-
-    # 多 Agent 事件审计(由 executor 直接调用)
-    await hook.on_subtask_completed(event, subtask_db_instance)
-    await hook.on_task_completed(event)
+负责工具级 AgentLog 审计：每次工具调用成功或失败各写入一条记录。
+多 Agent 生命周期事件由 PersistentEventBus 统一持久化；本 Hook 保留公开
+生命周期方法作为兼容接口，但不再创建 AgentEvent 或维护事件序列。
 """
 
 from __future__ import annotations
@@ -64,24 +49,20 @@ def _audit_input(ctx: Any, tool: Any) -> dict:
 class AuditLogHook(ToolHookBase):
     """审计日志 Hook
 
-    同时处理工具级审计(AgentLog)和多 Agent 事件审计(AgentEvent)。
-
     Attributes:
         name: Hook 名称(固定为 "audit_log")
-        agent_task_id: 关联的 AgentTask UUID(可选,用于写 AgentEvent)
-        _sequence_counter: 事件序列号计数器(保证递增)
+        agent_task_id: 兼容保留的任务标识(生命周期事件不由本 Hook 写入)
     """
 
     name: str = "audit_log"
 
     def __init__(self, agent_task_id: str | None = None):
-        """初始化 AuditLogHook
+        """初始化 AuditLogHook。
 
-        Args:
-            agent_task_id: 关联的 AgentTask UUID(如果写 AgentEvent 则必填)
+        ``agent_task_id`` 为兼容旧调用方保留；AgentEvent 生命周期事件由
+        PersistentEventBus 负责，本 Hook 不会使用该标识写入事件。
         """
         self.agent_task_id = agent_task_id
-        self._sequence_counter: int = 0
 
     # ------------------------------------------------------------------
     # 工具级审计(ToolHook 接口)
@@ -195,139 +176,23 @@ class AuditLogHook(ToolHookBase):
         return RecoveryAction(action="ignore")
 
     # ------------------------------------------------------------------
-    # 多 Agent 事件审计(由 executor 直接调用)
+    # 生命周期兼容接口
     # ------------------------------------------------------------------
 
     async def on_subtask_started(self, event: Any, subtask_db: Any) -> None:
-        """Subtask 开始时写 AgentEvent
-
-        Args:
-            event: EventBus 事件(应有 payload 属性)
-            subtask_db: AgentSubTask 数据库实例
-        """
-        await self._write_agent_event(
-            event_type="subtask.started",
-            subtask_db=subtask_db,
-            payload=getattr(event, "payload", {}),
-        )
+        """保留 Subtask 开始接口；事件由 PersistentEventBus 统一持久化。"""
 
     async def on_subtask_completed(self, event: Any, subtask_db: Any) -> None:
-        """Subtask 完成时写 AgentEvent
-
-        Args:
-            event: EventBus 事件
-            subtask_db: AgentSubTask 数据库实例
-        """
-        await self._write_agent_event(
-            event_type="subtask.completed",
-            subtask_db=subtask_db,
-            payload=getattr(event, "payload", {}),
-        )
+        """保留 Subtask 完成接口；事件由 PersistentEventBus 统一持久化。"""
 
     async def on_subtask_failed(self, event: Any, subtask_db: Any) -> None:
-        """Subtask 失败时写 AgentEvent
-
-        Args:
-            event: EventBus 事件
-            subtask_db: AgentSubTask 数据库实例
-        """
-        payload = getattr(event, "payload", {})
-        # 确保 error 信息在 payload 中
-        if "error" not in payload and hasattr(event, "error"):
-            payload["error"] = str(event.error)
-
-        await self._write_agent_event(
-            event_type="subtask.failed",
-            subtask_db=subtask_db,
-            payload=payload,
-        )
+        """保留 Subtask 失败接口；事件由 PersistentEventBus 统一持久化。"""
 
     async def on_task_started(self, event: Any) -> None:
-        """Task 开始时写 AgentEvent
-
-        Args:
-            event: EventBus 事件
-        """
-        await self._write_agent_event(
-            event_type="task.started",
-            subtask_db=None,
-            payload=getattr(event, "payload", {}),
-        )
+        """保留 Task 开始接口；事件由 PersistentEventBus 统一持久化。"""
 
     async def on_task_completed(self, event: Any) -> None:
-        """Task 完成时写 AgentEvent
-
-        Args:
-            event: EventBus 事件
-        """
-        await self._write_agent_event(
-            event_type="task.completed",
-            subtask_db=None,
-            payload=getattr(event, "payload", {}),
-        )
+        """保留 Task 完成接口；事件由 PersistentEventBus 统一持久化。"""
 
     async def on_task_failed(self, event: Any) -> None:
-        """Task 失败时写 AgentEvent
-
-        Args:
-            event: EventBus 事件
-        """
-        await self._write_agent_event(
-            event_type="task.failed",
-            subtask_db=None,
-            payload=getattr(event, "payload", {}),
-        )
-
-    # ------------------------------------------------------------------
-    # 内部方法
-    # ------------------------------------------------------------------
-
-    async def _write_agent_event(
-        self,
-        event_type: str,
-        subtask_db: Any | None,
-        payload: dict,
-    ) -> None:
-        """写 AgentEvent 到数据库
-
-        Args:
-            event_type: 事件类型(如 "subtask.completed")
-            subtask_db: AgentSubTask 实例(可选,task 级事件为 None)
-            payload: 事件详细数据
-        """
-        if not self.agent_task_id:
-            logger.warning("AuditLogHook: agent_task_id 未设置,跳过 AgentEvent 写入")
-            return
-
-        try:
-            from smart_assistant.models import AgentEvent, AgentTask
-
-            # 获取 AgentTask 实例
-            agent_task = await AgentTask.objects.aget(task_id=self.agent_task_id)
-
-            # 序列号递增
-            self._sequence_counter += 1
-            sequence = self._sequence_counter
-
-            # 写 AgentEvent
-            await AgentEvent.objects.acreate(
-                task=agent_task,
-                subtask=subtask_db,
-                sequence=sequence,
-                event_type=event_type,
-                payload=payload,
-            )
-
-            logger.debug(f"AuditLogHook: 写入 AgentEvent(seq={sequence}, type={event_type})")
-
-        except CRITICAL_DB_ERRORS as e:
-            logger.error(
-                f"AuditLogHook._write_agent_event DB 关键错误(seq={self._sequence_counter}, type={event_type}): {e}",
-                exc_info=True,
-            )
-        except Exception as e:
-            logger.warning(f"AuditLogHook._write_agent_event 出错: {e}", exc_info=True)
-
-    def reset_sequence(self) -> None:
-        """重置序列号计数器(仅测试用)"""
-        self._sequence_counter = 0
+        """保留 Task 失败接口；事件由 PersistentEventBus 统一持久化。"""
