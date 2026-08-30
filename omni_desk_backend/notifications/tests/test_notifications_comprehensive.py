@@ -30,9 +30,7 @@ class TestNotificationViewSet:
             content='内容',
             is_read=False,
         )
-        resp = admin_client.patch(f'/api/notifications/{notif.id}/', {
-            'is_read': True,
-        }, format='json')
+        resp = admin_client.patch(f'/api/notifications/{notif.id}/mark_read/', {}, format='json')
         assert resp.status_code in [200, 204]
 
     def test_unread_count(self, admin_client, admin_user_obj):
