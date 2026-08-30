@@ -183,7 +183,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        from ..tasks import execute_agent_task
+        from ..tasks import dispatch_agent_task
 
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
@@ -192,7 +192,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     {"error": f"任务状态为 {task.status},无法执行"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            transaction.on_commit(lambda: execute_agent_task.delay(str(task.task_id)))
+            transaction.on_commit(lambda: dispatch_agent_task(task))
 
         return Response({"status": "started", "task_id": str(task.task_id)})
 
@@ -221,7 +221,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        from ..tasks import execute_agent_task
+        from ..tasks import dispatch_agent_task
 
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
@@ -234,7 +234,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 if task.status != "paused":
                     return Response({"error": "只有暂停的任务可以恢复"}, status=status.HTTP_400_BAD_REQUEST)
                 # 保持 paused，交由 worker 在锁内原子抢占为 running，避免伪恢复。
-                transaction.on_commit(lambda: execute_agent_task.delay(str(task.task_id)))
+                transaction.on_commit(lambda: dispatch_agent_task(task))
             elif action_type == "cancel":
                 if task.status in ["completed", "failed", "cancelled"]:
                     return Response({"error": f"任务状态为 {task.status},无法取消"}, status=status.HTTP_400_BAD_REQUEST)

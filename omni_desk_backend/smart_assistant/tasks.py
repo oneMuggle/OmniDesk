@@ -3,8 +3,63 @@ from celery import shared_task
 from ragflow_service.client import RagflowClient, RagflowClientError
 
 from observability import get_logger
+from notifications.models import Notification
+from notifications.service import NotificationService
 
 logger = get_logger(__name__, "smart_assistant")
+
+
+def calculate_agent_task_time_limits(task):
+    """根据任务包、LLM 超时和配置计算 Celery soft/hard time limit。"""
+    from django.conf import settings
+
+    packet = task.task_packet if hasattr(task, "task_packet") else task or {}
+    packet = packet if isinstance(packet, dict) else {}
+    steps = len(packet.get("subtasks", [])) + (1 if packet.get("final_synthesis") else 0)
+    llm_timeout = max(1, int(getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)))
+    coefficient = max(1, int(getattr(settings, "AGENT_TASK_RETRY_COEFFICIENT", 4)))
+    configured_max = max(llm_timeout, int(getattr(settings, "AGENT_TASK_MAX_SECONDS", 1800)))
+    packet_timeout = packet.get("timeout_seconds")
+    requested = int(packet_timeout) if isinstance(packet_timeout, (int, float)) and packet_timeout > 0 else configured_max
+    budget = getattr(task, "global_budget", 0) or 0
+    budget_factor = max(1, min(4, (int(budget) + 19999) // 20000)) if budget else 1
+    soft_limit = min(configured_max, requested, max(llm_timeout, steps * llm_timeout * coefficient * budget_factor))
+    return soft_limit, min(configured_max + 60, soft_limit + 60)
+
+
+def dispatch_agent_task(task):
+    """按任务包计算超时后派发 Celery 任务。"""
+    soft_limit, hard_limit = calculate_agent_task_time_limits(task)
+    return execute_agent_task.apply_async(
+        args=[str(task.task_id)],
+        soft_time_limit=soft_limit,
+        time_limit=hard_limit,
+    )
+
+
+_AGENT_TASK_NOTIFICATION_STATUSES = {"completed", "partial", "failed", "cancelled"}
+_AGENT_TASK_NOTIFICATION_LABELS = {
+    "completed": "已完成",
+    "partial": "部分完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+}
+
+
+def _notify_agent_task_result(task, status):
+    """为已进入终态的 AgentTask 创建一次安全的站内结果通知。"""
+    if status not in _AGENT_TASK_NOTIFICATION_STATUSES:
+        return
+    dedupe_key = f"agent_task:{task.task_id}"
+    if Notification.objects.filter(user=task.user, dedupe_key=dedupe_key).exists():
+        return
+    NotificationService.create(
+        user=task.user,
+        type="agent_task_result",
+        title="智能助手任务结果",
+        content=f"任务 {str(task.task_id)[:8]} {_AGENT_TASK_NOTIFICATION_LABELS[status]}。",
+        dedupe_key=dedupe_key,
+    )
 
 
 @shared_task(
@@ -112,7 +167,7 @@ def execute_agent_task(task_id: str):
     from django.utils import timezone
     from django.db import transaction
 
-    from smart_assistant.models import AgentSubTask, AgentTask
+    from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
     from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
     from smart_assistant.agents.dataclasses import PersistentEventBus
@@ -163,6 +218,8 @@ def execute_agent_task(task_id: str):
                         event_type=terminal_type,
                         payload={"task_id": str(locked_task.task_id), "status": locked_task.status},
                     )
+                if locked_task.status == "cancelled":
+                    _notify_agent_task_result(locked_task, "cancelled")
                 return {
                     "task_id": str(locked_task.task_id),
                     "status": locked_task.status,
@@ -192,6 +249,7 @@ def execute_agent_task(task_id: str):
                         "final_output": locked_task.final_output,
                     },
                 )
+            _notify_agent_task_result(locked_task, persisted_status)
             subtask_objs = {
                 str(obj.subtask_id): obj
                 for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
@@ -228,7 +286,11 @@ def execute_agent_task(task_id: str):
         }
 
     except AgentTask.DoesNotExist:
-        raise ValueError(f"AgentTask {task_id} 不存在")
+        logger.info(
+            "smart_assistant.tasks.agent_task_gone",
+            extra={"event": "smart_assistant.tasks.agent_task_gone", "task_id": task_id},
+        )
+        return None
     except Exception:
         with transaction.atomic():
             try:

@@ -55,9 +55,9 @@
 
 ### 阶段 0：独立安全修复（不依赖后续任何阶段）
 
-- [ ] 收紧 `notifications/views.py` 为 `ReadOnlyModelViewSet`，保留三个 `@action`
-- [ ] 补测试：普通用户 POST / PUT / DELETE `/api/notifications/` 返回 405
-- [ ] 确认前端 `notificationApi.js` 无调用被移除的方法
+- [x] 收紧 `notifications/views.py` 为 `ReadOnlyModelViewSet`，保留三个 `@action`
+- [x] 补测试：普通用户 POST / PUT / DELETE `/api/notifications/` 返回 405
+- [x] 确认前端 `notificationApi.js` 无调用被移除的方法
 
 ### 阶段 1：事件持久化桥（打通断链）
 

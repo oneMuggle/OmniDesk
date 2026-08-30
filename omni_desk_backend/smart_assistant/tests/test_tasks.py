@@ -106,7 +106,7 @@ class TestAgentTaskTimeouts(TestCase):
         from smart_assistant.tasks import execute_agent_task
 
         with patch.object(AgentTask, "objects") as objects:
-            objects.get.side_effect = AgentTask.DoesNotExist
+            objects.select_for_update.return_value.get.side_effect = AgentTask.DoesNotExist
             assert execute_agent_task.run("missing-task") is None
 
 
