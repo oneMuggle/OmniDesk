@@ -334,6 +334,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         "task_id": str(task.task_id),
                         "sequence": terminal_sequence,
                         "status": task.status,
+                        "synthetic": True,
                     }
                     yield f"id: {terminal_sequence}\n{sse_event(done_data)}"
                     timed_out = False
@@ -349,7 +350,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 timeout_sequence = last_seq + 1
                 timeout_data = {
                     "type": "timeout", "task_id": str(task.task_id),
-                    "sequence": timeout_sequence, "status": task.status,
+                    "sequence": timeout_sequence, "status": task.status, "synthetic": True,
                 }
                 yield f"id: {timeout_sequence}\n{sse_event(timeout_data)}"
 
