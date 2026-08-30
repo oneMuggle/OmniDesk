@@ -233,6 +233,14 @@ def execute_agent_task(task_id: str):
 
         with transaction.atomic():
             locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            # resume_from_checkpoint owns initialization-failure convergence. Do
+            # not turn its already-terminal failed state into task.completed.
+            if result.status == "failed" and locked_task.status == "failed":
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": "failed",
+                    "total_tokens": locked_task.tokens_used,
+                }
             if locked_task.status in {"cancelled", "paused"}:
                 terminal_type = "task.cancelled" if locked_task.status == "cancelled" else "task.paused"
                 event_bus.emit(

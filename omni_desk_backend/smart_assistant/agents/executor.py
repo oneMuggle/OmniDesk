@@ -356,14 +356,11 @@ class MultiAgentExecutor:
                     )
                 agent_task.status = "running"
                 agent_task.started_at = agent_task.started_at or claim_started_at
-                agent_task.save(update_fields=["status", "started_at"])
-        except AgentTask.DoesNotExist:
-            return TaskResult(
-                task_id=task_id,
-                status="failed",
-                error_message=f"AgentTask {task_id} 不存在",
-            )
-
+                agent_task.save(update_fields=["status", "started_at", "updated_at"])
+                # started_at belongs to the lifetime of a task and is therefore
+                # not a claim identity. updated_at is the existing row version
+                # changed by this atomic claim and subsequent state transitions.
+                claim_updated_at = agent_task.updated_at
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -374,10 +371,10 @@ class MultiAgentExecutor:
         def fail_claimed_task(reason: str) -> TaskResult:
             with transaction.atomic():
                 claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
-                if claimed.status == "running" and claimed.started_at == claim_started_at:
+                if claimed.status == "running" and claimed.updated_at == claim_updated_at:
                     claimed.status = "failed"
                     claimed.completed_at = timezone.now()
-                    claimed.save(update_fields=["status", "completed_at"])
+                    claimed.save(update_fields=["status", "completed_at", "updated_at"])
                     if event_bus is not None:
                         event_bus.emit("task.failed", {"task_id": task_id, "status": "failed", "error": reason, "reason": reason})
             return TaskResult(task_id=task_id, status="failed", error_message=reason)
@@ -407,7 +404,10 @@ class MultiAgentExecutor:
         )
 
         # 继续执行(跳过已完成的 subtask)
-        return executor._execute_resume()
+        result = executor._execute_resume()
+        if result.status == "failed":
+            fail_claimed_task(result.error_message or "任务恢复执行失败")
+        return result
 
     def _execute_resume(self) -> TaskResult:
         """从 checkpoint 恢复执行(跳过已完成的 subtask)
