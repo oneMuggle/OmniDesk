@@ -331,10 +331,10 @@ describe('subscribeTaskStream SSE 订阅', () => {
       await Promise.resolve();
       await Promise.resolve();
       expect(callbacks.onEvent).toHaveBeenCalledTimes(2);
-      expect(apiClient.get).toHaveBeenCalledWith(
+      await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(
         'smart-assistant/tasks/t-1/timeline/',
         expect.objectContaining({ signal: expect.any(AbortSignal) })
-      );
+      ));
 
       jest.advanceTimersByTime(2000);
       await Promise.resolve();
@@ -365,7 +365,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
       await Promise.resolve();
       await Promise.resolve();
       await Promise.resolve();
-      await Promise.resolve();
+      await waitFor(() => expect(apiClient.get).toHaveBeenCalledTimes(1));
       subscription.abort();
 
       expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
@@ -388,7 +388,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
       const callbacks = createCallbacks();
       const subscription = subscribeTaskStream('t-1', callbacks);
 
-      await Promise.resolve();
+      await waitFor(() => expect(apiClient.get).toHaveBeenCalledTimes(1));
       subscription.abort();
       jest.advanceTimersByTime(10000);
       await Promise.resolve();

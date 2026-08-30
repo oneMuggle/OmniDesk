@@ -31,15 +31,17 @@ const PAYLOAD_META = {
  *   payload?: Record<string, unknown>,
  * }} props
  */
-export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutput }) {
+export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutput, status }) {
   const meta = payloadKind ? PAYLOAD_META[payloadKind] : null;
-  const Icon = meta?.icon || CheckCircleOutlined;
-  const color = meta?.color || 'green';
+  const isFailed = status === 'failed';
+  const isPartial = status === 'partial';
+  const Icon = meta?.icon || (isFailed ? AlertOutlined : CheckCircleOutlined);
+  const color = isFailed ? 'red' : isPartial ? 'orange' : meta?.color || 'green';
   const { token } = useToken();
 
   return (
     <div className="final-answer-card">
-      <AgentCard agent={agent} variant="final" content={meta?.title || '已完成'} />
+      <AgentCard agent={agent} variant="final" content={isFailed ? '任务失败' : isPartial ? '部分完成' : meta?.title || '已完成'} />
       <Card
         className="final-answer-body"
         style={{
@@ -58,16 +60,18 @@ export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutp
             <Tag color={color} bordered={false}>{payloadKind}</Tag>
           </Space>
 
-          {finalOutput !== undefined && (
+          {isFailed && <Text type="danger">任务未完整执行，请检查失败子任务后重试。</Text>}
+          {finalOutput !== undefined && !isFailed && (
             <Paragraph data-testid="agent-final-output">
-              {typeof finalOutput === 'string' ? finalOutput : JSON.stringify(finalOutput)}
+              {typeof finalOutput === 'string' ? finalOutput : '任务结果已生成'}
             </Paragraph>
           )}
+          {payloadKind === 'email_draft' && <EmailDraftBody payload={payload} />}
           {payloadKind === 'card_preview' && <CardPreviewBody payload={payload} />}
           {payloadKind === 'workorder' && <WorkorderBody payload={payload} />}
           {payloadKind === 'announcement' && <AnnouncementBody payload={payload} />}
           {!['email_draft', 'card_preview', 'workorder', 'announcement'].includes(payloadKind ?? '') && (
-            <pre className="tool-call-json">{JSON.stringify(payload, null, 2)}</pre>
+            <Text type="secondary">结果详情已安全隐藏，请查看任务事件获取可展示内容。</Text>
           )}
         </Space>
       </Card>

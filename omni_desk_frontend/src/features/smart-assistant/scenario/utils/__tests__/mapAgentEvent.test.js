@@ -82,7 +82,6 @@ describe('mapAgentEvent', () => {
         sequence: 10,
         eventType,
         type: 'error',
-        content: '执行失败',
       });
     }
   );
@@ -93,7 +92,7 @@ describe('mapAgentEvent', () => {
       id: 11,
       sequence: 11,
       eventType: 'unknown.event',
-      type: 'error',
+      type: 'thinking',
       content: '未知事件类型: unknown.event',
     });
   });

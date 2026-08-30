@@ -3,12 +3,13 @@
 // 接收 scenarioId + userInput 后,前端剧本化推进多 Agent 思考 / 工具调用 / 工具结果,
 // 配对展示协作流 + 审计时间线,支持暂停/继续/重置与审计 JSON 导出。
 import { useCallback, useMemo } from 'react';
-import { App, Button, Card, Space, Tag, Typography, theme } from 'antd';
+import { App, Button, Card, Space, Tag, Typography } from 'antd';
 import {
   DownloadOutlined,
   PauseOutlined,
   PlayCircleOutlined,
   ReloadOutlined,
+  StopOutlined,
 } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
@@ -19,7 +20,6 @@ import AuditTimeline from './AuditTimeline';
 import './ScenarioCollabCard.css';
 
 const { Text, Title } = Typography;
-const { useToken } = theme;
 
 export default function ScenarioCollabCard({ scenarioId, userInput, taskId, objective }) {
   const { message } = App.useApp();
@@ -49,16 +49,18 @@ export default function ScenarioCollabCard({ scenarioId, userInput, taskId, obje
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
     message.success('审计日志已下载');
-  }, [scenario, scenarioId, userInput, stream.status, stream.events, message]);
+  }, [objective, scenario, scenarioId, userInput, stream.status, stream.events, message]);
 
   const statusTag = useMemo(() => {
-    if (stream.status === 'running') return { color: 'processing', label: '协作进行中' };
-    if (stream.status === 'paused') return { color: 'warning', label: '已暂停' };
-    if (stream.status === 'completed') return { color: 'success', label: '已完成' };
-    if (stream.status === 'failed') return { color: 'error', label: '已失败' };
-    if (stream.status === 'cancelled') return { color: 'default', label: '已取消' };
-    return { color: 'default', label: '准备中' };
-  }, [stream.status]);
+    if (stream.error) return { color: 'error', label: '连接错误' };
+    const labels = {
+      idle: ['default', '准备中'], running: ['processing', '协作进行中'], pausing: ['warning', '暂停中'],
+      paused: ['warning', '已暂停'], resuming: ['processing', '恢复中'], completed: ['success', '已完成'],
+      partial: ['warning', '部分完成'], failed: ['error', '已失败'], cancelled: ['default', '已取消'],
+    };
+    const [color, label] = labels[stream.status] || labels.idle;
+    return { color, label };
+  }, [stream.error, stream.status]);
 
   return (
     <Card
@@ -109,11 +111,20 @@ export default function ScenarioCollabCard({ scenarioId, userInput, taskId, obje
             size="small"
             type="text"
             danger
+            icon={<StopOutlined />}
+            disabled={!['running', 'pausing', 'resuming'].includes(stream.status)}
+            onClick={stream.cancel}
+          >
+            取消
+          </Button>
+          <Button
+            size="small"
+            type="text"
             icon={<ReloadOutlined />}
-            disabled={stream.events.length === 0}
+            disabled={!['failed', 'partial', 'cancelled', 'error'].includes(stream.error ? 'error' : stream.status)}
             onClick={stream.retry}
           >
-            重置
+            重试
           </Button>
         </Space>
       }

@@ -1,303 +1,133 @@
-/**
- * 多 Agent 任务 API 模块
- *
- * 对接后端 smart_assistant.views.tasks.AgentTaskViewSet
- * (router basename: agent-tasks, 挂载于 /api/smart-assistant/tasks/):
- * - GET    /api/smart-assistant/tasks/                      任务列表
- * - POST   /api/smart-assistant/tasks/create/               用户查询 → Supervisor 分解 → 创建任务
- * - POST   /api/smart-assistant/tasks/{id}/execute/         触发执行(异步 Celery)
- * - POST   /api/smart-assistant/tasks/{id}/intervene/       人工介入 {action: pause|resume|cancel}
- * - GET    /api/smart-assistant/tasks/{id}/timeline/        完整时间线 {task, subtasks, timeline}
- * - GET    /api/smart-assistant/tasks/{id}/stream/          SSE 实时进度
- *
- * SSE 事件格式: `data: {type, sequence, subtask_id, payload, timestamp}\n\n`
- * 终态事件: `{type: 'done', task_id}` / `{type: 'timeout'}` (服务端 60 秒轮询超时)
- */
 import apiClient from '../../../shared/api/apiClient';
+import { authFetch } from '../../../shared/api/authFetch';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant/tasks';
 const FALLBACK_POLL_INTERVAL_MS = 2000;
 const FALLBACK_MAX_POLLS = 30;
-const TERMINAL_TASK_STATUSES = [
-  'completed',
-  'partial',
-  'failed',
-  'cancelled',
-  'paused',
-];
+const TERMINAL_TASK_STATUSES = ['completed', 'partial', 'failed', 'cancelled', 'paused'];
 
-/**
- * 主任务状态 → AntD Tag 颜色 + 中文文案
- * (与后端 AgentTask.STATUS_CHOICES 对齐)
- */
-export const TASK_STATUS_MAP = {
-  pending: { label: '待执行', color: 'default' },
-  running: { label: '执行中', color: 'processing' },
-  paused: { label: '已暂停', color: 'warning' },
-  completed: { label: '已完成', color: 'success' },
-  failed: { label: '已失败', color: 'error' },
-  cancelled: { label: '已取消', color: 'default' },
+export const TASK_STATUS_META = {
+  pending: { color: 'default', label: '等待中' }, running: { color: 'processing', label: '执行中' },
+  pausing: { color: 'warning', label: '暂停中' }, paused: { color: 'warning', label: '已暂停' },
+  resuming: { color: 'processing', label: '恢复中' }, completed: { color: 'success', label: '已完成' },
+  partial: { color: 'warning', label: '部分完成' }, failed: { color: 'error', label: '执行失败' },
+  cancelled: { color: 'default', label: '已取消' },
 };
 
-/**
- * 子任务状态 → AntD Tag 颜色 + 中文文案
- * (与后端 AgentSubTask.STATUS_CHOICES 对齐)
- */
-export const SUBTASK_STATUS_MAP = {
-  pending: { label: '待执行', color: 'default' },
-  running: { label: '执行中', color: 'processing' },
-  completed: { label: '已完成', color: 'success' },
-  failed: { label: '已失败', color: 'error' },
-  skipped: { label: '已跳过', color: 'default' },
-};
-
-/**
- * 事件类型 → 中文文案(与后端 AgentEvent.EVENT_TYPE_CHOICES 对齐)
- */
-export const EVENT_TYPE_LABELS = {
-  'task.started': '任务开始',
-  'task.paused': '任务暂停',
-  'task.resumed': '任务恢复',
-  'task.completed': '任务完成',
-  'task.failed': '任务失败',
-  'task.cancelled': '任务取消',
-  'subtask.started': '子任务开始',
-  'subtask.progress': '子任务进度',
-  'subtask.tool_call': '子任务工具调用',
-  'subtask.quality_gate': '子任务质量门禁',
-  'subtask.completed': '子任务完成',
-  'subtask.failed': '子任务失败',
-  'supervisor.decision': 'Supervisor 决策',
-  'supervisor.intervention': 'Supervisor 介入',
-  'user.intervention': '用户介入',
-  'hook.triggered': 'Hook 触发',
-};
-
-/**
- * 获取当前用户的任务列表(按创建时间倒序)
- */
-export async function getAgentTasks() {
-  return apiClient.get(`${BASE_URL}/`);
-}
-
-/**
- * 获取任务完整时间线: {task, subtasks, timeline}
- */
+export async function getAgentTasks() { return apiClient.get(`${BASE_URL}/`); }
+export async function getAgentTask(taskId) { return apiClient.get(`${BASE_URL}/${taskId}/`); }
 export async function getAgentTaskTimeline(taskId, config) {
   const url = `${BASE_URL}/${taskId}/timeline/`;
   return config ? apiClient.get(url, config) : apiClient.get(url);
 }
-
-/**
- * 创建任务: 用户查询 → Supervisor 分解 → 创建 AgentTask + SubTasks
- * @param {string} query 用户的任务目标描述
- * @param {object} [userContext] 可选的用户上下文
- * @returns 201 {task_id, status, plan}
- */
 export async function createAgentTask(query, userContext = {}) {
-  return apiClient.post(`${BASE_URL}/create/`, {
-    query,
-    user_context: userContext,
-  });
+  return apiClient.post(`${BASE_URL}/create/`, { query, user_context: userContext });
 }
-
-/**
- * 触发任务执行(仅 pending 状态可执行,后端异步 Celery)
- */
-export async function executeAgentTask(taskId) {
-  return apiClient.post(`${BASE_URL}/${taskId}/execute/`);
-}
-
-/**
- * 人工介入
- * @param {string} taskId 任务 ID
- * @param {'pause'|'resume'|'cancel'} action 介入动作
- */
+export async function executeAgentTask(taskId) { return apiClient.post(`${BASE_URL}/${taskId}/execute/`); }
 export async function interveneAgentTask(taskId, action) {
   return apiClient.post(`${BASE_URL}/${taskId}/intervene/`, { action });
 }
 
-/**
- * 订阅任务 SSE 实时进度流(原生 fetch + Bearer token,参考 smartAssistantApi.sendSmartChatStream)
- *
- * 服务端每次连接从 sequence=0 回放全部事件,60 秒无终态后发送 timeout 事件并关闭连接 —
- * 调用方可据 onTimeout 决定是否重新订阅(重连产生的重复事件由调用方按 sequence 去重)。
- *
- * @param {string} taskId 任务 ID
- * @param {object} callbacks
- * @param {(event: object) => void} [callbacks.onEvent] 普通进度事件 {type, sequence, subtask_id, payload, timestamp}
- * @param {(event?: object) => void} [callbacks.onDone] 收到 done 事件或服务端正常关闭流
- * @param {() => void} [callbacks.onTimeout] 服务端 60 秒轮询超时(任务可能仍在运行)
- * @param {(error: Error) => void} [callbacks.onError] 连接/认证/解析错误
- * @returns {{ abort: () => void }} 调用 abort() 断开 SSE 连接
- */
-export function subscribeTaskStream(taskId, callbacks = {}) {
-  const { onEvent, onDone, onTimeout, onError } = callbacks;
-  const abortController = typeof AbortController === 'function' ? new AbortController() : null;
-  let fallbackTimer = null;
-  let fallbackRequestController = null;
-  let fallbackPollCount = 0;
-  let stopped = false;
+function isAbortError(error) { return error && (error.name === 'AbortError' || error.code === 'ERR_CANCELED'); }
+function normaliseSequence(value, fallback) {
+  const sequence = Number(value);
+  return Number.isFinite(sequence) && sequence >= 0 ? sequence : fallback;
+}
 
-  const stopFallback = () => {
-    stopped = true;
-    if (fallbackTimer !== null) {
-      clearTimeout(fallbackTimer);
-      fallbackTimer = null;
-    }
-    if (fallbackRequestController) {
-      fallbackRequestController.abort();
-      fallbackRequestController = null;
-    }
+export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
+  const { onEvent, onDone, onTimeout, onError } = callbacks;
+  let sequence = normaliseSequence(options.lastSeq, 0);
+  let stopped = false;
+  let pollTimer = null;
+  let pollCount = 0;
+  const hasAbortController = typeof AbortController === 'function';
+  const abortController = hasAbortController ? new AbortController() : {
+    signal: { aborted: false, addEventListener: function () {} },
+    abort: function () { this.signal.aborted = true; },
   };
 
-  const runTimelineFallback = async () => {
-    if (stopped || fallbackPollCount >= FALLBACK_MAX_POLLS) {
-      if (!stopped) onTimeout?.();
-      stopFallback();
-      return;
+  const stop = () => {
+    stopped = true;
+    if (pollTimer !== null) { clearTimeout(pollTimer); pollTimer = null; }
+    if (abortController) abortController.abort();
+  };
+  const dispatch = (event) => {
+    if (!event || event.sequence == null) { onEvent?.(event); return true; }
+    const eventSequence = Number(event.sequence);
+    if (!Number.isFinite(eventSequence) || eventSequence <= sequence) return false;
+    sequence = eventSequence;
+    onEvent?.(event);
+    return true;
+  };
+  const pollTimeline = async () => {
+    if (stopped) return;
+    if (pollCount >= FALLBACK_MAX_POLLS) {
+      onTimeout?.({ type: 'timeout', task_id: taskId, sequence }); stop(); return;
     }
-
-    fallbackPollCount += 1;
-    fallbackRequestController = typeof AbortController === 'function' ? new AbortController() : null;
+    pollCount += 1;
     try {
-      const requestConfig = fallbackRequestController
-        ? { signal: fallbackRequestController.signal }
-        : undefined;
-      const response = await getAgentTaskTimeline(taskId, requestConfig);
+      const response = await getAgentTaskTimeline(taskId, { signal: abortController.signal });
       if (stopped) return;
-
-      const data = response.data || {};
-      const events = Array.isArray(data.timeline) ? data.timeline : [];
-      events
-        .filter((event) => Number(event.sequence) > lastSeq)
-        .sort((a, b) => Number(a.sequence) - Number(b.sequence))
-        .forEach((event) => {
-          if (Number(event.sequence) <= lastSeq) return;
-          lastSeq = Number(event.sequence);
-          onEvent?.(event);
-        });
-
+      const data = response?.data || {};
+      const events = Array.isArray(data.timeline) ? data.timeline.slice() : [];
+      events.sort((a, b) => normaliseSequence(a?.sequence, 0) - normaliseSequence(b?.sequence, 0));
+      events.forEach(dispatch);
       const status = data.task && data.task.status;
       if (TERMINAL_TASK_STATUSES.indexOf(status) !== -1) {
-        stopFallback();
-        onDone?.({ type: 'done', task_id: taskId, status, sequence: lastSeq });
-        return;
+        const done = { type: 'done', task_id: taskId, status, sequence };
+        stop(); onDone?.(done); return;
       }
-      fallbackTimer = setTimeout(runTimelineFallback, FALLBACK_POLL_INTERVAL_MS);
+      pollTimer = setTimeout(pollTimeline, FALLBACK_POLL_INTERVAL_MS);
     } catch (error) {
-      if (stopped || error.name === 'AbortError' || error.code === 'ERR_CANCELED') return;
-      stopFallback();
-      onError?.(error);
-    } finally {
-      fallbackRequestController = null;
+      if (stopped || isAbortError(error)) return;
+      stop(); onError?.(error);
     }
   };
-
-  let lastSeq = 0;
-
-  const run = async () => {
-    let token;
-    try {
-      const authTokens = JSON.parse(
-        localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
-      );
-      token = authTokens.access;
-    } catch (error) {
-      onError?.(new Error('认证信息无效，请重新登录'));
-      return;
-    }
-
+  const runSse = async () => {
+    const token = readAuthTokens()?.access;
+    if (!token) { onError?.(new Error('认证已过期，请重新登录')); return; }
+    if (!hasAbortController) { pollTimeline(); return; }
+    const query = sequence ? `?last_seq=${encodeURIComponent(sequence)}` : '';
     let response;
     try {
-      response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-        signal: abortController ? abortController.signal : undefined,
+      response = await authFetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/${query}`, {
+        method: 'GET', signal: abortController.signal,
       });
     } catch (error) {
-      if (error.name === 'AbortError') {
-        // 调用方主动断开,不视为错误
-        return;
-      }
-      onError?.(new Error('网络连接失败，请检查网络'));
-      return;
+      if (!stopped && !isAbortError(error)) onError?.(error); return;
     }
-
-    if (response.status === 401) {
-      onError?.(new Error('认证已过期，请重新登录'));
-      return;
-    }
-    if (!response.ok) {
-      onError?.(new Error('任务进度流连接失败'));
-      return;
-    }
-
-    if (!response.body || typeof response.body.getReader !== 'function') {
-      if (response.body && typeof response.body.cancel === 'function') {
-        response.body.cancel();
-      }
-      runTimelineFallback();
-      return;
-    }
-
+    if (stopped) return;
+    if (response.ok === false) { onError?.(new Error(response.status === 401 ? '认证已过期，请重新登录' : '任务进度流连接失败')); return; }
+    if (!response.body || typeof response.body.getReader !== 'function') { pollTimeline(); return; }
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-
+    let finished = false;
     try {
-      // eslint-disable-next-line no-constant-condition
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split('\n\n');
-        buffer = parts.pop() || '';
-
-        for (const part of parts) {
-          const line = part.trim();
-          if (!line.startsWith('data:')) continue;
-          const jsonText = line.slice(5).trim();
-          if (!jsonText) continue;
-
+      while (!stopped && !finished) {
+        const chunk = await reader.read();
+        if (chunk.done) break;
+        buffer += decoder.decode(chunk.value, { stream: true });
+        const parts = buffer.split('\n\n'); buffer = parts.pop() || '';
+        parts.forEach((part) => {
+          const line = part.trim().split('\n').find((item) => item.startsWith('data:'));
+          if (!line) return;
           let event;
-          try {
-            event = JSON.parse(jsonText);
-          } catch {
-            // 畸形数据行,跳过不中断流
-            continue;
-          }
-
+          try { event = JSON.parse(line.slice(5).trim()); } catch (error) { return; }
           if (event.type === 'done') {
-            onDone?.(event);
-            return;
+            if (event.sequence != null) sequence = normaliseSequence(event.sequence, sequence);
+            finished = true; onDone?.({ ...event, sequence }, sequence); return;
           }
-          if (event.type === 'timeout') {
-            onTimeout?.();
-            return;
-          }
-          onEvent?.(event);
-        }
+          if (event.type === 'timeout') { finished = true; onTimeout?.(event); return; }
+          dispatch(event);
+        });
       }
-      // 服务端正常关闭连接(未显式发送 done)
-      onDone?.();
+      if (!stopped && !finished) onDone?.(undefined, sequence);
     } catch (error) {
-      if (error.name === 'AbortError') {
-        return;
-      }
-      onError?.(error);
-    }
+      if (!stopped && !isAbortError(error)) onError?.(error);
+    } finally { if (reader.releaseLock) reader.releaseLock(); }
   };
-
-  run();
-
-  return {
-    abort: () => {
-      if (abortController) abortController.abort();
-      stopFallback();
-    },
-  };
+  runSse();
+  return { abort: stop };
 }

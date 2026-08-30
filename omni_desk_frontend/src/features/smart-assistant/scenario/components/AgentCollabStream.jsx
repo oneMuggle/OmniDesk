@@ -5,6 +5,7 @@ import { ThunderboltOutlined } from '@ant-design/icons';
 import AgentCard from './AgentCard';
 import ToolCallCard from './ToolCallCard';
 import FinalAnswerCard from './FinalAnswerCard';
+import ErrorCard from './ErrorCard';
 
 const { Title, Paragraph } = Typography;
 
@@ -100,12 +101,11 @@ export default function AgentCollabStream({ events, isRunning, isCompleted, stat
         }
         if (node.kind === 'error') {
           return (
-            <AgentCard
+            <ErrorCard
               key={node.key}
               agent={node.event.agent || 'system'}
-              content={node.event.content || '任务执行失败'}
-              payload={node.event.payload}
-              variant="thinking"
+              subtaskId={node.event.subtask_id}
+              reason={node.event.content}
             />
           );
         }
@@ -117,6 +117,7 @@ export default function AgentCollabStream({ events, isRunning, isCompleted, stat
               payloadKind={node.event.payloadKind}
               payload={node.event.payload}
               finalOutput={node.event.finalOutput}
+              status={status}
             />
           );
         }

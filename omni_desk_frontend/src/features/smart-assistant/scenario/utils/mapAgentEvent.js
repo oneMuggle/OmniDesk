@@ -38,7 +38,7 @@ export function mapAgentEvent(event) {
   const source = isObject(event) ? event : {};
   const payload = isObject(source.payload) ? source.payload : {};
   const eventType = firstDefined(source.type, source.event_type, 'unknown');
-  const mappedType = EVENT_TYPE_MAP[eventType] || 'error';
+  const mappedType = EVENT_TYPE_MAP[eventType] || 'thinking';
   const result = {
     id: source.sequence,
     sequence: source.sequence,
@@ -69,7 +69,7 @@ export function mapAgentEvent(event) {
   if (payloadKind !== undefined) result.payloadKind = payloadKind;
   if (content !== undefined) {
     result.content = content;
-  } else if (mappedType === 'error') {
+  } else if (mappedType === 'error' || !EVENT_TYPE_MAP[eventType]) {
     result.content = `未知事件类型: ${eventType}`;
   }
   if (ts !== undefined) result.ts = ts;
