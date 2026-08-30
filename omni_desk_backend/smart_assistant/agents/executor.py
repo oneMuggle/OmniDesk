@@ -334,17 +334,25 @@ class MultiAgentExecutor:
         from .packet import TaskPacket
         from django.db import transaction
 
-        # 加载 AgentTask(使用 select_for_update 防并发恢复竞争)
+        # 在同一事务内完成 paused → running 的 claim，避免两个恢复 worker
+        # 都通过检查后并行执行同一 checkpoint。
         try:
             with transaction.atomic():
                 agent_task = AgentTask.objects.select_for_update().get(task_id=task_id)
-                # 防并发: 如果任务已在运行中, 拒绝重复恢复
                 if agent_task.status == "running":
                     return TaskResult(
                         task_id=task_id,
-                        status="failed",
-                        error_message=f"AgentTask {task_id} 已在运行中,拒绝并发恢复",
+                        status="running",
+                        error_message="任务已由其他 worker 恢复",
                     )
+                if agent_task.status != "paused":
+                    return TaskResult(
+                        task_id=task_id,
+                        status="failed",
+                        error_message="任务当前不可恢复",
+                    )
+                agent_task.status = "running"
+                agent_task.save(update_fields=["status"])
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -378,10 +386,6 @@ class MultiAgentExecutor:
             f"Executor.resume: 从 checkpoint 恢复任务 {task_id}, "
             f"已重建 {completed_count} 个 completed subtask 的 artifacts"
         )
-
-        # 更新任务状态为 running(事务保护)
-        CheckpointManager.mark_running(agent_task)
-        logger.debug(f"Executor.resume: AgentTask {task_id} status → running (事务提交)")
 
         # 继续执行(跳过已完成的 subtask)
         return executor._execute_resume()
