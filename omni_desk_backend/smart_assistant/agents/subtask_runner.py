@@ -66,6 +66,7 @@ class SubTaskRunner:
         self._tool_context = context
         self._max_tool_call_rounds = max_tool_call_rounds
         self._tool_call_count = 0
+        self._pending_confirmation: dict | None = None
 
     def run_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask,支持重试
@@ -156,6 +157,7 @@ class SubTaskRunner:
             },
         )
 
+        self._pending_confirmation = None
         try:
             # 获取角色配置
             profile = ROLE_PROFILES[subtask.role]
@@ -169,8 +171,14 @@ class SubTaskRunner:
             if content == "" and self._budget_exhausted_during_tools(ctx):
                 raise RuntimeError("token budget exhausted")
 
-            # 解析 LLM 输出
             output, artifacts = self.parse_output(content, subtask)
+
+            if self._pending_confirmation is not None:
+                output = self._pending_confirmation
+                artifacts = {}
+                status = "awaiting_confirmation"
+            else:
+                status = "success"
 
             # 记录 Token 消耗
             tokens_used = usage.get("total_tokens", 0) if isinstance(usage, dict) else 0
@@ -197,7 +205,7 @@ class SubTaskRunner:
                 artifacts=artifacts,
                 tokens_used=tokens_used,
                 duration_ms=duration_ms,
-                status="success",
+                status=status,
             )
 
         except Exception as e:
@@ -326,9 +334,8 @@ class SubTaskRunner:
                     },
                 )
                 result = self._execute_tool(name, arguments, tool_context)
-                self._tool_call_count += 1
-                if self._tool_call_count >= max_rounds:
-                    break
+                if self._pending_confirmation is not None:
+                    return "", total_usage
                 self._event_bus.emit(
                     "subtask.tool_result",
                     {
@@ -353,6 +360,7 @@ class SubTaskRunner:
             tools=tool_schemas,
             tool_choice="none",
         )
+        self._consume_usage(shared_context, usage)
         return content or "", self._merge_usage(total_usage, usage)
 
     @staticmethod
@@ -381,7 +389,16 @@ class SubTaskRunner:
         except Exception:
             return {"error": "invalid_arguments"}
         try:
-            result, _, _ = execute_native_tool(tool, validated, context)
+            result, confirmation, failure = execute_native_tool(tool, validated, context)
+            if confirmation is not None:
+                self._pending_confirmation = {
+                    "awaiting_confirmation": True,
+                    "confirmation_token": confirmation.get("token"),
+                    "draft": confirmation.get("draft") or {},
+                }
+                return self._pending_confirmation
+            if failure is not None:
+                return {"error": "tool_execution_failed"}
             return result if isinstance(result, dict) else {"result": "tool returned unsupported result"}
         except Exception:
             logger.warning("工具执行失败", exc_info=True)

@@ -156,14 +156,14 @@ class MultiAgentExecutor:
                 "task.failed",
                 {
                     "task_id": self.task_packet.task_id,
-                    "error": str(e),
+                    "error": "executor execution failed",
                 },
             )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",
                 total_duration_ms=total_duration,
-                error_message=str(e),
+                error_message="executor execution failed",
             )
 
     def _execute_by_mode(self) -> list[SubTaskResult] | TaskResult:
@@ -188,9 +188,13 @@ class MultiAgentExecutor:
             raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
 
     def _classify_status(self, subtask_results: list[SubTaskResult]) -> str:
-        """根据 subtask 结果统计判断任务最终状态(success/failed/partial)"""
+        """根据 subtask 结果统计判断任务最终状态。"""
+        if any(r.status == "awaiting_confirmation" for r in subtask_results):
+            return "paused"
         failed_count = sum(1 for r in subtask_results if r.status == "failed")
         if failed_count == 0:
+            if any(r.status in {"skipped", "awaiting_confirmation"} for r in subtask_results):
+                return "partial"
             return "success"
         elif failed_count == len(subtask_results):
             return "failed"
@@ -348,7 +352,7 @@ class MultiAgentExecutor:
             return TaskResult(
                 task_id=task_id,
                 status="failed",
-                error_message=f"TaskPacket 反序列化失败: {e}",
+                error_message="TaskPacket 反序列化失败",
             )
 
         # 创建 executor
@@ -360,7 +364,6 @@ class MultiAgentExecutor:
             agent_task_id=task_id,
             user=agent_task.user,
         )
-
         # 加载已完成的 subtask,重建 SharedContext
         completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
         logger.info(
@@ -416,7 +419,7 @@ class MultiAgentExecutor:
                 "task.failed",
                 {
                     "task_id": self.task_packet.task_id,
-                    "error": str(e),
+                    "error": "executor execution failed",
                     "resumed": True,
                 },
             )
@@ -424,5 +427,5 @@ class MultiAgentExecutor:
                 task_id=self.task_packet.task_id,
                 status="failed",
                 total_duration_ms=total_duration,
-                error_message=str(e),
+                error_message="executor execution failed",
             )

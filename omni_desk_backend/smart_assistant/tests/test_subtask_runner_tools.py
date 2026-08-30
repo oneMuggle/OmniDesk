@@ -40,6 +40,28 @@ class FakeTool:
         return {"answer": f"found:{query}"}
 
 
+class ConfirmationTool(FakeTool):
+    name = "write"
+    intent_type = "write"
+    require_confirmation = True
+
+    @classmethod
+    def get_openai_tool_schema(cls):
+        schema = super().get_openai_tool_schema()
+        schema["function"]["name"] = "write"
+        return schema
+
+
+class ConfirmationRegistry:
+    @classmethod
+    def get_openai_tools(cls, user):
+        return [ConfirmationTool.get_openai_tool_schema()]
+
+    @classmethod
+    def get_tool_for_user(cls, name, user):
+        return ConfirmationTool() if name == "write" and user is not None else None
+
+
 class FakeRegistry:
     @classmethod
     def get_openai_tools(cls, user):
@@ -65,6 +87,27 @@ class FakeRouter:
 
 def make_subtask():
     return SubTask(id="s1", role=AgentRole.RESEARCHER, objective="查找信息")
+
+
+def test_confirmation_is_returned_without_reinjection_or_second_llm_call(monkeypatch):
+    user = MagicMock(is_authenticated=True)
+    router = FakeRouter([
+        ("", {"total_tokens": 1}, [{"id": "c1", "function": {"name": "write", "arguments": '{"q":"x"}'}}]),
+    ])
+    confirmation = {"token": "token-1", "draft": {"summary": "待确认写入"}}
+    monkeypatch.setattr(
+        "smart_assistant.agents.subtask_runner.execute_native_tool",
+        lambda tool, validated, context: ({"found": True, "draft": confirmation["draft"]}, confirmation, None),
+    )
+
+    result = SubTaskRunner(
+        router, EventBus(), 1, tool_registry=ConfirmationRegistry, user=user
+    ).run(make_subtask(), SharedContext("q"))
+
+    assert result.status == "awaiting_confirmation"
+    assert result.output["awaiting_confirmation"] is True
+    assert result.output["confirmation_token"] == "token-1"
+    assert len(router.calls) == 1
 
 
 def test_tool_call_is_validated_executed_and_reinjected():
