@@ -122,6 +122,18 @@ describe('mapAgentEvent', () => {
     });
   });
 
+  test('缺失、负数和小数 sequence 使用稳定且不冲突的 id', () => {
+    const missing = mapAgentEvent({ type: 'subtask.progress', payload: { content: 'a' } });
+    const negative = mapAgentEvent({ type: 'subtask.progress', sequence: -1, payload: { content: 'b' } });
+    const decimal = mapAgentEvent({ type: 'subtask.progress', sequence: 1.5, payload: { content: 'c' } });
+
+    expect(missing.id).toMatch(/^evt-invalid-/);
+    expect(negative.id).toMatch(/^evt-invalid-/);
+    expect(decimal.id).toMatch(/^evt-invalid-/);
+    expect(new Set([missing.id, negative.id, decimal.id]).size).toBe(3);
+    expect(missing.sequence).toBeNull();
+  });
+
   test('畸形 payload 不抛异常并使用安全默认值', () => {
     expect(mapAgentEvent({ type: 'subtask.progress', sequence: 12, payload: null })).toEqual({
       id: 'evt-12',

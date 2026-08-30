@@ -29,6 +29,29 @@ const isObject = (value) => value !== null && typeof value === 'object' && !Arra
 
 const firstDefined = (...values) => values.find((value) => value !== undefined && value !== null);
 
+const stableSerialize = (value) => {
+  if (Array.isArray(value)) return `[${value.map(stableSerialize).join(',')}]`;
+  if (isObject(value)) {
+    return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableSerialize(value[key])}`).join(',')}}`;
+  }
+  return JSON.stringify(value);
+};
+
+const stableInvalidId = (eventType, source) => {
+  const serialized = `${eventType}:${stableSerialize({
+    task_id: source.task_id,
+    subtask_id: source.subtask_id,
+    payload: source.payload,
+    content: source.content,
+  })}`;
+  let hash = 2166136261;
+  for (let index = 0; index < serialized.length; index += 1) {
+    hash ^= serialized.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+  return `evt-invalid-${(hash >>> 0).toString(16)}`;
+};
+
 /**
  * 将 SSE 或历史 AgentEvent 转换为场景组件使用的统一事件结构。
  * @param {unknown} event 原始 SSE/历史事件
@@ -39,9 +62,11 @@ export function mapAgentEvent(event) {
   const payload = isObject(source.payload) ? source.payload : {};
   const eventType = firstDefined(source.type, source.event_type, 'unknown');
   const mappedType = EVENT_TYPE_MAP[eventType] || 'thinking';
-  const sequence = Number.isFinite(Number(source.sequence)) ? Number(source.sequence) : 0;
+  const numericSequence = Number(source.sequence);
+  const hasValidSequence = Number.isInteger(numericSequence) && numericSequence >= 0;
+  const sequence = hasValidSequence ? numericSequence : null;
   const result = {
-    id: `evt-${sequence}`,
+    id: hasValidSequence ? `evt-${sequence}` : stableInvalidId(eventType, source),
     sequence,
     eventType,
     type: mappedType,

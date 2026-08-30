@@ -49,7 +49,26 @@ class TestAgentTaskResultNotification(TestCase):
         self.assertIn("取消", notifications.get().content)
 
 
-class TestAgentTaskTimeouts(TestCase):
+    def test_confirm_notify_replay_uses_confirmed_tool_context_and_persists_event(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.models import AgentEvent
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        token = "task-notify-confirm-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-confirm"}},
+        })
+        factory = APIRequestFactory()
+        request = factory.post(f"/tasks/{self.task.task_id}/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=__import__("smart_assistant.tools.notify_tool", fromlist=["NotifyTool"]).NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
+            response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data["found"])
+        self.assertTrue(AgentEvent.objects.filter(task=self.task, event_type="subtask.tool_result").exists())
+
     def test_calculate_time_limits_uses_task_budget_and_packet_shape(self):
         from django.test import override_settings
         from smart_assistant.tasks import calculate_agent_task_time_limits

@@ -14,8 +14,38 @@ _SENSITIVE_RE = re.compile(r"(?:[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|1[3-9]\d{9}|\d{15
 _MAX_CONTENT_LENGTH = 10_000
 
 
+_SENSITIVE_KEYS = {
+    "args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt",
+    "internal_prompt", "api_key", "apikey", "access_token", "authorization", "access_key", "private_key",
+    "session", "email", "phone", "phone_number", "身份证", "身份证号", "id_card", "idcard",
+}
+
+
 def _safe_text(value: str) -> str:
     return _SENSITIVE_RE.sub("[已脱敏]", value)
+
+
+def _sanitize_value(value: Any, depth: int = 0) -> Any:
+    """在审计事件构造前递归过滤敏感字段及 PII。"""
+    if isinstance(value, str):
+        return _safe_text(value[:2000])
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if depth >= 4:
+        return "[已隐藏]"
+    if isinstance(value, list):
+        return [_sanitize_value(item, depth + 1) for item in value[:20]]
+    if isinstance(value, dict):
+        return {
+            str(key): _sanitize_value(item, depth + 1)
+            for key, item in list(value.items())[:30]
+            if str(key).lower() not in _SENSITIVE_KEYS
+        }
+    return "[已隐藏]"
+
+
+def _sanitize_audit_payload(payload: dict) -> dict:
+    return _sanitize_value(payload)
 
 
 def _validate_text(values):
@@ -191,7 +221,11 @@ class NotifyTool(BaseTool):
         failed = []
         for user in users:
             audit_recipients.append({"id": user.id, "name": _safe_text(user.get_full_name() or user.username)})
-            for channel in resolve_channels(user, "agent_notify"):
+            channels = resolve_channels(user, "agent_notify")
+            if not channels:
+                failed.append({"user_id": user.id, "channel": "unavailable", "reason": "no_channel"})
+                continue
+            for channel in channels:
                 try:
                     result = channel.send(
                         user=user,
@@ -206,7 +240,7 @@ class NotifyTool(BaseTool):
                         failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
                 except Exception:
                     failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
-        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id, "sent": sent, "failed": failed, "sent_count": len(sent), "failed_count": len(failed), "recipient_count": len(users)}
+        audit_payload = _sanitize_audit_payload({"recipients": audit_recipients, "title": fields["title"], "content": fields["content"], "operation_id": operation_id, "sent": sent, "failed": failed, "sent_count": len(sent), "failed_count": len(failed), "recipient_count": len(users)})
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
             event_bus.emit(

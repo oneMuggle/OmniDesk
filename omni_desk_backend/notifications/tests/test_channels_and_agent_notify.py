@@ -123,7 +123,18 @@ def test_agent_notify_channel_exception_is_a_failed_detail(regular_user_obj, mon
 
 
 @pytest.mark.django_db
-def test_agent_notify_dry_run_then_confirmed_sends(regular_user_obj, monkeypatch):
+def test_agent_notify_without_channel_fails_with_zero_sent(regular_user_obj, monkeypatch):
+    tool = AgentNotifyTool(resolver=lambda _name, _actor: [regular_user_obj])
+    draft = tool.execute(params={"recipients": [regular_user_obj.username], "title": "标题", "content": "正文", "scope": "self"}, context={"dry_run": True, "user": regular_user_obj})
+
+    with patch("notifications.channels.resolve_channels", return_value=[]):
+        result = tool.execute(params={}, context={"confirmed": True, "user": regular_user_obj, "draft": draft["draft"]})
+
+    assert result["found"] is False
+    assert result["result"]["sent_count"] == 0
+    assert result["result"]["failed_count"] == 1
+    assert result["result"]["recipient_count"] == 1
+
     tool = AgentNotifyTool()
     monkeypatch.setattr(tool, "resolver", lambda name, actor: [regular_user_obj])
     params = {"recipients": ["张三"], "title": "t", "content": "c", "scope": "self"}

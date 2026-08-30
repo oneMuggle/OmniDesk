@@ -70,7 +70,7 @@ export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutp
           <Space align="center">
             <Icon style={{ fontSize: 22, color: token.colorPrimary }} />
             <Title level={4} style={{ margin: 0 }}>
-              {payload?.title || meta?.title || '结果'}
+              {safeOutputText(payload?.title) || meta?.title || '结果'}
             </Title>
             <Tag color={color} bordered={false}>{payloadKind}</Tag>
           </Space>
@@ -100,17 +100,17 @@ function EmailDraftBody({ payload }) {
       <Descriptions size="small" column={2} bordered>
         {(payload?.fields || []).map((f) => (
           <Descriptions.Item key={f.label} label={f.label}>
-            {f.value}
+            {safeDisplay(f.value)}
           </Descriptions.Item>
         ))}
       </Descriptions>
       <div>
         <Text strong>邮件分发：</Text>
-        <Tag icon={<TeamOutlined />} bordered={false} color="blue">{payload?.recipients?.email?.join(', ')}</Tag>
+        <Tag icon={<TeamOutlined />} bordered={false} color="blue">{safeDisplay(payload?.recipients?.email)}</Tag>
       </div>
       <div>
         <Text strong>IM 抄送：</Text>
-        <Tag icon={<TeamOutlined />} bordered={false} color="green">{payload?.recipients?.im?.join(', ')}</Tag>
+        <Tag icon={<TeamOutlined />} bordered={false} color="green">{safeDisplay(payload?.recipients?.im)}</Tag>
       </div>
     </>
   );
@@ -121,10 +121,10 @@ function CardPreviewBody({ payload }) {
     <>
       <Paragraph style={{ marginBottom: 4 }}>
         <Text strong>来源：</Text>
-        <Tag bordered={false}>{payload?.source?.id}</Tag>
-        <Text>{payload?.source?.title}</Text>
+        <Tag bordered={false}>{safeDisplay(payload?.source?.id)}</Tag>
+        <Text>{safeDisplay(payload?.source?.title)}</Text>
       </Paragraph>
-      <Paragraph style={{ marginBottom: 4 }}>{payload?.summary}</Paragraph>
+      <Paragraph style={{ marginBottom: 4 }}>{safeDisplay(payload?.summary)}</Paragraph>
       <Title level={5} style={{ marginTop: 8 }}>关键要点</Title>
       <List
         size="small"
@@ -150,7 +150,7 @@ function CardPreviewBody({ payload }) {
       <Paragraph>
         <Text strong>分享链接：</Text>
         <LinkOutlined style={{ marginRight: 6 }} />
-        <Text copyable>{payload?.shareUrl}</Text>
+        <Text copyable>{safeDisplay(payload?.shareUrl)}</Text>
       </Paragraph>
     </>
   );
@@ -162,7 +162,7 @@ function WorkorderBody({ payload }) {
       <Descriptions size="small" column={2} bordered>
         {(payload?.fields || []).map((f) => (
           <Descriptions.Item key={f.label} label={f.label}>
-            {f.value}
+            {safeDisplay(f.value)}
           </Descriptions.Item>
         ))}
       </Descriptions>
@@ -187,10 +187,12 @@ function WorkorderBody({ payload }) {
   );
 }
 
+const safeDisplay = safeOutputText;
+
 function AnnouncementBody({ payload }) {
   return (
     <>
-      <Paragraph>{payload?.summary}</Paragraph>
+      <Paragraph>{safeDisplay(payload?.summary)}</Paragraph>
       <Title level={5}>问题清单</Title>
       <List
         size="small"

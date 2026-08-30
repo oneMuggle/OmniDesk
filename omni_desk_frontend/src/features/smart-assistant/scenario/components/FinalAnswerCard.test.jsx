@@ -2,9 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { ConfigProvider } from 'antd';
 import FinalAnswerCard from './FinalAnswerCard';
 
-const MockAgentCard = ({ content }) => <div>{content}</div>;
-MockAgentCard.displayName = 'MockAgentCard';
-jest.mock('./AgentCard', () => MockAgentCard);
+jest.mock('./AgentCard', () => function MockAgentCard({ content }) { return <div>{content}</div>; });
 
 describe('FinalAnswerCard', () => {
   it('partial dict/list/subtask outputs render safe text rather than object children', () => {

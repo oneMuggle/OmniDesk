@@ -24,6 +24,8 @@ from rest_framework.response import Response
 from ..agents.supervisor import Supervisor
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
+from ..agents.dataclasses import PersistentEventBus
+from ..hooks.wiring import execute_guarded
 from llm_service.router import get_router
 from observability import get_logger
 
@@ -77,26 +79,61 @@ def _safe_event_payload(event):
 # ---------------------------------------------------------------------------
 
 
+PUBLIC_VALUE_KEYS = {
+    "title", "summary", "content", "answer", "status", "message", "error", "reason",
+    "tool", "phase", "operation", "round", "count", "total", "items", "result",
+    "recipient_count", "sent_count", "failed_count", "channel", "channels",
+}
+
+
+def _safe_public_value(value, depth=0):
+    """递归生成 API 可公开的有限摘要，先过滤敏感键再处理值。"""
+    if depth >= 3:
+        return "[已隐藏]"
+    if isinstance(value, str):
+        return _sanitize_text(value)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [_safe_public_value(item, depth + 1) for item in value[:20]]
+    if isinstance(value, dict):
+        return {
+            str(key): _safe_public_value(item, depth + 1)
+            for key, item in list(value.items())[:30]
+            if str(key).lower() not in SENSITIVE_KEYS
+            and (str(key) in PUBLIC_VALUE_KEYS or depth > 0)
+        }
+    return "[已隐藏]"
+
+
 class AgentSubTaskSerializer(serializers.ModelSerializer):
+    inputs = serializers.SerializerMethodField()
+    output = serializers.SerializerMethodField()
+    error_message = serializers.SerializerMethodField()
+
+    def get_inputs(self, obj):
+        return _safe_public_value(obj.inputs if isinstance(obj.inputs, dict) else {})
+
+    def get_output(self, obj):
+        return _safe_public_value(obj.output)
+
+    def get_error_message(self, obj):
+        return _sanitize_text(obj.error_message) if obj.error_message else None
+
     class Meta:
         model = AgentSubTask
         fields = [
-            "subtask_id",
-            "role",
-            "objective",
-            "status",
-            "depends_on",
-            "inputs",
-            "output",
-            "tokens_used",
-            "started_at",
-            "completed_at",
-            "retry_count",
-            "error_message",
+            "subtask_id", "role", "objective", "status", "depends_on", "inputs", "output",
+            "tokens_used", "started_at", "completed_at", "retry_count", "error_message",
         ]
 
 
 class AgentEventSerializer(serializers.ModelSerializer):
+    payload = serializers.SerializerMethodField()
+
+    def get_payload(self, obj):
+        return _safe_event_payload(obj)
+
     class Meta:
         model = AgentEvent
         fields = ["sequence", "event_type", "subtask", "payload", "created_at"]
@@ -104,23 +141,17 @@ class AgentEventSerializer(serializers.ModelSerializer):
 
 class AgentTaskSerializer(serializers.ModelSerializer):
     subtasks = AgentSubTaskSerializer(many=True, read_only=True)
+    final_output = serializers.SerializerMethodField()
+
+    def get_final_output(self, obj):
+        return _safe_public_value(obj.final_output)
 
     class Meta:
         model = AgentTask
+        # task_packet intentionally never leaves the API; it contains raw LLM inputs.
         fields = [
-            "task_id",
-            "objective",
-            "execution_mode",
-            "status",
-            "task_packet",
-            "global_budget",
-            "tokens_used",
-            "started_at",
-            "completed_at",
-            "final_output",
-            "created_at",
-            "updated_at",
-            "subtasks",
+            "task_id", "objective", "execution_mode", "status", "global_budget", "tokens_used",
+            "started_at", "completed_at", "final_output", "created_at", "updated_at", "subtasks",
         ]
 
 
@@ -244,8 +275,37 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
         return Response({"status": "started", "task_id": str(task.task_id)})
 
-    @action(detail=True, methods=["POST"])
-    def intervene(self, request, pk=None):
+    @action(detail=True, methods=["POST"], url_path="confirm")
+    def confirm(self, request, pk=None):
+        """确认并重放任务中暂停的写工具调用。"""
+        from ..cache import ConfirmationDraftConsumeError, consume_confirmation_draft, get_confirmation_draft
+        from ..tools.registry import ToolRegistry
+
+        try:
+            task = AgentTask.objects.get(task_id=pk, user=request.user)
+        except AgentTask.DoesNotExist:
+            return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
+        token = request.data.get("confirm_token")
+        entry = get_confirmation_draft(token) if token else None
+        if not entry or entry.get("task_id") != str(task.task_id) or not entry.get("context_sig", "").startswith(f"u{request.user.pk}_"):
+            return Response({"error": "确认已过期或不属于当前任务"}, status=status.HTTP_403_FORBIDDEN)
+        try:
+            claimed = consume_confirmation_draft(token)
+        except ConfirmationDraftConsumeError:
+            return Response({"error": "确认服务暂不可用"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        if claimed is None:
+            return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
+        tool = ToolRegistry.get_tool_for_user(claimed.get("tool_name"), request.user)
+        if tool is None:
+            return Response({"error": "确认工具不可用"}, status=status.HTTP_404_NOT_FOUND)
+        context = {
+            "confirmed": True, "user": request.user, "task_id": task.task_id,
+            "draft": claimed.get("draft", {}).get("fields"),
+            "event_bus": PersistentEventBus(agent_task_id=str(task.task_id)),
+        }
+        result = tool.execute(query=claimed.get("user_query", ""), context=context)
+        return Response(result)
+
         """POST /api/smart-assistant/tasks/{task_id}/intervene/
 
         用户介入(暂停/恢复/取消)

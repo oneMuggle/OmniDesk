@@ -29,6 +29,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const subscribeRef = useRef(null);
   const manuallyPausedRef = useRef(false);
   const pendingInterventionRef = useRef(null);
+  const interventionTokenRef = useRef(0);
 
   const stop = useCallback(() => {
     if (subscriptionRef.current) {
@@ -59,7 +60,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
     else if (nextStatus && event.type !== 'task.paused' && event.type !== 'task.resumed') setStatus(nextStatus);
     if (event.type === 'task.paused') {
       manuallyPausedRef.current = true;
-      if (pendingInterventionRef.current === 'pause') {
+      if (pendingInterventionRef.current?.action === 'pause') {
         pendingInterventionRef.current = null;
         if (interventionTimerRef.current) clearTimeout(interventionTimerRef.current);
         interventionTimerRef.current = null;
@@ -68,7 +69,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
     }
     if (event.type === 'task.resumed') {
       manuallyPausedRef.current = false;
-      if (pendingInterventionRef.current === 'resume') {
+      if (pendingInterventionRef.current?.action === 'resume') {
         pendingInterventionRef.current = null;
         if (interventionTimerRef.current) clearTimeout(interventionTimerRef.current);
         interventionTimerRef.current = null;
@@ -137,6 +138,9 @@ export default function useAgentTaskStream(taskId, options = {}) {
 
   const intervene = useCallback(async (action) => {
     if (!taskId) return;
+    const token = ++interventionTokenRef.current;
+    pendingInterventionRef.current = { action, token };
+    const previousStatus = action === 'pause' ? 'running' : 'paused';
     if (action === 'pause') manuallyPausedRef.current = false;
     if (action === 'pause') setStatus('pausing');
     if (action === 'resume') setStatus('resuming');
@@ -145,14 +149,16 @@ export default function useAgentTaskStream(taskId, options = {}) {
     } catch (interveneError) {
       manuallyPausedRef.current = false;
       setError(interveneError);
-      setStatus(action === 'pause' ? 'running' : 'paused');
+      setStatus(previousStatus);
       throw interveneError;
     }
     if (action === 'pause' || action === 'resume') {
       const previousStatus = action === 'pause' ? 'running' : 'paused';
-      pendingInterventionRef.current = action;
+      const pending = pendingInterventionRef.current;
+      if (pending?.token !== token || pending.action !== action) return;
+      pendingInterventionRef.current = null;
       interventionTimerRef.current = setTimeout(() => {
-        if (pendingInterventionRef.current !== action) return;
+        if (interventionTokenRef.current !== token) return;
         pendingInterventionRef.current = null;
         interventionTimerRef.current = null;
         manuallyPausedRef.current = false;
