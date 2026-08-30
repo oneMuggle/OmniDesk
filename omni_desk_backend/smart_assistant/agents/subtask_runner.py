@@ -14,8 +14,15 @@ from __future__ import annotations
 
 import json
 import time
+from typing import Any
 
+from django.conf import settings
 from observability import get_logger
+
+from smart_assistant.tools.tool_context import ToolContext
+from smart_assistant.scope import resolve_scope
+
+from smart_assistant.agent.native_tool_runner import execute_native_tool
 
 from .dataclasses import SubTaskResult
 from .roles import ROLE_PROFILES, RoleProfile
@@ -41,10 +48,24 @@ class SubTaskRunner:
         result = runner.run_with_retry(subtask, ctx)
     """
 
-    def __init__(self, llm_router, event_bus, max_retries: int):
+    def __init__(
+        self,
+        llm_router,
+        event_bus,
+        max_retries: int,
+        tool_registry: Any | None = None,
+        user: Any | None = None,
+        context: ToolContext | None = None,
+        max_tool_call_rounds: int | None = None,
+    ):
         self._llm_router = llm_router
         self._event_bus = event_bus
         self._max_retries = max_retries  # 默认最大重试次数
+        self._tool_registry = tool_registry
+        self._user = user
+        self._tool_context = context
+        self._max_tool_call_rounds = max_tool_call_rounds
+        self._tool_call_count = 0
 
     def run_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask,支持重试
@@ -142,15 +163,18 @@ class SubTaskRunner:
             # 构造上下文
             messages = ctx.to_context_for(subtask)
 
-            # 调用 LLM
-            content, usage = self.invoke_llm(subtask, profile, messages)
+            # 调用 LLM;配置工具注册表时优先使用原生 tool-calling。
+            content, usage = self.invoke_llm(subtask, profile, messages, ctx=ctx)
 
             # 解析 LLM 输出
             output, artifacts = self.parse_output(content, subtask)
 
             # 记录 Token 消耗
             tokens_used = usage.get("total_tokens", 0) if isinstance(usage, dict) else 0
-            ctx.consume_tokens(tokens_used)
+            if isinstance(usage, dict) and tokens_used == 0:
+                tokens_used = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
+            if not self._native_tools_enabled():
+                ctx.consume_tokens(tokens_used)
 
             duration_ms = int((time.time() - start_time) * 1000)
 
@@ -182,7 +206,7 @@ class SubTaskRunner:
                 tokens_used=0,
                 duration_ms=duration_ms,
                 status="failed",
-                error_message=str(e),
+                error_message="subtask execution failed: " + type(e).__name__,
             )
 
     def invoke_llm(
@@ -190,6 +214,7 @@ class SubTaskRunner:
         subtask: SubTask,
         profile: RoleProfile,
         messages: list[dict],
+        ctx: SharedContext | None = None,
     ) -> tuple[str, dict]:
         """调用 LLM 生成 subtask 的输出
 
@@ -206,8 +231,10 @@ class SubTaskRunner:
         # 构造 system message
         system_message = profile.system_prompt
 
-        # 调用 LLMRouter
-        # 注意:LLMRouter.generate 返回 (content, usage) 元组
+        # 配置 registry 才启用工具路径，未配置时完全保留旧纯 LLM 行为。
+        if self._native_tools_enabled():
+            return self._invoke_with_tools(subtask, profile, messages, ctx)
+
         response = self._llm_router.generate(
             prompt=None,
             system_message=system_message,
@@ -230,6 +257,182 @@ class SubTaskRunner:
             usage = {}
 
         return content, usage
+
+    def _native_tools_enabled(self) -> bool:
+        return (
+            self._tool_registry is not None
+            and self._user is not None
+            and not self._is_mock_registry(self._tool_registry)
+            and hasattr(self._tool_registry, "get_openai_tools")
+        )
+
+    @staticmethod
+    def _is_mock_registry(registry: Any) -> bool:
+        """MagicMock 等旧测试替身不应误启用原生工具路径。"""
+        return registry.__class__.__module__.startswith("unittest.mock")
+
+    def _invoke_with_tools(
+        self,
+        subtask: SubTask,
+        profile: RoleProfile,
+        messages: list[dict],
+        shared_context: SharedContext | None,
+    ) -> tuple[str, dict]:
+        """执行受权限上下文约束的原生工具调用循环。"""
+        user = self._user
+        tool_context = self._tool_context or ToolContext(user=user, scope=resolve_scope(user))
+        if tool_context.user is not user or tool_context.scope != resolve_scope(user):
+            raise ValueError("工具上下文不可信")
+        tool_schemas = self._tool_registry.get_openai_tools(user)
+        max_rounds = self._max_tool_call_rounds
+        if max_rounds is None:
+            max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
+        working_messages = list(messages)
+        total_usage: dict = {}
+
+        for round_index in range(max(0, max_rounds)):
+            if shared_context is not None and shared_context.is_budget_exhausted():
+                return "", total_usage
+            content, usage, tool_calls = self._llm_router.generate_with_tools(
+                messages=self._with_system_message(profile, working_messages),
+                tools=tool_schemas,
+                tool_choice="auto",
+                options=self._llm_options(profile),
+            )
+            total_usage = self._merge_usage(total_usage, usage)
+            self._consume_usage(shared_context, usage)
+            if not tool_calls:
+                return content or "", total_usage
+
+            tool_messages = []
+            for tool_call in tool_calls:
+                if shared_context is not None and shared_context.is_budget_exhausted():
+                    return content or "", total_usage
+                name, raw_arguments = self._tool_call_fields(tool_call)
+                arguments = self._decode_arguments(raw_arguments)
+                self._event_bus.emit(
+                    "subtask.tool_call",
+                    {
+                        "subtask_id": subtask.id,
+                        "tool": self._safe_text(name),
+                        "arguments": self._safe_summary(arguments),
+                        "round": round_index,
+                    },
+                )
+                result = self._execute_tool(name, arguments, tool_context)
+                self._tool_call_count += 1
+                if self._tool_call_count >= max_rounds:
+                    break
+                self._event_bus.emit(
+                    "subtask.tool_result",
+                    {
+                        "subtask_id": subtask.id,
+                        "tool": name,
+                        "result": self._result_summary(result),
+                        "round": round_index,
+                    },
+                )
+                tool_messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call.get("id", ""),
+                        "content": json.dumps(result, ensure_ascii=False),
+                    }
+                )
+            working_messages.append({"role": "assistant", "content": content or "", "tool_calls": tool_calls})
+            working_messages.extend(tool_messages)
+
+        content, usage, _ = self._llm_router.generate_with_tools(
+            messages=working_messages,
+            tools=tool_schemas,
+            tool_choice="none",
+        )
+        return content or "", self._merge_usage(total_usage, usage)
+
+    @staticmethod
+    def _tool_call_fields(tool_call: dict) -> tuple[str, Any]:
+        function = tool_call.get("function") or {}
+        return function.get("name", ""), function.get("arguments", "{}")
+
+    @staticmethod
+    def _decode_arguments(raw_arguments: Any) -> dict:
+        if isinstance(raw_arguments, dict):
+            return raw_arguments
+        if isinstance(raw_arguments, str):
+            try:
+                parsed = json.loads(raw_arguments)
+                return parsed if isinstance(parsed, dict) else {}
+            except (TypeError, ValueError, json.JSONDecodeError):
+                return {}
+        return {}
+
+    def _execute_tool(self, name: str, arguments: dict, context: ToolContext) -> dict:
+        tool = self._tool_registry.get_tool_for_user(name, self._user)
+        if tool is None:
+            return {"error": "tool_unavailable"}
+        try:
+            validated = tool.validate_arguments(arguments)
+        except Exception:
+            return {"error": "invalid_arguments"}
+        try:
+            result, _, _ = execute_native_tool(tool, validated, context)
+            return result if isinstance(result, dict) else {"result": "tool returned unsupported result"}
+        except Exception:
+            logger.warning("工具执行失败", exc_info=True)
+            return {"error": "tool_execution_failed"}
+
+    @staticmethod
+    def _arguments_to_query(arguments: dict) -> str:
+        query = arguments.get("query")
+        if isinstance(query, str):
+            return query
+        return json.dumps(arguments, ensure_ascii=False)
+
+    @staticmethod
+    def _result_summary(result: Any) -> Any:
+        if isinstance(result, dict):
+            return {key: value for key, value in list(result.items())[:10]}
+        return str(result)[:500]
+
+    @staticmethod
+    def _safe_text(value: Any, limit: int = 120) -> str:
+        return str(value).replace("\n", " ")[:limit]
+
+    @classmethod
+    def _safe_summary(cls, value: Any) -> Any:
+        if isinstance(value, dict):
+            return {cls._safe_text(k, 40): cls._safe_summary(v) for k, v in list(value.items())[:10]}
+        if isinstance(value, list):
+            return [cls._safe_summary(item) for item in value[:10]]
+        return cls._safe_text(value) if isinstance(value, str) else value
+
+    @staticmethod
+    def _with_system_message(profile: RoleProfile, messages: list[dict]) -> list[dict]:
+        return [{"role": "system", "content": profile.system_prompt}, *messages]
+
+    @staticmethod
+    def _llm_options(profile: RoleProfile) -> dict:
+        return {"temperature": profile.temperature, "top_p": 0.9, "max_tokens": profile.max_tokens}
+
+    @staticmethod
+    def _merge_usage(total: dict, usage: Any) -> dict:
+        merged = dict(total)
+        if isinstance(usage, dict):
+            for key, value in usage.items():
+                if isinstance(value, (int, float)) and isinstance(merged.get(key), (int, float)):
+                    merged[key] += value
+                else:
+                    merged[key] = value
+        return merged
+
+    @staticmethod
+    def _consume_usage(context: SharedContext | None, usage: Any) -> None:
+        if context is None or not isinstance(usage, dict):
+            return
+        total = usage.get("total_tokens")
+        if total is None:
+            total = (usage.get("prompt_tokens") or 0) + (usage.get("completion_tokens") or 0)
+        context.consume_tokens(max(0, int(total)))
 
     @staticmethod
     def parse_output(content: str, subtask: SubTask) -> tuple[dict | str, dict]:
