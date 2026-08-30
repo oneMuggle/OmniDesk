@@ -36,6 +36,7 @@ from .shared_context import Decision, ErrorRecord, SharedContext
 from .executor import (
     EventBus,
     Event,
+    PersistentEventBus,
     MultiAgentExecutor,
     SubTaskResult,
     TaskResult,
@@ -61,6 +62,7 @@ __all__ = [
     # executor.py
     "Event",
     "EventBus",
+    "PersistentEventBus",
     "MultiAgentExecutor",
     "SubTaskResult",
     "TaskResult",

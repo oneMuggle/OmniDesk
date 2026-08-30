@@ -22,6 +22,7 @@ from smart_assistant.agents.executor import (
     SubTaskResult,
     TaskResult,
 )
+from smart_assistant.agents.dataclasses import PersistentEventBus
 from smart_assistant.agents.roles import AgentRole
 from smart_assistant.agents.packet import (
     ExecutionMode,

@@ -115,3 +115,47 @@ class EventBus:
     def clear(self) -> None:
         """清空事件(主要用于测试)"""
         self._events = []
+
+
+class PersistentEventBus(EventBus):
+    """同时记录内存事件并尽力持久化到 AgentEvent。"""
+
+    def __init__(self, agent_task_id: str | None = None):
+        super().__init__()
+        self.agent_task_id = agent_task_id
+        self.persistence_failure_count = 0
+
+    def emit(self, event_type: str, payload: dict | None = None) -> None:
+        """发出内存事件，并尝试写入任务事件表。"""
+        event_payload = dict(payload or {})
+        super().emit(event_type, event_payload)
+        try:
+            self._persist(event_type, event_payload)
+        except Exception:
+            self.persistence_failure_count += 1
+
+    def _persist(self, event_type: str, payload: dict) -> None:
+        if not self.agent_task_id:
+            raise ValueError("agent_task_id 未设置")
+
+        from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+
+        task = AgentTask.objects.get(task_id=self.agent_task_id)
+        subtask = None
+        subtask_id = payload.get("subtask_id")
+        if subtask_id is not None:
+            subtask = AgentSubTask.objects.filter(task=task, subtask_id=str(subtask_id)).first()
+        sequence = (
+            AgentEvent.objects.filter(task=task)
+            .order_by("-sequence")
+            .values_list("sequence", flat=True)
+            .first()
+            or 0
+        ) + 1
+        AgentEvent.objects.create(
+            task=task,
+            subtask=subtask,
+            sequence=sequence,
+            event_type=event_type,
+            payload=payload,
+        )

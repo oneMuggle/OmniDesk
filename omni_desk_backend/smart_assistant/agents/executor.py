@@ -31,6 +31,7 @@ from .checkpoint import CheckpointManager
 from .dataclasses import (
     Event as Event,
     EventBus as EventBus,
+    PersistentEventBus as PersistentEventBus,
     SubTaskResult as SubTaskResult,
     TaskResult as TaskResult,
 )  # re-export(兼容 agents.executor 路径,勿删)

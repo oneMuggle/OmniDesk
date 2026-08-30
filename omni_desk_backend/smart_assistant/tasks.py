@@ -111,11 +111,14 @@ def execute_agent_task(task_id: str):
     """
     from django.utils import timezone
 
-    from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+    from smart_assistant.models import AgentSubTask, AgentTask
     from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
+    from smart_assistant.agents.dataclasses import PersistentEventBus
     from llm_service.router import get_router
     from smart_assistant.tools.registry import ToolRegistry
+
+    event_bus = PersistentEventBus(agent_task_id=task_id)
 
     try:
         # 1. 加载 AgentTask
@@ -129,20 +132,14 @@ def execute_agent_task(task_id: str):
         task.started_at = timezone.now()
         task.save(update_fields=["status", "started_at"])
 
-        # 记录 task.started 事件
-        AgentEvent.objects.create(
-            task=task,
-            sequence=AgentEvent.objects.filter(task=task).count() + 1,
-            event_type="task.started",
-            payload={"task_id": str(task.task_id)},
-        )
-
         # 4. 创建执行器
         llm_router = get_router()
         executor = MultiAgentExecutor(
             task_packet=task_packet,
             llm_router=llm_router,
             tool_registry=ToolRegistry,
+            event_bus=event_bus,
+            agent_task_id=task_id,
         )
 
         # 5. 执行任务
@@ -183,26 +180,6 @@ def execute_agent_task(task_id: str):
             subtask_obj.error_message = subtask_result.error_message
             subtask_obj.save()
 
-        # 记录 task.completed / task.failed 事件
-        event_type = (
-            "task.completed"
-            if result.status == "success"
-            else "task.failed"
-            if result.status == "failed"
-            else "task.completed"  # partial 也算完成
-        )
-        AgentEvent.objects.create(
-            task=task,
-            sequence=AgentEvent.objects.filter(task=task).count() + 1,
-            event_type=event_type,
-            payload={
-                "task_id": str(task.task_id),
-                "status": result.status,
-                "total_tokens": result.total_tokens_used,
-                "total_duration_ms": result.total_duration_ms,
-            },
-        )
-
         return {
             "task_id": str(task.task_id),
             "status": result.status,
@@ -218,13 +195,6 @@ def execute_agent_task(task_id: str):
             task.status = "failed"
             task.completed_at = timezone.now()
             task.save(update_fields=["status", "completed_at"])
-
-            AgentEvent.objects.create(
-                task=task,
-                sequence=AgentEvent.objects.filter(task=task).count() + 1,
-                event_type="task.failed",
-                payload={"task_id": str(task.task_id), "error": str(e)},
-            )
         except AgentTask.DoesNotExist:
             logger.debug(
                 "smart_assistant.tasks.event_task_gone",
