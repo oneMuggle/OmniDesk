@@ -56,3 +56,20 @@
 2. 前端生产构建通过但有 chunk size warning，不能宣称“无警告”。
 3. 真实外部 LLM、Celery worker、PostgreSQL、IE11 浏览器和 backup/restore 未在当前环境现场执行；证据以自动化测试和代码审查为限。
 4. `check_migrations` 有 6 个 pending migration；发布前需在目标环境按流程备份后显式 migrate。
+
+## 最终审查统一修复（2026-08-30）
+
+- worker 对 `paused` 任务改为调用 `MultiAgentExecutor.resume_from_checkpoint`，复用 checkpoint 恢复已完成 subtask，新增暂停任务恢复单测。
+- `create_from_query` 改用固定错误文案与 `invalid_task_plan` / `task_creation_failed` 错误码，服务端仅记录用户上下文与受控异常堆栈。
+- SSE/timeline payload 白名单补充 `error`、`reason`、`final_output`、`total_tokens`、`dropped_events`、`round`，继续递归脱敏；终态 `done`/`timeout` 帧补 `id` 行。
+- `NotifyTool` 审计事件改用合法的 `subtask.tool_result`，以 `phase=notify`、`operation=agent_notify` 标识；恢复 executor 支持复用事件总线。
+- 前端“重新查看”保留历史和 `lastSeq`，仅重新订阅，不伪装成重新执行；ScenarioCollabCard 文案保持一致。
+
+### 本轮验证
+
+- 后端目标测试（`--no-cov`）：20 passed；`py_compile` 通过。
+- 前端 focused Jest：26 tests passed。
+- 智能助手范围 ESLint：0 errors，4 个既有 `react/prop-types` warnings。
+- `git diff --check`：通过。
+
+对应提交：`2ddadfb9 fix: 收口智能助手任务恢复与事件契约`。工作区原有 spec 尾部格式改动未纳入该提交，保持不覆盖。
