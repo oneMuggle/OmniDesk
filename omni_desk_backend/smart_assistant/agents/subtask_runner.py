@@ -315,6 +315,11 @@ class SubTaskRunner:
             )
             total_usage = self._merge_usage(total_usage, usage)
             self._consume_usage(shared_context, usage)
+            # Token usage is charged before accepting either text or tool calls.
+            # Once the shared budget is exhausted, never turn a partial model
+            # response into a successful subtask result.
+            if shared_context is not None and shared_context.is_budget_exhausted():
+                raise RuntimeError("token budget exhausted")
             if not tool_calls:
                 return content or "", total_usage
 
