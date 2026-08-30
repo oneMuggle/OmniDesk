@@ -331,9 +331,25 @@ def set_confirmation_draft(
     cache.set(_draft_key(token), draft, ttl)
 
 
-def consume_confirmation_draft(token: str) -> dict | None:
-    """分布式原子占用确认草稿；不支持可靠锁时 fail closed。"""
+def consume_confirmation_draft(token: str, validator=None) -> dict | None:
+    """在可靠锁内校验并一次性消费确认草稿。
+
+    ``validator`` 在读取与删除之间调用；返回 ``None`` 时保留 token，返回
+    字典时删除 token 并返回该字典。这样最终参数校验不会发生在消费之后。
+    """
     key = _draft_key(token)
+
+    def validate(value):
+        return validator(value) if callable(validator) else value
+
+    def consume(value, delete):
+        if value is None:
+            return None
+        validated = validate(value)
+        if validated is None:
+            return None
+        delete(key)
+        return validated
     try:
         backend = cache._connections["default"]
         module = backend.__class__.__module__
@@ -341,15 +357,11 @@ def consume_confirmation_draft(token: str) -> dict | None:
             lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
             with lock:
                 value = backend.get(key)
-                if value is not None:
-                    backend.delete(key)
-                return value
+                return consume(value, backend.delete)
         if module.startswith("django.core.cache.backends.locmem"):
             with _inflight_global:
                 value = cache.get(key)
-                if value is not None:
-                    cache.delete(key)
-                return value
+                return consume(value, cache.delete)
     except Exception as exc:
         logger.warning(
             "confirmation draft consume backend failure: backend=%s exc_type=%s",

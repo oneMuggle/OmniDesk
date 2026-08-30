@@ -124,7 +124,7 @@ class TestAgentTaskResultNotification(TestCase):
         set_confirmation_draft(token, {
             "tool_name": "agent_notify", "user_query": "通知",
             "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
-            "draft": {"fields": {"operation_id": "op-pre"}},
+            "draft": {"fields": {"recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-pre"}},
         })
         registry = get_registry()
         calls = []

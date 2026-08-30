@@ -41,7 +41,17 @@ SAFE_EVENT_PAYLOAD_KEYS = {
     "operation_id", "phase", "operation", "recipients", "sent", "failed", "sent_count",
     "failed_count", "recipient_count", "channel", "channels",
 }
-SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
+SENSITIVE_KEYS = {
+    "args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt",
+    "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session",
+}
+SENSITIVE_CANONICAL_PATTERNS = tuple(
+    re.compile(pattern) for pattern in (
+        r"(?:^|prompt)(?:text|value)?$", r"credential(?:blob)?$", r"token(?:value)?$",
+        r"bearertoken$", r"clientsecret$", r"apikey$", r"accesstoken$",
+        r"authorizationheader$", r"sessionid$",
+    )
+)
 
 
 def _canonical_field_name(value):
@@ -49,6 +59,13 @@ def _canonical_field_name(value):
 
 
 SENSITIVE_CANONICAL_KEYS = {_canonical_field_name(key) for key in SENSITIVE_KEYS}
+
+
+def _is_sensitive_field(value):
+    canonical = _canonical_field_name(value)
+    return canonical in SENSITIVE_CANONICAL_KEYS or any(
+        pattern.search(canonical) for pattern in SENSITIVE_CANONICAL_PATTERNS
+    )
 
 # These fields are persisted by confirmation drafts but are not all part of the
 # public tool-call schema (for example NotifyTool resolves recipient names into
@@ -60,7 +77,7 @@ def _replay_allowed_fields(tool):
     """Return non-sensitive fields a hook may modify during replay."""
     allowed = {
         key for key in REPLAY_INTERNAL_FIELD_ALLOWLIST
-        if _canonical_field_name(key) not in SENSITIVE_CANONICAL_KEYS
+        if not _is_sensitive_field(key)
     }
     try:
         schema = tool.get_openai_tool_schema()
@@ -68,7 +85,7 @@ def _replay_allowed_fields(tool):
         if isinstance(properties, dict):
             allowed.update(
                 key for key in properties
-                if isinstance(key, str) and _canonical_field_name(key) not in SENSITIVE_CANONICAL_KEYS
+                if isinstance(key, str) and not _is_sensitive_field(key)
             )
     except (AttributeError, TypeError, KeyError):
         pass
@@ -92,12 +109,21 @@ def _safe_replay_draft(draft, fields):
 def _validate_replay_fields(tool, fields):
     """Validate hook output before consuming the single-use confirmation token."""
     if getattr(tool, "name", None) == "agent_notify":
-        if "recipient_ids" in fields and (not isinstance(fields["recipient_ids"], list) or not fields["recipient_ids"]):
+        recipient_ids = fields.get("recipient_ids")
+        if (
+            not isinstance(recipient_ids, list)
+            or not 1 <= len(recipient_ids) <= 10
+            or len(set(recipient_ids)) != len(recipient_ids)
+            or any(not isinstance(item, int) or isinstance(item, bool) for item in recipient_ids)
+        ):
             return "确认收件人参数无效"
-        if "scope" in fields and fields["scope"] not in {"self", "department", "global"}:
+        if fields.get("scope") not in {"self", "department", "global"}:
             return "确认范围参数无效"
-        for key in ("title", "content"):
-            if key in fields and not isinstance(fields[key], str):
+        for key, limit in (("title", 200), ("content", 10000)):
+            value = fields.get(key)
+            if not isinstance(value, str) or not value.strip() or len(value.strip()) > limit:
+                return "确认通知参数无效"
+            if any(ord(char) < 32 and char not in "\n\r\t" for char in value):
                 return "确认通知参数无效"
         return None
     validator = getattr(tool, "validate_arguments", None)
@@ -391,7 +417,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
     @action(detail=True, methods=["POST"], url_path="confirm")
     def confirm(self, request, pk=None):
         """在任务锁内原子校验并消费确认令牌，然后重放写工具。"""
-        from ..cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+        from ..cache import ConfirmationDraftConsumeError, consume_confirmation_draft, get_confirmation_draft
         from ..tools.registry import ToolRegistry
 
         token = request.data.get("confirm_token")
@@ -406,7 +432,6 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         {"error": f"任务状态为 {task.status},无法确认"},
                         status=status.HTTP_409_CONFLICT,
                     )
-                from ..cache import get_confirmation_draft
                 entry = get_confirmation_draft(token)
                 expected_sig = f"u{request.user.pk}_s{resolve_scope(request.user).value}"
                 if not isinstance(entry, dict) or entry.get("task_id") != str(task.task_id):
@@ -416,72 +441,82 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 tool = ToolRegistry.get_tool_for_user(entry.get("tool_name"), request.user)
                 if tool is None:
                     return Response({"error": "确认工具不可用"}, status=status.HTTP_404_NOT_FOUND)
-                draft = entry.get("draft") if isinstance(entry.get("draft"), dict) else {}
-                fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else draft
-                allowed_replay_fields = _replay_allowed_fields(tool)
-                fields = _filter_replay_fields(fields, allowed_replay_fields)
-                operation_id = fields.get("operation_id") if isinstance(fields, dict) else None
-                requested_operation_id = request.data.get("operation_id")
-                if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
-                    return Response({"error": "确认操作不匹配"}, status=status.HTTP_403_FORBIDDEN)
                 task_id = task.task_id
                 tool_name = entry.get("tool_name")
                 user_query = entry.get("user_query", "")
-                event_bus = PersistentEventBus(agent_task_id=str(task_id))
-                safe_draft = _safe_replay_draft(draft, fields)
-                pre_context = ToolContext(
-                    user=request.user,
-                    scope=resolve_scope(request.user),
-                    task_id=task_id,
-                    event_bus=event_bus,
-                    replay=True,
-                    draft=safe_draft,
-                )
-                pre_result = apply_pre_execute_hooks(
-                    tool,
-                    pre_context,
-                    fields if isinstance(fields, dict) else {},
-                    excluded_hook_names={"confirmation"},
-                )
-                if isinstance(pre_result, Reject):
+                allowed_replay_fields = _replay_allowed_fields(tool)
+                draft_metadata = entry.get("draft") if isinstance(entry.get("draft"), dict) else {}
+                metadata_fields = draft_metadata.get("fields") if isinstance(draft_metadata.get("fields"), dict) else draft_metadata
+                operation_id = metadata_fields.get("operation_id") if isinstance(metadata_fields, dict) else None
+                requested_operation_id = request.data.get("operation_id")
+                if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
+                    return Response({"error": "确认操作不匹配"}, status=status.HTTP_403_FORBIDDEN)
+                validation_error_holder = []
+                reject_holder = []
+
+                def validate_and_prepare(claimed):
+                    claimed_draft = claimed.get("draft") if isinstance(claimed, dict) and isinstance(claimed.get("draft"), dict) else {}
+                    claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                    candidate_fields = _filter_replay_fields(claimed_fields, allowed_replay_fields)
+                    event_bus = PersistentEventBus(agent_task_id=str(task_id))
+                    pre_context = ToolContext(
+                        user=request.user, scope=resolve_scope(request.user), task_id=task_id,
+                        event_bus=event_bus, replay=True,
+                        draft=_safe_replay_draft(claimed_draft, candidate_fields),
+                    )
+                    pre_result = apply_pre_execute_hooks(
+                        tool, pre_context, candidate_fields, excluded_hook_names={"confirmation"},
+                    )
+                    if isinstance(pre_result, Reject):
+                        reject_holder.append(pre_result)
+                        return None
+                    if isinstance(pre_result, dict):
+                        candidate_fields.update(_filter_replay_fields(pre_result, allowed_replay_fields))
+                    candidate_fields["operation_id"] = operation_id
+                    error = _validate_replay_fields(tool, candidate_fields)
+                    if error:
+                        validation_error_holder.append(error)
+                        return None
+                    if getattr(tool, "name", None) == "agent_notify":
+                        from django.contrib.auth import get_user_model
+                        users = list(get_user_model().objects.filter(id__in=candidate_fields["recipient_ids"]))
+                        if len(users) != len(candidate_fields["recipient_ids"]):
+                            validation_error_holder.append("确认收件人参数无效")
+                            return None
+                        scope_error = tool._validate_scope(candidate_fields["scope"], {"user": request.user}, pre_context)
+                        if scope_error:
+                            validation_error_holder.append(scope_error)
+                            return None
+                        scope_error = tool._validate_users_scope(users, request.user, candidate_fields["scope"])
+                        if scope_error:
+                            validation_error_holder.append(scope_error)
+                            return None
+                        candidate_fields = {
+                            **candidate_fields,
+                            "title": candidate_fields["title"].strip(),
+                            "content": candidate_fields["content"].strip(),
+                        }
+                    return {**claimed, "draft": _safe_replay_draft(claimed_draft, candidate_fields), "fields": candidate_fields}
+
+                try:
+                    claimed = consume_confirmation_draft(token, validator=validate_and_prepare)
+                except ConfirmationDraftConsumeError:
+                    return Response({"error": "确认服务暂不可用"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                if reject_holder:
+                    pre_result = reject_holder[0]
                     error_code = pre_result.error_code or "confirmation_rejected"
-                    event_bus.emit("hook.rejected", {
-                        "task_id": str(task_id), "operation_id": operation_id,
-                        "operation": tool_name, "phase": "confirm",
-                        "error_code": error_code,
-                    })
                     response_data = {"error": "确认操作未通过，请稍后重试", "error_code": error_code}
                     if pre_result.retry_after is not None:
                         response_data["retry_after"] = pre_result.retry_after
                     reject_status = status.HTTP_429_TOO_MANY_REQUESTS if error_code == "rate_limit_exceeded" else status.HTTP_403_FORBIDDEN
                     return Response(response_data, status=reject_status)
-                candidate_fields = dict(fields) if isinstance(fields, dict) else {}
-                if isinstance(pre_result, dict):
-                    candidate_fields.update(_filter_replay_fields(pre_result, allowed_replay_fields))
-                candidate_fields["operation_id"] = operation_id
-                validation_error = _validate_replay_fields(tool, candidate_fields)
-                if validation_error:
-                    return Response({"error": validation_error, "error_code": "invalid_confirmation_params"}, status=status.HTTP_400_BAD_REQUEST)
-                try:
-                    claimed = consume_confirmation_draft(token)
-                except ConfirmationDraftConsumeError:
-                    return Response({"error": "确认服务暂不可用"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                if validation_error_holder:
+                    return Response({"error": validation_error_holder[0], "error_code": "invalid_confirmation_params"}, status=status.HTTP_400_BAD_REQUEST)
                 if claimed is None:
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
-                claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
-                claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
-                final_fields = _filter_replay_fields(claimed_fields, allowed_replay_fields)
-                if isinstance(pre_result, dict):
-                    # Hook 只能覆盖工具 schema/内部确认字段；操作闸门仍以
-                    # 确认时校验过的 operation_id 为准，避免参数注入绕过确认绑定。
-                    final_fields.update(_filter_replay_fields(pre_result, allowed_replay_fields))
-                final_fields["operation_id"] = operation_id
-                validation_error = _validate_replay_fields(tool, final_fields)
-                if validation_error:
-                    return Response({"error": validation_error, "error_code": "invalid_confirmation_params"}, status=status.HTTP_400_BAD_REQUEST)
-                final_draft = _safe_replay_draft(claimed_draft, final_fields)
-                fields = final_fields
-                recipient_ids = fields.get("recipient_ids") if isinstance(fields, dict) else None
+                final_draft = claimed["draft"]
+                fields = claimed["fields"]
+                recipient_ids = fields.get("recipient_ids")
                 resolved_users = []
                 if isinstance(recipient_ids, list):
                     from django.contrib.auth import get_user_model

@@ -192,6 +192,33 @@ class TestDraftCacheIsolation:
             backend.get.assert_not_called()
             backend.delete.assert_not_called()
 
+    def test_validator_rejection_keeps_draft_for_retry(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        draft = {"draft": {"fields": {"scope": "global"}}}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = draft
+            assert consume_confirmation_draft("token-invalid", validator=lambda value: None) is None
+            mock_cache.delete.assert_not_called()
+            assert consume_confirmation_draft("token-invalid", validator=lambda value: value) == draft
+            assert mock_cache.delete.call_count == 1
+
+    def test_validator_runs_before_delete_and_returns_transformed_draft(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        draft = {"draft": {"fields": {"scope": "self"}}}
+        transformed = {"draft": {"fields": {"scope": "self", "checked": True}}}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = draft
+            assert consume_confirmation_draft("token-valid", validator=lambda value: transformed) == transformed
+            mock_cache.delete.assert_called_once_with(_draft_key("token-valid"))
+
     def test_draft_key_uses_cache_version(self):
         """draft key 包含 CACHE_VERSION,bump 后旧 draft 自动失效(同 token 不同 key)"""
         from smart_assistant import cache as cache_module
