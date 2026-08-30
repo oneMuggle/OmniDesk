@@ -5,6 +5,8 @@
  * SSE 部分: subscribeTaskStream 的事件解析、终态事件、认证失败、abort 断开
  */
 import { ReadableStream } from 'stream/web';
+
+globalThis.ReadableStream = ReadableStream;
 import { waitFor } from '@testing-library/react';
 import {
   createAgentTask,

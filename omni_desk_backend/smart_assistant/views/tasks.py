@@ -11,6 +11,7 @@
 
 import json
 import time
+import re
 import uuid
 
 from django.db import transaction
@@ -30,11 +31,21 @@ SAFE_EVENT_PAYLOAD_KEYS = {"event_type", "sequence", "subtask_id", "status", "co
 SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
 
 
+PII_PATTERNS = [re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"), re.compile(r"(?<!\d)1\d{10}(?!\d)"), re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)")]
+
+
+def _sanitize_text(value):
+    result = value[:2000]
+    for pattern in PII_PATTERNS:
+        result = pattern.sub("[已隐藏]", result)
+    return result
+
+
 def _sanitize_value(value, depth=0):
     if depth >= 3:
         return "[已隐藏]"
     if isinstance(value, str):
-        return value[:2000]
+        return _sanitize_text(value)
     if isinstance(value, (int, float, bool)) or value is None:
         return value
     if isinstance(value, list):

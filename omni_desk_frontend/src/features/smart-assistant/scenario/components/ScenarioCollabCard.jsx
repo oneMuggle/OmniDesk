@@ -121,10 +121,10 @@ export default function ScenarioCollabCard({ scenarioId, userInput, taskId, obje
             size="small"
             type="text"
             icon={<ReloadOutlined />}
-            disabled={!['failed', 'partial', 'cancelled', 'error'].includes(stream.error ? 'error' : stream.status)}
+            disabled={stream.error ? false : !['failed', 'partial', 'cancelled'].includes(stream.status)}
             onClick={stream.retry}
           >
-            重试
+            重新查看
           </Button>
         </Space>
       }

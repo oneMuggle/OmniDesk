@@ -99,9 +99,9 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
     }
     if (stopped) return;
     if (response.ok === false) { onError?.(new Error(response.status === 401 ? '认证已过期，请重新登录' : '任务进度流连接失败')); return; }
-    if (!response.body || typeof response.body.getReader !== 'function' || (typeof ReadableStream === 'function' && !(response.body instanceof ReadableStream))) { pollTimeline(); return; }
-    const reader = response.body.getReader();
     if (typeof TextDecoder !== 'function') { pollTimeline(); return; }
+    if (!response.body || typeof response.body.getReader !== 'function' || typeof ReadableStream !== 'function') { pollTimeline(); return; }
+    const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
     let finished = false;

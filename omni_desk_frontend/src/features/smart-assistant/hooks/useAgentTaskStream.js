@@ -138,10 +138,8 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const retry = useCallback(() => {
     manuallyPausedRef.current = false;
     retryCountRef.current = 0;
-    setEvents([]);
     setError(null);
-    lastSeqRef.current = 0;
-    setLastSeq(0);
+    // 当前后端没有 retry endpoint：retry 表示保留历史并重新订阅，使用 lastSeq 续传。
     subscribe();
   }, [subscribe]);
 
