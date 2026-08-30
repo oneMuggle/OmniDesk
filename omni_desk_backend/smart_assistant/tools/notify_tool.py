@@ -16,7 +16,7 @@ def _default_resolver(name: str, _actor: Any) -> list[Any]:
     return list(User.objects.filter(Q(username=name) | Q(real_name=name) | Q(personnel__name=name)).distinct())
 
 
-class AgentNotifyTool(BaseTool):
+class NotifyTool(BaseTool):
     name = "agent_notify"
     description = "向一个或多个用户发送站内通知(写操作,需要用户确认)。"
     intent_type = "agent_notify"
@@ -33,10 +33,24 @@ class AgentNotifyTool(BaseTool):
 
     def execute(self, query=None, context=None, params=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
+        if context is not None and not isinstance(context, dict):
+            ctx = {"user": getattr(context, "user", None)}
         values = params if isinstance(params, dict) else (query if isinstance(query, dict) else {})
-        if ctx.get("dry_run"):
+        if isinstance(query, str):
+            import json
+            try:
+                values = json.loads(query)
+            except (TypeError, ValueError):
+                values = {}
+        if "recipient_ids" in values and "recipients" not in values:
+            from django.contrib.auth import get_user_model
+            values = dict(values)
+            values["recipients"] = list(get_user_model().objects.filter(id__in=values["recipient_ids"]).values_list("username", flat=True))
+        if not isinstance(values, dict):
+            return {"found": False, "message": "通知参数必须是对象"}
+        if ctx.get("dry_run") or values.get("dry_run"):
             return self._dry_run(values, ctx, context)
-        if ctx.get("confirmed"):
+        if ctx.get("confirmed") or values.get("confirmed"):
             return self._confirmed(values, ctx, context)
         return {"found": False, "message": "工具执行异常:未进入 dry_run 或 confirmed 模式"}
 
@@ -46,7 +60,7 @@ class AgentNotifyTool(BaseTool):
 
     @staticmethod
     def _context_scope(ctx, context):
-        user = AgentNotifyTool._user(ctx, context)
+        user = NotifyTool._user(ctx, context)
         derived = resolve_scope(user)
         return derived.value
 
@@ -58,16 +72,22 @@ class AgentNotifyTool(BaseTool):
         return None
 
     def _resolve_recipients(self, names, actor, requested_scope):
-        if not isinstance(names, list) or not 1 <= len(names) <= 10:
+        if not isinstance(names, list) or not names:
             return None, "收件人数量必须在 1 到 10 人之间"
+        unique_names = list(dict.fromkeys(names))
+        if len(unique_names) > 10:
+            return None, "收件人数量不能超过 10 人"
         users = []
-        for name in names:
+        seen_ids = set()
+        for name in unique_names:
             candidates = self.resolver(name, actor)
             if len(candidates) == 0:
                 return None, f"未找到收件人 '{name}'"
             if len(candidates) > 1:
                 return None, f"收件人 '{name}' 匹配到多个候选,请明确指定"
             user = candidates[0]
+            if user.id in seen_ids:
+                continue
             if requested_scope == "self" and user.id != actor.id:
                 return None, "收件人超出当前范围"
             if requested_scope == "department":
@@ -76,6 +96,9 @@ class AgentNotifyTool(BaseTool):
                 if not actor_department or actor_department != user_department:
                     return None, "收件人超出当前部门范围"
             users.append(user)
+            seen_ids.add(user.id)
+        if not users:
+            return None, "收件人数量必须在 1 到 10 人之间"
         return users, None
 
     def _dry_run(self, values, ctx, context):
@@ -107,9 +130,6 @@ class AgentNotifyTool(BaseTool):
         required = ("title", "content", "scope")
         if any(not isinstance(fields.get(key), str) or not fields[key].strip() for key in required):
             return {"found": False, "message": "确认草稿缺少有效的 title、content 或 scope"}
-        required = ("title", "content", "scope")
-        if any(not isinstance(fields.get(key), str) or not fields[key].strip() for key in required):
-            return {"found": False, "message": "确认草稿缺少有效的 title、content 或 scope"}
         error = self._validate_scope(fields.get("scope"), ctx, context)
         if error:
             return {"found": False, "message": error}
@@ -118,3 +138,6 @@ class AgentNotifyTool(BaseTool):
             if not result.success:
                 return {"found": False, "message": result.message or "通知发送失败"}
         return {"found": True, "result": {"sent_count": len(users)}, "summary": f"已发送 {len(users)} 条站内通知"}
+
+
+AgentNotifyTool = NotifyTool

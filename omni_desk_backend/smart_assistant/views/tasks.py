@@ -21,6 +21,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..agents.supervisor import Supervisor
+from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from llm_service.router import get_router
 
@@ -254,35 +255,57 @@ class AgentTaskViewSet(viewsets.ViewSet):
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         def event_stream():
-            last_seq = 0
-            timeout = 60  # 60 秒超时
+            raw_last_seq = request.query_params.get("last_seq", "0")
+            try:
+                last_seq = int(raw_last_seq)
+            except (TypeError, ValueError):
+                last_seq = 0
+            last_seq = max(0, min(last_seq, 2_147_483_647))
+            timeout = 60
             start_time = time.time()
+            last_heartbeat = start_time
+            terminal_statuses = {"completed", "failed", "partial", "cancelled", "paused"}
+            timed_out = True
 
             while time.time() - start_time < timeout:
-                # 查询新事件
-                events = AgentEvent.objects.filter(task=task, sequence__gt=last_seq).order_by("sequence")
+                events = (
+                    AgentEvent.objects.filter(task=task, sequence__gt=last_seq)
+                    .select_related("subtask")
+                    .order_by("sequence")
+                )
 
                 for event in events:
                     data = {
                         "type": event.event_type,
                         "sequence": event.sequence,
                         "subtask_id": event.subtask_id if event.subtask else None,
-                        "payload": event.payload,
+                        "payload": event.payload if isinstance(event.payload, dict) else {},
                         "timestamp": event.created_at.isoformat(),
                     }
-                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+                    yield f"id: {event.sequence}\n{sse_event(data)}"
                     last_seq = event.sequence
 
-                # 检查任务是否结束
-                task.refresh_from_db()
-                if task.status in ["completed", "failed", "cancelled"]:
-                    yield f"data: {json.dumps({'type': 'done', 'task_id': str(task.task_id)})}\n\n"
+                task.refresh_from_db(fields=["status"])
+                if task.status in terminal_statuses:
+                    yield sse_event(
+                        {
+                            "type": "done",
+                            "task_id": str(task.task_id),
+                            "sequence": last_seq,
+                            "status": task.status,
+                        }
+                    )
+                    timed_out = False
                     break
 
+                now = time.time()
+                if now - last_heartbeat >= 15:
+                    yield ": ping\n\n"
+                    last_heartbeat = now
                 time.sleep(0.5)
 
-            # 超时
-            yield f"data: {json.dumps({'type': 'timeout'})}\n\n"
+            if timed_out:
+                yield sse_event({"type": "timeout", "task_id": str(task.task_id), "sequence": last_seq})
 
         response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache"
