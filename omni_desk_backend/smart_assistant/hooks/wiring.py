@@ -21,6 +21,7 @@
 from __future__ import annotations
 
 import asyncio
+import copy
 from typing import Any
 
 from .base import HookEvent, HookRegistry, RecoveryAction, Reject, get_registry
@@ -204,10 +205,11 @@ def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict, excluded_hook_nam
     registry = get_registry()
     if not registry.list_hooks(HookEvent.PRE_EXECUTE):
         return params  # 快速路径:无 pre 钩子(如注册表被测试重置)
+    isolated_params = copy.deepcopy(params)
     result = _run_coroutine_sync(
-        lambda: registry.run_pre_hooks(tool, ctx, params, excluded_hook_names=excluded_hook_names),
+        lambda: registry.run_pre_hooks(tool, ctx, isolated_params, excluded_hook_names=excluded_hook_names),
         "PRE_EXECUTE 钩子链",
-        params,  # 异常时降级为原样透传,工具继续执行
+        isolated_params,
     )
     if isinstance(result, (dict, Reject)):
         return result

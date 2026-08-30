@@ -6,6 +6,7 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 的缓存结果,防止 scope-aware 接入后产生的 User A → User B 数据泄露。
 """
 
+import copy
 import hashlib
 import threading
 
@@ -342,26 +343,47 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
     def validate(value):
         return validator(value) if callable(validator) else value
 
-    def consume(value, delete):
+    def prepare(value):
         if value is None:
             return None
-        validated = validate(value)
+        candidate = copy.deepcopy(value)
+        validated = validate(candidate)
         if not isinstance(validated, dict):
             return None
-        delete(key)
+        return candidate, validated
+
+    def compare_and_delete(read, delete, original, validated):
+        current = read(key)
+        if current != original:
+            return None
+        delete_result = delete(key)
+        if delete_result is not True:
+            raise ConfirmationDraftConsumeError("delete_failed")
         return validated
+
     try:
         backend = cache._connections["default"]
         module = backend.__class__.__module__
         if module.startswith("django_redis"):
             lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
             with lock:
-                value = backend.get(key)
-                return consume(value, backend.delete)
+                original = backend.get(key)
+            prepared = prepare(original)
+            if prepared is None:
+                return None
+            candidate, validated = prepared
+            with lock:
+                return compare_and_delete(backend.get, backend.delete, original, validated)
         if module.startswith("django.core.cache.backends.locmem"):
             with _inflight_global:
-                value = cache.get(key)
-                return consume(value, cache.delete)
+                original = cache.get(key)
+                prepared = prepare(original)
+                if prepared is None:
+                    return None
+                _, validated = prepared
+                return compare_and_delete(lambda _key: original, cache.delete, original, validated)
+    except ConfirmationDraftConsumeError:
+        raise
     except Exception as exc:
         logger.warning(
             "confirmation draft consume backend failure: backend=%s exc_type=%s",

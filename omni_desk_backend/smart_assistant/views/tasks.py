@@ -13,6 +13,7 @@ import json
 import time
 import re
 import uuid
+import copy
 
 from django.db import transaction
 from django.http import StreamingHttpResponse
@@ -44,6 +45,7 @@ SAFE_EVENT_PAYLOAD_KEYS = {
 SENSITIVE_KEYS = {
     "args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt",
     "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session",
+    "email", "phone", "phone_number", "身份证", "身份证号", "id_card", "idcard",
 }
 SENSITIVE_CANONICAL_PATTERNS = tuple(
     re.compile(pattern) for pattern in (
@@ -472,7 +474,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         return None
                     claimed_draft = claimed_metadata
                     claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
-                    candidate_fields = _filter_replay_fields(claimed_fields, allowed_replay_fields)
+                    candidate_fields = copy.deepcopy(_filter_replay_fields(claimed_fields, allowed_replay_fields))
                     event_bus = PersistentEventBus(agent_task_id=str(task_id))
                     pre_context = ToolContext(
                         user=request.user, scope=resolve_scope(request.user), task_id=task_id,
