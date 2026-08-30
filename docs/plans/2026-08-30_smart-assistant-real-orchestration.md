@@ -106,12 +106,11 @@
 
 ### 阶段 6：SSE 契约统一与续传
 
-- [ ] 先写测试：`?last_seq=N` 只返回 N 之后的事件；`done` / `timeout` 帧带 sequence
+- [ ] 先写测试：`?last_seq=N` 只返回 N 之后的事件；`done` / `timeout` 帧带 sequence；负数、非数字、超大值安全拒绝或归一化
 - [ ] 多智能体流改走 `sse_event()`，获得 `format_version`
 - [ ] `last_seq` 读 query param；帧加 `id:` 行
 - [ ] 终止集合补 `paused` / `partial`；`timeout` 帧移入正常退出分支
-- [ ] `:256` 补 `select_related("subtask")`
-- [ ] 加 15s 心跳注释帧
+- [ ] 多 Agent SSE/timeline 对 payload 使用字段白名单或脱敏，禁止原样外发 tool args、凭据、内部 prompt 与不必要 PII；补跨用户 task_id 访问测试
 
 ### 阶段 7：写操作 origin 标记与回滚
 
@@ -119,6 +118,7 @@
 - [ ] 新增 `AgentWriteLog` 模型 + 迁移
 - [ ] `Memo` 加 `is_deleted` / `deleted_at` + 迁移（**迁移前 `check_migrations` + `backup_db`**）
 - [ ] 全量 grep `Memo.objects`，逐处补 `is_deleted=False` 过滤（逐处补测试）
+- [ ] 回滚 API 使用固定 target_model 白名单，锁定日志与目标并校验目标 owner；当前值不等于 after、目标不存在或归属变化均返回 409，不覆盖用户后续修改
 - [ ] `MemoDeleteTool` 硬删改软删
 - [ ] memo 三个写工具在 `confirmed` 分支内写 `AgentWriteLog`
 - [ ] 新增 `write_logs.py`：list + revert，四条闸门齐备

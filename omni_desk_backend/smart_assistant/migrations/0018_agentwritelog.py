@@ -9,7 +9,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
-        ("smart_assistant", "0016_agentevent_smart_assis_task_id_84bc7c_idx_and_more"),
+        ("smart_assistant", "0017_alter_agentevent_event_type_alter_agenttask_status"),
     ]
 
     operations = [
