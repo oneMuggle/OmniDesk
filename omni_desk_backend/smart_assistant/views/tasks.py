@@ -27,17 +27,30 @@ from llm_service.router import get_router
 
 
 SAFE_EVENT_PAYLOAD_KEYS = {"event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id"}
-SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt"}
+SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
+
+
+def _sanitize_value(value, depth=0):
+    if depth >= 3:
+        return "[已隐藏]"
+    if isinstance(value, str):
+        return value[:2000]
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [_sanitize_value(item, depth + 1) for item in value[:20]]
+    if isinstance(value, dict):
+        return {
+            key: _sanitize_value(item, depth + 1)
+            for key, item in list(value.items())[:30]
+            if str(key).lower() not in SENSITIVE_KEYS
+        }
+    return "[已隐藏]"
 
 
 def _safe_event_payload(event):
     payload = event.payload if isinstance(event.payload, dict) else {}
-    safe = {}
-    for key in SAFE_EVENT_PAYLOAD_KEYS:
-        value = payload.get(key)
-        if key not in SENSITIVE_KEYS and value is not None:
-            safe[key] = value
-    return safe
+    return _sanitize_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
 
 
 # ---------------------------------------------------------------------------

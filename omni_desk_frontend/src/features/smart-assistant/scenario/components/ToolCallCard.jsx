@@ -8,7 +8,7 @@ import { getAgent, getAgentIcon } from '../data/agents';
 import { getTool, getToolIcon } from '../data/tools';
 
 const { Text } = Typography;
-const SENSITIVE_KEYS = /token|password|secret|credential|authorization|cookie|prompt|args|argument/i;
+const SENSITIVE_KEYS = /token|password|secret|credential|authorization|cookie|prompt|args|argument|api[_-]?key|access[_-]?key|private[_-]?key|session/i;
 const MAX_DISPLAY_LENGTH = 2000;
 
 function safeDisplay(value) {

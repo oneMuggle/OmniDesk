@@ -52,6 +52,9 @@ export function mapAgentEvent(event) {
   const output = firstDefined(source.output, payload.output, payload.result);
   const finalOutput = firstDefined(source.final_output, payload.final_output);
   const payloadKind = firstDefined(source.payloadKind, payload.payloadKind);
+  const status = firstDefined(source.status, payload.status);
+  const subtaskId = firstDefined(source.subtask_id, payload.subtask_id);
+  const taskId = firstDefined(source.task_id, payload.task_id);
   const content = firstDefined(
     source.content,
     payload.content,
@@ -67,6 +70,9 @@ export function mapAgentEvent(event) {
   if (output !== undefined) result.output = output;
   if (finalOutput !== undefined) result.finalOutput = finalOutput;
   if (payloadKind !== undefined) result.payloadKind = payloadKind;
+  if (status !== undefined) result.status = status;
+  if (subtaskId !== undefined) result.subtask_id = subtaskId;
+  if (taskId !== undefined) result.task_id = taskId;
   if (content !== undefined) {
     result.content = content;
   } else if (mappedType === 'error' || !EVENT_TYPE_MAP[eventType]) {
