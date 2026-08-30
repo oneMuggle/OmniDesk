@@ -153,6 +153,21 @@ describe('subscribeTaskStream SSE 订阅', () => {
     localStorage.clear();
   });
 
+  it('非法 sequence 不推进 SSE 游标', async () => {
+    mockFetchResponse(createMockStream([
+      { type: 'subtask.progress', sequence: '1.5' },
+      { type: 'subtask.progress', sequence: ' 2' },
+      { type: 'subtask.progress', sequence: 3 },
+    ]));
+    const callbacks = createCallbacks();
+
+    subscribeTaskStream('t-invalid-sequence', callbacks, { lastSeq: 0 });
+
+    await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
+    expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
+    expect(callbacks.onDone).toHaveBeenCalledWith(undefined, 3);
+  });
+
   it('GET 流端点携带 last_seq，并在回调处理后继续派发同一批事件', async () => {
     mockFetchResponse(createMockStream([
       { type: 'task.started', sequence: 5 },

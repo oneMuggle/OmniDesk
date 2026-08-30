@@ -46,9 +46,13 @@ export async function interveneAgentTask(taskId, action) {
 }
 
 function isAbortError(error) { return error && (error.name === 'AbortError' || error.code === 'ERR_CANCELED'); }
+function isValidSequence(value) {
+  if (typeof value === 'number') return Number.isSafeInteger(value) && value >= 0;
+  return typeof value === 'string' && /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
+}
+
 function normaliseSequence(value, fallback) {
-  const sequence = Number(value);
-  return Number.isFinite(sequence) && sequence >= 0 ? sequence : fallback;
+  return isValidSequence(value) ? Number(value) : fallback;
 }
 
 export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
@@ -70,8 +74,8 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
   };
   const dispatch = (event) => {
     if (!event || event.sequence == null) { onEvent?.(event); return true; }
-    const eventSequence = Number(event.sequence);
-    if (!Number.isFinite(eventSequence)) return false;
+    const eventSequence = normaliseSequence(event.sequence, null);
+    if (eventSequence === null) return false;
     if (!event.synthetic && eventSequence <= sequence) return false;
     if (!event.synthetic) sequence = eventSequence;
     onEvent?.(event);
