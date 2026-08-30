@@ -8,6 +8,7 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 
 import copy
 import hashlib
+import json
 import re
 import threading
 
@@ -465,6 +466,12 @@ def _is_public_sensitive_key(value):
 def sanitize_public_text(value, limit=2000):
     """脱敏公开文本中的 secret/PII，兼容 JSON、quoted、key:value 和 Bearer。"""
     result = str(value or "")[:limit]
+    try:
+        parsed = json.loads(result)
+    except (TypeError, ValueError):
+        parsed = None
+    if isinstance(parsed, (dict, list)):
+        return str(safe_public_value(parsed))[:limit]
     result = _SECRET_TEXT_RE.sub("[已隐藏]", result)
     for pattern in _PII_TEXT_RE:
         result = pattern.sub("[已隐藏]", result)

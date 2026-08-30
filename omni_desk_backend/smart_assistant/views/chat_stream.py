@@ -34,7 +34,7 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
-from ..cache import public_tool_calls_meta
+from ..cache import public_tool_calls_meta, safe_public_value
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -208,12 +208,13 @@ def _consume_stream_events(state, orchestrator, query, conversation_history, too
         conversation_history=conversation_history,
         tool_context=tool_context,
     ):
-        yield chunk
         try:
             payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
             data = json.loads(payload)
         except (IndexError, json.JSONDecodeError):
             continue
+        data = safe_public_value(data)
+        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
         event_type = data.get("type")
         if event_type == "chunk":
             state["full_answer"].append(data.get("content", ""))

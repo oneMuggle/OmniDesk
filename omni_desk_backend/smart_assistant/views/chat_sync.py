@@ -282,7 +282,7 @@ def _build_sync_payload(result, log, conversation_id, error) -> Response:
         "answer": result["answer"],
         "intent": result.get("intent"),
         "tool_used": result.get("tool_used"),
-        "tool_result": result.get("tool_result"),
+        "tool_result": public_tool_result(result.get("tool_result"), result.get("tool_used") or ""),
         "sources": result.get("sources"),
         "conversation_id": result.get("conversation_id") or conversation_id,
         "log_id": log.id,

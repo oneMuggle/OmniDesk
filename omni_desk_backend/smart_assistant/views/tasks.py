@@ -141,8 +141,6 @@ def _validate_replay_fields(tool, fields):
 
 # 公开输出统一复用 cache 中的 sanitizer，避免 REST/SSE/timeline 规则漂移。
 _sanitize_text = sanitize_public_text
-_sanitize_value = safe_public_value
-_safe_public_value = safe_public_value
 
 
 def _safe_event_payload(event):
@@ -198,24 +196,8 @@ def _safe_plan_summary(task_packet):
     return summary
 
 
-def _safe_public_value(value, depth=0):
-    """递归生成 API 可公开的有限摘要，先过滤敏感键再处理值。"""
-    if depth >= 3:
-        return "[已隐藏]"
-    if isinstance(value, str):
-        return _sanitize_text(value)
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
-    if isinstance(value, list):
-        return [_safe_public_value(item, depth + 1) for item in value[:20]]
-    if isinstance(value, dict):
-        return {
-            str(key): _safe_public_value(item, depth + 1)
-            for key, item in list(value.items())[:30]
-            if not _is_sensitive_field(key)
-            and (str(key) in PUBLIC_VALUE_KEYS or depth > 0)
-        }
-    return "[已隐藏]"
+def _safe_public_value(value):
+    return safe_public_value(value)
 
 
 class AgentSubTaskSerializer(serializers.ModelSerializer):
