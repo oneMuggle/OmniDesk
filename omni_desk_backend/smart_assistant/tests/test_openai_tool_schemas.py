@@ -1,11 +1,11 @@
-"""Tests for BaseTool OpenAI tool schema — 22 tools × strict JSON Schema validation.
+"""Tests for BaseTool OpenAI tool schema — all registered tools × strict JSON Schema validation.
 
 Task 4 验证:每个 BaseTool 子类都正确实现了 get_openai_tool_schema(),
 且 schema 满足 OpenAI strict 模式要求(每层 object/array 都有
 additionalProperties=false)。
 
 参数化覆盖:
-- 22 个注册工具 × 2 个断言 = 44 个用例
+- registry 当前实际注册工具 × 2 个断言
   - test_tool_schema_is_valid_openai_function: schema 基本结构
   - test_tool_schema_is_strict: strict 模式约束(嵌套 object/array)
 """
@@ -97,7 +97,7 @@ def test_office_generate_tool_description_mentions_confirmation():
 
 
 def test_registry_assert_all_have_openai_schema_passes():
-    """所有 22 个注册工具已实现 schema → registry lint 不抛错。"""
+    """所有已注册工具已实现 schema → registry lint 不抛错。"""
     from smart_assistant.tools.registry import ToolRegistry
 
     # 应静默通过;若有任何工具未实现 schema 会抛 AssertionError
@@ -105,8 +105,8 @@ def test_registry_assert_all_have_openai_schema_passes():
 
 
 @pytest.mark.django_db
-def test_registry_get_openai_tools_returns_all_22():
-    """ToolRegistry.get_openai_tools(user) 认证用户应拿到所有 22 个工具的 schema。
+def test_registry_get_openai_tools_returns_all_registered():
+    """ToolRegistry.get_openai_tools(user) 认证用户应拿到所有已注册工具的 schema。
 
     Task 5 调整:无参调用 user=None 视为匿名 → 过滤掉所有 required_auth=True
     工具。本测试聚焦"已认证用户应拿到所有工具"的语义校验。
@@ -116,10 +116,10 @@ def test_registry_get_openai_tools_returns_all_22():
     from smart_assistant.tools.registry import ToolRegistry
 
     User = get_user_model()
-    user = User.objects.create_user(username="all22_user_t5", password="x")
+    user = User.objects.create_user(username="all_registered_user_t5", password="x")
 
     schemas = ToolRegistry.get_openai_tools(user)
-    assert len(schemas) == len(ALL_TOOL_CLASSES) == 23
+    assert len(schemas) == len(ALL_TOOL_CLASSES)
     names = {s["function"]["name"] for s in schemas}
     # 抽样校验关键工具都在
     assert "schedule_query" in names
@@ -145,7 +145,7 @@ def test_registry_get_openai_tools_returns_all_22():
 def test_get_openai_tools_with_user_returns_all_for_authenticated_user():
     """认证用户(user.is_authenticated=True)应能拿到所有 required_auth=True 工具。
 
-    当前 22 个工具均 required_auth=True,故认证用户应拿到完整 22 个 schema。
+    当前已注册工具均 required_auth=True,故认证用户应拿到完整 schema 集合。
     """
     from django.contrib.auth import get_user_model
 
@@ -156,7 +156,7 @@ def test_get_openai_tools_with_user_returns_all_for_authenticated_user():
 
     tools = ToolRegistry.get_openai_tools(user)
     assert isinstance(tools, list)
-    assert len(tools) == len(ALL_TOOL_CLASSES) == 23
+    assert len(tools) == len(ALL_TOOL_CLASSES)
     names = {t["function"]["name"] for t in tools}
     assert "schedule_query" in names
     assert "office_generate" in names
@@ -167,7 +167,7 @@ def test_get_openai_tools_with_user_returns_all_for_authenticated_user():
 def test_get_openai_tools_anonymous_user_filters_required_auth_tools():
     """匿名用户(AnonymousUser)应看不到任何 required_auth=True 工具。
 
-    当前所有 22 个工具均 required_auth=True → 匿名用户应得到空列表。
+    当前所有已注册工具均 required_auth=True → 匿名用户应得到空列表。
     """
     from django.contrib.auth.models import AnonymousUser
 
@@ -257,7 +257,7 @@ def test_get_openai_tools_signature_accepts_optional_user():
     旧调用方式 get_openai_tools() 不应抛 TypeError。
 
     无参调用的语义:user=None → 视为匿名 → 过滤掉所有 required_auth=True
-    工具(当前所有 22 个都 required_auth=True → 空列表)。这是 Task 5 引入
+    工具(当前所有已注册工具均 required_auth=True → 空列表)。这是 Task 5 引入
     的安全行为变更,但调用方代码不抛错即视为兼容。
     """
     from django.contrib.auth import get_user_model
@@ -267,14 +267,14 @@ def test_get_openai_tools_signature_accepts_optional_user():
     # 旧用法(无参)不应抛 TypeError
     schemas = ToolRegistry.get_openai_tools()
     # 无参等价于 user=None → 过滤掉所有 required_auth=True 工具
-    # 当前 22 个都 required_auth=True → 空列表
+    # 当前已注册工具均 required_auth=True → 空列表
     assert schemas == []
 
-    # 新用法(带 user)拿到全部 22 个
+    # 新用法(带 user)拿到全部已注册工具
     User = get_user_model()
     user = User.objects.create_user(username="compat_t5", password="x")
     schemas_user = ToolRegistry.get_openai_tools(user)
-    assert len(schemas_user) == 23
+    assert len(schemas_user) == len(ALL_TOOL_CLASSES)
 
 
 # ---------------------------------------------------------------------------

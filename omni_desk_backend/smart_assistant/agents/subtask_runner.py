@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import json
+import re
 import time
 from typing import Any
 
@@ -361,11 +362,14 @@ class SubTaskRunner:
             working_messages.extend(tool_messages)
 
         content, usage, _ = self._llm_router.generate_with_tools(
-            messages=working_messages,
+            messages=self._with_system_message(profile, working_messages),
             tools=tool_schemas,
             tool_choice="none",
+            options=self._llm_options(profile),
         )
         self._consume_usage(shared_context, usage)
+        if shared_context is not None and shared_context.is_budget_exhausted():
+            raise RuntimeError("token budget exhausted")
         return content or "", self._merge_usage(total_usage, usage)
 
     @staticmethod
@@ -427,12 +431,24 @@ class SubTaskRunner:
         return str(value).replace("\n", " ")[:limit]
 
     @classmethod
-    def _safe_summary(cls, value: Any) -> Any:
+    def _safe_summary(cls, value: Any, _key: str = "") -> Any:
+        sensitive = {"password", "passwd", "secret", "token", "access_token", "refresh_token", "api_key", "authorization", "credential", "prompt", "system_prompt"}
+        if _key.lower() in sensitive or any(marker in _key.lower() for marker in ("api_key", "token", "password", "secret")):
+            return "[REDACTED]"
         if isinstance(value, dict):
-            return {cls._safe_text(k, 40): cls._safe_summary(v) for k, v in list(value.items())[:10]}
+            return {
+                cls._safe_text(k, 40): cls._safe_summary(v, str(k))
+                for k, v in list(value.items())[:10]
+            }
         if isinstance(value, list):
             return [cls._safe_summary(item) for item in value[:10]]
-        return cls._safe_text(value) if isinstance(value, str) else value
+        if isinstance(value, str):
+            text = cls._safe_text(value)
+            text = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "[REDACTED_EMAIL]", text)
+            text = re.sub(r"(?<!\d)(?:1[3-9]\d{9})(?!\d)", "[REDACTED_PHONE]", text)
+            text = re.sub(r"(?<!\d)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)", "[REDACTED_ID]", text)
+            return text
+        return value
 
     @staticmethod
     def _with_system_message(profile: RoleProfile, messages: list[dict]) -> list[dict]:

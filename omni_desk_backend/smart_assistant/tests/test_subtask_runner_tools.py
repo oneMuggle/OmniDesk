@@ -154,7 +154,28 @@ def test_tool_round_limit_finishes_with_tool_choice_none():
 
     assert result.output == "forced final"
     assert router.calls[-1]["tool_choice"] == "none"
+    assert router.calls[-1]["messages"][0]["role"] == "system"
+    assert router.calls[-1]["options"]["max_tokens"] > 0
     assert len(router.calls) == 3
+
+
+def test_tool_call_event_redacts_pii_and_credentials():
+    user = MagicMock(is_authenticated=True)
+    router = FakeRouter([
+        ("", {"total_tokens": 1}, [{"id": "c1", "function": {"name": "lookup", "arguments": json.dumps({
+            "q": "alice@example.com 13812345678 110101199001011234",
+            "api_key": "credential-value",
+        })}}]),
+        ("done", {"total_tokens": 1}, []),
+    ])
+    bus = EventBus()
+    SubTaskRunner(router, bus, 1, tool_registry=FakeRegistry, user=user).run(make_subtask(), SharedContext("q"))
+    event = next(e for e in bus.get_events() if e.event_type == "subtask.tool_call")
+    rendered = json.dumps(event.payload, ensure_ascii=False)
+    assert "alice@example.com" not in rendered
+    assert "13812345678" not in rendered
+    assert "credential-value" not in rendered
+    assert "[REDACTED]" in rendered
 
 
 def test_budget_exhaustion_does_not_report_success():

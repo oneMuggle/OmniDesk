@@ -52,3 +52,12 @@
 - 测试进程会输出 `SECRET_KEY not set` 的既有 warning；不影响测试结果。
 - 首次窄选集命令触发全仓默认 coverage fail-under=80（54%），是选取范围过窄导致，不代表用例失败；阶段完整聚焦测试使用 `--no-cov` 并全部通过。
 - 工作树原有 `/home/fz/project/OmniDesk/omni_desk_frontend/src/features/smart-assistant/api/agentTaskApi.js` 未提交改动已保留，未修改、未纳入本次提交。
+
+## Fix round 1 追加
+
+- 修复轮次上限收尾调用：保留 system prompt 与角色 options，收尾 usage 合并并进行预算耗尽检查。
+- `ToolRegistry.register()` 对非法 risk level 及 destructive/confirmation 不一致组合 fail closed；`execute_native_tool()` 增加防御性受控失败。
+- `_safe_summary()` 对敏感字段、邮箱、手机号、身份证号统一脱敏，并新增事件 payload 回归测试。
+- schema 测试说明与数量断言改为实际 registry 集合，不再依赖 22/23 等硬编码。
+- Fix round 1 focused tests：`68 passed, 1 warning in 9.34s`；`py_compile` 与 `git diff --check` 通过。
+- `agent/tool_rounds_runner.py` 与 `agents/subtask_runner.py` 的上下文返回契约不同，本轮继续复用既有 `execute_native_tool` 单工具核心；未引入第二份单工具执行逻辑。

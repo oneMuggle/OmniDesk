@@ -42,6 +42,20 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
             F1-era 契约一致,失败工具在审计轨迹中可见)。
     """
     query = _dict_to_query(validated)
+    # Fail closed: a destructive tool without confirmation must never execute.
+    if getattr(tool, "risk_level", None) == "destructive" and not getattr(
+        tool, "require_confirmation", False
+    ):
+        return (
+            {
+                "found": False,
+                "error": True,
+                "error_code": "confirmation_required",
+                "message": "破坏性工具必须要求用户确认",
+            },
+            None,
+            {"error": "unsafe_tool_configuration"},
+        )
     # I-2:透传完整 validated 字典作为 params,LLM 提供的结构化字段
     # (date_from / chunk_index / department / limit / …)到达工具。
     # query 仍是自然语言主输入(不拼接进 query,保留 F1 防污染决策);

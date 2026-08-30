@@ -23,6 +23,12 @@ class ToolRegistry:
             raise ValueError(
                 f"Tool {tool.name or '<unnamed>'} must set non-empty intent_type (got {tool.intent_type!r})"
             )
+        from .base import VALID_RISK_LEVELS, RISK_LEVEL_DESTRUCTIVE
+
+        if tool.risk_level not in VALID_RISK_LEVELS:
+            raise ValueError(f"工具 {tool.intent_type} 的 risk_level 无效: {tool.risk_level!r}")
+        if tool.risk_level == RISK_LEVEL_DESTRUCTIVE and not tool.require_confirmation:
+            raise ValueError("destructive 工具必须设置 require_confirmation=True")
         cls._tools[tool.intent_type] = tool
 
     @classmethod
