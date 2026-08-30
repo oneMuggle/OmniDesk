@@ -10,11 +10,6 @@ import { parseThinkContent } from '../utils/chatUtils';
 /**
  * 消息列表:历史气泡 + 流式气泡 + loading + 自动滚动(R3-D1 拆分)。
  * 自 SmartChatPage.jsx L617-683 逐字搬运,反馈/重试 handler 由 useSmartChat 注入。
- *
- * 特殊消息类型:
- * - type='collab_card':智能助手多智能体协作卡片(剧本化推进),
- *   由 useSmartChat.sendMessage 在 query 命中业务场景关键词时注入。
- *   跳过标准 think/tool_result/feedback/retry 渲染,直接交给 ScenarioCollabCard。
  */
 const MessageList = ({
   messages,
@@ -28,17 +23,7 @@ const MessageList = ({
   <div className="smart-chat-messages">
     {messages.map((msg, index) => {
       if (msg.type === 'collab_card') {
-        return (
-          <div
-            key={msg.id || `collab-${index}`}
-            className="message assistant collab-card-msg"
-          >
-            <ScenarioCollabCard
-              scenarioId={msg.scenarioId}
-              userInput={msg.userInput}
-            />
-          </div>
-        );
+        return <ScenarioCollabCard key={msg.id || index} scenarioId={msg.scenarioId} userInput={msg.userInput} taskId={msg.taskId} />;
       }
       const { mainContent, thinkContent } = parseThinkContent(msg.content);
       return (

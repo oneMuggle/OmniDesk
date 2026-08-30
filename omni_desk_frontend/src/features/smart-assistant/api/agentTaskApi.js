@@ -14,8 +14,6 @@
  * 终态事件: `{type: 'done', task_id}` / `{type: 'timeout'}` (服务端 60 秒轮询超时)
  */
 import apiClient from '../../../shared/api/apiClient';
-import { authFetch } from '../../../shared/api/authFetch';
-import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant/tasks';
 
@@ -123,30 +121,30 @@ export async function interveneAgentTask(taskId, action) {
  * @param {(error: Error) => void} [callbacks.onError] 连接/认证/解析错误
  * @returns {{ abort: () => void }} 调用 abort() 断开 SSE 连接
  */
-export function subscribeTaskStream(taskId, callbacks = {}) {
+export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
   const { onEvent, onDone, onTimeout, onError } = callbacks;
+  const { lastSeq = 0 } = options;
   const abortController = new AbortController();
 
   const run = async () => {
-    const token = readAuthTokens()?.access;
-    if (!token) {
-      onError?.(new Error('认证已过期，请重新登录'));
-      return;
-    }
+    const authTokens = JSON.parse(
+      localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
+    );
+    const token = authTokens.access;
 
     let response;
     try {
-      response = await authFetch(`${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/`, {
+      const streamUrl = `${apiClient.defaults.baseURL}${BASE_URL}/${taskId}/stream/${lastSeq ? `?last_seq=${encodeURIComponent(lastSeq)}` : ''}`;
+      response = await fetch(streamUrl, {
         method: 'GET',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
         signal: abortController.signal,
       });
     } catch (error) {
       if (error.name === 'AbortError') {
         // 调用方主动断开,不视为错误
-        return;
-      }
-      if (error.message === 'AUTH_ERROR') {
-        onError?.(new Error('认证已过期，请重新登录'));
         return;
       }
       onError?.(new Error('网络连接失败，请检查网络'));
@@ -162,39 +160,22 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
       return;
     }
 
+    let sequence = lastSeq;
     if (!response.body || typeof response.body.getReader !== 'function') {
-      onError?.(new Error('任务进度流连接失败'));
+      const timeline = await getAgentTaskTimeline(taskId);
+      const events = timeline.data?.timeline || [];
+      events.forEach((event) => {
+        if (event.sequence != null && event.sequence <= sequence) return;
+        if (event.sequence != null) sequence = event.sequence;
+        onEvent?.(event);
+      });
+      onDone?.(undefined, sequence);
       return;
     }
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let buffer = '';
-
-    const dispatch = (part) => {
-      const line = part.trim();
-      if (!line.startsWith('data:')) return false;
-      const jsonText = line.slice(5).trim();
-      if (!jsonText) return false;
-
-      let event;
-      try {
-        event = JSON.parse(jsonText);
-      } catch {
-        return false;
-      }
-
-      if (event.type === 'done') {
-        onDone?.(event);
-        return true;
-      }
-      if (event.type === 'timeout') {
-        onTimeout?.();
-        return true;
-      }
-      onEvent?.(event);
-      return false;
-    };
 
     try {
       // eslint-disable-next-line no-constant-condition
@@ -203,22 +184,45 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
         if (done) break;
 
         buffer += decoder.decode(value, { stream: true });
-        const parts = buffer.split(/\r?\n\r?\n/);
+        const parts = buffer.split('\n\n');
         buffer = parts.pop() || '';
 
-        if (parts.some(dispatch)) return;
-      }
+        let sawDone = false;
+        parts.forEach((part) => {
+          const line = part.trim();
+          if (!line.startsWith('data:')) return;
+          const jsonText = line.slice(5).trim();
+          if (!jsonText) return;
 
-      buffer += decoder.decode();
-      if (buffer.trim() && dispatch(buffer)) return;
-      onDone?.();
+          let event;
+          try {
+            event = JSON.parse(jsonText);
+          } catch {
+            return;
+          }
+
+          if (event.type === 'done') {
+            onDone?.(event, sequence);
+            sawDone = true;
+            return;
+          }
+          if (event.type === 'timeout') {
+            onTimeout?.();
+            return;
+          }
+          if (event.sequence != null && event.sequence <= sequence) return;
+          if (event.sequence != null) sequence = event.sequence;
+          onEvent?.(event);
+        });
+        if (sawDone) return;
+      }
+      // 服务端正常关闭连接(未显式发送 done)
+      onDone?.(undefined, sequence);
     } catch (error) {
       if (error.name === 'AbortError') {
         return;
       }
       onError?.(error);
-    } finally {
-      await reader.cancel?.();
     }
   };
 

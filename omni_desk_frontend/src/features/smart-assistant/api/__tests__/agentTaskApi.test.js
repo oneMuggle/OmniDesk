@@ -137,6 +137,24 @@ describe('subscribeTaskStream SSE 订阅', () => {
     localStorage.clear();
   });
 
+  it('GET 流端点携带 last_seq，并在回调处理后继续派发同一批事件', async () => {
+    mockFetchResponse(createMockStream([
+      { type: 'task.started', sequence: 5 },
+      { type: 'subtask.started', sequence: 6 },
+    ]));
+    const callbacks = createCallbacks();
+
+    subscribeTaskStream('t-1', callbacks, { lastSeq: 4 });
+
+    await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
+    expect(globalThis.fetch).toHaveBeenCalledWith(
+      '/api/smart-assistant/tasks/t-1/stream/?last_seq=4',
+      expect.any(Object)
+    );
+    expect(callbacks.onEvent).toHaveBeenCalledTimes(2);
+    expect(callbacks.onDone).toHaveBeenCalledWith(undefined, 6);
+  });
+
   it('GET 流端点并携带 Bearer token', async () => {
     mockFetchResponse(createMockStream([]));
     const callbacks = createCallbacks();
