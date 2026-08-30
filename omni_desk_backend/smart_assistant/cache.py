@@ -324,15 +324,24 @@ def set_confirmation_draft(
 
 
 def consume_confirmation_draft(token: str) -> dict | None:
-    """原子占用确认草稿；不支持原子 pop 的 backend 返回 None。"""
+    """分布式原子占用确认草稿；不支持可靠锁时 fail closed。"""
     key = _draft_key(token)
-    if hasattr(cache, "pop"):
-        return cache.pop(key, None)
-    with _inflight_global:
-        value = cache.get(key)
-        if value is not None:
-            cache.delete(key)
-        return value
+    backend = cache._connections["default"]
+    module = backend.__class__.__module__
+    if module.startswith("django_redis"):
+        lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
+        with lock:
+            value = backend.get(key)
+            if value is not None:
+                backend.delete(key)
+            return value
+    if module.startswith("django.core.cache.backends.locmem"):
+        with _inflight_global:
+            value = cache.get(key)
+            if value is not None:
+                cache.delete(key)
+            return value
+    raise RuntimeError("confirmation cache backend lacks atomic consume support")
 
 def get_confirmation_draft(token: str) -> dict | None:
     """取 confirmation draft。过期/不存在返回 None。"""

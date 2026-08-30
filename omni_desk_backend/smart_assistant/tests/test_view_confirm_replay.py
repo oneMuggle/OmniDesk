@@ -225,7 +225,7 @@ class TestReplayFailure:
 
         assert response.status_code == 500
         data = response.json()
-        assert "未注册" in data["detail"]
+        assert data["detail"] == "确认工具不可用，请重新发起"
 
 
 # ---------------------------------------------------------------------------

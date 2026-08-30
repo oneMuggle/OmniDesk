@@ -129,7 +129,7 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
     if not tool:
         logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
         return Response(
-            {"detail": f"工具 {draft_entry['tool_name']} 未注册"},
+            {"detail": "确认工具不可用，请重新发起", "code": "confirmation_tool_unavailable"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
     try:
