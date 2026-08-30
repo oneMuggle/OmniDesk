@@ -196,10 +196,16 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
   let lastSeq = 0;
 
   const run = async () => {
-    const authTokens = JSON.parse(
-      localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
-    );
-    const token = authTokens.access;
+    let token;
+    try {
+      const authTokens = JSON.parse(
+        localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}'
+      );
+      token = authTokens.access;
+    } catch (error) {
+      onError?.(new Error('认证信息无效，请重新登录'));
+      return;
+    }
 
     let response;
     try {
@@ -229,6 +235,9 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
     }
 
     if (!response.body || typeof response.body.getReader !== 'function') {
+      if (response.body && typeof response.body.cancel === 'function') {
+        response.body.cancel();
+      }
       runTimelineFallback();
       return;
     }
