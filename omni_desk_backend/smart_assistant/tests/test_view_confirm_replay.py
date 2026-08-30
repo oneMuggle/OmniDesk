@@ -114,7 +114,53 @@ class TestReplaySuccess:
         assert data["confirmed"] is True
         assert data["error"] is False
         assert data["tool_used"] == "mock_replay_tool"
-        assert data["tool_result"]["result"] == "replayed_successfully"
+        assert data["tool_result"] == {}
+
+    def test_replay_response_exposes_only_safe_result_summary(self, api_client, mock_user):
+        """同步 confirm-replay 不得把工具原始结果直接返回给客户端。"""
+        token = "test-token-safe-result"
+        set_confirmation_draft(token, {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {"summary": "safe"},
+        })
+
+        class SensitiveReplayTool(_MockReplayTool):
+            def execute(self, query=None, context=None, **kwargs):
+                return {
+                    "found": True,
+                    "result": {
+                        "operation_id": "op-1",
+                        "sent_count": 1,
+                        "failed_count": 0,
+                        "recipient_names": ["Alice"],
+                        "content": "正文 secret=do-not-leak",
+                        "apiKey": "sk-secret",
+                        "unknown": "do-not-leak",
+                    },
+                    "summary": "已完成",
+                }
+
+        api_client.force_authenticate(user=mock_user)
+        with patch(
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
+            return_value=SensitiveReplayTool(),
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["tool_result"] == {
+            "operation_id": "op-1", "sent_count": 1, "failed_count": 0,
+        }
+        assert "recipient_names" not in str(payload)
+        assert "do-not-leak" not in str(payload)
+        assert "sk-secret" not in str(payload)
 
     def test_replay_success_clears_draft(self, api_client, mock_user):
         """replay 成功后 draft 被清理(防重放)"""

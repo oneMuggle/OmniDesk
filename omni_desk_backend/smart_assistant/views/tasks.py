@@ -32,6 +32,7 @@ from ..tools.tool_context import ToolContext
 from ..scope import resolve_scope
 from llm_service.router import get_router
 from observability import get_logger
+from ..cache import safe_public_value, sanitize_public_text, public_tool_calls_meta, public_tool_result
 
 logger = get_logger(__name__, "smart_assistant")
 
@@ -138,38 +139,16 @@ def _validate_replay_fields(tool, fields):
     return None
 
 
-PII_PATTERNS = [re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"), re.compile(r"(?<!\d)1\d{10}(?!\d)"), re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)")]
-
-
-def _sanitize_text(value):
-    result = value[:2000]
-    for pattern in PII_PATTERNS:
-        result = pattern.sub("[已隐藏]", result)
-    return result
-
-
-def _sanitize_value(value, depth=0):
-    if depth >= 3:
-        return "[已隐藏]"
-    if isinstance(value, str):
-        return _sanitize_text(value)
-    if isinstance(value, (int, float, bool)) or value is None:
-        return value
-    if isinstance(value, list):
-        return [_sanitize_value(item, depth + 1) for item in value[:20]]
-    if isinstance(value, dict):
-        return {
-            key: _sanitize_value(item, depth + 1)
-            for key, item in list(value.items())[:30]
-            if not _is_sensitive_field(key)
-        }
-    return "[已隐藏]"
+# 公开输出统一复用 cache 中的 sanitizer，避免 REST/SSE/timeline 规则漂移。
+_sanitize_text = sanitize_public_text
+_sanitize_value = safe_public_value
+_safe_public_value = safe_public_value
 
 
 def _safe_event_payload(event):
     payload = getattr(event, "payload", None)
     payload = payload if isinstance(payload, dict) else {}
-    return _sanitize_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
+    return safe_public_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
 
 
 # ---------------------------------------------------------------------------
@@ -566,7 +545,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
             "task_id": str(task_id), "status": "confirmed", "operation_id": operation_id,
             "operation": tool_name, "phase": "confirm",
         })
-        return Response({**_safe_public_value(result), "status": "confirmed", "task_id": str(task_id)})
+        return Response({"result": public_tool_result(result, tool_name), "status": "confirmed", "task_id": str(task_id)})
 
     @action(detail=True, methods=["POST"])
     def intervene(self, request, pk=None):

@@ -435,8 +435,10 @@ _PUBLIC_SAFE_KEYS = {
 }
 _PUBLIC_SENSITIVE_KEYS = {
     "content", "body", "recipients", "recipient_names", "email", "phone", "prompt",
-    "internal_prompt", "credentials", "credential", "token", "secret", "password",
-    "authorization", "api_key", "access_token", "arguments", "args",
+    "prompt_text", "credentials", "credential", "credential_blob", "token", "token_value",
+    "bearer_token", "secret", "password", "authorization", "authorization_header",
+    "api_key", "access_token", "private_key", "client_secret", "arguments", "args",
+    "session", "session_id",
 }
 
 
@@ -444,10 +446,19 @@ def _canonical_public_key(value):
     return re.sub(r"[^a-z0-9]", "", str(value).lower())
 
 
+_PUBLIC_SENSITIVE_CANONICAL_KEYS = {
+    _canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS
+}
+_PUBLIC_SENSITIVE_MARKERS = (
+    "password", "credential", "secret", "token", "prompt", "apikey",
+    "authorization", "privatekey", "sessionid",
+)
+
+
 def _is_public_sensitive_key(value):
     canonical = _canonical_public_key(value)
-    return canonical in {_canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS} or any(
-        marker in canonical for marker in ("password", "credential", "secret", "token", "prompt", "apikey", "authorization")
+    return canonical in _PUBLIC_SENSITIVE_CANONICAL_KEYS or any(
+        marker in canonical for marker in _PUBLIC_SENSITIVE_MARKERS
     )
 
 
@@ -527,13 +538,34 @@ def public_tool_calls_meta(meta):
     for item in meta[:30]:
         if not isinstance(item, dict):
             continue
-        entry = {key: safe_public_value(value) for key, value in item.items() if key != "arguments" and not _is_public_sensitive_key(key)}
+        entry = {
+            str(key): safe_public_value(value)
+            for key, value in item.items()
+            if key != "arguments" and not _is_public_sensitive_key(key)
+        }
         if "arguments" in item:
             entry["arguments"] = public_tool_arguments(item["arguments"])
         result.append(entry)
     return result
+_PUBLIC_RESULT_KEYS = {
+    "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
+    "recipient_count", "sent_count", "failed_count",
+}
 
 
+def public_tool_result(result, tool_name=""):
+    """生成确认执行后的最小公开结果；绝不暴露原始工具返回值。"""
+    if not isinstance(result, dict):
+        return {}
+    source = result.get("result") if isinstance(result.get("result"), dict) else result
+    if not isinstance(source, dict):
+        return {}
+    public = {
+        str(key): safe_public_value(value)
+        for key, value in source.items()
+        if str(key) in _PUBLIC_RESULT_KEYS and not _is_public_sensitive_key(key)
+    }
+    return public
 
 
 def clear_confirmation_draft(token: str) -> None:

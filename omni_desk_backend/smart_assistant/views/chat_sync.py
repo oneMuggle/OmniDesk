@@ -25,7 +25,7 @@ from ..cache import (
     consume_confirmation_draft,
     clear_confirmation_draft,
     get_confirmation_draft,
-    public_confirmation_draft,
+    public_tool_result,
     public_tool_calls_meta,
 )
 from ..hooks.wiring import execute_guarded
@@ -180,7 +180,7 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             {
                 "answer": tool_result.get("summary") or "操作已完成",
                 "tool_used": tool.name,
-                "tool_result": tool_result,
+                "tool_result": public_tool_result(tool_result, tool.name),
                 "confirmed": True,
                 "error": False,
             }
