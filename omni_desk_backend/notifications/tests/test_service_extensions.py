@@ -16,6 +16,43 @@ from notifications.service import NotificationService
 
 
 @pytest.mark.django_db
+def test_agent_task_dedupe_migration_keeps_only_matching_duplicates():
+    """迁移只合并同用户、同类型、非空键的重复记录。"""
+    import importlib
+    from types import SimpleNamespace
+    from unittest.mock import Mock
+
+    migration = importlib.import_module(
+        "notifications.migrations.0008_notification_notif_agent_task_dedupe_uniq"
+    )
+    first = SimpleNamespace(user_id=1, dedupe_key="agent_task:migration", content="第一条")
+    duplicate = SimpleNamespace(user_id=1, dedupe_key="agent_task:migration", content="第二条")
+    other_user = SimpleNamespace(user_id=2, dedupe_key="agent_task:migration", content="其他用户")
+    other_type = SimpleNamespace(user_id=1, dedupe_key="agent_task:other", content="其他类型")
+    rows = [first, duplicate, other_user, other_type]
+    first.save = Mock()
+    duplicate.delete = Mock()
+    other_user.delete = Mock()
+    other_type.delete = Mock()
+
+    manager = Mock()
+    manager.filter.return_value.exclude.return_value.order_by.return_value = rows
+    historical_model = SimpleNamespace(objects=manager)
+    apps = Mock()
+    apps.get_model.return_value = historical_model
+
+    migration.deduplicate_agent_task_notifications(apps, None)
+
+    manager.filter.assert_called_once_with(type="agent_task_result")
+    manager.filter.return_value.exclude.assert_called_once_with(dedupe_key="")
+    assert first.content == "第一条\n[追加] 第二条"
+    first.save.assert_called_once_with(update_fields=["content", "updated_at"])
+    duplicate.delete.assert_called_once_with()
+    other_user.delete.assert_not_called()
+    other_type.delete.assert_not_called()
+
+
+@pytest.mark.django_db
 class TestNotificationServicePriority:
     """priority 参数应生效。"""
 
@@ -194,3 +231,55 @@ class TestNotificationServiceDedupe:
         Notification.objects.create(user=regular_user_obj, type="system", title="一", content="一")
         Notification.objects.create(user=regular_user_obj, type="system", title="二", content="二")
         assert Notification.objects.filter(user=regular_user_obj, dedupe_key="").count() == 2
+
+    def test_non_dedupe_integrity_error_is_reraised(self, regular_user_obj, monkeypatch):
+        """非终态通知的完整性错误不能被误判为去重冲突。"""
+        from django.db import IntegrityError
+
+        def fail_create(**kwargs):
+            raise IntegrityError("different constraint")
+
+        monkeypatch.setattr(Notification.objects, "create", fail_create)
+        with pytest.raises(IntegrityError, match="different constraint"):
+            NotificationService.create(
+                user=regular_user_obj,
+                type="agent_notify",
+                title="提醒",
+                content="内容",
+                dedupe_key="agent_task:44",
+            )
+
+    def test_agent_dedupe_conflict_only_merges_matching_unread_recent_row(
+        self, regular_user_obj, monkeypatch
+    ):
+        """唯一冲突回读必须遵守 agent_task_result 的未读/24h 语义。"""
+        from django.db import IntegrityError
+
+        old = Notification.objects.create(
+            user=regular_user_obj,
+            type="agent_task_result",
+            title="旧",
+            content="旧内容",
+            dedupe_key="agent_task:45",
+            is_read=True,
+        )
+        Notification.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(hours=25)
+        )
+        error = IntegrityError("duplicate key")
+        error.constraint_name = "notif_agent_task_dedupe_uniq"
+
+        def fail_create(**kwargs):
+            raise error
+
+        monkeypatch.setattr(Notification.objects, "create", fail_create)
+        with pytest.raises(IntegrityError):
+            NotificationService.create(
+                user=regular_user_obj,
+                type="agent_task_result",
+                title="新",
+                content="新内容",
+                dedupe_key="agent_task:45",
+            )
+        old.refresh_from_db()
+        assert old.content == "旧内容"

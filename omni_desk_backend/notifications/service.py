@@ -15,14 +15,45 @@ class NotificationService:
     """
 
     DEDUPE_WINDOW = timedelta(hours=24)
+    AGENT_TASK_DEDUPE_CONSTRAINT = "notif_agent_task_dedupe_uniq"
 
-    @staticmethod
-    def create(user, type, title, content, link="", priority=Notification.PRIORITY_NORMAL, dedupe_key=""):
-        """创建通知,或合并到未读原通知(当 dedupe_key 非空且 24h 内存在同 key 未读通知时)。
+    @classmethod
+    def _is_agent_task_dedupe_conflict(cls, error, type, dedupe_key):
+        """仅识别本服务负责的 agent_task_result 唯一约束冲突。"""
+        if type != "agent_task_result" or not dedupe_key:
+            return False
+        cause = getattr(error, "__cause__", None)
+        constraint_name = getattr(getattr(cause, "diag", None), "constraint_name", None)
+        constraint_name = constraint_name or getattr(error, "constraint_name", None)
+        if constraint_name:
+            return constraint_name == cls.AGENT_TASK_DEDUPE_CONSTRAINT
+        message = str(cause or error).lower()
+        return cls.AGENT_TASK_DEDUPE_CONSTRAINT in message
 
-        R4-A13: dedupe 检查与新建统一放进同一事务,并对窗口行加 select_for_update 锁,
-        避免并发下同一 user+key 在 24h 内创建出多条(生产 PostgreSQL 生效,SQLite 下为 no-op)。
-        """
+    @classmethod
+    def _merge_conflicting_agent_notification(cls, user, type, dedupe_key, content):
+        """按正常 dedupe 语义回读冲突行；已读或过期行不得被合并。"""
+        existing = (
+            Notification.objects.select_for_update()
+            .filter(
+                user=user,
+                type=type,
+                dedupe_key=dedupe_key,
+                is_read=False,
+                created_at__gte=timezone.now() - cls.DEDUPE_WINDOW,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if existing is None:
+            return None
+        existing.content = f"{existing.content}\n[追加] {content}"
+        existing.save(update_fields=["content", "updated_at"])
+        return existing
+
+    @classmethod
+    def create(cls, user, type, title, content, link="", priority=Notification.PRIORITY_NORMAL, dedupe_key=""):
+        """创建通知,或合并到未读原通知(当 dedupe_key 非空且 24h 内存在同 key 未读通知时)。"""
         with transaction.atomic():
             if dedupe_key:
                 existing = (
@@ -32,7 +63,7 @@ class NotificationService:
                         type=type,
                         dedupe_key=dedupe_key,
                         is_read=False,
-                        created_at__gte=timezone.now() - NotificationService.DEDUPE_WINDOW,
+                        created_at__gte=timezone.now() - cls.DEDUPE_WINDOW,
                     )
                     .order_by("-created_at")
                     .first()
@@ -53,15 +84,12 @@ class NotificationService:
                         priority=priority,
                         dedupe_key=dedupe_key,
                     )
-            except IntegrityError:
-                # 另一进程可能在检查后先插入；唯一约束胜出后重新读取并合并。
-                if not dedupe_key:
+            except IntegrityError as error:
+                if not cls._is_agent_task_dedupe_conflict(error, type, dedupe_key):
                     raise
-                existing = Notification.objects.select_for_update().get(
-                    user=user, type=type, dedupe_key=dedupe_key
-                )
-                existing.content = f"{existing.content}\n[追加] {content}"
-                existing.save(update_fields=["content", "updated_at"])
+                existing = cls._merge_conflicting_agent_notification(user, type, dedupe_key, content)
+                if existing is None:
+                    raise
                 return existing
 
     @staticmethod
