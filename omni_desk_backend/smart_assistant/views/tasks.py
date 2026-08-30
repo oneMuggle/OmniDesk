@@ -357,7 +357,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
             draft=claimed_draft,
         )
         try:
-            result = tool.execute(user_query, context=context)
+            result = execute_guarded(tool, user_query, context=context)
             result = apply_post_execute_hooks(tool, result, context)
         except Exception:
             logger.exception("确认工具执行失败: task_id=%s", task_id)

@@ -184,7 +184,7 @@ function WorkorderBody({ payload }) {
           </List.Item>;
         }}
       />
-      <Title level={5} style={{ marginTop: 8 }}>维修手册：{payload?.manual?.section}</Title>
+      <Title level={5} style={{ marginTop: 8 }}>维修手册：{safeDisplay(payload?.manual?.section)}</Title>
       <List
         size="small"
         dataSource={asArray(payload?.manual?.steps)}
@@ -220,16 +220,16 @@ function AnnouncementBody({ payload }) {
       <Space size="middle">
         <div>
           <Text strong>面向：</Text>
-          <Tag icon={<TeamOutlined />} bordered={false}>{payload?.audience}</Tag>
+          <Tag icon={<TeamOutlined />} bordered={false}>{safeDisplay(payload?.audience)}</Tag>
         </div>
         <div>
           <Text strong>截止：</Text>
-          <Tag icon={<ClockCircleOutlined />} bordered={false}>{payload?.deadline}</Tag>
+          <Tag icon={<ClockCircleOutlined />} bordered={false}>{safeDisplay(payload?.deadline)}</Tag>
         </div>
         <div>
           <Text strong>渠道：</Text>
-          {(payload?.channels || []).map((c) => (
-            <Tag key={c} icon={<GlobalOutlined />} bordered={false}>{c}</Tag>
+          {(asArray(payload?.channels)).map((c, index) => (
+            <Tag key={safeItemText(c) || index} icon={<GlobalOutlined />} bordered={false}>{safeItemText(c)}</Tag>
           ))}
         </div>
       </Space>
