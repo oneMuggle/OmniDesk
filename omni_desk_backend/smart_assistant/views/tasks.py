@@ -25,7 +25,7 @@ from ..agents.supervisor import Supervisor
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from ..agents.dataclasses import PersistentEventBus
-from ..hooks.wiring import execute_guarded
+from ..hooks.wiring import apply_post_execute_hooks, execute_guarded
 from llm_service.router import get_router
 from observability import get_logger
 
@@ -303,27 +303,21 @@ class AgentTaskViewSet(viewsets.ViewSet):
             "draft": claimed.get("draft", {}).get("fields"),
             "event_bus": PersistentEventBus(agent_task_id=str(task.task_id)),
         }
-        result = tool.execute(query=claimed.get("user_query", ""), context=context)
+        result = execute_guarded(tool, claimed.get("user_query", ""), context=context)
+        result = apply_post_execute_hooks(tool, result, context)
         return Response(result)
 
-        """POST /api/smart-assistant/tasks/{task_id}/intervene/
-
-        用户介入(暂停/恢复/取消)
-        """
+    @action(detail=True, methods=["POST"])
+    def intervene(self, request, pk=None):
+        """POST /api/smart-assistant/tasks/{task_id}/intervene/ 用户介入。"""
         try:
             task = AgentTask.objects.get(task_id=pk, user=request.user)
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
-
         action_type = request.data.get("action")
         if action_type not in ["pause", "resume", "cancel"]:
-            return Response(
-                {"error": "action 必须是 pause / resume / cancel"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
+            return Response({"error": "action 必须是 pause / resume / cancel"}, status=status.HTTP_400_BAD_REQUEST)
         from ..tasks import dispatch_agent_task
-
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
             if action_type == "pause":
@@ -334,17 +328,14 @@ class AgentTaskViewSet(viewsets.ViewSet):
             elif action_type == "resume":
                 if task.status != "paused":
                     return Response({"error": "只有暂停的任务可以恢复"}, status=status.HTTP_400_BAD_REQUEST)
-                # 保持 paused，交由 worker 在锁内原子抢占为 running，避免伪恢复。
                 transaction.on_commit(lambda: dispatch_agent_task(task))
-            elif action_type == "cancel":
+            else:
                 if task.status in ["completed", "failed", "partial", "cancelled"]:
                     return Response({"error": f"任务状态为 {task.status},无法取消"}, status=status.HTTP_400_BAD_REQUEST)
                 task.status = "cancelled"
                 task.save(update_fields=["status"])
                 from ..tasks import _schedule_agent_task_notification
-
                 _schedule_agent_task_notification(task, "cancelled", transaction)
-
         return Response({"status": task.status})
 
     @action(detail=True, methods=["GET"])

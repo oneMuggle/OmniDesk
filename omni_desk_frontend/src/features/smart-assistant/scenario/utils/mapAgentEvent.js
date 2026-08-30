@@ -90,6 +90,7 @@ export function mapAgentEvent(event) {
   );
   const ts = firstDefined(source.ts, source.timestamp, source.created_at, payload.ts);
 
+  if (Object.keys(payload).length > 0) result.payload = payload;
   if (agent !== undefined) result.agent = agent;
   if (tool !== undefined) result.tool = tool;
   if (input !== undefined) result.input = input;

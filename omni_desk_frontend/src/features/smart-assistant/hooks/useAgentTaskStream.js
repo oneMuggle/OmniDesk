@@ -156,9 +156,9 @@ export default function useAgentTaskStream(taskId, options = {}) {
       const previousStatus = action === 'pause' ? 'running' : 'paused';
       const pending = pendingInterventionRef.current;
       if (pending?.token !== token || pending.action !== action) return;
-      pendingInterventionRef.current = null;
       interventionTimerRef.current = setTimeout(() => {
         if (interventionTokenRef.current !== token) return;
+        if (pendingInterventionRef.current?.token !== token) return;
         pendingInterventionRef.current = null;
         interventionTimerRef.current = null;
         manuallyPausedRef.current = false;
