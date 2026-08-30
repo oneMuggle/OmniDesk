@@ -34,6 +34,7 @@ class ToolContext:
     # 保持可选以兼容普通工具和历史裸 dict context。
     event_bus: Any = None
     confirmed: bool = False
+    replay: bool = False
     draft: dict | None = None
 
     @classmethod

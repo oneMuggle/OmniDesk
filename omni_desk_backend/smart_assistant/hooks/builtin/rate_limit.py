@@ -60,6 +60,8 @@ class RateLimitHook(ToolHookBase):
         if not getattr(tool, "require_confirmation", False):
             return params
 
+        if getattr(ctx, "replay", False) or (isinstance(ctx, dict) and ctx.get("replay")):
+            return params
         user = _extract_user(ctx)
         if user is None or not getattr(user, "is_authenticated", False):
             return params  # 匿名 / ctx 无 user 由 ChatMiddleware 兜底

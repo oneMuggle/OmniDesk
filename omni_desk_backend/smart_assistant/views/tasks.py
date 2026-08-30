@@ -364,6 +364,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     scope=resolve_scope(request.user),
                     task_id=task_id,
                     event_bus=event_bus,
+                    replay=True,
                     draft=draft,
                 )
                 pre_result = apply_pre_execute_hooks(
@@ -391,7 +392,8 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 if claimed is None:
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
                 claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
-                fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                fields = pre_result if isinstance(pre_result, dict) else claimed_fields
                 recipient_ids = fields.get("recipient_ids") if isinstance(fields, dict) else None
                 resolved_users = []
                 if isinstance(recipient_ids, list):
