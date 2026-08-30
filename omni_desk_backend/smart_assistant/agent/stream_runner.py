@@ -27,6 +27,7 @@ from ..cache import (
     cache_tool_result,
     get_cached_answer,
     set_confirmation_draft,
+    public_confirmation_draft,
 )
 from .intent_classifier import (
     classify_intent,
@@ -212,12 +213,13 @@ class StreamRunner:
         tool_calls_meta = meta.get("tool_calls_meta", [])
         tool_used = tool_calls_meta[-1].get("tool", "") if tool_calls_meta else ""
         draft = meta.get("draft", {})
+        public_draft = public_confirmation_draft(draft, tool_used)
         yield sse_event(
             {
                 "type": "meta",
                 "intent": "tool_call",
                 "tool_used": tool_used,
-                "tool_result": {"draft": draft},
+                "tool_result": {"draft": public_draft},
                 # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
                 # (spec §3.2 步骤 6 承诺 tool_call_path/tool_calls_meta/tool_calls_rounds)
                 "tool_call_path": meta.get("tool_call_path", "native"),
@@ -230,7 +232,7 @@ class StreamRunner:
                 "type": "confirmation",
                 "awaiting_confirmation": True,
                 "confirmation_token": meta["confirmation_token"],
-                "draft": draft,
+                "draft": public_draft,
                 "answer": content or "请确认以下操作",
             }
         )
@@ -384,14 +386,15 @@ class StreamRunner:
                     "draft": draft,
                 },
             )
+            public_draft = public_confirmation_draft(draft, tool.name)
             events = [
-                sse_event({"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": draft}}),
+                sse_event({"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": public_draft}}),
                 sse_event(
                     {
                         "type": "confirmation",
                         "awaiting_confirmation": True,
                         "confirmation_token": token,
-                        "draft": draft,
+                        "draft": public_draft,
                         "answer": draft.get("summary") or "请确认以下操作",
                     }
                 ),

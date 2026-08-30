@@ -8,6 +8,7 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 
 import copy
 import hashlib
+import re
 import threading
 
 from django.conf import settings
@@ -329,7 +330,14 @@ def set_confirmation_draft(
     注意:调用方负责保证 token 唯一(用 uuid4 即可)。本函数不校验参数类型,
     异常时由 Django cache 层吞错(与 cache.set 行为一致)。
     """
-    cache.set(_draft_key(token), draft, ttl)
+    key = _draft_key(token)
+    backend = cache._connections["default"]
+    module = backend.__class__.__module__
+    if module.startswith("django.core.cache.backends.locmem"):
+        with _inflight_global:
+            cache.set(key, draft, ttl)
+        return
+    cache.set(key, draft, ttl)
 
 
 def consume_confirmation_draft(token: str, validator=None) -> dict | None:
@@ -407,6 +415,23 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
     raise ConfirmationDraftConsumeError("unsupported_backend")
 
 def get_confirmation_draft(token: str) -> dict | None:
+    """取 confirmation draft。过期/不存在返回 None。"""
+    return cache.get(_draft_key(token))
+
+
+def public_confirmation_draft(draft: dict, tool_name: str = "") -> dict:
+    """把 server-side replay draft 转为最小安全的公开确认摘要。"""
+    if not isinstance(draft, dict):
+        return {"summary": "请确认以下操作", "fields": {}}
+    fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else {}
+    public_fields = {"operation_id": fields.get("operation_id")} if fields.get("operation_id") else {}
+    if tool_name == "agent_notify":
+        title = str(fields.get("title") or "")[:80]
+        title = re.sub(r"(?i)\b(?:api[_ -]?key|credential|token|password|secret)\s*=\s*[^\s;，。]+", "[已隐藏]", title)
+        title = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|(?<!\d)1\d{10}(?!\d)", "[已隐藏]", title)
+        public_fields.update({"operation": "agent_notify", "recipient_count": len(fields.get("recipient_ids", [])), "title": title})
+    return {"summary": str(draft.get("summary") or "请确认以下操作")[:180], "fields": public_fields}
+
     """取 confirmation draft。过期/不存在返回 None。"""
     return cache.get(_draft_key(token))
 

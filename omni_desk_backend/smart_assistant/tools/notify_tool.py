@@ -32,9 +32,16 @@ def _is_sensitive_key(key):
     return canonical in _SENSITIVE_CANONICAL_KEYS or any(pattern.search(canonical) for pattern in _SENSITIVE_CANONICAL_PATTERNS)
 
 
+_SECRET_LIKE_RE = re.compile(r"(?i)\b(?:api[_ -]?key|credential|token|password|secret)\s*=\s*[^\s;，。]+")
+
+
 def _safe_text(value: str) -> str:
     return _SENSITIVE_RE.sub("[已脱敏]", value)
 
+
+def _safe_summary_title(value: str) -> str:
+    value = _SECRET_LIKE_RE.sub("[已隐藏]", _safe_text(value[:80]))
+    return value[:80]
 
 def _sanitize_value(value: Any, depth: int = 0) -> Any:
     """在审计事件构造前递归过滤敏感字段及 PII。"""
@@ -195,7 +202,7 @@ class NotifyTool(BaseTool):
         if error:
             return {"found": False, "message": error}
         operation_id = str(uuid4())
-        safe_title = _safe_text(values["title"][:80])
+        safe_title = _safe_summary_title(values["title"])
         return {"found": True, "draft": {"summary": f"待执行站内通知（操作：agent_notify；收件人数：{len(users)}；标题：{safe_title}）", "fields": {"recipient_ids": [u.id for u in users], "recipient_names": [u.get_full_name() or u.username for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"], "operation_id": operation_id}}}
 
     def _confirmed(self, values, ctx, context):

@@ -7,7 +7,7 @@ from ..hooks.wiring import (
     apply_pre_execute_hooks,
     execute_guarded,
 )
-from ..cache import set_confirmation_draft
+from ..cache import public_confirmation_draft, set_confirmation_draft
 from .orchestrator_helpers import _dict_to_query, _scope_cache_sig
 
 
@@ -94,7 +94,7 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                     "draft": draft,
                 },
             )
-            return {"found": True, "draft": draft}, {"token": token, "draft": draft}, None
+            return {"found": True, "draft": public_confirmation_draft(draft, tool.name)}, {"token": token, "draft": public_confirmation_draft(draft, tool.name)}, None
         # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
         # 直接阻断工具执行,返回 error dict 携带 error_code + retry_after。
         if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
