@@ -9,7 +9,9 @@ def deduplicate_agent_task_notifications(apps, schema_editor):
     duplicate_groups = {}
     rows = Notification.objects.filter(
         type=DEDUPLICATED_TYPE
-    ).exclude(dedupe_key="").order_by("user_id", "dedupe_key", "created_at", "pk")
+    ).exclude(dedupe_key="").order_by(
+        "user_id", "dedupe_key", "is_read", "created_at", "pk"
+    )
 
     for notification in rows:
         group_key = (notification.user_id, notification.dedupe_key)

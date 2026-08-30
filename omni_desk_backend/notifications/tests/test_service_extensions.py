@@ -25,13 +25,19 @@ def test_agent_task_dedupe_migration_keeps_only_matching_duplicates():
     migration = importlib.import_module(
         "notifications.migrations.0008_notification_notif_agent_task_dedupe_uniq"
     )
-    first = SimpleNamespace(user_id=1, dedupe_key="agent_task:migration", content="第一条")
-    duplicate = SimpleNamespace(user_id=1, dedupe_key="agent_task:migration", content="第二条")
-    other_user = SimpleNamespace(user_id=2, dedupe_key="agent_task:migration", content="其他用户")
-    other_type = SimpleNamespace(user_id=1, dedupe_key="agent_task:other", content="其他类型")
-    rows = [first, duplicate, other_user, other_type]
-    first.save = Mock()
-    duplicate.delete = Mock()
+    first = SimpleNamespace(
+        user_id=1, dedupe_key="agent_task:migration", content="第一条", is_read=True
+    )
+    duplicate = SimpleNamespace(
+        user_id=1, dedupe_key="agent_task:migration", content="第二条", is_read=False
+    )
+    other_user = SimpleNamespace(
+        user_id=2, dedupe_key="agent_task:migration", content="其他用户", is_read=False
+    )
+    other_type = SimpleNamespace(user_id=1, dedupe_key="agent_task:other", content="其他类型", is_read=False)
+    rows = [duplicate, first, other_user, other_type]
+    duplicate.save = Mock()
+    first.delete = Mock()
     other_user.delete = Mock()
     other_type.delete = Mock()
 
@@ -45,9 +51,9 @@ def test_agent_task_dedupe_migration_keeps_only_matching_duplicates():
 
     manager.filter.assert_called_once_with(type="agent_task_result")
     manager.filter.return_value.exclude.assert_called_once_with(dedupe_key="")
-    assert first.content == "第一条\n[追加] 第二条"
-    first.save.assert_called_once_with(update_fields=["content", "updated_at"])
-    duplicate.delete.assert_called_once_with()
+    assert duplicate.content == "第二条\n[追加] 第一条"
+    duplicate.save.assert_called_once_with(update_fields=["content", "updated_at"])
+    first.delete.assert_called_once_with()
     other_user.delete.assert_not_called()
     other_type.delete.assert_not_called()
 
