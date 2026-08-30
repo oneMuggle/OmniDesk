@@ -81,6 +81,34 @@ def test_nested_sanitizer_redacts_pii_and_sensitive_keys():
     assert "api_key" not in sanitized["result"]
     assert sanitized["result"]["visible"] == "ok"
 
+def test_safe_payload_keeps_failure_partial_and_terminal_fields():
+    from types import SimpleNamespace
+    from smart_assistant.views.tasks import _safe_event_payload
+
+    event = SimpleNamespace(payload={
+        "status": "partial", "error": "安全失败原因", "reason": "部分完成",
+        "final_output": {"answer": "结果", "nested": {"round": 2}},
+        "total_tokens": 12, "dropped_events": 3, "round": 2,
+        "prompt": "不要泄露", "deep": {"a": {"b": {"c": "hidden"}}},
+    })
+    payload = _safe_event_payload(event)
+    assert payload["error"] == "安全失败原因"
+    assert payload["reason"] == "部分完成"
+    assert payload["final_output"]["nested"]["round"] == "[已隐藏]"
+
+
+@pytest.mark.django_db
+def test_terminal_sse_frames_have_monotonic_ids(api_client, regular_user_obj):
+    task = AgentTask.objects.create(task_id=uuid.uuid4(), user=regular_user_obj, objective="终态帧")
+    task.status = "completed"
+    task.save(update_fields=["status"])
+    api_client.force_authenticate(regular_user_obj)
+    response = api_client.get(f"/api/smart-assistant/tasks/{task.task_id}/stream/?last_seq=4")
+    body = b"".join(response.streaming_content).decode()
+    assert "id: 4\n" in body
+    assert '"sequence": 4' in body
+
+
 @pytest.mark.django_db
 def test_task_stream_timeout_contains_resume_sequence(api_client, regular_user_obj):
     task = AgentTask.objects.create(task_id=uuid.uuid4(), user=regular_user_obj, objective="等待")
@@ -92,5 +120,6 @@ def test_task_stream_timeout_contains_resume_sequence(api_client, regular_user_o
         chunks = b"".join(response.streaming_content).decode()
 
     assert '"type": "timeout"' in chunks
+    assert "id: 4\n" in chunks
     assert '"sequence": 4' in chunks
     assert '"format_version": 1' in chunks

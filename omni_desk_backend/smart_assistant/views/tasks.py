@@ -25,9 +25,14 @@ from ..agents.supervisor import Supervisor
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from llm_service.router import get_router
+from observability import get_logger
 
+logger = get_logger(__name__, "smart_assistant")
 
-SAFE_EVENT_PAYLOAD_KEYS = {"event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id"}
+SAFE_EVENT_PAYLOAD_KEYS = {
+    "event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id",
+    "error", "reason", "final_output", "total_tokens", "dropped_events", "round",
+}
 SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
 
 
@@ -199,14 +204,16 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 status=status.HTTP_201_CREATED,
             )
 
-        except ValueError as e:
+        except ValueError:
+            logger.warning("智能助手任务计划校验失败: user_id=%s", request.user.pk)
             return Response(
-                {"error": f"Supervisor 无法生成任务计划: {str(e)}"},
+                {"error": "任务计划无效", "error_code": "invalid_task_plan"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-        except Exception as e:
+        except Exception:
+            logger.exception("智能助手任务创建异常: user_id=%s", request.user.pk)
             return Response(
-                {"error": f"任务创建失败: {str(e)}"},
+                {"error": "任务创建失败，请稍后重试", "error_code": "task_creation_failed"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -321,14 +328,14 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
                 task.refresh_from_db(fields=["status"])
                 if task.status in terminal_statuses:
-                    yield sse_event(
-                        {
-                            "type": "done",
-                            "task_id": str(task.task_id),
-                            "sequence": last_seq,
-                            "status": task.status,
-                        }
-                    )
+                    terminal_sequence = last_seq
+                    done_data = {
+                        "type": "done",
+                        "task_id": str(task.task_id),
+                        "sequence": terminal_sequence,
+                        "status": task.status,
+                    }
+                    yield f"id: {terminal_sequence}\n{sse_event(done_data)}"
                     timed_out = False
                     break
 
@@ -339,7 +346,8 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 time.sleep(0.5)
 
             if timed_out:
-                yield sse_event({"type": "timeout", "task_id": str(task.task_id), "sequence": last_seq})
+                timeout_sequence = last_seq
+                yield f"id: {timeout_sequence}\n{sse_event({'type': 'timeout', 'task_id': str(task.task_id), 'sequence': timeout_sequence})}"
 
         response = StreamingHttpResponse(event_stream(), content_type="text/event-stream")
         response["Cache-Control"] = "no-cache"

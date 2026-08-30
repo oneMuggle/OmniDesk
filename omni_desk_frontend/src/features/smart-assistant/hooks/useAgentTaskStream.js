@@ -144,7 +144,8 @@ export default function useAgentTaskStream(taskId, options = {}) {
     manuallyPausedRef.current = false;
     retryCountRef.current = 0;
     setError(null);
-    // 当前后端没有 retry endpoint：retry 表示保留历史并重新订阅，使用 lastSeq 续传。
+    // 后端没有 retry endpoint：只重新查看同一任务的后续事件，保留历史和 lastSeq。
+    // 该动作不是重新执行，UI 文案使用“重新查看”避免误导。
     subscribe();
   }, [subscribe]);
 

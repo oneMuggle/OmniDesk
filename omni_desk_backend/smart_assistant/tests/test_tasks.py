@@ -110,6 +110,33 @@ class TestAgentTaskTimeouts(TestCase):
             assert execute_agent_task.run("missing-task") is None
 
 
+    @patch("smart_assistant.agents.executor.MultiAgentExecutor.resume_from_checkpoint")
+    def test_paused_task_uses_checkpoint_resume(self, resume_mock):
+        """暂停任务重新派发必须走 checkpoint 恢复，而非普通 execute。"""
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentTask
+        from smart_assistant.tasks import execute_agent_task
+
+        task = AgentTask.objects.create(
+            task_id=uuid4(),
+            user=get_user_model().objects.create_user(username="resume-worker"),
+            objective="恢复",
+        )
+        task.status = "paused"
+        task.task_packet = {
+            "objective": "恢复", "execution_mode": "pipeline", "subtasks": [{
+                "id": "step1", "role": "researcher", "objective": "第一步",
+            }],
+        }
+        task.save(update_fields=["status", "task_packet"])
+        resume_mock.return_value = MagicMock(
+            status="success", total_tokens_used=0, final_output=None, subtask_results=[]
+        )
+        with patch("llm_service.router.get_router"), patch("smart_assistant.tools.registry.ToolRegistry"):
+            execute_agent_task.run(str(task.task_id))
+        resume_mock.assert_called_once()
+
+
 class TestProcessDocumentEmbedding(TestCase):
     """process_document_embedding Celery 任务测试."""
 

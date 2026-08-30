@@ -314,6 +314,7 @@ class MultiAgentExecutor:
         llm_router: Any,
         tool_registry: Any,
         hook_registry: Any | None = None,
+        event_bus: EventBus | None = None,
     ) -> TaskResult:
         """从 DB checkpoint 恢复任务执行
 
@@ -367,6 +368,7 @@ class MultiAgentExecutor:
             llm_router=llm_router,
             tool_registry=tool_registry,
             hook_registry=hook_registry,
+            event_bus=event_bus,
             agent_task_id=task_id,
             user=agent_task.user,
         )

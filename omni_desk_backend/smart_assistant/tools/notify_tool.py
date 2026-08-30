@@ -197,7 +197,10 @@ class NotifyTool(BaseTool):
         audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id}
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
-            event_bus.emit("agent.notify", audit_payload)
+            event_bus.emit(
+                "subtask.tool_result",
+                {**audit_payload, "phase": "notify", "operation": "agent_notify"},
+            )
         return {"found": True, "result": {"sent_count": len(users)}, "summary": f"已发送 {len(users)} 条站内通知"}
 
 

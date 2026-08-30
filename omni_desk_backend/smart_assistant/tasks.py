@@ -196,20 +196,32 @@ def execute_agent_task(task_id: str):
                 return {"task_id": str(task.task_id), "status": task.status, "total_tokens": task.tokens_used}
             if task.status == "running":
                 return {"task_id": str(task.task_id), "status": "running", "total_tokens": task.tokens_used}
-            task.status = "running"
-            task.started_at = task.started_at or timezone.now()
-            task.save(update_fields=["status", "started_at"])
+            was_paused = task.status == "paused"
+            # resume_from_checkpoint 自己负责在锁内将 paused → running；提前改状态
+            # 会让它误判为并发恢复并拒绝执行。
+            if not was_paused:
+                task.status = "running"
+                task.started_at = task.started_at or timezone.now()
+                task.save(update_fields=["status", "started_at"])
 
-        task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
-        executor = MultiAgentExecutor(
-            task_packet=task_packet,
-            llm_router=get_router(),
-            tool_registry=ToolRegistry,
-            event_bus=event_bus,
-            agent_task_id=task_id,
-            user=task.user,
-        )
-        result = executor.execute()
+        if was_paused:
+            result = MultiAgentExecutor.resume_from_checkpoint(
+                task_id=task_id,
+                llm_router=get_router(),
+                tool_registry=ToolRegistry,
+                event_bus=event_bus,
+            )
+        else:
+            task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
+            executor = MultiAgentExecutor(
+                task_packet=task_packet,
+                llm_router=get_router(),
+                tool_registry=ToolRegistry,
+                event_bus=event_bus,
+                agent_task_id=task_id,
+                user=task.user,
+            )
+            result = executor.execute()
         persisted_status = {
             "success": "completed",
             "partial": "partial",
