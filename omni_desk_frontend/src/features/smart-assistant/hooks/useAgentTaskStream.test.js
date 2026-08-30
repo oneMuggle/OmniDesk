@@ -28,6 +28,16 @@ describe('useAgentTaskStream', () => {
     expect(result.current.status).toBe('completed');
   });
 
+  it('SSE done paused 时保持 paused，不误判为 completed', () => {
+    subscribeTaskStream.mockImplementation((taskId, callbacks) => {
+      callbacks.onDone({ type: 'done', status: 'paused', sequence: 4 }, 4);
+      return { abort: jest.fn() };
+    });
+    const { result } = renderHook(() => useAgentTaskStream('task-paused'));
+
+    expect(result.current.status).toBe('paused');
+  });
+
   it('超时按 lastSeq 自动重连而非进入暂停态', () => {
     jest.useFakeTimers();
     const subscriptions = [];

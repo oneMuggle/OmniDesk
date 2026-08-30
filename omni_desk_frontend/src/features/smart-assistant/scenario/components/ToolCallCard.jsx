@@ -8,12 +8,21 @@ import { getAgent, getAgentIcon } from '../data/agents';
 import { getTool, getToolIcon } from '../data/tools';
 
 const { Text } = Typography;
-const SENSITIVE_KEYS = /token|password|secret|credential|authorization|cookie|prompt|args|argument|api[_-]?key|access[_-]?key|private[_-]?key|session/i;
 const MAX_DISPLAY_LENGTH = 2000;
+const SENSITIVE_KEYS = /api(?:[_-]?key)?|access(?:[_-]?key|[_-]?token)?|token|password|secret|credential|authorization|cookie|prompt|args?|arguments?|private[_-]?key|session(?:[_-]?id)?/i;
+const PII_PATTERNS = [
+  /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,
+  /(?<!\d)1\d{10}(?!\d)/g,
+  /(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)/g,
+];
 
-function safeDisplay(value) {
+function redactText(value) {
+  return PII_PATTERNS.reduce((result, pattern) => result.replace(pattern, '[已隐藏]'), value);
+}
+
+export function safeDisplay(value) {
   if (value === null || value === undefined) return '—';
-  if (typeof value !== 'object') return String(value).slice(0, MAX_DISPLAY_LENGTH);
+  if (typeof value !== 'object') return redactText(String(value)).slice(0, MAX_DISPLAY_LENGTH);
   if (Array.isArray(value)) return `${value.length} 项结果`;
   return Object.keys(value).filter((key) => !SENSITIVE_KEYS.test(key)).slice(0, 20).map((key) => `${key}: ${safeDisplay(value[key])}`).join('\n').slice(0, MAX_DISPLAY_LENGTH);
 }

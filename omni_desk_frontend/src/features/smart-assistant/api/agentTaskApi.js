@@ -117,7 +117,7 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
           let event;
           try { event = JSON.parse(line.slice(5).trim()); } catch (error) { finished = true; stop(); onError?.(new Error('任务进度数据格式错误')); return; }
           if (event.type === 'done') {
-            if (event.sequence != null) sequence = normaliseSequence(event.sequence, sequence);
+            if (event.sequence != null) sequence = Math.max(sequence, normaliseSequence(event.sequence, sequence));
             finished = true; onDone?.({ ...event, sequence }, sequence); return;
           }
           if (event.type === 'timeout') { finished = true; onTimeout?.(event); return; }

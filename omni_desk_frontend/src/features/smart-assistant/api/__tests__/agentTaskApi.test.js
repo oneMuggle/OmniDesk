@@ -157,6 +157,23 @@ describe('subscribeTaskStream SSE 订阅', () => {
     expect(callbacks.onDone).toHaveBeenCalledWith(undefined, 6);
   });
 
+  it('done sequence 倒退时仍保持本地 lastSeq 单调', async () => {
+    mockFetchResponse(createMockStream([
+      { type: 'task.started', sequence: 5 },
+      { type: 'done', task_id: 't-1', sequence: 3, status: 'completed' },
+    ]));
+    const callbacks = createCallbacks();
+
+    subscribeTaskStream('t-1', callbacks, { lastSeq: 4 });
+
+    await waitFor(() => expect(callbacks.onDone).toHaveBeenCalled());
+    expect(callbacks.onDone).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'done', sequence: 5 }),
+      5
+    );
+  });
+
+
   it('GET 流端点并携带 Bearer token', async () => {
     mockFetchResponse(createMockStream([]));
     const callbacks = createCallbacks();

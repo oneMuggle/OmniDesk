@@ -1,6 +1,31 @@
 import mapAgentEvent from '../mapAgentEvent';
 
 describe('mapAgentEvent', () => {
+  it('顶层字段优先于 payload，并保留 task/subtask/status', () => {
+    const mapped = mapAgentEvent({
+      type: 'subtask.progress', sequence: 7, task_id: 'task-top', subtask_id: 'sub-top', status: 'running',
+      payload: { task_id: 'task-payload', subtask_id: 'sub-payload', status: 'paused', content: '进度' },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'thinking', eventType: 'subtask.progress', sequence: 7,
+      task_id: 'task-top', subtask_id: 'sub-top', status: 'running', content: '进度',
+    });
+  });
+
+  it('顶层缺失时从 payload fallback 事件字段', () => {
+    const mapped = mapAgentEvent({
+      event_type: 'subtask.tool_result', sequence: 8,
+      payload: { task_id: 'task-payload', subtask_id: 'sub-payload', tool: 'search', result: { ok: true }, status: 'completed' },
+    });
+
+    expect(mapped).toMatchObject({
+      type: 'tool_result', eventType: 'subtask.tool_result', sequence: 8,
+      task_id: 'task-payload', subtask_id: 'sub-payload', tool: 'search', output: { ok: true }, status: 'completed',
+    });
+  });
+
+
   test.each([
     ['subtask.started', 'thinking'],
     ['subtask.progress', 'thinking'],

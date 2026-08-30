@@ -71,6 +71,11 @@ export default function useAgentTaskStream(taskId, options = {}) {
           setLastSeq(lastSeqRef.current);
         }
         const terminalStatus = event?.status;
+        if (terminalStatus === 'paused') {
+          manuallyPausedRef.current = true;
+          setStatus('paused');
+          return;
+        }
         if (terminalStatus === 'partial' || terminalStatus === 'failed' || terminalStatus === 'cancelled') {
           setStatus(terminalStatus);
           return;
