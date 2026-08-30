@@ -34,6 +34,11 @@ class LLMRouter:
     def __init__(self, app_name="smart_assistant"):
         # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
         self.app_name = app_name
+        try:
+            self.REQUEST_TIMEOUT = max(1, int(getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)))
+        except Exception:
+            # 允许在 Django settings 尚未配置时导入模块；运行时使用默认值。
+            self.REQUEST_TIMEOUT = 120
         self._configs = []
         self._load_configs()
 

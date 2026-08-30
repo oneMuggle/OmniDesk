@@ -214,13 +214,6 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        action_type = request.data.get("action")
-        if action_type not in ["pause", "resume", "cancel"]:
-            return Response(
-                {"error": "action 必须是 pause / resume / cancel"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
         from ..tasks import dispatch_agent_task
 
         with transaction.atomic():
@@ -236,7 +229,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 # 保持 paused，交由 worker 在锁内原子抢占为 running，避免伪恢复。
                 transaction.on_commit(lambda: dispatch_agent_task(task))
             elif action_type == "cancel":
-                if task.status in ["completed", "failed", "cancelled"]:
+                if task.status in ["completed", "failed", "partial", "cancelled"]:
                     return Response({"error": f"任务状态为 {task.status},无法取消"}, status=status.HTTP_400_BAD_REQUEST)
                 task.status = "cancelled"
                 task.save(update_fields=["status"])

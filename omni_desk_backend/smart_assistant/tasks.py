@@ -1,4 +1,5 @@
 from celery import shared_task
+from django.conf import settings
 
 from ragflow_service.client import RagflowClient, RagflowClientError
 
@@ -11,8 +12,6 @@ logger = get_logger(__name__, "smart_assistant")
 
 def calculate_agent_task_time_limits(task):
     """根据任务包、LLM 超时和配置计算 Celery soft/hard time limit。"""
-    from django.conf import settings
-
     packet = task.task_packet if hasattr(task, "task_packet") else task or {}
     packet = packet if isinstance(packet, dict) else {}
     steps = len(packet.get("subtasks", [])) + (1 if packet.get("final_synthesis") else 0)
@@ -20,10 +19,18 @@ def calculate_agent_task_time_limits(task):
     coefficient = max(1, int(getattr(settings, "AGENT_TASK_RETRY_COEFFICIENT", 4)))
     configured_max = max(llm_timeout, int(getattr(settings, "AGENT_TASK_MAX_SECONDS", 1800)))
     packet_timeout = packet.get("timeout_seconds")
-    requested = int(packet_timeout) if isinstance(packet_timeout, (int, float)) and packet_timeout > 0 else configured_max
+    requested = (
+        int(packet_timeout)
+        if isinstance(packet_timeout, (int, float)) and packet_timeout > 0
+        else configured_max
+    )
     budget = getattr(task, "global_budget", 0) or 0
     budget_factor = max(1, min(4, (int(budget) + 19999) // 20000)) if budget else 1
-    soft_limit = min(configured_max, requested, max(llm_timeout, steps * llm_timeout * coefficient * budget_factor))
+    soft_limit = min(
+        configured_max,
+        requested,
+        max(llm_timeout, steps * llm_timeout * coefficient * budget_factor),
+    )
     return soft_limit, min(configured_max + 60, soft_limit + 60)
 
 
@@ -144,7 +151,7 @@ def process_document_embedding(document_id):
 
 
 @shared_task(
-    autoretry_for=(Exception,),
+    autoretry_for=(),
     retry_backoff=60,
     retry_kwargs={"max_retries": 2},
     task_time_limit=300,  # 硬超时 5 分钟
@@ -167,7 +174,7 @@ def execute_agent_task(task_id: str):
     from django.utils import timezone
     from django.db import transaction
 
-    from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+    from smart_assistant.models import AgentSubTask, AgentTask
     from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
     from smart_assistant.agents.dataclasses import PersistentEventBus
@@ -211,15 +218,10 @@ def execute_agent_task(task_id: str):
             locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
             if locked_task.status in {"cancelled", "paused"}:
                 terminal_type = "task.cancelled" if locked_task.status == "cancelled" else "task.paused"
-                if not AgentEvent.objects.filter(task=locked_task, event_type=terminal_type).exists():
-                    AgentEvent.objects.create(
-                        task=locked_task,
-                        sequence=AgentEvent.objects.filter(task=locked_task).count() + 1,
-                        event_type=terminal_type,
-                        payload={"task_id": str(locked_task.task_id), "status": locked_task.status},
-                    )
-                if locked_task.status == "cancelled":
-                    _notify_agent_task_result(locked_task, "cancelled")
+                event_bus.emit(
+                    terminal_type,
+                    {"task_id": str(locked_task.task_id), "status": locked_task.status},
+                )
                 return {
                     "task_id": str(locked_task.task_id),
                     "status": locked_task.status,
@@ -237,19 +239,15 @@ def execute_agent_task(task_id: str):
             )
             locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
             event_type = "task.completed" if persisted_status in {"completed", "partial"} else "task.failed"
-            if not AgentEvent.objects.filter(task=locked_task, event_type=event_type).exists():
-                AgentEvent.objects.create(
-                    task=locked_task,
-                    sequence=AgentEvent.objects.filter(task=locked_task).count() + 1,
-                    event_type=event_type,
-                    payload={
-                        "task_id": str(locked_task.task_id),
-                        "status": persisted_status,
-                        "total_tokens": result.total_tokens_used,
-                        "final_output": locked_task.final_output,
-                    },
-                )
-            _notify_agent_task_result(locked_task, persisted_status)
+            event_bus.emit(
+                event_type,
+                {
+                    "task_id": str(locked_task.task_id),
+                    "status": persisted_status,
+                    "total_tokens": result.total_tokens_used,
+                    "final_output": locked_task.final_output,
+                },
+            )
             subtask_objs = {
                 str(obj.subtask_id): obj
                 for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
@@ -302,13 +300,10 @@ def execute_agent_task(task_id: str):
                 task.status = "failed"
                 task.completed_at = timezone.now()
                 task.save(update_fields=["status", "completed_at"])
-                if not AgentEvent.objects.filter(task=task, event_type="task.failed").exists():
-                    AgentEvent.objects.create(
-                        task=task,
-                        sequence=AgentEvent.objects.filter(task=task).count() + 1,
-                        event_type="task.failed",
-                        payload={"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed"},
-                    )
+                event_bus.emit(
+                    "task.failed",
+                    {"task_id": str(task.task_id), "status": "failed", "error": "agent task execution failed"},
+                )
         raise
 
 

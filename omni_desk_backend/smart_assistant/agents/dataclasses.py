@@ -15,6 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .roles import AgentRole
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 # ---------------------------------------------------------------------------
@@ -133,6 +136,12 @@ class PersistentEventBus(EventBus):
             self._persist(event_type, event_payload)
         except Exception:
             self.persistence_failure_count += 1
+            logger.warning(
+                "智能助手事件持久化失败: event_type=%s task_id=%s",
+                event_type,
+                self.agent_task_id,
+                exc_info=True,
+            )
 
     def _persist(self, event_type: str, payload: dict) -> None:
         if not self.agent_task_id:
