@@ -1,10 +1,51 @@
 """Tests for smart_assistant Celery tasks."""
 
 from unittest.mock import patch, MagicMock
+from uuid import uuid4
 
 from django.test import TestCase
 
-from smart_assistant.tasks import process_document_embedding
+from smart_assistant.tasks import _notify_agent_task_result, process_document_embedding
+
+
+class TestAgentTaskResultNotification(TestCase):
+    def setUp(self):
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentTask
+
+        self.user = get_user_model().objects.create_user(username="task-notify-user")
+        self.task = AgentTask.objects.create(
+            task_id=uuid4(),
+            user=self.user,
+            objective="测试任务",
+            task_packet={},
+        )
+
+    @patch("smart_assistant.tasks.NotificationService.create")
+    def test_notifies_after_terminal_status_with_safe_summary(self, create):
+        _notify_agent_task_result(self.task, "failed")
+
+        create.assert_called_once()
+        kwargs = create.call_args.kwargs
+        self.assertEqual(kwargs["user"], self.user)
+        self.assertEqual(kwargs["type"], "agent_task_result")
+        self.assertEqual(kwargs["dedupe_key"], f"agent_task:{self.task.task_id}")
+        self.assertIn("失败", kwargs["content"])
+        self.assertNotIn("异常原文", kwargs["content"])
+
+    def test_notifies_cancelled_once_when_worker_repeats(self):
+        from notifications.models import Notification
+
+        _notify_agent_task_result(self.task, "cancelled")
+        _notify_agent_task_result(self.task, "cancelled")
+
+        notifications = Notification.objects.filter(
+            user=self.user,
+            type="agent_task_result",
+            dedupe_key=f"agent_task:{self.task.task_id}",
+        )
+        self.assertEqual(notifications.count(), 1)
+        self.assertIn("取消", notifications.get().content)
 
 
 class TestAgentTaskTimeouts(TestCase):
