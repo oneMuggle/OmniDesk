@@ -257,11 +257,7 @@ def execute_agent_task(task_id: str):
                 else None
             )
             locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
-            event_type = (
-                "task.completed" if persisted_status == "completed"
-                else "task.partial" if persisted_status == "partial"
-                else "task.failed"
-            )
+            event_type = "task.completed"
             event_payload = {
                 "task_id": str(locked_task.task_id),
                 "status": persisted_status,

@@ -209,8 +209,8 @@ class NotifyTool(BaseTool):
                 {**audit_payload, "phase": "notify", "operation": "agent_notify"},
             )
         if failed:
-            return {"found": False, "message": "部分通知发送失败", "result": {"operation_id": operation_id, "sent": sent, "failed": failed}}
-        return {"found": True, "result": {"operation_id": operation_id, "sent_count": len(users), "sent": sent, "failed": []}, "summary": f"已发送 {len(users)} 条站内通知"}
+            return {"found": False, "message": "部分通知发送失败", "result": {"operation_id": operation_id, "sent": sent, "failed": failed, "sent_count": len(sent), "failed_count": len(failed), "recipient_count": len(users)}}
+        return {"found": True, "result": {"operation_id": operation_id, "sent_count": len(sent), "failed_count": 0, "recipient_count": len(users), "sent": sent, "failed": []}, "summary": f"已发送 {len(users)} 条站内通知"}
 
 
 AgentNotifyTool = NotifyTool

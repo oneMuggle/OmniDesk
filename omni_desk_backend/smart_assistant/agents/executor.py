@@ -336,6 +336,9 @@ class MultiAgentExecutor:
 
         # 在同一事务内完成 paused → running 的 claim，避免两个恢复 worker
         # 都通过检查后并行执行同一 checkpoint。
+        from django.utils import timezone
+
+        claim_started_at = timezone.now()
         try:
             with transaction.atomic():
                 agent_task = AgentTask.objects.select_for_update().get(task_id=task_id)
@@ -352,7 +355,8 @@ class MultiAgentExecutor:
                         error_message="任务当前不可恢复",
                     )
                 agent_task.status = "running"
-                agent_task.save(update_fields=["status"])
+                agent_task.started_at = agent_task.started_at or claim_started_at
+                agent_task.save(update_fields=["status", "started_at"])
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -360,28 +364,43 @@ class MultiAgentExecutor:
                 error_message=f"AgentTask {task_id} 不存在",
             )
 
-        # 反序列化 TaskPacket
-        try:
-            task_packet = TaskPacket.from_dict(agent_task.task_packet)
-        except Exception as e:
+        except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
                 status="failed",
-                error_message="TaskPacket 反序列化失败",
+                error_message=f"AgentTask {task_id} 不存在",
             )
 
-        # 创建 executor
-        executor = cls(
-            task_packet=task_packet,
-            llm_router=llm_router,
-            tool_registry=tool_registry,
-            hook_registry=hook_registry,
-            event_bus=event_bus,
-            agent_task_id=task_id,
-            user=agent_task.user,
-        )
-        # 加载已完成的 subtask,重建 SharedContext
-        completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
+        def fail_claimed_task(reason: str) -> TaskResult:
+            with transaction.atomic():
+                claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
+                if claimed.status == "running" and claimed.started_at == claim_started_at:
+                    claimed.status = "failed"
+                    claimed.completed_at = timezone.now()
+                    claimed.save(update_fields=["status", "completed_at"])
+                    if event_bus is not None:
+                        event_bus.emit("task.failed", {"task_id": task_id, "status": "failed", "error": reason, "reason": reason})
+            return TaskResult(task_id=task_id, status="failed", error_message=reason)
+
+        try:
+            task_packet = TaskPacket.from_dict(agent_task.task_packet)
+        except Exception:
+            return fail_claimed_task("任务计划无效")
+
+        try:
+            executor = cls(
+                task_packet=task_packet,
+                llm_router=llm_router,
+                tool_registry=tool_registry,
+                hook_registry=hook_registry,
+                event_bus=event_bus,
+                agent_task_id=task_id,
+                user=agent_task.user,
+            )
+            # 加载已完成的 subtask,重建 SharedContext
+            completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
+        except Exception:
+            return fail_claimed_task("任务恢复初始化失败")
         logger.info(
             f"Executor.resume: 从 checkpoint 恢复任务 {task_id}, "
             f"已重建 {completed_count} 个 completed subtask 的 artifacts"
