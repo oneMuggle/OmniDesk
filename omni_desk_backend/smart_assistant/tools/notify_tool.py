@@ -195,7 +195,8 @@ class NotifyTool(BaseTool):
         if error:
             return {"found": False, "message": error}
         operation_id = str(uuid4())
-        return {"found": True, "draft": {"summary": f"待发送站内通知（收件人数：{len(users)}）", "fields": {"recipient_ids": [u.id for u in users], "recipient_names": [u.get_full_name() or u.username for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"], "operation_id": operation_id}}}
+        safe_title = _safe_text(values["title"][:80])
+        return {"found": True, "draft": {"summary": f"待执行站内通知（操作：agent_notify；收件人数：{len(users)}；标题：{safe_title}）", "fields": {"recipient_ids": [u.id for u in users], "recipient_names": [u.get_full_name() or u.username for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"], "operation_id": operation_id}}}
 
     def _confirmed(self, values, ctx, context):
         actor = self._user(ctx, context)

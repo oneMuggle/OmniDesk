@@ -333,32 +333,21 @@ def set_confirmation_draft(
 
 
 def consume_confirmation_draft(token: str, validator=None) -> dict | None:
-    """在可靠锁内校验并一次性消费确认草稿。
+    """在一致性保护内校验并一次性消费确认草稿。
 
-    ``validator`` 在读取与删除之间调用；返回 ``None`` 时保留 token，返回
-    字典时删除 token 并返回该字典。这样最终参数校验不会发生在消费之后。
+    validator 必须在消费保护范围内执行。Redis 使用 Lua 对原始值执行
+    compare-and-delete；locmem 在进程锁内重新读取并比较，避免校验期间的替换
+    draft 被误删。任何删除失败都 fail closed。
     """
     key = _draft_key(token)
-
-    def validate(value):
-        return validator(value) if callable(validator) else value
 
     def prepare(value):
         if value is None:
             return None
         candidate = copy.deepcopy(value)
-        validated = validate(candidate)
+        validated = validator(candidate) if callable(validator) else candidate
         if not isinstance(validated, dict):
             return None
-        return candidate, validated
-
-    def compare_and_delete(read, delete, original, validated):
-        current = read(key)
-        if current != original:
-            return None
-        delete_result = delete(key)
-        if delete_result is not True:
-            raise ConfirmationDraftConsumeError("delete_failed")
         return validated
 
     try:
@@ -367,21 +356,38 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
         if module.startswith("django_redis"):
             lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
             with lock:
-                original = backend.get(key)
-            prepared = prepare(original)
-            if prepared is None:
-                return None
-            candidate, validated = prepared
-            with lock:
-                return compare_and_delete(backend.get, backend.delete, original, validated)
+                client = backend.get_client(write=True)
+                redis_key = backend.make_key(key)
+                raw_value = client.get(redis_key)
+                if raw_value is None:
+                    return None
+                original = backend.decode(raw_value)
+                prepared = prepare(original)
+                if prepared is None:
+                    return None
+                result = client.eval(
+                    "local current = redis.call('GET', KEYS[1]); "
+                    "if current == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+                    1,
+                    redis_key,
+                    raw_value,
+                )
+                if result != 1:
+                    return None
+                return prepared
         if module.startswith("django.core.cache.backends.locmem"):
             with _inflight_global:
                 original = cache.get(key)
                 prepared = prepare(original)
                 if prepared is None:
                     return None
-                _, validated = prepared
-                return compare_and_delete(lambda _key: original, cache.delete, original, validated)
+                # 必须在同一锁内重新读取实际值；validator 期间替换 token 时 fail closed。
+                if cache.get(key) != original:
+                    return None
+                delete_result = cache.delete(key)
+                if delete_result is not True:
+                    raise ConfirmationDraftConsumeError("delete_failed")
+                return prepared
     except ConfirmationDraftConsumeError:
         raise
     except Exception as exc:

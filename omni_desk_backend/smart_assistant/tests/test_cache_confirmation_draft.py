@@ -131,7 +131,8 @@ class TestDraftCacheIsolation:
             mock_cache.get.return_value = {"value": 1}
             mock_cache.delete.return_value = True
             assert consume_confirmation_draft("token-consume") == {"value": 1}
-            mock_cache.get.assert_called_once_with(_draft_key("token-consume"))
+            mock_cache.get.assert_called_with(_draft_key("token-consume"))
+            assert mock_cache.get.call_count == 2
             mock_cache.delete.assert_called_once_with(_draft_key("token-consume"))
 
     def test_locmem_repeated_consume_has_at_most_one_success(self):
@@ -139,7 +140,7 @@ class TestDraftCacheIsolation:
 
         backend = MagicMock()
         backend.__class__.__module__ = "django.core.cache.backends.locmem"
-        values = [{"value": 1}, None]
+        values = [{"value": 1}, {"value": 1}, None]
         backend_get = lambda key: values.pop(0)
         with patch("smart_assistant.cache.cache") as mock_cache:
             mock_cache.delete.return_value = True
@@ -171,14 +172,18 @@ class TestDraftCacheIsolation:
         backend = MagicMock()
         backend.__class__.__module__ = "django_redis.cache"
         backend.lock.side_effect = lambda *args, **kwargs: events.append("lock") or lock
+        backend.get_client.return_value = backend
+        backend.make_key.return_value = "redis-key"
+        backend.decode.side_effect = lambda value: value
         backend.get.side_effect = lambda key: events.append("get") or {"value": 1}
         backend.delete.side_effect = lambda key: events.append("delete") or True
+        backend.eval.side_effect = lambda *args: events.append("eval") or 1
 
         with patch("smart_assistant.cache.cache") as mock_cache:
             mock_cache._connections = {"default": backend}
             assert consume_confirmation_draft("token-redis") == {"value": 1}
 
-        assert events == ["lock", "lock-enter", "get", "lock-exit", "lock-enter", "get", "delete", "lock-exit"]
+        assert events == ["lock", "lock-enter", "get", "eval", "lock-exit"]
 
     def test_cache_lock_failure_is_not_treated_as_replay(self):
         from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
@@ -303,7 +308,44 @@ class TestDraftCacheIsolation:
             assert result["draft"]["fields"]["title"] == "mutated"
             assert original["draft"]["fields"]["title"] == "original"
 
+    def test_locmem_replacement_after_validator_fails_closed_and_preserves_new_token(self):
+        from smart_assistant.cache import consume_confirmation_draft
 
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        original = {"nonce": "old"}
+        replacement = {"nonce": "new"}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            values = [original, replacement]
+            mock_cache.get.side_effect = lambda _key: values.pop(0)
+            mock_cache.delete.return_value = True
+            def validator(value):
+                return value
+            assert consume_confirmation_draft("token-replaced", validator=validator) is None
+            mock_cache.delete.assert_not_called()
+            assert values == []
+
+    def test_redis_consumption_uses_atomic_compare_and_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        lock = MagicMock()
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.return_value = lock
+        client = MagicMock()
+        backend.get_client.return_value = client
+        backend.make_key.return_value = "redis-key"
+        backend.decode.return_value = {"value": 1}
+        client.get.return_value = b"encoded-old"
+        client.eval.return_value = 1
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            result = consume_confirmation_draft("token-redis-cas", validator=lambda value: value)
+        assert result == {"value": 1}
+        client.eval.assert_called_once()
+        assert client.eval.call_args.args[3:] == (b"encoded-old",)
+        backend.delete.assert_not_called()
         """draft key 包含 CACHE_VERSION,bump 后旧 draft 自动失效(同 token 不同 key)"""
         from smart_assistant import cache as cache_module
 
