@@ -161,13 +161,6 @@ class MultiAgentExecutor:
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
-            self.event_bus.emit(
-                "task.failed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "error": "executor execution failed",
-                },
-            )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",
@@ -376,7 +369,18 @@ class MultiAgentExecutor:
                     claimed.completed_at = timezone.now()
                     claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
                     if event_bus is not None:
-                        event_bus.emit("task.failed", {"task_id": task_id, "status": "failed", "error": reason, "reason": reason})
+                        event_bus.emit(
+                            "task.failed",
+                            {
+                                "task_id": task_id,
+                                "status": "failed",
+                                "error": reason,
+                                "reason": reason,
+                                "final_output": None,
+                                "total_tokens": 0,
+                                "dropped_events": event_bus.persistence_failure_count,
+                            },
+                        )
             return TaskResult(
                 task_id=task_id,
                 status="failed",
@@ -453,14 +457,6 @@ class MultiAgentExecutor:
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
-            self.event_bus.emit(
-                "task.failed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "error": "executor execution failed",
-                    "resumed": True,
-                },
-            )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",

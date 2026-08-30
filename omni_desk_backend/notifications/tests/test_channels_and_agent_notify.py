@@ -59,13 +59,67 @@ def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, adm
     draft = tool.execute(params={"recipients": ["a", "b"], "title": "联系 a@example.com", "content": "13812345678", "scope": "global"}, context={"dry_run": True, "user": admin_user_obj})
     result = tool.execute(params={}, context={"confirmed": True, "user": admin_user_obj, "draft": draft["draft"], "event_bus": bus})
     assert result["found"] is False
+    assert result["message"] == "部分通知发送失败"
     payload = bus.get_events()[0].payload
-    assert result["result"]["sent_count"] == len(payload["sent"])
-    assert result["result"]["failed_count"] == len(payload["failed"])
-    assert result["result"]["recipient_count"] == 2
-    assert payload["operation_id"]
-    assert "@example.com" not in payload["content"]
-    assert "13812345678" not in payload["content"]
+    assert bus.get_events()[0].event_type == "subtask.tool_result"
+    assert payload["phase"] == "notify"
+    assert payload["operation"] == "agent_notify"
+    assert payload["operation_id"] == draft["draft"]["fields"]["operation_id"]
+    assert payload["recipients"] == [
+        {"id": regular_user_obj.id, "name": regular_user_obj.username},
+        {"id": admin_user_obj.id, "name": admin_user_obj.username},
+    ]
+    assert payload["sent"] == [{"user_id": regular_user_obj.id, "channel": "in_app"}]
+    assert payload["failed"] == [
+        {"user_id": regular_user_obj.id, "channel": "email", "reason": "send_failed"},
+        {"user_id": admin_user_obj.id, "channel": "in_app", "reason": "send_failed"},
+    ]
+    assert result["result"] == {
+        "operation_id": payload["operation_id"],
+        "sent_count": 1,
+        "failed_count": 2,
+        "recipient_count": 2,
+        "sent": payload["sent"],
+        "failed": payload["failed"],
+    }
+    assert payload["title"] == "联系 [已脱敏]"
+    assert payload["content"] == "[已脱敏]"
+
+
+@pytest.mark.django_db
+def test_agent_notify_channel_exception_is_a_failed_detail(regular_user_obj, monkeypatch):
+    tool = AgentNotifyTool(resolver=lambda name, actor: [regular_user_obj])
+
+    class ExplodingChannel:
+        name = "webhook"
+
+        def send(self, **kwargs):
+            raise RuntimeError("secret transport details")
+
+    monkeypatch.setattr("notifications.channels.resolve_channels", lambda user, intent: [ExplodingChannel()])
+    from smart_assistant.agents.dataclasses import EventBus
+
+    bus = EventBus()
+    draft = tool.execute(
+        params={"recipients": ["a"], "title": "title", "content": "content", "scope": "self"},
+        context={"dry_run": True, "user": regular_user_obj},
+    )
+    result = tool.execute(
+        params={},
+        context={"confirmed": True, "user": regular_user_obj, "draft": draft["draft"], "event_bus": bus},
+    )
+
+    assert result["found"] is False
+    assert result["result"]["sent_count"] == 0
+    assert result["result"]["failed_count"] == 1
+    assert result["result"]["recipient_count"] == 1
+    assert result["result"]["failed"] == [
+        {"user_id": regular_user_obj.id, "channel": "webhook", "reason": "send_failed"}
+    ]
+    event = bus.get_events()[0]
+    assert event.event_type == "subtask.tool_result"
+    assert event.payload["failed"] == result["result"]["failed"]
+    assert "secret" not in str(event.payload)
 
 
 @pytest.mark.django_db

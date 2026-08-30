@@ -212,6 +212,71 @@ class TestAgentTaskTimeouts(TestCase):
             execute_agent_task.run(str(task.task_id))
         resume_mock.assert_called_once()
 
+    def test_real_resume_claim_loss_preserves_new_worker_state(self):
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentEvent, AgentTask
+        from smart_assistant.agents.executor import MultiAgentExecutor
+        from smart_assistant.agents.packet import ExecutionMode
+        from smart_assistant.tasks import execute_agent_task
+
+        task = AgentTask.objects.create(
+            task_id=uuid4(),
+            user=get_user_model().objects.create_user(username="real-resume-claim"),
+            objective="真实恢复 claim",
+            status="paused",
+            task_packet={"objective": "真实恢复 claim", "execution_mode": ExecutionMode.PIPELINE.value, "subtasks": [{"id": "step1", "role": "researcher", "objective": "step"}]},
+            final_output={"old": "output"},
+        )
+        from django.utils import timezone
+        started_at = timezone.now()
+        task.started_at = started_at
+        task.save(update_fields=["started_at"])
+
+        def stale_worker_result(self):
+            current = AgentTask.objects.get(task_id=task.task_id)
+            current.status = "running"
+            current.resume_claim_id = uuid4()
+            current.final_output = {"new": "worker"}
+            current.save(update_fields=["status", "resume_claim_id", "final_output", "updated_at"])
+            return TaskResult(task_id=str(task.task_id), status="failed", error_message="旧 worker 失败")
+
+        with patch.object(MultiAgentExecutor, "_execute_resume", stale_worker_result):
+            result = execute_agent_task.run(str(task.task_id))
+
+        task.refresh_from_db()
+        assert result["status"] == "running"
+        assert task.status == "running"
+        assert task.resume_claim_id is not None
+        assert task.started_at == started_at
+        assert task.completed_at is None
+        assert task.final_output == {"new": "worker"}
+        assert not AgentEvent.objects.filter(task=task, event_type__in=["task.failed", "task.completed"]).exists()
+
+    def test_executor_exception_has_one_complete_failure_event(self):
+        from django.contrib.auth import get_user_model
+        from smart_assistant.models import AgentEvent, AgentTask
+        from smart_assistant.tasks import execute_agent_task
+
+        task = AgentTask.objects.create(
+            task_id=uuid4(),
+            user=get_user_model().objects.create_user(username="executor-exception"),
+            objective="异常失败",
+            task_packet={"objective": "异常失败", "execution_mode": "pipeline", "subtasks": [{"id": "step1", "role": "researcher", "objective": "step"}]},
+        )
+        with patch("smart_assistant.agents.executor.MultiAgentExecutor.execute", side_effect=RuntimeError("boom")):
+            with self.assertRaises(RuntimeError):
+                execute_agent_task.run(str(task.task_id))
+
+        events = AgentEvent.objects.filter(task=task, event_type="task.failed")
+        assert events.count() == 1
+        payload = events.get().payload
+        assert payload["error"] == "agent task execution failed"
+        assert payload["reason"] == "agent task execution failed"
+        assert payload["final_output"] is None
+        assert payload["total_tokens"] == 0
+        assert "dropped_events" in payload
+        assert not AgentEvent.objects.filter(task=task, event_type="task.completed").exists()
+
 class TestProcessDocumentEmbedding(TestCase):
     """process_document_embedding Celery 任务测试."""
 

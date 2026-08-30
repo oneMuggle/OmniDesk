@@ -353,6 +353,8 @@ def execute_agent_task(task_id: str):
                         "status": "failed",
                         "error": "agent task execution failed",
                         "reason": "agent task execution failed",
+                        "final_output": task.final_output,
+                        "total_tokens": task.tokens_used,
                         "dropped_events": event_bus.persistence_failure_count,
                     },
                 )
