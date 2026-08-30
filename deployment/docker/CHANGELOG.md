@@ -15,7 +15,7 @@
 
 ### 新增
 
-- **smart-assistant**：真实多智能体编排验收完成；协作卡片消费持久化 `AgentEvent` SSE，支持真实工具调用、`last_seq` 断点续传、暂停/部分完成状态、IE11 timeline 降级、审计 JSON、`AgentWriteLog` 回滚与站内任务结果通知；8 个历史场景仅作为示例入口。
+- **smart-assistant**：真实多智能体编排验收完成；协作卡片消费持久化 `AgentEvent` SSE，支持真实工具调用、`last_seq` 断点续传、暂停/部分完成状态、旧版浏览器 timeline 降级（不改变 React 18 对 IE11 的整体不支持）、审计 JSON、`AgentWriteLog` 回滚与站内任务结果通知；8 个历史场景仅作为示例入口。
 
 ### 验证
 

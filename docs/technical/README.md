@@ -60,7 +60,7 @@
 | 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 | 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
 | 42 | [channel-sync 远程分支自动清理](42-channel-sync-branch-cleanup.md) | cron 清理 `channel-sync/*` 归档分支、commit ≥14 天规则、豁免清单维护、误删恢复(2026-08) |
-| 43 | [智能助手多智能体协作卡片](43-smart-assistant-collab-card.md) | ✅ 已完成：消费真实 Celery AgentTask/AgentEvent SSE，支持真实工具执行、`last_seq` 断点续传、paused/partial/failed 状态、IE11 timeline 降级、审计 JSON、AgentWriteLog 回滚与站内通知；8 个场景仅作示例入口 |
+| 43 | [智能助手多智能体协作卡片](43-smart-assistant-collab-card.md) | ✅ 已完成：消费真实 Celery AgentTask/AgentEvent SSE，支持真实工具执行、`last_seq` 断点续传、paused/partial/failed 状态、旧版浏览器 timeline 降级（不改变 React 18 对 IE11 的整体不支持）、审计 JSON、AgentWriteLog 回滚与站内通知；8 个场景仅作示例入口 |
 
 ### 新增功能点(待建章节预留编号)
 

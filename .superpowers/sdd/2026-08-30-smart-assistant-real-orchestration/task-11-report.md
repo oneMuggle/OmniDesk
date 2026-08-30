@@ -1,12 +1,12 @@
 # 阶段 11：文档与验收报告
 
-**日期**：2026-08-30  
-**基线**：`95f019215cae6cd8628c91dedbfc85f309e394d2`  
+**日期**：2026-08-30
+**基线**：`95f019215cae6cd8628c91dedbfc85f309e394d2`
 **分支**：`feat/smart-assistant-real-orchestration`
 
 ## 文档与版本
 
-- 更新 `/home/fz/project/OmniDesk/docs/technical/43-smart-assistant-collab-card.md`：修正实际路径与日期，明确真实 Celery/LLM/tool-calling 编排；8 个场景仅为示例入口；记录 SSE `last_seq`、`id`、`sequence`、心跳、`paused`/`partial`、IE11 timeline 轮询，以及工具、AgentWriteLog、notify 说明。
+- 更新 `/home/fz/project/OmniDesk/docs/technical/43-smart-assistant-collab-card.md`：修正实际路径与日期，明确真实 Celery/LLM/tool-calling 编排；8 个场景仅为示例入口；记录 SSE `last_seq`、`id`、`sequence`、心跳、`paused`/`partial`、旧版浏览器 timeline 轮询（不改变 React 18 对 IE11 的整体不支持），以及工具、AgentWriteLog、notify 说明。
 - 更新 `/home/fz/project/OmniDesk/docs/technical/README.md` 第 43 章简介，保持“总览 + 分章节”结构。
 - 同步 `/home/fz/project/OmniDesk/deployment/docker/VERSION`：`0.7.0-alpha.2` → `0.7.0-alpha.3`。
 - 在 `/home/fz/project/OmniDesk/deployment/docker/CHANGELOG.md` 增加本功能 alpha.3 条目。
@@ -44,7 +44,7 @@
 
 - SSE/timeline 对事件 payload 使用字段白名单/脱敏；任务与写日志接口按认证及归属校验；notify 固定类型、scope、人数量上限、确认流程和普通优先级。
 - 无新增 Python/npm 依赖；工具与通知使用现有本地包/站内通道，符合离线优先。
-- Vite target/browserslist 保持 Chrome 109 / Edge 109；IE11 不使用 ReadableStream 时走 `/timeline/` 每 2 秒轮询并按 sequence 去重。未在真实 IE11/Win7 机器执行验收。
+- Vite target/browserslist 保持 Chrome 109 / Edge 109；缺少 ReadableStream 的旧版运行环境可走 `/timeline/` 每 2 秒轮询并按 sequence 去重。这不代表 React 18 应用整体支持 IE11；未在真实 IE11/Win7 机器执行验收。
 
 ## 变更说明
 

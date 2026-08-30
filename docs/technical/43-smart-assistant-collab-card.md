@@ -3,7 +3,7 @@
 > **状态**：✅ 已实现并完成阶段 11 验收（2026-08-30）
 > **代码位置**：`omni_desk_frontend/src/features/smart-assistant/scenario/` 与 `omni_desk_backend/smart_assistant/`
 > **入口**：`/smart-assistant` 智能助手聊天页；任务 API 前缀为 `/api/smart-assistant/tasks/`
-> **核心定位**：协作卡片是 `AgentTask` 真实执行过程的可视化消费端。卡片消费后端持久化的 `AgentEvent` SSE 流，展示真实 Agent、工具调用、结果、失败和审计信息；历史剧本只提供示例提问入口，不是执行引擎。
+> **核心定位**：协作卡片是 `AgentTask` 真实执行过程的可视化消费端。卡片消费后端持久化的 `AgentEvent` SSE 流，展示真实 Agent、工具调用、结果、失败和审计信息；历史剧本只提供示例提问入口，不是执行引擎。旧版浏览器或缺少 `ReadableStream` 的运行环境可使用 timeline 轮询降级；这不改变 React 18 对 IE11 的整体不支持。
 
 ## 1. 设计动机与边界
 
@@ -109,7 +109,7 @@ SSE 信封统一使用 `sse_event()` 序列化，包含 `format_version`、`id` 
 - 服务端轮询 `AgentEvent`，无新事件时发送 `: ping` 心跳，避免长任务的静默连接被 nginx 或客户端误判为断开。
 - `done` / `timeout` 帧也通过统一 SSE 出口，并携带终止时的 `sequence`；`paused`、`partial` 均属于可识别的终止或稳定状态。
 - 服务端断点参数缺省为 `last_seq=0`。前端收到服务端 timeout 但任务仍未终止时立即续订；网络错误按 1s / 2s / 4s 退避，超过次数才显示连接错误。
-- 不支持 `ReadableStream` 的 IE11 / Win7 环境降级轮询 `/timeline/`，按 sequence 去重，仍可查看任务进度。
+- 不支持 `ReadableStream` 的旧版浏览器环境可降级轮询 `/timeline/`，按 sequence 去重，仍可查看任务进度；这只是任务流的能力降级，不代表 React 18 应用整体支持 IE11。项目仍以 Chrome 109 / Edge 109 为 Windows 7 兼容目标。
 
 ## 5. 状态机与用户操作
 

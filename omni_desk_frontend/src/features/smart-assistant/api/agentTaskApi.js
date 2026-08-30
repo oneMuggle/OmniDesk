@@ -25,8 +25,10 @@ export const EVENT_TYPE_LABELS = {
   'task.started': '任务开始', 'task.completed': '任务完成', 'task.failed': '任务失败',
   'task.aborted': '任务中止', 'subtask.started': '子任务开始', 'subtask.progress': '子任务进度',
   'subtask.tool_call': '子任务工具调用', 'subtask.tool_result': '子任务工具结果', 'subtask.completed': '子任务完成',
-  'subtask.failed': '子任务失败', 'subtask.skipped': '子任务跳过', 'task.paused': '任务暂停',
-  'task.resumed': '任务恢复', 'supervisor.decision': 'Supervisor 决策', 'hook.triggered': '钩子触发',
+  'subtask.failed': '子任务失败', 'subtask.skipped': '子任务跳过', 'subtask.quality_gate': '子任务质量门禁',
+  'task.paused': '任务暂停', 'task.resumed': '任务恢复', 'task.cancelled': '任务取消',
+  'supervisor.decision': 'Supervisor 决策', 'supervisor.intervention': 'Supervisor 介入',
+  'user.intervention': '用户介入', 'hook.triggered': 'Hook 触发',
 };
 
 export async function getAgentTasks() { return apiClient.get(`${BASE_URL}/`); }

@@ -9,6 +9,7 @@ import { ReadableStream as WebReadableStream } from 'stream/web';
 import { waitFor } from '@testing-library/react';
 import {
   createAgentTask,
+  EVENT_TYPE_LABELS,
   executeAgentTask,
   getAgentTaskTimeline,
   getAgentTasks,
@@ -60,6 +61,17 @@ const createCallbacks = () => ({
 });
 
 describe('agentTaskApi REST 端点', () => {
+  it('事件标签覆盖后端声明的全部事件类型', () => {
+    const eventTypes = [
+      'task.started', 'task.paused', 'task.resumed', 'task.completed', 'task.failed', 'task.cancelled',
+      'subtask.started', 'subtask.progress', 'subtask.tool_call', 'subtask.quality_gate',
+      'subtask.completed', 'subtask.failed', 'subtask.skipped', 'subtask.tool_result', 'task.aborted',
+      'supervisor.decision', 'supervisor.intervention', 'user.intervention', 'hook.triggered',
+    ];
+    eventTypes.forEach((eventType) => expect(EVENT_TYPE_LABELS[eventType]).toBeTruthy());
+  });
+
+
   beforeEach(() => {
     jest.clearAllMocks();
   });
