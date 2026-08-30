@@ -1,11 +1,16 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { interveneAgentTask, subscribeTaskStream } from '../api/agentTaskApi';
+import mapAgentEvent from '../scenario/utils/mapAgentEvent';
 
 const TERMINAL_TYPES = {
   'task.completed': 'completed',
   'task.failed': 'failed',
   'task.cancelled': 'cancelled',
+  completed: 'completed',
+  failed: 'failed',
+  cancelled: 'cancelled',
 };
+const RETRY_DELAYS = [1000, 2000, 4000];
 
 export default function useAgentTaskStream(taskId, options = {}) {
   const { lastSeq: initialLastSeq = 0 } = options;
@@ -15,11 +20,18 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const [error, setError] = useState(null);
   const subscriptionRef = useRef(null);
   const lastSeqRef = useRef(initialLastSeq);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef(null);
+  const manuallyPausedRef = useRef(false);
 
   const stop = useCallback(() => {
     if (subscriptionRef.current) {
       subscriptionRef.current.abort();
       subscriptionRef.current = null;
+    }
+    if (retryTimerRef.current) {
+      clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
     }
   }, []);
 
@@ -29,27 +41,45 @@ export default function useAgentTaskStream(taskId, options = {}) {
       lastSeqRef.current = event.sequence;
       setLastSeq(event.sequence);
     }
-    setEvents((previous) => [...previous, event]);
-    if (TERMINAL_TYPES[event.type]) setStatus(TERMINAL_TYPES[event.type]);
+    const mappedEvent = mapAgentEvent(event);
+    setEvents((previous) => [...previous, mappedEvent]);
+    const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[mappedEvent.type];
+    if (nextStatus) setStatus(nextStatus);
+    if (event.type === 'task.paused') setStatus('paused');
+    if (event.type === 'task.resumed') {
+      manuallyPausedRef.current = false;
+      setStatus('running');
+    }
   }, []);
 
   const subscribe = useCallback(() => {
-    if (!taskId) return;
+    if (!taskId || manuallyPausedRef.current) return;
     stop();
     setError(null);
     setStatus('running');
     subscriptionRef.current = subscribeTaskStream(taskId, {
       onEvent: handleEvent,
-      onDone: () => {
+      onDone: (event, doneSequence) => {
         subscriptionRef.current = null;
+        if (doneSequence != null) {
+          lastSeqRef.current = Math.max(lastSeqRef.current, doneSequence);
+          setLastSeq(lastSeqRef.current);
+        }
         setStatus((current) => (current === 'running' ? 'completed' : current));
       },
       onTimeout: () => {
         subscriptionRef.current = null;
-        setStatus('paused');
+        retryCountRef.current = 0;
+        retryTimerRef.current = setTimeout(subscribe, 0);
       },
       onError: (streamError) => {
         subscriptionRef.current = null;
+        const attempt = retryCountRef.current;
+        if (attempt < RETRY_DELAYS.length) {
+          retryCountRef.current += 1;
+          retryTimerRef.current = setTimeout(subscribe, RETRY_DELAYS[attempt]);
+          return;
+        }
         setError(streamError);
         setStatus('failed');
       },
@@ -63,11 +93,14 @@ export default function useAgentTaskStream(taskId, options = {}) {
 
   const intervene = useCallback(async (action) => {
     if (!taskId) return;
+    if (action === 'pause') manuallyPausedRef.current = true;
     await interveneAgentTask(taskId, action);
     if (action === 'pause') {
       stop();
       setStatus('paused');
     } else if (action === 'resume') {
+      manuallyPausedRef.current = false;
+      retryCountRef.current = 0;
       subscribe();
     } else if (action === 'cancel') {
       stop();
@@ -76,21 +109,18 @@ export default function useAgentTaskStream(taskId, options = {}) {
   }, [stop, subscribe, taskId]);
 
   const retry = useCallback(() => {
+    manuallyPausedRef.current = false;
+    retryCountRef.current = 0;
     setEvents([]);
     setError(null);
     subscribe();
   }, [subscribe]);
 
   return {
-    events,
-    lastSeq,
-    status,
-    error,
+    events, lastSeq, status, error,
     pause: () => intervene('pause'),
     resume: () => intervene('resume'),
     cancel: () => intervene('cancel'),
-    retry,
-    stop,
-    onEvent: handleEvent,
+    retry, stop, onEvent: handleEvent,
   };
 }
