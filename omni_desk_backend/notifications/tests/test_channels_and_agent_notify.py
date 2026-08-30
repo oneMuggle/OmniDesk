@@ -48,6 +48,27 @@ def test_agent_notify_rejects_zero_or_multiple_name_candidates(regular_user_obj,
     assert result["found"] is False
 
 @pytest.mark.django_db
+def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, admin_user_obj, monkeypatch):
+    tool = AgentNotifyTool(resolver=lambda name, actor: [regular_user_obj] if name == "a" else [admin_user_obj])
+    class Channel:
+        def __init__(self, name, success): self.name, self.success = name, success
+        def send(self, **kwargs): return NotifyResult(self.success, "ok" if self.success else "failed")
+    monkeypatch.setattr("notifications.channels.resolve_channels", lambda user, intent: [Channel("in_app", user == regular_user_obj), Channel("email", False)] if user == regular_user_obj else [Channel("in_app", False)])
+    from smart_assistant.agents.dataclasses import EventBus
+    bus = EventBus()
+    draft = tool.execute(params={"recipients": ["a", "b"], "title": "联系 a@example.com", "content": "13812345678", "scope": "global"}, context={"dry_run": True, "user": admin_user_obj})
+    result = tool.execute(params={}, context={"confirmed": True, "user": admin_user_obj, "draft": draft["draft"], "event_bus": bus})
+    assert result["found"] is False
+    payload = bus.get_events()[0].payload
+    assert result["result"]["sent_count"] == len(payload["sent"])
+    assert result["result"]["failed_count"] == len(payload["failed"])
+    assert result["result"]["recipient_count"] == 2
+    assert payload["operation_id"]
+    assert "@example.com" not in payload["content"]
+    assert "13812345678" not in payload["content"]
+
+
+@pytest.mark.django_db
 def test_agent_notify_dry_run_then_confirmed_sends(regular_user_obj, monkeypatch):
     tool = AgentNotifyTool()
     monkeypatch.setattr(tool, "resolver", lambda name, actor: [regular_user_obj])
@@ -57,6 +78,9 @@ def test_agent_notify_dry_run_then_confirmed_sends(regular_user_obj, monkeypatch
     with patch.object(InAppChannel, "send", return_value=NotifyResult(True, "ok")) as send:
         result = tool.execute(params=params, context={"confirmed": True, "user": regular_user_obj, "scope": SmartAssistantScope.SELF, "draft": draft["draft"]["fields"]})
     assert result["found"] is True
+    assert result["result"]["sent_count"] == 1
+    assert result["result"]["failed_count"] == 0
+    assert result["result"]["recipient_count"] == 1
     send.assert_called_once()
 
 @pytest.mark.django_db

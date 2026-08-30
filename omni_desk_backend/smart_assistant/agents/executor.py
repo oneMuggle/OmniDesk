@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import time
 from typing import Any
+from uuid import uuid4
 
 from observability import get_logger
 
@@ -339,6 +340,7 @@ class MultiAgentExecutor:
         from django.utils import timezone
 
         claim_started_at = timezone.now()
+        claim_id = uuid4()
         try:
             with transaction.atomic():
                 agent_task = AgentTask.objects.select_for_update().get(task_id=task_id)
@@ -355,12 +357,9 @@ class MultiAgentExecutor:
                         error_message="任务当前不可恢复",
                     )
                 agent_task.status = "running"
+                agent_task.resume_claim_id = claim_id
                 agent_task.started_at = agent_task.started_at or claim_started_at
-                agent_task.save(update_fields=["status", "started_at", "updated_at"])
-                # started_at belongs to the lifetime of a task and is therefore
-                # not a claim identity. updated_at is the existing row version
-                # changed by this atomic claim and subsequent state transitions.
-                claim_updated_at = agent_task.updated_at
+                agent_task.save(update_fields=["status", "started_at", "resume_claim_id", "updated_at"])
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -371,10 +370,10 @@ class MultiAgentExecutor:
         def fail_claimed_task(reason: str) -> TaskResult:
             with transaction.atomic():
                 claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
-                if claimed.status == "running" and claimed.updated_at == claim_updated_at:
+                if claimed.status == "running" and claimed.resume_claim_id == claim_id:
                     claimed.status = "failed"
                     claimed.completed_at = timezone.now()
-                    claimed.save(update_fields=["status", "completed_at", "updated_at"])
+                    claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
                     if event_bus is not None:
                         event_bus.emit("task.failed", {"task_id": task_id, "status": "failed", "error": reason, "reason": reason})
             return TaskResult(task_id=task_id, status="failed", error_message=reason)

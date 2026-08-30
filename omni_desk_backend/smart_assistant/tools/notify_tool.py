@@ -185,7 +185,7 @@ class NotifyTool(BaseTool):
         sent = []
         failed = []
         for user in users:
-            audit_recipients.append({"id": user.id, "name": user.get_full_name() or user.username})
+            audit_recipients.append({"id": user.id, "name": _safe_text(user.get_full_name() or user.username)})
             for channel in resolve_channels(user, "agent_notify"):
                 try:
                     result = channel.send(

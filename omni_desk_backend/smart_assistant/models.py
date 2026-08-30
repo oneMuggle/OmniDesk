@@ -311,6 +311,7 @@ class AgentTask(models.Model):
     started_at = models.DateTimeField(null=True, blank=True, verbose_name="开始时间")
     completed_at = models.DateTimeField(null=True, blank=True, verbose_name="完成时间")
     final_output = models.JSONField(null=True, blank=True, verbose_name="最终产出物")
+    resume_claim_id = models.UUIDField(null=True, blank=True, editable=False, verbose_name="恢复 worker claim")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
