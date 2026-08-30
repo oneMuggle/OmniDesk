@@ -141,6 +141,7 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
                 "confirmed": True,
                 "confirm_token": confirm_token,
                 "user": request.user,
+                "task_id": draft_entry.get("task_id"),
                 "draft": draft_entry.get("draft", {}).get("fields"),
             },
         )
@@ -161,7 +162,7 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             confirm_token[:6],
             len(confirm_token),
         )
-        return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response({"detail": "智能助手操作失败，请稍后重试", "code": "confirmation_failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def _run_sync_process(

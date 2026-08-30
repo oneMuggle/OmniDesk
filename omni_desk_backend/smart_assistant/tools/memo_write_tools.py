@@ -220,7 +220,7 @@ class MemoCreateTool(BaseTool):
                     "error": str(e),
                 },
             )
-            return {"found": False, "message": f"创建备忘录失败: {e!s}"}
+            return {"found": False, "message": "创建备忘录失败，请稍后重试", "error_code": "memo_create_failed"}
 
         logger.info(
             "memo_create.persisted",

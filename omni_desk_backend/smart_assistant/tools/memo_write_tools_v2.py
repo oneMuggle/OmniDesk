@@ -140,6 +140,7 @@ class MemoUpdateTool(BaseTool):
                 "new_title": params.new_title,
                 "new_content": params.new_content,
                 "new_reminder_time": params.new_reminder_time,
+                "version": memo.updated_at.isoformat(),
             },
         }
         return {"found": True, "draft": draft}
@@ -177,6 +178,10 @@ class MemoUpdateTool(BaseTool):
 
         try:
             with transaction.atomic():
+                memo = Memo.all_objects.select_for_update().filter(pk=memo.pk, user=user).first()
+                fields = ctx.get("draft") if isinstance(ctx, dict) else {}
+                if memo is None or (fields.get("version") and memo.updated_at.isoformat() != fields["version"]):
+                    return {"found": False, "error_code": "stale_confirmation", "message": "确认内容已过期，请重新确认"}
                 old_title, old_content, old_reminder = memo.title, memo.content, memo.reminder_time
                 if params.new_title is not None:
                     memo.title = params.new_title[:200]
@@ -209,7 +214,7 @@ class MemoUpdateTool(BaseTool):
                     "error": str(e),
                 },
             )
-            return {"found": False, "message": f"修改备忘录失败: {e!s}"}
+            return {"found": False, "message": "修改备忘录失败，请稍后重试", "error_code": "memo_update_failed"}
 
         logger.info(
             "memo_update.persisted",
@@ -324,7 +329,7 @@ class MemoDeleteTool(BaseTool):
         memo = candidates[0]
         draft = {
             "summary": f"⚠️ 将永久删除备忘录《{memo.title}》,此操作不可恢复。确认?",
-            "fields": {"target_title": params.target_title, "memo_id": memo.id},
+            "fields": {"target_title": params.target_title, "memo_id": memo.id, "version": memo.updated_at.isoformat()},
         }
         return {"found": True, "draft": draft}
 

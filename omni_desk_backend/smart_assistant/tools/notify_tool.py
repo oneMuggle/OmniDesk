@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any, Callable
+import re
 
 from uuid import uuid4
 
@@ -9,6 +10,24 @@ from notifications.channels import resolve_channels
 from smart_assistant.scope import SmartAssistantScope, resolve_scope
 
 _SCOPE_RANK = {"self": 0, "department": 1, "global": 2}
+_SENSITIVE_RE = re.compile(r"(?:[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|1[3-9]\d{9}|\d{15}(?:\d{2}[0-9Xx])?)")
+_MAX_CONTENT_LENGTH = 10_000
+
+
+def _safe_text(value: str) -> str:
+    return _SENSITIVE_RE.sub("[已脱敏]", value)
+
+
+def _validate_text(values):
+    title = values.get("title")
+    content = values.get("content")
+    if not isinstance(title, str) or not title.strip() or not isinstance(content, str) or not content.strip():
+        return None, "title 和 content 不能为空"
+    title, content = title.strip(), content.strip()
+    if len(title) > 200 or len(content) > _MAX_CONTENT_LENGTH or any(ord(c) < 32 and c not in "\n\r\t" for c in title + content):
+        return None, "通知标题或正文长度/格式无效"
+    return {**values, "title": title, "content": content}, None
+
 
 
 def _default_resolver(name: str, _actor: Any) -> list[Any]:
@@ -120,11 +139,9 @@ class NotifyTool(BaseTool):
             return {"found": False, "message": "未登录用户无法发送通知"}
         if any(not values.get(key) for key in ("recipients", "title", "content", "scope")):
             return {"found": False, "message": "recipients、title、content、scope 均为必填"}
-        title = values.get("title")
-        content = values.get("content")
-        if not isinstance(title, str) or not title.strip() or not isinstance(content, str) or not content.strip():
-            return {"found": False, "message": "title 和 content 不能为空"}
-        values = {**values, "title": title.strip(), "content": content.strip()}
+        values, error = _validate_text(values)
+        if error:
+            return {"found": False, "message": error}
         error = self._validate_scope(values["scope"], ctx, context)
         if error:
             return {"found": False, "message": error}
@@ -153,6 +170,9 @@ class NotifyTool(BaseTool):
         if any(not isinstance(fields.get(key), str) or not fields[key].strip() for key in required):
             return {"found": False, "message": "确认草稿缺少有效的 title、content 或 scope"}
         fields = {**fields, "title": fields["title"].strip(), "content": fields["content"].strip(), "scope": fields["scope"].strip()}
+        fields, error = _validate_text(fields)
+        if error:
+            return {"found": False, "message": error}
         error = self._validate_scope(fields.get("scope"), ctx, context)
         if error:
             return {"found": False, "message": error}
@@ -174,7 +194,7 @@ class NotifyTool(BaseTool):
                 )
                 if not result.success:
                     return {"found": False, "message": result.message or "通知发送失败"}
-        audit_payload = {"recipients": audit_recipients, "title": fields["title"], "content": fields["content"]}
+        audit_payload = {"recipients": audit_recipients, "title": _safe_text(fields["title"]), "content": _safe_text(fields["content"]), "operation_id": operation_id}
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
             event_bus.emit("agent.notify", audit_payload)

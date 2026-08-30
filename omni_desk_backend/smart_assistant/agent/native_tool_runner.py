@@ -90,6 +90,7 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                     "tool_name": tool.name,
                     "user_query": query,
                     "context_sig": _scope_cache_sig(context),
+                    "task_id": getattr(context, "task_id", None),
                     "draft": draft,
                 },
             )
