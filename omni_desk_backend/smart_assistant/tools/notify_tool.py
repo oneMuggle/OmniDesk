@@ -195,8 +195,10 @@ class NotifyTool(BaseTool):
         ids = fields.get("recipient_ids")
         if not isinstance(ids, list) or not 1 <= len(ids) <= 10 or len(set(ids)) != len(ids):
             return {"found": False, "message": "确认草稿中的收件人无效"}
-        from django.contrib.auth import get_user_model
-        users = list(get_user_model().objects.filter(id__in=ids))
+        users = ctx.get("_resolved_users") or (ctx.get("draft") or {}).get("_resolved_users")
+        if not isinstance(users, list):
+            from django.contrib.auth import get_user_model
+            users = list(get_user_model().objects.filter(id__in=ids))
         users_by_id = {user.id: user for user in users}
         users = [users_by_id[user_id] for user_id in ids if user_id in users_by_id]
         if len(users) != len(ids):

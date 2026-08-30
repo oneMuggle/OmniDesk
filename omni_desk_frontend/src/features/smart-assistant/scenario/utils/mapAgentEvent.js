@@ -63,10 +63,11 @@ export function mapAgentEvent(event) {
   const eventType = firstDefined(source.type, source.event_type, 'unknown');
   const mappedType = EVENT_TYPE_MAP[eventType] || 'thinking';
   const numericSequence = Number(source.sequence);
-  const hasValidSequence = Number.isInteger(numericSequence) && numericSequence >= 0;
+  const hasValidSequence = Number.isFinite(numericSequence) && numericSequence >= 0;
+  const hasStableIdSequence = Number.isInteger(numericSequence) && numericSequence >= 0;
   const sequence = hasValidSequence ? numericSequence : null;
   const result = {
-    id: hasValidSequence ? `evt-${sequence}` : stableInvalidId(eventType, source),
+    id: hasStableIdSequence ? `evt-${sequence}` : stableInvalidId(eventType, source),
     sequence,
     eventType,
     type: mappedType,

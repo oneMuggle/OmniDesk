@@ -25,7 +25,7 @@ from ..agents.supervisor import Supervisor
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from ..agents.dataclasses import PersistentEventBus
-from ..hooks.wiring import apply_post_execute_hooks, execute_guarded
+from ..hooks.wiring import apply_failure_hooks, apply_post_execute_hooks, execute_guarded
 from ..tools.tool_context import ToolContext
 from ..scope import resolve_scope
 from llm_service.router import get_router
@@ -89,25 +89,37 @@ PUBLIC_VALUE_KEYS = {
 
 
 def _safe_plan_summary(task_packet):
-    """只向创建响应暴露计划的可展示摘要，不返回原始 task_packet。"""
-    if not isinstance(task_packet, dict):
-        return {}
-    subtasks = task_packet.get("subtasks")
+    """只向创建响应暴露计划摘要，兼容 TaskPacket 与字典。"""
+    if isinstance(task_packet, dict):
+        packet = task_packet
+    elif hasattr(task_packet, "to_dict"):
+        packet = task_packet.to_dict()
+    else:
+        packet = {
+            "objective": getattr(task_packet, "objective", None),
+            "execution_mode": getattr(getattr(task_packet, "execution_mode", None), "value", getattr(task_packet, "execution_mode", None)),
+            "subtasks": getattr(task_packet, "subtasks", []),
+        }
+    subtasks = packet.get("subtasks") if isinstance(packet, dict) else []
     summary = {
-        "objective": task_packet.get("objective"),
-        "execution_mode": task_packet.get("execution_mode"),
+        "objective": _sanitize_text(str(packet.get("objective") or "")),
+        "execution_mode": packet.get("execution_mode"),
         "subtask_count": len(subtasks) if isinstance(subtasks, list) else 0,
     }
     if isinstance(subtasks, list):
-        summary["subtasks"] = [
-            {
-                "id": item.get("id"),
-                "role": item.get("role"),
-                "objective": _sanitize_text(item.get("objective", "")),
-            }
-            for item in subtasks[:20]
-            if isinstance(item, dict)
-        ]
+        summary["subtasks"] = []
+        for item in subtasks[:20]:
+            if isinstance(item, dict):
+                item_id, role, objective = item.get("id"), item.get("role"), item.get("objective", "")
+            else:
+                item_id = getattr(item, "id", None)
+                role = getattr(getattr(item, "role", None), "value", getattr(item, "role", None))
+                objective = getattr(item, "objective", "")
+            summary["subtasks"].append({
+                "id": item_id,
+                "role": role,
+                "objective": _sanitize_text(str(objective or "")),
+            })
     return summary
 
 
@@ -132,9 +144,13 @@ def _safe_public_value(value, depth=0):
 
 
 class AgentSubTaskSerializer(serializers.ModelSerializer):
+    objective = serializers.SerializerMethodField()
     inputs = serializers.SerializerMethodField()
     output = serializers.SerializerMethodField()
     error_message = serializers.SerializerMethodField()
+
+    def get_objective(self, obj):
+        return _sanitize_text(obj.objective or "")
 
     def get_inputs(self, obj):
         return _safe_public_value(obj.inputs if isinstance(obj.inputs, dict) else {})
@@ -313,7 +329,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         try:
             with transaction.atomic():
                 task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
-                if task.status not in {"awaiting_confirmation", "paused"}:
+                if task.status != "paused":
                     return Response(
                         {"error": f"任务状态为 {task.status},无法确认"},
                         status=status.HTTP_409_CONFLICT,
@@ -341,6 +357,12 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 if claimed is None:
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
                 claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
+                fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                recipient_ids = fields.get("recipient_ids") if isinstance(fields, dict) else None
+                resolved_users = []
+                if isinstance(recipient_ids, list):
+                    from django.contrib.auth import get_user_model
+                    resolved_users = list(get_user_model().objects.filter(id__in=recipient_ids))
                 task_id = task.task_id
                 tool_name = entry.get("tool_name")
                 user_query = claimed.get("user_query", "")
@@ -348,19 +370,21 @@ class AgentTaskViewSet(viewsets.ViewSet):
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
         event_bus = PersistentEventBus(agent_task_id=str(task_id))
+        # 工具执行在事务提交后进行，避免 SQLite 写锁跨线程冲突。
         context = ToolContext(
             user=request.user,
             scope=resolve_scope(request.user),
             task_id=task_id,
             event_bus=event_bus,
             confirmed=True,
-            draft=claimed_draft,
+            draft={**claimed_draft, "_resolved_users": resolved_users},
         )
         try:
             result = execute_guarded(tool, user_query, context=context)
             result = apply_post_execute_hooks(tool, result, context)
-        except Exception:
+        except Exception as exc:
             logger.exception("确认工具执行失败: task_id=%s", task_id)
+            apply_failure_hooks(tool, exc, context)
             event_bus.emit("subtask.tool_result", {
                 "task_id": str(task_id), "status": "failed", "operation_id": operation_id,
                 "error": "确认操作执行失败", "phase": "confirm", "operation": tool_name,

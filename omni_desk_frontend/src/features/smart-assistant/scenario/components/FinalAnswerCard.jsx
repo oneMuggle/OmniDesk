@@ -24,14 +24,14 @@ const PAYLOAD_META = {
   announcement: { icon: AuditOutlined, color: 'gold', title: '合规公告已发布' },
 };
 
+const SENSITIVE_KEYS = new Set(['credentials', 'credential', 'token', 'password', 'secret', 'prompt', 'internal_prompt', 'api_key', 'access_token', 'authorization', 'access_key', 'private_key', 'email', 'phone', 'phone_number', '身份证', '身份证号', 'id_card', 'idcard']);
+
 const safeOutputText = (value) => {
   if (typeof value === 'string') return value;
-  if (Array.isArray(value)) {
-    return value.map((item) => safeOutputText(item)).filter(Boolean).join('\n');
-  }
+  if (Array.isArray(value)) return value.map(safeOutputText).filter(Boolean).join('\n');
   if (value && typeof value === 'object') {
     return Object.entries(value)
-      .filter(([key]) => !['credentials', 'token', 'password', 'prompt', 'internal_prompt'].includes(key.toLowerCase()))
+      .filter(([key]) => !SENSITIVE_KEYS.has(key.toLowerCase()))
       .map(([key, item]) => `${key}: ${safeOutputText(item)}`)
       .filter(Boolean)
       .join('\n');
@@ -39,7 +39,7 @@ const safeOutputText = (value) => {
   return value == null ? '' : String(value);
 };
 
-const asArray = (value) => (Array.isArray(value) ? value : []);
+const asArray = (value) => (Array.isArray(value) ? value : value == null ? [] : [value]);
 const safeItemText = (value) => safeOutputText(value) || '—';
 const safeItemObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
 

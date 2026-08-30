@@ -67,8 +67,61 @@ class TestAgentTaskResultNotification(TestCase):
         with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=__import__("smart_assistant.tools.notify_tool", fromlist=["NotifyTool"]).NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
             response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
         self.assertEqual(response.status_code, 200)
-        self.assertTrue(response.data["found"])
-        self.assertTrue(AgentEvent.objects.filter(task=self.task, event_type="subtask.tool_result").exists())
+        self.assertTrue(response.data["found"] is False)
+        self.assertEqual(response.data["result"]["failed_count"], 1)
+
+    def test_confirm_replay_rejects_running_and_completed_tasks(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.views.tasks import AgentTaskViewSet
+
+        token = "task-confirm-status-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"operation_id": "op-status"}},
+        })
+        factory = APIRequestFactory()
+        request = factory.post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        self.task.status = "running"
+        self.task.save(update_fields=["status"])
+        response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        self.assertEqual(response.status_code, 409)
+
+    def test_safe_plan_summary_accepts_task_packet_object(self):
+        from smart_assistant.agents.packet import AgentRole, ExecutionMode, SubTask, TaskPacket
+        from smart_assistant.views.tasks import _safe_plan_summary
+
+        packet = TaskPacket(
+            task_id=str(uuid4()), objective="目标", execution_mode=ExecutionMode.PIPELINE,
+            subtasks=[SubTask(id="s1", role=AgentRole.RESEARCHER, objective="子目标")],
+        )
+        summary = _safe_plan_summary(packet)
+        self.assertEqual(summary["objective"], "目标")
+        self.assertEqual(summary["execution_mode"], "pipeline")
+        self.assertEqual(summary["subtasks"][0]["id"], "s1")
+
+    def test_confirm_notify_without_channel_returns_safe_failure(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-notify-no-channel-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {"recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-no-channel"}},
+        })
+        factory = APIRequestFactory()
+        request = factory.post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=NotifyTool(resolver=lambda _name, _actor: [self.user])), patch("smart_assistant.tools.notify_tool.resolve_channels", return_value=[]):
+            response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data["found"])
+        self.assertEqual(response.data["result"]["failed_count"], 1)
 
     def test_calculate_time_limits_uses_task_budget_and_packet_shape(self):
         from django.test import override_settings
