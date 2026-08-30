@@ -112,7 +112,16 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const intervene = useCallback(async (action) => {
     if (!taskId) return;
     if (action === 'pause') manuallyPausedRef.current = true;
-    await interveneAgentTask(taskId, action);
+    if (action === 'pause') setStatus('pausing');
+    if (action === 'resume') setStatus('resuming');
+    try {
+      await interveneAgentTask(taskId, action);
+    } catch (interveneError) {
+      manuallyPausedRef.current = false;
+      setError(interveneError);
+      setStatus(action === 'pause' ? 'running' : 'paused');
+      throw interveneError;
+    }
     if (action === 'pause') {
       stop();
       setStatus('paused');
@@ -131,6 +140,8 @@ export default function useAgentTaskStream(taskId, options = {}) {
     retryCountRef.current = 0;
     setEvents([]);
     setError(null);
+    lastSeqRef.current = 0;
+    setLastSeq(0);
     subscribe();
   }, [subscribe]);
 

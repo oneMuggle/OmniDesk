@@ -26,6 +26,20 @@ from ..models import AgentEvent, AgentSubTask, AgentTask
 from llm_service.router import get_router
 
 
+SAFE_EVENT_PAYLOAD_KEYS = {"event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id"}
+SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt"}
+
+
+def _safe_event_payload(event):
+    payload = event.payload if isinstance(event.payload, dict) else {}
+    safe = {}
+    for key in SAFE_EVENT_PAYLOAD_KEYS:
+        value = payload.get(key)
+        if key not in SENSITIVE_KEYS and value is not None:
+            safe[key] = value
+    return safe
+
+
 # ---------------------------------------------------------------------------
 # Serializers
 # ---------------------------------------------------------------------------
@@ -275,7 +289,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         "type": event.event_type,
                         "sequence": event.sequence,
                         "subtask_id": event.subtask_id if event.subtask else None,
-                        "payload": event.payload if isinstance(event.payload, dict) else {},
+                        "payload": _safe_event_payload(event),
                         "timestamp": event.created_at.isoformat(),
                     }
                     yield f"id: {event.sequence}\n{sse_event(data)}"
@@ -323,10 +337,16 @@ class AgentTaskViewSet(viewsets.ViewSet):
         events = AgentEvent.objects.filter(task=task).select_related("subtask").order_by("sequence")
         subtasks = AgentSubTask.objects.filter(task=task).order_by("subtask_id")
 
+        timeline = []
+        for event in events:
+            item = _safe_event_payload(event)
+            item.update({"sequence": event.sequence, "event_type": event.event_type, "subtask_id": event.subtask_id if event.subtask else None})
+            timeline.append(item)
+
         return Response(
             {
-                "task": AgentTaskSerializer(task).data,
-                "subtasks": AgentSubTaskSerializer(subtasks, many=True).data,
-                "timeline": AgentEventSerializer(events, many=True).data,
+                "task": {"task_id": str(task.task_id), "status": task.status, "objective": task.objective},
+                "subtasks": [{"subtask_id": subtask.subtask_id, "status": subtask.status, "role": subtask.role} for subtask in subtasks],
+                "timeline": timeline,
             }
         )

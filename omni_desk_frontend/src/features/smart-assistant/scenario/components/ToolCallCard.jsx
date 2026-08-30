@@ -7,6 +7,16 @@ import { getAgent, getAgentIcon } from '../data/agents';
 import { getTool, getToolIcon } from '../data/tools';
 
 const { Text } = Typography;
+const SENSITIVE_KEYS = /token|password|secret|credential|authorization|cookie|prompt|args|argument/i;
+const MAX_DISPLAY_LENGTH = 2000;
+
+function safeDisplay(value) {
+  if (value === null || value === undefined) return '—';
+  if (typeof value !== 'object') return String(value).slice(0, MAX_DISPLAY_LENGTH);
+  if (Array.isArray(value)) return `${value.length} 项结果`;
+  return Object.keys(value).filter((key) => !SENSITIVE_KEYS.test(key)).slice(0, 20).map((key) => `${key}: ${safeDisplay(value[key])}`).join('\n').slice(0, MAX_DISPLAY_LENGTH);
+}
+
 const { useToken } = theme;
 
 /**
@@ -41,7 +51,7 @@ export default function ToolCallCard({ agent, tool, input, output }) {
 
         <Card size="small" className="tool-call-section" title="调用参数" styles={{ body: { padding: 12 } }}>
           {input && Object.keys(input).length > 0 ? (
-            <pre className="tool-call-json">{JSON.stringify(input, null, 2)}</pre>
+            <Text className="tool-call-json">{safeDisplay(input)}</Text>
           ) : (
             <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="无参数" />
           )}
@@ -56,13 +66,8 @@ export default function ToolCallCard({ agent, tool, input, output }) {
 }
 
 function ToolResultView({ output }) {
-  if (output === null || output === undefined) {
-    return <Text type="secondary">—</Text>;
-  }
-  if (typeof output === 'string' || typeof output === 'number' || typeof output === 'boolean') {
-    return <Text>{String(output)}</Text>;
-  }
-  if (Array.isArray(output)) {
+  return <Text>{safeDisplay(output)}</Text>;
+}
     return (
       <div className="tool-call-list">
         {output.map((item, idx) => (

@@ -5,5 +5,10 @@ const SCENARIOS = [
 ];
 
 export function getScenarios() { return SCENARIOS.slice(); }
+export function listScenarios() { return getScenarios(); }
 export function getScenario(id) { return SCENARIOS.find((scenario) => scenario.id === id) || null; }
+export function matchScenarioByInput(input) {
+  const query = typeof input === 'string' ? input : '';
+  return SCENARIOS.find((scenario) => query.indexOf(scenario.userInput) !== -1 || scenario.userInput.indexOf(query) !== -1) || null;
+}
 export default SCENARIOS;
