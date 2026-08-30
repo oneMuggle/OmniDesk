@@ -599,4 +599,3 @@ choices 变更虽是 no-op，仍要生成迁移以保持 migration 状态一致�
 8. 普通用户 POST `/api/notifications/` 返回 405
 9. IE11（或禁用 `ReadableStream` 的环境）下任务进度仍可显示
 10. 后端 pytest 全绿，覆盖率 ≥80%；前端 Jest 全绿；`npm run build` 无警告
-

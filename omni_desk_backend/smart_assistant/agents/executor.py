@@ -101,7 +101,12 @@ class MultiAgentExecutor:
         if tool_context is not None and getattr(tool_context, "user", user) is not user:
             raise ValueError("工具上下文用户与任务所有者不一致")
         if tool_context is None and user is not None:
-            tool_context = ToolContext(user=user, scope=resolve_scope(user), task_id=agent_task_id)
+            tool_context = ToolContext(
+                user=user,
+                scope=resolve_scope(user),
+                task_id=agent_task_id,
+                event_bus=self.event_bus,
+            )
         self.subtask_runner = SubTaskRunner(
             llm_router,
             self.event_bus,

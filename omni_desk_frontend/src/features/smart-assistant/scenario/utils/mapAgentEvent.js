@@ -40,7 +40,7 @@ export function mapAgentEvent(event) {
   const eventType = firstDefined(source.type, source.event_type, 'unknown');
   const mappedType = EVENT_TYPE_MAP[eventType] || 'thinking';
   const result = {
-    id: source.sequence,
+    id: `evt-${source.sequence}`,
     sequence: source.sequence,
     eventType,
     type: mappedType,

@@ -37,7 +37,7 @@ describe('mapAgentEvent', () => {
       payload: { agent: 'planner', content: '处理中' },
       timestamp: '2026-08-30T10:00:00Z',
     })).toMatchObject({
-      id: 7,
+      id: 'evt-7',
       sequence: 7,
       eventType,
       type,
@@ -61,7 +61,7 @@ describe('mapAgentEvent', () => {
     });
 
     expect(event).toMatchObject({
-      id: 8,
+      id: 'evt-8',
       sequence: 8,
       eventType,
       type: eventType,
@@ -84,7 +84,7 @@ describe('mapAgentEvent', () => {
       },
       created_at: '2026-08-30T10:01:00Z',
     })).toMatchObject({
-      id: 9,
+      id: 'evt-9',
       sequence: 9,
       eventType: 'task.completed',
       type: 'final_answer',
@@ -103,7 +103,7 @@ describe('mapAgentEvent', () => {
         sequence: 10,
         payload: { error: '执行失败' },
       })).toMatchObject({
-        id: 10,
+      id: 'evt-10',
         sequence: 10,
         eventType,
         type: 'error',
@@ -114,7 +114,7 @@ describe('mapAgentEvent', () => {
   test('未知事件返回明确兜底且不抛异常', () => {
     expect(() => mapAgentEvent(null)).not.toThrow();
     expect(mapAgentEvent({ type: 'unknown.event', sequence: 11 })).toMatchObject({
-      id: 11,
+      id: 'evt-11',
       sequence: 11,
       eventType: 'unknown.event',
       type: 'thinking',
@@ -124,7 +124,7 @@ describe('mapAgentEvent', () => {
 
   test('畸形 payload 不抛异常并使用安全默认值', () => {
     expect(mapAgentEvent({ type: 'subtask.progress', sequence: 12, payload: null })).toEqual({
-      id: 12,
+      id: 'evt-12',
       sequence: 12,
       eventType: 'subtask.progress',
       type: 'thinking',

@@ -30,6 +30,9 @@ class ToolContext:
     task_id: Any = None
     model_name: str | None = None
     tool_name: str | None = None
+    # 运行时事件总线仅用于审计回调，不参与上下文身份或权限判断。
+    # 保持可选以兼容普通工具和历史裸 dict context。
+    event_bus: Any = None
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:

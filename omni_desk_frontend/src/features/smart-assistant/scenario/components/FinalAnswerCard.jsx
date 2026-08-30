@@ -24,6 +24,22 @@ const PAYLOAD_META = {
   announcement: { icon: AuditOutlined, color: 'gold', title: '合规公告已发布' },
 };
 
+const safeOutputText = (value) => {
+  if (typeof value === 'string') return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => safeOutputText(item)).filter(Boolean).join('\n');
+  }
+  if (value && typeof value === 'object') {
+    const preferred = value.summary || value.message || value.output || value.result;
+    if (preferred !== undefined) return safeOutputText(preferred);
+    return Object.entries(value)
+      .filter(([key]) => !['credentials', 'token', 'password', 'prompt', 'internal_prompt'].includes(key))
+      .map(([key, item]) => `${key}: ${safeOutputText(item)}`)
+      .join('\n');
+  }
+  return value == null ? '' : String(value);
+};
+
 /**
  * @param {{
  *   agent: string,
@@ -63,7 +79,7 @@ export default function FinalAnswerCard({ agent, payloadKind, payload, finalOutp
           {isFailed && <Text type="danger">任务未完整执行，请检查失败子任务后重试。</Text>}
           {finalOutput !== undefined && !isFailed && (
             <Paragraph data-testid="agent-final-output">
-              {typeof finalOutput === 'string' ? finalOutput : '任务结果已生成'}
+              {safeOutputText(finalOutput) || '任务结果已生成'}
             </Paragraph>
           )}
           {payloadKind === 'email_draft' && <EmailDraftBody payload={payload} />}

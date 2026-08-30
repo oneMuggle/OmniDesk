@@ -32,6 +32,9 @@ logger = get_logger(__name__, "smart_assistant")
 SAFE_EVENT_PAYLOAD_KEYS = {
     "event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id",
     "error", "reason", "final_output", "total_tokens", "dropped_events", "round",
+    # notify 审计摘要：仅保留计数、脱敏收件人和通道结果，不保留凭据或 prompt。
+    "operation_id", "phase", "operation", "recipients", "sent", "failed", "sent_count",
+    "failed_count", "recipient_count", "channel", "channels",
 }
 SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
 

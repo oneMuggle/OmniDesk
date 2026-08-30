@@ -296,7 +296,11 @@ class SubTaskRunner:
     ) -> tuple[str, dict]:
         """执行受权限上下文约束的原生工具调用循环。"""
         user = self._user
-        tool_context = self._tool_context or ToolContext(user=user, scope=resolve_scope(user))
+        tool_context = self._tool_context or ToolContext(
+            user=user,
+            scope=resolve_scope(user),
+            event_bus=self._event_bus,
+        )
         if tool_context.user is not user or tool_context.scope != resolve_scope(user):
             raise ValueError("工具上下文不可信")
         tool_schemas = self._tool_registry.get_openai_tools(user)

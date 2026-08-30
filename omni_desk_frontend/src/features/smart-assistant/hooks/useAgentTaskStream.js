@@ -13,6 +13,7 @@ const TERMINAL_TYPES = {
   cancelled: 'cancelled',
 };
 const RETRY_DELAYS = [1000, 2000, 4000];
+const INTERVENTION_CONFIRM_TIMEOUT_MS = 5000;
 
 export default function useAgentTaskStream(taskId, options = {}) {
   const { lastSeq: initialLastSeq = 0 } = options;
@@ -24,8 +25,10 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const lastSeqRef = useRef(initialLastSeq);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
+  const interventionTimerRef = useRef(null);
   const subscribeRef = useRef(null);
   const manuallyPausedRef = useRef(false);
+  const pendingInterventionRef = useRef(null);
 
   const stop = useCallback(() => {
     if (subscriptionRef.current) {
@@ -35,6 +38,10 @@ export default function useAgentTaskStream(taskId, options = {}) {
     if (retryTimerRef.current) {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
+    }
+    if (interventionTimerRef.current) {
+      clearTimeout(interventionTimerRef.current);
+      interventionTimerRef.current = null;
     }
   }, []);
 
@@ -50,18 +57,31 @@ export default function useAgentTaskStream(taskId, options = {}) {
     const nextStatus = TERMINAL_TYPES[event.type] || TERMINAL_TYPES[eventStatus] || TERMINAL_TYPES[mappedEvent.type];
     if (eventStatus === 'partial') setStatus('partial');
     else if (nextStatus) setStatus(nextStatus);
-    if (event.type === 'task.paused') setStatus('paused');
+    if (event.type === 'task.paused') {
+      manuallyPausedRef.current = true;
+      if (pendingInterventionRef.current === 'pause') {
+        pendingInterventionRef.current = null;
+        if (interventionTimerRef.current) clearTimeout(interventionTimerRef.current);
+        interventionTimerRef.current = null;
+      }
+      setStatus('paused');
+    }
     if (event.type === 'task.resumed') {
       manuallyPausedRef.current = false;
+      if (pendingInterventionRef.current === 'resume') {
+        pendingInterventionRef.current = null;
+        if (interventionTimerRef.current) clearTimeout(interventionTimerRef.current);
+        interventionTimerRef.current = null;
+      }
       setStatus('running');
     }
   }, []);
 
-  const subscribe = useCallback(() => {
+  const subscribe = useCallback((showRunning = true) => {
     if (!taskId || manuallyPausedRef.current) return;
     stop();
     setError(null);
-    setStatus('running');
+    if (showRunning) setStatus('running');
     subscriptionRef.current = subscribeTaskStream(taskId, {
       onEvent: handleEvent,
       onDone: (event, doneSequence) => {
@@ -110,6 +130,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
   }, [subscribe]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- initial stream subscription synchronizes external SSE state
     subscribe();
     return stop;
   }, [stop, subscribe]);
@@ -127,14 +148,28 @@ export default function useAgentTaskStream(taskId, options = {}) {
       setStatus(action === 'pause' ? 'running' : 'paused');
       throw interveneError;
     }
-    if (action === 'pause') {
-      stop();
-      setStatus('paused');
-    } else if (action === 'resume') {
-      manuallyPausedRef.current = false;
-      retryCountRef.current = 0;
-      subscribe();
-    } else if (action === 'cancel') {
+    if (action === 'pause' || action === 'resume') {
+      const previousStatus = action === 'pause' ? 'running' : 'paused';
+      pendingInterventionRef.current = action;
+      interventionTimerRef.current = setTimeout(() => {
+        if (pendingInterventionRef.current !== action) return;
+        pendingInterventionRef.current = null;
+        interventionTimerRef.current = null;
+        manuallyPausedRef.current = false;
+        const timeoutError = new Error(`${action === 'pause' ? '暂停' : '恢复'}确认超时`);
+        setError(timeoutError);
+        setStatus(previousStatus);
+      }, INTERVENTION_CONFIRM_TIMEOUT_MS);
+      if (action === 'resume') {
+        retryCountRef.current = 0;
+        subscribe(false);
+      }
+      return;
+    }
+    if (action === 'cancel') {
+      pendingInterventionRef.current = null;
+      if (interventionTimerRef.current) clearTimeout(interventionTimerRef.current);
+      interventionTimerRef.current = null;
       stop();
       setStatus('cancelled');
     }
