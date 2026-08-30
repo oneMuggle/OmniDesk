@@ -27,6 +27,8 @@ class Notification(models.Model):
         ("paperless_down", "Paperless 服务不可用"),
         ("paperless_recovered", "Paperless 服务已恢复"),
         ("compliance_due", "合规问题到期"),
+        ("agent_notify", "智能助手通知"),
+        ("agent_task_result", "智能助手任务结果"),
     ]
 
     PRIORITY_CHOICES = [
