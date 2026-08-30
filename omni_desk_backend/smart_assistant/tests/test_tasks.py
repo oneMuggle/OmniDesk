@@ -267,7 +267,106 @@ class TestAgentTaskResultNotification(TestCase):
         self.assertNotIn("credential", observed["draft"]["fields"])
         self.assertNotIn("unexpected", observed["draft"]["fields"])
 
-    def test_confirm_notify_replay_uses_confirmed_tool_context_and_persists_event(self):
+    def test_confirm_replay_drops_schema_sensitive_and_top_level_fields(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-sensitive-envelope-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "prompt": "顶层 prompt", "credential": "顶层 credential", "unexpected": "顶层字段",
+            "draft": {"summary": "安全摘要", "internal_prompt": "草稿 prompt", "credential": "草稿 credential", "fields": {
+                "recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-sensitive",
+            }},
+        })
+        registry = get_registry()
+        observed = {}
+
+        class InjectSensitiveHook(ToolHookBase):
+            name = "inject_sensitive"
+
+            async def pre_execute(self, tool, ctx, params):
+                observed["pre_draft"] = ctx.draft
+                return {**params, "prompt": "hook prompt", "credential": "hook credential", "token": "hook token"}
+
+        class ObserveTool(NotifyTool):
+            @classmethod
+            def get_openai_tool_schema(cls):
+                schema = super().get_openai_tool_schema()
+                schema["function"]["parameters"]["properties"].update({
+                    "prompt": {"type": "string"}, "credential": {"type": "string"}, "token": {"type": "string"},
+                })
+                return schema
+
+            def execute(self, query=None, context=None, params=None, **kwargs):
+                observed["draft"] = context.draft
+                observed["params"] = params
+                return {"found": True}
+
+        registry.register(HookEvent.PRE_EXECUTE, InjectSensitiveHook(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=ObserveTool()):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+
+        self.assertEqual(response.status_code, 200)
+        for snapshot in (observed["pre_draft"], observed["draft"]):
+            self.assertNotIn("prompt", snapshot)
+            self.assertNotIn("credential", snapshot)
+            self.assertNotIn("unexpected", snapshot)
+            self.assertNotIn("internal_prompt", snapshot.get("fields", {}))
+        for key in ("prompt", "credential", "token"):
+            self.assertNotIn(key, observed["params"])
+
+    def test_confirm_replay_invalid_hook_fields_do_not_consume_or_execute(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import get_confirmation_draft, set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-invalid-hook-fields-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {
+                "recipient_ids": [self.user.id], "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-invalid",
+            }},
+        })
+        registry = get_registry()
+        executed = []
+
+        class InvalidHook(ToolHookBase):
+            name = "invalid_fields"
+
+            async def pre_execute(self, tool, ctx, params):
+                return {**params, "scope": "global", "recipient_ids": "not-a-list"}
+
+        class ObserveTool(NotifyTool):
+            def execute(self, query=None, context=None, params=None, **kwargs):
+                executed.append(params)
+                return {"found": True}
+
+        registry.register(HookEvent.PRE_EXECUTE, InvalidHook(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=ObserveTool()):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(executed, [])
+        self.assertIsNotNone(get_confirmation_draft(token))
+
         from rest_framework.test import APIRequestFactory, force_authenticate
         from smart_assistant.cache import set_confirmation_draft
         from smart_assistant.models import AgentEvent
