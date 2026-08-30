@@ -323,10 +323,11 @@ describe('subscribeTaskStream SSE 订阅', () => {
 
     it('ReadableStream 缺失时即使响应 body 有 getReader 也直接走 timeline 降级', async () => {
       globalThis.ReadableStream = undefined;
+      const body = { getReader: jest.fn() };
       globalThis.fetch = jest.fn().mockResolvedValue({
         ok: true,
         status: 200,
-        body: { getReader: jest.fn() },
+        body,
       });
       apiClient.get.mockResolvedValue({
         data: {
@@ -342,6 +343,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
         expect.objectContaining({ signal: expect.any(Object) })
       ));
 
+      expect(body.getReader).not.toHaveBeenCalled();
       expect(callbacks.onEvent).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
       expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
       expect(callbacks.onError).not.toHaveBeenCalled();

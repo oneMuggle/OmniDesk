@@ -13,7 +13,9 @@ const SENSITIVE_KEYS = /api(?:[_-]?key)?|access(?:[_-]?key|[_-]?token)?|token|pa
 const EMAIL_PATTERN = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
 const NUMERIC_TOKEN_PATTERN = /[0-9]+[Xx]?/g;
 
-function redactNumericToken(token) {
+function redactNumericToken(token, offset, source) {
+  const nextCharacter = source.charAt(offset + token.length);
+  if (/[0-9]/.test(nextCharacter)) return token;
   const digits = token.slice(-1).toLowerCase() === 'x' ? token.slice(0, -1) : token;
   const isPhone = digits.length === 11 && digits.charAt(0) === '1';
   const isIdCard = digits.length === 15 || digits.length === 18
