@@ -114,7 +114,18 @@ def test_tool_round_limit_finishes_with_tool_choice_none():
     assert len(router.calls) == 3
 
 
-def test_without_registry_keeps_legacy_text_generation():
+def test_budget_exhaustion_does_not_report_success():
+    user = MagicMock(is_authenticated=True)
+    router = FakeRouter([
+        ("", {"total_tokens": 5}, [{"id": "c1", "function": {"name": "lookup", "arguments": '{"q":"x"}'}}]),
+    ])
+    context = SharedContext("q", global_budget=1)
+    result = SubTaskRunner(router, EventBus(), 1, tool_registry=FakeRegistry, user=user).run(make_subtask(), context)
+
+    assert result.status == "failed"
+    assert result.error_message == "token budget exhausted"
+
+
     router = FakeRouter([])
     result = SubTaskRunner(router, EventBus(), 1).run(make_subtask(), SharedContext("q"))
     assert result.output == "legacy answer"

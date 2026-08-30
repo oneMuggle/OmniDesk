@@ -166,6 +166,9 @@ class SubTaskRunner:
             # 调用 LLM;配置工具注册表时优先使用原生 tool-calling。
             content, usage = self.invoke_llm(subtask, profile, messages, ctx=ctx)
 
+            if content == "" and self._budget_exhausted_during_tools(ctx):
+                raise RuntimeError("token budget exhausted")
+
             # 解析 LLM 输出
             output, artifacts = self.parse_output(content, subtask)
 
@@ -206,7 +209,7 @@ class SubTaskRunner:
                 tokens_used=0,
                 duration_ms=duration_ms,
                 status="failed",
-                error_message="subtask execution failed: " + type(e).__name__,
+                error_message=("token budget exhausted" if isinstance(e, RuntimeError) and str(e) == "token budget exhausted" else "subtask execution failed: " + type(e).__name__),
             )
 
     def invoke_llm(
@@ -257,6 +260,9 @@ class SubTaskRunner:
             usage = {}
 
         return content, usage
+
+    def _budget_exhausted_during_tools(self, context: SharedContext) -> bool:
+        return self._native_tools_enabled() and context.is_budget_exhausted()
 
     def _native_tools_enabled(self) -> bool:
         return (
