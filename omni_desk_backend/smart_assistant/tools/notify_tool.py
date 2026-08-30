@@ -42,12 +42,11 @@ class NotifyTool(BaseTool):
                 values = json.loads(query)
             except (TypeError, ValueError):
                 values = {}
-        if "recipient_ids" in values and "recipients" not in values:
-            from django.contrib.auth import get_user_model
-            values = dict(values)
-            values["recipients"] = list(get_user_model().objects.filter(id__in=values["recipient_ids"]).values_list("username", flat=True))
         if not isinstance(values, dict):
             return {"found": False, "message": "通知参数必须是对象"}
+        if "scope" not in values:
+            values = dict(values)
+            values["scope"] = self._context_scope(ctx, context)
         if ctx.get("dry_run") or values.get("dry_run"):
             return self._dry_run(values, ctx, context)
         if ctx.get("confirmed") or values.get("confirmed"):
