@@ -346,7 +346,7 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
         if value is None:
             return None
         validated = validate(value)
-        if validated is None:
+        if not isinstance(validated, dict):
             return None
         delete(key)
         return validated

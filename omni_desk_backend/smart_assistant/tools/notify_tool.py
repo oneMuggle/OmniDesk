@@ -19,6 +19,17 @@ _SENSITIVE_KEYS = {
     "internal_prompt", "api_key", "apikey", "access_token", "authorization", "access_key", "private_key",
     "session", "email", "phone", "phone_number", "身份证", "身份证号", "id_card", "idcard",
 }
+_SENSITIVE_CANONICAL_KEYS = {re.sub(r"[^a-z0-9]", "", key.lower()) for key in _SENSITIVE_KEYS}
+_SENSITIVE_CANONICAL_PATTERNS = tuple(re.compile(pattern) for pattern in (
+    r"(?:^|prompt)(?:text|value)?$", r"credential(?:blob)?$", r"token(?:value)?$",
+    r"bearertoken$", r"clientsecret$", r"apikey$", r"accesstoken$",
+    r"authorizationheader$", r"sessionid$",
+))
+
+
+def _is_sensitive_key(key):
+    canonical = re.sub(r"[^a-z0-9]", "", str(key).lower())
+    return canonical in _SENSITIVE_CANONICAL_KEYS or any(pattern.search(canonical) for pattern in _SENSITIVE_CANONICAL_PATTERNS)
 
 
 def _safe_text(value: str) -> str:
@@ -39,7 +50,7 @@ def _sanitize_value(value: Any, depth: int = 0) -> Any:
         return {
             str(key): _sanitize_value(item, depth + 1)
             for key, item in list(value.items())[:30]
-            if str(key).lower() not in _SENSITIVE_KEYS
+            if not _is_sensitive_key(key)
         }
     return "[已隐藏]"
 

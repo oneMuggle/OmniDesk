@@ -102,7 +102,7 @@ def _safe_replay_draft(draft, fields):
     """Build the minimal draft envelope exposed to hooks and confirmed tools."""
     safe_draft = {"fields": fields}
     if isinstance(draft, dict) and isinstance(draft.get("summary"), str):
-        safe_draft["summary"] = draft["summary"]
+        safe_draft["summary"] = _sanitize_text(draft["summary"])
     return safe_draft
 
 
@@ -159,7 +159,7 @@ def _sanitize_value(value, depth=0):
         return {
             key: _sanitize_value(item, depth + 1)
             for key, item in list(value.items())[:30]
-            if str(key).lower() not in SENSITIVE_KEYS
+            if not _is_sensitive_field(key)
         }
     return "[已隐藏]"
 
@@ -231,7 +231,7 @@ def _safe_public_value(value, depth=0):
         return {
             str(key): _safe_public_value(item, depth + 1)
             for key, item in list(value.items())[:30]
-            if str(key).lower() not in SENSITIVE_KEYS
+            if not _is_sensitive_field(key)
             and (str(key) in PUBLIC_VALUE_KEYS or depth > 0)
         }
     return "[已隐藏]"
@@ -455,7 +455,22 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 reject_holder = []
 
                 def validate_and_prepare(claimed):
-                    claimed_draft = claimed.get("draft") if isinstance(claimed, dict) and isinstance(claimed.get("draft"), dict) else {}
+                    if not isinstance(claimed, dict):
+                        return None
+                    if (
+                        claimed.get("task_id") != str(task_id)
+                        or claimed.get("context_sig") != expected_sig
+                        or claimed.get("tool_name") != tool_name
+                    ):
+                        validation_error_holder.append("确认令牌绑定不匹配")
+                        return None
+                    claimed_metadata = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
+                    claimed_metadata_fields = claimed_metadata.get("fields") if isinstance(claimed_metadata.get("fields"), dict) else claimed_metadata
+                    claimed_operation_id = claimed_metadata_fields.get("operation_id") if isinstance(claimed_metadata_fields, dict) else None
+                    if claimed_operation_id != operation_id:
+                        validation_error_holder.append("确认操作不匹配")
+                        return None
+                    claimed_draft = claimed_metadata
                     claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
                     candidate_fields = _filter_replay_fields(claimed_fields, allowed_replay_fields)
                     event_bus = PersistentEventBus(agent_task_id=str(task_id))
