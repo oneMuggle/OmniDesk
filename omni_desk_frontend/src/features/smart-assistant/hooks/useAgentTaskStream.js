@@ -31,7 +31,11 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const pendingInterventionRef = useRef(null);
   const interventionTokenRef = useRef(0);
 
-  const stop = useCallback(() => {
+  const stop = useCallback((invalidateIntervention = true) => {
+    if (invalidateIntervention) {
+      interventionTokenRef.current += 1;
+      pendingInterventionRef.current = null;
+    }
     if (subscriptionRef.current) {
       subscriptionRef.current.abort();
       subscriptionRef.current = null;

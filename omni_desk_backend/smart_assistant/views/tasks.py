@@ -26,6 +26,8 @@ from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from ..agents.dataclasses import PersistentEventBus
 from ..hooks.wiring import apply_post_execute_hooks, execute_guarded
+from ..tools.tool_context import ToolContext
+from ..scope import resolve_scope
 from llm_service.router import get_router
 from observability import get_logger
 
@@ -84,6 +86,29 @@ PUBLIC_VALUE_KEYS = {
     "tool", "phase", "operation", "round", "count", "total", "items", "result",
     "recipient_count", "sent_count", "failed_count", "channel", "channels",
 }
+
+
+def _safe_plan_summary(task_packet):
+    """只向创建响应暴露计划的可展示摘要，不返回原始 task_packet。"""
+    if not isinstance(task_packet, dict):
+        return {}
+    subtasks = task_packet.get("subtasks")
+    summary = {
+        "objective": task_packet.get("objective"),
+        "execution_mode": task_packet.get("execution_mode"),
+        "subtask_count": len(subtasks) if isinstance(subtasks, list) else 0,
+    }
+    if isinstance(subtasks, list):
+        summary["subtasks"] = [
+            {
+                "id": item.get("id"),
+                "role": item.get("role"),
+                "objective": _sanitize_text(item.get("objective", "")),
+            }
+            for item in subtasks[:20]
+            if isinstance(item, dict)
+        ]
+    return summary
 
 
 def _safe_public_value(value, depth=0):
@@ -233,7 +258,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 {
                     "task_id": str(task.task_id),
                     "status": task.status,
-                    "plan": task.task_packet,
+                    "plan": _safe_plan_summary(task_packet),
                 },
                 status=status.HTTP_201_CREATED,
             )
@@ -277,34 +302,70 @@ class AgentTaskViewSet(viewsets.ViewSet):
 
     @action(detail=True, methods=["POST"], url_path="confirm")
     def confirm(self, request, pk=None):
-        """确认并重放任务中暂停的写工具调用。"""
-        from ..cache import ConfirmationDraftConsumeError, consume_confirmation_draft, get_confirmation_draft
+        """在任务锁内原子校验并消费确认令牌，然后重放写工具。"""
+        from ..cache import ConfirmationDraftConsumeError, consume_confirmation_draft
         from ..tools.registry import ToolRegistry
 
+        token = request.data.get("confirm_token")
+        if not isinstance(token, str) or not token:
+            return Response({"error": "确认令牌无效"}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
-            task = AgentTask.objects.get(task_id=pk, user=request.user)
+            with transaction.atomic():
+                task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
+                if task.status not in {"awaiting_confirmation", "paused"}:
+                    return Response(
+                        {"error": f"任务状态为 {task.status},无法确认"},
+                        status=status.HTTP_409_CONFLICT,
+                    )
+                from ..cache import get_confirmation_draft
+                entry = get_confirmation_draft(token)
+                expected_sig = f"u{request.user.pk}_s{resolve_scope(request.user).value}"
+                if not isinstance(entry, dict) or entry.get("task_id") != str(task.task_id):
+                    return Response({"error": "确认已过期或不属于当前任务"}, status=status.HTTP_403_FORBIDDEN)
+                if entry.get("context_sig") != expected_sig:
+                    return Response({"error": "确认已过期或不属于当前用户或范围"}, status=status.HTTP_403_FORBIDDEN)
+                tool = ToolRegistry.get_tool_for_user(entry.get("tool_name"), request.user)
+                if tool is None:
+                    return Response({"error": "确认工具不可用"}, status=status.HTTP_404_NOT_FOUND)
+                draft = entry.get("draft") if isinstance(entry.get("draft"), dict) else {}
+                fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else draft
+                operation_id = fields.get("operation_id") if isinstance(fields, dict) else None
+                requested_operation_id = request.data.get("operation_id")
+                if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
+                    return Response({"error": "确认操作不匹配"}, status=status.HTTP_403_FORBIDDEN)
+                try:
+                    claimed = consume_confirmation_draft(token)
+                except ConfirmationDraftConsumeError:
+                    return Response({"error": "确认服务暂不可用"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+                if claimed is None:
+                    return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
+                claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
+                task_id = task.task_id
+                tool_name = entry.get("tool_name")
+                user_query = claimed.get("user_query", "")
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
-        token = request.data.get("confirm_token")
-        entry = get_confirmation_draft(token) if token else None
-        if not entry or entry.get("task_id") != str(task.task_id) or not entry.get("context_sig", "").startswith(f"u{request.user.pk}_"):
-            return Response({"error": "确认已过期或不属于当前任务"}, status=status.HTTP_403_FORBIDDEN)
+
+        event_bus = PersistentEventBus(agent_task_id=str(task_id))
+        context = ToolContext(
+            user=request.user,
+            scope=resolve_scope(request.user),
+            task_id=task_id,
+            event_bus=event_bus,
+            confirmed=True,
+            draft=claimed_draft,
+        )
         try:
-            claimed = consume_confirmation_draft(token)
-        except ConfirmationDraftConsumeError:
-            return Response({"error": "确认服务暂不可用"}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
-        if claimed is None:
-            return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
-        tool = ToolRegistry.get_tool_for_user(claimed.get("tool_name"), request.user)
-        if tool is None:
-            return Response({"error": "确认工具不可用"}, status=status.HTTP_404_NOT_FOUND)
-        context = {
-            "confirmed": True, "user": request.user, "task_id": task.task_id,
-            "draft": claimed.get("draft", {}).get("fields"),
-            "event_bus": PersistentEventBus(agent_task_id=str(task.task_id)),
-        }
-        result = execute_guarded(tool, claimed.get("user_query", ""), context=context)
-        result = apply_post_execute_hooks(tool, result, context)
+            result = tool.execute(user_query, context=context)
+            result = apply_post_execute_hooks(tool, result, context)
+        except Exception:
+            logger.exception("确认工具执行失败: task_id=%s", task_id)
+            event_bus.emit("subtask.tool_result", {
+                "task_id": str(task_id), "status": "failed", "operation_id": operation_id,
+                "error": "确认操作执行失败", "phase": "confirm", "operation": tool_name,
+            })
+            return Response({"found": False, "message": "确认操作执行失败，请稍后重试"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         return Response(result)
 
     @action(detail=True, methods=["POST"])

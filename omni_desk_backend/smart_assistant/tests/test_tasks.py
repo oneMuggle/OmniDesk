@@ -19,6 +19,7 @@ class TestAgentTaskResultNotification(TestCase):
             task_id=uuid4(),
             user=self.user,
             objective="测试任务",
+            status="paused",
             task_packet={},
         )
 

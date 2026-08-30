@@ -31,13 +31,17 @@ const safeOutputText = (value) => {
   }
   if (value && typeof value === 'object') {
     return Object.entries(value)
-      .filter(([key]) => !['credentials', 'token', 'password', 'prompt', 'internal_prompt'].includes(key))
+      .filter(([key]) => !['credentials', 'token', 'password', 'prompt', 'internal_prompt'].includes(key.toLowerCase()))
       .map(([key, item]) => `${key}: ${safeOutputText(item)}`)
       .filter(Boolean)
       .join('\n');
   }
   return value == null ? '' : String(value);
 };
+
+const asArray = (value) => (Array.isArray(value) ? value : []);
+const safeItemText = (value) => safeOutputText(value) || '—';
+const safeItemObject = (value) => (value && typeof value === 'object' && !Array.isArray(value) ? value : {});
 
 /**
  * @param {{
@@ -98,11 +102,12 @@ function EmailDraftBody({ payload }) {
   return (
     <>
       <Descriptions size="small" column={2} bordered>
-        {(payload?.fields || []).map((f) => (
-          <Descriptions.Item key={f.label} label={f.label}>
-            {safeDisplay(f.value)}
-          </Descriptions.Item>
-        ))}
+        {(asArray(payload?.fields)).map((f, index) => {
+          const field = safeItemObject(f);
+          return <Descriptions.Item key={field.label || index} label={safeItemText(field.label)}>
+            {safeItemText(field.value)}
+          </Descriptions.Item>;
+        })}
       </Descriptions>
       <div>
         <Text strong>邮件分发：</Text>
@@ -128,22 +133,22 @@ function CardPreviewBody({ payload }) {
       <Title level={5} style={{ marginTop: 8 }}>关键要点</Title>
       <List
         size="small"
-        dataSource={payload?.keyPoints || []}
+        dataSource={asArray(payload?.keyPoints)}
         renderItem={(item) => (
           <List.Item>
             <CheckCircleOutlined style={{ color: '#52c41a', marginRight: 8 }} />
-            {item}
+            {safeItemText(item)}
           </List.Item>
         )}
       />
       <Title level={5} style={{ marginTop: 8 }}>行动项</Title>
       <List
         size="small"
-        dataSource={payload?.actionItems || []}
+        dataSource={asArray(payload?.actionItems)}
         renderItem={(item) => (
           <List.Item>
             <ClockCircleOutlined style={{ color: '#fa8c16', marginRight: 8 }} />
-            {item}
+            {safeItemText(item)}
           </List.Item>
         )}
       />
@@ -160,28 +165,30 @@ function WorkorderBody({ payload }) {
   return (
     <>
       <Descriptions size="small" column={2} bordered>
-        {(payload?.fields || []).map((f) => (
-          <Descriptions.Item key={f.label} label={f.label}>
-            {safeDisplay(f.value)}
-          </Descriptions.Item>
-        ))}
+        {(asArray(payload?.fields)).map((f, index) => {
+          const field = safeItemObject(f);
+          return <Descriptions.Item key={field.label || index} label={safeItemText(field.label)}>
+            {safeItemText(field.value)}
+          </Descriptions.Item>;
+        })}
       </Descriptions>
       <Title level={5} style={{ marginTop: 8 }}>近期读数</Title>
       <List
         size="small"
-        dataSource={payload?.readings || []}
-        renderItem={(r) => (
-          <List.Item>
-            <Text type="secondary" style={{ marginRight: 12, width: 80 }}>{r.ts}</Text>
-            <Text strong>{r.value} Pa</Text>
-          </List.Item>
-        )}
+        dataSource={asArray(payload?.readings)}
+        renderItem={(r) => {
+          const reading = safeItemObject(r);
+          return <List.Item>
+            <Text type="secondary" style={{ marginRight: 12, width: 80 }}>{safeItemText(reading.ts)}</Text>
+            <Text strong>{safeItemText(reading.value)} Pa</Text>
+          </List.Item>;
+        }}
       />
       <Title level={5} style={{ marginTop: 8 }}>维修手册：{payload?.manual?.section}</Title>
       <List
         size="small"
-        dataSource={payload?.manual?.steps || []}
-        renderItem={(s) => <List.Item>{s}</List.Item>}
+        dataSource={asArray(payload?.manual?.steps)}
+        renderItem={(s) => <List.Item>{safeItemText(s)}</List.Item>}
       />
     </>
   );
@@ -196,17 +203,19 @@ function AnnouncementBody({ payload }) {
       <Title level={5}>问题清单</Title>
       <List
         size="small"
-        dataSource={payload?.findings || []}
-        renderItem={(f) => (
-          <List.Item>
-            <Tag color={f.severity === 'high' ? 'red' : 'orange'} bordered={false}>
-              {f.severity.toUpperCase()}
+        dataSource={asArray(payload?.findings)}
+        renderItem={(f) => {
+          const finding = safeItemObject(f);
+          const severity = safeItemText(finding.severity).toLowerCase();
+          return <List.Item>
+            <Tag color={severity === 'high' ? 'red' : 'orange'} bordered={false}>
+              {severity.toUpperCase()}
             </Tag>
-            <Tag bordered={false}>{f.id}</Tag>
-            <Text>{f.rule}</Text>
-            <Tag style={{ marginLeft: 8 }} bordered={false}>{f.matched} 起</Tag>
-          </List.Item>
-        )}
+            <Tag bordered={false}>{safeItemText(finding.id)}</Tag>
+            <Text>{safeItemText(finding.rule)}</Text>
+            <Tag style={{ marginLeft: 8 }} bordered={false}>{safeItemText(finding.matched)} 起</Tag>
+          </List.Item>;
+        }}
       />
       <Space size="middle">
         <div>
