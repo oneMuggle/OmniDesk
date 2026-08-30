@@ -245,6 +245,7 @@ class AgentTask(models.Model):
         ("paused", "已暂停"),
         ("completed", "已完成"),
         ("failed", "已失败"),
+        ("partial", "部分完成"),
         ("cancelled", "已取消"),
     ]
 
@@ -374,6 +375,9 @@ class AgentEvent(models.Model):
         ("subtask.quality_gate", "子任务质量门禁检查"),
         ("subtask.completed", "子任务完成"),
         ("subtask.failed", "子任务失败"),
+        ("subtask.skipped", "子任务跳过"),
+        ("subtask.tool_result", "子任务工具结果"),
+        ("task.aborted", "任务中止"),
         ("supervisor.decision", "Supervisor 决策"),
         ("supervisor.intervention", "Supervisor 介入"),
         ("user.intervention", "用户介入"),

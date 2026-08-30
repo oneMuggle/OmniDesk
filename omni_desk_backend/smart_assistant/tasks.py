@@ -110,6 +110,7 @@ def execute_agent_task(task_id: str):
         task_id: AgentTask 的 task_id(UUID 字符串)
     """
     from django.utils import timezone
+    from django.db import transaction
 
     from smart_assistant.models import AgentSubTask, AgentTask
     from smart_assistant.agents.packet import TaskPacket
@@ -121,85 +122,95 @@ def execute_agent_task(task_id: str):
     event_bus = PersistentEventBus(agent_task_id=task_id)
 
     try:
-        # 1. 加载 AgentTask
-        task = AgentTask.objects.get(task_id=task_id)
+        # 原子抢占：只有待执行/暂停任务可以进入 worker；重复投递直接幂等返回。
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            if task.status in {"completed", "failed", "partial", "cancelled"}:
+                return {"task_id": str(task.task_id), "status": task.status, "total_tokens": task.tokens_used}
+            if task.status == "running":
+                return {"task_id": str(task.task_id), "status": "running", "total_tokens": task.tokens_used}
+            task.status = "running"
+            task.started_at = task.started_at or timezone.now()
+            task.save(update_fields=["status", "started_at"])
 
-        # 2. 构造 TaskPacket
         task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
-
-        # 3. 更新状态为 running
-        task.status = "running"
-        task.started_at = timezone.now()
-        task.save(update_fields=["status", "started_at"])
-
-        # 4. 创建执行器
-        llm_router = get_router()
         executor = MultiAgentExecutor(
             task_packet=task_packet,
-            llm_router=llm_router,
+            llm_router=get_router(),
             tool_registry=ToolRegistry,
             event_bus=event_bus,
             agent_task_id=task_id,
         )
-
-        # 5. 执行任务
         result = executor.execute()
+        persisted_status = "failed" if result.status == "rejected" else result.status
 
-        # 6. 保存结果到数据库
-        task.status = result.status
-        task.tokens_used = result.total_tokens_used
-        task.completed_at = timezone.now()
-        task.final_output = (
-            result.final_output
-            if isinstance(result.final_output, (dict, list))
-            else {"raw": result.final_output}
-            if result.final_output
-            else None
-        )
-        task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
-
-        # 更新每个 subtask 的状态(批量查询替代循环 get,修复 N+1)
-        subtask_ids = [r.subtask_id for r in result.subtask_results]
-        subtask_objs = {
-            str(obj.subtask_id): obj for obj in AgentSubTask.objects.filter(task=task, subtask_id__in=subtask_ids)
-        }
-
-        for subtask_result in result.subtask_results:
-            subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
-            if subtask_obj is None:
-                continue
-            subtask_obj.status = subtask_result.status
-            subtask_obj.output = (
-                subtask_result.output
-                if isinstance(subtask_result.output, (dict, list))
-                else {"raw": subtask_result.output}
+        with transaction.atomic():
+            locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            if locked_task.status == "cancelled":
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": "cancelled",
+                    "total_tokens": locked_task.tokens_used,
+                }
+            locked_task.status = persisted_status
+            locked_task.tokens_used = result.total_tokens_used
+            locked_task.completed_at = timezone.now()
+            locked_task.final_output = (
+                result.final_output
+                if isinstance(result.final_output, (dict, list))
+                else {"raw": result.final_output}
+                if result.final_output
+                else None
             )
-            subtask_obj.tokens_used = subtask_result.tokens_used
-            subtask_obj.completed_at = timezone.now()
-            subtask_obj.retry_count = subtask_result.retry_count
-            subtask_obj.error_message = subtask_result.error_message
-            subtask_obj.save()
+            locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
+            subtask_objs = {
+                str(obj.subtask_id): obj
+                for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
+            }
+            now = timezone.now()
+            updates = []
+            for subtask_result in result.subtask_results:
+                subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
+                if subtask_obj is None:
+                    continue
+                subtask_obj.status = (
+                    "completed" if subtask_result.status == "success" else subtask_result.status
+                )
+                subtask_obj.output = (
+                    subtask_result.output
+                    if isinstance(subtask_result.output, (dict, list))
+                    else {"raw": subtask_result.output}
+                )
+                subtask_obj.tokens_used = subtask_result.tokens_used
+                subtask_obj.completed_at = now
+                subtask_obj.retry_count = subtask_result.retry_count
+                subtask_obj.error_message = subtask_result.error_message
+                updates.append(subtask_obj)
+            if updates:
+                AgentSubTask.objects.bulk_update(
+                    updates,
+                    ["status", "output", "tokens_used", "completed_at", "retry_count", "error_message"],
+                )
 
         return {
             "task_id": str(task.task_id),
-            "status": result.status,
+            "status": persisted_status,
             "total_tokens": result.total_tokens_used,
         }
 
     except AgentTask.DoesNotExist:
         raise ValueError(f"AgentTask {task_id} 不存在")
-    except Exception as e:
-        # 任务失败,记录错误
-        try:
-            task = AgentTask.objects.get(task_id=task_id)
-            task.status = "failed"
-            task.completed_at = timezone.now()
-            task.save(update_fields=["status", "completed_at"])
-        except AgentTask.DoesNotExist:
-            logger.debug(
-                "smart_assistant.tasks.event_task_gone",
-                extra={"event": "smart_assistant.tasks.event_task_gone", "task_id": task_id},
-            )
+    except Exception:
+        with transaction.atomic():
+            try:
+                task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            except AgentTask.DoesNotExist:
+                logger.debug("smart_assistant.tasks.event_task_gone", extra={"task_id": task_id})
+                raise
+            if task.status != "cancelled" and task.status not in {"completed", "failed", "partial"}:
+                task.status = "failed"
+                task.completed_at = timezone.now()
+                task.save(update_fields=["status", "completed_at"])
         raise
 
 

@@ -13,6 +13,7 @@ import json
 import time
 import uuid
 
+from django.db import transaction
 from django.http import StreamingHttpResponse
 from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
@@ -125,27 +126,30 @@ class AgentTaskViewSet(viewsets.ViewSet):
             task_packet = supervisor.generate_task_packet(query=query, user_context=user_context)
 
             # 创建 AgentTask 记录
-            task = AgentTask.objects.create(
-                task_id=uuid.UUID(task_packet.task_id),
-                user=request.user,
-                objective=task_packet.objective,
-                execution_mode=task_packet.execution_mode.value,
-                status="pending",
-                task_packet=task_packet.to_dict(),
-                global_budget=task_packet.global_budget,
-            )
-
-            # 创建 AgentSubTask 记录
-            for subtask in task_packet.subtasks:
-                AgentSubTask.objects.create(
-                    task=task,
-                    subtask_id=subtask.id,
-                    role=subtask.role.value,
-                    objective=subtask.objective,
+            with transaction.atomic():
+                task = AgentTask.objects.create(
+                    task_id=uuid.UUID(task_packet.task_id),
+                    user=request.user,
+                    objective=task_packet.objective,
+                    execution_mode=task_packet.execution_mode.value,
                     status="pending",
-                    depends_on=subtask.depends_on,
-                    inputs=subtask.inputs,
+                    task_packet=task_packet.to_dict(),
+                    global_budget=task_packet.global_budget,
                 )
+
+                # 创建 AgentSubTask 记录
+                AgentSubTask.objects.bulk_create([
+                    AgentSubTask(
+                        task=task,
+                        subtask_id=subtask.id,
+                        role=subtask.role.value,
+                        objective=subtask.objective,
+                        status="pending",
+                        depends_on=subtask.depends_on,
+                        inputs=subtask.inputs,
+                    )
+                    for subtask in task_packet.subtasks
+                ])
 
             return Response(
                 {
@@ -178,16 +182,16 @@ class AgentTaskViewSet(viewsets.ViewSet):
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
 
-        if task.status != "pending":
-            return Response(
-                {"error": f"任务状态为 {task.status},无法执行"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # 异步执行(通过 Celery 任务,见 tasks.py)
         from ..tasks import execute_agent_task
 
-        execute_agent_task.delay(str(task.task_id))
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
+            if task.status != "pending":
+                return Response(
+                    {"error": f"任务状态为 {task.status},无法执行"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            transaction.on_commit(lambda: execute_agent_task.delay(str(task.task_id)))
 
         return Response({"status": "started", "task_id": str(task.task_id)})
 
@@ -209,29 +213,32 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        if action_type == "pause":
-            if task.status != "running":
-                return Response(
-                    {"error": "只有运行中的任务可以暂停"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            task.status = "paused"
-            task.save()
-        elif action_type == "resume":
-            if task.status != "paused":
-                return Response(
-                    {"error": "只有暂停的任务可以恢复"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            task.status = "running"
-            task.save()
-            # 重新触发 Celery 任务
-            from ..tasks import execute_agent_task
+        action_type = request.data.get("action")
+        if action_type not in ["pause", "resume", "cancel"]:
+            return Response(
+                {"error": "action 必须是 pause / resume / cancel"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
-            execute_agent_task.delay(str(task.task_id))
-        elif action_type == "cancel":
-            task.status = "cancelled"
-            task.save()
+        from ..tasks import execute_agent_task
+
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
+            if action_type == "pause":
+                if task.status != "running":
+                    return Response({"error": "只有运行中的任务可以暂停"}, status=status.HTTP_400_BAD_REQUEST)
+                task.status = "paused"
+                task.save(update_fields=["status"])
+            elif action_type == "resume":
+                if task.status != "paused":
+                    return Response({"error": "只有暂停的任务可以恢复"}, status=status.HTTP_400_BAD_REQUEST)
+                # 保持 paused，交由 worker 在锁内原子抢占为 running，避免伪恢复。
+                transaction.on_commit(lambda: execute_agent_task.delay(str(task.task_id)))
+            elif action_type == "cancel":
+                if task.status in ["completed", "failed", "cancelled"]:
+                    return Response({"error": f"任务状态为 {task.status},无法取消"}, status=status.HTTP_400_BAD_REQUEST)
+                task.status = "cancelled"
+                task.save(update_fields=["status"])
 
         return Response({"status": task.status})
 
