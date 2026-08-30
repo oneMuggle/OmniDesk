@@ -14,6 +14,20 @@ export const TASK_STATUS_META = {
   partial: { color: 'warning', label: '部分完成' }, failed: { color: 'error', label: '执行失败' },
   cancelled: { color: 'default', label: '已取消' },
 };
+export const TASK_STATUS_MAP = TASK_STATUS_META;
+export const SUBTASK_STATUS_MAP = {
+  pending: { color: 'default', label: '等待中' }, running: { color: 'processing', label: '执行中' },
+  completed: { color: 'success', label: '已完成' }, failed: { color: 'error', label: '执行失败' },
+  skipped: { color: 'default', label: '已跳过' }, paused: { color: 'warning', label: '已暂停' },
+};
+
+export const EVENT_TYPE_LABELS = {
+  'task.started': '任务开始', 'task.completed': '任务完成', 'task.failed': '任务失败',
+  'task.aborted': '任务中止', 'subtask.started': '子任务开始', 'subtask.progress': '子任务进度',
+  'subtask.tool_call': '子任务工具调用', 'subtask.tool_result': '子任务工具结果', 'subtask.completed': '子任务完成',
+  'subtask.failed': '子任务失败', 'subtask.skipped': '子任务跳过', 'task.paused': '任务暂停',
+  'task.resumed': '任务恢复', 'supervisor.decision': 'Supervisor 决策', 'hook.triggered': '钩子触发',
+};
 
 export async function getAgentTasks() { return apiClient.get(`${BASE_URL}/`); }
 export async function getAgentTask(taskId) { return apiClient.get(`${BASE_URL}/${taskId}/`); }

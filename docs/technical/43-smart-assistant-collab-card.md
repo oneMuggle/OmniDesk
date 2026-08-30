@@ -1,8 +1,8 @@
 # 43. 智能助手多智能体协作卡片
 
-> **状态**：🔄 真实编排接入设计（2026-08-30）
+> **状态**：✅ 已实现并完成阶段 11 验收（2026-08-30）
 > **代码位置**：`omni_desk_frontend/src/features/smart-assistant/scenario/` 与 `omni_desk_backend/smart_assistant/`
-> **入口**：`/smart-assistant` 智能助手聊天页
+> **入口**：`/smart-assistant` 智能助手聊天页；任务 API 前缀为 `/api/smart-assistant/tasks/`
 > **核心定位**：协作卡片是 `AgentTask` 真实执行过程的可视化消费端。卡片消费后端持久化的 `AgentEvent` SSE 流，展示真实 Agent、工具调用、结果、失败和审计信息；历史剧本只提供示例提问入口，不是执行引擎。
 
 ## 1. 设计动机与边界
@@ -21,6 +21,8 @@
 
 ## 2. 目录与职责
 
+前端实现路径以 `src/features/smart-assistant/` 为根；后端实现路径以 `omni_desk_backend/smart_assistant/` 为根。8 个历史场景均为示例入口，不代表 8 条独立后端流程。
+
 ```
 src/features/smart-assistant/scenario/
 ├── components/
@@ -34,8 +36,11 @@ src/features/smart-assistant/scenario/
 │   ├── agents.js                      # Agent 展示元数据
 │   ├── tools.js                       # 工具展示元数据（不执行 mock 工具）
 │   └── scenarios.js                   # 示例入口：id/title/userInput/icon
-└── hooks/
-    └── useAgentTaskStream.js           # 真实 AgentTask SSE 订阅、续传和操作
+├── hooks/
+│   ├── useAgentTaskStream.js             # 真实 AgentTask SSE 订阅、续传和操作
+│   └── useSmartChat.js                   # 普通聊天与复杂任务入口协调
+└── utils/
+    └── mapAgentEvent.js                  # 后端事件到卡片事件的纯映射
 ```
 
 后端相关职责：

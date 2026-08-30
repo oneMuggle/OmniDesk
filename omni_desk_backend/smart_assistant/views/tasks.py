@@ -364,7 +364,14 @@ class AgentTaskViewSet(viewsets.ViewSet):
         timeline = []
         for event in events:
             item = _safe_event_payload(event)
-            item.update({"sequence": event.sequence, "event_type": event.event_type, "subtask_id": event.subtask_id if event.subtask else None})
+            item.update(
+                {
+                    "sequence": event.sequence,
+                    "event_type": event.event_type,
+                    "subtask": event.subtask_id if event.subtask else None,
+                    "subtask_id": event.subtask_id if event.subtask else None,
+                }
+            )
             timeline.append(item)
 
         return Response(
