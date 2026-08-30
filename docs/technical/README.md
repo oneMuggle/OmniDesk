@@ -43,7 +43,7 @@
 | 20 | [桌面客户端](20-desktop-client.md) | 三部分架构中的桌面客户端实现 |
 | 21 | [游客模式](21-guest-mode.md) | 游客模式设计与实现 |
 | 22 | [Win7 兼容性](22-win7-compatibility.md) | Windows 7 / Chrome 109 兼容性方案 |
-| 23 | [离线部署](23-offline-deployment.md) | 内网无外网环境部署指南,含三层一致性约束(2026-06 阶段 1-4 收尾)与严格部署验收门禁(2026-08 收尾:CI 契约测试 / 身份校验 / 浏览器 E2E) |
+| 23 | [离线部署](23-offline-deployment.md) | 内网无外网环境部署指南,含三层一致性约束(2026-06 阶段 1-4 收尾) |
 | 24 | [安全检查清单](24-security-checklist.md) | 6 个 CVE 详细分析 + OWASP Top 10 对照 |
 | 25 | [API 性能审计](25-api-performance-audit.md) | 52 个 ViewSet 性能盘点 + 优化建议 |
 | 26 | [人员-用户关联](26-personnel-user-association.md) | Personnel ↔ CustomUser 关联方案、字段权限、通知机制、link_user_personnel 命令(2026-06 v0.4.0) |
@@ -60,7 +60,7 @@
 | 40 | [冒烟测试覆盖矩阵](40-smoke-test-coverage.md) | smoke_tests.sh 阶段 1-11 覆盖清单、app 端点 GET 探针表、已知缺口 |
 | 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
 | 42 | [channel-sync 远程分支自动清理](42-channel-sync-branch-cleanup.md) | cron 清理 `channel-sync/*` 归档分支、commit ≥14 天规则、豁免清单维护、误删恢复(2026-08) |
-| 43 | [智能助手多智能体协作卡片](43-smart-assistant-collab-card.md) | 嵌入 /smart-assistant 聊天消息流的多智能体协作卡片：关键词触发 + 剧本化回放（出差审批/文档摘要/设备告警/合规审计），audit JSON 导出，与后端 SmartChat 互斥触发（2026-08） |
+| 43 | [智能助手多智能体协作卡片](43-smart-assistant-collab-card.md) | 消费 Celery 真实 AgentTask/AgentEvent SSE 的协作卡片：真实工具执行、last_seq 断点续传、失败/partial/暂停状态，以及审计 JSON 与 AgentWriteLog 回滚入口；剧本仅作示例入口 |
 
 ### 新增功能点(待建章节预留编号)
 
