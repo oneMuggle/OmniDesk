@@ -43,6 +43,30 @@ SAFE_EVENT_PAYLOAD_KEYS = {
 }
 SENSITIVE_KEYS = {"args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt", "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session"}
 
+# These fields are persisted by confirmation drafts but are not all part of the
+# public tool-call schema (for example NotifyTool resolves recipient names into
+# IDs before replay).  Everything else must come from the tool schema.
+REPLAY_INTERNAL_FIELD_ALLOWLIST = {"operation_id", "recipient_ids", "recipient_names"}
+
+
+def _replay_allowed_fields(tool):
+    """Return fields a PRE_EXECUTE hook may modify during confirmation replay."""
+    allowed = set(REPLAY_INTERNAL_FIELD_ALLOWLIST)
+    try:
+        schema = tool.get_openai_tool_schema()
+        properties = schema.get("function", {}).get("parameters", {}).get("properties", {})
+        if isinstance(properties, dict):
+            allowed.update(key for key in properties if isinstance(key, str))
+    except (AttributeError, TypeError, KeyError):
+        pass
+    return allowed
+
+
+def _filter_replay_fields(fields, allowed):
+    if not isinstance(fields, dict):
+        return {}
+    return {key: value for key, value in fields.items() if key in allowed}
+
 
 PII_PATTERNS = [re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"), re.compile(r"(?<!\d)1\d{10}(?!\d)"), re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)")]
 
@@ -352,6 +376,8 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     return Response({"error": "确认工具不可用"}, status=status.HTTP_404_NOT_FOUND)
                 draft = entry.get("draft") if isinstance(entry.get("draft"), dict) else {}
                 fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else draft
+                allowed_replay_fields = _replay_allowed_fields(tool)
+                fields = _filter_replay_fields(fields, allowed_replay_fields)
                 operation_id = fields.get("operation_id") if isinstance(fields, dict) else None
                 requested_operation_id = request.data.get("operation_id")
                 if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
@@ -394,11 +420,11 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
                 claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
                 claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
-                final_fields = dict(claimed_fields) if isinstance(claimed_fields, dict) else {}
+                final_fields = _filter_replay_fields(claimed_fields, allowed_replay_fields)
                 if isinstance(pre_result, dict):
-                    # Hook 只能覆盖已声明的字段；操作闸门仍以确认时校验过的
-                    # operation_id 为准，避免参数修改绕过确认绑定。
-                    final_fields.update(pre_result)
+                    # Hook 只能覆盖工具 schema/内部确认字段；操作闸门仍以
+                    # 确认时校验过的 operation_id 为准，避免参数注入绕过确认绑定。
+                    final_fields.update(_filter_replay_fields(pre_result, allowed_replay_fields))
                 final_fields["operation_id"] = operation_id
                 final_draft = {**claimed_draft, "fields": final_fields}
                 fields = final_fields

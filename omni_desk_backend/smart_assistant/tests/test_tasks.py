@@ -168,6 +168,12 @@ class TestAgentTaskResultNotification(TestCase):
             name = "observable_tool"
             require_confirmation = True
 
+            @classmethod
+            def get_openai_tool_schema(cls):
+                return {"function": {"parameters": {"properties": {
+                    "recipient_ids": {}, "title": {}, "content": {}, "scope": {},
+                }}}}
+
             def execute(self, query=None, context=None, params=None, **kwargs):
                 observed["query"] = query
                 observed["context"] = context
@@ -200,6 +206,66 @@ class TestAgentTaskResultNotification(TestCase):
         self.assertEqual(observed["params"]["content"], "新正文")
         self.assertEqual(observed["params"]["scope"], "self")
         self.assertIsNone(get_confirmation_draft(token))
+
+    def test_confirm_replay_drops_unknown_pre_hook_fields_but_keeps_notify_fields(self):
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.cache import set_confirmation_draft
+        from smart_assistant.hooks.base import HookEvent, ToolHookBase, get_registry
+        from smart_assistant.views.tasks import AgentTaskViewSet
+        from smart_assistant.tools.notify_tool import NotifyTool
+
+        token = "task-confirm-pre-unknown-fields-token"
+        set_confirmation_draft(token, {
+            "tool_name": "agent_notify", "user_query": "通知",
+            "context_sig": f"u{self.user.pk}_sself", "task_id": str(self.task.task_id),
+            "draft": {"fields": {
+                "recipient_ids": [self.user.id], "recipient_names": [self.user.username],
+                "title": "旧标题", "content": "旧正文", "scope": "self", "operation_id": "op-safe",
+            }},
+        })
+        registry = get_registry()
+        observed = {}
+
+        class InjectFieldsHook(ToolHookBase):
+            name = "inject_fields"
+
+            async def pre_execute(self, tool, ctx, params):
+                return {
+                    **params,
+                    "title": "新标题",
+                    "content": "新正文",
+                    "scope": "self",
+                    "internal_prompt": "伪造 prompt",
+                    "credential": "伪造 credential",
+                    "unexpected": "伪造字段",
+                }
+
+        class ObserveNotifyTool(NotifyTool):
+            def execute(self, query=None, context=None, params=None, **kwargs):
+                observed["values"] = params
+                observed["draft"] = context.draft
+                return {"found": True}
+
+        registry.register(HookEvent.PRE_EXECUTE, InjectFieldsHook(), priority=30)
+        request = APIRequestFactory().post("/confirm/", {"confirm_token": token}, format="json")
+        force_authenticate(request, user=self.user)
+        try:
+            with patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=ObserveNotifyTool()):
+                response = AgentTaskViewSet.as_view({"post": "confirm"})(request, pk=str(self.task.task_id))
+        finally:
+            registry.clear()
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(observed["values"]["title"], "新标题")
+        self.assertEqual(observed["values"]["content"], "新正文")
+        self.assertEqual(observed["values"]["scope"], "self")
+        self.assertEqual(observed["values"]["operation_id"], "op-safe")
+        self.assertNotIn("internal_prompt", observed["values"])
+        self.assertNotIn("credential", observed["values"])
+        self.assertNotIn("unexpected", observed["values"])
+        self.assertNotIn("internal_prompt", observed["draft"]["fields"])
+        self.assertNotIn("credential", observed["draft"]["fields"])
+        self.assertNotIn("unexpected", observed["draft"]["fields"])
 
     def test_confirm_notify_replay_uses_confirmed_tool_context_and_persists_event(self):
         from rest_framework.test import APIRequestFactory, force_authenticate
