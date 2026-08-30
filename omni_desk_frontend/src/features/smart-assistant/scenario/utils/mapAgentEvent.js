@@ -50,6 +50,8 @@ export function mapAgentEvent(event) {
   const tool = firstDefined(source.tool, payload.tool);
   const input = firstDefined(source.input, payload.input, payload.arguments);
   const output = firstDefined(source.output, payload.output, payload.result);
+  const finalOutput = firstDefined(source.final_output, payload.final_output);
+  const payloadKind = firstDefined(source.payloadKind, payload.payloadKind);
   const content = firstDefined(
     source.content,
     payload.content,
@@ -63,6 +65,8 @@ export function mapAgentEvent(event) {
   if (tool !== undefined) result.tool = tool;
   if (input !== undefined) result.input = input;
   if (output !== undefined) result.output = output;
+  if (finalOutput !== undefined) result.finalOutput = finalOutput;
+  if (payloadKind !== undefined) result.payloadKind = payloadKind;
   if (content !== undefined) {
     result.content = content;
   } else if (mappedType === 'error') {

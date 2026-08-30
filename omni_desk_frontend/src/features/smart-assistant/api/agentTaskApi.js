@@ -161,6 +161,7 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
     }
 
     let sequence = lastSeq;
+    let timedOut = false;
     if (!response.body || typeof response.body.getReader !== 'function') {
       const timeline = await getAgentTaskTimeline(taskId);
       const events = timeline.data?.timeline || [];
@@ -207,7 +208,8 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
             return;
           }
           if (event.type === 'timeout') {
-            onTimeout?.();
+            timedOut = true;
+            onTimeout?.(event);
             return;
           }
           if (event.sequence != null && event.sequence <= sequence) return;
@@ -217,7 +219,7 @@ export function subscribeTaskStream(taskId, callbacks = {}, options = {}) {
         if (sawDone) return;
       }
       // 服务端正常关闭连接(未显式发送 done)
-      onDone?.(undefined, sequence);
+      if (!timedOut) onDone?.(undefined, sequence);
     } catch (error) {
       if (error.name === 'AbortError') {
         return;

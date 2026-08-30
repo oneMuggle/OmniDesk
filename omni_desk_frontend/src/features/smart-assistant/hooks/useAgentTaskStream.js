@@ -6,7 +6,9 @@ const TERMINAL_TYPES = {
   'task.completed': 'completed',
   'task.failed': 'failed',
   'task.cancelled': 'cancelled',
+  'task.partial': 'partial',
   completed: 'completed',
+  partial: 'partial',
   failed: 'failed',
   cancelled: 'cancelled',
 };
@@ -22,6 +24,7 @@ export default function useAgentTaskStream(taskId, options = {}) {
   const lastSeqRef = useRef(initialLastSeq);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef(null);
+  const subscribeRef = useRef(null);
   const manuallyPausedRef = useRef(false);
 
   const stop = useCallback(() => {
@@ -68,16 +71,20 @@ export default function useAgentTaskStream(taskId, options = {}) {
         setStatus((current) => (current === 'running' ? 'completed' : current));
       },
       onTimeout: () => {
+        const current = subscriptionRef.current;
+        if (current) current.abort();
         subscriptionRef.current = null;
         retryCountRef.current = 0;
-        retryTimerRef.current = setTimeout(subscribe, 0);
+        retryTimerRef.current = setTimeout(() => subscribeRef.current?.(), 0);
       },
       onError: (streamError) => {
+        const current = subscriptionRef.current;
+        if (current) current.abort();
         subscriptionRef.current = null;
         const attempt = retryCountRef.current;
         if (attempt < RETRY_DELAYS.length) {
           retryCountRef.current += 1;
-          retryTimerRef.current = setTimeout(subscribe, RETRY_DELAYS[attempt]);
+          retryTimerRef.current = setTimeout(() => subscribeRef.current?.(), RETRY_DELAYS[attempt]);
           return;
         }
         setError(streamError);
@@ -85,6 +92,10 @@ export default function useAgentTaskStream(taskId, options = {}) {
       },
     }, { lastSeq: lastSeqRef.current });
   }, [handleEvent, stop, taskId]);
+
+  useEffect(() => {
+    subscribeRef.current = subscribe;
+  }, [subscribe]);
 
   useEffect(() => {
     subscribe();

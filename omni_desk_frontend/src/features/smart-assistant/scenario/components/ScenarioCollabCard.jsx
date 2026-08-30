@@ -3,7 +3,7 @@
 // 接收 scenarioId + userInput 后,前端剧本化推进多 Agent 思考 / 工具调用 / 工具结果,
 // 配对展示协作流 + 审计时间线,支持暂停/继续/重置与审计 JSON 导出。
 import { useCallback, useMemo } from 'react';
-import { App, Button, Card, Space, Tag, Typography } from 'antd';
+import { App, Button, Card, Space, Tag, Typography, theme } from 'antd';
 import {
   DownloadOutlined,
   PauseOutlined,
@@ -21,17 +21,17 @@ import './ScenarioCollabCard.css';
 const { Text, Title } = Typography;
 const { useToken } = theme;
 
-export default function ScenarioCollabCard({ scenarioId, userInput, taskId }) {
+export default function ScenarioCollabCard({ scenarioId, userInput, taskId, objective }) {
   const { message } = App.useApp();
   const stream = useAgentTaskStream(taskId);
 
   const scenario = useMemo(() => getScenario(scenarioId), [scenarioId]);
 
   const exportAuditJson = useCallback(() => {
-    if (!scenario) return;
+    if (!scenario && stream.events.length === 0) return;
     const payload = {
-      scenarioId,
-      scenarioTitle: scenario.title,
+      scenarioId: scenarioId || null,
+      scenarioTitle: scenario?.title || objective || '多智能体协作',
       userInput,
       status: stream.status,
       generatedAt: new Date().toISOString(),
@@ -67,7 +67,7 @@ export default function ScenarioCollabCard({ scenarioId, userInput, taskId }) {
       styles={{ body: { padding: 12 } }}
       title={
         <Space size={8} wrap>
-          <Text strong>{scenario?.title || scenarioId}</Text>
+          <Text strong>{scenario?.title || objective || '多智能体协作'}</Text>
           <Tag bordered={false} color={statusTag.color}>{statusTag.label}</Tag>
           {userInput && (
             <Text type="secondary" style={{ fontSize: 12 }}>· {userInput}</Text>

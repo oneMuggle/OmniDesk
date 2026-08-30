@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { createAgentTask, executeAgentTask } from '../api/agentTaskApi';
 import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
 import { Modal as AntdModal, message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
@@ -340,40 +341,53 @@ export function useSmartChat() {
     }
   }, [currentSessionId, attachment, handleSSEEvent, typewriter]);
 
-  const sendMessage = useCallback(async (query) => {
+  const sendMessage = useCallback(async (query, options = {}) => {
     if (!query || !query.trim() || isLoading || activeRequestRef.current) return;
     activeRequestRef.current = true;
 
     const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
 
-    // 业务场景命中检测:用户 query 命中"出差/文档/设备/合规"等关键词时,
-    // 不走真实 LLM 流,改为注入 type='collab_card' 的协作卡片消息,
-    // 由 MessageList 渲染 ScenarioCollabCard(剧本化多智能体回放)。
-    // 这是前端独立的"快速演示"通道,与后端 SmartChat 链路互斥,避免双发。
-    // matchScenarioByInput 返回场景对象(非 id),取其 id 注入卡片消息
-    const matchedScenario = matchScenarioByInput(query);
-    const collabCardMessage = matchedScenario
-      ? {
-          id: Date.now(),
+    if (options.mode === 'agent') {
+      let agentCardId = null;
+      try {
+        const created = await createAgentTask(query, {
+          conversation_id: currentSessionId,
+        });
+        const task = created.data || {};
+        const taskId = task.task_id;
+        if (!taskId) throw new Error('任务创建失败');
+        agentCardId = `agent-${taskId}`;
+        const matchedScenario = matchScenarioByInput(query);
+        const cardMessage = {
+          id: agentCardId,
           role: 'assistant',
           type: 'collab_card',
-          scenarioId: matchedScenario.id,
+          taskId,
+          scenarioId: matchedScenario?.id || null,
           userInput: query,
-        }
-      : null;
-
-    setMessages(prev => collabCardMessage
-      ? [...prev, userMessage, collabCardMessage]
-      : [...prev, userMessage]);
-    setInputMessage('');
-    setAttachment(null);
-
-    if (collabCardMessage) {
-      // 走协作卡片通道:不调后端,不进打字机,不 loading。
-      // 真正协作推进由 ScenarioCollabCard 内部 useScenarioPlayer 完成。
-      activeRequestRef.current = null;
+          objective: task.plan?.objective || query,
+        };
+        setMessages((previous) => [...previous, userMessage, cardMessage]);
+        setInputMessage('');
+        setAttachment(null);
+        await executeAgentTask(taskId);
+      } catch (error) {
+        setMessages((previous) => previous.filter((message) => message.id !== agentCardId));
+        setMessages((previous) => [...previous, userMessage, {
+          id: `agent-error-${Date.now()}`,
+          role: 'assistant',
+          content: '任务创建失败，请稍后重试。',
+          errorHint: error.message || '任务创建失败',
+        }]);
+      } finally {
+        activeRequestRef.current = null;
+      }
       return;
     }
+
+    setMessages((previous) => [...previous, userMessage]);
+    setInputMessage('');
+    setAttachment(null);
 
     setIsLoading(true);
     setStreamingAnswer('');
@@ -394,7 +408,7 @@ export function useSmartChat() {
         setIsLoading(false);
       }
     }
-  }, [attachment, isLoading, runStream, typewriter]);
+  }, [attachment, currentSessionId, isLoading, runStream, typewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

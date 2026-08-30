@@ -105,6 +105,7 @@ export default function AgentCollabStream({ events, isRunning, isCompleted, stat
               agent={node.event.agent}
               payloadKind={node.event.payloadKind}
               payload={node.event.payload}
+              finalOutput={node.event.finalOutput}
             />
           );
         }

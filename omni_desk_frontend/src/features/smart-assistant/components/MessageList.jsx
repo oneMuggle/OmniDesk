@@ -23,7 +23,7 @@ const MessageList = ({
   <div className="smart-chat-messages">
     {messages.map((msg, index) => {
       if (msg.type === 'collab_card') {
-        return <ScenarioCollabCard key={msg.id || index} scenarioId={msg.scenarioId} userInput={msg.userInput} taskId={msg.taskId} />;
+        return <ScenarioCollabCard key={msg.id || index} scenarioId={msg.scenarioId} userInput={msg.userInput} taskId={msg.taskId} objective={msg.objective} />;
       }
       const { mainContent, thinkContent } = parseThinkContent(msg.content);
       return (
