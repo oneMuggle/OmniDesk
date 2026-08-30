@@ -10,14 +10,19 @@ import { getTool, getToolIcon } from '../data/tools';
 const { Text } = Typography;
 const MAX_DISPLAY_LENGTH = 2000;
 const SENSITIVE_KEYS = /api(?:[_-]?key)?|access(?:[_-]?key|[_-]?token)?|token|password|secret|credential|authorization|cookie|prompt|args?|arguments?|private[_-]?key|session(?:[_-]?id)?/i;
-const PII_PATTERNS = [
-  /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g,
-  /(?<!\d)1\d{10}(?!\d)/g,
-  /(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)/g,
-];
+const EMAIL_PATTERN = /[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}/g;
+const NUMERIC_TOKEN_PATTERN = /[0-9]+[Xx]?/g;
+
+function redactNumericToken(token) {
+  const digits = token.slice(-1).toLowerCase() === 'x' ? token.slice(0, -1) : token;
+  const isPhone = digits.length === 11 && digits.charAt(0) === '1';
+  const isIdCard = digits.length === 15 || digits.length === 18
+    || (token.length === 18 && /^[0-9]{17}[Xx]$/.test(token));
+  return isPhone || isIdCard ? '[已隐藏]' : token;
+}
 
 function redactText(value) {
-  return PII_PATTERNS.reduce((result, pattern) => result.replace(pattern, '[已隐藏]'), value);
+  return value.replace(EMAIL_PATTERN, '[已隐藏]').replace(NUMERIC_TOKEN_PATTERN, redactNumericToken);
 }
 
 export function safeDisplay(value) {

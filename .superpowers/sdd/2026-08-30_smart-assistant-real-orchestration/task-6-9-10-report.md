@@ -20,3 +20,8 @@
 ## Concerns
 - ESLint warnings 仅来自既有 JSX props validation 规则，未引入 error。
 - 未修改后端生产代码；后端现有 sanitizer/用户隔离/last_seq 实现由新增真实测试覆盖。
+
+## Breaker 兼容性修复（后续独立任务）
+- `ToolCallCard.jsx` 移除全部 JavaScript lookbehind/lookahead，改用 IE11 可解析的数字 token 扫描与长度/字符边界判断；仅脱敏独立的 11 位手机号、15/18 位身份证号，不误伤更长数字串。
+- `agentTaskApi.test.js` 移除模块级 `ReadableStream` shim；每个测试保存并恢复原值，新增真实将 `globalThis.ReadableStream` 设为 `undefined` 且响应 body 仍提供 `getReader` 的 timeline fallback 测试。
+- 验证：聚焦 Jest 2 suites / 23 tests 通过；显式 ESLint 0 errors（6 个既有 `react/prop-types` warnings）；`git diff --check` 通过；目标文件 grep 未发现 lookbehind/lookahead。

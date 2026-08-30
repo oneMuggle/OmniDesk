@@ -4,9 +4,8 @@
  * REST 部分: 校验与后端 AgentTaskViewSet 一致的端点 URL 与载荷
  * SSE 部分: subscribeTaskStream 的事件解析、终态事件、认证失败、abort 断开
  */
-import { ReadableStream } from 'stream/web';
+import { ReadableStream as WebReadableStream } from 'stream/web';
 
-globalThis.ReadableStream = ReadableStream;
 import { waitFor } from '@testing-library/react';
 import {
   createAgentTask,
@@ -28,11 +27,12 @@ jest.mock('../../../../shared/api/apiClient', () => ({
 }));
 
 const encoder = new TextEncoder();
+const originalReadableStream = globalThis.ReadableStream;
 
 /** 构造按序产出 `data: <json>\n\n` chunk 的模拟 ReadableStream */
 const createMockStream = (events) => {
   let index = 0;
-  return new ReadableStream({
+  return new WebReadableStream({
     pull(controller) {
       if (index >= events.length) {
         controller.close();
@@ -131,11 +131,13 @@ describe('agentTaskApi REST 端点', () => {
 describe('subscribeTaskStream SSE 订阅', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    globalThis.ReadableStream = WebReadableStream;
     localStorage.setItem('authTokens', JSON.stringify({ access: 'test-token' }));
   });
 
   afterEach(() => {
     delete globalThis.fetch;
+    globalThis.ReadableStream = originalReadableStream;
     localStorage.clear();
   });
 
@@ -269,7 +271,7 @@ describe('subscribeTaskStream SSE 订阅', () => {
     globalThis.fetch = jest.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      body: new ReadableStream({
+      body: new WebReadableStream({
         pull(controller) {
           if (index >= chunks.length) {
             controller.close();
@@ -317,6 +319,32 @@ describe('subscribeTaskStream SSE 订阅', () => {
 
     afterEach(() => {
       jest.useRealTimers();
+    });
+
+    it('ReadableStream 缺失时即使响应 body 有 getReader 也直接走 timeline 降级', async () => {
+      globalThis.ReadableStream = undefined;
+      globalThis.fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        body: { getReader: jest.fn() },
+      });
+      apiClient.get.mockResolvedValue({
+        data: {
+          task: { status: 'completed' },
+          timeline: [{ type: 'task.completed', sequence: 1 }],
+        },
+      });
+      const callbacks = createCallbacks();
+
+      subscribeTaskStream('t-1', callbacks);
+      await waitFor(() => expect(apiClient.get).toHaveBeenCalledWith(
+        'smart-assistant/tasks/t-1/timeline/',
+        expect.objectContaining({ signal: expect.any(Object) })
+      ));
+
+      expect(callbacks.onEvent).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
+      expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
     it('轮询 timeline 并仅派发 sequence 大于 lastSeq 的事件，终态带最终 sequence', async () => {
