@@ -349,6 +349,30 @@ describe('subscribeTaskStream SSE 订阅', () => {
       expect(callbacks.onError).not.toHaveBeenCalled();
     });
 
+    it('缺少 AbortController 时仍能轮询并在 abort 后停止后续回调', async () => {
+      const originalAbortController = globalThis.AbortController;
+      globalThis.AbortController = undefined;
+      globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, body: {} });
+      apiClient.get.mockResolvedValue({
+        data: {
+          task: { status: 'completed' },
+          timeline: [{ type: 'task.completed', sequence: 1 }],
+        },
+      });
+      const callbacks = createCallbacks();
+
+      const subscription = subscribeTaskStream('t-1', callbacks);
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      await Promise.resolve();
+      subscription.abort();
+
+      expect(callbacks.onEvent).toHaveBeenCalledTimes(1);
+      expect(callbacks.onDone).toHaveBeenCalledWith(expect.objectContaining({ sequence: 1 }));
+      globalThis.AbortController = originalAbortController;
+    });
+
     it('abort 会清理轮询 timer 并取消进行中的 timeline 请求', async () => {
       globalThis.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, body: {} });
       apiClient.get.mockImplementation(

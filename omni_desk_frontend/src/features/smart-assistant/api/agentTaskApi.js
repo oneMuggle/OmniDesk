@@ -133,7 +133,7 @@ export async function interveneAgentTask(taskId, action) {
  */
 export function subscribeTaskStream(taskId, callbacks = {}) {
   const { onEvent, onDone, onTimeout, onError } = callbacks;
-  const abortController = new AbortController();
+  const abortController = typeof AbortController === 'function' ? new AbortController() : null;
   let fallbackTimer = null;
   let fallbackRequestController = null;
   let fallbackPollCount = 0;
@@ -159,11 +159,12 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
     }
 
     fallbackPollCount += 1;
-    fallbackRequestController = new AbortController();
+    fallbackRequestController = typeof AbortController === 'function' ? new AbortController() : null;
     try {
-      const response = await getAgentTaskTimeline(taskId, {
-        signal: fallbackRequestController.signal,
-      });
+      const requestConfig = fallbackRequestController
+        ? { signal: fallbackRequestController.signal }
+        : undefined;
+      const response = await getAgentTaskTimeline(taskId, requestConfig);
       if (stopped) return;
 
       const data = response.data || {};
@@ -214,7 +215,7 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
         headers: {
           Authorization: `Bearer ${token}`,
         },
-        signal: abortController.signal,
+        signal: abortController ? abortController.signal : undefined,
       });
     } catch (error) {
       if (error.name === 'AbortError') {
@@ -295,7 +296,7 @@ export function subscribeTaskStream(taskId, callbacks = {}) {
 
   return {
     abort: () => {
-      abortController.abort();
+      if (abortController) abortController.abort();
       stopFallback();
     },
   };
