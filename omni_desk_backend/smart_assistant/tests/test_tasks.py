@@ -7,6 +7,68 @@ from django.test import TestCase
 from smart_assistant.tasks import process_document_embedding
 
 
+class TestAgentTaskTimeouts(TestCase):
+    def test_calculate_time_limits_uses_task_budget_and_packet_shape(self):
+        from django.test import override_settings
+        from smart_assistant.tasks import calculate_agent_task_time_limits
+
+        task = MagicMock(
+            global_budget=20000,
+            task_packet={
+                "subtasks": [{}, {}],
+                "final_synthesis": {"objective": "合成"},
+                "timeout_seconds": 50,
+            },
+        )
+        with override_settings(
+            LLM_REQUEST_TIMEOUT_SECONDS=10,
+            AGENT_TASK_RETRY_COEFFICIENT=2,
+            AGENT_TASK_MAX_SECONDS=1000,
+        ):
+            soft, hard = calculate_agent_task_time_limits(task)
+
+        assert soft == 50
+        assert hard == 110
+
+    def test_calculate_time_limits_respects_packet_timeout_and_maximum(self):
+        from django.test import override_settings
+        from smart_assistant.tasks import calculate_agent_task_time_limits
+
+        task = MagicMock(
+            global_budget=1000,
+            task_packet={
+                "subtasks": [{}, {}, {}],
+                "timeout_seconds": 700,
+            },
+        )
+        with override_settings(
+            LLM_REQUEST_TIMEOUT_SECONDS=100,
+            AGENT_TASK_RETRY_COEFFICIENT=2,
+            AGENT_TASK_MAX_SECONDS=250,
+        ):
+            assert calculate_agent_task_time_limits(task) == (250, 310)
+
+    @patch("smart_assistant.tasks.execute_agent_task")
+    def test_dispatch_uses_apply_async_with_dynamic_limits(self, mock_task):
+        from smart_assistant.tasks import dispatch_agent_task
+
+        task = MagicMock(task_id="task-1", global_budget=1000, task_packet={"subtasks": [{}]})
+        dispatch_agent_task(task)
+
+        mock_task.apply_async.assert_called_once()
+        assert mock_task.apply_async.call_args.kwargs["args"] == ["task-1"]
+        kwargs = mock_task.apply_async.call_args.kwargs
+        assert kwargs["time_limit"] > kwargs["soft_time_limit"]
+
+    def test_missing_agent_task_does_not_raise_for_autoretry(self):
+        from smart_assistant.models import AgentTask
+        from smart_assistant.tasks import execute_agent_task
+
+        with patch.object(AgentTask, "objects") as objects:
+            objects.get.side_effect = AgentTask.DoesNotExist
+            assert execute_agent_task.run("missing-task") is None
+
+
 class TestProcessDocumentEmbedding(TestCase):
     """process_document_embedding Celery 任务测试."""
 
