@@ -282,7 +282,57 @@ def test_get_openai_tools_signature_accepts_optional_user():
 # ---------------------------------------------------------------------------
 
 
+def test_registry_assert_all_have_openai_schema_rejects_malformed_schema():
+    """registry lint 应验证 schema 结构，而非只检查是否抛 NotImplementedError。"""
+    from unittest.mock import patch
+
+    from smart_assistant.tools.registry import ToolRegistry
+
+    class FakeMalformedTool:
+        intent_type = "fake_malformed_lint"
+
+        @classmethod
+        def get_openai_tool_schema(cls):
+            return {"type": "function", "function": {"name": cls.intent_type}}
+
+    fake_tools = dict(ToolRegistry._tools)
+    fake_tools[FakeMalformedTool.intent_type] = FakeMalformedTool()
+    with patch.object(ToolRegistry, "_tools", fake_tools):
+        with pytest.raises(AssertionError, match="fake_malformed_lint"):
+            ToolRegistry.assert_all_have_openai_schema()
+
+
 @pytest.mark.django_db
+def test_registry_get_openai_tools_accepts_base_tool_fallback():
+    """未覆写 schema 的 BaseTool 工具应进入 get_openai_tools。"""
+    from unittest.mock import patch
+
+    from django.contrib.auth import get_user_model
+
+    from smart_assistant.tools.base import BaseTool
+    from smart_assistant.tools.registry import ToolRegistry
+
+    class LegacyRegisteredTool(BaseTool):
+        intent_type = "legacy_registered"
+        name = "legacy_registered"
+        description = "兼容旧工具"
+
+        def execute(self, query, context):
+            return {"found": True}
+
+    User = get_user_model()
+    user = User.objects.create_user(username="legacy_schema_user", password="x")
+    fake_tools = dict(ToolRegistry._tools)
+    fake_tools[LegacyRegisteredTool.intent_type] = LegacyRegisteredTool()
+    with patch.object(ToolRegistry, "_tools", fake_tools):
+        schemas = ToolRegistry.get_openai_tools(user)
+
+    schema = next(item for item in schemas if item["function"]["name"] == "legacy_registered")
+    assert schema["function"]["parameters"]["required"] == ["query"]
+    assert schema["function"]["parameters"]["additionalProperties"] is False
+
+
+
 @pytest.mark.django_db
 def test_get_openai_tools_skips_malformed_schema(caplog):
     """get_openai_tools() 内置 schema 结构校验 — 非 dict / 字段缺失的 schema 跳过 + warning。

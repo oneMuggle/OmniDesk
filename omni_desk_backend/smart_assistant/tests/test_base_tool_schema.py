@@ -1,10 +1,10 @@
-"""Tests for BaseTool OpenAI tool schema + validate_arguments (Task 2).
+"""Tests for BaseTool OpenAI tool schema + validate_arguments (Task 4).
 
 These tests cover:
 
-1. ``get_openai_tool_schema`` 默认行为:子类不实现时调用即抛 ``NotImplementedError``
-   (不强制 ``@abstractmethod`` —— 现有 18 个 BaseTool 子类尚未实现该方法,
-   见 plan 的 risk note;Task 4 才会逐步实现)。
+1. ``get_openai_tool_schema`` 默认行为:子类不实现时从 ``get_schema()``
+   生成 OpenAI function schema。参数为 required 的单 query string,
+   且 additionalProperties=False。
 2. ``validate_arguments`` 默认实现:基于 ``get_openai_tool_schema()`` 的
    ``parameters`` 字段走 jsonschema JSON Schema 校验。
    - 通过路径:合法参数原样返回
@@ -75,14 +75,24 @@ def test_legacy_tool_can_still_instantiate():
     assert tool.name == "_legacy_test"
 
 
-def test_get_openai_tool_schema_unimplemented_raises():
-    """未实现 get_openai_tool_schema 的子类,调用时抛 NotImplementedError。
+def test_get_openai_tool_schema_falls_back_to_query_schema():
+    """未覆写 schema 的工具应从 get_schema() 生成单 query 参数。"""
+    schema = _LegacyTool.get_openai_tool_schema()
 
-    不强制 @abstractmethod(避免破坏 18 个旧工具的实例化),
-    仅保证运行期调用语义清晰。
-    """
-    with pytest.raises(NotImplementedError):
-        _LegacyTool.get_openai_tool_schema()
+    assert schema == {
+        "type": "function",
+        "function": {
+            "name": "_legacy_test",
+            "description": "legacy",
+            "parameters": {
+                "type": "object",
+                "properties": {"query": {"type": "string"}},
+                "required": ["query"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+    }
 
 
 def test_get_openai_tool_schema_returns_dict_when_implemented():

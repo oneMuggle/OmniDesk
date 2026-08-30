@@ -77,11 +77,10 @@ class ToolRegistry:
           工具对匿名用户也开放(若存在)。
         - **风险等级排序**: ``read`` → ``write`` → ``destructive`` 升序,
           降低 LLM 误调写/破坏性工具的概率(read 工具前置)。
-        - **schema 结构校验**:非 dict 或缺 ``{"type", "function"}`` 关键字段
-          的 schema 记录 warning 后跳过,避免非法 schema 静默进入 LLM payload。
-        - **向后兼容**: ``NotImplementedError`` 的工具仍按 Task 4 约定
-          warning + skip(允许 ToolRegistry 在启动期不因 schema 缺失而整体挂掉)。
-          无 ``user`` 参数调用也合法(等价于 ``user=None``)。
+        - **schema 结构校验**:非 dict 或缺少 OpenAI function 必需字段的 schema
+          记录 warning 后跳过,避免非法 schema 静默进入 LLM payload。
+        - **向后兼容**:未覆写 schema 的工具由 BaseTool 通用降级实现；只有
+          真正抛出 NotImplementedError 的异常工具才记录 warning + skip。
 
         参数:
             user: 当前请求用户。可为 ``None`` / ``AnonymousUser`` /
@@ -123,7 +122,7 @@ class ToolRegistry:
                     type(schema).__name__,
                 )
                 continue
-            schemas.append(schema)
+            schemas.append((tool, schema))
 
         # 4. 风险等级排序:read → write → destructive
         risk_order = {
@@ -131,9 +130,9 @@ class ToolRegistry:
             RISK_LEVEL_WRITE: 1,
             RISK_LEVEL_DESTRUCTIVE: 2,
         }
-        schemas.sort(key=lambda s: risk_order.get(cls._tools[s["function"]["name"]].risk_level, 0))
+        schemas.sort(key=lambda item: risk_order.get(item[0].risk_level, 0))
 
-        return schemas
+        return [schema for _tool, schema in schemas]
 
     @classmethod
     def _is_valid_openai_schema(cls, schema) -> bool:
@@ -148,8 +147,8 @@ class ToolRegistry:
         - 必须有顶层 ``type`` 字段(值应为 ``"function"``)
         - 必须有 ``function`` 子字段(必须为 dict)
         - ``function.name`` 必须是非空字符串
-
-        不通过则返回 ``False``(调用方负责 warning + skip)。
+        - ``function.description`` 必须是字符串
+        - ``function.parameters`` 必须是 dict 且为 object schema
         不做 deep JSON Schema 校验(那是 BaseTool/测试层的职责)。
         """
         if not isinstance(schema, dict):
@@ -160,21 +159,29 @@ class ToolRegistry:
         if not isinstance(function, dict):
             return False
         name = function.get("name")
-        return not (not isinstance(name, str) or not name)
+        description = function.get("description")
+        parameters = function.get("parameters")
+        if not isinstance(name, str) or not name:
+            return False
+        if not isinstance(description, str):
+            return False
+        return isinstance(parameters, dict) and parameters.get("type") == "object"
 
     @classmethod
     def assert_all_have_openai_schema(cls) -> None:
-        """CI lint:断言所有已注册工具都已实现 get_openai_tool_schema()。
+        """CI lint:断言所有已注册工具都返回合法的 OpenAI schema。
 
-        在 CI 中调用一次,可在启动期/单元测试期早期发现遗漏(避免生产环境
-        tool_calls 路径静默降级)。抛 NotImplementedError 即定位遗漏工具。
-        Task 4 实现 19 个工具后,本方法应保持静默。
+        BaseTool 提供通用降级 schema，因此 lint 不再把 ``NotImplementedError``
+        当作“未实现”检查，而是统一验证返回值结构。
         """
-        missing: list[str] = []
+        invalid: list[str] = []
         for tool in cls._tools.values():
             try:
-                tool.get_openai_tool_schema()
-            except NotImplementedError:
-                missing.append(tool.intent_type)
-        if missing:
-            raise AssertionError(f"以下工具未实现 get_openai_tool_schema()(Task 4 遗漏): {missing}")
+                schema = tool.get_openai_tool_schema()
+            except Exception:
+                invalid.append(tool.intent_type)
+                continue
+            if not cls._is_valid_openai_schema(schema):
+                invalid.append(tool.intent_type)
+        if invalid:
+            raise AssertionError(f"以下工具返回的 OpenAI schema 结构不合法: {invalid}")
