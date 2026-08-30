@@ -73,7 +73,8 @@ def _sanitize_value(value, depth=0):
 
 
 def _safe_event_payload(event):
-    payload = event.payload if isinstance(event.payload, dict) else {}
+    payload = getattr(event, "payload", None)
+    payload = payload if isinstance(payload, dict) else {}
     return _sanitize_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
 
 
@@ -393,7 +394,14 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
                 claimed_draft = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
                 claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
-                fields = pre_result if isinstance(pre_result, dict) else claimed_fields
+                final_fields = dict(claimed_fields) if isinstance(claimed_fields, dict) else {}
+                if isinstance(pre_result, dict):
+                    # Hook 只能覆盖已声明的字段；操作闸门仍以确认时校验过的
+                    # operation_id 为准，避免参数修改绕过确认绑定。
+                    final_fields.update(pre_result)
+                final_fields["operation_id"] = operation_id
+                final_draft = {**claimed_draft, "fields": final_fields}
+                fields = final_fields
                 recipient_ids = fields.get("recipient_ids") if isinstance(fields, dict) else None
                 resolved_users = []
                 if isinstance(recipient_ids, list):
@@ -410,10 +418,10 @@ class AgentTaskViewSet(viewsets.ViewSet):
             task_id=task_id,
             event_bus=event_bus,
             confirmed=True,
-            draft={**claimed_draft, "_resolved_users": resolved_users},
+            draft={**final_draft, "_resolved_users": resolved_users},
         )
         try:
-            result = execute_guarded(tool, user_query, context=context)
+            result = execute_guarded(tool, user_query, context=context, params=fields)
             result = apply_post_execute_hooks(tool, result, context)
         except Exception as exc:
             logger.exception("确认工具执行失败: task_id=%s", task_id)

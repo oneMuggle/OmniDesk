@@ -88,6 +88,13 @@ class TestRateLimitHook:
         result_b = _run(self.hook.pre_execute(_FakeWriteTool(), ctx_b, {"query": "x"}))
         assert result_b == {"query": "x"}
 
+    def test_replay_bypasses_without_counting(self):
+        ctx = SimpleNamespace(user=SimpleNamespace(id=2007, is_authenticated=True), replay=True)
+        result = _run(self.hook.pre_execute(_FakeWriteTool(), ctx, {"query": "x"}))
+        assert result == {"query": "x"}
+        from django.core.cache import cache
+        assert cache.get("smart_assistant:write_rate_limit:2007") is None
+
     # --- T5: 未认证放行(由 ChatMiddleware 兜底) ---
     def test_anonymous_passthrough(self):
         ctx = SimpleNamespace(user=SimpleNamespace(id=2006, is_authenticated=False))
