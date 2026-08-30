@@ -24,6 +24,7 @@ from smart_assistant.tools.tool_context import ToolContext
 from smart_assistant.scope import resolve_scope
 
 from smart_assistant.agent.native_tool_runner import execute_native_tool
+from smart_assistant.agent.tool_call_core import ToolCallBudgetExhausted, run_tool_call_loop
 
 from .dataclasses import SubTaskResult
 from .roles import ROLE_PROFILES, RoleProfile
@@ -302,32 +303,9 @@ class SubTaskRunner:
         max_rounds = self._max_tool_call_rounds
         if max_rounds is None:
             max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
-        working_messages = list(messages)
-        total_usage: dict = {}
-
-        for round_index in range(max(0, max_rounds)):
-            if shared_context is not None and shared_context.is_budget_exhausted():
-                return "", total_usage
-            content, usage, tool_calls = self._llm_router.generate_with_tools(
-                messages=self._with_system_message(profile, working_messages),
-                tools=tool_schemas,
-                tool_choice="auto",
-                options=self._llm_options(profile),
-            )
-            total_usage = self._merge_usage(total_usage, usage)
-            self._consume_usage(shared_context, usage)
-            # Token usage is charged before accepting either text or tool calls.
-            # Once the shared budget is exhausted, never turn a partial model
-            # response into a successful subtask result.
-            if shared_context is not None and shared_context.is_budget_exhausted():
-                raise RuntimeError("token budget exhausted")
-            if not tool_calls:
-                return content or "", total_usage
-
+        def process_tool_calls(tool_calls, round_index):
             tool_messages = []
             for tool_call in tool_calls:
-                if shared_context is not None and shared_context.is_budget_exhausted():
-                    return content or "", total_usage
                 name, raw_arguments = self._tool_call_fields(tool_call)
                 arguments = self._decode_arguments(raw_arguments)
                 self._event_bus.emit(
@@ -341,12 +319,12 @@ class SubTaskRunner:
                 )
                 result = self._execute_tool(name, arguments, tool_context)
                 if self._pending_confirmation is not None:
-                    return "", total_usage
+                    return [], self._pending_confirmation
                 self._event_bus.emit(
                     "subtask.tool_result",
                     {
                         "subtask_id": subtask.id,
-                        "tool": name,
+                        "tool": self._safe_text(name),
                         "result": self._result_summary(result),
                         "round": round_index,
                     },
@@ -358,19 +336,25 @@ class SubTaskRunner:
                         "content": json.dumps(result, ensure_ascii=False),
                     }
                 )
-            working_messages.append({"role": "assistant", "content": content or "", "tool_calls": tool_calls})
-            working_messages.extend(tool_messages)
+            return tool_messages, None
 
-        content, usage, _ = self._llm_router.generate_with_tools(
-            messages=self._with_system_message(profile, working_messages),
-            tools=tool_schemas,
-            tool_choice="none",
-            options=self._llm_options(profile),
-        )
-        self._consume_usage(shared_context, usage)
-        if shared_context is not None and shared_context.is_budget_exhausted():
-            raise RuntimeError("token budget exhausted")
-        return content or "", self._merge_usage(total_usage, usage)
+        try:
+            content, total_usage, _, _, early_result = run_tool_call_loop(
+                self._llm_router,
+                messages=messages,
+                tools=tool_schemas,
+                max_rounds=max_rounds,
+                options=self._llm_options(profile),
+                build_messages=lambda current: self._with_system_message(profile, current),
+                on_usage=lambda usage: self._consume_usage(shared_context, usage),
+                budget_exhausted=lambda: shared_context is not None and shared_context.is_budget_exhausted(),
+                on_tool_calls=process_tool_calls,
+            )
+        except ToolCallBudgetExhausted as exc:
+            raise RuntimeError(str(exc)) from exc
+        if early_result is not None:
+            return "", total_usage
+        return content, total_usage
 
     @staticmethod
     def _tool_call_fields(tool_call: dict) -> tuple[str, Any]:
@@ -432,8 +416,14 @@ class SubTaskRunner:
 
     @classmethod
     def _safe_summary(cls, value: Any, _key: str = "") -> Any:
-        sensitive = {"password", "passwd", "secret", "token", "access_token", "refresh_token", "api_key", "authorization", "credential", "prompt", "system_prompt"}
-        if _key.lower() in sensitive or any(marker in _key.lower() for marker in ("api_key", "token", "password", "secret")):
+        sensitive = {
+            "password", "passwd", "secret", "token", "access_token", "refresh_token",
+            "api_key", "apikey", "authorization", "authorization_header", "credential",
+            "prompt", "system_prompt", "email", "email_address", "phone", "phone_number",
+            "身份证", "身份证号", "id_card", "idcard",
+        }
+        normalized_key = re.sub(r"[^a-z0-9一-鿿]", "", _key.lower())
+        if normalized_key in {re.sub(r"[^a-z0-9一-鿿]", "", key.lower()) for key in sensitive}:
             return "[REDACTED]"
         if isinstance(value, dict):
             return {
@@ -447,6 +437,7 @@ class SubTaskRunner:
             text = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "[REDACTED_EMAIL]", text)
             text = re.sub(r"(?<!\d)(?:1[3-9]\d{9})(?!\d)", "[REDACTED_PHONE]", text)
             text = re.sub(r"(?<!\d)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)", "[REDACTED_ID]", text)
+            text = re.sub(r"(?<!\d)\d{6}\d{8}[0-9Xx](?!\d)", "[REDACTED_ID]", text)
             return text
         return value
 

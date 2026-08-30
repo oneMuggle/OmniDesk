@@ -61,3 +61,10 @@
 - schema 测试说明与数量断言改为实际 registry 集合，不再依赖 22/23 等硬编码。
 - Fix round 1 focused tests：`68 passed, 1 warning in 9.34s`；`py_compile` 与 `git diff --check` 通过。
 - `agent/tool_rounds_runner.py` 与 `agents/subtask_runner.py` 的上下文返回契约不同，本轮继续复用既有 `execute_native_tool` 单工具核心；未引入第二份单工具执行逻辑。
+
+## Fix round 2 追加
+
+- 新增 `/home/fz/project/OmniDesk/omni_desk_backend/smart_assistant/agent/tool_call_core.py`，统一两条路径的 `generate_with_tools`、轮次、tool result 回灌、usage 合并、预算检查和 `tool_choice="none"` 收尾；各入口仅通过回调保留自身事件、确认、fallback 与结果契约。
+- `_safe_summary()` 增强敏感 key 规范化匹配，覆盖 email/email_address、phone/phone_number、身份证/id_card、apiKey/accessToken/authorization_header 等变体，并覆盖 15 位身份证及嵌套结构。
+- Fix round 2 focused tests：`84 passed, 1 warning in 15.02s`；`py_compile` 与 `git diff --check` 通过。
+- 既有 `SECRET_KEY not set` warning 仍存在，为测试配置既有提示。
