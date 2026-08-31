@@ -147,6 +147,24 @@ class TestConfirmReplayE2E:
             public_draft = data_1["tool_result"]["draft"]
             assert public_draft["summary"]
             assert isinstance(public_draft["fields"], dict)
+            allowed_public_field_keys = {
+                "operation_id",
+                "operation",
+                "phase",
+                "scope",
+                "status",
+                "count",
+                "total",
+            }
+            assert set(public_draft["fields"]) <= allowed_public_field_keys
+            for sensitive_key in (
+                "content",
+                "recipient_ids",
+                "recipient_names",
+                "credentials",
+                "query",
+            ):
+                assert sensitive_key not in public_draft["fields"]
             assert "query" not in str(data_1["tool_result"])
             assert data_1["error"] is False
 

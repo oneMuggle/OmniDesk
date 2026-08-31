@@ -133,3 +133,23 @@
 ### 变更边界
 - 保留既有 AgentLog、scope/CAS、Notify audit、URL、SSE content/type/format 修复。
 - 未修改 `VERSION`、`CHANGELOG`、user spec；仅更新本报告与本轮必要测试/生产边界。
+
+## Task 13：确认首次响应公开字段白名单补强（2026-08-31）
+
+### 处理内容
+- 在 `/home/fz/project/OmniDesk/omni_desk_backend/smart_assistant/tests/test_confirm_replay_e2e.py` 的首次确认响应断言中，补充 `public_draft["fields"]` 的正向白名单断言。
+- 允许字段集合严格限制为 `operation_id`、`operation`、`phase`、`scope`、`status`、`count`、`total`；并明确断言 `content`、`recipient_ids`、`recipient_names`、`credentials`、`query` 均不存在。
+- 仅增强测试契约，未修改生产代码、`public_confirmation_draft` 实现或任何安全边界。
+
+### 验证
+- 基线目标测试（修改前）：3 passed；默认覆盖率阈值导致进程退出码 1（单文件运行总覆盖率 17%，与本次测试变更无关）。
+- 本轮未执行 RED：这是针对现有安全 DTO 的补充断言，非生产行为变更；基线已证明原有 3 个场景通过，直接进入 GREEN 验证。
+- GREEN 目标测试：3 passed（`--no-cov`），1 个既有随机 `SECRET_KEY` warning。
+- 相关确认/replay/boundary 测试：42 passed（`--no-cov`），1 个既有随机 `SECRET_KEY` warning。
+  - `test_confirm_replay_e2e.py` + `test_view_confirm_replay.py`：12 passed。
+  - `test_cache_confirmation_draft.py` + `test_task13_public_boundaries.py`：42 passed。
+- `git diff --check`：通过。
+
+### 遗留项
+- 单文件 pytest 默认 coverage fail-under=80 的退出码问题仍存在；按项目约定使用 `--no-cov` 执行 targeted 测试。
+- 本轮无生产代码遗留项；全量相关测试结果以提交前最终验证为准。
