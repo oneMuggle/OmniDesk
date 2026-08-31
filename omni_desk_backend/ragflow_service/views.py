@@ -1,5 +1,5 @@
 from django.http import JsonResponse
-from rest_framework import status, viewsets
+from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from observability import get_logger
@@ -49,6 +49,16 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
     serializer_class = RagflowConfigSerializer
     permission_classes = [IsAdminOrReadOnly]
 
+    def get_serializer_class(self):
+        if self.request and self.request.user.is_staff:
+            return RagflowConfigSerializer
+        class SafeRagflowConfigSerializer(serializers.ModelSerializer):
+            class Meta:
+                model = RagflowConfig
+                fields = ["id", "name", "chat_id", "is_active", "created_at", "updated_at"]
+                read_only_fields = fields
+        return SafeRagflowConfigSerializer
+
     def _get_client(self, config: RagflowConfig) -> RagflowClient:
         return RagflowClient(api_endpoint=config.api_endpoint, api_key=config.api_key or "")
 
@@ -65,7 +75,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             return Response({"detail": "缺少查询问题。"}, status=status.HTTP_400_BAD_REQUEST)
         client = self._get_client(config)
         try:
-            kwargs = {"conversation_id": conversation_id} if conversation_id else {}
+            kwargs = {}
             result = client.chat_completion(chat_id=config.chat_id, question=question, **kwargs)
             return Response(_public_query_result(result), status=status.HTTP_200_OK)
         except RagflowClientError as exc:

@@ -58,3 +58,12 @@
 - 定向测试：**55 passed**（`--no-cov`）。
 - `git diff --check`：通过。
 - task-11-report.md 保持原有未提交修改，未修改 VERSION/CHANGELOG。
+
+## 最终复审修复（2026-08-31）
+
+- Ragflow multipart 请求不再继承 JSON `Content-Type`；非文件请求显式设置 JSON，文件请求交由 requests 生成 multipart boundary。
+- query 忽略客户端传入的 `conversation_id`，避免跨用户会话复用；仍保留上游返回的新会话 ID。
+- 普通认证用户使用安全只读 Ragflow 配置 serializer，管理员保留完整配置能力；`api_key` 始终 write-only。
+- `_public_items` 继续执行安全文本/标量过滤；新增 secret URL/path/nested 测试。
+- 删除 RAG router 测试中未使用的 `pytest` 导入。
+- Ragflow targeted：**55 passed**（`--no-cov`）。

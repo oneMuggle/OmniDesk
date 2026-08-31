@@ -133,6 +133,22 @@ class TestRagflowConfigViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == {"answer": "safe", "conversation_id": "conv-1"}
 
+    def test_query_does_not_forward_client_conversation_id(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Conversation Config", api_endpoint="https://ragflow.example.com/api",
+            api_key="key", is_active=True, chat_id="chat-id",
+        )
+        mock_client = MagicMock()
+        mock_client.chat_completion.return_value = {"answer": "safe", "conversation_id": "new"}
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.post(
+                f"/api/ragflow-service/configs/{config.pk}/query/",
+                {"question": "q", "conversation_id": "other-user-conversation"}, format="json"
+            )
+        assert response.status_code == status.HTTP_200_OK
+        assert "conversation_id" not in mock_client.chat_completion.call_args.kwargs
+
     def test_list_datasets_filters_upstream_fields(self, admin_client):
         from ragflow_service.models import RagflowConfig
         config = RagflowConfig.objects.create(

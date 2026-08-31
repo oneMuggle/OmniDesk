@@ -203,6 +203,29 @@ def test_safe_request_passes_method_to_session_request():
     assert session.request.call_args.kwargs["url"].startswith("https://example.com/")
 
 
+def test_files_request_uses_multipart_content_type():
+    from ragflow_service.client import RagflowClient
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"data": {}}
+    requester = MagicMock(return_value=response)
+    client = RagflowClient("https://example.com", "secret", resolver=_public_resolver, requester=requester)
+    client.upload_document("dataset", "a.txt", b"body")
+    headers = requester.call_args.kwargs["headers"]
+    assert "Content-Type" not in headers
+
+
+def test_json_request_sets_json_content_type():
+    from ragflow_service.client import RagflowClient
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"data": []}
+    requester = MagicMock(return_value=response)
+    client = RagflowClient("https://example.com", "secret", resolver=_public_resolver, requester=requester)
+    client.list_datasets()
+    assert requester.call_args.kwargs["headers"]["Content-Type"] == "application/json"
+
+
 def test_client_rejects_non_dict_json_response():
     from ragflow_service.client import RagflowClient, RagflowClientError
     response = MagicMock()

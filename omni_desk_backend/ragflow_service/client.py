@@ -28,7 +28,7 @@ class RagflowClient:
     def __init__(self, api_endpoint: str, api_key: str, timeout: int = 30, *, requester=None, resolver=None):
         self.base_url = api_endpoint.rstrip("/")
         self.timeout = timeout
-        self.headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+        self.headers = {"Authorization": f"Bearer {api_key}"}
         self._session = requests.Session()
         self._session.headers.update(self.headers)
         self._requester = requester
@@ -54,8 +54,8 @@ class RagflowClient:
     def _request(self, method, path, json=None, files=None, timeout=None):
         url = f"{self.base_url}{path}"
         request_headers = dict(self.headers)
-        if files:
-            request_headers.pop("Content-Type", None)
+        if not files:
+            request_headers["Content-Type"] = "application/json"
         try:
             response = safe_request(
                 method,
