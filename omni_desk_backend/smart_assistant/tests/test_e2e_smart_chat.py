@@ -621,6 +621,7 @@ def test_e2e_cache_isolated_by_user_and_scope(
     使用 schedule_query 触发真实工具路径(而非 general_chat)。
     """
     from unittest.mock import patch, MagicMock
+    import smart_assistant.agent.orchestrator as orchestrator_root
     from smart_assistant.cache import cache_tool_result as real_cache_tool_result
 
     captured_context_sigs = []
@@ -637,11 +638,11 @@ def test_e2e_cache_isolated_by_user_and_scope(
     mock_tool.name = "schedule_query"
     mock_tool.execute.return_value = {"found": True, "schedules": []}
     mock_tool.supports_scope_filter = False  # 走旧路径,仍会调 cache_tool_result
+    mock_tool.require_confirmation = False
 
-    # 注意:必须 patch orchestrator 内部导入的 cache_tool_result 引用,
-    # 不能 patch smart_assistant.cache.cache_tool_result(因为 from .. import
-    # 已经把引用拷到 orchestrator 命名空间)。
-    with patch("smart_assistant.agent.orchestrator.cache_tool_result", wrapped_cache_tool_result), \
+    # LegacyProcessMixin 通过 persistence._root() 动态读取编排器包根；使用已加载的
+    # 包根对象作为兼容 seam，确保捕获真实的 scope-aware cache 写入。
+    with patch.object(orchestrator_root, "cache_tool_result", wrapped_cache_tool_result), \
          patch("smart_assistant.agent.orchestrator.ToolRegistry") as mock_registry, \
          patch("smart_assistant.agent.orchestrator.classify_intent") as mock_classify:
         mock_classify.return_value = "schedule_query"

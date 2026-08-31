@@ -85,3 +85,17 @@
 - 前端：`npm test -- --watch=false src/features/smart-assistant/components/__tests__/ToolResult.test.jsx`：**1 suite, 8 tests passed**。
 - `npm run lint -- --no-fix`：通过；`git diff --check`：通过。
 - 尚未声称后端全量通过；此前用户提供 HEAD 基线全量为 **3117 passed, 5 failed**，本轮未以退出码 0 重跑全量。
+
+## Task 13：缓存隔离测试 seam 修复（2026-08-31）
+
+- 根因确认：`LegacyProcessMixin` 位于 `smart_assistant/agent/orchestrator/persistence.py`，通过 `persistence._root()` 动态读取编排器包根；测试原先使用字符串 patch 目标虽指向包根，但该测试路径实际还被确认钩子拦截，未进入真实工具缓存写入，导致 `captured_context_sigs` 为空。
+- 测试修复：在 `test_e2e_cache_isolated_by_user_and_scope` 中显式导入已加载的 `smart_assistant.agent.orchestrator` 包根，并以 `patch.object(orchestrator_root, "cache_tool_result", ...)` 绑定兼容 seam；同时将固定测试工具明确设为 `require_confirmation = False`，确保测试验证真实工具执行后的 plain/admin scope-aware 缓存写入，而非确认预演路径。
+- 未修改任何生产代码、缓存安全逻辑或安全边界。
+
+### 验证结果
+
+- 修复前 RED：目标测试 `1 failed`，失败为 `captured_context_sigs` 为空。
+- 修复后目标测试：`1 passed, 1 warning`（随机 `SECRET_KEY` warning 为既有测试 settings 行为）。
+- 相关缓存与 legacy 测试：`63 passed, 1 warning`，覆盖 `test_cache.py`、`test_cache_stream_shortcut.py`、`test_cache_stampede.py`、`test_cache_confirmation_draft.py`、`test_legacy_process_helpers.py` 及目标 E2E 测试。
+- `git diff --check`：通过。
+- 未运行后端全量测试；报告中此前记录的全量基线/遗留失败不因本次测试 seam 修复而改变。
