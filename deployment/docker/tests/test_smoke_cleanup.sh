@@ -55,14 +55,17 @@ curl() {
         fi
     done
     if [ -n "$body_file" ]; then
-        printf '{"access":"hdr.payload.sig-%s"}\n' "$SMOKE_RUN_ID" > "$body_file"
+        printf '{"access":"eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDB9.signature"}\n' > "$body_file"
     fi
     printf '200'
 }
 export -f curl
 
 SMOKE_RUN_ID="run-a-$$"
-SMOKE_AUTH_TOKEN=""
+SMOKE_AUTH_TOKEN_FILE=""
+SMOKE_TEST_USER=""
+SMOKE_TEST_PASSWORD=""
+BASE_URL="http://stub"
 _call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-a"
 _call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-b"
 
@@ -82,7 +85,7 @@ SMOKE_AUTH_TOKEN_FILE=""
 TOKEN_FILE="$(smoke_auth_token_file)"
 printf 'not-a-jwt' > "$TOKEN_FILE"
 _call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-c"
-if grep -q 'hdr.payload.sig-run-corrupt-' "$TOKEN_OUTPUT_DIR/token-c" \
+if grep -q 'eyJleHAiOjQxMDI0NDQ4MDB9' "$TOKEN_OUTPUT_DIR/token-c" \
     && [ "$(wc -l < "$TOKEN_CALLS_FILE")" -eq 2 ]; then
     report PASS "C8 corrupt default cache rejected and refreshed"
 else

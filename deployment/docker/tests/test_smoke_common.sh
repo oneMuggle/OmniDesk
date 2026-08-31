@@ -118,6 +118,15 @@ else
     report FAIL "T6 smoke_tests still assumes bundle-root validate_artifacts.sh"
 fi
 
+# ─── T7:deploy_tests 受保护 version 与 Redis 必须复用上下文 ───
+if grep -q 'obtain_auth_token' "$DEPLOY_TESTS" \
+    && grep -q 'ENV_FILE_PATH' "$DEPLOY_TESTS" \
+    && ! grep -q 'grep "\^REDIS_PASSWORD=" .env.production' "$DEPLOY_TESTS"; then
+    report PASS "T7 deploy_tests reuses auth token and resolved env path"
+else
+    report FAIL "T7 deploy_tests does not reuse auth/env context"
+fi
+
 # ─── T8:source 布局校验器必须使用 exported_images ───────────
 if grep -Fq 'VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"' "$SMOKE_TESTS" \
     && grep -Fq 'ARTIFACT_IMAGE_DIR="$SCRIPT_DIR/exported_images"' "$SMOKE_TESTS"; then

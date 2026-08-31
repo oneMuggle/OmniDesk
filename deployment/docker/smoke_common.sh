@@ -260,7 +260,27 @@ smoke_auth_token_file() {
 
 smoke_auth_token_is_valid() {
     local token="$1"
-    [[ "$token" =~ ^[^.[:space:]]+\.[^.[:space:]]+\.[^.[:space:]]+$ ]]
+    python3 - "$token" <<'PY'
+import base64
+import json
+import sys
+import time
+
+value = sys.argv[1]
+parts = value.split('.')
+if len(parts) != 3 or not all(parts):
+    raise SystemExit(1)
+try:
+    payload = parts[1] + ('=' * (-len(parts[1]) % 4))
+    if any(ch not in 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_=' for ch in payload):
+        raise ValueError
+    claims = json.loads(base64.urlsafe_b64decode(payload).decode('utf-8'))
+    exp = claims.get('exp')
+    if not isinstance(exp, (int, float)) or exp <= time.time():
+        raise ValueError
+except (ValueError, TypeError, UnicodeDecodeError, json.JSONDecodeError):
+    raise SystemExit(1)
+PY
 }
 
 # obtain_auth_token
@@ -284,30 +304,39 @@ obtain_auth_token() {
         fi
         rm -f "$token_file" 2>/dev/null || true
     fi
-    local body_file code token login_url
+    local body_file code token login_url request_file
     body_file="$(mktemp)"
+    request_file="$(mktemp)"
+    chmod 600 "$body_file" "$request_file" 2>/dev/null || true
+    trap 'rm -f "$body_file" "$request_file"' RETURN
     login_url="$BASE_URL/api/auth/guest-login/"
     if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
         login_url="$BASE_URL/api/auth/login/"
-        code=$(curl -sS -X POST -o "$body_file" \
-            --write-out '%{http_code}' \
-            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
-            -H 'Content-Type: application/json' \
-            -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
-            "$login_url" 2>/dev/null || echo "000")
+        SMOKE_TEST_USER="$SMOKE_TEST_USER" SMOKE_TEST_PASSWORD="$SMOKE_TEST_PASSWORD" \
+            python3 - "$request_file" <<'PY'
+import json
+import os
+import sys
+with open(sys.argv[1], 'w') as f:
+    json.dump({'username': os.environ['SMOKE_TEST_USER'], 'password': os.environ['SMOKE_TEST_PASSWORD']}, f)
+PY
     else
-        code=$(curl -sS -X POST -o "$body_file" \
-            --write-out '%{http_code}' \
-            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
-            -H 'Content-Type: application/json' -d '{}' \
-            "$login_url" 2>/dev/null || echo "000")
+        printf '{}' > "$request_file"
     fi
+    code=$(curl -sS -X POST -o "$body_file" \
+        --write-out '%{http_code}' \
+        --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
+        -H 'Content-Type: application/json' \
+        --data-binary "@$request_file" \
+        "$login_url" 2>/dev/null || echo "000")
     if [ "$code" != "200" ]; then
-        rm -f "$body_file"
+        rm -f "$body_file" "$request_file"
+        trap - RETURN
         return 1
     fi
     token="$(SMOKE_RUN_ID="$SMOKE_RUN_ID" python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('access',''))" "$body_file" 2>/dev/null || echo "")"
-    rm -f "$body_file"
+    rm -f "$body_file" "$request_file"
+    trap - RETURN
     if [ -z "$token" ]; then
         return 1
     fi
