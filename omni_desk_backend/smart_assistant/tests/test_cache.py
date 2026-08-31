@@ -57,6 +57,19 @@ class TestPublicTextUrlCredentials:
     def test_ordinary_url_without_credentials_is_preserved(self):
         value = '参考 https://example.test/docs?page=2&lang=zh'
         assert 'https://example.test/docs?page=2&lang=zh' in sanitize_public_text(value)
+
+    @pytest.mark.parametrize('value', [
+        '请访问 https://user:SECRET@example.com/path。',
+        '请访问 https://SECRET@example.com/path。',
+        '请访问 https://user@example.com/path。',
+    ])
+    def test_url_authority_credentials_are_not_public(self, value):
+        sanitized = sanitize_public_text(value)
+        assert 'user' not in sanitized
+        assert 'SECRET' not in sanitized
+        assert 'example.com/path' in sanitized
+        assert 'https://' in sanitized
+
     def test_initial_cache_version_is_positive_int(self):
         assert isinstance(CACHE_VERSION, int)
         assert CACHE_VERSION >= 1

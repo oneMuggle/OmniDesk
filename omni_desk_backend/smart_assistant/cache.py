@@ -459,10 +459,13 @@ def _sanitize_url_credentials(value):
             raw_url = raw_url[:-1]
         try:
             parsed = urlsplit(raw_url)
+            safe_netloc = parsed.netloc
+            if "@" in safe_netloc:
+                # URL authority 的 userinfo 不应进入任何公开文本；不要让
+                # `_SECRET_TEXT_RE` 在 URL 被保护后错过 username/password。
+                safe_netloc = safe_netloc.rsplit("@", 1)[1]
             pairs = parse_qsl(parsed.query, keep_blank_values=True)
-            if not pairs:
-                return raw_url + trailing
-            changed = False
+            changed = safe_netloc != parsed.netloc
             safe_pairs = []
             for key, item in pairs:
                 if _canonical_url_query_key(key) in _URL_CREDENTIAL_CANONICAL_KEYS:
@@ -472,7 +475,7 @@ def _sanitize_url_credentials(value):
             if not changed:
                 return raw_url + trailing
             from urllib.parse import urlencode
-            sanitized = parsed._replace(query=urlencode(safe_pairs)).geturl()
+            sanitized = parsed._replace(netloc=safe_netloc, query=urlencode(safe_pairs)).geturl()
             return sanitized + trailing
         except ValueError:
             return raw_url + trailing

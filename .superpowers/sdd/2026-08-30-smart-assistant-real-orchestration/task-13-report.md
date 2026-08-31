@@ -199,4 +199,23 @@
 ### 变更边界复核
 - 统计接口继续使用 `IsAdminUser`；overview/daily 对普通用户和未认证用户拒绝，管理员允许；`days=1/365` 接受，`0/366/非法字符串` 返回 400；`top_questions` 仅公开 intent/count，不含 `user_query`。
 - 保留 confirmation summary 固定文案与 fields 白名单、scope/CAS、AgentLog 脱敏、Notify audit 无身份/姓名/正文、RAG/source DTO、`public_tool_result` 聚合边界、SSE content/type/format/error 契约。
-- 未修改 `VERSION`、`CHANGELOG`、user spec；工作区既有 `.superpowers/sdd/2026-08-30-smart-assistant-real-orchestration/task-11-report.md` 改动未纳入本轮代码变更。
+
+
+## Task 13：URL authority 凭据公开文本阻断（2026-08-31）
+
+### 根因与处理
+- `sanitize_public_text` 先以 `_URL_RE` 保护完整 URL，再运行 `_SECRET_TEXT_RE`；因此 URL authority 中的 `username:password@` 不会被通用 secret 正则处理，`https://user:SECRET@example.com/path` 会原样进入 sync answer、SSE chunk、错误/摘要文本及 AgentLog 等公开文本出口。
+- `_sanitize_url_credentials` 现在在解析 URL 后剥离整个 authority userinfo（保留 scheme、host、port、path 和 query），并继续使用既有 canonical query key 逻辑替换签名/凭据 query 值。无 userinfo 的普通 URL 不改变；不安全 URL 不产生残缺 URL。
+- 未改变 `_is_public_url` 的来源 DTO 策略，也未修改统计 `IsAdminUser`、`days=1..365`、`top_questions` 或此前 confirmation summary/fields、scope/CAS、Notify audit、RAG/source DTO、SSE、`public_tool_result` 修复。
+
+### TDD 与验证
+- RED：先新增 authority `user:SECRET@host`、仅密码、仅用户名三种真实 `sanitize_public_text` 回归测试；运行目标测试得到退出码 `1`，3 个测试均按预期暴露 username/secret 原文，另因单文件覆盖率 fail-under 产生附加 coverage 失败提示。
+- GREEN：最小修改 authority 处理后，定向 URL 测试 `13 passed, 28 deselected`，退出码 `0`。
+- targeted：缓存、Task 13 公开边界及 AgentLog serializer 测试 `52 passed, 1 warning`，退出码 `0`。
+- 后端全量：在正确目录使用 `/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`，`3153 passed, 2 xfailed, 11 xpassed, 42 warnings`，覆盖率 `93.42%`，实际退出码 `0`，耗时约 2 分 53 秒。
+
+### 变更文件与遗留项
+- `/home/fz/project/OmniDesk/omni_desk_backend/smart_assistant/cache.py`
+- `/home/fz/project/OmniDesk/omni_desk_backend/smart_assistant/tests/test_cache.py`
+- 本报告追加本轮准确验证记录；未修改 `VERSION`、`CHANGELOG`、user spec。
+- 测试环境既有随机 `SECRET_KEY`、Django timezone/pagination 等 warning 仍存在；无本轮相关失败或未解决安全问题。
