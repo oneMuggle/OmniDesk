@@ -516,7 +516,7 @@ def test_native_path_confirm_replay_require_confirmation():
         # 走到 confirm-replay:返回 draft + token,而非直接执行
         assert confirmation is not None
         assert confirmation["token"]
-        assert confirmation["draft"]["summary"] == "确认执行: 生成换班申请"
+        assert confirmation["draft"]["summary"] == "请确认工具操作"
         assert result.get("found") is True
         assert "unexpected_direct_execution" not in str(result)
     finally:

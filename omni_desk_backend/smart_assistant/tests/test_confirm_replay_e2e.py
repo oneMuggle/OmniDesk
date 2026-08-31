@@ -39,7 +39,20 @@ class _E2EWriteTool(BaseTool):
                 "found": True,
                 "draft": {
                     "summary": f"将为以下操作发起确认: {query}",
-                    "fields": {"query": query},
+                    "fields": {
+                        "operation_id": "op-e2e",
+                        "operation": "e2e_write_tool",
+                        "phase": "dry_run",
+                        "scope": "self",
+                        "status": "awaiting_confirmation",
+                        "count": 1,
+                        "total": 1,
+                        "content": "CONTENT_SECRET_123",
+                        "recipient_ids": ["RECIPIENT_ID_SECRET_123"],
+                        "recipient_names": ["RECIPIENT_NAME_SECRET_123"],
+                        "credentials": "CREDENTIAL_SECRET_123",
+                        "query": query,
+                    },
                 },
             }
 
@@ -134,7 +147,7 @@ class TestConfirmReplayE2E:
             # Step 1: 首次请求 → awaiting_confirmation
             response_1 = api_client.post(
                 "/api/smart-assistant/chat/",
-                {"query": "端到端测试查询"},
+                {"query": "QUERY_SECRET_123"},
                 format="json",
             )
 
@@ -165,7 +178,15 @@ class TestConfirmReplayE2E:
                 "query",
             ):
                 assert sensitive_key not in public_draft["fields"]
-            assert "query" not in str(data_1["tool_result"])
+            public_draft_json = str(data_1["tool_result"])
+            for sentinel in (
+                "CONTENT_SECRET_123",
+                "RECIPIENT_ID_SECRET_123",
+                "RECIPIENT_NAME_SECRET_123",
+                "CREDENTIAL_SECRET_123",
+                "QUERY_SECRET_123",
+            ):
+                assert sentinel not in public_draft_json
             assert data_1["error"] is False
 
             token = data_1["confirmation_token"]
@@ -173,7 +194,7 @@ class TestConfirmReplayE2E:
             # Step 2: 二次请求 → replay → 最终结果
             response_2 = api_client.post(
                 "/api/smart-assistant/chat/",
-                {"query": "端到端测试查询", "confirm_token": token},
+                {"query": "QUERY_SECRET_123", "confirm_token": token},
                 format="json",
             )
 
@@ -183,7 +204,7 @@ class TestConfirmReplayE2E:
             assert data_2["error"] is False
             assert data_2["tool_used"] == "e2e_write_tool"
             assert data_2["tool_result"]["found"] is True
-            assert data_2["tool_result"]["summary"] == "操作已完成: 端到端测试查询"
+            assert data_2["tool_result"]["summary"] == "操作已完成: QUERY_SECRET_123"
             assert set(data_2["tool_result"]) == {"found", "summary"}
             assert data_2["answer"].startswith("操作已完成")
 

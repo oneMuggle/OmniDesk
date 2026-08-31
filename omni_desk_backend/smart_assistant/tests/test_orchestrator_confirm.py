@@ -239,10 +239,10 @@ class TestConfirmationInterception:
         assert result["awaiting_confirmation"] is True
         assert result["confirmation_token"]  # 非空
         assert result["tool_used"] == "write_with_confirm"
-        assert result["tool_result"]["draft"]["summary"] == "将执行测试操作"
+        assert result["tool_result"]["draft"]["summary"] == "请确认工具操作"
         assert result["error"] is False
         # 不走 LLM 合成 → answer = draft.summary
-        assert result["answer"] == "将执行测试操作"
+        assert result["answer"] == "请确认工具操作"
 
     @patch("smart_assistant.agent.orchestrator.classify_intent")
     @patch("smart_assistant.agent.orchestrator.generate_tool_chain_plan")

@@ -609,7 +609,21 @@ class TestAgentTaskResultNotification(TransactionTestCase):
         # server-side draft 保留 confirmed replay 所需字段；API 只暴露安全摘要。
         assert result["draft"]["fields"]["content"].startswith("正文中的")
         from smart_assistant.views.tasks import _safe_replay_draft
-        public_draft = _safe_replay_draft(result["draft"], {"operation_id": result["draft"]["fields"]["operation_id"]})
+        from smart_assistant.cache import public_confirmation_draft
+        public_draft = public_confirmation_draft(
+            result["draft"], "agent_notify"
+        )
+        assert set(public_draft["fields"]) == {
+            "operation_id",
+            "operation",
+            "recipient_count",
+            "title",
+        }
+        assert "正文中的" not in str(public_draft)
+        assert "RECIPIENT_ID_SECRET_123" not in str(public_draft)
+        assert "RECIPIENT_NAME_SECRET_123" not in str(public_draft)
+        assert "CREDENTIAL_SECRET_123" not in str(public_draft)
+        assert "query" not in str(public_draft)
         assert "content" not in public_draft["fields"]
         assert "super-secret" not in str(public_draft)
 

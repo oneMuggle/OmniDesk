@@ -150,6 +150,20 @@
   - `test_cache_confirmation_draft.py` + `test_task13_public_boundaries.py`：42 passed。
 - `git diff --check`：通过。
 
-### 遗留项
-- 单文件 pytest 默认 coverage fail-under=80 的退出码问题仍存在；按项目约定使用 `--no-cov` 执行 targeted 测试。
-- 本轮无生产代码遗留项；全量相关测试结果以提交前最终验证为准。
+### 最终阻塞修复：通用确认摘要任意 query 泄露（2026-08-31）
+
+#### 根因与处理
+- 阻塞问题：`public_confirmation_draft` 对非 `agent_notify` 工具将 server-side `draft.summary` 经 `sanitize_public_text` 直接公开；任意用户 query/业务文本不是该 sanitizer 可识别的固定敏感模式，因此会进入首次确认 HTTP 响应。
+- TDD RED：先在真实 `test_confirm_replay_e2e.py` 首次确认链注入 `QUERY_SECRET_123`、正文、收件人 ID/姓名、credentials 等哨兵，并断言完整公开 draft JSON 不含哨兵；旧实现因 summary 包含 `QUERY_SECRET_123` 按预期失败。
+- GREEN：`public_confirmation_draft` 的通用分支改为固定摘要 `请确认工具操作`，不透传 `draft.summary`、tool_name 或未知自由文本；保留安全字段 allowlist 及前端所需 `summary`/`fields` 结构。`agent_notify` 仍只公开 operation、recipient_count、脱敏 title、operation_id。
+- 通知确认测试补充正向字段集合与正文、IDs、names、credentials/query 哨兵不泄露断言。
+
+#### 验证
+- RED：目标 E2E 先因 `QUERY_SECRET_123` 出现在公开 summary 失败。
+- GREEN targeted：`35 passed`（`test_confirm_replay_e2e.py` + `test_tasks.py`，`--no-cov`）；单链路复跑 `1 passed`。
+- 后端全量首次从仓库根目录执行因 Django import path 环境错误退出码 1；按正确后端目录重跑后首轮发现 2 个旧摘要断言，更新为固定安全模板后回归 `2 passed`。
+- 后端全量最终（完成测试断言更新后重新执行）：`3124 passed, 2 xfailed, 11 xpassed, 42 warnings`，退出码 `0`，耗时约 2 分 48 秒。
+
+#### 变更边界
+- 未修改 AgentLog、sync answer/sources/RAG DTO、public_tool_result allowlist、Notify audit、URL 凭据拒绝、replay scope/CAS 或 SSE 契约。
+- 未修改 `VERSION`、`CHANGELOG`、user spec。
