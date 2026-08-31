@@ -117,3 +117,19 @@
 - 未修改 `VERSION`、`CHANGELOG`、用户 spec；未恢复 found/schedules/personnel 等原始明细，也未放宽全局 sanitizer。
 - 本报告追加内容与本轮代码/测试均属于 Task 13；工作区原有 task-11 报告改动保持不动。
 - 全量测试在最终提交前运行并记录实际结果；若环境/基线失败，将明确列出。
+
+## Task 13：确认重放与流式安全契约收口（2026-08-31）
+
+### 根因与处理
+- 三个指定失败均先在 HEAD 复现：确认 E2E 首次响应的 `tool_result` 被同步 payload 的通用 `public_tool_result` 收口为空，导致确认 UI 丢失摘要；其余两个失败是测试仍断言旧结果结构。
+- 生产修复：`_build_sync_payload` 对 `awaiting_confirmation` 使用 `public_confirmation_draft` 输出 `draft.summary` 与安全 `fields`，不恢复 server-side 原始 draft；普通/重放结果继续使用 `public_tool_result` allowlist。
+- 测试修复：确认 E2E 和 replay 测试明确断言 `found`、`summary` 及字段集合；流式测试明确断言固定 `FORMAT_VERSION` 与未知 nested 结果被删除。
+
+### TDD 与验证
+- RED：三个原始测试全部失败；生产回归的确认摘要丢失由 `test_full_replay_chain` 直接复现。
+- GREEN：相关确认重放、流式及 Task 13 boundary 测试：`29 passed, 1 warning`（`--no-cov`）。
+- 后端全量测试：`cd /home/fz/project/OmniDesk/omni_desk_backend && /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`：`3124 passed, 2 xfailed, 11 xpassed, 42 warnings`，退出码 `0`，总覆盖率 `93.40%`。
+
+### 变更边界
+- 保留既有 AgentLog、scope/CAS、Notify audit、URL、SSE content/type/format 修复。
+- 未修改 `VERSION`、`CHANGELOG`、user spec；仅更新本报告与本轮必要测试/生产边界。

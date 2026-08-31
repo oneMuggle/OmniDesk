@@ -25,6 +25,7 @@ from ..cache import (
     consume_confirmation_draft,
     clear_confirmation_draft,
     get_confirmation_draft,
+    public_confirmation_draft,
     public_tool_result,
     public_tool_calls_meta,
     safe_public_value,
@@ -280,13 +281,31 @@ def _write_sync_agent_log(
     )
 
 
+def _public_sync_tool_result(result):
+    """为同步响应生成公开 ToolResult；确认草稿保持安全摘要结构。"""
+    if result.get("awaiting_confirmation"):
+        tool_result = result.get("tool_result")
+        draft = tool_result.get("draft") if isinstance(tool_result, dict) else None
+        return {
+            "draft": public_confirmation_draft(
+                draft,
+                result.get("tool_used") or "",
+            )
+        }
+    return public_tool_result(
+        result.get("tool_result"),
+        result.get("tool_used") or "",
+        intent=result.get("intent") or "",
+    )
+
+
 def _build_sync_payload(result, log, conversation_id, error) -> Response:
     """组装同步响应 payload;失败响应在 error=true 基础上追加 kind + hint。"""
     payload = {
         "answer": sanitize_public_text(result.get("answer")),
         "intent": result.get("intent"),
         "tool_used": result.get("tool_used"),
-        "tool_result": public_tool_result(result.get("tool_result"), result.get("tool_used") or "", intent=result.get("intent") or ""),
+        "tool_result": _public_sync_tool_result(result),
         "sources": sanitize_public_sources(result.get("sources")),
         "conversation_id": result.get("conversation_id") or conversation_id,
         "log_id": log.id,

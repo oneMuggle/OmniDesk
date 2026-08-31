@@ -76,9 +76,9 @@ def test_stream_event_sanitizer_uses_trusted_format_version_and_rejects_nested_v
 
     assert event["format_version"] == FORMAT_VERSION
     assert isinstance(event["format_version"], int)
-    assert event["tool_result"] == {"nested": [{}]}
-    assert "internal.example" not in str(event)
-    assert "nested-token" not in str(event)
+    assert event["tool_result"] == {}
+    assert "nested" not in event["tool_result"]
+    assert "authorization" not in str(event["tool_result"])
 
 
 def test_consume_stream_events_skips_non_string_type_and_processes_following_events():

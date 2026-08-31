@@ -143,7 +143,10 @@ class TestConfirmReplayE2E:
             assert data_1["awaiting_confirmation"] is True
             assert data_1["confirmation_token"]  # 非空
             assert data_1["tool_used"] == "e2e_write_tool"
-            assert data_1["tool_result"]["draft"]["summary"]
+            assert set(data_1["tool_result"]) == {"draft"}
+            public_draft = data_1["tool_result"]["draft"]
+            assert public_draft["summary"]
+            assert isinstance(public_draft["fields"], dict)
             assert "query" not in str(data_1["tool_result"])
             assert data_1["error"] is False
 
@@ -161,7 +164,9 @@ class TestConfirmReplayE2E:
             assert data_2["confirmed"] is True
             assert data_2["error"] is False
             assert data_2["tool_used"] == "e2e_write_tool"
-            assert data_2["tool_result"] == {"summary": "操作已完成: 端到端测试查询"}
+            assert data_2["tool_result"]["found"] is True
+            assert data_2["tool_result"]["summary"] == "操作已完成: 端到端测试查询"
+            assert set(data_2["tool_result"]) == {"found", "summary"}
             assert data_2["answer"].startswith("操作已完成")
 
     @patch("smart_assistant.agent.orchestrator.classify_intent", return_value="e2e_intent")
