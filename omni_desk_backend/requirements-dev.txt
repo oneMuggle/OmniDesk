@@ -129,7 +129,7 @@ freezegun==1.5.5
     # via -r requirements-dev.in
 gprof2dot==2025.4.14
     # via django-silk
-gunicorn==26.1.0
+gunicorn==26.2.0
     # via -r requirements.in
 holidays==0.103
     # via -r requirements.in
