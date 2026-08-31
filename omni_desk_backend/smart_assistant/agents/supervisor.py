@@ -18,6 +18,7 @@ Example:
 from __future__ import annotations
 
 import json
+import logging
 import re
 from typing import Any
 
@@ -26,6 +27,8 @@ from django.core.exceptions import ValidationError
 from .roles import ROLE_PROFILES, AgentRole
 from .packet import ExecutionMode, TaskPacket
 from .validator import TaskPacketValidator
+
+logger = logging.getLogger(__name__)
 
 
 class Supervisor:
@@ -281,7 +284,7 @@ class Supervisor:
                 return data
             raise ValueError(f"JSON 解析结果不是 dict,而是 {type(data).__name__}")
         except json.JSONDecodeError:
-            pass
+            logger.debug("LLM output is not direct JSON; trying embedded object")
 
         # 尝试提取第一个 {} 块
         match = re.search(r"\{[\s\S]*\}", cleaned)
@@ -291,6 +294,6 @@ class Supervisor:
                 if isinstance(data, dict):
                     return data
             except json.JSONDecodeError:
-                pass
+                logger.debug("embedded LLM JSON is invalid")
 
         raise ValueError(f"无法从 LLM 输出中解析 JSON:\n{text[:200]}...")

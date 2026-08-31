@@ -64,7 +64,7 @@ class TestSmartChatE2EScheduleHappy:
         assert response.data["answer"] == "明天张三值班。"
         assert response.data["intent"] == "schedule_query"
         assert response.data["tool_used"] == "schedule_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"] == {}
         assert "conversation_id" in response.data
 
         # 验证 AgentLog
@@ -116,7 +116,7 @@ class TestSmartChatE2EToolFailureFallback:
 
         assert response.status_code == status.HTTP_200_OK
         assert "抱歉" in response.data["answer"]
-        assert response.data["tool_result"]["found"] is False
+        assert response.data["tool_result"] == {}
 
         # 验证 AgentLog 标记 tool_success=False
         log = AgentLog.objects.filter(user_query="明天谁值班？").first()
@@ -238,7 +238,7 @@ class TestSmartChatE2EAnnouncementQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "announcement_query"
         assert response.data["tool_used"] == "announcement_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert "公告" in response.data["answer"]
 
         # 验证 AgentLog
@@ -298,7 +298,7 @@ class TestSmartChatE2EComplianceQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "compliance_query"
         assert response.data["tool_used"] == "compliance_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert response.data["tool_result"]["count"] == 1
 
         # 验证 AgentLog 写入
@@ -351,7 +351,7 @@ class TestSmartChatE2EExternalLinkQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "external_link_query"
         assert response.data["tool_used"] == "external_link_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert "VPN" in response.data["answer"]
 
         # 验证 AgentLog

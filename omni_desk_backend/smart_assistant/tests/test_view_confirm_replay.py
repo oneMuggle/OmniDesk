@@ -114,7 +114,7 @@ class TestReplaySuccess:
         assert data["confirmed"] is True
         assert data["error"] is False
         assert data["tool_used"] == "mock_replay_tool"
-        assert data["tool_result"] == {}
+        assert data["tool_result"] == {"summary": "操作已重放"}
 
     def test_replay_response_exposes_only_safe_result_summary(self, api_client, mock_user):
         """同步 confirm-replay 不得把工具原始结果直接返回给客户端。"""

@@ -557,6 +557,8 @@ def public_tool_calls_meta(meta):
 _PUBLIC_RESULT_KEYS = {
     "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
     "recipient_count", "sent_count", "failed_count",
+    # 只允许编排层生成的聚合安全摘要；原始工具 found/sources 明细不公开。
+    "summary", "items", "moduleCounts", "total_count",
 }
 
 
@@ -567,10 +569,22 @@ def public_tool_result(result, tool_name=""):
     source = result.get("result") if isinstance(result.get("result"), dict) else result
     if not isinstance(source, dict):
         return {}
+    allowed_keys = {
+        "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
+        "recipient_count", "sent_count", "failed_count",
+    }
+    if tool_name == "aggregated_day" or (
+        "summary" in source and "moduleCounts" in source and "total_count" in source
+    ):
+        # 聚合器已生成前端所需的结构化摘要；其他工具不得借此公开明细。
+        allowed_keys.update({"summary", "items", "moduleCounts", "total_count"})
+    # summary 是由工具生成的用户可见短文；不包含原始 result 明细。
+    elif "summary" in source:
+        allowed_keys.add("summary")
     public = {
         str(key): safe_public_value(value)
         for key, value in source.items()
-        if str(key) in _PUBLIC_RESULT_KEYS and not _is_public_sensitive_key(key)
+        if str(key) in allowed_keys and not _is_public_sensitive_key(key)
     }
     return public
 

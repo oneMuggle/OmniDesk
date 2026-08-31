@@ -208,9 +208,11 @@ def test_notify_confirmed_tool_context_persists_sanitized_audit_event(db):
     assert event.payload["phase"] == "notify"
     assert event.payload["operation"] == "agent_notify"
     assert event.payload["operation_id"] == "op-1"
-    assert event.payload["recipients"][0]["name"] == "notify-audit-user"
+    assert event.payload["recipient_count"] == 1
     assert event.payload["sent_count"] == 1
     assert event.payload["failed_count"] == 0
+    assert "recipients" not in event.payload
+    assert "notify-audit-user" not in str(event.payload)
     rendered = json.dumps(event.payload, ensure_ascii=False)
     assert "alice@example.com" not in rendered
     assert "13812345678" not in rendered

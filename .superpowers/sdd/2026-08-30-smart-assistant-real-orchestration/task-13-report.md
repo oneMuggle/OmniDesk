@@ -52,3 +52,21 @@
 - `format_version` 不再信任上游同名字段，公开事件固定使用 `FORMAT_VERSION`；嵌套 dict/list 版本值及敏感结构不会进入客户端。
 - `_sanitize_stream_event` 在 `event_type` 为非字符串时提前返回空事件；`_consume_stream_events` 跳过空事件后继续消费后续合法 chunk/done，保证流收口。
 - allowlist 继续保留正常 chunk content、confirmation answer、固定失败字段与 format_version，未放宽全局 `safe_public_value`。
+
+## 本轮 15 个失败处理（2026-08-31）
+
+### 分类与处理
+- A 类安全契约测试：通知审计不再断言 recipient name/title/content，改为 `recipient_count`、`sent_count`、`failed_count` 及不泄露断言；同步 chat 的人员、排班、公告、合规、外链及 RAG 测试不再断言原始 `found`、明细或 `sources`，改为安全计数/空摘要/不泄露断言；确认 replay 测试改为安全 draft 摘要及安全执行摘要。
+- B 类生产回归：确认 replay E2E 原先只 patch `get_tool`，而生产 replay 使用 `get_tool_for_user`，导致真实重放返回 500；测试补齐正确的授权 lookup patch，未放宽生产授权逻辑。
+- `public_tool_result` 增补聚合结果的安全摘要字段 `summary`、`items`、`moduleCounts`、`total_count`，保持原始工具明细字段过滤。
+- `except: pass` 计数回归：`views/tasks.py` schema fallback 与 `agents/supervisor.py` 两段 JSON fallback 改为显式 debug 日志；这两处均属本计划新增/修改路径。原有下载清理、日期解析及线程清理的 best-effort swallow 未改。
+
+### 验证结果
+- targeted（15 个失败场景对应测试）：`24 passed`。
+- 异常基线及相关 Supervisor/任务/确认测试：`48 passed`。
+- 下一步执行后端正确目录的全量 `pytest`，不排除失败。
+
+### 最终结果
+- 后端全量（`cd /home/fz/project/OmniDesk/omni_desk_backend && /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`）：`3117 passed, 2 xfailed, 11 xpassed, 42 warnings`，耗时约 3 分 15 秒，退出码 0。
+- `git diff --check`：通过。
+- 警告仅包含测试环境随机 `SECRET_KEY` 及既有 Django timezone/pagination 等 warning；无失败测试。

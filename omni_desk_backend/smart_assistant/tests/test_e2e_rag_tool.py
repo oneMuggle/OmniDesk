@@ -134,10 +134,8 @@ class TestSmartChatE2ERAGQuery:
         assert "IT操作手册" in body["answer"]
 
         # tool_result 透传:文档来源在 tool_result.sources 内,前端可渲染引用
-        assert body["tool_result"]["found"] is True
-        assert len(body["tool_result"]["sources"]) == 1
-        assert body["tool_result"]["sources"][0]["document"] == "IT操作手册.pdf"
-        assert body["tool_result"]["sources"][0]["score"] == 0.95
+        assert body["tool_result"] == {}
+        assert "sources" not in body["tool_result"]
 
         # 业务约束:知识库命中时不应触发 tool_fallback 标记
         assert body.get("tool_fallback") is not True, (
@@ -196,7 +194,7 @@ class TestSmartChatE2ERAGQuery:
         assert body["intent"] == "knowledge_qa"
         assert body["tool_used"] == "knowledge_qa"
         assert "暂不可用" in body["answer"], f"降级文案应包含「暂不可用」;实际 answer={body['answer']!r}"
-        assert body["tool_result"]["found"] is False, (
+        assert body["tool_result"] == {}, (
             f"RAG 工具失败时 tool_result.found 必须为 False,前端依赖该字段渲染降级提示。body={body}"
         )
 

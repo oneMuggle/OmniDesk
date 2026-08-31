@@ -90,8 +90,8 @@ def _replay_allowed_fields(tool):
                 key for key in properties
                 if isinstance(key, str) and not _is_sensitive_field(key)
             )
-    except (AttributeError, TypeError, KeyError):
-        pass
+    except (AttributeError, TypeError, KeyError) as exc:
+        logger.debug("replay tool schema unavailable; using base allowlist: %s", type(exc).__name__)
     return allowed
 
 

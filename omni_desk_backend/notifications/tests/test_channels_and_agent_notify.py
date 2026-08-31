@@ -65,10 +65,12 @@ def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, adm
     assert payload["phase"] == "notify"
     assert payload["operation"] == "agent_notify"
     assert payload["operation_id"] == draft["draft"]["fields"]["operation_id"]
-    assert payload["recipients"] == [
-        {"id": regular_user_obj.id, "name": regular_user_obj.username},
-        {"id": admin_user_obj.id, "name": admin_user_obj.username},
-    ]
+    assert payload["recipient_count"] == 2
+    assert payload["sent_count"] == 1
+    assert payload["failed_count"] == 2
+    assert "recipients" not in payload
+    assert regular_user_obj.username not in str(payload)
+    assert admin_user_obj.username not in str(payload)
     assert payload["sent"] == [{"user_id": regular_user_obj.id, "channel": "in_app"}]
     assert payload["failed"] == [
         {"user_id": regular_user_obj.id, "channel": "email", "reason": "send_failed"},
@@ -82,8 +84,8 @@ def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, adm
         "sent": payload["sent"],
         "failed": payload["failed"],
     }
-    assert payload["title"] == "联系 [已脱敏]"
-    assert payload["content"] == "[已脱敏]"
+    assert "title" not in payload
+    assert "content" not in payload
 
 
 @pytest.mark.django_db
