@@ -44,3 +44,9 @@
 #### 遗留项
 - `safe_request` 基于 requests 的 DNS preflight 仍不能做到内核级 IP pinning；生产环境需配合网络出口策略/egress allowlist，不能把 resolver 注入当作安全绕过。
 - 全量测试仍有上述既有 core 原子写失败，因此不能声称后端全量通过。
+
+### Continuation（审查后修复 Ollama fallback）
+
+- RED：安全审查新增的 native tool-call Ollama fallback 测试失败，实际仍调用通用 `safe_request`，退出码 **1**；旧客户端测试也暴露测试 seam 对 GET/POST 的区分问题。
+- GREEN：`generate_with_tools` 的 Ollama 候选显式传递 `is_ollama` 并使用 `safe_internal_request`；旧 `OllamaClient` 仅对代码固定默认地址使用 internal transport，配置/环境地址继续完整 SSRF 校验。定向 `llm_service/test_router.py llm_service/test_ollama_client.py`：**21 passed**，退出码 **0**。
+- 安全审查结论：无 CRITICAL；此前发现的两个 HIGH（旧客户端默认 localhost 被拒、native tool-call fallback 被拒）已修复。仍保留 requests DNS/IP pinning 的理论 TOCTOU 限制。
