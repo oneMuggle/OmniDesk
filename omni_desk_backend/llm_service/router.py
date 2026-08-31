@@ -2,6 +2,8 @@ from observability import get_logger
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
+
+from smart_assistant.ssrf import safe_request
 from django.conf import settings
 from django.core.cache import cache
 
@@ -156,7 +158,8 @@ class LLMRouter:
             }
 
             try:
-                response = requests.post(url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream)
+                response = (requests.post(url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream)
+                            if is_ollama else safe_request("POST", url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream))
                 response.raise_for_status()
 
                 if stream:
@@ -321,7 +324,7 @@ class LLMRouter:
         }
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        response = requests.post(url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT)
+        response = safe_request("POST", url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT)
         response.raise_for_status()
         resp_data = response.json()
 

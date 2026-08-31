@@ -1,7 +1,3 @@
-import ipaddress
-import socket
-from urllib.parse import urlsplit
-
 import requests as http_requests
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
@@ -9,6 +5,7 @@ from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from ..models import LlmEndpoint, LlmAppConfig
+from ..ssrf import UnsafeEndpointError, safe_request, validate_endpoint_url
 from ..serializers import (
     LlmEndpointSerializer,
     LlmEndpointCreateSerializer,
@@ -17,27 +14,8 @@ from ..serializers import (
 )
 
 
-class UnsafeEndpointError(ValueError):
-    """端点地址不允许用于服务端出站请求。"""
-
-
 def _validate_probe_url(api_endpoint):
-    parsed = urlsplit(api_endpoint)
-    if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
-        raise UnsafeEndpointError("端点地址必须使用 http 或 https 协议。")
-    if parsed.username is not None or parsed.password is not None:
-        raise UnsafeEndpointError("端点地址不能包含用户名或密码。")
-    try:
-        addresses = socket.getaddrinfo(parsed.hostname, parsed.port, type=socket.SOCK_STREAM)
-    except (OSError, ValueError):
-        raise UnsafeEndpointError("端点地址无法解析。")
-    if not addresses:
-        raise UnsafeEndpointError("端点地址无法解析。")
-    for address in addresses:
-        ip = ipaddress.ip_address(address[4][0])
-        if ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved or ip.is_unspecified or ip.is_multicast:
-            raise UnsafeEndpointError("端点地址指向受限网络。")
-    return parsed.geturl()
+    return validate_endpoint_url(api_endpoint)
 
 
 def _safe_models_url(api_endpoint):
@@ -87,8 +65,9 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
         api_key = endpoint.api_key
 
         try:
-            resp = http_requests.get(
-                _safe_models_url(endpoint.api_endpoint),
+            resp = safe_request(
+                    "GET",
+                    _safe_models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -113,28 +92,24 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
                     "count": len(models),
                 }
             )
-        except UnsafeEndpointError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except UnsafeEndpointError:
+            return Response({"error": "端点地址不安全，无法发起请求。"}, status=status.HTTP_400_BAD_REQUEST)
         except http_requests.exceptions.Timeout:
             return Response(
                 {"error": "请求超时，请检查端点是否可达"},
                 status=status.HTTP_504_GATEWAY_TIMEOUT,
             )
-        except http_requests.exceptions.HTTPError as e:
-            return Response(
-                {"error": f"上游 API 返回错误: {e.response.status_code} {e.response.text[:200]}"},
-                status=e.response.status_code,
-            )
+        except http_requests.exceptions.HTTPError:
+            return Response({"error": "上游 API 请求失败。"}, status=status.HTTP_502_BAD_GATEWAY)
         except http_requests.exceptions.ConnectionError:
             return Response(
                 {"error": "无法连接到指定端点，请检查网络或端点地址"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        except Exception as e:
-            return Response(
-                {"error": f"获取模型列表失败: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        except (ValueError, TypeError):
+            return Response({"error": "上游响应格式无效。"}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception:
+            return Response({"error": "获取模型列表失败。"}, status=status.HTTP_502_BAD_GATEWAY)
 
     @action(detail=True, methods=["post"], url_path="test-endpoint")
     def test_endpoint(self, request, pk=None):
@@ -143,8 +118,9 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
         api_key = endpoint.api_key
 
         try:
-            resp = http_requests.get(
-                _safe_models_url(endpoint.api_endpoint),
+            resp = safe_request(
+                    "GET",
+                    _safe_models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -170,33 +146,29 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
                     "model_count": model_count,
                 }
             )
-        except UnsafeEndpointError as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except UnsafeEndpointError:
+            return Response({"status": "error", "message": "端点地址不安全，无法发起请求。"}, status=status.HTTP_400_BAD_REQUEST)
         except http_requests.exceptions.Timeout:
             return Response(
                 {"status": "error", "message": "请求超时，端点不可达"},
                 status=status.HTTP_504_GATEWAY_TIMEOUT,
             )
         except http_requests.exceptions.HTTPError as e:
-            if e.response.status_code == 401:
+            if e.response is not None and e.response.status_code == 401:
                 return Response(
                     {"status": "auth_error", "message": "认证失败，请检查 API 密钥是否正确"},
                     status=status.HTTP_401_UNAUTHORIZED,
                 )
-            return Response(
-                {"status": "error", "message": f"上游返回 {e.response.status_code}: {e.response.text[:200]}"},
-                status=e.response.status_code,
-            )
+            return Response({"status": "error", "message": "上游 API 请求失败"}, status=status.HTTP_502_BAD_GATEWAY)
         except http_requests.exceptions.ConnectionError:
             return Response(
                 {"status": "connection_error", "message": "无法连接到端点，请检查地址和网络"},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
-        except Exception as e:
-            return Response(
-                {"status": "error", "message": f"测试失败: {str(e)}"},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            )
+        except (ValueError, TypeError):
+            return Response({"status": "error", "message": "上游响应格式无效"}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception:
+            return Response({"status": "error", "message": "端点测试失败"}, status=status.HTTP_502_BAD_GATEWAY)
 
 
 class LlmAppConfigViewSet(viewsets.ModelViewSet):
