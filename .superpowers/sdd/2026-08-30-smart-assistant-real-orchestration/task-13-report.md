@@ -70,3 +70,18 @@
 - 后端全量（`cd /home/fz/project/OmniDesk/omni_desk_backend && /home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`）：`3117 passed, 2 xfailed, 11 xpassed, 42 warnings`，耗时约 3 分 15 秒，退出码 0。
 - `git diff --check`：通过。
 - 警告仅包含测试环境随机 `SECRET_KEY` 及既有 Django timezone/pagination 等 warning；无失败测试。
+
+## Task 13：公开 ToolResult 契约收口（2026-08-31）
+
+- 读取并复现 HEAD `42906beb` 的五个失败：原测试仍断言 `tool_result == {}`，与当前安全状态 DTO 契约冲突；RAG 原实现还会把 `context` 及泛化后的原始 `sources` 带入公开结果。
+- 失败优先更新测试并确认 RED/行为差异，随后最小实现：删除漂移的 `_PUBLIC_RESULT_KEYS`，增加显式基础状态 allowlist（`found/status/message/date/count` 等），`message` 经文本 sanitizer；聚合字段仅允许 `aggregated_day` intent/tool；RAG 走专用安全 DTO，仅公开 `found/count/sources` 与 `document/title/score/source_id`，不公开 `context/content/path/url`（普通外链 URL 仍由 `sanitize_public_sources` 策略控制）。
+- 前端 `ToolResult` registry 现有 `knowledge_qa` 卡片可渲染安全 sources；新增失败状态与 RAG 安全 DTO 正向测试，避免安全结果静默空白。
+- 原生 tool-calling 成功路径补齐按用户/scope 的工具缓存写入；未改动既有 AgentLog、replay scope/CAS、Notify、SSE 与来源 URL 安全修复。
+
+### 验证结果
+
+- 后端相关：`pytest --no-cov --ds=omni_desk_backend.settings.test smart_assistant/tests/test_task13_public_boundaries.py smart_assistant/tests/test_e2e_personnel_tool.py smart_assistant/tests/test_e2e_smart_chat.py smart_assistant/tests/test_e2e_rag_tool.py -q`：**25 passed, 1 failed**。
+- 剩余失败：`test_e2e_cache_isolated_by_user_and_scope`；当前测试通过 `@override_settings(USE_NATIVE_TOOL_CALLS=False)` 强制 JSON 路径，但其 patch 目标仍指向已拆分前的包根 `cache_tool_result`，实际写入发生在 `persistence._root().cache_tool_result`，故捕获列表为空；该失败是测试 patch seam 与当前模块拆分不一致，非公开 DTO 回归。
+- 前端：`npm test -- --watch=false src/features/smart-assistant/components/__tests__/ToolResult.test.jsx`：**1 suite, 8 tests passed**。
+- `npm run lint -- --no-fix`：通过；`git diff --check`：通过。
+- 尚未声称后端全量通过；此前用户提供 HEAD 基线全量为 **3117 passed, 5 failed**，本轮未以退出码 0 重跑全量。

@@ -136,4 +136,14 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
             result = {"found": False, "message": f"工具执行失败: {str(exc)}"}
     # C-2:POST_EXECUTE 钩子链(PII 脱敏,统一出口)
     result = apply_post_execute_hooks(tool, result, hook_ctx)
+    # 原生路径也按用户/范围隔离缓存，避免绕过 legacy 的缓存安全边界。
+    if isinstance(result, dict) and result.get("found"):
+        from . import orchestrator as orchestrator_root
+
+        orchestrator_root.cache_tool_result(
+            tool.name,
+            query,
+            result,
+            context_sig=_scope_cache_sig(context),
+        )
     return result, None, failure

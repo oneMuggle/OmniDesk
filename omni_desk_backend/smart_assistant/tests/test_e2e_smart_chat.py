@@ -20,7 +20,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -64,7 +64,12 @@ class TestSmartChatE2EScheduleHappy:
         assert response.data["answer"] == "明天张三值班。"
         assert response.data["intent"] == "schedule_query"
         assert response.data["tool_used"] == "schedule_query"
-        assert response.data["tool_result"] == {}
+        assert response.data["tool_result"] == {
+            "found": True,
+            "date": "2026-06-07",
+            "count": 1,
+        }
+        assert "schedules" not in response.data["tool_result"]
         assert "conversation_id" in response.data
 
         # 验证 AgentLog
@@ -116,7 +121,10 @@ class TestSmartChatE2EToolFailureFallback:
 
         assert response.status_code == status.HTTP_200_OK
         assert "抱歉" in response.data["answer"]
-        assert response.data["tool_result"] == {}
+        assert response.data["tool_result"] == {
+            "found": False,
+            "message": "暂无排班记录",
+        }
 
         # 验证 AgentLog 标记 tool_success=False
         log = AgentLog.objects.filter(user_query="明天谁值班？").first()
@@ -601,6 +609,7 @@ def test_e2e_aggregation_returns_scope_filtered_data(
 
 
 @pytest.mark.django_db
+@override_settings(USE_NATIVE_TOOL_CALLS=False)
 def test_e2e_cache_isolated_by_user_and_scope(
     auth_client, auth_client_admin, mock_llm_router
 ):

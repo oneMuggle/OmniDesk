@@ -36,6 +36,27 @@ const flatAggregatedResult = {
   ],
 };
 
+describe('ToolResult 安全查询结果渲染', () => {
+  test('RAG 安全来源 DTO 可渲染文档与计数', () => {
+    render(
+      <ToolResult
+        intent="knowledge_qa"
+        result={{ found: true, count: 1 }}
+        sources={[{ document: 'IT操作手册.pdf', score: 0.95 }]}
+      />
+    );
+
+    expect(screen.getByText('IT操作手册.pdf')).toBeInTheDocument();
+    expect(screen.getByText(/相似度: 95%/)).toBeInTheDocument();
+  });
+
+  test('失败状态 DTO 显示 message 而不是空白', () => {
+    render(<ToolResult intent="schedule_query" result={{ found: false, message: '暂无排班记录' }} />);
+
+    expect(screen.getByText('暂无排班记录')).toBeInTheDocument();
+  });
+});
+
 describe('ToolResult aggregated_day 渲染', () => {
   test('收到扁平 tool_result → 渲染聚合卡片而非 Empty', () => {
     render(<ToolResult intent="aggregated_day" result={flatAggregatedResult} />);

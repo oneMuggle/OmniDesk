@@ -515,7 +515,7 @@ def sanitize_public_sources(sources):
         if not isinstance(source, dict):
             continue
         item = {}
-        for key in ("document", "title", "score"):
+        for key in ("document", "title", "score", "source_id"):
             if key in source and isinstance(source[key], (str, int, float)):
                 item[key] = sanitize_public_text(source[key], 200) if isinstance(source[key], str) else source[key]
         if _is_public_url(source.get("url")):
@@ -601,38 +601,55 @@ def public_tool_calls_meta(meta):
             entry["arguments"] = public_tool_arguments(item["arguments"])
         result.append(entry)
     return result
-_PUBLIC_RESULT_KEYS = {
-    "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
-    "recipient_count", "sent_count", "failed_count",
-    # 只允许编排层生成的聚合安全摘要；原始工具 found/sources 明细不公开。
-    "summary", "items", "moduleCounts", "total_count",
-}
+def _public_status_fields(source):
+    """从工具结果提取跨工具共享的公开状态字段。"""
+    allowed = {
+        "found", "status", "message", "date", "error_code", "operation_id", "operation",
+        "phase", "count", "total", "channel", "channels", "recipient_count", "sent_count",
+        "failed_count",
+    }
+    public = {}
+    for key in allowed:
+        if key not in source or _is_public_sensitive_key(key):
+            continue
+        value = source[key]
+        public[key] = sanitize_public_text(value) if key == "message" else safe_public_value(value)
+    return public
+
+
+def _public_rag_result(source):
+    """RAG 专用安全 DTO；绝不把 context 或原始来源字段递归公开。"""
+    public = _public_status_fields(source)
+    sources = sanitize_public_sources(source.get("sources"))
+    if sources is not None:
+        public["sources"] = sources
+        public.setdefault("count", len(sources))
+    return public
 
 
 def public_tool_result(result, tool_name="", *, intent=""):
-    """生成确认执行后的最小公开结果；聚合字段仅接受明确 intent。"""
+    """生成公开 ToolResult；基础状态白名单和聚合生产者均显式声明。"""
     if not isinstance(result, dict):
         return {}
     source = result.get("result") if isinstance(result.get("result"), dict) else result
     if not isinstance(source, dict):
         return {}
-    allowed_keys = {
-        "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
-        "recipient_count", "sent_count", "failed_count",
-    }
+    if tool_name == "knowledge_qa" or intent == "knowledge_qa":
+        return _public_rag_result(source)
+
+    public = _public_status_fields(source)
+    if "count" not in public:
+        for detail_key in ("personnel", "schedules", "documents", "events", "memos", "projects", "posts", "issues", "links", "articles"):
+            if isinstance(source.get(detail_key), list):
+                public["count"] = len(source[detail_key])
+                break
     if tool_name == "aggregated_day" or intent == "aggregated_day":
-        # 聚合器已生成前端所需的结构化摘要；其他工具不得借此公开明细。
-        allowed_keys.update({"summary", "items", "moduleCounts", "total_count"})
-    # summary 是由工具生成的用户可见短文；不包含原始 result 明细。
+        # 只有聚合器可以公开这些已经聚合的结构化摘要字段。
+        for key in ("summary", "items", "moduleCounts", "total_count"):
+            if key in source:
+                public[key] = safe_public_value(source[key])
     elif "summary" in source and not {"items", "moduleCounts", "total_count"}.intersection(source):
-        allowed_keys.add("summary")
-    public = {
-        str(key): safe_public_value(value)
-        for key, value in source.items()
-        if str(key) in allowed_keys and not _is_public_sensitive_key(key)
-    }
-    if not public and not {"summary", "items", "moduleCounts", "total_count"}.intersection(source):
-        return safe_public_value(source)
+        public["summary"] = sanitize_public_text(source["summary"])
     return public
 
 

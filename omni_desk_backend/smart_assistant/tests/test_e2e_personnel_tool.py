@@ -78,9 +78,9 @@ class TestSmartChatE2EPersonnelQuery:
         assert "李四" in body["answer"]
 
         # 验证 tool_result 字段(脱敏后应只含公开字段)
+        assert body["tool_result"]["found"] is True
         assert body["tool_result"]["count"] == 1
         assert "personnel" not in body["tool_result"]
-        assert "found" not in body["tool_result"]
 
     @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_personnel_query_returns_empty_when_no_match(
@@ -120,7 +120,11 @@ class TestSmartChatE2EPersonnelQuery:
         assert body["intent"] == "personnel_query"
         # found=False 时,view 层返回的 answer 应包含"未找到"或同类空结果表述
         assert "未找到" in body["answer"] or "没有" in body["answer"]
-        assert body["tool_result"] == {}
+        assert body["tool_result"] == {
+            "found": False,
+            "message": '未找到与 "市场部王五" 匹配的人员',
+        }
+        assert "personnel" not in body["tool_result"]
 
     @patch('smart_assistant.views.chat_sync.AgentOrchestrator')
     def test_personnel_query_does_not_leak_sensitive_fields(
@@ -179,6 +183,6 @@ class TestSmartChatE2EPersonnelQuery:
         full_response_str = json.dumps(body, ensure_ascii=False)
 
         # 人员明细属于原始工具结果，不在公开摘要中返回；同时验证无敏感值泄露。
-        assert body["tool_result"] == {"count": 1}
+        assert body["tool_result"] == {"found": True, "count": 1}
         assert "138****0000" not in full_response_str
         assert "13800000000" not in full_response_str
