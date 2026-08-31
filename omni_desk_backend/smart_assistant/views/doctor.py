@@ -45,7 +45,10 @@ def _probe_http(url: str, timeout: int = PROBE_TIMEOUT_SECONDS, *, requester=Non
     """轻量 HTTP 探测；仅返回固定安全细节，不暴露上游内容或异常文本。"""
     try:
         resp = safe_request(
-            "GET", url, requester=requester, resolver=resolver,
+            "GET",
+            url,
+            requester=requester,
+            resolver=resolver,
             timeout=timeout,
         )
         return True, f"HTTP {resp.status_code}"

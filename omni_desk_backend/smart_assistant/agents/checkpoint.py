@@ -75,10 +75,7 @@ class CheckpointManager:
             with transaction.atomic():
                 if resume_claim_id is not None:
                     agent_task = AgentTask.objects.select_for_update().get(task_id=self._agent_task_id)
-                    if (
-                        agent_task.status != "running"
-                        or str(agent_task.resume_claim_id) != str(resume_claim_id)
-                    ):
+                    if agent_task.status != "running" or str(agent_task.resume_claim_id) != str(resume_claim_id):
                         return False
                 else:
                     agent_task = AgentTask.objects.get(task_id=self._agent_task_id)

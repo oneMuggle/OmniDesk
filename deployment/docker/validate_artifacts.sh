@@ -14,11 +14,13 @@ source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
 IMAGE_DIR=""
 MANIFEST_FILE=""
 CHECKSUMS_FILE=""
+SKIP_CONTAINER_SMOKE=0
 while [ $# -gt 0 ]; do
     case "$1" in
         --image-dir) IMAGE_DIR="${2:-}"; shift 2 ;;
         --manifest) MANIFEST_FILE="${2:-}"; shift 2 ;;
         --checksums) CHECKSUMS_FILE="${2:-}"; shift 2 ;;
+        --skip-container-smoke) SKIP_CONTAINER_SMOKE=1; shift ;;
         --help|-h) sed -n '2,11p' "$0"; exit 0 ;;
         *)
             # 第一个非选项位置参数作为 IMAGE_DIR
@@ -177,35 +179,40 @@ done
 echo ""
 
 # ─── 6. 容器内冒烟验证 ─────────────────────────────────────
-echo "6. 容器内冒烟验证"
-
-BACKEND_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "omni-desk-backend-prod" | head -1)
-FRONTEND_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "omni-desk-frontend-prod" | head -1)
-
-if [ -n "$BACKEND_IMAGE" ]; then
-    # 使用 --entrypoint 绕过 entrypoint.sh 的数据库等待
-    if docker run --rm --entrypoint bash \
-        "$BACKEND_IMAGE" -c "
-        test -f manage.py && \
-        python -c 'import django; import psycopg2; import celery; import gunicorn; print(\"All dependencies OK\")'
-        " >/dev/null 2>&1; then
-        result "PASS" "Backend dependencies verified"
-    else
-        result "FAIL" "Backend dependency check failed"
-    fi
+if [ "$SKIP_CONTAINER_SMOKE" -eq 1 ]; then
+    echo "6. 容器内冒烟验证"
+    echo "  SKIP: container smoke explicitly disabled (artifact-only fixture)"
 else
-    result "FAIL" "Backend image not found in local Docker"
-fi
+    echo "6. 容器内冒烟验证"
 
-if [ -n "$FRONTEND_IMAGE" ]; then
-    # nginx -t 需要 upstream 解析，这里只验证配置文件存在
-    if docker run --rm --entrypoint sh "$FRONTEND_IMAGE" -c "test -f /etc/nginx/conf.d/default.conf && test -d /usr/share/nginx/html" 2>/dev/null; then
-        result "PASS" "Frontend Nginx config and static files present"
+    BACKEND_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "omni-desk-backend-prod" | head -1)
+    FRONTEND_IMAGE=$(docker images --format "{{.Repository}}:{{.Tag}}" | grep "omni-desk-frontend-prod" | head -1)
+
+    if [ -n "$BACKEND_IMAGE" ]; then
+        # 使用 --entrypoint 绕过 entrypoint.sh 的数据库等待
+        if docker run --rm --entrypoint bash \
+            "$BACKEND_IMAGE" -c "
+            test -f manage.py && \
+            python -c 'import django; import psycopg2; import celery; import gunicorn; print(\"All dependencies OK\")'
+            " >/dev/null 2>&1; then
+            result "PASS" "Backend dependencies verified"
+        else
+            result "FAIL" "Backend dependency check failed"
+        fi
     else
-        result "FAIL" "Frontend Nginx config test"
+        result "FAIL" "Backend image not found in local Docker"
     fi
-else
-    result "FAIL" "Frontend image not found in local Docker"
+
+    if [ -n "$FRONTEND_IMAGE" ]; then
+        # nginx -t 需要 upstream 解析，这里只验证配置文件存在
+        if docker run --rm --entrypoint sh "$FRONTEND_IMAGE" -c "test -f /etc/nginx/conf.d/default.conf && test -d /usr/share/nginx/html" 2>/dev/null; then
+            result "PASS" "Frontend Nginx config and static files present"
+        else
+            result "FAIL" "Frontend Nginx config test"
+        fi
+    else
+        result "FAIL" "Frontend image not found in local Docker"
+    fi
 fi
 echo ""
 

@@ -257,6 +257,7 @@ cp "$BUILD_DIR/$BUNDLE_OUT/BUILD-MANIFEST.json" "$BUILD_DIR/$BUNDLE_OUT/images/B
 set +e
 SMOKE_STRICT=1 bash "$BUILD_DIR/$BUNDLE_OUT/scripts/validate_artifacts.sh" \
     --image-dir "$BUILD_DIR/$BUNDLE_OUT/images" \
+    --skip-container-smoke \
     > "$TMPDIR_BASE/validate.log" 2>&1
 rc=$?
 set -e

@@ -164,8 +164,10 @@ class LLMRouter:
                         "POST",
                         url,
                         requester=self._requester,
-                        headers=headers, json=data,
-                        timeout=self.REQUEST_TIMEOUT, stream=stream,
+                        headers=headers,
+                        json=data,
+                        timeout=self.REQUEST_TIMEOUT,
+                        stream=stream,
                     )
                 else:
                     response = safe_request(
@@ -346,13 +348,22 @@ class LLMRouter:
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
         response = (
             safe_internal_request(
-                "POST", url, requester=self._requester,
-                headers=headers, json=body, timeout=self.REQUEST_TIMEOUT,
+                "POST",
+                url,
+                requester=self._requester,
+                headers=headers,
+                json=body,
+                timeout=self.REQUEST_TIMEOUT,
             )
             if is_ollama
             else safe_request(
-                "POST", url, requester=self._requester, resolver=self._resolver,
-                headers=headers, json=body, timeout=self.REQUEST_TIMEOUT,
+                "POST",
+                url,
+                requester=self._requester,
+                resolver=self._resolver,
+                headers=headers,
+                json=body,
+                timeout=self.REQUEST_TIMEOUT,
             )
         )
         response.raise_for_status()

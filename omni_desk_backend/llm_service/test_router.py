@@ -34,7 +34,7 @@ class TestOllamaFallbackModel:
     def test_fallback_model_reads_settings(self):
         """兜底命中 Ollama 时，模型名取自 settings.OLLAMA_MODEL_NAME。"""
         with override_settings(OLLAMA_MODEL_NAME="custom-model:7b"):
-            with patch("llm_service.router.requests.post") as mock_post:
+            with patch("llm_service.router.safe_internal_request") as mock_post:
                 mock_post.return_value = _fake_response(usage={"total_tokens": 10})
                 content, usage = LLMRouter().generate(prompt="你好")
 
@@ -103,7 +103,7 @@ class TestAppNameIsolation:
     def test_office_app_without_config_uses_ollama_fallback(self):
         """无专属配置的应用调用 generate 时应命中 Ollama 兜底端点。"""
         office_router = LLMRouter(app_name="office_assistant")
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_internal_request") as mock_post:
             mock_post.return_value = _fake_response(content="兜底回答", usage={"total_tokens": 5})
             content, usage = office_router.generate(prompt="你好")
 
@@ -112,10 +112,8 @@ class TestAppNameIsolation:
         assert usage["endpoint_id"] is None
         assert usage["estimated_cost"] == 0.0
         # 请求打向本地 Ollama 的 OpenAI 兼容端点
-        called_url = mock_post.call_args.args[0]
+        called_url = mock_post.call_args.args[1]
         assert called_url == "http://localhost:11434/v1/chat/completions"
-
-
 
 
 class TestRequestTimeoutResolution:

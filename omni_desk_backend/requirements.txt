@@ -24,7 +24,7 @@ beautifulsoup4==4.15.0
     # via -r requirements.in
 billiard==4.2.4
     # via celery
-build==1.5.0
+build==1.6.0
     # via pip-tools
 celery==5.6.3
     # via
@@ -38,7 +38,7 @@ charset-normalizer==3.5.1
     # via
     #   pdfminer-six
     #   requests
-click==8.4.2
+click==8.5.0
     # via
     #   celery
     #   click-didyoumean
@@ -53,13 +53,13 @@ click-repl==0.3.0
     # via celery
 cobble==0.1.4
     # via mammoth
-coverage[toml]==7.15.4
+coverage[toml]==7.16.0
     # via
     #   -r requirements-dev.in
     #   pytest-cov
 cron-descriptor==1.4.5
     # via django-celery-beat
-cryptography==50.0.0
+cryptography==50.0.1
     # via
     #   -r requirements.in
     #   pdfminer-six
@@ -129,7 +129,7 @@ freezegun==1.5.5
     # via -r requirements-dev.in
 gprof2dot==2025.4.14
     # via django-silk
-gunicorn==26.1.0
+gunicorn==26.2.0
     # via -r requirements.in
 holidays==0.103
     # via -r requirements.in
@@ -214,7 +214,7 @@ pyjwt==2.13.0
     #   djangorestframework-simplejwt
 pymdown-extensions==11.0.2
     # via -r requirements-dev.in
-pypdf==6.16.1
+pypdf==6.16.2
     # via -r requirements.in
 pypdfium2==5.13.0
     # via pdfplumber
@@ -237,7 +237,7 @@ pytest-factoryboy==2.8.1
     # via -r requirements-dev.in
 pytest-mock==3.15.1
     # via -r requirements-dev.in
-python-crontab==3.3.0
+python-crontab==3.4.0
     # via django-celery-beat
 python-dateutil==2.9.0.post0
     # via
@@ -277,13 +277,13 @@ requests==2.34.2
     # via
     #   -r requirements.in
     #   responses
-responses==0.26.2
+responses==0.26.3
     # via -r requirements-dev.in
 rpds-py==0.30.0
     # via
     #   jsonschema
     #   referencing
-ruff==0.16.4
+ruff==0.16.5
     # via -r requirements-dev.in
 six==1.17.0
     # via python-dateutil
@@ -304,7 +304,7 @@ tomli==2.4.1
     #   mypy
     #   pip-tools
     #   pytest
-types-cffi==2.0.0.20260518
+types-cffi==2.1.0.20260827
     # via types-pyopenssl
 types-pyopenssl==24.1.0.20240722
     # via types-redis
@@ -349,7 +349,7 @@ vine==5.1.0
     #   amqp
     #   celery
     #   kombu
-wcwidth==0.8.2
+wcwidth==0.8.3
     # via prompt-toolkit
 wheel==0.48.0
     # via pip-tools

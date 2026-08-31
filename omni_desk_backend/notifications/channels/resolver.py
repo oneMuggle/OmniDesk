@@ -13,9 +13,7 @@ def resolve_channels(user, notification_type):
     channels = [
         SUPPORTED_CHANNELS[name]()
         for name, type_settings in settings.items()
-        if name in SUPPORTED_CHANNELS
-        and isinstance(type_settings, dict)
-        and type_settings.get(notification_type)
+        if name in SUPPORTED_CHANNELS and isinstance(type_settings, dict) and type_settings.get(notification_type)
     ]
     return channels or [InAppChannel()]
 

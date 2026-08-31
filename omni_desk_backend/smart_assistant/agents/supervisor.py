@@ -18,17 +18,17 @@ Example:
 from __future__ import annotations
 
 import json
-import logging
 import re
 from typing import Any
 
+from observability import get_logger
 from django.core.exceptions import ValidationError
 
 from .roles import ROLE_PROFILES, AgentRole
 from .packet import ExecutionMode, TaskPacket
 from .validator import TaskPacketValidator
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant.agents.supervisor")
 
 
 class Supervisor:

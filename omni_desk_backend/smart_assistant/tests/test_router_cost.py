@@ -103,7 +103,7 @@ class TestRouterCostEnrichment:
 
     def test_ollama_fallback_zero_cost(self):
         """无 DB 配置命中 Ollama 兜底时 endpoint_id 为 None,成本为 0。"""
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_internal_request") as mock_post:
             mock_post.return_value = _fake_response(usage={"total_tokens": 300})
             content, usage = LLMRouter().generate(prompt="你好")
 

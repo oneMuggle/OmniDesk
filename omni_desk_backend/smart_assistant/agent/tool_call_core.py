@@ -1,4 +1,5 @@
 """Shared native tool-calling control loop for agent runners."""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -19,8 +20,7 @@ def run_tool_call_loop(
     build_messages: Callable[[list[dict]], list[dict]] = lambda value: value,
     on_usage: Callable[[Any], None] | None = None,
     budget_exhausted: Callable[[], bool] | None = None,
-    on_tool_calls: Callable[[list[dict], int], tuple[list[dict], Any | None]]
-    | None = None,
+    on_tool_calls: Callable[[list[dict], int], tuple[list[dict], Any | None]] | None = None,
     copy_messages: bool = True,
 ) -> tuple[str, dict, list[dict], int, Any | None]:
     """Run shared generation, reinjection, usage and finish semantics."""

@@ -25,8 +25,11 @@ class OllamaClient:
         try:
             request_fn = safe_internal_request if self._is_default_internal_endpoint() else safe_request
             request_kwargs = {
-                "headers": headers, "data": json.dumps(data),
-                "timeout": 120, "stream": stream, "requester": self._requester,
+                "headers": headers,
+                "data": json.dumps(data),
+                "timeout": 120,
+                "stream": stream,
+                "requester": self._requester,
             }
             if request_fn is safe_request:
                 request_kwargs["resolver"] = self._resolver

@@ -34,7 +34,13 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
-from ..cache import public_tool_calls_meta, public_tool_result, safe_public_value, sanitize_public_text, sanitize_public_sources
+from ..cache import (
+    public_tool_calls_meta,
+    public_tool_result,
+    safe_public_value,
+    sanitize_public_text,
+    sanitize_public_sources,
+)
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -45,12 +51,29 @@ logger = get_logger(__name__, "smart_assistant")
 _STREAM_EVENT_FIELDS = {
     "chunk": {"format_version", "type", "content"},
     "meta": {
-        "format_version", "type", "intent", "tool_used", "tool_result", "sources", "tool_fallback",
-        "tool_call_path", "tool_calls_meta", "tool_calls_rounds", "cache_hit",
+        "format_version",
+        "type",
+        "intent",
+        "tool_used",
+        "tool_result",
+        "sources",
+        "tool_fallback",
+        "tool_call_path",
+        "tool_calls_meta",
+        "tool_calls_rounds",
+        "cache_hit",
     },
     "done": {
-        "format_version", "type", "finish_reason", "error", "awaiting_confirmation", "cache_hit",
-        "error_code", "retry_after", "kind", "hint",
+        "format_version",
+        "type",
+        "finish_reason",
+        "error",
+        "awaiting_confirmation",
+        "cache_hit",
+        "error_code",
+        "retry_after",
+        "kind",
+        "hint",
     },
     "confirmation": {"format_version", "type", "awaiting_confirmation", "confirmation_token", "draft", "answer"},
 }

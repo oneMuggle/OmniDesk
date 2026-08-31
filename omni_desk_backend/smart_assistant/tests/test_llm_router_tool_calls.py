@@ -52,9 +52,15 @@ def mock_server():
 @pytest.fixture
 def safe_test_requester(mock_server):
     """测试 transport 显式把安全 hostname 映射到本地 mock 服务。"""
+
     def requester(url, **kwargs):
-        kwargs.setdefault("timeout", 120)
-        return requests.post(url.replace("test-safe.invalid", f"127.0.0.1:{mock_server.port}"), **kwargs)
+        kwargs.pop("timeout", None)
+        return requests.post(
+            url.replace("test-safe.invalid", f"127.0.0.1:{mock_server.port}"),
+            timeout=120,
+            **kwargs,
+        )
+
     return requester
 
 
@@ -68,7 +74,9 @@ def safe_test_resolver():
 class TestGenerateWithToolsPassthrough:
     """generate_with_tools() 透传契约 + 三元组返回值。"""
 
-    def test_router_generate_with_tools_passes_tools_to_endpoint(self, mock_server, safe_test_resolver, safe_test_requester):
+    def test_router_generate_with_tools_passes_tools_to_endpoint(
+        self, mock_server, safe_test_resolver, safe_test_requester
+    ):
         """新方法应将 tools 参数原样透传到 OpenAI 兼容 endpoint 请求体。"""
         router = LLMRouter(requester=safe_test_requester, resolver=safe_test_resolver)
         # 选用不触发 TOOL_CALL_SCENARIOS 的 query,验证透传路径走默认文本;
@@ -92,7 +100,6 @@ class TestGenerateWithToolsPassthrough:
         assert isinstance(tool_calls, list)
         # 不命中 TOOL_CALL_SCENARIOS,tool_calls 仍为空列表
         assert tool_calls == []
-
 
     def test_generate_with_tools_returns_three_tuple_with_empty_tool_calls(
         self, mock_server, safe_test_resolver, safe_test_requester
@@ -118,7 +125,9 @@ class TestGenerateWithToolsPassthrough:
         # tool_calls 是 list,即使为空也必须是 list 类型(下游类型守卫)
         assert isinstance(tool_calls, list)
 
-    def test_generate_with_tools_supports_endpoint_url_override(self, mock_server, safe_test_resolver, safe_test_requester):
+    def test_generate_with_tools_supports_endpoint_url_override(
+        self, mock_server, safe_test_resolver, safe_test_requester
+    ):
         """``endpoint_url`` 参数应覆盖 DB 配置,直接命中测试 mock URL。"""
         router = LLMRouter(requester=safe_test_requester, resolver=safe_test_resolver)
         # 即便 router 有 DB 配置,``endpoint_url`` 应优先
@@ -136,7 +145,9 @@ class TestGenerateWithToolsPassthrough:
         assert content
         assert tool_calls == []
 
-    def test_generate_with_tools_parses_real_tool_calls_payload(self, mock_server, safe_test_resolver, safe_test_requester):
+    def test_generate_with_tools_parses_real_tool_calls_payload(
+        self, mock_server, safe_test_resolver, safe_test_requester
+    ):
         """Task 3 reviewer carry-over:解析真实 ``tool_calls`` payload。
 
         mock server(Task 10)新增 TOOL_CALL_SCENARIOS 后,带"明天排班" +
@@ -164,9 +175,7 @@ class TestGenerateWithToolsPassthrough:
         )
 
         # router 层解析应原样保留 OpenAI spec 字段
-        assert isinstance(tool_calls, list) and len(tool_calls) >= 1, (
-            f"应至少解析 1 个 tool_call,实际: {tool_calls!r}"
-        )
+        assert isinstance(tool_calls, list) and len(tool_calls) >= 1, f"应至少解析 1 个 tool_call,实际: {tool_calls!r}"
 
         first = tool_calls[0]
         # 必有 3 个键: id / type / function (OpenAI spec)
