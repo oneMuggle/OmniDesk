@@ -6,7 +6,7 @@ import os
 import requests
 from observability import get_logger
 
-from smart_assistant.ssrf import UnsafeEndpointError, safe_request
+from smart_assistant.ssrf import UnsafeEndpointError, safe_internal_request, safe_request
 
 logger = get_logger(__name__, "llm_service.ollama_client")
 
@@ -23,11 +23,14 @@ class OllamaClient:
         url = f"{self.base_url}/{endpoint}"
         headers = {"Content-Type": "application/json"}
         try:
-            response = safe_request(
-                "POST", url, headers=headers, data=json.dumps(data),
-                timeout=120, stream=stream,
-                requester=self._requester, resolver=self._resolver,
-            )
+            request_fn = safe_internal_request if self._is_default_internal_endpoint() else safe_request
+            request_kwargs = {
+                "headers": headers, "data": json.dumps(data),
+                "timeout": 120, "stream": stream, "requester": self._requester,
+            }
+            if request_fn is safe_request:
+                request_kwargs["resolver"] = self._resolver
+            response = request_fn("POST", url, **request_kwargs)
             response.raise_for_status()
             if stream:
                 return response
@@ -42,6 +45,9 @@ class OllamaClient:
             raise Exception("Ollama API 响应格式无效。")
         except Exception:
             raise Exception("Ollama API 请求失败。")
+
+    def _is_default_internal_endpoint(self):
+        return self.base_url.rstrip("/") == "http://localhost:11434"
 
     def _stream_generate(self, response):
         for line in response.iter_lines():
@@ -105,7 +111,11 @@ class OllamaClient:
         """
         url = f"{self.base_url}/api/tags"
         try:
-            response = safe_request("GET", url, timeout=30, requester=self._requester, resolver=self._resolver)
+            request_fn = safe_internal_request if self._is_default_internal_endpoint() else safe_request
+            request_kwargs = {"timeout": 30, "requester": self._requester}
+            if request_fn is safe_request:
+                request_kwargs["resolver"] = self._resolver
+            response = request_fn("GET", url, **request_kwargs)
             response.raise_for_status()
             return response.json().get("models", [])
         except UnsafeEndpointError:

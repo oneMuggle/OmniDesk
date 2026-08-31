@@ -13,7 +13,13 @@ class TestOllamaClient(unittest.TestCase):
     def setUp(self):
         self.base_url = "http://test-ollama:11434"
         self.model_name = "test-model"
-        self.client = OllamaClient(base_url=self.base_url, model_name=self.model_name, resolver=self._safe_resolver)
+        self.client = OllamaClient(base_url=self.base_url, model_name=self.model_name, resolver=self._safe_resolver, requester=self._requester)
+
+    @staticmethod
+    def _requester(url, **kwargs):
+        if url.endswith("/api/tags"):
+            return requests.get(url, **kwargs)
+        return requests.post(url, **kwargs)
 
     @staticmethod
     def _safe_resolver(host, port, **kwargs):

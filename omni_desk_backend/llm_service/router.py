@@ -286,6 +286,7 @@ class LLMRouter:
                     api_key=api_key,
                     model_name=model_name,
                     options=options,
+                    is_ollama=is_ollama,
                 )
                 # 补充成本核算字段(命中的端点 ID + 预估费用)
                 usage = self._enrich_usage(usage, endpoint, model_name)
@@ -319,6 +320,7 @@ class LLMRouter:
         api_key,
         model_name,
         options=None,
+        is_ollama=False,
     ):
         """向单个端点发起 tool_calls 请求并解析为三元组。
 
@@ -344,14 +346,16 @@ class LLMRouter:
         }
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        response = safe_request(
-            "POST",
-            url,
-            requester=self._requester,
-            resolver=self._resolver,
-            headers=headers,
-            json=body,
-            timeout=self.REQUEST_TIMEOUT,
+        response = (
+            safe_internal_request(
+                "POST", url, requester=self._requester,
+                headers=headers, json=body, timeout=self.REQUEST_TIMEOUT,
+            )
+            if is_ollama
+            else safe_request(
+                "POST", url, requester=self._requester, resolver=self._resolver,
+                headers=headers, json=body, timeout=self.REQUEST_TIMEOUT,
+            )
         )
         response.raise_for_status()
         resp_data = response.json()
