@@ -145,7 +145,7 @@
 - 基线目标测试（修改前）：3 passed；默认覆盖率阈值导致进程退出码 1（单文件运行总覆盖率 17%，与本次测试变更无关）。
 - 本轮未执行 RED：这是针对现有安全 DTO 的补充断言，非生产行为变更；基线已证明原有 3 个场景通过，直接进入 GREEN 验证。
 - GREEN 目标测试：3 passed（`--no-cov`），1 个既有随机 `SECRET_KEY` warning。
-- 相关确认/replay/boundary 测试：42 passed（`--no-cov`），1 个既有随机 `SECRET_KEY` warning。
+- 相关确认/replay/boundary 测试：54 passed（`--no-cov`），1 个既有随机 `SECRET_KEY` warning。
   - `test_confirm_replay_e2e.py` + `test_view_confirm_replay.py`：12 passed。
   - `test_cache_confirmation_draft.py` + `test_task13_public_boundaries.py`：42 passed。
 - `git diff --check`：通过。
