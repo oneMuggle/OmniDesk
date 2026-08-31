@@ -50,7 +50,7 @@ cobble==0.1.4
     # via mammoth
 cron-descriptor==1.4.5
     # via django-celery-beat
-cryptography==50.0.0
+cryptography==50.0.1
     # via
     #   -r requirements.in
     #   pdfminer-six
