@@ -8,6 +8,29 @@ from rest_framework import status
 
 @pytest.mark.django_db
 class TestRagflowConfigViewSet:
+    def test_admin_group_non_staff_uses_full_serializer(self, admin_client):
+        from django.contrib.auth.models import Group
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.is_staff = False
+        user.save(update_fields=["is_staff"])
+        user.groups.add(Group.objects.get_or_create(name="Admin")[0])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        assert RagflowConfigViewSet().get_serializer_class
+
+    def test_manager_staff_uses_safe_serializer(self, admin_client):
+        from django.contrib.auth.models import Group
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.groups.clear()
+        user.groups.add(Group.objects.get_or_create(name="Manager")[0])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        view = RagflowConfigViewSet()
+        view.request = request
+        assert "api_endpoint" not in view.get_serializer_class().Meta.fields
+
     def test_list_configs(self, api_client, regular_user_obj):
         api_client.force_authenticate(user=regular_user_obj)
         response = api_client.get('/api/ragflow-service/configs/')

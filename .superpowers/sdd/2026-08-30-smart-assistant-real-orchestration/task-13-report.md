@@ -67,3 +67,9 @@
 - `_public_items` 继续执行安全文本/标量过滤；新增 secret URL/path/nested 测试。
 - 删除 RAG router 测试中未使用的 `pytest` 导入。
 - Ragflow targeted：**55 passed**（`--no-cov`）。
+
+## 管理员判定最终复审（2026-08-31）
+
+- 读取并复用真实权限约定：仅 `superuser` 或 `Admin` 组可使用完整 Ragflow serializer；`Manager` 组（即使 `is_staff=True`）及普通认证用户使用安全 serializer。
+- 补充 Admin 非 staff、Manager staff、普通用户三种身份测试。
+- Ragflow targeted：**56 passed**（`--no-cov`）。
