@@ -20,6 +20,7 @@
 """
 
 import json
+import requests
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -42,6 +43,29 @@ pytestmark = pytest.mark.django_db
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _inject_safe_test_transport(monkeypatch):
+    """测试显式注入安全 resolver，生产默认规则不接受 loopback。"""
+    import llm_service.router as router_mod
+    from smart_assistant import ssrf
+
+    def request(method, url, **kwargs):
+        kwargs.pop("requester", None)
+        kwargs.pop("resolver", None)
+        safe_url = url.replace("127.0.0.1", "test-safe.invalid")
+        return ssrf.safe_request(
+            method,
+            safe_url,
+            resolver=lambda *args, **opts: [(2, 1, 6, "", ("93.184.216.34", 80))],
+            requester=lambda _checked, **request_kwargs: requests.request(
+                method, url, **request_kwargs
+            ),
+            **kwargs,
+        )
+
+    monkeypatch.setattr(router_mod, "safe_request", request)
 
 
 @pytest.fixture(autouse=True)
@@ -516,7 +540,7 @@ def test_native_path_confirm_replay_require_confirmation():
         # 走到 confirm-replay:返回 draft + token,而非直接执行
         assert confirmation is not None
         assert confirmation["token"]
-        assert confirmation["draft"]["summary"] == "确认执行: 生成换班申请"
+        assert confirmation["draft"]["summary"] == "请确认工具操作"
         assert result.get("found") is True
         assert "unexpected_direct_execution" not in str(result)
     finally:

@@ -277,6 +277,7 @@ class HookRegistry:
         tool: Any,
         ctx: Any,
         params: dict,
+        excluded_hook_names: set[str] | None = None,
     ) -> dict | Reject:
         """执行所有 PRE_EXECUTE Hook
 
@@ -289,6 +290,8 @@ class HookRegistry:
         """
         current_params = params
         for _, hook in self._hooks[HookEvent.PRE_EXECUTE]:
+            if excluded_hook_names and getattr(hook, "name", hook.__class__.__name__) in excluded_hook_names:
+                continue
             try:
                 result = await hook.pre_execute(tool, ctx, current_params)
                 if isinstance(result, Reject):

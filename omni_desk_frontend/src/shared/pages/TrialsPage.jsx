@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { 
+import {
   fetchTrials, createTrial, updateTrial, deleteTrial,
   getEquipmentOptions, getPersonnelOptions // 保持向后兼容
 } from '../api/trials';
+import { trialApi } from '../api/trialApi';
 import {
   Table, Button, Modal, Form, Input, DatePicker, Select, Upload, message, Popconfirm, Tag,
   Spin, Alert, Empty
@@ -88,6 +89,26 @@ const TrialsPage = () => {
     },
   });
 
+  // 导出 xlsx(后端契约:GET /api/events/trials/export/?status=&start_date__gte=&start_date__lte=)
+  const exportMutation = useMutation({
+    mutationFn: () => trialApi.exportTrials(),
+    onSuccess: (blob) => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const today = new Date().toISOString().slice(0, 10);
+      a.download = `trials-${today}.xlsx`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+      message.success('导出成功');
+    },
+    onError: (error) => {
+      message.error(`导出失败: ${error.response?.data?.message || error.message}`);
+    },
+  });
+
   // 文件上传配置
   const uploadProps = {
     multiple: true,
@@ -125,7 +146,8 @@ const TrialsPage = () => {
         </Button>
         <Button
           icon={<DownloadOutlined />}
-          onClick={() => window.open('/api/export-trials/?format=xlsx')}
+          loading={exportMutation.isPending}
+          onClick={() => exportMutation.mutate()}
         >
           导出Excel
         </Button>

@@ -62,4 +62,42 @@ describe('axiosConfig /api/ 双前缀守卫', () => {
 
         expect(mockAdapter).toHaveBeenCalledTimes(1);
     });
+
+    it('localStorage 非法 JSON 时清理并回退到合法 sessionStorage token', async () => {
+        localStorage.setItem('authTokens', '{invalid-json');
+        sessionStorage.setItem('authTokens', JSON.stringify({ access: 'session-token' }));
+
+        await instance.request({ url: 'events/', adapter: mockAdapter });
+
+        expect(localStorage.getItem('authTokens')).toBeNull();
+        expect(mockAdapter.mock.calls[0][0].headers.Authorization).toBe('Bearer session-token');
+    });
+
+    it('localStorage 合法时优先于 sessionStorage', async () => {
+        localStorage.setItem('authTokens', JSON.stringify({ access: 'local-token' }));
+        sessionStorage.setItem('authTokens', JSON.stringify({ access: 'session-token' }));
+
+        await instance.request({ url: 'events/', adapter: mockAdapter });
+
+        expect(mockAdapter.mock.calls[0][0].headers.Authorization).toBe('Bearer local-token');
+    });
+
+    it('两个 storage 都是非法 JSON 时不发送 Authorization', async () => {
+        localStorage.setItem('authTokens', '{invalid-local');
+        sessionStorage.setItem('authTokens', '{invalid-session');
+
+        await instance.request({ url: 'events/', adapter: mockAdapter });
+
+        expect(localStorage.getItem('authTokens')).toBeNull();
+        expect(sessionStorage.getItem('authTokens')).toBeNull();
+        expect(mockAdapter.mock.calls[0][0].headers.Authorization).toBeUndefined();
+    });
+
+    it('login 请求不发送已保存的 Authorization', async () => {
+        localStorage.setItem('authTokens', JSON.stringify({ access: 'secret-access' }));
+
+        await instance.request({ url: 'auth/login/', adapter: mockAdapter });
+
+        expect(mockAdapter.mock.calls[0][0].headers.Authorization).toBeUndefined();
+    });
 });

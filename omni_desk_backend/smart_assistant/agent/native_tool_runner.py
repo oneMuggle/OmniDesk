@@ -7,7 +7,7 @@ from ..hooks.wiring import (
     apply_pre_execute_hooks,
     execute_guarded,
 )
-from ..cache import set_confirmation_draft
+from ..cache import public_confirmation_draft, set_confirmation_draft
 from .orchestrator_helpers import _dict_to_query, _scope_cache_sig
 
 
@@ -42,6 +42,18 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
             F1-era 契约一致,失败工具在审计轨迹中可见)。
     """
     query = _dict_to_query(validated)
+    # Fail closed: a destructive tool without confirmation must never execute.
+    if getattr(tool, "risk_level", None) == "destructive" and not getattr(tool, "require_confirmation", False):
+        return (
+            {
+                "found": False,
+                "error": True,
+                "error_code": "confirmation_required",
+                "message": "破坏性工具必须要求用户确认",
+            },
+            None,
+            {"error": "unsafe_tool_configuration"},
+        )
     # I-2:透传完整 validated 字典作为 params,LLM 提供的结构化字段
     # (date_from / chunk_index / department / limit / …)到达工具。
     # query 仍是自然语言主输入(不拼接进 query,保留 F1 防污染决策);
@@ -64,7 +76,7 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                 return (
                     {
                         "found": False,
-                        "message": f"工具 {tool.name} 标记为需要确认,但未返回预演结果(draft),请联系管理员",
+                        "message": "该操作暂时无法完成，请稍后重试",
                     },
                     None,
                     None,
@@ -76,10 +88,15 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                     "tool_name": tool.name,
                     "user_query": query,
                     "context_sig": _scope_cache_sig(context),
+                    "task_id": getattr(context, "task_id", None),
                     "draft": draft,
                 },
             )
-            return {"found": True, "draft": draft}, {"token": token, "draft": draft}, None
+            return (
+                {"found": True, "draft": public_confirmation_draft(draft, tool.name)},
+                {"token": token, "draft": public_confirmation_draft(draft, tool.name)},
+                None,
+            )
         # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
         # 直接阻断工具执行,返回 error dict 携带 error_code + retry_after。
         if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":
@@ -121,4 +138,14 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
             result = {"found": False, "message": f"工具执行失败: {str(exc)}"}
     # C-2:POST_EXECUTE 钩子链(PII 脱敏,统一出口)
     result = apply_post_execute_hooks(tool, result, hook_ctx)
+    # 原生路径也按用户/范围隔离缓存，避免绕过 legacy 的缓存安全边界。
+    if isinstance(result, dict) and result.get("found"):
+        from . import orchestrator as orchestrator_root
+
+        orchestrator_root.cache_tool_result(
+            tool.name,
+            query,
+            result,
+            context_sig=_scope_cache_sig(context),
+        )
     return result, None, failure

@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import ToolResult from './ToolResult';
 import MessageFeedbackActions from './MessageFeedbackActions';
+import ScenarioCollabCard from '../scenario/components/ScenarioCollabCard';
 import { parseThinkContent } from '../utils/chatUtils';
 
 /**
@@ -21,6 +22,9 @@ const MessageList = ({
 }) => (
   <div className="smart-chat-messages">
     {messages.map((msg, index) => {
+      if (msg.type === 'collab_card') {
+        return <ScenarioCollabCard key={msg.id || index} scenarioId={msg.scenarioId} userInput={msg.userInput} taskId={msg.taskId} objective={msg.objective} />;
+      }
       const { mainContent, thinkContent } = parseThinkContent(msg.content);
       return (
         <div key={index} className={`message ${msg.role}`}>

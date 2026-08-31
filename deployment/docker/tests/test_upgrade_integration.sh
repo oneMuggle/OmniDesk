@@ -44,14 +44,17 @@ mock_compose_setup() {
     local behavior="$1"
     echo "$behavior" > "$TEST_TMPDIR/behavior"
 
+    # Task 6 Step 1:清空 command log(每次场景独立记录)
+    : > "$TEST_TMPDIR/COMMAND_LOG"
+
     # mock docker — 提供最小能力:inspect/load/ps/compose
     cat > "$MOCK_BIN/docker" <<'DOCKER_EOF'
 #!/usr/bin/env bash
 case "$1" in
     inspect)
-        # 返回 healthy 状态(除非 behavior=health_fail)
+        # 返回 healthy 状态(除非 behavior=health_fail 或 health_fail_after_recovery)
         behavior=$(cat "${BEHAVIOR_FILE:-/dev/null}" 2>/dev/null || echo "success")
-        if [ "$behavior" = "health_fail" ]; then
+        if [ "$behavior" = "health_fail" ] || [ "$behavior" = "health_fail_after_recovery" ]; then
             echo "unhealthy"
         else
             echo "healthy"
@@ -78,10 +81,13 @@ DOCKER_EOF
     chmod +x "$MOCK_BIN/docker"
 
     # mock compose — 根据 behavior 控制 exec 结果
-    # 注意:compose 命令行可能带 -f/--env-file 等 flag,需要先跳过找到子命令
+    # Task 6 Step 1:每条调用追加到 COMMAND_LOG,供恢复动作断言 grep
     cat > "$MOCK_BIN/compose" <<'COMPOSE_EOF'
 #!/usr/bin/env bash
 behavior=$(cat "${BEHAVIOR_FILE:-/dev/null}" 2>/dev/null || echo "success")
+
+# 记录所有调用到 COMMAND_LOG(供 step 1 命令日志断言)
+echo "compose $*" >> "${COMMAND_LOG:-/dev/null}"
 
 # 跳过 compose flags (-f, --env-file, -p 等)找到子命令
 args=("$@")
@@ -281,10 +287,15 @@ scenario_migration_failure_restores_source() {
     mkdir -p "$runtime_root" "$backup_root"
 
     local upgrade_id="test-s2-v0.7.0-rc.1-to-v0.7.0-rc.2"
+    # Task 6 Step 1: 准备一份假 backup 文件,run_recovery 在 DATABASE_RESTORED 阶段
+    # 会调用 restore_db 命令(mock compose exec 模拟成功)。
+    echo "-- FAKE SQL BACKUP --" > "$backup_root/backup_v0.7.0-rc.1.sql.gz"
+
     local exit_code=0
     (
         export PATH="$MOCK_BIN:$PATH"
         export BEHAVIOR_FILE="$TEST_TMPDIR/behavior"
+        export COMMAND_LOG="$TEST_TMPDIR/COMMAND_LOG"
         export OMNIDESK_RUNTIME_ROOT="$runtime_root"
         export OMNIDESK_BACKUP_ROOT="$backup_root"
         export COMPOSE_PROJECT_NAME="omnidesk-test"
@@ -316,6 +327,49 @@ scenario_migration_failure_restores_source() {
         fi
     else
         pass "S2: state file not created (migration failed before state init)"
+    fi
+
+    # Task 6 Step 1: 命令日志断言 — 恢复流程必须执行真实动作
+    # 当前 run_recovery 是 placeholder(只走 transition_state),这些断言会 FAIL,
+    # 直到 upgrade.sh 加入 stop-target / restore-source-image / restore-db / health-source 真实调用。
+    local cmd_log="$TEST_TMPDIR/COMMAND_LOG"
+    if [ ! -f "$cmd_log" ]; then
+        fail "S2-COMMAND_LOG: COMMAND_LOG not created (mock compose never invoked)"
+        return
+    fi
+
+    # 断言1: 命令日志含"stop target"或停服务动作(compose down/stop)
+    # 注意:COMMAND_LOG 行格式为 "compose -f <file> --env-file <file> stop ...",
+    # 所以用 "compose.*(down|stop)" 而不是字面 "compose (down|stop)"。
+    if grep -qE "compose.*(down|stop) " "$cmd_log" 2>/dev/null; then
+        pass "S2-COMMAND_LOG: stop-target action invoked (compose down/stop)"
+    else
+        fail "S2-COMMAND_LOG: NO stop-target action in COMMAND_LOG — run_recovery 是 placeholder"
+        echo "      (预期:Task 6 Step 5 在 upgrade.sh run_recovery 中加入 stop target services)"
+    fi
+
+    # 断言2: 命令日志含"restore_db"(回滚数据库)
+    if grep -qE "restore_db" "$cmd_log" 2>/dev/null; then
+        pass "S2-COMMAND_LOG: restore-database action invoked (compose exec restore_db)"
+    else
+        fail "S2-COMMAND_LOG: NO restore_db in COMMAND_LOG — run_recovery 未触发数据库回滚"
+        echo "      (预期:Task 6 Step 5 在 run_recovery 中执行 compose exec backend restore_db)"
+    fi
+
+    # 断言3: 命令日志含"compose up"或重启服务动作
+    if grep -qE "compose.*up " "$cmd_log" 2>/dev/null; then
+        pass "S2-COMMAND_LOG: start-source-services action invoked (compose up)"
+    else
+        fail "S2-COMMAND_LOG: NO compose up in COMMAND_LOG — 源服务未重启"
+        echo "      (预期:Task 6 Step 5 在 run_recovery 中执行 compose up -d 重启源服务)"
+    fi
+
+    # 断言4: 命令日志含 health check(invoke APP_VERSION 或 /api/system/version)
+    if grep -qE "(APP_VERSION|/api/system/version)" "$cmd_log" 2>/dev/null; then
+        pass "S2-COMMAND_LOG: source-health verification invoked"
+    else
+        fail "S2-COMMAND_LOG: NO health check in COMMAND_LOG — 源健康未验证"
+        echo "      (预期:Task 6 Step 5 在 run_recovery 中执行 get_current_version 验证源版本)"
     fi
 }
 

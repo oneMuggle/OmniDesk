@@ -261,5 +261,60 @@ else
     fi
 fi
 
+# ─── R9: SAFE_STOPPED 保留 upgrade_id 与 reason(Task 6 Step 7)───
+echo ""
+echo "--- R9: SAFE_STOPPED 保留 upgrade_id + reason ---"
+case_runtime "r9_safe_stop_preserves_context"
+
+# 1. 先创建一个 PREFLIGHT_PASSED 状态(含完整上下文)
+write_state PREFLIGHT_PASSED "source_version=v0.7.0-rc.1" "target_version=v0.7.0-rc.2" \
+    "channel=preview" "compose_project=omnidesk-test" >/dev/null 2>&1
+
+# 2. 触发 enter_safe_stop(reason="forced manual abort")
+test_reason="forced manual abort for test"
+enter_safe_stop "$test_reason" >/dev/null 2>&1
+
+# 3. 读 state.json 校验字段
+state_file="$OMNIDESK_RUNTIME_ROOT/upgrades/$UPGRADE_ID/state.json"
+if [ ! -f "$state_file" ]; then
+    fail "state.json 不存在(enter_safe_stop 未写入)"
+else
+    if command -v jq >/dev/null 2>&1; then
+        actual_state=$(jq -r '.state' "$state_file" 2>/dev/null || echo "")
+        actual_id=$(jq -r '.upgrade_id // ""' "$state_file" 2>/dev/null || echo "")
+        actual_reason=$(jq -r '.reason // ""' "$state_file" 2>/dev/null || echo "")
+        actual_source=$(jq -r '.source_version // ""' "$state_file" 2>/dev/null || echo "")
+    else
+        actual_state=$(python3 -c "import json; print(json.load(open('$state_file')).get('state',''))" 2>/dev/null || echo "")
+        actual_id=$(python3 -c "import json; print(json.load(open('$state_file')).get('upgrade_id',''))" 2>/dev/null || echo "")
+        actual_reason=$(python3 -c "import json; print(json.load(open('$state_file')).get('reason',''))" 2>/dev/null || echo "")
+        actual_source=$(python3 -c "import json; print(json.load(open('$state_file')).get('source_version',''))" 2>/dev/null || echo "")
+    fi
+    # 验证 state = SAFE_STOPPED
+    if [ "$actual_state" = "SAFE_STOPPED" ]; then
+        pass "R9: state = SAFE_STOPPED (被 enter_safe_stop 正确写入)"
+    else
+        fail "R9: state = $actual_state (期望 SAFE_STOPPED)"
+    fi
+    # 验证 upgrade_id 保留
+    if [ "$actual_id" = "$UPGRADE_ID" ]; then
+        pass "R9: upgrade_id 保留 ($actual_id)"
+    else
+        fail "R9: upgrade_id 被覆盖 (got=$actual_id expected=$UPGRADE_ID)"
+    fi
+    # 验证 reason 保留
+    if [ "$actual_reason" = "$test_reason" ]; then
+        pass "R9: reason 保留 ($actual_reason)"
+    else
+        fail "R9: reason 被覆盖/丢失 (got=$actual_reason expected=$test_reason)"
+    fi
+    # 验证其他上下文(source_version)也保留
+    if [ "$actual_source" = "v0.7.0-rc.1" ]; then
+        pass "R9: source_version 上下文保留 ($actual_source)"
+    else
+        fail "R9: source_version 上下文丢失 (got=$actual_source expected=v0.7.0-rc.1)"
+    fi
+fi
+
 # ─── 总结 ────────────────────────────────────────────────────
 print_test_summary "upgrade_failure_recovery 测试"

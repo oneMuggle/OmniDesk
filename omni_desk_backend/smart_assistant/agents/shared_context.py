@@ -111,6 +111,8 @@ class SharedContext:
         self.original_query = original_query
         self.user_context = user_context or {}
         self.artifacts: dict[str, dict] = {}
+        # 恢复时即使产出为空也必须保留 completed 状态，避免重复执行。
+        self.completed_subtask_ids: set[str] = set()
         self.decisions: list[Decision] = []
         self.error_log: list[ErrorRecord] = []
         self.token_budget_used: int = 0

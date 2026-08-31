@@ -27,6 +27,8 @@ from ..cache import (
     cache_tool_result,
     get_cached_answer,
     set_confirmation_draft,
+    public_confirmation_draft,
+    public_tool_calls_meta,
 )
 from .intent_classifier import (
     classify_intent,
@@ -88,9 +90,10 @@ class StreamRunner:
                 yield from self._stream_native(user_query, tool_context, llm_messages)
             except Exception as exc:
                 logger.warning("原生流式路径异常: %s", exc, exc_info=True)
-                yield sse_event({"type": "chunk", "content": f"回答生成失败: {exc}"})
+                safe_error = "回答生成失败，请稍后重试"
+                yield sse_event({"type": "chunk", "content": safe_error})
                 done = {"type": "done", "finish_reason": "stop", "error": True}
-                annotate_error_kind(done, f"回答生成失败: {exc}")
+                annotate_error_kind(done, safe_error)
                 yield sse_event(done)
             return
 
@@ -167,7 +170,7 @@ class StreamRunner:
                 query=user_query, context=tool_context, llm_messages=llm_messages
             )
         except Exception as exc:
-            content = f"回答生成失败: {exc}"
+            content = "回答生成失败，请稍后重试"
             meta = {"tool_call_path": "native", "tool_calls_rounds": 0}
             tool_round_messages = llm_messages
 
@@ -187,7 +190,7 @@ class StreamRunner:
                 "tool_result": None,
                 # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
                 "tool_call_path": meta.get("tool_call_path", "native"),
-                "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta") or []),
                 "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
             }
         )
@@ -212,16 +215,17 @@ class StreamRunner:
         tool_calls_meta = meta.get("tool_calls_meta", [])
         tool_used = tool_calls_meta[-1].get("tool", "") if tool_calls_meta else ""
         draft = meta.get("draft", {})
+        public_draft = public_confirmation_draft(draft, tool_used)
         yield sse_event(
             {
                 "type": "meta",
                 "intent": "tool_call",
                 "tool_used": tool_used,
-                "tool_result": {"draft": draft},
+                "tool_result": {"draft": public_draft},
                 # L1.1 fix(最终 review):决策日志透传,视图层 AgentLog.create 据此落库
                 # (spec §3.2 步骤 6 承诺 tool_call_path/tool_calls_meta/tool_calls_rounds)
                 "tool_call_path": meta.get("tool_call_path", "native"),
-                "tool_calls_meta": meta.get("tool_calls_meta") or [],
+                "tool_calls_meta": public_tool_calls_meta(meta.get("tool_calls_meta") or []),
                 "tool_calls_rounds": meta.get("tool_calls_rounds") or 0,
             }
         )
@@ -230,7 +234,7 @@ class StreamRunner:
                 "type": "confirmation",
                 "awaiting_confirmation": True,
                 "confirmation_token": meta["confirmation_token"],
-                "draft": draft,
+                "draft": public_draft,
                 "answer": content or "请确认以下操作",
             }
         )
@@ -245,7 +249,7 @@ class StreamRunner:
                 stream_parts.append(chunk)
                 yield sse_event({"type": "chunk", "content": chunk})
         except Exception as exc:
-            stream_parts = [content or f"回答生成失败: {exc}"]
+            stream_parts = [content or "回答生成失败，请稍后重试"]
             yield sse_event({"type": "chunk", "content": stream_parts[0]})
         return "".join(stream_parts)
 
@@ -380,18 +384,22 @@ class StreamRunner:
                     "tool_name": tool.name,
                     "user_query": user_query,
                     "context_sig": scope_sig,
+                    "task_id": getattr(tool_context, "task_id", None),
                     "draft": draft,
                 },
             )
+            public_draft = public_confirmation_draft(draft, tool.name)
             events = [
-                sse_event({"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": draft}}),
+                sse_event(
+                    {"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": public_draft}}
+                ),
                 sse_event(
                     {
                         "type": "confirmation",
                         "awaiting_confirmation": True,
                         "confirmation_token": token,
-                        "draft": draft,
-                        "answer": draft.get("summary") or "请确认以下操作",
+                        "draft": public_draft,
+                        "answer": public_draft["summary"],
                     }
                 ),
                 sse_event({"type": "done", "error": False, "awaiting_confirmation": True}),

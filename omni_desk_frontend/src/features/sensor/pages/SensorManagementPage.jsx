@@ -116,7 +116,7 @@ const SensorManagementPage = () => {
       key: 'action',
       render: (_, record) => (
         <Space size="middle">
-          <Link to={`/control-panel/sensor/sensors/${record.id}`}>查看详情</Link>
+          <Link to={`/control-panel/sensors/${record.id}`}>查看详情</Link>
           <Button type="link" onClick={() => handleEdit(record)}>
             编辑
           </Button>

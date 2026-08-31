@@ -128,7 +128,101 @@ def three_subtask_packet():
 
 
 @pytest.mark.django_db
-class TestFullPipelineWithDBPersistence:
+class TestResumeEmptyCompletedOutput:
+    def test_completed_empty_output_is_not_rerun(self, agent_task, three_subtask_packet):
+        from smart_assistant.models import AgentSubTask
+
+        agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.status = "paused"
+        agent_task.save(update_fields=["task_packet", "status"])
+        AgentSubTask.objects.create(
+            task=agent_task, subtask_id="step1", role="researcher", objective="第一步",
+            status="completed", output={}, tokens_used=0,
+        )
+        router = MockLLMRouter({"step2": {"a": 1}, "step3": {"b": 2}})
+        result = MultiAgentExecutor.resume_from_checkpoint(
+            task_id=str(agent_task.task_id), llm_router=router, tool_registry=MagicMock()
+        )
+        assert result.status == "success"
+        assert router.call_count == 2
+
+
+
+
+@pytest.mark.django_db
+class TestResumeInitializationFailure:
+    def test_malformed_packet_is_converged_to_failed(self, agent_task):
+        from smart_assistant.models import AgentEvent
+        from django.utils import timezone
+
+        agent_task.status = "paused"
+        agent_task.started_at = timezone.now()
+        agent_task.task_packet = {"execution_mode": "not-a-mode"}
+        agent_task.save(update_fields=["status", "started_at", "task_packet"])
+
+        event_bus = __import__(
+            "smart_assistant.agents.dataclasses", fromlist=["PersistentEventBus"]
+        ).PersistentEventBus(agent_task_id=str(agent_task.task_id))
+        result = MultiAgentExecutor.resume_from_checkpoint(
+            task_id=str(agent_task.task_id), llm_router=MagicMock(), tool_registry=MagicMock(), event_bus=event_bus
+        )
+
+        agent_task.refresh_from_db()
+        assert result.status == "failed"
+        assert agent_task.status == "failed"
+        assert agent_task.completed_at is not None
+        assert AgentEvent.objects.filter(task=agent_task, event_type="task.failed").count() == 1
+
+    def test_checkpoint_failure_is_converged_to_failed(self, agent_task, three_subtask_packet, monkeypatch):
+        from smart_assistant.models import AgentEvent
+
+        agent_task.status = "paused"
+        agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.save(update_fields=["status", "task_packet"])
+        event_bus = __import__(
+            "smart_assistant.agents.dataclasses", fromlist=["PersistentEventBus"]
+        ).PersistentEventBus(agent_task_id=str(agent_task.task_id))
+        monkeypatch.setattr(
+            "smart_assistant.agents.executor.CheckpointManager.load_completed_artifacts",
+            MagicMock(side_effect=RuntimeError("checkpoint unavailable")),
+        )
+
+        result = MultiAgentExecutor.resume_from_checkpoint(
+            task_id=str(agent_task.task_id), llm_router=MockLLMRouter(), tool_registry=MagicMock(), event_bus=event_bus
+        )
+
+        agent_task.refresh_from_db()
+        assert result.status == "failed"
+        assert agent_task.status == "failed"
+        assert agent_task.completed_at is not None
+        assert AgentEvent.objects.filter(task=agent_task, event_type="task.failed").count() == 1
+
+    def test_executor_initialization_failure_is_converged_to_failed(
+        self, agent_task, three_subtask_packet, monkeypatch
+    ):
+        from smart_assistant.models import AgentEvent
+
+        agent_task.status = "paused"
+        agent_task.task_packet = three_subtask_packet.to_dict()
+        agent_task.save(update_fields=["status", "task_packet"])
+        event_bus = __import__(
+            "smart_assistant.agents.dataclasses", fromlist=["PersistentEventBus"]
+        ).PersistentEventBus(agent_task_id=str(agent_task.task_id))
+        monkeypatch.setattr(
+            "smart_assistant.agents.executor.MultiAgentExecutor.__init__",
+            MagicMock(side_effect=RuntimeError("executor init unavailable")),
+        )
+
+        result = MultiAgentExecutor.resume_from_checkpoint(
+            task_id=str(agent_task.task_id), llm_router=MockLLMRouter(), tool_registry=MagicMock(), event_bus=event_bus
+        )
+
+        agent_task.refresh_from_db()
+        assert result.status == "failed"
+        assert agent_task.status == "failed"
+        assert agent_task.completed_at is not None
+        assert AgentEvent.objects.filter(task=agent_task, event_type="task.failed").count() == 1
+
     """测试 1: 全流程跑完 3 个 subtask,DB 持久化正确"""
 
     def test_full_pipeline_persists_all_subtasks_to_db(self, agent_task, three_subtask_packet):

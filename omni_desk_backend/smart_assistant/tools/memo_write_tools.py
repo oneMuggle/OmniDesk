@@ -29,6 +29,7 @@ from django.db import transaction
 from .base import BaseTool
 from ..extractors.memo_extractor import CreateParams, extract_create_params
 from memos.models import Memo
+from smart_assistant.models import AgentWriteLog
 
 from observability import get_logger
 
@@ -114,7 +115,7 @@ class MemoCreateTool(BaseTool):
         - confirmed:真正落库
         - 兜底:防御性兜底(测试显式覆盖),正常流程被 orchestrator 拦截
         """
-        ctx = context if isinstance(context, dict) else {}
+        ctx = context if isinstance(context, dict) else (vars(context) if context is not None else {})
 
         if ctx.get("dry_run"):
             return self._dry_run(query, ctx, context)
@@ -197,6 +198,31 @@ class MemoCreateTool(BaseTool):
                     content=params.content,
                     reminder_time=reminder_time,
                 )
+                task = None
+                task_id = ctx.get("task_id")
+                if task_id:
+                    from smart_assistant.models import AgentTask
+
+                    task = AgentTask.objects.filter(task_id=task_id, user=user).first()
+                    if task is None:
+                        raise ValueError("任务不存在或不属于当前用户")
+                AgentWriteLog.objects.create(
+                    task=task,
+                    session_id=ctx.get("session_id"),
+                    user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type,
+                    target_model="memos.Memo",
+                    target_pk=str(memo.pk),
+                    operation="create",
+                    before=None,
+                    after={
+                        "title": memo.title,
+                        "content": memo.content,
+                        "reminder_time": str(memo.reminder_time) if memo.reminder_time else None,
+                        "is_deleted": False,
+                        "deleted_at": None,
+                    },
+                )
         except Exception as e:
             logger.warning(
                 "memo_create.persist_failed",
@@ -206,7 +232,7 @@ class MemoCreateTool(BaseTool):
                     "error": str(e),
                 },
             )
-            return {"found": False, "message": f"创建备忘录失败: {e!s}"}
+            return {"found": False, "message": "创建备忘录失败，请稍后重试", "error_code": "memo_create_failed"}
 
         logger.info(
             "memo_create.persisted",

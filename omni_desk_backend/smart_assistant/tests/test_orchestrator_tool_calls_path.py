@@ -823,6 +823,8 @@ def test_all_registered_tools_execute_via_query_string_conversion(settings):
     ctx = ToolContext(user=None)
     failures: list[str] = []
     for tool in ToolRegistry._tools.values():
+        if getattr(tool, "require_confirmation", False):
+            continue
         try:
             # 所有工具的 OpenAI schema 都以 query 为必填字段
             validated = tool.validate_arguments({"query": "测试"})

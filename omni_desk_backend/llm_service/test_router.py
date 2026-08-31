@@ -34,7 +34,7 @@ class TestOllamaFallbackModel:
     def test_fallback_model_reads_settings(self):
         """兜底命中 Ollama 时，模型名取自 settings.OLLAMA_MODEL_NAME。"""
         with override_settings(OLLAMA_MODEL_NAME="custom-model:7b"):
-            with patch("llm_service.router.requests.post") as mock_post:
+            with patch("llm_service.router.safe_internal_request") as mock_post:
                 mock_post.return_value = _fake_response(usage={"total_tokens": 10})
                 content, usage = LLMRouter().generate(prompt="你好")
 
@@ -43,6 +43,17 @@ class TestOllamaFallbackModel:
         assert usage["model_name"] == "custom-model:7b"
         sent_payload = mock_post.call_args.kwargs["json"]
         assert sent_payload["model"] == "custom-model:7b"
+
+    def test_generate_with_tools_uses_internal_transport_for_ollama_fallback(self):
+        router = LLMRouter()
+        with patch("llm_service.router.safe_request", side_effect=AssertionError("DB transport used")):
+            with patch("llm_service.router.safe_internal_request") as internal:
+                internal.return_value = _fake_response(content="工具兜底", usage={"total_tokens": 1})
+                content, _usage, _calls = router.generate_with_tools(
+                    messages=[{"role": "user", "content": "你好"}],
+                )
+        assert content == "工具兜底"
+        assert internal.call_args.args[:2] == ("POST", "http://localhost:11434/v1/chat/completions")
 
     def test_fallback_model_falls_back_to_class_constant(self):
         """settings 未提供有效值时回退类常量（统一默认 qwen2.5:7b）。"""
@@ -92,7 +103,7 @@ class TestAppNameIsolation:
     def test_office_app_without_config_uses_ollama_fallback(self):
         """无专属配置的应用调用 generate 时应命中 Ollama 兜底端点。"""
         office_router = LLMRouter(app_name="office_assistant")
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_internal_request") as mock_post:
             mock_post.return_value = _fake_response(content="兜底回答", usage={"total_tokens": 5})
             content, usage = office_router.generate(prompt="你好")
 
@@ -101,8 +112,35 @@ class TestAppNameIsolation:
         assert usage["endpoint_id"] is None
         assert usage["estimated_cost"] == 0.0
         # 请求打向本地 Ollama 的 OpenAI 兼容端点
-        called_url = mock_post.call_args.args[0]
+        called_url = mock_post.call_args.args[1]
         assert called_url == "http://localhost:11434/v1/chat/completions"
+
+
+class TestRequestTimeoutResolution:
+    """请求超时配置不得通过实例化或 monkeypatch 污染全局状态。"""
+
+    def test_base_default_uses_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+        assert LLMRouter().REQUEST_TIMEOUT == 37
+
+    def test_explicit_base_class_timeout_wins_over_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+        with patch.object(LLMRouter, "REQUEST_TIMEOUT", 120):
+            assert LLMRouter().REQUEST_TIMEOUT == 120
+
+    def test_subclass_override_wins_over_settings(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 37
+
+        class CustomRouter(LLMRouter):
+            REQUEST_TIMEOUT = 88
+
+        assert CustomRouter().REQUEST_TIMEOUT == 88
+
+    def test_monkeypatch_restore_does_not_pollute_following_instances(self, settings):
+        settings.LLM_REQUEST_TIMEOUT_SECONDS = 41
+        with patch.object(LLMRouter, "REQUEST_TIMEOUT", 9):
+            assert LLMRouter().REQUEST_TIMEOUT == 9
+        assert LLMRouter().REQUEST_TIMEOUT == 41
 
 
 class TestGetRouterSingleton:

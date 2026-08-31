@@ -8,6 +8,43 @@ from rest_framework import status
 
 @pytest.mark.django_db
 class TestRagflowConfigViewSet:
+    def test_admin_group_non_staff_uses_full_serializer(self, admin_client):
+        from django.contrib.auth.models import Group
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.is_staff = False
+        user.save(update_fields=["is_staff"])
+        user.groups.add(Group.objects.get_or_create(name="Admin")[0])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        assert RagflowConfigViewSet().get_serializer_class
+
+    def test_manager_staff_uses_safe_serializer(self, admin_client):
+        from django.contrib.auth.models import Group
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.groups.clear()
+        user.groups.add(Group.objects.get_or_create(name="Manager")[0])
+        user.is_superuser = False
+        user.save(update_fields=["is_superuser"])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        view = RagflowConfigViewSet()
+        view.request = request
+        assert "api_endpoint" not in view.get_serializer_class().Meta.fields
+
+    def test_superuser_without_admin_group_uses_full_serializer(self, admin_client):
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.groups.clear()
+        user.is_superuser = True
+        user.save(update_fields=["is_superuser"])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        view = RagflowConfigViewSet()
+        view.request = request
+        assert "api_endpoint" in view.get_serializer_class().Meta.fields
+
     def test_list_configs(self, api_client, regular_user_obj):
         api_client.force_authenticate(user=regular_user_obj)
         response = api_client.get('/api/ragflow-service/configs/')
@@ -115,6 +152,68 @@ class TestRagflowConfigViewSet:
             }, format='json')
             assert response.status_code == status.HTTP_200_OK
             assert response.data['answer'] == 'Mocked answer'
+
+    def test_query_config_filters_upstream_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Filtered Config", api_endpoint="https://ragflow.example.com/api",
+            api_key="key", is_active=True, chat_id="chat-id",
+        )
+        mock_client = MagicMock()
+        mock_client.chat_completion.return_value = {
+            "answer": "safe", "data": "secret body", "context": "private",
+            "path": "/srv/private", "url": "https://internal/?token=secret",
+            "conversation_id": "conv-1", "unknown": "drop",
+        }
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.post(f"/api/ragflow-service/configs/{config.pk}/query/", {"question": "q"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"answer": "safe", "conversation_id": "conv-1"}
+
+    def test_query_does_not_forward_client_conversation_id(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Conversation Config", api_endpoint="https://ragflow.example.com/api",
+            api_key="key", is_active=True, chat_id="chat-id",
+        )
+        mock_client = MagicMock()
+        mock_client.chat_completion.return_value = {"answer": "safe", "conversation_id": "new"}
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.post(
+                f"/api/ragflow-service/configs/{config.pk}/query/",
+                {"question": "q", "conversation_id": "other-user-conversation"}, format="json"
+            )
+        assert response.status_code == status.HTTP_200_OK
+        assert "conversation_id" not in mock_client.chat_completion.call_args.kwargs
+
+    def test_list_datasets_filters_upstream_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Datasets Config", api_endpoint="https://ragflow.example.com/api", api_key="key"
+        )
+        mock_client = MagicMock()
+        mock_client.list_datasets.return_value = [{"id": "d1", "name": "公开库", "description": "正文", "api_key": "secret", "path": "/private"}]
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.get(f"/api/ragflow-service/configs/{config.pk}/list_datasets/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"data": [{"id": "d1", "name": "公开库"}]}
+
+    def test_list_chats_filters_sensitive_and_nested_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Chats Config", api_endpoint="https://ragflow.example.com/api", api_key="key"
+        )
+        mock_client = MagicMock()
+        mock_client.list_chats.return_value = [{
+            "id": "c1", "name": "助手 https://internal/?token=secret",
+            "description": "说明 /srv/private", "nested": {"token": "secret"},
+        }]
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.get(f"/api/ragflow-service/configs/{config.pk}/list_chats/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"][0]["id"] == "c1"
+        assert "nested" not in response.json()
+        assert "secret" not in response.json()["data"][0]["name"]
 
     def test_query_missing_question(self, admin_client):
         from ragflow_service.models import RagflowConfig

@@ -11,6 +11,16 @@
 系统会自动分析 git 提交、确定版本号并更新本文件。
 详见 [CLAUDE.md](../../CLAUDE.md) 中的 Version Update System 章节。
 
+## [0.7.0-alpha.3] - 2026-08-30
+
+### 新增
+
+- **smart-assistant**：真实多智能体编排验收完成；协作卡片消费持久化 `AgentEvent` SSE，支持真实工具调用、`last_seq` 断点续传、暂停/部分完成状态、旧版浏览器 timeline 降级（不改变 React 18 对 IE11 的整体不支持）、审计 JSON、`AgentWriteLog` 回滚与站内任务结果通知；8 个历史场景仅作为示例入口。
+
+### 验证
+
+- 阶段 11 验收记录：`.superpowers/sdd/2026-08-30-smart-assistant-real-orchestration/task-11-report.md`
+
 ## [未发布]
 
 ### 新增

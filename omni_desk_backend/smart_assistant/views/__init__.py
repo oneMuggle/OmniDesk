@@ -5,6 +5,7 @@ from .logs import AgentLogViewSet
 from .llm_config import LlmEndpointViewSet, LlmAppConfigViewSet
 from .stats import StatsViewSet
 from .tasks import AgentTaskViewSet
+from .write_logs import AgentWriteLogViewSet
 
 __all__ = [
     "SmartChatViewSet",
@@ -15,4 +16,5 @@ __all__ = [
     "LlmAppConfigViewSet",
     "StatsViewSet",
     "AgentTaskViewSet",
+    "AgentWriteLogViewSet",
 ]

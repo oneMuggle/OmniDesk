@@ -1,8 +1,143 @@
 [
   {
-    "name": "控制面板",
-    "path": "/control-panel",
-    "component": "AdminAppWrapper"
+    "name": "人员管理",
+    "path": "/control-panel/personnel",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "新增人员",
+    "path": "/control-panel/personnel/add",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "人员详情",
+    "path": "/control-panel/personnel/:personnelId",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "编辑人员",
+    "path": "/control-panel/personnel/:personnelId/edit",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "文档管理",
+    "path": "/control-panel/documents",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "合规管理",
+    "path": "/control-panel/compliance",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "公告管理",
+    "path": "/control-panel/announcements/manage",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "创建公告",
+    "path": "/control-panel/announcements/create",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "编辑公告",
+    "path": "/control-panel/announcements/:announcementId/edit",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "排班管理",
+    "path": "/control-panel/schedule",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "排班设置",
+    "path": "/control-panel/schedule/settings",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "节假日管理",
+    "path": "/control-panel/schedule/holiday",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "项目管理",
+    "path": "/control-panel/projects",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "会议室管理",
+    "path": "/control-panel/meeting-rooms",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "用户管理",
+    "path": "/control-panel/users",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "传感器列表",
+    "path": "/control-panel/sensors/list",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "传感器分类",
+    "path": "/control-panel/sensors/categories",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "传感器归档位置",
+    "path": "/control-panel/sensors/archive-locations",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "传感器校准",
+    "path": "/control-panel/sensors/calibration",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "传感器详情",
+    "path": "/control-panel/sensors/:sensorId",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "新增校准记录",
+    "path": "/control-panel/sensors/:sensorId/calibration/add",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "校准历史",
+    "path": "/control-panel/sensors/:sensorId/calibration/history",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "电子书管理",
+    "path": "/control-panel/ebooks",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "外链管理",
+    "path": "/control-panel/external-links/manage",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "新闻统计",
+    "path": "/control-panel/news/stats",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "智能助手审计",
+    "path": "/control-panel/smart-assistant/audit",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "系统更新",
+    "path": "/control-panel/system-update",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "AI 应用",
+    "path": "/control-panel/ai-apps",
+    "component": "LazyComponent"
   },
   {
     "name": "快捷外链",
@@ -15,13 +150,18 @@
     "component": "LazyComponent"
   },
   {
+    "name": "集成管理",
+    "path": "/control-panel/integration-hub/manage",
+    "component": "LazyComponent"
+  },
+  {
     "name": "插件市场",
     "path": "/control-panel/plugin-market",
     "component": "LazyComponent"
   },
   {
-    "name": "仪表盘",
-    "path": "/",
+    "name": "插件管理",
+    "path": "/control-panel/plugin-market/manage",
     "component": "LazyComponent"
   },
   {
@@ -52,6 +192,26 @@
   {
     "name": "通知中心",
     "path": "/notifications",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "书库",
+    "path": "/library",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "书籍详情",
+    "path": "/books/:bookId",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "书籍阅读器",
+    "path": "/books/:bookId/reader",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "章节编辑器",
+    "path": "/books/:bookId/editor",
     "component": "LazyComponent"
   },
   {
@@ -90,7 +250,7 @@
     "component": "LazyComponent"
   },
   {
-    "name": "Dify应用",
+    "name": "Dify应用详情",
     "path": "/dify-apps/:appId",
     "component": "LazyComponent"
   },
@@ -120,6 +280,16 @@
     "component": "LazyComponent"
   },
   {
+    "name": "帖子详情",
+    "path": "/communication/:postId",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "公告",
+    "path": "/announcements",
+    "component": "LazyComponent"
+  },
+  {
     "name": "系统设置",
     "path": "/system-settings",
     "component": "LazyComponent"
@@ -127,6 +297,11 @@
   {
     "name": "试验管理",
     "path": "/trials",
+    "component": "LazyComponent"
+  },
+  {
+    "name": "文档详情",
+    "path": "/docs/:docId",
     "component": "LazyComponent"
   },
   {
@@ -150,12 +325,12 @@
     "component": "LazyComponent"
   },
   {
-    "name": "联培生列表",
+    "name": "联培生管理员首页",
     "path": "/joint-students/admin/students",
     "component": "LazyComponent"
   },
   {
-    "name": "联培生新增",
+    "name": "创建联培生",
     "path": "/joint-students/admin/students/new",
     "component": "LazyComponent"
   },
@@ -165,22 +340,22 @@
     "component": "LazyComponent"
   },
   {
-    "name": "联培生编辑",
+    "name": "编辑联培生",
     "path": "/joint-students/admin/students/:id/edit",
     "component": "LazyComponent"
   },
   {
-    "name": "月度报告审核",
+    "name": "报告审核",
     "path": "/joint-students/admin/reports",
     "component": "LazyComponent"
   },
   {
-    "name": "考核批次管理",
+    "name": "批次管理",
     "path": "/joint-students/admin/cycles",
     "component": "LazyComponent"
   },
   {
-    "name": "考核批次详情",
+    "name": "批次详情",
     "path": "/joint-students/admin/cycles/:id",
     "component": "LazyComponent"
   },
@@ -195,12 +370,12 @@
     "component": "LazyComponent"
   },
   {
-    "name": "我的月度报告",
+    "name": "我的报告",
     "path": "/joint-students/student/reports",
     "component": "LazyComponent"
   },
   {
-    "name": "新建月度报告",
+    "name": "填报报告",
     "path": "/joint-students/student/reports/new",
     "component": "LazyComponent"
   },
@@ -210,7 +385,7 @@
     "component": "LazyComponent"
   },
   {
-    "name": "我的联培生",
+    "name": "导师视图",
     "path": "/joint-students/mentor/overview",
     "component": "LazyComponent"
   }

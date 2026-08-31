@@ -22,6 +22,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ..models import KnowledgeDataset, LlmAppConfig, LlmEndpoint
+from ..ssrf import UnsafeEndpointError, safe_request
 
 from observability import get_logger
 
@@ -40,17 +41,25 @@ STATUS_WARN = "warn"
 STATUS_ERROR = "error"
 
 
-def _probe_http(url: str, timeout: int = PROBE_TIMEOUT_SECONDS):
-    """轻量 HTTP 可达性探测：返回 ``(是否可达, 细节描述)``。
-
-    任何 HTTP 响应（含 4xx）都视为"网络可达"；仅连接失败/超时判为不可达。
-    异常不外抛，统一转为 ``(False, 错误描述)``。
-    """
+def _probe_http(url: str, timeout: int = PROBE_TIMEOUT_SECONDS, *, requester=None, resolver=None):
+    """轻量 HTTP 探测；仅返回固定安全细节，不暴露上游内容或异常文本。"""
     try:
-        resp = requests.get(url, timeout=timeout)
+        resp = safe_request(
+            "GET",
+            url,
+            requester=requester,
+            resolver=resolver,
+            timeout=timeout,
+        )
         return True, f"HTTP {resp.status_code}"
-    except requests.RequestException as exc:
-        return False, str(exc) or exc.__class__.__name__
+    except UnsafeEndpointError:
+        return False, "端点地址不允许"
+    except requests.Timeout:
+        return False, "请求超时"
+    except requests.RequestException:
+        return False, "服务不可达"
+    except (ValueError, OSError):
+        return False, "探测失败"
 
 
 def _check(name: str, status: str, kind: str, message: str, hint: str = "") -> dict:
@@ -318,13 +327,13 @@ def _check_native_tool_calls() -> list:
         )
         supports = bool(tool_calls)
     except Exception as exc:
-        logger.warning("native_tool_calls 探测失败 (%s): %s", type(exc).__name__, exc)
+        logger.warning("native_tool_calls 探测失败（%s）", type(exc).__name__)
         return [
             _check(
                 "native_tool_calls",
                 STATUS_ERROR,
                 "endpoint_probe_failed",
-                f"探测端点 tool_calls 能力失败:{exc or exc.__class__.__name__}",
+                "探测端点 tool_calls 能力失败",
                 "LLM 端点暂时不可用,AgentOrchestrator 将自动降级到 JSON 路径",
             )
         ]
@@ -404,13 +413,13 @@ def get_doctor_status() -> dict:
         try:
             checks.extend(checker())
         except Exception as exc:  # 防御性兜底：单项异常不拖垮整个自检
-            logger.exception("doctor 检查项 %s 执行异常", checker_name)
+            logger.warning("doctor 检查项 %s 执行异常（%s）", checker_name, type(exc).__name__)
             checks.append(
                 _check(
                     checker_name,
                     STATUS_ERROR,
                     "internal_error",
-                    f"检查项执行异常：{exc}",
+                    "检查项执行异常",
                     "服务异常，请稍后重试",
                 )
             )

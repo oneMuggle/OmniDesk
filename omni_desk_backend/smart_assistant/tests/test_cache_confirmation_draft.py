@@ -120,8 +120,305 @@ class TestDraftCacheIsolation:
         assert get_confirmation_draft("token-A") == {"who": "A"}
         assert get_confirmation_draft("token-B") == {"who": "B"}
 
-    def test_draft_key_uses_cache_version(self):
-        """draft key 包含 CACHE_VERSION,bump 后旧 draft 自动失效(同 token 不同 key)"""
+    def test_consume_locmem_gets_and_deletes_once(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": MagicMock()}
+            mock_cache._connections["default"].__class__.__module__ = (
+                "django.core.cache.backends.locmem"
+            )
+            mock_cache.get.return_value = {"value": 1}
+            mock_cache.delete.return_value = True
+            assert consume_confirmation_draft("token-consume") == {"value": 1}
+            mock_cache.get.assert_called_with(_draft_key("token-consume"))
+            assert mock_cache.get.call_count == 2
+            mock_cache.delete.assert_called_once_with(_draft_key("token-consume"))
+
+    def test_locmem_repeated_consume_has_at_most_one_success(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        values = [{"value": 1}, {"value": 1}, None]
+        backend_get = lambda key: values.pop(0)
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache.delete.return_value = True
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.side_effect = backend_get
+            assert consume_confirmation_draft("token-repeat") == {"value": 1}
+            assert consume_confirmation_draft("token-repeat") is None
+            assert mock_cache.delete.call_count == 1
+
+    def test_unknown_backend_fails_closed(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": MagicMock()}
+            mock_cache._connections["default"].__class__.__module__ = "custom.cache"
+            with pytest.raises(ConfirmationDraftConsumeError) as exc_info:
+                consume_confirmation_draft("token-unknown")
+            assert exc_info.value.failure_kind == "unsupported_backend"
+            mock_cache.get.assert_not_called()
+            mock_cache.delete.assert_not_called()
+
+    def test_redis_backend_uses_lock_before_get_and_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        events = []
+        lock = MagicMock()
+        lock.__enter__.side_effect = lambda: events.append("lock-enter") or lock
+        lock.__exit__.side_effect = lambda *args: events.append("lock-exit")
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.side_effect = lambda *args, **kwargs: events.append("lock") or lock
+        backend.get_client.return_value = backend
+        backend.make_key.return_value = "redis-key"
+        backend.decode.side_effect = lambda value: value
+        backend.get.side_effect = lambda key: events.append("get") or {"value": 1}
+        backend.delete.side_effect = lambda key: events.append("delete") or True
+        backend.eval.side_effect = lambda *args: events.append("eval") or 1
+
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            assert consume_confirmation_draft("token-redis") == {"value": 1}
+
+        assert events == ["lock", "lock-enter", "get", "lock-exit", "lock-enter", "eval", "lock-exit"]
+
+    def test_cache_lock_failure_is_not_treated_as_replay(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.side_effect = TimeoutError("lock unavailable")
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            with pytest.raises(ConfirmationDraftConsumeError) as exc_info:
+                consume_confirmation_draft("token-lock-error")
+            assert exc_info.value.failure_kind == "backend_failure"
+            backend.get.assert_not_called()
+            backend.delete.assert_not_called()
+
+    def test_validator_rejection_keeps_draft_for_retry(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        draft = {"draft": {"fields": {"scope": "global"}}}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = draft
+            mock_cache.delete.return_value = True
+            assert consume_confirmation_draft("token-invalid", validator=lambda value: None) is None
+            mock_cache.delete.assert_not_called()
+            assert consume_confirmation_draft("token-invalid", validator=lambda value: value) == draft
+            assert mock_cache.delete.call_count == 1
+
+    def test_validator_runs_before_delete_and_returns_transformed_draft(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        draft = {"draft": {"fields": {"scope": "self"}}}
+        transformed = {"draft": {"fields": {"scope": "self", "checked": True}}}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = draft
+            mock_cache.delete.return_value = True
+            assert consume_confirmation_draft("token-valid", validator=lambda value: transformed) == transformed
+            mock_cache.delete.assert_called_once_with(_draft_key("token-valid"))
+
+    def test_validator_false_keeps_draft_for_retry(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        draft = {"value": 1}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = draft
+            mock_cache.delete.return_value = True
+            assert consume_confirmation_draft("token-false", validator=lambda value: False) is None
+            mock_cache.delete.assert_not_called()
+
+    def test_redis_validator_false_keeps_draft(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        lock = MagicMock()
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.return_value = lock
+        backend.get.return_value = {"value": 1}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            assert consume_confirmation_draft("token-redis-false", validator=lambda value: False) is None
+            backend.delete.assert_not_called()
+
+    def test_validator_exception_keeps_draft_and_fails_closed(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = {"value": 1}
+            with pytest.raises(ConfirmationDraftConsumeError):
+                consume_confirmation_draft("token-exception", validator=lambda value: 1 / 0)
+            mock_cache.delete.assert_not_called()
+
+    @pytest.mark.parametrize("validator_result", [False, None, "valid-ish", ["not-a-dict"]])
+    def test_only_explicit_dict_validator_result_can_consume(self, validator_result):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = {"value": 1}
+            assert consume_confirmation_draft("token-non-dict", validator=lambda value: validator_result) is None
+            mock_cache.delete.assert_not_called()
+
+    def test_delete_false_fails_closed_and_preserves_claim(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = {"value": 1}
+            mock_cache.delete.return_value = False
+            with pytest.raises(ConfirmationDraftConsumeError):
+                consume_confirmation_draft("token-delete-false")
+            mock_cache.delete.assert_called_once_with(_draft_key("token-delete-false"))
+
+    def test_validator_gets_isolated_copy_and_mutation_does_not_change_cache_value(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        original = {"draft": {"fields": {"title": "original"}}}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = original
+            mock_cache.delete.return_value = True
+            def mutate(value):
+                value["draft"]["fields"]["title"] = "mutated"
+                return value
+            result = consume_confirmation_draft("token-copy", validator=mutate)
+            assert result["draft"]["fields"]["title"] == "mutated"
+            assert original["draft"]["fields"]["title"] == "original"
+
+    def test_locmem_replacement_after_validator_fails_closed_and_preserves_new_token(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        original = {"nonce": "old"}
+        replacement = {"nonce": "new"}
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            values = [original, replacement]
+            mock_cache.get.side_effect = lambda _key: values.pop(0)
+            mock_cache.delete.return_value = True
+            def validator(value):
+                return value
+            assert consume_confirmation_draft("token-replaced", validator=validator) is None
+            mock_cache.delete.assert_not_called()
+            assert values == []
+
+    def test_redis_consumption_uses_atomic_compare_and_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        lock = MagicMock()
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.return_value = lock
+        client = MagicMock()
+        backend.get_client.return_value = client
+        backend.make_key.return_value = "redis-key"
+        backend.decode.return_value = {"value": 1}
+        client.get.return_value = b"encoded-old"
+        client.eval.return_value = 1
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            result = consume_confirmation_draft("token-redis-cas", validator=lambda value: value)
+        assert result == {"value": 1}
+        client.eval.assert_called_once()
+        assert client.eval.call_args.args[3:] == (b"encoded-old",)
+    def test_redis_cas_zero_keeps_draft_and_does_not_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        lock = MagicMock()
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        backend.lock.return_value = lock
+        client = MagicMock()
+        backend.get_client.return_value = client
+        backend.make_key.return_value = "redis-key"
+        backend.decode.return_value = {"value": 1}
+        client.get.return_value = b"old"
+        client.eval.return_value = 0
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            assert consume_confirmation_draft("token-cas-zero", validator=lambda value: value) is None
+        client.eval.assert_called_once()
+        backend.delete.assert_not_called()
+
+    def test_redis_missing_value_does_not_run_validator_or_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django_redis.cache"
+        client = MagicMock()
+        backend.get_client.return_value = client
+        backend.make_key.return_value = "redis-key"
+        client.get.return_value = None
+        validator = MagicMock()
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            assert consume_confirmation_draft("token-redis-missing", validator=validator) is None
+        validator.assert_not_called()
+        client.eval.assert_not_called()
+
+    def test_locmem_missing_value_does_not_run_validator_or_delete(self):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        validator = MagicMock()
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = None
+            assert consume_confirmation_draft("token-locmem-missing", validator=validator) is None
+        validator.assert_not_called()
+        mock_cache.delete.assert_not_called()
+
+    @pytest.mark.parametrize("validator_result", [False, None])
+    def test_validator_false_or_none_does_not_delete_or_execute(self, validator_result):
+        from smart_assistant.cache import consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        validator = MagicMock(return_value=validator_result)
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = {"value": 1}
+            assert consume_confirmation_draft("token-validator-reject", validator=validator) is None
+        validator.assert_called_once()
+        mock_cache.delete.assert_not_called()
+
+    def test_validator_exception_does_not_delete_or_execute(self):
+        from smart_assistant.cache import ConfirmationDraftConsumeError, consume_confirmation_draft
+
+        backend = MagicMock()
+        backend.__class__.__module__ = "django.core.cache.backends.locmem"
+        with patch("smart_assistant.cache.cache") as mock_cache:
+            mock_cache._connections = {"default": backend}
+            mock_cache.get.return_value = {"value": 1}
+            with pytest.raises(ConfirmationDraftConsumeError):
+                consume_confirmation_draft("token-validator-error", validator=MagicMock(side_effect=RuntimeError))
+        mock_cache.delete.assert_not_called()
+
         from smart_assistant import cache as cache_module
 
         original_version = cache_module.CACHE_VERSION

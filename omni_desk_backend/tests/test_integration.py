@@ -86,8 +86,8 @@ class TestNotificationTrigger:
         )
 
         response = regular_client.patch(
-            reverse('notification-detail', kwargs={'pk': notification.pk}),
-            {'is_read': True},
+            reverse('notification-mark-read', kwargs={'pk': notification.pk}),
+            {},
             format='json'
         )
         assert response.status_code == status.HTTP_200_OK

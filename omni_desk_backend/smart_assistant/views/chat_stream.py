@@ -34,11 +34,79 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
+from ..cache import (
+    public_tool_calls_meta,
+    public_tool_result,
+    safe_public_value,
+    sanitize_public_text,
+    sanitize_public_sources,
+)
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
 
 logger = get_logger(__name__, "smart_assistant")
+
+
+_STREAM_EVENT_FIELDS = {
+    "chunk": {"format_version", "type", "content"},
+    "meta": {
+        "format_version",
+        "type",
+        "intent",
+        "tool_used",
+        "tool_result",
+        "sources",
+        "tool_fallback",
+        "tool_call_path",
+        "tool_calls_meta",
+        "tool_calls_rounds",
+        "cache_hit",
+    },
+    "done": {
+        "format_version",
+        "type",
+        "finish_reason",
+        "error",
+        "awaiting_confirmation",
+        "cache_hit",
+        "error_code",
+        "retry_after",
+        "kind",
+        "hint",
+    },
+    "confirmation": {"format_version", "type", "awaiting_confirmation", "confirmation_token", "draft", "answer"},
+}
+
+
+def _sanitize_stream_event(data):
+    """按 SSE 事件类型构造公开 envelope，单独保留可见文本字段。"""
+    if not isinstance(data, dict):
+        return {}
+    event_type = data.get("type")
+    if not isinstance(event_type, str):
+        return {}
+    fields = _STREAM_EVENT_FIELDS.get(event_type)
+    if not fields:
+        return {}
+    public_event = {"type": event_type, "format_version": FORMAT_VERSION}
+    for key in fields - {"type", "content", "format_version", "answer"}:
+        if key not in data:
+            continue
+        value = data[key]
+        if key in {"confirmation_token", "error_code", "kind", "hint", "finish_reason", "intent", "tool_used"}:
+            public_event[key] = sanitize_public_text(value, 200)
+        elif key == "tool_result":
+            public_event[key] = public_tool_result(value, data.get("tool_used") or "", intent=data.get("intent") or "")
+        elif key == "sources":
+            public_event[key] = sanitize_public_sources(value)
+        else:
+            public_event[key] = safe_public_value(value)
+    if event_type == "chunk" and "content" in data:
+        public_event["content"] = sanitize_public_text(data["content"])
+    if event_type == "confirmation" and "answer" in data:
+        public_event["answer"] = sanitize_public_text(data["answer"])
+    return public_event
 
 
 def handle_stream_chat(viewset, request) -> StreamingHttpResponse:
@@ -112,13 +180,17 @@ def _event_stream_generator(
             # 若直接中断流,前端会把已收到的部分内容当成功回答,且 AgentLog 缺失。
             stream_exc = exc
             state["done_error"] = True
-            logger.exception("SSE 流式生成中途异常: query=%s conversation_id=%s", query, conversation_id)
+            logger.exception(
+                "SSE 流式生成中途异常: conversation_id=%s query_len=%d",
+                conversation_id,
+                len(query) if isinstance(query, str) else 0,
+            )
 
         partial_answer = "".join(state["full_answer"])
         if stream_exc is not None:
             # 统一采用流式失败前缀,复用 is_failed_answer 语义:
             # 前端失败提示与"失败不落库"逻辑随之自动生效;已累积内容保留进审计记录
-            failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
+            failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断"
             answer = f"{failure_marker}｜已生成部分内容：{partial_answer}" if partial_answer else failure_marker
             # 补发失败 chunk(部分内容此前已 streamed,此处仅补失败标记)
             yield sse_event({"type": "chunk", "content": failure_marker})
@@ -172,9 +244,9 @@ def _event_stream_generator(
         # 兜底:DB 写(session.save / AgentLog.create)异常也保证前端能收到 done 事件。
         # 否则前端 reader.read() 永远 pending → UI 永远卡在"取消"状态。
         logger.exception(
-            "SSE 流后端持久化异常: query=%s conversation_id=%s",
-            query,
+            "SSE 流后端持久化异常: conversation_id=%s query_len=%d",
             conversation_id,
+            len(query) if isinstance(query, str) else 0,
         )
         # 兜底 done 固定 internal_error:不调用 annotate_error_kind ——
         # 其内部 `_has_active_llm_config()` 会查 DB,若故障恰是 DB 不可达,
@@ -203,12 +275,15 @@ def _consume_stream_events(state, orchestrator, query, conversation_history, too
         conversation_history=conversation_history,
         tool_context=tool_context,
     ):
-        yield chunk
         try:
             payload = chunk.split("data: ", 1)[1].rsplit("\n\n", 1)[0]
             data = json.loads(payload)
         except (IndexError, json.JSONDecodeError):
             continue
+        data = _sanitize_stream_event(data)
+        if not data:
+            continue
+        yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
         event_type = data.get("type")
         if event_type == "chunk":
             state["full_answer"].append(data.get("content", ""))
@@ -270,12 +345,12 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
     """流式路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
     return AgentLog.objects.create(
         session=session,
-        user_query=query,
+        user_query=sanitize_public_text(query),
         intent=meta.get("intent") or "unknown",
         tool_used=meta.get("tool_used") or "",
-        tool_input={"query": query},
-        tool_output=meta.get("tool_result") or {},
-        llm_response=answer,
+        tool_input=safe_public_value({"query": query}),
+        tool_output=safe_public_value(meta.get("tool_result") or {}),
+        llm_response=sanitize_public_text(answer),
         response_time_ms=response_time_ms,
         # 流式路径暂无 usage 统计,成本留空
         estimated_cost=None,
@@ -284,7 +359,7 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
         # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
         # (非原生 intent 流程),保持既有审计行为
         tool_call_path=meta.get("tool_call_path") or "intent",
-        tool_calls_meta=meta.get("tool_calls_meta") or [],
+        tool_calls_meta=public_tool_calls_meta(meta.get("tool_calls_meta") or []),
         tool_calls_rounds=meta.get("tool_calls_rounds") or 0,
     )
 

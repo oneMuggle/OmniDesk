@@ -26,6 +26,16 @@ class ToolContext:
     history: list[dict] = field(default_factory=list)
     scope: SmartAssistantScope = SmartAssistantScope.SELF
     attachment: dict | None = None
+    session_id: Any = None
+    task_id: Any = None
+    model_name: str | None = None
+    tool_name: str | None = None
+    # 运行时事件总线仅用于审计回调，不参与上下文身份或权限判断。
+    # 保持可选以兼容普通工具和历史裸 dict context。
+    event_bus: Any = None
+    confirmed: bool = False
+    replay: bool = False
+    draft: dict | None = None
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:

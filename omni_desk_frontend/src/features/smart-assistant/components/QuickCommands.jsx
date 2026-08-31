@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types';
+import { listScenarios } from '../scenario/data/scenarios';
 import './QuickCommands.css';
 
 const DEFAULT_COMMANDS = [
@@ -38,8 +39,21 @@ const translateIntentToQuery = ({ intent, scope }) => {
   return scope ? `我的${scope}` : '请帮我汇总';
 };
 
+/**
+ * 场景一键演示入口:取各剧本的 userInput 作为 query,
+ * 命中 useSmartChat 的场景匹配走协作卡片通道。
+ */
+const SCENARIO_COMMANDS = listScenarios().map((s) => ({
+  key: `scenario-${s.id}`,
+  label: `⚡ ${s.title}`,
+  query: s.userInput,
+  mode: 'agent',
+}));
+
+const ALL_COMMANDS = [...SCENARIO_COMMANDS, ...DEFAULT_COMMANDS];
+
 const QuickCommands = ({ commands, onSend, onCommand }) => {
-  const items = commands || DEFAULT_COMMANDS;
+  const items = commands || ALL_COMMANDS;
 
   const handleClick = (cmd) => {
     // Task 17: 优先把 {intent, scope} 翻译为自然语言 query 走 onSend。
@@ -47,7 +61,8 @@ const QuickCommands = ({ commands, onSend, onCommand }) => {
     if (cmd.intent) {
       const translated = cmd.query || translateIntentToQuery({ intent: cmd.intent, scope: cmd.scope });
       if (typeof onSend === 'function') {
-        onSend(translated);
+        if (cmd.mode) onSend(translated, { mode: cmd.mode });
+        else onSend(translated);
         return;
       }
       if (typeof onCommand === 'function') {
@@ -57,7 +72,8 @@ const QuickCommands = ({ commands, onSend, onCommand }) => {
       return;
     }
     if (cmd.query && typeof onSend === 'function') {
-      onSend(cmd.query);
+      if (cmd.mode) onSend(cmd.query, { mode: cmd.mode });
+      else onSend(cmd.query);
     }
   };
 
@@ -89,6 +105,7 @@ QuickCommands.propTypes = {
       query: PropTypes.string,
       intent: PropTypes.string,
       scope: PropTypes.string,
+      mode: PropTypes.string,
     }),
   ),
   onSend: PropTypes.func,

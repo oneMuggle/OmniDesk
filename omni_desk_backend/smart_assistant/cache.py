@@ -6,8 +6,13 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 的缓存结果,防止 scope-aware 接入后产生的 User A → User B 数据泄露。
 """
 
+import copy
 import hashlib
+import json
+import ipaddress
+import re
 import threading
+from urllib.parse import parse_qsl, urlsplit
 
 from django.conf import settings
 from django.core.cache import cache
@@ -295,6 +300,14 @@ def singleflight_get_or_set(key: str, loader, ttl: int = ANSWER_CACHE_TTL):
 CONFIRMATION_DRAFT_TTL = 600  # 秒
 
 
+class ConfirmationDraftConsumeError(RuntimeError):
+    """确认草稿缓存无法可靠消费时抛出的受控异常。"""
+
+    def __init__(self, failure_kind: str):
+        self.failure_kind = failure_kind
+        super().__init__(failure_kind)
+
+
 def _draft_key(token: str) -> str:
     """confirmation draft 缓存 key。
 
@@ -320,16 +333,485 @@ def set_confirmation_draft(
     注意:调用方负责保证 token 唯一(用 uuid4 即可)。本函数不校验参数类型,
     异常时由 Django cache 层吞错(与 cache.set 行为一致)。
     """
-    cache.set(_draft_key(token), draft, ttl)
+    key = _draft_key(token)
+    backend = cache._connections["default"]
+    module = backend.__class__.__module__
+    if module.startswith("django.core.cache.backends.locmem"):
+        with _inflight_global:
+            cache.set(key, draft, ttl)
+        return
+    cache.set(key, draft, ttl)
+
+
+def consume_confirmation_draft(token: str, validator=None) -> dict | None:
+    """在一致性保护内校验并一次性消费确认草稿。
+
+    validator 必须在消费保护范围内执行。Redis 使用 Lua 对原始值执行
+    compare-and-delete；locmem 在进程锁内重新读取并比较，避免校验期间的替换
+    draft 被误删。任何删除失败都 fail closed。
+    """
+    key = _draft_key(token)
+
+    def prepare(value):
+        if value is None:
+            return None
+        candidate = copy.deepcopy(value)
+        validated = validator(candidate) if callable(validator) else candidate
+        if not isinstance(validated, dict):
+            return None
+        return validated
+
+    try:
+        backend = cache._connections["default"]
+        module = backend.__class__.__module__
+        if module.startswith("django_redis"):
+            client = backend.get_client(write=True)
+            redis_key = backend.make_key(key)
+            lock = backend.lock(f"{key}:consume", timeout=30, blocking_timeout=5)
+            # 只在读取/最终 CAS 的短临界区持锁；validator 不得占用固定锁超时。
+            with lock:
+                raw_value = client.get(redis_key)
+            if raw_value is None:
+                return None
+            original = backend.decode(raw_value)
+            prepared = prepare(original)
+            if prepared is None:
+                return None
+            with lock:
+                result = client.eval(
+                    "local current = redis.call('GET', KEYS[1]); "
+                    "if current == ARGV[1] then return redis.call('DEL', KEYS[1]) else return 0 end",
+                    1,
+                    redis_key,
+                    raw_value,
+                )
+            if result != 1:
+                return None
+            return prepared
+        if module.startswith("django.core.cache.backends.locmem"):
+            with _inflight_global:
+                original = cache.get(key)
+            prepared = prepare(original)
+            if prepared is None:
+                return None
+            # validator 在锁外执行；锁内重新读取实际值，替换 token 时 fail closed。
+            with _inflight_global:
+                if cache.get(key) != original:
+                    return None
+                delete_result = cache.delete(key)
+                if delete_result is not True:
+                    raise ConfirmationDraftConsumeError("delete_failed")
+                return prepared
+    except ConfirmationDraftConsumeError:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "confirmation draft consume backend failure: backend=%s exc_type=%s",
+            type(backend).__name__ if "backend" in locals() else "unknown",
+            type(exc).__name__,
+        )
+        raise ConfirmationDraftConsumeError("backend_failure") from exc
+    logger.warning(
+        "confirmation draft consume unsupported backend: backend=%s",
+        type(backend).__name__,
+    )
+    raise ConfirmationDraftConsumeError("unsupported_backend")
 
 
 def get_confirmation_draft(token: str) -> dict | None:
-    """取 confirmation draft。过期/不存在返回 None。
-
-    Returns:
-        draft 字典;token 无效或已过期时为 None
-    """
+    """取 confirmation draft。过期/不存在返回 None。"""
     return cache.get(_draft_key(token))
+
+
+_SECRET_TEXT_RE = re.compile(
+    r"(?is)(?:bearer\s+[a-z0-9._~+/=-]+|"
+    r"(?:api[_ -]?key|apikey|credential|token|password|secret|authorization|access[_ -]?token)"
+    r"\s*(?:=|:|：)\s*(?:\"[^\"]*\"|'[^']*'|[^\s,;，；。}]+))"
+)
+_PII_TEXT_RE = (
+    re.compile(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}"),
+    re.compile(r"(?<!\d)1\d{10}(?!\d)"),
+    re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)"),
+)
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_URL_CREDENTIAL_KEYS = {
+    "x-amz-signature",
+    "x-amz-credential",
+    "x-amz-security-token",
+    "token",
+    "credential",
+    "sig",
+    "signature",
+    "access-token",
+    "access_token",
+}
+
+
+def _canonical_url_query_key(value):
+    """统一 URL query key 的大小写、分隔符及百分号编码形式。"""
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+
+_URL_CREDENTIAL_CANONICAL_KEYS = {_canonical_url_query_key(key) for key in _URL_CREDENTIAL_KEYS}
+
+
+def _sanitize_url_credentials(value):
+    """替换文本中 URL query 的凭据值，同时保留普通外链。"""
+
+    def replace(match):
+        raw_url = match.group(0)
+        trailing = ""
+        while raw_url and raw_url[-1] in ".,;!?，。；！）":
+            trailing = raw_url[-1] + trailing
+            raw_url = raw_url[:-1]
+        try:
+            parsed = urlsplit(raw_url)
+            safe_netloc = parsed.netloc
+            if "@" in safe_netloc:
+                # URL authority 的 userinfo 不应进入任何公开文本；不要让
+                # `_SECRET_TEXT_RE` 在 URL 被保护后错过 username/password。
+                safe_netloc = safe_netloc.rsplit("@", 1)[1]
+            pairs = parse_qsl(parsed.query, keep_blank_values=True)
+            changed = safe_netloc != parsed.netloc
+            safe_pairs = []
+            for key, item in pairs:
+                if _canonical_url_query_key(key) in _URL_CREDENTIAL_CANONICAL_KEYS:
+                    item = "[已隐藏]"
+                    changed = True
+                safe_pairs.append((key, item))
+            if not changed:
+                return raw_url + trailing
+            from urllib.parse import urlencode
+
+            sanitized = parsed._replace(netloc=safe_netloc, query=urlencode(safe_pairs)).geturl()
+            return sanitized + trailing
+        except ValueError:
+            return raw_url + trailing
+
+    return _URL_RE.sub(replace, value)
+
+
+_PUBLIC_SAFE_KEYS = {
+    "operation_id",
+    "operation",
+    "phase",
+    "scope",
+    "status",
+    "count",
+    "total",
+    "recipient_count",
+    "sent_count",
+    "failed_count",
+    "channel",
+    "channels",
+}
+_PUBLIC_SENSITIVE_KEYS = {
+    "content",
+    "body",
+    "recipients",
+    "recipient",
+    "recipient_name",
+    "recipient_names",
+    "username",
+    "email",
+    "phone",
+    "prompt",
+    "prompt_text",
+    "credentials",
+    "credential",
+    "credential_blob",
+    "token",
+    "token_value",
+    "bearer_token",
+    "secret",
+    "password",
+    "authorization",
+    "authorization_header",
+    "api_key",
+    "access_token",
+    "private_key",
+    "client_secret",
+    "arguments",
+    "args",
+    "session",
+    "session_id",
+}
+
+
+def _canonical_public_key(value):
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+
+_PUBLIC_SENSITIVE_CANONICAL_KEYS = {_canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS}
+_PUBLIC_SENSITIVE_MARKERS = (
+    "password",
+    "credential",
+    "secret",
+    "token",
+    "prompt",
+    "apikey",
+    "authorization",
+    "privatekey",
+    "sessionid",
+    "userid",
+    "recipientid",
+    "username",
+    "recipientname",
+    "name",
+)
+
+
+def _is_public_sensitive_key(value):
+    canonical = _canonical_public_key(value)
+    return canonical in _PUBLIC_SENSITIVE_CANONICAL_KEYS or any(
+        marker in canonical for marker in _PUBLIC_SENSITIVE_MARKERS
+    )
+
+
+def sanitize_public_text(value, limit=2000):
+    """脱敏公开文本中的 secret/PII，兼容 JSON、quoted、key:value 和 Bearer。"""
+    raw = str(value or "")
+    try:
+        parsed = json.loads(raw[:limit])
+    except (TypeError, ValueError):
+        parsed = None
+    if isinstance(parsed, (dict, list)):
+        return str(safe_public_value(parsed))[:limit]
+
+    protected_urls = []
+
+    def protect_url(match):
+        protected_urls.append(_sanitize_url_credentials(match.group(0)))
+        return f"__PUBLIC_URL_{len(protected_urls) - 1}__"
+
+    result = _URL_RE.sub(protect_url, raw)
+    result = _SECRET_TEXT_RE.sub("[已隐藏]", result)
+    for pattern in _PII_TEXT_RE:
+        result = pattern.sub("[已隐藏]", result)
+    for index, url in enumerate(protected_urls):
+        result = result.replace(f"__PUBLIC_URL_{index}__", url)
+    return result[:limit]
+
+
+def _is_public_url(value):
+    """只允许普通外链；拒绝内网地址和签名/凭据 query。"""
+    if not isinstance(value, str) or len(value) > 2048:
+        return False
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        hostname = parsed.hostname.lower().rstrip(".")
+        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(
+            (".localhost", ".local", ".internal")
+        ):
+            return False
+        try:
+            address = ipaddress.ip_address(hostname)
+            if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved:
+                return False
+        except ValueError:
+            pass
+        if parsed.username is not None or parsed.password is not None:
+            return False
+        blocked_query = {
+            _canonical_url_query_key(key)
+            for key in (
+                "x-amz-signature",
+                "x-amz-credential",
+                "x-amz-security-token",
+                "token",
+                "credential",
+                "sig",
+                "signature",
+                "access_token",
+                "access-token",
+            )
+        }
+        if any(
+            _canonical_url_query_key(key) in blocked_query for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
+        ):
+            return False
+        fragment = parsed.fragment.lower()
+        if any(marker in fragment for marker in ("token", "signature", "credential", "access_token")):
+            return False
+    except ValueError:
+        return False
+    return True
+
+
+def sanitize_public_sources(sources):
+    """把来源转换成安全 DTO，保留文档名/评分和普通外链。"""
+    if not isinstance(sources, list):
+        return [] if sources is not None else None
+    safe = []
+    for source in sources[:20]:
+        if not isinstance(source, dict):
+            continue
+        item = {}
+        for key in ("document", "title", "score", "source_id"):
+            if key in source and isinstance(source[key], (str, int, float)):
+                item[key] = sanitize_public_text(source[key], 200) if isinstance(source[key], str) else source[key]
+        if _is_public_url(source.get("url")):
+            item["url"] = source["url"]
+        if item:
+            safe.append(item)
+    return safe
+
+
+def safe_public_value(value, depth=0):
+    """递归生成公开摘要；过滤敏感键，限制深度、集合大小和文本长度。"""
+    if depth >= 3:
+        return "[已隐藏]"
+    if isinstance(value, str):
+        return sanitize_public_text(value)
+    if isinstance(value, (int, float, bool)) or value is None:
+        return value
+    if isinstance(value, list):
+        return [safe_public_value(item, depth + 1) for item in value[:20]]
+    if isinstance(value, dict):
+        return {
+            str(key): safe_public_value(item, depth + 1)
+            for key, item in list(value.items())[:30]
+            if not _is_public_sensitive_key(key)
+        }
+    return "[已隐藏]"
+
+
+def public_tool_arguments(arguments):
+    """生成对外 tool_calls_meta.arguments；审计原始参数不在此公开。"""
+    if not isinstance(arguments, dict):
+        return {}
+    return {
+        str(key): safe_public_value(value)
+        for key, value in list(arguments.items())[:30]
+        if not _is_public_sensitive_key(key)
+    }
+
+
+def public_confirmation_draft(draft: dict, tool_name: str = "") -> dict:
+    """把 server-side replay draft 转为统一的最小安全公开摘要。"""
+    if not isinstance(draft, dict):
+        return {"summary": "请确认以下操作", "fields": {}}
+    fields = draft.get("fields") if isinstance(draft.get("fields"), dict) else {}
+    operation_id = fields.get("operation_id")
+    public_fields = {"operation_id": sanitize_public_text(operation_id, 128)} if operation_id else {}
+    if tool_name == "agent_notify":
+        recipient_ids = fields.get("recipient_ids")
+        public_fields.update(
+            {
+                "operation": "agent_notify",
+                "recipient_count": len(recipient_ids) if isinstance(recipient_ids, list) else 0,
+                "title": sanitize_public_text(fields.get("title"), 80),
+            }
+        )
+    else:
+        for key in ("operation", "phase", "scope", "status", "count", "total"):
+            if key in fields and not _is_public_sensitive_key(key):
+                public_fields[key] = safe_public_value(fields[key])
+    if tool_name == "agent_notify":
+        summary = (
+            f"待执行站内通知（操作：agent_notify；收件人数：{public_fields['recipient_count']}；"
+            f"标题：{public_fields['title']}）"
+        )
+    else:
+        # server-side draft.summary 可能包含原始 query 或业务正文；绝不透传。
+        summary = "请确认工具操作"
+    return {"summary": summary[:180], "fields": public_fields}
+
+
+def public_tool_calls_meta(meta):
+    """统一过滤对外 tool_calls_meta；保留执行状态而不暴露原始参数。"""
+    if not isinstance(meta, list):
+        return []
+    result = []
+    for item in meta[:30]:
+        if not isinstance(item, dict):
+            continue
+        entry = {
+            str(key): safe_public_value(value)
+            for key, value in item.items()
+            if key != "arguments" and not _is_public_sensitive_key(key)
+        }
+        if "arguments" in item:
+            entry["arguments"] = public_tool_arguments(item["arguments"])
+        result.append(entry)
+    return result
+
+
+def _public_status_fields(source):
+    """从工具结果提取跨工具共享的公开状态字段。"""
+    allowed = {
+        "found",
+        "status",
+        "message",
+        "date",
+        "error_code",
+        "operation_id",
+        "operation",
+        "phase",
+        "count",
+        "total",
+        "channel",
+        "channels",
+        "recipient_count",
+        "sent_count",
+        "failed_count",
+    }
+    public = {}
+    for key in allowed:
+        if key not in source or _is_public_sensitive_key(key):
+            continue
+        value = source[key]
+        public[key] = sanitize_public_text(value) if key == "message" else safe_public_value(value)
+    return public
+
+
+def _public_rag_result(source):
+    """RAG 专用安全 DTO；绝不把 context 或原始来源字段递归公开。"""
+    public = _public_status_fields(source)
+    sources = sanitize_public_sources(source.get("sources"))
+    if sources is not None:
+        public["sources"] = sources
+        public.setdefault("count", len(sources))
+    return public
+
+
+def public_tool_result(result, tool_name="", *, intent=""):
+    """生成公开 ToolResult；基础状态白名单和聚合生产者均显式声明。"""
+    if not isinstance(result, dict):
+        return {}
+    source = result.get("result") if isinstance(result.get("result"), dict) else result
+    if not isinstance(source, dict):
+        return {}
+    if tool_name == "knowledge_qa" or intent == "knowledge_qa":
+        return _public_rag_result(source)
+
+    public = _public_status_fields(source)
+    if "count" not in public:
+        for detail_key in (
+            "personnel",
+            "schedules",
+            "documents",
+            "events",
+            "memos",
+            "projects",
+            "posts",
+            "issues",
+            "links",
+            "articles",
+        ):
+            if isinstance(source.get(detail_key), list):
+                public["count"] = len(source[detail_key])
+                break
+    if tool_name == "aggregated_day" or intent == "aggregated_day":
+        # 只有聚合器可以公开这些已经聚合的结构化摘要字段。
+        for key in ("summary", "items", "moduleCounts", "total_count"):
+            if key in source:
+                public[key] = safe_public_value(source[key])
+    elif "summary" in source and not {"items", "moduleCounts", "total_count"}.intersection(source):
+        public["summary"] = sanitize_public_text(source["summary"])
+    return public
 
 
 def clear_confirmation_draft(token: str) -> None:

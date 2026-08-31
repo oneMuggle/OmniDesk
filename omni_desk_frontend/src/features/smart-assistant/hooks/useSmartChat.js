@@ -1,11 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { createAgentTask, executeAgentTask } from '../api/agentTaskApi';
 import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
 import { Modal as AntdModal, message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 import { extractResults } from '../../../shared/api/responseHandler';
+import { matchScenarioByInput } from '../scenario/data/scenarios';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -339,14 +341,54 @@ export function useSmartChat() {
     }
   }, [currentSessionId, attachment, handleSSEEvent, typewriter]);
 
-  const sendMessage = useCallback(async (query) => {
+  const sendMessage = useCallback(async (query, options = {}) => {
     if (!query || !query.trim() || isLoading || activeRequestRef.current) return;
     activeRequestRef.current = true;
 
     const userMessage = { role: 'user', content: query, attachment: attachment ? attachment.name : null };
-    setMessages(prev => [...prev, userMessage]);
+
+    if (options.mode === 'agent') {
+      let agentCardId = null;
+      try {
+        const created = await createAgentTask(query, {
+          conversation_id: currentSessionId,
+        });
+        const task = created.data || {};
+        const taskId = task.task_id;
+        if (!taskId) throw new Error('任务创建失败');
+        agentCardId = `agent-${taskId}`;
+        const matchedScenario = matchScenarioByInput(query);
+        const cardMessage = {
+          id: agentCardId,
+          role: 'assistant',
+          type: 'collab_card',
+          taskId,
+          scenarioId: matchedScenario?.id || null,
+          userInput: query,
+          objective: task.plan?.objective || query,
+        };
+        setMessages((previous) => [...previous, userMessage, cardMessage]);
+        setInputMessage('');
+        setAttachment(null);
+        await executeAgentTask(taskId);
+      } catch (error) {
+        setMessages((previous) => previous.filter((message) => message.id !== agentCardId));
+        setMessages((previous) => [...previous, userMessage, {
+          id: `agent-error-${Date.now()}`,
+          role: 'assistant',
+          content: '任务创建失败，请稍后重试。',
+          errorHint: error.message || '任务创建失败',
+        }]);
+      } finally {
+        activeRequestRef.current = null;
+      }
+      return;
+    }
+
+    setMessages((previous) => [...previous, userMessage]);
     setInputMessage('');
     setAttachment(null);
+
     setIsLoading(true);
     setStreamingAnswer('');
     setStreamingMeta(null);
@@ -366,7 +408,7 @@ export function useSmartChat() {
         setIsLoading(false);
       }
     }
-  }, [attachment, isLoading, runStream, typewriter]);
+  }, [attachment, currentSessionId, isLoading, runStream, typewriter]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();

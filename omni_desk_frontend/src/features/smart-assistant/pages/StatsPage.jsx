@@ -40,7 +40,7 @@ const StatsPage = () => {
   ];
 
   const questionColumns = [
-    { title: '问题', dataIndex: 'user_query', key: 'user_query', ellipsis: true },
+    { title: '热门意图', dataIndex: 'intent', key: 'intent' },
     { title: '次数', dataIndex: 'count', key: 'count', width: 80, sorter: (a, b) => a.count - b.count },
   ];
 

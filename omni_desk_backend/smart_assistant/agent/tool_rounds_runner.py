@@ -22,8 +22,10 @@ from django.conf import settings
 
 from observability import get_logger
 
+from ..cache import public_tool_arguments
 from ..tools.registry import ToolRegistry
 from .native_tool_runner import execute_native_tool
+from .tool_call_core import run_tool_call_loop
 from .tool_context_resolver import resolve_tools_for_user  # 保持相对导入正确
 
 logger = get_logger(__name__, "smart_assistant")
@@ -46,68 +48,58 @@ def run_tool_calls_rounds(router, *, query, context, llm_messages, json_fallback
     """
     tools_schema = resolve_tools_for_user(context.user)
     tool_calls_meta = []
-    rounds = 0
     max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
 
-    for round_idx in range(max_rounds):
-        try:
-            content, usage, tool_calls = router.generate_with_tools(
-                messages=llm_messages, tools=tools_schema, tool_choice="auto"
-            )
-        except Exception as exc:
-            logger.warning("generate_with_tools 异常,降级到 json 路径: %s", exc, exc_info=True)
-            content, usage, meta = json_fallback(query=query, context=context, llm_messages=llm_messages)
-            return content, usage, meta, llm_messages
-
-        if not tool_calls:
-            return (
-                content,
-                usage,
-                {
-                    "tool_calls_meta": tool_calls_meta,
-                    "tool_calls_rounds": rounds,
-                    "tool_call_path": "native",
-                },
-                llm_messages,
-            )
-
-        rounds += 1
-        tool_results, tool_calls_meta, confirm_triple = _run_round_tool_calls(
-            tool_calls, context, round_idx, tool_calls_meta
-        )
-
-        # confirm-replay 提前返回(与移动前行为一致):工具标记需要
-        # 用户二次确认 → 立即终止本轮,把 awaiting_confirmation + token 透传
-        # 给视图层(前端再带 token 重放执行)。不回灌给 LLM,避免把确认流程
-        # 当成工具失败。返回时 llm_messages 不含本轮 assistant/tool 消息。
-        if confirm_triple is not None:
-            _, _, confirmation, _ = confirm_triple
+    def process_tool_calls(tool_calls, round_idx):
+        tool_results, updated_meta, confirm = _run_round_tool_calls(tool_calls, context, round_idx, tool_calls_meta)
+        tool_calls_meta[:] = updated_meta
+        if confirm is not None:
+            _, _, confirmation, _ = confirm
             draft = confirmation.get("draft") or {}
-            return (
-                draft.get("summary") or "请确认以下操作",
-                {},
-                {
-                    "tool_calls_meta": tool_calls_meta,
-                    "tool_calls_rounds": rounds,
-                    "tool_call_path": "native",
-                    "awaiting_confirmation": True,
-                    "confirmation_token": confirmation["token"],
-                    "draft": draft,
-                },
-                llm_messages,
-            )
+            return [], {
+                "summary": draft.get("summary") or "请确认以下操作",
+                "awaiting_confirmation": True,
+                "confirmation_token": confirmation["token"],
+                "draft": draft,
+            }
+        return tool_results, None
 
-        # 把 assistant(tool_calls) + tool 结果 append 到 messages
-        llm_messages.append({"role": "assistant", "content": content or "", "tool_calls": tool_calls})
-        llm_messages.extend(tool_results)
+    try:
+        content, usage, out_messages, rounds, early = run_tool_call_loop(
+            router,
+            messages=llm_messages,
+            tools=tools_schema,
+            max_rounds=max_rounds,
+            options=None,
+            on_tool_calls=process_tool_calls,
+            copy_messages=False,
+        )
+    except Exception as exc:
+        logger.warning("generate_with_tools 异常,降级到 json 路径: %s", exc, exc_info=True)
+        content, usage, meta = json_fallback(query=query, context=context, llm_messages=llm_messages)
+        return content, usage, meta, llm_messages
 
-    # 3 轮后兜底:强制 tool_choice="none"
-    content, usage, _ = router.generate_with_tools(messages=llm_messages, tools=tools_schema, tool_choice="none")
+    if early is not None:
+        return (
+            early["summary"],
+            usage,
+            {
+                "tool_calls_meta": tool_calls_meta,
+                "tool_calls_rounds": rounds,
+                "tool_call_path": "native",
+                **{key: value for key, value in early.items() if key != "summary"},
+            },
+            out_messages,
+        )
     return (
         content,
         usage,
-        {"tool_calls_meta": tool_calls_meta, "tool_calls_rounds": rounds, "tool_call_path": "native"},
-        llm_messages,
+        {
+            "tool_calls_meta": tool_calls_meta,
+            "tool_calls_rounds": rounds,
+            "tool_call_path": "native",
+        },
+        out_messages,
     )
 
 
@@ -253,7 +245,7 @@ def _process_single_tool_call(tc, context, round_idx):
             {
                 "round": round_idx,
                 "tool": func_name,
-                "arguments": validated,
+                "arguments": public_tool_arguments(validated),
                 "duration_ms": int((time.monotonic() - t0) * 1000),
             },
             (tc, result, confirmation, failure),

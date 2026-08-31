@@ -1,10 +1,74 @@
 from celery import shared_task
+from django.conf import settings
 
 from ragflow_service.client import RagflowClient, RagflowClientError
 
 from observability import get_logger
+from notifications.service import NotificationService
 
 logger = get_logger(__name__, "smart_assistant")
+
+
+def calculate_agent_task_time_limits(task):
+    """根据任务包、LLM 超时和配置计算 Celery soft/hard time limit。"""
+    packet = task.task_packet if hasattr(task, "task_packet") else task or {}
+    packet = packet if isinstance(packet, dict) else {}
+    steps = len(packet.get("subtasks", [])) + (1 if packet.get("final_synthesis") else 0)
+    llm_timeout = max(1, int(getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)))
+    coefficient = max(1, int(getattr(settings, "AGENT_TASK_RETRY_COEFFICIENT", 4)))
+    configured_max = max(llm_timeout, int(getattr(settings, "AGENT_TASK_MAX_SECONDS", 1800)))
+    packet_timeout = packet.get("timeout_seconds")
+    requested = (
+        int(packet_timeout) if isinstance(packet_timeout, (int, float)) and packet_timeout > 0 else configured_max
+    )
+    budget = getattr(task, "global_budget", 0) or 0
+    budget_factor = max(1, min(4, (int(budget) + 19999) // 20000)) if budget else 1
+    soft_limit = min(
+        configured_max,
+        requested,
+        max(llm_timeout, steps * llm_timeout * coefficient * budget_factor),
+    )
+    return soft_limit, min(configured_max + 60, soft_limit + 60)
+
+
+def dispatch_agent_task(task):
+    """按任务包计算超时后派发 Celery 任务。"""
+    soft_limit, hard_limit = calculate_agent_task_time_limits(task)
+    return execute_agent_task.apply_async(
+        args=[str(task.task_id)],
+        soft_time_limit=soft_limit,
+        time_limit=hard_limit,
+    )
+
+
+_AGENT_TASK_NOTIFICATION_STATUSES = {"completed", "partial", "failed", "cancelled"}
+_AGENT_TASK_NOTIFICATION_LABELS = {
+    "completed": "已完成",
+    "partial": "部分完成",
+    "failed": "失败",
+    "cancelled": "已取消",
+}
+
+
+def _notify_agent_task_result(task, status):
+    """为已进入终态的 AgentTask 创建一次安全的站内结果通知。"""
+    if status not in _AGENT_TASK_NOTIFICATION_STATUSES:
+        return
+    try:
+        NotificationService.create(
+            user=task.user,
+            type="agent_task_result",
+            title="智能助手任务结果",
+            content=f"任务 {str(task.task_id)[:8]} {_AGENT_TASK_NOTIFICATION_LABELS[status]}。",
+            dedupe_key=f"agent_task:{task.task_id}",
+        )
+    except Exception:
+        logger.exception("智能助手任务结果通知失败: task_id=%s status=%s", task.task_id, status)
+
+
+def _schedule_agent_task_notification(task, status, transaction):
+    """在状态事务提交后安全发送通知，避免通知失败回滚业务状态。"""
+    transaction.on_commit(lambda: _notify_agent_task_result(task, status))
 
 
 @shared_task(
@@ -37,48 +101,50 @@ def process_document_embedding(document_id):
             raise ValueError("SMART_ASSISTANT_DATASET_ID 未配置")
 
         client = RagflowClient(api_endpoint=config.api_endpoint, api_key=config.api_key)
+        try:
+            # Step 1: 上传文档到 Ragflow dataset
+            with doc.file.open("rb") as f:
+                file_content = f.read()
 
-        # Step 1: 上传文档到 Ragflow dataset
-        with doc.file.open("rb") as f:
-            file_content = f.read()
+            upload_result = client.upload_document(
+                dataset_id=dataset_id,
+                file_name=doc.file.name,
+                file_content=file_content,
+            )
 
-        upload_result = client.upload_document(
-            dataset_id=dataset_id,
-            file_name=doc.file.name,
-            file_content=file_content,
-        )
+            # Ragflow 返回文档 ID
+            doc_infos = upload_result if isinstance(upload_result, list) else [upload_result]
+            if not doc_infos:
+                raise ValueError("文档上传到 Ragflow 失败，未返回文档信息")
 
-        # Ragflow 返回文档 ID
-        doc_infos = upload_result if isinstance(upload_result, list) else [upload_result]
-        if not doc_infos:
-            raise ValueError("文档上传到 Ragflow 失败，未返回文档信息")
+            ragflow_doc_id = doc_infos[0].get("id") or doc_infos[0].get("doc_id")
+            if not ragflow_doc_id:
+                raise ValueError("未能获取 Ragflow 文档 ID")
 
-        ragflow_doc_id = doc_infos[0].get("id") or doc_infos[0].get("doc_id")
-        if not ragflow_doc_id:
-            raise ValueError("未能获取 Ragflow 文档 ID")
+            doc.ragflow_document_id = ragflow_doc_id
+            doc.save(update_fields=["ragflow_document_id"])
 
-        doc.ragflow_document_id = ragflow_doc_id
-        doc.save(update_fields=["ragflow_document_id"])
+            # Step 2: 触发文档解析
+            client.parse_documents(dataset_id=dataset_id, document_ids=[ragflow_doc_id])
 
-        # Step 2: 触发文档解析
-        client.parse_documents(dataset_id=dataset_id, document_ids=[ragflow_doc_id])
-
-        doc.embedding_status = "completed"
-        doc.save(update_fields=["embedding_status"])
+            doc.embedding_status = "completed"
+            doc.save(update_fields=["embedding_status"])
+        finally:
+            client.close()
 
     except KnowledgeBaseDocument.DoesNotExist:
         logger.debug(
             "smart_assistant.tasks.document_gone",
             extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
         )
-    except Exception as e:
-        logger.error("文档向量化失败: %s", e)
+    except Exception as exc:
+        logger.error("文档向量化失败: type=%s code=%s", type(exc).__name__, getattr(exc, "code", "unknown"))
         from smart_assistant.models import KnowledgeBaseDocument
 
         try:
             doc = KnowledgeBaseDocument.objects.get(id=document_id)
             doc.embedding_status = "failed"
-            doc.content_text = str(e)
+            doc.content_text = "文档向量化失败。"
             doc.save(update_fields=["embedding_status", "content_text"])
         except KnowledgeBaseDocument.DoesNotExist:
             logger.debug(
@@ -110,126 +176,185 @@ def execute_agent_task(task_id: str):
         task_id: AgentTask 的 task_id(UUID 字符串)
     """
     from django.utils import timezone
+    from django.db import transaction
 
-    from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+    from smart_assistant.models import AgentSubTask, AgentTask
     from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
+    from smart_assistant.agents.dataclasses import PersistentEventBus
     from llm_service.router import get_router
     from smart_assistant.tools.registry import ToolRegistry
 
+    event_bus = PersistentEventBus(agent_task_id=task_id)
+
     try:
-        # 1. 加载 AgentTask
-        task = AgentTask.objects.get(task_id=task_id)
+        # 原子抢占：只有待执行/暂停任务可以进入 worker；重复投递直接幂等返回。
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            if task.status in {"completed", "failed", "partial", "cancelled"}:
+                return {"task_id": str(task.task_id), "status": task.status, "total_tokens": task.tokens_used}
+            if task.status == "running":
+                return {"task_id": str(task.task_id), "status": "running", "total_tokens": task.tokens_used}
+            was_paused = task.status == "paused"
+            # resume_from_checkpoint 自己负责在锁内将 paused → running；提前改状态
+            # 会让它误判为并发恢复并拒绝执行。
+            if not was_paused:
+                task.status = "running"
+                task.started_at = task.started_at or timezone.now()
+                task.save(update_fields=["status", "started_at"])
 
-        # 2. 构造 TaskPacket
-        task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
-
-        # 3. 更新状态为 running
-        task.status = "running"
-        task.started_at = timezone.now()
-        task.save(update_fields=["status", "started_at"])
-
-        # 记录 task.started 事件
-        AgentEvent.objects.create(
-            task=task,
-            sequence=AgentEvent.objects.filter(task=task).count() + 1,
-            event_type="task.started",
-            payload={"task_id": str(task.task_id)},
-        )
-
-        # 4. 创建执行器
-        llm_router = get_router()
-        executor = MultiAgentExecutor(
-            task_packet=task_packet,
-            llm_router=llm_router,
-            tool_registry=ToolRegistry,
-        )
-
-        # 5. 执行任务
-        result = executor.execute()
-
-        # 6. 保存结果到数据库
-        task.status = result.status
-        task.tokens_used = result.total_tokens_used
-        task.completed_at = timezone.now()
-        task.final_output = (
-            result.final_output
-            if isinstance(result.final_output, (dict, list))
-            else {"raw": result.final_output}
-            if result.final_output
-            else None
-        )
-        task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
-
-        # 更新每个 subtask 的状态(批量查询替代循环 get,修复 N+1)
-        subtask_ids = [r.subtask_id for r in result.subtask_results]
-        subtask_objs = {
-            str(obj.subtask_id): obj for obj in AgentSubTask.objects.filter(task=task, subtask_id__in=subtask_ids)
-        }
-
-        for subtask_result in result.subtask_results:
-            subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
-            if subtask_obj is None:
-                continue
-            subtask_obj.status = subtask_result.status
-            subtask_obj.output = (
-                subtask_result.output
-                if isinstance(subtask_result.output, (dict, list))
-                else {"raw": subtask_result.output}
+        if was_paused:
+            result = MultiAgentExecutor.resume_from_checkpoint(
+                task_id=task_id,
+                llm_router=get_router(),
+                tool_registry=ToolRegistry,
+                event_bus=event_bus,
             )
-            subtask_obj.tokens_used = subtask_result.tokens_used
-            subtask_obj.completed_at = timezone.now()
-            subtask_obj.retry_count = subtask_result.retry_count
-            subtask_obj.error_message = subtask_result.error_message
-            subtask_obj.save()
+        else:
+            task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
+            executor = MultiAgentExecutor(
+                task_packet=task_packet,
+                llm_router=get_router(),
+                tool_registry=ToolRegistry,
+                event_bus=event_bus,
+                agent_task_id=task_id,
+                user=task.user,
+            )
+            result = executor.execute()
+        persisted_status = {
+            "success": "completed",
+            "partial": "partial",
+            "failed": "failed",
+            "paused": "paused",
+            "cancelled": "cancelled",
+            "rejected": "failed",
+        }.get(result.status, "failed")
 
-        # 记录 task.completed / task.failed 事件
-        event_type = (
-            "task.completed"
-            if result.status == "success"
-            else "task.failed"
-            if result.status == "failed"
-            else "task.completed"  # partial 也算完成
-        )
-        AgentEvent.objects.create(
-            task=task,
-            sequence=AgentEvent.objects.filter(task=task).count() + 1,
-            event_type=event_type,
-            payload={
-                "task_id": str(task.task_id),
-                "status": result.status,
+        with transaction.atomic():
+            locked_task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            if was_paused and (
+                result.claim_lost
+                or result.resume_claim_id != str(locked_task.resume_claim_id)
+                or locked_task.status != "running"
+            ):
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": locked_task.status,
+                    "total_tokens": locked_task.tokens_used,
+                }
+            # resume_from_checkpoint owns initialization-failure convergence. Do
+            # not turn its already-terminal failed state into task.completed.
+            if result.status == "failed" and locked_task.status == "failed":
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": "failed",
+                    "total_tokens": locked_task.tokens_used,
+                }
+            if locked_task.status in {"cancelled", "paused"}:
+                terminal_type = "task.cancelled" if locked_task.status == "cancelled" else "task.paused"
+                event_bus.emit(
+                    terminal_type,
+                    {"task_id": str(locked_task.task_id), "status": locked_task.status},
+                )
+                if locked_task.status == "cancelled":
+                    _schedule_agent_task_notification(locked_task, "cancelled", transaction)
+                return {
+                    "task_id": str(locked_task.task_id),
+                    "status": locked_task.status,
+                    "total_tokens": locked_task.tokens_used,
+                }
+            locked_task.status = persisted_status
+            locked_task.tokens_used = result.total_tokens_used
+            locked_task.completed_at = timezone.now()
+            locked_task.final_output = (
+                result.final_output
+                if isinstance(result.final_output, (dict, list))
+                else {"raw": result.final_output}
+                if result.final_output
+                else None
+            )
+            locked_task.save(update_fields=["status", "tokens_used", "completed_at", "final_output"])
+            event_type = "task.failed" if persisted_status == "failed" else "task.completed"
+            event_payload = {
+                "task_id": str(locked_task.task_id),
+                "status": persisted_status,
                 "total_tokens": result.total_tokens_used,
-                "total_duration_ms": result.total_duration_ms,
-            },
-        )
+                "final_output": locked_task.final_output,
+                "dropped_events": event_bus.persistence_failure_count,
+            }
+            if persisted_status == "failed":
+                failure_reason = result.error_message or "任务执行失败"
+                event_payload["error"] = failure_reason
+                event_payload["reason"] = failure_reason
+            elif persisted_status == "partial":
+                event_payload["reason"] = result.error_message or "任务部分完成"
+            event_bus.emit(event_type, event_payload)
+            _schedule_agent_task_notification(locked_task, persisted_status, transaction)
+            subtask_objs = {
+                str(obj.subtask_id): obj for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
+            }
+            now = timezone.now()
+            updates = []
+            for subtask_result in result.subtask_results:
+                subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
+                if subtask_obj is None:
+                    continue
+                subtask_obj.status = "completed" if subtask_result.status == "success" else subtask_result.status
+                subtask_obj.output = (
+                    subtask_result.output
+                    if isinstance(subtask_result.output, (dict, list))
+                    else {"raw": subtask_result.output}
+                )
+                subtask_obj.tokens_used = subtask_result.tokens_used
+                subtask_obj.completed_at = now
+                subtask_obj.retry_count = subtask_result.retry_count
+                subtask_obj.error_message = subtask_result.error_message
+                updates.append(subtask_obj)
+            if updates:
+                AgentSubTask.objects.bulk_update(
+                    updates,
+                    ["status", "output", "tokens_used", "completed_at", "retry_count", "error_message"],
+                )
 
         return {
             "task_id": str(task.task_id),
-            "status": result.status,
+            "status": persisted_status,
             "total_tokens": result.total_tokens_used,
         }
 
     except AgentTask.DoesNotExist:
-        raise ValueError(f"AgentTask {task_id} 不存在")
-    except Exception as e:
-        # 任务失败,记录错误
-        try:
-            task = AgentTask.objects.get(task_id=task_id)
-            task.status = "failed"
-            task.completed_at = timezone.now()
-            task.save(update_fields=["status", "completed_at"])
-
-            AgentEvent.objects.create(
-                task=task,
-                sequence=AgentEvent.objects.filter(task=task).count() + 1,
-                event_type="task.failed",
-                payload={"task_id": str(task.task_id), "error": str(e)},
-            )
-        except AgentTask.DoesNotExist:
-            logger.debug(
-                "smart_assistant.tasks.event_task_gone",
-                extra={"event": "smart_assistant.tasks.event_task_gone", "task_id": task_id},
-            )
+        logger.info(
+            "smart_assistant.tasks.agent_task_gone",
+            extra={"event": "smart_assistant.tasks.agent_task_gone", "task_id": task_id},
+        )
+        return None
+    except Exception:
+        with transaction.atomic():
+            try:
+                task = AgentTask.objects.select_for_update().get(task_id=task_id)
+            except AgentTask.DoesNotExist:
+                logger.info(
+                    "smart_assistant.tasks.cleanup_task_gone",
+                    extra={"event": "smart_assistant.tasks.cleanup_task_gone", "task_id": task_id},
+                )
+                return None
+            if task.status != "cancelled" and task.status not in {"completed", "failed", "partial", "paused"}:
+                task.status = "failed"
+                task.completed_at = timezone.now()
+                task.save(update_fields=["status", "completed_at"])
+                event_bus.emit(
+                    "task.failed",
+                    {
+                        "task_id": str(task.task_id),
+                        "status": "failed",
+                        "error": "agent task execution failed",
+                        "reason": "agent task execution failed",
+                        "final_output": task.final_output,
+                        "total_tokens": task.tokens_used,
+                        "dropped_events": event_bus.persistence_failure_count,
+                    },
+                )
+                _schedule_agent_task_notification(task, "failed", transaction)
         raise
 
 

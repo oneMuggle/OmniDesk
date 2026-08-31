@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import time
 from typing import Any
+from uuid import uuid4
 
 from observability import get_logger
 
@@ -31,6 +32,7 @@ from .checkpoint import CheckpointManager
 from .dataclasses import (
     Event as Event,
     EventBus as EventBus,
+    PersistentEventBus as PersistentEventBus,
     SubTaskResult as SubTaskResult,
     TaskResult as TaskResult,
 )  # re-export(兼容 agents.executor 路径,勿删)
@@ -39,6 +41,8 @@ from .roles import RoleProfile
 from .shared_context import SharedContext
 from .subtask_runner import SubTaskRunner
 from .packet import ExecutionMode, SubTask, TaskPacket
+from smart_assistant.tools.tool_context import ToolContext
+from smart_assistant.scope import resolve_scope
 
 logger = get_logger(__name__, "smart_assistant")
 
@@ -81,6 +85,9 @@ class MultiAgentExecutor:
         hook_registry: Any | None = None,  # HookRegistry 实例(可选)
         event_bus: EventBus | None = None,
         agent_task_id: str | None = None,  # Plan 3: DB 持久化 + 断点恢复用
+        user: Any | None = None,
+        tool_context: Any | None = None,
+        resume_claim_id: str | None = None,
     ):
         self.task_packet = task_packet
         self.llm_router = llm_router
@@ -88,8 +95,29 @@ class MultiAgentExecutor:
         self.hook_registry = hook_registry
         self.event_bus = event_bus or EventBus()
         self.agent_task_id = agent_task_id  # Plan 3: DB 持久化用
-        self.subtask_runner = SubTaskRunner(llm_router, self.event_bus, self.MAX_RETRIES)
+        self.resume_claim_id = resume_claim_id
+        if hasattr(self.event_bus, "resume_claim_id") and resume_claim_id is not None:
+            self.event_bus.resume_claim_id = str(resume_claim_id)
+        if tool_context is not None and getattr(tool_context, "user", user) is not user:
+            raise ValueError("工具上下文用户与任务所有者不一致")
+        if tool_context is None and user is not None:
+            tool_context = ToolContext(
+                user=user,
+                scope=resolve_scope(user),
+                task_id=agent_task_id,
+                event_bus=self.event_bus,
+                confirmed=False,
+            )
+        self.subtask_runner = SubTaskRunner(
+            llm_router,
+            self.event_bus,
+            self.MAX_RETRIES,
+            tool_registry=tool_registry,
+            user=user,
+            context=tool_context,
+        )
         self.checkpoint = CheckpointManager(agent_task_id)  # Plan 3: DB checkpoint 底层
+        self.checkpoint.resume_claim_id = resume_claim_id
         self._paused = False  # Plan 3: 暂停标志
         self.context = SharedContext(
             original_query=task_packet.objective,
@@ -101,9 +129,26 @@ class MultiAgentExecutor:
             context=self.context,
             event_bus=self.event_bus,
             subtask_runner=self.subtask_runner,
-            is_paused=lambda: self._paused,
+            is_paused=lambda: self._paused or self._persisted_status() == "paused",
             persist_subtask=self._persist_subtask_result,
+            is_cancelled=lambda: self._persisted_status() == "cancelled",
+            is_claim_valid=self._is_resume_claim_valid,
         )
+
+    def _persisted_status(self) -> str | None:
+        if not self.agent_task_id:
+            return None
+        from smart_assistant.models import AgentTask
+
+        return AgentTask.objects.filter(task_id=self.agent_task_id).values_list("status", flat=True).first()
+
+    def _is_resume_claim_valid(self) -> bool:
+        if self.resume_claim_id is None or not self.agent_task_id:
+            return True
+        from smart_assistant.models import AgentTask
+
+        task = AgentTask.objects.filter(task_id=self.agent_task_id).values("status", "resume_claim_id").first()
+        return bool(task and task["status"] == "running" and str(task["resume_claim_id"]) == str(self.resume_claim_id))
 
     def execute(self) -> TaskResult:
         """执行主任务
@@ -136,18 +181,11 @@ class MultiAgentExecutor:
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
-            self.event_bus.emit(
-                "task.failed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "error": str(e),
-                },
-            )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",
                 total_duration_ms=total_duration,
-                error_message=str(e),
+                error_message="executor execution failed",
             )
 
     def _execute_by_mode(self) -> list[SubTaskResult] | TaskResult:
@@ -172,14 +210,20 @@ class MultiAgentExecutor:
             raise ValueError(f"未知的执行模式: {self.task_packet.execution_mode}")
 
     def _classify_status(self, subtask_results: list[SubTaskResult]) -> str:
-        """根据 subtask 结果统计判断任务最终状态(success/failed/partial)"""
+        """将内存结果映射为 success/failed/partial/paused。"""
+        if any(r.status in {"awaiting_confirmation", "paused"} for r in subtask_results):
+            return "paused"
         failed_count = sum(1 for r in subtask_results if r.status == "failed")
-        if failed_count == 0:
-            return "success"
-        elif failed_count == len(subtask_results):
-            return "failed"
-        else:
+        skipped_count = sum(1 for r in subtask_results if r.status == "skipped")
+        if skipped_count or not subtask_results:
+            if any(r.error_message == "任务已暂停" for r in subtask_results):
+                return "paused"
             return "partial"
+        if failed_count == len(subtask_results):
+            return "failed"
+        if failed_count:
+            return "partial"
+        return "success"
 
     def _build_result(
         self,
@@ -189,7 +233,7 @@ class MultiAgentExecutor:
         start_time: float,
         event_extra: dict | None = None,
     ) -> TaskResult:
-        """组装 TaskResult 并发射 task.completed 事件"""
+        """组装 TaskResult；任务级终态事件由 Celery 持久化层负责。"""
         total_tokens = sum(r.tokens_used for r in subtask_results)
         total_duration = int((time.time() - start_time) * 1000)
 
@@ -208,10 +252,6 @@ class MultiAgentExecutor:
             "total_tokens": total_tokens,
             "total_duration_ms": total_duration,
         }
-        if event_extra:
-            completed_event.update(event_extra)
-        self.event_bus.emit("task.completed", completed_event)
-
         return result
 
     def _execute_pipeline(self, resume_mode: bool = False) -> list[SubTaskResult]:
@@ -261,7 +301,7 @@ class MultiAgentExecutor:
             subtask: 当前 subtask
             result: 执行结果
         """
-        self.checkpoint.persist_subtask(subtask, result)
+        self.checkpoint.persist_subtask(subtask, result, resume_claim_id=self.resume_claim_id)
 
     def pause(self) -> None:
         """暂停任务执行(设置暂停标志)
@@ -288,6 +328,7 @@ class MultiAgentExecutor:
         llm_router: Any,
         tool_registry: Any,
         hook_registry: Any | None = None,
+        event_bus: EventBus | None = None,
     ) -> TaskResult:
         """从 DB checkpoint 恢复任务执行
 
@@ -307,17 +348,31 @@ class MultiAgentExecutor:
         from .packet import TaskPacket
         from django.db import transaction
 
-        # 加载 AgentTask(使用 select_for_update 防并发恢复竞争)
+        # 在同一事务内完成 paused → running 的 claim，避免两个恢复 worker
+        # 都通过检查后并行执行同一 checkpoint。
+        from django.utils import timezone
+
+        claim_started_at = timezone.now()
+        claim_id = uuid4()
         try:
             with transaction.atomic():
                 agent_task = AgentTask.objects.select_for_update().get(task_id=task_id)
-                # 防并发: 如果任务已在运行中, 拒绝重复恢复
                 if agent_task.status == "running":
                     return TaskResult(
                         task_id=task_id,
-                        status="failed",
-                        error_message=f"AgentTask {task_id} 已在运行中,拒绝并发恢复",
+                        status="running",
+                        error_message="任务已由其他 worker 恢复",
                     )
+                if agent_task.status != "paused":
+                    return TaskResult(
+                        task_id=task_id,
+                        status="failed",
+                        error_message="任务当前不可恢复",
+                    )
+                agent_task.status = "running"
+                agent_task.resume_claim_id = claim_id
+                agent_task.started_at = agent_task.started_at or claim_started_at
+                agent_task.save(update_fields=["status", "started_at", "resume_claim_id", "updated_at"])
         except AgentTask.DoesNotExist:
             return TaskResult(
                 task_id=task_id,
@@ -325,38 +380,66 @@ class MultiAgentExecutor:
                 error_message=f"AgentTask {task_id} 不存在",
             )
 
-        # 反序列化 TaskPacket
-        try:
-            task_packet = TaskPacket.from_dict(agent_task.task_packet)
-        except Exception as e:
+        def fail_claimed_task(reason: str) -> TaskResult:
+            with transaction.atomic():
+                claimed = AgentTask.objects.select_for_update().get(task_id=task_id)
+                owns_claim = claimed.status == "running" and claimed.resume_claim_id == claim_id
+                if owns_claim:
+                    if event_bus is not None:
+                        event_bus.emit(
+                            "task.failed",
+                            {
+                                "task_id": task_id,
+                                "status": "failed",
+                                "error": reason,
+                                "reason": reason,
+                                "final_output": None,
+                                "total_tokens": 0,
+                                "dropped_events": event_bus.persistence_failure_count,
+                            },
+                        )
+                    claimed.status = "failed"
+                    claimed.completed_at = timezone.now()
+                    claimed.save(update_fields=["status", "completed_at", "resume_claim_id", "updated_at"])
             return TaskResult(
                 task_id=task_id,
                 status="failed",
-                error_message=f"TaskPacket 反序列化失败: {e}",
+                error_message=reason,
+                resume_claim_id=str(claim_id),
+                claim_lost=not owns_claim,
             )
 
-        # 创建 executor
-        executor = cls(
-            task_packet=task_packet,
-            llm_router=llm_router,
-            tool_registry=tool_registry,
-            hook_registry=hook_registry,
-            agent_task_id=task_id,
-        )
+        try:
+            task_packet = TaskPacket.from_dict(agent_task.task_packet)
+        except Exception:
+            return fail_claimed_task("任务计划无效")
 
-        # 加载已完成的 subtask,重建 SharedContext
-        completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
+        try:
+            executor = cls(
+                task_packet=task_packet,
+                llm_router=llm_router,
+                tool_registry=tool_registry,
+                hook_registry=hook_registry,
+                event_bus=event_bus,
+                agent_task_id=task_id,
+                user=agent_task.user,
+                resume_claim_id=str(claim_id),
+            )
+            # 加载已完成的 subtask,重建 SharedContext
+            completed_count = CheckpointManager.load_completed_artifacts(agent_task, executor.context)
+        except Exception:
+            return fail_claimed_task("任务恢复初始化失败")
         logger.info(
             f"Executor.resume: 从 checkpoint 恢复任务 {task_id}, "
             f"已重建 {completed_count} 个 completed subtask 的 artifacts"
         )
 
-        # 更新任务状态为 running(事务保护)
-        CheckpointManager.mark_running(agent_task)
-        logger.debug(f"Executor.resume: AgentTask {task_id} status → running (事务提交)")
-
         # 继续执行(跳过已完成的 subtask)
-        return executor._execute_resume()
+        result = executor._execute_resume()
+        if result.status == "failed":
+            return fail_claimed_task(result.error_message or "任务恢复执行失败")
+        result.resume_claim_id = str(claim_id)
+        return result
 
     def _execute_resume(self) -> TaskResult:
         """从 checkpoint 恢复执行(跳过已完成的 subtask)
@@ -376,12 +459,30 @@ class MultiAgentExecutor:
 
             # 执行 pipeline,自动跳过已完成的 subtask
             subtask_results = self._execute_pipeline(resume_mode=True)
+            if self.resume_claim_id is not None and not self._is_resume_claim_valid():
+                return TaskResult(
+                    task_id=self.task_packet.task_id,
+                    status="partial",
+                    subtask_results=subtask_results,
+                    total_tokens_used=sum(r.tokens_used for r in subtask_results),
+                    claim_lost=True,
+                    resume_claim_id=str(self.resume_claim_id),
+                )
 
             # 最终合成
             final_output = None
             if self.task_packet.final_synthesis:
+                if self.resume_claim_id is not None and not self._is_resume_claim_valid():
+                    return TaskResult(
+                        task_id=self.task_packet.task_id,
+                        status="partial",
+                        subtask_results=subtask_results,
+                        total_tokens_used=sum(r.tokens_used for r in subtask_results),
+                        claim_lost=True,
+                        resume_claim_id=str(self.resume_claim_id),
+                    )
                 # 检查 final_synthesis 是否已完成
-                if not self.context.has_artifact(self.task_packet.final_synthesis.id):
+                if self.task_packet.final_synthesis.id not in self.context.completed_subtask_ids:
                     synth_result = self._run_subtask_with_retry(self.task_packet.final_synthesis, self.context)
                     subtask_results.append(synth_result)
                     if synth_result.status == "success":
@@ -395,17 +496,9 @@ class MultiAgentExecutor:
 
         except Exception as e:
             total_duration = int((time.time() - start_time) * 1000)
-            self.event_bus.emit(
-                "task.failed",
-                {
-                    "task_id": self.task_packet.task_id,
-                    "error": str(e),
-                    "resumed": True,
-                },
-            )
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="failed",
                 total_duration_ms=total_duration,
-                error_message=str(e),
+                error_message="executor execution failed",
             )

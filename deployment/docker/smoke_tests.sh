@@ -5,30 +5,24 @@
 # 默认测试 http://localhost
 # 所有 API 请求通过 Nginx 代理 ($base_url/api/) 访问后端
 
-COMPOSE_DIR="$(cd "$(dirname "$0")" && pwd)"
-cd "$COMPOSE_DIR"
+# shellcheck disable=SC1091
+source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
 
-BASE_URL="${1:-http://localhost}"
-# backend 不再暴露 8000 端口，所有 API 请求通过 Nginx 代理走 $BASE_URL
-# 非 API 端点（如 /admin/）通过 docker compose exec 直接访问容器
+if ! init_smoke_context "${1:-}"; then
+    echo "ERROR: smoke context init failed; required compose/env not found" >&2
+    exit 1
+fi
 
-PASS=0
-FAIL=0
-SKIP=0
-WARN=0
-# O1: WARN 详情数组 — STATUS 框前 echo,让 operator 不用 grep 翻日志
-WARN_DETAILS=()
 # SMOKE_STRICT=1:SKIP 升级为 FAIL(CI 严格模式,部署现场保持默认 0 = 容错)
 # CI 在 PR 上跑 smoke,任何"我跳过了"的探测都不能蒙混过关,必须显式通过。
-SMOKE_STRICT="${SMOKE_STRICT:-0}"
+export SMOKE_STRICT="${SMOKE_STRICT:-0}"
 
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
 
 # set -u 兜底初始化:后续脚本会 `read` 这些变量,在 CI 环境(无 .env.production、
 # 无外部 env 注入)下用 :- 兜底空值,避免 "unbound variable" 早退。
-# 真值仍由下方 .env.production 读取与 fallback 决定,这里只是"先占位"。
-: "${COMPOSE_PROJECT_NAME:=}"
+# 真值仍由 .env.production 读取与 fallback 决定,这里只是"先占位"。
 : "${OMNIDESK_BACKUP_ROOT:=}"
 : "${OMNIDESK_RUNTIME_ROOT:=}"
 : "${SMOKE_TEST_USER:=}"
@@ -44,51 +38,37 @@ set -uo pipefail
 : "${CHUNK_URLS:=}"
 : "${LATEST:=}"
 
-# ─── Task 8: 环境变量设置与校验 ────────────────────────────────
-# 设置并校验 COMPOSE_PROJECT_NAME / OMNIDESK_BACKUP_ROOT / OMNIDESK_RUNTIME_ROOT
-# 这些变量用于确保 smoke 测试与升级/备份脚本使用一致的运行时路径
-
-# COMPOSE_PROJECT_NAME: 必须与 .env.production 或 bundle identity 一致
-# 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${COMPOSE_PROJECT_NAME:-}" ]; then
-    if [ -f ".env.production" ]; then
-        COMPOSE_PROJECT_NAME=$(grep -E '^COMPOSE_PROJECT_NAME=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$COMPOSE_PROJECT_NAME" ] && COMPOSE_PROJECT_NAME="omnidesk"
-fi
-export COMPOSE_PROJECT_NAME
+# COMPOSE_PROJECT_NAME 由 init_smoke_context 从 .env.production 解析后 export
 
 # P0-5: 阶段 12 需要 SMOKE_TEST_USER/PASSWORD + USE_HTTPS
 # 同上策略:.env.production 缺凭据时 SKIP(默认),有凭据时 PASS/FAIL 严格判定
-if [ -z "${SMOKE_TEST_USER:-}" ] && [ -f ".env.production" ]; then
-    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+# 用 init_smoke_context 解析的 $ENV_FILE_PATH(绝对路径)而非 cwd 相对路径,
+# 让 smoke 既能从 scripts/ 也能从 bundle 根或其他位置启动。
+if [ -z "${SMOKE_TEST_USER:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    SMOKE_TEST_USER=$(grep -E '^SMOKE_TEST_USER=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
-if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -f ".env.production" ]; then
-    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
+if [ -z "${SMOKE_TEST_PASSWORD:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    SMOKE_TEST_PASSWORD=$(grep -E '^SMOKE_TEST_PASSWORD=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
-if [ -z "${USE_HTTPS:-}" ] && [ -f ".env.production" ]; then
-    USE_HTTPS=$(grep -E '^USE_HTTPS=' .env.production 2>/dev/null | cut -d= -f2- || echo "false")
+if [ -z "${USE_HTTPS:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    USE_HTTPS=$(grep -E '^USE_HTTPS=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "false")
 fi
 export SMOKE_TEST_USER SMOKE_TEST_PASSWORD USE_HTTPS
 
 # OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
 # 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_BACKUP_ROOT=$(grep -E '^OMNIDESK_BACKUP_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_BACKUP_ROOT" ] && OMNIDESK_BACKUP_ROOT="/opt/omnidesk/backups"
+if [ -z "${OMNIDESK_BACKUP_ROOT:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    OMNIDESK_BACKUP_ROOT=$(grep -E '^OMNIDESK_BACKUP_ROOT=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
+[ -z "${OMNIDESK_BACKUP_ROOT:-}" ] && OMNIDESK_BACKUP_ROOT="/opt/omnidesk/backups"
 export OMNIDESK_BACKUP_ROOT
 
 # OMNIDESK_RUNTIME_ROOT: 运行时持久化目录(升级状态/日志)
 # 若未设置,从 .env.production 读取或使用默认值
-if [ -z "${OMNIDESK_RUNTIME_ROOT:-}" ]; then
-    if [ -f ".env.production" ]; then
-        OMNIDESK_RUNTIME_ROOT=$(grep -E '^OMNIDESK_RUNTIME_ROOT=' .env.production 2>/dev/null | cut -d= -f2- || echo "")
-    fi
-    [ -z "$OMNIDESK_RUNTIME_ROOT" ] && OMNIDESK_RUNTIME_ROOT="/opt/omnidesk/runtime"
+if [ -z "${OMNIDESK_RUNTIME_ROOT:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    OMNIDESK_RUNTIME_ROOT=$(grep -E '^OMNIDESK_RUNTIME_ROOT=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
 fi
+[ -z "${OMNIDESK_RUNTIME_ROOT:-}" ] && OMNIDESK_RUNTIME_ROOT="/opt/omnidesk/runtime"
 export OMNIDESK_RUNTIME_ROOT
 
 # 校验:确保变量非空
@@ -102,55 +82,39 @@ fi
 # B1: db exec 加 timeout 30 防止 db restarting 状态挂死
 # B·E1: backend rm 也加 timeout 10 — 对称补漏,防 trap 期间 backend 处于 restart/starting 时 exec 挂死
 # B·G: db cleanup 重试 3 次防 _smoke_persist 表永久残留
-cleanup_smoke_artifacts() {
-    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+# B·H: 原 cleanup_smoke_artifacts 重命名为 cleanup_smoke_deploy_state,避免覆盖 smoke_common.sh 的同名函数。
+#   smoke_common.sh 的 cleanup_smoke_artifacts 处理 record_smoke_resource 注册的文件型资源(按 run-id 隔离);
+#   本函数保留 docker-exec 级别的 stage 状态清理(marker/影子库/备份等)
+cleanup_smoke_deploy_state() {
+    [ -n "${MARKER_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c \
                 "DROP TABLE IF EXISTS _smoke_persist;" >/dev/null 2>&1 && break
             sleep 2
         done
     fi
     # S5: GUEST_JSON 在阶段 6 末尾会 unset,这里用 ${VAR:-} 兼容已 unset 的情况
-    #   (单 trap 不可叠加,合并到此函数避免覆盖原 trap)
     [ -n "${GUEST_JSON:-}" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
     # 阶段 11 影子库清理(若阶段 11 失败中途退出,DROP DATABASE 必须兜底)
     if [ -n "${POSTGRES_USER:-}" ] && [ -n "${POSTGRES_DB:-}" ] && [ -n "${SHADOW_DB:-}" ]; then
         for _attempt in 1 2 3; do
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                 "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname='$SHADOW_DB' AND pid <> pg_backend_pid();" >/dev/null 2>&1 || true
-            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
+            timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -v ON_ERROR_STOP=1 -c \
                 "DROP DATABASE IF EXISTS $SHADOW_DB;" >/dev/null 2>&1 && break
             sleep 2
         done
     fi
     # 阶段 11 备份文件清理
-    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
+    [ -n "${SMOKE_BACKUP_FILE:-}" ] && timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db rm -f "$SMOKE_BACKUP_FILE" 2>/dev/null || true
 }
-trap cleanup_smoke_artifacts EXIT
 
-result() {
-    local status="$1"
-    local msg="$2"
-    local detail="${3:-}"
-    case "$status" in
-        PASS) echo "  PASS: $msg"; PASS=$((PASS + 1)) ;;
-        FAIL) echo "  FAIL: $msg"; FAIL=$((FAIL + 1)); [ -n "$detail" ] && echo "    -> $detail" ;;
-        # SMOKE_STRICT=1 (CI): SKIP 必须升级为 FAIL,
-        # 避免"探测被悄悄放过"在 PR 阶段把 bug 漏到 main
-        SKIP) if [ "$SMOKE_STRICT" = "1" ]; then
-                  echo "  FAIL(strict): $msg (was SKIP)"; FAIL=$((FAIL + 1))
-                  [ -n "$detail" ] && echo "    -> $detail"
-              else
-                  echo "  SKIP: $msg"; SKIP=$((SKIP + 1))
-              fi ;;
-        # O1: WARN 详情也收集到 WARN_DETAILS,STATUS 框前 echo
-        WARN) echo "  WARN: $msg"; WARN=$((WARN + 1))
-              [ -n "$detail" ] && echo "    -> $detail"
-              WARN_DETAILS+=("$msg${detail:+ — $detail}")
-              ;;
-    esac
-}
+# 全局 trap:同时调用 smoke_common.sh 的按 run-id 文件清理 + 本地 docker-exec 清理
+# trap handler 保留 test_exit(test 自身的退出码),cleanup 失败时记 FAIL 但不覆盖 test_exit
+trap 'cleanup_smoke_artifacts; cleanup_smoke_deploy_state' EXIT
+
+# result() 来自 smoke_common.sh(已 export),不再本地覆盖
 
 # ─── 通用等待 helper ──────────────────────────────────────
 # Fix-9:db 重启后 gunicorn worker 持有 stale conn 500 的根因修复
@@ -228,17 +192,14 @@ _app_happy_path_get() {
     fi
 
     if [ -z "${!token_var:-}" ]; then
-        # 5 个 probe 共享 1 次 guest-login 调用(原本各调 1 次 × 10s 超时 = 最坏 50s 浪费)
-        local guest_resp guest_http new_token
-        guest_resp=$(curl -s --max-time 10 -w "\n%{http_code}" -X POST -H "Content-Type: application/json" -d '{}' \
-            "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "")
-        guest_http=$(echo "$guest_resp" | tail -1)
-        guest_resp=$(echo "$guest_resp" | sed '$d')
-        new_token=$(echo "$guest_resp" | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+        # 用 obtain_auth_token 替代直接 guest-login:
+        # 当 SMOKE_TEST_USER/PASSWORD 注入时走 /api/auth/login/(避免 5/15min guest 限流);
+        # 当未注入时仍走 guest-login(原有行为,符合默认 SKIP 策略)。
+        local new_token
+        new_token="$(obtain_auth_token || true)"
         if [ -z "$new_token" ]; then
-            # F4 修复:把 HTTP 码带进 SKIP 详情,5 个 probe 不再全相同,便于 root cause 区分
             printf -v "$token_var" '%s' "__FAILED__"
-            result "SKIP" "业务 happy-path ($label)" "guest-login 不可达 HTTP ${guest_http:-000} (JWT 空,本次 run 后续 probe 复用此结果) path=$path"
+            result "SKIP" "业务 happy-path ($label)" "auth 不可达 (JWT 空,obtain_auth_token 失败,本次 run 后续 probe 复用此结果) path=$path"
             return 0
         fi
         printf -v "$token_var" '%s' "$new_token"
@@ -299,29 +260,21 @@ echo "  Frontend/API: $BASE_URL"
 echo "=========================================="
 echo ""
 
-COMPOSE_FILE="-f docker-compose.offline.yml"
-ENV_FILE="--env-file .env.production"
-
 # CI docker-integration job 用默认 docker-compose.yml(端口 3000:3000 等)起服务,
 # 而 smoke 默认指向 docker-compose.offline.yml(端口 80,需 nginx)。
 # 探测:若 -f docker-compose.offline.yml ps 找不到 db 服务,fallback 到默认 compose。
 # 这样同一份脚本既支持 CI 默认 compose,又支持离线包部署现场的 offline compose。
-if ! docker compose $COMPOSE_FILE $ENV_FILE ps --services 2>/dev/null | grep -qx db; then
+# 覆盖 COMPOSE_FILE_PATH(已 export),让 helper 的 compose() 自动跟随。
+SCRIPT_DIR_ALT="$(cd "$(dirname "$0")" && pwd)"
+if ! compose ps --services 2>/dev/null | grep -qx db; then
     echo "WARN: docker-compose.offline.yml 中未找到 db 服务,fallback 到默认 compose 文件" >&2
-    COMPOSE_FILE=""
+    if [ -f "$SCRIPT_DIR_ALT/docker-compose.yml" ]; then
+        export COMPOSE_FILE_PATH="$SCRIPT_DIR_ALT/docker-compose.yml"
+    fi
 fi
 
-# CI 的 docker-integration job 只检查出 deployment/docker 里有 .env.production.example,
-# 不生成 .env.production;--env-file 指向不存在的文件会让每个 compose 调用直接报
-# "no such file" 失败。探测文件存在性,缺失时降级为空串(compose 默认读同目录 .env)。
-[ -f .env.production ] || ENV_FILE=""
-
-compose() {
-    docker compose $COMPOSE_FILE $ENV_FILE "$@"
-}
-
-# Fix-12: 把 compose() 函数 export 到子 shell,让 $(compose ...) 等命令可用
-# 否则 timeout / $() 子进程不继承 bash 函数
+# compose() 来自 smoke_common.sh(已 export -f 通过 source 自动在同 shell 可见,
+# 但子 shell 不会继承 bash 函数,所以下面再次显式 export)。
 export -f compose
 
 # ─── 阶段 1: 容器状态 ───────────────────────────────────────
@@ -333,139 +286,105 @@ else
     result "FAIL" "Docker compose not available"
 fi
 
-# 检查每个容器
-ALL_RUNNING=true
+# 检查每个容器 — 用 smoke_common.sh 的 check_service_health 强制 fail-closed
+# running+unhealthy 必须 FAIL,不被吞成 NOTE/WARN;absent required 也必须 FAIL
+SERVICES_ALL_HEALTHY=true
 for service in db redis backend frontend worker; do
-    CONTAINER_ID=$(compose ps -q "$service" 2>/dev/null || true)
-    if [ -n "$CONTAINER_ID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-        HEALTH=$(docker inspect --format='{{if .State.Health}}{{.State.Health.Status}}{{else}}no healthcheck{{end}}' "$CONTAINER_ID" 2>/dev/null || echo "unknown")
-
-        if [ "$STATE" = "running" ]; then
-            # running 状态视为通过
-            if [ "$HEALTH" = "unhealthy" ]; then
-                # unhealthy 但有响应，检查是否因为端点不存在
-                if [ "$service" = "backend" ] || [ "$service" = "worker" ]; then
-                    # 后端/worker：如果进程在运行但 healthcheck 失败，可能是旧镜像没有端点
-                    if [ "$service" = "backend" ]; then
-                        # 后端在运行但 healthcheck 失败，用容器内部检查
-                        HTTP_CODE_BACKEND=$(compose exec -T backend python -c "
-import urllib.request
-try:
-    r = urllib.request.urlopen('http://127.0.0.1:8000/')
-    print(r.getcode())
-except Exception:
-    print('000')
-" 2>/dev/null || echo "000")
-                        if [ "$HTTP_CODE_BACKEND" != "000" ]; then
-                            echo "  NOTE: $service running (health: $HEALTH, but responding HTTP $HTTP_CODE_BACKEND)"
-                        else
-                            echo "  WARN: $service unhealthy (state=$STATE health=$HEALTH)"
-                        fi
-                    else
-                        echo "  NOTE: $service running (health: $HEALTH)"
-                    fi
-                else
-                    echo "  WARN: $service unhealthy (state=$state health=$health)"
-                fi
-            fi
-        else
-            echo "  FAIL: $service not running (state=$state)"
-            ALL_RUNNING=false
-        fi
+    if check_service_health "$service" required; then
+        :
     else
-        echo "  FAIL: $service not found"
-        ALL_RUNNING=false
+        SERVICES_ALL_HEALTHY=false
     fi
 done
 
-if [ "$ALL_RUNNING" = true ]; then
-    result "PASS" "All services running"
+if [ "$SERVICES_ALL_HEALTHY" = true ]; then
+    result "PASS" "All required services healthy"
 else
-    result "FAIL" "Some services not running"
+    result "FAIL" "One or more required services unhealthy"
 fi
 echo ""
 
 # ─── 阶段 2: 前端可访问性 ───────────────────────────────────
 echo "阶段 2: 前端可访问性"
 
-HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/" 2>/dev/null || echo "000")
-if [ "$HTTP_CODE" = "200" ]; then
-    result "PASS" "Frontend serves HTTP 200 at $BASE_URL/"
-else
-    result "FAIL" "Frontend HTTP check" "Expected 200, got $HTTP_CODE"
-fi
+FRONTEND_BODY="$(smoke_temp_file frontend-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+classify_http_status "$HTTP_CODE" "Frontend GET $BASE_URL/"
+rm -f "$FRONTEND_BODY"
 
-HTML_CONTENT=$(curl -s --max-time 10 "$BASE_URL/" 2>/dev/null || echo "")
-if echo "$HTML_CONTENT" | grep -q '<div id="root"'; then
+# 抓 body 验证 root 元素 — body 来自 request_with_status 写入的文件
+FRONTEND_BODY="$(smoke_temp_file frontend-html)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/" "$FRONTEND_BODY")
+if [ "$HTTP_CODE" = "200" ] && grep -q '<div id="root"' "$FRONTEND_BODY" 2>/dev/null; then
     result "PASS" "Frontend HTML contains root element"
 else
-    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\">"
+    result "FAIL" "Frontend HTML structure" "Missing <div id=\"root\"> (HTTP $HTTP_CODE)"
 fi
+rm -f "$FRONTEND_BODY"
 echo ""
 
 # ─── 阶段 3: 后端 API 连通性 ────────────────────────────────
 echo "阶段 3: 后端 API 连通性"
 
-# 首先尝试健康端点（新版镜像）— 通过 Nginx 代理访问
-HEALTH_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/health/" 2>/dev/null || echo "")
-if [ -n "$HEALTH_RESPONSE" ] && echo "$HEALTH_RESPONSE" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then
-    result "PASS" "Backend /api/health/ returns JSON"
-else
-    # 旧版镜像没有 health 端点，用 Gunicorn 进程检查替代
-    BACKEND_PID=$(compose ps -q backend 2>/dev/null || true)
-    if [ -n "$BACKEND_PID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$BACKEND_PID" 2>/dev/null || echo "unknown")
-        if [ "$STATE" = "running" ]; then
-            # 通过 Nginx 代理验证后端 API 在响应
-            AUTH_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-            if [ "$AUTH_CODE" != "000" ]; then
-                result "PASS" "Backend Gunicorn responding (HTTP $AUTH_CODE)"
-            else
-                result "FAIL" "Backend not responding" "Gunicorn may not be running"
-            fi
-        else
-            result "FAIL" "Backend container state: $STATE"
-        fi
+# /api/health/: 严格检查 HTTP 200 + JSON status=ok + database=ok + redis=ok
+HEALTH_BODY="$(smoke_temp_file health-body)"
+HTTP_CODE=$(request_with_status GET "$BASE_URL/api/health/" "$HEALTH_BODY")
+if [ "$HTTP_CODE" = "200" ]; then
+    STATUS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('status',''))" 2>/dev/null || echo "")
+    DB_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('database',''))" 2>/dev/null || echo "")
+    REDIS_OK=$(python3 -c "import sys,json; print(json.load(open('$HEALTH_BODY')).get('redis',''))" 2>/dev/null || echo "")
+    if [ "$STATUS_OK" = "ok" ] && [ "$DB_OK" = "ok" ] && [ "$REDIS_OK" = "ok" ]; then
+        result "PASS" "Backend /api/health/ status=database=redis=ok"
     else
-        result "FAIL" "Backend container not found"
+        result "FAIL" "Backend /api/health/ body" "status=$STATUS_OK database=$DB_OK redis=$REDIS_OK"
     fi
-fi
-
-# 尝试版本端点 — 通过 Nginx 代理访问
-VERSION_RESPONSE=$(curl -s --max-time 10 "$BASE_URL/api/system/version/" 2>/dev/null || echo "")
-if echo "$VERSION_RESPONSE" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'version' in d" 2>/dev/null; then
-    VERSION=$(echo "$VERSION_RESPONSE" | python3 -c "import sys,json; print(json.load(sys.stdin)['version'])" 2>/dev/null)
-    result "PASS" "Backend version endpoint (v${VERSION})"
 else
-    # 旧版镜像可能没有此端点，检查后端是否在运行即可
-    BACKEND_PID=$(compose ps -q backend 2>/dev/null || true)
-    if [ -n "$BACKEND_PID" ]; then
-        STATE=$(docker inspect --format='{{.State.Status}}' "$BACKEND_PID" 2>/dev/null || echo "unknown")
-        if [ "$STATE" = "running" ]; then
-            result "SKIP" "Backend version endpoint" "Not available in this version"
-        else
-            result "FAIL" "Backend /api/system/version/" "Response: ${VERSION_RESPONSE:0:200}"
-        fi
+    classify_http_status "$HTTP_CODE" "Backend /api/health/"
+fi
+rm -f "$HEALTH_BODY"
+
+# /api/system/version/: 验证 version 字段;严格模式必须 FAIL,不能 SKIP 蒙混
+# core/api.py:97 IsAuthenticated — 必须先拿 JWT,否则 401
+VERSION_BODY="$(smoke_temp_file version-body)"
+VERSION_TOKEN="$(obtain_auth_token || true)"
+if [ -n "$VERSION_TOKEN" ]; then
+    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
+        -H "Authorization: Bearer $VERSION_TOKEN")
+else
+    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+fi
+if [ "$HTTP_CODE" = "200" ]; then
+    if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
+        VERSION=$(python3 -c "import sys,json; print(json.load(open('$VERSION_BODY'))['version'])" 2>/dev/null || echo unknown)
+        result "PASS" "Backend version endpoint (v${VERSION})"
     else
-        result "FAIL" "Backend /api/system/version/" "Response: ${VERSION_RESPONSE:0:200}"
+        result "FAIL" "Backend /api/system/version/ missing version field"
     fi
-fi
-
-# 测试通过 Nginx 代理访问后端 API
-PROXY_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/auth/guest-login/" -X POST -H "Content-Type: application/json" -d '{}' 2>/dev/null || echo "000")
-if [ "$PROXY_CODE" != "000" ] && [ "$PROXY_CODE" != "502" ] && [ "$PROXY_CODE" != "503" ]; then
-    result "PASS" "Nginx reverse proxy to backend API (HTTP $PROXY_CODE)"
 else
-    result "FAIL" "Nginx reverse proxy" "Got HTTP $PROXY_CODE (expected non-error response)"
+    classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
 fi
+rm -f "$VERSION_BODY"
+
+# Nginx 反代:guest-login 端点必须返回可接受的状态,401/404/500/502/503 均 FAIL
+PROXY_BODY="$(smoke_temp_file proxy-body)"
+HTTP_CODE=$(request_with_status POST "$BASE_URL/api/auth/guest-login/" "$PROXY_BODY" \
+    -H "Content-Type: application/json" -d '{}')
+case "$HTTP_CODE" in
+    2??|400|401|403|405)
+        result "PASS" "Nginx reverse proxy to backend API (HTTP $HTTP_CODE)"
+        ;;
+    *)
+        result "FAIL" "Nginx reverse proxy" "Got HTTP $HTTP_CODE (expected non-error response)"
+        ;;
+esac
+rm -f "$PROXY_BODY"
 echo ""
 
 # ─── 阶段 4: Redis 连通性 ───────────────────────────────────
 echo "阶段 4: Redis 连通性"
 
-if [ -f ".env.production" ]; then
-    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" "$ENV_FILE_PATH" | cut -d= -f2-)
     REDIS_PING=$(compose exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null || echo "FAIL")
     if echo "$REDIS_PING" | grep -q "PONG"; then
         result "PASS" "Redis responds to PING"
@@ -493,14 +412,16 @@ fi
 # 已配置为每 6h 自动运行 — 显式触发 = 强制一次后台 cleanup。
 # 若 worker 进程在但 broker 切了 / task 未注册 / task 模块未加载,这一步 30s 超时失败。
 # Fix-12: compose() 是 bash 函数,timeout / sh -c 都不会继承,必须用 docker compose 直接调用
-# COMPOSE_PROJECT_NAME/COMPOSE_FILE/ENV_FILE 是 smoke 顶部定义的全局变量
-timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python -c "
+# COMPOSE_PROJECT_NAME/COMPOSE_FILE_PATH/ENV_FILE_PATH 是 smoke_common.sh init_smoke_context 导出的全局变量
+timeout 35 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend python -c "
 import django; django.setup()
 from paperless_proxy.tasks import cleanup_paperless_cache
 r = cleanup_paperless_cache.delay()
 print('OK', r.get(timeout=30, propagate=False))
 " > /tmp/.smoke_celery_$$.out 2>/dev/null
 CELERY_RESP=$(cat /tmp/.smoke_celery_$$.out 2>/dev/null)
+# 若脚本中途崩溃 trap 兜底清理(record_smoke_resource 按 run-id 隔离)
+record_smoke_resource celery-out "celery-$$" "/tmp/.smoke_celery_$$.out" || true
 rm -f /tmp/.smoke_celery_$$.out
 if [ -z "$CELERY_RESP" ]; then CELERY_RESP="FAIL_TIMEOUT"; fi
 if echo "$CELERY_RESP" | grep -q "^OK {"; then
@@ -520,9 +441,19 @@ echo "阶段 6: 版本/迁移/CHANGELOG 端点"
 #   (因为 bash EXIT trap 是单值,不能与已有 trap 叠加,见 trap 函数实现)
 GUEST_JSON="/tmp/.smoke_guest_$$.json"
 (umask 077; : > "$GUEST_JSON")  # S5: 设 restrictive 权限
-GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
-    -X POST -H "Content-Type: application/json" -d '{}' \
-    "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+# 走 obtain_auth_token:SMOKE_TEST_USER 注入时用 /api/auth/login/(5/15m 限流与 guest 独立),
+# 未注入时仍走 /api/auth/guest-login/(默认 SKIP 行为保持兼容)。
+# GUEST_HTTP 同时捕获,保留精细告警分支(429/真业务错误/网络瞬态)。
+if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
+        -X POST -H "Content-Type: application/json" \
+        -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+        "$BASE_URL/api/auth/login/" 2>/dev/null || echo "000")
+else
+    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
+        -X POST -H "Content-Type: application/json" -d '{}' \
+        "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+fi
 
 case "$GUEST_HTTP" in
     200)
@@ -641,7 +572,7 @@ echo ""
 echo "阶段 7: 离线包元数据/可加载性校验"
 
 if [ -x "./validate_artifacts.sh" ]; then
-    VA_OUTPUT=$(./validate_artifacts.sh exported_images/ 2>&1)
+    VA_OUTPUT=$(./validate_artifacts.sh "$BUNDLE_DIR/images" 2>&1)
     VA_RC=$?
     if [ "$VA_RC" -eq 0 ]; then
         VA_PASS=$(echo "$VA_OUTPUT" | grep -c "PASS:")
@@ -694,15 +625,15 @@ if compose exec -T backend sh -c "echo '$MEDIA_MARKER' > $MARKER_FILE" 2>/dev/nu
     fi
     # 注意:trap EXIT 也会清理 marker_file,这里显式 rm 是双保险
     # B·F: 主流程 marker 清理也加 timeout 10,与 trap 内 backend rm 对称
-    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
+    timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend rm -f "$MARKER_FILE" 2>/dev/null || true
 else
     result "SKIP" "Backend media persist" "Cannot write to /usr/src/app/media/"
 fi
 
 # 8.2 Postgres data volume (用 INSERT + restart db)
-if [ -f ".env.production" ]; then
-    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
-    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" "$ENV_FILE_PATH" | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" "$ENV_FILE_PATH" | cut -d= -f2-)
     if [ -n "$POSTGRES_USER" ] && [ -n "$POSTGRES_DB" ]; then
         # I 安全注释: PG_MARKER_VAL 仅含 PID + unix_ts + 下划线,无 SQL 注入风险。
         #   若改值规则(如追加 user input),须保证仅含 [A-Za-z0-9_],否则需 quote 转义
@@ -754,14 +685,16 @@ echo "阶段 8.3: 文件上传链路"
 # 权限 IsAuthenticated(guest JWT 即可;见 file_processing/views.py:8,37,42)
 # 生产 /media/ 路由不可用(DEBUG=False,Django 不挂),但 201 + Celery 分发仍能验证
 # 用最小 magic 可识别 PDF — libmagic 看 %PDF- 前缀即识别 application/pdf
-GUEST_TOKEN_H83=$(curl -s --max-time 10 -X POST -H "Content-Type: application/json" -d '{}' \
-    "$BASE_URL/api/auth/guest-login/" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+# 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(5/15m 限流独立 bucket),
+# 未注入时 fallback guest-login(原行为)
+GUEST_TOKEN_H83="$(obtain_auth_token || true)"
 
 if [ -n "$GUEST_TOKEN_H83" ]; then
     # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
     SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
     printf '%%PDF-1.4\n' > "$SMOKE_PDF"
+    # 按 run-id 隔离登记,trap 兜底清理
+    record_smoke_resource upload-pdf "upload-$$" "$SMOKE_PDF" || true
     UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
         -H "Authorization: Bearer $GUEST_TOKEN_H83" \
         -F "file=@$SMOKE_PDF;type=application/pdf" \
@@ -791,13 +724,11 @@ if ! wait_for_healthy backend 30; then
     result "SKIP" "业务 happy-path (memos)" "阶段 8 重启后 backend 30s 内未 healthy"
     echo ""
 else
-    # 用 curl_with_retry 处理 5xx/网络瞬态(配合 production.py CONN_HEALTH_CHECKS=True 双重保险)
-    GUEST_TOKEN_H9=$(curl_with_retry 3 -X POST -H "Content-Type: application/json" -d '{}' \
-        "$BASE_URL/api/auth/guest-login/" 2>/dev/null | head -n -1 | \
-        python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
+    # 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(避免 5/15m guest 限流)
+    GUEST_TOKEN_H9="$(obtain_auth_token || true)"
 
     if [ -z "$GUEST_TOKEN_H9" ]; then
-        result "SKIP" "业务 happy-path (memos)" "guest-login 不可达 (JWT 空)"
+        result "SKIP" "业务 happy-path (memos)" "auth 不可达 (JWT 空,obtain_auth_token 失败)"
     else
         # 9.1 POST 创建 — 加 retry,db 重启瞬态 5xx 自动恢复
         MEMO_TITLE="smoke-test-$$-$(date +%s)"
@@ -884,17 +815,15 @@ echo "阶段 11: PG 备份可恢复性"
 SHADOW_DB="omnidesk_shadow_restore_$$"
 SMOKE_BACKUP_FILE=""
 
-if [ ! -f ".env.production" ]; then
-    result "SKIP" "PG backup restore" ".env.production not found"
-else
-    POSTGRES_USER=$(grep "^POSTGRES_USER=" .env.production | cut -d= -f2-)
-    POSTGRES_DB=$(grep "^POSTGRES_DB=" .env.production | cut -d= -f2-)
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    POSTGRES_USER=$(grep "^POSTGRES_USER=" "$ENV_FILE_PATH" | cut -d= -f2-)
+    POSTGRES_DB=$(grep "^POSTGRES_DB=" "$ENV_FILE_PATH" | cut -d= -f2-)
 
     if [ -z "$POSTGRES_USER" ] || [ -z "$POSTGRES_DB" ]; then
         result "SKIP" "PG backup restore" "POSTGRES_USER/POSTGRES_DB not set"
     else
         # 11.1 触发 backup_db — Fix-12: compose() 是 bash 函数,timeout 不继承,直接 docker compose
-        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
+        timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend python manage.py backup_db --db-only > /tmp/.smoke_backup_$$.out 2>&1
         BACKUP_RC=$?
         BACKUP_OUT=$(cat /tmp/.smoke_backup_$$.out 2>/dev/null)
         rm -f /tmp/.smoke_backup_$$.out
@@ -905,7 +834,7 @@ else
             # 11.2 定位最新备份文件
             # Fix-11: backup_db 默认 output_dir 是 /opt/omnidesk/backups (见 core/management/commands/backup_db.py:20)
             # Fix-12: timeout 是新进程,不继承 bash 函数,必须用 docker compose 直接调用
-            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
+            timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend sh -c "ls -t /opt/omnidesk/backups/backup_v*.sql.gz 2>/dev/null | head -1" > /tmp/.smoke_bkls_$$.out 2>/dev/null
             LATEST=$(cat /tmp/.smoke_bkls_$$.out 2>/dev/null | tr -d '\r\n')
             rm -f /tmp/.smoke_bkls_$$.out
             if [ -z "$LATEST" ]; then
@@ -913,25 +842,25 @@ else
             else
                 # 11.3 base64 传输(50MB 以内可接受)
                 # Fix-12: 所有 docker compose 子进程调用都展开为完整命令,避免 timeout/$() 不继承 bash 函数
-                docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
+                docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T backend base64 "$LATEST" > /tmp/.smoke_b64_$$.out 2>/dev/null
                 B64=$(cat /tmp/.smoke_b64_$$.out 2>/dev/null | tr -d '\r\n ')
                 rm -f /tmp/.smoke_b64_$$.out
                 if [ -z "$B64" ]; then
                     result "FAIL" "PG backup 传输" "backend base64 编码失败"
                 else
                     SMOKE_BACKUP_FILE="/tmp/.smoke_backup_$$.sql.gz"
-                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
-                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
+                    echo "$B64" | timeout 60 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db sh -c "base64 -d > $SMOKE_BACKUP_FILE" 2>/dev/null
+                    if ! timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db test -s "$SMOKE_BACKUP_FILE" 2>/dev/null; then
                         result "FAIL" "PG backup 落地" "db 端 $SMOKE_BACKUP_FILE 写入失败或为空"
                     else
                         # 11.4 CREATE 影子库
-                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
+                        CREATE_OUT=$(timeout 20 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d postgres -c \
                             "CREATE DATABASE $SHADOW_DB;" 2>&1) || true
                         if ! echo "$CREATE_OUT" | grep -q "CREATE DATABASE"; then
                             result "FAIL" "PG shadow DB 创建" "${CREATE_OUT:0:200}"
                         else
                             # 11.5 还原到影子库
-                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db sh -c \
+                            RESTORE_OUT=$(timeout 120 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db sh -c \
                                 "gunzip -c $SMOKE_BACKUP_FILE | psql -U $POSTGRES_USER -d $SHADOW_DB -v ON_ERROR_STOP=1" 2>&1) || true
                             if echo "$RESTORE_OUT" | grep -qE "ERROR|FATAL"; then
                                 result "FAIL" "PG restore 还原" "psql 报错: $(echo "$RESTORE_OUT" | grep -E 'ERROR|FATAL' | head -3)"
@@ -939,7 +868,7 @@ else
                                 # 11.6 验证 4 张核心表非空
                                 NON_EMPTY=0
                                 for tbl in users_customuser memos_memo auth_group django_migrations; do
-                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" $COMPOSE_FILE $ENV_FILE exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
+                                    CNT=$(timeout 10 docker compose -p "$COMPOSE_PROJECT_NAME" -f "$COMPOSE_FILE_PATH" --env-file "$ENV_FILE_PATH" exec -T db psql -U "$POSTGRES_USER" -d "$SHADOW_DB" -tAc \
                                         "SELECT count(*) FROM $tbl;" 2>/dev/null | tr -d ' \r\n' || echo "0")
                                     if [ -n "$CNT" ] && [ "$CNT" -gt 0 ] 2>/dev/null; then
                                         NON_EMPTY=$((NON_EMPTY + 1))

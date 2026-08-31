@@ -15,6 +15,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 
 from .roles import AgentRole
+from observability import get_logger
+
+logger = get_logger(__name__, "smart_assistant")
 
 
 # ---------------------------------------------------------------------------
@@ -70,6 +73,8 @@ class TaskResult:
     total_tokens_used: int = 0
     total_duration_ms: int = 0
     error_message: str | None = None
+    resume_claim_id: str | None = None
+    claim_lost: bool = False
 
 
 @dataclass
@@ -115,3 +120,66 @@ class EventBus:
     def clear(self) -> None:
         """清空事件(主要用于测试)"""
         self._events = []
+
+
+class PersistentEventBus(EventBus):
+    """同时记录内存事件并尽力持久化到 AgentEvent。"""
+
+    def __init__(
+        self,
+        agent_task_id: str | None = None,
+        resume_claim_id: str | None = None,
+    ):
+        super().__init__()
+        self.agent_task_id = agent_task_id
+        self.resume_claim_id = resume_claim_id
+        self.persistence_failure_count = 0
+
+    def emit(self, event_type: str, payload: dict | None = None) -> None:
+        """发出内存事件，并尝试写入任务事件表。"""
+        event_payload = dict(payload or {})
+        super().emit(event_type, event_payload)
+        try:
+            self._persist(event_type, event_payload)
+        except Exception:
+            self.persistence_failure_count += 1
+            logger.warning(
+                "智能助手事件持久化失败: event_type=%s task_id=%s",
+                event_type,
+                self.agent_task_id,
+                exc_info=True,
+            )
+
+    def _persist(self, event_type: str, payload: dict) -> None:
+        if not self.agent_task_id:
+            raise ValueError("agent_task_id 未设置")
+
+        from django.db import transaction
+        from smart_assistant.models import AgentEvent, AgentSubTask, AgentTask
+
+        # 恢复 worker 只允许持有当前 claim 的事件落库；失效事件仍可留在
+        # 当前 worker 的内存流中，但不能污染新 worker 的持久化轨迹。
+        with transaction.atomic():
+            task = AgentTask.objects.select_for_update().get(task_id=self.agent_task_id)
+            if self.resume_claim_id is not None and (
+                task.status != "running" or str(task.resume_claim_id) != str(self.resume_claim_id)
+            ):
+                return
+            subtask = None
+            subtask_id = payload.get("subtask_id")
+            if subtask_id is not None:
+                subtask = AgentSubTask.objects.filter(task=task, subtask_id=str(subtask_id)).first()
+            terminal_events = {"task.completed", "task.failed", "task.cancelled", "task.aborted"}
+            if event_type in terminal_events and AgentEvent.objects.filter(task=task, event_type=event_type).exists():
+                return
+            sequence = (
+                AgentEvent.objects.filter(task=task).order_by("-sequence").values_list("sequence", flat=True).first()
+                or 0
+            ) + 1
+            AgentEvent.objects.create(
+                task=task,
+                subtask=subtask,
+                sequence=sequence,
+                event_type=event_type,
+                payload=payload,
+            )

@@ -25,6 +25,21 @@ function getAttributeValue(attributes, attrName) {
     return null;
 }
 
+function getComponentName(element) {
+    const name = element?.openingElement?.name;
+    if (!name) return 'UnknownComponent';
+    if (name.type === 'JSXIdentifier') return name.name;
+    if (name.type === 'JSXMemberExpression') {
+        return `${name.object.name}.${name.property.name}`;
+    }
+    return 'UnknownComponent';
+}
+
+function normalizeRoutePath(routePath) {
+    if (!routePath) return '/';
+    return routePath.startsWith('/') ? routePath : `/${routePath}`;
+}
+
 function processRouteObject(routeObject, parentPath) {
     if (!routeObject || routeObject.type !== 'ObjectExpression') return;
 
@@ -44,31 +59,19 @@ function processRouteObject(routeObject, parentPath) {
 
         if (openingElement.name.name === 'ProtectedRoute') {
             const pageName = getAttributeValue(openingElement.attributes, 'pageName');
-            const permissionsPath = getAttributeValue(openingElement.attributes, 'permissions');
             const pagePath = getAttributeValue(openingElement.attributes, 'pagePath');
+            const permissionsPath = getAttributeValue(openingElement.attributes, 'permissions');
             const componentChild = jsxElement.children.find(child => child.type === 'JSXElement');
+            const actualRoutePath = normalizeRoutePath(
+                indexProp?.value?.value === true ? parentPath : currentPath
+            );
+            const permissionPath = normalizeRoutePath(pagePath || permissionsPath || actualRoutePath);
 
-            if ((pageName || permissionsPath) && componentChild) {
-                const componentName = componentChild.openingElement.name.name;
-                const routePermission = permissionsPath || pagePath;
-
-                let routePath = routePermission;
-                if (!routePath) {
-                    if (indexProp && indexProp.value.value === true) {
-                        routePath = parentPath;
-                    } else {
-                        routePath = currentPath;
-                    }
-                }
-
-                if (!routePath.startsWith('/')) {
-                    routePath = '/' + routePath;
-                }
-
+            if ((pageName || pagePath || permissionsPath) && componentChild) {
                 protectedRoutes.push({
-                    name: pageName || routePath,
-                    path: routePath,
-                    component: componentName,
+                    name: pageName || permissionPath,
+                    path: permissionPath,
+                    component: getComponentName(componentChild),
                 });
             }
         }

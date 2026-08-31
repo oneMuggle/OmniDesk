@@ -52,7 +52,7 @@ class TestRouterCostEnrichment:
         """有单价配置时按 token 用量计费:1000 tokens * 0.02 元/千token = 0.02 元。"""
         endpoint = self._create_config(cost=Decimal("0.02"))
 
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_request") as mock_post:
             mock_post.return_value = _fake_response(
                 usage={"prompt_tokens": 800, "completion_tokens": 200, "total_tokens": 1000},
             )
@@ -69,7 +69,7 @@ class TestRouterCostEnrichment:
         """端点未配置单价时 estimated_cost 为 0,不报错。"""
         endpoint = self._create_config(cost=None)
 
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_request") as mock_post:
             mock_post.return_value = _fake_response(usage={"total_tokens": 500})
             _, usage = LLMRouter().generate(prompt="你好")
 
@@ -80,7 +80,7 @@ class TestRouterCostEnrichment:
         """usage 无 total_tokens 时按 prompt + completion 之和计费。"""
         self._create_config(cost=Decimal("0.01"))
 
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_request") as mock_post:
             mock_post.return_value = _fake_response(
                 usage={"prompt_tokens": 400, "completion_tokens": 600},
             )
@@ -93,7 +93,7 @@ class TestRouterCostEnrichment:
         """API 未返回 usage 时不报错,成本字段仍存在。"""
         endpoint = self._create_config(cost=Decimal("0.02"))
 
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_request") as mock_post:
             mock_post.return_value = _fake_response(usage=None)
             _, usage = LLMRouter().generate(prompt="你好")
 
@@ -103,7 +103,7 @@ class TestRouterCostEnrichment:
 
     def test_ollama_fallback_zero_cost(self):
         """无 DB 配置命中 Ollama 兜底时 endpoint_id 为 None,成本为 0。"""
-        with patch("llm_service.router.requests.post") as mock_post:
+        with patch("llm_service.router.safe_internal_request") as mock_post:
             mock_post.return_value = _fake_response(usage={"total_tokens": 300})
             content, usage = LLMRouter().generate(prompt="你好")
 

@@ -5,7 +5,6 @@
 
 import asyncio
 from types import SimpleNamespace
-from unittest.mock import patch
 
 import pytest
 
@@ -87,6 +86,24 @@ class TestRateLimitHook:
         # user B 不受影响
         result_b = _run(self.hook.pre_execute(_FakeWriteTool(), ctx_b, {"query": "x"}))
         assert result_b == {"query": "x"}
+
+    def test_replay_bypasses_without_counting(self):
+        ctx = SimpleNamespace(user=SimpleNamespace(id=2007, is_authenticated=True), replay=True)
+        result = _run(self.hook.pre_execute(_FakeWriteTool(), ctx, {"query": "x"}))
+        assert result == {"query": "x"}
+        from django.core.cache import cache
+        assert cache.get("smart_assistant:write_rate_limit:2007") is None
+
+    def test_replay_at_limit_bypasses_without_incrementing(self):
+        ctx = SimpleNamespace(user=SimpleNamespace(id=2008, is_authenticated=True))
+        for _ in range(10):
+            assert _run(self.hook.pre_execute(_FakeWriteTool(), ctx, {"query": "x"})) == {"query": "x"}
+
+        replay_ctx = SimpleNamespace(user=ctx.user, replay=True)
+        result = _run(self.hook.pre_execute(_FakeWriteTool(), replay_ctx, {"query": "x"}))
+        assert result == {"query": "x"}
+        from django.core.cache import cache
+        assert cache.get("smart_assistant:write_rate_limit:2008") == 10
 
     # --- T5: 未认证放行(由 ChatMiddleware 兜底) ---
     def test_anonymous_passthrough(self):

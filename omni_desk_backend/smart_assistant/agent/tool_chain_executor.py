@@ -408,13 +408,15 @@ class ToolChainExecutor:
             from ..models import AgentLog
 
             session = getattr(user, "_smart_assistant_session", None)
+            from ..cache import safe_public_value, sanitize_public_text
+
             AgentLog.objects.create(
                 session=session,  # nullable: 测试场景无 session
-                user_query=f"[chain step {step_index}] {step.tool}",
+                user_query=sanitize_public_text(f"[chain step {step_index}] {step.tool}"),
                 intent=f"chain:{step.tool}",
                 tool_used=step.tool,
-                tool_input=resolved_params,  # 已解析,审计可读
-                tool_output=result.get("output") or {},
+                tool_input=safe_public_value(resolved_params),
+                tool_output=safe_public_value(result.get("output") or {}),
                 llm_response="",  # 必填字段,工具链执行非 LLM 综合结果
                 response_time_ms=result.get("latency_ms", 0),
                 # 仅 success=True;fallback/skip/failed 均为 False(更准确反映工具可用性)

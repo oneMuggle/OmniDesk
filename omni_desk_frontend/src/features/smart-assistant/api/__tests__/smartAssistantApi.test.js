@@ -129,7 +129,7 @@ describe('smartAssistantApi attachment & confirm', () => {
     expect(options.body).toBeInstanceOf(FormData);
     expect(options.body.get('query')).toBe('问题');
     expect(options.body.get('attachment')).toBe(fakeFile);
-    expect(options.headers['Content-Type']).toBeUndefined();
+    expect(options.headers.get('Content-Type')).toBeNull();
   });
 
   test('sendSmartChatStream sends JSON when no attachment', async () => {
@@ -137,7 +137,7 @@ describe('smartAssistantApi attachment & confirm', () => {
     global.fetch = jest.fn().mockResolvedValue(mockResponse);
     await sendSmartChatStream('问题').bodyPromise;
     const [, options] = global.fetch.mock.calls[0];
-    expect(options.headers['Content-Type']).toBe('application/json');
+    expect(options.headers.get('Content-Type')).toBe('application/json');
     expect(JSON.parse(options.body)).toEqual({ query: '问题' });
   });
 

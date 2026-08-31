@@ -2,6 +2,18 @@ import { extractResults } from '../../../shared/api/responseHandler';
 import apiClient from '../../../shared/api/apiClient';
 import { handleError } from '../../../shared/api/responseHandler';
 
+function normalizePaginationUrl(nextUrl) {
+  if (!nextUrl) return nextUrl;
+
+  try {
+    const url = new URL(nextUrl, window.location.origin);
+    const path = url.pathname.replace(/^\/api\/?/, '').replace(/^\/+/, '');
+    return `${path}${url.search}`;
+  } catch {
+    return nextUrl;
+  }
+}
+
 export const scheduleApi = {
   checkScheduleDate: async (date) => {
     try {
@@ -62,7 +74,7 @@ export const scheduleApi = {
         const results = extractResults(response.data);
         allSchedules = allSchedules.concat(results);
         
-        url = response.data.next;
+        url = normalizePaginationUrl(response.data.next);
       }
 
       return allSchedules.map(schedule => {

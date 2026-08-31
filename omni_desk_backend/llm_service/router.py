@@ -1,7 +1,7 @@
 from observability import get_logger
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-import requests
+from smart_assistant.ssrf import safe_internal_request, safe_request
 from django.conf import settings
 from django.core.cache import cache
 
@@ -14,6 +14,10 @@ ROUTER_CACHE_TIMEOUT = 60
 
 def _router_cache_key(app_name):
     return f"llm_router_configs_{app_name}"
+
+
+class _DefaultRequestTimeout(int):
+    """标记类默认值，使显式类赋值(包括 120)可与 settings 区分。"""
 
 
 class LLMRouter:
@@ -29,11 +33,28 @@ class LLMRouter:
     OLLAMA_BASE = "http://localhost:11434"
     # Ollama 兜底模型的最终回退值；运行时优先读 settings.OLLAMA_MODEL_NAME
     OLLAMA_MODEL = "qwen2.5:7b"
-    REQUEST_TIMEOUT = 120
+    REQUEST_TIMEOUT = _DefaultRequestTimeout(120)
 
-    def __init__(self, app_name="smart_assistant"):
+    def __init__(self, app_name="smart_assistant", request_timeout=None, *, requester=None, resolver=None):
+        # requester/resolver 仅用于显式受控 transport 注入；默认路径仍是真实 requests + DNS 校验。
+        self._requester = requester
+        self._resolver = resolver
         # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
         self.app_name = app_name
+        try:
+            class_timeout = type(self).__dict__.get("REQUEST_TIMEOUT")
+            configured_timeout = getattr(settings, "LLM_REQUEST_TIMEOUT_SECONDS", 120)
+            # 显式构造参数优先；类体中的普通整数(包括显式 120)保留覆盖。
+            if request_timeout is not None:
+                timeout = request_timeout
+            elif class_timeout is not None and not isinstance(class_timeout, _DefaultRequestTimeout):
+                timeout = class_timeout
+            else:
+                timeout = configured_timeout
+            self.REQUEST_TIMEOUT = max(1, int(timeout))
+        except Exception:
+            # 允许在 Django settings 尚未配置时实例化；运行时使用默认值。
+            self.REQUEST_TIMEOUT = 120
         self._configs = []
         self._load_configs()
 
@@ -138,7 +159,27 @@ class LLMRouter:
             }
 
             try:
-                response = requests.post(url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream)
+                if is_ollama:
+                    response = safe_internal_request(
+                        "POST",
+                        url,
+                        requester=self._requester,
+                        headers=headers,
+                        json=data,
+                        timeout=self.REQUEST_TIMEOUT,
+                        stream=stream,
+                    )
+                else:
+                    response = safe_request(
+                        "POST",
+                        url,
+                        requester=self._requester,
+                        resolver=self._resolver,
+                        headers=headers,
+                        json=data,
+                        timeout=self.REQUEST_TIMEOUT,
+                        stream=stream,
+                    )
                 response.raise_for_status()
 
                 if stream:
@@ -245,6 +286,7 @@ class LLMRouter:
                     api_key=api_key,
                     model_name=model_name,
                     options=options,
+                    is_ollama=is_ollama,
                 )
                 # 补充成本核算字段(命中的端点 ID + 预估费用)
                 usage = self._enrich_usage(usage, endpoint, model_name)
@@ -278,6 +320,7 @@ class LLMRouter:
         api_key,
         model_name,
         options=None,
+        is_ollama=False,
     ):
         """向单个端点发起 tool_calls 请求并解析为三元组。
 
@@ -303,7 +346,26 @@ class LLMRouter:
         }
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        response = requests.post(url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT)
+        response = (
+            safe_internal_request(
+                "POST",
+                url,
+                requester=self._requester,
+                headers=headers,
+                json=body,
+                timeout=self.REQUEST_TIMEOUT,
+            )
+            if is_ollama
+            else safe_request(
+                "POST",
+                url,
+                requester=self._requester,
+                resolver=self._resolver,
+                headers=headers,
+                json=body,
+                timeout=self.REQUEST_TIMEOUT,
+            )
+        )
         response.raise_for_status()
         resp_data = response.json()
 

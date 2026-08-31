@@ -13,11 +13,13 @@ from smart_assistant.cache import (
     CACHE_VERSION,
     TOOL_CACHE_TTL,
     _extract_user_id,
+    _is_public_url,
     bump_cache_version,
     cache_answer,
     cache_intent,
     cache_tool_result,
     get_cached_answer,
+    sanitize_public_text,
     get_cached_intent,
     get_cached_tool_result,
 )
@@ -31,7 +33,43 @@ def reset_cache_version():
     cache_module.CACHE_VERSION = original
 
 
-class TestCacheVersion:
+class TestPublicTextUrlCredentials:
+    @pytest.mark.parametrize('parameter', [
+        'X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token',
+        'sig', 'signature', 'access_token', 'access-token',
+        'X%2DAmz%2DSecurity%2DToken', 'ACCESS%2DTOKEN',
+    ])
+    def test_signed_url_parameter_value_is_hidden(self, parameter):
+        value = f'https://files.example.test/download?{parameter}=SECRET_URL_VALUE&name=report'
+        sanitized = sanitize_public_text(value)
+        assert 'SECRET_URL_VALUE' not in sanitized
+
+    @pytest.mark.parametrize('parameter', [
+        'X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token',
+        'sig', 'signature', 'access_token', 'access-token',
+        'x%2Damz%2Dsecurity%2Dtoken', 'ACCESS%2DTOKEN',
+    ])
+    def test_public_url_rejects_canonicalized_credential_keys(self, parameter):
+        assert not _is_public_url(
+            f'https://files.example.test/download?{parameter}=SECRET_URL_VALUE'
+        )
+
+    def test_ordinary_url_without_credentials_is_preserved(self):
+        value = '参考 https://example.test/docs?page=2&lang=zh'
+        assert 'https://example.test/docs?page=2&lang=zh' in sanitize_public_text(value)
+
+    @pytest.mark.parametrize('value', [
+        '请访问 https://user:SECRET@example.com/path。',
+        '请访问 https://SECRET@example.com/path。',
+        '请访问 https://user@example.com/path。',
+    ])
+    def test_url_authority_credentials_are_not_public(self, value):
+        sanitized = sanitize_public_text(value)
+        assert 'user' not in sanitized
+        assert 'SECRET' not in sanitized
+        assert 'example.com/path' in sanitized
+        assert 'https://' in sanitized
+
     def test_initial_cache_version_is_positive_int(self):
         assert isinstance(CACHE_VERSION, int)
         assert CACHE_VERSION >= 1

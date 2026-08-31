@@ -16,7 +16,7 @@
 无法实现计时熔断。本模块采用"钩子即配置入口 + 执行包装层做计时"的分工:
 
 - ``TimeoutGuardHook``: 作为**配置入口**与恢复策略提供者。
-    - 从 settings ``SMART_ASSISTANT_TOOL_TIMEOUT``(默认 10 秒)读取超时阈值;
+    - 从 settings ``TOOL_CALLS_TIMEOUT_SECONDS``(默认 30 秒)读取超时阈值;
     - 从 settings ``SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED``(默认 True)读取开关;
     - ``on_failure`` 中识别超时类异常,返回 ``fallback`` 恢复动作,保证即使
       超时异常泄漏到 HookRegistry 也能得到结构化的兜底结果。
@@ -64,11 +64,13 @@ from django.conf import settings
 
 from ..base import RecoveryAction, ToolHookBase
 
-# 默认超时阈值(秒)。settings 未配置 SMART_ASSISTANT_TOOL_TIMEOUT 时生效。
-DEFAULT_TOOL_TIMEOUT: float = 10.0
+# 默认超时阈值(秒)。settings 未配置 TOOL_CALLS_TIMEOUT_SECONDS 时生效。
+DEFAULT_TOOL_TIMEOUT: float = 30.0
 
 # settings 配置项名称(集中定义,避免散落字符串)
-SETTING_TIMEOUT = "SMART_ASSISTANT_TOOL_TIMEOUT"
+SETTING_TIMEOUT = "TOOL_CALLS_TIMEOUT_SECONDS"
+# 兼容旧部署配置；仅在新配置缺失时使用。
+LEGACY_SETTING_TIMEOUT = "SMART_ASSISTANT_TOOL_TIMEOUT"
 SETTING_ENABLED = "SMART_ASSISTANT_TOOL_TIMEOUT_ENABLED"
 
 
@@ -80,7 +82,14 @@ def resolve_timeout(timeout: float | None = None) -> float:
     """
     if timeout is not None:
         return float(timeout)
-    return float(getattr(settings, SETTING_TIMEOUT, DEFAULT_TOOL_TIMEOUT))
+    configured = getattr(settings, SETTING_TIMEOUT, None)
+    legacy = getattr(settings, LEGACY_SETTING_TIMEOUT, None)
+    # 旧配置仅覆盖统一配置的默认值，避免破坏已有部署；显式的新配置始终优先。
+    if legacy is not None and (configured is None or configured == 30):
+        configured = legacy
+    if configured is None:
+        configured = DEFAULT_TOOL_TIMEOUT
+    return float(configured)
 
 
 def resolve_enabled(enabled: bool | None = None) -> bool:

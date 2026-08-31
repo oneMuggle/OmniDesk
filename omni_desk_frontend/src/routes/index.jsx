@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate, Outlet } from 'react-router-dom';
 import ProtectedRoute from '../features/auth/components/ProtectedRoute';
 import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
@@ -66,7 +66,6 @@ import {
   SensorCategoryManagementPage,
   SensorDetailPage,
   SensorListPage,
-  SensorManagementPage,
   ShiftScheduleContainer,
   SmartChatPage,
   StatsPage,
@@ -106,7 +105,7 @@ const router = createBrowserRouter([
   {
     path: "/control-panel",
     element: (
-      <ProtectedRoute pageName="控制面板"><AdminAppWrapper /></ProtectedRoute>
+      <ProtectedRoute><AdminAppWrapper /></ProtectedRoute>
     ),
     children: [
       {
@@ -118,142 +117,142 @@ const router = createBrowserRouter([
           },
           {
             path: "personnel",
-            element: <LazyComponent component={PersonnelManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/personnel" pageName="人员管理"><LazyComponent component={PersonnelManagementPage} /></ProtectedRoute>
           },
           {
             path: "personnel/add",
-            element: <LazyComponent component={PersonnelEditPage} />
+            element: <ProtectedRoute pagePath="/control-panel/personnel/add" pageName="新增人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
           },
           {
             path: "personnel/:personnelId",
-            element: <LazyComponent component={PersonnelDetailPage} />
+            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId" pageName="人员详情"><LazyComponent component={PersonnelDetailPage} /></ProtectedRoute>
           },
           {
             path: "personnel/:personnelId/edit",
-            element: <LazyComponent component={PersonnelEditPage} />
+            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId/edit" pageName="编辑人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
           },
           {
             path: "documents",
-            element: <LazyComponent component={DocumentsPage} />
+            element: <ProtectedRoute pagePath="/control-panel/documents" pageName="文档管理"><LazyComponent component={DocumentsPage} /></ProtectedRoute>
           },
           {
             path: "compliance",
-            element: <LazyComponent component={CompliancePage} />
+            element: <ProtectedRoute pagePath="/control-panel/compliance" pageName="合规管理"><LazyComponent component={CompliancePage} /></ProtectedRoute>
           },
           {
             path: "announcements/manage",
-            element: <LazyComponent component={ManageAnnouncementsPage} />
+            element: <ProtectedRoute pagePath="/control-panel/announcements/manage" pageName="公告管理"><LazyComponent component={ManageAnnouncementsPage} /></ProtectedRoute>
           },
           {
             path: "announcements/create",
-            element: <LazyComponent component={AnnouncementForm} />
+            element: <ProtectedRoute pagePath="/control-panel/announcements/create" pageName="创建公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
           },
           {
             path: "announcements/:announcementId/edit",
-            element: <LazyComponent component={AnnouncementForm} />
+            element: <ProtectedRoute pagePath="/control-panel/announcements/:announcementId/edit" pageName="编辑公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
           },
           {
             path: "schedule",
-            element: <LazyComponent component={ScheduleManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/schedule" pageName="排班管理"><LazyComponent component={ScheduleManagementPage} /></ProtectedRoute>
           },
           {
             path: "schedule/settings",
-            element: <LazyComponent component={ScheduleSettingsPage} />
+            element: <ProtectedRoute pagePath="/control-panel/schedule/settings" pageName="排班设置"><LazyComponent component={ScheduleSettingsPage} /></ProtectedRoute>
           },
           {
             path: "schedule/holiday",
-            element: <LazyComponent component={HolidayManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/schedule/holiday" pageName="节假日管理"><LazyComponent component={HolidayManagementPage} /></ProtectedRoute>
           },
           {
             path: "projects",
-            element: <LazyComponent component={ProjectsPage} />
+            element: <ProtectedRoute pagePath="/control-panel/projects" pageName="项目管理"><LazyComponent component={ProjectsPage} /></ProtectedRoute>
           },
           {
             path: "meeting-rooms",
-            element: <LazyComponent component={MeetingRoomManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/meeting-rooms" pageName="会议室管理"><LazyComponent component={MeetingRoomManagementPage} /></ProtectedRoute>
           },
           {
             path: "users",
-            element: <LazyComponent component={UserManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/users" pageName="用户管理"><LazyComponent component={UserManagementPage} /></ProtectedRoute>
           },
           {
             path: "sensors",
-            element: <LazyComponent component={SensorManagementPage} />,
+            element: <ProtectedRoute><Outlet /></ProtectedRoute>,
             children: [
               { index: true, element: <Navigate to="list" /> },
               {
                 path: "list",
-                element: <LazyComponent component={SensorListPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/list" pageName="传感器列表"><LazyComponent component={SensorListPage} /></ProtectedRoute>
               },
               {
                 path: "categories",
-                element: <LazyComponent component={SensorCategoryManagementPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/categories" pageName="传感器分类"><LazyComponent component={SensorCategoryManagementPage} /></ProtectedRoute>
               },
               {
                 path: "archive-locations",
-                element: <LazyComponent component={SensorArchiveLocationManagementPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/archive-locations" pageName="传感器归档位置"><LazyComponent component={SensorArchiveLocationManagementPage} /></ProtectedRoute>
               },
               {
                 path: "calibration",
-                element: <LazyComponent component={SensorCalibrationManagementPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/calibration" pageName="传感器校准"><LazyComponent component={SensorCalibrationManagementPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId",
-                element: <LazyComponent component={SensorDetailPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId" pageName="传感器详情"><LazyComponent component={SensorDetailPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId/calibration/add",
-                element: <LazyComponent component={AddCalibrationRecordPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/add" pageName="新增校准记录"><LazyComponent component={AddCalibrationRecordPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId/calibration/history",
-                element: <LazyComponent component={SensorCalibrationHistoryPage} />
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/history" pageName="校准历史"><LazyComponent component={SensorCalibrationHistoryPage} /></ProtectedRoute>
               },
             ]
           },
           {
             path: "ebooks",
-            element: <LazyComponent component={EBookManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/ebooks" pageName="电子书管理"><LazyComponent component={EBookManagementPage} /></ProtectedRoute>
           },
           {
             path: "external-links/manage",
-            element: <LazyComponent component={ExternalLinkManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/external-links/manage" pageName="外链管理"><LazyComponent component={ExternalLinkManagementPage} /></ProtectedRoute>
           },
           {
             path: "news/stats",
-            element: <LazyComponent component={NewsStatsPage} />
+            element: <ProtectedRoute pagePath="/control-panel/news/stats" pageName="新闻统计"><LazyComponent component={NewsStatsPage} /></ProtectedRoute>
           },
           {
             path: "smart-assistant/audit",
-            element: <LazyComponent component={AgentAuditPanel} />
+            element: <ProtectedRoute pagePath="/control-panel/smart-assistant/audit" pageName="智能助手审计"><LazyComponent component={AgentAuditPanel} /></ProtectedRoute>
           },
           {
             path: "system-update",
-            element: <LazyComponent component={SystemUpdatePage} />
+            element: <ProtectedRoute pagePath="/control-panel/system-update" pageName="系统更新"><LazyComponent component={SystemUpdatePage} /></ProtectedRoute>
           },
           {
             path: "ai-apps",
-            element: <LazyComponent component={AiAppManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/ai-apps" pageName="AI 应用"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
           },
           {
             path: "external-links",
-            element: <ProtectedRoute pageName="快捷外链"><LazyComponent component={ExternalLinksPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/external-links" pageName="快捷外链"><LazyComponent component={ExternalLinksPage} /></ProtectedRoute>
           },
           {
             path: "integration-hub",
-            element: <ProtectedRoute pageName="集成中心"><LazyComponent component={IntegrationHubPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/integration-hub" pageName="集成中心"><LazyComponent component={IntegrationHubPage} /></ProtectedRoute>
           },
           {
             path: "integration-hub/manage",
-            element: <LazyComponent component={IntegrationManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/integration-hub/manage" pageName="集成管理"><LazyComponent component={IntegrationManagementPage} /></ProtectedRoute>
           },
           {
             path: "plugin-market",
-            element: <ProtectedRoute pageName="插件市场"><LazyComponent component={PluginMarketPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/plugin-market" pageName="插件市场"><LazyComponent component={PluginMarketPage} /></ProtectedRoute>
           },
           {
             path: "plugin-market/manage",
-            element: <LazyComponent component={PluginManagementPage} />
+            element: <ProtectedRoute pagePath="/control-panel/plugin-market/manage" pageName="插件管理"><LazyComponent component={PluginManagementPage} /></ProtectedRoute>
           }
         ]
       }
@@ -267,14 +266,14 @@ const router = createBrowserRouter([
       {
         index: true,
         element: (
-          <ProtectedRoute pageName="仪表盘">
+          <ProtectedRoute>
             <LazyComponent component={DashboardPage} />
           </ProtectedRoute>
         ),
       },
       {
         path: "meeting-rooms",
-        element: <ProtectedRoute pageName="会议室预定"><LazyComponent component={MeetingRoomBookingPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/meeting-rooms" pageName="会议室预定"><LazyComponent component={MeetingRoomBookingPage} /></ProtectedRoute>
       },
       { path: "schedule", element: <GuestRoute><LazyComponent component={SchedulePage} /></GuestRoute> },
       { path: "trial-schedule", element: <GuestRoute><LazyComponent component={TrialScheduleContainer} /></GuestRoute> },
@@ -301,161 +300,161 @@ const router = createBrowserRouter([
       },
       {
         path: "library",
-        element: <LazyComponent component={LibraryPage} />
+        element: <ProtectedRoute pagePath="/library" pageName="书库"><LazyComponent component={LibraryPage} /></ProtectedRoute>
       },
       {
         path: "books/:bookId",
-        element: <LazyComponent component={BookPage} />
+        element: <ProtectedRoute pagePath="/books/:bookId" pageName="书籍详情"><LazyComponent component={BookPage} /></ProtectedRoute>
       },
       {
         path: "books/:bookId/reader",
-        element: <LazyComponent component={BookReaderPage} />
+        element: <ProtectedRoute pagePath="/books/:bookId/reader" pageName="书籍阅读器"><LazyComponent component={BookReaderPage} /></ProtectedRoute>
       },
       {
         path: "books/:bookId/editor",
-        element: <LazyComponent component={ChapterEditorPage} />
+        element: <ProtectedRoute pagePath="/books/:bookId/editor" pageName="章节编辑器"><LazyComponent component={ChapterEditorPage} /></ProtectedRoute>
       },
       {
         path: "smart-assistant",
-        element: <ProtectedRoute pageName="智能助手"><LazyComponent component={SmartChatPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/smart-assistant" pageName="智能助手"><LazyComponent component={SmartChatPage} /></ProtectedRoute>
       },
       {
         path: "smart-assistant/stats",
-        element: <ProtectedRoute pageName="智能助手统计"><LazyComponent component={StatsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/smart-assistant/stats" pageName="智能助手统计"><LazyComponent component={StatsPage} /></ProtectedRoute>
       },
       {
         path: "smart-assistant/tasks",
-        element: <ProtectedRoute pageName="多Agent任务"><LazyComponent component={AgentTaskPanel} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/smart-assistant/tasks" pageName="多Agent任务"><LazyComponent component={AgentTaskPanel} /></ProtectedRoute>
       },
       {
         path: "knowledge-base",
-        element: <ProtectedRoute pageName="知识库管理"><LazyComponent component={KnowledgeBasePage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/knowledge-base" pageName="知识库管理"><LazyComponent component={KnowledgeBasePage} /></ProtectedRoute>
       },
       {
         path: "ragflow-chat",
-        element: <ProtectedRoute pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/ragflow-chat" pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
       },
       {
         path: "ai-showcase",
-        element: <ProtectedRoute pageName="AI能力展示"><LazyComponent component={AIShowcasePage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/ai-showcase" pageName="AI能力展示"><LazyComponent component={AIShowcasePage} /></ProtectedRoute>
       },
       {
         path: "dify-apps",
-        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dify-apps" pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
       },
       {
         path: "dify-apps/:appId",
-        element: <ProtectedRoute pageName="Dify应用"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/dify-apps/:appId" pageName="Dify应用详情"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
       },
       {
         path: "office-assistant",
-        element: <ProtectedRoute pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/office-assistant" pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
       },
       {
         path: "file-analysis",
-        element: <ProtectedRoute pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/file-analysis" pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
       },
       {
         path: "memos",
-        element: <ProtectedRoute pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/memos" pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>
       },
       {
         path: "communication",
-        element: <ProtectedRoute pageName="交流"><LazyComponent component={CommunicationPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/communication" pageName="交流"><LazyComponent component={CommunicationPage} /></ProtectedRoute>
       },
       {
         path: "communication/new",
-        element: <ProtectedRoute pageName="新建帖子"><LazyComponent component={NewPostPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/communication/new" pageName="新建帖子"><LazyComponent component={NewPostPage} /></ProtectedRoute>
       },
       {
         path: "communication/:postId",
-        element: <LazyComponent component={PostDetailPage} />
+        element: <ProtectedRoute pagePath="/communication/:postId" pageName="帖子详情"><LazyComponent component={PostDetailPage} /></ProtectedRoute>
       },
       {
         path: "announcements",
-        element: <LazyComponent component={AnnouncementsPage} />
+        element: <ProtectedRoute pagePath="/announcements" pageName="公告"><LazyComponent component={AnnouncementsPage} /></ProtectedRoute>
       },
       {
         path: "system-settings",
-        element: <ProtectedRoute pageName="系统设置"><LazyComponent component={SystemSettingsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/system-settings" pageName="系统设置"><LazyComponent component={SystemSettingsPage} /></ProtectedRoute>
       },
       {
         path: "trials",
-        element: <ProtectedRoute pageName="试验管理"><LazyComponent component={TrialsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/trials" pageName="试验管理"><LazyComponent component={TrialsPage} /></ProtectedRoute>
       },
       {
         path: "docs/:docId",
-        element: <LazyComponent component={DocsPage} />
+        element: <ProtectedRoute pagePath="/docs/:docId" pageName="文档详情"><LazyComponent component={DocsPage} /></ProtectedRoute>
       },
       // 文档库路由 (paperless-ngx 集成)
       {
         path: "documents-library",
-        element: <ProtectedRoute pageName="文档库"><LazyComponent component={DocumentLibraryPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/documents-library" pageName="文档库"><LazyComponent component={DocumentLibraryPage} /></ProtectedRoute>
       },
       {
         path: "documents-library/upload",
-        element: <ProtectedRoute pageName="文档上传"><LazyComponent component={DocumentUploadPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/documents-library/upload" pageName="文档上传"><LazyComponent component={DocumentUploadPage} /></ProtectedRoute>
       },
       {
         path: "documents-library/sync",
-        element: <ProtectedRoute pageName="同步状态"><LazyComponent component={SyncStatusPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/documents-library/sync" pageName="同步状态"><LazyComponent component={SyncStatusPage} /></ProtectedRoute>
       },
       {
         path: "documents-library/account",
-        element: <ProtectedRoute pageName="账户绑定"><LazyComponent component={AccountBindingPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/documents-library/account" pageName="账户绑定"><LazyComponent component={AccountBindingPage} /></ProtectedRoute>
       },
       // 联培生模块(4 角色 13 路由)
       {
         path: "joint-students/admin/students",
-        element: <ProtectedRoute permissions="/joint-students/admin/students"><LazyComponent component={StudentListPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/students" pageName="联培生管理员首页"><LazyComponent component={StudentListPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/new",
-        element: <ProtectedRoute permissions="/joint-students/admin/students/new"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/students/new" pageName="创建联培生"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/:id",
-        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/students/:id" pageName="联培生详情"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/students/:id/edit",
-        element: <ProtectedRoute permissions="/joint-students/admin/students/:id"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/students/:id/edit" pageName="编辑联培生"><LazyComponent component={StudentEditPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/reports",
-        element: <ProtectedRoute permissions="/joint-students/admin/reports"><LazyComponent component={ReportReviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/reports" pageName="报告审核"><LazyComponent component={ReportReviewPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/cycles",
-        element: <ProtectedRoute permissions="/joint-students/admin/cycles"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/cycles" pageName="批次管理"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/cycles/:id",
-        element: <ProtectedRoute permissions="/joint-students/admin/cycles/:id"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/cycles/:id" pageName="批次详情"><LazyComponent component={CycleManagementPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/admin/stipends",
-        element: <ProtectedRoute permissions="/joint-students/admin/stipends"><LazyComponent component={StipendReviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/admin/stipends" pageName="补助复核"><LazyComponent component={StipendReviewPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/expert/scoring",
-        element: <ProtectedRoute permissions="/joint-students/expert/scoring"><LazyComponent component={ExpertScoringPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/expert/scoring" pageName="专家打分"><LazyComponent component={ExpertScoringPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/reports",
-        element: <ProtectedRoute permissions="/joint-students/student/reports"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/student/reports" pageName="我的报告"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/reports/new",
-        element: <ProtectedRoute permissions="/joint-students/student/reports/new"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/student/reports/new" pageName="填报报告"><LazyComponent component={MyReportsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/student/stipends",
-        element: <ProtectedRoute permissions="/joint-students/student/stipends"><LazyComponent component={MyStipendsPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/student/stipends" pageName="我的补助"><LazyComponent component={MyStipendsPage} /></ProtectedRoute>
       },
       {
         path: "joint-students/mentor/overview",
-        element: <ProtectedRoute permissions="/joint-students/mentor/overview"><LazyComponent component={MentorOverviewPage} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/joint-students/mentor/overview" pageName="导师视图"><LazyComponent component={MentorOverviewPage} /></ProtectedRoute>
       },
       {
         path: "*",

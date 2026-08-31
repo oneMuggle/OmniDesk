@@ -31,17 +31,17 @@ def client(user):
 
 
 class TestOfficeDownload:
-    def test_valid_token_returns_blob(self, client):
+    def test_valid_token_returns_blob(self, client, user):
         rel = save_tmp_office_file("请假单.docx", b"docx-content")
-        token = create_download_token(rel)
+        token = create_download_token(rel, user_id=user.pk)
         resp = client.get(f"/api/smart-assistant/office-download/{token}/")
         assert resp.status_code == 200
         assert b"docx-content" in b"".join(resp.streaming_content)
         assert unquote(resp["Content-Disposition"]).endswith("请假单.docx")
 
-    def test_reused_token_rejected(self, client):
+    def test_reused_token_rejected(self, client, user):
         rel = save_tmp_office_file("测试.docx", b"x")
-        token = create_download_token(rel)
+        token = create_download_token(rel, user_id=user.pk)
         client.get(f"/api/smart-assistant/office-download/{token}/")
         resp2 = client.get(f"/api/smart-assistant/office-download/{token}/")
         assert resp2.status_code == 403

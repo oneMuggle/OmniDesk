@@ -1,7 +1,8 @@
 """P0-K chat last_error 持久化测试
 
-编排层抛出未收口异常时:view 返回 500 + detail,并把错误写入
-session.last_error(供前端展示与运维排查)。
+编排层抛出未收口异常时:view 返回 500 + 通用 detail(不泄露内部
+异常文本),并把异常类型名写入 session.last_error(供前端展示与
+运维排查;敏感信息留在服务端 logger.exception 完整 traceback)。
 """
 from unittest.mock import patch
 
@@ -9,6 +10,9 @@ import pytest
 from rest_framework.test import APIClient
 
 from smart_assistant.models import SmartAssistantSession
+
+
+GENERIC_DETAIL = "智能助手处理失败，请稍后重试"
 
 
 @pytest.mark.django_db
@@ -29,9 +33,9 @@ class TestChatLastError:
         )
 
         assert resp.status_code == 500
-        assert resp.data["detail"] == "boom"
+        assert resp.data["detail"] == GENERIC_DETAIL
         session.refresh_from_db()
-        assert session.last_error == "boom"
+        assert session.last_error == "RuntimeError"
 
     @patch("smart_assistant.views.chat_sync.AgentOrchestrator")
     def test_exception_without_session_returns_500(self, mock_orch_cls, admin_user_obj):
@@ -43,7 +47,7 @@ class TestChatLastError:
         resp = client.post("/api/smart-assistant/chat/", {"query": "你好"}, format="json")
 
         assert resp.status_code == 500
-        assert resp.data["detail"] == "boom"
+        assert resp.data["detail"] == GENERIC_DETAIL
         assert not SmartAssistantSession.objects.exists()
 
     @patch("smart_assistant.views.chat_sync.AgentOrchestrator")

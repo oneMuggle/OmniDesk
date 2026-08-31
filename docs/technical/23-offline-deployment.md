@@ -90,6 +90,49 @@ bash deploy_offline.sh rollback
 - **L2 GitHub 自动化**: CI 4m10s success + Run Tests 9m27s success + Deploy Test 12s success
 - **L3 服务器部署**: 离线包加载后 5 服务全 healthy + `/api/health/` 返回 `{"status":"ok","database":"ok"}` + upgrade/rollback 流程全过
 
+## 6.6 严格部署验收门禁(2026-08 收尾)
+
+`docs/superpowers/plans/2026-08-23-offline-smoke-reliability.md` 已实施并验证。CI 端到端覆盖以下门禁:
+
+### 6.6.1 部署契约测试
+
+`deployment/docker/tests/test_ci_deployment_gate.sh` 在每个 PR 上运行,断言:
+
+| 规则 | 适用范围 |
+|---|---|
+| `continue-on-error: true` | 仅 CI 检查 job(lint-*, test-*, security, typecheck, build-*)允许;deployment acceptance job(deploy-*, upgrade-*, smoke-*, e2e-*, browser-, recovery-*)不得保留 |
+| `SMOKE_STRICT=0` | 仅 CI 检查 job 允许;acceptance job 必须 SMOKE_STRICT=1 |
+| `pull_policy: missing` | 全 workflow 不得保留(只允许在显式 advisory 注释步骤临时降级) |
+| 仅 `docker compose exec ... migrate` 作为产线检查 | 必须有 `deploy_tests.sh` 或 `smoke_tests.sh` 真实业务探针 |
+
+### 6.6.2 Required 部署参数
+
+```bash
+SMOKE_STRICT=1
+SMOKE_ALLOW_NETWORK_SKIP=0
+SMOKE_ALLOW_RATE_LIMIT_SKIP=0
+SMOKE_RUN_ID=<UTC秒>-<PID>    # 隔离 run id
+```
+
+CI `deploy-test` job 显式注入这些 env。任一缺省即 FAIL。
+
+### 6.6.3 Workflow Identity 一致性
+
+部署 acceptance job 加载 image 前必须校验:
+
+- `deployment/docker/VERSION` 文件存在
+- `BUILD-MANIFEST.json` 的 `version` 字段与 VERSION 一致
+- `BUILD-MANIFEST.json` 的 `commit` 与 `GITHUB_SHA` 一致
+- `compose/.env.production` 的 `BACKEND_IMAGE_TAG` / `FRONTEND_IMAGE_TAG` / `COMPOSE_PROJECT_NAME` 存在
+
+任一不一致即 FAIL。
+
+### 6.6.4 Browser E2E 阶段
+
+`deploy-test` workflow 新增 `browser-e2e` job,depends on `deploy-test` 启动真实 Nginx-backed stack,运行 `npm run test:e2e`。覆盖 J1-J7 journey:登录 / token refresh / admin 权限 / lazy route / 静态资源无 CDN。
+
+凭据只来自 GitHub Actions secrets(`E2E_USERNAME` / `E2E_PASSWORD`),不写入 logs / screenshots / traces。
+
 ## 7. 常见问题
 
 ### 7.1 MINERU_API_KEY 缺失导致启动失败

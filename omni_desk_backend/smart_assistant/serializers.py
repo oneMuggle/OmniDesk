@@ -1,5 +1,7 @@
 from rest_framework import serializers
 from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig, KnowledgeDataset
+from .cache import safe_public_value, sanitize_public_text
+from .ssrf import UnsafeEndpointError, validate_endpoint_url
 
 
 class KnowledgeDatasetSerializer(serializers.ModelSerializer):
@@ -89,6 +91,27 @@ class SessionForkSerializer(serializers.Serializer):
 
 
 class AgentLogSerializer(serializers.ModelSerializer):
+    user_query = serializers.SerializerMethodField()
+    tool_input = serializers.SerializerMethodField()
+    tool_output = serializers.SerializerMethodField()
+    llm_response = serializers.SerializerMethodField()
+
+    def get_user_query(self, obj):
+        return sanitize_public_text(obj.user_query or "")
+
+    def get_tool_input(self, obj):
+        return safe_public_value(obj.tool_input if isinstance(obj.tool_input, dict) else {})
+
+    def get_tool_output(self, obj):
+        return safe_public_value(obj.tool_output if isinstance(obj.tool_output, (dict, list)) else {})
+
+    def get_llm_response(self, obj):
+        return (
+            sanitize_public_text(obj.llm_response or "")
+            .replace("http://", "[已隐藏]//")
+            .replace("https://", "[已隐藏]//")
+        )
+
     class Meta:
         model = AgentLog
         fields = [
@@ -197,6 +220,12 @@ class LlmEndpointCreateSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def validate_api_endpoint(self, value):
+        try:
+            return validate_endpoint_url(value, resolve_dns=False)
+        except UnsafeEndpointError as exc:
+            raise serializers.ValidationError(str(exc)) from exc
 
     def validate(self, attrs):
         if self.instance is None and not (attrs.get("api_key") or "").strip():

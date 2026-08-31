@@ -157,11 +157,28 @@ class OfficeGenerateTool(BaseTool):
 
     def execute(self, query=None, context=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
+        user_id = self._extract_user_id(context)
         if ctx.get("dry_run"):
             return self._dry_run(query, ctx)
         if ctx.get("confirmed"):
-            return self._confirmed(query, ctx)
+            return self._confirmed(query, ctx, user_id)
         return {"found": False, "message": "工具执行异常：未进入 dry_run 或 confirmed 模式"}
+
+    @staticmethod
+    def _extract_user_id(context) -> int | str | None:
+        """从 ToolContext 或 dict 中提取当前用户 pk，用于把下载 token 绑定到签发者。"""
+        if context is None:
+            return None
+        # ToolContext 对象有 .user 属性；dict 风格 ctx 有 'user' 键
+        user = getattr(context, "user", None)
+        if user is None and isinstance(context, dict):
+            user = context.get("user")
+        if user is None:
+            return None
+        pk = getattr(user, "pk", None)
+        if pk is None and isinstance(user, dict):
+            pk = user.get("pk") or user.get("id")
+        return pk
 
     def _dry_run(self, query, ctx) -> dict:
         planned = _plan_document_structure(query or "")
@@ -199,7 +216,7 @@ class OfficeGenerateTool(BaseTool):
                 return stripped
         return "文档"
 
-    def _confirmed(self, query, ctx) -> dict:
+    def _confirmed(self, query, ctx, user_id=None) -> dict:
         draft = ctx.get("draft")
         if not draft:
             token = ctx.get("confirm_token")
@@ -212,12 +229,15 @@ class OfficeGenerateTool(BaseTool):
         structure = draft["structure"]
         variables = draft.get("variables", {})
         title = self._extract_title(structure, query or "")
+        if user_id is None:
+            logger.error("OfficeGenerateTool 缺少签发用户 ID,拒绝签发下载 token")
+            return {"found": False, "message": "无法签发下载链接，请重新登录后再试"}
         try:
             relative_path, _bytes = _render_docx_to_file(structure, variables, title)
-            token = create_download_token(relative_path)
+            token = create_download_token(relative_path, user_id)
         except Exception as exc:
             logger.exception("生成 docx 失败")
-            return {"found": False, "message": f"生成文档失败：{exc}"}
+            return {"found": False, "message": "生成文档失败，请稍后重试"}
         return {
             "found": True,
             "summary": f"文档《{title}.docx》已生成",

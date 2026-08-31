@@ -1,4 +1,6 @@
 import apiClient from '../../../shared/api/apiClient';
+import { authFetch } from '../../../shared/api/authFetch';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant';
 
@@ -52,8 +54,10 @@ export function sendSmartChatStream(query, conversationId = null, attachment = n
   const abortController = new AbortController();
 
   const requestPromise = (async () => {
-    const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
-    const token = authTokens.access;
+    const token = readAuthTokens()?.access;
+    if (!token) {
+      throw new Error('AUTH_ERROR');
+    }
 
     const useFormData = attachment != null;
     const headers = { Authorization: `Bearer ${token}` };
@@ -74,7 +78,7 @@ export function sendSmartChatStream(query, conversationId = null, attachment = n
     }
 
     try {
-      const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
+      const response = await authFetch(`${apiClient.defaults.baseURL}${BASE_URL}/chat/stream/`, {
         method: 'POST',
         headers,
         body,
@@ -164,10 +168,15 @@ export async function sendSmartChat(query, conversationId = null, attachment = n
  * @throws {Error} '下载失败，链接可能已过期'(非 2xx 时)
  */
 export async function downloadOfficeFile(token) {
-  const authTokens = JSON.parse(localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}');
-  const response = await fetch(`${apiClient.defaults.baseURL}${BASE_URL}/office-download/${token}/`, {
-    headers: { Authorization: `Bearer ${authTokens.access}` },
-  });
+  const accessToken = readAuthTokens()?.access;
+  if (!accessToken) {
+    throw new Error('认证已过期，请重新登录');
+  }
+
+  const response = await authFetch(`${apiClient.defaults.baseURL}${BASE_URL}/office-download/${token}/`);
+  if (response.status === 401) {
+    throw new Error('认证已过期，请重新登录');
+  }
   if (!response.ok) throw new Error('下载失败，链接可能已过期');
   return response.blob();
 }

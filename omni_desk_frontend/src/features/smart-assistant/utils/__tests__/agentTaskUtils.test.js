@@ -16,7 +16,7 @@ import {
 
 describe('TERMINAL_STATUSES', () => {
   it('包含 completed/failed/cancelled', () => {
-    expect(TERMINAL_STATUSES).toEqual(['completed', 'failed', 'cancelled']);
+    expect(TERMINAL_STATUSES).toEqual(['completed', 'failed', 'partial', 'cancelled', 'paused']);
   });
 });
 

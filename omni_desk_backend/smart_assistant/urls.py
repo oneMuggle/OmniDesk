@@ -9,6 +9,7 @@ from .views import (
     LlmAppConfigViewSet,
     StatsViewSet,
     AgentTaskViewSet,
+    AgentWriteLogViewSet,
 )
 from .views.knowledge_base import KnowledgeDatasetViewSet
 from .views.doctor import DoctorView
@@ -24,6 +25,7 @@ router.register(r"endpoints", LlmEndpointViewSet, basename="llm-endpoints")
 router.register(r"app-configs", LlmAppConfigViewSet, basename="llm-app-configs")
 router.register(r"stats", StatsViewSet, basename="smart-stats")
 router.register(r"tasks", AgentTaskViewSet, basename="agent-tasks")
+router.register(r"write-logs", AgentWriteLogViewSet, basename="agent-write-logs")
 
 urlpatterns = [
     # doctor 自检端点（staff 只读诊断，机器可读输出契约 format_version=1）

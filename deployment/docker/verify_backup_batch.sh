@@ -67,6 +67,22 @@ for key in $REQUIRED_KEYS; do
     fi
 done
 
+# ─── 严格 JSON boolean 校验 ────────────────────────────────
+# restore_verified 是"备份曾被实际恢复并验证过"的唯一凭据,
+# 任何非 JSON boolean true 都必须拒绝,防止以下绕过:
+#   - "true"  (字符串) — 语义漂移
+#   - 1       (数字)   — 语义漂移
+#   - false   (布尔)   — 备份未真正恢复验证
+#   - null    (JSON)   — 等价缺失
+#   - missing (字段)   — 上一步骤应当已写入但漏了
+# jq -e 在结果为 false / null 时退 1,只有 JSON boolean true 才退 0。
+if ! jq -e '.restore_verified == true' "$META" >/dev/null 2>&1; then
+    ACTUAL_TYPE=$(jq -r '.restore_verified | type' "$META" 2>/dev/null || echo "missing")
+    ACTUAL_VAL=$(jq -r '.restore_verified // "missing"' "$META" 2>/dev/null || echo "missing")
+    echo "ERROR: restore_verified must be JSON boolean true (actual type=$ACTUAL_TYPE value=$ACTUAL_VAL)" >&2
+    exit 5
+fi
+
 DATABASE_FILE=$(jq -r '.database_file' "$META")
 MEDIA_FILE=$(jq -r '.media_file' "$META")
 DATABASE_SHA=$(jq -r '.database_sha256' "$META")

@@ -15,6 +15,7 @@ from observability import get_logger
 
 from ..conversation_context import is_failed_answer
 from ..orchestrator_helpers import _scope_cache_sig
+from ...cache import public_confirmation_draft
 from ...hooks.base import Reject
 from ...hooks.wiring import (
     apply_failure_hooks,
@@ -132,11 +133,12 @@ class LegacyProcessMixin:
                     },
                 )
                 # 不走 LLM 合成,直接返回 awaiting_confirmation 给前端
+                public_draft = public_confirmation_draft(draft, tool.name)
                 return {
-                    "answer": draft.get("summary") or "请确认以下操作",
+                    "answer": public_draft["summary"],
                     "intent": intent,
                     "tool_used": tool.name,
-                    "tool_result": {"draft": draft},
+                    "tool_result": {"draft": public_draft},
                     "awaiting_confirmation": True,
                     "confirmation_token": token,
                     "error": False,

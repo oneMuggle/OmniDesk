@@ -415,6 +415,12 @@ SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", 
 USE_NATIVE_TOOL_CALLS = os.environ.get("USE_NATIVE_TOOL_CALLS", "true").lower() in ("1", "true", "yes")
 # 单次 agent 调用的 tool_calls 最大轮数(防无限循环 / 死循环调工具)
 MAX_TOOL_CALLS_ROUNDS = int(os.environ.get("MAX_TOOL_CALLS_ROUNDS", "3"))
+# LLM 单次请求超时(秒),所有 OpenAI 兼容端点共用
+LLM_REQUEST_TIMEOUT_SECONDS = int(os.environ.get("LLM_REQUEST_TIMEOUT_SECONDS", "120"))
+# 多 Agent 任务派发的最大运行时间(秒),用于动态计算 Celery time limit
+AGENT_TASK_MAX_SECONDS = int(os.environ.get("AGENT_TASK_MAX_SECONDS", "1800"))
+# 每个 subtask 允许的请求重试时间倍数
+AGENT_TASK_RETRY_COEFFICIENT = int(os.environ.get("AGENT_TASK_RETRY_COEFFICIENT", "4"))
 # 单次工具调用的超时(秒),超时则注入 tool_error 让 LLM 重选
 TOOL_CALLS_TIMEOUT_SECONDS = int(os.environ.get("TOOL_CALLS_TIMEOUT_SECONDS", "30"))
 # L1 灰度(Task 12):默认仅 is_staff=True 用户启用原生 tool_calls 路径,

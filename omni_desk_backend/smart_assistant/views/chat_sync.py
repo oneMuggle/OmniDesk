@@ -20,10 +20,21 @@ from rest_framework import status
 from rest_framework.response import Response
 
 from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_error_kind
-from ..cache import clear_confirmation_draft, get_confirmation_draft
+from ..cache import (
+    ConfirmationDraftConsumeError,
+    consume_confirmation_draft,
+    get_confirmation_draft,
+    public_confirmation_draft,
+    public_tool_result,
+    public_tool_calls_meta,
+    safe_public_value,
+    sanitize_public_text,
+    sanitize_public_sources,
+)
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
 from ..tools.registry import ToolRegistry
+from ..scope import resolve_scope
 
 from .conversation_manager import (
     persist_success,
@@ -110,8 +121,8 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             status=status.HTTP_410_GONE,
         )
     # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
-    expected_prefix = f"u{request.user.pk}_"
-    if not draft_entry.get("context_sig", "").startswith(expected_prefix):
+    expected_sig = f"u{request.user.pk}_s{resolve_scope(request.user).value}"
+    if draft_entry.get("context_sig") != expected_sig:
         # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
         masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
         logger.warning(
@@ -124,14 +135,40 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             {"detail": "该确认不属于当前用户", "code": "confirmation_user_mismatch"},
             status=status.HTTP_403_FORBIDDEN,
         )
-    # replay:跳过 orchestrator,直接执行工具
-    tool = ToolRegistry.get_tool(draft_entry["tool_name"])
+    # replay 前重新按当前用户执行工具授权，权限撤销后不得执行。
+    tool = ToolRegistry.get_tool_for_user(draft_entry["tool_name"], request.user)
     if not tool:
         logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
         return Response(
-            {"detail": f"工具 {draft_entry['tool_name']} 未注册"},
+            {"detail": "确认工具不可用，请重新发起", "code": "confirmation_tool_unavailable"},
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+    try:
+        claimed = consume_confirmation_draft(confirm_token)
+    except ConfirmationDraftConsumeError as exc:
+        logger.error(
+            "confirm replay token consume unavailable: failure_kind=%s exc_type=%s",
+            exc.failure_kind,
+            type(exc).__name__,
+        )
+        return Response(
+            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    except Exception as exc:
+        logger.error(
+            "confirm replay token consume unexpected failure: exc_type=%s",
+            type(exc).__name__,
+        )
+        return Response(
+            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    if claimed is None:
+        return Response(
+            {"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT
+        )
+    draft_entry = claimed
     try:
         tool_result = execute_guarded(
             tool,
@@ -141,15 +178,15 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
                 "confirmed": True,
                 "confirm_token": confirm_token,
                 "user": request.user,
+                "task_id": draft_entry.get("task_id"),
                 "draft": draft_entry.get("draft", {}).get("fields"),
             },
         )
-        clear_confirmation_draft(confirm_token)  # 清理,防止重放
         return Response(
             {
                 "answer": tool_result.get("summary") or "操作已完成",
                 "tool_used": tool.name,
-                "tool_result": tool_result,
+                "tool_result": public_tool_result(tool_result, tool.name),
                 "confirmed": True,
                 "error": False,
             }
@@ -161,7 +198,10 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             confirm_token[:6],
             len(confirm_token),
         )
-        return Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": "智能助手操作失败，请稍后重试", "code": "confirmation_failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def _run_sync_process(
@@ -189,12 +229,25 @@ def _run_sync_process(
         )
     except Exception as exc:
         # P0-K:编排层未收口的异常 → 持久化 last_error 供前端展示/运维排查,
-        # 不再把 500 裸抛给客户端而不留痕迹
-        logger.warning("智能聊天处理异常: query=%s conversation_id=%s error=%s", query, conversation_id, exc)
+        # 不再把 500 裸抛给客户端而不留痕迹。日志仅记长度与异常类型摘要,
+        # 避免敏感 query 与完整 traceback 内容进入日志与响应
+        logger.warning(
+            "智能聊天处理异常: conversation_id=%s query_len=%d exc_type=%s",
+            conversation_id,
+            len(query) if isinstance(query, str) else 0,
+            type(exc).__name__,
+        )
         if session is not None:
-            session.last_error = str(exc)
+            session.last_error = type(exc).__name__
             session.save(update_fields=["last_error"])
-        return None, 0, Response({"detail": str(exc)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return (
+            None,
+            0,
+            Response(
+                {"detail": "智能助手处理失败，请稍后重试"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ),
+        )
     response_time_ms = int((time.time() - start_time) * 1000)
     return result, response_time_ms, None
 
@@ -216,12 +269,12 @@ def _write_sync_agent_log(
     """create 路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
     return AgentLog.objects.create(
         session=session,
-        user_query=query,
+        user_query=sanitize_public_text(query),
         intent=result.get("intent") or "unknown",
         tool_used=result.get("tool_used") or "",
-        tool_input={"query": query},
-        tool_output=result.get("tool_result") or {},
-        llm_response=answer,
+        tool_input=safe_public_value({"query": query}),
+        tool_output=safe_public_value(result.get("tool_result") or {}),
+        llm_response=sanitize_public_text(answer),
         model_name=result.get("model_name") or model_name,
         input_tokens=input_tokens,
         output_tokens=output_tokens,
@@ -231,19 +284,37 @@ def _write_sync_agent_log(
         tool_success=False if error else (result.get("tool_fallback") is not True),
         # L1 原生 Function Calling 决策日志:透传 orchestrator 的审计字段
         tool_call_path=result.get("tool_call_path") or "json",
-        tool_calls_meta=result.get("tool_calls_meta") or [],
+        tool_calls_meta=public_tool_calls_meta(result.get("tool_calls_meta") or []),
         tool_calls_rounds=result.get("tool_calls_rounds") or 0,
+    )
+
+
+def _public_sync_tool_result(result):
+    """为同步响应生成公开 ToolResult；确认草稿保持安全摘要结构。"""
+    if result.get("awaiting_confirmation"):
+        tool_result = result.get("tool_result")
+        draft = tool_result.get("draft") if isinstance(tool_result, dict) else None
+        return {
+            "draft": public_confirmation_draft(
+                draft,
+                result.get("tool_used") or "",
+            )
+        }
+    return public_tool_result(
+        result.get("tool_result"),
+        result.get("tool_used") or "",
+        intent=result.get("intent") or "",
     )
 
 
 def _build_sync_payload(result, log, conversation_id, error) -> Response:
     """组装同步响应 payload;失败响应在 error=true 基础上追加 kind + hint。"""
     payload = {
-        "answer": result["answer"],
+        "answer": sanitize_public_text(result.get("answer")),
         "intent": result.get("intent"),
         "tool_used": result.get("tool_used"),
-        "tool_result": result.get("tool_result"),
-        "sources": result.get("sources"),
+        "tool_result": _public_sync_tool_result(result),
+        "sources": sanitize_public_sources(result.get("sources")),
         "conversation_id": result.get("conversation_id") or conversation_id,
         "log_id": log.id,
         "error": error,
@@ -253,7 +324,7 @@ def _build_sync_payload(result, log, conversation_id, error) -> Response:
         "confirmation_token": result.get("confirmation_token"),
         # L1 原生 Function Calling 决策日志:透传给前端(A/B 评估 / 审计展示)
         "tool_call_path": result.get("tool_call_path"),
-        "tool_calls_meta": result.get("tool_calls_meta") or [],
+        "tool_calls_meta": public_tool_calls_meta(result.get("tool_calls_meta") or []),
         "tool_calls_rounds": result.get("tool_calls_rounds") or 0,
         # P1A-2:透传 RateLimitHook 拒答字段(写工具速率限制)。
         # 旧字段缺省时为 None,前端按通用错误展示,无 breaking。

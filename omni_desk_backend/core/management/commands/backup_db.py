@@ -9,6 +9,7 @@
   命名,兼容 smoke_tests.sh 阶段 11 与 backup.sh 透传参数。
 """
 
+import contextlib
 import gzip
 import hashlib
 import json
@@ -321,7 +322,11 @@ class Command(BaseCommand):
             raise CommandError(f"--verify requires PostgreSQL backend (current: {db['ENGINE']})")
 
         prefix = options["verify_shadow_db_prefix"] or _DEFAULT_SHADOW_PREFIX
-        sanitized = _SHADOW_DB_NAME_RE.sub("", batch_id)[:20]
+        # PostgreSQL 在 CREATE DATABASE 时会对未加引号的标识符自动小写化存储,
+        # 若 shadow_db 残留大写字母(来自 sanitized batch_id),后续 `psql -d <shadow>`
+        # 会以原大小写查询 → "database does not exist"。修法:统一 lowercase,
+        # 保证 CREATE 与后续 psql `-d` 的标识符完全等价。
+        sanitized = _SHADOW_DB_NAME_RE.sub("", batch_id)[:20].lower()
         shadow_db = f"{prefix}{sanitized}"
         timeout = options["verify_timeout"]
 
@@ -379,9 +384,16 @@ class Command(BaseCommand):
             )
 
     def _psql_restore_shadow(self, db_file, shadow_db, base_psql, env, timeout):
-        """gunzip <db_file> | psql -d <shadow> -v ON_ERROR_STOP=1(流式,Popen pipe).
+        """gunzip <db_file> | psql -d <shadow> -v ON_ERROR_STOP=1(流式,Popen pipe)。
 
         用 subprocess.Popen + 明示 stdin 写 chunk,避免 Fix-12 关闭顺序 bug。
+
+        Fix-BrokenPipe:写循环期间若 psql 提前退出(例如输入触发 ON_ERROR_STOP=1
+        抛 SQL 错误、OOM 或提前结束),继续写入会抛 BrokenPipeError。修复:
+        1) 写前 poll 子进程,已退出则 stop writing,直接走 wait 拿 returncode;
+        2) stdin.write 包 BrokenPipeError 捕获,已读端关闭则 break;
+        3) stdin.close 包 (BrokenPipeError, OSError),关闭后 wait 仍返回
+           真实的 psql exit code → 由 raise CommandError 暴露给调用方。
         """
         cmd = base_psql + ["-d", shadow_db, "-v", "ON_ERROR_STOP=1"]
         try:
@@ -394,11 +406,24 @@ class Command(BaseCommand):
                     chunk = gz.read(64 * 1024)
                     if not chunk:
                         break
-                    process.stdin.write(chunk)
-            process.stdin.close()
+                    if process.poll() is not None:
+                        # psql 已退出(ON_ERROR_STOP 触发或提前结束),停止写 stdin
+                        # 后续从 wait() 拿 returncode 抛错
+                        break
+                    try:
+                        process.stdin.write(chunk)
+                    except BrokenPipeError:
+                        # psql 已读端关闭(可能 OOM 或 EXIT 触发),停止写
+                        break
+            with contextlib.suppress(BrokenPipeError, OSError):
+                # psql 提前退出后 stdin 关闭可能再次抛 BrokenPipeError,忽略
+                process.stdin.close()
             returncode = process.wait(timeout=timeout)
         except Exception:
-            process.kill()
+            # psql 可能已经死,kill() 在已退出的子进程上抛 ProcessLookupError,
+            # 只在子进程仍存活时尝试清理
+            if process.poll() is None:
+                process.kill()
             raise
         if returncode != 0:
             raise CommandError(f"Shadow restore (psql) exited {returncode}")

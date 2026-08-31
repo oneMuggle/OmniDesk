@@ -181,4 +181,26 @@ export const trialApi = {
             throw error;
         }
     },
+
+    /**
+     * 导出当前过滤条件下的试验列表为 xlsx。
+     * 后端契约(见 events/views/trials.py TrialViewSet.export):
+     *   GET /api/events/trials/export/?status=&start_date__gte=&start_date__lte=
+     * 返回 application/vnd.openxmlformats-officedocument.spreadsheetml.sheet 二进制流。
+     */
+    exportTrials: async (filters?: {
+        status?: TrialStatus;
+        start_date__gte?: string;
+        start_date__lte?: string;
+    }): Promise<Blob> => {
+        const params: Record<string, string> = {};
+        if (filters?.status) params.status = filters.status;
+        if (filters?.start_date__gte) params.start_date__gte = filters.start_date__gte;
+        if (filters?.start_date__lte) params.start_date__lte = filters.start_date__lte;
+        const response = await apiClient.get<Blob>('events/trials/export/', {
+            params,
+            responseType: 'blob',
+        });
+        return response.data;
+    },
 };

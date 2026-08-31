@@ -93,6 +93,21 @@ class TestNotificationViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data['unread_count'] == 2
 
+    @pytest.mark.parametrize('method', ['post', 'put', 'patch', 'delete'])
+    def test_regular_user_cannot_mutate_notifications(
+        self, regular_client, regular_user_obj, method
+    ):
+        notification = Notification.objects.create(
+            user=regular_user_obj, type='system', title='Test', content='Content'
+        )
+        url = (
+            reverse('notification-list')
+            if method == 'post'
+            else reverse('notification-detail', kwargs={'pk': notification.pk})
+        )
+        response = getattr(regular_client, method)(url, data={}, format='json')
+        assert response.status_code == status.HTTP_405_METHOD_NOT_ALLOWED
+
     def test_cannot_access_other_user_notifications(self, regular_client, admin_user_obj):
         notification = Notification.objects.create(
             user=admin_user_obj, type='system', title='Admin notification', content='Content'

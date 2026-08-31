@@ -16,7 +16,10 @@
 
 set -u
 
-DEPLOY_SH="${1:-package_offline_bundle.sh}"
+# Step 8(Task 5):不依赖调用方 cwd,默认从测试脚本自身位置解析 deploy.sh 路径。
+# 用法: bash deployment/docker/tests/test_deploy_image_tags.sh [path/to/deploy.sh]
+_DEPLOY_SH_DEFAULT="$(cd "$(dirname "$0")/.." && pwd)/package_offline_bundle.sh"
+DEPLOY_SH="${1:-$_DEPLOY_SH_DEFAULT}"
 if [ ! -f "$DEPLOY_SH" ]; then
     echo "FAIL: deploy.sh not found: $DEPLOY_SH"
     echo "用法: $0 [path/to/deploy.sh]"

@@ -5,7 +5,7 @@
  * 无 React 依赖,可独立单测。
  */
 
-export const TERMINAL_STATUSES = ['completed', 'failed', 'cancelled'];
+export const TERMINAL_STATUSES = ['completed', 'failed', 'partial', 'cancelled', 'paused'];
 
 /** 事件类型 → 时间线节点颜色 */
 export const eventColor = (type) => {

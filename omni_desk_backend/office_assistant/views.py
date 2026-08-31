@@ -54,9 +54,11 @@ class OfficeAssistantProcessView(APIView):
                 processed_text, _usage = router.generate(prompt=text, system_message=system_message, stream=False)
                 return Response({"processed_text": processed_text}, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
+            logger.exception("office_assistant.process.unexpected_error")
             return Response(
-                {"error": f"An unexpected error occurred: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                {"error": "An unexpected error occurred. Please retry later."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
@@ -129,8 +131,9 @@ class ProcessDocumentView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
 
-        except Exception as e:
+        except Exception:
+            logger.exception("office_assistant.process_document.unexpected_error")
             return Response(
-                {"status": "error", "message": f"Failed to process document: {e!s}"},
+                {"status": "error", "message": "Failed to process document. Please retry later."},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

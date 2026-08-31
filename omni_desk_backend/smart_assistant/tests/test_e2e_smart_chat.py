@@ -20,7 +20,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 import pytest
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from rest_framework import status
 from rest_framework.test import APIClient
 
@@ -64,7 +64,12 @@ class TestSmartChatE2EScheduleHappy:
         assert response.data["answer"] == "明天张三值班。"
         assert response.data["intent"] == "schedule_query"
         assert response.data["tool_used"] == "schedule_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"] == {
+            "found": True,
+            "date": "2026-06-07",
+            "count": 1,
+        }
+        assert "schedules" not in response.data["tool_result"]
         assert "conversation_id" in response.data
 
         # 验证 AgentLog
@@ -116,7 +121,10 @@ class TestSmartChatE2EToolFailureFallback:
 
         assert response.status_code == status.HTTP_200_OK
         assert "抱歉" in response.data["answer"]
-        assert response.data["tool_result"]["found"] is False
+        assert response.data["tool_result"] == {
+            "found": False,
+            "message": "暂无排班记录",
+        }
 
         # 验证 AgentLog 标记 tool_success=False
         log = AgentLog.objects.filter(user_query="明天谁值班？").first()
@@ -238,7 +246,7 @@ class TestSmartChatE2EAnnouncementQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "announcement_query"
         assert response.data["tool_used"] == "announcement_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert "公告" in response.data["answer"]
 
         # 验证 AgentLog
@@ -298,7 +306,7 @@ class TestSmartChatE2EComplianceQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "compliance_query"
         assert response.data["tool_used"] == "compliance_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert response.data["tool_result"]["count"] == 1
 
         # 验证 AgentLog 写入
@@ -351,7 +359,7 @@ class TestSmartChatE2EExternalLinkQuery:
         assert response.status_code == status.HTTP_200_OK
         assert response.data["intent"] == "external_link_query"
         assert response.data["tool_used"] == "external_link_query"
-        assert response.data["tool_result"]["found"] is True
+        assert response.data["tool_result"]["count"] == 1
         assert "VPN" in response.data["answer"]
 
         # 验证 AgentLog
@@ -601,6 +609,7 @@ def test_e2e_aggregation_returns_scope_filtered_data(
 
 
 @pytest.mark.django_db
+@override_settings(USE_NATIVE_TOOL_CALLS=False)
 def test_e2e_cache_isolated_by_user_and_scope(
     auth_client, auth_client_admin, mock_llm_router
 ):
@@ -612,6 +621,7 @@ def test_e2e_cache_isolated_by_user_and_scope(
     使用 schedule_query 触发真实工具路径(而非 general_chat)。
     """
     from unittest.mock import patch, MagicMock
+    import smart_assistant.agent.orchestrator as orchestrator_root
     from smart_assistant.cache import cache_tool_result as real_cache_tool_result
 
     captured_context_sigs = []
@@ -628,11 +638,11 @@ def test_e2e_cache_isolated_by_user_and_scope(
     mock_tool.name = "schedule_query"
     mock_tool.execute.return_value = {"found": True, "schedules": []}
     mock_tool.supports_scope_filter = False  # 走旧路径,仍会调 cache_tool_result
+    mock_tool.require_confirmation = False
 
-    # 注意:必须 patch orchestrator 内部导入的 cache_tool_result 引用,
-    # 不能 patch smart_assistant.cache.cache_tool_result(因为 from .. import
-    # 已经把引用拷到 orchestrator 命名空间)。
-    with patch("smart_assistant.agent.orchestrator.cache_tool_result", wrapped_cache_tool_result), \
+    # LegacyProcessMixin 通过 persistence._root() 动态读取编排器包根；使用已加载的
+    # 包根对象作为兼容 seam，确保捕获真实的 scope-aware cache 写入。
+    with patch.object(orchestrator_root, "cache_tool_result", wrapped_cache_tool_result), \
          patch("smart_assistant.agent.orchestrator.ToolRegistry") as mock_registry, \
          patch("smart_assistant.agent.orchestrator.classify_intent") as mock_classify:
         mock_classify.return_value = "schedule_query"

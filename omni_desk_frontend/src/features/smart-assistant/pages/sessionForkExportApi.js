@@ -5,6 +5,8 @@
  * 本任务所需请求函数独立放在页面同目录。
  */
 import apiClient from '../../../shared/api/apiClient';
+import { authFetch } from '../../../shared/api/authFetch';
+import { readAuthTokens } from '../../../shared/utils/authTokens';
 
 const BASE_URL = 'smart-assistant';
 
@@ -34,12 +36,7 @@ export async function forkSession(sessionId, { atMessage, title } = {}) {
  * @returns {string|undefined} JWT access token
  */
 function getAccessToken() {
-  const raw = localStorage.getItem('authTokens') || sessionStorage.getItem('authTokens') || '{}';
-  try {
-    return JSON.parse(raw).access;
-  } catch {
-    return undefined;
-  }
+  return readAuthTokens()?.access;
 }
 
 /**
@@ -55,7 +52,8 @@ export function parseDownloadFilename(response, fallback) {
   const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
   if (utf8Match) {
     try {
-      return decodeURIComponent(utf8Match[1].trim());
+      const decodedFilename = decodeURIComponent(utf8Match[1].trim());
+      return decodedFilename || fallback;
     } catch {
       // 解码失败继续尝试普通 filename
     }
@@ -98,11 +96,15 @@ function triggerBlobDownload(blob, filename) {
  * @throws {Error} 非 2xx 响应时抛出（页面层统一 message.error）
  */
 export async function exportSessionMarkdown(sessionId, title) {
-  const response = await fetch(
+  const accessToken = getAccessToken();
+  if (!accessToken) {
+    throw new Error('认证已过期，请重新登录');
+  }
+
+  const response = await authFetch(
     `${apiClient.defaults.baseURL}${BASE_URL}/sessions/${sessionId}/export/`,
     {
       method: 'GET',
-      headers: { Authorization: `Bearer ${getAccessToken()}` },
     }
   );
 

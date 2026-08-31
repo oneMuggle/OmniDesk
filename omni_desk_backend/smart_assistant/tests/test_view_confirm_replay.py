@@ -100,7 +100,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -114,7 +114,55 @@ class TestReplaySuccess:
         assert data["confirmed"] is True
         assert data["error"] is False
         assert data["tool_used"] == "mock_replay_tool"
-        assert data["tool_result"]["result"] == "replayed_successfully"
+        assert data["tool_result"]["found"] is True
+        assert data["tool_result"]["summary"] == "操作已重放"
+        assert set(data["tool_result"]) == {"found", "summary"}
+
+    def test_replay_response_exposes_only_safe_result_summary(self, api_client, mock_user):
+        """同步 confirm-replay 不得把工具原始结果直接返回给客户端。"""
+        token = "test-token-safe-result"
+        set_confirmation_draft(token, {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {"summary": "safe"},
+        })
+
+        class SensitiveReplayTool(_MockReplayTool):
+            def execute(self, query=None, context=None, **kwargs):
+                return {
+                    "found": True,
+                    "result": {
+                        "operation_id": "op-1",
+                        "sent_count": 1,
+                        "failed_count": 0,
+                        "recipient_names": ["Alice"],
+                        "content": "正文 secret=do-not-leak",
+                        "apiKey": "sk-secret",
+                        "unknown": "do-not-leak",
+                    },
+                    "summary": "已完成",
+                }
+
+        api_client.force_authenticate(user=mock_user)
+        with patch(
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            return_value=SensitiveReplayTool(),
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["tool_result"] == {
+            "operation_id": "op-1", "sent_count": 1, "failed_count": 0,
+        }
+        assert "recipient_names" not in str(payload)
+        assert "do-not-leak" not in str(payload)
+        assert "sk-secret" not in str(payload)
 
     def test_replay_success_clears_draft(self, api_client, mock_user):
         """replay 成功后 draft 被清理(防重放)"""
@@ -134,7 +182,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -197,6 +245,67 @@ class TestReplayFailure:
         data = response.json()
         assert data["code"] == "confirmation_user_mismatch"
 
+    def test_consume_backend_failure_returns_503_and_does_not_execute_tool(self, api_client, mock_user):
+        token = "test-token-backend-failure"
+        draft = {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {},
+        }
+        api_client.force_authenticate(user=mock_user)
+        tool = _MockReplayTool()
+        with (
+            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch(
+                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                side_effect=RuntimeError("cache unavailable"),
+            ),
+            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user", return_value=tool),
+            patch.object(tool, "execute") as execute,
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 503
+        assert response.json() == {
+            "detail": "确认服务暂不可用，请稍后重试",
+            "code": "confirmation_service_unavailable",
+        }
+        execute.assert_not_called()
+
+    def test_repeated_consumption_returns_409_and_does_not_execute_tool(self, api_client, mock_user):
+        token = "test-token-repeated"
+        draft = {
+            "tool_name": "mock_replay_tool",
+            "user_query": "query",
+            "context_sig": f"u{mock_user.pk}_sself",
+            "draft": {},
+        }
+        api_client.force_authenticate(user=mock_user)
+        tool = _MockReplayTool()
+        with (
+            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch(
+                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                return_value=None,
+            ),
+            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user", return_value=tool),
+            patch.object(tool, "execute") as execute,
+        ):
+            response = api_client.post(
+                "/api/smart-assistant/chat/",
+                {"query": "query", "confirm_token": token},
+                format="json",
+            )
+
+        assert response.status_code == 409
+        assert response.json()["code"] == "confirmation_already_used"
+        execute.assert_not_called()
+
     def test_tool_not_registered_returns_500(self, api_client, mock_user):
         """draft 中的 tool_name 未注册 → 500"""
         token = "test-token-unregistered"
@@ -214,7 +323,7 @@ class TestReplayFailure:
 
         # ToolRegistry.get_tool 返回 None
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool",
+            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
             return_value=None,
         ):
             response = api_client.post(
@@ -225,7 +334,7 @@ class TestReplayFailure:
 
         assert response.status_code == 500
         data = response.json()
-        assert "未注册" in data["detail"]
+        assert data["detail"] == "确认工具不可用，请重新发起"
 
 
 # ---------------------------------------------------------------------------

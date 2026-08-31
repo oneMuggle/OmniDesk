@@ -82,6 +82,11 @@ cp "$ROOT/upgrade.sh"     "$bundle/scripts/upgrade.sh"
 cp "$ROOT/rollback.sh"    "$bundle/scripts/rollback.sh"
 cp "$ROOT/backup.sh"      "$bundle/scripts/backup.sh"
 cp "$ROOT/verify.sh"      "$bundle/scripts/verify.sh"
+# Step 3(Task 5):补齐 smoke_common.sh / deploy_tests.sh / validate_artifacts.sh(verify.sh 强制要求)
+[ -f "$ROOT/smoke_common.sh" ]    && cp "$ROOT/smoke_common.sh"    "$bundle/scripts/smoke_common.sh"
+[ -f "$ROOT/deploy_tests.sh" ]    && cp "$ROOT/deploy_tests.sh"    "$bundle/scripts/deploy_tests.sh"
+[ -f "$ROOT/validate_artifacts.sh" ] && cp "$ROOT/validate_artifacts.sh" "$bundle/scripts/validate_artifacts.sh"
+[ -f "$ROOT/verify_backup_batch.sh" ] && cp "$ROOT/verify_backup_batch.sh" "$bundle/scripts/verify_backup_batch.sh"
 cp "$COMPOSE_FILE_SRC"    "$bundle/compose/docker-compose.offline.yml"
 
 # 写入 VERSION 与 BUILD-MANIFEST.json(verify.sh 要求)
@@ -190,7 +195,12 @@ cp "$ROOT/verify.sh"    "$uninit_bundle/scripts/verify.sh"
 cp "$ROOT/deploy_offline.sh" "$uninit_bundle/scripts/deploy_offline.sh"
 cp "$ROOT/smoke_tests.sh"    "$uninit_bundle/scripts/smoke_tests.sh"
 cp "$ROOT/upgrade_state.sh"  "$uninit_bundle/scripts/upgrade_state.sh"
+# Step 3(Task 5):uninit bundle 也必须含 smoke_common.sh / deploy_tests.sh / validate_artifacts.sh
+[ -f "$ROOT/smoke_common.sh" ]    && cp "$ROOT/smoke_common.sh"    "$uninit_bundle/scripts/smoke_common.sh"
+[ -f "$ROOT/deploy_tests.sh" ]    && cp "$ROOT/deploy_tests.sh"    "$uninit_bundle/scripts/deploy_tests.sh"
+[ -f "$ROOT/validate_artifacts.sh" ] && cp "$ROOT/validate_artifacts.sh" "$uninit_bundle/scripts/validate_artifacts.sh"
 [ -f "$ROOT/test_helpers.sh" ] && cp "$ROOT/test_helpers.sh" "$uninit_bundle/scripts/test_helpers.sh"
+[ -f "$ROOT/verify_backup_batch.sh" ] && cp "$ROOT/verify_backup_batch.sh" "$uninit_bundle/scripts/verify_backup_batch.sh"
 [ -d "$ROOT/tests" ] && cp -r "$ROOT/tests" "$uninit_bundle/scripts/tests"
 # scripts/deploy.sh 由 package_offline_bundle.sh 内联生成,不来自源码;
 # 这里用 stub 占位(空脚本但存在)模拟打包后的产物。
@@ -275,8 +285,12 @@ cp "$ROOT/backup.sh"              "$REAL_PACK_SRC/"
 cp "$ROOT/verify.sh"              "$REAL_PACK_SRC/"
 cp "$ROOT/deploy_offline.sh"      "$REAL_PACK_SRC/"
 cp "$ROOT/smoke_tests.sh"         "$REAL_PACK_SRC/"
+cp "$ROOT/smoke_common.sh"        "$REAL_PACK_SRC/"
+cp "$ROOT/deploy_tests.sh"        "$REAL_PACK_SRC/"
+cp "$ROOT/validate_artifacts.sh"  "$REAL_PACK_SRC/"
 cp "$ROOT/upgrade_state.sh"       "$REAL_PACK_SRC/"
 [ -f "$ROOT/test_helpers.sh" ] && cp "$ROOT/test_helpers.sh" "$REAL_PACK_SRC/"
+[ -f "$ROOT/verify_backup_batch.sh" ] && cp "$ROOT/verify_backup_batch.sh" "$REAL_PACK_SRC/"
 [ -d "$ROOT/tests" ] && cp -r "$ROOT/tests" "$REAL_PACK_SRC/tests"
 cp "$ROOT/docker-compose.offline.yml" "$REAL_PACK_SRC/"
 cp "$ROOT/.env.production.example"     "$REAL_PACK_SRC/"
@@ -344,7 +358,7 @@ else
 fi
 
 # 8.1 真实 bundle 含全部 brief 要求脚本
-for s in deploy upgrade rollback backup verify deploy_offline smoke_tests; do
+for s in deploy upgrade rollback backup verify deploy_offline smoke_tests verify_backup_batch; do
     if [ -f "$REAL_BUNDLE/scripts/${s}.sh" ]; then
         pass "real bundle 含 scripts/${s}.sh"
     else
@@ -389,6 +403,8 @@ fi
 #     而不是空文件 — 后者在 hero scenarios 中常被静默忽略)
 bash -n "$REAL_BUNDLE/scripts/upgrade.sh" 2>/dev/null && pass "real bundle upgrade.sh bash -n OK"  || fail "real bundle upgrade.sh bash -n FAIL"
 bash -n "$REAL_BUNDLE/scripts/rollback.sh" 2>/dev/null && pass "real bundle rollback.sh bash -n OK" || fail "real bundle rollback.sh bash -n FAIL"
+# P1-#12:验证 bundle 内的 verify_backup_batch.sh 不仅是占位文件,还能 bash 语法通过
+bash -n "$REAL_BUNDLE/scripts/verify_backup_batch.sh" 2>/dev/null && pass "real bundle verify_backup_batch.sh bash -n OK" || fail "real bundle verify_backup_batch.sh bash -n FAIL"
 
 # 9. 协调员 Important #2:verify.sh 注释行过滤 + 真实声明匹配
 #    构造一个 example 文件,故意把字段名写在注释行 → 应被识别为"未声明"。

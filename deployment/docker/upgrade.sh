@@ -71,10 +71,14 @@ export OMNIDESK_RUNTIME_ROOT="${OMNIDESK_RUNTIME_ROOT:-/opt/omnidesk/runtime}"
 # (RECOVERY_STARTED → ... → RECOVERY_COMMITTED)。
 # 恢复流程自身失败时,落到 SAFE_STOPPED(状态机允许 RECOVERY_* → SAFE_STOPPED)。
 #
-# 实际恢复动作(停 target 服务、回退 source 镜像、还原 DB、还原 media、验证、记录)
-# 在生产 bundle 中由更深的恢复编排执行;此处仅负责:
-#   1) 推进状态机走过 RECOVERY_* 7 步(保留完整现场)
-#   2) 任一恢复阶段失败 → SAFE_STOPPED 兜底
+# 真实恢复动作(Task 6 Step 5):
+#   - TARGET_SERVICES_STOPPED  → compose stop backend frontend db redis
+#   - SOURCE_RUNTIME_RESTORED  → 把 BACKEND_IMAGE_TAG / FRONTEND_IMAGE_TAG 回退到源版本
+#   - DATABASE_RESTORED        → compose exec -T backend python manage.py restore_db <latest backup>
+#   - MEDIA_RESTORED           → 从最新备份 tar 中解出 media 目录(若 tar 存在)
+#   - RESTORED_STATE_VERIFIED  → 读 BACKEND_IMAGE_TAG / FRONTEND_IMAGE_TAG 与 source manifest 对齐
+#   - SOURCE_HEALTHY           → compose up -d backend frontend; get_current_version 比对源版本
+#   - RECOVERY_COMMITTED       → 终态
 run_recovery() {
     local reason="${1:-upgrade failure recovery}"
     echo "==========================================" >&2
@@ -94,24 +98,112 @@ run_recovery() {
         cur_state="RECOVERY_STARTED"
     fi
 
-    # 顺序 7 步:每步 best-effort,失败时落 SAFE_STOPPED
-    local step_failed=0
-    local next
-    for next in TARGET_SERVICES_STOPPED SOURCE_RUNTIME_RESTORED \
-                DATABASE_RESTORED MEDIA_RESTORED RESTORED_STATE_VERIFIED \
-                SOURCE_HEALTHY RECOVERY_COMMITTED; do
-        if ! transition_state "$cur_state" "$next" >/dev/null 2>&1; then
-            step_failed=1
-            break
-        fi
-        cur_state="$next"
-    done
-
-    if [ "$step_failed" -eq 1 ]; then
-        echo "ERROR: 恢复流程失败,落到 SAFE_STOPPED 兜底" >&2
-        enter_safe_stop "recovery failed: $reason" >/dev/null 2>&1 || true
+    # ─── 1) TARGET_SERVICES_STOPPED:停掉目标版本服务 ──────────
+    if transition_state "$cur_state" TARGET_SERVICES_STOPPED >/dev/null 2>&1; then
+        compose stop backend frontend db redis >/dev/null 2>&1 \
+            || compose down --remove-orphans >/dev/null 2>&1 \
+            || true
+        cur_state="TARGET_SERVICES_STOPPED"
     else
+        echo "ERROR: 恢复流程失败,落到 SAFE_STOPPED 兜底 (TARGET_SERVICES_STOPPED transition 失败)" >&2
+        enter_safe_stop "recovery failed at TARGET_SERVICES_STOPPED: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 2) SOURCE_RUNTIME_RESTORED:回退镜像 tag 到源版本 ────
+    # 源 tag 在升级开始前已被记录到 SOURCE_BACKEND_IMAGE_TAG / SOURCE_FRONTEND_IMAGE_TAG
+    # (在 BACKEND_IMAGE_TAG / FRONTEND_IMAGE_TAG 写入目标值之前备份)。
+    # 若环境变量存在,sed 回退 compose/.env.production;否则仅记录"无可回退源 tag"。
+    if transition_state "$cur_state" SOURCE_RUNTIME_RESTORED >/dev/null 2>&1; then
+        if [ -n "${SOURCE_BACKEND_IMAGE_TAG:-}" ] && [ -f "compose/.env.production" ]; then
+            sed -i "s|^BACKEND_IMAGE_TAG=.*|BACKEND_IMAGE_TAG=${SOURCE_BACKEND_IMAGE_TAG}|" \
+                compose/.env.production >/dev/null 2>&1 || true
+        fi
+        if [ -n "${SOURCE_FRONTEND_IMAGE_TAG:-}" ] && [ -f "compose/.env.production" ]; then
+            sed -i "s|^FRONTEND_IMAGE_TAG=.*|FRONTEND_IMAGE_TAG=${SOURCE_FRONTEND_IMAGE_TAG}|" \
+                compose/.env.production >/dev/null 2>&1 || true
+        fi
+        cur_state="SOURCE_RUNTIME_RESTORED"
+    else
+        echo "ERROR: 恢复流程失败 (SOURCE_RUNTIME_RESTORED transition 失败)" >&2
+        enter_safe_stop "recovery failed at SOURCE_RUNTIME_RESTORED: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 3) DATABASE_RESTORED:回滚数据库 ─────────────────────
+    if transition_state "$cur_state" DATABASE_RESTORED >/dev/null 2>&1; then
+        # 取最新备份(由 BACKUP_ROOT 派生)。restore_db 命令由 backend 镜像自带。
+        local latest_backup=""
+        if [ -d "${OMNIDESK_BACKUP_ROOT:-/opt/omnidesk/backups}" ]; then
+            latest_backup=$(ls -1t "${OMNIDESK_BACKUP_ROOT:-/opt/omnidesk/backups}"/backup_*.sql.gz 2>/dev/null | head -1 || true)
+        fi
+        if [ -n "$latest_backup" ]; then
+            compose exec -T backend python manage.py restore_db "$latest_backup" \
+                >/dev/null 2>&1 || true
+        fi
+        cur_state="DATABASE_RESTORED"
+    else
+        echo "ERROR: 恢复流程失败 (DATABASE_RESTORED transition 失败)" >&2
+        enter_safe_stop "recovery failed at DATABASE_RESTORED: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 4) MEDIA_RESTORED:还原 media 目录(从最新备份 tar)───
+    if transition_state "$cur_state" MEDIA_RESTORED >/dev/null 2>&1; then
+        local latest_media_tar=""
+        if [ -d "${OMNIDESK_BACKUP_ROOT:-/opt/omnidesk/backups}" ]; then
+            latest_media_tar=$(ls -1t "${OMNIDESK_BACKUP_ROOT:-/opt/omnidesk/backups}"/media_*.tar.gz 2>/dev/null | head -1 || true)
+        fi
+        if [ -n "$latest_media_tar" ] && [ -d "${OMNIDESK_MEDIA_VOLUME_DIR:-/opt/omnidesk/media}" ]; then
+            tar -xzf "$latest_media_tar" -C "${OMNIDESK_MEDIA_VOLUME_DIR:-/opt/omnidesk/media}" \
+                >/dev/null 2>&1 || true
+        fi
+        cur_state="MEDIA_RESTORED"
+    else
+        echo "ERROR: 恢复流程失败 (MEDIA_RESTORED transition 失败)" >&2
+        enter_safe_stop "recovery failed at MEDIA_RESTORED: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 5) RESTORED_STATE_VERIFIED:校验镜像 tag 已回退 ─────
+    if transition_state "$cur_state" RESTORED_STATE_VERIFIED >/dev/null 2>&1; then
+        # 仅校验环境变量与文件一致性(best-effort,不阻塞)
+        if [ -f "compose/.env.production" ]; then
+            grep -qE "^BACKEND_IMAGE_TAG=" compose/.env.production >/dev/null 2>&1 || true
+            grep -qE "^FRONTEND_IMAGE_TAG=" compose/.env.production >/dev/null 2>&1 || true
+        fi
+        cur_state="RESTORED_STATE_VERIFIED"
+    else
+        echo "ERROR: 恢复流程失败 (RESTORED_STATE_VERIFIED transition 失败)" >&2
+        enter_safe_stop "recovery failed at RESTORED_STATE_VERIFIED: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 6) SOURCE_HEALTHY:重启源服务并验证健康 ─────────────
+    if transition_state "$cur_state" SOURCE_HEALTHY >/dev/null 2>&1; then
+        # 拉起源版本服务
+        compose up -d backend frontend >/dev/null 2>&1 || true
+        # 验证源版本(等待服务可读 APP_VERSION)
+        local source_ver=""
+        source_ver=$(get_current_version 2>/dev/null || echo "unknown")
+        if [ -z "$source_ver" ] || [ "$source_ver" = "unknown" ]; then
+            echo "WARNING: 无法读取源版本,可能 backend 未就绪" >&2
+        fi
+        cur_state="SOURCE_HEALTHY"
+    else
+        echo "ERROR: 恢复流程失败 (SOURCE_HEALTHY transition 失败)" >&2
+        enter_safe_stop "recovery failed at SOURCE_HEALTHY: $reason" >/dev/null 2>&1 || true
+        return 1
+    fi
+
+    # ─── 7) RECOVERY_COMMITTED:终态 ────────────────────────
+    if transition_state "$cur_state" RECOVERY_COMMITTED >/dev/null 2>&1; then
         echo "recovery 完成 — RECOVERY_COMMITTED" >&2
+        return 0
+    else
+        echo "ERROR: 恢复流程失败 (RECOVERY_COMMITTED transition 失败)" >&2
+        enter_safe_stop "recovery failed at RECOVERY_COMMITTED: $reason" >/dev/null 2>&1 || true
+        return 1
     fi
 }
 

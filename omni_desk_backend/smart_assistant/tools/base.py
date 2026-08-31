@@ -110,24 +110,25 @@ class BaseTool(ABC):
     def get_openai_tool_schema(cls) -> dict:
         """返回 OpenAI 兼容的 tool 描述(原生 function calling 协议)。
 
-        子类必须重写。返回值形如::
-
-            {
-                "type": "function",
-                "function": {
-                    "name": "...",
-                    "description": "...",
-                    "parameters": {"type": "object", ...},
-                    "strict": True,
-                },
-            }
-
-        注:本方法**不**标 ``@abstractmethod`` —— 现有 18 个 BaseTool 子类
-        尚未实现该方法(Task 4 才逐步接入),直接 abstractmethod 会导致所有
-        实例化失败并连带挂掉 1138 个现有测试。改为运行期 ``raise
-        NotImplementedError``,语义不变但保留向后兼容性。
+        子类可以提供精确的 schema；未覆写时使用 ``get_schema()`` 的通用
+        降级格式，以便旧工具也能参与 function calling。降级格式只暴露一个
+        必填的 ``query`` 字符串参数，并关闭额外属性。
         """
-        raise NotImplementedError(f"{cls.__name__} must implement get_openai_tool_schema() for native function calling")
+        tool_schema = cls.__new__(cls).get_schema()
+        return {
+            "type": "function",
+            "function": {
+                "name": tool_schema["intent_type"],
+                "description": tool_schema["description"],
+                "parameters": {
+                    "type": "object",
+                    "properties": {"query": {"type": "string"}},
+                    "required": ["query"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
 
     @classmethod
     def validate_arguments(cls, args: dict) -> dict:
