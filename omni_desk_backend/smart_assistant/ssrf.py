@@ -76,14 +76,15 @@ def validate_endpoint_url(value, *, resolve_dns=True, resolver=None, allowed_hos
 
 def safe_request(method, url, *, requester=None, resolver=None, **kwargs):
     """校验端点后通过显式 requester 发起不可重定向请求。"""
-    request_method = requester or getattr(requests, method.lower())
     checked = validate_endpoint_url(url, resolver=resolver)
     # DNS may change between preflight and connect; re-resolve immediately before
     # handing the URL to requests. This narrows, but cannot eliminate, TOCTOU.
     validate_endpoint_url(checked, resolver=resolver)
     request_kwargs = dict(kwargs)
     request_kwargs["allow_redirects"] = False
-    return request_method(checked, method=method, **request_kwargs)
+    if requester is not None:
+        return requester(checked, **request_kwargs)
+    return requests.request(method=method, url=checked, **request_kwargs)
 
 
 def safe_internal_request(method, url, *, requester=None, **kwargs):

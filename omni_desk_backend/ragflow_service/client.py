@@ -60,7 +60,9 @@ class RagflowClient:
             response = safe_request(
                 method,
                 url,
-                requester=self._transport,
+                requester=lambda checked_url, **request_kwargs: self._transport(
+                    checked_url, method=method, **request_kwargs
+                ),
                 resolver=self._resolver,
                 headers=request_headers,
                 json=json,
