@@ -34,7 +34,7 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
-from ..cache import public_tool_calls_meta, safe_public_value
+from ..cache import public_tool_calls_meta, safe_public_value, sanitize_public_text
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -123,7 +123,7 @@ def _event_stream_generator(
         if stream_exc is not None:
             # 统一采用流式失败前缀,复用 is_failed_answer 语义:
             # 前端失败提示与"失败不落库"逻辑随之自动生效;已累积内容保留进审计记录
-            failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断（{stream_exc}）"
+            failure_marker = f"{FAILED_ANSWER_STREAM_PREFIX}: 流式生成中断"
             answer = f"{failure_marker}｜已生成部分内容：{partial_answer}" if partial_answer else failure_marker
             # 补发失败 chunk(部分内容此前已 streamed,此处仅补失败标记)
             yield sse_event({"type": "chunk", "content": failure_marker})
@@ -276,12 +276,12 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
     """流式路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
     return AgentLog.objects.create(
         session=session,
-        user_query=query,
+        user_query=sanitize_public_text(query),
         intent=meta.get("intent") or "unknown",
         tool_used=meta.get("tool_used") or "",
-        tool_input={"query": query},
-        tool_output=meta.get("tool_result") or {},
-        llm_response=answer,
+        tool_input=safe_public_value({"query": query}),
+        tool_output=safe_public_value(meta.get("tool_result") or {}),
+        llm_response=sanitize_public_text(answer),
         response_time_ms=response_time_ms,
         # 流式路径暂无 usage 统计,成本留空
         estimated_cost=None,

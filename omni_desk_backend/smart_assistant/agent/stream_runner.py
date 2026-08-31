@@ -90,9 +90,10 @@ class StreamRunner:
                 yield from self._stream_native(user_query, tool_context, llm_messages)
             except Exception as exc:
                 logger.warning("原生流式路径异常: %s", exc, exc_info=True)
-                yield sse_event({"type": "chunk", "content": f"回答生成失败: {exc}"})
+                safe_error = "回答生成失败，请稍后重试"
+                yield sse_event({"type": "chunk", "content": safe_error})
                 done = {"type": "done", "finish_reason": "stop", "error": True}
-                annotate_error_kind(done, f"回答生成失败: {exc}")
+                annotate_error_kind(done, safe_error)
                 yield sse_event(done)
             return
 
@@ -169,7 +170,7 @@ class StreamRunner:
                 query=user_query, context=tool_context, llm_messages=llm_messages
             )
         except Exception as exc:
-            content = f"回答生成失败: {exc}"
+            content = "回答生成失败，请稍后重试"
             meta = {"tool_call_path": "native", "tool_calls_rounds": 0}
             tool_round_messages = llm_messages
 
@@ -248,7 +249,7 @@ class StreamRunner:
                 stream_parts.append(chunk)
                 yield sse_event({"type": "chunk", "content": chunk})
         except Exception as exc:
-            stream_parts = [content or f"回答生成失败: {exc}"]
+            stream_parts = [content or "回答生成失败，请稍后重试"]
             yield sse_event({"type": "chunk", "content": stream_parts[0]})
         return "".join(stream_parts)
 

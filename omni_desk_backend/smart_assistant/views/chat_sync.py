@@ -27,10 +27,13 @@ from ..cache import (
     get_confirmation_draft,
     public_tool_result,
     public_tool_calls_meta,
+    safe_public_value,
+    sanitize_public_text,
 )
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
 from ..tools.registry import ToolRegistry
+from ..scope import resolve_scope
 
 from .conversation_manager import (
     persist_success,
@@ -117,8 +120,8 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             status=status.HTTP_410_GONE,
         )
     # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
-    expected_prefix = f"u{request.user.pk}_"
-    if not draft_entry.get("context_sig", "").startswith(expected_prefix):
+    expected_sig = f"u{request.user.pk}_s{resolve_scope(request.user).value}"
+    if draft_entry.get("context_sig") != expected_sig:
         # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
         masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
         logger.warning(
@@ -131,8 +134,8 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             {"detail": "该确认不属于当前用户", "code": "confirmation_user_mismatch"},
             status=status.HTTP_403_FORBIDDEN,
         )
-    # replay:跳过 orchestrator,直接执行工具
-    tool = ToolRegistry.get_tool(draft_entry["tool_name"])
+    # replay 前重新按当前用户执行工具授权，权限撤销后不得执行。
+    tool = ToolRegistry.get_tool_for_user(draft_entry["tool_name"], request.user)
     if not tool:
         logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
         return Response(
@@ -256,12 +259,12 @@ def _write_sync_agent_log(
     """create 路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
     return AgentLog.objects.create(
         session=session,
-        user_query=query,
+        user_query=sanitize_public_text(query),
         intent=result.get("intent") or "unknown",
         tool_used=result.get("tool_used") or "",
-        tool_input={"query": query},
-        tool_output=result.get("tool_result") or {},
-        llm_response=answer,
+        tool_input=safe_public_value({"query": query}),
+        tool_output=safe_public_value(result.get("tool_result") or {}),
+        llm_response=sanitize_public_text(answer),
         model_name=result.get("model_name") or model_name,
         input_tokens=input_tokens,
         output_tokens=output_tokens,

@@ -237,11 +237,9 @@ class NotifyTool(BaseTool):
             return {"found": False, "message": error}
         from notifications.channels import resolve_channels
         operation_id = fields.get("operation_id") or ctx.get("operation_id") or str(uuid4())
-        audit_recipients = []
         sent = []
         failed = []
         for user in users:
-            audit_recipients.append({"id": user.id, "name": _safe_text(user.get_full_name() or user.username)})
             channels = resolve_channels(user, "agent_notify")
             if not channels:
                 failed.append({"user_id": user.id, "channel": "unavailable", "reason": "no_channel"})
@@ -262,13 +260,13 @@ class NotifyTool(BaseTool):
                 except Exception:
                     failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
         audit_payload = _sanitize_audit_payload({
-            "recipients": audit_recipients,
             "operation_id": operation_id,
-            "sent": sent,
-            "failed": failed,
+            "phase": "notify",
             "sent_count": len(sent),
             "failed_count": len(failed),
             "recipient_count": len(users),
+            "sent": [{"user_id": item["user_id"], "channel": item["channel"]} for item in sent],
+            "failed": [{"user_id": item["user_id"], "channel": item["channel"], "reason": item["reason"]} for item in failed],
         })
         event_bus = ctx.get("event_bus")
         if event_bus is not None:

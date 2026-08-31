@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig, KnowledgeDataset
+from .cache import safe_public_value, sanitize_public_text
 
 
 class KnowledgeDatasetSerializer(serializers.ModelSerializer):
@@ -89,6 +90,19 @@ class SessionForkSerializer(serializers.Serializer):
 
 
 class AgentLogSerializer(serializers.ModelSerializer):
+    tool_input = serializers.SerializerMethodField()
+    tool_output = serializers.SerializerMethodField()
+    llm_response = serializers.SerializerMethodField()
+
+    def get_tool_input(self, obj):
+        return safe_public_value(obj.tool_input if isinstance(obj.tool_input, dict) else {})
+
+    def get_tool_output(self, obj):
+        return safe_public_value(obj.tool_output if isinstance(obj.tool_output, (dict, list)) else {})
+
+    def get_llm_response(self, obj):
+        return sanitize_public_text(obj.llm_response or "").replace("http://", "[已隐藏]//").replace("https://", "[已隐藏]//")
+
     class Meta:
         model = AgentLog
         fields = [

@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch
 
 from smart_assistant.models import AgentEvent, AgentTask
-from smart_assistant.views.tasks import _sanitize_value
+from smart_assistant.views.tasks import _safe_public_value
 
 
 @pytest.mark.django_db
@@ -71,15 +71,32 @@ def test_task_stream_clamps_negative_and_oversized_last_sequence(api_client, reg
 
 
 def test_nested_sanitizer_redacts_pii_and_sensitive_keys():
-    value = {"content": "联系 a@example.com 或 13812345678", "result": {"api_key": "secret", "nested": {"id": "110105199001011234"}, "visible": "ok"}}
+    value = {
+        "content": "联系 a@example.com 或 13812345678",
+        "result": {
+            "apiKey": "secret",
+            "API_KEY": "secret2",
+            "api_key": "secret3",
+            "recipientNames": ["张三"],
+            "recipient_names": ["lisi"],
+            "json": '{"token":"hidden","visible":"ok"}',
+            "nested": {"id": "110105199001011234"},
+            "visible": "普通文本",
+        },
+    }
 
-    sanitized = _sanitize_value(value)
+    sanitized = _safe_public_value(value)
 
     assert "a@example.com" not in str(sanitized)
     assert "13812345678" not in str(sanitized)
     assert "110105199001011234" not in str(sanitized)
+    assert "apiKey" not in sanitized["result"]
+    assert "API_KEY" not in sanitized["result"]
     assert "api_key" not in sanitized["result"]
-    assert sanitized["result"]["visible"] == "ok"
+    assert "recipientNames" not in sanitized["result"]
+    assert "recipient_names" not in sanitized["result"]
+    assert "hidden" not in str(sanitized)
+    assert sanitized["result"]["visible"] == "普通文本"
 
 
 

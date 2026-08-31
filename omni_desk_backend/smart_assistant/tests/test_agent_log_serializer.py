@@ -42,6 +42,23 @@ class TestAgentLogSerializerWhitelist:
             "created_at",
         }
 
+    def test_sensitive_log_values_are_publicly_redacted(self):
+        log = self._create_log()
+        log.tool_input = {"apiKey": "sk-secret", "API_KEY": "secret2", "recipient_names": ["张三"], "safe": "ok"}
+        log.tool_output = {"tool_output": "正文 secret=hidden", "nested": {"token": "tok"}, "count": 1}
+        log.llm_response = "LLM 敏感文本 token=abc https://internal.example/x"
+        log.save(update_fields=["tool_input", "tool_output", "llm_response"])
+
+        data = AgentLogSerializer(log).data
+
+        assert "sk-secret" not in str(data)
+        assert "secret2" not in str(data)
+        assert "张三" not in str(data)
+        assert "正文 secret=hidden" not in str(data)
+        assert "tok" not in str(data)
+        assert "abc" not in data["llm_response"]
+        assert data["tool_input"]["safe"] == "ok"
+
     def test_internal_fields_not_exposed(self):
         log = self._create_log()
 
