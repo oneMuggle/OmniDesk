@@ -254,6 +254,15 @@ classify_http_status() {
 }
 
 # ─── 认证 Token(同 run 缓存一次) ────────────────────────────
+smoke_auth_token_file() {
+    printf '%s' "${SMOKE_AUTH_TOKEN_FILE:-/tmp/.smoke_auth_token-${SMOKE_RUN_ID:-$$}}"
+}
+
+smoke_auth_token_is_valid() {
+    local token="$1"
+    [[ "$token" =~ ^[^.[:space:]]+\.[^.[:space:]]+\.[^.[:space:]]+$ ]]
+}
+
 # obtain_auth_token
 #   优先用 SMOKE_TEST_USER/SMOKE_TEST_PASSWORD 走 /api/auth/login/;
 #   否则走 /api/auth/guest-login/。
@@ -263,15 +272,17 @@ classify_http_status() {
 #   文件权限 0600 + umask 077 防 token 泄漏到其他用户。
 #   stdout:access token;失败时返回非 0。
 obtain_auth_token() {
-    local token_file="${SMOKE_AUTH_TOKEN_FILE:-/tmp/.smoke_auth_token.$$}"
-    # 优先读缓存 — 跨 subshell 共享的关键(文件 I/O 不受 subshell 边界影响)
+    local token_file
+    token_file="$(smoke_auth_token_file)"
+    # 缓存必须是非空、三段式 JWT；损坏缓存删除后触发一次真实登录。
     if [ -f "$token_file" ]; then
         local cached
         cached="$(cat "$token_file" 2>/dev/null || true)"
-        if [ -n "$cached" ]; then
+        if smoke_auth_token_is_valid "$cached"; then
             printf '%s' "$cached"
             return 0
         fi
+        rm -f "$token_file" 2>/dev/null || true
     fi
     local body_file code token login_url
     body_file="$(mktemp)"
@@ -301,8 +312,12 @@ obtain_auth_token() {
         return 1
     fi
     # 写文件缓存 — umask 077 + chmod 0600 双保险,owner-only 读写
-    (umask 077; printf '%s' "$token" > "$token_file") || true
-    chmod 0600 "$token_file" 2>/dev/null || true
+    if smoke_auth_token_is_valid "$token"; then
+        (umask 077; printf '%s' "$token" > "$token_file") || true
+        chmod 0600 "$token_file" 2>/dev/null || true
+    else
+        return 1
+    fi
     printf '%s' "$token"
 }
 

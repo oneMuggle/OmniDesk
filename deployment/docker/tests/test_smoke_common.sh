@@ -118,16 +118,30 @@ else
     report FAIL "T6 smoke_tests still assumes bundle-root validate_artifacts.sh"
 fi
 
-# ─── T7:deploy_tests 受保护 version 与 Redis 必须复用上下文 ───
-if grep -q 'obtain_auth_token' "$DEPLOY_TESTS" \
-    && grep -q 'ENV_FILE_PATH' "$DEPLOY_TESTS" \
-    && ! grep -q 'grep "\^REDIS_PASSWORD=" .env.production' "$DEPLOY_TESTS"; then
-    report PASS "T7 deploy_tests reuses auth token and resolved env path"
+# ─── T8:source 布局校验器必须使用 exported_images ───────────
+if grep -Fq 'VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"' "$SMOKE_TESTS" \
+    && grep -Fq 'ARTIFACT_IMAGE_DIR="$SCRIPT_DIR/exported_images"' "$SMOKE_TESTS"; then
+    report PASS "T8 source layout uses SCRIPT_DIR/exported_images"
 else
-    report FAIL "T7 deploy_tests does not reuse auth/env context"
+    report FAIL "T8 source layout does not select exported_images"
 fi
 
-echo ""
+# ─── T9:smoke Redis 不得把密码放入 redis-cli argv ──────────
+if grep -Fq 'REDISCLI_AUTH="$REDIS_PASSWORD"' "$SMOKE_TESTS" \
+    && ! grep -Fq 'redis-cli -a' "$SMOKE_TESTS"; then
+    report PASS "T9 smoke Redis uses REDISCLI_AUTH"
+else
+    report FAIL "T9 smoke Redis exposes password through redis-cli -a"
+fi
+
+# ─── T10:阶段 12 必须复用统一 token 缓存且校验有效 JWT ─────
+if grep -Fq 'obtain_auth_token' "$SMOKE_TESTS" \
+    && grep -Fq 'smoke_auth_token_file' "$ROOT/deployment/docker/smoke_common.sh" \
+    && grep -Fq 'LOGIN_RESP=200' "$SMOKE_TESTS"; then
+    report PASS "T10 stage 12 reuses validated auth cache"
+else
+    report FAIL "T10 stage 12 does not reuse validated auth cache"
+fi
 echo "=========================================="
 echo "  test_smoke_common.sh: PASS=$PASS_COUNT FAIL=$FAIL_COUNT"
 echo "=========================================="

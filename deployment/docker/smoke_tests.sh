@@ -387,7 +387,7 @@ echo "阶段 4: Redis 连通性"
 
 if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
     REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" "$ENV_FILE_PATH" | cut -d= -f2-)
-    REDIS_PING=$(compose exec -T redis redis-cli -a "$REDIS_PASSWORD" ping 2>/dev/null || echo "FAIL")
+    REDIS_PING=$(compose exec -T -e REDISCLI_AUTH="$REDIS_PASSWORD" redis redis-cli ping 2>/dev/null || echo "FAIL")
     if echo "$REDIS_PING" | grep -q "PONG"; then
         result "PASS" "Redis responds to PING"
     else
@@ -562,8 +562,15 @@ echo ""
 echo "阶段 7: 离线包元数据/可加载性校验"
 
 VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"
+if [ -n "${SMOKE_ARTIFACT_IMAGE_DIR:-}" ]; then
+    ARTIFACT_IMAGE_DIR="$SMOKE_ARTIFACT_IMAGE_DIR"
+elif [ -f "$BUNDLE_DIR/BUILD-MANIFEST.json" ]; then
+    ARTIFACT_IMAGE_DIR="$BUNDLE_DIR/images"
+else
+    ARTIFACT_IMAGE_DIR="$SCRIPT_DIR/exported_images"
+fi
 if [ -x "$VALIDATE_ARTIFACTS_SCRIPT" ]; then
-    VA_OUTPUT=$("$VALIDATE_ARTIFACTS_SCRIPT" "$BUNDLE_DIR/images" 2>&1)
+    VA_OUTPUT=$("$VALIDATE_ARTIFACTS_SCRIPT" "$ARTIFACT_IMAGE_DIR" 2>&1)
     VA_RC=$?
     if [ "$VA_RC" -eq 0 ]; then
         VA_PASS=$(echo "$VA_OUTPUT" | grep -c "PASS:")
@@ -908,20 +915,13 @@ fi
 if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
     result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
 else
-    if [ -n "${SMOKE_AUTH_TOKEN_FILE:-}" ] && [ -f "$SMOKE_AUTH_TOKEN_FILE" ]; then
+    if CACHED_TOKEN="$(obtain_auth_token || true)" \
+        && smoke_auth_token_is_valid "$CACHED_TOKEN"; then
         LOGIN_RESP=200
-        HAS_ACCESS='"access":"cached"'
+        HAS_ACCESS='"access":"cached-or-refreshed"'
     else
-        LOGIN_RESP=$(curl -s -o /tmp/_smoke_login.json -w "%{http_code}" \
-            -H "Content-Type: application/json" \
-            -X POST -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
-            "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
-        if [ "$LOGIN_RESP" = "200" ]; then
-            LOGIN_BODY=$(cat /tmp/_smoke_login.json 2>/dev/null || echo "")
-            HAS_ACCESS=$(echo "$LOGIN_BODY" | grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 || true)
-        else
-            HAS_ACCESS=""
-        fi
+        LOGIN_RESP=000
+        HAS_ACCESS=""
     fi
     if [ "$LOGIN_RESP" = "200" ]; then
         if [ -n "$HAS_ACCESS" ]; then
