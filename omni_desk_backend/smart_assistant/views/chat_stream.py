@@ -42,6 +42,46 @@ from .conversation_manager import prepare_chat_context
 logger = get_logger(__name__, "smart_assistant")
 
 
+_STREAM_EVENT_FIELDS = {
+    "chunk": {"format_version", "type", "content"},
+    "meta": {
+        "format_version", "type", "intent", "tool_used", "tool_result", "sources", "tool_fallback",
+        "tool_call_path", "tool_calls_meta", "tool_calls_rounds", "cache_hit",
+    },
+    "done": {
+        "format_version", "type", "finish_reason", "error", "awaiting_confirmation", "cache_hit",
+        "error_code", "retry_after", "kind", "hint",
+    },
+    "confirmation": {"format_version", "type", "awaiting_confirmation", "confirmation_token", "draft", "answer"},
+}
+
+
+def _sanitize_stream_event(data):
+    """按 SSE 事件类型构造公开 envelope，单独保留可见文本字段。"""
+    if not isinstance(data, dict):
+        return {}
+    event_type = data.get("type")
+    fields = _STREAM_EVENT_FIELDS.get(event_type)
+    if not fields:
+        return {}
+    public_event = {"type": event_type}
+    for key in fields - {"type", "content", "format_version", "answer"}:
+        if key not in data:
+            continue
+        value = data[key]
+        if key in {"confirmation_token", "error_code", "kind", "hint", "finish_reason", "intent", "tool_used"}:
+            public_event[key] = sanitize_public_text(value, 200)
+        else:
+            public_event[key] = safe_public_value(value)
+    if "format_version" in data:
+        public_event["format_version"] = data["format_version"]
+    if event_type == "chunk" and "content" in data:
+        public_event["content"] = sanitize_public_text(data["content"])
+    if event_type == "confirmation" and "answer" in data:
+        public_event["answer"] = sanitize_public_text(data["answer"])
+    return public_event
+
+
 def handle_stream_chat(viewset, request) -> StreamingHttpResponse:
     """POST /api/smart-assistant/chat/stream/ 流式路径主体(SSE)。
 
@@ -213,7 +253,7 @@ def _consume_stream_events(state, orchestrator, query, conversation_history, too
             data = json.loads(payload)
         except (IndexError, json.JSONDecodeError):
             continue
-        data = safe_public_value(data)
+        data = _sanitize_stream_event(data)
         yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
         event_type = data.get("type")
         if event_type == "chunk":

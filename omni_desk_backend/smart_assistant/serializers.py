@@ -90,9 +90,13 @@ class SessionForkSerializer(serializers.Serializer):
 
 
 class AgentLogSerializer(serializers.ModelSerializer):
+    user_query = serializers.SerializerMethodField()
     tool_input = serializers.SerializerMethodField()
     tool_output = serializers.SerializerMethodField()
     llm_response = serializers.SerializerMethodField()
+
+    def get_user_query(self, obj):
+        return sanitize_public_text(obj.user_query or "")
 
     def get_tool_input(self, obj):
         return safe_public_value(obj.tool_input if isinstance(obj.tool_input, dict) else {})
