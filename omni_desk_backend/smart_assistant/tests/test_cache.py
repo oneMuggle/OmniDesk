@@ -18,6 +18,7 @@ from smart_assistant.cache import (
     cache_intent,
     cache_tool_result,
     get_cached_answer,
+    sanitize_public_text,
     get_cached_intent,
     get_cached_tool_result,
 )
@@ -31,7 +32,19 @@ def reset_cache_version():
     cache_module.CACHE_VERSION = original
 
 
-class TestCacheVersion:
+class TestPublicTextUrlCredentials:
+    @pytest.mark.parametrize('parameter', [
+        'X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token',
+        'sig', 'signature', 'access_token',
+    ])
+    def test_signed_url_parameter_value_is_hidden(self, parameter):
+        value = f'https://files.example.test/download?{parameter}=SECRET_URL_VALUE&name=report'
+        sanitized = sanitize_public_text(value)
+        assert 'SECRET_URL_VALUE' not in sanitized
+
+    def test_ordinary_url_without_credentials_is_preserved(self):
+        value = '参考 https://example.test/docs?page=2&lang=zh'
+        assert 'https://example.test/docs?page=2&lang=zh' in sanitize_public_text(value)
     def test_initial_cache_version_is_positive_int(self):
         assert isinstance(CACHE_VERSION, int)
         assert CACHE_VERSION >= 1

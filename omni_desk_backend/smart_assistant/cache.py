@@ -432,6 +432,44 @@ _PII_TEXT_RE = (
     re.compile(r"(?<!\d)1\d{10}(?!\d)"),
     re.compile(r"(?<!\d)(?:\d{15}|\d{17}[\dXx])(?!\d)"),
 )
+_URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
+_URL_CREDENTIAL_KEYS = {
+    "x-amz-signature", "x-amz-credential", "x-amz-security-token",
+    "sig", "signature", "access-token", "access_token",
+}
+
+
+def _sanitize_url_credentials(value):
+    """替换文本中 URL query 的凭据值，同时保留普通外链。"""
+    def replace(match):
+        raw_url = match.group(0)
+        trailing = ""
+        while raw_url and raw_url[-1] in ".,;!?，。；！）":
+            trailing = raw_url[-1] + trailing
+            raw_url = raw_url[:-1]
+        try:
+            parsed = urlsplit(raw_url)
+            pairs = parse_qsl(parsed.query, keep_blank_values=True)
+            if not pairs:
+                return raw_url + trailing
+            changed = False
+            safe_pairs = []
+            for key, item in pairs:
+                if key.lower() in _URL_CREDENTIAL_KEYS:
+                    item = "[已隐藏]"
+                    changed = True
+                safe_pairs.append((key, item))
+            if not changed:
+                return raw_url + trailing
+            from urllib.parse import urlencode
+            sanitized = parsed._replace(query=urlencode(safe_pairs)).geturl()
+            return sanitized + trailing
+        except ValueError:
+            return raw_url + trailing
+
+    return _URL_RE.sub(replace, value)
+
+
 _PUBLIC_SAFE_KEYS = {
     "operation_id", "operation", "phase", "scope", "status", "count", "total",
     "recipient_count", "sent_count", "failed_count", "channel", "channels",
@@ -477,6 +515,7 @@ def sanitize_public_text(value, limit=2000):
     if isinstance(parsed, (dict, list)):
         return str(safe_public_value(parsed))[:limit]
     result = _SECRET_TEXT_RE.sub("[已隐藏]", result)
+    result = _sanitize_url_credentials(result)
     for pattern in _PII_TEXT_RE:
         result = pattern.sub("[已隐藏]", result)
     return result

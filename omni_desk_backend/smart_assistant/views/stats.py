@@ -4,21 +4,39 @@ from django.db.models import Count, Q, Avg, Sum
 from django.db.models.functions import TruncDate
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
+from rest_framework import status
 
 from ..models import AgentLog, KnowledgeDataset
+
+
+MIN_STATS_DAYS = 1
+MAX_STATS_DAYS = 365
+
+
+def _parse_days(request):
+    raw_days = request.query_params.get("days", "30")
+    try:
+        days = int(raw_days)
+    except (TypeError, ValueError):
+        return None
+    if not MIN_STATS_DAYS <= days <= MAX_STATS_DAYS:
+        return None
+    return days
 
 
 class StatsViewSet(viewsets.ViewSet):
     """运营统计接口"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     @action(detail=False, methods=["get"])
     def overview(self, request):
         """GET /api/smart-assistant/stats/overview/ — 总体统计"""
-        days = int(request.query_params.get("days", 30))
+        days = _parse_days(request)
+        if days is None:
+            return Response({"detail": "days 必须是 1 至 365 之间的整数。"}, status=status.HTTP_400_BAD_REQUEST)
         since = timezone.now() - timedelta(days=days)
 
         logs = AgentLog.objects.filter(created_at__gte=since)
@@ -56,8 +74,8 @@ class StatsViewSet(viewsets.ViewSet):
                 "tool_breakdown": {item["tool_used"]: item["count"] for item in tools if item["tool_used"]},
                 "top_questions": list(
                     AgentLog.objects.filter(created_at__gte=since)
-                    .values("user_query")
-                    .annotate(count=Count("user_query"))
+                    .values("intent")
+                    .annotate(count=Count("id"))
                     .order_by("-count")[:10]
                 ),
                 "unrecognized": logs.filter(intent="general_chat").count(),
@@ -67,7 +85,9 @@ class StatsViewSet(viewsets.ViewSet):
     @action(detail=False, methods=["get"])
     def daily(self, request):
         """GET /api/smart-assistant/stats/daily/ — 每日趋势"""
-        days = int(request.query_params.get("days", 30))
+        days = _parse_days(request)
+        if days is None:
+            return Response({"detail": "days 必须是 1 至 365 之间的整数。"}, status=status.HTTP_400_BAD_REQUEST)
         since = timezone.now() - timedelta(days=days)
 
         daily_stats = (

@@ -132,7 +132,23 @@
 
 ### 变更边界
 - 保留既有 AgentLog、scope/CAS、Notify audit、URL、SSE content/type/format 修复。
-- 未修改 `VERSION`、`CHANGELOG`、user spec；仅更新本报告与本轮必要测试/生产边界。
+
+## Task 13：统计权限与 URL 凭据文本脱敏（2026-08-31）
+
+### 根因与处理
+- `StatsViewSet` 原先仅要求 `IsAuthenticated`，且 `overview`/`daily` 查询全体 `AgentLog`；统计页属于管理端，因此改为 `IsAdminUser`，普通已认证用户返回 403。
+- `days` 限制为 1 至 365 的整数；非法或越界参数返回 400，不再抛出 500。
+- `top_questions` 改为按 `intent` 安全聚合，不返回 `user_query` 原文；前端表格同步显示“热门意图”。
+- `sanitize_public_text` 增加有限 URL query 凭据替换，覆盖 `X-Amz-Signature`、`X-Amz-Credential`、`X-Amz-Security-Token`、`sig`、`signature`、`access_token` 及连字符变体；普通 HTTPS 外链和普通 query 保持不变，来源 DTO 原有 URL 校验未放宽。
+
+### TDD 与验证
+- RED：新增测试先复现普通用户 200、非法 `days` 500、原始 `user_query` 返回及签名 URL 值泄露；修正测试收集错误后重新确认均为预期 RED。
+- GREEN targeted：统计与缓存后端测试 `23 passed, 1 warning`，退出码 0；拆分统计 `14 passed`、缓存 `26 passed`，退出码均 0。
+- 前端智能助手测试：19 suites / 168 tests passed，退出码 0；仅有既有 React `act`/Ant Design deprecation warnings。
+- 后端全量：仓库根目录误执行一次退出码 1（Django import path 缺失）；在 `/home/fz/project/OmniDesk/omni_desk_backend` 正确执行后 `3134 passed, 2 xfailed, 11 xpassed, 42 warnings`，覆盖率 93.41%，退出码 0。
+
+### 变更边界复核
+- 保留 confirmation summary 固定文案、fields 白名单、scope/CAS、AgentLog 脱敏字段、Notify audit 无身份、来源 DTO URL 校验、SSE content/type/format、`public_tool_result` 聚合边界；未修改 `VERSION`、`CHANGELOG`、user spec。
 
 ## Task 13：确认首次响应公开字段白名单补强（2026-08-31）
 

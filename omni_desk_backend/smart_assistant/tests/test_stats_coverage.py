@@ -19,7 +19,7 @@ class TestStatsViewSetOverview(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='testuser', password='password123'
+            username='testuser', password='password123', is_staff=True, is_superuser=True
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -157,6 +157,27 @@ class TestStatsViewSetOverview(TestCase):
         self.assertIn('schedule_query', response.data['tool_breakdown'])
         # 但 stats 仍计入有 tool_used 的部分(schedule_query=1)
         self.assertEqual(response.data['tool_breakdown']['schedule_query'], 1)
+    def test_regular_user_cannot_read_global_stats(self):
+        regular = CustomUser.objects.create_user(username='regular', password='password123')
+        other_session = SmartAssistantSession.objects.create(user=regular, title='其他')
+        AgentLog.objects.create(session=other_session, user_query='跨用户机密问题', intent='general_chat')
+        self.client.force_authenticate(user=regular)
+
+        response = self.client.get('/api/smart-assistant/stats/overview/')
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_invalid_days_returns_400(self):
+        response = self.client.get('/api/smart-assistant/stats/overview/?days=not-a-number')
+        self.assertEqual(response.status_code, 400)
+
+    def test_top_questions_are_safe_aggregates(self):
+        self._create_log(user_query='机密问题原文')
+        response = self.client.get('/api/smart-assistant/stats/overview/')
+
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn('user_query', response.data['top_questions'][0])
+        self.assertEqual(response.data['top_questions'][0]['count'], 1)
 
 
 class TestStatsViewSetDaily(TestCase):
@@ -164,7 +185,7 @@ class TestStatsViewSetDaily(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='testuser', password='password123'
+            username='testuser', password='password123', is_staff=True, is_superuser=True
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -179,7 +200,10 @@ class TestStatsViewSetDaily(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['daily_stats'], [])
 
-    def test_daily_groups_by_date(self):
+    def test_daily_invalid_days_returns_400(self):
+        response = self.client.get('/api/smart-assistant/stats/daily/?days=0')
+        self.assertEqual(response.status_code, 400)
+
         """同一天的多条日志应聚合为一行."""
         today = timezone.now()
         # 创建 3 条今天的日志 + 2 条昨天的日志
@@ -250,7 +274,7 @@ class TestStatsViewSetDatasets(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='testuser', password='password123'
+            username='testuser', password='password123', is_staff=True, is_superuser=True
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
