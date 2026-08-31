@@ -231,7 +231,7 @@ jobs:
           echo "✅ smoke user created/reset: $SMOKE_TEST_USER"
 
       - name: Set up Node.js for Browser E2E
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: 'npm'
