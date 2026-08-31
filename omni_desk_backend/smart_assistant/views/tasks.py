@@ -146,7 +146,21 @@ _sanitize_text = sanitize_public_text
 def _safe_event_payload(event):
     payload = getattr(event, "payload", None)
     payload = payload if isinstance(payload, dict) else {}
-    return safe_public_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
+    public = safe_public_value({key: payload[key] for key in SAFE_EVENT_PAYLOAD_KEYS if key in payload})
+    for key in ("sent", "failed"):
+        entries = payload.get(key)
+        if not isinstance(entries, list):
+            continue
+        public[key] = [
+            {
+                field: safe_public_value(entry[field])
+                for field in ("channel", "reason", "status")
+                if field in entry and isinstance(entry, dict)
+            }
+            for entry in entries[:20]
+            if isinstance(entry, dict)
+        ]
+    return public
 
 
 # ---------------------------------------------------------------------------

@@ -259,15 +259,22 @@ class NotifyTool(BaseTool):
                         failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
                 except Exception:
                     failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
-        audit_payload = _sanitize_audit_payload({
+        audit_channels = list(dict.fromkeys(
+            item["channel"] for item in [*sent, *failed] if item.get("channel")
+        ))
+        audit_payload_data = {
             "operation_id": operation_id,
             "phase": "notify",
             "sent_count": len(sent),
             "failed_count": len(failed),
             "recipient_count": len(users),
-            "sent": [{"user_id": item["user_id"], "channel": item["channel"]} for item in sent],
-            "failed": [{"user_id": item["user_id"], "channel": item["channel"], "reason": item["reason"]} for item in failed],
-        })
+            "channels": audit_channels,
+            "sent": [{"channel": item["channel"]} for item in sent],
+            "failed": [{"channel": item["channel"], "reason": item["reason"]} for item in failed],
+        }
+        if len(audit_channels) == 1:
+            audit_payload_data["channel"] = audit_channels[0]
+        audit_payload = _sanitize_audit_payload(audit_payload_data)
         event_bus = ctx.get("event_bus")
         if event_bus is not None:
             event_bus.emit(

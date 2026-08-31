@@ -84,6 +84,25 @@ def test_public_sources_keep_external_url_but_drop_internal_and_signed_urls():
     ]
 
 
+def test_public_sources_drop_url_authority_and_fragment_credentials():
+    sources = sanitize_public_sources([
+        {"document": "普通外链", "url": "https://docs.example.org/a?lang=zh"},
+        {"document": "无凭据查询", "url": "https://docs.example.org/a?lang=zh&page=2"},
+        {"document": "用户名密码", "url": "https://alice:password@docs.example.org/a"},
+        {"document": "fragment token", "url": "https://docs.example.org/a#token=secret"},
+        {"document": "fragment signature", "url": "https://docs.example.org/a#section&signature=secret"},
+        {"document": "fragment ordinary", "url": "https://docs.example.org/a#section-2"},
+    ])
+    assert sources == [
+        {"document": "普通外链", "url": "https://docs.example.org/a?lang=zh"},
+        {"document": "无凭据查询", "url": "https://docs.example.org/a?lang=zh&page=2"},
+        {"document": "用户名密码"},
+        {"document": "fragment token"},
+        {"document": "fragment signature"},
+        {"document": "fragment ordinary", "url": "https://docs.example.org/a#section-2"},
+    ]
+
+
 def test_safe_public_value_drops_recipient_identity_fields():
-    value = safe_public_value({"recipient": "张三", "recipient_name": "李四", "username": "lisi", "sent_count": 2})
+    value = safe_public_value({"recipient": "张三", "recipient_name": "李四", "username": "lisi", "user_id": 7, "sent_count": 2})
     assert value == {"sent_count": 2}

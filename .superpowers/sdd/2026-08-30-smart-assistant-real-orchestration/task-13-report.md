@@ -99,3 +99,21 @@
 - 相关缓存与 legacy 测试：`63 passed, 1 warning`，覆盖 `test_cache.py`、`test_cache_stream_shortcut.py`、`test_cache_stampede.py`、`test_cache_confirmation_draft.py`、`test_legacy_process_helpers.py` 及目标 E2E 测试。
 - `git diff --check`：通过。
 - 未运行后端全量测试；报告中此前记录的全量基线/遗留失败不因本次测试 seam 修复而改变。
+
+## Task 13：Notify 审计身份与来源 URL 凭据边界（2026-08-31）
+
+### 根因与修复
+- `NotifyTool._confirmed` 原先将进程内 `sent/failed` 条目的 `user_id` 复制到 `AgentEvent` 审计 payload；`SAFE_EVENT_PAYLOAD_KEYS` 又允许 `sent/failed` 进入公开事件，导致 AgentEventSerializer、SSE 和 timeline 可见稳定用户标识。
+- 发送结果仍保留进程内 `user_id` 供返回/去重逻辑使用；写入 AgentEvent 的审计 payload 改为仅保存计数、channels 及逐项 channel/reason 摘要。
+- `_safe_event_payload` 对历史或伪造事件中的 `sent/failed` 做二次字段白名单，仅保留 `channel`、非身份 `reason/status`，不放宽全局 sanitizer。
+- `_is_public_url` 现在拒绝 authority 中的 username/password，以及 fragment 中的 token、signature、credential、access_token 标识；普通 HTTPS 外链和无凭据 query 保留。
+
+### TDD 与验证
+- RED：先加入真实 `NotifyTool -> PersistentEventBus -> AgentEvent -> _safe_event_payload/AgentEventSerializer/timeline/SSE` 回归测试及 URL authority/fragment 测试；首次运行分别复现 `user_id` 落库、`safe_public_value` 保留 `user_id`、以及凭据 URL 被保留。
+- GREEN：最小生产修复后 targeted 测试 `3 passed`（使用 `--no-cov`；覆盖新增审计集成、身份 sanitizer、URL sanitizer）。
+- 测试环境随机 `SECRET_KEY` warning 为既有行为。
+
+### 变更边界与遗留项
+- 未修改 `VERSION`、`CHANGELOG`、用户 spec；未恢复 found/schedules/personnel 等原始明细，也未放宽全局 sanitizer。
+- 本报告追加内容与本轮代码/测试均属于 Task 13；工作区原有 task-11 报告改动保持不动。
+- 全量测试在最终提交前运行并记录实际结果；若环境/基线失败，将明确列出。

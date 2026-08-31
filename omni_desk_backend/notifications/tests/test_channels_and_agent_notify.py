@@ -71,8 +71,13 @@ def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, adm
     assert "recipients" not in payload
     assert regular_user_obj.username not in str(payload)
     assert admin_user_obj.username not in str(payload)
-    assert payload["sent"] == [{"user_id": regular_user_obj.id, "channel": "in_app"}]
+    assert payload["sent"] == [{"channel": "in_app"}]
     assert payload["failed"] == [
+        {"channel": "email", "reason": "send_failed"},
+        {"channel": "in_app", "reason": "send_failed"},
+    ]
+    assert result["result"]["sent"] == [{"user_id": regular_user_obj.id, "channel": "in_app"}]
+    assert result["result"]["failed"] == [
         {"user_id": regular_user_obj.id, "channel": "email", "reason": "send_failed"},
         {"user_id": admin_user_obj.id, "channel": "in_app", "reason": "send_failed"},
     ]
@@ -81,8 +86,8 @@ def test_agent_notify_mixed_channels_emit_audit_and_counts(regular_user_obj, adm
         "sent_count": 1,
         "failed_count": 2,
         "recipient_count": 2,
-        "sent": payload["sent"],
-        "failed": payload["failed"],
+        "sent": result["result"]["sent"],
+        "failed": result["result"]["failed"],
     }
     assert "title" not in payload
     assert "content" not in payload
@@ -120,7 +125,7 @@ def test_agent_notify_channel_exception_is_a_failed_detail(regular_user_obj, mon
     ]
     event = bus.get_events()[0]
     assert event.event_type == "subtask.tool_result"
-    assert event.payload["failed"] == result["result"]["failed"]
+    assert event.payload["failed"] == [{"channel": "webhook", "reason": "send_failed"}]
     assert "secret" not in str(event.payload)
 
 

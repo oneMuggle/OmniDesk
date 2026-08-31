@@ -455,7 +455,8 @@ _PUBLIC_SENSITIVE_CANONICAL_KEYS = {
 }
 _PUBLIC_SENSITIVE_MARKERS = (
     "password", "credential", "secret", "token", "prompt", "apikey",
-    "authorization", "privatekey", "sessionid",
+    "authorization", "privatekey", "sessionid", "userid", "recipientid",
+    "username", "recipientname", "name",
 )
 
 
@@ -498,8 +499,13 @@ def _is_public_url(value):
                 return False
         except ValueError:
             pass
+        if parsed.username is not None or parsed.password is not None:
+            return False
         blocked_query = {"token", "access_token", "signature", "sig", "x-amz-signature", "credential", "x-amz-credential"}
         if any(key.lower() in blocked_query for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+            return False
+        fragment = parsed.fragment.lower()
+        if any(marker in fragment for marker in ("token", "signature", "credential", "access_token")):
             return False
     except ValueError:
         return False

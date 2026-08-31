@@ -444,6 +444,72 @@ class TestAgentTaskResultNotification(TransactionTestCase):
         self.assertEqual(event.payload["operation_id"], "op-contract")
         self.assertEqual(event.payload["status"], "confirmed")
 
+    def test_notify_audit_event_has_no_recipient_identity_across_public_outputs(self):
+        import json
+        from rest_framework.test import APIRequestFactory, force_authenticate
+        from smart_assistant.models import AgentEvent
+        from smart_assistant.tools.notify_tool import NotifyTool
+        from smart_assistant.tools.tool_context import ToolContext
+        from smart_assistant.agents.dataclasses import PersistentEventBus
+        from smart_assistant.views.tasks import AgentEventSerializer, AgentTaskViewSet, _safe_event_payload
+        from notifications.channels.types import NotifyResult
+
+        class SentChannel:
+            name = "sent-channel"
+            def send(self, **kwargs):
+                return NotifyResult(success=True)
+
+        class FailedChannel:
+            name = "failed-channel"
+            def send(self, **kwargs):
+                return NotifyResult(success=False)
+
+        bus = PersistentEventBus(agent_task_id=str(self.task.task_id))
+        tool = NotifyTool(resolver=lambda _name, _actor: [self.user])
+        with patch("notifications.channels.resolve_channels", return_value=[SentChannel(), FailedChannel()]):
+            tool.execute(context=ToolContext(
+                user=self.user,
+                confirmed=True,
+                event_bus=bus,
+                task_id=self.task.task_id,
+                draft={"fields": {
+                    "recipient_ids": [self.user.id], "recipient_names": ["普通中文姓名"],
+                    "title": "标题", "content": "正文", "scope": "self", "operation_id": "op-public",
+                }, "_resolved_users": [self.user]},
+            ))
+
+        event = AgentEvent.objects.get(task=self.task, event_type="subtask.tool_result")
+        raw = json.dumps(event.payload, ensure_ascii=False)
+        self.assertNotIn("user_id", raw)
+        self.assertNotIn("recipient_id", raw)
+        self.assertNotIn("普通中文姓名", raw)
+        self.assertNotIn(self.user.username, raw)
+        self.assertEqual(_safe_event_payload(event), {
+            "operation_id": "op-public", "phase": "notify", "operation": "agent_notify",
+            "recipient_count": 1, "sent_count": 1, "failed_count": 1,
+            "channels": ["sent-channel", "failed-channel"],
+            "sent": [{"channel": "sent-channel"}],
+            "failed": [{"channel": "failed-channel", "reason": "send_failed"}],
+        })
+        self.assertEqual(AgentEventSerializer(event).data["payload"], _safe_event_payload(event))
+
+        factory = APIRequestFactory()
+        request = factory.get(f"/tasks/{self.task.task_id}/timeline/")
+        force_authenticate(request, user=self.user)
+        timeline_response = AgentTaskViewSet.as_view({"get": "timeline"})(request, pk=str(self.task.task_id))
+        self.assertEqual(timeline_response.data["timeline"][0], {
+            **_safe_event_payload(event), "sequence": event.sequence, "event_type": event.event_type,
+            "subtask": None, "subtask_id": None,
+        })
+
+        stream_request = factory.get(f"/tasks/{self.task.task_id}/stream/")
+        force_authenticate(stream_request, user=self.user)
+        stream_response = AgentTaskViewSet.as_view({"get": "stream"})(stream_request, pk=str(self.task.task_id))
+        stream_body = b"".join(stream_response.streaming_content).decode()
+        self.assertNotIn("user_id", stream_body)
+        self.assertNotIn("普通中文姓名", stream_body)
+        self.assertNotIn(self.user.username, stream_body)
+
     def test_notify_audit_persists_no_title_content_or_sensitive_text(self):
         from smart_assistant.models import AgentEvent
         from smart_assistant.tools.notify_tool import NotifyTool
