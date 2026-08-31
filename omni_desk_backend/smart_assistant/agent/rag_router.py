@@ -120,15 +120,20 @@ class RAGRouter:
                 question=query,
                 top_k=top_k,
             )
+            client.close()
             # 添加来源标记
             for chunk in chunks:
                 chunk["_source"] = dataset.get("name", "未知")
             return chunks
-        except RagflowClientError as e:
-            logger.warning("RAG 数据集 %s 搜索失败: %s", dataset.get("name"), e)
+        except RagflowClientError as exc:
+            logger.warning(
+                "RAG 数据集搜索失败: type=%s code=%s",
+                type(exc).__name__,
+                exc.code,
+            )
             return []
-        except Exception as e:
-            logger.warning("RAG 数据集 %s 搜索时发生未知错误: %s", dataset.get("name"), e)
+        except Exception as exc:
+            logger.warning("RAG 数据集搜索时发生未知错误: type=%s", type(exc).__name__)
             return []
 
     def search_multi(self, query: str, top_k: int = 5) -> list:

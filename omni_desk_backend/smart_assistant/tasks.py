@@ -138,14 +138,14 @@ def process_document_embedding(document_id):
             "smart_assistant.tasks.document_gone",
             extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
         )
-    except Exception as e:
-        logger.error("文档向量化失败: %s", e)
+    except Exception as exc:
+        logger.error("文档向量化失败: type=%s", type(exc).__name__, exc_info=True)
         from smart_assistant.models import KnowledgeBaseDocument
 
         try:
             doc = KnowledgeBaseDocument.objects.get(id=document_id)
             doc.embedding_status = "failed"
-            doc.content_text = str(e)
+            doc.content_text = "文档向量化失败。"
             doc.save(update_fields=["embedding_status", "content_text"])
         except KnowledgeBaseDocument.DoesNotExist:
             logger.debug(

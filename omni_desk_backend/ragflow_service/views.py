@@ -60,8 +60,8 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
 
             return Response(result, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow Chat API 调用失败: %s", e, exc_info=True)
-            return Response({"detail": f"Ragflow API 请求失败: {e}"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error("RAGFlow Chat API 调用失败: type=%s code=%s", type(e).__name__, e.code, exc_info=True)
+            return Response({"detail": "Ragflow API 请求失败。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
     def health_check(self, request, pk=None):
@@ -75,9 +75,9 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             else:
                 return Response(result, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         except Exception as e:
-            logger.error("RAGFlow 健康检查失败: %s", e, exc_info=True)
+            logger.error("RAGFlow 健康检查失败: type=%s", type(e).__name__, exc_info=True)
             return Response(
-                {"status": "error", "message": f"健康检查异常: {e}"},
+                {"status": "error", "message": "健康检查暂时不可用。"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
@@ -90,8 +90,8 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             datasets = client.list_datasets()
             return Response({"data": datasets}, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow 列出数据集失败: %s", e, exc_info=True)
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error("RAGFlow 列出数据集失败: type=%s code=%s", type(e).__name__, e.code, exc_info=True)
+            return Response({"detail": "RAGFlow 服务暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     @action(detail=True, methods=["get"])
     def list_chats(self, request, pk=None):
@@ -102,8 +102,8 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             chats = client.list_chats()
             return Response({"data": chats}, status=status.HTTP_200_OK)
         except RagflowClientError as e:
-            logger.error("RAGFlow 列出聊天助手失败: %s", e, exc_info=True)
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            logger.error("RAGFlow 列出聊天助手失败: type=%s code=%s", type(e).__name__, e.code, exc_info=True)
+            return Response({"detail": "RAGFlow 服务暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def ragflow_configs_view(request):
