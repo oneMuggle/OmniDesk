@@ -103,7 +103,9 @@ class RagflowClient:
         return result.get("data", {}).get("docs", [])
 
     def upload_document(self, dataset_id, file_name, file_content):
-        return self._request("POST", f"/api/v1/datasets/{dataset_id}/documents", files={"file": (file_name, file_content)}).get("data", {})
+        return self._request(
+            "POST", f"/api/v1/datasets/{dataset_id}/documents", files={"file": (file_name, file_content)}
+        ).get("data", {})
 
     def delete_document(self, dataset_id, document_ids):
         self._request("DELETE", f"/api/v1/datasets/{dataset_id}/documents", json={"ids": document_ids})
@@ -114,11 +116,23 @@ class RagflowClient:
         return True
 
     def stop_parsing(self, dataset_id, document_ids):
-        self._request("POST", f"/api/v1/datasets/{dataset_id}/chunks", json={"document_ids": document_ids, "action": "cancel"})
+        self._request(
+            "POST", f"/api/v1/datasets/{dataset_id}/chunks", json={"document_ids": document_ids, "action": "cancel"}
+        )
         return True
 
     def retrieval(self, dataset_ids, question, top_k=5, similarity_threshold=0.2, vector_similarity_weight=0.3):
-        result = self._request("POST", "/api/v1/retrieval", json={"question": question, "dataset_ids": dataset_ids, "top_k": top_k, "similarity_threshold": similarity_threshold, "vector_similarity_weight": vector_similarity_weight})
+        result = self._request(
+            "POST",
+            "/api/v1/retrieval",
+            json={
+                "question": question,
+                "dataset_ids": dataset_ids,
+                "top_k": top_k,
+                "similarity_threshold": similarity_threshold,
+                "vector_similarity_weight": vector_similarity_weight,
+            },
+        )
         return result.get("data", {}).get("chunks", [])
 
     def list_chats(self, page=1, page_size=30):
@@ -131,7 +145,9 @@ class RagflowClient:
         return self._request("POST", "/api/v1/chats", json=payload).get("data", {})
 
     def chat_completion(self, chat_id, question, stream=False, **kwargs):
-        return self._request("POST", f"/api/v1/chats/{chat_id}/completions", json={"question": question, "stream": stream, **kwargs}).get("data", {})
+        return self._request(
+            "POST", f"/api/v1/chats/{chat_id}/completions", json={"question": question, "stream": stream, **kwargs}
+        ).get("data", {})
 
     def health_check(self):
         try:

@@ -197,13 +197,32 @@ class MemoUpdateTool(BaseTool):
                 task_id = ctx.get("task_id")
                 if task_id:
                     from smart_assistant.models import AgentTask
+
                     task = AgentTask.objects.filter(task_id=task_id, user=user).first()
                     if task is None:
                         raise ValueError("任务不存在或不属于当前用户")
                 AgentWriteLog.objects.create(
-                    task=task, session_id=ctx.get("session_id"), user=user,
-                    tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo",
-                    target_pk=str(memo.pk), operation="update", before={"title": old_title, "content": old_content, "reminder_time": str(old_reminder) if old_reminder else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None}, after={"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
+                    task=task,
+                    session_id=ctx.get("session_id"),
+                    user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type,
+                    target_model="memos.Memo",
+                    target_pk=str(memo.pk),
+                    operation="update",
+                    before={
+                        "title": old_title,
+                        "content": old_content,
+                        "reminder_time": str(old_reminder) if old_reminder else None,
+                        "is_deleted": memo.is_deleted,
+                        "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+                    },
+                    after={
+                        "title": memo.title,
+                        "content": memo.content,
+                        "reminder_time": str(memo.reminder_time) if memo.reminder_time else None,
+                        "is_deleted": memo.is_deleted,
+                        "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+                    },
                 )
         except Exception as e:
             logger.warning(
@@ -370,7 +389,13 @@ class MemoDeleteTool(BaseTool):
                 fields = ctx.get("draft") if isinstance(ctx, dict) else {}
                 if memo is None or (fields.get("version") and memo.updated_at.isoformat() != fields["version"]):
                     return {"found": False, "error_code": "stale_confirmation", "message": "确认内容已过期，请重新确认"}
-                before = {"title": memo.title, "content": memo.content, "reminder_time": str(memo.reminder_time) if memo.reminder_time else None, "is_deleted": memo.is_deleted, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None}
+                before = {
+                    "title": memo.title,
+                    "content": memo.content,
+                    "reminder_time": str(memo.reminder_time) if memo.reminder_time else None,
+                    "is_deleted": memo.is_deleted,
+                    "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+                }
                 memo.is_deleted = True
                 memo.deleted_at = timezone.now()
                 memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
@@ -378,13 +403,24 @@ class MemoDeleteTool(BaseTool):
                 task_id = ctx.get("task_id")
                 if task_id:
                     from smart_assistant.models import AgentTask
+
                     task = AgentTask.objects.filter(task_id=task_id, user=user).first()
                     if task is None:
                         raise ValueError("任务不存在或不属于当前用户")
                 AgentWriteLog.objects.create(
-                    task=task, session_id=ctx.get("session_id"), user=user,
-                    tool_name=ctx.get("tool_name") or self.intent_type, target_model="memos.Memo", target_pk=str(memo.pk),
-                    operation="delete", before=before, after={**before, "is_deleted": True, "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None},
+                    task=task,
+                    session_id=ctx.get("session_id"),
+                    user=user,
+                    tool_name=ctx.get("tool_name") or self.intent_type,
+                    target_model="memos.Memo",
+                    target_pk=str(memo.pk),
+                    operation="delete",
+                    before=before,
+                    after={
+                        **before,
+                        "is_deleted": True,
+                        "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+                    },
                 )
         except Exception as e:
             logger.warning(

@@ -148,11 +148,7 @@ class MultiAgentExecutor:
         from smart_assistant.models import AgentTask
 
         task = AgentTask.objects.filter(task_id=self.agent_task_id).values("status", "resume_claim_id").first()
-        return bool(
-            task
-            and task["status"] == "running"
-            and str(task["resume_claim_id"]) == str(self.resume_claim_id)
-        )
+        return bool(task and task["status"] == "running" and str(task["resume_claim_id"]) == str(self.resume_claim_id))
 
     def execute(self) -> TaskResult:
         """执行主任务

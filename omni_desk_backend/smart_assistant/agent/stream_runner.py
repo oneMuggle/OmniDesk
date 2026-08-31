@@ -390,7 +390,9 @@ class StreamRunner:
             )
             public_draft = public_confirmation_draft(draft, tool.name)
             events = [
-                sse_event({"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": public_draft}}),
+                sse_event(
+                    {"type": "meta", "intent": intent, "tool_used": tool.name, "tool_result": {"draft": public_draft}}
+                ),
                 sse_event(
                     {
                         "type": "confirmation",

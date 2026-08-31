@@ -15,21 +15,52 @@ _MAX_CONTENT_LENGTH = 10_000
 
 
 _SENSITIVE_KEYS = {
-    "args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt",
-    "internal_prompt", "api_key", "apikey", "access_token", "authorization", "access_key", "private_key",
-    "session", "email", "phone", "phone_number", "身份证", "身份证号", "id_card", "idcard",
+    "args",
+    "arguments",
+    "credentials",
+    "credential",
+    "token",
+    "password",
+    "secret",
+    "prompt",
+    "internal_prompt",
+    "api_key",
+    "apikey",
+    "access_token",
+    "authorization",
+    "access_key",
+    "private_key",
+    "session",
+    "email",
+    "phone",
+    "phone_number",
+    "身份证",
+    "身份证号",
+    "id_card",
+    "idcard",
 }
 _SENSITIVE_CANONICAL_KEYS = {re.sub(r"[^a-z0-9]", "", key.lower()) for key in _SENSITIVE_KEYS}
-_SENSITIVE_CANONICAL_PATTERNS = tuple(re.compile(pattern) for pattern in (
-    r"(?:^|prompt)(?:text|value)?$", r"credential(?:blob)?$", r"token(?:value)?$",
-    r"bearertoken$", r"clientsecret$", r"apikey$", r"accesstoken$",
-    r"authorizationheader$", r"sessionid$",
-))
+_SENSITIVE_CANONICAL_PATTERNS = tuple(
+    re.compile(pattern)
+    for pattern in (
+        r"(?:^|prompt)(?:text|value)?$",
+        r"credential(?:blob)?$",
+        r"token(?:value)?$",
+        r"bearertoken$",
+        r"clientsecret$",
+        r"apikey$",
+        r"accesstoken$",
+        r"authorizationheader$",
+        r"sessionid$",
+    )
+)
 
 
 def _is_sensitive_key(key):
     canonical = re.sub(r"[^a-z0-9]", "", str(key).lower())
-    return canonical in _SENSITIVE_CANONICAL_KEYS or any(pattern.search(canonical) for pattern in _SENSITIVE_CANONICAL_PATTERNS)
+    return canonical in _SENSITIVE_CANONICAL_KEYS or any(
+        pattern.search(canonical) for pattern in _SENSITIVE_CANONICAL_PATTERNS
+    )
 
 
 _SECRET_LIKE_RE = re.compile(r"(?i)\b(?:api[_ -]?key|credential|token|password|secret)\s*=\s*[^\s;，。]+")
@@ -42,6 +73,7 @@ def _safe_text(value: str) -> str:
 def _safe_summary_title(value: str) -> str:
     value = _SECRET_LIKE_RE.sub("[已隐藏]", _safe_text(value[:80]))
     return value[:80]
+
 
 def _sanitize_value(value: Any, depth: int = 0) -> Any:
     """在审计事件构造前递归过滤敏感字段及 PII。"""
@@ -72,15 +104,19 @@ def _validate_text(values):
     if not isinstance(title, str) or not title.strip() or not isinstance(content, str) or not content.strip():
         return None, "title 和 content 不能为空"
     title, content = title.strip(), content.strip()
-    if len(title) > 200 or len(content) > _MAX_CONTENT_LENGTH or any(ord(c) < 32 and c not in "\n\r\t" for c in title + content):
+    if (
+        len(title) > 200
+        or len(content) > _MAX_CONTENT_LENGTH
+        or any(ord(c) < 32 and c not in "\n\r\t" for c in title + content)
+    ):
         return None, "通知标题或正文长度/格式无效"
     return {**values, "title": title, "content": content}, None
-
 
 
 def _default_resolver(name: str, _actor: Any) -> list[Any]:
     from django.contrib.auth import get_user_model
     from django.db.models import Q
+
     User = get_user_model()
     return list(User.objects.filter(Q(username=name) | Q(real_name=name) | Q(personnel__name=name)).distinct())
 
@@ -98,7 +134,33 @@ class NotifyTool(BaseTool):
 
     @classmethod
     def get_openai_tool_schema(cls) -> dict:
-        return {"type": "function", "function": {"name": cls.name, "description": cls.description, "parameters": {"type": "object", "properties": {"recipients": {"type": "array", "items": {"type": "string"}, "description": "收件人姓名或用户名"}, "title": {"type": "string", "description": "通知标题"}, "content": {"type": "string", "description": "通知内容"}, "scope": {"type": "string", "enum": ["self", "department", "global"], "description": "权限范围"}}, "required": ["recipients", "title", "content", "scope"], "additionalProperties": False}, "strict": True}}
+        return {
+            "type": "function",
+            "function": {
+                "name": cls.name,
+                "description": cls.description,
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "recipients": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "收件人姓名或用户名",
+                        },
+                        "title": {"type": "string", "description": "通知标题"},
+                        "content": {"type": "string", "description": "通知内容"},
+                        "scope": {
+                            "type": "string",
+                            "enum": ["self", "department", "global"],
+                            "description": "权限范围",
+                        },
+                    },
+                    "required": ["recipients", "title", "content", "scope"],
+                    "additionalProperties": False,
+                },
+                "strict": True,
+            },
+        }
 
     def execute(self, query=None, context=None, params=None, **kwargs) -> dict:
         ctx = context if isinstance(context, dict) else {}
@@ -112,6 +174,7 @@ class NotifyTool(BaseTool):
         values = params if isinstance(params, dict) else (query if isinstance(query, dict) else {})
         if isinstance(query, str):
             import json
+
             try:
                 values = json.loads(query)
             except (TypeError, ValueError):
@@ -203,7 +266,20 @@ class NotifyTool(BaseTool):
             return {"found": False, "message": error}
         operation_id = str(uuid4())
         safe_title = _safe_summary_title(values["title"])
-        return {"found": True, "draft": {"summary": f"待执行站内通知（操作：agent_notify；收件人数：{len(users)}；标题：{safe_title}）", "fields": {"recipient_ids": [u.id for u in users], "recipient_names": [u.get_full_name() or u.username for u in users], "title": values["title"], "content": values["content"], "scope": values["scope"], "operation_id": operation_id}}}
+        return {
+            "found": True,
+            "draft": {
+                "summary": f"待执行站内通知（操作：agent_notify；收件人数：{len(users)}；标题：{safe_title}）",
+                "fields": {
+                    "recipient_ids": [u.id for u in users],
+                    "recipient_names": [u.get_full_name() or u.username for u in users],
+                    "title": values["title"],
+                    "content": values["content"],
+                    "scope": values["scope"],
+                    "operation_id": operation_id,
+                },
+            },
+        }
 
     def _confirmed(self, values, ctx, context):
         actor = self._user(ctx, context)
@@ -217,6 +293,7 @@ class NotifyTool(BaseTool):
         users = ctx.get("_resolved_users") or (ctx.get("draft") or {}).get("_resolved_users")
         if not isinstance(users, list):
             from django.contrib.auth import get_user_model
+
             users = list(get_user_model().objects.filter(id__in=ids))
         users_by_id = {user.id: user for user in users}
         users = [users_by_id[user_id] for user_id in ids if user_id in users_by_id]
@@ -225,7 +302,12 @@ class NotifyTool(BaseTool):
         required = ("title", "content", "scope")
         if any(not isinstance(fields.get(key), str) or not fields[key].strip() for key in required):
             return {"found": False, "message": "确认草稿缺少有效的 title、content 或 scope"}
-        fields = {**fields, "title": fields["title"].strip(), "content": fields["content"].strip(), "scope": fields["scope"].strip()}
+        fields = {
+            **fields,
+            "title": fields["title"].strip(),
+            "content": fields["content"].strip(),
+            "scope": fields["scope"].strip(),
+        }
         fields, error = _validate_text(fields)
         if error:
             return {"found": False, "message": error}
@@ -236,6 +318,7 @@ class NotifyTool(BaseTool):
         if error:
             return {"found": False, "message": error}
         from notifications.channels import resolve_channels
+
         operation_id = fields.get("operation_id") or ctx.get("operation_id") or str(uuid4())
         sent = []
         failed = []
@@ -254,14 +337,26 @@ class NotifyTool(BaseTool):
                         dedupe_key=f"agent_notify:{operation_id}:{user.id}",
                     )
                     if result.success:
-                        sent.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__)})
+                        sent.append(
+                            {"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__)}
+                        )
                     else:
-                        failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
+                        failed.append(
+                            {
+                                "user_id": user.id,
+                                "channel": getattr(channel, "name", channel.__class__.__name__),
+                                "reason": "send_failed",
+                            }
+                        )
                 except Exception:
-                    failed.append({"user_id": user.id, "channel": getattr(channel, "name", channel.__class__.__name__), "reason": "send_failed"})
-        audit_channels = list(dict.fromkeys(
-            item["channel"] for item in [*sent, *failed] if item.get("channel")
-        ))
+                    failed.append(
+                        {
+                            "user_id": user.id,
+                            "channel": getattr(channel, "name", channel.__class__.__name__),
+                            "reason": "send_failed",
+                        }
+                    )
+        audit_channels = list(dict.fromkeys(item["channel"] for item in [*sent, *failed] if item.get("channel")))
         audit_payload_data = {
             "operation_id": operation_id,
             "phase": "notify",
@@ -282,8 +377,30 @@ class NotifyTool(BaseTool):
                 {**audit_payload, "phase": "notify", "operation": "agent_notify"},
             )
         if failed:
-            return {"found": False, "message": "部分通知发送失败", "result": {"operation_id": operation_id, "sent": sent, "failed": failed, "sent_count": len(sent), "failed_count": len(failed), "recipient_count": len(users)}}
-        return {"found": True, "result": {"operation_id": operation_id, "sent_count": len(sent), "failed_count": 0, "recipient_count": len(users), "sent": sent, "failed": []}, "summary": f"已发送 {len(users)} 条站内通知"}
+            return {
+                "found": False,
+                "message": "部分通知发送失败",
+                "result": {
+                    "operation_id": operation_id,
+                    "sent": sent,
+                    "failed": failed,
+                    "sent_count": len(sent),
+                    "failed_count": len(failed),
+                    "recipient_count": len(users),
+                },
+            }
+        return {
+            "found": True,
+            "result": {
+                "operation_id": operation_id,
+                "sent_count": len(sent),
+                "failed_count": 0,
+                "recipient_count": len(users),
+                "sent": sent,
+                "failed": [],
+            },
+            "summary": f"已发送 {len(users)} 条站内通知",
+        }
 
 
 AgentNotifyTool = NotifyTool

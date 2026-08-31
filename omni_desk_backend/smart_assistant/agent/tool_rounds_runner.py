@@ -51,9 +51,7 @@ def run_tool_calls_rounds(router, *, query, context, llm_messages, json_fallback
     max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
 
     def process_tool_calls(tool_calls, round_idx):
-        tool_results, updated_meta, confirm = _run_round_tool_calls(
-            tool_calls, context, round_idx, tool_calls_meta
-        )
+        tool_results, updated_meta, confirm = _run_round_tool_calls(tool_calls, context, round_idx, tool_calls_meta)
         tool_calls_meta[:] = updated_meta
         if confirm is not None:
             _, _, confirmation, _ = confirm
@@ -82,17 +80,27 @@ def run_tool_calls_rounds(router, *, query, context, llm_messages, json_fallback
         return content, usage, meta, llm_messages
 
     if early is not None:
-        return early["summary"], usage, {
+        return (
+            early["summary"],
+            usage,
+            {
+                "tool_calls_meta": tool_calls_meta,
+                "tool_calls_rounds": rounds,
+                "tool_call_path": "native",
+                **{key: value for key, value in early.items() if key != "summary"},
+            },
+            out_messages,
+        )
+    return (
+        content,
+        usage,
+        {
             "tool_calls_meta": tool_calls_meta,
             "tool_calls_rounds": rounds,
             "tool_call_path": "native",
-            **{key: value for key, value in early.items() if key != "summary"},
-        }, out_messages
-    return content, usage, {
-        "tool_calls_meta": tool_calls_meta,
-        "tool_calls_rounds": rounds,
-        "tool_call_path": "native",
-    }, out_messages
+        },
+        out_messages,
+    )
 
 
 def _run_round_tool_calls(tool_calls, context, round_idx, tool_calls_meta):

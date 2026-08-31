@@ -50,16 +50,19 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
 
     def get_serializer_class(self):
-        if self.request and self.request.user.is_authenticated and (
-            self.request.user.is_superuser
-            or self.request.user.groups.filter(name="Admin").exists()
+        if (
+            self.request
+            and self.request.user.is_authenticated
+            and (self.request.user.is_superuser or self.request.user.groups.filter(name="Admin").exists())
         ):
             return RagflowConfigSerializer
+
         class SafeRagflowConfigSerializer(serializers.ModelSerializer):
             class Meta:
                 model = RagflowConfig
                 fields = ["id", "name", "chat_id", "is_active", "created_at", "updated_at"]
                 read_only_fields = fields
+
         return SafeRagflowConfigSerializer
 
     def _get_client(self, config: RagflowConfig) -> RagflowClient:
@@ -71,7 +74,10 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
         if not config.is_active:
             return Response({"detail": "Ragflow 配置未激活。"}, status=status.HTTP_400_BAD_REQUEST)
         if not config.chat_id:
-            return Response({"detail": "未配置 Chat Assistant ID。请先在 RAGFlow 中创建 Chat Assistant 并填入 chat_id。"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"detail": "未配置 Chat Assistant ID。请先在 RAGFlow 中创建 Chat Assistant 并填入 chat_id。"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         question = request.data.get("question")
         conversation_id = request.data.get("conversation_id")
         if not question:
@@ -95,10 +101,14 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             result = client.health_check()
             if result["status"] == "ok":
                 return Response({"status": "ok", "message": "连接成功"}, status=status.HTTP_200_OK)
-            return Response({"status": "error", "message": "健康检查暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"status": "error", "message": "健康检查暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         except Exception as exc:
             logger.error("RAGFlow 健康检查失败: type=%s", type(exc).__name__)
-            return Response({"status": "error", "message": "健康检查暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"status": "error", "message": "健康检查暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
         finally:
             client.close()
 

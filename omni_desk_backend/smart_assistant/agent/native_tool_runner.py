@@ -43,9 +43,7 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
     """
     query = _dict_to_query(validated)
     # Fail closed: a destructive tool without confirmation must never execute.
-    if getattr(tool, "risk_level", None) == "destructive" and not getattr(
-        tool, "require_confirmation", False
-    ):
+    if getattr(tool, "risk_level", None) == "destructive" and not getattr(tool, "require_confirmation", False):
         return (
             {
                 "found": False,
@@ -94,7 +92,11 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                     "draft": draft,
                 },
             )
-            return {"found": True, "draft": public_confirmation_draft(draft, tool.name)}, {"token": token, "draft": public_confirmation_draft(draft, tool.name)}, None
+            return (
+                {"found": True, "draft": public_confirmation_draft(draft, tool.name)},
+                {"token": token, "draft": public_confirmation_draft(draft, tool.name)},
+                None,
+            )
         # P1A-2 enforcement:非 confirmation_required 的 Reject(如 rate_limit_exceeded)
         # 直接阻断工具执行,返回 error dict 携带 error_code + retry_after。
         if isinstance(hook_result, Reject) and hook_result.error_code != "confirmation_required":

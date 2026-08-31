@@ -106,7 +106,11 @@ class AgentLogSerializer(serializers.ModelSerializer):
         return safe_public_value(obj.tool_output if isinstance(obj.tool_output, (dict, list)) else {})
 
     def get_llm_response(self, obj):
-        return sanitize_public_text(obj.llm_response or "").replace("http://", "[已隐藏]//").replace("https://", "[已隐藏]//")
+        return (
+            sanitize_public_text(obj.llm_response or "")
+            .replace("http://", "[已隐藏]//")
+            .replace("https://", "[已隐藏]//")
+        )
 
     class Meta:
         model = AgentLog

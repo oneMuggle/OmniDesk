@@ -165,7 +165,9 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             status=status.HTTP_503_SERVICE_UNAVAILABLE,
         )
     if claimed is None:
-        return Response({"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT)
+        return Response(
+            {"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT
+        )
     draft_entry = claimed
     try:
         tool_result = execute_guarded(
@@ -196,7 +198,10 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
             confirm_token[:6],
             len(confirm_token),
         )
-        return Response({"detail": "智能助手操作失败，请稍后重试", "code": "confirmation_failed"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+        return Response(
+            {"detail": "智能助手操作失败，请稍后重试", "code": "confirmation_failed"},
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )
 
 
 def _run_sync_process(
@@ -235,9 +240,13 @@ def _run_sync_process(
         if session is not None:
             session.last_error = type(exc).__name__
             session.save(update_fields=["last_error"])
-        return None, 0, Response(
-            {"detail": "智能助手处理失败，请稍后重试"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        return (
+            None,
+            0,
+            Response(
+                {"detail": "智能助手处理失败，请稍后重试"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            ),
         )
     response_time_ms = int((time.time() - start_time) * 1000)
     return result, response_time_ms, None

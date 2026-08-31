@@ -36,22 +36,68 @@ from ..cache import safe_public_value, sanitize_public_text, public_tool_result
 logger = get_logger(__name__, "smart_assistant")
 
 SAFE_EVENT_PAYLOAD_KEYS = {
-    "event_type", "sequence", "subtask_id", "status", "content", "tool", "result", "task_id",
-    "error", "reason", "final_output", "total_tokens", "dropped_events", "round",
+    "event_type",
+    "sequence",
+    "subtask_id",
+    "status",
+    "content",
+    "tool",
+    "result",
+    "task_id",
+    "error",
+    "reason",
+    "final_output",
+    "total_tokens",
+    "dropped_events",
+    "round",
     # notify 审计摘要：仅保留计数、通道结果和操作阶段，不保留收件人身份。
-    "operation_id", "phase", "operation", "sent", "failed", "sent_count",
-    "failed_count", "recipient_count", "channel", "channels",
+    "operation_id",
+    "phase",
+    "operation",
+    "sent",
+    "failed",
+    "sent_count",
+    "failed_count",
+    "recipient_count",
+    "channel",
+    "channels",
 }
 SENSITIVE_KEYS = {
-    "args", "arguments", "credentials", "credential", "token", "password", "secret", "prompt",
-    "internal_prompt", "api_key", "access_token", "authorization", "access_key", "private_key", "session",
-    "email", "phone", "phone_number", "身份证", "身份证号", "id_card", "idcard",
+    "args",
+    "arguments",
+    "credentials",
+    "credential",
+    "token",
+    "password",
+    "secret",
+    "prompt",
+    "internal_prompt",
+    "api_key",
+    "access_token",
+    "authorization",
+    "access_key",
+    "private_key",
+    "session",
+    "email",
+    "phone",
+    "phone_number",
+    "身份证",
+    "身份证号",
+    "id_card",
+    "idcard",
 }
 SENSITIVE_CANONICAL_PATTERNS = tuple(
-    re.compile(pattern) for pattern in (
-        r"(?:^|prompt)(?:text|value)?$", r"credential(?:blob)?$", r"token(?:value)?$",
-        r"bearertoken$", r"clientsecret$", r"apikey$", r"accesstoken$",
-        r"authorizationheader$", r"sessionid$",
+    re.compile(pattern)
+    for pattern in (
+        r"(?:^|prompt)(?:text|value)?$",
+        r"credential(?:blob)?$",
+        r"token(?:value)?$",
+        r"bearertoken$",
+        r"clientsecret$",
+        r"apikey$",
+        r"accesstoken$",
+        r"authorizationheader$",
+        r"sessionid$",
     )
 )
 
@@ -69,6 +115,7 @@ def _is_sensitive_field(value):
         pattern.search(canonical) for pattern in SENSITIVE_CANONICAL_PATTERNS
     )
 
+
 # These fields are persisted by confirmation drafts but are not all part of the
 # public tool-call schema (for example NotifyTool resolves recipient names into
 # IDs before replay).  Everything else must come from the tool schema.
@@ -77,18 +124,12 @@ REPLAY_INTERNAL_FIELD_ALLOWLIST = {"operation_id", "recipient_ids", "recipient_n
 
 def _replay_allowed_fields(tool):
     """Return non-sensitive fields a hook may modify during replay."""
-    allowed = {
-        key for key in REPLAY_INTERNAL_FIELD_ALLOWLIST
-        if not _is_sensitive_field(key)
-    }
+    allowed = {key for key in REPLAY_INTERNAL_FIELD_ALLOWLIST if not _is_sensitive_field(key)}
     try:
         schema = tool.get_openai_tool_schema()
         properties = schema.get("function", {}).get("parameters", {}).get("properties", {})
         if isinstance(properties, dict):
-            allowed.update(
-                key for key in properties
-                if isinstance(key, str) and not _is_sensitive_field(key)
-            )
+            allowed.update(key for key in properties if isinstance(key, str) and not _is_sensitive_field(key))
     except (AttributeError, TypeError, KeyError) as exc:
         logger.debug("replay tool schema unavailable; using base allowlist: %s", type(exc).__name__)
     return allowed
@@ -168,9 +209,27 @@ def _safe_event_payload(event):
 
 
 PUBLIC_VALUE_KEYS = {
-    "title", "summary", "content", "answer", "status", "message", "error", "reason",
-    "tool", "phase", "operation", "round", "count", "total", "items", "result",
-    "recipient_count", "sent_count", "failed_count", "channel", "channels",
+    "title",
+    "summary",
+    "content",
+    "answer",
+    "status",
+    "message",
+    "error",
+    "reason",
+    "tool",
+    "phase",
+    "operation",
+    "round",
+    "count",
+    "total",
+    "items",
+    "result",
+    "recipient_count",
+    "sent_count",
+    "failed_count",
+    "channel",
+    "channels",
 }
 
 
@@ -183,7 +242,9 @@ def _safe_plan_summary(task_packet):
     else:
         packet = {
             "objective": getattr(task_packet, "objective", None),
-            "execution_mode": getattr(getattr(task_packet, "execution_mode", None), "value", getattr(task_packet, "execution_mode", None)),
+            "execution_mode": getattr(
+                getattr(task_packet, "execution_mode", None), "value", getattr(task_packet, "execution_mode", None)
+            ),
             "subtasks": getattr(task_packet, "subtasks", []),
         }
     subtasks = packet.get("subtasks") if isinstance(packet, dict) else []
@@ -201,11 +262,13 @@ def _safe_plan_summary(task_packet):
                 item_id = getattr(item, "id", None)
                 role = getattr(getattr(item, "role", None), "value", getattr(item, "role", None))
                 objective = getattr(item, "objective", "")
-            summary["subtasks"].append({
-                "id": item_id,
-                "role": role,
-                "objective": _sanitize_text(str(objective or "")),
-            })
+            summary["subtasks"].append(
+                {
+                    "id": item_id,
+                    "role": role,
+                    "objective": _sanitize_text(str(objective or "")),
+                }
+            )
     return summary
 
 
@@ -234,8 +297,18 @@ class AgentSubTaskSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentSubTask
         fields = [
-            "subtask_id", "role", "objective", "status", "depends_on", "inputs", "output",
-            "tokens_used", "started_at", "completed_at", "retry_count", "error_message",
+            "subtask_id",
+            "role",
+            "objective",
+            "status",
+            "depends_on",
+            "inputs",
+            "output",
+            "tokens_used",
+            "started_at",
+            "completed_at",
+            "retry_count",
+            "error_message",
         ]
 
 
@@ -265,8 +338,18 @@ class AgentTaskSerializer(serializers.ModelSerializer):
         model = AgentTask
         # task_packet intentionally never leaves the API; it contains raw LLM inputs.
         fields = [
-            "task_id", "objective", "execution_mode", "status", "global_budget", "tokens_used",
-            "started_at", "completed_at", "final_output", "created_at", "updated_at", "subtasks",
+            "task_id",
+            "objective",
+            "execution_mode",
+            "status",
+            "global_budget",
+            "tokens_used",
+            "started_at",
+            "completed_at",
+            "final_output",
+            "created_at",
+            "updated_at",
+            "subtasks",
         ]
 
 
@@ -331,18 +414,20 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 )
 
                 # 创建 AgentSubTask 记录
-                AgentSubTask.objects.bulk_create([
-                    AgentSubTask(
-                        task=task,
-                        subtask_id=subtask.id,
-                        role=subtask.role.value,
-                        objective=subtask.objective,
-                        status="pending",
-                        depends_on=subtask.depends_on,
-                        inputs=subtask.inputs,
-                    )
-                    for subtask in task_packet.subtasks
-                ])
+                AgentSubTask.objects.bulk_create(
+                    [
+                        AgentSubTask(
+                            task=task,
+                            subtask_id=subtask.id,
+                            role=subtask.role.value,
+                            objective=subtask.objective,
+                            status="pending",
+                            depends_on=subtask.depends_on,
+                            inputs=subtask.inputs,
+                        )
+                        for subtask in task_packet.subtasks
+                    ]
+                )
 
             return Response(
                 {
@@ -422,7 +507,9 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 user_query = entry.get("user_query", "")
                 allowed_replay_fields = _replay_allowed_fields(tool)
                 draft_metadata = entry.get("draft") if isinstance(entry.get("draft"), dict) else {}
-                metadata_fields = draft_metadata.get("fields") if isinstance(draft_metadata.get("fields"), dict) else draft_metadata
+                metadata_fields = (
+                    draft_metadata.get("fields") if isinstance(draft_metadata.get("fields"), dict) else draft_metadata
+                )
                 operation_id = metadata_fields.get("operation_id") if isinstance(metadata_fields, dict) else None
                 requested_operation_id = request.data.get("operation_id")
                 if not operation_id or (requested_operation_id is not None and requested_operation_id != operation_id):
@@ -441,22 +528,38 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         validation_error_holder.append("确认令牌绑定不匹配")
                         return None
                     claimed_metadata = claimed.get("draft") if isinstance(claimed.get("draft"), dict) else {}
-                    claimed_metadata_fields = claimed_metadata.get("fields") if isinstance(claimed_metadata.get("fields"), dict) else claimed_metadata
-                    claimed_operation_id = claimed_metadata_fields.get("operation_id") if isinstance(claimed_metadata_fields, dict) else None
+                    claimed_metadata_fields = (
+                        claimed_metadata.get("fields")
+                        if isinstance(claimed_metadata.get("fields"), dict)
+                        else claimed_metadata
+                    )
+                    claimed_operation_id = (
+                        claimed_metadata_fields.get("operation_id")
+                        if isinstance(claimed_metadata_fields, dict)
+                        else None
+                    )
                     if claimed_operation_id != operation_id:
                         validation_error_holder.append("确认操作不匹配")
                         return None
                     claimed_draft = claimed_metadata
-                    claimed_fields = claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                    claimed_fields = (
+                        claimed_draft.get("fields") if isinstance(claimed_draft.get("fields"), dict) else claimed_draft
+                    )
                     candidate_fields = copy.deepcopy(_filter_replay_fields(claimed_fields, allowed_replay_fields))
                     event_bus = PersistentEventBus(agent_task_id=str(task_id))
                     pre_context = ToolContext(
-                        user=request.user, scope=resolve_scope(request.user), task_id=task_id,
-                        event_bus=event_bus, replay=True,
+                        user=request.user,
+                        scope=resolve_scope(request.user),
+                        task_id=task_id,
+                        event_bus=event_bus,
+                        replay=True,
                         draft=_safe_replay_draft(claimed_draft, candidate_fields),
                     )
                     pre_result = apply_pre_execute_hooks(
-                        tool, pre_context, candidate_fields, excluded_hook_names={"confirmation"},
+                        tool,
+                        pre_context,
+                        candidate_fields,
+                        excluded_hook_names={"confirmation"},
                     )
                     if isinstance(pre_result, Reject):
                         reject_holder.append(pre_result)
@@ -470,11 +573,14 @@ class AgentTaskViewSet(viewsets.ViewSet):
                         return None
                     if getattr(tool, "name", None) == "agent_notify":
                         from django.contrib.auth import get_user_model
+
                         users = list(get_user_model().objects.filter(id__in=candidate_fields["recipient_ids"]))
                         if len(users) != len(candidate_fields["recipient_ids"]):
                             validation_error_holder.append("确认收件人参数无效")
                             return None
-                        scope_error = tool._validate_scope(candidate_fields["scope"], {"user": request.user}, pre_context)
+                        scope_error = tool._validate_scope(
+                            candidate_fields["scope"], {"user": request.user}, pre_context
+                        )
                         if scope_error:
                             validation_error_holder.append(scope_error)
                             return None
@@ -487,7 +593,11 @@ class AgentTaskViewSet(viewsets.ViewSet):
                             "title": candidate_fields["title"].strip(),
                             "content": candidate_fields["content"].strip(),
                         }
-                    return {**claimed, "draft": _safe_replay_draft(claimed_draft, candidate_fields), "fields": candidate_fields}
+                    return {
+                        **claimed,
+                        "draft": _safe_replay_draft(claimed_draft, candidate_fields),
+                        "fields": candidate_fields,
+                    }
 
                 try:
                     claimed = consume_confirmation_draft(token, validator=validate_and_prepare)
@@ -499,10 +609,17 @@ class AgentTaskViewSet(viewsets.ViewSet):
                     response_data = {"error": "确认操作未通过，请稍后重试", "error_code": error_code}
                     if pre_result.retry_after is not None:
                         response_data["retry_after"] = pre_result.retry_after
-                    reject_status = status.HTTP_429_TOO_MANY_REQUESTS if error_code == "rate_limit_exceeded" else status.HTTP_403_FORBIDDEN
+                    reject_status = (
+                        status.HTTP_429_TOO_MANY_REQUESTS
+                        if error_code == "rate_limit_exceeded"
+                        else status.HTTP_403_FORBIDDEN
+                    )
                     return Response(response_data, status=reject_status)
                 if validation_error_holder:
-                    return Response({"error": validation_error_holder[0], "error_code": "invalid_confirmation_params"}, status=status.HTTP_400_BAD_REQUEST)
+                    return Response(
+                        {"error": validation_error_holder[0], "error_code": "invalid_confirmation_params"},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
                 if claimed is None:
                     return Response({"error": "确认已被使用"}, status=status.HTTP_409_CONFLICT)
                 final_draft = claimed["draft"]
@@ -511,6 +628,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 resolved_users = []
                 if isinstance(recipient_ids, list):
                     from django.contrib.auth import get_user_model
+
                     resolved_users = list(get_user_model().objects.filter(id__in=recipient_ids))
         except AgentTask.DoesNotExist:
             return Response({"error": "任务不存在"}, status=status.HTTP_404_NOT_FOUND)
@@ -531,16 +649,34 @@ class AgentTaskViewSet(viewsets.ViewSet):
         except Exception as exc:
             logger.exception("确认工具执行失败: task_id=%s", task_id)
             apply_failure_hooks(tool, exc, context)
-            event_bus.emit("subtask.tool_result", {
-                "task_id": str(task_id), "status": "failed", "operation_id": operation_id,
-                "error": "确认操作执行失败", "phase": "confirm", "operation": tool_name,
-            })
-            return Response({"found": False, "message": "确认操作执行失败，请稍后重试"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-        event_bus.emit("user.intervention", {
-            "task_id": str(task_id), "status": "confirmed", "operation_id": operation_id,
-            "operation": tool_name, "phase": "confirm",
-        })
-        return Response({"result": public_tool_result(result, tool_name), "status": "confirmed", "task_id": str(task_id)})
+            event_bus.emit(
+                "subtask.tool_result",
+                {
+                    "task_id": str(task_id),
+                    "status": "failed",
+                    "operation_id": operation_id,
+                    "error": "确认操作执行失败",
+                    "phase": "confirm",
+                    "operation": tool_name,
+                },
+            )
+            return Response(
+                {"found": False, "message": "确认操作执行失败，请稍后重试"},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+        event_bus.emit(
+            "user.intervention",
+            {
+                "task_id": str(task_id),
+                "status": "confirmed",
+                "operation_id": operation_id,
+                "operation": tool_name,
+                "phase": "confirm",
+            },
+        )
+        return Response(
+            {"result": public_tool_result(result, tool_name), "status": "confirmed", "task_id": str(task_id)}
+        )
 
     @action(detail=True, methods=["POST"])
     def intervene(self, request, pk=None):
@@ -553,6 +689,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
         if action_type not in ["pause", "resume", "cancel"]:
             return Response({"error": "action 必须是 pause / resume / cancel"}, status=status.HTTP_400_BAD_REQUEST)
         from ..tasks import dispatch_agent_task
+
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=pk, user=request.user)
             if action_type == "pause":
@@ -570,6 +707,7 @@ class AgentTaskViewSet(viewsets.ViewSet):
                 task.status = "cancelled"
                 task.save(update_fields=["status"])
                 from ..tasks import _schedule_agent_task_notification
+
                 _schedule_agent_task_notification(task, "cancelled", transaction)
         return Response({"status": task.status})
 
@@ -639,8 +777,11 @@ class AgentTaskViewSet(viewsets.ViewSet):
             if timed_out:
                 timeout_sequence = last_seq + 1
                 timeout_data = {
-                    "type": "timeout", "task_id": str(task.task_id),
-                    "sequence": timeout_sequence, "status": task.status, "synthetic": True,
+                    "type": "timeout",
+                    "task_id": str(task.task_id),
+                    "sequence": timeout_sequence,
+                    "status": task.status,
+                    "synthetic": True,
                 }
                 yield f"id: {timeout_sequence}\n{sse_event(timeout_data)}"
 

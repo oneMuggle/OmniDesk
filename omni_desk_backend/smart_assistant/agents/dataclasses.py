@@ -162,8 +162,7 @@ class PersistentEventBus(EventBus):
         with transaction.atomic():
             task = AgentTask.objects.select_for_update().get(task_id=self.agent_task_id)
             if self.resume_claim_id is not None and (
-                task.status != "running"
-                or str(task.resume_claim_id) != str(self.resume_claim_id)
+                task.status != "running" or str(task.resume_claim_id) != str(self.resume_claim_id)
             ):
                 return
             subtask = None
@@ -171,15 +170,10 @@ class PersistentEventBus(EventBus):
             if subtask_id is not None:
                 subtask = AgentSubTask.objects.filter(task=task, subtask_id=str(subtask_id)).first()
             terminal_events = {"task.completed", "task.failed", "task.cancelled", "task.aborted"}
-            if event_type in terminal_events and AgentEvent.objects.filter(
-                task=task, event_type=event_type
-            ).exists():
+            if event_type in terminal_events and AgentEvent.objects.filter(task=task, event_type=event_type).exists():
                 return
             sequence = (
-                AgentEvent.objects.filter(task=task)
-                .order_by("-sequence")
-                .values_list("sequence", flat=True)
-                .first()
+                AgentEvent.objects.filter(task=task).order_by("-sequence").values_list("sequence", flat=True).first()
                 or 0
             ) + 1
             AgentEvent.objects.create(

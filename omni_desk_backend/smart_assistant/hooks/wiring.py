@@ -181,7 +181,9 @@ def apply_failure_hooks(tool: Any, error: Exception, ctx: Any) -> RecoveryAction
     return default  # 防御:钩子链返回值类型异常时降级为 ignore
 
 
-def apply_pre_execute_hooks(tool: Any, ctx: Any, params: dict, excluded_hook_names: set[str] | None = None) -> dict | Reject:
+def apply_pre_execute_hooks(
+    tool: Any, ctx: Any, params: dict, excluded_hook_names: set[str] | None = None
+) -> dict | Reject:
     """同步执行全局 PRE_EXECUTE 钩子链。
 
     典型用途:``require_confirmation=True`` 的工具在执行前通过钩子返回

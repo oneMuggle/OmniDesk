@@ -19,9 +19,7 @@ def calculate_agent_task_time_limits(task):
     configured_max = max(llm_timeout, int(getattr(settings, "AGENT_TASK_MAX_SECONDS", 1800)))
     packet_timeout = packet.get("timeout_seconds")
     requested = (
-        int(packet_timeout)
-        if isinstance(packet_timeout, (int, float)) and packet_timeout > 0
-        else configured_max
+        int(packet_timeout) if isinstance(packet_timeout, (int, float)) and packet_timeout > 0 else configured_max
     )
     budget = getattr(task, "global_budget", 0) or 0
     budget_factor = max(1, min(4, (int(budget) + 19999) // 20000)) if budget else 1
@@ -293,8 +291,7 @@ def execute_agent_task(task_id: str):
             event_bus.emit(event_type, event_payload)
             _schedule_agent_task_notification(locked_task, persisted_status, transaction)
             subtask_objs = {
-                str(obj.subtask_id): obj
-                for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
+                str(obj.subtask_id): obj for obj in AgentSubTask.objects.select_for_update().filter(task=locked_task)
             }
             now = timezone.now()
             updates = []
@@ -302,9 +299,7 @@ def execute_agent_task(task_id: str):
                 subtask_obj = subtask_objs.get(str(subtask_result.subtask_id))
                 if subtask_obj is None:
                     continue
-                subtask_obj.status = (
-                    "completed" if subtask_result.status == "success" else subtask_result.status
-                )
+                subtask_obj.status = "completed" if subtask_result.status == "success" else subtask_result.status
                 subtask_obj.output = (
                     subtask_result.output
                     if isinstance(subtask_result.output, (dict, list))

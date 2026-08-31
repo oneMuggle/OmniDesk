@@ -66,8 +66,8 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
 
         try:
             resp = safe_request(
-                    "GET",
-                    _safe_models_url(endpoint.api_endpoint),
+                "GET",
+                _safe_models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -120,8 +120,8 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
 
         try:
             resp = safe_request(
-                    "GET",
-                    _safe_models_url(endpoint.api_endpoint),
+                "GET",
+                _safe_models_url(endpoint.api_endpoint),
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -149,7 +149,9 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
                 }
             )
         except UnsafeEndpointError:
-            return Response({"status": "error", "message": "端点地址不安全，无法发起请求。"}, status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"status": "error", "message": "端点地址不安全，无法发起请求。"}, status=status.HTTP_400_BAD_REQUEST
+            )
         except http_requests.exceptions.Timeout:
             return Response(
                 {"status": "error", "message": "请求超时，端点不可达"},

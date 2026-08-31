@@ -409,6 +409,7 @@ class ToolChainExecutor:
 
             session = getattr(user, "_smart_assistant_session", None)
             from ..cache import safe_public_value, sanitize_public_text
+
             AgentLog.objects.create(
                 session=session,  # nullable: 测试场景无 session
                 user_query=sanitize_public_text(f"[chain step {step_index}] {step.tool}"),

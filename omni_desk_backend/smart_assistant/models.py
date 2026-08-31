@@ -173,12 +173,20 @@ class AgentWriteLog(models.Model):
     tool_name = models.CharField(max_length=100)
     target_model = models.CharField(max_length=255)
     target_pk = models.CharField(max_length=64)
-    operation = models.CharField(max_length=20, choices=[("create", "create"), ("update", "update"), ("delete", "delete"), ("revert", "revert")])
+    operation = models.CharField(
+        max_length=20, choices=[("create", "create"), ("update", "update"), ("delete", "delete"), ("revert", "revert")]
+    )
     before = models.JSONField(null=True, blank=True)
     after = models.JSONField(null=True, blank=True)
     revert_of = models.ForeignKey("self", null=True, blank=True, on_delete=models.SET_NULL, related_name="revert_logs")
     reverted_at = models.DateTimeField(null=True, blank=True)
-    reverted_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="performed_write_reverts")
+    reverted_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="performed_write_reverts",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

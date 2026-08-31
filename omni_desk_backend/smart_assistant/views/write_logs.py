@@ -12,7 +12,21 @@ from ..models import AgentWriteLog
 class AgentWriteLogSerializer(serializers.ModelSerializer):
     class Meta:
         model = AgentWriteLog
-        fields = ["id", "task", "session_id", "tool_name", "target_model", "target_pk", "operation", "before", "after", "revert_of", "reverted_at", "reverted_by", "created_at"]
+        fields = [
+            "id",
+            "task",
+            "session_id",
+            "tool_name",
+            "target_model",
+            "target_pk",
+            "operation",
+            "before",
+            "after",
+            "revert_of",
+            "reverted_at",
+            "reverted_by",
+            "created_at",
+        ]
         read_only_fields = fields
 
 
@@ -53,7 +67,9 @@ class AgentWriteLogViewSet(viewsets.ReadOnlyModelViewSet):
             else:
                 matches = all(current.get(key) == value for key, value in expected.items())
             if not matches:
-                return Response({"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=status.HTTP_409_CONFLICT)
+                return Response(
+                    {"detail": "目标当前值已变化，无法安全回滚。", "current": current}, status=status.HTTP_409_CONFLICT
+                )
             before = current
             if log.operation == "create":
                 memo.is_deleted = True
@@ -63,9 +79,16 @@ class AgentWriteLogViewSet(viewsets.ReadOnlyModelViewSet):
                 _apply_memo_snapshot(memo, log.before or {})
                 memo.save(update_fields=["title", "content", "reminder_time", "is_deleted", "deleted_at", "updated_at"])
             revert = AgentWriteLog.objects.create(
-                task=log.task, session_id=log.session_id, user=request.user,
-                tool_name="write_log.revert", target_model=log.target_model, target_pk=log.target_pk,
-                operation="update", before=before, after=_memo_snapshot(memo), revert_of=log,
+                task=log.task,
+                session_id=log.session_id,
+                user=request.user,
+                tool_name="write_log.revert",
+                target_model=log.target_model,
+                target_pk=log.target_pk,
+                operation="update",
+                before=before,
+                after=_memo_snapshot(memo),
+                revert_of=log,
             )
             log.reverted_at = timezone.now()
             log.reverted_by = request.user
@@ -94,6 +117,7 @@ def _apply_memo_snapshot(memo, snapshot):
         memo.deleted_at = None
     if snapshot.get("reminder_time"):
         from smart_assistant.tools.memo_write_tools import _parse_reminder_time
+
         memo.reminder_time = _parse_reminder_time(snapshot["reminder_time"])
     else:
         memo.reminder_time = None

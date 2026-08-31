@@ -417,6 +417,7 @@ def consume_confirmation_draft(token: str, validator=None) -> dict | None:
     )
     raise ConfirmationDraftConsumeError("unsupported_backend")
 
+
 def get_confirmation_draft(token: str) -> dict | None:
     """取 confirmation draft。过期/不存在返回 None。"""
     return cache.get(_draft_key(token))
@@ -434,8 +435,15 @@ _PII_TEXT_RE = (
 )
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 _URL_CREDENTIAL_KEYS = {
-    "x-amz-signature", "x-amz-credential", "x-amz-security-token",
-    "token", "credential", "sig", "signature", "access-token", "access_token",
+    "x-amz-signature",
+    "x-amz-credential",
+    "x-amz-security-token",
+    "token",
+    "credential",
+    "sig",
+    "signature",
+    "access-token",
+    "access_token",
 }
 
 
@@ -444,13 +452,12 @@ def _canonical_url_query_key(value):
     return re.sub(r"[^a-z0-9]", "", str(value).lower())
 
 
-_URL_CREDENTIAL_CANONICAL_KEYS = {
-    _canonical_url_query_key(key) for key in _URL_CREDENTIAL_KEYS
-}
+_URL_CREDENTIAL_CANONICAL_KEYS = {_canonical_url_query_key(key) for key in _URL_CREDENTIAL_KEYS}
 
 
 def _sanitize_url_credentials(value):
     """替换文本中 URL query 的凭据值，同时保留普通外链。"""
+
     def replace(match):
         raw_url = match.group(0)
         trailing = ""
@@ -475,6 +482,7 @@ def _sanitize_url_credentials(value):
             if not changed:
                 return raw_url + trailing
             from urllib.parse import urlencode
+
             sanitized = parsed._replace(netloc=safe_netloc, query=urlencode(safe_pairs)).geturl()
             return sanitized + trailing
         except ValueError:
@@ -484,16 +492,49 @@ def _sanitize_url_credentials(value):
 
 
 _PUBLIC_SAFE_KEYS = {
-    "operation_id", "operation", "phase", "scope", "status", "count", "total",
-    "recipient_count", "sent_count", "failed_count", "channel", "channels",
+    "operation_id",
+    "operation",
+    "phase",
+    "scope",
+    "status",
+    "count",
+    "total",
+    "recipient_count",
+    "sent_count",
+    "failed_count",
+    "channel",
+    "channels",
 }
 _PUBLIC_SENSITIVE_KEYS = {
-    "content", "body", "recipients", "recipient", "recipient_name", "recipient_names", "username",
-    "email", "phone", "prompt",
-    "prompt_text", "credentials", "credential", "credential_blob", "token", "token_value",
-    "bearer_token", "secret", "password", "authorization", "authorization_header",
-    "api_key", "access_token", "private_key", "client_secret", "arguments", "args",
-    "session", "session_id",
+    "content",
+    "body",
+    "recipients",
+    "recipient",
+    "recipient_name",
+    "recipient_names",
+    "username",
+    "email",
+    "phone",
+    "prompt",
+    "prompt_text",
+    "credentials",
+    "credential",
+    "credential_blob",
+    "token",
+    "token_value",
+    "bearer_token",
+    "secret",
+    "password",
+    "authorization",
+    "authorization_header",
+    "api_key",
+    "access_token",
+    "private_key",
+    "client_secret",
+    "arguments",
+    "args",
+    "session",
+    "session_id",
 }
 
 
@@ -501,13 +542,22 @@ def _canonical_public_key(value):
     return re.sub(r"[^a-z0-9]", "", str(value).lower())
 
 
-_PUBLIC_SENSITIVE_CANONICAL_KEYS = {
-    _canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS
-}
+_PUBLIC_SENSITIVE_CANONICAL_KEYS = {_canonical_public_key(item) for item in _PUBLIC_SENSITIVE_KEYS}
 _PUBLIC_SENSITIVE_MARKERS = (
-    "password", "credential", "secret", "token", "prompt", "apikey",
-    "authorization", "privatekey", "sessionid", "userid", "recipientid",
-    "username", "recipientname", "name",
+    "password",
+    "credential",
+    "secret",
+    "token",
+    "prompt",
+    "apikey",
+    "authorization",
+    "privatekey",
+    "sessionid",
+    "userid",
+    "recipientid",
+    "username",
+    "recipientname",
+    "name",
 )
 
 
@@ -552,7 +602,9 @@ def _is_public_url(value):
         if parsed.scheme not in {"http", "https"} or not parsed.hostname:
             return False
         hostname = parsed.hostname.lower().rstrip(".")
-        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith((".localhost", ".local", ".internal")):
+        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith(
+            (".localhost", ".local", ".internal")
+        ):
             return False
         try:
             address = ipaddress.ip_address(hostname)
@@ -565,13 +617,19 @@ def _is_public_url(value):
         blocked_query = {
             _canonical_url_query_key(key)
             for key in (
-                "x-amz-signature", "x-amz-credential", "x-amz-security-token",
-                "token", "credential", "sig", "signature", "access_token", "access-token",
+                "x-amz-signature",
+                "x-amz-credential",
+                "x-amz-security-token",
+                "token",
+                "credential",
+                "sig",
+                "signature",
+                "access_token",
+                "access-token",
             )
         }
         if any(
-            _canonical_url_query_key(key) in blocked_query
-            for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
+            _canonical_url_query_key(key) in blocked_query for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
         ):
             return False
         fragment = parsed.fragment.lower()
@@ -640,11 +698,13 @@ def public_confirmation_draft(draft: dict, tool_name: str = "") -> dict:
     public_fields = {"operation_id": sanitize_public_text(operation_id, 128)} if operation_id else {}
     if tool_name == "agent_notify":
         recipient_ids = fields.get("recipient_ids")
-        public_fields.update({
-            "operation": "agent_notify",
-            "recipient_count": len(recipient_ids) if isinstance(recipient_ids, list) else 0,
-            "title": sanitize_public_text(fields.get("title"), 80),
-        })
+        public_fields.update(
+            {
+                "operation": "agent_notify",
+                "recipient_count": len(recipient_ids) if isinstance(recipient_ids, list) else 0,
+                "title": sanitize_public_text(fields.get("title"), 80),
+            }
+        )
     else:
         for key in ("operation", "phase", "scope", "status", "count", "total"):
             if key in fields and not _is_public_sensitive_key(key):
@@ -677,11 +737,25 @@ def public_tool_calls_meta(meta):
             entry["arguments"] = public_tool_arguments(item["arguments"])
         result.append(entry)
     return result
+
+
 def _public_status_fields(source):
     """从工具结果提取跨工具共享的公开状态字段。"""
     allowed = {
-        "found", "status", "message", "date", "error_code", "operation_id", "operation",
-        "phase", "count", "total", "channel", "channels", "recipient_count", "sent_count",
+        "found",
+        "status",
+        "message",
+        "date",
+        "error_code",
+        "operation_id",
+        "operation",
+        "phase",
+        "count",
+        "total",
+        "channel",
+        "channels",
+        "recipient_count",
+        "sent_count",
         "failed_count",
     }
     public = {}
@@ -715,7 +789,18 @@ def public_tool_result(result, tool_name="", *, intent=""):
 
     public = _public_status_fields(source)
     if "count" not in public:
-        for detail_key in ("personnel", "schedules", "documents", "events", "memos", "projects", "posts", "issues", "links", "articles"):
+        for detail_key in (
+            "personnel",
+            "schedules",
+            "documents",
+            "events",
+            "memos",
+            "projects",
+            "posts",
+            "issues",
+            "links",
+            "articles",
+        ):
             if isinstance(source.get(detail_key), list):
                 public["count"] = len(source[detail_key])
                 break

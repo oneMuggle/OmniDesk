@@ -219,7 +219,11 @@ class SubTaskRunner:
                 tokens_used=0,
                 duration_ms=duration_ms,
                 status="failed",
-                error_message=("token budget exhausted" if isinstance(e, RuntimeError) and str(e) == "token budget exhausted" else "subtask execution failed: " + type(e).__name__),
+                error_message=(
+                    "token budget exhausted"
+                    if isinstance(e, RuntimeError) and str(e) == "token budget exhausted"
+                    else "subtask execution failed: " + type(e).__name__
+                ),
             )
 
     def invoke_llm(
@@ -307,6 +311,7 @@ class SubTaskRunner:
         max_rounds = self._max_tool_call_rounds
         if max_rounds is None:
             max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
+
         def process_tool_calls(tool_calls, round_index):
             tool_messages = []
             for tool_call in tool_calls:
@@ -421,26 +426,44 @@ class SubTaskRunner:
     @classmethod
     def _safe_summary(cls, value: Any, _key: str = "") -> Any:
         sensitive = {
-            "password", "passwd", "secret", "token", "access_token", "refresh_token",
-            "api_key", "apikey", "authorization", "authorization_header", "credential",
-            "prompt", "system_prompt", "email", "email_address", "phone", "phone_number",
-            "身份证", "身份证号", "id_card", "idcard",
+            "password",
+            "passwd",
+            "secret",
+            "token",
+            "access_token",
+            "refresh_token",
+            "api_key",
+            "apikey",
+            "authorization",
+            "authorization_header",
+            "credential",
+            "prompt",
+            "system_prompt",
+            "email",
+            "email_address",
+            "phone",
+            "phone_number",
+            "身份证",
+            "身份证号",
+            "id_card",
+            "idcard",
         }
         normalized_key = re.sub(r"[^a-z0-9一-鿿]", "", _key.lower())
         if normalized_key in {re.sub(r"[^a-z0-9一-鿿]", "", key.lower()) for key in sensitive}:
             return "[REDACTED]"
         if isinstance(value, dict):
-            return {
-                cls._safe_text(k, 40): cls._safe_summary(v, str(k))
-                for k, v in list(value.items())[:10]
-            }
+            return {cls._safe_text(k, 40): cls._safe_summary(v, str(k)) for k, v in list(value.items())[:10]}
         if isinstance(value, list):
             return [cls._safe_summary(item) for item in value[:10]]
         if isinstance(value, str):
             text = cls._safe_text(value)
             text = re.sub(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", "[REDACTED_EMAIL]", text)
             text = re.sub(r"(?<!\d)(?:1[3-9]\d{9})(?!\d)", "[REDACTED_PHONE]", text)
-            text = re.sub(r"(?<!\d)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)", "[REDACTED_ID]", text)
+            text = re.sub(
+                r"(?<!\d)\d{6}(?:19|20)\d{2}(?:0[1-9]|1[0-2])(?:0[1-9]|[12]\d|3[01])\d{3}[0-9Xx](?!\d)",
+                "[REDACTED_ID]",
+                text,
+            )
             text = re.sub(r"(?<!\d)\d{6}\d{8}[0-9Xx](?!\d)", "[REDACTED_ID]", text)
             return text
         return value

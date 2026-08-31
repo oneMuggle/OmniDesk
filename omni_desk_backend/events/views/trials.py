@@ -154,22 +154,16 @@ class TrialViewSet(viewsets.ModelViewSet):
 
         status_label_map = dict(Trial.STATUS_CHOICES)
         for trial in queryset:
-            start_local = (
-                timezone.localtime(trial.start_date).replace(tzinfo=None)
-                if trial.start_date
-                else None
+            start_local = timezone.localtime(trial.start_date).replace(tzinfo=None) if trial.start_date else None
+            end_local = timezone.localtime(trial.end_date).replace(tzinfo=None) if trial.end_date else None
+            ws.append(
+                [
+                    trial.title,
+                    status_label_map.get(trial.status, trial.status),
+                    start_local,
+                    end_local,
+                ]
             )
-            end_local = (
-                timezone.localtime(trial.end_date).replace(tzinfo=None)
-                if trial.end_date
-                else None
-            )
-            ws.append([
-                trial.title,
-                status_label_map.get(trial.status, trial.status),
-                start_local,
-                end_local,
-            ])
 
         ws.column_dimensions["A"].width = 32
         ws.column_dimensions["B"].width = 12
