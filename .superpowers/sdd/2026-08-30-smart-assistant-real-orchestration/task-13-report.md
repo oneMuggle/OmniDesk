@@ -219,3 +219,24 @@
 - `/home/fz/project/OmniDesk/omni_desk_backend/smart_assistant/tests/test_cache.py`
 - 本报告追加本轮准确验证记录；未修改 `VERSION`、`CHANGELOG`、user spec。
 - 测试环境既有随机 `SECRET_KEY`、Django timezone/pagination 等 warning 仍存在；无本轮相关失败或未解决安全问题。
+
+## Task 13：LLM 配置管理权限与 SSRF 出站边界（2026-08-31）
+
+### 根因与处理
+- 根因：`LlmEndpointViewSet` 与 `LlmAppConfigViewSet` 使用 `IsAuthenticated` 暴露完整 `ModelViewSet`，普通登录用户可读写全局端点/AppConfig，并触发带 API key 的探测请求。
+- 两个管理 ViewSet 统一改为 `IsAdminUser`；未认证请求仍由认证层返回 401，普通用户对 list/retrieve/create/update/partial_update/delete 及 fetch/test 均返回 403，管理员合法 CRUD/探测保持可用。
+- `LlmEndpointCreateSerializer.validate_api_endpoint` 在写入边界拒绝非 HTTP(S)、缺少 hostname 和 URL userinfo；保留独立 `validate(self, attrs)`，创建时 API key 必填契约未被覆盖。
+- fetch/test 对数据库中已有地址再次执行安全校验：解析 hostname 的全部地址，拒绝 loopback、private、link-local、reserved、unspecified、multicast 及无法解析地址；禁止自动跟随重定向，3xx 返回脱敏 502，不向客户端返回 API key、异常细节或上游响应正文。
+
+### TDD 与验证
+- RED：先新增真实 API 权限、管理探测 header/redirect、loopback/RFC1918/link-local/metadata/userinfo/非 HTTP URL 测试；旧权限实现下普通用户 list 返回 200，SSRF URL 仍触发 mock 网络调用，且缺少 `socket`/安全参数，按预期失败。
+- GREEN：最小实现后 LLM 配置 targeted 测试：`26 passed`，退出码 `0`；包含原 CRUD/probe 契约与新增安全边界。
+- 后端全量：在 `/home/fz/project/OmniDesk/omni_desk_backend` 使用 `/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`，`3158 passed, 2 xfailed, 11 xpassed, 42 warnings`，耗时约 2 分 48 秒，实际退出码 `0`。
+- `git diff --check`：通过；测试 warning 仅为既有测试环境随机 `SECRET_KEY`、Django timezone/pagination 等 warning。
+
+### 变更边界
+- 未修改 `VERSION`、`CHANGELOG`、user spec；保留既有统计 IsAdminUser/days/top_questions、文本与来源 URL sanitizer、confirmation summary/fields、scope/CAS、AgentLog、Notify audit、RAG DTO、SSE、public_tool_result 与任务生命周期。
+- 前端现有管理页面继续使用原 API 契约；普通用户不应访问该管理页面，服务端权限为最终边界。
+
+### 遗留项
+- 无本轮已知 Critical/High 遗留项；内部部署如需访问私有网段，应由后续明确 allowlist 需求和配置设计单独评审，当前按安全默认拒绝。

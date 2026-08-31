@@ -1,3 +1,5 @@
+from urllib.parse import urlsplit
+
 from rest_framework import serializers
 from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig, KnowledgeDataset
 from .cache import safe_public_value, sanitize_public_text
@@ -215,6 +217,14 @@ class LlmEndpointCreateSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["created_at", "updated_at"]
+
+    def validate_api_endpoint(self, value):
+        parsed = urlsplit(value)
+        if parsed.scheme.lower() not in {"http", "https"} or not parsed.hostname:
+            raise serializers.ValidationError("端点地址必须使用 http 或 https 协议。")
+        if parsed.username is not None or parsed.password is not None:
+            raise serializers.ValidationError("端点地址不能包含用户名或密码。")
+        return value
 
     def validate(self, attrs):
         if self.instance is None and not (attrs.get("api_key") or "").strip():

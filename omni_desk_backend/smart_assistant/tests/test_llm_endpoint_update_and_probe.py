@@ -26,7 +26,7 @@ class LlmEndpointUrlNormalizationTests(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.endpoint = LlmEndpoint.objects.create(
-            name="带v1端点", api_endpoint="https://api.test.com/v1",
+            name="带v1端点", api_endpoint="https://93.184.216.34/v1",
             api_key="sk-test",
         )
 
@@ -44,7 +44,7 @@ class LlmEndpointUrlNormalizationTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         called_url = mock_get.call_args[0][0]
-        self.assertEqual(called_url, "https://api.test.com/v1/models")
+        self.assertEqual(called_url, "https://93.184.216.34/v1/models")
 
     @patch('smart_assistant.views.llm_config.http_requests.get')
     def test_fetch_models_strips_trailing_v1(self, mock_get):
@@ -60,13 +60,13 @@ class LlmEndpointUrlNormalizationTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         called_url = mock_get.call_args[0][0]
-        self.assertEqual(called_url, "https://api.test.com/v1/models")
+        self.assertEqual(called_url, "https://93.184.216.34/v1/models")
 
     @patch('smart_assistant.views.llm_config.http_requests.get')
     def test_plain_base_url_still_appends_v1(self, mock_get):
         """不带 /v1 的基础地址行为不变(仍拼 /v1/models)."""
         plain = LlmEndpoint.objects.create(
-            name="普通端点", api_endpoint="https://api.test.com",
+            name="普通端点", api_endpoint="https://93.184.216.34",
             api_key="sk-test",
         )
         mock_response = MagicMock()
@@ -80,7 +80,7 @@ class LlmEndpointUrlNormalizationTests(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         called_url = mock_get.call_args[0][0]
-        self.assertEqual(called_url, "https://api.test.com/v1/models")
+        self.assertEqual(called_url, "https://93.184.216.34/v1/models")
 
     @patch('smart_assistant.views.llm_config.http_requests.get')
     def test_v1_variants_and_full_models_url_are_normalized(self, mock_get):
@@ -91,9 +91,9 @@ class LlmEndpointUrlNormalizationTests(TestCase):
         mock_get.return_value = mock_response
 
         for url in (
-            "https://api.test.com/v1/",
-            "https://api.test.com/V1",
-            "https://api.test.com/v1/models",
+            "https://93.184.216.34/v1/",
+            "https://93.184.216.34/V1",
+            "https://93.184.216.34/v1/models",
         ):
             endpoint = LlmEndpoint.objects.create(
                 name=url, api_endpoint=url, api_key="sk-test",
@@ -102,7 +102,7 @@ class LlmEndpointUrlNormalizationTests(TestCase):
                 f'/api/smart-assistant/endpoints/{endpoint.id}/test-endpoint/',
             )
             self.assertEqual(response.status_code, status.HTTP_200_OK)
-            self.assertEqual(mock_get.call_args[0][0], "https://api.test.com/v1/models")
+            self.assertEqual(mock_get.call_args[0][0], "https://93.184.216.34/v1/models")
 
             mock_get.reset_mock()
 

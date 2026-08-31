@@ -129,7 +129,7 @@ class TestLlmEndpointFetchModels(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.endpoint = LlmEndpoint.objects.create(
-            name="测试端点", api_endpoint="https://api.test.com",
+            name="测试端点", api_endpoint="https://93.184.216.34",
             api_key="sk-test",
         )
 
@@ -161,7 +161,7 @@ class TestLlmEndpointFetchModels(TestCase):
         # 验证请求 URL 和 headers
         mock_get.assert_called_once()
         called_url = mock_get.call_args[0][0]
-        self.assertEqual(called_url, "https://api.test.com/v1/models")
+        self.assertEqual(called_url, "https://93.184.216.34/v1/models")
         called_headers = mock_get.call_args.kwargs['headers']
         self.assertIn('Authorization', called_headers)
 
@@ -203,7 +203,7 @@ class TestLlmEndpointTestEndpoint(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.endpoint = LlmEndpoint.objects.create(
-            name="测试端点", api_endpoint="https://api.test.com",
+            name="测试端点", api_endpoint="https://93.184.216.34",
             api_key="sk-test",
         )
 
@@ -259,7 +259,7 @@ class TestLlmAppConfigCRUD(TestCase):
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
         self.endpoint = LlmEndpoint.objects.create(
-            name="主端点", api_endpoint="https://api.test.com",
+            name="主端点", api_endpoint="https://93.184.216.34",
             api_key="sk-test",
         )
 
@@ -276,7 +276,7 @@ class TestLlmAppConfigCRUD(TestCase):
         config = response.data['results'][0]
         # 验证冗余字段
         self.assertEqual(config['endpoint_name'], '主端点')
-        self.assertEqual(config['api_endpoint'], 'https://api.test.com')
+        self.assertEqual(config['api_endpoint'], 'https://93.184.216.34')
         self.assertEqual(config['model_name'], 'gpt-4')
 
     def test_create_app_config_deactivates_same_app_others(self):
@@ -302,3 +302,68 @@ class TestLlmAppConfigCRUD(TestCase):
         self.assertFalse(old.is_active, "同 app_name 的旧 active 配置应自动取消")
         new = LlmAppConfig.objects.get(model_name='gpt-4')
         self.assertTrue(new.is_active)
+
+
+class TestLlmConfigSecurityBoundaries(TestCase):
+    """LLM 全局配置的管理权限与出站请求安全边界。"""
+
+    def setUp(self):
+        self.admin = CustomUser.objects.create_user(username="security-admin", password="admin123", is_staff=True)
+        self.user = CustomUser.objects.create_user(username="普通用户", password="user123")
+        self.endpoint = LlmEndpoint.objects.create(name="安全测试端点", api_endpoint="https://93.184.216.34", api_key="secret-key", is_active=True)
+        self.config = LlmAppConfig.objects.create(app_name="smart_assistant", endpoint=self.endpoint, model_name="test-model", is_active=True)
+        self.client = APIClient()
+
+    def test_unauthenticated_config_endpoints_return_401(self):
+        self.assertEqual(self.client.get("/api/smart-assistant/endpoints/").status_code, status.HTTP_401_UNAUTHORIZED)
+        self.assertEqual(self.client.get("/api/smart-assistant/app-configs/").status_code, status.HTTP_401_UNAUTHORIZED)
+
+    def test_regular_user_cannot_read_or_mutate_global_llm_config(self):
+        self.client.force_authenticate(user=self.user)
+        endpoint_url = f"/api/smart-assistant/endpoints/{self.endpoint.id}/"
+        config_url = f"/api/smart-assistant/app-configs/{self.config.id}/"
+        requests = [("get", "/api/smart-assistant/endpoints/", {}), ("get", endpoint_url, {}), ("post", "/api/smart-assistant/endpoints/", {"name": "投毒", "api_endpoint": "https://evil.test", "api_key": "x"}), ("patch", endpoint_url, {"name": "投毒"}), ("put", endpoint_url, {"name": "投毒", "api_endpoint": "https://evil.test", "api_key": "x"}), ("delete", endpoint_url, {}), ("get", "/api/smart-assistant/app-configs/", {}), ("get", config_url, {}), ("post", "/api/smart-assistant/app-configs/", {"app_name": "smart_assistant", "endpoint": self.endpoint.id, "model_name": "evil"}), ("patch", config_url, {"model_name": "evil"}), ("put", config_url, {"app_name": "smart_assistant", "endpoint": self.endpoint.id, "model_name": "evil"}), ("delete", config_url, {}), ("post", f"/api/smart-assistant/endpoints/{self.endpoint.id}/fetch-models/", {}), ("post", f"/api/smart-assistant/endpoints/{self.endpoint.id}/test-endpoint/", {})]
+        for method, url, data in requests:
+            response = getattr(self.client, method)(url, data, format="json") if data else getattr(self.client, method)(url)
+            self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, (method, url, response.data))
+
+    @patch("smart_assistant.views.llm_config.http_requests.get")
+    @patch("smart_assistant.views.llm_config.socket.getaddrinfo")
+    def test_admin_probe_uses_safe_headers_and_disables_redirects(self, mock_getaddrinfo, mock_get):
+        mock_getaddrinfo.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"data": [{"id": "safe-model"}]}
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+        self.client.force_authenticate(user=self.admin)
+        result = self.client.post(f"/api/smart-assistant/endpoints/{self.endpoint.id}/fetch-models/")
+        self.assertEqual(result.status_code, status.HTTP_200_OK)
+        self.assertEqual(result.data, {"models": ["safe-model"], "count": 1})
+        kwargs = mock_get.call_args.kwargs
+        self.assertFalse(kwargs["allow_redirects"])
+        self.assertEqual(kwargs["headers"]["Authorization"], "Bearer secret-key")
+
+    def test_admin_probe_rejects_ssrf_urls_without_network_access(self):
+        self.client.force_authenticate(user=self.admin)
+        blocked_urls = ["http://localhost/v1", "http://127.0.0.1/v1", "http://192.168.1.10/v1", "http://169.254.169.254/latest/meta-data", "http://[::1]/v1", "http://user:password@example.com/v1", "ftp://example.com/v1"]
+        with patch("smart_assistant.views.llm_config.http_requests.get") as mock_get:
+            for url in blocked_urls:
+                self.endpoint.api_endpoint = url
+                self.endpoint.save(update_fields=["api_endpoint"])
+                result = self.client.post(f"/api/smart-assistant/endpoints/{self.endpoint.id}/test-endpoint/")
+                self.assertEqual(result.status_code, status.HTTP_400_BAD_REQUEST, url)
+                self.assertIn("端点地址", str(result.data))
+            mock_get.assert_not_called()
+
+    @patch("smart_assistant.views.llm_config.http_requests.get")
+    @patch("smart_assistant.views.llm_config.socket.getaddrinfo")
+    def test_admin_probe_does_not_follow_redirects(self, mock_getaddrinfo, mock_get):
+        mock_getaddrinfo.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
+        response = MagicMock(status_code=302, headers={"Location": "http://169.254.169.254/"})
+        response.raise_for_status.return_value = None
+        mock_get.return_value = response
+        self.client.force_authenticate(user=self.admin)
+        result = self.client.post(f"/api/smart-assistant/endpoints/{self.endpoint.id}/test-endpoint/")
+        self.assertEqual(result.status_code, status.HTTP_502_BAD_GATEWAY)
+        self.assertNotIn("secret-key", str(result.data))
+        self.assertFalse(mock_get.call_args.kwargs["allow_redirects"])
