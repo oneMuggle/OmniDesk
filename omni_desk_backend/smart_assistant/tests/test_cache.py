@@ -13,6 +13,7 @@ from smart_assistant.cache import (
     CACHE_VERSION,
     TOOL_CACHE_TTL,
     _extract_user_id,
+    _is_public_url,
     bump_cache_version,
     cache_answer,
     cache_intent,
@@ -35,12 +36,23 @@ def reset_cache_version():
 class TestPublicTextUrlCredentials:
     @pytest.mark.parametrize('parameter', [
         'X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token',
-        'sig', 'signature', 'access_token',
+        'sig', 'signature', 'access_token', 'access-token',
+        'X%2DAmz%2DSecurity%2DToken', 'ACCESS%2DTOKEN',
     ])
     def test_signed_url_parameter_value_is_hidden(self, parameter):
         value = f'https://files.example.test/download?{parameter}=SECRET_URL_VALUE&name=report'
         sanitized = sanitize_public_text(value)
         assert 'SECRET_URL_VALUE' not in sanitized
+
+    @pytest.mark.parametrize('parameter', [
+        'X-Amz-Signature', 'X-Amz-Credential', 'X-Amz-Security-Token',
+        'sig', 'signature', 'access_token', 'access-token',
+        'x%2Damz%2Dsecurity%2Dtoken', 'ACCESS%2DTOKEN',
+    ])
+    def test_public_url_rejects_canonicalized_credential_keys(self, parameter):
+        assert not _is_public_url(
+            f'https://files.example.test/download?{parameter}=SECRET_URL_VALUE'
+        )
 
     def test_ordinary_url_without_credentials_is_preserved(self):
         value = '参考 https://example.test/docs?page=2&lang=zh'

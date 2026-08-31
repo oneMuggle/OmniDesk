@@ -435,7 +435,17 @@ _PII_TEXT_RE = (
 _URL_RE = re.compile(r"https?://[^\s<>\"']+", re.IGNORECASE)
 _URL_CREDENTIAL_KEYS = {
     "x-amz-signature", "x-amz-credential", "x-amz-security-token",
-    "sig", "signature", "access-token", "access_token",
+    "token", "credential", "sig", "signature", "access-token", "access_token",
+}
+
+
+def _canonical_url_query_key(value):
+    """统一 URL query key 的大小写、分隔符及百分号编码形式。"""
+    return re.sub(r"[^a-z0-9]", "", str(value).lower())
+
+
+_URL_CREDENTIAL_CANONICAL_KEYS = {
+    _canonical_url_query_key(key) for key in _URL_CREDENTIAL_KEYS
 }
 
 
@@ -455,7 +465,7 @@ def _sanitize_url_credentials(value):
             changed = False
             safe_pairs = []
             for key, item in pairs:
-                if key.lower() in _URL_CREDENTIAL_KEYS:
+                if _canonical_url_query_key(key) in _URL_CREDENTIAL_CANONICAL_KEYS:
                     item = "[已隐藏]"
                     changed = True
                 safe_pairs.append((key, item))
@@ -507,18 +517,27 @@ def _is_public_sensitive_key(value):
 
 def sanitize_public_text(value, limit=2000):
     """脱敏公开文本中的 secret/PII，兼容 JSON、quoted、key:value 和 Bearer。"""
-    result = str(value or "")[:limit]
+    raw = str(value or "")
     try:
-        parsed = json.loads(result)
+        parsed = json.loads(raw[:limit])
     except (TypeError, ValueError):
         parsed = None
     if isinstance(parsed, (dict, list)):
         return str(safe_public_value(parsed))[:limit]
+
+    protected_urls = []
+
+    def protect_url(match):
+        protected_urls.append(_sanitize_url_credentials(match.group(0)))
+        return f"__PUBLIC_URL_{len(protected_urls) - 1}__"
+
+    result = _URL_RE.sub(protect_url, raw)
     result = _SECRET_TEXT_RE.sub("[已隐藏]", result)
-    result = _sanitize_url_credentials(result)
     for pattern in _PII_TEXT_RE:
         result = pattern.sub("[已隐藏]", result)
-    return result
+    for index, url in enumerate(protected_urls):
+        result = result.replace(f"__PUBLIC_URL_{index}__", url)
+    return result[:limit]
 
 
 def _is_public_url(value):
@@ -540,8 +559,17 @@ def _is_public_url(value):
             pass
         if parsed.username is not None or parsed.password is not None:
             return False
-        blocked_query = {"token", "access_token", "signature", "sig", "x-amz-signature", "credential", "x-amz-credential"}
-        if any(key.lower() in blocked_query for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+        blocked_query = {
+            _canonical_url_query_key(key)
+            for key in (
+                "x-amz-signature", "x-amz-credential", "x-amz-security-token",
+                "token", "credential", "sig", "signature", "access_token", "access-token",
+            )
+        }
+        if any(
+            _canonical_url_query_key(key) in blocked_query
+            for key, _ in parse_qsl(parsed.query, keep_blank_values=True)
+        ):
             return False
         fragment = parsed.fragment.lower()
         if any(marker in fragment for marker in ("token", "signature", "credential", "access_token")):

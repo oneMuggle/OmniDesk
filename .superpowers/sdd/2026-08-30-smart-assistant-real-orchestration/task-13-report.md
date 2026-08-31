@@ -183,3 +183,20 @@
 #### 变更边界
 - 未修改 AgentLog、sync answer/sources/RAG DTO、public_tool_result allowlist、Notify audit、URL 凭据拒绝、replay scope/CAS 或 SSE 契约。
 - 未修改 `VERSION`、`CHANGELOG`、user spec。
+
+## Task 13：canonical query 凭据与统计边界回归（2026-08-31）
+
+### 根因与处理
+- `_is_public_url` 只对 `parse_qsl` 结果做简单小写比较，缺少 `x-amz-security-token`、`access-token`，且未统一处理大小写、连字符/下划线和百分号编码后的 query key。
+- `sanitize_public_text` 先运行 `_SECRET_TEXT_RE`，会把自然语言中的完整 URL 从 `token=...` 处截断，随后 URL sanitizer 无法再解析完整 query；因此改为先保护并完整处理 URL，再对非 URL 文本执行通用 secret/PII 脱敏。
+- 新增 canonical query key（小写并移除非字母数字字符），统一拒绝 `x-amz-signature`、`x-amz-credential`、`x-amz-security-token`、`sig`、`signature`、`access_token`、`access-token`；文本路径另保留既有 `token`/`credential` 兼容边界。普通 HTTPS 外链和普通 query 仍保留。
+
+### TDD 与验证
+- RED：先补充 `_is_public_url`、`sanitize_public_sources` 的大小写/连字符/下划线/百分号编码参数测试，以及同步 answer 带标点的完整 URL 回归；修复前 targeted 测试 `5 failed, 40 passed`，失败集中为安全 query URL 仍被接受及来源 DTO 仍返回 URL。
+- GREEN：最小修改后 sanitizer/source targeted 测试 `45 passed, 1 warning`；统计权限、days 边界、top_questions 与 sanitizer/source 回归 targeted 测试 `61 passed, 1 warning`，均退出码 0。
+- 后端全量：在 `/home/fz/project/OmniDesk/omni_desk_backend` 使用 `/home/fz/anaconda3/envs/OmniDesk/bin/python -m pytest --ds=omni_desk_backend.settings.test -q`，`3149 passed, 2 xfailed, 11 xpassed, 42 warnings`，覆盖率 `93.42%`，退出码 `0`，耗时约 2 分 51 秒。
+
+### 变更边界复核
+- 统计接口继续使用 `IsAdminUser`；overview/daily 对普通用户和未认证用户拒绝，管理员允许；`days=1/365` 接受，`0/366/非法字符串` 返回 400；`top_questions` 仅公开 intent/count，不含 `user_query`。
+- 保留 confirmation summary 固定文案与 fields 白名单、scope/CAS、AgentLog 脱敏、Notify audit 无身份/姓名/正文、RAG/source DTO、`public_tool_result` 聚合边界、SSE content/type/format/error 契约。
+- 未修改 `VERSION`、`CHANGELOG`、user spec；工作区既有 `.superpowers/sdd/2026-08-30-smart-assistant-real-orchestration/task-11-report.md` 改动未纳入本轮代码变更。

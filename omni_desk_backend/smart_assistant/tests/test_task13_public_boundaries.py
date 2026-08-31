@@ -103,6 +103,35 @@ def test_public_sources_drop_url_authority_and_fragment_credentials():
     ]
 
 
-def test_safe_public_value_drops_recipient_identity_fields():
+def test_public_sources_reject_all_canonicalized_credential_query_keys():
+    sensitive_keys = (
+        "x-amz-signature", "x-amz-credential", "x-amz-security-token",
+        "sig", "signature", "access_token", "access-token",
+        "X%2DAmz%2DSecurity%2DToken", "ACCESS%2DTOKEN",
+    )
+    sources = sanitize_public_sources([
+        {"document": key, "url": f"https://docs.example.org/a?{key}=secret"}
+        for key in sensitive_keys
+    ])
+    assert all("url" not in source for source in sources)
+
+
+def test_sync_answer_sanitizes_encoded_url_credentials_with_punctuation():
+    log = SimpleNamespace(id=18)
+    response = _build_sync_payload(
+        {
+            "answer": "请看 https://docs.example.org/a?X%2DAmz%2DSecurity%2DToken=SECRET_TOKEN。",
+            "intent": "general_chat",
+            "tool_used": "",
+            "tool_result": {},
+            "sources": [],
+        },
+        log,
+        None,
+        False,
+    )
+    assert "SECRET_TOKEN" not in response.data["answer"]
+    assert "https://docs.example.org/a" in response.data["answer"]
+
     value = safe_public_value({"recipient": "张三", "recipient_name": "李四", "username": "lisi", "user_id": 7, "sent_count": 2})
     assert value == {"sent_count": 2}

@@ -193,6 +193,46 @@ class TestStatsViewSetDaily(TestCase):
             user=self.user, title='测试会话'
         )
 
+    def test_regular_user_cannot_read_daily_stats(self):
+        regular = CustomUser.objects.create_user(username='regular_daily', password='password123')
+        self.client.force_authenticate(user=regular)
+
+        response = self.client.get('/api/smart-assistant/stats/daily/')
+
+        self.assertEqual(response.status_code, 403)
+
+    def test_unauthenticated_cannot_read_overview_or_daily(self):
+        self.client.force_authenticate(user=None)
+
+        self.assertEqual(
+            self.client.get('/api/smart-assistant/stats/overview/').status_code,
+            401,
+        )
+        self.assertEqual(
+            self.client.get('/api/smart-assistant/stats/daily/').status_code,
+            401,
+        )
+
+    def test_admin_accepts_boundary_days_and_rejects_out_of_range(self):
+        for days in (1, 365):
+            self.assertEqual(
+                self.client.get(f'/api/smart-assistant/stats/overview/?days={days}').status_code,
+                200,
+            )
+            self.assertEqual(
+                self.client.get(f'/api/smart-assistant/stats/daily/?days={days}').status_code,
+                200,
+            )
+        for days in (0, 366, 'not-a-number'):
+            self.assertEqual(
+                self.client.get(f'/api/smart-assistant/stats/overview/?days={days}').status_code,
+                400,
+            )
+            self.assertEqual(
+                self.client.get(f'/api/smart-assistant/stats/daily/?days={days}').status_code,
+                400,
+            )
+
     def test_daily_empty_returns_empty_list(self):
         """无日志时 daily_stats 为空列表."""
         response = self.client.get('/api/smart-assistant/stats/daily/')
