@@ -346,6 +346,9 @@ fi
 rm -f "$HEALTH_BODY"
 
 # /api/system/version/: 验证 version 字段;严格模式必须 FAIL,不能 SKIP 蒙混
+VERSION_BODY="$(smoke_temp_file version-body)"
+(umask 077; : > "$VERSION_BODY") || exit 1
+record_smoke_resource version-body "version-body-$$" "$VERSION_BODY" || exit 1
 # core/api.py:97 IsAuthenticated — 必须先拿 JWT,否则 401
 AUTH_STATUS_FILE="$(smoke_temp_file auth-status)"
 AUTH_BODY_FILE="$(smoke_temp_file auth-body)"
@@ -355,20 +358,25 @@ record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || true
 record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || true
 record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || true
 perform_smoke_auth() {
-    local login_url="$BASE_URL/api/auth/guest-login/" request_file code token
+    [ "${AUTH_ATTEMPTED:-0}" = 1 ] && return "${AUTH_RESULT:-1}"
+    AUTH_ATTEMPTED=1
+    local login_url="$BASE_URL/api/auth/guest-login/" request_file user_file password_file code token
     request_file="$(smoke_temp_file auth-request)"
     (umask 077; : > "$request_file")
+    cleanup_smoke_auth_request() { rm -f -- "$request_file" "${user_file:-}" "${password_file:-}"; }
+    trap cleanup_smoke_auth_request RETURN
     record_smoke_resource auth-request "auth-request-$$" "$request_file" || true
     if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
         login_url="$BASE_URL/api/auth/login/"
-        printf '%s\n%s\n' "$SMOKE_TEST_USER" "$SMOKE_TEST_PASSWORD" | \
-            python3 - "$request_file" <<'PY'
+        user_file="$(smoke_temp_file auth-user)"
+        password_file="$(smoke_temp_file auth-password)"
+        (umask 077; printf '%s' "$SMOKE_TEST_USER" > "$user_file"; printf '%s' "$SMOKE_TEST_PASSWORD" > "$password_file") || return 1
+        python3 - "$user_file" "$password_file" "$request_file" <<'PY'
 import json, sys
-username = sys.stdin.readline().rstrip('\n')
-password = sys.stdin.readline().rstrip('\n')
-with open(sys.argv[1], 'w') as f:
-    json.dump({'username': username, 'password': password}, f)
+with open(sys.argv[1]) as user_file, open(sys.argv[2]) as password_file, open(sys.argv[3], 'w') as request_file:
+    json.dump({'username': user_file.read(), 'password': password_file.read()}, request_file)
 PY
+        rm -f "$user_file" "$password_file"
     else
         printf '{}' > "$request_file"
     fi
@@ -377,12 +385,16 @@ PY
         --data-binary "@$request_file" "$login_url" 2>/dev/null || echo 000)
     printf '%s' "$code" > "$AUTH_STATUS_FILE"
     if [ "$code" = 200 ]; then
-        token="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('access',''))" "$AUTH_BODY_FILE" 2>/dev/null || true)"
-        if smoke_auth_token_is_valid "$token"; then
-            (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE")
+        token="$(python3 -c 'import json,sys
+try:
+ d=json.load(open(sys.argv[1])); print(d.get("access","") if isinstance(d,dict) else "")
+except (OSError,TypeError,ValueError,json.JSONDecodeError): pass' "$AUTH_BODY_FILE" 2>/dev/null)"
+        if smoke_auth_token_is_valid "$token" && (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE") && chmod 600 "$AUTH_TOKEN_FILE"; then
+            AUTH_RESULT=0
             return 0
         fi
     fi
+    AUTH_RESULT=1
     return 1
 }
 perform_smoke_auth || true
@@ -474,44 +486,9 @@ echo ""
 # ─── 阶段 6: 版本/迁移/CHANGELOG 端点 (需 JWT) ─────────────────
 echo "阶段 6: 版本/迁移/CHANGELOG 端点"
 
-AUTH_STATUS_FILE="$(smoke_temp_file auth-status)"
-AUTH_BODY_FILE="$(smoke_temp_file auth-body)"
-AUTH_TOKEN_FILE="$(smoke_auth_token_file)"
-(umask 077; : > "$AUTH_STATUS_FILE"; : > "$AUTH_BODY_FILE")
-record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || true
-record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || true
-record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || true
-perform_smoke_auth() {
-    local login_url="$BASE_URL/api/auth/guest-login/" request_file code token
-    request_file="$(smoke_temp_file auth-request)"
-    (umask 077; : > "$request_file")
-    record_smoke_resource auth-request "auth-request-$$" "$request_file" || true
-    if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
-        login_url="$BASE_URL/api/auth/login/"
-        printf '%s\n%s\n' "$SMOKE_TEST_USER" "$SMOKE_TEST_PASSWORD" | \
-            python3 - "$request_file" <<'PY'
-import json, sys
-username = sys.stdin.readline().rstrip('\n')
-password = sys.stdin.readline().rstrip('\n')
-with open(sys.argv[1], 'w') as f:
-    json.dump({'username': username, 'password': password}, f)
-PY
-    else
-        printf '{}' > "$request_file"
-    fi
-    code=$(curl -sS -X POST -o "$AUTH_BODY_FILE" --write-out '%{http_code}' \
-        --max-time "${SMOKE_CURL_TIMEOUT:-15}" -H 'Content-Type: application/json' \
-        --data-binary "@$request_file" "$login_url" 2>/dev/null || echo 000)
-    printf '%s' "$code" > "$AUTH_STATUS_FILE"
-    if [ "$code" = 200 ]; then
-        token="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('access',''))" "$AUTH_BODY_FILE" 2>/dev/null || true)"
-        if smoke_auth_token_is_valid "$token"; then
-            (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE")
-            return 0
-        fi
-    fi
-    return 1
-}
+AUTH_ATTEMPTED=0
+AUTH_RESULT=1
+perform_smoke_auth || true
 GUEST_HTTP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || echo 000)"
 GUEST_TOKEN="$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)"
 case "$GUEST_HTTP" in
@@ -521,7 +498,7 @@ case "$GUEST_HTTP" in
     000|502|503|504) result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (网络瞬态)"; GUEST_TOKEN="" ;;
     *) result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (未知)"; GUEST_TOKEN="" ;;
 esac
-rm -f "$AUTH_REQUEST_FILE" 2>/dev/null || true
+rm -f "${AUTH_REQUEST_FILE:-}" 2>/dev/null || true
 
 if [ -z "$GUEST_TOKEN" ]; then
     # S4: 显式告知后续 6.1 / 6.2 也被跳过 — operator 看到 "FAIL + 2 SKIP" 而非 "FAIL" 单独一行
@@ -940,8 +917,8 @@ if [ "$CORS_ALLOWED_HTTP" = "200" ] || [ "$CORS_ALLOWED_HTTP" = "405" ] || [ "$C
     # 关键是看响应头里有没有 Access-Control-Allow-Origin
     CORS_HEADER=$(curl -sI -H "Origin: ${SMOKE_CORS_ORIGIN:-http://localhost}" \
         "${BASE_URL}/api/auth/login/" 2>/dev/null \
-        | grep -i "access-control-allow-origin" | head -1 || true)
-    if [ -n "$CORS_HEADER" ]; then
+        | grep -i "^access-control-allow-origin:" | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d '\r' || true)
+    if [ "$CORS_HEADER" = "${SMOKE_CORS_ORIGIN:-http://localhost}" ]; then
         result "PASS" "CORS 合法 Origin 放行" "Origin=${SMOKE_CORS_ORIGIN:-http://localhost}"
     else
         result "FAIL" "CORS 合法 Origin 响应头缺失" "请求未返回 Access-Control-Allow-Origin"
@@ -954,21 +931,9 @@ fi
 if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
     result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
 else
-    if [ -s "$AUTH_STATUS_FILE" ] && [ "$(cat "$AUTH_STATUS_FILE")" = "200" ] \
-        && smoke_auth_token_is_valid "$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)" \
-        && grep -q '"access"' "$AUTH_BODY_FILE"; then
-        LOGIN_RESP=200
-        HAS_ACCESS="$(grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' "$AUTH_BODY_FILE" | head -1 || true)"
-    else
-        LOGIN_RESP=000
-        HAS_ACCESS=""
-    fi
-    if [ "$LOGIN_RESP" = "200" ]; then
-        if [ -n "$HAS_ACCESS" ]; then
-            result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access（复用本 run token）"
-        else
-            result "FAIL" "真实账密登录响应格式异常" "200 但 response 无 access 字段"
-        fi
+    LOGIN_RESP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || printf '000')"
+    if [ "$LOGIN_RESP" = "200" ] && smoke_auth_token_is_valid "$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)" && grep -q '"access"' "$AUTH_BODY_FILE"; then
+        result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access（复用本 run token）"
     else
         result "FAIL" "真实账密登录" "HTTP $LOGIN_RESP(期望 200,常见原因:账号未创建/密码错/argon2 校验失败)"
     fi
@@ -1054,10 +1019,10 @@ echo "  FAIL: $FAIL"
 echo "  SKIP: $SKIP"
 echo ""
 
-if [ "$FAIL" -gt 0 ]; then
-    echo "STATUS: FAILED — $FAIL 个测试未通过"
-    exit 1
-else
+if finalize_results; then
     echo "STATUS: ALL PASSED"
     exit 0
+else
+    echo "STATUS: FAILED — FAIL=$FAIL SKIP=$SKIP WARN=$WARN"
+    exit 1
 fi
