@@ -50,7 +50,10 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAdminOrReadOnly]
 
     def get_serializer_class(self):
-        if self.request and self.request.user.is_authenticated and self.request.user.groups.filter(name="Admin").exists():
+        if self.request and self.request.user.is_authenticated and (
+            self.request.user.is_superuser
+            or self.request.user.groups.filter(name="Admin").exists()
+        ):
             return RagflowConfigSerializer
         class SafeRagflowConfigSerializer(serializers.ModelSerializer):
             class Meta:

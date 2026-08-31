@@ -25,11 +25,25 @@ class TestRagflowConfigViewSet:
         user = admin_client.handler._force_user
         user.groups.clear()
         user.groups.add(Group.objects.get_or_create(name="Manager")[0])
+        user.is_superuser = False
+        user.save(update_fields=["is_superuser"])
         request = admin_client.get("/").wsgi_request
         request.user = user
         view = RagflowConfigViewSet()
         view.request = request
         assert "api_endpoint" not in view.get_serializer_class().Meta.fields
+
+    def test_superuser_without_admin_group_uses_full_serializer(self, admin_client):
+        from ragflow_service.views import RagflowConfigViewSet
+        user = admin_client.handler._force_user
+        user.groups.clear()
+        user.is_superuser = True
+        user.save(update_fields=["is_superuser"])
+        request = admin_client.get("/").wsgi_request
+        request.user = user
+        view = RagflowConfigViewSet()
+        view.request = request
+        assert "api_endpoint" in view.get_serializer_class().Meta.fields
 
     def test_list_configs(self, api_client, regular_user_obj):
         api_client.force_authenticate(user=regular_user_obj)

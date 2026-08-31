@@ -73,3 +73,9 @@
 - 读取并复用真实权限约定：仅 `superuser` 或 `Admin` 组可使用完整 Ragflow serializer；`Manager` 组（即使 `is_staff=True`）及普通认证用户使用安全 serializer。
 - 补充 Admin 非 staff、Manager staff、普通用户三种身份测试。
 - Ragflow targeted：**56 passed**（`--no-cov`）。
+
+## 超级用户权限判定复审（2026-08-31）
+
+- `get_serializer_class()` 与 `IsAdminOrReadOnly` 写权限保持一致：`is_superuser` 或 `Admin` 组使用完整 serializer；`Manager`/普通认证用户使用安全 serializer。
+- 新增无 Admin 组 superuser 回归测试，先 RED 后 GREEN。
+- Ragflow targeted：**58 passed**（`--no-cov`）；相关 ruff 检查通过。
