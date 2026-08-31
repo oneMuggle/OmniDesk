@@ -107,6 +107,26 @@ else
     report PASS "T5 resolve_artifact_dir fails for nonexistent"
 fi
 
+# ─── T6:部署脚本必须按 bundle 标准布局解析校验器 ───────────
+# validate_artifacts.sh 位于 scripts/,从 bundle 根目录运行也不能依赖 cwd 中的同名文件。
+DEPLOY_TESTS="$ROOT/deployment/docker/deploy_tests.sh"
+SMOKE_TESTS="$ROOT/deployment/docker/smoke_tests.sh"
+if grep -Fq 'VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"' "$SMOKE_TESTS" \
+    && ! grep -Fq '[ -x "./validate_artifacts.sh" ]' "$SMOKE_TESTS"; then
+    report PASS "T6 smoke_tests resolves validator from SCRIPT_DIR"
+else
+    report FAIL "T6 smoke_tests still assumes bundle-root validate_artifacts.sh"
+fi
+
+# ─── T7:deploy_tests 受保护 version 与 Redis 必须复用上下文 ───
+if grep -q 'obtain_auth_token' "$DEPLOY_TESTS" \
+    && grep -q 'ENV_FILE_PATH' "$DEPLOY_TESTS" \
+    && ! grep -q 'grep "\^REDIS_PASSWORD=" .env.production' "$DEPLOY_TESTS"; then
+    report PASS "T7 deploy_tests reuses auth token and resolved env path"
+else
+    report FAIL "T7 deploy_tests does not reuse auth/env context"
+fi
+
 echo ""
 echo "=========================================="
 echo "  test_smoke_common.sh: PASS=$PASS_COUNT FAIL=$FAIL_COUNT"

@@ -6,7 +6,9 @@
 # 默认测试 http://localhost
 
 # shellcheck disable=SC1091
-source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
+SMOKE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export SMOKE_SCRIPT_DIR
+source "$SMOKE_SCRIPT_DIR/smoke_common.sh"
 
 if ! init_smoke_context "${1:-}"; then
     echo "ERROR: deploy context init failed; required compose/env not found" >&2
@@ -92,7 +94,13 @@ fi
 rm -f "$HEALTH_BODY"
 
 VERSION_BODY="$(smoke_temp_file deploy-version-body)"
-HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+VERSION_TOKEN="$(obtain_auth_token || true)"
+if [ -n "$VERSION_TOKEN" ]; then
+    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
+        -H "Authorization: Bearer $VERSION_TOKEN")
+else
+    HTTP_CODE="000"
+fi
 if [ "$HTTP_CODE" = "200" ]; then
     if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
         VERSION=$(python3 -c "import sys,json; print(json.load(open('$VERSION_BODY'))['version'])" 2>/dev/null || echo unknown)
@@ -101,7 +109,11 @@ if [ "$HTTP_CODE" = "200" ]; then
         result "FAIL" "Backend /api/system/version/ missing version field"
     fi
 else
-    classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
+    if [ -z "$VERSION_TOKEN" ]; then
+        result "FAIL" "Backend /api/system/version/" "无法取得 JWT,受保护端点未执行"
+    else
+        classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
+    fi
 fi
 rm -f "$VERSION_BODY"
 
@@ -146,8 +158,8 @@ echo ""
 # ─── 阶段 5: Redis 连通性 ───────────────────────────────────
 echo "阶段 5: Redis 连通性"
 
-if [ -f ".env.production" ]; then
-    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" .env.production 2>/dev/null | cut -d= -f2- || echo "")
+if [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
+    REDIS_PASSWORD=$(grep "^REDIS_PASSWORD=" "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "")
     # SECURITY FIX: Use REDISCLI_AUTH env var instead of -a flag to avoid password exposure in process list
     REDIS_PING=$(compose exec -T -e REDISCLI_AUTH="$REDIS_PASSWORD" redis redis-cli ping 2>/dev/null || echo "FAIL")
     if echo "$REDIS_PING" | grep -q "PONG"; then
@@ -156,7 +168,7 @@ if [ -f ".env.production" ]; then
         result "FAIL" "Redis ping" "Response: $REDIS_PING"
     fi
 else
-    result "SKIP" "Redis" ".env.production not found"
+    result "SKIP" "Redis" "resolved env file not found: ${ENV_FILE_PATH:-unset}"
 fi
 echo ""
 

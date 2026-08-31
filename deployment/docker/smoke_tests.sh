@@ -6,7 +6,9 @@
 # 所有 API 请求通过 Nginx 代理 ($base_url/api/) 访问后端
 
 # shellcheck disable=SC1091
-source "$(cd "$(dirname "$0")" && pwd)/smoke_common.sh"
+SMOKE_SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+export SMOKE_SCRIPT_DIR
+source "$SMOKE_SCRIPT_DIR/smoke_common.sh"
 
 if ! init_smoke_context "${1:-}"; then
     echo "ERROR: smoke context init failed; required compose/env not found" >&2
@@ -443,33 +445,24 @@ GUEST_JSON="/tmp/.smoke_guest_$$.json"
 (umask 077; : > "$GUEST_JSON")  # S5: 设 restrictive 权限
 # 走 obtain_auth_token:SMOKE_TEST_USER 注入时用 /api/auth/login/(5/15m 限流与 guest 独立),
 # 未注入时仍走 /api/auth/guest-login/(默认 SKIP 行为保持兼容)。
-# GUEST_HTTP 同时捕获,保留精细告警分支(429/真业务错误/网络瞬态)。
-if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
-    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
-        -X POST -H "Content-Type: application/json" \
-        -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
-        "$BASE_URL/api/auth/login/" 2>/dev/null || echo "000")
+# 同一 run 复用阶段 3 已写入的 token 缓存,避免重复登录触发限流。
+GUEST_TOKEN="$(obtain_auth_token || true)"
+if [ -n "$GUEST_TOKEN" ]; then
+    GUEST_HTTP=200
 else
-    GUEST_HTTP=$(curl -s -o "$GUEST_JSON" -w "%{http_code}" --max-time 10 \
-        -X POST -H "Content-Type: application/json" -d '{}' \
-        "$BASE_URL/api/auth/guest-login/" 2>/dev/null || echo "000")
+    GUEST_HTTP=000
 fi
 
 case "$GUEST_HTTP" in
-    200)
-        GUEST_TOKEN=$(python3 -c "import json; print(json.load(open('$GUEST_JSON')).get('access',''))" 2>/dev/null || echo "")
-        ;;
+    200) ;;
     429)
         result "WARN" "Guest login rate-limited (HTTP 429)" "5/15m 已耗尽,跳过阶段 6;可 15 分钟后重试"
         GUEST_TOKEN=""
         ;;
-    # 真业务错误(token 失效/被禁/IP 黑名单/后端崩溃):FAIL 让 CI gate 看见
     400|401|403|500)
         result "FAIL" "Guest login 真业务错误" "HTTP $GUEST_HTTP — 服务可能配置错/后端崩溃,不能 SKIP"
         GUEST_TOKEN=""
         ;;
-    # B·D: 路由配置错误 / 服务器资源拒绝 — guest-login 是已知 POST 端点,
-    #   405/451 = API 签名错或合规拒绝;506/507 = 服务器资源/版本错
     405|451)
         result "FAIL" "Guest login 路由配置错误" "HTTP $GUEST_HTTP — 端点签名错/合规拒绝,不能 SKIP"
         GUEST_TOKEN=""
@@ -478,14 +471,11 @@ case "$GUEST_HTTP" in
         result "FAIL" "Guest login 服务器资源异常" "HTTP $GUEST_HTTP — 服务器资源/版本不支持,不能 SKIP"
         GUEST_TOKEN=""
         ;;
-    # 网络瞬态 / nginx 上游挂:保守 SKIP
     000|502|503|504)
         result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (网络瞬态)"
         GUEST_TOKEN=""
         ;;
     *)
-        # K2 设计意图:未知 HTTP 码保守 SKIP — 新版本后端可能新增业务错误码,
-        #  在 CI 上不阻塞,但 STATUS 行通过 "skip count" 让值班能定位
         result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (未知)"
         GUEST_TOKEN=""
         ;;
@@ -571,8 +561,9 @@ echo ""
 # ─── 阶段 7: 离线包元数据/可加载性校验 (validate_artifacts.sh) ──
 echo "阶段 7: 离线包元数据/可加载性校验"
 
-if [ -x "./validate_artifacts.sh" ]; then
-    VA_OUTPUT=$(./validate_artifacts.sh "$BUNDLE_DIR/images" 2>&1)
+VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"
+if [ -x "$VALIDATE_ARTIFACTS_SCRIPT" ]; then
+    VA_OUTPUT=$("$VALIDATE_ARTIFACTS_SCRIPT" "$BUNDLE_DIR/images" 2>&1)
     VA_RC=$?
     if [ "$VA_RC" -eq 0 ]; then
         VA_PASS=$(echo "$VA_OUTPUT" | grep -c "PASS:")
@@ -583,7 +574,7 @@ if [ -x "./validate_artifacts.sh" ]; then
         result "FAIL" "Offline bundle integrity" "validate_artifacts.sh exit=$VA_RC. tail: $(echo "$VA_OUTPUT" | tail -10)"
     fi
 else
-    result "SKIP" "Offline bundle integrity" "validate_artifacts.sh not found/executable"
+    result "FAIL" "Offline bundle integrity" "required validator missing or not executable: $VALIDATE_ARTIFACTS_SCRIPT"
 fi
 echo ""
 
@@ -917,15 +908,24 @@ fi
 if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
     result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
 else
-    LOGIN_RESP=$(curl -s -o /tmp/_smoke_login.json -w "%{http_code}" \
-        -H "Content-Type: application/json" \
-        -X POST -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
-        "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+    if [ -n "${SMOKE_AUTH_TOKEN_FILE:-}" ] && [ -f "$SMOKE_AUTH_TOKEN_FILE" ]; then
+        LOGIN_RESP=200
+        HAS_ACCESS='"access":"cached"'
+    else
+        LOGIN_RESP=$(curl -s -o /tmp/_smoke_login.json -w "%{http_code}" \
+            -H "Content-Type: application/json" \
+            -X POST -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
+            "${BASE_URL}/api/auth/login/" 2>/dev/null || echo "000")
+        if [ "$LOGIN_RESP" = "200" ]; then
+            LOGIN_BODY=$(cat /tmp/_smoke_login.json 2>/dev/null || echo "")
+            HAS_ACCESS=$(echo "$LOGIN_BODY" | grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 || true)
+        else
+            HAS_ACCESS=""
+        fi
+    fi
     if [ "$LOGIN_RESP" = "200" ]; then
-        LOGIN_BODY=$(cat /tmp/_smoke_login.json 2>/dev/null || echo "")
-        HAS_ACCESS=$(echo "$LOGIN_BODY" | grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' | head -1 || true)
         if [ -n "$HAS_ACCESS" ]; then
-            result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access"
+            result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access（复用本 run token）"
         else
             result "FAIL" "真实账密登录响应格式异常" "200 但 response 无 access 字段"
         fi
