@@ -61,10 +61,12 @@ def _sanitize_stream_event(data):
     if not isinstance(data, dict):
         return {}
     event_type = data.get("type")
+    if not isinstance(event_type, str):
+        return {}
     fields = _STREAM_EVENT_FIELDS.get(event_type)
     if not fields:
         return {}
-    public_event = {"type": event_type}
+    public_event = {"type": event_type, "format_version": FORMAT_VERSION}
     for key in fields - {"type", "content", "format_version", "answer"}:
         if key not in data:
             continue
@@ -73,8 +75,6 @@ def _sanitize_stream_event(data):
             public_event[key] = sanitize_public_text(value, 200)
         else:
             public_event[key] = safe_public_value(value)
-    if "format_version" in data:
-        public_event["format_version"] = data["format_version"]
     if event_type == "chunk" and "content" in data:
         public_event["content"] = sanitize_public_text(data["content"])
     if event_type == "confirmation" and "answer" in data:
@@ -254,6 +254,8 @@ def _consume_stream_events(state, orchestrator, query, conversation_history, too
         except (IndexError, json.JSONDecodeError):
             continue
         data = _sanitize_stream_event(data)
+        if not data:
+            continue
         yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
         event_type = data.get("type")
         if event_type == "chunk":

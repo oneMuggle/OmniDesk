@@ -47,3 +47,8 @@
 
 ## 变更边界
 未修改 `VERSION`、任何 `CHANGELOG`、用户 spec；未修改全局 sanitizer。
+
+## 本次 Important 修复补充
+- `format_version` 不再信任上游同名字段，公开事件固定使用 `FORMAT_VERSION`；嵌套 dict/list 版本值及敏感结构不会进入客户端。
+- `_sanitize_stream_event` 在 `event_type` 为非字符串时提前返回空事件；`_consume_stream_events` 跳过空事件后继续消费后续合法 chunk/done，保证流收口。
+- allowlist 继续保留正常 chunk content、confirmation answer、固定失败字段与 format_version，未放宽全局 `safe_public_value`。
