@@ -145,6 +145,23 @@ class TestRagflowConfigViewSet:
         assert response.status_code == status.HTTP_200_OK
         assert response.data == {"data": [{"id": "d1", "name": "公开库"}]}
 
+    def test_list_chats_filters_sensitive_and_nested_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Chats Config", api_endpoint="https://ragflow.example.com/api", api_key="key"
+        )
+        mock_client = MagicMock()
+        mock_client.list_chats.return_value = [{
+            "id": "c1", "name": "助手 https://internal/?token=secret",
+            "description": "说明 /srv/private", "nested": {"token": "secret"},
+        }]
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.get(f"/api/ragflow-service/configs/{config.pk}/list_chats/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data["data"][0]["id"] == "c1"
+        assert "nested" not in response.json()
+        assert "secret" not in response.json()["data"][0]["name"]
+
     def test_query_missing_question(self, admin_client):
         from ragflow_service.models import RagflowConfig
         config = RagflowConfig.objects.create(

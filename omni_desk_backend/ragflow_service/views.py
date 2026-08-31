@@ -29,11 +29,19 @@ def _public_query_result(result):
 def _public_items(items, allowed_keys):
     if not isinstance(items, list):
         return []
-    return [
-        {key: item[key] for key in allowed_keys if key in item}
-        for item in items
-        if isinstance(item, dict)
-    ]
+    public_items = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        public_item = {}
+        for key in allowed_keys:
+            value = item.get(key)
+            if isinstance(value, str):
+                public_item[key] = sanitize_public_text(value, 200)
+            elif isinstance(value, (int, float, bool)) or value is None:
+                public_item[key] = value
+        public_items.append(public_item)
+    return public_items
 
 
 class RagflowConfigViewSet(viewsets.ModelViewSet):
@@ -61,7 +69,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             result = client.chat_completion(chat_id=config.chat_id, question=question, **kwargs)
             return Response(_public_query_result(result), status=status.HTTP_200_OK)
         except RagflowClientError as exc:
-            logger.error("RAGFlow Chat API 调用失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=True)
+            logger.error("RAGFlow Chat API 调用失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=False)
             return Response({"detail": "Ragflow API 请求失败。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
             client.close()
@@ -89,7 +97,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             datasets = client.list_datasets()
             return Response({"data": _public_items(datasets, ("id", "name"))}, status=status.HTTP_200_OK)
         except RagflowClientError as exc:
-            logger.error("RAGFlow 列出数据集失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=True)
+            logger.error("RAGFlow 列出数据集失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=False)
             return Response({"detail": "RAGFlow 服务暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
             client.close()
@@ -102,7 +110,7 @@ class RagflowConfigViewSet(viewsets.ModelViewSet):
             chats = client.list_chats()
             return Response({"data": _public_items(chats, ("id", "name", "description"))}, status=status.HTTP_200_OK)
         except RagflowClientError as exc:
-            logger.error("RAGFlow 列出聊天助手失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=True)
+            logger.error("RAGFlow 列出聊天助手失败: type=%s code=%s", type(exc).__name__, exc.code, exc_info=False)
             return Response({"detail": "RAGFlow 服务暂时不可用。"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
         finally:
             client.close()

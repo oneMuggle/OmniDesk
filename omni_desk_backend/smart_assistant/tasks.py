@@ -4,7 +4,6 @@ from django.conf import settings
 from ragflow_service.client import RagflowClient, RagflowClientError
 
 from observability import get_logger
-from notifications.models import Notification
 from notifications.service import NotificationService
 
 logger = get_logger(__name__, "smart_assistant")
@@ -141,7 +140,7 @@ def process_document_embedding(document_id):
             extra={"event": "smart_assistant.tasks.document_gone", "document_id": document_id},
         )
     except Exception as exc:
-        logger.error("文档向量化失败: type=%s", type(exc).__name__, exc_info=True)
+        logger.error("文档向量化失败: type=%s code=%s", type(exc).__name__, getattr(exc, "code", "unknown"))
         from smart_assistant.models import KnowledgeBaseDocument
 
         try:
