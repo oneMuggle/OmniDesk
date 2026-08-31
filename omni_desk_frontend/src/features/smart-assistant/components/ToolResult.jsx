@@ -68,6 +68,21 @@ const ToolResult = ({ intent, result, sources }) => {
     );
   }
 
+  // 安全 DTO 仅保留摘要/计数时，仍展示可用信息，避免 200 响应静默降级为空卡片。
+  if (result.summary || result.count !== undefined || result.total !== undefined) {
+    return (
+      <div className="tool-result-card">
+        <Card size="small" title="查询结果">
+          {result.summary && <div>{result.summary}</div>}
+          {(result.count !== undefined || result.total !== undefined) && (
+            <div>共 {result.count ?? result.total} 条</div>
+          )}
+        </Card>
+        {copyBtn}
+      </div>
+    );
+  }
+
   return null;
 };
 

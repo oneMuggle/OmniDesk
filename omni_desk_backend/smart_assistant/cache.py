@@ -9,8 +9,10 @@ Task 17 安全增强:所有工具/回答缓存都要求调用方传入 ``context
 import copy
 import hashlib
 import json
+import ipaddress
 import re
 import threading
+from urllib.parse import parse_qsl, urlsplit
 
 from django.conf import settings
 from django.core.cache import cache
@@ -435,7 +437,8 @@ _PUBLIC_SAFE_KEYS = {
     "recipient_count", "sent_count", "failed_count", "channel", "channels",
 }
 _PUBLIC_SENSITIVE_KEYS = {
-    "content", "body", "recipients", "recipient_names", "email", "phone", "prompt",
+    "content", "body", "recipients", "recipient", "recipient_name", "recipient_names", "username",
+    "email", "phone", "prompt",
     "prompt_text", "credentials", "credential", "credential_blob", "token", "token_value",
     "bearer_token", "secret", "password", "authorization", "authorization_header",
     "api_key", "access_token", "private_key", "client_secret", "arguments", "args",
@@ -476,6 +479,50 @@ def sanitize_public_text(value, limit=2000):
     for pattern in _PII_TEXT_RE:
         result = pattern.sub("[已隐藏]", result)
     return result
+
+
+def _is_public_url(value):
+    """只允许普通外链；拒绝内网地址和签名/凭据 query。"""
+    if not isinstance(value, str) or len(value) > 2048:
+        return False
+    try:
+        parsed = urlsplit(value)
+        if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+            return False
+        hostname = parsed.hostname.lower().rstrip(".")
+        if hostname in {"localhost", "localhost.localdomain"} or hostname.endswith((".localhost", ".local", ".internal")):
+            return False
+        try:
+            address = ipaddress.ip_address(hostname)
+            if address.is_private or address.is_loopback or address.is_link_local or address.is_reserved:
+                return False
+        except ValueError:
+            pass
+        blocked_query = {"token", "access_token", "signature", "sig", "x-amz-signature", "credential", "x-amz-credential"}
+        if any(key.lower() in blocked_query for key, _ in parse_qsl(parsed.query, keep_blank_values=True)):
+            return False
+    except ValueError:
+        return False
+    return True
+
+
+def sanitize_public_sources(sources):
+    """把来源转换成安全 DTO，保留文档名/评分和普通外链。"""
+    if not isinstance(sources, list):
+        return [] if sources is not None else None
+    safe = []
+    for source in sources[:20]:
+        if not isinstance(source, dict):
+            continue
+        item = {}
+        for key in ("document", "title", "score"):
+            if key in source and isinstance(source[key], (str, int, float)):
+                item[key] = sanitize_public_text(source[key], 200) if isinstance(source[key], str) else source[key]
+        if _is_public_url(source.get("url")):
+            item["url"] = source["url"]
+        if item:
+            safe.append(item)
+    return safe
 
 
 def safe_public_value(value, depth=0):
@@ -562,8 +609,8 @@ _PUBLIC_RESULT_KEYS = {
 }
 
 
-def public_tool_result(result, tool_name=""):
-    """生成确认执行后的最小公开结果；绝不暴露原始工具返回值。"""
+def public_tool_result(result, tool_name="", *, intent=""):
+    """生成确认执行后的最小公开结果；聚合字段仅接受明确 intent。"""
     if not isinstance(result, dict):
         return {}
     source = result.get("result") if isinstance(result.get("result"), dict) else result
@@ -573,19 +620,19 @@ def public_tool_result(result, tool_name=""):
         "operation_id", "operation", "phase", "status", "count", "total", "channel", "channels",
         "recipient_count", "sent_count", "failed_count",
     }
-    if tool_name == "aggregated_day" or (
-        "summary" in source and "moduleCounts" in source and "total_count" in source
-    ):
+    if tool_name == "aggregated_day" or intent == "aggregated_day":
         # 聚合器已生成前端所需的结构化摘要；其他工具不得借此公开明细。
         allowed_keys.update({"summary", "items", "moduleCounts", "total_count"})
     # summary 是由工具生成的用户可见短文；不包含原始 result 明细。
-    elif "summary" in source:
+    elif "summary" in source and not {"items", "moduleCounts", "total_count"}.intersection(source):
         allowed_keys.add("summary")
     public = {
         str(key): safe_public_value(value)
         for key, value in source.items()
         if str(key) in allowed_keys and not _is_public_sensitive_key(key)
     }
+    if not public and not {"summary", "items", "moduleCounts", "total_count"}.intersection(source):
+        return safe_public_value(source)
     return public
 
 

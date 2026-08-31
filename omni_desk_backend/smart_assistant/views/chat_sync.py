@@ -29,6 +29,7 @@ from ..cache import (
     public_tool_calls_meta,
     safe_public_value,
     sanitize_public_text,
+    sanitize_public_sources,
 )
 from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
@@ -282,11 +283,11 @@ def _write_sync_agent_log(
 def _build_sync_payload(result, log, conversation_id, error) -> Response:
     """组装同步响应 payload;失败响应在 error=true 基础上追加 kind + hint。"""
     payload = {
-        "answer": result["answer"],
+        "answer": sanitize_public_text(result.get("answer")),
         "intent": result.get("intent"),
         "tool_used": result.get("tool_used"),
-        "tool_result": public_tool_result(result.get("tool_result"), result.get("tool_used") or ""),
-        "sources": result.get("sources"),
+        "tool_result": public_tool_result(result.get("tool_result"), result.get("tool_used") or "", intent=result.get("intent") or ""),
+        "sources": sanitize_public_sources(result.get("sources")),
         "conversation_id": result.get("conversation_id") or conversation_id,
         "log_id": log.id,
         "error": error,

@@ -143,7 +143,7 @@ class TestConfirmReplayE2E:
             assert data_1["awaiting_confirmation"] is True
             assert data_1["confirmation_token"]  # 非空
             assert data_1["tool_used"] == "e2e_write_tool"
-            assert data_1["tool_result"] == {}
+            assert data_1["tool_result"]["draft"]["summary"]
             assert "query" not in str(data_1["tool_result"])
             assert data_1["error"] is False
 

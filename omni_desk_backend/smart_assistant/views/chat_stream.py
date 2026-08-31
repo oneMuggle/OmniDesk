@@ -34,7 +34,7 @@ from ..agent.orchestrator import (
     annotate_error_kind,
     sse_event,
 )
-from ..cache import public_tool_calls_meta, safe_public_value, sanitize_public_text
+from ..cache import public_tool_calls_meta, public_tool_result, safe_public_value, sanitize_public_text, sanitize_public_sources
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -73,6 +73,10 @@ def _sanitize_stream_event(data):
         value = data[key]
         if key in {"confirmation_token", "error_code", "kind", "hint", "finish_reason", "intent", "tool_used"}:
             public_event[key] = sanitize_public_text(value, 200)
+        elif key == "tool_result":
+            public_event[key] = public_tool_result(value, data.get("tool_used") or "", intent=data.get("intent") or "")
+        elif key == "sources":
+            public_event[key] = sanitize_public_sources(value)
         else:
             public_event[key] = safe_public_value(value)
     if event_type == "chunk" and "content" in data:
