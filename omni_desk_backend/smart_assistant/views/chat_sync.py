@@ -23,7 +23,6 @@ from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_e
 from ..cache import (
     ConfirmationDraftConsumeError,
     consume_confirmation_draft,
-    clear_confirmation_draft,
     get_confirmation_draft,
     public_confirmation_draft,
     public_tool_result,

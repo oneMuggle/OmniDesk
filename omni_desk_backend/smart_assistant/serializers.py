@@ -1,5 +1,3 @@
-from urllib.parse import urlsplit
-
 from rest_framework import serializers
 from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog, LlmEndpoint, LlmAppConfig, KnowledgeDataset
 from .cache import safe_public_value, sanitize_public_text

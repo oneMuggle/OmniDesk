@@ -1,8 +1,6 @@
 from observability import get_logger
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-import requests
-
 from smart_assistant.ssrf import safe_internal_request, safe_request
 from django.conf import settings
 from django.core.cache import cache

@@ -375,7 +375,7 @@ case "${1:-start}" in
         }
 
         # ─── 门禁 a:无 active upgrade ────────────────────────────────
-        # 注:用 mktemp 临时文件替代 bash 进程替换 `done < <(find ...)`。
+        # 注:用 mktemp 临时文件替代 find 输出重定向，保持 POSIX 兼容。
         # bash 在 case 解析阶段会扫描所有分支的语法(含未被选中的),
         # 若 clean 分支残留 bash-only 语法,即使只跑 start 也会在解析期
         # 撞 "syntax error near unexpected token '<'"。临时文件方案 POSIX 兼容,

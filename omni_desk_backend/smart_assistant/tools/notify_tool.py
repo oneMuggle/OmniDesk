@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from typing import Any, Callable
+from collections.abc import Callable
+from typing import Any
 import re
 
 from uuid import uuid4
 
 from .base import BaseTool
-from notifications.channels import resolve_channels
-from smart_assistant.scope import SmartAssistantScope, resolve_scope
+from smart_assistant.scope import resolve_scope
 
 _SCOPE_RANK = {"self": 0, "department": 1, "global": 2}
 _SENSITIVE_RE = re.compile(r"(?:[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}|1[3-9]\d{9}|\d{15}(?:\d{2}[0-9Xx])?)")

@@ -9,7 +9,6 @@
 - timeline: 完整时间线(甘特图数据)
 """
 
-import json
 import time
 import re
 import uuid
@@ -32,7 +31,7 @@ from ..tools.tool_context import ToolContext
 from ..scope import resolve_scope
 from llm_service.router import get_router
 from observability import get_logger
-from ..cache import safe_public_value, sanitize_public_text, public_tool_calls_meta, public_tool_result
+from ..cache import safe_public_value, sanitize_public_text, public_tool_result
 
 logger = get_logger(__name__, "smart_assistant")
 

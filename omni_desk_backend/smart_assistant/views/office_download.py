@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import os
 
-from django.conf import settings
 from django.http import FileResponse
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response

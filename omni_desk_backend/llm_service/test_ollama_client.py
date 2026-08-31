@@ -17,6 +17,7 @@ class TestOllamaClient(unittest.TestCase):
 
     @staticmethod
     def _requester(url, **kwargs):
+        kwargs.setdefault("timeout", 30 if url.endswith("/api/tags") else 120)
         if url.endswith("/api/tags"):
             return requests.get(url, **kwargs)
         return requests.post(url, **kwargs)

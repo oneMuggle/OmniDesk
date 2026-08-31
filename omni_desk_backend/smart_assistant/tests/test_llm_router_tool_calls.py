@@ -53,6 +53,7 @@ def mock_server():
 def safe_test_requester(mock_server):
     """测试 transport 显式把安全 hostname 映射到本地 mock 服务。"""
     def requester(url, **kwargs):
+        kwargs.setdefault("timeout", 120)
         return requests.post(url.replace("test-safe.invalid", f"127.0.0.1:{mock_server.port}"), **kwargs)
     return requester
 
