@@ -14,3 +14,16 @@
 
 ## 遗留项
 - 真实 loopback 配置端点按 SSRF 策略拒绝；现有 mock TCP E2E 仍需改为受控测试 transport/allowlist 后才能通过。
+
+## Continuation（39403641 之后）
+
+### 根因与修复
+- 管理探针旧测试 patch 了已移除的 `views.llm_config.socket`，并假设请求调用点为 `http_requests.get`；测试已迁移到共享 SSRF resolver seam，生产代码不再保留测试特判。
+- `safe_request` 新增显式 `requester` 与 `resolver` 参数；默认仍使用真实 `requests` transport、真实 DNS 预检和 `allow_redirects=False`。resolver 注入时仍校验其返回的每个地址，测试 resolver 仅把 loopback mock 服务声明为受控公网测试地址。
+- `LLMRouter` 接受可选 requester/resolver，并将其用于数据库 endpoint 的 `generate`/`generate_with_tools`；固定 Ollama fallback 继续使用原有本地请求路径。旧成本测试改 patch 共享 `safe_request`，Ollama 专属测试仍 patch `requests.post`。
+
+### TDD / 验证记录
+- RED（复现）：39403641 后定向运行得到管理探针 collection error、4 个 router tool-call SSRF 拒绝及 mock LLM E2E/native E2E 失败；另确认旧成本测试 patch `requests.post` 已无法观察 DB endpoint 请求。
+- GREEN：共享 transport/resolver 契约与测试 seam 完成后，定向 SSRF/配置/router/E2E 测试 **41 passed**，退出码 0；`core/tests/test_backup_db.py` **9 passed**，退出码 0。
+- 后端全量第一次复测：**3157 passed、4 failed、2 xfailed、11 xpassed、42 warnings**，4 项均为旧成本测试 seam，退出码 1；迁移成本测试后定向成本测试 **7 passed**。
+- 后端全量最终复测：**3161 passed、2 xfailed、11 xpassed、42 warnings**，退出码 **0**。

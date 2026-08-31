@@ -37,7 +37,10 @@ class LLMRouter:
     OLLAMA_MODEL = "qwen2.5:7b"
     REQUEST_TIMEOUT = _DefaultRequestTimeout(120)
 
-    def __init__(self, app_name="smart_assistant", request_timeout=None):
+    def __init__(self, app_name="smart_assistant", request_timeout=None, *, requester=None, resolver=None):
+        # requester/resolver 仅用于显式受控 transport 注入；默认路径仍是真实 requests + DNS 校验。
+        self._requester = requester
+        self._resolver = resolver
         # 按应用隔离 DB 端点配置，默认兼容既有 smart_assistant 调用方
         self.app_name = app_name
         try:
@@ -158,8 +161,22 @@ class LLMRouter:
             }
 
             try:
-                response = (requests.post(url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream)
-                            if is_ollama else safe_request("POST", url, headers=headers, json=data, timeout=self.REQUEST_TIMEOUT, stream=stream))
+                if is_ollama:
+                    response = requests.post(
+                        url, headers=headers, json=data,
+                        timeout=self.REQUEST_TIMEOUT, stream=stream,
+                    )
+                else:
+                    response = safe_request(
+                        "POST",
+                        url,
+                        requester=self._requester,
+                        resolver=self._resolver,
+                        headers=headers,
+                        json=data,
+                        timeout=self.REQUEST_TIMEOUT,
+                        stream=stream,
+                    )
                 response.raise_for_status()
 
                 if stream:
@@ -324,7 +341,15 @@ class LLMRouter:
         }
 
         url = f"{base_url.rstrip('/')}/v1/chat/completions"
-        response = safe_request("POST", url, headers=headers, json=body, timeout=self.REQUEST_TIMEOUT)
+        response = safe_request(
+            "POST",
+            url,
+            requester=self._requester,
+            resolver=self._resolver,
+            headers=headers,
+            json=body,
+            timeout=self.REQUEST_TIMEOUT,
+        )
         response.raise_for_status()
         resp_data = response.json()
 

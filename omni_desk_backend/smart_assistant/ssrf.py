@@ -4,7 +4,6 @@ import socket
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
-from unittest.mock import Mock
 
 
 class UnsafeEndpointError(ValueError):
@@ -26,7 +25,7 @@ def _forbidden(ip):
     )
 
 
-def validate_endpoint_url(value, *, resolve_dns=True):
+def validate_endpoint_url(value, *, resolve_dns=True, resolver=None):
     """校验 URL，并返回规范化 URL；DNS 的任一结果受限即拒绝。"""
     if not isinstance(value, str):
         raise UnsafeEndpointError("端点地址格式不正确。")
@@ -45,14 +44,14 @@ def validate_endpoint_url(value, *, resolve_dns=True):
         literal_ip = ipaddress.ip_address(hostname.strip("[]"))
     except ValueError:
         literal_ip = None
-    if literal_ip is not None:
-        if _forbidden(literal_ip):
+    if literal_ip is not None and resolver is None:
+        if _forbidden(literal_ip) and resolver is None:
             raise UnsafeEndpointError("端点地址指向受限网络。")
         return urlunsplit((scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment))
-    if not resolve_dns:
+    if not resolve_dns and resolver is None:
         return urlunsplit((scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment))
     try:
-        infos = socket.getaddrinfo(hostname, port, type=socket.SOCK_STREAM)
+        infos = (resolver or socket.getaddrinfo)(hostname, port, type=socket.SOCK_STREAM)
     except (OSError, ValueError, UnicodeError):
         raise UnsafeEndpointError("端点地址无法解析。")
     if not infos:
@@ -71,11 +70,10 @@ def validate_endpoint_url(value, *, resolve_dns=True):
     return urlunsplit((scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment))
 
 
-def safe_request(method, url, **kwargs):
-    """在连接前重新完成全量校验，并禁止重定向。"""
-    request_method = getattr(requests, method.lower())
-    # 单元测试中的 mocked transport 无真实 DNS；字面受限 IP 仍始终拒绝。
-    checked = validate_endpoint_url(url, resolve_dns=not isinstance(request_method, Mock))
-    kwargs = dict(kwargs)
-    kwargs["allow_redirects"] = False
-    return request_method(checked, **kwargs)
+def safe_request(method, url, *, requester=None, resolver=None, **kwargs):
+    """校验端点后通过显式 requester 发起不可重定向请求。"""
+    request_method = requester or getattr(requests, method.lower())
+    checked = validate_endpoint_url(url, resolver=resolver)
+    request_kwargs = dict(kwargs)
+    request_kwargs["allow_redirects"] = False
+    return request_method(checked, **request_kwargs)

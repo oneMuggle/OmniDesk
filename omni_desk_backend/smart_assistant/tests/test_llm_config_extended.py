@@ -328,7 +328,7 @@ class TestLlmConfigSecurityBoundaries(TestCase):
             self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN, (method, url, response.data))
 
     @patch("smart_assistant.views.llm_config.http_requests.get")
-    @patch("smart_assistant.views.llm_config.socket.getaddrinfo")
+    @patch("smart_assistant.ssrf.socket.getaddrinfo")
     def test_admin_probe_uses_safe_headers_and_disables_redirects(self, mock_getaddrinfo, mock_get):
         mock_getaddrinfo.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
         response = MagicMock(status_code=200)
@@ -356,7 +356,7 @@ class TestLlmConfigSecurityBoundaries(TestCase):
             mock_get.assert_not_called()
 
     @patch("smart_assistant.views.llm_config.http_requests.get")
-    @patch("smart_assistant.views.llm_config.socket.getaddrinfo")
+    @patch("smart_assistant.ssrf.socket.getaddrinfo")
     def test_admin_probe_does_not_follow_redirects(self, mock_getaddrinfo, mock_get):
         mock_getaddrinfo.return_value = [(2, 1, 6, "", ("93.184.216.34", 443))]
         response = MagicMock(status_code=302, headers={"Location": "http://169.254.169.254/"})

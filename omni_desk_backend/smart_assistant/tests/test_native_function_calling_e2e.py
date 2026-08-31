@@ -45,6 +45,24 @@ pytestmark = pytest.mark.django_db
 
 
 @pytest.fixture(autouse=True)
+def _inject_safe_test_transport(monkeypatch):
+    """测试显式注入安全 resolver，生产默认规则不接受 loopback。"""
+    import llm_service.router as router_mod
+    from smart_assistant import ssrf
+
+    def request(method, url, **kwargs):
+        kwargs.pop("resolver", None)
+        return ssrf.safe_request(
+            method,
+            url,
+            resolver=lambda *args, **opts: [(2, 1, 6, "", ("93.184.216.34", 80))],
+            **kwargs,
+        )
+
+    monkeypatch.setattr(router_mod, "safe_request", request)
+
+
+@pytest.fixture(autouse=True)
 def _disable_tool_timeout_guard(settings):
     """本 E2E 文件内关闭线程化工具超时熔断。
 

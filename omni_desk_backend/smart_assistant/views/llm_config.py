@@ -74,6 +74,7 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
                 },
                 timeout=10,
                 allow_redirects=False,
+                requester=http_requests.get,
             )
             if isinstance(resp.status_code, int) and 300 <= resp.status_code < 400:
                 return Response(
@@ -127,6 +128,7 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
                 },
                 timeout=10,
                 allow_redirects=False,
+                requester=http_requests.get,
             )
             if isinstance(resp.status_code, int) and 300 <= resp.status_code < 400:
                 return Response(
