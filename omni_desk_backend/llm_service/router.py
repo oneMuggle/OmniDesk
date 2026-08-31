@@ -3,7 +3,7 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 import requests
 
-from smart_assistant.ssrf import safe_request
+from smart_assistant.ssrf import safe_internal_request, safe_request
 from django.conf import settings
 from django.core.cache import cache
 
@@ -162,8 +162,11 @@ class LLMRouter:
 
             try:
                 if is_ollama:
-                    response = requests.post(
-                        url, headers=headers, json=data,
+                    response = safe_internal_request(
+                        "POST",
+                        url,
+                        requester=self._requester,
+                        headers=headers, json=data,
                         timeout=self.REQUEST_TIMEOUT, stream=stream,
                     )
                 else:

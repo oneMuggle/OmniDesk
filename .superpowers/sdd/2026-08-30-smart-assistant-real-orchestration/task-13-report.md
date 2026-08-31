@@ -27,3 +27,20 @@
 - GREEN：共享 transport/resolver 契约与测试 seam 完成后，定向 SSRF/配置/router/E2E 测试 **41 passed**，退出码 0；`core/tests/test_backup_db.py` **9 passed**，退出码 0。
 - 后端全量第一次复测：**3157 passed、4 failed、2 xfailed、11 xpassed、42 warnings**，4 项均为旧成本测试 seam，退出码 1；迁移成本测试后定向成本测试 **7 passed**。
 - 后端全量最终复测：**3161 passed、2 xfailed、11 xpassed、42 warnings**，退出码 **0**。
+
+### Continuation（本轮网络出口收口）
+
+#### 根因与修复
+- `LLMRouter.generate` 的固定 Ollama fallback 改为 `safe_internal_request`，仅接受代码固定的 `http://localhost:11434`，并显式 `allow_redirects=False`；数据库端点继续使用 SSRF-safe `safe_request`。
+- doctor 的 LLM/Ollama/Ragflow 探测改走 `safe_request`，仅返回固定安全状态（HTTP 状态码或固定错误类别），不回显 URL、上游正文、密钥或异常文本；native tool-call 与 checker 兜底也移除异常正文。
+- 旧 `OllamaClient` 保留原 API 与生产调用者，POST/GET 统一委托 `safe_request`，支持显式 requester/resolver 测试 seam，错误契约改为安全固定消息。
+- `safe_request` 在交给 requests 前始终再次执行 DNS 校验，测试覆盖 rebinding 第二次解析命中受限地址；该设计缩小 TOCTOU 窗口但 requests 未做 socket IP pinning，仍存在理论竞态限制。
+
+#### TDD / 验证记录
+- RED：新增 rebinding 测试先失败（未发生第二次 DNS 校验，退出码 **1**）；随后旧 Ollama mock 测试暴露需要显式 resolver/requester seam，退出码 **1**。
+- GREEN：`pytest -q smart_assistant/tests/test_ssrf_safe_transport_new.py llm_service/test_router.py llm_service/test_ollama_client.py smart_assistant/tests/test_doctor.py --no-cov`，**49 passed**，退出码 **0**。
+- 后端全量：`pytest -q --no-cov`，**3160 passed、1 failed、2 skipped、2 xfailed、11 xpassed、42 warnings**，退出码 **1**；唯一失败为既有 `core/tests/test_backup_db.py::test_verify_metadata_is_atomic_write` 的 `os.replace` 原子写测试，与本轮 LLM 网络出口改动无关。
+
+#### 遗留项
+- `safe_request` 基于 requests 的 DNS preflight 仍不能做到内核级 IP pinning；生产环境需配合网络出口策略/egress allowlist，不能把 resolver 注入当作安全绕过。
+- 全量测试仍有上述既有 core 原子写失败，因此不能声称后端全量通过。

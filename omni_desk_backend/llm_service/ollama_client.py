@@ -6,12 +6,16 @@ import os
 import requests
 from observability import get_logger
 
+from smart_assistant.ssrf import UnsafeEndpointError, safe_request
+
 logger = get_logger(__name__, "llm_service.ollama_client")
 
 
 class OllamaClient:
-    def __init__(self, base_url=None, model_name=None):
+    def __init__(self, base_url=None, model_name=None, *, requester=None, resolver=None):
         self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
+        self._requester = requester
+        self._resolver = resolver
         # 默认模型与 LLMRouter / settings.OLLAMA_MODEL_NAME 统一为 qwen2.5:7b
         self.model_name = model_name or os.environ.get("OLLAMA_MODEL_NAME", "qwen2.5:7b")
 
@@ -19,19 +23,25 @@ class OllamaClient:
         url = f"{self.base_url}/{endpoint}"
         headers = {"Content-Type": "application/json"}
         try:
-            response = requests.post(url, headers=headers, data=json.dumps(data), timeout=120, stream=stream)
+            response = safe_request(
+                "POST", url, headers=headers, data=json.dumps(data),
+                timeout=120, stream=stream,
+                requester=self._requester, resolver=self._resolver,
+            )
             response.raise_for_status()
             if stream:
                 return response
             return response.json()
-        except requests.exceptions.Timeout:
-            raise Exception("Ollama API request timed out.")
-        except requests.exceptions.ConnectionError:
-            raise Exception("Could not connect to Ollama API. Is the server running?")
-        except requests.exceptions.HTTPError as e:
-            raise Exception(f"Ollama API returned an error: {e.response.status_code} - {e.response.text}")
-        except Exception as e:
-            raise Exception(f"An unexpected error occurred during Ollama API request: {e}")
+        except requests.exceptions.HTTPError:
+            raise Exception("Ollama API 返回 HTTP 错误。")
+        except UnsafeEndpointError:
+            raise Exception("Ollama 端点地址不允许。")
+        except requests.exceptions.RequestException:
+            raise Exception("Ollama API 请求失败。")
+        except (ValueError, TypeError):
+            raise Exception("Ollama API 响应格式无效。")
+        except Exception:
+            raise Exception("Ollama API 请求失败。")
 
     def _stream_generate(self, response):
         for line in response.iter_lines():
@@ -95,11 +105,17 @@ class OllamaClient:
         """
         url = f"{self.base_url}/api/tags"
         try:
-            response = requests.get(url, timeout=30)
+            response = safe_request("GET", url, timeout=30, requester=self._requester, resolver=self._resolver)
             response.raise_for_status()
             return response.json().get("models", [])
-        except Exception as e:
-            raise Exception(f"Failed to list Ollama models: {e}")
+        except UnsafeEndpointError:
+            raise Exception("Ollama 端点地址不允许。")
+        except requests.exceptions.RequestException:
+            raise Exception("Ollama 模型列表请求失败。")
+        except (ValueError, TypeError):
+            raise Exception("Ollama 模型列表响应格式无效。")
+        except Exception:
+            raise Exception("Ollama 模型列表请求失败。")
 
 
 # Example Usage (can be used for testing)

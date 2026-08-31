@@ -34,3 +34,33 @@ def test_custom_resolver_cannot_allow_literal_restricted_addresses():
         request.return_value.status_code = 200
         safe_request("GET", "https://example.com")
         assert request.call_args.kwargs["allow_redirects"] is False
+
+
+def test_safe_request_revalidates_dns_before_transport(monkeypatch):
+    calls = []
+
+    def resolver(host, port, **kwargs):
+        calls.append(host)
+        address = "93.184.216.34" if len(calls) == 1 else "127.0.0.1"
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", (address, port or 80))]
+
+    requester = patch("smart_assistant.ssrf.requests.Session.request").start()
+    requester.return_value = requests.Response()
+    requester.return_value.status_code = 200
+    try:
+        with pytest.raises(UnsafeEndpointError):
+            safe_request("GET", "http://rebind.example/", resolver=resolver)
+    finally:
+        patch.stopall()
+    assert len(calls) >= 2
+
+
+def test_safe_request_rejects_redirects_even_with_injected_requester():
+    requester = patch("smart_assistant.ssrf.requests.get").start()
+    requester.return_value = requests.Response()
+    requester.return_value.status_code = 200
+    try:
+        safe_request("GET", "https://example.com/", requester=requester)
+        assert requester.call_args.kwargs["allow_redirects"] is False
+    finally:
+        patch.stopall()

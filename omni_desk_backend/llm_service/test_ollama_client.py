@@ -4,6 +4,7 @@ import unittest
 from unittest.mock import patch, MagicMock
 import json
 import os
+import socket
 import requests
 from .ollama_client import OllamaClient
 
@@ -12,7 +13,11 @@ class TestOllamaClient(unittest.TestCase):
     def setUp(self):
         self.base_url = "http://test-ollama:11434"
         self.model_name = "test-model"
-        self.client = OllamaClient(base_url=self.base_url, model_name=self.model_name)
+        self.client = OllamaClient(base_url=self.base_url, model_name=self.model_name, resolver=self._safe_resolver)
+
+    @staticmethod
+    def _safe_resolver(host, port, **kwargs):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", port or 80))]
 
     def test_initialization_with_params(self):
         """Test client initialization with specific parameters."""
@@ -51,13 +56,13 @@ class TestOllamaClient(unittest.TestCase):
 
         self.assertEqual(len(models), 2)
         self.assertEqual(models[0]['name'], 'model1:latest')
-        mock_get.assert_called_once_with(f"{self.base_url}/api/tags", timeout=30)
+        mock_get.assert_called_once_with(f"{self.base_url}/api/tags", timeout=30, allow_redirects=False)
 
     @patch('requests.get')
     def test_list_models_failure(self, mock_get):
         """Test failure in listing models."""
         mock_get.side_effect = requests.exceptions.ConnectionError("Test connection error")
-        with self.assertRaisesRegex(Exception, "Failed to list Ollama models"):
+        with self.assertRaisesRegex(Exception, "Ollama 模型列表请求失败"):
             self.client.list_models()
 
     @patch('requests.post')
@@ -148,7 +153,7 @@ class TestOllamaClient(unittest.TestCase):
         mock_response.raise_for_status.side_effect = http_error
         mock_post.return_value = mock_response
 
-        with self.assertRaisesRegex(Exception, "Ollama API returned an error: 500 - Internal Server Error"):
+        with self.assertRaisesRegex(Exception, "Ollama API 返回 HTTP 错误"):
             self.client.generate("test prompt")
 
 if __name__ == '__main__':
