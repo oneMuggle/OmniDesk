@@ -277,7 +277,7 @@ requests==2.34.2
     # via
     #   -r requirements.in
     #   responses
-responses==0.26.2
+responses==0.26.3
     # via -r requirements-dev.in
 rpds-py==0.30.0
     # via
