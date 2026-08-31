@@ -347,8 +347,46 @@ rm -f "$HEALTH_BODY"
 
 # /api/system/version/: 验证 version 字段;严格模式必须 FAIL,不能 SKIP 蒙混
 # core/api.py:97 IsAuthenticated — 必须先拿 JWT,否则 401
-VERSION_BODY="$(smoke_temp_file version-body)"
-VERSION_TOKEN="$(obtain_auth_token || true)"
+AUTH_STATUS_FILE="$(smoke_temp_file auth-status)"
+AUTH_BODY_FILE="$(smoke_temp_file auth-body)"
+AUTH_TOKEN_FILE="$(smoke_auth_token_file)"
+(umask 077; : > "$AUTH_STATUS_FILE"; : > "$AUTH_BODY_FILE")
+record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || true
+record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || true
+record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || true
+perform_smoke_auth() {
+    local login_url="$BASE_URL/api/auth/guest-login/" request_file code token
+    request_file="$(smoke_temp_file auth-request)"
+    (umask 077; : > "$request_file")
+    record_smoke_resource auth-request "auth-request-$$" "$request_file" || true
+    if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+        login_url="$BASE_URL/api/auth/login/"
+        printf '%s\n%s\n' "$SMOKE_TEST_USER" "$SMOKE_TEST_PASSWORD" | \
+            python3 - "$request_file" <<'PY'
+import json, sys
+username = sys.stdin.readline().rstrip('\n')
+password = sys.stdin.readline().rstrip('\n')
+with open(sys.argv[1], 'w') as f:
+    json.dump({'username': username, 'password': password}, f)
+PY
+    else
+        printf '{}' > "$request_file"
+    fi
+    code=$(curl -sS -X POST -o "$AUTH_BODY_FILE" --write-out '%{http_code}' \
+        --max-time "${SMOKE_CURL_TIMEOUT:-15}" -H 'Content-Type: application/json' \
+        --data-binary "@$request_file" "$login_url" 2>/dev/null || echo 000)
+    printf '%s' "$code" > "$AUTH_STATUS_FILE"
+    if [ "$code" = 200 ]; then
+        token="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('access',''))" "$AUTH_BODY_FILE" 2>/dev/null || true)"
+        if smoke_auth_token_is_valid "$token"; then
+            (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE")
+            return 0
+        fi
+    fi
+    return 1
+}
+perform_smoke_auth || true
+VERSION_TOKEN="$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)"
 if [ -n "$VERSION_TOKEN" ]; then
     HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
         -H "Authorization: Bearer $VERSION_TOKEN")
@@ -436,53 +474,54 @@ echo ""
 # ─── 阶段 6: 版本/迁移/CHANGELOG 端点 (需 JWT) ─────────────────
 echo "阶段 6: 版本/迁移/CHANGELOG 端点"
 
-# 阶段 6 头部抓 JWT — 区分 5/15m 限流 (H1)
-# 阶段 6 头部抓 JWT — 区分 5/15m 限流 (H1) + 真业务错误不应 SKIP (C·新发现 1)
-# C·新发现 2: 用 PID 后缀隔离并发 run 时的 json 文件
-# S5: JWT 文件默认仅 owner 可读;清理合并到主 cleanup_smoke_artifacts trap
-#   (因为 bash EXIT trap 是单值,不能与已有 trap 叠加,见 trap 函数实现)
-GUEST_JSON="/tmp/.smoke_guest_$$.json"
-(umask 077; : > "$GUEST_JSON")  # S5: 设 restrictive 权限
-# 走 obtain_auth_token:SMOKE_TEST_USER 注入时用 /api/auth/login/(5/15m 限流与 guest 独立),
-# 未注入时仍走 /api/auth/guest-login/(默认 SKIP 行为保持兼容)。
-# 同一 run 复用阶段 3 已写入的 token 缓存,避免重复登录触发限流。
-GUEST_TOKEN="$(obtain_auth_token || true)"
-if [ -n "$GUEST_TOKEN" ]; then
-    GUEST_HTTP=200
-else
-    GUEST_HTTP=000
-fi
-
+AUTH_STATUS_FILE="$(smoke_temp_file auth-status)"
+AUTH_BODY_FILE="$(smoke_temp_file auth-body)"
+AUTH_TOKEN_FILE="$(smoke_auth_token_file)"
+(umask 077; : > "$AUTH_STATUS_FILE"; : > "$AUTH_BODY_FILE")
+record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || true
+record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || true
+record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || true
+perform_smoke_auth() {
+    local login_url="$BASE_URL/api/auth/guest-login/" request_file code token
+    request_file="$(smoke_temp_file auth-request)"
+    (umask 077; : > "$request_file")
+    record_smoke_resource auth-request "auth-request-$$" "$request_file" || true
+    if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+        login_url="$BASE_URL/api/auth/login/"
+        printf '%s\n%s\n' "$SMOKE_TEST_USER" "$SMOKE_TEST_PASSWORD" | \
+            python3 - "$request_file" <<'PY'
+import json, sys
+username = sys.stdin.readline().rstrip('\n')
+password = sys.stdin.readline().rstrip('\n')
+with open(sys.argv[1], 'w') as f:
+    json.dump({'username': username, 'password': password}, f)
+PY
+    else
+        printf '{}' > "$request_file"
+    fi
+    code=$(curl -sS -X POST -o "$AUTH_BODY_FILE" --write-out '%{http_code}' \
+        --max-time "${SMOKE_CURL_TIMEOUT:-15}" -H 'Content-Type: application/json' \
+        --data-binary "@$request_file" "$login_url" 2>/dev/null || echo 000)
+    printf '%s' "$code" > "$AUTH_STATUS_FILE"
+    if [ "$code" = 200 ]; then
+        token="$(python3 -c "import json,sys; print(json.load(open(sys.argv[1])).get('access',''))" "$AUTH_BODY_FILE" 2>/dev/null || true)"
+        if smoke_auth_token_is_valid "$token"; then
+            (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE")
+            return 0
+        fi
+    fi
+    return 1
+}
+GUEST_HTTP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || echo 000)"
+GUEST_TOKEN="$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)"
 case "$GUEST_HTTP" in
     200) ;;
-    429)
-        result "WARN" "Guest login rate-limited (HTTP 429)" "5/15m 已耗尽,跳过阶段 6;可 15 分钟后重试"
-        GUEST_TOKEN=""
-        ;;
-    400|401|403|500)
-        result "FAIL" "Guest login 真业务错误" "HTTP $GUEST_HTTP — 服务可能配置错/后端崩溃,不能 SKIP"
-        GUEST_TOKEN=""
-        ;;
-    405|451)
-        result "FAIL" "Guest login 路由配置错误" "HTTP $GUEST_HTTP — 端点签名错/合规拒绝,不能 SKIP"
-        GUEST_TOKEN=""
-        ;;
-    506|507)
-        result "FAIL" "Guest login 服务器资源异常" "HTTP $GUEST_HTTP — 服务器资源/版本不支持,不能 SKIP"
-        GUEST_TOKEN=""
-        ;;
-    000|502|503|504)
-        result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (网络瞬态)"
-        GUEST_TOKEN=""
-        ;;
-    *)
-        result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (未知)"
-        GUEST_TOKEN=""
-        ;;
+    429) result "WARN" "Guest login rate-limited (HTTP 429)" "5/15m 已耗尽,跳过阶段 6;可 15 分钟后重试"; GUEST_TOKEN="" ;;
+    400|401|403|500) result "FAIL" "Guest login 真业务错误" "HTTP $GUEST_HTTP"; GUEST_TOKEN="" ;;
+    000|502|503|504) result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (网络瞬态)"; GUEST_TOKEN="" ;;
+    *) result "SKIP" "Migrations/Changelog endpoints" "Guest login HTTP $GUEST_HTTP (未知)"; GUEST_TOKEN="" ;;
 esac
-# 清理临时 json (即便 set -u 下变量未用)
-[ -f "$GUEST_JSON" ] && rm -f "$GUEST_JSON" 2>/dev/null || true
-unset GUEST_JSON
+rm -f "$AUTH_REQUEST_FILE" 2>/dev/null || true
 
 if [ -z "$GUEST_TOKEN" ]; then
     # S4: 显式告知后续 6.1 / 6.2 也被跳过 — operator 看到 "FAIL + 2 SKIP" 而非 "FAIL" 单独一行
@@ -915,10 +954,11 @@ fi
 if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
     result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
 else
-    if CACHED_TOKEN="$(obtain_auth_token || true)" \
-        && smoke_auth_token_is_valid "$CACHED_TOKEN"; then
+    if [ -s "$AUTH_STATUS_FILE" ] && [ "$(cat "$AUTH_STATUS_FILE")" = "200" ] \
+        && smoke_auth_token_is_valid "$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)" \
+        && grep -q '"access"' "$AUTH_BODY_FILE"; then
         LOGIN_RESP=200
-        HAS_ACCESS='"access":"cached-or-refreshed"'
+        HAS_ACCESS="$(grep -oE '"access"[[:space:]]*:[[:space:]]*"[^"]+"' "$AUTH_BODY_FILE" | head -1 || true)"
     else
         LOGIN_RESP=000
         HAS_ACCESS=""

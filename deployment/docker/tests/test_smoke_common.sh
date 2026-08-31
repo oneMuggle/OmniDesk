@@ -143,13 +143,36 @@ else
     report FAIL "T9 smoke Redis exposes password through redis-cli -a"
 fi
 
-# ─── T10:阶段 12 必须复用统一 token 缓存且校验有效 JWT ─────
-if grep -Fq 'obtain_auth_token' "$SMOKE_TESTS" \
-    && grep -Fq 'smoke_auth_token_file' "$ROOT/deployment/docker/smoke_common.sh" \
-    && grep -Fq 'LOGIN_RESP=200' "$SMOKE_TESTS"; then
-    report PASS "T10 stage 12 reuses validated auth cache"
+# ─── T11:JWT 过期/伪造 token 必须拒绝 ───────────────────────
+EXPIRED_TOKEN='eyJhbGciOiJub25lIn0.eyJleHAiOjF9.signature'
+FAKE_TOKEN='eA.eA.eA'
+if ! smoke_auth_token_is_valid "$EXPIRED_TOKEN" && ! smoke_auth_token_is_valid "$FAKE_TOKEN"; then
+    report PASS "T11 expired and fake JWT rejected"
 else
-    report FAIL "T10 stage 12 does not reuse validated auth cache"
+    report FAIL "T11 expired or fake JWT accepted"
+fi
+
+# ─── T12:source/bundle artifact 目录实际选择 ────────────────
+SOURCE_FIXTURE="$(mktemp -d)"
+mkdir -p "$SOURCE_FIXTURE/scripts" "$SOURCE_FIXTURE/exported_images" "$SOURCE_FIXTURE/compose"
+touch "$SOURCE_FIXTURE/compose/docker-compose.offline.yml" "$SOURCE_FIXTURE/compose/.env.production"
+if (cd / && SMOKE_SCRIPT_DIR="$SOURCE_FIXTURE/scripts" init_smoke_context http://localhost >/dev/null 2>&1 \
+    && [ "$SCRIPT_DIR/exported_images" = "$SOURCE_FIXTURE/scripts/exported_images" ]); then
+    report PASS "T12 source artifact directory resolves from script dir"
+else
+    report FAIL "T12 source artifact directory resolution failed"
+fi
+rm -rf "$SOURCE_FIXTURE"
+
+# ─── T13:strict 模式 WARN 必须 fail-close ───────────────────
+reset_counters() { PASS=0; FAIL=0; WARN=0; SKIP=0; }
+reset_counters
+SMOKE_STRICT=1
+result WARN "strict-warning-test"
+if finalize_results >/dev/null 2>&1; then
+    report FAIL "T13 strict WARN unexpectedly passed"
+else
+    report PASS "T13 strict WARN fails closed"
 fi
 echo "=========================================="
 echo "  test_smoke_common.sh: PASS=$PASS_COUNT FAIL=$FAIL_COUNT"

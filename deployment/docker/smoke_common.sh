@@ -304,22 +304,19 @@ obtain_auth_token() {
         fi
         rm -f "$token_file" 2>/dev/null || true
     fi
-    local body_file code token login_url request_file
+    local body_file code token login_url request_file user_file password_file
     body_file="$(mktemp)"
     request_file="$(mktemp)"
-    chmod 600 "$body_file" "$request_file" 2>/dev/null || true
-    trap 'rm -f "$body_file" "$request_file"' RETURN
+    user_file="$(mktemp)"
+    password_file="$(mktemp)"
+    chmod 600 "$body_file" "$request_file" "$user_file" "$password_file" 2>/dev/null || true
+    trap 'rm -f "$body_file" "$request_file" "$user_file" "$password_file"' RETURN
     login_url="$BASE_URL/api/auth/guest-login/"
     if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
         login_url="$BASE_URL/api/auth/login/"
-        SMOKE_TEST_USER="$SMOKE_TEST_USER" SMOKE_TEST_PASSWORD="$SMOKE_TEST_PASSWORD" \
-            python3 - "$request_file" <<'PY'
-import json
-import os
-import sys
-with open(sys.argv[1], 'w') as f:
-    json.dump({'username': os.environ['SMOKE_TEST_USER'], 'password': os.environ['SMOKE_TEST_PASSWORD']}, f)
-PY
+        printf '%s' "$SMOKE_TEST_USER" > "$user_file"
+        printf '%s' "$SMOKE_TEST_PASSWORD" > "$password_file"
+        python3 -c 'import json,sys; u=open(sys.argv[1]).read(); p=open(sys.argv[2]).read(); json.dump({"username":u,"password":p},open(sys.argv[3],"w"))' "$user_file" "$password_file" "$request_file"
     else
         printf '{}' > "$request_file"
     fi
