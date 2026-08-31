@@ -214,7 +214,7 @@ pyjwt==2.13.0
     #   djangorestframework-simplejwt
 pymdown-extensions==11.0.2
     # via -r requirements-dev.in
-pypdf==6.16.1
+pypdf==6.16.2
     # via -r requirements.in
 pypdfium2==5.13.0
     # via pdfplumber
