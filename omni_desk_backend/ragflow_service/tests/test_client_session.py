@@ -187,3 +187,29 @@ def test_client_calls_shared_safe_request_for_health_chain():
     client = RagflowClient("https://example.com", "secret-header", resolver=_public_resolver, requester=requester)
     assert client.health_check() == {"status": "ok", "message": "连接成功"}
     requester.assert_called_once()
+
+
+def test_safe_request_passes_method_to_session_request():
+    from ragflow_service.client import RagflowClient
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = {"data": []}
+    session = MagicMock()
+    session.request.return_value = response
+    with patch("ragflow_service.client.requests.Session", return_value=session):
+        client = RagflowClient("https://example.com", "secret", resolver=_public_resolver)
+        client.list_datasets()
+    assert session.request.call_args.kwargs["method"] == "GET"
+    assert session.request.call_args.kwargs["url"].startswith("https://example.com/")
+
+
+def test_client_rejects_non_dict_json_response():
+    from ragflow_service.client import RagflowClient, RagflowClientError
+    response = MagicMock()
+    response.raise_for_status.return_value = None
+    response.json.return_value = []
+    requester = MagicMock(return_value=response)
+    client = RagflowClient("https://example.com", "secret", resolver=_public_resolver, requester=requester)
+    with pytest.raises(RagflowClientError) as exc_info:
+        client.list_datasets()
+    assert exc_info.value.code == "response_error"

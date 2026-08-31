@@ -104,34 +104,36 @@ def process_document_embedding(document_id):
             raise ValueError("SMART_ASSISTANT_DATASET_ID 未配置")
 
         client = RagflowClient(api_endpoint=config.api_endpoint, api_key=config.api_key)
+        try:
+            # Step 1: 上传文档到 Ragflow dataset
+            with doc.file.open("rb") as f:
+                file_content = f.read()
 
-        # Step 1: 上传文档到 Ragflow dataset
-        with doc.file.open("rb") as f:
-            file_content = f.read()
+            upload_result = client.upload_document(
+                dataset_id=dataset_id,
+                file_name=doc.file.name,
+                file_content=file_content,
+            )
 
-        upload_result = client.upload_document(
-            dataset_id=dataset_id,
-            file_name=doc.file.name,
-            file_content=file_content,
-        )
+            # Ragflow 返回文档 ID
+            doc_infos = upload_result if isinstance(upload_result, list) else [upload_result]
+            if not doc_infos:
+                raise ValueError("文档上传到 Ragflow 失败，未返回文档信息")
 
-        # Ragflow 返回文档 ID
-        doc_infos = upload_result if isinstance(upload_result, list) else [upload_result]
-        if not doc_infos:
-            raise ValueError("文档上传到 Ragflow 失败，未返回文档信息")
+            ragflow_doc_id = doc_infos[0].get("id") or doc_infos[0].get("doc_id")
+            if not ragflow_doc_id:
+                raise ValueError("未能获取 Ragflow 文档 ID")
 
-        ragflow_doc_id = doc_infos[0].get("id") or doc_infos[0].get("doc_id")
-        if not ragflow_doc_id:
-            raise ValueError("未能获取 Ragflow 文档 ID")
+            doc.ragflow_document_id = ragflow_doc_id
+            doc.save(update_fields=["ragflow_document_id"])
 
-        doc.ragflow_document_id = ragflow_doc_id
-        doc.save(update_fields=["ragflow_document_id"])
+            # Step 2: 触发文档解析
+            client.parse_documents(dataset_id=dataset_id, document_ids=[ragflow_doc_id])
 
-        # Step 2: 触发文档解析
-        client.parse_documents(dataset_id=dataset_id, document_ids=[ragflow_doc_id])
-
-        doc.embedding_status = "completed"
-        doc.save(update_fields=["embedding_status"])
+            doc.embedding_status = "completed"
+            doc.save(update_fields=["embedding_status"])
+        finally:
+            client.close()
 
     except KnowledgeBaseDocument.DoesNotExist:
         logger.debug(

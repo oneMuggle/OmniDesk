@@ -83,7 +83,7 @@ def safe_request(method, url, *, requester=None, resolver=None, **kwargs):
     validate_endpoint_url(checked, resolver=resolver)
     request_kwargs = dict(kwargs)
     request_kwargs["allow_redirects"] = False
-    return request_method(checked, **request_kwargs)
+    return request_method(checked, method=method, **request_kwargs)
 
 
 def safe_internal_request(method, url, *, requester=None, **kwargs):

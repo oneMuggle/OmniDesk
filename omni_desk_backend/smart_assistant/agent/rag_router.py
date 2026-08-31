@@ -113,14 +113,13 @@ class RAGRouter:
             logger.warning("RAG 数据集配置不完整: %s", dataset.get("name"))
             return []
 
+        client = RagflowClient(api_endpoint=api_endpoint, api_key=api_key)
         try:
-            client = RagflowClient(api_endpoint=api_endpoint, api_key=api_key)
             chunks = client.retrieval(
                 dataset_ids=[dataset_id],
                 question=query,
                 top_k=top_k,
             )
-            client.close()
             # 添加来源标记
             for chunk in chunks:
                 chunk["_source"] = dataset.get("name", "未知")
@@ -135,6 +134,8 @@ class RAGRouter:
         except Exception as exc:
             logger.warning("RAG 数据集搜索时发生未知错误: type=%s", type(exc).__name__)
             return []
+        finally:
+            client.close()
 
     def search_multi(self, query: str, top_k: int = 5) -> list:
         """并行搜索多个数据集，合并去重结果。"""

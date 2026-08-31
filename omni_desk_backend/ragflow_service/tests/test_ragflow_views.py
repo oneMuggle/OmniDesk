@@ -116,6 +116,35 @@ class TestRagflowConfigViewSet:
             assert response.status_code == status.HTTP_200_OK
             assert response.data['answer'] == 'Mocked answer'
 
+    def test_query_config_filters_upstream_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Filtered Config", api_endpoint="https://ragflow.example.com/api",
+            api_key="key", is_active=True, chat_id="chat-id",
+        )
+        mock_client = MagicMock()
+        mock_client.chat_completion.return_value = {
+            "answer": "safe", "data": "secret body", "context": "private",
+            "path": "/srv/private", "url": "https://internal/?token=secret",
+            "conversation_id": "conv-1", "unknown": "drop",
+        }
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.post(f"/api/ragflow-service/configs/{config.pk}/query/", {"question": "q"}, format="json")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"answer": "safe", "conversation_id": "conv-1"}
+
+    def test_list_datasets_filters_upstream_fields(self, admin_client):
+        from ragflow_service.models import RagflowConfig
+        config = RagflowConfig.objects.create(
+            name="Datasets Config", api_endpoint="https://ragflow.example.com/api", api_key="key"
+        )
+        mock_client = MagicMock()
+        mock_client.list_datasets.return_value = [{"id": "d1", "name": "公开库", "description": "正文", "api_key": "secret", "path": "/private"}]
+        with patch("ragflow_service.views.RagflowClient", return_value=mock_client):
+            response = admin_client.get(f"/api/ragflow-service/configs/{config.pk}/list_datasets/")
+        assert response.status_code == status.HTTP_200_OK
+        assert response.data == {"data": [{"id": "d1", "name": "公开库"}]}
+
     def test_query_missing_question(self, admin_client):
         from ragflow_service.models import RagflowConfig
         config = RagflowConfig.objects.create(

@@ -46,10 +46,10 @@ class RagflowClient:
         self.close()
         return False
 
-    def _transport(self, url, **kwargs):
+    def _transport(self, url, method=None, **kwargs):
         if self._requester is not None:
-            return self._requester(url, **kwargs)
-        return self._session.request(**kwargs, url=url)
+            return self._requester(url, method=method, **kwargs)
+        return self._session.request(method=method, url=url, **kwargs)
 
     def _request(self, method, path, json=None, files=None, timeout=None):
         url = f"{self.base_url}{path}"
@@ -68,7 +68,10 @@ class RagflowClient:
                 timeout=timeout or self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise TypeError("RAGFlow response must be an object")
+            return payload
         except UnsafeEndpointError as exc:
             logger.warning("RAGFlow 请求端点校验失败: type=%s", type(exc).__name__)
             raise RagflowClientError("unsafe_endpoint") from exc
