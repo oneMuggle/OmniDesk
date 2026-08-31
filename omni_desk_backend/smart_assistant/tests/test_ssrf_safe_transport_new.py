@@ -21,7 +21,14 @@ def test_rejects_any_restricted_dns_address(monkeypatch):
         validate_endpoint_url("http://rebinding.example")
 
 
-def test_safe_request_does_not_follow_redirects():
+def test_custom_resolver_cannot_allow_literal_restricted_addresses():
+    resolver = lambda *args, **kwargs: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("93.184.216.34", 80))]
+    for host in ("127.0.0.1", "10.0.0.1", "169.254.169.254", "::1"):
+        url = f"http://[{host}]/" if ":" in host else f"http://{host}/"
+        with pytest.raises(UnsafeEndpointError):
+            validate_endpoint_url(url, resolver=resolver)
+
+
     with patch("smart_assistant.ssrf.requests.Session.request") as request:
         request.return_value = requests.Response()
         request.return_value.status_code = 200

@@ -19,7 +19,7 @@
 
 ### 根因与修复
 - 管理探针旧测试 patch 了已移除的 `views.llm_config.socket`，并假设请求调用点为 `http_requests.get`；测试已迁移到共享 SSRF resolver seam，生产代码不再保留测试特判。
-- `safe_request` 新增显式 `requester` 与 `resolver` 参数；默认仍使用真实 `requests` transport、真实 DNS 预检和 `allow_redirects=False`。resolver 注入时仍校验其返回的每个地址，测试 resolver 仅把 loopback mock 服务声明为受控公网测试地址。
+- `safe_request` 新增显式 `requester` 与 `resolver` 参数；默认仍使用真实 `requests` transport、真实 DNS 预检和 `allow_redirects=False`。resolver 注入时仍校验其返回的每个地址；测试 resolver 仅解析安全 hostname，受控 requester 再将其映射至本地 mock 服务，绝不放行字面 loopback。
 - `LLMRouter` 接受可选 requester/resolver，并将其用于数据库 endpoint 的 `generate`/`generate_with_tools`；固定 Ollama fallback 继续使用原有本地请求路径。旧成本测试改 patch 共享 `safe_request`，Ollama 专属测试仍 patch `requests.post`。
 
 ### TDD / 验证记录

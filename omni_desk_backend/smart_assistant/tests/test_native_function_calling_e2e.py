@@ -20,6 +20,7 @@
 """
 
 import json
+import requests
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -51,11 +52,16 @@ def _inject_safe_test_transport(monkeypatch):
     from smart_assistant import ssrf
 
     def request(method, url, **kwargs):
+        kwargs.pop("requester", None)
         kwargs.pop("resolver", None)
+        safe_url = url.replace("127.0.0.1", "test-safe.invalid")
         return ssrf.safe_request(
             method,
-            url,
+            safe_url,
             resolver=lambda *args, **opts: [(2, 1, 6, "", ("93.184.216.34", 80))],
+            requester=lambda _checked, **request_kwargs: requests.request(
+                method, url, **request_kwargs
+            ),
             **kwargs,
         )
 

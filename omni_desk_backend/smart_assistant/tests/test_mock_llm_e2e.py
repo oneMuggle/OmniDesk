@@ -21,6 +21,7 @@ DB 中配置 ``LlmEndpoint(api_endpoint=mock 服务地址)`` +
 """
 
 import json
+import requests
 from decimal import Decimal
 from types import SimpleNamespace
 
@@ -61,8 +62,18 @@ def _inject_safe_test_transport(monkeypatch):
     from smart_assistant import ssrf
 
     def request(method, url, **kwargs):
+        kwargs.pop("requester", None)
         kwargs.pop("resolver", None)
-        return ssrf.safe_request(method, url, resolver=_safe_test_resolver, **kwargs)
+        safe_url = url.replace("127.0.0.1", "test-safe.invalid")
+        return ssrf.safe_request(
+            method,
+            safe_url,
+            resolver=_safe_test_resolver,
+            requester=lambda _checked, **request_kwargs: requests.request(
+                method, url, **request_kwargs
+            ),
+            **kwargs,
+        )
 
     monkeypatch.setattr(router_mod, "safe_request", request)
 

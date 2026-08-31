@@ -44,8 +44,8 @@ def validate_endpoint_url(value, *, resolve_dns=True, resolver=None):
         literal_ip = ipaddress.ip_address(hostname.strip("[]"))
     except ValueError:
         literal_ip = None
-    if literal_ip is not None and resolver is None:
-        if _forbidden(literal_ip) and resolver is None:
+    if literal_ip is not None:
+        if _forbidden(literal_ip):
             raise UnsafeEndpointError("端点地址指向受限网络。")
         return urlunsplit((scheme, parsed.netloc, parsed.path, parsed.query, parsed.fragment))
     if not resolve_dns and resolver is None:
