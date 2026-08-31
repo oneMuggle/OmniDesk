@@ -3,7 +3,7 @@ from rest_framework import serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from observability import get_logger
-from users.permissions import IsAdminOrReadOnly, is_privileged_user
+from users.permissions import IsAdminOrReadOnly
 
 from smart_assistant.cache import sanitize_public_sources, sanitize_public_text
 
