@@ -61,6 +61,7 @@
 | 41 | [2026-07 安全/数据 P0 批次审计](41-p0-security-data-safety-batch-2026-07.md) | 12 项 P0 安全与数据安全修复的实施轨迹、commit 索引、CI 验收、风险评估与回滚方案 |
 | 42 | [channel-sync 远程分支自动清理](42-channel-sync-branch-cleanup.md) | cron 清理 `channel-sync/*` 归档分支、commit ≥14 天规则、豁免清单维护、误删恢复(2026-08) |
 | 43 | [智能助手多智能体协作卡片](43-smart-assistant-collab-card.md) | ✅ 已完成：消费真实 Celery AgentTask/AgentEvent SSE，支持真实工具执行、`last_seq` 断点续传、paused/partial/failed 状态、旧版浏览器 timeline 降级（不改变 React 18 对 IE11 的整体不支持）、审计 JSON、AgentWriteLog 回滚与站内通知；8 个场景仅作示例入口 |
+| 44 | [智能助手真实编排验收报告](44-smart-assistant-real-orchestration-acceptance.md) | 智能助手真实编排、公开边界、确认重放、SSRF/RAGFlow 安全与离线部署验收记录 |
 
 ### 新增功能点(待建章节预留编号)
 
