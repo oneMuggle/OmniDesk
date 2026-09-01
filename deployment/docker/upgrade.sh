@@ -227,8 +227,9 @@ trap on_upgrade_failure EXIT
 
 compare_major() {
     local old=$1 new=$2
-    local old_major=$(echo "$old" | cut -d. -f1)
-    local new_major=$(echo "$new" | cut -d. -f1)
+    local old_major new_major
+    old_major=$(echo "$old" | cut -d. -f1)
+    new_major=$(echo "$new" | cut -d. -f1)
     if [ "$old_major" != "$new_major" ]; then
         echo "DIFFERENT"
     else
@@ -507,7 +508,7 @@ transition_state WRITE_SERVICES_STOPPED TARGET_IMAGE_READY >/dev/null
 # ${BASE_URL:-http://localhost} 让 smoke 透传环境变量(若未设则与原默认一致)。
 echo ""
 echo "Step 9.5: Running smoke tests (gate before recording)..."
-./smoke_tests.sh "${BASE_URL:-http://localhost}"
+SMOKE_STRICT=1 ./smoke_tests.sh "${BASE_URL:-http://localhost}"
 echo ""
 
 # ─── 状态机:TARGET_IMAGE_READY → MIGRATION_PREFLIGHT_PASSED ─

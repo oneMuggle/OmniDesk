@@ -107,7 +107,84 @@ else
     report PASS "T5 resolve_artifact_dir fails for nonexistent"
 fi
 
-echo ""
+# ─── T6:部署脚本必须按 bundle 标准布局解析校验器 ───────────
+# validate_artifacts.sh 位于 scripts/,从 bundle 根目录运行也不能依赖 cwd 中的同名文件。
+DEPLOY_TESTS="$ROOT/deployment/docker/deploy_tests.sh"
+SMOKE_TESTS="$ROOT/deployment/docker/smoke_tests.sh"
+if grep -Fq 'VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"' "$SMOKE_TESTS" \
+    && ! grep -Fq '[ -x "./validate_artifacts.sh" ]' "$SMOKE_TESTS"; then
+    report PASS "T6 smoke_tests resolves validator from SCRIPT_DIR"
+else
+    report FAIL "T6 smoke_tests still assumes bundle-root validate_artifacts.sh"
+fi
+
+# ─── T7:deploy_tests 受保护 version 与 Redis 必须复用上下文 ───
+if grep -q 'obtain_auth_token' "$DEPLOY_TESTS" \
+    && grep -q 'ENV_FILE_PATH' "$DEPLOY_TESTS" \
+    && ! grep -q 'grep "\^REDIS_PASSWORD=" .env.production' "$DEPLOY_TESTS"; then
+    report PASS "T7 deploy_tests reuses auth token and resolved env path"
+else
+    report FAIL "T7 deploy_tests does not reuse auth/env context"
+fi
+
+# ─── T8:source 布局校验器必须使用 exported_images ───────────
+if grep -Fq 'VALIDATE_ARTIFACTS_SCRIPT="$SCRIPT_DIR/validate_artifacts.sh"' "$SMOKE_TESTS" \
+    && grep -Fq 'ARTIFACT_IMAGE_DIR="$SCRIPT_DIR/exported_images"' "$SMOKE_TESTS"; then
+    report PASS "T8 source layout uses SCRIPT_DIR/exported_images"
+else
+    report FAIL "T8 source layout does not select exported_images"
+fi
+
+# ─── T9:smoke Redis 不得把密码放入 redis-cli argv ──────────
+if grep -Fq 'REDISCLI_AUTH="$REDIS_PASSWORD"' "$SMOKE_TESTS" \
+    && ! grep -Fq 'redis-cli -a' "$SMOKE_TESTS"; then
+    report PASS "T9 smoke Redis uses REDISCLI_AUTH"
+else
+    report FAIL "T9 smoke Redis exposes password through redis-cli -a"
+fi
+
+# ─── T11:JWT 过期/伪造 token 必须拒绝 ───────────────────────
+EXPIRED_TOKEN='eyJhbGciOiJub25lIn0.eyJleHAiOjF9.signature'
+FAKE_TOKEN='eA.eA.eA'
+NAN_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOk5hTn0.eA'
+INFINITY_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOkluZmluaXR5fQ.eA'
+LIST_TOKEN='eyJhbGciOiJIUzI1NiJ9.W10.eA'
+PADDING_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjF9=.eA'
+ALG_NONE_TOKEN='eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDAwMDAwMDB9.eA'
+if ! printf '%s' "$EXPIRED_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$FAKE_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$NAN_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$INFINITY_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$LIST_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$PADDING_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$ALG_NONE_TOKEN" | smoke_auth_token_is_valid; then
+    report PASS "T11 invalid JWT claims rejected"
+else
+    report FAIL "T11 invalid JWT claims accepted"
+fi
+
+# ─── T12:source/bundle artifact 目录实际选择 ────────────────
+SOURCE_FIXTURE="$(mktemp -d)"
+mkdir -p "$SOURCE_FIXTURE/scripts" "$SOURCE_FIXTURE/exported_images" "$SOURCE_FIXTURE/compose"
+touch "$SOURCE_FIXTURE/compose/docker-compose.offline.yml" "$SOURCE_FIXTURE/compose/.env.production"
+if (cd / && SMOKE_SCRIPT_DIR="$SOURCE_FIXTURE/scripts" init_smoke_context http://localhost >/dev/null 2>&1 \
+    && [ "$SCRIPT_DIR/exported_images" = "$SOURCE_FIXTURE/scripts/exported_images" ]); then
+    report PASS "T12 source artifact directory resolves from script dir"
+else
+    report FAIL "T12 source artifact directory resolution failed"
+fi
+rm -rf "$SOURCE_FIXTURE"
+
+# ─── T13:strict 模式 WARN 必须 fail-close ───────────────────
+reset_counters() { PASS=0; FAIL=0; WARN=0; SKIP=0; }
+reset_counters
+SMOKE_STRICT=1
+result WARN "strict-warning-test"
+if finalize_results >/dev/null 2>&1; then
+    report FAIL "T13 strict WARN unexpectedly passed"
+else
+    report PASS "T13 strict WARN fails closed"
+fi
 echo "=========================================="
 echo "  test_smoke_common.sh: PASS=$PASS_COUNT FAIL=$FAIL_COUNT"
 echo "=========================================="

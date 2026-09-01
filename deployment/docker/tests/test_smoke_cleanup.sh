@@ -55,14 +55,17 @@ curl() {
         fi
     done
     if [ -n "$body_file" ]; then
-        printf '{"access":"TOK-%s"}\n' "$SMOKE_RUN_ID" > "$body_file"
+        printf '{"access":"eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjQxMDI0NDQ4MDB9.signature"}\n' > "$body_file"
     fi
     printf '200'
 }
 export -f curl
 
 SMOKE_RUN_ID="run-a-$$"
-SMOKE_AUTH_TOKEN=""
+SMOKE_AUTH_TOKEN_FILE=""
+SMOKE_TEST_USER=""
+SMOKE_TEST_PASSWORD=""
+BASE_URL="http://stub"
 _call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-a"
 _call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-b"
 
@@ -75,6 +78,20 @@ if cmp -s "$TOKEN_OUTPUT_DIR/token-a" "$TOKEN_OUTPUT_DIR/token-b"; then
 else
     report FAIL "C1 token output differs between calls"
 fi
+
+# ─── C8:默认缓存损坏时拒绝并重新登录 ───────────────────────
+SMOKE_RUN_ID="run-corrupt-$$"
+SMOKE_AUTH_TOKEN_FILE=""
+TOKEN_FILE="$(smoke_auth_token_file)"
+printf 'not-a-jwt' > "$TOKEN_FILE"
+_call obtain_auth_token > "$TOKEN_OUTPUT_DIR/token-c"
+if grep -q 'eyJleHAiOjQxMDI0NDQ4MDB9' "$TOKEN_OUTPUT_DIR/token-c" \
+    && [ "$(wc -l < "$TOKEN_CALLS_FILE")" -eq 2 ]; then
+    report PASS "C8 corrupt default cache rejected and refreshed"
+else
+    report FAIL "C8 corrupt cache was accepted or login count unexpected"
+fi
+rm -f "$TOKEN_FILE"
 
 # ─── C2/C3:record_smoke_resource + cleanup 只动 current-run ─
 RES_BASE="$(mktemp -d)"

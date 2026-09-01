@@ -128,9 +128,7 @@ release_smoke_lock() {
         flock -u "$SMOKE_LOCK_FD" 2>/dev/null || true
         eval "exec ${SMOKE_LOCK_FD}>&-" 2>/dev/null || true
     fi
-    if [ -n "$SMOKE_LOCK_PATH" ] && [ "${SMOKE_LOCK_OWNED:-1}" = "1" ]; then
-        rm -f "$SMOKE_LOCK_PATH" 2>/dev/null || true
-    fi
+    # 保留共享锁文件 inode；删除会在解锁与 rm 之间制造并发绕过窗口。
     SMOKE_LOCK_FD=""
     SMOKE_LOCK_PATH=""
 }
@@ -254,56 +252,117 @@ classify_http_status() {
 }
 
 # ─── 认证 Token(同 run 缓存一次) ────────────────────────────
-# obtain_auth_token
-#   优先用 SMOKE_TEST_USER/SMOKE_TEST_PASSWORD 走 /api/auth/login/;
-#   否则走 /api/auth/guest-login/。
-#   第一次成功后缓存到 $SMOKE_AUTH_TOKEN_FILE(文件级,跨 subshell 共享 —
-#   之前用 $SMOKE_AUTH_TOKEN env var 在 `$(obtain_auth_token)` subshell 内
-#   export,不传播到父 shell,导致每次调用都重新登录,6 次 > 5/15m IP 限流)。
-#   文件权限 0600 + umask 077 防 token 泄漏到其他用户。
-#   stdout:access token;失败时返回非 0。
+smoke_auth_token_file() {
+    printf '%s' "${SMOKE_AUTH_TOKEN_FILE:-/tmp/.smoke_auth_token-${SMOKE_RUN_ID:-$$}}"
+}
+
+# 从 stdin/受限文件读取 token，避免 token 出现在 argv 或环境变量。
+smoke_auth_token_is_valid() {
+    python3 -c '
+import base64, binascii, json, math, sys, time
+
+def decode_segment(segment):
+    if not segment or any(c not in "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_" for c in segment):
+        raise ValueError
+    if "=" in segment or len(segment) % 4 == 1:
+        raise ValueError
+    return base64.urlsafe_b64decode(segment + "=" * (-len(segment) % 4))
+
+try:
+    parts = sys.stdin.read().split(".")
+    if len(parts) != 3 or not all(parts):
+        raise ValueError
+    header = json.loads(decode_segment(parts[0]).decode("utf-8"), parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+    if not isinstance(header, dict) or header.get("alg") != "HS256":
+        raise ValueError
+    claims = json.loads(decode_segment(parts[1]).decode("utf-8"), parse_constant=lambda _: (_ for _ in ()).throw(ValueError()))
+    if not isinstance(claims, dict):
+        raise ValueError
+    exp = claims.get("exp")
+    if isinstance(exp, bool) or not isinstance(exp, (int, float)) or not math.isfinite(exp) or exp <= time.time():
+        raise ValueError
+except (binascii.Error, UnicodeError, json.JSONDecodeError, TypeError, ValueError, OverflowError):
+    raise SystemExit(1)
+'
+}
+
+# 为带认证的 curl 创建 0600 header 文件；调用方只传文件名给 curl。
+smoke_auth_header_file() {
+    local token_file="$1" header_file token
+    header_file="$(mktemp "$(smoke_temp_file 'auth-header').XXXXXX")" || return 1
+    token="$(cat "$token_file")" || { rm -f -- "$header_file"; return 1; }
+    (umask 077; chmod 600 "$header_file" && {
+        printf '%s' "$token" | smoke_auth_token_is_valid || return 1
+        printf 'Authorization: Bearer %s\n' "$token" > "$header_file"
+    }) || { rm -f -- "$header_file"; return 1; }
+    record_smoke_resource auth-header "auth-header-$$-$RANDOM" "$header_file" || { rm -f -- "$header_file"; return 1; }
+    printf '%s' "$header_file"
+}
+
+smoke_store_auth_token() {
+    local token_file="$1" token="$2" token_dir tmp_file
+    token_dir="$(dirname -- "$token_file")"
+    [ -d "$token_dir" ] || return 1
+    if [ -e "$token_file" ] || [ -L "$token_file" ]; then
+        return 1
+    fi
+    tmp_file="$(mktemp "$token_dir/.smoke-token.XXXXXX")" || return 1
+    if ! (umask 077; chmod 600 "$tmp_file" && printf '%s' "$token" > "$tmp_file"); then
+        rm -f -- "$tmp_file"
+        return 1
+    fi
+    if ! mv -- "$tmp_file" "$token_file"; then
+        rm -f -- "$tmp_file"
+        return 1
+    fi
+    chmod 600 "$token_file" || { rm -f -- "$token_file"; return 1; }
+}
+
 obtain_auth_token() {
-    local token_file="${SMOKE_AUTH_TOKEN_FILE:-/tmp/.smoke_auth_token.$$}"
-    # 优先读缓存 — 跨 subshell 共享的关键(文件 I/O 不受 subshell 边界影响)
-    if [ -f "$token_file" ]; then
-        local cached
-        cached="$(cat "$token_file" 2>/dev/null || true)"
-        if [ -n "$cached" ]; then
-            printf '%s' "$cached"
-            return 0
+    local token_file token_dir cached
+    token_file="$(smoke_auth_token_file)"; token_dir="$(dirname -- "$token_file")"
+    [ -d "$token_dir" ] || mkdir -p "$token_dir" || return 1
+    if [ -e "$token_file" ] || [ -L "$token_file" ]; then
+        local mode owner uid
+        mode="$(stat -c '%a' -- "$token_file" 2>/dev/null || :)"; owner="$(stat -c '%u' -- "$token_file" 2>/dev/null || :)"; uid="$(id -u)"
+        if [ -f "$token_file" ] && [ ! -L "$token_file" ] && [ "$owner" = "$uid" ] && [ "$mode" = 600 ]; then
+            cached="$(cat -- "$token_file" 2>/dev/null || :)"
+            if printf '%s' "$cached" | smoke_auth_token_is_valid; then printf '%s' "$cached"; return 0; fi
         fi
+        rm -f -- "$token_file" || return 1
     fi
-    local body_file code token login_url
-    body_file="$(mktemp)"
-    login_url="$BASE_URL/api/auth/guest-login/"
-    if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
-        login_url="$BASE_URL/api/auth/login/"
-        code=$(curl -sS -X POST -o "$body_file" \
-            --write-out '%{http_code}' \
-            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
-            -H 'Content-Type: application/json' \
-            -d "{\"username\":\"${SMOKE_TEST_USER}\",\"password\":\"${SMOKE_TEST_PASSWORD}\"}" \
-            "$login_url" 2>/dev/null || echo "000")
-    else
-        code=$(curl -sS -X POST -o "$body_file" \
-            --write-out '%{http_code}' \
-            --max-time "${SMOKE_CURL_TIMEOUT:-15}" \
-            -H 'Content-Type: application/json' -d '{}' \
-            "$login_url" 2>/dev/null || echo "000")
-    fi
-    if [ "$code" != "200" ]; then
-        rm -f "$body_file"
-        return 1
-    fi
-    token="$(SMOKE_RUN_ID="$SMOKE_RUN_ID" python3 -c "import sys,json; print(json.load(open(sys.argv[1])).get('access',''))" "$body_file" 2>/dev/null || echo "")"
-    rm -f "$body_file"
-    if [ -z "$token" ]; then
-        return 1
-    fi
-    # 写文件缓存 — umask 077 + chmod 0600 双保险,owner-only 读写
-    (umask 077; printf '%s' "$token" > "$token_file") || true
-    chmod 0600 "$token_file" 2>/dev/null || true
-    printf '%s' "$token"
+    (
+        set -e
+        local body_file="" request_file="" user_file="" password_file="" tmp_cache="" code login_url token
+        trap 'rm -f -- "${body_file:-}" "${request_file:-}" "${user_file:-}" "${password_file:-}" "${tmp_cache:-}"' EXIT HUP INT TERM
+        body_file="$(mktemp "$token_dir/.smoke-body.XXXXXX")"
+        request_file="$(mktemp "$token_dir/.smoke-request.XXXXXX")"
+        user_file="$(mktemp "$token_dir/.smoke-user.XXXXXX")"
+        password_file="$(mktemp "$token_dir/.smoke-password.XXXXXX")"
+        chmod 600 "$body_file" "$request_file" "$user_file" "$password_file"
+        login_url="$BASE_URL/api/auth/guest-login/"
+        if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
+            login_url="$BASE_URL/api/auth/login/"
+            printf '%s' "$SMOKE_TEST_USER" >"$user_file"
+            printf '%s' "$SMOKE_TEST_PASSWORD" >"$password_file"
+            python3 - "$user_file" "$password_file" "$request_file" <<'PYJSON'
+import json, sys
+with open(sys.argv[1]) as user_file, open(sys.argv[2]) as password_file, open(sys.argv[3], 'w') as request_file:
+    json.dump({'username': user_file.read(), 'password': password_file.read()}, request_file)
+PYJSON
+        else
+            printf '{}' >"$request_file"
+        fi
+        code="$(curl -sS -X POST -o "$body_file" --write-out '%{http_code}' --max-time "${SMOKE_CURL_TIMEOUT:-15}" -H 'Content-Type: application/json' --data-binary "@$request_file" "$login_url" 2>/dev/null || printf '000')"
+        [ "$code" = 200 ] || exit 1
+        token="$(python3 -c 'import json,sys;
+try:
+ d=json.load(open(sys.argv[1])); print(d.get("access","") if isinstance(d,dict) else "")
+except (OSError,TypeError,ValueError,json.JSONDecodeError): pass' "$body_file")"
+        printf '%s' "$token" | smoke_auth_token_is_valid
+        smoke_store_auth_token "$token_file" "$token"
+        printf '%s' "$token"
+    )
 }
 
 # ─── Smoke 资源追踪(按 run-id 隔离) ─────────────────────────
@@ -336,13 +395,14 @@ cleanup_smoke_artifacts() {
             rm -f "$path" 2>/dev/null || failures=$((failures + 1))
         fi
     done < "$res_file"
+    rm -f -- "$res_file" 2>/dev/null || failures=$((failures + 1))
     return "$failures"
 }
 
 # ─── finalize_results ────────────────────────────────
 finalize_results() {
-    if [ "${SMOKE_STRICT:-0}" = "1" ] && [ "$WARN" -gt 0 ]; then
-        echo "ERROR: SMOKE_STRICT=1 模式有 $WARN 个 WARN,应改为 FAIL" >&2
+    if [ "${SMOKE_STRICT:-0}" = "1" ] && { [ "$WARN" -gt 0 ] || [ "$SKIP" -gt 0 ]; }; then
+        echo "ERROR: SMOKE_STRICT=1 模式存在 WARN/SKIP (WARN=$WARN SKIP=$SKIP),拒绝通过" >&2
         return 1
     fi
     echo ""
@@ -423,6 +483,8 @@ check_cors_preflight() {
         *) result FAIL "CORS preflight" "HTTP $code (expected 2xx) for $origin"; return 1 ;;
     esac
     [ -n "$allow_origin_line" ] || { result FAIL "CORS preflight missing ACAO" "$origin"; return 1; }
+    [ "$allow_origin_line" = "$origin" ] || { result FAIL "CORS Allow-Origin mismatch" "expected='$origin' actual='$allow_origin_line'"; return 1; }
+    [ "$allow_origin_line" != "*" ] || { result FAIL "CORS wildcard origin forbidden" "$origin"; return 1; }
     [ -n "$allow_methods_line" ] || { result FAIL "CORS preflight missing Allow-Methods"; return 1; }
     [ -n "$allow_headers_line" ] || { result FAIL "CORS preflight missing Allow-Headers"; return 1; }
     # 校验请求头是否被允许(去除所有空格避免 ", Authorization" 与 ",Authorization," 失配)

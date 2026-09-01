@@ -589,7 +589,7 @@ case "${1:-start}" in
             echo "  请用 package_offline_bundle.sh 重新打包,确保 upgrade_state.sh 复制到 scripts/。" >&2
             exit 1
         fi
-        ./upgrade.sh "${2:-.}"
+        SMOKE_STRICT=1 ./upgrade.sh "${2:-.}"
         ;;
     rollback)
         require_env_file
