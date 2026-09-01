@@ -55,7 +55,7 @@ curl() {
         fi
     done
     if [ -n "$body_file" ]; then
-        printf '{"access":"eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDI0NDQ4MDB9.signature"}\n' > "$body_file"
+        printf '{"access":"eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjQxMDI0NDQ4MDB9.signature"}\n' > "$body_file"
     fi
     printf '200'
 }

@@ -15,6 +15,10 @@ if ! init_smoke_context "${1:-}"; then
     exit 1
 fi
 
+if ! acquire_smoke_lock; then
+    exit 2
+fi
+
 # SMOKE_STRICT=1:SKIP 升级为 FAIL(CI 严格模式,部署现场保持默认 0 = 容错)
 # CI 在 PR 上跑 smoke,任何"我跳过了"的探测都不能蒙混过关,必须显式通过。
 export SMOKE_STRICT="${SMOKE_STRICT:-0}"
@@ -55,7 +59,7 @@ fi
 if [ -z "${USE_HTTPS:-}" ] && [ -n "${ENV_FILE_PATH:-}" ] && [ -f "$ENV_FILE_PATH" ]; then
     USE_HTTPS=$(grep -E '^USE_HTTPS=' "$ENV_FILE_PATH" 2>/dev/null | cut -d= -f2- || echo "false")
 fi
-export SMOKE_TEST_USER SMOKE_TEST_PASSWORD USE_HTTPS
+export USE_HTTPS
 
 # OMNIDESK_BACKUP_ROOT: 备份根目录(批次备份路径)
 # 若未设置,从 .env.production 读取或使用默认值
@@ -114,7 +118,7 @@ cleanup_smoke_deploy_state() {
 
 # 全局 trap:同时调用 smoke_common.sh 的按 run-id 文件清理 + 本地 docker-exec 清理
 # trap handler 保留 test_exit(test 自身的退出码),cleanup 失败时记 FAIL 但不覆盖 test_exit
-trap 'cleanup_smoke_artifacts; cleanup_smoke_deploy_state' EXIT
+trap 'cleanup_smoke_artifacts; cleanup_smoke_deploy_state; release_smoke_lock' EXIT
 
 # result() 来自 smoke_common.sh(已 export),不再本地覆盖
 
@@ -184,6 +188,7 @@ _app_happy_path_get() {
     local path="$2"
     local min_size="${3:-2}"
     local token_var="${4:-GUEST_TOKEN_H10}"
+    local header_var=""
 
     # F5 修复(2 轮):拆分 sentinel 守卫与空 token 守卫 —
     # 之前用 `||` 把 "__FAILED__" 与空串合一起,导致失败缓存形同虚设,
@@ -206,10 +211,12 @@ _app_happy_path_get() {
         fi
         printf -v "$token_var" '%s' "$new_token"
     fi
+    header_var="$(smoke_auth_header_file "$(smoke_auth_token_file)" || true)"
+    [ -n "$header_var" ] || { result "SKIP" "业务 happy-path ($label)" "无法创建认证 header"; return 0; }
 
     local http_code body size
     body=$(curl -s --max-time 10 -w "\n%{http_code}" \
-        -H "Authorization: Bearer ${!token_var}" \
+        -H "@${header_var}" \
         "$BASE_URL$path" 2>/dev/null || echo "")
     http_code=$(echo "$body" | tail -1)
     body=$(echo "$body" | sed '$d')
@@ -354,23 +361,20 @@ AUTH_STATUS_FILE="$(smoke_temp_file auth-status)"
 AUTH_BODY_FILE="$(smoke_temp_file auth-body)"
 AUTH_TOKEN_FILE="$(smoke_auth_token_file)"
 (umask 077; : > "$AUTH_STATUS_FILE"; : > "$AUTH_BODY_FILE")
-record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || true
-record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || true
-record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || true
+record_smoke_resource auth-status "auth-status-$$" "$AUTH_STATUS_FILE" || exit 1
+record_smoke_resource auth-body "auth-body-$$" "$AUTH_BODY_FILE" || exit 1
+record_smoke_resource auth-token "auth-token-$$" "$AUTH_TOKEN_FILE" || { rm -f -- "$AUTH_TOKEN_FILE"; exit 1; }
 perform_smoke_auth() {
-    [ "${AUTH_ATTEMPTED:-0}" = 1 ] && return "${AUTH_RESULT:-1}"
-    AUTH_ATTEMPTED=1
     local login_url="$BASE_URL/api/auth/guest-login/" request_file user_file password_file code token
+    rm -f -- "$AUTH_TOKEN_FILE" || return 1
     request_file="$(smoke_temp_file auth-request)"
-    (umask 077; : > "$request_file")
-    cleanup_smoke_auth_request() { rm -f -- "$request_file" "${user_file:-}" "${password_file:-}"; }
-    trap cleanup_smoke_auth_request RETURN
-    record_smoke_resource auth-request "auth-request-$$" "$request_file" || true
+    (umask 077; : > "$request_file") || return 1
+    record_smoke_resource auth-request "auth-request-$$" "$request_file" || return 1
     if [ -n "${SMOKE_TEST_USER:-}" ] && [ -n "${SMOKE_TEST_PASSWORD:-}" ]; then
         login_url="$BASE_URL/api/auth/login/"
         user_file="$(smoke_temp_file auth-user)"
         password_file="$(smoke_temp_file auth-password)"
-        (umask 077; printf '%s' "$SMOKE_TEST_USER" > "$user_file"; printf '%s' "$SMOKE_TEST_PASSWORD" > "$password_file") || return 1
+        (umask 077; printf '%s' "$SMOKE_TEST_USER" > "$user_file" && printf '%s' "$SMOKE_TEST_PASSWORD" > "$password_file") || { rm -f "$request_file" "$user_file" "$password_file"; return 1; }
         python3 - "$user_file" "$password_file" "$request_file" <<'PY'
 import json, sys
 with open(sys.argv[1]) as user_file, open(sys.argv[2]) as password_file, open(sys.argv[3], 'w') as request_file:
@@ -378,32 +382,36 @@ with open(sys.argv[1]) as user_file, open(sys.argv[2]) as password_file, open(sy
 PY
         rm -f "$user_file" "$password_file"
     else
-        printf '{}' > "$request_file"
+        printf '{}' > "$request_file" || { rm -f "$request_file"; return 1; }
     fi
     code=$(curl -sS -X POST -o "$AUTH_BODY_FILE" --write-out '%{http_code}' \
         --max-time "${SMOKE_CURL_TIMEOUT:-15}" -H 'Content-Type: application/json' \
-        --data-binary "@$request_file" "$login_url" 2>/dev/null || echo 000)
-    printf '%s' "$code" > "$AUTH_STATUS_FILE"
+        --data-binary "@$request_file" "$login_url" 2>/dev/null || printf '000')
+    printf '%s' "$code" > "$AUTH_STATUS_FILE" || { rm -f "$request_file"; return 1; }
+    rm -f "$request_file"
     if [ "$code" = 200 ]; then
         token="$(python3 -c 'import json,sys
 try:
  d=json.load(open(sys.argv[1])); print(d.get("access","") if isinstance(d,dict) else "")
 except (OSError,TypeError,ValueError,json.JSONDecodeError): pass' "$AUTH_BODY_FILE" 2>/dev/null)"
-        if smoke_auth_token_is_valid "$token" && (umask 077; printf '%s' "$token" > "$AUTH_TOKEN_FILE") && chmod 600 "$AUTH_TOKEN_FILE"; then
-            AUTH_RESULT=0
+        if printf '%s' "$token" | smoke_auth_token_is_valid && smoke_store_auth_token "$AUTH_TOKEN_FILE" "$token"; then
             return 0
         fi
     fi
-    AUTH_RESULT=1
     return 1
 }
 perform_smoke_auth || true
-VERSION_TOKEN="$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)"
-if [ -n "$VERSION_TOKEN" ]; then
+AUTH_HTTP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || printf '000')"
+VERSION_HEADER_FILE=""
+if [ "$AUTH_HTTP" = "200" ] && [ -s "$AUTH_TOKEN_FILE" ] && cat "$AUTH_TOKEN_FILE" | smoke_auth_token_is_valid; then
+    VERSION_HEADER_FILE="$(smoke_auth_header_file "$AUTH_TOKEN_FILE" || true)"
+fi
+if [ -n "$VERSION_HEADER_FILE" ]; then
     HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
-        -H "Authorization: Bearer $VERSION_TOKEN")
+        -H "@$VERSION_HEADER_FILE")
 else
-    HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY")
+    HTTP_CODE="${AUTH_HTTP:-000}"
+    : > "$VERSION_BODY"
 fi
 if [ "$HTTP_CODE" = "200" ]; then
     if python3 -c "import sys,json; d=json.load(open('$VERSION_BODY')); assert 'version' in d" 2>/dev/null; then
@@ -422,7 +430,7 @@ PROXY_BODY="$(smoke_temp_file proxy-body)"
 HTTP_CODE=$(request_with_status POST "$BASE_URL/api/auth/guest-login/" "$PROXY_BODY" \
     -H "Content-Type: application/json" -d '{}')
 case "$HTTP_CODE" in
-    2??|400|401|403|405)
+    2??|400|401|403|405|429)
         result "PASS" "Nginx reverse proxy to backend API (HTTP $HTTP_CODE)"
         ;;
     *)
@@ -486,11 +494,14 @@ echo ""
 # ─── 阶段 6: 版本/迁移/CHANGELOG 端点 (需 JWT) ─────────────────
 echo "阶段 6: 版本/迁移/CHANGELOG 端点"
 
-AUTH_ATTEMPTED=0
-AUTH_RESULT=1
-perform_smoke_auth || true
+
 GUEST_HTTP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || echo 000)"
-GUEST_TOKEN="$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)"
+GUEST_TOKEN=""
+GUEST_HEADER_FILE=""
+if [ "$GUEST_HTTP" = "200" ] && [ -s "$AUTH_TOKEN_FILE" ] && cat "$AUTH_TOKEN_FILE" | smoke_auth_token_is_valid; then
+    GUEST_TOKEN="$(cat "$AUTH_TOKEN_FILE")"
+    GUEST_HEADER_FILE="$(smoke_auth_header_file "$AUTH_TOKEN_FILE" || true)"
+fi
 case "$GUEST_HTTP" in
     200) ;;
     429) result "WARN" "Guest login rate-limited (HTTP 429)" "5/15m 已耗尽,跳过阶段 6;可 15 分钟后重试"; GUEST_TOKEN="" ;;
@@ -507,9 +518,13 @@ if [ -z "$GUEST_TOKEN" ]; then
     result "SKIP" "Changelog endpoint" "No JWT (guest-login HTTP ${GUEST_HTTP:-empty})"
 else
     # 6.1 /api/system/migrations/
-    MIG=$(curl -s --max-time 10 -H "Authorization: Bearer $GUEST_TOKEN" \
-        "$BASE_URL/api/system/migrations/" 2>/dev/null || echo "")
-    if echo "$MIG" | python3 -c "
+    MIG_OUT=$(curl -s --max-time 10 -w '\n%{http_code}' -H "@$GUEST_HEADER_FILE" \
+        "$BASE_URL/api/system/migrations/" 2>/dev/null || echo "\n000")
+    MIG_HTTP=$(echo "$MIG_OUT" | tail -1)
+    MIG=$(echo "$MIG_OUT" | sed '$d')
+    if [ "$MIG_HTTP" != "200" ]; then
+        result "FAIL" "Migrations endpoint" "HTTP $MIG_HTTP (期望 200)"
+    elif echo "$MIG" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 assert 'has_destructive' in d
@@ -549,9 +564,13 @@ print(','.join(o['type'] + '(' + o.get('model', o.get('field','?')) + ')' for o 
     #   (B) 占位符 fallback — "# 更新日志\n\n暂无更新日志。"
     #       (当 backend 容器无法读到 deployment/docker/CHANGELOG.md 时触发,
     #        这是生产部署配置问题而非 smoke 失败,故 PASS + WARN)
-    CHL=$(curl -s --max-time 10 -H "Authorization: Bearer $GUEST_TOKEN" \
-        "$BASE_URL/api/system/changelog/" 2>/dev/null || echo "")
-    if echo "$CHL" | python3 -c "
+    CHL_OUT=$(curl -s --max-time 10 -w '\n%{http_code}' -H "@$GUEST_HEADER_FILE" \
+        "$BASE_URL/api/system/changelog/" 2>/dev/null || echo "\n000")
+    CHL_HTTP=$(echo "$CHL_OUT" | tail -1)
+    CHL=$(echo "$CHL_OUT" | sed '$d')
+    if [ "$CHL_HTTP" != "200" ]; then
+        result "FAIL" "Changelog endpoint" "HTTP $CHL_HTTP (期望 200)"
+    elif echo "$CHL" | python3 -c "
 import sys,json
 d=json.load(sys.stdin)
 assert isinstance(d.get('changelog',''), str) and len(d['changelog']) > 0
@@ -702,15 +721,18 @@ echo "阶段 8.3: 文件上传链路"
 # 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(5/15m 限流独立 bucket),
 # 未注入时 fallback guest-login(原行为)
 GUEST_TOKEN_H83="$(obtain_auth_token || true)"
-
 if [ -n "$GUEST_TOKEN_H83" ]; then
+    GUEST_HEADER_FILE="$(smoke_auth_header_file "$(smoke_auth_token_file)" || true)"
+fi
+
+if [ -n "$GUEST_TOKEN_H83" ] && [ -n "$GUEST_HEADER_FILE" ]; then
     # 全局变量,供 cleanup_smoke_artifacts trap 清理 (H1 修复)
     SMOKE_PDF="/tmp/.smoke_upload_$$.pdf"
     printf '%%PDF-1.4\n' > "$SMOKE_PDF"
     # 按 run-id 隔离登记,trap 兜底清理
     record_smoke_resource upload-pdf "upload-$$" "$SMOKE_PDF" || true
     UPLOAD_OUT=$(curl -s --max-time 30 -w "\n%{http_code}" \
-        -H "Authorization: Bearer $GUEST_TOKEN_H83" \
+        -H "@$GUEST_HEADER_FILE" \
         -F "file=@$SMOKE_PDF;type=application/pdf" \
         "$BASE_URL/api/file/upload/" 2>/dev/null || echo "")
     UPLOAD_CODE=$(echo "$UPLOAD_OUT" | tail -1)
@@ -740,15 +762,18 @@ if ! wait_for_healthy backend 30; then
 else
     # 用 obtain_auth_token:SMOKE_TEST_USER 注入时走 /api/auth/login/(避免 5/15m guest 限流)
     GUEST_TOKEN_H9="$(obtain_auth_token || true)"
+    if [ -n "$GUEST_TOKEN_H9" ]; then
+        GUEST_HEADER_FILE="$(smoke_auth_header_file "$(smoke_auth_token_file)" || true)"
+    fi
 
-    if [ -z "$GUEST_TOKEN_H9" ]; then
+    if [ -z "$GUEST_TOKEN_H9" ] || [ -z "$GUEST_HEADER_FILE" ]; then
         result "SKIP" "业务 happy-path (memos)" "auth 不可达 (JWT 空,obtain_auth_token 失败)"
     else
         # 9.1 POST 创建 — 加 retry,db 重启瞬态 5xx 自动恢复
         MEMO_TITLE="smoke-test-$$-$(date +%s)"
         CREATE_RESP=$(curl_with_retry 3 -X POST \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            -H "@$GUEST_HEADER_FILE" \
             -d "{\"title\":\"$MEMO_TITLE\"}" \
             "$BASE_URL/api/memos/" 2>/dev/null | head -n -1 || echo "")
         MEMO_ID=$(echo "$CREATE_RESP" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('id',''))" 2>/dev/null || echo "")
@@ -757,7 +782,7 @@ else
 
         # 9.2 GET 详情
         GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 \
-            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            -H "@$GUEST_HEADER_FILE" \
             "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
         if [ "$GET_CODE" = "200" ]; then
             result "PASS" "Memos GET 详情" "HTTP 200"
@@ -767,7 +792,7 @@ else
 
         # 9.3 DELETE 清理(失败仅 WARN,避免下次 run 累加)
         DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 -X DELETE \
-            -H "Authorization: Bearer $GUEST_TOKEN_H9" \
+            -H "@$GUEST_HEADER_FILE" \
             "$BASE_URL/api/memos/$MEMO_ID/" 2>/dev/null || echo "000")
         # H2 修复(code-review):真业务错(401/403/500/502/503/504)→ FAIL,
         # 让 memo 残留生产表被运维看到;404 留 WARN(可能已被清理);其他(400/405 等客户端错)留 WARN。
@@ -799,7 +824,8 @@ echo "阶段 10: 业务端点广度"
 #
 # 若 5 条全 PASS 视为业务广度冒烟通过;单项 FAIL 立即定位哪个 app 端点挂
 
-GUEST_TOKEN_H10=""
+# shellcheck disable=SC2034
+GUEST_TOKEN_H10="${GUEST_TOKEN:-}"
 
 # 10.1 events trials
 _app_happy_path_get "events/trials" "/api/events/trials/" 2 "GUEST_TOKEN_H10"
@@ -932,7 +958,7 @@ if [ -z "${SMOKE_TEST_USER:-}" ] || [ -z "${SMOKE_TEST_PASSWORD:-}" ]; then
     result "SKIP" "真实账密登录" "SMOKE_TEST_USER/PASSWORD 未注入(.env.production 缺凭据)"
 else
     LOGIN_RESP="$(cat "$AUTH_STATUS_FILE" 2>/dev/null || printf '000')"
-    if [ "$LOGIN_RESP" = "200" ] && smoke_auth_token_is_valid "$(cat "$AUTH_TOKEN_FILE" 2>/dev/null || true)" && grep -q '"access"' "$AUTH_BODY_FILE"; then
+    if [ "$LOGIN_RESP" = "200" ] && cat "$AUTH_TOKEN_FILE" | smoke_auth_token_is_valid && grep -q '"access"' "$AUTH_BODY_FILE"; then
         result "PASS" "真实账密登录 (argon2)" "user=${SMOKE_TEST_USER} 拿到 JWT access（复用本 run token）"
     else
         result "FAIL" "真实账密登录" "HTTP $LOGIN_RESP(期望 200,常见原因:账号未创建/密码错/argon2 校验失败)"

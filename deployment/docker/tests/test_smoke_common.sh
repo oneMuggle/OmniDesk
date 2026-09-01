@@ -146,10 +146,21 @@ fi
 # ─── T11:JWT 过期/伪造 token 必须拒绝 ───────────────────────
 EXPIRED_TOKEN='eyJhbGciOiJub25lIn0.eyJleHAiOjF9.signature'
 FAKE_TOKEN='eA.eA.eA'
-if ! smoke_auth_token_is_valid "$EXPIRED_TOKEN" && ! smoke_auth_token_is_valid "$FAKE_TOKEN"; then
-    report PASS "T11 expired and fake JWT rejected"
+NAN_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOk5hTn0.eA'
+INFINITY_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOkluZmluaXR5fQ.eA'
+LIST_TOKEN='eyJhbGciOiJIUzI1NiJ9.W10.eA'
+PADDING_TOKEN='eyJhbGciOiJIUzI1NiJ9.eyJleHAiOjF9=.eA'
+ALG_NONE_TOKEN='eyJhbGciOiJub25lIn0.eyJleHAiOjQxMDAwMDAwMDB9.eA'
+if ! printf '%s' "$EXPIRED_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$FAKE_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$NAN_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$INFINITY_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$LIST_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$PADDING_TOKEN" | smoke_auth_token_is_valid \
+    && ! printf '%s' "$ALG_NONE_TOKEN" | smoke_auth_token_is_valid; then
+    report PASS "T11 invalid JWT claims rejected"
 else
-    report FAIL "T11 expired or fake JWT accepted"
+    report FAIL "T11 invalid JWT claims accepted"
 fi
 
 # ─── T12:source/bundle artifact 目录实际选择 ────────────────

@@ -18,6 +18,19 @@ fi
 # 不加 -e:result() 自控制流程,需要宽容失败
 set -uo pipefail
 
+cleanup_deploy_test_resources() {
+    local test_exit="$?"
+    cleanup_smoke_artifacts || true
+    release_smoke_lock
+    exit "$test_exit"
+}
+
+trap cleanup_deploy_test_resources EXIT
+
+if ! acquire_smoke_lock; then
+    exit 2
+fi
+
 # compose() 来自 smoke_common.sh;export 给子 shell 使用
 export -f compose
 
@@ -94,10 +107,15 @@ fi
 rm -f "$HEALTH_BODY"
 
 VERSION_BODY="$(smoke_temp_file deploy-version-body)"
-VERSION_TOKEN="$(obtain_auth_token || true)"
-if [ -n "$VERSION_TOKEN" ]; then
+VERSION_TOKEN_FILE="$(smoke_auth_token_file)"
+VERSION_HEADER_FILE=""
+if obtain_auth_token >/dev/null 2>&1; then
+    record_smoke_resource auth-token "auth-token-$$" "$VERSION_TOKEN_FILE" || true
+    VERSION_HEADER_FILE="$(smoke_auth_header_file "$VERSION_TOKEN_FILE" || true)"
+fi
+if [ -n "$VERSION_HEADER_FILE" ]; then
     HTTP_CODE=$(request_with_status GET "$BASE_URL/api/system/version/" "$VERSION_BODY" \
-        -H "Authorization: Bearer $VERSION_TOKEN")
+        -H "@$VERSION_HEADER_FILE")
 else
     HTTP_CODE="000"
 fi
@@ -109,8 +127,8 @@ if [ "$HTTP_CODE" = "200" ]; then
         result "FAIL" "Backend /api/system/version/ missing version field"
     fi
 else
-    if [ -z "$VERSION_TOKEN" ]; then
-        result "FAIL" "Backend /api/system/version/" "无法取得 JWT,受保护端点未执行"
+    if [ -z "$VERSION_HEADER_FILE" ]; then
+        result "FAIL" "Backend /api/system/version/" "无法取得有效 JWT,受保护端点未执行"
     else
         classify_http_status "$HTTP_CODE" "Backend /api/system/version/"
     fi
@@ -186,21 +204,45 @@ echo ""
 # ─── 阶段 7: 关键业务流程验证 ──────────────────────────────
 echo "阶段 7: 关键业务流程"
 
-GUEST_TOKEN=$(curl -s --max-time 10 "$BASE_URL/api/auth/guest-login/" \
-    -X POST -H "Content-Type: application/json" -d '{}' \
-    2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin).get('access',''))" 2>/dev/null || echo "")
-
-if [ -n "$GUEST_TOKEN" ]; then
-    result "PASS" "Guest login returns access token"
+GUEST_BODY="$(smoke_temp_file deploy-guest-body)"
+GUEST_TOKEN_FILE="$(smoke_temp_file deploy-guest-token)"
+GUEST_HEADER_FILE=""
+(umask 077; : > "$GUEST_BODY"; : > "$GUEST_TOKEN_FILE") || exit 1
+chmod 600 "$GUEST_BODY" "$GUEST_TOKEN_FILE" || exit 1
+record_smoke_resource guest-body "guest-body-$$" "$GUEST_BODY" || exit 1
+record_smoke_resource guest-token "guest-token-$$" "$GUEST_TOKEN_FILE" || exit 1
+GUEST_HTTP=$(curl -sS -X POST -o "$GUEST_BODY" -w '%{http_code}' --max-time 10 \
+    -H "Content-Type: application/json" --data '{}' "$BASE_URL/api/auth/guest-login/" 2>/dev/null || printf '000')
+if [ "$GUEST_HTTP" = "200" ]; then
+    python3 - "$GUEST_BODY" "$GUEST_TOKEN_FILE" <<'PY'
+import json, os, sys
+with open(sys.argv[1]) as body_file:
+    payload = json.load(body_file)
+token = payload.get("access", "") if isinstance(payload, dict) else ""
+if not isinstance(token, str) or not token:
+    raise SystemExit(1)
+with open(sys.argv[2], "w") as token_file:
+    token_file.write(token)
+os.chmod(sys.argv[2], 0o600)
+PY
+    if cat "$GUEST_TOKEN_FILE" | smoke_auth_token_is_valid; then
+        GUEST_HEADER_FILE="$(smoke_auth_header_file "$GUEST_TOKEN_FILE" || true)"
+    fi
+fi
+if [ -n "$GUEST_HEADER_FILE" ]; then
+    result "PASS" "Guest login returns valid access token"
     PROTECTED_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 10 "$BASE_URL/api/users/me/" \
-        -H "Authorization: Bearer $GUEST_TOKEN" 2>/dev/null || echo "000")
+        -H "@$GUEST_HEADER_FILE" 2>/dev/null || echo "000")
     if [ "$PROTECTED_CODE" = "200" ]; then
         result "PASS" "Authenticated API request successful (HTTP $PROTECTED_CODE)"
     else
         result "FAIL" "Authenticated API request" "Got HTTP $PROTECTED_CODE"
     fi
 else
-    result "FAIL" "Guest login" "No access token returned"
+    case "$GUEST_HTTP" in
+        429) result "WARN" "Guest login rate-limited" "HTTP 429" ;;
+        *) result "FAIL" "Guest login" "HTTP $GUEST_HTTP or invalid access token" ;;
+    esac
 fi
 echo ""
 
