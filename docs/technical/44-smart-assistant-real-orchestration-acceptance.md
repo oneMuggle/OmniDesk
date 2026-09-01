@@ -4,7 +4,9 @@
 **基线**：`95f019215cae6cd8628c91dedbfc85f309e394d2`
 **分支**：`feat/smart-assistant-real-orchestration`
 
-## 文档与版本
+- 增加 confirm replay PRE_EXECUTE 参数修改回归测试与最小实现：消费 token 后使用 hook 最终 fields/draft/params，保持 operation_id 闸门与 NotifyTool 收件人重解析；新增真实 RateLimitHook replay bypass 测试；事件 payload 读取改为 `getattr(event, "payload", None)` 防御 null/非对象事件。
+- 本轮验证：后端 targeted（53 passed，`--no-cov`）、前端 hook/map Jest（28 passed）、显式 ESLint（0 errors）、`py_compile`、`git diff --check` 均通过。
+
 
 - 更新 `/home/fz/project/OmniDesk/docs/technical/43-smart-assistant-collab-card.md`：修正实际路径与日期，明确真实 Celery/LLM/tool-calling 编排；8 个场景仅为示例入口；记录 SSE `last_seq`、`id`、`sequence`、心跳、`paused`/`partial`、旧版浏览器 timeline 轮询（不改变 React 18 对 IE11 的整体不支持），以及工具、AgentWriteLog、notify 说明。
 - 更新 `/home/fz/project/OmniDesk/docs/technical/README.md` 第 43 章简介，保持“总览 + 分章节”结构。
@@ -78,3 +80,82 @@
 
 - 修复恢复竞态：`resume_from_checkpoint` 在同一 `select_for_update` 事务内完成 `paused → running` 原子 claim；重复 worker 返回幂等 `running`，不再把正常任务误标记为 failed。
 - 恢复测试：`17 passed`（含 `test_multi_agent_resume.py` 与任务测试）。
+
+### 最终收口验证修复（2026-08-30）
+
+- checkpoint 恢复以数据库 `AgentSubTask.status == completed` 建立独立完成集合；空 `{}`、`[]`、`None` 产出也不会重跑，新增真实 pipeline 恢复测试。
+- 任务终态事件区分 `task.completed` / `task.partial` / `task.failed`，失败与 partial 写入稳定 `error`/`reason`/`final_output`/`total_tokens`/`dropped_events` 字段。
+- SSE done/timeout 使用 `last_seq + 1` 的独立终态 sequence/id，避免与最后普通事件冲突；终态保留状态与 `format_version`。
+- NotifyTool 对多收件人、多通道逐项记录 sent/failed，部分失败仍写入合法 `subtask.tool_result` 审计事件，包含 `operation_id`。
+
+- `git diff --check`：通过。
+
+### Final fix wave（2026-08-30）
+
+- partial 任务沿用已登记的 `task.completed` 事件类型，保留 payload 中的 `status=partial`、`reason`、`final_output` 与 token 语义，避免事件标签漂移。
+- paused 恢复的 TaskPacket 反序列化、executor 初始化及 checkpoint 加载异常均通过本次 worker 的 `started_at` claim 归属检查，在锁内收敛为 failed，并记录稳定失败事件；不会覆盖其他 worker 后续接管。
+- NotifyTool 部分失败结果补充 `sent_count`、`failed_count`、`recipient_count`，审计仍使用脱敏标题/正文。
+- synthetic done/timeout sequence 不作为前端可恢复数据库断点。
+
+### Final fix wave 验证
+
+- 后端 targeted `--no-cov`：通过。
+- 前端 targeted Jest：通过（22 tests）。
+- 智能助手范围 ESLint：0 errors，4 个既有 prop-types warnings。
+- `py_compile`、`git diff --check`：通过。
+
+### 最终定向修复（2026-08-30）
+
+- 新增 `AgentTask.resume_claim_id` UUID claim 字段及迁移 `0019_agenttask_resume_claim_id.py`；恢复失败只允许持有本次 UUID claim 的 worker 收敛任务，兼容已有 `started_at`。
+- partial 继续沿用合法 `task.completed` 事件并保留 `status=partial`。
+- NotifyTool 补充混合多收件人/多通道成功与失败计数、审计脱敏和 `subtask.tool_result` 校验测试。
+
+### 定向修复验证
+
+- 后端 targeted：通过。
+- `py_compile`：通过。
+- `git diff --check`：通过。
+- 迁移文件已生成但未执行 migrate。
+
+### 最终状态机定向修复（2026-08-30）
+
+- paused 恢复 claim 改用本次原子更新产生的 `updated_at` 行版本快照，不再以生命周期级 `started_at` 作为 worker 身份；失败收敛在持锁事务内明确匹配 `status=running` 与 claim 版本，避免覆盖后续 worker。
+- malformed TaskPacket、executor 初始化和 checkpoint 加载异常均由 resume 责任方收敛为 `failed + completed_at`，并通过持久事件去重保证仅一个 `task.failed`。
+- `execute_agent_task` 对 resume 返回的已收敛 failed 结果直接返回，不再写 `task.completed`。
+- 新增真实 ORM 断言覆盖既有 `started_at`、三类恢复初始化异常、失败事件数量及无 completed 事件；空 artifact skip 回归通过。
+
+### 定向验证
+
+- 后端 targeted `--no-cov`：22 passed。
+- `py_compile`：通过。
+- `git diff --check`：通过。
+
+
+### 本轮缺口修复（2026-08-31）
+
+- `ToolContext` 显式携带 frozen context 的 `event_bus`、确认态与草稿；NotifyTool 兼容对象/旧 dict context，真实 `PersistentEventBus` 审计事件可落库。
+- SSE/timeline notify 审计字段白名单与递归脱敏补充真实响应测试。
+- `useAgentTaskStream` pause/resume 按 5 秒确认 watchdog 测试收口；resume 不再被 manuallyPaused guard 阻断。
+- 统一事件序列化为数字 `sequence` 与 `evt-${sequence}`；partial 最终输出递归安全摘要，避免对象 child。
+- 设计 spec 状态更新为“已实现，待最终验收”，并明确 React 18 整体不支持 IE11，仅旧 fetch/ReadableStream 能力降级。
+
+验证：后端 targeted `--no-cov` 通过；前端 smart-assistant targeted Jest 通过（45 tests）；其余最终验证见主会话报告。
+
+### Confirm replay 与 sequence 定向修复（2026-08-31）
+
+- confirm replay 在 Redis atomic consume 前执行除 `confirmation` 外的 PRE_EXECUTE hooks；限流/权限等 Reject 不消费 token，返回固定安全错误并写入受控 `hook.rejected` 事件；通过后继续 confirmed execute、post/failure hooks 与审计。
+- 前端 stream 仅接受非负安全整数 number 或严格十进制整数串；非法 sequence 映射为稳定 invalid id 且不推进 lastSeq。
+- 验证：后端相关测试 45 passed；前端 stream Jest 9 passed；显式 ESLint、py_compile、git diff --check 通过。
+- 提交：`4f2f15c9 fix: 完善确认重放钩子与事件序列校验`。
+
+### Reviewer feedback follow-up（2026-08-31）
+
+- Confirm replay 的 `ToolContext.replay=True` 让 `RateLimitHook` 跳过重复计数，同时仍执行其他 PRE_EXECUTE 安全校验。
+- PRE hook 返回的修改参数现在用于 replay 参数解析（包括收件人解析），不再静默丢弃。
+- 拆分并补充独立的普通 PRE hook 成功测试及参数修改测试。
+- 追加提交：`a007a3be fix: 修正确认重放限流与钩子参数`。
+
+## 本轮修复（2026-08-31）
+- consume_confirmation_draft 仅接受明确 dict，深拷贝 validator 输入，compare-and-delete 且 delete 非 True fail closed。
+- Redis 校验移出长锁，锁内重新读取并比较原始 envelope；PRE hook 输入深拷贝；NotifyTool summary 改为固定安全摘要；扩展 canonical 敏感字段。
+- targeted pytest: 66 passed；py_compile 与 git diff --check 通过。
