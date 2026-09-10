@@ -36,7 +36,7 @@ jobs:
 
       - name: Checkout PR head
         if: steps.skip.outputs.skip != 'true'
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           fetch-depth: 0
@@ -92,7 +92,7 @@ jobs:
         target: ${{ fromJSON(needs.detect-sync.outputs.targets) }}
     steps:
       - name: Checkout target
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           ref: ${{ matrix.target }}
           fetch-depth: 0
