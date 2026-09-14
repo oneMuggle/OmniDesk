@@ -131,7 +131,7 @@ gprof2dot==2025.4.14
     # via django-silk
 gunicorn==26.2.0
     # via -r requirements.in
-holidays==0.103
+holidays==0.104
     # via -r requirements.in
 idna==3.19
     # via requests
