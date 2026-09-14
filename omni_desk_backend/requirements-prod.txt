@@ -148,7 +148,7 @@ pillow==12.3.0
     #   python-pptx
 prompt-toolkit==3.0.53
     # via click-repl
-psycopg2-binary==2.9.12
+psycopg2-binary==2.9.13
     # via -r requirements.in
 pycparser==3.0
     # via cffi
