@@ -156,7 +156,7 @@ lxml==6.1.2
     #   docxtpl
     #   python-docx
     #   python-pptx
-mammoth==1.12.1
+mammoth==1.12.2
     # via -r requirements.in
 markdown==3.10.3
     # via
