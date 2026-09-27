@@ -67,4 +67,4 @@ jsonschema>=4.0  # 原生 function calling 参数校验(BaseTool.validate_argume
 django-ratelimit
 
 # Structured JSON logging (production)
-python-json-logger==2.0.7
+python-json-logger==4.2.0
