@@ -69,6 +69,8 @@ def execute_native_tool(tool, validated: dict, context) -> tuple[dict, dict | No
                 "history": [],
                 "dry_run": True,
                 "user": getattr(context, "user", None),
+                # S3-1：原生函数调用已给出结构化参数时，写工具优先使用，避免再次抽取
+                "params": params,
             }
             dry_run_result = execute_guarded(tool, query, context=dry_run_context)
             draft = dry_run_result.get("draft") if isinstance(dry_run_result, dict) else None

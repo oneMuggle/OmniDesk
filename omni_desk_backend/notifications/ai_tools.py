@@ -3,7 +3,15 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
+from smart_assistant.capabilities import (
+    LOGIN_ONLY,
+    ROLLBACK_AGENT_WRITE_LOG,
+    ConfirmPolicy,
+    DataScope,
+    QuickPrompt,
+    ToolSpec,
+    toolset,
+)
 from smart_assistant.capabilities.helpers import clamp_limit, context_user, tool_params, truncate
 from smart_assistant.tools.base import BaseTool
 
@@ -116,6 +124,7 @@ class NotificationQueryTool(BaseTool):
     quick_prompts=(QuickPrompt("未读通知", "我有几条未读通知？都是什么？", routes=(r"^/$", r"^/notifications")),),
 )
 def notification_tools():
+    from smart_assistant.tools.notification_write_tools import NotificationMarkReadTool
     from smart_assistant.tools.notify_tool import NotifyTool
 
     return [
@@ -131,5 +140,13 @@ def notification_tools():
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.RECIPIENT,
             confirm=ConfirmPolicy.USER,
+        ),
+        ToolSpec(
+            tool=NotificationMarkReadTool,
+            title="通知标记已读",
+            required_permission=LOGIN_ONLY,
+            data_scope=DataScope.OWNER,
+            confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
     ]

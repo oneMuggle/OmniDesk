@@ -11,6 +11,7 @@ import { consumeSSEStream } from '../../features/smart-assistant/utils/chatUtils
 import { startAgentTask } from '../../features/smart-assistant/utils/startAgentTask';
 import ToolResult from '../../features/smart-assistant/components/ToolResult';
 import TaskProposalCard from '../../features/smart-assistant/components/TaskProposalCard';
+import WriteConfirmCard, { toConfirmMessage } from '../../features/smart-assistant/components/WriteConfirmCard';
 import FileAttachmentInput from './FileAttachmentInput';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { AI_DRAWER_EVENT } from '../utils/aiDrawer';
@@ -130,6 +131,8 @@ const QuickAssistant = () => {
     // 失败辅助提示(输出契约 format_version:1,done/session 事件的 kind/hint);
     // 旧事件无字段时保持 null,不渲染提示行
     let errorHint = null;
+    // 写操作确认卡(confirmation 事件),流结束后追加在回答之后
+    let confirmMessage = null;
 
     try {
       const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, currentAttachment, null, {
@@ -152,6 +155,9 @@ const QuickAssistant = () => {
         } else if (event.type === 'chunk') {
           answer += event.content;
           setStreamingAnswer(answer);
+        } else if (event.type === 'confirmation') {
+          // 写操作确认卡:卡片自己调用确认 / 取消 / 撤销接口
+          confirmMessage = toConfirmMessage(event, meta?.tool_used);
         } else if (event.type === 'done' || event.type === 'session') {
           // 旧事件无 kind/hint 字段 → resolveErrorHint 返回 undefined,行为与旧版一致
           const hint = resolveErrorHint(event);
@@ -184,6 +190,9 @@ const QuickAssistant = () => {
           taskProposal: meta?.task_proposal || null,
           proposalStatus: meta?.task_proposal ? 'idle' : undefined,
         }]);
+      }
+      if (confirmMessage) {
+        setMessages(prev => [...prev, confirmMessage]);
       }
       setStreamingAnswer('');
       setStreamingMeta(null);
@@ -329,6 +338,13 @@ const QuickAssistant = () => {
         )}
         <div className="quick-assistant-messages">
           {messages.map((msg, index) => {
+            if (msg.type === 'write_confirm') {
+              return (
+                <div key={msg.id || index} className="qa-message assistant">
+                  <WriteConfirmCard confirmation={msg.confirmation} />
+                </div>
+              );
+            }
             if (msg.type === 'collab_card') {
               return (
                 <div key={msg.id || index} className="qa-collab-card">

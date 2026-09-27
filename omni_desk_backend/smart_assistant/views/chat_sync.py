@@ -21,9 +21,6 @@ from rest_framework.response import Response
 
 from ..agent.orchestrator import AgentOrchestrator, ERROR_KIND_HINTS, classify_error_kind
 from ..cache import (
-    ConfirmationDraftConsumeError,
-    consume_confirmation_draft,
-    get_confirmation_draft,
     public_confirmation_draft,
     public_tool_result,
     public_tool_calls_meta,
@@ -31,10 +28,8 @@ from ..cache import (
     sanitize_public_text,
     sanitize_public_sources,
 )
-from ..hooks.wiring import execute_guarded
 from ..models import AgentLog
-from ..tools.registry import ToolRegistry
-from ..scope import resolve_scope
+from ..writes.confirmations import ConfirmationError, execute_confirmed
 
 from .conversation_manager import (
     persist_success,
@@ -113,95 +108,19 @@ def _handle_confirm_replay(request, confirm_token) -> Response | None:
     """
     if not confirm_token:
         return None
-
-    draft_entry = get_confirmation_draft(confirm_token)
-    if not draft_entry:
-        return Response(
-            {"detail": "确认已过期或不存在,请重新发起", "code": "confirmation_expired"},
-            status=status.HTTP_410_GONE,
-        )
-    # 校验 token 归属用户:context_sig 格式 "u<pk>_s<scope>"
-    expected_sig = f"u{request.user.pk}_s{resolve_scope(request.user).value}"
-    if draft_entry.get("context_sig") != expected_sig:
-        # 跨用户重放是安全告警,保留 token 身份以利取证;但只露首尾片段,避免明文全量
-        masked = f"{confirm_token[:4]}***{confirm_token[-4:]}" if len(confirm_token) >= 8 else "***"
-        logger.warning(
-            "confirm token 跨用户重放: token=%s expected_user=%s draft_user_sig=%s",
-            masked,
-            request.user.pk,
-            draft_entry.get("context_sig", ""),
-        )
-        return Response(
-            {"detail": "该确认不属于当前用户", "code": "confirmation_user_mismatch"},
-            status=status.HTTP_403_FORBIDDEN,
-        )
-    # replay 前重新按当前用户执行工具授权，权限撤销后不得执行。
-    tool = ToolRegistry.get_tool_for_user(draft_entry["tool_name"], request.user)
-    if not tool:
-        logger.error("confirm replay 工具未注册: tool_name=%s", draft_entry["tool_name"])
-        return Response(
-            {"detail": "确认工具不可用，请重新发起", "code": "confirmation_tool_unavailable"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
     try:
-        claimed = consume_confirmation_draft(confirm_token)
-    except ConfirmationDraftConsumeError as exc:
-        logger.error(
-            "confirm replay token consume unavailable: failure_kind=%s exc_type=%s",
-            exc.failure_kind,
-            type(exc).__name__,
-        )
-        return Response(
-            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    except Exception as exc:
-        logger.error(
-            "confirm replay token consume unexpected failure: exc_type=%s",
-            type(exc).__name__,
-        )
-        return Response(
-            {"detail": "确认服务暂不可用，请稍后重试", "code": "confirmation_service_unavailable"},
-            status=status.HTTP_503_SERVICE_UNAVAILABLE,
-        )
-    if claimed is None:
-        return Response(
-            {"detail": "确认已被使用，请重新发起", "code": "confirmation_already_used"}, status=status.HTTP_409_CONFLICT
-        )
-    draft_entry = claimed
-    try:
-        tool_result = execute_guarded(
-            tool,
-            draft_entry["user_query"],
-            context={
-                "history": [],
-                "confirmed": True,
-                "confirm_token": confirm_token,
-                "user": request.user,
-                "task_id": draft_entry.get("task_id"),
-                "draft": draft_entry.get("draft", {}).get("fields"),
-            },
-        )
-        return Response(
-            {
-                "answer": tool_result.get("summary") or "操作已完成",
-                "tool_used": tool.name,
-                "tool_result": public_tool_result(tool_result, tool.name),
-                "confirmed": True,
-                "error": False,
-            }
-        )
-    except Exception as exc:
-        # token 是一次性确认票据,明文写日志有泄露风险;记前缀+长度足以定位
-        logger.exception(
-            "confirm replay 执行失败: token_prefix=%s len=%d",
-            confirm_token[:6],
-            len(confirm_token),
-        )
-        return Response(
-            {"detail": "智能助手操作失败，请稍后重试", "code": "confirmation_failed"},
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        tool, tool_result, _ = execute_confirmed(request.user, confirm_token)
+    except ConfirmationError as exc:
+        return Response(exc.as_body(), status=exc.status)
+    return Response(
+        {
+            "answer": tool_result.get("summary") or "操作已完成",
+            "tool_used": tool.name,
+            "tool_result": public_tool_result(tool_result, tool.name),
+            "confirmed": True,
+            "error": False,
+        }
+    )
 
 
 def _run_sync_process(

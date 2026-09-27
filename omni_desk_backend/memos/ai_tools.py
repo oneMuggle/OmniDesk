@@ -3,7 +3,15 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
+from smart_assistant.capabilities import (
+    LOGIN_ONLY,
+    ROLLBACK_AGENT_WRITE_LOG,
+    ConfirmPolicy,
+    DataScope,
+    QuickPrompt,
+    ToolSpec,
+    toolset,
+)
 
 
 @toolset(
@@ -33,6 +41,7 @@ def memo_tools():
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.SCOPE,
             confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
         ToolSpec(
             tool=MemoUpdateTool,
@@ -40,6 +49,7 @@ def memo_tools():
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.SCOPE,
             confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
         ToolSpec(
             tool=MemoDeleteTool,
@@ -47,5 +57,7 @@ def memo_tools():
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.SCOPE,
             confirm=ConfirmPolicy.USER,
+            # 删除类能力默认关闭（S3-1）
+            feature_flag="SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS",
         ),
     ]

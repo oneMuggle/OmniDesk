@@ -6,7 +6,7 @@
 
 ## 概览
 
-共 17 个工具集、28 个工具：只读 21 个，写入 6 个，删除 1 个。
+共 17 个工具集、32 个工具：只读 21 个，写入 10 个，删除 1 个。
 
 | 工具集 | 所属 app | 工具（intent） |
 | --- | --- | --- |
@@ -15,14 +15,14 @@
 | 公文与模板（`documents`） | `documents` | `document_search` |
 | 备忘录（`memos`） | `memos` | `memo_query`、`memo_create`、`memo_update`、`memo_delete` |
 | 项目（`projects`） | `projects` | `project_status` |
-| 合规（`compliance`） | `compliance` | `compliance_query` |
-| 会议室（`meeting_rooms`） | `meeting_rooms` | `meeting_room_query` |
+| 合规（`compliance`） | `compliance` | `compliance_query`、`compliance_issue_update_status` |
+| 会议室（`meeting_rooms`） | `meeting_rooms` | `meeting_room_query`、`meeting_room_book`、`meeting_room_cancel` |
 | 传感器（`sensors`） | `sensor_management` | `sensor_query` |
 | 交流与公告（`communication`） | `communication` | `announcement_query`、`communication_thread_query` |
 | 新闻（`news`） | `news` | `news_search` |
 | 知识库（`knowledge`） | `smart_assistant` | `knowledge_qa` |
 | 办公文件（`office`） | `smart_assistant` | `office_read`、`spreadsheet_qa`、`office_generate` |
-| 通知（`notifications`） | `notifications` | `notification_query`、`agent_notify` |
+| 通知（`notifications`） | `notifications` | `notification_query`、`agent_notify`、`notification_mark_read` |
 | 内网外链（`external_links`） | `external_integration` | `external_link_query` |
 | 文档库（`document_library`） | `paperless_proxy` | `document_library_query` |
 | 跨模块检索（`search`） | `search_federation` | `global_search` |
@@ -65,9 +65,9 @@
 | intent | 名称 | 类型 | 权限 | 数据范围 | 确认 | 其他 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `memo_query` | 查询备忘录 | 只读 | 登录即可 | 三级 scope | — | 幂等 | 查询备忘录/便签 |
-| `memo_create` | 创建备忘录 | 写入 | 登录即可 | 三级 scope | 本人确认 | — | 基于自然语言创建一条备忘录/便签(支持设置提醒时间) |
-| `memo_update` | 修改备忘录 | 写入 | 登录即可 | 三级 scope | 本人确认 | — | 基于自然语言修改一条已有备忘录/便签(支持改标题、内容、提醒时间) |
-| `memo_delete` | 删除备忘录 | 删除 | 登录即可 | 三级 scope | 本人确认 | — | 基于自然语言删除一条已有备忘录/便签(破坏性操作,需二次确认) |
+| `memo_create` | 创建备忘录 | 写入 | 登录即可 | 三级 scope | 本人确认 | 可回滚（agent_write_log） | 基于自然语言创建一条备忘录/便签(支持设置提醒时间) |
+| `memo_update` | 修改备忘录 | 写入 | 登录即可 | 三级 scope | 本人确认 | 可回滚（agent_write_log） | 基于自然语言修改一条已有备忘录/便签(支持改标题、内容、提醒时间) |
+| `memo_delete` | 删除备忘录 | 删除 | 登录即可 | 三级 scope | 本人确认 | 开关 `SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS`（当前关） | 基于自然语言删除一条已有备忘录/便签(破坏性操作,需二次确认) |
 
 ### 项目（`projects`）
 
@@ -84,6 +84,7 @@
 | intent | 名称 | 类型 | 权限 | 数据范围 | 确认 | 其他 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `compliance_query` | 查询合规问题 | 只读 | 登录即可 | 三级 scope | — | 幂等 | 查询合规问题/待整改项(compliance.ComplianceIssue) |
+| `compliance_issue_update_status` | 更新合规问题状态 | 写入 | 登录即可 | 同模块接口 | 本人确认 | 可回滚（agent_write_log） | 更新合规问题的处理状态（待处理 / 处理中 / 已解决 / 已忽略；写操作，需要确认，可撤销） |
 
 ### 会议室（`meeting_rooms`）
 
@@ -92,6 +93,8 @@
 | intent | 名称 | 类型 | 权限 | 数据范围 | 确认 | 其他 | 说明 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `meeting_room_query` | 查询会议室 | 只读 | 登录即可 | 三级 scope | — | 幂等 | 查询会议室可用性和预订 |
+| `meeting_room_book` | 预约会议室 | 写入 | 登录即可 | 同模块接口 | 本人确认 | 可回滚（agent_write_log） | 预约会议室（写操作，需要确认；会检查时段冲突和维护安排） |
+| `meeting_room_cancel` | 取消会议室预约 | 写入 | 登录即可 | 仅本人 | 本人确认 | 可回滚（agent_write_log） | 取消我自己的、尚未开始的会议室预约（写操作，需要确认；原时段仍空闲时可撤销） |
 
 ### 传感器（`sensors`）
 
@@ -144,6 +147,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `notification_query` | 查询我的通知 | 只读 | 登录即可 | 仅本人 | — | 幂等 | 查询我的站内通知（未读数、最近通知，可按类型、关键词筛选） |
 | `agent_notify` | 发送站内通知 | 写入 | 登录即可 | 按 scope 限定收件人 | 本人确认 | — | 向一个或多个用户发送站内通知(写操作,需要用户确认)。 |
+| `notification_mark_read` | 通知标记已读 | 写入 | 登录即可 | 仅本人 | 本人确认 | 可回滚（agent_write_log） | 把我的站内通知标记为已读（可指定通知、按标题关键词或全部未读；写操作，需要确认） |
 
 ### 内网外链（`external_links`）
 

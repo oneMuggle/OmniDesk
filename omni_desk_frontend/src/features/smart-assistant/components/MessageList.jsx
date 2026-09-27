@@ -4,6 +4,7 @@ import PropTypes from 'prop-types';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import ToolResult from './ToolResult';
 import TaskProposalCard from './TaskProposalCard';
+import WriteConfirmCard from './WriteConfirmCard';
 import MessageFeedbackActions from './MessageFeedbackActions';
 import ScenarioCollabCard from '../scenario/components/ScenarioCollabCard';
 import { parseThinkContent } from '../utils/chatUtils';
@@ -27,6 +28,13 @@ const MessageList = ({
     {messages.map((msg, index) => {
       if (msg.type === 'collab_card') {
         return <ScenarioCollabCard key={msg.id || index} scenarioId={msg.scenarioId} userInput={msg.userInput} taskId={msg.taskId} objective={msg.objective} />;
+      }
+      if (msg.type === 'write_confirm') {
+        return (
+          <div key={msg.id || index} className="message assistant">
+            <WriteConfirmCard confirmation={msg.confirmation} />
+          </div>
+        );
       }
       const { mainContent, thinkContent } = parseThinkContent(msg.content);
       return (
