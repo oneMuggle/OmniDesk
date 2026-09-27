@@ -85,12 +85,41 @@ describe('AdminLayout', () => {
     expect(mockLogout).toHaveBeenCalled();
   });
 
-  it('filters menu items based on permission', () => {
-    mockHasPermission.mockImplementation((perm) => perm === 'admin');
+  // 与 AuthContext.hasPermission 一致的 any-of 语义
+  const grant = (owned) => (required) =>
+    [].concat(required).some((p) => owned.includes(p));
+
+  it('filters menu items by Django permission codename', () => {
+    mockHasPermission.mockImplementation(grant(['personnel.view_personnel']));
     renderWithRouter(<AdminLayout />);
 
-    expect(screen.queryByText('人员管理')).not.toBeInTheDocument();
+    expect(screen.getByText('人员管理')).toBeInTheDocument();
+    expect(screen.queryByText('项目管理')).not.toBeInTheDocument();
+    expect(screen.queryByText('用户管理')).not.toBeInTheDocument();
+  });
+
+  it('shows every control-panel menu item to admin (staff)', () => {
+    mockHasPermission.mockImplementation(grant(['admin']));
+    renderWithRouter(<AdminLayout />);
+
+    expect(screen.getByText('人员管理')).toBeInTheDocument();
     expect(screen.getByText('项目管理')).toBeInTheDocument();
+    expect(screen.getByText('传感器管理')).toBeInTheDocument();
+  });
+
+  it('shows menu item granted through group page permission (PageRoute.path)', () => {
+    mockHasPermission.mockImplementation(grant(['/control-panel/schedule']));
+    renderWithRouter(<AdminLayout />);
+
+    expect(screen.getByText('排班管理')).toBeInTheDocument();
+    expect(screen.queryByText('人员管理')).not.toBeInTheDocument();
+  });
+
+  it('uses the corrected sensor permission codename', () => {
+    mockHasPermission.mockImplementation(grant(['sensor_management.view_sensor']));
+    renderWithRouter(<AdminLayout />);
+
+    expect(screen.getByText('传感器管理')).toBeInTheDocument();
   });
 
   it('renders return to home link', () => {

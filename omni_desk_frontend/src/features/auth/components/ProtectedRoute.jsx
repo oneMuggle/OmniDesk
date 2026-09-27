@@ -18,18 +18,28 @@ const ProtectedRoute = ({
     return <Navigate to="/login" replace />;
   }
 
-  // Use the explicit page path when provided; pageName remains display metadata.
-  const requiredPermission = pagePath || permissions;
-  // 历史误用兼容:调用方经常把 URL 路径当作 pagePath 传入(项目内大量
-  // <ProtectedRoute pagePath="/control-panel/..."/>),这导致 hasPermission
-  // 拿路径串跟 user.permissions(权限 codename 数组)比对永远 false,
-  // 即便用户已经是 admin 也被踢到 /unauthorized。
-  // 这里检测 pagePath 是否为 URL 形态:若是,则作为兜底放行已登录用户
-  // —— AdminLayout 在父级已用 permission="admin" 校验过侧边栏菜单可见性,
-  // 能进到这里说明用户已经具备管理后台权限。permissions 数组/字符串形态
-  // 走原有严格路径,不影响正常 RBAC。
+  // 严格模式:显式传入 permissions 时,用户需满足 permissions ∪ {pagePath}
+  // 中任意一项(pagePath 用于兼容用户组的页面授权 GroupPagePermission →
+  // PageRoute.path),否则跳转 /unauthorized。管理中心路由全部走这里,
+  // 权限来源见 features/admin/config/adminRoutePermissions.js。
+  if (permissions !== null && permissions !== undefined) {
+    const required = [
+      ...(Array.isArray(permissions) ? permissions : [permissions]),
+      ...(pagePath ? [pagePath] : []),
+    ];
+    if (!hasPermission(required)) {
+      return <Navigate to="/unauthorized" replace />;
+    }
+    return children;
+  }
+
+  // 未传 permissions(主应用页面,仅 pagePath 或都不传):保持历史行为。
+  // 主应用路由普遍以 <ProtectedRoute pagePath="/memos"> 形式声明,而多数用户组
+  // 并未配置对应的 PageRoute 授权;若严格校验会把普通用户挡在日常页面之外。
+  // 因此 URL 形态的 pagePath 在校验失败时仍放行已登录用户(页面数据由后端 API
+  // 鉴权)。收紧主应用页面权限需先核对生产环境授权数据,另行评估。
   const looksLikeUrl = typeof pagePath === 'string' && pagePath.startsWith('/');
-  if (!hasPermission(requiredPermission)) {
+  if (!hasPermission(pagePath)) {
     if (looksLikeUrl && isAuthenticated) {
       return children;
     }

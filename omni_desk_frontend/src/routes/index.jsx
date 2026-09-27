@@ -4,6 +4,11 @@ import GuestRoute from '../features/auth/components/GuestRoute';
 import App from '../App';
 import AdminAppWrapper from '../AdminAppWrapper';
 import LazyComponent from './LazyComponent';
+import AdminIndexRedirect from '../features/admin/components/AdminIndexRedirect';
+import {
+  ADMIN_ENTRY_PERMISSIONS,
+  getAdminRoutePermissions,
+} from '../features/admin/config/adminRoutePermissions';
 import {
   AccountBindingPage,
   AddCalibrationRecordPage,
@@ -105,7 +110,7 @@ const router = createBrowserRouter([
   {
     path: "/control-panel",
     element: (
-      <ProtectedRoute><AdminAppWrapper /></ProtectedRoute>
+      <ProtectedRoute permissions={ADMIN_ENTRY_PERMISSIONS}><AdminAppWrapper /></ProtectedRoute>
     ),
     children: [
       {
@@ -113,146 +118,146 @@ const router = createBrowserRouter([
         children: [
           {
             index: true,
-            element: <Navigate to="personnel" replace />
+            element: <AdminIndexRedirect />
           },
           {
             path: "personnel",
-            element: <ProtectedRoute pagePath="/control-panel/personnel" pageName="人员管理"><LazyComponent component={PersonnelManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/personnel" permissions={getAdminRoutePermissions("personnel")} pageName="人员管理"><LazyComponent component={PersonnelManagementPage} /></ProtectedRoute>
           },
           {
             path: "personnel/add",
-            element: <ProtectedRoute pagePath="/control-panel/personnel/add" pageName="新增人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/personnel/add" permissions={getAdminRoutePermissions("personnel/add")} pageName="新增人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
           },
           {
             path: "personnel/:personnelId",
-            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId" pageName="人员详情"><LazyComponent component={PersonnelDetailPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId" permissions={getAdminRoutePermissions("personnel/:personnelId")} pageName="人员详情"><LazyComponent component={PersonnelDetailPage} /></ProtectedRoute>
           },
           {
             path: "personnel/:personnelId/edit",
-            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId/edit" pageName="编辑人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/personnel/:personnelId/edit" permissions={getAdminRoutePermissions("personnel/:personnelId/edit")} pageName="编辑人员"><LazyComponent component={PersonnelEditPage} /></ProtectedRoute>
           },
           {
             path: "documents",
-            element: <ProtectedRoute pagePath="/control-panel/documents" pageName="文档管理"><LazyComponent component={DocumentsPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/documents" permissions={getAdminRoutePermissions("documents")} pageName="文档管理"><LazyComponent component={DocumentsPage} /></ProtectedRoute>
           },
           {
             path: "compliance",
-            element: <ProtectedRoute pagePath="/control-panel/compliance" pageName="合规管理"><LazyComponent component={CompliancePage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/compliance" permissions={getAdminRoutePermissions("compliance")} pageName="合规管理"><LazyComponent component={CompliancePage} /></ProtectedRoute>
           },
           {
             path: "announcements/manage",
-            element: <ProtectedRoute pagePath="/control-panel/announcements/manage" pageName="公告管理"><LazyComponent component={ManageAnnouncementsPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/announcements/manage" permissions={getAdminRoutePermissions("announcements/manage")} pageName="公告管理"><LazyComponent component={ManageAnnouncementsPage} /></ProtectedRoute>
           },
           {
             path: "announcements/create",
-            element: <ProtectedRoute pagePath="/control-panel/announcements/create" pageName="创建公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/announcements/create" permissions={getAdminRoutePermissions("announcements/create")} pageName="创建公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
           },
           {
             path: "announcements/:announcementId/edit",
-            element: <ProtectedRoute pagePath="/control-panel/announcements/:announcementId/edit" pageName="编辑公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/announcements/:announcementId/edit" permissions={getAdminRoutePermissions("announcements/:announcementId/edit")} pageName="编辑公告"><LazyComponent component={AnnouncementForm} /></ProtectedRoute>
           },
           {
             path: "schedule",
-            element: <ProtectedRoute pagePath="/control-panel/schedule" pageName="排班管理"><LazyComponent component={ScheduleManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/schedule" permissions={getAdminRoutePermissions("schedule")} pageName="排班管理"><LazyComponent component={ScheduleManagementPage} /></ProtectedRoute>
           },
           {
             path: "schedule/settings",
-            element: <ProtectedRoute pagePath="/control-panel/schedule/settings" pageName="排班设置"><LazyComponent component={ScheduleSettingsPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/schedule/settings" permissions={getAdminRoutePermissions("schedule/settings")} pageName="排班设置"><LazyComponent component={ScheduleSettingsPage} /></ProtectedRoute>
           },
           {
             path: "schedule/holiday",
-            element: <ProtectedRoute pagePath="/control-panel/schedule/holiday" pageName="节假日管理"><LazyComponent component={HolidayManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/schedule/holiday" permissions={getAdminRoutePermissions("schedule/holiday")} pageName="节假日管理"><LazyComponent component={HolidayManagementPage} /></ProtectedRoute>
           },
           {
             path: "projects",
-            element: <ProtectedRoute pagePath="/control-panel/projects" pageName="项目管理"><LazyComponent component={ProjectsPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/projects" permissions={getAdminRoutePermissions("projects")} pageName="项目管理"><LazyComponent component={ProjectsPage} /></ProtectedRoute>
           },
           {
             path: "meeting-rooms",
-            element: <ProtectedRoute pagePath="/control-panel/meeting-rooms" pageName="会议室管理"><LazyComponent component={MeetingRoomManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/meeting-rooms" permissions={getAdminRoutePermissions("meeting-rooms")} pageName="会议室管理"><LazyComponent component={MeetingRoomManagementPage} /></ProtectedRoute>
           },
           {
             path: "users",
-            element: <ProtectedRoute pagePath="/control-panel/users" pageName="用户管理"><LazyComponent component={UserManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/users" permissions={getAdminRoutePermissions("users")} pageName="用户管理"><LazyComponent component={UserManagementPage} /></ProtectedRoute>
           },
           {
             path: "sensors",
-            element: <ProtectedRoute><Outlet /></ProtectedRoute>,
+            element: <ProtectedRoute permissions={getAdminRoutePermissions("sensors")}><Outlet /></ProtectedRoute>,
             children: [
               { index: true, element: <Navigate to="list" /> },
               {
                 path: "list",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/list" pageName="传感器列表"><LazyComponent component={SensorListPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/list" permissions={getAdminRoutePermissions("sensors")} pageName="传感器列表"><LazyComponent component={SensorListPage} /></ProtectedRoute>
               },
               {
                 path: "categories",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/categories" pageName="传感器分类"><LazyComponent component={SensorCategoryManagementPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/categories" permissions={getAdminRoutePermissions("sensors")} pageName="传感器分类"><LazyComponent component={SensorCategoryManagementPage} /></ProtectedRoute>
               },
               {
                 path: "archive-locations",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/archive-locations" pageName="传感器归档位置"><LazyComponent component={SensorArchiveLocationManagementPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/archive-locations" permissions={getAdminRoutePermissions("sensors")} pageName="传感器归档位置"><LazyComponent component={SensorArchiveLocationManagementPage} /></ProtectedRoute>
               },
               {
                 path: "calibration",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/calibration" pageName="传感器校准"><LazyComponent component={SensorCalibrationManagementPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/calibration" permissions={getAdminRoutePermissions("sensors")} pageName="传感器校准"><LazyComponent component={SensorCalibrationManagementPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId" pageName="传感器详情"><LazyComponent component={SensorDetailPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId" permissions={getAdminRoutePermissions("sensors")} pageName="传感器详情"><LazyComponent component={SensorDetailPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId/calibration/add",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/add" pageName="新增校准记录"><LazyComponent component={AddCalibrationRecordPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/add" permissions={getAdminRoutePermissions("sensors")} pageName="新增校准记录"><LazyComponent component={AddCalibrationRecordPage} /></ProtectedRoute>
               },
               {
                 path: ":sensorId/calibration/history",
-                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/history" pageName="校准历史"><LazyComponent component={SensorCalibrationHistoryPage} /></ProtectedRoute>
+                element: <ProtectedRoute pagePath="/control-panel/sensors/:sensorId/calibration/history" permissions={getAdminRoutePermissions("sensors")} pageName="校准历史"><LazyComponent component={SensorCalibrationHistoryPage} /></ProtectedRoute>
               },
             ]
           },
           {
             path: "ebooks",
-            element: <ProtectedRoute pagePath="/control-panel/ebooks" pageName="电子书管理"><LazyComponent component={EBookManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/ebooks" permissions={getAdminRoutePermissions("ebooks")} pageName="电子书管理"><LazyComponent component={EBookManagementPage} /></ProtectedRoute>
           },
           {
             path: "external-links/manage",
-            element: <ProtectedRoute pagePath="/control-panel/external-links/manage" pageName="外链管理"><LazyComponent component={ExternalLinkManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/external-links/manage" permissions={getAdminRoutePermissions("external-links/manage")} pageName="外链管理"><LazyComponent component={ExternalLinkManagementPage} /></ProtectedRoute>
           },
           {
             path: "news/stats",
-            element: <ProtectedRoute pagePath="/control-panel/news/stats" pageName="新闻统计"><LazyComponent component={NewsStatsPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/news/stats" permissions={getAdminRoutePermissions("news/stats")} pageName="新闻统计"><LazyComponent component={NewsStatsPage} /></ProtectedRoute>
           },
           {
             path: "smart-assistant/audit",
-            element: <ProtectedRoute pagePath="/control-panel/smart-assistant/audit" pageName="智能助手审计"><LazyComponent component={AgentAuditPanel} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/smart-assistant/audit" permissions={getAdminRoutePermissions("smart-assistant/audit")} pageName="智能助手审计"><LazyComponent component={AgentAuditPanel} /></ProtectedRoute>
           },
           {
             path: "system-update",
-            element: <ProtectedRoute pagePath="/control-panel/system-update" pageName="系统更新"><LazyComponent component={SystemUpdatePage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/system-update" permissions={getAdminRoutePermissions("system-update")} pageName="系统更新"><LazyComponent component={SystemUpdatePage} /></ProtectedRoute>
           },
           {
             path: "ai-apps",
-            element: <ProtectedRoute pagePath="/control-panel/ai-apps" pageName="AI 应用"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/ai-apps" permissions={getAdminRoutePermissions("ai-apps")} pageName="AI 应用"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
           },
           {
             path: "external-links",
-            element: <ProtectedRoute pagePath="/control-panel/external-links" pageName="快捷外链"><LazyComponent component={ExternalLinksPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/external-links" permissions={getAdminRoutePermissions("external-links")} pageName="快捷外链"><LazyComponent component={ExternalLinksPage} /></ProtectedRoute>
           },
           {
             path: "integration-hub",
-            element: <ProtectedRoute pagePath="/control-panel/integration-hub" pageName="集成中心"><LazyComponent component={IntegrationHubPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/integration-hub" permissions={getAdminRoutePermissions("integration-hub")} pageName="集成中心"><LazyComponent component={IntegrationHubPage} /></ProtectedRoute>
           },
           {
             path: "integration-hub/manage",
-            element: <ProtectedRoute pagePath="/control-panel/integration-hub/manage" pageName="集成管理"><LazyComponent component={IntegrationManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/integration-hub/manage" permissions={getAdminRoutePermissions("integration-hub/manage")} pageName="集成管理"><LazyComponent component={IntegrationManagementPage} /></ProtectedRoute>
           },
           {
             path: "plugin-market",
-            element: <ProtectedRoute pagePath="/control-panel/plugin-market" pageName="插件市场"><LazyComponent component={PluginMarketPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/plugin-market" permissions={getAdminRoutePermissions("plugin-market")} pageName="插件市场"><LazyComponent component={PluginMarketPage} /></ProtectedRoute>
           },
           {
             path: "plugin-market/manage",
-            element: <ProtectedRoute pagePath="/control-panel/plugin-market/manage" pageName="插件管理"><LazyComponent component={PluginManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/plugin-market/manage" permissions={getAdminRoutePermissions("plugin-market/manage")} pageName="插件管理"><LazyComponent component={PluginManagementPage} /></ProtectedRoute>
           }
         ]
       }

@@ -140,7 +140,7 @@ describe('ProtectedRoute', () => {
     expect(hasPermission).not.toHaveBeenCalledWith('事件管理');
   });
 
-  it('prefers pagePath over permissions when both are provided', () => {
+  it('combines permissions and pagePath (any-of) in strict mode', () => {
     const hasPermission = jest.fn(() => true);
     mockUseAuth.mockReturnValue({
       isInitializing: false,
@@ -159,8 +159,26 @@ describe('ProtectedRoute', () => {
       { initialEntries: ['/events'] }
     );
 
-    expect(hasPermission).toHaveBeenCalledWith('/events');
-    expect(hasPermission).not.toHaveBeenCalledWith('events.legacy');
+    expect(hasPermission).toHaveBeenCalledWith(['events.legacy', '/events']);
+    expect(screen.getByText('Protected Content')).toBeInTheDocument();
+  });
+
+  it('does not fall back to authenticated access in strict mode', () => {
+    mockUseAuth.mockReturnValue({
+      isInitializing: false,
+      isAuthenticated: true,
+      hasPermission: jest.fn(() => false),
+    });
+
+    renderWithRouter(
+      <ProtectedRoute pagePath="/control-panel/users" permissions={['admin', 'users.view_customuser']}>
+        <TestChild />
+      </ProtectedRoute>,
+      { initialEntries: ['/control-panel/users'] }
+    );
+
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+    expect(screen.getByText('Unauthorized Page')).toBeInTheDocument();
   });
 
   it('does not use pageName as an implicit permission key', () => {
