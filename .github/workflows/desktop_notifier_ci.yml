@@ -97,7 +97,7 @@ jobs:
 
     - name: Create GitHub Release (main)
       if: github.ref_name == 'main'
-      uses: softprops/action-gh-release@v2
+      uses: softprops/action-gh-release@v3
       with:
         tag_name: notifier-v${{ steps.version.outputs.APP_VERSION }}
         name: Desktop Notifier v${{ steps.version.outputs.APP_VERSION }}
