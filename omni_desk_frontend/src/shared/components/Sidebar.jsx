@@ -7,6 +7,7 @@ import { MenuOutlined } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
 import { logger } from '../utils/logger';
 import SidebarHeader from './sidebar/SidebarHeader';
+import UnifiedSearchBar from '../../features/search-federation/components/UnifiedSearchBar';
 import SidebarButtonItem from './sidebar/SidebarButtonItem';
 import SidebarLinkItem from './sidebar/SidebarLinkItem';
 import SidebarSubMenu from './sidebar/SidebarSubMenu';
@@ -122,6 +123,11 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
           onCloseMobile={toggleMobileMenu}
           onNavigate={navigate}
         />
+        {isAuthenticated && !isGuest && !isCollapsed && (
+          <div className="sidebar-search">
+            <UnifiedSearchBar placeholder="搜索项目、备忘录、人员..." style={{ width: '100%' }} />
+          </div>
+        )}
         <nav className="sidebar-menu" role="menu" aria-label="主导航菜单">
           <ul>
             {menuItems.filter(item => hasPermission(item.permission)).map(renderMenuItem)}

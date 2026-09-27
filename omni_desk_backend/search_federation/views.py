@@ -7,56 +7,42 @@ from rest_framework.response import Response
 
 from paperless_proxy.models import PaperlessHealth
 from paperless_proxy.services.search import PaperlessSearchService
+from smart_assistant.tools.tool_context import ToolContext
+
+from .providers import SOURCE_CHOICES, normalize_query, search_internal
 
 logger = get_logger(__name__, "search_federation.views")
-
-
-def _search_internal(query: str) -> list:
-    """OmniDesk 内部业务表搜索(项目/合同/人员/合规/备忘录)"""
-    results = []
-    try:
-        from projects.models import Project
-
-        for p in Project.objects.filter(name__icontains=query)[:5]:
-            results.append(
-                {
-                    "source": "project",
-                    "id": p.id,
-                    "title": p.name,
-                    "highlight": p.name,
-                    "url": f"/projects/{p.id}/",
-                    "score": 1.0,
-                }
-            )
-    except Exception:
-        logger.warning("Internal search failed for query=%r", query, exc_info=True)
-    return results
 
 
 class UnifiedSearchView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
-        query = request.data.get("query", "").strip()
+        query = normalize_query(request.data.get("query", ""))
         if not query:
             return Response({"results": [], "degraded": False})
 
-        results = []
+        sources = request.data.get("sources")
+        if isinstance(sources, (list, tuple)):
+            sources = [s for s in sources if s in SOURCE_CHOICES] or None
+        else:
+            sources = None
+
         degraded = False
         health = PaperlessHealth.get_singleton()
 
-        with ThreadPoolExecutor(max_workers=2) as ex:
-            f_internal = ex.submit(_search_internal, query)
+        # Paperless 是外部 HTTP 调用，放进线程池与内部检索并行；
+        # 内部检索涉及 ORM，留在请求线程内执行（避免跨线程数据库连接问题）。
+        with ThreadPoolExecutor(max_workers=1) as ex:
             f_paperless = None
             if health.is_healthy:
                 f_paperless = ex.submit(PaperlessSearchService.search, query)
             else:
                 degraded = True
 
-            try:
-                results.extend(f_internal.result(timeout=3))
-            except Exception:
-                logger.warning("Internal search future failed", exc_info=True)
+            context = ToolContext.from_request(request)
+            results = search_internal(context, query, sources=sources)
+
             if f_paperless:
                 try:
                     results.extend(f_paperless.result(timeout=3))

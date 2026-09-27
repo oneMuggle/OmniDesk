@@ -61,6 +61,7 @@ intent_keywords = {
     "memo_delete": ["删除", "删掉", "移除", "清除"],
     "project_status": ["项目", "进度", "里程碑", "负责人"],
     "news_search": ["新闻", "通知", "公告"],
+    "global_search": ["全局搜索", "跨模块", "所有相关"],
     # 换班三分支(P0-1,llm-swap-shift Phase 2)。注:换班是单工具场景,
     # 此处关键词仅参与多工具粗筛,最终路由以 classify_intent 的 LLM 分类为准;
     # 误命中多工具时 TOOL_CHAIN_PROMPT 会让 LLM 返回空数组回退单工具路径。
