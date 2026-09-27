@@ -3,10 +3,18 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset
+from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
 
 
-@toolset("memos", title="备忘录")
+@toolset(
+    "memos",
+    title="备忘录",
+    routes=(r"^/memos",),
+    quick_prompts=(
+        QuickPrompt("我的备忘录", "我最近的备忘录有哪些？", routes=(r"^/$", r"^/memos")),
+        QuickPrompt("即将提醒", "接下来三天有哪些备忘录提醒？"),
+    ),
+)
 def memo_tools():
     from smart_assistant.tools.memo_tool import MemoTool
     from smart_assistant.tools.memo_write_tools import MemoCreateTool

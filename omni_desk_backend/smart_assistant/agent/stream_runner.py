@@ -39,6 +39,7 @@ from .intent_classifier import (
 from .conversation_context import is_failed_answer
 from .orchestrator_helpers import _scope_cache_sig
 from .tool_chain_planner import generate_tool_chain_plan
+from .task_proposal import should_propose_task, stream_task_proposal
 from .sse_contract import annotate_error_kind, sse_event
 from ..hooks.base import Reject
 from ..hooks.wiring import (
@@ -74,6 +75,10 @@ class StreamRunner:
 
         # Step 1: 意图分类 + 回答缓存短路(原 1262-1283 行)
         intent = self._stream_intent(user_query, schemas, conversation_history, has_history, scope_sig)
+        # S2:complex_task 返回任务计划卡(不调用 LLM),由用户确认是否创建协作任务
+        if should_propose_task(intent, tool_context):
+            yield from stream_task_proposal(user_query)
+            return
         cached_stream = self._stream_cached_answer(user_query, intent, has_history, scope_sig)
         if cached_stream is not None:
             yield from cached_stream
@@ -294,6 +299,9 @@ class StreamRunner:
         # Step 2 前的意图分类:has_history=True 时(或缓存短路未计算时)需计算
         if intent is None:
             intent = classify_intent(user_query, schemas, conversation_history)
+            if should_propose_task(intent, tool_context):
+                yield from stream_task_proposal(user_query)
+                return
 
         # Step 2: 工具路由
         tool = ToolRegistry.get_tool(intent)

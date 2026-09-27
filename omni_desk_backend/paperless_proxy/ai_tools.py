@@ -3,7 +3,7 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolset
+from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
 from smart_assistant.capabilities.helpers import clamp_limit, context_user, tool_params
 from smart_assistant.tools.base import BaseTool
 
@@ -110,7 +110,12 @@ class DocumentLibraryQueryTool(BaseTool):
         }
 
 
-@toolset("document_library", title="文档库")
+@toolset(
+    "document_library",
+    title="文档库",
+    routes=(r"^/documents-library",),
+    quick_prompts=(QuickPrompt("最近文档", "文档库里最近上传了哪些文档？"),),
+)
 def document_library_tools():
     return [
         ToolSpec(

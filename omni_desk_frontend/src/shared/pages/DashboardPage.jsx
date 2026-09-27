@@ -4,6 +4,7 @@ import relativeTime from 'dayjs/plugin/relativeTime';
 import 'dayjs/locale/zh-cn';
 import { useDashboardData } from './dashboard/hooks/useDashboardData';
 import DashboardHeader from './dashboard/DashboardHeader';
+import AssistantCard from './dashboard/AssistantCard';
 import StatSummaryCards from './dashboard/StatSummaryCards';
 import MemosAndAnnouncements from './dashboard/MemosAndAnnouncements';
 import QuickStatsRow from './dashboard/QuickStatsRow';
@@ -31,6 +32,7 @@ const DashboardPage = () => {
   return (
     <div className="dashboard-page-container">
       <DashboardHeader />
+      <AssistantCard />
       <StatSummaryCards dashboardStats={dashboardStats} statsLoading={statsLoading} />
       <MemosAndAnnouncements dashboardStats={dashboardStats} statsLoading={statsLoading} />
       <QuickStatsRow

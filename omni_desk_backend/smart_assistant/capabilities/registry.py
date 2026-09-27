@@ -15,8 +15,11 @@ from .spec import (
     TOOLSET_MARKER,
     ConfirmPolicy,
     DataScope,
+    PageContext,
+    QuickPrompt,
     Toolset,
     ToolSpec,
+    import_ref,
     import_tool_class,
 )
 
@@ -30,6 +33,12 @@ AI_TOOLS_MODULE = "ai_tools"
 
 _PERMISSION_RE = re.compile(r"^[a-z_][a-z0-9_]*\.[a-z_][a-z0-9_]*$")
 _TOOLSET_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
+
+#: 快捷问题文案上限（抽屉按钮宽度有限）
+QUICK_PROMPT_LABEL_MAX = 12
+QUICK_PROMPT_QUERY_MAX = 100
+#: 单次返回的快捷问题上限
+QUICK_PROMPT_LIMIT = 6
 
 
 @dataclass(frozen=True)
@@ -159,6 +168,56 @@ def validate_spec(spec: ToolSpec, tool: BaseTool) -> list[str]:
     return [f"[{intent}] {msg}" for msg in errors]
 
 
+def _regex_errors(pattern: Any, where: str) -> tuple[list[str], re.Pattern | None]:
+    if not isinstance(pattern, str) or not pattern:
+        return [f"{where} 必须是非空正则字符串"], None
+    try:
+        return [], re.compile(pattern)
+    except re.error as exc:
+        return [f"{where} 正则无法编译: {pattern!r}（{exc}）"], None
+
+
+def validate_toolset_extras(toolset: Toolset) -> list[str]:
+    """校验 ``routes`` / ``quick_prompts`` / ``page_contexts``（S2）。"""
+    errors: list[str] = []
+    for pattern in toolset.routes:
+        errors.extend(_regex_errors(pattern, "routes")[0])
+
+    for prompt in toolset.quick_prompts:
+        if not isinstance(prompt, QuickPrompt):
+            errors.append(f"quick_prompts 中存在非 QuickPrompt 条目: {prompt!r}")
+            continue
+        if not prompt.label or len(prompt.label) > QUICK_PROMPT_LABEL_MAX:
+            errors.append(f"快捷问题 label 必须为 1–{QUICK_PROMPT_LABEL_MAX} 字: {prompt.label!r}")
+        if not prompt.query or len(prompt.query) > QUICK_PROMPT_QUERY_MAX:
+            errors.append(f"快捷问题 query 必须为 1–{QUICK_PROMPT_QUERY_MAX} 字: {prompt.query!r}")
+        for pattern in prompt.routes:
+            errors.extend(_regex_errors(pattern, f"快捷问题 {prompt.label!r} 的 routes")[0])
+        if not prompt.routes and not toolset.routes:
+            errors.append(f"快捷问题 {prompt.label!r} 没有 routes，且 toolset 也未声明 routes")
+
+    for ctx in toolset.page_contexts:
+        if not isinstance(ctx, PageContext):
+            errors.append(f"page_contexts 中存在非 PageContext 条目: {ctx!r}")
+            continue
+        if not _TOOLSET_NAME_RE.match(ctx.record_type or ""):
+            errors.append(f"record_type 必须是小写蛇形: {ctx.record_type!r}")
+        if not ctx.title:
+            errors.append(f"[{ctx.record_type}] 页面上下文 title 不能为空")
+        route_errors, compiled = _regex_errors(ctx.route, f"[{ctx.record_type}] route")
+        errors.extend(route_errors)
+        if compiled is not None and "record_id" not in compiled.groupindex:
+            errors.append(f"[{ctx.record_type}] route 必须包含命名组 (?P<record_id>...)")
+        try:
+            loader = import_ref(ctx.loader)
+        except Exception as exc:
+            errors.append(f"[{ctx.record_type}] loader 无法导入: {ctx.loader!r}（{exc!r}）")
+        else:
+            if not callable(loader):
+                errors.append(f"[{ctx.record_type}] loader 不可调用: {ctx.loader!r}")
+    return errors
+
+
 # ---------------------------------------------------------------------------
 # 注册中心
 # ---------------------------------------------------------------------------
@@ -170,6 +229,7 @@ class CapabilityRegistry:
     def __init__(self) -> None:
         self._toolsets: dict[str, Toolset] = {}
         self._specs: dict[str, ResolvedToolSpec] = {}
+        self._page_contexts: dict[str, tuple[Toolset, PageContext]] = {}
 
     # --- 查询 ---------------------------------------------------------------
 
@@ -202,6 +262,48 @@ class CapabilityRegistry:
         has_perm = getattr(user, "has_perm", None)
         return bool(has_perm and has_perm(perm))
 
+    def toolset_permitted(self, name: str, user: Any) -> bool:
+        """该用户能否调用工具集中至少一个启用的工具。"""
+        return any(
+            item.enabled and item.toolset.name == name and self.is_permitted(item.intent, user)
+            for item in self._specs.values()
+        )
+
+    def page_contexts(self) -> list[tuple[Toolset, PageContext]]:
+        return list(self._page_contexts.values())
+
+    def match_page_context(self, route: str) -> tuple[Toolset, PageContext, int] | None:
+        """按路由找到页面上下文声明与记录 ID；未匹配返回 None。"""
+        for owner, ctx in self._page_contexts.values():
+            match = re.search(ctx.route, route)
+            if not match:
+                continue
+            try:
+                record_id = int(match.group("record_id"))
+            except (TypeError, ValueError):
+                continue
+            return owner, ctx, record_id
+        return None
+
+    def quick_prompts_for(self, route: str, user: Any, limit: int = QUICK_PROMPT_LIMIT) -> list[dict]:
+        """返回匹配该路由、且用户有权使用的快捷问题（按注册顺序，去重）。"""
+        results: list[dict] = []
+        seen: set[str] = set()
+        for owner in self._toolsets.values():
+            if not owner.quick_prompts or not self.toolset_permitted(owner.name, user):
+                continue
+            for prompt in owner.quick_prompts:
+                patterns = prompt.routes or owner.routes
+                if not any(re.search(p, route) for p in patterns):
+                    continue
+                if prompt.query in seen:
+                    continue
+                seen.add(prompt.query)
+                results.append({"label": prompt.label, "query": prompt.query, "toolset": owner.name})
+                if len(results) >= limit:
+                    return results
+        return results
+
     def missing_permissions(self) -> list[str]:
         """返回数据库中不存在的权限码（需在迁移完成后调用）。"""
         from django.contrib.auth.models import Permission
@@ -229,6 +331,14 @@ class CapabilityRegistry:
             errors.append(f"toolset 名称重复: {toolset.name!r}")
         if not toolset.specs:
             errors.append(f"toolset {toolset.name!r} 没有声明任何工具")
+        errors.extend(validate_toolset_extras(toolset))
+        seen_types: set[str] = set()
+        for ctx in toolset.page_contexts:
+            if not isinstance(ctx, PageContext):
+                continue
+            if ctx.record_type in self._page_contexts or ctx.record_type in seen_types:
+                errors.append(f"record_type 重复: {ctx.record_type!r}")
+            seen_types.add(ctx.record_type)
 
         resolved: list[ResolvedToolSpec] = []
         seen: set[str] = set()
@@ -258,6 +368,8 @@ class CapabilityRegistry:
         self._toolsets[toolset.name] = toolset
         for item in resolved:
             self._specs[item.intent] = item
+        for ctx in toolset.page_contexts:
+            self._page_contexts[ctx.record_type] = (toolset, ctx)
         return resolved
 
     def load_module(self, module: Any, app_label: str) -> list[Toolset]:
@@ -275,6 +387,9 @@ class CapabilityRegistry:
                 app_label=app_label,
                 module=module.__name__,
                 specs=tuple(specs or ()),
+                routes=tuple(meta.get("routes", ())),
+                quick_prompts=tuple(meta.get("quick_prompts", ())),
+                page_contexts=tuple(meta.get("page_contexts", ())),
             )
             self.register_toolset(toolset)
             loaded.append(toolset)
@@ -293,6 +408,7 @@ class CapabilityRegistry:
 
         self._toolsets.clear()
         self._specs.clear()
+        self._page_contexts.clear()
 
         configs = list(app_configs) if app_configs is not None else list(apps.get_app_configs())
         for config in configs:

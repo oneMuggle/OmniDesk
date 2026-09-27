@@ -3,10 +3,20 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset
+from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
 
 
-@toolset("schedule", title="排班与日程")
+@toolset(
+    "schedule",
+    title="排班与日程",
+    routes=(r"^/schedule", r"^/shift-schedule", r"^/trial-schedule", r"^/events", r"^/control-panel/schedule"),
+    quick_prompts=(
+        QuickPrompt("今天安排", "我今天有什么安排？", routes=(r"^/$",)),
+        QuickPrompt("明天谁值班", "明天谁值班？"),
+        QuickPrompt("本周节假日", "这周有哪些节假日或调休？"),
+        QuickPrompt("换班申请", "我收到的换班申请有哪些？"),
+    ),
+)
 def schedule_tools():
     from smart_assistant.tools.schedule_tool import ScheduleTool
     from smart_assistant.tools.event_tool import EventTool

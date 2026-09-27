@@ -19,6 +19,7 @@ jest.mock('../../../features/smart-assistant/api/smartAssistantApi', () => ({
   ...jest.requireActual('../../../features/smart-assistant/api/smartAssistantApi'),
   sendSmartChatStream: jest.fn(),
   createSession: jest.fn().mockResolvedValue({ data: { id: 'qa-session' } }),
+  getAssistantContext: jest.fn().mockResolvedValue({ data: { page_context: null, quick_prompts: [] } }),
 }));
 
 beforeAll(() => {

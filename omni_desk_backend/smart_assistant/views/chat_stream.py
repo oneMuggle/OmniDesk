@@ -62,6 +62,7 @@ _STREAM_EVENT_FIELDS = {
         "tool_calls_meta",
         "tool_calls_rounds",
         "cache_hit",
+        "task_proposal",
     },
     "done": {
         "format_version",

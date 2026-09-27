@@ -177,6 +177,46 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `joint_student_query` | 查询联培生 | 只读 | 登录即可 | 同模块接口 | — | 幂等 | 查询联培生（姓名、学号、导师、在读状态、最近一次月报状态），按联培生模块的可见范围返回 |
 
+## 页面上下文
+
+用户在下列详情页打开 AI 抽屉时，前端只传当前路径；后端按路由解析记录 ID，再用该用户的权限重新读取记录，作为参考资料注入对话（看不到的记录不注入）。
+
+| record_type | 名称 | 工具集 | 路由 | 读取函数 |
+| --- | --- | --- | --- | --- |
+| `personnel` | 人员 | `personnel` | `^/control-panel/personnel/(?P<record_id>\d+)(/edit)?/?$` | `personnel.ai_tools.load_personnel_context` |
+| `sensor` | 传感器 | `sensors` | `^/control-panel/sensors/(?P<record_id>\d+)(/calibration/[a-z]+)?/?$` | `sensor_management.ai_tools.load_sensor_context` |
+| `communication_post` | 交流帖子 | `communication` | `^/communication/(?P<record_id>\d+)/?$` | `communication.ai_tools.load_post_context` |
+| `joint_student` | 联培生 | `joint_students` | `^/joint-students/admin/students/(?P<record_id>\d+)(/edit)?/?$` | `joint_students.ai_tools.load_joint_student_context` |
+
+## 快捷问题
+
+按路由匹配（`re.search`），只有用户能调用所属工具集中至少一个工具时才展示，每页最多 6 条。`^/$` 为 Dashboard。
+
+| 工具集 | 按钮 | 发送的问题 | 路由 |
+| --- | --- | --- | --- |
+| `personnel` | 我的信息 | 查一下我的人员信息 | `^/control-panel/personnel`、`^/me/personnel` |
+| `schedule` | 今天安排 | 我今天有什么安排？ | `^/$` |
+| `schedule` | 明天谁值班 | 明天谁值班？ | `^/schedule`、`^/shift-schedule`、`^/trial-schedule`、`^/events`、`^/control-panel/schedule` |
+| `schedule` | 本周节假日 | 这周有哪些节假日或调休？ | `^/schedule`、`^/shift-schedule`、`^/trial-schedule`、`^/events`、`^/control-panel/schedule` |
+| `schedule` | 换班申请 | 我收到的换班申请有哪些？ | `^/schedule`、`^/shift-schedule`、`^/trial-schedule`、`^/events`、`^/control-panel/schedule` |
+| `memos` | 我的备忘录 | 我最近的备忘录有哪些？ | `^/$`、`^/memos` |
+| `memos` | 即将提醒 | 接下来三天有哪些备忘录提醒？ | `^/memos` |
+| `projects` | 项目进度 | 当前各项目的进度如何？ | `^/control-panel/projects` |
+| `projects` | 延期项目 | 有哪些项目进度落后或已延期？ | `^/control-panel/projects` |
+| `compliance` | 合规待办 | 我有哪些待处理的合规问题？ | `^/$`、`^/control-panel/compliance` |
+| `compliance` | 逾期整改 | 有哪些已经逾期的整改项？ | `^/control-panel/compliance` |
+| `meeting_rooms` | 空闲会议室 | 今天下午有哪些空闲的会议室？ | `^/meeting-rooms`、`^/control-panel/meeting-rooms` |
+| `meeting_rooms` | 我的预约 | 我这周预约了哪些会议室？ | `^/$`、`^/meeting-rooms` |
+| `sensors` | 待校准 | 哪些传感器快到校准日期了？ | `^/control-panel/sensors` |
+| `sensors` | 校准记录 | 这个传感器的校准记录是什么？ | `^/control-panel/sensors/\d+` |
+| `communication` | 最新公告 | 最近有哪些公告？ | `^/$`、`^/announcements`、`^/communication$` |
+| `communication` | 总结讨论 | 总结一下这个帖子的讨论和主要观点 | `^/communication/\d+` |
+| `communication` | 我的帖子 | 我发的帖子有人回复吗？ | `^/communication` |
+| `notifications` | 未读通知 | 我有几条未读通知？都是什么？ | `^/$`、`^/notifications` |
+| `document_library` | 最近文档 | 文档库里最近上传了哪些文档？ | `^/documents-library` |
+| `joint_students` | 联培生概况 | 列出我可以查看的联培生及最近月报状态 | `^/joint-students` |
+| `joint_students` | 月报情况 | 这个联培生最近的月报情况怎么样？ | `^/joint-students/admin/students/\d+` |
+
 ## 字段说明
 
 - **类型**：由工具类的 `risk_level` 推导；对外导出为 MCP ToolAnnotations（`readOnlyHint` / `destructiveHint` / `idempotentHint` / `openWorldHint`）。
