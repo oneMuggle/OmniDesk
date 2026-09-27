@@ -1,6 +1,6 @@
 # Office 助手 / 文件分析
 
-> 路径: `/office-assistant`、`/file-analysis`
+> 路径: `/smart-assistant/apps/office`、`/smart-assistant/apps/file-analysis`(智能助手 →「应用」标签;旧地址 `/office-assistant`、`/file-analysis` 自动跳转)
 
 利用 AI 把 Office 文档(Word/Excel/PPT/PDF)解析为可检索、可问答的结构化数据。
 
@@ -14,7 +14,7 @@
 ## 使用步骤
 
 ### 1. 上传文件
-- 拖拽文件到 `/file-analysis` 或在「Office 助手」中选择
+- 拖拽文件到「文件分析」(`/smart-assistant/apps/file-analysis`)或在「Office 助手」中选择
 - 支持: PDF(扫描件支持 OCR)、DOCX、XLSX、PPTX、TXT、MD
 - 单文件 ≤ 50 MB;批量上传一次最多 20 个
 

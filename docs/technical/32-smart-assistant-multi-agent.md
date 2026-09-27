@@ -235,6 +235,8 @@ seq=8: task.completed(status=success, total_tokens=600)
 
 ## 10. 未实现模式结构化拒绝（P0-I,2026-07 批次）
 
+> **2026-09 更新（S2-2）**：`FANOUT` 已实现为"只读分层并行"，见 §11。本节的拒绝逻辑现在只适用于 `HIERARCHICAL`。
+
 > 完整审计轨迹见 [41-p0-security-data-safety-batch-2026-07.md §1.8](41-p0-security-data-safety-batch-2026-07.md)。本节说明 `FANOUT` / `HIERARCHICAL` 模式如何从"抛 `NotImplementedError`"改为"结构化 4xx 拒绝"。
 
 ### 背景
@@ -293,3 +295,36 @@ elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
 
 - 智能助手支持复杂任务时,前端明确显示"暂不支持 fan-out 模式,请改用 pipeline"—— 而不是模糊的"服务异常"
 - 后台 `AgentTask.status='rejected'` 可在 `/api/smart-assistant/tasks/` 列表筛选,运维可见
+
+---
+
+## 11. 只读 Fan-out 分层并行（S2-2，2026-09）
+
+计划文档：`docs/plans/2026-09-27_ai-entry-s2-2.md`。实现：`agents/fanout.py`（`FanoutRunner`，继承 `PipelineRunner` 的跳过与持久化语义）。
+
+### 执行方式
+
+1. **分层**：依赖 = `depends_on` ∪ `inputs` 中 `$subtask_id` 引用。推断出的依赖成环时，退回只按 `depends_on` 分层。
+2. **层内并行，层间串行**：并发上限为 `SMART_ASSISTANT_FANOUT_MAX_WORKERS`（默认 3）。设为 1，或本层只有一个子任务时，不开线程。
+3. 每层开跑前复用 pipeline 的跳过逻辑：暂停、取消、恢复时跳过已完成、预算耗尽、依赖失败（按 `skip` / `abort` 处理）。
+4. 产物写入和持久化在调用线程按计划顺序完成。每层开始时发出 `supervisor.decision` 事件，payload 为 `{decision: "fanout_layer", layer, subtask_ids}`。这里复用已有事件类型，不需要数据库迁移。
+5. `final_synthesis` 在所有层完成后串行执行，同样只能使用只读工具，因此整个 fanout 任务不会产生写操作。
+
+### 只读约束（强制执行）
+
+- fanout 子任务使用 `MultiAgentExecutor._make_read_only_runner()` 创建的独立 SubTaskRunner，设置 `read_only_tools=True`。
+- 交给 LLM 的工具 schema 来自 `ToolRegistry.get_openai_tools(user, read_only=True)`，只含 `risk_level == "read"` 的工具。
+- 即使 LLM 仍然调用了写工具，`_execute_tool` 也会返回 `{"error": "tool_not_allowed_in_fanout"}`，不会执行。
+- 因此 fanout 不会产生待确认的写操作。需要写入的任务必须走 pipeline，Supervisor 的 prompt 中已写明这一点。
+
+### 线程安全
+
+- `EventBus` / `PersistentEventBus` 的 `emit` 加实例级 RLock，防止事件序号重复。
+- `SharedContext.consume_tokens` 加锁。
+- 每个工作线程结束时调用 `connections.close_all()`，只关闭本线程的数据库连接。
+
+### 已知限制
+
+- 同一层并行的子任务开跑前都会检查预算，但已经开跑的不会被中途打断，因此可能略微超出 `global_budget`。
+- 暂停在层与层之间生效，正在执行的这一层会先跑完。
+- 恢复支持 PIPELINE / FANOUT；HIERARCHICAL 仍拒绝。

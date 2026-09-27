@@ -1,4 +1,4 @@
-import { createMenuItems, createUserDropdownItems } from '../sidebarMenuItems';
+import { createMenuItems, createUserDropdownItems, isMenuItemActive } from '../sidebarMenuItems';
 
 describe('createMenuItems', () => {
   const logout = jest.fn();
@@ -24,12 +24,11 @@ describe('createMenuItems', () => {
     expect(calendarMenu.subItems.map(sub => sub.text)).toEqual(['试验日程', '排班日程', '会议室预约']);
   });
 
-  it('AI 助手子菜单为当前 7 项', () => {
+  it('AI 助手子菜单收敛为智能助手 + 知识库(S2-2)', () => {
     const items = createMenuItems({ logout, unreadNotificationCount });
     const aiMenu = items.find(item => item.type === 'submenu' && item.text === 'AI 助手');
-    expect(aiMenu.subItems.map(sub => sub.text)).toEqual([
-      '智能助手', '多Agent任务', '知识库管理', 'Ragflow 聊天', 'Dify 应用', 'Office 助手', '文件分析',
-    ]);
+    expect(aiMenu.subItems.map(sub => sub.text)).toEqual(['智能助手', '知识库']);
+    expect(aiMenu.subItems.map(sub => sub.to)).toEqual(['/smart-assistant', '/knowledge-base']);
   });
 
   it('管理中心权限为 admin+manager', () => {
@@ -69,5 +68,19 @@ describe('createUserDropdownItems', () => {
     expect(navigate).toHaveBeenCalledWith('/profile');
     items.find(item => item.key === 'settings').onClick();
     expect(navigate).toHaveBeenCalledWith('/control-panel');
+  });
+});
+
+describe('isMenuItemActive', () => {
+  it('默认精确匹配', () => {
+    expect(isMenuItemActive('/knowledge-base', { to: '/knowledge-base' })).toBe(true);
+    expect(isMenuItemActive('/knowledge-base/x', { to: '/knowledge-base' })).toBe(false);
+  });
+
+  it('matchPrefix 时子路由也激活,但不误匹配相同前缀的其他路由', () => {
+    const item = { to: '/smart-assistant', matchPrefix: true };
+    expect(isMenuItemActive('/smart-assistant', item)).toBe(true);
+    expect(isMenuItemActive('/smart-assistant/apps/ragflow', item)).toBe(true);
+    expect(isMenuItemActive('/smart-assistant-legacy', item)).toBe(false);
   });
 });

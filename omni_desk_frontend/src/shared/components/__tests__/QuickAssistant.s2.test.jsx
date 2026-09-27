@@ -140,10 +140,13 @@ describe('QuickAssistant S2', () => {
     expect(api().sendSmartChatStream).not.toHaveBeenCalled();
   });
 
-  it('完整智能助手页不显示悬浮助手', () => {
-    renderAt('/smart-assistant');
-    expect(screen.queryByRole('button')).not.toBeInTheDocument();
-  });
+  it.each(['/smart-assistant', '/smart-assistant/tasks', '/smart-assistant/apps/ragflow'])(
+    '完整智能助手页(含标签子页)不显示悬浮助手: %s',
+    (route) => {
+      renderAt(route);
+      expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    }
+  );
 
   it('任务计划卡:创建协作任务后插入协作卡片', async () => {
     mockStreamOnce(PROPOSAL_EVENTS);

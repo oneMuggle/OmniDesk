@@ -22,7 +22,10 @@ const ScenarioCollabCard = lazy(() => import('../../features/smart-assistant/sce
 const { TextArea } = Input;
 
 /** 完整智能助手页:该页自带对话,不再显示悬浮助手 */
+// 智能助手完整页(含 S2-2 的任务 / 应用标签)上不显示悬浮按钮,避免同屏两个助手
 const FULL_PAGE_ROUTE = '/smart-assistant';
+const isFullAssistantPage = (pathname) =>
+  pathname === FULL_PAGE_ROUTE || pathname.startsWith(`${FULL_PAGE_ROUTE}/`);
 
 const EMPTY_CONTEXT = { pageContext: null, quickPrompts: [] };
 
@@ -259,7 +262,7 @@ const QuickAssistant = () => {
     }
   };
 
-  if (pathname === FULL_PAGE_ROUTE) return null;
+  if (isFullAssistantPage(pathname)) return null;
 
   const { pageContext, quickPrompts } = assistantContext;
 

@@ -2,12 +2,9 @@ import {
   AppstoreOutlined,
   BellOutlined,
   CalendarOutlined,
-  ClusterOutlined,
   CommentOutlined,
   EditOutlined,
-  ExperimentOutlined,
   FileTextOutlined,
-  FileWordOutlined,
   HomeOutlined,
   LogoutOutlined,
   ProfileOutlined,
@@ -27,6 +24,16 @@ import {
  * @param {{ logout: Function, unreadNotificationCount: number }} params
  * @returns {Array<object>} 菜单项数组（{to, icon, text, permission} | {type:'submenu',...} | {type:'button',...}）
  */
+/**
+ * 菜单项是否处于激活状态。默认精确匹配;``matchPrefix`` 为 true 时,
+ * 子路由(如 /smart-assistant/apps/ragflow)也算激活。
+ * @param {string} pathname
+ * @param {{ to: string, matchPrefix?: boolean }} item
+ * @returns {boolean}
+ */
+export const isMenuItemActive = (pathname, item) =>
+  pathname === item.to || Boolean(item.matchPrefix && pathname.startsWith(`${item.to}/`));
+
 export const createMenuItems = ({ logout, unreadNotificationCount }) => [
   { to: "/", icon: HomeOutlined, text: "首页", permission: null },
   { to: "/announcements", icon: SoundOutlined, text: "公告栏", permission: null },
@@ -47,13 +54,10 @@ export const createMenuItems = ({ logout, unreadNotificationCount }) => [
     icon: AppstoreOutlined,
     permission: null,
     subItems: [
-      { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null },
-      { to: "/smart-assistant/tasks", icon: ClusterOutlined, text: "多Agent任务", permission: null },
-      { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库管理", permission: null },
-      { to: "/ragflow-chat", icon: ExperimentOutlined, text: "Ragflow 聊天", permission: null },
-      { to: "/dify-apps", icon: RobotOutlined, text: "Dify 应用", permission: null },
-      { to: "/office-assistant", icon: FileWordOutlined, text: "Office 助手", permission: null },
-      { to: "/file-analysis", icon: FileTextOutlined, text: "文件分析", permission: null },
+      // S2-2 入口收敛:任务 / 应用(Dify、Ragflow、Office、文件分析)已并入智能助手的标签页,
+      // 统计 / 审计 / 应用配置并入控制台「AI 管理」;旧地址自动重定向
+      { to: "/smart-assistant", icon: RobotOutlined, text: "智能助手", permission: null, matchPrefix: true },
+      { to: "/knowledge-base", icon: FileTextOutlined, text: "知识库", permission: null },
     ]
   },
   { to: "/documents-library", icon: FileTextOutlined, text: "文档库", permission: null },

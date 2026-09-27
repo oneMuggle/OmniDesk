@@ -2,6 +2,7 @@ import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Badge, Popover, Tooltip } from 'antd';
 import { DownOutlined } from '@ant-design/icons';
+import { isMenuItemActive } from './sidebarMenuItems';
 
 /**
  * 子菜单渲染：expanded CSS 动画态 + collapsed Popover 浮动子菜单 + badgeCount。
@@ -20,8 +21,8 @@ const SidebarSubMenu = ({
   onCloseMobile,
 }) => {
   const Icon = item.icon;
-  const isSubMenuActive = item.subItems.some(sub => location.pathname === sub.to);
-  const isSubMenuExpanded = expandedSubMenu[item.text] ?? item.subItems.some(sub => location.pathname === sub.to);
+  const isSubMenuActive = item.subItems.some(sub => isMenuItemActive(location.pathname, sub));
+  const isSubMenuExpanded = expandedSubMenu[item.text] ?? item.subItems.some(sub => isMenuItemActive(location.pathname, sub));
 
   const handleToggle = () => {
     if (isCollapsed) {
@@ -88,7 +89,7 @@ const SidebarSubMenu = ({
                   <li key={subIndex} role="none">
                     <Link
                       to={subItem.to}
-                      className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                      className={`menu-item ${isMenuItemActive(location.pathname, subItem) ? 'active' : ''}`}
                       onClick={() => {
                         onCollapsedPopoverChange(null);
                         if (isMobileMenuOpen) onCloseMobile();
@@ -128,9 +129,9 @@ const SidebarSubMenu = ({
               <li key={subIndex} role="none">
                 <Link
                   to={subItem.to}
-                  className={`menu-item ${location.pathname === subItem.to ? 'active' : ''}`}
+                  className={`menu-item ${isMenuItemActive(location.pathname, subItem) ? 'active' : ''}`}
                   role="menuitem"
-                  aria-current={location.pathname === subItem.to ? 'page' : undefined}
+                  aria-current={isMenuItemActive(location.pathname, subItem) ? 'page' : undefined}
                   onClick={() => isMobileMenuOpen && onCloseMobile()}
                 >
                   <div className="menu-item-content">
@@ -160,6 +161,7 @@ SidebarSubMenu.propTypes = {
       icon: PropTypes.elementType,
       permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
       badgeCount: PropTypes.number,
+      matchPrefix: PropTypes.bool,
     })).isRequired,
   }).isRequired,
   isCollapsed: PropTypes.bool,

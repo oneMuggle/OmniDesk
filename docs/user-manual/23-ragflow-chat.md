@@ -1,6 +1,6 @@
 # RAGFlow 聊天
 
-> 路径: `/ragflow-chat`
+> 路径: `/smart-assistant/apps/ragflow`(智能助手 →「应用」标签;旧地址 `/ragflow-chat` 自动跳转)
 
 RAGFlow 是一个开源的 RAG(检索增强生成)引擎。OmniDesk 把它的"对话"能力封装为聊天页面,适合做"基于自有知识库的问答"。
 
