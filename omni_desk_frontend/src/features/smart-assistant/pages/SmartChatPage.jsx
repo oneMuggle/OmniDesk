@@ -21,6 +21,7 @@ const SmartChatPage = () => {
     handleNewSession, handleSwitchSession, handleDeleteSession,
     handleSessionMenuClick,
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
+    handleCreateTask, handleAnswerDirectly,
   } = useSmartChat();
 
   return (
@@ -49,6 +50,8 @@ const SmartChatPage = () => {
         messagesEndRef={messagesEndRef}
         onFeedback={handleFeedback}
         onRetry={handleRetry}
+        onCreateTask={handleCreateTask}
+        onAnswerDirectly={handleAnswerDirectly}
       />
 
       <ChatInputBar

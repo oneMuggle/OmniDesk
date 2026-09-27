@@ -1,13 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
-import { createAgentTask, executeAgentTask } from '../api/agentTaskApi';
+import { startAgentTask } from '../utils/startAgentTask';
 import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
 import { Modal as AntdModal, message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 import { extractResults } from '../../../shared/api/responseHandler';
-import { matchScenarioByInput } from '../scenario/data/scenarios';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -291,10 +290,10 @@ export function useSmartChat() {
    * resolve。这样 handleSubmit 的 setIsLoading(false) 不会早于内容显示
    * 完整,useEffect 推入消息列表的 streamingAnswer 始终是完整内容。
    */
-  const runStream = useCallback(async (query) => {
+  const runStream = useCallback(async (query, streamOptions = {}) => {
     pendingLogIdRef.current = null;
     pendingErrorHintRef.current = null;
-    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment);
+    const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment, null, streamOptions);
     abortRef.current = abort;
     const stream = await bodyPromise;
 
@@ -350,27 +349,15 @@ export function useSmartChat() {
     if (options.mode === 'agent') {
       let agentCardId = null;
       try {
-        const created = await createAgentTask(query, {
-          conversation_id: currentSessionId,
+        await startAgentTask(query, {
+          conversationId: currentSessionId,
+          onCreated: (cardMessage) => {
+            agentCardId = cardMessage.id;
+            setMessages((previous) => [...previous, userMessage, cardMessage]);
+            setInputMessage('');
+            setAttachment(null);
+          },
         });
-        const task = created.data || {};
-        const taskId = task.task_id;
-        if (!taskId) throw new Error('任务创建失败');
-        agentCardId = `agent-${taskId}`;
-        const matchedScenario = matchScenarioByInput(query);
-        const cardMessage = {
-          id: agentCardId,
-          role: 'assistant',
-          type: 'collab_card',
-          taskId,
-          scenarioId: matchedScenario?.id || null,
-          userInput: query,
-          objective: task.plan?.objective || query,
-        };
-        setMessages((previous) => [...previous, userMessage, cardMessage]);
-        setInputMessage('');
-        setAttachment(null);
-        await executeAgentTask(taskId);
       } catch (error) {
         setMessages((previous) => previous.filter((message) => message.id !== agentCardId));
         setMessages((previous) => [...previous, userMessage, {
@@ -395,7 +382,7 @@ export function useSmartChat() {
     typewriter.cancel();
 
     try {
-      await runStream(query);
+      await runStream(query, { skipTaskProposal: Boolean(options.skipTaskProposal) });
     } catch (error) {
       if (error.name !== 'AbortError') {
         const errText = `[错误] ${error.message}`;
@@ -431,6 +418,9 @@ export function useSmartChat() {
         logId: pendingLogIdRef.current,
         // 失败辅助提示(输出契约);旧事件无 kind/hint 时为 null,不渲染提示行
         errorHint: pendingErrorHintRef.current,
+        // S2 任务计划卡(intent=complex_task);无该字段时为 null,不渲染
+        taskProposal: streamingMeta?.task_proposal || null,
+        proposalStatus: streamingMeta?.task_proposal ? 'idle' : undefined,
       };
       setMessages(prev => [...prev, assistantMessage]);
       setStreamingAnswer('');
@@ -474,6 +464,39 @@ export function useSmartChat() {
       ));
     }
   }, [messages]);
+
+  /** 更新某条消息的任务计划卡状态 */
+  const setProposalStatus = useCallback((msgIndex, proposalStatus) => {
+    setMessages(prev => prev.map((m, i) => (i === msgIndex ? { ...m, proposalStatus } : m)));
+  }, []);
+
+  /** 任务计划卡「创建协作任务」:创建 AgentTask,协作卡片插到消息末尾(卡片内订阅 SSE 进度) */
+  const handleCreateTask = useCallback(async (msgIndex) => {
+    const msg = messages[msgIndex];
+    const objective = msg?.taskProposal?.objective;
+    if (!objective || (msg.proposalStatus && msg.proposalStatus !== 'idle' && msg.proposalStatus !== 'error')) return;
+    setProposalStatus(msgIndex, 'creating');
+    try {
+      await startAgentTask(objective, {
+        conversationId: currentSessionId,
+        onCreated: (cardMessage) => {
+          setMessages(prev => [...prev, cardMessage]);
+          setProposalStatus(msgIndex, 'created');
+        },
+      });
+    } catch (error) {
+      logger.warn('[SmartChat] 创建协作任务失败', error);
+      setProposalStatus(msgIndex, 'error');
+    }
+  }, [messages, currentSessionId, setProposalStatus]);
+
+  /** 任务计划卡「直接回答」:带 skipTaskProposal 重发原问题 */
+  const handleAnswerDirectly = useCallback(async (msgIndex) => {
+    const objective = messages[msgIndex]?.taskProposal?.objective;
+    if (!objective) return;
+    setProposalStatus(msgIndex, 'answered');
+    await sendMessage(objective, { skipTaskProposal: true });
+  }, [messages, sendMessage, setProposalStatus]);
 
   // 重试最后一条消息
   const handleRetry = useCallback(async () => {
@@ -525,5 +548,6 @@ export function useSmartChat() {
     handleNewSession, handleSwitchSession, handleDeleteSession,
     handleForkSession, handleExportSession, handleSessionMenuClick,
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
+    handleCreateTask, handleAnswerDirectly,
   };
 }

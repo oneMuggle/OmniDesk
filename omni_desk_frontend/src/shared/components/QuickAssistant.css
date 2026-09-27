@@ -92,3 +92,35 @@
     width: 100% !important;
   }
 }
+
+/* S2:页面上下文标签 + 快捷问题 */
+.qa-context-bar {
+  padding: 8px 12px;
+  background: #fff;
+  border-bottom: 1px solid #f0f0f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.qa-page-context {
+  align-self: flex-start;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qa-quick-prompts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.qa-collab-card {
+  margin-bottom: 12px;
+}
+
+.qa-message-content .task-proposal-card {
+  white-space: normal;
+}

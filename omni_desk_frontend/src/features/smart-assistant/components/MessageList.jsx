@@ -3,6 +3,7 @@ import { RedoOutlined } from '@ant-design/icons';
 import PropTypes from 'prop-types';
 import ThinkContent from '../../../shared/components/ThinkContent';
 import ToolResult from './ToolResult';
+import TaskProposalCard from './TaskProposalCard';
 import MessageFeedbackActions from './MessageFeedbackActions';
 import ScenarioCollabCard from '../scenario/components/ScenarioCollabCard';
 import { parseThinkContent } from '../utils/chatUtils';
@@ -19,6 +20,8 @@ const MessageList = ({
   messagesEndRef,
   onFeedback,
   onRetry,
+  onCreateTask,
+  onAnswerDirectly,
 }) => (
   <div className="smart-chat-messages">
     {messages.map((msg, index) => {
@@ -45,6 +48,14 @@ const MessageList = ({
             </Typography.Text>
           )}
           {msg.tool_result && <ToolResult intent={msg.intent} result={msg.tool_result} sources={msg.sources} />}
+          {msg.role === 'assistant' && msg.taskProposal && onCreateTask && onAnswerDirectly && (
+            <TaskProposalCard
+              proposal={msg.taskProposal}
+              status={msg.proposalStatus || 'idle'}
+              onCreate={() => onCreateTask(index)}
+              onAnswerDirectly={() => onAnswerDirectly(index)}
+            />
+          )}
           {/* 失败消息(带 errorHint)无归属日志,feedback 提交必然 404,故不渲染赞踩按钮 */}
           {msg.role === 'assistant' && !msg.errorHint && (
             <MessageFeedbackActions
@@ -100,6 +111,8 @@ MessageList.propTypes = {
   messagesEndRef: PropTypes.object,
   onFeedback: PropTypes.func.isRequired,
   onRetry: PropTypes.func.isRequired,
+  onCreateTask: PropTypes.func,
+  onAnswerDirectly: PropTypes.func,
 };
 
 export default MessageList;

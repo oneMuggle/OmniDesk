@@ -49,8 +49,14 @@ export function resolveErrorHint(event) {
  * - 有 attachment → FormData(multipart/form-data),不手工设 Content-Type,浏览器自动加 boundary
  * - 有 confirmToken(无 attachment) → JSON,body.confirm_token
  * - 默认 → JSON,body 仅含 query / conversation_id
+ *
+ * options.pageRoute:当前页面路径(location.pathname,S2 页面上下文)。后端据此
+ * 按用户权限重读记录作为对话上下文;不合法的路径由后端忽略。
+ * options.skipTaskProposal:为 true 时后端不返回任务计划卡(任务计划卡「直接回答」)。
  */
-export function sendSmartChatStream(query, conversationId = null, attachment = null, confirmToken = null) {
+export function sendSmartChatStream(query, conversationId = null, attachment = null, confirmToken = null, options = {}) {
+  const pageRoute = options && typeof options.pageRoute === 'string' ? options.pageRoute : '';
+  const skipTaskProposal = Boolean(options && options.skipTaskProposal);
   const abortController = new AbortController();
 
   const requestPromise = (async () => {
@@ -68,11 +74,15 @@ export function sendSmartChatStream(query, conversationId = null, attachment = n
       body.append('query', query);
       if (conversationId) body.append('conversation_id', conversationId);
       if (confirmToken) body.append('confirm_token', confirmToken);
+      if (pageRoute) body.append('page_route', pageRoute);
+      if (skipTaskProposal) body.append('skip_task_proposal', 'true');
       body.append('attachment', attachment);
     } else {
       const jsonBody = { query };
       if (conversationId) jsonBody.conversation_id = conversationId;
       if (confirmToken) jsonBody.confirm_token = confirmToken;
+      if (pageRoute) jsonBody.page_route = pageRoute;
+      if (skipTaskProposal) jsonBody.skip_task_proposal = true;
       headers['Content-Type'] = 'application/json';
       body = JSON.stringify(jsonBody);
     }
@@ -113,6 +123,14 @@ export function sendSmartChatStream(query, conversationId = null, attachment = n
     bodyPromise: requestPromise,
     abort: () => abortController.abort(),
   };
+}
+
+/**
+ * AI 抽屉上下文(S2):当前页面的记录标签 + 快捷问题。
+ * 返回 { format_version, route, page_context: {record_type,title,label}|null, quick_prompts: [{label,query,toolset}] }
+ */
+export async function getAssistantContext(route) {
+  return apiClient.get(`${BASE_URL}/assistant-context/`, { params: { route } });
 }
 
 /**

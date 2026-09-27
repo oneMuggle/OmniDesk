@@ -6,6 +6,7 @@ import './shared/styles/global.css';
 import './shared/theme/tokens.css';
 import 'react-toastify/dist/ReactToastify.css';
 import ErrorBoundary from './shared/components/ErrorBoundary';
+import QuickAssistant from './shared/components/QuickAssistant';
 import 'animate.css';
 import { AuthProvider } from './features/auth/context/AuthContext';
 import { ApiProvider } from './shared/context/ApiProvider';
@@ -60,6 +61,8 @@ function AdminAppWrapper() {
                   draggable
                   pauseOnHover
                 />
+                {/* S2:管理中心同样提供 AI 抽屉(人员 / 传感器详情页的页面上下文) */}
+                <QuickAssistant />
               </div>
             </RefreshProvider>
           </ApiProvider>
