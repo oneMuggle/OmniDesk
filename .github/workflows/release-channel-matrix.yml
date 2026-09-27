@@ -57,7 +57,7 @@ jobs:
           echo "OK: branch $BRANCH has valid version $VERSION"
 
       - name: Build backend image (no push)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./deployment/docker/omni_desk_backend/Dockerfile
@@ -67,7 +67,7 @@ jobs:
           cache-from: type=gha
 
       - name: Build frontend image (no push)
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: ./omni_desk_frontend
           file: ./omni_desk_frontend/Dockerfile
