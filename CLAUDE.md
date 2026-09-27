@@ -57,6 +57,8 @@ Django apps: `personnel`, `events`, `documents`, `config`, `memos`, `dify_apps`,
 
 Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
+AI 工具：各 app 在 `ai_tools.py` 中用 `@toolset` + `ToolSpec` 声明，`smart_assistant/capabilities` 启动时自动发现并自检（声明不合规会导致启动失败）。新增或修改工具后运行 `python manage.py ai_capabilities --write` 重新生成 `docs/technical/46-ai-capability-catalog.md`，否则测试失败。
+
 ### Frontend Structure
 
 - **Routing**: `createBrowserRouter` (React Router v6.4+) with lazy-loaded components. Routes defined in `src/routes/index.jsx`（管理中心 `/control-panel/*` 路由权限集中在 `src/features/admin/config/adminRoutePermissions.js`）. Build step runs `scripts/generate-routes.js` to generate `public/routes.json`.

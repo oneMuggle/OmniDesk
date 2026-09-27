@@ -56,6 +56,9 @@ class LegacyProcessMixin:
 
         # Step 3: 单工具路由(保持现有路径)
         tool = _root().ToolRegistry.get_tool(intent)
+        # S1:叠加能力声明的 required_permission(未声明 / LOGIN_ONLY 放行,行为不变)
+        if tool and not _root().ToolRegistry.is_permitted(tool, getattr(tool_context, "user", None)):
+            tool = None
         if tool:
             return self._legacy_single_tool(
                 user_query, intent, tool, conversation_history, tool_context, scope_sig, has_history

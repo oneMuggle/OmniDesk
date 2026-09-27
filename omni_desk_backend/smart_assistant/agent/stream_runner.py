@@ -297,6 +297,9 @@ class StreamRunner:
 
         # Step 2: 工具路由
         tool = ToolRegistry.get_tool(intent)
+        # S1:叠加能力声明的 required_permission(未声明 / LOGIN_ONLY 放行,行为不变)
+        if tool and not ToolRegistry.is_permitted(tool, getattr(tool_context, "user", None)):
+            tool = None
         tool_result = None
         tool_name = None
         sources = None

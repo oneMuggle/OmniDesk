@@ -20,6 +20,7 @@ from .serializers import (
     UserPaperlessBindingSerializer,
 )
 from .permissions import IsAdmin, IsBindingOwnerOrAdmin
+from .selectors import visible_bindings
 from .services.outbox import OutboxService
 from .services.client import PaperlessClient
 from .exceptions import PaperlessAuthError, PaperlessNotFoundError, PaperlessUnavailableError
@@ -307,9 +308,7 @@ class DocumentBindingViewSet(viewsets.ModelViewSet):
                 to_attr="latest_outbox",
             )
         )
-        if not self.request.user.is_staff:
-            qs = qs.filter(owner=self.request.user)
-        return qs
+        return visible_bindings(self.request.user, qs)
 
     def update(self, request, *args, **kwargs):
         """PATCH → 入 update_metadata outbox(不直接改 binding)"""

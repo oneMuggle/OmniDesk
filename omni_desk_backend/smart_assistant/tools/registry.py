@@ -62,7 +62,20 @@ class ToolRegistry:
             return None
         if tool.required_auth and not (user and user.is_authenticated):
             return None
+        if not cls.is_permitted(tool, user):
+            return None
         return tool
+
+    @classmethod
+    def is_permitted(cls, tool: BaseTool, user: AbstractBaseUser | Any | None) -> bool:
+        """按能力声明的 ``required_permission`` 判定(S1 能力注册中心)。
+
+        未在 ``ai_tools.py`` 中声明的工具(如测试桩)一律放行,登录校验仍由
+        ``required_auth`` 负责;声明为 ``LOGIN_ONLY`` 的工具同样放行。
+        """
+        from smart_assistant.capabilities import capabilities
+
+        return capabilities.is_permitted(tool.intent_type, user)
 
     @classmethod
     def get_all_schemas(cls) -> list:
@@ -109,6 +122,9 @@ class ToolRegistry:
         for tool in cls._tools.values():
             # 1. 用户过滤:required_auth=True 且未登录 → 跳过
             if tool.required_auth and not is_auth:
+                continue
+            # 1b. 能力声明的 required_permission(未声明 / LOGIN_ONLY 放行)
+            if not cls.is_permitted(tool, user):
                 continue
             # 2. 收集 schema(NotImplementedError → warning + skip,向后兼容)
             try:

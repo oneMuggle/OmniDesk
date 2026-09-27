@@ -8,62 +8,16 @@ class SmartAssistantConfig(AppConfig):
     verbose_name = "智能助手"
 
     def ready(self):
-        """注册所有工具,然后在 DEBUG 模式下校验每个工具已实现 scope 方法。"""
+        """自动发现并注册各 app 的 AI 工具,然后在 DEBUG 模式下校验每个工具已实现 scope 方法。"""
         # R5-B4: LLMRouter 配置缓存失效信号(LlmAppConfig/LlmEndpoint 变更时)
         from llm_service import signals as llm_signals  # noqa: F401
 
-        # 工具注册(原逻辑保留,必须在校验之前完成)
-        from .tools.registry import ToolRegistry
-        from .tools.schedule_tool import ScheduleTool
-        from .tools.personnel_tool import PersonnelTool
-        from .tools.rag_tool import RAGTool
-        from .tools.document_tool import DocumentTool
-        from .tools.event_tool import EventTool
-        from .tools.memo_tool import MemoTool
-        from .tools.memo_write_tools import MemoCreateTool
-        from .tools.memo_write_tools_v2 import MemoUpdateTool, MemoDeleteTool
-        from .tools.project_tool import ProjectTool
-        from .tools.news_tool import NewsTool
-        from .tools.meeting_room_tool import MeetingRoomTool
-        from .tools.sensor_tool import SensorTool
-        from .tools.announcement_tool import AnnouncementTool
-        from .tools.compliance_tool import ComplianceTool
-        from .tools.external_link_tool import ExternalLinkTool
-        from .tools.swap_request_tool import (
-            SwapRequestQueryTool,
-            SwapRequestCreateTool,
-            SwapRequestDecideTool,
-        )
-        from .tools.office_read_tool import OfficeReadTool
-        from .tools.office_generate_tool import OfficeGenerateTool
-        from .tools.spreadsheet_tool import SpreadsheetTool
-        from .tools.notify_tool import NotifyTool
-        from .tools.global_search_tool import GlobalSearchTool
+        # 工具注册:各 app 的 ai_tools.py 声明工具集,此处自动发现 + 启动自检
+        # (声明错误直接抛 ImproperlyConfigured,启动失败)。必须在 scope 校验之前完成。
+        # 规则与字段见 smart_assistant/capabilities 与 docs/technical/46-ai-capability-catalog.md。
+        from .capabilities import capabilities
 
-        ToolRegistry.register(ScheduleTool())
-        ToolRegistry.register(PersonnelTool())
-        ToolRegistry.register(RAGTool())
-        ToolRegistry.register(DocumentTool())
-        ToolRegistry.register(EventTool())
-        ToolRegistry.register(MemoTool())
-        ToolRegistry.register(MemoCreateTool())
-        ToolRegistry.register(MemoUpdateTool())
-        ToolRegistry.register(MemoDeleteTool())
-        ToolRegistry.register(ProjectTool())
-        ToolRegistry.register(NewsTool())
-        ToolRegistry.register(MeetingRoomTool())
-        ToolRegistry.register(SensorTool())
-        ToolRegistry.register(AnnouncementTool())
-        ToolRegistry.register(ComplianceTool())
-        ToolRegistry.register(ExternalLinkTool())
-        ToolRegistry.register(SwapRequestQueryTool())
-        ToolRegistry.register(SwapRequestCreateTool())
-        ToolRegistry.register(SwapRequestDecideTool())
-        ToolRegistry.register(OfficeReadTool())
-        ToolRegistry.register(OfficeGenerateTool())
-        ToolRegistry.register(SpreadsheetTool())
-        ToolRegistry.register(NotifyTool())
-        ToolRegistry.register(GlobalSearchTool())
+        capabilities.discover()
 
         # 钩子注册:PII 脱敏(POST_EXECUTE)+ 超时熔断恢复(ON_FAILURE)挂到
         # 全局 HookRegistry。接线方式与 AuditLogHook 文档约定一致

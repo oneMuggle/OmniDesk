@@ -500,6 +500,11 @@ def execute_tool_chain(plan: list, query: str, context: dict = None) -> list:
         depends_on = step.get("depends_on")
 
         tool = ToolRegistry.get_tool(tool_name)
+        # S1:叠加能力声明的 required_permission(未声明 / LOGIN_ONLY 放行,行为不变)
+        chain_user = context.get("user") if isinstance(context, dict) else getattr(context, "user", None)
+        if tool and not ToolRegistry.is_permitted(tool, chain_user):
+            logger.warning("工具无权限: %s", tool_name)
+            tool = None
         if not tool:
             logger.warning("工具不存在: %s", tool_name)
             results.append(

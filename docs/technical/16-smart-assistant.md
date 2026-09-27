@@ -80,6 +80,8 @@
 
 ### 2.2 工具系统(16 个)
 
+> 2026-09-27 起，工具改由各 app 的 `ai_tools.py` 声明、启动时自动发现（见 2.2.1），当前共 28 个。**完整清单以自动生成的 [46 AI 能力目录](46-ai-capability-catalog.md) 为准**，下表为历史快照。
+
 | 工具 | 功能 | 数据源 |
 |------|------|--------|
 | `ScheduleTool` | 排班/值班查询 | `events.Schedule` |
@@ -177,6 +179,26 @@ class ToolContext:
 - `get_schema()` 输出包含 `risk_level`,供前端/审计消费
 - **现状:13 个工具全部显式声明 `risk_level="read"`**(均为只读查询,无副作用),write/destructive 为框架预留,尚无实例
 - 审计:`AuditLogHook._audit_input()` 将 `risk_level` 并入 `AgentLog.tool_input`(JSONField);`destructive` 调用额外 `logger.warning` 提升日志级别
+
+### 2.2.1 能力注册中心(2026-09 新增)
+
+代码位置：`smart_assistant/capabilities/`。计划与设计：`docs/plans/2026-09-27_ai-capability-registry-s1.md`。
+
+**新增一个工具的步骤：**
+
+1. 在工具所属业务 app 下新建或编辑 `ai_tools.py`，工具类可以直接写在这里（继承 `smart_assistant.tools.base.BaseTool`）；
+2. 用 `@toolset("名称", title="中文名")` 装饰一个函数，返回 `ToolSpec` 列表，至少声明 `tool`、`title`、`required_permission`（`LOGIN_ONLY` 或 `app_label.codename`）和 `data_scope`；写入或删除类工具还要声明 `confirm=ConfirmPolicy.USER`，并在工具类上设置 `require_confirmation=True`；
+3. 运行 `python manage.py ai_capabilities --write` 重新生成能力目录，与代码一起提交（测试 `test_committed_catalog_matches_code` 会校验两者一致）。
+
+**启动自检**（`SmartAssistantConfig.ready()` → `capabilities.discover()`，不通过则抛 `ImproperlyConfigured`，服务无法启动）：intent 与工具集名称不重复；权限码格式正确；写入或删除类工具必须声明确认，且与 `require_confirmation` 一致；只读工具不得声明确认或回滚；`data_scope="scope"` 的工具必须实现 `build_base_queryset()` 和 `_scope_self()`；OpenAI schema 必须是 `strict=True`，且每一层 object 都声明 `additionalProperties=false`。
+
+**权限判定**：`ToolRegistry.get_tool_for_user()` 和 `get_openai_tools()` 会调用 `capabilities.is_permitted()`。旧意图路由（orchestrator 单工具路径、流式单工具路径、函数式工具链）在 `get_tool()` 之后也会补做这一判定。未声明的工具（如测试桩）和声明为 `LOGIN_ONLY` 的工具直接放行；声明了权限码的工具要求 `user.has_perm()` 通过。
+
+**数据范围（`data_scope`）**：`scope`（三级 scope）、`owner`（仅本人）、`module`（与模块 HTTP 接口共用同一段可见性代码，如 `joint_students/services/access.py`、`communication/selectors.py`、`paperless_proxy/selectors.py`）、`delegated`、`attachment`、`knowledge`、`recipient`。
+
+**预留字段**：`rollback`、`feature_flag` 供 S3 写操作使用。`feature_flag` 已生效：配置后，只有 `settings.<flag>` 为真时才注册该工具。目前没有工具使用这两个字段。
+
+**MCP 注解**：`ResolvedToolSpec.annotations()` 根据 `risk_level` 推导出 `readOnlyHint`、`destructiveHint`、`idempotentHint`、`openWorldHint`；`python manage.py ai_capabilities --json` 输出的能力清单包含这些注解。
 
 ### 2.3 API 端点
 
@@ -659,7 +681,7 @@ def post(self, request):
 |------|------|
 | `serializers.py` | `SmartChatRequestSerializer` 增加 `attachment = FileField(required=False, allow_null=True)` |
 | `views/chat.py` | `create` / `stream` 加 `parser_classes = [MultiPartParser, FormParser]`;附件接收 → 校验 → 抽取 → 注入 prompt |
-| `apps.py` | `ready()` 注册 3 个新工具 |
+| `apps.py` | `ready()` 注册 3 个新工具(2026-09 起改为 `smart_assistant/ai_tools.py` 声明、自动发现) |
 | `urls.py` | 增加 `office-download/<str:token>/` 路由 |
 | `cache.py` / 新 `office_attachment.py` | 附件内容按 `conversation_id + file_hash` 短时缓存(TTL 10 分钟);生成临时文件注册清理 |
 | `requirements.in` / `.txt` / `-prod.txt` | 新增 `python-pptx>=0.6.21`(由 pip-compile 重生成锁) |
