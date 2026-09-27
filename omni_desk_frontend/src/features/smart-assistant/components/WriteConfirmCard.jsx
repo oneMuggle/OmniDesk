@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import PropTypes from 'prop-types';
-import { Button, Card, Space, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Space, Tag, Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
 import { approveConfirmation, rejectConfirmation, revertWriteLog } from '../api/smartAssistantApi';
 import ToolResult from './ToolResult';
@@ -87,6 +87,7 @@ const WriteConfirmCard = ({ confirmation }) => {
 
   const changes = Array.isArray(preview?.changes) ? preview.changes : [];
   const items = Array.isArray(preview?.items) ? preview.items : [];
+  const warnings = Array.isArray(preview?.warnings) ? preview.warnings.filter(Boolean) : [];
   const affected = preview?.affected_label
     || (preview?.affected_count > 1 ? `共 ${preview.affected_count} 项` : '');
   const canRevert = approved?.reversible && approved?.write_log_id
@@ -141,6 +142,19 @@ const WriteConfirmCard = ({ confirmation }) => {
         <ul style={{ margin: '0 0 6px', paddingLeft: 18 }}>
           {items.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
         </ul>
+      )}
+      {warnings.length > 0 && (
+        <Alert
+          type="warning"
+          showIcon
+          data-testid="write-confirm-warnings"
+          style={{ marginBottom: 6 }}
+          message={warnings.length === 1 ? warnings[0] : (
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {warnings.map((item, index) => <li key={`${index}-${item}`}>{item}</li>)}
+            </ul>
+          )}
+        />
       )}
       {preview?.permission_source && (
         <div style={{ marginBottom: 6 }}>
@@ -214,6 +228,7 @@ WriteConfirmCard.propTypes = {
       reversible: PropTypes.bool,
       risk: PropTypes.string,
       items: PropTypes.arrayOf(PropTypes.string),
+      warnings: PropTypes.arrayOf(PropTypes.string),
     }),
   }),
 };

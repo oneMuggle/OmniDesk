@@ -6,19 +6,19 @@
 
 ## 概览
 
-共 17 个工具集、32 个工具：只读 21 个，写入 10 个，删除 1 个。
+共 17 个工具集、34 个工具：只读 21 个，写入 12 个，删除 1 个。
 
 | 工具集 | 所属 app | 工具（intent） |
 | --- | --- | --- |
 | 人员（`personnel`） | `personnel` | `personnel_query` |
-| 排班与日程（`schedule`） | `events` | `schedule_query`、`event_query`、`swap_request_query`、`swap_request_create`、`swap_request_decide` |
+| 排班与日程（`schedule`） | `events` | `schedule_query`、`event_query`、`swap_request_query`、`swap_request_create`、`swap_request_decide`、`trial_create` |
 | 公文与模板（`documents`） | `documents` | `document_search` |
 | 备忘录（`memos`） | `memos` | `memo_query`、`memo_create`、`memo_update`、`memo_delete` |
 | 项目（`projects`） | `projects` | `project_status` |
 | 合规（`compliance`） | `compliance` | `compliance_query`、`compliance_issue_update_status` |
 | 会议室（`meeting_rooms`） | `meeting_rooms` | `meeting_room_query`、`meeting_room_book`、`meeting_room_cancel` |
 | 传感器（`sensors`） | `sensor_management` | `sensor_query` |
-| 交流与公告（`communication`） | `communication` | `announcement_query`、`communication_thread_query` |
+| 交流与公告（`communication`） | `communication` | `announcement_query`、`communication_thread_query`、`announcement_draft_create` |
 | 新闻（`news`） | `news` | `news_search` |
 | 知识库（`knowledge`） | `smart_assistant` | `knowledge_qa` |
 | 办公文件（`office`） | `smart_assistant` | `office_read`、`spreadsheet_qa`、`office_generate` |
@@ -49,6 +49,7 @@
 | `swap_request_query` | 查询换班申请 | 只读 | 登录即可 | 三级 scope | — | 幂等 | 查询换班申请状态(我发起的 / 我收到的) |
 | `swap_request_create` | 发起换班申请 | 写入 | 登录即可 | 三级 scope | 本人确认 | — | 基于自然语言发起换班/替班申请(接收方决策后生效) |
 | `swap_request_decide` | 处理换班申请 | 写入 | 登录即可 | 三级 scope | 本人确认 | — | 对收到的换班申请做出决策(accept/reject/cancel) |
+| `trial_create` | 创建试验日程 | 写入 | 登录即可 | 同模块接口 | 本人确认 | 可回滚（agent_write_log） | 创建试验日程（含时间段、责任人、设备；写操作，需要确认，可撤销；仅管理员 / HR） |
 
 ### 公文与模板（`documents`）
 
@@ -112,6 +113,7 @@
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | `announcement_query` | 查询公告 | 只读 | 登录即可 | 三级 scope | — | 幂等 | 查询公司公告/通知(communication.Post) |
 | `communication_thread_query` | 查询交流帖子 | 只读 | 登录即可 | 同模块接口 | — | 幂等 | 查询交流区帖子及最近评论（可按关键词、只看我发的帖子筛选） |
+| `announcement_draft_create` | 起草公告（草稿） | 写入 | 登录即可 | 同模块接口 | 本人确认 | 可回滚（agent_write_log） | 起草公司公告（只保存为草稿，由管理员 / HR 在公告管理页发布；写操作，需要确认，可撤销） |
 
 ### 新闻（`news`）
 

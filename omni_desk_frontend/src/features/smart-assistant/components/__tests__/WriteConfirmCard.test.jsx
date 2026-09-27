@@ -131,6 +131,25 @@ describe('WriteConfirmCard', () => {
     expect(await screen.findByTestId('tool-result')).toBeInTheDocument();
   });
 
+  it('显示提示(warnings):单条直接显示,多条列表显示;不影响确认', () => {
+    const { unmount } = render(
+      <WriteConfirmCard confirmation={confirmation({ preview: { ...PREVIEW, warnings: ['保存为草稿，不会通知任何人'] } })} />
+    );
+    expect(screen.getByTestId('write-confirm-warnings')).toHaveTextContent('不会通知任何人');
+    expect(screen.getByRole('button', { name: '确认执行' })).not.toBeDisabled();
+    unmount();
+
+    render(<WriteConfirmCard confirmation={confirmation({ preview: { ...PREVIEW, warnings: ['时段冲突 1', '时段冲突 2'] } })} />);
+    const alert = screen.getByTestId('write-confirm-warnings');
+    expect(alert).toHaveTextContent('时段冲突 1');
+    expect(alert).toHaveTextContent('时段冲突 2');
+  });
+
+  it('没有 warnings 时不显示提示框', () => {
+    render(<WriteConfirmCard confirmation={confirmation()} />);
+    expect(screen.queryByTestId('write-confirm-warnings')).not.toBeInTheDocument();
+  });
+
   it('toConfirmMessage 转换 confirmation 事件,缺 token 返回 null', () => {
     expect(toConfirmMessage({ type: 'confirmation' })).toBeNull();
     const message = toConfirmMessage(

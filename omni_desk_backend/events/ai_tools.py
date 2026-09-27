@@ -3,7 +3,15 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import ConfirmPolicy, DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
+from smart_assistant.capabilities import (
+    LOGIN_ONLY,
+    ROLLBACK_AGENT_WRITE_LOG,
+    ConfirmPolicy,
+    DataScope,
+    QuickPrompt,
+    ToolSpec,
+    toolset,
+)
 
 
 @toolset(
@@ -25,6 +33,7 @@ def schedule_tools():
         SwapRequestDecideTool,
         SwapRequestQueryTool,
     )
+    from smart_assistant.tools.trial_write_tools import TrialCreateTool
 
     return [
         ToolSpec(
@@ -58,5 +67,14 @@ def schedule_tools():
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.SCOPE,
             confirm=ConfirmPolicy.USER,
+        ),
+        ToolSpec(
+            tool=TrialCreateTool,
+            title="创建试验日程",
+            # 与试验接口一致：管理员 / HR（工具内 is_privileged_user 校验）；时段冲突只提示不拦截
+            required_permission=LOGIN_ONLY,
+            data_scope=DataScope.MODULE,
+            confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
     ]

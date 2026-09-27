@@ -41,8 +41,12 @@ def build_preview(
     reversible: bool = True,
     risk: str = "write",
     items: list[str] | None = None,
+    warnings: list[str] | None = None,
 ) -> dict:
-    """生成服务端预览（存入 draft，尚未公开过滤）。"""
+    """生成服务端预览（存入 draft，尚未公开过滤）。
+
+    ``warnings``：需要用户在确认前留意、但不阻止确认的提示（如时段冲突、草稿不会通知）。
+    """
     return {
         "action": action,
         "target": {"type": target_type, "label": target_label},
@@ -53,6 +57,7 @@ def build_preview(
         "reversible": bool(reversible),
         "risk": risk,
         "items": list(items or []),
+        "warnings": list(warnings or []),
     }
 
 
@@ -88,6 +93,7 @@ def public_preview(preview: Any) -> dict | None:
         "reversible": bool(preview.get("reversible")),
         "risk": risk,
         "items": [_text(item) for item in (preview.get("items") or [])[:MAX_ITEMS]],
+        "warnings": [_text(item) for item in (preview.get("warnings") or [])[:MAX_ITEMS] if item],
     }
 
 

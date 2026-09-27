@@ -41,6 +41,19 @@ def fmt_dt(value: datetime | None) -> str:
     return timezone.localtime(value).strftime("%Y-%m-%d %H:%M")
 
 
+def privileged_source(user) -> str | None:
+    """管理员 / HR（``is_privileged_user``）的权限来源文案；不是管理员 / HR 时返回 None。"""
+    from users.permissions import is_privileged_user
+
+    if not is_privileged_user(user):
+        return None
+    if user.is_superuser:
+        return "超级管理员"
+    if user.groups.filter(name="Admin").exists():
+        return "管理员"
+    return "HR（经理组）"
+
+
 class ConfirmedWriteTool(BaseTool):
     risk_level = RISK_LEVEL_WRITE
     require_confirmation = True

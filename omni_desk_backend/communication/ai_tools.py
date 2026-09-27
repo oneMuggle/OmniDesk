@@ -3,7 +3,16 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import DataScope, LOGIN_ONLY, PageContext, QuickPrompt, ToolSpec, toolset
+from smart_assistant.capabilities import (
+    LOGIN_ONLY,
+    ROLLBACK_AGENT_WRITE_LOG,
+    ConfirmPolicy,
+    DataScope,
+    PageContext,
+    QuickPrompt,
+    ToolSpec,
+    toolset,
+)
 from smart_assistant.capabilities.helpers import clamp_limit, context_user, tool_params, truncate
 from smart_assistant.tools.base import BaseTool
 
@@ -158,6 +167,7 @@ def load_post_context(user, record_id):
 )
 def communication_tools():
     from smart_assistant.tools.announcement_tool import AnnouncementTool
+    from smart_assistant.tools.announcement_write_tools import AnnouncementDraftCreateTool
 
     return [
         ToolSpec(
@@ -171,5 +181,14 @@ def communication_tools():
             title="查询交流帖子",
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.MODULE,
+        ),
+        ToolSpec(
+            tool=AnnouncementDraftCreateTool,
+            title="起草公告（草稿）",
+            # 与公告接口一致：管理员 / HR（工具内 is_privileged_user 校验）；只存草稿，由人发布
+            required_permission=LOGIN_ONLY,
+            data_scope=DataScope.MODULE,
+            confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
     ]
