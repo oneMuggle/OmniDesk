@@ -62,6 +62,12 @@ intent_keywords = {
     "project_status": ["项目", "进度", "里程碑", "负责人"],
     "news_search": ["新闻", "通知", "公告"],
     "global_search": ["全局搜索", "跨模块", "所有相关"],
+    # S1 新增只读工具。关键词刻意比通用词更长("未读通知"⊃"通知"、"文档库里"⊃"文档库"),
+    # 由子串重叠消解覆盖 news_search / knowledge_qa 的短词命中,避免误判为多工具。
+    "notification_query": ["未读通知", "我的通知", "站内通知"],
+    "joint_student_query": ["联培生", "联培", "月报"],
+    "communication_thread_query": ["交流区", "帖子"],
+    "document_library_query": ["文档库里", "文档库中", "Paperless", "paperless", "上传的文档"],
     # 换班三分支(P0-1,llm-swap-shift Phase 2)。注:换班是单工具场景,
     # 此处关键词仅参与多工具粗筛,最终路由以 classify_intent 的 LLM 分类为准;
     # 误命中多工具时 TOOL_CHAIN_PROMPT 会让 LLM 返回空数组回退单工具路径。

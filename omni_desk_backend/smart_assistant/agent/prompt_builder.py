@@ -76,6 +76,10 @@ INTENT_PROMPT = """你是一个意图分类器。根据用户的问题，判断�
 如果用户的问题与合规检查、整改项、待办合规问题查询相关，返回 compliance_query
 如果用户的问题与公司内网工具、外链、VPN、Jira 等系统访问地址查询相关，返回 external_link_query
 如果用户想跨模块查找与某个关键词相关的内容、且没有指明具体模块（如"帮我找找和某项目有关的所有内容"），返回 global_search
+如果用户想查看自己的站内通知、未读通知数量（如"我有几条未读通知"），返回 notification_query
+如果用户的问题与联培生、导师名下学生、联培生月报相关，返回 joint_student_query
+如果用户想看交流区帖子的讨论、评论或回复（如"我发的帖子有人回复吗"），返回 communication_thread_query
+如果用户想在文档库（Paperless）中按标题查找已上传的文档，返回 document_library_query
 如果用户想发起换班、替班、调班申请（如"我想和李四换班"），返回 swap_request_create
 如果用户想同意、接受、拒绝收到的换班申请，或撤销自己发起的换班申请（如"同意张三的换班"），返回 swap_request_decide
 如果用户想查询换班申请的状态或进度（如"我收到的换班申请"），返回 swap_request_query
