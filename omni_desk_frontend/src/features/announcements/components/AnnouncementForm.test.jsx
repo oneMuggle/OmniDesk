@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import AnnouncementForm from './AnnouncementForm';
 import apiClient from '../../../shared/api/apiClient';
@@ -30,6 +30,10 @@ const renderAt = (initialPath) =>
           path="/control-panel/announcements/:announcementId/edit"
           element={<AnnouncementForm />}
         />
+        <Route
+          path="/control-panel/announcements/manage"
+          element={<div>公告管理列表</div>}
+        />
       </Routes>
     </MemoryRouter>
   );
@@ -60,5 +64,16 @@ describe('AnnouncementForm', () => {
 
     expect(await screen.findByText('发布新公告')).toBeInTheDocument();
     expect(apiClient.get).not.toHaveBeenCalled();
+  });
+
+  it('保存成功后跳转到真实存在的公告管理页', async () => {
+    apiClient.post.mockResolvedValue({ data: {} });
+    renderAt('/control-panel/announcements/create');
+
+    fireEvent.change(await screen.findByLabelText('标题'), { target: { value: '新公告' } });
+    fireEvent.click(screen.getByRole('button', { name: '发布公告' }));
+
+    expect(await screen.findByText('公告管理列表')).toBeInTheDocument();
+    expect(apiClient.post).toHaveBeenCalledWith('events/announcements/', expect.objectContaining({ title: '新公告' }));
   });
 });

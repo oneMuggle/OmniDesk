@@ -69,3 +69,48 @@ class TestSpreadsheetTool:
     def test_no_sheets_returns_not_found(self):
         result = self.tool.execute("统计", {"history": []})
         assert result["found"] is False
+
+
+def _ctx_with_two_sheets():
+    ctx = _ctx_with_sheets()
+    ctx["attachment"]["sheets"].append(
+        {"name": "设备表", "headers": ["设备", "数量"], "data": [["A", "1"], ["B", "2"], ["C", "3"]]}
+    )
+    return ctx
+
+
+class TestSpreadsheetSheetSelection:
+    def setup_method(self):
+        self.tool = SpreadsheetTool()
+
+    def test_defaults_to_first_sheet(self):
+        result = self.tool.execute("几行", _ctx_with_two_sheets())
+        assert result["stats"]["sheet"] == "人员表"
+        assert result["stats"]["total_rows"] == 2
+
+    def test_sheet_name_param_selects_sheet(self):
+        result = self.tool.execute(None, _ctx_with_two_sheets(), params={"query": "几行", "sheet_name": "设备表"})
+        assert result["found"] is True
+        assert result["stats"]["sheet"] == "设备表"
+        assert result["stats"]["total_rows"] == 3
+
+    def test_unknown_sheet_name_lists_available(self):
+        result = self.tool.execute("几行", _ctx_with_two_sheets(), params={"sheet_name": "不存在"})
+        assert result["found"] is False
+        assert result["available_sheets"] == ["人员表", "设备表"]
+
+    @patch("smart_assistant.tools.spreadsheet_tool.NaturalLanguageQuery")
+    def test_llm_path_receives_selected_sheet(self, mock_cls):
+        mock_cls.return_value.query.return_value = ("ok", {})
+        self.tool.execute("按设备统计", _ctx_with_two_sheets(), params={"sheet_name": "设备表"})
+        payload = mock_cls.return_value.query.call_args[0][1]
+        assert payload["sheets_data"][0]["name"] == "设备表"
+
+    def test_reads_attachment_from_tool_context(self):
+        from unittest.mock import Mock
+
+        from smart_assistant.tools.tool_context import ToolContext
+
+        ctx = ToolContext(user=Mock(), attachment=_ctx_with_two_sheets()["attachment"])
+        result = self.tool.execute("几行", ctx, params={"sheet_name": "设备表"})
+        assert result["stats"]["total_rows"] == 3
