@@ -127,6 +127,35 @@ class TestCacheContextIsolation:
         result = get_cached_answer("查张三", "schedule_query", context_sig="u2_sself")
         assert result is None  # 不同 user 隔离
 
+    def test_same_user_answer_is_not_shared_across_permission_scopes(self, mock_cache_backend):
+        # 降权后不能再命中 GLOBAL 时缓存的完整回答；升权反之亦然。
+        cache_answer("查询记录", "memo_query", "全局机密", context_sig="u1_sglobal")
+        assert get_cached_answer("查询记录", "memo_query", context_sig="u1_sglobal") == "全局机密"
+        assert get_cached_answer("查询记录", "memo_query", context_sig="u1_sself") is None
+        assert get_cached_answer("查询记录", "memo_query", context_sig="u1_sdepartment") is None
+        cache_answer("查询记录", "memo_query", "仅本人", context_sig="u1_sself")
+        assert get_cached_answer("查询记录", "memo_query", context_sig="u1_sself") == "仅本人"
+        assert get_cached_answer("查询记录", "memo_query", context_sig="u1_sglobal") == "全局机密"
+
+    @pytest.mark.parametrize("invalid_sig", ["", "anonymous", "u0_sself", "u1", "u1_sother", None])
+    def test_unscoped_or_anonymous_results_never_use_cache(self, mock_cache_backend, invalid_sig):
+        # 模拟升级前留下的共享工具 key：读取路径必须拒绝，而不是沿用旧数据。
+        mock_cache_backend.set(cache_module._key("tool", "memo_query", "查询记录", invalid_sig), {"found": True})
+        cache_tool_result("memo_query", "查询记录", {"found": True, "secret": "a"}, context_sig=invalid_sig)
+        assert get_cached_tool_result("memo_query", "查询记录", context_sig=invalid_sig) is None
+        cache_answer("查询记录", "memo_query", "共享秘密", context_sig=invalid_sig)
+        assert get_cached_answer("查询记录", "memo_query", context_sig=invalid_sig) is None
+
+    def test_tool_cache_separates_same_user_scopes(self, mock_cache_backend):
+        cache_tool_result("memo_query", "查记录", {"found": True, "secret": "global"}, context_sig="u1_sglobal")
+        assert get_cached_tool_result("memo_query", "查记录", context_sig="u1_sself") is None
+        assert get_cached_tool_result("memo_query", "查记录", context_sig="u1_sglobal")["secret"] == "global"
+
+    def test_old_tool_cache_namespace_is_not_reused_after_deploy(self, mock_cache_backend):
+        old_key = cache_module._key("tool", "memo_query", "查记录", "u1_sself")
+        mock_cache_backend.set(old_key, {"found": True, "secret": "old-result"})
+        assert get_cached_tool_result("memo_query", "查记录", context_sig="u1_sself") is None
+
 
 class TestCacheTTLConstants:
     def test_answer_ttl_is_2_hours(self):

@@ -27,6 +27,16 @@ TOOL_CACHE_TTL = 1800  # 工具结果: 30 分钟
 ANSWER_CACHE_TTL = 7200  # 常见回答: 2 小时
 
 CACHE_PREFIX = "smart_assistant:cache:"
+TOOL_CACHE_NAMESPACE = "tool:scoped:v2"  # Never read pre-hardening tool results.
+
+# Sensitive results must never use an anonymous or unscoped cache namespace.
+# This signature is generated from the authenticated ToolContext, not client input.
+_VALID_CACHE_CONTEXT = re.compile(r"u[1-9][0-9]*_s(?:self|department|global)\Z")
+
+
+def _has_cache_context(context_sig):
+    return isinstance(context_sig, str) and _VALID_CACHE_CONTEXT.fullmatch(context_sig) is not None
+
 
 # 全局缓存版本号,工具代码或缓存 schema 升级时调用 bump_cache_version()
 # 递增后旧缓存自动失效(因 cache key 含本字段)
@@ -75,10 +85,12 @@ def _build_cache_key(
     *,
     tool_call_path: str = "none",
     cache_version: int | None = None,
+    context_sig: str = "",
 ) -> str:
     """构建包含 cache_version + tool_call_path 的缓存键。
 
-    组合 settings 级版本 + 运行时版本 + 业务参数,任一变化即产生新键,
+    组合 settings 级版本 + 运行时版本 + 完整用户/权限范围 + 业务参数,
+    任一变化即产生新键,
     旧缓存自动失效。供 ``cache_answer`` / ``get_cached_answer`` 内部使用,
     也可直接调用以测试版本隔离行为。
 
@@ -90,12 +102,13 @@ def _build_cache_key(
             Task 7 of feat/sa-office-files:A/B 评估期间 native 与 JSON 两条
             路径下的回答缓存必须隔离,避免切换后读到旧路径的脏缓存。
         cache_version: 运行时版本号;默认走全局 ``CACHE_VERSION``,测试时可注入。
+        context_sig: 可信的用户/权限范围签名；回答缓存需要此维度。
 
     Returns:
         带 ``smart_assistant:cache:`` 前缀的 sha256 摘要键
     """
     version = CACHE_VERSION if cache_version is None else cache_version
-    raw = f"{query}|{user_id}|{intent}|{tool_call_path}|{_settings_cache_version()}|v{version}"
+    raw = f"{query}|{user_id}|{intent}|{tool_call_path}|{context_sig}|{_settings_cache_version()}|v{version}"
     return CACHE_PREFIX + hashlib.sha256(raw.encode()).hexdigest()[:32]  # nosec B324 — cache key, not security
 
 
@@ -138,22 +151,22 @@ def get_cached_tool_result(tool_name, query, context_sig=""):
 
     context_sig(Task 17 起):由 orchestrator 从 ToolContext 派生
     ``u<user_pk>_s<scope_value>``,加入 cache key 以实现 per-user/per-scope
-    隔离。未传入时退化为空字符串(保持向后兼容)。
+    隔离。没有有效身份和范围时直接 miss，不读取旧共享缓存。
     """
-    key = _key("tool", tool_name, query, context_sig)
+    if not _has_cache_context(context_sig):
+        return None
+    key = _key(TOOL_CACHE_NAMESPACE, tool_name, query, context_sig)
     return cache.get(key)
 
 
 def cache_tool_result(tool_name, query, result, context_sig=""):
     """缓存工具查询结果。
 
-    context_sig 行为同 ``get_cached_tool_result``。未传入时缓存 key 中
-    ``context_sig`` 为空串,所有用户/所有 scope 共享 — 这是 P0 安全风险,
-    Task 17 后所有调用点都必须传。
+    context_sig 行为同 ``get_cached_tool_result``。未传入时不缓存。
     """
-    if not isinstance(result, dict) or not result.get("found"):
+    if not _has_cache_context(context_sig) or not isinstance(result, dict) or not result.get("found"):
         return  # 仅缓存成功结果
-    key = _key("tool", tool_name, query, context_sig)
+    key = _key(TOOL_CACHE_NAMESPACE, tool_name, query, context_sig)
     cache.set(key, result, TOOL_CACHE_TTL)
 
 
@@ -173,12 +186,15 @@ def get_cached_answer(
     缓存键通过 ``_build_cache_key`` 构建,包含 settings 级 cache_version,
     运维 bump ``SMART_ASSISTANT_CACHE_VERSION`` 即可失效旧缓存。
     """
+    if not _has_cache_context(context_sig):
+        return None
     user_id = _extract_user_id(context_sig)
     key = _build_cache_key(
         query=query,
         user_id=user_id,
         intent=intent,
         tool_call_path=tool_call_path,
+        context_sig=context_sig,
     )
     # history_sig 影响键:不同历史上下文不应共享缓存
     if history_sig:
@@ -199,12 +215,15 @@ def cache_answer(
 
     tool_call_path:与 ``get_cached_answer`` 对称,保证读写使用同一维度。
     """
+    if not _has_cache_context(context_sig):
+        return
     user_id = _extract_user_id(context_sig)
     key = _build_cache_key(
         query=query,
         user_id=user_id,
         intent=intent,
         tool_call_path=tool_call_path,
+        context_sig=context_sig,
     )
     if history_sig:
         key += f":h{hashlib.sha256(history_sig.encode()).hexdigest()[:8]}"  # nosec B324 — cache key, not security

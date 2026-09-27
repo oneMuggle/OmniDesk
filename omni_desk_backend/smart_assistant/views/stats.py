@@ -4,11 +4,11 @@ from django.db.models import Count, Q, Avg, Sum
 from django.db.models.functions import TruncDate
 from rest_framework import viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 from rest_framework import status
 
 from ..models import AgentLog, KnowledgeDataset
+from ..permissions import IsSmartAssistantAdmin
 
 
 MIN_STATS_DAYS = 1
@@ -29,7 +29,7 @@ def _parse_days(request):
 class StatsViewSet(viewsets.ViewSet):
     """运营统计接口"""
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSmartAssistantAdmin]
 
     @action(detail=False, methods=["get"])
     def overview(self, request):

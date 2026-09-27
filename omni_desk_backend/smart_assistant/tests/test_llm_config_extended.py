@@ -124,7 +124,7 @@ class TestLlmEndpointFetchModels(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -198,7 +198,7 @@ class TestLlmEndpointTestEndpoint(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -254,7 +254,7 @@ class TestLlmAppConfigCRUD(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -308,7 +308,9 @@ class TestLlmConfigSecurityBoundaries(TestCase):
     """LLM 全局配置的管理权限与出站请求安全边界。"""
 
     def setUp(self):
-        self.admin = CustomUser.objects.create_user(username="security-admin", password="admin123", is_staff=True)
+        self.admin = CustomUser.objects.create_user(
+            username="security-admin", password="admin123", is_staff=True, is_superuser=True
+        )
         self.user = CustomUser.objects.create_user(username="普通用户", password="user123")
         self.endpoint = LlmEndpoint.objects.create(name="安全测试端点", api_endpoint="https://93.184.216.34", api_key="secret-key", is_active=True)
         self.config = LlmAppConfig.objects.create(app_name="smart_assistant", endpoint=self.endpoint, model_name="test-model", is_active=True)

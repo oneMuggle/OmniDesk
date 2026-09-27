@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..models import AgentLog
+from ..permissions import IsSmartAssistantAdmin
 from ..serializers import AgentLogFeedbackSerializer, AgentLogSerializer
 
 
@@ -13,9 +14,9 @@ class AgentLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
     """Agent 日志审计：列表（支持过滤）+ 详情
 
     归属隔离（防 IDOR）：
-        - 普通用户：仅能 list/retrieve 自己的日志（经 session__user 关联）
-        - staff：保留跨用户审计能力（user_id 过滤参数仅对 staff 生效）
-        - 无主日志（session 为空，失败路径产生）：仅 staff 可见
+        - 普通用户及非 Admin staff：仅能 list/retrieve 自己的日志（经 session__user 关联）
+        - superuser / Admin 组：跨用户审计（user_id 过滤参数仅对管理员生效）
+        - 无主日志（session 为空，失败路径产生）：仅管理员可见
     retrieve / feedback 均受同一归属约束（queryset 限定后越权访问自动 404，
     不泄露他人日志存在性）。
     """
@@ -27,15 +28,14 @@ class AgentLogViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, viewsets
     def get_queryset(self):
         user = self.request.user
 
-        if user.is_staff:
-            # staff 跨用户审计：默认全量，支持 user_id 过滤指定用户
+        if IsSmartAssistantAdmin().has_permission(self.request, self):
+            # 显式授权的管理员跨用户审计；任意 staff 不得因此获全局读取权限。
             qs = AgentLog.objects.all()
             user_id = self.request.query_params.get("user_id")
             if user_id:
                 qs = qs.filter(session__user_id=user_id)
         else:
-            # 普通用户仅可见自己 session 下的日志；
-            # session 为空的无主日志不匹配该过滤，天然对普通用户隐藏
+            # 非管理员仅可见自己 session 下的日志；无主日志天然隐藏。
             qs = AgentLog.objects.filter(session__user=user)
 
         intent = self.request.query_params.get("intent")
