@@ -8,8 +8,11 @@ MeetingRoomBookingSerializer.user 嵌套 UserDetailSerializer,其访问:
 修复前每条 booking 额外产生 3 条查询;修复后 queryset 应一次取齐。
 """
 
+from datetime import timedelta
+
 import pytest
 from django.db import connection
+from django.utils import timezone
 from django.test.utils import CaptureQueriesContext
 from rest_framework.test import APIClient
 
@@ -36,15 +39,17 @@ def booking_owner(db):
 @pytest.fixture
 def bookings(db, booking_owner):
     room = MeetingRoom.objects.create(name="会议室A", capacity=10)
+    # Keep bookings in the future regardless of when the CI runner executes.
+    first_day = timezone.now().replace(hour=9, minute=0, second=0, microsecond=0) + timedelta(days=2)
     return [
         MeetingRoomBooking.objects.create(
             user=booking_owner,
             meeting_room=room,
-            start_time=f"2026-09-0{day}T09:00:00Z",
-            end_time=f"2026-09-0{day}T10:00:00Z",
+            start_time=first_day + timedelta(days=i),
+            end_time=first_day + timedelta(days=i, hours=1),
             title=f"预约{i}",
         )
-        for i, day in enumerate(range(1, 6), start=1)
+        for i in range(5)
     ]
 
 

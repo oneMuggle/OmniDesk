@@ -302,14 +302,24 @@ def test_verify_metadata_is_atomic_write(tmp_path):
     import pytest
     from unittest.mock import patch
 
+    import os
+    from pathlib import Path
+
     output_dir = tmp_path / "batch"
     output_dir.mkdir()
+    original_replace = os.replace
+
+    def fail_metadata_replace(source, destination):
+        # Let pg_dump's atomic rename succeed; fail only the metadata rename.
+        if Path(destination).name == "metadata.json":
+            raise OSError("simulated replace failure")
+        return original_replace(source, destination)
 
     with (
         _patch_postgres_db(),
         patch("subprocess.Popen", side_effect=_popen_router),
         patch("subprocess.run", return_value=_fake_completed(returncode=0, stdout=b"5")),
-        patch("os.replace", side_effect=OSError("simulated replace failure")),
+        patch("os.replace", side_effect=fail_metadata_replace),
         pytest.raises(CommandError) as exc_info,
     ):
         call_command(

@@ -3,6 +3,7 @@
 import json
 from unittest.mock import patch, MagicMock
 
+from django.contrib.auth.models import Group
 from django.test import TestCase
 from rest_framework.test import APIClient
 from rest_framework import status
@@ -426,6 +427,7 @@ class TestAgentLogViewSet(TestCase):
             username='admin',
             password='password123',
             is_staff=True,
+            is_superuser=True,
         )
         self.user = CustomUser.objects.create_user(
             username='testuser',
@@ -524,8 +526,8 @@ class TestAgentLogViewSet(TestCase):
 
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
 
-    def test_orphan_log_visible_to_staff_only(self):
-        """无主日志（session=None）:普通用户不可见,staff 可见."""
+    def test_orphan_log_visible_to_admin_only(self):
+        """无主日志（session=None）:普通用户不可见,管理员可见."""
         self._create_log_for(None, '无主日志', session=None)
 
         # 普通用户:list 中不含无主日志
@@ -534,18 +536,18 @@ class TestAgentLogViewSet(TestCase):
         queries = [item['user_query'] for item in response.data['results']]
         self.assertNotIn('无主日志', queries)
 
-        # staff:list 中可见无主日志（跨用户审计能力）
+        # 管理员:list 中可见无主日志（跨用户审计能力）
         self.client.force_authenticate(user=self.admin)
         response = self.client.get('/api/smart-assistant/agent-logs/')
         queries = [item['user_query'] for item in response.data['results']]
         self.assertIn('无主日志', queries)
 
-    def test_staff_can_filter_by_user_id(self):
-        """staff 跨用户审计:user_id 过滤参数生效."""
+    def test_admin_can_filter_by_user_id(self):
+        """管理员跨用户审计:user_id 过滤参数生效."""
         other = CustomUser.objects.create_user(username='otheruser3', password='password123')
         self._create_log_for(other, '其他用户的问题')
 
-        # client 仍以 self.admin（staff）认证
+        # client 仍以 self.admin（superuser）认证
         response = self.client.get(
             '/api/smart-assistant/agent-logs/',
             {'user_id': other.id},
@@ -569,3 +571,34 @@ class TestAgentLogViewSet(TestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         queries = [item['user_query'] for item in response.data['results']]
         self.assertNotIn('别人的问题', queries)
+
+    def test_non_admin_staff_cannot_audit_other_sessions_or_orphan_logs(self):
+        """后台 staff/Manager 并不因此取得智能助手全局审计权。"""
+        staff = CustomUser.objects.create_user(username='manager_staff', password='password123', is_staff=True)
+        manager, _ = Group.objects.get_or_create(name='Manager')
+        staff.groups.add(manager)
+        own = self._create_log_for(staff, '我自己的问题')
+        other = AgentLog.objects.get(user_query='明天谁值班？')
+        orphan = self._create_log_for(None, '无主日志')
+        self.client.force_authenticate(user=staff)
+
+        response = self.client.get('/api/smart-assistant/agent-logs/', {'user_id': self.user.id})
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual([item['user_query'] for item in response.data['results']], ['我自己的问题'])
+        self.assertEqual(response.data['count'], 1)
+        self.assertEqual(self.client.get(f'/api/smart-assistant/agent-logs/{own.id}/').status_code, 200)
+        self.assertEqual(self.client.get(f'/api/smart-assistant/agent-logs/{other.id}/').status_code, 404)
+        self.assertEqual(self.client.get(f'/api/smart-assistant/agent-logs/{orphan.id}/').status_code, 404)
+
+    def test_admin_group_can_audit_but_cannot_feedback_for_other_user(self):
+        """显式 Admin 组可审计；反馈仍须日志归属本人。"""
+        auditor = CustomUser.objects.create_user(username='audit_admin', password='password123')
+        admin_group, _ = Group.objects.get_or_create(name='Admin')
+        auditor.groups.add(admin_group)
+        log = AgentLog.objects.get(user_query='明天谁值班？')
+        self.client.force_authenticate(user=auditor)
+        self.assertEqual(self.client.get(f'/api/smart-assistant/agent-logs/{log.id}/').status_code, 200)
+        self.assertEqual(
+            self.client.patch(f'/api/smart-assistant/agent-logs/{log.id}/feedback/', {'feedback': 'up'}).status_code,
+            404,
+        )

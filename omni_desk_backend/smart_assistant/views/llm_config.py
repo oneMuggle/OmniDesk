@@ -1,10 +1,10 @@
 import requests as http_requests
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAdminUser
 from rest_framework.response import Response
 
 from ..models import LlmEndpoint, LlmAppConfig
+from ..permissions import IsSmartAssistantAdmin
 from ..ssrf import UnsafeEndpointError, safe_request, validate_endpoint_url
 from ..serializers import (
     LlmEndpointSerializer,
@@ -38,7 +38,7 @@ def _models_url(api_endpoint):
 class LlmEndpointViewSet(viewsets.ModelViewSet):
     """LLM API 端点管理：CRUD + fetch-models"""
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSmartAssistantAdmin]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -178,7 +178,7 @@ class LlmEndpointViewSet(viewsets.ModelViewSet):
 class LlmAppConfigViewSet(viewsets.ModelViewSet):
     """LLM 应用配置管理：为每个应用分配端点+模型+参数"""
 
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsSmartAssistantAdmin]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:

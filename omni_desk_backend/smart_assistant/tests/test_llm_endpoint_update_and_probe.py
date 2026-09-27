@@ -21,7 +21,7 @@ class LlmEndpointUrlNormalizationTests(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -112,7 +112,7 @@ class LlmEndpointUpdateEmptyKeyTests(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
@@ -174,7 +174,7 @@ class LlmEndpointKeyNotEchoedTests(TestCase):
 
     def setUp(self):
         self.user = CustomUser.objects.create_user(
-            username='admin', password='admin123', is_staff=True,
+            username='admin', password='admin123', is_staff=True, is_superuser=True,
         )
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)

@@ -20,6 +20,7 @@
 
 import json
 import time
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -37,6 +38,7 @@ from smart_assistant.hooks.base import (
     get_registry,
 )
 from smart_assistant.hooks.wiring import register_builtin_hooks
+from smart_assistant.scope import SmartAssistantScope
 from smart_assistant.tools.tool_context import ToolContext
 
 
@@ -97,6 +99,7 @@ class TestOrchestratorPiiWiring:
         mock_tool = MagicMock()
         mock_tool.name = "personnel_query"
         mock_tool.require_confirmation = False
+        mock_tool.supports_scope_filter = False
         mock_tool.execute.return_value = {
             "found": True,
             "contact": "联系电话 13812345678",
@@ -105,7 +108,12 @@ class TestOrchestratorPiiWiring:
         mock_registry.get_all_schemas.return_value = [{"name": "personnel_query", "description": "人员查询"}]
         mock_generate.return_value = ("张三的联系电话已返回。", None)
 
-        result = AgentOrchestrator().process("查张三电话")
+        # 缓存不再接受匿名签名；使用带真实用户 ID 和 SELF 范围的上下文。
+        context = ToolContext(
+            user=SimpleNamespace(pk=101, is_authenticated=True, is_staff=False),
+            scope=SmartAssistantScope.SELF,
+        )
+        result = AgentOrchestrator().process("查张三电话", tool_context=context)
 
         # 手机号被掩码(前 3 后 4)
         assert result["tool_result"]["contact"] == "联系电话 138****5678"
@@ -113,7 +121,7 @@ class TestOrchestratorPiiWiring:
 
         # 第二次同 query 命中缓存:缓存写入发生在脱敏之后,
         # 故缓存命中路径同样返回脱敏结果,且工具不再被真实调用
-        result2 = AgentOrchestrator().process("查张三电话")
+        result2 = AgentOrchestrator().process("查张三电话", tool_context=context)
         assert result2["tool_result"]["contact"] == "联系电话 138****5678"
         assert mock_tool.execute.call_count == 1
 
