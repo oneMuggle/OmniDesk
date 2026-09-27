@@ -82,7 +82,7 @@ class ToolRegistry:
         return [tool.get_schema() for tool in cls._tools.values()]
 
     @classmethod
-    def get_openai_tools(cls, user=None) -> list:
+    def get_openai_tools(cls, user=None, read_only: bool = False) -> list:
         """返回当前用户可用、按风险等级排序的 OpenAI tool schema 列表(Task 5)。
 
         用于 orchestrator 直接喂给 LLM 的 ``tools`` 参数。每个 schema 由
@@ -104,6 +104,8 @@ class ToolRegistry:
         参数:
             user: 当前请求用户。可为 ``None`` / ``AnonymousUser`` /
               已认证的 Django ``User``。允许 ``Any`` 是为支持 mock 测试。
+            read_only: 为 True 时只返回 ``risk_level == "read"`` 的工具
+              (S2-2 fanout 并行子任务只允许只读工具)。
 
         返回:
             list[dict]: 已过滤 + 排序 + 校验后的 OpenAI tool schema 列表。
@@ -125,6 +127,9 @@ class ToolRegistry:
                 continue
             # 1b. 能力声明的 required_permission(未声明 / LOGIN_ONLY 放行)
             if not cls.is_permitted(tool, user):
+                continue
+            # 1c. 只读模式:跳过写 / 破坏性工具
+            if read_only and tool.risk_level != RISK_LEVEL_READ:
                 continue
             # 2. 收集 schema(NotImplementedError → warning + skip,向后兼容)
             try:

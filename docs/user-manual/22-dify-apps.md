@@ -1,6 +1,6 @@
 # Dify 应用
 
-> 路径: `/dify-apps`
+> 路径: `/smart-assistant/apps/dify`(智能助手 →「应用」标签;旧地址 `/dify-apps` 自动跳转)
 
 Dify 是一个开源的 LLM 应用编排平台。OmniDesk 通过对接 Dify,把团队内的 AI 应用统一入口,无需单独访问 Dify 控制台。
 

@@ -59,11 +59,14 @@ export const KnowledgeBasePage = lazy(() => import('../features/smart-assistant/
 export const StatsPage = lazy(() => import('../features/smart-assistant/pages/StatsPage'));
 export const AgentTaskPanel = lazy(() => import('../features/smart-assistant/pages/AgentTaskPanel'));
 export const AgentAuditPanel = lazy(() => import('../features/smart-assistant/pages/AgentAuditPanel'));
+// S2-2 AI 入口收敛:智能助手标签页外壳、应用列表、控制台「AI 管理」外壳
+export const SmartAssistantLayout = lazy(() => import('../features/smart-assistant/layout/SmartAssistantLayout'));
+export const AssistantAppsPage = lazy(() => import('../features/smart-assistant/layout/AssistantAppsPage'));
+export const AiManagementLayout = lazy(() => import('../features/admin/pages/AiManagementLayout'));
 export const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
 export const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
 export const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
 export const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
-export const AIShowcasePage = lazy(() => import('../shared/pages/AIShowcasePage'));
 export const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));
 export const IntegrationManagementPage = lazy(() => import('../features/integration-hub/pages/IntegrationManagementPage'));
 export const PluginMarketPage = lazy(() => import('../features/plugin-market/pages/PluginMarketPage'));

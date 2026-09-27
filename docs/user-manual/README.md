@@ -43,7 +43,7 @@
 | 14 | [智能助手 — 5 个高频业务场景](14-smart-assistant-scenarios.md) | 智能助手 5 个高频业务场景的用户视角说明 |
 | 22 | [Dify 应用](22-dify-apps.md) | 浏览/启动 Dify AI 应用 |
 | 23 | [RAGFlow 聊天](23-ragflow-chat.md) | RAGFlow 对话式知识问答 |
-| 24 | [AI 能力展示](24-ai-showcase.md) | 工具列表与调用样例预览 |
+| 24 | [AI 能力展示(已下线)](24-ai-showcase.md) | 已并入智能助手,能力清单见技术文档 46 |
 | 25 | [Office 助手 / 文件分析](25-office-assistant.md) | Office 文件智能解析与内容检索 |
 
 ### 文档库

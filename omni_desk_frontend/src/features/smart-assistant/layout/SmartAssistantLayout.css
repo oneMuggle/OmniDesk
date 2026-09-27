@@ -1,0 +1,37 @@
+/* S2-2 智能助手统一入口:标签栏 + 内容区,整体占满视口高度 */
+.smart-assistant-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  min-height: 0;
+}
+
+.smart-assistant-layout-nav {
+  flex: 0 0 auto;
+  padding: 0 24px;
+  background: #fff;
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.smart-assistant-layout-nav .ant-tabs-nav {
+  margin-bottom: 0;
+}
+
+.smart-assistant-layout-content {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 对话页原本自己占满 100vh,嵌入后改为占满内容区 */
+.smart-assistant-layout-content .smart-chat-container {
+  height: 100%;
+}
+
+.assistant-apps-page {
+  padding: 24px;
+}
+
+.assistant-app-card {
+  height: 100%;
+}

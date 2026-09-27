@@ -18,7 +18,8 @@
 - subtask_runner.py: SubTaskRunner 单子任务执行(重试 / LLM 调用 / 输出解析)
 - pipeline.py: PipelineRunner 流水线编排(依赖排序 / ABORT / SKIP / resume)
 - checkpoint.py: CheckpointManager 检查点持久化 / 暂停 / 恢复
-- fanout.py / hierarchical.py: 另两种执行模式(待抽出)
+- fanout.py: FanoutRunner 只读分层并行(S2-2;层内并发,子任务只能用只读工具)
+- hierarchical.py: 层级模式(待实现,执行器显式拒绝)
 - quality_gate.py: 质量门禁(待实现)
 - recovery.py: Recovery Recipes 故障自愈(待实现)
 - supervisor.py: Supervisor LLM 任务分解(待实现)

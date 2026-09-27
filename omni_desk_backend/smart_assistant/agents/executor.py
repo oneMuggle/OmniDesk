@@ -17,7 +17,7 @@
 5. 最终合成(如果 final_synthesis 存在)
 6. 保存结果到 AgentTask 模型
 
-当前版本仅实现 Pipeline 模式,后续 milestone 添加 Fan-out / Hierarchical。
+已实现 Pipeline 与只读 Fan-out(S2-2,见 fanout.py);Hierarchical 仍显式拒绝。
 """
 
 from __future__ import annotations
@@ -36,6 +36,7 @@ from .dataclasses import (
     SubTaskResult as SubTaskResult,
     TaskResult as TaskResult,
 )  # re-export(兼容 agents.executor 路径,勿删)
+from .fanout import FanoutRunner
 from .pipeline import PipelineRunner
 from .roles import RoleProfile
 from .shared_context import SharedContext
@@ -60,8 +61,7 @@ logger = get_logger(__name__, "smart_assistant")
 class MultiAgentExecutor:
     """多 Agent 协作执行器
 
-    根据 TaskPacket 驱动任务执行,支持 Pipeline / Fan-out / Hierarchical 三种模式。
-    当前版本仅实现 Pipeline 模式。
+    根据 TaskPacket 驱动任务执行。已实现 Pipeline 与只读 Fan-out;Hierarchical 显式拒绝。
 
     Example:
         task_packet = TaskPacket.from_dict(supervisor_output)
@@ -116,6 +116,8 @@ class MultiAgentExecutor:
             user=user,
             context=tool_context,
         )
+        self._user = user
+        self._tool_context = tool_context
         self.checkpoint = CheckpointManager(agent_task_id)  # Plan 3: DB checkpoint 底层
         self.checkpoint.resume_claim_id = resume_claim_id
         self._paused = False  # Plan 3: 暂停标志
@@ -133,6 +135,38 @@ class MultiAgentExecutor:
             persist_subtask=self._persist_subtask_result,
             is_cancelled=lambda: self._persisted_status() == "cancelled",
             is_claim_valid=self._is_resume_claim_valid,
+        )
+        self.fanout_runner = FanoutRunner(
+            task_packet=self.task_packet,
+            context=self.context,
+            event_bus=self.event_bus,
+            runner_factory=self._make_read_only_runner,
+            max_workers=self._fanout_max_workers(),
+            is_paused=lambda: self._paused or self._persisted_status() == "paused",
+            persist_subtask=self._persist_subtask_result,
+            is_cancelled=lambda: self._persisted_status() == "cancelled",
+            is_claim_valid=self._is_resume_claim_valid,
+        )
+
+    @staticmethod
+    def _fanout_max_workers() -> int:
+        from django.conf import settings
+
+        try:
+            return max(1, int(getattr(settings, "SMART_ASSISTANT_FANOUT_MAX_WORKERS", 3)))
+        except (TypeError, ValueError):
+            return 1
+
+    def _make_read_only_runner(self) -> SubTaskRunner:
+        """fanout 子任务专用:独立实例(线程安全) + 只读工具。"""
+        return SubTaskRunner(
+            self.llm_router,
+            self.event_bus,
+            self.MAX_RETRIES,
+            tool_registry=self.tool_registry,
+            user=self._user,
+            context=self._tool_context,
+            read_only_tools=True,
         )
 
     def _persisted_status(self) -> str | None:
@@ -162,7 +196,7 @@ class MultiAgentExecutor:
         try:
             mode_result = self._execute_by_mode()
             if isinstance(mode_result, TaskResult):
-                # FANOUT / HIERARCHICAL 模式:显式拒绝
+                # HIERARCHICAL 模式:显式拒绝
                 return mode_result
             subtask_results = mode_result
 
@@ -193,14 +227,10 @@ class MultiAgentExecutor:
         if self.task_packet.execution_mode == ExecutionMode.PIPELINE:
             return self._execute_pipeline()
         elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
+            return self._execute_fanout()
+        elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
             # P0-J:未实现模式显式拒绝(rejected 与真实执行失败 failed 区分),
             # 不再抛 NotImplementedError 混入异常路径
-            return TaskResult(
-                task_id=self.task_packet.task_id,
-                status="rejected",
-                error_message="fanout 模式尚未实现,请使用 pipeline 模式",
-            )
-        elif self.task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
             return TaskResult(
                 task_id=self.task_packet.task_id,
                 status="rejected",
@@ -265,8 +295,17 @@ class MultiAgentExecutor:
         """
         return self.pipeline_runner.run(resume_mode=resume_mode)
 
+    def _execute_fanout(self, resume_mode: bool = False) -> list[SubTaskResult]:
+        """只读 Fan-out:按依赖分层,层内并行(委托 FanoutRunner)"""
+        return self.fanout_runner.run(resume_mode=resume_mode)
+
     def _run_subtask_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
-        """运行单个 subtask,支持重试(委托 SubTaskRunner)"""
+        """运行单个 subtask,支持重试(委托 SubTaskRunner)
+
+        fanout 任务的 final_synthesis 同样只允许只读工具,整个 fanout 任务不产生写操作。
+        """
+        if self.task_packet.execution_mode == ExecutionMode.FANOUT:
+            return self._make_read_only_runner().run_with_retry(subtask, ctx)
         return self.subtask_runner.run_with_retry(subtask, ctx)
 
     def _run_subtask(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
@@ -453,12 +492,13 @@ class MultiAgentExecutor:
         self.event_bus.emit("task.resumed", {"task_id": self.task_packet.task_id})
 
         try:
-            # 只执行 PIPELINE 模式(resume 暂不支持其他模式)
-            if self.task_packet.execution_mode != ExecutionMode.PIPELINE:
-                raise ValueError(f"resume 仅支持 PIPELINE 模式,当前: {self.task_packet.execution_mode}")
-
-            # 执行 pipeline,自动跳过已完成的 subtask
-            subtask_results = self._execute_pipeline(resume_mode=True)
+            # 恢复支持 PIPELINE / FANOUT,自动跳过已完成的 subtask
+            if self.task_packet.execution_mode == ExecutionMode.PIPELINE:
+                subtask_results = self._execute_pipeline(resume_mode=True)
+            elif self.task_packet.execution_mode == ExecutionMode.FANOUT:
+                subtask_results = self._execute_fanout(resume_mode=True)
+            else:
+                raise ValueError(f"resume 仅支持 PIPELINE / FANOUT 模式,当前: {self.task_packet.execution_mode}")
             if self.resume_claim_id is not None and not self._is_resume_claim_valid():
                 return TaskResult(
                     task_id=self.task_packet.task_id,

@@ -18,6 +18,13 @@ export const ADMIN_OR_MANAGER = Object.freeze(['admin', 'manager']);
 
 const withAdmin = (...codes) => Object.freeze(['admin', ...codes]);
 
+/** S2-2 并入「AI 管理」的旧页面路径(用户组页面授权里可能存有这些值)。 */
+const LEGACY_AI_PAGE_GRANTS = Object.freeze([
+  '/smart-assistant/stats',
+  '/control-panel/smart-assistant/audit',
+  '/control-panel/ai-apps',
+]);
+
 /** key 为相对 /control-panel 的路由模式(与 routes/index.jsx 中的 path 一致)。 */
 export const ADMIN_ROUTE_PERMISSIONS = Object.freeze({
   personnel: withAdmin('personnel.view_personnel'),
@@ -40,9 +47,15 @@ export const ADMIN_ROUTE_PERMISSIONS = Object.freeze({
   ebooks: withAdmin('documents.view_ebook'),
   'external-links/manage': ADMIN_ONLY,
   'news/stats': ADMIN_ONLY,
+  // 旧地址(S2-2 起重定向到 ai/*),保留以兼容已有的用户组页面授权
   'smart-assistant/audit': ADMIN_ONLY,
   'system-update': ADMIN_ONLY,
   'ai-apps': ADMIN_ONLY,
+  // S2-2「AI 管理」:同时接受旧页面路径的用户组授权,迁移后已授权的人不会失去访问
+  ai: withAdmin(...LEGACY_AI_PAGE_GRANTS),
+  'ai/stats': withAdmin('/smart-assistant/stats'),
+  'ai/audit': withAdmin('/control-panel/smart-assistant/audit'),
+  'ai/apps': withAdmin('/control-panel/ai-apps'),
   'external-links': ADMIN_OR_MANAGER,
   'integration-hub': ADMIN_OR_MANAGER,
   'integration-hub/manage': ADMIN_ONLY,
@@ -72,9 +85,8 @@ export const ADMIN_INDEX_CANDIDATES = Object.freeze([
   'meeting-rooms',
   'schedule/holiday',
   'projects',
-  'smart-assistant/audit',
+  'ai',
   'system-update',
-  'ai-apps',
   'external-links',
   'integration-hub',
   'plugin-market',

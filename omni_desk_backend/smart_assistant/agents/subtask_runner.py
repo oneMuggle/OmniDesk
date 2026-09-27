@@ -21,6 +21,7 @@ from django.conf import settings
 from observability import get_logger
 
 from smart_assistant.tools.tool_context import ToolContext
+from smart_assistant.tools.base import RISK_LEVEL_READ
 from smart_assistant.scope import resolve_scope
 
 from smart_assistant.agent.native_tool_runner import execute_native_tool
@@ -59,6 +60,7 @@ class SubTaskRunner:
         user: Any | None = None,
         context: ToolContext | None = None,
         max_tool_call_rounds: int | None = None,
+        read_only_tools: bool = False,
     ):
         self._llm_router = llm_router
         self._event_bus = event_bus
@@ -69,6 +71,8 @@ class SubTaskRunner:
         self._max_tool_call_rounds = max_tool_call_rounds
         self._tool_call_count = 0
         self._pending_confirmation: dict | None = None
+        # S2-2:fanout 并行子任务只允许只读工具(schema 过滤 + 执行时拒绝,双重保证)
+        self._read_only_tools = read_only_tools
 
     def run_with_retry(self, subtask: SubTask, ctx: SharedContext) -> SubTaskResult:
         """运行单个 subtask,支持重试
@@ -307,7 +311,10 @@ class SubTaskRunner:
         )
         if tool_context.user is not user or tool_context.scope != resolve_scope(user):
             raise ValueError("工具上下文不可信")
-        tool_schemas = self._tool_registry.get_openai_tools(user)
+        if self._read_only_tools:
+            tool_schemas = self._tool_registry.get_openai_tools(user, read_only=True)
+        else:
+            tool_schemas = self._tool_registry.get_openai_tools(user)
         max_rounds = self._max_tool_call_rounds
         if max_rounds is None:
             max_rounds = int(getattr(settings, "MAX_TOOL_CALLS_ROUNDS", 3))
@@ -386,6 +393,9 @@ class SubTaskRunner:
         tool = self._tool_registry.get_tool_for_user(name, self._user)
         if tool is None:
             return {"error": "tool_unavailable"}
+        if self._read_only_tools and getattr(tool, "risk_level", None) != RISK_LEVEL_READ:
+            logger.warning("fanout 子任务尝试调用非只读工具,已拒绝: %s", self._safe_text(name))
+            return {"error": "tool_not_allowed_in_fanout"}
         try:
             validated = tool.validate_arguments(arguments)
         except Exception:

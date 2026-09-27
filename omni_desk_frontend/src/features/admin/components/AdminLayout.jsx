@@ -37,9 +37,8 @@ const allAdminMenuItems = [
   { to: "/control-panel/meeting-rooms", icon: SettingOutlined, text: "会议室管理", permission: requiredForAdminRoute("meeting-rooms") },
   { to: "/control-panel/schedule/holiday", icon: CalendarOutlined, text: "节假日管理", permission: requiredForAdminRoute("schedule/holiday") },
   { to: "/control-panel/projects", icon: ProjectOutlined, text: "项目管理", permission: requiredForAdminRoute("projects") },
-  { to: "/control-panel/smart-assistant/audit", icon: FileTextOutlined, text: "Agent 审计", permission: requiredForAdminRoute("smart-assistant/audit") },
+  { to: "/control-panel/ai", icon: RobotOutlined, text: "AI 管理", permission: requiredForAdminRoute("ai"), matchPrefix: true },
   { to: "/control-panel/system-update", icon: CloudUploadOutlined, text: "系统更新", permission: requiredForAdminRoute("system-update") },
-  { to: "/control-panel/ai-apps", icon: RobotOutlined, text: "AI 应用管理", permission: requiredForAdminRoute("ai-apps") },
   { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: "admin" },
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];
@@ -123,7 +122,7 @@ const AdminLayout = () => {
                   ) : (
                     <Link
                       to={item.to}
-                      className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+                      className={`menu-item ${location.pathname === item.to || (item.matchPrefix && location.pathname.startsWith(`${item.to}/`)) ? 'active' : ''}`}
                       title={isCollapsed ? item.text : ''}
                     >
                       <div className="menu-item-content">

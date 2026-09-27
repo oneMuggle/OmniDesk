@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import json
 import re
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
@@ -216,7 +217,9 @@ class SharedContext:
         """
         if count < 0:
             raise ValueError(f"Token 消耗数不能为负,收到 {count}")
-        self.token_budget_used += count
+        # S2-2 fanout:多个子任务线程会同时记账,读-改-写需加锁
+        with self.__dict__.setdefault("_budget_lock", threading.Lock()):
+            self.token_budget_used += count
 
     def remaining_budget(self) -> int:
         """返回剩余 Token 预算"""

@@ -11,6 +11,7 @@ MultiAgentExecutor 使用的数据类定义:
 
 from __future__ import annotations
 
+import threading
 from dataclasses import dataclass, field
 from datetime import datetime
 
@@ -101,15 +102,21 @@ class EventBus:
 
     def __init__(self):
         self._events: list[Event] = []
+        self._emit_lock = threading.RLock()
+
+    def _get_emit_lock(self) -> threading.RLock:
+        # 子类未调用 super().__init__() 时也能拿到锁(dict.setdefault 在 GIL 下原子)
+        return self.__dict__.setdefault("_emit_lock", threading.RLock())
 
     def emit(self, event_type: str, payload: dict | None = None) -> None:
-        """发出事件"""
-        self._events.append(
-            Event(
-                event_type=event_type,
-                payload=payload or {},
+        """发出事件(线程安全:S2-2 fanout 并行子任务会从多个线程发事件)"""
+        with self._get_emit_lock():
+            self._events.append(
+                Event(
+                    event_type=event_type,
+                    payload=payload or {},
+                )
             )
-        )
 
     def get_events(self, since: datetime | None = None) -> list[Event]:
         """获取事件列表(可选过滤时间)"""
@@ -138,17 +145,19 @@ class PersistentEventBus(EventBus):
     def emit(self, event_type: str, payload: dict | None = None) -> None:
         """发出内存事件，并尝试写入任务事件表。"""
         event_payload = dict(payload or {})
-        super().emit(event_type, event_payload)
-        try:
-            self._persist(event_type, event_payload)
-        except Exception:
-            self.persistence_failure_count += 1
-            logger.warning(
-                "智能助手事件持久化失败: event_type=%s task_id=%s",
-                event_type,
-                self.agent_task_id,
-                exc_info=True,
-            )
+        # 整个"内存追加 + 取序号写库"串行化,避免并行子任务拿到相同的 sequence
+        with self._get_emit_lock():
+            super().emit(event_type, event_payload)
+            try:
+                self._persist(event_type, event_payload)
+            except Exception:
+                self.persistence_failure_count += 1
+                logger.warning(
+                    "智能助手事件持久化失败: event_type=%s task_id=%s",
+                    event_type,
+                    self.agent_task_id,
+                    exc_info=True,
+                )
 
     def _persist(self, event_type: str, payload: dict) -> None:
         if not self.agent_task_id:

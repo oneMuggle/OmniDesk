@@ -1,6 +1,7 @@
 import PropTypes from 'prop-types';
 import { Link } from 'react-router-dom';
 import { Tooltip } from 'antd';
+import { isMenuItemActive } from './sidebarMenuItems';
 
 /**
  * 链接型菜单项渲染 + collapsed Tooltip + active 态。
@@ -17,9 +18,9 @@ const SidebarLinkItem = ({ item, isCollapsed, isMobileMenuOpen, location, onClos
   const link = (
     <Link
       to={item.to}
-      className={`menu-item ${location.pathname === item.to ? 'active' : ''}`}
+      className={`menu-item ${isMenuItemActive(location.pathname, item) ? 'active' : ''}`}
       role="menuitem"
-      aria-current={location.pathname === item.to ? 'page' : undefined}
+      aria-current={isMenuItemActive(location.pathname, item) ? 'page' : undefined}
       onClick={() => isMobileMenuOpen && onCloseMobile()}
     >
       {linkContent}
@@ -45,6 +46,7 @@ SidebarLinkItem.propTypes = {
     icon: PropTypes.elementType.isRequired,
     text: PropTypes.string.isRequired,
     permission: PropTypes.oneOfType([PropTypes.string, PropTypes.array]),
+    matchPrefix: PropTypes.bool,
   }).isRequired,
   isCollapsed: PropTypes.bool,
   isMobileMenuOpen: PropTypes.bool,

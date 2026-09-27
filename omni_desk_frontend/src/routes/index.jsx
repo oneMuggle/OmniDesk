@@ -5,6 +5,8 @@ import App from '../App';
 import AdminAppWrapper from '../AdminAppWrapper';
 import LazyComponent from './LazyComponent';
 import AdminIndexRedirect from '../features/admin/components/AdminIndexRedirect';
+import AiManagementIndex from '../features/admin/components/AiManagementIndex';
+import LegacyRedirect from './LegacyRedirect';
 import {
   ADMIN_ENTRY_PERMISSIONS,
   getAdminRoutePermissions,
@@ -16,9 +18,10 @@ import {
   AgentAuditPanel,
   AgentTaskPanel,
   AiAppManagementPage,
-  AIShowcasePage,
+  AiManagementLayout,
   AnnouncementForm,
   AnnouncementsPage,
+  AssistantAppsPage,
   BookPage,
   BookReaderPage,
   ChapterEditorPage,
@@ -72,6 +75,7 @@ import {
   SensorDetailPage,
   SensorListPage,
   ShiftScheduleContainer,
+  SmartAssistantLayout,
   SmartChatPage,
   StatsPage,
   SyncStatusPage,
@@ -227,9 +231,29 @@ const router = createBrowserRouter([
             path: "news/stats",
             element: <ProtectedRoute pagePath="/control-panel/news/stats" permissions={getAdminRoutePermissions("news/stats")} pageName="新闻统计"><LazyComponent component={NewsStatsPage} /></ProtectedRoute>
           },
+          // S2-2:旧地址重定向到「AI 管理」(守卫保留,权限与改动前一致)
           {
             path: "smart-assistant/audit",
-            element: <ProtectedRoute pagePath="/control-panel/smart-assistant/audit" permissions={getAdminRoutePermissions("smart-assistant/audit")} pageName="智能助手审计"><LazyComponent component={AgentAuditPanel} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/smart-assistant/audit" permissions={getAdminRoutePermissions("smart-assistant/audit")} pageName="智能助手审计"><LegacyRedirect to="/control-panel/ai/audit" /></ProtectedRoute>
+          },
+          {
+            path: "ai",
+            element: <ProtectedRoute pagePath="/control-panel/ai" permissions={getAdminRoutePermissions("ai")} pageName="AI 管理"><LazyComponent component={AiManagementLayout} /></ProtectedRoute>,
+            children: [
+              { index: true, element: <AiManagementIndex /> },
+              {
+                path: "stats",
+                element: <ProtectedRoute pagePath="/control-panel/ai/stats" permissions={getAdminRoutePermissions("ai/stats")} pageName="AI 使用统计"><LazyComponent component={StatsPage} /></ProtectedRoute>
+              },
+              {
+                path: "audit",
+                element: <ProtectedRoute pagePath="/control-panel/ai/audit" permissions={getAdminRoutePermissions("ai/audit")} pageName="Agent 审计"><LazyComponent component={AgentAuditPanel} /></ProtectedRoute>
+              },
+              {
+                path: "apps",
+                element: <ProtectedRoute pagePath="/control-panel/ai/apps" permissions={getAdminRoutePermissions("ai/apps")} pageName="AI 应用配置"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
+              },
+            ]
           },
           {
             path: "system-update",
@@ -237,7 +261,7 @@ const router = createBrowserRouter([
           },
           {
             path: "ai-apps",
-            element: <ProtectedRoute pagePath="/control-panel/ai-apps" permissions={getAdminRoutePermissions("ai-apps")} pageName="AI 应用"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
+            element: <ProtectedRoute pagePath="/control-panel/ai-apps" permissions={getAdminRoutePermissions("ai-apps")} pageName="AI 应用"><LegacyRedirect to="/control-panel/ai/apps" /></ProtectedRoute>
           },
           {
             path: "external-links",
@@ -319,46 +343,56 @@ const router = createBrowserRouter([
         path: "books/:bookId/editor",
         element: <ProtectedRoute pagePath="/books/:bookId/editor" pageName="章节编辑器"><LazyComponent component={ChapterEditorPage} /></ProtectedRoute>
       },
+      // S2-2 AI 入口收敛:智能助手 =「对话 / 任务 / 应用」标签页
       {
         path: "smart-assistant",
-        element: <ProtectedRoute pagePath="/smart-assistant" pageName="智能助手"><LazyComponent component={SmartChatPage} /></ProtectedRoute>
-      },
-      {
-        path: "smart-assistant/stats",
-        element: <ProtectedRoute pagePath="/smart-assistant/stats" pageName="智能助手统计"><LazyComponent component={StatsPage} /></ProtectedRoute>
-      },
-      {
-        path: "smart-assistant/tasks",
-        element: <ProtectedRoute pagePath="/smart-assistant/tasks" pageName="多Agent任务"><LazyComponent component={AgentTaskPanel} /></ProtectedRoute>
+        element: <ProtectedRoute pagePath="/smart-assistant" pageName="智能助手"><LazyComponent component={SmartAssistantLayout} /></ProtectedRoute>,
+        children: [
+          { index: true, element: <LazyComponent component={SmartChatPage} /> },
+          {
+            path: "tasks",
+            element: <ProtectedRoute pagePath="/smart-assistant/tasks" pageName="多Agent任务"><LazyComponent component={AgentTaskPanel} /></ProtectedRoute>
+          },
+          {
+            path: "apps",
+            element: <ProtectedRoute pagePath="/smart-assistant/apps" pageName="AI 应用"><LazyComponent component={AssistantAppsPage} /></ProtectedRoute>
+          },
+          {
+            path: "apps/dify",
+            element: <ProtectedRoute pagePath="/dify-apps" pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
+          },
+          {
+            path: "apps/dify/:appId",
+            element: <ProtectedRoute pagePath="/dify-apps/:appId" pageName="Dify应用详情"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
+          },
+          {
+            path: "apps/ragflow",
+            element: <ProtectedRoute pagePath="/ragflow-chat" pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
+          },
+          {
+            path: "apps/office",
+            element: <ProtectedRoute pagePath="/office-assistant" pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
+          },
+          {
+            path: "apps/file-analysis",
+            element: <ProtectedRoute pagePath="/file-analysis" pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
+          },
+          { path: "apps/*", element: <Navigate to="/smart-assistant/apps" replace /> },
+          // 统计已移到控制台「AI 管理」
+          { path: "stats", element: <LegacyRedirect to="/control-panel/ai/stats" /> },
+        ]
       },
       {
         path: "knowledge-base",
         element: <ProtectedRoute pagePath="/knowledge-base" pageName="知识库管理"><LazyComponent component={KnowledgeBasePage} /></ProtectedRoute>
       },
-      {
-        path: "ragflow-chat",
-        element: <ProtectedRoute pagePath="/ragflow-chat" pageName="Ragflow聊天"><LazyComponent component={RagflowChatPage} /></ProtectedRoute>
-      },
-      {
-        path: "ai-showcase",
-        element: <ProtectedRoute pagePath="/ai-showcase" pageName="AI能力展示"><LazyComponent component={AIShowcasePage} /></ProtectedRoute>
-      },
-      {
-        path: "dify-apps",
-        element: <ProtectedRoute pagePath="/dify-apps" pageName="Dify应用"><LazyComponent component={DifyAppList} /></ProtectedRoute>
-      },
-      {
-        path: "dify-apps/:appId",
-        element: <ProtectedRoute pagePath="/dify-apps/:appId" pageName="Dify应用详情"><LazyComponent component={DifyAppViewer} /></ProtectedRoute>
-      },
-      {
-        path: "office-assistant",
-        element: <ProtectedRoute pagePath="/office-assistant" pageName="Office助手"><LazyComponent component={OfficeAssistant} /></ProtectedRoute>
-      },
-      {
-        path: "file-analysis",
-        element: <ProtectedRoute pagePath="/file-analysis" pageName="文件分析"><LazyComponent component={FileAnalysisPage} /></ProtectedRoute>
-      },
+      // S2-2:旧 AI 页面地址重定向(保留查询参数)
+      { path: "ragflow-chat", element: <LegacyRedirect to="/smart-assistant/apps/ragflow" /> },
+      { path: "dify-apps", element: <LegacyRedirect to="/smart-assistant/apps/dify" /> },
+      { path: "dify-apps/:appId", element: <LegacyRedirect to="/smart-assistant/apps/dify/:appId" /> },
+      { path: "office-assistant", element: <LegacyRedirect to="/smart-assistant/apps/office" /> },
+      { path: "file-analysis", element: <LegacyRedirect to="/smart-assistant/apps/file-analysis" /> },
+      { path: "ai-showcase", element: <LegacyRedirect to="/smart-assistant" /> },
       {
         path: "memos",
         element: <ProtectedRoute pagePath="/memos" pageName="备忘录"><LazyComponent component={MemoPage} /></ProtectedRoute>

@@ -85,9 +85,9 @@ class Supervisor:
                 # 4. 构造 TaskPacket
                 task_packet = TaskPacket.from_dict(data)
 
-                # 4.5 P0-J:执行模式校验 —— fanout/hierarchical 尚未实现,
-                # 直接拒绝,避免把不可执行的 TaskPacket 交给 executor
-                if task_packet.execution_mode in (ExecutionMode.FANOUT, ExecutionMode.HIERARCHICAL):
+                # 4.5 P0-J:执行模式校验 —— hierarchical 尚未实现,直接拒绝,
+                # 避免把不可执行的 TaskPacket 交给 executor(fanout 自 S2-2 起支持,只读)
+                if task_packet.execution_mode == ExecutionMode.HIERARCHICAL:
                     raise ValidationError(f"{task_packet.execution_mode.value} mode not yet implemented")
 
                 return task_packet
@@ -170,10 +170,15 @@ class Supervisor:
 可用的专业角色:
 {available_roles}
 
+执行模式怎么选:
+- fanout:子任务彼此独立、只查询不修改(例如同时查排班、会议室、项目成员),会并行执行,
+  执行中只能使用只读工具;最后用 final_synthesis 汇总
+- pipeline:后一步要用前一步的结果,或任何一步需要创建 / 修改 / 删除数据时,必须用 pipeline
+
 你必须输出严格的 JSON 格式,包含以下字段:
 {{
     "objective": "总目标(用户查询的提炼)",
-    "execution_mode": "pipeline 或 fanout 或 hierarchical",
+    "execution_mode": "pipeline 或 fanout",
     "subtasks": [
         {{
             "id": "唯一标识(字母/数字/下划线/短横线)",

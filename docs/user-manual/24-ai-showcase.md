@@ -1,6 +1,8 @@
-# AI 能力展示
+# AI 能力展示(已下线)
 
-> 路径: `/ai-showcase`
+> ⚠️ 本页面已于 2026-09 下线(S2-2 AI 入口收敛),旧地址 `/ai-showcase` 自动跳转到智能助手。当前 AI 能力的完整清单见 `docs/technical/46-ai-capability-catalog.md`(由 `python manage.py ai_capabilities --write` 自动生成)。以下内容仅作历史参考。
+
+> 原路径: `/ai-showcase`
 
 把 OmniDesk 内置的全部 AI 能力以"工具"为单位集中展示,方便新用户体验、也让开发者快速理解能力边界。
 

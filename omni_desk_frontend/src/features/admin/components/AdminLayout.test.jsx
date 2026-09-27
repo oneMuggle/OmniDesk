@@ -47,6 +47,13 @@ describe('AdminLayout', () => {
     expect(screen.getByText('传感器管理')).toBeInTheDocument();
   });
 
+  it('AI 相关菜单合并为「AI 管理」,子页面时保持高亮(S2-2)', () => {
+    renderWithRouter(<AdminLayout />, { initialEntries: ['/control-panel/ai/audit'] });
+    expect(screen.getByRole('link', { name: /AI 管理/ })).toHaveClass('active');
+    expect(screen.queryByText('Agent 审计')).not.toBeInTheDocument();
+    expect(screen.queryByText('AI 应用管理')).not.toBeInTheDocument();
+  });
+
   it('collapses sidebar when toggle button is clicked', async () => {
     const user = userEvent.setup();
     renderWithRouter(<AdminLayout />);

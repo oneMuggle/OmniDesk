@@ -32,7 +32,7 @@ const DifyAppList = () => {
     }, []);
 
     const handleAppClick = (appId) => {
-        navigate(`/dify-apps/${appId}`);
+        navigate(`/smart-assistant/apps/dify/${appId}`);
     };
 
     const getAppIcon = (appName) => {
