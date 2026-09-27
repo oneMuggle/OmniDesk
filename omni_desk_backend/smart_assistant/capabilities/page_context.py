@@ -8,14 +8,15 @@
 
 from __future__ import annotations
 
-import logging
 import re
 from typing import Any
+
+from observability import get_logger
 
 from .registry import capabilities
 from .spec import import_ref
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__, "smart_assistant")
 
 #: ``page_route`` 最大长度
 PAGE_ROUTE_MAX = 200
