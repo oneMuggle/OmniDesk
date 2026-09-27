@@ -12,6 +12,7 @@ from django.core.exceptions import ImproperlyConfigured
 
 from .spec import (
     LOGIN_ONLY,
+    ROLLBACK_POLICIES,
     TOOLSET_MARKER,
     ConfirmPolicy,
     DataScope,
@@ -110,6 +111,7 @@ def _strict_schema_errors(node: Any, path: str) -> list[str]:
 def validate_spec(spec: ToolSpec, tool: BaseTool) -> list[str]:
     """返回该声明的全部问题（空列表表示通过）。规则见实施计划"启动自检"。"""
     from smart_assistant.tools.base import (
+        RISK_LEVEL_DESTRUCTIVE,
         RISK_LEVEL_READ,
         VALID_RISK_LEVELS,
         BaseTool as _BaseTool,
@@ -144,6 +146,10 @@ def validate_spec(spec: ToolSpec, tool: BaseTool) -> list[str]:
             errors.append(f"{risk} 工具必须声明 confirm（当前为 none）")
         if not tool.require_confirmation:
             errors.append(f"{risk} 工具的 require_confirmation 必须为 True，与 confirm 声明一致")
+        if risk == RISK_LEVEL_DESTRUCTIVE and not spec.feature_flag:
+            errors.append("destructive 工具必须声明 feature_flag（删除类能力默认关闭）")
+    if spec.rollback is not None and spec.rollback not in ROLLBACK_POLICIES:
+        errors.append(f"rollback 取值无效: {spec.rollback!r}（可选 {sorted(ROLLBACK_POLICIES)}）")
 
     if spec.data_scope == DataScope.SCOPE:
         cls = type(tool)

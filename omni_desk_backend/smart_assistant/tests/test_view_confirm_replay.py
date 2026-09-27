@@ -100,7 +100,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            "smart_assistant.tools.registry.ToolRegistry.get_tool_for_user",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -146,7 +146,7 @@ class TestReplaySuccess:
 
         api_client.force_authenticate(user=mock_user)
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            "smart_assistant.tools.registry.ToolRegistry.get_tool_for_user",
             return_value=SensitiveReplayTool(),
         ):
             response = api_client.post(
@@ -182,7 +182,7 @@ class TestReplaySuccess:
         api_client.force_authenticate(user=mock_user)
 
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            "smart_assistant.tools.registry.ToolRegistry.get_tool_for_user",
             return_value=_MockReplayTool(),
         ):
             response = api_client.post(
@@ -256,12 +256,12 @@ class TestReplayFailure:
         api_client.force_authenticate(user=mock_user)
         tool = _MockReplayTool()
         with (
-            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch("smart_assistant.writes.confirmations.get_confirmation_draft", return_value=draft),
             patch(
-                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                "smart_assistant.writes.confirmations.consume_confirmation_draft",
                 side_effect=RuntimeError("cache unavailable"),
             ),
-            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user", return_value=tool),
+            patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=tool),
             patch.object(tool, "execute") as execute,
         ):
             response = api_client.post(
@@ -288,12 +288,12 @@ class TestReplayFailure:
         api_client.force_authenticate(user=mock_user)
         tool = _MockReplayTool()
         with (
-            patch("smart_assistant.views.chat_sync.get_confirmation_draft", return_value=draft),
+            patch("smart_assistant.writes.confirmations.get_confirmation_draft", return_value=draft),
             patch(
-                "smart_assistant.views.chat_sync.consume_confirmation_draft",
+                "smart_assistant.writes.confirmations.consume_confirmation_draft",
                 return_value=None,
             ),
-            patch("smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user", return_value=tool),
+            patch("smart_assistant.tools.registry.ToolRegistry.get_tool_for_user", return_value=tool),
             patch.object(tool, "execute") as execute,
         ):
             response = api_client.post(
@@ -323,7 +323,7 @@ class TestReplayFailure:
 
         # ToolRegistry.get_tool 返回 None
         with patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            "smart_assistant.tools.registry.ToolRegistry.get_tool_for_user",
             return_value=None,
         ):
             response = api_client.post(

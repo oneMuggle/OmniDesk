@@ -461,3 +461,58 @@ class MemoDeleteTool(BaseTool):
         if user is None:
             return qs.none()
         return qs.filter(user=user)
+
+
+def memo_snapshot(memo) -> dict:
+    """备忘录的可比对快照（写日志 before / after 与撤销校验共用）。"""
+    return {
+        "title": memo.title,
+        "content": memo.content,
+        "reminder_time": str(memo.reminder_time) if memo.reminder_time else None,
+        "is_deleted": memo.is_deleted,
+        "deleted_at": memo.deleted_at.isoformat() if memo.deleted_at else None,
+    }
+
+
+def _apply_memo_snapshot(memo, snapshot):
+    memo.title = snapshot.get("title", memo.title)
+    memo.content = snapshot.get("content", memo.content)
+    memo.is_deleted = snapshot.get("is_deleted", memo.is_deleted)
+    deleted_at = snapshot.get("deleted_at")
+    if memo.is_deleted:
+        memo.deleted_at = timezone.datetime.fromisoformat(deleted_at) if deleted_at else timezone.now()
+    else:
+        memo.deleted_at = None
+    if snapshot.get("reminder_time"):
+        memo.reminder_time = _parse_reminder_time(snapshot["reminder_time"])
+    else:
+        memo.reminder_time = None
+
+
+class MemoRevertHandler:
+    """备忘录撤销（S3-1 从 write_logs 视图原样迁入）：删除不可回滚。"""
+
+    def revert(self, log, user):
+        from ..writes.revert import RevertConflict, RevertResult
+
+        if log.operation == "delete":
+            raise RevertConflict("删除操作不可回滚。")
+        memo = Memo.all_objects.select_for_update().filter(pk=log.target_pk, user=user).first()
+        if memo is None:
+            raise RevertConflict("目标备忘录不存在或归属已变化。")
+        current = memo_snapshot(memo)
+        expected = log.after or {}
+        if log.operation == "create":
+            matches = current == expected
+        else:
+            matches = all(current.get(key) == value for key, value in expected.items())
+        if not matches:
+            raise RevertConflict("目标当前值已变化，无法安全回滚。", current=current)
+        if log.operation == "create":
+            memo.is_deleted = True
+            memo.deleted_at = timezone.now()
+            memo.save(update_fields=["is_deleted", "deleted_at", "updated_at"])
+        else:
+            _apply_memo_snapshot(memo, log.before or {})
+            memo.save(update_fields=["title", "content", "reminder_time", "is_deleted", "deleted_at", "updated_at"])
+        return RevertResult(operation="update", before=current, after=memo_snapshot(memo), target_pk=str(memo.pk))

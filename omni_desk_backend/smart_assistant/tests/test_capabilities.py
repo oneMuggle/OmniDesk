@@ -60,6 +60,16 @@ NEW_INTENTS = {
     "communication_thread_query",
     "document_library_query",
 }
+#: S3-1 新增的 4 个写工具
+S3_WRITE_INTENTS = {
+    "notification_mark_read",
+    "meeting_room_book",
+    "meeting_room_cancel",
+    "compliance_issue_update_status",
+}
+ALL_INTENTS = LEGACY_INTENTS | NEW_INTENTS | S3_WRITE_INTENTS
+#: 删除类工具默认关闭（S3-1），不注册进 ToolRegistry
+DISABLED_BY_DEFAULT = {"memo_delete"}
 
 
 # ---------------------------------------------------------------------------
@@ -131,13 +141,15 @@ class FakeToolRegistry:
 
 def test_discovered_intents_are_legacy_plus_new():
     intents = {s.intent for s in capabilities.specs()}
-    assert intents == LEGACY_INTENTS | NEW_INTENTS
-    assert set(ToolRegistry._tools) >= intents
+    assert intents == ALL_INTENTS
+    assert set(ToolRegistry._tools) >= intents - DISABLED_BY_DEFAULT
+    assert not set(ToolRegistry._tools) & DISABLED_BY_DEFAULT
 
 
 def test_registry_uses_same_instance_as_spec():
     for resolved in capabilities.specs():
-        assert ToolRegistry._tools[resolved.intent] is resolved.tool
+        if resolved.enabled:
+            assert ToolRegistry._tools[resolved.intent] is resolved.tool
 
 
 def test_legacy_tools_keep_login_only_permission():
@@ -177,7 +189,7 @@ def test_discover_is_rerunnable_and_uses_given_registry():
     registry.discover(tool_registry=fake)
     registry.discover(tool_registry=fake)
     assert len(registry.specs()) == len(capabilities.specs())
-    assert len(fake.registered) == 2 * len(registry.specs())
+    assert len(fake.registered) == 2 * len([s for s in registry.specs() if s.enabled])
 
 
 def test_load_module_reads_decorated_functions_in_order():
@@ -239,8 +251,36 @@ def test_write_tool_confirm_must_match_require_confirmation():
     assert any("require_confirmation 必须为 True" in e for e in errors)
 
 
-def test_destructive_tool_with_confirm_passes():
-    assert _errors(make_tool("s1_del", risk="destructive", confirm=True), confirm=ConfirmPolicy.USER) == []
+def test_destructive_tool_with_confirm_and_flag_passes():
+    tool = make_tool("s1_del", risk="destructive", confirm=True)
+    assert _errors(tool, confirm=ConfirmPolicy.USER, feature_flag="SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS") == []
+
+
+def test_destructive_tool_must_declare_feature_flag():
+    """S3-1：删除类能力默认关闭，自检要求 destructive 工具必须挂开关。"""
+    errors = _errors(make_tool("s1_del2", risk="destructive", confirm=True), confirm=ConfirmPolicy.USER)
+    assert any("feature_flag" in e for e in errors)
+
+
+def test_rollback_policy_must_be_known():
+    errors = _errors(make_tool("s1_rb", risk="write", confirm=True), confirm=ConfirmPolicy.USER, rollback="magic")
+    assert any("rollback 取值无效" in e for e in errors)
+
+
+def test_destructive_tools_disabled_by_default_and_enabled_by_flag(settings):
+    assert capabilities.get("memo_delete").enabled is False
+    settings.SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS = True
+    registry = CapabilityRegistry()
+    fake = FakeToolRegistry()
+    registry.discover(tool_registry=fake)
+    assert registry.get("memo_delete").enabled is True
+    assert "memo_delete" in fake.registered
+
+
+def test_s3_write_tools_declare_rollback():
+    for intent in S3_WRITE_INTENTS:
+        resolved = capabilities.get(intent)
+        assert not resolved.read_only and resolved.spec.rollback == "agent_write_log", intent
 
 
 def test_read_tool_must_not_declare_confirm_or_rollback():
@@ -411,7 +451,8 @@ def test_get_openai_tools_hides_unpermitted_tools(gated_tool, plain_user, memo_v
     names_viewer = {t["function"]["name"] for t in ToolRegistry.get_openai_tools(memo_viewer)}
     assert "s1_gated" not in names_plain
     assert "s1_gated" in names_viewer
-    assert names_plain >= (LEGACY_INTENTS | NEW_INTENTS)
+    assert names_plain >= (ALL_INTENTS - DISABLED_BY_DEFAULT)
+    assert not names_plain & DISABLED_BY_DEFAULT
 
 
 def test_function_tool_chain_blocks_unpermitted_tool(gated_tool, plain_user, memo_viewer, settings):
@@ -496,7 +537,7 @@ def test_command_write_check_and_json(tmp_path):
     out = StringIO()
     call_command("ai_capabilities", "--json", stdout=out)
     payload = json.loads(out.getvalue())
-    assert {item["intent"] for item in payload} == LEGACY_INTENTS | NEW_INTENTS
+    assert {item["intent"] for item in payload} == ALL_INTENTS
     assert all("annotations" in item for item in payload)
 
     out = StringIO()

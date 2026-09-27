@@ -75,6 +75,11 @@ class ConfirmPolicy:
     LABELS = {NONE: "—", USER: "本人确认"}
 
 
+#: 回滚方式：经 ``AgentWriteLog`` + ``smart_assistant.writes.revert`` 的处理器撤销
+ROLLBACK_AGENT_WRITE_LOG = "agent_write_log"
+ROLLBACK_POLICIES = frozenset({ROLLBACK_AGENT_WRITE_LOG})
+
+
 @dataclass(frozen=True)
 class ToolSpec:
     """单个 AI 工具的能力声明。
@@ -97,9 +102,9 @@ class ToolSpec:
     idempotent: bool | None = None
     #: 是否访问外部系统（RAGFlow、第三方 API 等）
     open_world: bool = False
-    #: 预留（S3）：回滚方式，如 ``"agent_write_log"``；只读工具不得声明
+    #: 回滚方式，取值见 ``ROLLBACK_POLICIES``；只读工具不得声明
     rollback: str | None = None
-    #: 预留（S3）：settings 开关名；为假时不注册该工具
+    #: settings 开关名；为假时不注册该工具。destructive 工具必须声明（默认关闭）
     feature_flag: str | None = None
     version: str = "1"
 

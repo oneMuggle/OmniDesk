@@ -141,7 +141,7 @@ class TestConfirmReplayE2E:
             "smart_assistant.agent.orchestrator.ToolRegistry.get_tool",
             return_value=_E2EWriteTool(),
         ), patch(
-            "smart_assistant.views.chat_sync.ToolRegistry.get_tool_for_user",
+            "smart_assistant.tools.registry.ToolRegistry.get_tool_for_user",
             return_value=_E2EWriteTool(),
         ):
             # Step 1: 首次请求 → awaiting_confirmation

@@ -728,15 +728,24 @@ def public_confirmation_draft(draft: dict, tool_name: str = "") -> dict:
         for key in ("operation", "phase", "scope", "status", "count", "total"):
             if key in fields and not _is_public_sensitive_key(key):
                 public_fields[key] = safe_public_value(fields[key])
+    # S3-1：服务端根据数据库记录生成的确认预览（不含用户原话），过滤后公开
+    from .writes.preview import preview_summary, public_preview
+
+    preview = public_preview(draft.get("preview"))
     if tool_name == "agent_notify":
         summary = (
             f"待执行站内通知（操作：agent_notify；收件人数：{public_fields['recipient_count']}；"
             f"标题：{public_fields['title']}）"
         )
+    elif preview:
+        summary = preview_summary(preview)
     else:
         # server-side draft.summary 可能包含原始 query 或业务正文；绝不透传。
         summary = "请确认工具操作"
-    return {"summary": summary[:180], "fields": public_fields}
+    public = {"summary": summary[:180], "fields": public_fields}
+    if preview:
+        public["preview"] = preview
+    return public
 
 
 def public_tool_calls_meta(meta):

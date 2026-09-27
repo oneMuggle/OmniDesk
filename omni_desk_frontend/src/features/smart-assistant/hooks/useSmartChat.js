@@ -1,12 +1,13 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendSmartChatStream, sendSmartChat, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
 import { startAgentTask } from '../utils/startAgentTask';
 import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
-import { Modal as AntdModal, message as antMessage } from 'antd';
+import { message as antMessage } from 'antd';
 import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 import { extractResults } from '../../../shared/api/responseHandler';
+import { toConfirmMessage } from '../components/WriteConfirmCard';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -49,6 +50,8 @@ export function useSmartChat() {
   // 当前流式响应携带的失败辅助提示(输出契约 format_version:1,done/session
   // 事件的 kind/hint 字段);旧事件无字段时保持 null,不渲染提示行
   const pendingErrorHintRef = useRef(null);
+  // 当前流最近一次 meta 事件(确认卡需要 tool_used;state 在同一轮事件里还读不到)
+  const streamingMetaRef = useRef(null);
 
   // 打字机 hook 适配:onTick 同步 ref → state,避免每次揭示都触发额外渲染
   const onTypewriterTick = useCallback(
@@ -157,6 +160,7 @@ export function useSmartChat() {
 
   /** 处理 meta 事件:设置元数据,缓存命中时跳过打字机 */
   const handleMetaEvent = useCallback((event) => {
+    streamingMetaRef.current = event;
     setStreamingMeta(event);
     if (event.cache_hit) {
       typewriter.markCached();
@@ -191,43 +195,17 @@ export function useSmartChat() {
   }, []);
 
   /**
-   * 处理 SSE confirmation 事件:弹出确认对话框,用户确认后
-   * 二次请求 sendSmartChat(inputMessage, currentSessionId, null, token)
-   * (非流式,后端 Task 8 已支持 confirm_token replay),把响应里的
-   * tool_result.file_download 推入 messages(由 ToolResult 渲染下载卡片)。
+   * 处理 SSE confirmation 事件:在消息列表里插入写操作确认卡(WriteConfirmCard)。
+   * 卡片自己调用确认 / 取消 / 撤销接口;只有点「确认执行」才会执行,
+   * 对话里再说“确认”只是一条普通消息。确认流不含 chunk,直接追加不会打乱正文。
    */
-  const handleConfirmation = useCallback(async (event) => {
-    const token = event.confirmation_token;
-    const draft = event.draft || {};
-    if (!token) return;
-    AntdModal.confirm({
-      title: '请确认操作',
-      content: event.answer || draft.summary || '确认执行该操作吗?',
-      okText: '确认生成',
-      cancelText: '取消',
-      onOk: async () => {
-        try {
-          const resp = await sendSmartChat(inputMessage, currentSessionId, null, token);
-          const data = resp.data;
-          if (data && data.tool_result && data.tool_result.file_download) {
-            setMessages((prev) => [
-              ...prev,
-              {
-                id: Date.now(),
-                role: 'assistant',
-                intent: data.tool_used,
-                content: data.answer || '文档已生成',
-                tool_result: data.tool_result,
-                sources: null,
-              },
-            ]);
-          }
-        } catch (err) {
-          antMessage.error(err.message || '确认执行失败');
-        }
-      },
-    });
-  }, [inputMessage, currentSessionId]);
+  const handleConfirmation = useCallback((event) => {
+    const confirmMessage = toConfirmMessage(event, streamingMetaRef.current?.tool_used);
+    if (!confirmMessage) return;
+    setMessages((prev) => (
+      prev.some((m) => m.id === confirmMessage.id) ? prev : [...prev, confirmMessage]
+    ));
+  }, []);
 
   /** 处理单个 SSE 事件,路由到对应的处理器 */
   const handleSSEEvent = useCallback(async (event, activeSessionId) => {
@@ -269,7 +247,7 @@ export function useSmartChat() {
       case 'session':
         return await handleSessionEvent(event, activeSessionId);
       case 'confirmation':
-        await handleConfirmation(event);
+        handleConfirmation(event);
         break;
       default:
         // 忽略未知事件类型
@@ -293,6 +271,7 @@ export function useSmartChat() {
   const runStream = useCallback(async (query, streamOptions = {}) => {
     pendingLogIdRef.current = null;
     pendingErrorHintRef.current = null;
+    streamingMetaRef.current = null;
     const { bodyPromise, abort } = sendSmartChatStream(query, currentSessionId, attachment, null, streamOptions);
     abortRef.current = abort;
     const stream = await bodyPromise;

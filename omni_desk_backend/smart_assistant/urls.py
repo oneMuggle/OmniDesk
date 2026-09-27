@@ -15,6 +15,7 @@ from .views.knowledge_base import KnowledgeDatasetViewSet
 from .views.doctor import DoctorView
 from .views.office_download import OfficeDownloadView
 from .views.assistant_context import AssistantContextView
+from .views.confirmations import ConfirmationApproveView, ConfirmationRejectView
 
 router = DefaultRouter()
 router.register(r"chat", SmartChatViewSet, basename="smart-chat")
@@ -34,5 +35,7 @@ urlpatterns = [
     path("office-download/<str:token>/", OfficeDownloadView.as_view(), name="office-download"),
     # S2 AI 抽屉:当前页面记录标签 + 快捷问题
     path("assistant-context/", AssistantContextView.as_view(), name="smart-assistant-context"),
+    path("confirmations/<str:token>/approve/", ConfirmationApproveView.as_view(), name="smart-confirmation-approve"),
+    path("confirmations/<str:token>/reject/", ConfirmationRejectView.as_view(), name="smart-confirmation-reject"),
     path("", include(router.urls)),
 ]

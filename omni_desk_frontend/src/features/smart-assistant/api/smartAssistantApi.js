@@ -210,6 +210,31 @@ export async function submitFeedback(logId, feedback) {
 }
 
 /**
+ * 确认执行写操作草稿（凭一次性 token；只有调用此接口才会真正执行）
+ * @param {string} token confirmation 事件里的 confirmation_token
+ * @returns 200 { answer, tool_used, tool_result, confirmed, write_log_id, reversible }
+ */
+export async function approveConfirmation(token) {
+  return apiClient.post(`${BASE_URL}/confirmations/${encodeURIComponent(token)}/approve/`);
+}
+
+/**
+ * 取消写操作草稿（token 作废，不执行任何操作）
+ * @param {string} token
+ */
+export async function rejectConfirmation(token) {
+  return apiClient.post(`${BASE_URL}/confirmations/${encodeURIComponent(token)}/reject/`);
+}
+
+/**
+ * 撤销一次 AI 写操作
+ * @param {number|string} writeLogId approve 响应里的 write_log_id
+ */
+export async function revertWriteLog(writeLogId) {
+  return apiClient.post(`${BASE_URL}/write-logs/${writeLogId}/revert/`);
+}
+
+/**
  * 上传知识库文档
  */
 export async function uploadKnowledgeDoc(file, title) {

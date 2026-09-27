@@ -3,7 +3,15 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolset, QuickPrompt
+from smart_assistant.capabilities import (
+    LOGIN_ONLY,
+    ROLLBACK_AGENT_WRITE_LOG,
+    ConfirmPolicy,
+    DataScope,
+    QuickPrompt,
+    ToolSpec,
+    toolset,
+)
 
 
 @toolset(
@@ -17,6 +25,7 @@ from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolse
 )
 def compliance_tools():
     from smart_assistant.tools.compliance_tool import ComplianceTool
+    from smart_assistant.tools.compliance_write_tools import ComplianceStatusUpdateTool
 
     return [
         ToolSpec(
@@ -24,5 +33,14 @@ def compliance_tools():
             title="查询合规问题",
             required_permission=LOGIN_ONLY,
             data_scope=DataScope.SCOPE,
+        ),
+        ToolSpec(
+            tool=ComplianceStatusUpdateTool,
+            title="更新合规问题状态",
+            # 与页面一致：管理员或项目负责人（ComplianceChecker.can_modify_issue）
+            required_permission=LOGIN_ONLY,
+            data_scope=DataScope.MODULE,
+            confirm=ConfirmPolicy.USER,
+            rollback=ROLLBACK_AGENT_WRITE_LOG,
         ),
     ]

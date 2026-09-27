@@ -419,6 +419,12 @@ SMART_ASSISTANT_COMPLEX_TASK_PROPOSAL = os.environ.get("SMART_ASSISTANT_COMPLEX_
 # S2-2:多 Agent 任务 fanout 模式(只读子任务分层并行)的最大并发数;设为 1 退回逐个执行
 SMART_ASSISTANT_FANOUT_MAX_WORKERS = max(1, int(os.environ.get("SMART_ASSISTANT_FANOUT_MAX_WORKERS", "3")))
 
+# S3-1:删除类 AI 工具(risk_level=destructive,如 memo_delete)默认关闭;
+# 设为 true 才注册。页面上的手动删除不受影响。
+SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS = os.environ.get(
+    "SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS", "false"
+).lower() in ("1", "true", "yes")
+
 # === L1 原生 Function Calling(2026-08-06)===
 # 路由开关:True 走原生 tool_calls 协议,False 保留 JSON 路径。
 # 端点级能力:LlmEndpoint.model_capabilities.native_tool_calls=False 时即使本开关为 True
