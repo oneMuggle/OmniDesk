@@ -16,7 +16,6 @@ from joint_students.models import (
     StipendRecord,
 )
 from joint_students.permissions import (
-    MANAGER_GROUP,
     IsExpertGroupMember,
     IsJointStudentManager,
     IsJointStudentSelfOrManager,
@@ -29,6 +28,11 @@ from joint_students.serializers import (
     MonthlyReportSerializer,
     StipendRecordSerializer,
 )
+from joint_students.services.access import (
+    mentor_joint_student_ids,
+    own_joint_student_ids,
+    visible_joint_students,
+)
 
 
 def _user_can_see_all_reports(user) -> bool:
@@ -40,21 +44,9 @@ def _user_can_see_all_reports(user) -> bool:
     return user.groups.filter(name="联培生管理员").exists()
 
 
-def _own_joint_student_ids(user):
-    """返回该 user 名下 Personnel 关联的 JointStudent id 列表。"""
-    return list(JointStudent.objects.filter(personnel__user_account=user).values_list("id", flat=True))
-
-
-def _mentor_joint_student_ids(user):
-    """返回该 user 作为导师时名下的 JointStudent id 列表。"""
-    return list(JointStudent.objects.filter(mentor__user_account=user).values_list("id", flat=True))
-
-
-def _user_can_see_all_students(user) -> bool:
-    """联培生管理员 / superuser 可见全部联培生。"""
-    if not user or not user.is_authenticated:
-        return False
-    return user.is_superuser or user.groups.filter(name=MANAGER_GROUP).exists()
+# 可见性规则已抽到 services/access.py（AI 工具 joint_student_query 共用），此处保留原名供本文件使用
+_own_joint_student_ids = own_joint_student_ids
+_mentor_joint_student_ids = mentor_joint_student_ids
 
 
 class JointStudentViewSet(viewsets.ModelViewSet):
@@ -65,14 +57,7 @@ class JointStudentViewSet(viewsets.ModelViewSet):
     permission_classes = [IsJointStudentManager]
 
     def get_queryset(self):
-        qs = super().get_queryset()
-        user = self.request.user
-        if _user_can_see_all_students(user):
-            return qs
-        scoped_ids = set(_own_joint_student_ids(user))
-        if user_is_mentor(user):
-            scoped_ids |= set(_mentor_joint_student_ids(user))
-        return qs.filter(id__in=scoped_ids)
+        return visible_joint_students(self.request.user, super().get_queryset())
 
     @action(detail=True, methods=["post"])
     def graduate(self, request, pk=None):

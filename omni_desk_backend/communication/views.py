@@ -3,7 +3,8 @@ from rest_framework.permissions import SAFE_METHODS, IsAuthenticated
 
 from observability import get_logger
 
-from .models import Comment, Post
+from .models import Comment
+from .selectors import visible_posts
 from .serializers import CommentSerializer, PostSerializer
 
 logger = get_logger(__name__, "communication")
@@ -24,12 +25,7 @@ class IsAuthorOrReadOnly(permissions.BasePermission):
 class PostViewSet(viewsets.ModelViewSet):
     serializer_class = PostSerializer
     permission_classes = [IsAuthenticated, IsAuthorOrReadOnly]
-    queryset = (
-        Post.objects.select_related("author")
-        .prefetch_related("comments__author")
-        .filter(is_archived=False)
-        .order_by("-created_at")
-    )
+    queryset = visible_posts().select_related("author").prefetch_related("comments__author").order_by("-created_at")
 
     def list(self, request, *args, **kwargs):
         logger.info("communication.view.entered", extra={"event": "communication.view.entered"})
