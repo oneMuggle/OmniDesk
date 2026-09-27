@@ -14,6 +14,7 @@ from .views import (
 from .views.knowledge_base import KnowledgeDatasetViewSet
 from .views.doctor import DoctorView
 from .views.office_download import OfficeDownloadView
+from .views.assistant_context import AssistantContextView
 
 router = DefaultRouter()
 router.register(r"chat", SmartChatViewSet, basename="smart-chat")
@@ -31,5 +32,7 @@ urlpatterns = [
     # doctor 自检端点（staff 只读诊断，机器可读输出契约 format_version=1）
     path("doctor/", DoctorView.as_view(), name="smart-doctor"),
     path("office-download/<str:token>/", OfficeDownloadView.as_view(), name="office-download"),
+    # S2 AI 抽屉:当前页面记录标签 + 快捷问题
+    path("assistant-context/", AssistantContextView.as_view(), name="smart-assistant-context"),
     path("", include(router.urls)),
 ]

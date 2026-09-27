@@ -3,7 +3,7 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolset
+from smart_assistant.capabilities import DataScope, LOGIN_ONLY, PageContext, QuickPrompt, ToolSpec, toolset
 from smart_assistant.capabilities.helpers import clamp_limit, context_user, tool_params
 from smart_assistant.tools.base import BaseTool
 
@@ -109,7 +109,55 @@ class JointStudentQueryTool(BaseTool):
         }
 
 
-@toolset("joint_students", title="联培生")
+def load_joint_student_context(user, record_id):
+    """联培生详情页上下文：可见范围与 ``/api/joint-students/students/`` 相同。"""
+    from joint_students.models import JointStudent
+    from joint_students.services.access import visible_joint_students
+
+    js = (
+        visible_joint_students(user, JointStudent.objects.select_related("personnel", "mentor"))
+        .filter(pk=record_id)
+        .first()
+    )
+    if js is None:
+        return None
+    name = js.personnel.name if js.personnel_id else js.student_id
+    latest = js.monthly_reports.order_by("-year", "-month").first()
+    return {
+        "label": name,
+        "fields": {
+            "姓名": name,
+            "类型": js.get_student_type_display(),
+            "学号": js.student_id,
+            "导师": js.mentor.name if js.mentor_id else None,
+            "在读": "是" if js.is_active else "否",
+            "入学日期": js.enrollment_date.isoformat() if js.enrollment_date else None,
+            "最近月报": f"{latest.year}-{latest.month:02d} {latest.get_status_display()}" if latest else "暂无",
+        },
+    }
+
+
+@toolset(
+    "joint_students",
+    title="联培生",
+    routes=(r"^/joint-students",),
+    quick_prompts=(
+        QuickPrompt("联培生概况", "列出我可以查看的联培生及最近月报状态"),
+        QuickPrompt(
+            "月报情况",
+            "这个联培生最近的月报情况怎么样？",
+            routes=(r"^/joint-students/admin/students/\d+",),
+        ),
+    ),
+    page_contexts=(
+        PageContext(
+            record_type="joint_student",
+            title="联培生",
+            route=r"^/joint-students/admin/students/(?P<record_id>\d+)(/edit)?/?$",
+            loader=load_joint_student_context,
+        ),
+    ),
+)
 def joint_student_tools():
     return [
         ToolSpec(

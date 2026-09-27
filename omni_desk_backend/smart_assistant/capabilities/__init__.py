@@ -6,13 +6,15 @@
 """
 
 from .registry import CapabilityRegistry, ResolvedToolSpec, capabilities, validate_spec
-from .spec import LOGIN_ONLY, ConfirmPolicy, DataScope, Toolset, ToolSpec, toolset
+from .spec import LOGIN_ONLY, ConfirmPolicy, DataScope, PageContext, QuickPrompt, Toolset, ToolSpec, toolset
 
 __all__ = [
     "LOGIN_ONLY",
     "CapabilityRegistry",
     "ConfirmPolicy",
     "DataScope",
+    "PageContext",
+    "QuickPrompt",
     "ResolvedToolSpec",
     "ToolSpec",
     "Toolset",

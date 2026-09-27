@@ -3,7 +3,7 @@
 由 ``smart_assistant.capabilities`` 在启动时自动发现，见 ``docs/technical/46-ai-capability-catalog.md``。
 """
 
-from smart_assistant.capabilities import DataScope, LOGIN_ONLY, ToolSpec, toolset
+from smart_assistant.capabilities import DataScope, LOGIN_ONLY, PageContext, QuickPrompt, ToolSpec, toolset
 from smart_assistant.capabilities.helpers import clamp_limit, context_user, tool_params, truncate
 from smart_assistant.tools.base import BaseTool
 
@@ -111,7 +111,51 @@ class CommunicationThreadQueryTool(BaseTool):
         }
 
 
-@toolset("communication", title="交流与公告")
+def load_post_context(user, record_id):
+    """交流帖子详情页上下文：可见范围与 ``/api/communication/posts/`` 相同。"""
+    from django.db.models import Count
+
+    from communication.selectors import visible_posts
+
+    post = (
+        visible_posts(user)
+        .select_related("author")
+        .annotate(comment_count=Count("comments"))
+        .filter(pk=record_id)
+        .first()
+    )
+    if post is None:
+        return None
+    return {
+        "label": post.title,
+        "fields": {
+            "标题": post.title,
+            "作者": _display_name(post.author),
+            "发布时间": post.created_at.isoformat(timespec="minutes"),
+            "评论数": post.comment_count,
+            "正文摘要": truncate(post.content),
+        },
+    }
+
+
+@toolset(
+    "communication",
+    title="交流与公告",
+    routes=(r"^/communication", r"^/announcements"),
+    quick_prompts=(
+        QuickPrompt("最新公告", "最近有哪些公告？", routes=(r"^/$", r"^/announcements", r"^/communication$")),
+        QuickPrompt("总结讨论", "总结一下这个帖子的讨论和主要观点", routes=(r"^/communication/\d+",)),
+        QuickPrompt("我的帖子", "我发的帖子有人回复吗？", routes=(r"^/communication",)),
+    ),
+    page_contexts=(
+        PageContext(
+            record_type="communication_post",
+            title="交流帖子",
+            route=r"^/communication/(?P<record_id>\d+)/?$",
+            loader=load_post_context,
+        ),
+    ),
+)
 def communication_tools():
     from smart_assistant.tools.announcement_tool import AnnouncementTool
 

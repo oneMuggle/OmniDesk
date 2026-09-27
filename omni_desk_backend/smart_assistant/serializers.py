@@ -156,6 +156,17 @@ class SmartChatRequestSerializer(serializers.Serializer):
     attachment = serializers.FileField(
         required=False, allow_null=True, help_text="可选：Office 附件（docx/pdf/xlsx/pptx/txt/md/csv，≤10MB）"
     )
+    page_route = serializers.CharField(
+        required=False,
+        allow_blank=True,
+        trim_whitespace=True,
+        help_text="可选：用户当前页面路径（location.pathname）。后端据此按权限重读记录作为上下文；不合法时忽略",
+    )
+    skip_task_proposal = serializers.BooleanField(
+        required=False,
+        default=False,
+        help_text="可选：为 true 时即使意图为 complex_task 也不返回任务计划卡，直接回答（任务计划卡的「直接回答」按钮）",
+    )
 
 
 class SmartChatResponseSerializer(serializers.Serializer):

@@ -105,6 +105,36 @@ class ToolSpec:
 
 
 @dataclass(frozen=True)
+class QuickPrompt:
+    """抽屉 / Dashboard 上的快捷问题（S2）。
+
+    ``routes`` 为空时沿用所属 Toolset 的 ``routes``；按 ``re.search`` 匹配
+    ``location.pathname``。只有当前用户能调用该 Toolset 中至少一个工具时才展示。
+    """
+
+    label: str
+    query: str
+    routes: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True)
+class PageContext:
+    """详情页的记录上下文（S2）。
+
+    前端只传 ``location.pathname``；后端用 ``route``（必须含命名组 ``record_id``）
+    解析出记录 ID，再调 ``loader(user, record_id)`` 按该用户的权限重新读取。
+    ``loader`` 看不到记录时必须返回 ``None``，看得到时返回
+    ``{"label": 记录名, "fields": {中文字段名: 值}}``。
+    """
+
+    record_type: str
+    title: str
+    route: str
+    #: 可调用对象，或点分路径 ``"pkg.module.func"``
+    loader: Any
+
+
+@dataclass(frozen=True)
 class Toolset:
     """一个 app 声明的一组工具。"""
 
@@ -114,21 +144,45 @@ class Toolset:
     module: str
     specs: tuple[ToolSpec, ...] = field(default_factory=tuple)
     description: str = ""
+    #: 本模块页面路由正则（快捷问题默认按此匹配）
+    routes: tuple[str, ...] = ()
+    quick_prompts: tuple[QuickPrompt, ...] = ()
+    page_contexts: tuple[PageContext, ...] = ()
 
 
 #: 被 ``@toolset`` 装饰的函数上挂的标记属性名
 TOOLSET_MARKER = "__ai_toolset__"
 
 
-def toolset(name: str, *, title: str, description: str = "") -> Callable:
+def toolset(
+    name: str,
+    *,
+    title: str,
+    description: str = "",
+    routes: tuple[str, ...] = (),
+    quick_prompts: tuple[QuickPrompt, ...] = (),
+    page_contexts: tuple[PageContext, ...] = (),
+) -> Callable:
     """把一个"返回 ToolSpec 列表"的函数标记为工具集。
 
     装饰器本身不做全局注册（导入模块不产生副作用），由发现流程扫描模块中带
-    标记的函数并调用。
+    标记的函数并调用。``routes`` / ``quick_prompts`` / ``page_contexts`` 供 AI 抽屉
+    使用（S2），均可省略。
     """
 
     def decorator(func: Callable[[], list[ToolSpec]]) -> Callable[[], list[ToolSpec]]:
-        setattr(func, TOOLSET_MARKER, {"name": name, "title": title, "description": description})
+        setattr(
+            func,
+            TOOLSET_MARKER,
+            {
+                "name": name,
+                "title": title,
+                "description": description,
+                "routes": tuple(routes),
+                "quick_prompts": tuple(quick_prompts),
+                "page_contexts": tuple(page_contexts),
+            },
+        )
         return func
 
     return decorator
@@ -136,9 +190,14 @@ def toolset(name: str, *, title: str, description: str = "") -> Callable:
 
 def import_tool_class(ref: Any) -> type:
     """把 ``ToolSpec.tool`` 解析为类；支持类对象或点分路径。"""
+    return import_ref(ref)
+
+
+def import_ref(ref: Any) -> Any:
+    """把点分路径 ``"pkg.module.attr"`` 解析为对象；非字符串原样返回。"""
     if isinstance(ref, str):
         module_path, _, attr = ref.rpartition(".")
         if not module_path:
-            raise ImportError(f"工具路径必须是 'pkg.module.ClassName' 形式: {ref!r}")
+            raise ImportError(f"路径必须是 'pkg.module.name' 形式: {ref!r}")
         return getattr(importlib.import_module(module_path), attr)
     return ref

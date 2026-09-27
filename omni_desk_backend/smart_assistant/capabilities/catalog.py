@@ -57,6 +57,54 @@ def _flags(resolved: ResolvedToolSpec) -> str:
     return "、".join(parts) or "—"
 
 
+def _loader_label(loader) -> str:
+    if isinstance(loader, str):
+        return f"`{loader}`"
+    return f"`{getattr(loader, '__module__', '?')}.{getattr(loader, '__qualname__', repr(loader))}`"
+
+
+def _render_drawer_sections(registry: CapabilityRegistry) -> list[str]:
+    """AI 抽屉（S2）：页面上下文与快捷问题两张表。"""
+    lines: list[str] = [
+        "## 页面上下文",
+        "",
+        "用户在下列详情页打开 AI 抽屉时，前端只传当前路径；后端按路由解析记录 ID，"
+        "再用该用户的权限重新读取记录，作为参考资料注入对话（看不到的记录不注入）。",
+        "",
+        "| record_type | 名称 | 工具集 | 路由 | 读取函数 |",
+        "| --- | --- | --- | --- | --- |",
+    ]
+    contexts = registry.page_contexts()
+    for owner, ctx in contexts:
+        lines.append(
+            f"| `{ctx.record_type}` | {_cell(ctx.title)} | `{owner.name}` | `{_cell(ctx.route)}` | "
+            f"{_loader_label(ctx.loader)} |"
+        )
+    if not contexts:
+        lines.append("| — | — | — | — | — |")
+
+    lines += [
+        "",
+        "## 快捷问题",
+        "",
+        "按路由匹配（`re.search`），只有用户能调用所属工具集中至少一个工具时才展示，每页最多 6 条。"
+        "`^/$` 为 Dashboard。",
+        "",
+        "| 工具集 | 按钮 | 发送的问题 | 路由 |",
+        "| --- | --- | --- | --- |",
+    ]
+    for owner in registry.toolsets():
+        for prompt in owner.quick_prompts:
+            routes = prompt.routes or owner.routes
+            lines.append(
+                f"| `{owner.name}` | {_cell(prompt.label)} | {_cell(prompt.query)} | "
+                + "、".join(f"`{_cell(r)}`" for r in routes)
+                + " |"
+            )
+    lines.append("")
+    return lines
+
+
 def render_catalog(registry: CapabilityRegistry) -> str:
     specs = registry.specs()
     lines: list[str] = [
@@ -122,6 +170,8 @@ def render_catalog(registry: CapabilityRegistry) -> str:
                 + " |"
             )
         lines.append("")
+
+    lines += _render_drawer_sections(registry)
 
     lines += [
         "## 字段说明",

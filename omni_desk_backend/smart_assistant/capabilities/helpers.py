@@ -35,3 +35,27 @@ def clamp_limit(value: Any, default: int = 10, maximum: int = 20) -> int:
 def truncate(text: str | None, length: int = 200) -> str:
     text = text or ""
     return text[:length] + ("..." if len(text) > length else "")
+
+
+def scoped_record(tool_class: Any, user: Any, record_id: int) -> Any | None:
+    """按用户的三级 scope 读取某个工具可见范围内的单条记录（页面上下文 loader 用）。
+
+    与工具执行共用 ``BaseTool.scoped_queryset``，因此"页面上下文能看到的"永远
+    不会超出"AI 工具能查到的"。看不到时返回 ``None``。
+    """
+    from smart_assistant.scope import resolve_scope
+    from smart_assistant.tools.tool_context import ToolContext
+
+    if user is None or not getattr(user, "is_authenticated", False):
+        return None
+    context = ToolContext(user=user, scope=resolve_scope(user))
+    return tool_class().scoped_queryset(context).filter(pk=record_id).first()
+
+
+def fmt_date(value: Any) -> str | None:
+    """日期 / 时间转成 ``YYYY-MM-DD``（或带时分）；空值返回 ``None``。"""
+    if value is None:
+        return None
+    if hasattr(value, "hour"):
+        return value.isoformat(timespec="minutes")
+    return value.isoformat()

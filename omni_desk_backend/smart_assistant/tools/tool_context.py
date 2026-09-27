@@ -36,6 +36,8 @@ class ToolContext:
     confirmed: bool = False
     replay: bool = False
     draft: dict | None = None
+    # S2:False 时 complex_task 不返回任务计划卡(用户在卡片上选了「直接回答」)
+    task_proposal_allowed: bool = True
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:

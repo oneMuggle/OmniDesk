@@ -15,6 +15,7 @@ from observability import get_logger
 from rest_framework import status
 from rest_framework.response import Response
 
+from ..capabilities.page_context import build_page_context_message, resolve_page_context
 from ..agent.conversation_context import (
     apply_rolling_summary,
     build_effective_history,
@@ -99,6 +100,16 @@ def inject_attachment(conversation_history, doc_dict, conversation_id):
         file_hash = file_sha256(seed)
         cache_attachment(conversation_id, file_hash, doc_dict)
     return conversation_history
+
+
+def inject_page_context(conversation_history, page_route, user):
+    """把页面上下文 system 消息放到历史头部;无上下文时原样返回。"""
+    if not page_route:
+        return conversation_history
+    message = build_page_context_message(resolve_page_context(page_route, user))
+    if message is None:
+        return conversation_history
+    return [message] + (conversation_history or [])
 
 
 def load_session(user, conversation_id):
@@ -227,7 +238,11 @@ def prepare_chat_context(request, *, require_session: bool, short_circuit=None):
         user=request.user,
         scope=resolve_scope(request.user),
         attachment=doc_dict,
+        task_proposal_allowed=not validated.get("skip_task_proposal", False),
     )
+    # S2 页面上下文:按用户权限重读当前页面记录,作为 system 消息放在历史最前
+    # (先于附件注入,因此附件 system 消息仍排第一)。看不到 / 未匹配时不注入。
+    history = inject_page_context(history, validated.get("page_route"), request.user)
     # 附件注入历史(在 build_effective_history 之后,确保 system 消息排在最前)
     if doc_dict:
         history = inject_attachment(history, doc_dict, conversation_id)

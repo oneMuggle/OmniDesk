@@ -408,6 +408,14 @@ PAPERLESS_CLEANUP_INTERVAL_HOURS = int(os.environ.get("PAPERLESS_CLEANUP_INTERVA
 # Smart Assistant 缓存版本(部署级;工具升级时 bump 此值即可失效旧缓存)
 SMART_ASSISTANT_CACHE_VERSION = os.environ.get("SMART_ASSISTANT_CACHE_VERSION", "1.0")
 
+# S2:意图为 complex_task 时,流式对话返回"任务计划卡"(由用户确认后创建多 Agent 协作任务);
+# 设为 false 回退到旧行为(按通用对话回答)
+SMART_ASSISTANT_COMPLEX_TASK_PROPOSAL = os.environ.get("SMART_ASSISTANT_COMPLEX_TASK_PROPOSAL", "true").lower() in (
+    "1",
+    "true",
+    "yes",
+)
+
 # === L1 原生 Function Calling(2026-08-06)===
 # 路由开关:True 走原生 tool_calls 协议,False 保留 JSON 路径。
 # 端点级能力:LlmEndpoint.model_capabilities.native_tool_calls=False 时即使本开关为 True
