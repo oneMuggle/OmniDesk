@@ -106,6 +106,7 @@ Auto-generated from `src/routes/` - check that directory for available pages.
 - `omni_desk_backend/omni_desk_backend/urls.py` - API routing
 - `omni_desk_backend/omni_desk_backend/wsgi.py` - WSGI bootstrap
 - `omni_desk_backend/omni_desk_backend/asgi.py` - ASGI bootstrap
+- `omni_desk_backend/<app>/ai_tools.py` - 各 app 的 AI 工具声明，由 `smart_assistant/capabilities` 自动发现；清单见 `docs/technical/46-ai-capability-catalog.md`（`python manage.py ai_capabilities --write` 生成）
 
 ### Frontend (React)
 - `omni_desk_frontend/src/index.jsx` - Vite entry, bootstraps RouterProvider (v6.4+ style)
