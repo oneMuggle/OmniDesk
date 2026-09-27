@@ -56,6 +56,17 @@ API的访问权限主要由 `users` 应用负责。
 - **API客户端**: [`omni_desk_frontend/src/api/permissionsApi.js`](omni_desk_frontend/src/api/permissionsApi.js)
   - 这是一个专门的API客户端，封装了所有与后端 `permissions` 应用交互的HTTP请求。
 
+### 3.1 路由守卫（2026-09 起）
+
+`ProtectedRoute` 有两种模式：
+
+| 调用方式 | 行为 | 使用范围 |
+| --- | --- | --- |
+| `<ProtectedRoute permissions={[...]} pagePath="/control-panel/x">` | **严格模式**：满足 `permissions` 或 `pagePath`（页面授权）中任意一项才放行，否则跳转 `/unauthorized` | 管理中心 `/control-panel/*` |
+| `<ProtectedRoute pagePath="/memos">` | 历史行为：已登录用户兜底放行，页面数据由后端 API 鉴权 | 主应用页面 |
+
+管理中心各页面所需的权限集中定义在 `omni_desk_frontend/src/features/admin/config/adminRoutePermissions.js`，路由、管理菜单、首页跳转、联邦搜索结果都复用这份定义。给某个用户组开放管理中心某个页面，有两种方式：在"权限管理"中勾选该页面（`PageRoute`），或授予对应的 Django 权限码。模块与权限对照见 [45 模块目录](45-module-catalog.md)。
+
 ---
 
 ## 4. 用户-人员关联

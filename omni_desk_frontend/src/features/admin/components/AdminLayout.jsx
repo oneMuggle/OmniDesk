@@ -4,6 +4,7 @@ import { message } from 'antd';
 import { useAuth } from '../../auth/context/AuthContext';
 import { readAuthTokens } from '../../../shared/utils/authTokens';
 import './AdminLayout.css';
+import { requiredForAdminRoute } from '../config/adminRoutePermissions';
 import {
   UserOutlined,
   FileWordOutlined,
@@ -25,20 +26,20 @@ import {
 } from '@ant-design/icons';
 
 const allAdminMenuItems = [
-  { to: "/control-panel/personnel", icon: UserOutlined, text: "人员管理", permission: "personnel.view_personnel" },
-  { to: "/control-panel/documents", icon: FileWordOutlined, text: "文档管理", permission: "documents.view_documenttemplate" },
-  { to: "/control-panel/schedule", icon: CalendarOutlined, text: "排班管理", permission: "events.view_schedule" },
-  { to: "/control-panel/users", icon: UserOutlined, text: "用户管理", permission: "users.view_customuser" },
-  { to: "/control-panel/sensors", icon: ExperimentOutlined, text: "传感器管理", permission: "sensors.view_sensor" },
-  { to: "/control-panel/ebooks", icon: ReadOutlined, text: "电子书管理", permission: "documents.view_ebook" },
-  { to: "/control-panel/announcements/manage", icon: BellOutlined, text: "公告管理", permission: "events.view_announcement" },
-  { to: "/control-panel/schedule/settings", icon: SettingOutlined, text: "排班设置", permission: "events.view_personnelsequence" },
-  { to: "/control-panel/meeting-rooms", icon: SettingOutlined, text: "会议室管理", permission: "meeting_rooms.view_meetingroom" },
-  { to: "/control-panel/schedule/holiday", icon: CalendarOutlined, text: "节假日管理", permission: "events.view_holiday" },
-  { to: "/control-panel/projects", icon: ProjectOutlined, text: "项目管理", permission: "admin" },
-  { to: "/control-panel/smart-assistant/audit", icon: FileTextOutlined, text: "Agent 审计", permission: "admin" },
-  { to: "/control-panel/system-update", icon: CloudUploadOutlined, text: "系统更新", permission: "admin" },
-  { to: "/control-panel/ai-apps", icon: RobotOutlined, text: "AI 应用管理", permission: "admin" },
+  { to: "/control-panel/personnel", icon: UserOutlined, text: "人员管理", permission: requiredForAdminRoute("personnel") },
+  { to: "/control-panel/documents", icon: FileWordOutlined, text: "文档管理", permission: requiredForAdminRoute("documents") },
+  { to: "/control-panel/schedule", icon: CalendarOutlined, text: "排班管理", permission: requiredForAdminRoute("schedule") },
+  { to: "/control-panel/users", icon: UserOutlined, text: "用户管理", permission: requiredForAdminRoute("users") },
+  { to: "/control-panel/sensors", icon: ExperimentOutlined, text: "传感器管理", permission: requiredForAdminRoute("sensors") },
+  { to: "/control-panel/ebooks", icon: ReadOutlined, text: "电子书管理", permission: requiredForAdminRoute("ebooks") },
+  { to: "/control-panel/announcements/manage", icon: BellOutlined, text: "公告管理", permission: requiredForAdminRoute("announcements/manage") },
+  { to: "/control-panel/schedule/settings", icon: SettingOutlined, text: "排班设置", permission: requiredForAdminRoute("schedule/settings") },
+  { to: "/control-panel/meeting-rooms", icon: SettingOutlined, text: "会议室管理", permission: requiredForAdminRoute("meeting-rooms") },
+  { to: "/control-panel/schedule/holiday", icon: CalendarOutlined, text: "节假日管理", permission: requiredForAdminRoute("schedule/holiday") },
+  { to: "/control-panel/projects", icon: ProjectOutlined, text: "项目管理", permission: requiredForAdminRoute("projects") },
+  { to: "/control-panel/smart-assistant/audit", icon: FileTextOutlined, text: "Agent 审计", permission: requiredForAdminRoute("smart-assistant/audit") },
+  { to: "/control-panel/system-update", icon: CloudUploadOutlined, text: "系统更新", permission: requiredForAdminRoute("system-update") },
+  { to: "/control-panel/ai-apps", icon: RobotOutlined, text: "AI 应用管理", permission: requiredForAdminRoute("ai-apps") },
   { to: "/docs/cdepsio6", icon: FileTextOutlined, text: "文档", permission: "admin" },
   { to: "/library", icon: ReadOutlined, text: "书库", permission: "admin" }
 ];

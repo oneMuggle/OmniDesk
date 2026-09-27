@@ -59,11 +59,11 @@ Custom user model: `AUTH_USER_MODEL = 'users.CustomUser'`
 
 ### Frontend Structure
 
-- **Routing**: `createBrowserRouter` (React Router v6.4+) with lazy-loaded components. Routes defined in `src/routes/index.js`. Build step runs `scripts/generate-routes.js` to generate `public/routes.json`.
+- **Routing**: `createBrowserRouter` (React Router v6.4+) with lazy-loaded components. Routes defined in `src/routes/index.jsx`（管理中心 `/control-panel/*` 路由权限集中在 `src/features/admin/config/adminRoutePermissions.js`）. Build step runs `scripts/generate-routes.js` to generate `public/routes.json`.
 - **State**: TanStack React Query v5 for server state (5-min stale time, refetchOnWindowFocus: false). React Context for auth, API config, and page refresh. No Redux/Zustand.
 - **API Layer**: Axios instance at `src/shared/api/axiosConfig.js` with baseURL `/api/`, JWT interceptor with automatic token refresh queue, and redirect to `/login` on refresh failure.
-- **Auth**: JWT via `djangorestframework-simplejwt` (30-min access, 7-day refresh with rotation + blacklist). Tokens in localStorage/sessionStorage. `ProtectedRoute` checks page-level permissions.
-- **UI**: Both **Ant Design 5** (primary) and **MUI** (secondary) are used simultaneously.
+- **Auth**: JWT via `djangorestframework-simplejwt` (30-min access, 7-day refresh with rotation + blacklist). Tokens in localStorage/sessionStorage. `ProtectedRoute`: 传 `permissions` 时严格校验（permissions ∪ pagePath 任一满足），只传 `pagePath` 时对已登录用户兜底放行（主应用页面历史行为）.
+- **UI**: **Ant Design 5** is the only UI library (MUI has been removed — see Key Conventions #1).
 
 ### CI/CD
 

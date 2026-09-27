@@ -53,13 +53,30 @@ class SpreadsheetTool(BaseTool):
             },
         }
 
-    def execute(self, query=None, context=None, **kwargs) -> dict:
-        ctx = context if isinstance(context, dict) else {}
-        attachment = ctx.get("attachment") or {}
+    def execute(self, query=None, context=None, params=None, **kwargs) -> dict:
+        # 兼容旧路径的 dict 上下文和原生 tool calling 的 ToolContext（attachment 字段）
+        if isinstance(context, dict):
+            attachment = context.get("attachment") or {}
+        else:
+            attachment = getattr(context, "attachment", None) or {}
         sheets = attachment.get("sheets") or []
         if not sheets:
             return {"found": False, "message": "当前附件没有可分析的 Excel 表格数据"}
-        sheet = sheets[0]
+
+        params = params if isinstance(params, dict) else {}
+        query = params.get("query") or query
+        sheet_name = str(params.get("sheet_name") or "").strip()
+        if sheet_name:
+            sheet = next((s for s in sheets if s.get("name") == sheet_name), None)
+            if sheet is None:
+                available = [s.get("name") for s in sheets]
+                return {
+                    "found": False,
+                    "message": f"未找到名为「{sheet_name}」的 sheet，可选：{'、'.join(map(str, available))}",
+                    "available_sheets": available,
+                }
+        else:
+            sheet = sheets[0]
         df = pd.DataFrame(sheet["data"], columns=sheet["headers"])
 
         if _SIMPLE_STATS.search(query or ""):

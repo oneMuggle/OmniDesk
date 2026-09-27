@@ -38,6 +38,7 @@ class SmartAssistantConfig(AppConfig):
         from .tools.office_generate_tool import OfficeGenerateTool
         from .tools.spreadsheet_tool import SpreadsheetTool
         from .tools.notify_tool import NotifyTool
+        from .tools.global_search_tool import GlobalSearchTool
 
         ToolRegistry.register(ScheduleTool())
         ToolRegistry.register(PersonnelTool())
@@ -62,6 +63,7 @@ class SmartAssistantConfig(AppConfig):
         ToolRegistry.register(OfficeGenerateTool())
         ToolRegistry.register(SpreadsheetTool())
         ToolRegistry.register(NotifyTool())
+        ToolRegistry.register(GlobalSearchTool())
 
         # 钩子注册:PII 脱敏(POST_EXECUTE)+ 超时熔断恢复(ON_FAILURE)挂到
         # 全局 HookRegistry。接线方式与 AuditLogHook 文档约定一致

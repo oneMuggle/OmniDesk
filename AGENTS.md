@@ -87,7 +87,7 @@ Uses environment variables for PostgreSQL: `POSTGRES_DB`, `POSTGRES_USER`, `POST
 
 ## CI/CD
 
-- **Push to main**: Triggers `build-and-push-images.yml` (builds Docker, pushes to GHCR) → `deploy-ssh-windows.yml` (SSH deploy)
+- **Push to main**: Triggers `build-and-push-images.yml` (builds Docker, pushes to GHCR) → `deploy-test.yml` (Deploy Test via workflow_run)
 - **Push / PR to main & develop**: Triggers `ci.yml` (unified CI: backend pytest + frontend jest + lint + mypy)
 
 ## App Structure
@@ -108,25 +108,25 @@ Auto-generated from `src/routes/` - check that directory for available pages.
 - `omni_desk_backend/omni_desk_backend/asgi.py` - ASGI bootstrap
 
 ### Frontend (React)
-- `omni_desk_frontend/src/index.js` - CRA bootstrap with RouterProvider (v6.4+ style)
-- `omni_desk_frontend/src/App.js` - Main layout with Sidebar + Outlet
-- `omni_desk_frontend/src/routes/index.js` - Route config via createBrowserRouter
+- `omni_desk_frontend/src/index.jsx` - Vite entry, bootstraps RouterProvider (v6.4+ style)
+- `omni_desk_frontend/src/App.jsx` - Main layout with Sidebar + Outlet
+- `omni_desk_frontend/src/routes/index.jsx` - Route config via createBrowserRouter
+- `omni_desk_frontend/src/features/admin/config/adminRoutePermissions.js` - `/control-panel/*` 路由权限单一数据源（路由守卫 / 管理菜单 / 搜索结果共用）
 
 ## Anti-Patterns (THIS PROJECT)
 
 - No "DO NOT"/"NEVER"/"TODO" markers found in code comments (clean)
-- Root-level `node_modules/` and `package.json` with Vue deps (unusual - frontend has its own)
 - Multiple deployment strategies maintained in parallel (Docker, Gunicorn, Nginx Unit) - high maintenance burden
 
 ## CI/CD Details
 
-- **Main branch**: `build-and-push-images.yml` → `deploy-ssh-windows.yml` (Windows SSH deploy)
+- **Main branch**: `build-and-push-images.yml` (Docker build + GHCR push) → `deploy-test.yml` (via workflow_run)
 - **Main & develop branches / PRs**: `ci.yml` (unified CI: parallel backend pytest + frontend jest + lint + mypy; the legacy `ci-test.yml` has been removed)
 - **Windows deployment**: SSH to Windows server, pulls from GHCR (unusual for Django)
 
 ## Notes
 
-- Root has extraneous `package.json` with Vue dependencies - frontend has its own
+- Root `package.json` / `package-lock.json` are git-ignored (the old Vue-deps note is obsolete since 2026-06); the frontend has its own
 - Django settings module is `local.py` not `development.py`
 - React uses createBrowserRouter with `future` flag (v7 transition)
 - Build: `npm run build` auto-runs `scripts/generate-routes.js` to generate `public/routes.json`

@@ -106,5 +106,8 @@ def test_command_outputs_tool_count(restore_tool_registry, capsys):
     out = StringIO()
     call_command("check_tool_scopes", stdout=out)
     output = out.getvalue()
-    # 22 = 13 基线 + 3 swap_request + 3 office/spreadsheet + MemoCreateTool + MemoUpdateTool + MemoDeleteTool
-    assert "23" in output or "tools" in output.lower()
+    # 与注册表实际数量一致(当前 24 = 13 基线 + 3 swap_request + 3 office/spreadsheet
+    # + MemoCreate/Update/Delete + NotifyTool + GlobalSearchTool),避免新增工具时硬编码失效
+    total = len(ToolRegistry._tools)
+    assert total >= 24
+    assert f"检查 {total} 个工具" in output
