@@ -18,6 +18,7 @@ import {
   AgentAuditPanel,
   AgentStaffPage,
   KnowledgeIngestPage,
+  AiBudgetPage,
   AgentTaskPanel,
   AiAppManagementPage,
   AiManagementLayout,
@@ -262,6 +263,10 @@ const router = createBrowserRouter([
               {
                 path: "knowledge",
                 element: <ProtectedRoute pagePath="/control-panel/ai/knowledge" permissions={getAdminRoutePermissions("ai/knowledge")} pageName="知识入库"><LazyComponent component={KnowledgeIngestPage} /></ProtectedRoute>
+              },
+              {
+                path: "budget",
+                element: <ProtectedRoute pagePath="/control-panel/ai/budget" permissions={getAdminRoutePermissions("ai/budget")} pageName="预算与用量"><LazyComponent component={AiBudgetPage} /></ProtectedRoute>
               },
             ]
           },

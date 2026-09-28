@@ -41,6 +41,9 @@ from ..cache import (
     sanitize_public_text,
     sanitize_public_sources,
 )
+from llm_service.metering import iterate_in_scope, make_scope
+
+from ..budget.chat import BUDGET_EXCEEDED, apply_budget, public_budget, usage_from_scope
 from ..models import AgentLog, SmartAssistantSession
 
 from .conversation_manager import prepare_chat_context
@@ -124,7 +127,9 @@ def handle_stream_chat(viewset, request) -> StreamingHttpResponse:
         return err[0]
 
     start_time = time.time()
-    orchestrator = AgentOrchestrator()
+    # 预算(方案 5.6):硬上限直接答复,不进编排;只读时关掉写工具与任务计划卡
+    tool_context, budget = apply_budget(tool_context)
+    orchestrator = _BudgetBlockedOrchestrator(budget.message) if budget.blocked else AgentOrchestrator()
 
     return StreamingHttpResponse(
         _event_stream_generator(
@@ -136,9 +141,30 @@ def handle_stream_chat(viewset, request) -> StreamingHttpResponse:
             orchestrator=orchestrator,
             user=request.user,
             start_time=start_time,
+            scope=make_scope(request.user),
+            budget=budget,
         ),
         content_type="text/event-stream",
     )
+
+
+class _BudgetBlockedOrchestrator:
+    """硬上限时代替编排器:只发一条答复 + 失败 done(kind=budget_exceeded),不调用 LLM。"""
+
+    def __init__(self, message):
+        self.message = message
+
+    def process_stream(self, query, conversation_history=None, tool_context=None):
+        yield sse_event({"type": "chunk", "content": self.message})
+        yield sse_event(
+            {
+                "type": "done",
+                "error": True,
+                "error_code": BUDGET_EXCEEDED,
+                "kind": BUDGET_EXCEEDED,
+                "hint": ERROR_KIND_HINTS[BUDGET_EXCEEDED],
+            }
+        )
 
 
 def _event_stream_generator(
@@ -151,6 +177,8 @@ def _event_stream_generator(
     orchestrator,
     user,
     start_time,
+    scope=None,
+    budget=None,
 ):
     """SSE 事件生成器:消费 process_stream → 失败收口 → 持久化 → session 事件。
 
@@ -174,7 +202,9 @@ def _event_stream_generator(
 
     try:
         try:
-            for chunk in _consume_stream_events(state, orchestrator, query, conversation_history, tool_context):
+            events = _consume_stream_events(state, orchestrator, query, conversation_history, tool_context)
+            # LLM 调用发生在这里的每次 next() 中(视图早已返回),逐次进入计量范围
+            for chunk in iterate_in_scope(events, scope) if scope is not None else events:
                 yield chunk
         except Exception as exc:
             # 生成器中途异常(DB/工具异常逃逸):按失败路径收口,保证"失败必审计"——
@@ -210,6 +240,9 @@ def _event_stream_generator(
 
         # 失败判定:done 事件显式标记优先,回答前缀兜底
         error = state["done_error"] or is_failed_answer(answer)
+        if error and scope is not None and scope.blocked_message:
+            # 本轮中途被预算硬上限拦下:错误分类改为 budget_exceeded
+            state["stream_error_code"] = BUDGET_EXCEEDED
         response_time_ms = int((time.time() - start_time) * 1000)
 
         # 失败响应不落库:无 conversation_id 不新建会话,有则不追加消息
@@ -229,6 +262,7 @@ def _event_stream_generator(
             meta=state["meta"],
             response_time_ms=response_time_ms,
             error=error,
+            usage=usage_from_scope(scope, None),
         )
 
         # 输出契约:session 事件携带 format_version;失败时追加 kind + hint
@@ -240,6 +274,7 @@ def _event_stream_generator(
             state["meta"],
             state["stream_error_code"],
             state["stream_retry_after"],
+            budget=public_budget(budget),
         )
     except Exception as exc:
         # 兜底:DB 写(session.save / AgentLog.create)异常也保证前端能收到 done 事件。
@@ -342,8 +377,12 @@ def _persist_stream_session(session, conversation_id, query, answer, user):
     return persist_session, cid
 
 
-def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, error):
-    """流式路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。"""
+def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, error, usage=None):
+    """流式路径的 AgentLog 审计写入:失败时 tool_success=False,会话可为空。
+
+    ``usage`` 为本轮所有 LLM 调用的计量合计(方案 5.6);无计量时 token / 成本留空。
+    """
+    usage = usage or {}
     return AgentLog.objects.create(
         session=session,
         user_query=sanitize_public_text(query),
@@ -353,8 +392,10 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
         tool_output=safe_public_value(meta.get("tool_result") or {}),
         llm_response=sanitize_public_text(answer),
         response_time_ms=response_time_ms,
-        # 流式路径暂无 usage 统计,成本留空
-        estimated_cost=None,
+        input_tokens=usage.get("prompt_tokens"),
+        output_tokens=usage.get("completion_tokens"),
+        total_tokens=usage.get("total_tokens"),
+        estimated_cost=usage.get("estimated_cost"),
         tool_success=False if error else (meta.get("tool_fallback") is not True),
         # L1.1 fix(最终 review):流式原生路径决策日志落库,与非流式
         # create(chat.py:285-287)一致;缺省 tool_call_path="intent"
@@ -365,7 +406,7 @@ def _write_stream_agent_log(*, session, query, answer, meta, response_time_ms, e
     )
 
 
-def _build_stream_event(log, cid, error, answer, meta, stream_error_code, stream_retry_after) -> str:
+def _build_stream_event(log, cid, error, answer, meta, stream_error_code, stream_retry_after, budget=None) -> str:
     """组装 session 事件:携带 format_version;失败时追加 kind + hint。"""
     session_event = {
         "type": "session",
@@ -377,6 +418,8 @@ def _build_stream_event(log, cid, error, answer, meta, stream_error_code, stream
         # 缺省 None,前端按通用错误展示,无 breaking。
         "error_code": stream_error_code,
         "retry_after": stream_retry_after,
+        # 预算(方案 5.6):只读 / 停用时带 {state, message},前端显示提示条;正常为 None
+        "budget": budget,
     }
     if error:
         annotate_error_kind(
@@ -384,5 +427,6 @@ def _build_stream_event(log, cid, error, answer, meta, stream_error_code, stream
             answer,
             tool_used=meta.get("tool_used"),
             tool_result=meta.get("tool_result"),
+            error_code=stream_error_code,
         )
     return f"data: {json.dumps(session_event, ensure_ascii=False)}\n\n"

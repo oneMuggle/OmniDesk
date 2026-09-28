@@ -7,8 +7,10 @@ from rest_framework.response import Response
 
 from compliance.models import ComplianceIssue
 from compliance.serializers import ComplianceIssueSerializer
+from llm_service.metering import LlmBudgetExceeded, usage_scope
 from llm_service.ollama_client import OllamaClient
 from projects.models import Project
+from smart_assistant.budget.chat import budget_gate, budget_response
 
 from ..file_processing import process_uploaded_file
 from ..models import DocumentTemplate
@@ -86,6 +88,10 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            denied = budget_gate(request.user, "documents", block_readonly=False)
+            if denied is not None:
+                return denied
+
             ollama_client = OllamaClient()
 
             system_message = """你是一名专业的文档合规性审查员，专注于识别文档中的不规范、时间冲突、内容缺失或内容与规定不符的问题。
@@ -100,7 +106,12 @@ class DocumentTemplateViewSet(viewsets.ModelViewSet):
 
             prompt = f"请严格按照系统消息的JSON格式要求，分析以下文档内容，识别其中存在的合规性问题：\n\n文档内容：\n{extracted_text}\n\n请输出JSON数组："
 
-            ollama_response_json = ollama_client.generate(prompt=prompt, system_message=system_message)
+            # 预算(方案 5.6):计入 documents 应用与当前用户;硬上限时拒绝
+            try:
+                with usage_scope(user=request.user):
+                    ollama_response_json = ollama_client.generate(prompt=prompt, system_message=system_message)
+            except LlmBudgetExceeded as exc:
+                return budget_response(exc.message)
 
             try:
                 compliance_issues_data = json.loads(ollama_response_json)

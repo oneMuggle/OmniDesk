@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint } from '../api/smartAssistantApi';
+import { sendSmartChatStream, getSessions, createSession, deleteSession, submitFeedback, resolveErrorHint, getMyBudget } from '../api/smartAssistantApi';
 import { startAgentTask } from '../utils/startAgentTask';
 import { forkSession, exportSessionMarkdown } from '../pages/sessionForkExportApi';
 import { message as antMessage } from 'antd';
@@ -41,6 +41,8 @@ export function useSmartChat() {
   const [sessions, setSessions] = useState([]);
   const [currentSessionId, setCurrentSessionId] = useState(null);
   const [showSessionList, setShowSessionList] = useState(false);
+  // 今日 AI 额度状态(方案 5.6):null / {state: 'readonly'|'blocked', message};ok 时为 null
+  const [budget, setBudget] = useState(null);
   const messagesEndRef = useRef(null);
   const abortRef = useRef(null);
   const activeRequestRef = useRef(null);
@@ -219,8 +221,30 @@ export function useSmartChat() {
     ));
   }, []);
 
+  // 进入页面时查一次今日额度;之后随每次回答的 session 事件更新。查询失败不提示(只是少一条提示条)
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const { data } = await getMyBudget();
+        if (alive && data && data.state && data.state !== 'ok') {
+          setBudget({ state: data.state, message: data.message });
+        }
+      } catch {
+        // 静默
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, []);
+
   /** 处理单个 SSE 事件,路由到对应的处理器 */
   const handleSSEEvent = useCallback(async (event, activeSessionId) => {
+    // 预算(方案 5.6):session 事件带 budget(ok 时为 null);旧版后端无该字段时不改动
+    if (event.type === 'session' && Object.prototype.hasOwnProperty.call(event, 'budget')) {
+      setBudget(event.budget || null);
+    }
     // 兼容旧版事件:无 log_id 字段时静默跳过
     if (event.log_id !== undefined && event.log_id !== null) {
       pendingLogIdRef.current = event.log_id;
@@ -478,6 +502,11 @@ export function useSmartChat() {
     } catch (error) {
       logger.warn('[SmartChat] 创建协作任务失败', error);
       setProposalStatus(msgIndex, 'error');
+      // 预算只读 / 停用时后端返回 409 + 说明
+      if (error?.response?.status === 409 && error.response.data?.error) {
+        antMessage.warning(error.response.data.error);
+        if (error.response.data.budget) setBudget(error.response.data.budget);
+      }
     }
   }, [messages, currentSessionId, setProposalStatus]);
 
@@ -541,5 +570,6 @@ export function useSmartChat() {
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
     handleCreateTask, handleAnswerDirectly,
     addProposalMessage,
+    budget,
   };
 }

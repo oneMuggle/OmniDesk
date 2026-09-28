@@ -216,12 +216,15 @@ class RunContext:
                 self.event("quota.exceeded", kind="llm", quota=quota)
             self.stats["llm_skipped_quota"] += 1
             return None
+        from llm_service.metering import usage_scope
         from smart_assistant.extractors.llm_helpers import call_extractor_llm
 
         self._llm_used += 1
         self.stats["llm_calls"] += 1
         self.event("llm.call", purpose=purpose)
-        text = call_extractor_llm(system_prompt, prompt)
+        # 预算(方案 5.6):用量记在数字员工名下(不占任何用户的额度,计入应用总量)
+        with usage_scope(staff_key=self.profile.key):
+            text = call_extractor_llm(system_prompt, prompt)
         if not text or not text.strip():
             self.llm_fallbacks += 1
             self.event("llm.fallback", purpose=purpose, reason="error")

@@ -8,7 +8,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 # 统一走 LLMRouter：享受 DB 端点配置与优先级降级，不再直连 OllamaClient
+from llm_service.metering import LlmBudgetExceeded, usage_scope
 from llm_service.router import get_router
+from smart_assistant.budget.chat import budget_gate, budget_response
 
 from observability import get_logger
 
@@ -42,18 +44,25 @@ class OfficeAssistantProcessView(APIView):
         if action not in ALLOWED_ACTIONS:
             return Response({"detail": f"unsupported action: {action}"}, status=status.HTTP_400_BAD_REQUEST)
 
+        # 预算(方案 5.6):只读(软上限)起即暂停办公文档生成
+        denied = budget_gate(request.user, APP_NAME, block_readonly=True)
+        if denied is not None:
+            return denied
+
         try:
             router = get_router(app_name=APP_NAME)
             system_message = SYSTEM_PROMPTS[action]
 
-            if stream:
-                response_stream = router.generate(prompt=text, system_message=system_message, stream=True)
-                return StreamingHttpResponse(response_stream, content_type="text/event-stream")
-            else:
+            with usage_scope(user=request.user):
+                if stream:
+                    response_stream = router.generate(prompt=text, system_message=system_message, stream=True)
+                    return StreamingHttpResponse(response_stream, content_type="text/event-stream")
                 # router 非流式返回 (content, usage) 元组，office_assistant 无需成本字段
                 processed_text, _usage = router.generate(prompt=text, system_message=system_message, stream=False)
                 return Response({"processed_text": processed_text}, status=status.HTTP_200_OK)
 
+        except LlmBudgetExceeded as exc:
+            return budget_response(exc.message)
         except Exception:
             logger.exception("office_assistant.process.unexpected_error")
             return Response(
@@ -69,6 +78,10 @@ class ProcessDocumentView(APIView):
     def post(self, request, *args, **kwargs):
         if "file" not in request.FILES:
             return Response({"status": "error", "message": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+
+        denied = budget_gate(request.user, APP_NAME, block_readonly=True)
+        if denied is not None:
+            return denied
 
         file_obj = request.FILES["file"]
         action = request.data.get("action", "proofread")
@@ -114,10 +127,10 @@ class ProcessDocumentView(APIView):
 
             system_message = system_prompts[action]
 
-            if stream:
-                response_stream = router.generate(prompt=original_text, system_message=system_message, stream=True)
-                return StreamingHttpResponse(response_stream, content_type="text/event-stream")
-            else:
+            with usage_scope(user=request.user):
+                if stream:
+                    response_stream = router.generate(prompt=original_text, system_message=system_message, stream=True)
+                    return StreamingHttpResponse(response_stream, content_type="text/event-stream")
                 # router 非流式返回 (content, usage) 元组，此处只取正文
                 processed_text, _usage = router.generate(
                     prompt=original_text, system_message=system_message, stream=False
@@ -131,6 +144,8 @@ class ProcessDocumentView(APIView):
                 }
                 return Response(response_data, status=status.HTTP_200_OK)
 
+        except LlmBudgetExceeded as exc:
+            return budget_response(exc.message)
         except Exception:
             logger.exception("office_assistant.process_document.unexpected_error")
             return Response(

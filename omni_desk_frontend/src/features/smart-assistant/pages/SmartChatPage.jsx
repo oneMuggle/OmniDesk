@@ -5,6 +5,7 @@ import ChatHeader from '../components/ChatHeader';
 import SessionListPanel from '../components/SessionListPanel';
 import MessageList from '../components/MessageList';
 import ChatInputBar from '../components/ChatInputBar';
+import BudgetNotice from '../components/BudgetNotice';
 import './SmartChatPage.css';
 
 /**
@@ -25,6 +26,7 @@ const SmartChatPage = () => {
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
     handleCreateTask, handleAnswerDirectly,
     addProposalMessage,
+    budget,
   } = useSmartChat();
   const inRouter = useInRouterContext();
 
@@ -58,6 +60,8 @@ const SmartChatPage = () => {
         onCreateTask={handleCreateTask}
         onAnswerDirectly={handleAnswerDirectly}
       />
+
+      <BudgetNotice budget={budget} />
 
       <ChatInputBar
         inputMessage={inputMessage}

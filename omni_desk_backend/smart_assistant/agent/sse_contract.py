@@ -27,6 +27,7 @@ ERROR_KIND_HINTS = {
     "llm_unavailable": "LLM 服务暂时不可用，请稍后重试或检查端点连通性",
     "ragflow_unavailable": "知识库服务暂时不可用",
     "internal_error": "服务异常，请稍后重试",
+    "budget_exceeded": "今日 AI 额度已用完，明天 0 点自动恢复；如需调整请联系管理员",
 }
 
 
@@ -57,6 +58,7 @@ def classify_error_kind(result: dict):
 
     输出契约判定规则（优先级自上而下）：
     - 非失败响应（error 为假且回答无失败前缀）→ 返回 ``None``
+    - 预算硬上限（``error_code == "budget_exceeded"``）→ ``"budget_exceeded"``
     - knowledge_qa 工具失败且错误涉及 Ragflow → ``"ragflow_unavailable"``
     - 无激活的 LLM 应用配置/端点 → ``"no_llm_endpoint"``
     - 有配置但 LLM 回答生成失败 → ``"llm_unavailable"``
@@ -66,6 +68,8 @@ def classify_error_kind(result: dict):
     """
     if not (bool(result.get("error")) or is_failed_answer(result.get("answer"))):
         return None
+    if result.get("error_code") == "budget_exceeded":
+        return "budget_exceeded"
     tool_used = result.get("tool_used") or ""
     if tool_used == "knowledge_qa" and _mentions_ragflow(result.get("answer"), result.get("tool_result")):
         return "ragflow_unavailable"
@@ -81,7 +85,7 @@ def sse_event(payload: dict) -> str:
     return f"data: {json.dumps({'format_version': FORMAT_VERSION, **payload}, ensure_ascii=False)}\n\n"
 
 
-def annotate_error_kind(payload: dict, answer: str, tool_used=None, tool_result=None) -> dict:
+def annotate_error_kind(payload: dict, answer: str, tool_used=None, tool_result=None, error_code=None) -> dict:
     """为失败事件载荷追加 ``kind`` + ``hint``（输出契约）。
 
     供 orchestrator 的 done 事件与视图层的 session/同步响应复用，
@@ -93,6 +97,7 @@ def annotate_error_kind(payload: dict, answer: str, tool_used=None, tool_result=
             "error": True,
             "tool_used": tool_used,
             "tool_result": tool_result,
+            "error_code": error_code,
         }
     )
     payload["kind"] = kind

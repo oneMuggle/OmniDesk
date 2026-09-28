@@ -2,17 +2,21 @@
 
 import json
 import os
+from contextlib import nullcontext
 
 import requests
 from observability import get_logger
 
+from llm_service.metering import check_before_call, current_scope, messages_text, record_call, usage_scope
 from smart_assistant.ssrf import UnsafeEndpointError, safe_internal_request, safe_request
 
 logger = get_logger(__name__, "llm_service.ollama_client")
 
 
 class OllamaClient:
-    def __init__(self, base_url=None, model_name=None, *, requester=None, resolver=None):
+    def __init__(self, base_url=None, model_name=None, *, requester=None, resolver=None, app_name="documents"):
+        # 预算计量(方案 5.6)记在哪个应用名下;目前唯一调用方是合规报告抽取
+        self.app_name = app_name
         self.base_url = base_url or os.environ.get("OLLAMA_BASE_URL", "http://localhost:11434")
         self._requester = requester
         self._resolver = resolver
@@ -52,12 +56,36 @@ class OllamaClient:
     def _is_default_internal_endpoint(self):
         return self.base_url.rstrip("/") == "http://localhost:11434"
 
-    def _stream_generate(self, response):
-        for line in response.iter_lines():
-            if line:
-                chunk = json.loads(line)
-                if "message" in chunk and "content" in chunk["message"]:
-                    yield chunk["message"]["content"]
+    @staticmethod
+    def _native_usage(payload):
+        """Ollama 原生 api/chat 的 token 计数(``prompt_eval_count`` / ``eval_count``)。"""
+        if not isinstance(payload, dict) or "eval_count" not in payload:
+            return None
+        prompt = int(payload.get("prompt_eval_count") or 0)
+        completion = int(payload.get("eval_count") or 0)
+        return {"prompt_tokens": prompt, "completion_tokens": completion, "total_tokens": prompt + completion}
+
+    def _stream_generate(self, response, messages=None):
+        scope = current_scope()
+        parts = []
+        usage = None
+        try:
+            for line in response.iter_lines():
+                if line:
+                    chunk = json.loads(line)
+                    if chunk.get("done"):
+                        usage = self._native_usage(chunk) or usage
+                    if "message" in chunk and "content" in chunk["message"]:
+                        parts.append(chunk["message"]["content"])
+                        yield chunk["message"]["content"]
+        finally:
+            with usage_scope(scope=scope) if scope is not None else nullcontext():
+                record_call(
+                    self.app_name,
+                    usage=usage,
+                    prompt_text=messages_text(messages),
+                    completion_text="".join(parts),
+                )
 
     def generate(self, prompt, system_message=None, stream=False, options=None):
         """
@@ -80,15 +108,26 @@ class OllamaClient:
             "options": options if options is not None else {},
         }
 
-        if stream:
-            response = self._make_request("api/chat", data, stream=True)
-            return self._stream_generate(response)
-        else:
+        check_before_call(self.app_name)
+        try:
+            if stream:
+                response = self._make_request("api/chat", data, stream=True)
+                return self._stream_generate(response, messages)
             response_data = self._make_request("api/chat", data)
-            if "message" in response_data and "content" in response_data["message"]:
-                return response_data["message"]["content"]
-            else:
-                raise Exception(f"Unexpected Ollama API response structure: {response_data}")
+        except Exception:
+            record_call(self.app_name, failed=True)
+            raise
+        if "message" in response_data and "content" in response_data["message"]:
+            content = response_data["message"]["content"]
+            record_call(
+                self.app_name,
+                usage=self._native_usage(response_data),
+                prompt_text=messages_text(messages),
+                completion_text=content or "",
+            )
+            return content
+        record_call(self.app_name, failed=True)
+        raise Exception(f"Unexpected Ollama API response structure: {response_data}")
 
     def pull_model(self, model_name):
         """

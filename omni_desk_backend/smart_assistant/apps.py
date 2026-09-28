@@ -12,6 +12,9 @@ class SmartAssistantConfig(AppConfig):
         # R5-B4: LLMRouter 配置缓存失效信号(LlmAppConfig/LlmEndpoint 变更时)
         from llm_service import signals as llm_signals  # noqa: F401
 
+        # 方案 5.6:预算上限配置变更 → 失效上限快照缓存
+        from .budget import signals as budget_signals  # noqa: F401
+
         # 工具注册:各 app 的 ai_tools.py 声明工具集,此处自动发现 + 启动自检
         # (声明错误直接抛 ImproperlyConfigured,启动失败)。必须在 scope 校验之前完成。
         # 规则与字段见 smart_assistant/capabilities 与 docs/technical/46-ai-capability-catalog.md。

@@ -59,6 +59,8 @@ export const ADMIN_ROUTE_PERMISSIONS = Object.freeze({
   // S4-1 数字员工:仅管理员(后端再校验超级用户 / Admin 组)
   'ai/staff': ADMIN_ONLY,
   'ai/knowledge': ADMIN_ONLY,
+  // 方案 5.6 预算与用量:仅管理员
+  'ai/budget': ADMIN_ONLY,
   'external-links': ADMIN_OR_MANAGER,
   'integration-hub': ADMIN_OR_MANAGER,
   'integration-hub/manage': ADMIN_ONLY,

@@ -4,6 +4,9 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from smart_assistant.ssrf import safe_internal_request, safe_request
 from django.conf import settings
 from django.core.cache import cache
+from contextlib import nullcontext
+
+from llm_service.metering import check_before_call, current_scope, messages_text, record_call, usage_scope
 
 logger = get_logger(__name__, "llm_service.router")
 
@@ -14,6 +17,14 @@ ROUTER_CACHE_TIMEOUT = 60
 
 def _router_cache_key(app_name):
     return f"llm_router_configs_{app_name}"
+
+
+def _endpoint_capability(endpoint, name: str) -> bool:
+    """``LlmEndpoint.model_capabilities`` 为 ``list[dict]``,任一元素 ``name=True`` 即支持。"""
+    caps = getattr(endpoint, "model_capabilities", None) if endpoint is not None else None
+    if not isinstance(caps, list):
+        return False
+    return any(isinstance(cap, dict) and cap.get(name) is True for cap in caps)
 
 
 class _DefaultRequestTimeout(int):
@@ -114,6 +125,9 @@ class LLMRouter:
                 final_messages.append({"role": "system", "content": system_message})
             final_messages.append({"role": "user", "content": prompt})
 
+        # 预算(方案 5.6):当前用户 / 应用已到硬上限时直接抛 LlmBudgetExceeded,不发请求
+        check_before_call(self.app_name)
+
         # 构建降级链路：按 LlmAppConfig 顺序（主端点 → 备用端点）
         candidates = list(self._configs)
 
@@ -142,6 +156,7 @@ class LLMRouter:
                 api_key = ""
                 model_name = self._resolve_ollama_model()
                 label = f"Ollama ({model_name})"
+                endpoint = None
             else:
                 # LlmAppConfig 对象
                 config = candidate
@@ -152,6 +167,11 @@ class LLMRouter:
                 label = f"{endpoint.name} ({model_name})"
 
             data["model"] = model_name
+            # 流式用量:端点声明 stream_usage 才请求(不支持该参数的服务会报 400);未声明时按字数估算
+            if stream and _endpoint_capability(endpoint, "stream_usage"):
+                data["stream_options"] = {"include_usage": True}
+            else:
+                data.pop("stream_options", None)
             url = f"{base_url.rstrip('/')}/v1/chat/completions"
             headers = {
                 "Content-Type": "application/json",
@@ -183,7 +203,10 @@ class LLMRouter:
                 response.raise_for_status()
 
                 if stream:
-                    return self._stream_generate(response)
+                    return self._stream_generate(
+                        response,
+                        meter=self._stream_meter(endpoint, model_name, final_messages),
+                    )
                 else:
                     resp_data = response.json()
                     choices = resp_data.get("choices", [])
@@ -197,11 +220,19 @@ class LLMRouter:
                             endpoint=None if is_ollama else endpoint,
                             model_name=model_name,
                         )
-                        return choices[0]["message"]["content"], usage
+                        content = choices[0]["message"]["content"]
+                        record_call(
+                            self.app_name,
+                            usage=usage,
+                            prompt_text=messages_text(final_messages),
+                            completion_text=content or "",
+                        )
+                        return content, usage
                     raise Exception("LLM API 响应结构异常")
             except Exception as e:
                 last_error = e
                 if i == len(candidates) - 1:
+                    record_call(self.app_name, failed=True)
                     # P0-W:最后一个端点仍失败 → 抛出原始异常保留类型与完整堆栈,
                     # 不再吞掉后替换成通用 Exception 文案
                     logger.warning("最后 LLM 端点 %s 失败 (%s)，抛出原始异常: %s", label, type(e).__name__, e)
@@ -243,18 +274,25 @@ class LLMRouter:
         Returns:
             ``(content, usage, tool_calls)`` 三元组。
         """
+        check_before_call(self.app_name)
+
         # 显式 endpoint_url 覆盖(测试场景):直接命中,不降级
         if endpoint_url:
             model_name = self._resolve_model_name_for_tools()
-            content, usage, tool_calls = self._generate_with_tools_single(
-                messages=messages,
-                tools=tools,
-                tool_choice=tool_choice,
-                base_url=endpoint_url,
-                api_key="",
-                model_name=model_name,
-                options=options,
-            )
+            try:
+                content, usage, tool_calls = self._generate_with_tools_single(
+                    messages=messages,
+                    tools=tools,
+                    tool_choice=tool_choice,
+                    base_url=endpoint_url,
+                    api_key="",
+                    model_name=model_name,
+                    options=options,
+                )
+            except Exception:
+                record_call(self.app_name, failed=True)
+                raise
+            self._record_tools_call(messages, content, usage, tool_calls)
             return content, usage, tool_calls
 
         # DB 配置链路:按 LlmAppConfig 顺序(主端点 → 备用端点),最后 Ollama 兜底
@@ -292,10 +330,12 @@ class LLMRouter:
                 usage = self._enrich_usage(usage, endpoint, model_name)
                 if i > 0:
                     logger.info("LLM 工具调用降级成功: 切换到 %s", label)
+                self._record_tools_call(messages, content, usage, tool_calls)
                 return content, usage, tool_calls
             except Exception as exc:
                 last_error = exc
                 if i == len(candidates) - 1:
+                    record_call(self.app_name, failed=True)
                     logger.warning("最后 LLM 工具调用端点 %s 失败 (%s),抛出原始异常", label, type(exc).__name__)
                     raise
                 logger.warning("LLM 工具调用端点 %s 失败 (%s),尝试下一个", label, type(exc).__name__)
@@ -436,28 +476,69 @@ class LLMRouter:
         enriched.setdefault("model_name", model_name)
         return enriched
 
-    def _stream_generate(self, response):
-        """流式解析 SSE 响应。"""
+    def _stream_generate(self, response, meter=None):
+        """流式解析 SSE 响应。
+
+        ``meter(completion_text, usage)`` 在流结束(含消费方中途关闭)时调用一次,用于计量;
+        响应里带 ``usage``(``stream_options.include_usage``)时一并传入。
+        """
         import json
 
-        for line in response.iter_lines():
-            if not line:
-                continue
-            text = line.decode("utf-8")
-            if text.startswith("data: "):
-                text = text[6:]
-            if text == "[DONE]":
-                break
-            try:
-                chunk = json.loads(text)
-                choices = chunk.get("choices", [])
-                if choices:
-                    delta = choices[0].get("delta", {})
-                    content = delta.get("content")
-                    if content:
-                        yield content
-            except Exception:
-                continue
+        parts = []
+        usage = None
+        try:
+            for line in response.iter_lines():
+                if not line:
+                    continue
+                text = line.decode("utf-8")
+                if text.startswith("data: "):
+                    text = text[6:]
+                if text == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(text)
+                    if isinstance(chunk.get("usage"), dict):
+                        usage = chunk["usage"]
+                    choices = chunk.get("choices", [])
+                    if choices:
+                        delta = choices[0].get("delta", {})
+                        content = delta.get("content")
+                        if content:
+                            parts.append(content)
+                            yield content
+                except Exception:
+                    continue
+        finally:
+            if meter is not None:
+                meter("".join(parts), usage)
+
+    def _stream_meter(self, endpoint, model_name, messages):
+        """生成流式计量回调:捕获调用时的计量范围,流结束时在同一范围内记账。"""
+        scope = current_scope()
+        prompt_text = messages_text(messages)
+        app_name = self.app_name
+
+        def meter(completion_text, usage):
+            enriched = self._enrich_usage(usage, endpoint, model_name) if usage else None
+            cost = enriched.get("estimated_cost") if enriched else None
+            if not enriched:
+                # 无 usage:按字数估算 token,再按端点单价估算费用
+                from llm_service.metering import estimate_tokens
+
+                estimated_total = estimate_tokens(prompt_text) + estimate_tokens(completion_text)
+                cost = self._compute_estimated_cost(endpoint, estimated_total)
+            with usage_scope(scope=scope) if scope is not None else nullcontext():
+                record_call(
+                    app_name, usage=enriched, prompt_text=prompt_text, completion_text=completion_text, cost=cost
+                )
+
+        return meter
+
+    def _record_tools_call(self, messages, content, usage, tool_calls):
+        completion_text = (content or "") + "".join(
+            str((tc.get("function") or {}).get("arguments", "")) for tc in tool_calls or []
+        )
+        record_call(self.app_name, usage=usage, prompt_text=messages_text(messages), completion_text=completion_text)
 
     def refresh(self):
         """重新加载数据库 LlmAppConfig。"""

@@ -15,6 +15,8 @@ from .tasks import process_file_task
 from .ai.summarizer import DataSummarizer
 from .ai.query import NaturalLanguageQuery
 from .throttles import UploadRateThrottle
+from llm_service.metering import LlmBudgetExceeded, usage_scope
+from smart_assistant.budget.chat import budget_gate, budget_response
 
 
 # 支持的文件大小限制（10MB）
@@ -171,10 +173,19 @@ class FileProcessingViewSet(viewsets.ModelViewSet):
                 {"error": f"问题长度超过限制（最大 {MAX_QUESTION_LENGTH} 字符）"}, status=status.HTTP_400_BAD_REQUEST
             )
 
+        # 预算(方案 5.6):硬上限时拒绝;普通查询在只读阶段照常
+        denied = budget_gate(request.user, "file_processing", block_readonly=False)
+        if denied is not None:
+            return denied
+
         result = uploaded_file.result
         nl_query = NaturalLanguageQuery()
         # P1A-1: query() 改走 LLMRouter,返回 (content, usage) 元组
-        answer, usage = nl_query.query(question, {"sheets_data": result.sheets_data})
+        try:
+            with usage_scope(user=request.user):
+                answer, usage = nl_query.query(question, {"sheets_data": result.sheets_data})
+        except LlmBudgetExceeded as exc:
+            return budget_response(exc.message)
 
         analysis = AIAnalysis.objects.create(
             file=uploaded_file,
