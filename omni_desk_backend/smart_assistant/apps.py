@@ -30,6 +30,11 @@ class SmartAssistantConfig(AppConfig):
 
         register_builtin_hooks()
 
+        # S4-2:公告 / 文档库变更 → 自动入库同步(未配置入库数据集时信号内直接返回)
+        from .knowledge import signals as knowledge_signals
+
+        knowledge_signals.connect()
+
         # 仅在 DEBUG 模式下启动时校验 scope(避免生产启动变慢)。
         # 注:必须在工具注册之后,否则 check_tool_scopes 看到的是空 registry。
         if getattr(settings, "DEBUG", False):

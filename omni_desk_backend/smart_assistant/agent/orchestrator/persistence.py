@@ -191,6 +191,7 @@ class LegacyProcessMixin:
                         params={"query": user_query},
                         scope=tool_context.scope,
                         qs=scoped_qs,
+                        context=tool_context,  # S4-2:与原生路径一致,供工具识别当前用户
                     )
                 else:
                     tool_result = _root().execute_guarded(

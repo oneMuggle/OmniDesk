@@ -277,6 +277,21 @@ export async function getAgentProfileRuns(key) {
   return apiClient.get(`${BASE_URL}/agent-profiles/${encodeURIComponent(key)}/runs/`);
 }
 
+/** 管理端：知识自动入库概况（是否已配置、按来源 × 状态统计、最近失败） */
+export async function getKnowledgeIngestSummary() {
+  return apiClient.get(`${BASE_URL}/knowledge-sources/summary/`);
+}
+
+/** 管理端：立即对账（异步，202） */
+export async function reconcileKnowledgeSources() {
+  return apiClient.post(`${BASE_URL}/knowledge-sources/reconcile/`);
+}
+
+/** 管理端：重试一条入库失败的记录（异步，202） */
+export async function retryKnowledgeSource(id) {
+  return apiClient.post(`${BASE_URL}/knowledge-sources/${encodeURIComponent(id)}/retry/`);
+}
+
 /**
  * 上传知识库文档
  */

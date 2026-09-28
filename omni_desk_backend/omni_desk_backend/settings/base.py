@@ -389,6 +389,12 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=5),
         "args": (),
     },
+    "knowledge-ingest-reconcile": {
+        # S4-2 公告 / 文档库自动入库对账
+        "task": "smart_assistant.tasks.reconcile_knowledge_sources",
+        "schedule": crontab(minute="*/30"),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置
@@ -442,6 +448,10 @@ SMART_ASSISTANT_FANOUT_MAX_WORKERS = max(1, int(os.environ.get("SMART_ASSISTANT_
 SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS = os.environ.get(
     "SMART_ASSISTANT_ENABLE_DESTRUCTIVE_TOOLS", "false"
 ).lower() in ("1", "true", "yes")
+
+# S4-2:公告 / 文档库自动入库的 RAGFlow 数据集 ID;留空则关闭自动入库。
+# 请使用单独的数据集,且不要挂到 RAGFlow 聊天助手上(那条路径不经过本系统的权限过滤)。
+SMART_ASSISTANT_INGEST_DATASET_ID = os.environ.get("SMART_ASSISTANT_INGEST_DATASET_ID", "")
 
 # === L1 原生 Function Calling(2026-08-06)===
 # 路由开关:True 走原生 tool_calls 协议,False 保留 JSON 路径。

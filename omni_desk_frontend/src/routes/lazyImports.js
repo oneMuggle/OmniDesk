@@ -66,6 +66,7 @@ export const AiManagementLayout = lazy(() => import('../features/admin/pages/AiM
 export const SystemUpdatePage = lazy(() => import('../shared/pages/SystemUpdatePage'));
 export const AiAppManagementPage = lazy(() => import('../features/admin/pages/AiAppManagementPage'));
 export const AgentStaffPage = lazy(() => import('../features/admin/pages/AgentStaffPage'));
+export const KnowledgeIngestPage = lazy(() => import('../features/admin/pages/KnowledgeIngestPage'));
 export const ExternalLinksPage = lazy(() => import('../features/external-links/pages/ExternalLinksPage'));
 export const ExternalLinkManagementPage = lazy(() => import('../features/external-links/pages/ExternalLinkManagementPage'));
 export const IntegrationHubPage = lazy(() => import('../features/integration-hub/pages/IntegrationHubPage'));

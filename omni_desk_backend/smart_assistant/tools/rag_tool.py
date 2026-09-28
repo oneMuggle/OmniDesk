@@ -14,7 +14,12 @@ class RAGTool(BaseTool):
         - 旧:execute(query, context) — 原生 tool_calls 旧签名/直调路径
         - 新:execute(params, scope, qs) — scope-aware 执行分支(C-1 修复)
           RAG 是公共知识库(无"本人"语义),``qs`` 仅作契约占位,不影响查询。
+
+        S4-2:自动入库(公告/文档库)的结果按当前用户能否看到原对象过滤;
+        识别不出用户时这部分结果全部丢弃,手动上传的公共知识库不受影响。
         """
+        from smart_assistant.capabilities.helpers import context_user
+
         search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
@@ -22,7 +27,7 @@ class RAGTool(BaseTool):
         from ..agent.rag_router import get_rag_router
 
         rag_router = get_rag_router()
-        chunks = rag_router.search_multi(search_query, top_k=5)
+        chunks = rag_router.search_multi(search_query, top_k=5, user=context_user(context))
 
         if not chunks:
             return {

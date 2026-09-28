@@ -640,3 +640,57 @@ class AgentProposal(models.Model):
                 name="uniq_pending_agent_proposal",
             )
         ]
+
+
+class KnowledgeSource(models.Model):
+    """业务对象自动入库 RAGFlow 的记录（S4-2）。
+
+    一个业务对象（公告 / 文档库文档）对应一条记录。检索结果按 ``ragflow_document_id``
+    反查这里，再按用户能否看到原对象过滤（见 ``smart_assistant.knowledge.acl``）。
+    """
+
+    TYPE_ANNOUNCEMENT = "announcement"
+    TYPE_PAPERLESS = "paperless_document"
+    TYPE_CHOICES = [
+        (TYPE_ANNOUNCEMENT, "公告"),
+        (TYPE_PAPERLESS, "文档库"),
+    ]
+
+    STATUS_PENDING = "pending"
+    STATUS_INGESTED = "ingested"
+    STATUS_FAILED = "failed"
+    STATUS_REMOVED = "removed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待入库"),
+        (STATUS_INGESTED, "已入库"),
+        (STATUS_FAILED, "失败"),
+        (STATUS_REMOVED, "已移除"),
+    ]
+
+    source_type = models.CharField(max_length=32, choices=TYPE_CHOICES, verbose_name="来源类型")
+    source_id = models.PositiveIntegerField(verbose_name="来源对象 ID")
+    title = models.CharField(max_length=255, blank=True, default="", verbose_name="标题")
+    ragflow_dataset_id = models.CharField(max_length=100, blank=True, default="", verbose_name="RAGFlow 数据集 ID")
+    ragflow_document_id = models.CharField(
+        max_length=100, blank=True, default="", db_index=True, verbose_name="RAGFlow 文档 ID"
+    )
+    content_hash = models.CharField(max_length=64, blank=True, default="", verbose_name="入库内容 sha256")
+    status = models.CharField(
+        max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, db_index=True, verbose_name="状态"
+    )
+    attempts = models.PositiveIntegerField(default=0, verbose_name="连续失败次数")
+    last_error = models.CharField(max_length=500, blank=True, default="", verbose_name="最近错误")
+    ingested_at = models.DateTimeField(null=True, blank=True, verbose_name="入库时间")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "知识入库记录"
+        verbose_name_plural = "知识入库记录"
+        constraints = [
+            models.UniqueConstraint(fields=["source_type", "source_id"], name="uniq_knowledge_source"),
+        ]
+        ordering = ["-updated_at"]
+
+    def __str__(self):
+        return f"{self.get_source_type_display()} #{self.source_id} ({self.get_status_display()})"
