@@ -146,6 +146,36 @@ def create_swap_by_query(
         )
 
 
+def create_swap_for_personnel(
+    *,
+    requester,
+    target_personnel,
+    original_schedule,
+    reason: str = "",
+) -> ScheduleSwapRequest:
+    """用已确定的人员与排班对象创建值班人员换班申请（S4-1 数字员工提案确认时使用）。
+
+    与 ``create_swap_by_query`` 的区别：不按姓名查找目标人，避免重名时取错人；
+    调用方负责事先确认 ``original_schedule.duty_person`` 就是 ``requester``。
+
+    Raises:
+        SwapServiceError: 排班不属于申请人 / 自己换自己 / 模型校验失败
+    """
+    if original_schedule.duty_person_id != getattr(requester, "pk", None):
+        raise SwapServiceError("该排班的值班人员已变化")
+    if target_personnel.pk == requester.pk:
+        raise SwapServiceError("不能与自己换班")
+    with transaction.atomic():
+        return _create_swap_internal(
+            requester=requester,
+            target_personnel=target_personnel,
+            original_schedule=original_schedule,
+            target_schedule=None,
+            scope=ScheduleSwapRequest.SCOPE_DUTY_PERSON,
+            reason=reason,
+        )
+
+
 def accept_swap(*, actor, swap_id: int, note: str = "") -> ScheduleSwapRequest:
     """接收方 accept → apply_swap + audit_log。
 

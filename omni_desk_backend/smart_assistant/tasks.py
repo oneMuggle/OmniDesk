@@ -360,81 +360,68 @@ def execute_agent_task(task_id: str):
 
 @shared_task
 def send_daily_digests():
-    """智能助手每日晨报派发任务(工作日 8:30 由 beat 触发,见 CELERY_BEAT_SCHEDULE)。
+    """智能助手每日晨报（工作日 8:30 由 beat 触发，见 CELERY_BEAT_SCHEDULE）。
 
-    主动循环(proactivity MVP)的推送环节。性能修复:原实现对所有目标用户
-    串行跑完整编排链路(每用户数秒至十余秒),50 用户易超 10 分钟且 8:30
-    集中锤击本地 LLM。现改为派发模式——主任务仅遍历目标用户并为每个用户
-    dispatch ``send_single_digest`` 子任务,由 Celery worker 并发消费,
-    单用户失败在子任务内隔离,不影响其余用户。
+    S4-1 起由数字员工「个人秘书」执行：任务名保持不变（DatabaseScheduler 里已有这条
+    beat），内部改为运行 secretary 角色。角色在管理端关闭时本任务只记一条 skipped 运行。
 
-    目标用户(MVP 范围):所有 ``is_active=True`` 且 ``is_staff=True`` 的用户。
-    TODO(后续):改为按 NotificationPreference 偏好设置订阅/退订,
-    并支持用户自选晨报包含的模块。
-
-    返回:{"dispatched": <派发子任务数>, "date": <ISO 日期>}
+    返回：{"run_id", "status", "date"}
     """
-    from django.contrib.auth import get_user_model
     from django.utils import timezone
 
-    User = get_user_model()
-    today = timezone.localdate()
-    user_ids = list(User.objects.filter(is_active=True, is_staff=True).values_list("id", flat=True))
+    from smart_assistant.staff.runtime import run_profile
 
-    for user_id in user_ids:
-        send_single_digest.delay(user_id)
-
-    logger.info("每日晨报子任务派发完成: dispatched=%s date=%s", len(user_ids), today.isoformat())
-    return {"dispatched": len(user_ids), "date": today.isoformat()}
+    run = run_profile("secretary", "beat")
+    today = timezone.localdate().isoformat()
+    logger.info("每日晨报运行结束: run=%s status=%s", getattr(run, "pk", None), getattr(run, "status", "missing"))
+    return {"run_id": getattr(run, "pk", None), "status": getattr(run, "status", "missing"), "date": today}
 
 
 @shared_task
 def send_single_digest(user_id):
-    """为单个用户生成晨报并写入 Notification(由 ``send_daily_digests`` 派发)。
+    """给单个用户生成并推送晨报（兼容 S4-1 之前已入队的子任务）。
 
-    失败隔离约定(自身 try/except 记录 success/failure,不向 Celery 抛异常,
-    避免无意义的任务失败重试):
-    - 用户不存在 → 记 warning 日志,返回 success=False;
-    - ``generate_daily_digest`` 返回 None(生成失败)→ 记日志,跳过,不写通知;
-    - 其他异常(写通知失败等)→ logger.exception 记录,返回 success=False。
-
-    去重:通过 ``NotificationService.create`` 的 dedupe_key(按日期粒度,
-    Service 内部再按 user 过滤)做当日去重,beat 重投/子任务重复执行
-    不会给用户发第二条晨报。
+    角色关闭或用户不存在时跳过；失败只记日志，不向 Celery 抛异常。
     """
     from django.contrib.auth import get_user_model
-    from django.utils import timezone
 
-    from notifications.service import NotificationService
-    from smart_assistant.digest import generate_daily_digest
+    from smart_assistant.models import AgentProfile
+    from smart_assistant.staff.roles.secretary import SecretaryRunner
+    from smart_assistant.staff.runtime import RunContext
 
-    User = get_user_model()
-    today = timezone.localdate()
-
-    try:
-        user = User.objects.get(id=user_id)
-    except User.DoesNotExist:
-        logger.warning("晨报推送跳过,用户不存在: user_id=%s date=%s", user_id, today.isoformat())
+    profile = AgentProfile.objects.filter(key="secretary", enabled=True).first()
+    if profile is None:
+        return {"user_id": user_id, "success": False, "reason": "disabled"}
+    user = get_user_model().objects.filter(id=user_id, is_active=True).first()
+    if user is None:
+        logger.warning("晨报推送跳过,用户不存在: user_id=%s", user_id)
         return {"user_id": user_id, "success": False, "reason": "user_not_found"}
-
     try:
-        markdown = generate_daily_digest(user, today=today)
-        if not markdown:
-            logger.warning("晨报生成失败,已跳过: user=%s date=%s", user.username, today.isoformat())
-            return {"user_id": user_id, "success": False, "reason": "generate_failed"}
-        NotificationService.create(
-            user=user,
-            type="system",
-            title=f"智能助手每日晨报（{today.isoformat()}）",
-            content=markdown,
-            # 去重键按日期粒度:NotificationService 会再按 user 过滤,同键 24h 内合并
-            dedupe_key=f"smart_assistant_daily_digest:{today.isoformat()}",
-        )
-        logger.info("晨报推送成功: user=%s date=%s", user.username, today.isoformat())
-        return {"user_id": user_id, "success": True}
+        sent = SecretaryRunner(RunContext(profile)).send_brief(user)
     except Exception:
-        logger.exception("晨报推送失败: user=%s date=%s", user.username, today.isoformat())
+        logger.exception("晨报推送失败: user_id=%s", user_id)
         return {"user_id": user_id, "success": False, "reason": "exception"}
+    return {"user_id": user_id, "success": bool(sent)}
+
+
+@shared_task
+def run_agent_profile(key, trigger="beat", triggered_by_id=None):
+    """运行一个数字员工角色（beat 定时或管理端「立即运行」）。"""
+    from django.contrib.auth import get_user_model
+
+    from smart_assistant.staff.runtime import run_profile
+
+    user = get_user_model().objects.filter(pk=triggered_by_id).first() if triggered_by_id else None
+    run = run_profile(key, trigger, triggered_by=user)
+    return {"key": key, "run_id": getattr(run, "pk", None), "status": getattr(run, "status", "missing")}
+
+
+@shared_task
+def expire_agent_proposals():
+    """把已过期的数字员工待确认事项置为 expired（每小时）。"""
+    from smart_assistant.staff.proposals import expire_stale
+
+    return {"expired": expire_stale()}
 
 
 @shared_task(name="cleanup_office_tmp_files")

@@ -235,6 +235,49 @@ export async function revertWriteLog(writeLogId) {
 }
 
 /**
+ * 数字员工待确认事项（S4-1）：通知链接 /smart-assistant?proposal=<id> 打开后拉取
+ * @param {number|string} proposalId
+ * @returns 200 { id, title, summary, preview, status, expires_at, result_message, ... }
+ */
+export async function getProposal(proposalId) {
+  return apiClient.get(`${BASE_URL}/proposals/${encodeURIComponent(proposalId)}/`);
+}
+
+/** 确认执行数字员工待确认事项；返回结构与 approveConfirmation 相同 */
+export async function approveProposal(proposalId) {
+  return apiClient.post(`${BASE_URL}/proposals/${encodeURIComponent(proposalId)}/approve/`);
+}
+
+/** 取消数字员工待确认事项 */
+export async function rejectProposal(proposalId) {
+  return apiClient.post(`${BASE_URL}/proposals/${encodeURIComponent(proposalId)}/reject/`);
+}
+
+/** 管理端：数字员工列表（配置、今日用量、最近运行） */
+export async function listAgentProfiles() {
+  return apiClient.get(`${BASE_URL}/agent-profiles/`);
+}
+
+/**
+ * 管理端：修改数字员工（仅 enabled / daily_llm_quota / daily_action_quota / owner）
+ * @param {string} key 角色标识
+ * @param {object} data
+ */
+export async function updateAgentProfile(key, data) {
+  return apiClient.patch(`${BASE_URL}/agent-profiles/${encodeURIComponent(key)}/`, data);
+}
+
+/** 管理端：立即运行一次（异步，202） */
+export async function runAgentProfile(key) {
+  return apiClient.post(`${BASE_URL}/agent-profiles/${encodeURIComponent(key)}/run/`);
+}
+
+/** 管理端：最近 20 次运行及其审计事件 */
+export async function getAgentProfileRuns(key) {
+  return apiClient.get(`${BASE_URL}/agent-profiles/${encodeURIComponent(key)}/runs/`);
+}
+
+/**
  * 上传知识库文档
  */
 export async function uploadKnowledgeDoc(file, title) {

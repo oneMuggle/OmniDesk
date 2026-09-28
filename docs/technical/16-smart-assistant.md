@@ -335,12 +335,21 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 
 **接线现状(重要)**:`apps.ready()` 调用 `register_builtin_hooks()` 把 **PiiMaskingHook(POST_EXECUTE)+ TimeoutGuardHook(ON_FAILURE)+ ConfirmationHook(PRE_EXECUTE)** 注册进全局注册表(`get_registry()`),幂等(按 hook name 去重,`ready()` 多次调用不重复挂载)。生产执行器(orchestrator 单工具执行 / ToolChainExecutor 逐步执行)经 `execute_guarded` / `apply_pre_execute_hooks` 消费全局注册表。三个开关项均未在 settings 中定义,完全依赖 `getattr` 兜底默认值。
 
-### 2.11 每日晨报(2026-07 新增)
+### 2.11 每日晨报(2026-07 新增,2026-09 S4-1 改由数字员工「个人秘书」执行)
 
-- **调度**:`CELERY_BEAT_SCHEDULE["smart-assistant-daily-digest"]` → `smart_assistant.tasks.send_daily_digests`,`crontab(hour=8, minute=30, day_of_week="1-5")`(工作日 8:30,`CELERY_TIMEZONE=Asia/Shanghai`)
-- **生成**:`digest.py::generate_daily_digest(user)` 以固定晨检 query(`DIGEST_QUERY="今天我有哪些安排？请汇总今日的排班、会议室、备忘录和待办事项。"`)构造 `ToolContext(user, scope=resolve_scope(user))` 调 `AgentOrchestrator().process()`,**复用聚合链路**(`intent="aggregated_day"` → ToolChainExecutor + ResultSynthesizer);渲染 Markdown(日期标题 + summary + moduleCounts + 重点条目,`MAX_HIGHLIGHT_ITEMS=10`、`MAX_ITEM_DESC_LENGTH=80`);失败一律返回 None 不抛异常
-- **推送**:经 `NotificationService.create(type="system", content=markdown, dedupe_key=...)` 写通知中心;`dedupe_key=f"smart_assistant_daily_digest:{date.isoformat()}"`(按日期去重,beat 重投不会发第二条)
-- **面向用户**:`is_active=True, is_staff=True`(MVP 范围,TODO 改按 NotificationPreference 订阅);单用户失败不中断,任务返回 `{"success", "failed", "total", "date"}`
+- **调度**:`CELERY_BEAT_SCHEDULE["smart-assistant-daily-digest"]` → `smart_assistant.tasks.send_daily_digests`,`crontab(hour=8, minute=30, day_of_week="1-5")`。任务名不变,内部改为 `run_profile("secretary")`;角色在管理端关闭时只记一条 skipped 运行
+- **生成**:`staff/roles/secretary.py` 直接从数据库汇总本人今天的备忘、今明两天的值班、今天的会议室预约、待我同意的换班申请,不再每人跑一次编排链路;LLM 只在角色配额内写一句「今日提示」(默认配额 0,即不调用)。原 `digest.py` 已删除
+- **推送**:`type="system"`,标题与 `dedupe_key=f"smart_assistant_daily_digest:{date}"` 沿用原晨报,链接 `/smart-assistant`
+- **面向用户**:仍为 `is_active=True, is_staff=True`
+
+### 2.11.1 数字员工(2026-09 S4-1)
+
+- **模型**:`AgentProfile`(角色配置:启停、负责人、每日 LLM / 动作配额)、`AgentRun`(一次运行)、`AgentRunEvent`(审计事件,也用于统计当日配额)、`AgentProposal`(发给某个用户的待确认事项,48 小时有效,同一用户同一去重键只允许一条 pending)
+- **框架**:`smart_assistant/staff/runtime.py`。`RunContext` 提供 `notify` / `propose` / `llm` 三类动作,每个动作都写审计并受配额约束;动作配额用完则跳过后续动作并提醒负责人一次,LLM 配额用完或失败则降级为模板,运行状态记为 degraded
+- **角色**:个人秘书(晨报,默认开启)、排班管理员(未来 7 天排班冲突,工作日 16:00,默认关闭)、合规专员(3 天内到期 / 已逾期合规问题,工作日 09:10,默认关闭)
+- **确认渠道**:数字员工只能发起;需要改数据的动作生成待确认事项并发通知,链接 `/smart-assistant?proposal=<id>`,用户在智能助手的确认卡里确认或取消(`POST proposals/<id>/approve|reject/`)
+- **管理端**:「AI 管理 → 数字员工」(`/control-panel/ai/staff`),接口 `agent-profiles/`(仅智能助手管理员)
+- 方案:`docs/plans/2026-09-28_ai-agents-s4-1.md`
 
 ### 2.12 LLM 接入层统一(2026-07 新增)
 

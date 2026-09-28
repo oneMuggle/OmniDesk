@@ -371,6 +371,24 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(hour=8, minute=30, day_of_week="1-5"),
         "args": (),
     },
+    "agent-scheduler-patrol": {
+        # S4-1 数字员工「排班管理员」：巡检未来 7 天排班冲突（角色关闭时只记 skipped）
+        "task": "smart_assistant.tasks.run_agent_profile",
+        "schedule": crontab(hour=16, minute=0, day_of_week="1-5"),
+        "args": ("scheduler",),
+    },
+    "agent-compliance-patrol": {
+        # S4-1 数字员工「合规专员」：跟踪到期合规问题并起草整改建议
+        "task": "smart_assistant.tasks.run_agent_profile",
+        "schedule": crontab(hour=9, minute=10, day_of_week="1-5"),
+        "args": ("compliance",),
+    },
+    "agent-proposals-expire": {
+        # S4-1 数字员工待确认事项过期清理
+        "task": "smart_assistant.tasks.expire_agent_proposals",
+        "schedule": crontab(minute=5),
+        "args": (),
+    },
 }
 
 # Mineru OCR API 配置

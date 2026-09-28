@@ -16,6 +16,7 @@ import {
   AddCalibrationRecordPage,
   AdminLayout,
   AgentAuditPanel,
+  AgentStaffPage,
   AgentTaskPanel,
   AiAppManagementPage,
   AiManagementLayout,
@@ -252,6 +253,10 @@ const router = createBrowserRouter([
               {
                 path: "apps",
                 element: <ProtectedRoute pagePath="/control-panel/ai/apps" permissions={getAdminRoutePermissions("ai/apps")} pageName="AI 应用配置"><LazyComponent component={AiAppManagementPage} /></ProtectedRoute>
+              },
+              {
+                path: "staff",
+                element: <ProtectedRoute pagePath="/control-panel/ai/staff" permissions={getAdminRoutePermissions("ai/staff")} pageName="数字员工"><LazyComponent component={AgentStaffPage} /></ProtectedRoute>
               },
             ]
           },
