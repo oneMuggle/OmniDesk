@@ -17,6 +17,7 @@ from .views.office_download import OfficeDownloadView
 from .views.assistant_context import AssistantContextView
 from .views.confirmations import ConfirmationApproveView, ConfirmationRejectView
 from .views.agent_staff import AgentProfileViewSet, AgentProposalViewSet
+from .views.knowledge_sources import KnowledgeSourceViewSet
 
 router = DefaultRouter()
 router.register(r"chat", SmartChatViewSet, basename="smart-chat")
@@ -31,6 +32,7 @@ router.register(r"tasks", AgentTaskViewSet, basename="agent-tasks")
 router.register(r"write-logs", AgentWriteLogViewSet, basename="agent-write-logs")
 router.register(r"agent-profiles", AgentProfileViewSet, basename="agent-profiles")
 router.register(r"proposals", AgentProposalViewSet, basename="agent-proposals")
+router.register(r"knowledge-sources", KnowledgeSourceViewSet, basename="knowledge-sources")
 
 urlpatterns = [
     # doctor 自检端点（staff 只读诊断，机器可读输出契约 format_version=1）

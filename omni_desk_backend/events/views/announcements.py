@@ -51,6 +51,7 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
     def publish(self, request, pk=None):
         """发布草稿：条件更新防止重复发布；发布成功后通知全体用户（作者除外）。"""
         from notifications.signals import notify_announcement_published
+        from smart_assistant.knowledge.queue import enqueue_sync
 
         announcement = self.get_object()
         with transaction.atomic():
@@ -61,6 +62,8 @@ class AnnouncementViewSet(viewsets.ModelViewSet):
                 return Response({"detail": "该公告已发布。"}, status=status.HTTP_409_CONFLICT)
             announcement.refresh_from_db()
             notify_announcement_published(announcement)
+            # 条件 update() 不触发 post_save,显式入队自动入库(S4-2)
+            enqueue_sync("announcement", announcement.pk)
         return Response(self.get_serializer(announcement).data)
 
 

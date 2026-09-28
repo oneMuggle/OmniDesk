@@ -344,7 +344,7 @@ class ToolChainExecutor:
         if getattr(tool, "supports_scope_filter", False):
             base_qs = tool.build_base_queryset()
             scoped_qs = tool.get_queryset_for_scope(base_qs, context)
-            output = execute_guarded(tool, params=params, scope=context.scope, qs=scoped_qs)
+            output = execute_guarded(tool, params=params, scope=context.scope, qs=scoped_qs, context=context)
         else:
             query = params.get("query") if isinstance(params, dict) else None
             output = execute_guarded(tool, query=query, context=context)

@@ -137,16 +137,51 @@ class RAGRouter:
         finally:
             client.close()
 
-    def search_multi(self, query: str, top_k: int = 5) -> list:
-        """并行搜索多个数据集，合并去重结果。"""
+    def ingest_dataset(self) -> dict | None:
+        """自动入库数据集（S4-2）；未配置返回 ``None``。其检索结果必须经权限过滤。"""
+        from smart_assistant.knowledge.config import ingest_settings
+
+        pair = ingest_settings()
+        if pair is None:
+            return None
+        config, dataset_id = pair
+        return {
+            "name": "自动入库",
+            "ragflow_dataset_id": dataset_id,
+            "api_endpoint": config.api_endpoint,
+            "api_key": config.api_key,
+        }
+
+    def search_multi(self, query: str, top_k: int = 5, user=None) -> list:
+        """搜索多个数据集，合并去重结果。
+
+        已配置自动入库时额外检索入库数据集（多取一些，过滤后再截断），其结果打上 ``_ingest``
+        标记并按 ``user`` 的权限过滤（``smart_assistant.knowledge.acl``）；
+        没有入库结果时顺序与旧行为一致。
+        """
         datasets = self.route_query(query)
+        ingest = self.ingest_dataset()
+        ingest_id = ingest["ragflow_dataset_id"] if ingest else None
+        if ingest and not any(ds.get("ragflow_dataset_id") == ingest_id for ds in datasets):
+            datasets = [*datasets, ingest]
         if not datasets:
             return []
 
         all_results = []
         for ds in datasets:
-            results = self.search_dataset(query, ds, top_k=top_k)
+            is_ingest = ingest_id is not None and ds.get("ragflow_dataset_id") == ingest_id
+            results = self.search_dataset(query, ds, top_k=top_k * 3 if is_ingest else top_k)
+            if is_ingest:
+                for chunk in results:
+                    chunk["_ingest"] = True
             all_results.extend(results)
+
+        has_ingest = any(r.get("_ingest") for r in all_results)
+        if has_ingest:
+            from smart_assistant.knowledge.acl import filter_chunks
+
+            all_results = filter_chunks(user, all_results)
+            all_results.sort(key=lambda r: -float(r.get("similarity", r.get("score", 0)) or 0))
 
         # 简单去重（基于内容）
         seen = set()

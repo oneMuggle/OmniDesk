@@ -351,6 +351,16 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 - **管理端**:「AI 管理 → 数字员工」(`/control-panel/ai/staff`),接口 `agent-profiles/`(仅智能助手管理员)
 - 方案:`docs/plans/2026-09-28_ai-agents-s4-1.md`
 
+### 2.11.2 知识自动入库(2026-09 S4-2)
+
+- **来源**:已发布公告、文档库(Paperless)已同步的文档。发布或更新后自动写入 RAGFlow 专用数据集 `SMART_ASSISTANT_INGEST_DATASET_ID`,删除或撤回后移除;未配置该数据集或没有启用的 `RagflowConfig` 时整体关闭
+- **模型**:`KnowledgeSource`(一个业务对象一条,记 RAGFlow 文档 ID、内容 hash、状态 pending / ingested / failed / removed、连续失败次数)
+- **触发**:公告 / `DocumentBinding` 的 `post_save`、`post_delete` 信号,以及公告发布接口(条件 `update()` 不触发信号)在事务提交后入队 `sync_knowledge_source`;beat `knowledge-ingest-reconcile` 每 30 分钟对账(每次最多 100 条,移除优先;连续失败 5 次后只能手动重试)
+- **权限**:`RAGRouter.search_multi(query, top_k, user)` 额外检索入库数据集,结果打 `_ingest` 标记,经 `knowledge/acl.filter_chunks` 按 RAGFlow 文档 ID 反查 `KnowledgeSource`,再按用户能否看到**当前**原对象过滤(公告:已发布;文档库:`visible_bindings`)。反查不到或识别不出用户一律丢弃;手动上传的公共知识库不受影响
+- **管理端**:「AI 管理 → 知识入库」(`/control-panel/ai/knowledge`),接口 `knowledge-sources/summary|reconcile/`、`knowledge-sources/<id>/retry/`(仅智能助手管理员)
+- 入库数据集不要挂到 RAGFlow 聊天助手上:`ragflow_service` 的 chat 接口直连 RAGFlow,不经过本系统的权限过滤
+- 方案:`docs/plans/2026-09-28_ai-rag-s4-2.md`
+
 ### 2.12 LLM 接入层统一(2026-07 新增)
 
 | 变更 | 说明 |

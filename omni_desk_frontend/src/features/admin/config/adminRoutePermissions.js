@@ -58,6 +58,7 @@ export const ADMIN_ROUTE_PERMISSIONS = Object.freeze({
   'ai/apps': withAdmin('/control-panel/ai-apps'),
   // S4-1 数字员工:仅管理员(后端再校验超级用户 / Admin 组)
   'ai/staff': ADMIN_ONLY,
+  'ai/knowledge': ADMIN_ONLY,
   'external-links': ADMIN_OR_MANAGER,
   'integration-hub': ADMIN_OR_MANAGER,
   'integration-hub/manage': ADMIN_ONLY,

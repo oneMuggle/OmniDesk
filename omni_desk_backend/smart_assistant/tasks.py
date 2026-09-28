@@ -424,6 +424,30 @@ def expire_agent_proposals():
     return {"expired": expire_stale()}
 
 
+@shared_task(
+    name="smart_assistant.tasks.sync_knowledge_source",
+    task_time_limit=300,
+    task_soft_time_limit=240,
+)
+def sync_knowledge_source(source_type: str, source_id: int):
+    """把一条公告 / 文档库文档同步到 RAGFlow 自动入库数据集（S4-2）。"""
+    from smart_assistant.knowledge.sync import sync_source
+
+    return {"outcome": sync_source(source_type, int(source_id))}
+
+
+@shared_task(
+    name="smart_assistant.tasks.reconcile_knowledge_sources",
+    task_time_limit=1800,
+    task_soft_time_limit=1700,
+)
+def reconcile_knowledge_sources():
+    """自动入库对账（每 30 分钟）：补漏、重试、移除不该在知识库中的内容。"""
+    from smart_assistant.knowledge.sync import reconcile
+
+    return reconcile()
+
+
 @shared_task(name="cleanup_office_tmp_files")
 def cleanup_office_tmp_files():
     """定期清理 tmp_office 过期生成文件。"""

@@ -95,6 +95,8 @@ curl http://<ragflow-host>:9380/api/v1/health
 
 部署后管理员可在 `/api/smart-assistant/ragflow/configs/` 创建 `RagflowConfig` 记录，填入 `api_endpoint` + `api_key`。
 
+**知识自动入库（2026-09 S4-2）**：在 RAGFlow 中单独建一个 dataset，把 ID 填到环境变量 `SMART_ASSISTANT_INGEST_DATASET_ID`，公告和文档库内容即自动入库（留空则关闭）。该 dataset **不要**挂到 RAGFlow 聊天助手上——聊天接口直连 RAGFlow，不经过本系统的权限过滤；智能助手的 `knowledge_qa` 检索会按原对象权限过滤。详见 `16-smart-assistant.md` §2.11.2。
+
 ## 6. 关键设计决策
 
 | 决策 | 选择 | 理由 |
