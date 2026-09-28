@@ -18,6 +18,20 @@ def _scope_cache_sig(tool_context):
     return f"u{user_pk}_s{scope_value}"
 
 
+def _legacy_tool_context(tool_context, conversation_history) -> dict:
+    """旧意图路径（JSON 兜底）调用非 scope 工具时的 dict 上下文。
+
+    除对话历史外必须带上服务端用户：通知、联培生、全局检索等新工具一律
+    fail-closed（``context_user`` 取不到用户就不查），缺了 ``user`` 会在 JSON
+    路径上恒返回「未识别到当前用户」。
+    """
+    ctx = {"history": conversation_history or []}
+    user = getattr(tool_context, "user", None) if tool_context is not None else None
+    if user is not None:
+        ctx["user"] = user
+    return ctx
+
+
 def _dict_to_query(validated) -> str:
     """把原生 tool_calls 的 validated 参数 dict 拆包为 ``execute()`` 期望的 query 字符串。
 

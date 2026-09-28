@@ -72,6 +72,8 @@ snapshot-*.png
 page-*.png
 test-output/*.png
 playwright-report/
+# AI 助手评估报告（manage.py ai_eval 默认输出目录）
+ai-eval-reports/
 test-results/
 test-artifacts/
 

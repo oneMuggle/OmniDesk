@@ -22,7 +22,7 @@ class MemoTool(BaseTool):
         SELF/DEPARTMENT/GLOBAL 三级 scope 在两个入口下语义一致。
         """
         memos = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")

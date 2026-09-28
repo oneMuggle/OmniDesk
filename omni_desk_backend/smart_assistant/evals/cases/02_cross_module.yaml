@@ -1,0 +1,114 @@
+# 跨模块：一问需要两个以上工具（原生路径同一轮并行；JSON 路径走工具链计划）。
+cases:
+  - id: cross-my-week
+    category: cross_module
+    persona: staff_a
+    question: 帮我汇总一下我的备忘录和未读通知
+    expect: {tools_any: [memo_query, notification_query], visible: [memo_staff_a, notif_staff_a]}
+    script:
+      intent: memo_query
+      rounds:
+        - [{name: memo_query, args: {query: 备忘录}}, {name: notification_query, args: {query: 未读通知}}]
+      plan:
+        - {tool: memo_query, params: {query: 我的备忘录}}
+        - {tool: notification_query, params: {query: 未读通知}}
+
+  - id: cross-head-dept
+    category: cross_module
+    persona: head_a
+    question: 研发部的项目进度和合规问题一起汇总给我
+    note: JSON 路径只在关键词重叠时才请求多意图规划，这句只会走单个工具、拿原话检索，查不到属已知差异
+    expect: {tools_any: [project_status, compliance_query], visible: [project_staff_a, compliance_staff_a]}
+    expect_json: {tools_any: [project_status], visible: []}
+    script:
+      intent: project_status
+      rounds:
+        - [{name: project_status, args: {query: 研发部}}, {name: compliance_query, args: {query: ""}}]
+      plan:
+        - {tool: project_status, params: {query: 研发部}}
+        - {tool: compliance_query, params: {query: ""}}
+
+  - id: cross-admin-overview
+    category: cross_module
+    persona: admin
+    question: 全公司的项目和合规问题概况
+    note: 同 cross-head-dept，JSON 路径不做多意图规划
+    expect_json: {tools_any: [project_status], visible: []}
+    expect:
+      tools_any: [project_status, compliance_query]
+      visible: [project_staff_a, project_staff_b, compliance_staff_a, compliance_staff_b]
+    script:
+      intent: project_status
+      rounds:
+        - [{name: project_status, args: {query: 项目}}, {name: compliance_query, args: {query: ""}}]
+      plan:
+        - {tool: project_status, params: {query: 项目}}
+        - {tool: compliance_query, params: {query: ""}}
+
+  - id: cross-staff-b-all
+    category: cross_module
+    persona: staff_b
+    question: 我的项目、我带的联培生和我的方案模板分别是什么情况
+    expect:
+      tools_any: [project_status, joint_student_query, document_search]
+      visible: [project_staff_b, student_staff_b, template_staff_b]
+    script:
+      intent: project_status
+      rounds:
+        - - {name: project_status, args: {query: 项目}}
+          - {name: joint_student_query, args: {query: 联培生}}
+          - {name: document_search, args: {query: 方案模板}}
+      plan:
+        - {tool: project_status, params: {query: 项目}}
+        - {tool: joint_student_query, params: {query: 联培生}}
+        - {tool: document_search, params: {query: 方案模板}}
+
+  - id: cross-global-search
+    category: cross_module
+    persona: staff_a
+    question: 全站搜索一下研发部项目相关的内容
+    expect: {tools_any: [global_search], visible: [project_staff_a]}
+    script:
+      intent: global_search
+      rounds: [[{name: global_search, args: {query: 研发部项目}}]]
+
+  - id: cross-swap-and-notice
+    category: cross_module
+    persona: staff_a2
+    question: 看看我收到的换班申请，再看看我的通知
+    expect: {tools_any: [swap_request_query, notification_query], visible: [swap_staff_b]}
+    script:
+      intent: swap_request_query
+      rounds:
+        - [{name: swap_request_query, args: {query: 换班, role: 接收方}}, {name: notification_query, args: {query: 通知}}]
+      plan:
+        - {tool: swap_request_query, params: {query: 换班}}
+        - {tool: notification_query, params: {query: 通知}}
+
+  - id: cross-room-and-announcement
+    category: cross_module
+    persona: staff_a
+    question: 明天会议室的预约情况，还有最近的公告
+    expect: {tools_any: [meeting_room_query, announcement_query]}
+    script:
+      intent: meeting_room_query
+      rounds:
+        - [{name: meeting_room_query, args: {query: 会议室}}, {name: announcement_query, args: {query: 公告}}]
+      plan:
+        - {tool: meeting_room_query, params: {query: 会议室预约}}
+        - {tool: announcement_query, params: {query: 公告}}
+
+  - id: cross-two-rounds
+    category: cross_module
+    persona: admin
+    question: 市场部项目有没有合规风险，项目负责人是谁
+    note: 原生路径分两轮：先查合规，再查人员
+    expect: {tools_any: [compliance_query, personnel_query], visible: [compliance_staff_b]}
+    script:
+      intent: compliance_query
+      rounds:
+        - [{name: compliance_query, args: {query: 市场部}}]
+        - [{name: personnel_query, args: {query: 王五}}]
+      plan:
+        - {tool: compliance_query, params: {query: 市场部}}
+        - {tool: personnel_query, params: {query: 王五}}

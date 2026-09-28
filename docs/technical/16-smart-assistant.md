@@ -376,6 +376,17 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 - **管理端**:「AI 管理 → 预算与用量」(`/control-panel/ai/budget`)
 - 方案:`docs/plans/2026-09-28_ai-budget-s5.md`
 
+### 2.11.4 评估集与发布门禁(2026-09,方案 5.6 / S0)
+
+- **目录**:`smart_assistant/evals/`。`cases/*.yaml` 共 64 条(基础、跨模块、越权、提示注入、意图模糊、依赖故障、写操作),覆盖普通员工 ×2、部门负责人、HR、管理员 5 个角色;`seed.py` 在临时库里建种子数据并埋入 `EVAL-` 开头的标记串;`harness.py` 以真实 HTTP 请求走同步对话入口,分 native(原生函数调用)与 json(旧 JSON 路径)两条路径;`scoring.py` 判定越权(回答 / 工具结果里出现不该看到的标记、未确认就写库)与质量指标;`report.py` 出报告并与 `baseline.json` 对比
+- **两种模式**:
+  - **剧本模式**(`llm.py` 的 `ScriptedLLM` 拦截 LLM 调用,按用例剧本返回):`tests/test_eval_scripted.py` 在 CI 里硬拦,越权或自检失败即失败;另有反向测试证明门禁能抓到放开范围 / 跳过确认
+  - **真模型模式**:内网执行 `manage.py ai_eval --mode live --target … [--from-config]`,可同时比较多个端点 / 模型与两条路径;越权必须为 0,质量指标与基线对比(比例降 5 个百分点以上、延迟升 20% 且 ≥200ms 标「变差」),由人决定
+- **命令**:`python manage.py ai_eval --settings=omni_desk_backend.settings.test`,自己建临时测试库、跑完删除;参数与报告格式见方案。报告默认写到 `ai-eval-reports/`(已忽略)
+- **首轮修复**:工具范围与模块接口对齐(见 §8.1)、JSON 路径 context 带 user、多工具链结果归一化、关键词清洗
+- **看板**:`stats/overview/` 新增 `answer_success_rate`、`p50/p95_response_time_ms`、`llm_call_success_rate`、`by_model`;`stats/daily/` 新增每日成功率与 P95。只统计对话级日志(`response_time_ms` 非空、`intent` 不以 `chain:` 开头);失败判定与 `is_failed_answer` 同口径;无迁移
+- 方案:`docs/plans/2026-09-28_ai-eval-s0.md`
+
 ### 2.12 LLM 接入层统一(2026-07 新增)
 
 | 变更 | 说明 |
@@ -509,6 +520,12 @@ CI 不依赖真实 LLM 的确定性 e2e 体系:
 | GLOBAL | 管理员/superuser | 全公司 |
 
 权限自动从 `request.user.has_perm()` 派生,无需前端传参。
+
+**2026-09(S0 评估集)与模块接口对齐**:
+
+- 个人数据(备忘录、文档模板):DEPARTMENT 也只看本人;
+- 工作数据(项目、合规、排班、人员、活动):DEPARTMENT 按 `Personnel.department` 取同部门(`BaseTool.department_of` / `_same_department`);没有人员档案或部门为空时退回本人范围;
+- 公共数据(会议室、公告、新闻、传感器):模块接口对所有登录用户可见,工具在 SELF 下也返回全部。
 
 ### 8.2 跨模块汇总
 

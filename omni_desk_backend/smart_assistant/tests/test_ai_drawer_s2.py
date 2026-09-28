@@ -178,13 +178,14 @@ class TestResolvePageContext:
         person = create_personnel(name="某人")
         assert resolve_page_context(f"/control-panel/personnel/{person.id}", admin)["label"] == "某人"
 
-    def test_sensor_requires_wider_scope(self):
+    def test_sensor_visible_like_module_api(self):
+        """传感器与模块接口一致（SensorViewSet 所有登录用户可读）：普通员工也能拿到页面上下文。"""
         from sensor_management.models import Sensor
 
         sensor = Sensor.objects.create(name="压力计", sensor_number="S2-001", last_calibration_date=date(2026, 1, 1))
         plain = create_user(username="s2_sensor_plain")
         admin = create_user(username="s2_sensor_admin", is_superuser=True)
-        assert resolve_page_context(f"/control-panel/sensors/{sensor.id}", plain) is None
+        assert resolve_page_context(f"/control-panel/sensors/{sensor.id}", plain)["label"] == "压力计"
         ctx = resolve_page_context(f"/control-panel/sensors/{sensor.id}/calibration/history", admin)
         assert ctx["label"] == "压力计"
         assert ctx["fields"]["上次校准"] == "2026-01-01"

@@ -21,7 +21,7 @@ class ProjectTool(BaseTool):
         三级 scope 在两个入口下语义一致(修复旧路径 SELF scope 泄露)。
         """
         projects_qs = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")
@@ -97,3 +97,7 @@ class ProjectTool(BaseTool):
     def _scope_self(self, qs, ctx):
         """本人范围:仅返回 ctx.user 负责管理的项目(按 manager 字段)。"""
         return qs.filter(manager=ctx.user)
+
+    def _scope_department(self, qs, ctx):
+        """部门范围:负责人在同部门的项目(方案 5.6)。"""
+        return self._same_department(qs, ctx, "manager__personnel__department")

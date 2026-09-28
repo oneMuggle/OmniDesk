@@ -135,8 +135,8 @@ def tool():
 
 
 @pytest.mark.django_db
-def test_new_execute_filters_by_author(tool, db):
-    """scope=SELF:只返回 ctx.user 发布的公告"""
+def test_new_execute_self_scope_sees_all_like_module_api(tool, db):
+    """scope=SELF:与公告接口(visible_posts)一致,所有登录用户看全部公告,不只看自己发的"""
     from django.contrib.auth import get_user_model
     from communication.models import Post
 
@@ -157,7 +157,7 @@ def test_new_execute_filters_by_author(tool, db):
     assert result["found"] is True
     titles = [p["title"] for p in result["posts"]]
     assert "A 写的" in titles
-    assert "B 写的" not in titles
+    assert "B 写的" in titles
     assert result.get("module_label") == "公告"
 
 

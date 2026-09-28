@@ -35,7 +35,7 @@ class PersonnelTool(BaseTool):
         三级 scope 在两个入口下语义一致。
         """
         personnel_qs = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")
@@ -130,3 +130,7 @@ class PersonnelTool(BaseTool):
     def _scope_self(self, qs, ctx):
         """本人范围:仅返回 ctx.user 自身关联的人员记录(经 CustomUser.personnel → Personnel.user_account 反向关系)。"""
         return qs.filter(user_account=ctx.user)
+
+    def _scope_department(self, qs, ctx):
+        """部门范围:同部门的人员(方案 5.6)。"""
+        return self._same_department(qs, ctx, "department")

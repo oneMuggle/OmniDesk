@@ -38,7 +38,7 @@ class ExternalLinkTool(BaseTool):
         # R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数。外链是公共资源,
         # 工具的 _scope_self 为透传,故行为不变;统一入口消除裸表查询。
         links_qs = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = "".join(c for c in (search_query or "") if c not in stopwords).strip()

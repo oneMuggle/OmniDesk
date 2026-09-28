@@ -21,7 +21,7 @@ class NewsTool(BaseTool):
         三级 scope 在两个入口下语义一致(修复旧路径 SELF scope 泄露)。
         """
         articles = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")
@@ -90,5 +90,8 @@ class NewsTool(BaseTool):
         return NewsArticle.objects.select_related("news_type", "personnel").all()
 
     def _scope_self(self, qs, ctx):
-        """本人范围:仅返回 ctx.user 名下发布的新闻(按 personnel 字段 = CustomUser FK)。"""
-        return qs.filter(personnel=ctx.user)
+        """本人范围:新闻对所有登录用户公开,与新闻接口一致。
+
+        方案 5.6 评估集发现:此前只返回 ctx.user 自己发布的新闻。
+        """
+        return qs

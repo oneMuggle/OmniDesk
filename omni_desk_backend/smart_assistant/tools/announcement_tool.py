@@ -125,5 +125,9 @@ class AnnouncementTool(BaseTool):
         )
 
     def _scope_self(self, qs, ctx):
-        """本人范围:仅返回 ctx.user 发布的公告。"""
-        return qs.filter(author=ctx.user)
+        """本人范围:公告对所有登录用户公开,与交流区接口 ``visible_posts()`` 一致。
+
+        方案 5.6 评估集发现:此前只返回 ctx.user 自己发布的公告,普通员工
+        通过智能助手查不到公司公告。
+        """
+        return qs

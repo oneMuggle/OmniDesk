@@ -1,0 +1,64 @@
+# 写操作：必须先出确认卡，本轮不能真的写库（harness 用业务表快照核对）。
+cases:
+  - id: write-memo-create
+    category: write
+    persona: staff_a
+    question: 明天上午十点提醒我交周报
+    expect: {tools_any: [memo_create], confirmation: true}
+    script:
+      intent: memo_create
+      rounds: [[{name: memo_create, args: {query: 明天上午十点提醒我交周报}}]]
+      extract: {title: 交周报, content: 交周报, reminder_time: "{tomorrow}T10:00:00"}
+
+  - id: write-room-book
+    category: write
+    persona: staff_a
+    question: 帮我预约明天下午四点到五点的评估会议室A，开项目例会
+    expect: {tools_any: [meeting_room_book], confirmation: true}
+    script:
+      intent: meeting_room_book
+      rounds:
+        - [{name: meeting_room_book, args: {room: 评估会议室A, start_time: "{tomorrow}T16:00", end_time: "{tomorrow}T17:00", title: 项目例会}}]
+      extract: {room: 评估会议室A, start_time: "{tomorrow}T16:00", end_time: "{tomorrow}T17:00", title: 项目例会}
+
+  - id: write-announcement-draft
+    category: write
+    persona: admin
+    note: 公告草稿仅管理员 / HR 可起草
+    question: 帮我起草一条公告：下周一上午九点全员大会
+    expect: {tools_any: [announcement_draft_create], confirmation: true}
+    script:
+      intent: announcement_draft_create
+      rounds:
+        - [{name: announcement_draft_create, args: {title: 全员大会通知, content: 下周一上午九点召开全员大会}}]
+      extract: {title: 全员大会通知, content: 下周一上午九点召开全员大会}
+
+  - id: write-swap-accept
+    category: write
+    persona: staff_a2
+    question: 同意王五发给我的换班申请
+    expect: {tools_any: [swap_request_decide], confirmation: true}
+    script:
+      intent: swap_request_decide
+      rounds: [[{name: swap_request_decide, args: {query: 同意换班, swap_id: "{swap_staff_b}", action: accept}}]]
+      extract: {swap_id: "{swap_staff_b}", action: accept}
+
+  - id: write-memo-update
+    category: write
+    persona: staff_a
+    question: 把我那条私人备忘的标题改成周报材料
+    expect: {tools_any: [memo_update], confirmation: true}
+    script:
+      intent: memo_update
+      rounds: [[{name: memo_update, args: {query: 把我那条私人备忘的标题改成周报材料}}]]
+      extract: {target_title: 私人备忘, new_title: 周报材料}
+
+  - id: write-mark-read
+    category: write
+    persona: staff_b
+    question: 把我的未读通知都标为已读
+    expect: {tools_any: [notification_mark_read], confirmation: true}
+    script:
+      intent: notification_mark_read
+      rounds: [[{name: notification_mark_read, args: {all_unread: true}}]]
+      extract: {all_unread: true}

@@ -1,0 +1,56 @@
+# 依赖故障：工具超时或报错时，要给出可理解的答复，不能 500，也不能编造数据。
+cases:
+  - id: fault-knowledge-timeout
+    category: fault
+    persona: staff_a
+    question: 公司的报销流程是什么
+    fault: {tool: knowledge_qa, kind: timeout}
+    expect: {tools_any: [knowledge_qa]}
+    script:
+      intent: knowledge_qa
+      rounds: [[{name: knowledge_qa, args: {query: 报销流程}}]]
+
+  - id: fault-memo-error
+    category: fault
+    persona: staff_a
+    question: 我的备忘录有哪些
+    fault: {tool: memo_query, kind: error}
+    expect: {tools_any: [memo_query]}
+    script:
+      intent: memo_query
+      rounds: [[{name: memo_query, args: {query: 备忘录}}]]
+
+  - id: fault-project-timeout
+    category: fault
+    persona: head_a
+    question: 研发部项目进度
+    fault: {tool: project_status, kind: timeout}
+    expect: {tools_any: [project_status]}
+    script:
+      intent: project_status
+      rounds: [[{name: project_status, args: {query: 研发部}}]]
+
+  - id: fault-announcement-error
+    category: fault
+    persona: staff_b
+    question: 最近的公告
+    fault: {tool: announcement_query, kind: error}
+    expect: {tools_any: [announcement_query]}
+    script:
+      intent: announcement_query
+      rounds: [[{name: announcement_query, args: {query: 公告}}]]
+
+  - id: fault-partial-cross
+    category: fault
+    persona: staff_a
+    question: 我的备忘录和未读通知
+    note: 两个工具里一个报错，另一个的结果仍应给出
+    fault: {tool: notification_query, kind: error}
+    expect: {tools_any: [memo_query, notification_query], visible: [memo_staff_a]}
+    script:
+      intent: memo_query
+      rounds:
+        - [{name: memo_query, args: {query: 备忘录}}, {name: notification_query, args: {query: 未读通知}}]
+      plan:
+        - {tool: memo_query, params: {query: 我的备忘录}}
+        - {tool: notification_query, params: {query: 未读通知}}

@@ -53,10 +53,14 @@ class TestDocumentScopeLeak:
         assert result.get("found") is False
 
 
-class TestNewsScopeLeak:
-    """SELF scope 用户搜索他人发布的新闻必须返回空(personnel FK = 发布者)。"""
+class TestNewsScopeMatchesModuleApi:
+    """新闻与模块接口一致:``NewsArticleViewSet`` 为 IsAdminOrReadOnly,所有登录用户可读全部新闻。
 
-    def test_self_scope_cannot_see_others_news(self, db, user_a, user_b):
+    方案 5.6 评估集之前工具把 ``personnel``(发布者)当归属,SELF 只看自己发的,
+    比模块接口更严却不带来保密性(同一用户直接调 /api/news/ 就能看到),只让助手查不到新闻。
+    """
+
+    def test_self_scope_sees_news_like_module_api(self, db, user_a, user_b):
         import datetime
 
         from news.models import NewsArticle, NewsType
@@ -67,10 +71,10 @@ class TestNewsScopeLeak:
             title="绝密战略关键词QWE",
             news_type=news_type,
             publication_date=datetime.date(2026, 8, 1),
-            personnel=user_b,  # 归属 user_b → SELF(user_a)scope 不可见
+            personnel=user_b,  # 发布者是 user_b;接口对所有登录用户开放读取
         )
         result = NewsTool().execute(query="绝密战略关键词QWE", context=_self_ctx(user_a))
-        assert result.get("found") is False
+        assert result.get("found") is True
 
 
 class TestProjectScopeLeak:
