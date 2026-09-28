@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import json
 import time
-from contextlib import ExitStack, contextmanager
+from contextlib import ExitStack, contextmanager, suppress
 from dataclasses import dataclass, field
 from decimal import Decimal
 
@@ -118,10 +118,9 @@ def capture_tools(log: _ExecLog, fault_ref: dict):
             if had_instance_attr:
                 tool.execute = original
             else:
-                try:
+                # 实例上本来没有 execute 属性：删掉我们挂的包装，恢复为类方法
+                with suppress(AttributeError):
                     del tool.execute
-                except AttributeError:
-                    pass
 
 
 def business_snapshot() -> dict:

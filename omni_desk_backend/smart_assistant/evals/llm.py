@@ -13,7 +13,7 @@ from __future__ import annotations
 import json
 import re
 import time
-from contextlib import contextmanager
+from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 
 INTENT_MARK = "你是一个意图分类器"
@@ -258,14 +258,13 @@ class _RecordingStream:
 
     def iter_lines(self):
         for line in self._response.iter_lines():
-            try:
+            # 只是顺带记下流式 usage；解析不了的行原样交给调用方，不影响评估
+            with suppress(ValueError, UnicodeDecodeError):
                 text = line.decode("utf-8") if isinstance(line, bytes) else str(line)
                 if text.startswith("data: ") and '"usage"' in text:
                     data = json.loads(text[6:])
                     if isinstance(data.get("usage"), dict):
                         self._call.usage = data["usage"]
-            except (ValueError, UnicodeDecodeError):
-                pass
             yield line
 
 
