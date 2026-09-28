@@ -56,6 +56,7 @@ from __future__ import annotations
 import asyncio
 import functools
 import inspect
+import contextvars
 import threading
 from typing import Any
 from collections.abc import Callable
@@ -193,8 +194,10 @@ class TimeoutGuardHook(ToolHookBase):
                 except Exception:  # 清理失败不影响结果传递
                     pass
 
+        # 复制当前 contextvars(预算计量范围等)到 worker 线程,工具内的 LLM 调用仍能正确归属
         worker = threading.Thread(
-            target=_target,
+            target=contextvars.copy_context().run,
+            args=(_target,),
             name=f"tool-timeout-guard-{tool_name or 'anon'}",
             daemon=True,
         )

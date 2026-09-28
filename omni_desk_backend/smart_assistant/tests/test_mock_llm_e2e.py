@@ -165,12 +165,19 @@ def test_chat_success_fixed_answer_and_cost(admin_client, llm_config, mock_llm):
     assert log.session_id == data["conversation_id"]
     assert log.tool_success is True
     assert log.model_name == MOCK_MODEL
-    # token 用量来自 mock 的固定 usage（100/50/150）
-    assert log.input_tokens == 100
-    assert log.output_tokens == 50
-    assert log.total_tokens == 150
-    # Decimal 精确比对：150 × 0.02 / 1000 = 0.003000
-    expected_cost = (Decimal(150) * COST_PER_1K / Decimal(1000)).quantize(Decimal("0.000001"))
+    # 方案 5.6：AgentLog 记本轮所有 LLM 调用的合计；mock 每次返回固定 usage（100/50/150）
+    from smart_assistant.models import LlmUsageDaily
+
+    usage_row = LlmUsageDaily.objects.get(app_name="smart_assistant")
+    calls = usage_row.calls
+    assert calls >= 1
+    assert usage_row.user_key == log.session.user_id
+    assert usage_row.total_tokens == 150 * calls
+    assert log.input_tokens == 100 * calls
+    assert log.output_tokens == 50 * calls
+    assert log.total_tokens == 150 * calls
+    # Decimal 精确比对：每次 150 × 0.02 / 1000 = 0.003000
+    expected_cost = (Decimal(150) * COST_PER_1K / Decimal(1000)).quantize(Decimal("0.000001")) * calls
     assert log.estimated_cost == expected_cost
 
 

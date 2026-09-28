@@ -694,3 +694,105 @@ class KnowledgeSource(models.Model):
 
     def __str__(self):
         return f"{self.get_source_type_display()} #{self.source_id} ({self.get_status_display()})"
+
+
+class LlmUsageDaily(models.Model):
+    """LLM 调用每日汇总（预算与配额）。
+
+    由 ``llm_service.metering`` 在每次调用后累加；不记单次明细。
+    ``user`` 为空表示数字员工或无法归属的调用；``staff_key`` 非空表示数字员工。
+    """
+
+    date = models.DateField(verbose_name="日期")
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="llm_usage_days",
+        verbose_name="用户",
+    )
+    # 唯一键用：user_id，无用户为 0（Django 4.2 的唯一约束无法把 NULL 视为相同值）
+    user_key = models.PositiveIntegerField(default=0, editable=False)
+    app_name = models.CharField(max_length=50, verbose_name="应用")
+    staff_key = models.CharField(max_length=32, blank=True, default="", verbose_name="数字员工")
+    calls = models.PositiveIntegerField(default=0, verbose_name="成功调用次数")
+    failed_calls = models.PositiveIntegerField(default=0, verbose_name="失败调用次数")
+    estimated_calls = models.PositiveIntegerField(default=0, verbose_name="估算 token 的调用次数")
+    prompt_tokens = models.PositiveBigIntegerField(default=0)
+    completion_tokens = models.PositiveBigIntegerField(default=0)
+    total_tokens = models.PositiveBigIntegerField(default=0)
+    estimated_cost = models.DecimalField(max_digits=14, decimal_places=6, default=0, verbose_name="预估费用")
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "LLM 每日用量"
+        verbose_name_plural = "LLM 每日用量"
+        constraints = [
+            models.UniqueConstraint(fields=["date", "user_key", "app_name", "staff_key"], name="uniq_llm_usage_daily"),
+        ]
+        indexes = [
+            models.Index(fields=["date", "app_name"], name="llm_usage_date_app"),
+            models.Index(fields=["user", "date"], name="llm_usage_user_date"),
+        ]
+
+    def __str__(self):
+        return f"{self.date} {self.app_name} u={self.user_id} {self.total_tokens}t/{self.calls}c"
+
+
+class LlmBudgetPolicy(models.Model):
+    """LLM 每日上限配置：全员默认 / 用户组 / 个人 / 应用。上限 0 表示不限。
+
+    用户上限：个人覆盖 > 所在用户组（多个组逐项取最宽松）> 全员默认。
+    ``soft_limit_percent`` 只取全员默认那条，达到该比例降为只读。
+    """
+
+    SCOPE_DEFAULT = "default"
+    SCOPE_GROUP = "group"
+    SCOPE_USER = "user"
+    SCOPE_APP = "app"
+    SCOPE_CHOICES = [
+        (SCOPE_DEFAULT, "全员默认"),
+        (SCOPE_GROUP, "用户组"),
+        (SCOPE_USER, "个人"),
+        (SCOPE_APP, "应用"),
+    ]
+
+    scope = models.CharField(max_length=16, choices=SCOPE_CHOICES, verbose_name="作用范围")
+    group = models.ForeignKey(
+        "auth.Group", null=True, blank=True, on_delete=models.CASCADE, related_name="+", verbose_name="用户组"
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="llm_budget_policies",
+        verbose_name="用户",
+    )
+    app_name = models.CharField(max_length=50, blank=True, default="", verbose_name="应用")
+    daily_token_limit = models.PositiveBigIntegerField(default=0, verbose_name="每日 token 上限（0 不限）")
+    daily_call_limit = models.PositiveIntegerField(default=0, verbose_name="每日调用次数上限（0 不限）")
+    soft_limit_percent = models.PositiveSmallIntegerField(default=80, verbose_name="只读阈值（%）")
+    note = models.CharField(max_length=200, blank=True, default="", verbose_name="备注")
+    updated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "LLM 预算上限"
+        verbose_name_plural = "LLM 预算上限"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["scope"], condition=models.Q(scope="default"), name="uniq_llm_budget_default"
+            ),
+            models.UniqueConstraint(fields=["group"], condition=models.Q(scope="group"), name="uniq_llm_budget_group"),
+            models.UniqueConstraint(fields=["user"], condition=models.Q(scope="user"), name="uniq_llm_budget_user"),
+            models.UniqueConstraint(fields=["app_name"], condition=models.Q(scope="app"), name="uniq_llm_budget_app"),
+        ]
+        ordering = ["scope", "id"]
+
+    def __str__(self):
+        return f"{self.get_scope_display()} {self.group or self.user or self.app_name or ''}".strip()

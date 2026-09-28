@@ -41,7 +41,7 @@ describe('AiManagementLayout(S2-2 控制台 AI 管理)', () => {
   it('管理员看到四个标签,首页跳到使用统计', () => {
     mockPermissions(['admin']);
     renderAt('/control-panel/ai');
-    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['使用统计', 'Agent 审计', 'AI 应用配置', '数字员工', '知识入库']);
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['使用统计', 'Agent 审计', 'AI 应用配置', '数字员工', '知识入库', '预算与用量']);
     expect(screen.getByTestId('page')).toHaveTextContent('/control-panel/ai/stats');
   });
 

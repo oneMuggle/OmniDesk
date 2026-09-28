@@ -13,6 +13,7 @@ export const ERROR_KIND_MESSAGES = {
   llm_unavailable: 'LLM 服务暂时不可用，请稍后重试',
   ragflow_unavailable: '知识库服务暂时不可用，本次回答未包含知识库内容',
   rate_limited: '请求过于频繁，请稍后再试',
+  budget_exceeded: '今日 AI 额度已用完，明天 0 点自动恢复；如需调整请联系管理员',
   internal_error: '服务异常，请稍后重试',
 };
 
@@ -290,6 +291,41 @@ export async function reconcileKnowledgeSources() {
 /** 管理端：重试一条入库失败的记录（异步，202） */
 export async function retryKnowledgeSource(id) {
   return apiClient.post(`${BASE_URL}/knowledge-sources/${encodeURIComponent(id)}/retry/`);
+}
+
+/** 当前用户今日 AI 额度状态（方案 5.6）：state=ok/readonly/blocked，含用量、上限及来源 */
+export async function getMyBudget() {
+  return apiClient.get(`${BASE_URL}/budget/me/`);
+}
+
+/** 管理端：AI 用量总览（按应用 / 近 N 天趋势 / 用户排行 / 数字员工） */
+export async function getBudgetUsage(days = 7) {
+  return apiClient.get(`${BASE_URL}/budget/usage/`, { params: { days } });
+}
+
+/** 管理端：上限配置列表（全员默认 / 用户组 / 个人 / 应用） */
+export async function listBudgetPolicies() {
+  return apiClient.get(`${BASE_URL}/budget/policies/`);
+}
+
+/** 管理端：新增上限配置 */
+export async function createBudgetPolicy(payload) {
+  return apiClient.post(`${BASE_URL}/budget/policies/`, payload);
+}
+
+/** 管理端：修改上限配置 */
+export async function updateBudgetPolicy(id, payload) {
+  return apiClient.patch(`${BASE_URL}/budget/policies/${encodeURIComponent(id)}/`, payload);
+}
+
+/** 管理端：删除上限配置（全员默认不能删） */
+export async function deleteBudgetPolicy(id) {
+  return apiClient.delete(`${BASE_URL}/budget/policies/${encodeURIComponent(id)}/`);
+}
+
+/** 管理端：按用户名 / 姓名搜索用户（设置个人上限用，最多 20 条） */
+export async function searchBudgetUsers(q) {
+  return apiClient.get(`${BASE_URL}/budget/users/`, { params: { q } });
 }
 
 /**

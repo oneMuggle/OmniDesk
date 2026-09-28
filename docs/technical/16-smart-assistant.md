@@ -361,6 +361,21 @@ hint 文案来自模块级 `ERROR_KIND_HINTS` 字典;查不到 kind 时 fallback
 - 入库数据集不要挂到 RAGFlow 聊天助手上:`ragflow_service` 的 chat 接口直连 RAGFlow,不经过本系统的权限过滤
 - 方案:`docs/plans/2026-09-28_ai-rag-s4-2.md`
 
+### 2.11.3 预算与配额(2026-09,方案 5.6)
+
+- **计量**:`llm_service/metering.py`。`LLMRouter.generate / generate_with_tools / 流式` 与 `OllamaClient.generate`(合规报告抽取,app=`documents`)每次调用后累加到 `LlmUsageDaily`(日期 × 用户 × 应用 × 数字员工一行,迁移 smart_assistant/0023)。归属由 contextvar `usage_scope(user=…, staff_key=…)` 标记:对话(同步 / 流式)、办公助手、文件处理、合规报告抽取、多 Agent 任务(记在发起人名下)、确认后执行的写工具、数字员工(`staff_key`,不占用户额度)。流式在每次 `next()` 重新进入 scope(`iterate_in_scope`);工具超时线程与多 Agent 并行线程复制 contextvars。记账出错只写日志
+- **流式用量**:端点 `model_capabilities` 含 `{"stream_usage": true}` 时请求 `stream_options.include_usage`;否则按字数估算(中文约 0.7 token/字,其他约 4 字符/token),计入 `estimated_calls`
+- **AgentLog**:同步 / 流式对话的 token 与成本改为本轮所有 LLM 调用的合计(此前只记最后一次,流式为空)
+- **上限**:`LlmBudgetPolicy`,scope = default(全员默认,迁移 0024 建出,0 / 0 / 80%)/ group / user / app;0 = 不限。用户上限:个人 > 所在用户组(多个组逐项取最宽松)> 全员默认;用户用量 = 当日所有应用合计(不含数字员工);应用上限对全部调用(含数字员工)合计生效。配置快照缓存 60 秒,保存 / 删除时失效;没有任何上限时不查用量
+- **两级降级**:
+  - **只读**(任一上限用量 ≥ `soft_limit_percent`):入口把 `ToolContext.budget_readonly=True`、`task_proposal_allowed=False`;`BudgetHook`(PRE_EXECUTE,priority 30)对 `require_confirmation` 工具返回 `Reject(error_code="budget_readonly")`;`tasks/create/` 返回 409;办公助手返回 429。已生成的确认卡仍可确认(replay 不跑钩子)
+  - **停用**(用量 ≥ 上限):对话入口不进编排,直接答复,`kind=budget_exceeded`;路由每次调用前兜底检查,抛 `LlmBudgetExceeded`,不发请求;本轮中途被拦且最终失败时,答复改写为「额度已用完」。办公助手、文件处理、合规报告抽取返回 429
+  - 检查本身出错时放行;管理员不豁免
+- **响应**:同步响应与流式 session 事件带 `budget: {state, message}`(正常为 null),前端在输入框上方显示提示条
+- **接口**:`budget/me/`(登录用户);`budget/usage/?days=7`、`budget/users/?q=`、`budget/policies/`(仅智能助手管理员;全员默认只能改不能删)
+- **管理端**:「AI 管理 → 预算与用量」(`/control-panel/ai/budget`)
+- 方案:`docs/plans/2026-09-28_ai-budget-s5.md`
+
 ### 2.12 LLM 接入层统一(2026-07 新增)
 
 | 变更 | 说明 |

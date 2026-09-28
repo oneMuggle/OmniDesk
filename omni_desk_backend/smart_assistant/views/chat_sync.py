@@ -28,6 +28,9 @@ from ..cache import (
     sanitize_public_text,
     sanitize_public_sources,
 )
+from llm_service.metering import usage_scope
+
+from ..budget.chat import apply_budget, apply_midturn_block, blocked_result, public_budget, usage_from_scope
 from ..models import AgentLog
 from ..writes.confirmations import ConfirmationError, execute_confirmed
 
@@ -56,18 +59,23 @@ def handle_sync_chat(viewset, request) -> Response:
     if err is not None:
         return err[0]
 
-    orchestrator = AgentOrchestrator()
-
-    result, response_time_ms, err_response = _run_sync_process(
-        orchestrator,
-        query,
-        conversation_history,
-        tool_context,
-        session=session,
-        conversation_id=conversation_id,
-    )
+    # 预算(方案 5.6):硬上限直接答复,不进编排;只读时关掉写工具与任务计划卡
+    tool_context, budget = apply_budget(tool_context)
+    with usage_scope(user=request.user) as scope:
+        if budget.blocked:
+            result, response_time_ms, err_response = blocked_result(budget.message), 0, None
+        else:
+            result, response_time_ms, err_response = _run_sync_process(
+                AgentOrchestrator(),
+                query,
+                conversation_history,
+                tool_context,
+                session=session,
+                conversation_id=conversation_id,
+            )
     if err_response is not None:
         return err_response
+    result = apply_midturn_block(result, scope)
 
     error = resolve_error(result)
     answer = result["answer"]
@@ -78,7 +86,10 @@ def handle_sync_chat(viewset, request) -> Response:
         result["conversation_id"] = cid
 
     # 解析 token 与成本信息
-    input_tokens, output_tokens, total_tokens, estimated_cost, model_name = usage_fields(result.get("usage"))
+    # AgentLog 记本轮所有 LLM 调用的合计(意图 / 工具轮 / 摘要 / 回答)
+    input_tokens, output_tokens, total_tokens, estimated_cost, model_name = usage_fields(
+        usage_from_scope(scope, result.get("usage"))
+    )
 
     # 失败时仍写 AgentLog(审计需要),tool_success=False;session 可为空
     log = _write_sync_agent_log(
@@ -95,7 +106,7 @@ def handle_sync_chat(viewset, request) -> Response:
         error=error,
     )
 
-    return _build_sync_payload(result, log, conversation_id, error)
+    return _build_sync_payload(result, log, conversation_id, error, budget=public_budget(budget))
 
 
 def _handle_confirm_replay(request, confirm_token) -> Response | None:
@@ -226,7 +237,7 @@ def _public_sync_tool_result(result):
     )
 
 
-def _build_sync_payload(result, log, conversation_id, error) -> Response:
+def _build_sync_payload(result, log, conversation_id, error, budget=None) -> Response:
     """组装同步响应 payload;失败响应在 error=true 基础上追加 kind + hint。"""
     payload = {
         "answer": sanitize_public_text(result.get("answer")),
@@ -249,6 +260,8 @@ def _build_sync_payload(result, log, conversation_id, error) -> Response:
         # 旧字段缺省时为 None,前端按通用错误展示,无 breaking。
         "error_code": result.get("error_code"),
         "retry_after": result.get("retry_after"),
+        # 预算(方案 5.6):只读 / 停用时带 {state, message},前端显示提示条;正常为 None
+        "budget": budget,
     }
     # 输出契约：失败响应在 error=true 基础上追加机器可读 kind + 中文 hint
     if error:

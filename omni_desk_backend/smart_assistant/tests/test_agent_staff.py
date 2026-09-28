@@ -181,12 +181,18 @@ class TestSecretary:
         Schedule.objects.create(duty_date=today, duty_person=me)
         tomorrow = Schedule.objects.create(duty_date=today + timedelta(days=1), duty_leader=me)
         room = MeetingRoom.objects.create(name="一号会议室")
-        MeetingRoomBooking.objects.create(
-            meeting_room=room,
-            user=user,
-            title="评审会",
-            start_time=day_start(today) + timedelta(hours=14),
-            end_time=day_start(today) + timedelta(hours=15),
+        # bulk_create 跳过 save() 里的 full_clean:预约不能早于当前时间,
+        # 而晨报取当天全部预约——测试在 14 点后运行时 create() 会失败
+        MeetingRoomBooking.objects.bulk_create(
+            [
+                MeetingRoomBooking(
+                    meeting_room=room,
+                    user=user,
+                    title="评审会",
+                    start_time=day_start(today) + timedelta(hours=14),
+                    end_time=day_start(today) + timedelta(hours=15),
+                )
+            ]
         )
         other_schedule = Schedule.objects.create(duty_date=today + timedelta(days=3), duty_person=other)
         ScheduleSwapRequest.objects.create(

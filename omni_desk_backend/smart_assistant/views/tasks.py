@@ -22,6 +22,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
 from ..agents.supervisor import Supervisor
+from ..budget.chat import BUDGET_EXCEEDED, BUDGET_READONLY, public_budget, safe_user_state
 from ..agent.sse_contract import sse_event
 from ..models import AgentEvent, AgentSubTask, AgentTask
 from ..agents.dataclasses import PersistentEventBus
@@ -29,6 +30,7 @@ from ..hooks.base import Reject
 from ..hooks.wiring import apply_failure_hooks, apply_post_execute_hooks, apply_pre_execute_hooks, execute_guarded
 from ..tools.tool_context import ToolContext
 from ..scope import resolve_scope
+from llm_service.metering import usage_scope
 from llm_service.router import get_router
 from observability import get_logger
 from ..cache import safe_public_value, sanitize_public_text, public_tool_result
@@ -396,10 +398,23 @@ class AgentTaskViewSet(viewsets.ViewSet):
         query = serializer.validated_data["query"]
         user_context = serializer.validated_data.get("user_context", {})
 
+        # 预算(方案 5.6):只读 / 停用时不再创建多步任务(已在执行的任务不受影响,硬上限由路由兜底)
+        budget = safe_user_state(request.user)
+        if budget.readonly:
+            return Response(
+                {
+                    "error": budget.message,
+                    "error_code": BUDGET_EXCEEDED if budget.blocked else BUDGET_READONLY,
+                    "budget": public_budget(budget),
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
         try:
             # 调用 Supervisor 生成 TaskPacket
             supervisor = Supervisor(llm_router=get_router())
-            task_packet = supervisor.generate_task_packet(query=query, user_context=user_context)
+            with usage_scope(user=request.user):
+                task_packet = supervisor.generate_task_packet(query=query, user_context=user_context)
 
             # 创建 AgentTask 记录
             with transaction.atomic():

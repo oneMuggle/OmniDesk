@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Callable
+import contextvars
 from concurrent.futures import ThreadPoolExecutor
 
 from observability import get_logger
@@ -164,5 +165,8 @@ class FanoutRunner(PipelineRunner):
         if workers <= 1:
             return [self._run_one(subtask, in_worker_thread=False) for subtask in runnable]
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix="agent-fanout") as pool:
-            futures = [pool.submit(self._run_one, subtask, True) for subtask in runnable]
+            # 每个子任务各复制一份 contextvars(预算计量范围等),线程里的 LLM 调用仍记在发起人名下
+            futures = [
+                pool.submit(contextvars.copy_context().run, self._run_one, subtask, True) for subtask in runnable
+            ]
             return [future.result() for future in futures]

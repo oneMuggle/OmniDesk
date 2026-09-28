@@ -9,12 +9,15 @@
 - RateLimitHook: 写工具速率限制(PRE_EXECUTE,require_confirmation=True 时
   按 user_id 固定窗口计 count,超限返回 Reject(rate_limit_exceeded),
   P1A-2,见模块文档)
+- BudgetHook: 预算只读(PRE_EXECUTE,ToolContext.budget_readonly=True 时拒绝写工具,
+  返回 Reject(budget_readonly),方案 5.6)
 
 规划中:
 - SensitiveDataGateHook: 权限门控(替代硬编码 required_auth=True)
 """
 
 from .audit_log import AuditLogHook
+from .budget import BudgetHook
 from .confirmation import ConfirmationHook
 from .pii_masking import PiiMaskingHook
 from .rate_limit import RateLimitHook
@@ -22,6 +25,7 @@ from .timeout_guard import TimeoutGuardHook
 
 __all__ = [
     "AuditLogHook",
+    "BudgetHook",
     "ConfirmationHook",
     "PiiMaskingHook",
     "RateLimitHook",

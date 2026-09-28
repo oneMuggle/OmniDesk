@@ -13,6 +13,8 @@
 
 from __future__ import annotations
 
+from contextlib import nullcontext
+
 from observability import get_logger
 
 from django.core.cache import cache
@@ -120,20 +122,25 @@ def execute_confirmed(user, token: str):
     """消费 token 并执行写工具；返回 ``(tool, tool_result, draft_entry)``。"""
     from ..hooks.wiring import execute_guarded
 
+    from llm_service.metering import current_scope, usage_scope
+
     draft_entry, tool = _claim(user, token, need_tool=True, outcome=OUTCOME_APPROVED)
+    # 预算(方案 5.6):确认后执行的工具若调用 LLM(如办公文档生成),记在确认人名下
+    scope_cm = usage_scope(user=user) if current_scope() is None else nullcontext()
     try:
-        tool_result = execute_guarded(
-            tool,
-            draft_entry["user_query"],
-            context={
-                "history": [],
-                "confirmed": True,
-                "confirm_token": token,
-                "user": user,
-                "task_id": draft_entry.get("task_id"),
-                "draft": draft_entry.get("draft", {}).get("fields"),
-            },
-        )
+        with scope_cm:
+            tool_result = execute_guarded(
+                tool,
+                draft_entry["user_query"],
+                context={
+                    "history": [],
+                    "confirmed": True,
+                    "confirm_token": token,
+                    "user": user,
+                    "task_id": draft_entry.get("task_id"),
+                    "draft": draft_entry.get("draft", {}).get("fields"),
+                },
+            )
     except Exception as exc:
         # token 是一次性确认票据,明文写日志有泄露风险;记前缀+长度足以定位
         logger.exception("confirm replay 执行失败: token_prefix=%s len=%d", token[:6], len(token))

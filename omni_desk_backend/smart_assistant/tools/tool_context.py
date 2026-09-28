@@ -38,6 +38,10 @@ class ToolContext:
     draft: dict | None = None
     # S2:False 时 complex_task 不返回任务计划卡(用户在卡片上选了「直接回答」)
     task_proposal_allowed: bool = True
+    # 预算(方案 5.6):本轮开始时已到只读阈值 → BudgetHook 拒绝写工具。
+    # 在入口算好放进上下文,钩子在事件循环里运行,不能再查 ORM。
+    budget_readonly: bool = False
+    budget_message: str = ""
 
     @classmethod
     def from_request(cls, request: Any) -> ToolContext:

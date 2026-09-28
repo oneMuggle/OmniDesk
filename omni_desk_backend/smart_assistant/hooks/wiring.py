@@ -49,6 +49,8 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
     - ``RateLimitHook`` → ``PRE_EXECUTE``,priority=25
       (写工具速率限制,P1A-2;优先级高于 ConfirmationHook 是因
       为被限流时不应再触发 draft 缓存,先频次再确认)
+    - ``BudgetHook`` → ``PRE_EXECUTE``,priority=30
+      (预算只读,方案 5.6;最先执行,被拦时不计限流也不产生草稿)
 
     幂等保证:Django ``apps.ready()`` 在测试环境可能被多次调用,按 hook
     ``name`` 去重,避免同一钩子重复挂载导致输出被多次处理。
@@ -61,6 +63,7 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
     """
     # 延迟导入,避免 hooks.wiring ↔ hooks.builtin 在应用加载期循环
     from .builtin import (
+        BudgetHook,
         ConfirmationHook,
         PiiMaskingHook,
         RateLimitHook,
@@ -77,6 +80,8 @@ def register_builtin_hooks(registry: HookRegistry | None = None) -> HookRegistry
         reg.register(HookEvent.PRE_EXECUTE, ConfirmationHook(), priority=20)
     if "write_rate_limit" not in existing_names:
         reg.register(HookEvent.PRE_EXECUTE, RateLimitHook(), priority=25)
+    if "budget_readonly" not in existing_names:
+        reg.register(HookEvent.PRE_EXECUTE, BudgetHook(), priority=30)
     return reg
 
 

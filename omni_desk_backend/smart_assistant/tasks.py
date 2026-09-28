@@ -182,6 +182,7 @@ def execute_agent_task(task_id: str):
     from smart_assistant.agents.packet import TaskPacket
     from smart_assistant.agents.executor import MultiAgentExecutor
     from smart_assistant.agents.dataclasses import PersistentEventBus
+    from llm_service.metering import usage_scope
     from llm_service.router import get_router
     from smart_assistant.tools.registry import ToolRegistry
 
@@ -203,24 +204,26 @@ def execute_agent_task(task_id: str):
                 task.started_at = task.started_at or timezone.now()
                 task.save(update_fields=["status", "started_at"])
 
-        if was_paused:
-            result = MultiAgentExecutor.resume_from_checkpoint(
-                task_id=task_id,
-                llm_router=get_router(),
-                tool_registry=ToolRegistry,
-                event_bus=event_bus,
-            )
-        else:
-            task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
-            executor = MultiAgentExecutor(
-                task_packet=task_packet,
-                llm_router=get_router(),
-                tool_registry=ToolRegistry,
-                event_bus=event_bus,
-                agent_task_id=task_id,
-                user=task.user,
-            )
-            result = executor.execute()
+        # 预算(方案 5.6):任务里的 LLM 调用记在发起人名下;到硬上限时由路由兜底拦截
+        with usage_scope(user=task.user):
+            if was_paused:
+                result = MultiAgentExecutor.resume_from_checkpoint(
+                    task_id=task_id,
+                    llm_router=get_router(),
+                    tool_registry=ToolRegistry,
+                    event_bus=event_bus,
+                )
+            else:
+                task_packet = TaskPacket.from_dict(task.task_packet, task_id=str(task.task_id))
+                executor = MultiAgentExecutor(
+                    task_packet=task_packet,
+                    llm_router=get_router(),
+                    tool_registry=ToolRegistry,
+                    event_bus=event_bus,
+                    agent_task_id=task_id,
+                    user=task.user,
+                )
+                result = executor.execute()
         persisted_status = {
             "success": "completed",
             "partial": "partial",
