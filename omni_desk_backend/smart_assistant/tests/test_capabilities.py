@@ -60,12 +60,14 @@ NEW_INTENTS = {
     "communication_thread_query",
     "document_library_query",
 }
-#: S3-1 新增的 4 个写工具
+#: S3 新增的写工具（S3-1 四个 + S3-2 两个）
 S3_WRITE_INTENTS = {
     "notification_mark_read",
     "meeting_room_book",
     "meeting_room_cancel",
     "compliance_issue_update_status",
+    "announcement_draft_create",
+    "trial_create",
 }
 ALL_INTENTS = LEGACY_INTENTS | NEW_INTENTS | S3_WRITE_INTENTS
 #: 删除类工具默认关闭（S3-1），不注册进 ToolRegistry

@@ -166,11 +166,23 @@ class Schedule(models.Model):
 
 
 class Announcement(models.Model):
+    STATUS_DRAFT = "draft"
+    STATUS_PUBLISHED = "published"
+    STATUS_CHOICES = [
+        (STATUS_DRAFT, "草稿"),
+        (STATUS_PUBLISHED, "已发布"),
+    ]
+
     title = models.CharField(max_length=200, verbose_name="公告标题")
     content = models.TextField(verbose_name="公告内容")
     author = models.ForeignKey(
         CustomUser, on_delete=models.SET_NULL, null=True, related_name="announcements", verbose_name="发布者"
     )
+    # S3-2：AI 只能起草（draft），由管理员 / HR 在公告管理页发布；页面新建默认直接发布
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_PUBLISHED, db_index=True, verbose_name="状态"
+    )
+    published_at = models.DateTimeField(null=True, blank=True, verbose_name="发布时间")
     created_at = models.DateTimeField(auto_now_add=True, db_index=True, verbose_name="创建时间")
     updated_at = models.DateTimeField(auto_now=True, verbose_name="更新时间")
 
@@ -184,6 +196,14 @@ class Announcement(models.Model):
 
     def __str__(self):
         return self.title
+
+    def save(self, *args, **kwargs):
+        if self.status == self.STATUS_PUBLISHED and self.published_at is None:
+            self.published_at = timezone.now()
+            update_fields = kwargs.get("update_fields")
+            if update_fields is not None and "published_at" not in update_fields:
+                kwargs["update_fields"] = [*update_fields, "published_at"]
+        super().save(*args, **kwargs)
 
 
 class UploadedImage(models.Model):

@@ -56,13 +56,18 @@ def notify_schedule_created(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=Announcement)
 def notify_announcement_created(sender, instance, created, **kwargs):
+    """新建且直接发布的公告发 fan-out 通知；草稿（S3-2）不通知，发布时由发布接口通知。"""
+    if not created or instance.status != Announcement.STATUS_PUBLISHED:
+        return
+    notify_announcement_published(instance)
+
+
+def notify_announcement_published(instance):
     """公告 fan-out 通知(P0-W:bulk_create 批量落库,替代逐条 NotificationService 调用)。
 
     每项携带 dedupe_key=announcement:{公告id}:{用户id},便于事后按公告/用户
     定位与清理;作者本人不收自己发布的公告。
     """
-    if not created:
-        return
     from users.models import CustomUser
 
     from .models import Notification

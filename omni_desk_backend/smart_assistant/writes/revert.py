@@ -44,6 +44,8 @@ REVERT_HANDLERS: dict[str, str] = {
     "notifications.Notification": "smart_assistant.tools.notification_write_tools.NotificationReadRevertHandler",
     "meeting_rooms.MeetingRoomBooking": "smart_assistant.tools.meeting_room_write_tools.BookingRevertHandler",
     "compliance.ComplianceIssue": "smart_assistant.tools.compliance_write_tools.ComplianceStatusRevertHandler",
+    "events.Announcement": "smart_assistant.tools.announcement_write_tools.AnnouncementDraftRevertHandler",
+    "events.Trial": "smart_assistant.tools.trial_write_tools.TrialCreateRevertHandler",
 }
 
 

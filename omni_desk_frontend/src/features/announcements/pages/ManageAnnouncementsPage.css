@@ -73,3 +73,28 @@
 .announcements-table tbody tr:hover {
   background-color: #eff2f7;
 }
+.btn-success {
+  background-color: #00b894;
+  color: white;
+}
+
+.btn-success:hover {
+  background-color: #55efc4;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.1rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.status-draft {
+  background-color: #fff3cd;
+  color: #8a6d00;
+}
+
+.status-published {
+  background-color: #e6f7ee;
+  color: #1e7e4a;
+}

@@ -76,6 +76,19 @@ class TestPreview:
         assert len(public["changes"]) == 10 and len(public["items"]) == 5
         assert public["affected_count"] == 3
 
+    def test_public_preview_warnings_are_limited_and_sanitized(self):
+        preview = build_preview(
+            action="a",
+            target_type="t",
+            target_label="l",
+            warnings=["password=hunter2 冲突"] + ["长" * 300] + [f"w{i}" for i in range(8)] + [""],
+        )
+        public = public_preview(preview)
+        assert len(public["warnings"]) == 5
+        assert "hunter2" not in public["warnings"][0]
+        assert len(public["warnings"][1]) <= 120
+        assert public_preview({"action": "a", "target": {}})["warnings"] == []
+
     def test_public_preview_masks_secrets_and_bad_values(self):
         public = public_preview(
             {

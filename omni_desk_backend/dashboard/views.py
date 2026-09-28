@@ -27,9 +27,9 @@ def dashboard_stats(request):
     # 最新公告（最近 5 条）
     from events.models import Announcement
 
-    recent_announcements = Announcement.objects.order_by("-created_at")[:5].values(
-        "id", "title", "created_at", "author__username"
-    )
+    recent_announcements = (
+        Announcement.objects.filter(status=Announcement.STATUS_PUBLISHED).order_by("-published_at", "-created_at")[:5]
+    ).values("id", "title", "created_at", "author__username")
 
     # 备忘录（当前用户的未完成备忘录，7 天内到期）
     from memos.models import Memo

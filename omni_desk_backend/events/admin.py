@@ -55,7 +55,8 @@ class EquipmentAdmin(admin.ModelAdmin):
 
 @admin.register(Announcement)
 class AnnouncementAdmin(admin.ModelAdmin):
-    list_display = ("title", "author", "created_at")
+    list_display = ("title", "author", "status", "published_at", "created_at")
+    list_filter = ("status",)
 
 
 @admin.register(DocumentTemplate)

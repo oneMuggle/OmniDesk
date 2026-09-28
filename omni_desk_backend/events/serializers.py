@@ -100,7 +100,9 @@ class AnnouncementSerializer(serializers.ModelSerializer):
     class Meta:
         model = Announcement
         # R3-B1: 白名单化,前端消费字段
-        fields = ["id", "title", "content", "author", "created_at", "updated_at"]
+        fields = ["id", "title", "content", "author", "status", "published_at", "created_at", "updated_at"]
+        # S3-2：状态只能通过 publish 接口改变，页面 PATCH 不能改
+        read_only_fields = ["status", "published_at"]
 
 
 class UploadedImageSerializer(serializers.ModelSerializer):
