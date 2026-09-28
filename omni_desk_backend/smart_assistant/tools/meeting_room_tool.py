@@ -116,8 +116,9 @@ class MeetingRoomTool(BaseTool):
         return MeetingRoom.objects.all()
 
     def _scope_self(self, qs, ctx):
-        """本人范围:仅返回 ctx.user 有过预订的会议室。"""
-        from meeting_rooms.models import MeetingRoomBooking
+        """本人范围:会议室及其预约对所有登录用户公开,与会议室接口一致。
 
-        user_room_ids = MeetingRoomBooking.objects.filter(user=ctx.user).values_list("meeting_room_id", flat=True)
-        return qs.filter(id__in=user_room_ids).distinct()
+        方案 5.6 评估集发现:此前只返回 ctx.user 预约过的会议室,普通员工
+        查不到其他会议室是否空闲。
+        """
+        return qs

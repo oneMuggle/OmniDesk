@@ -14,7 +14,7 @@ import uuid
 from observability import get_logger
 
 from ..conversation_context import is_failed_answer
-from ..orchestrator_helpers import _scope_cache_sig
+from ..orchestrator_helpers import _legacy_tool_context, _scope_cache_sig
 from ...cache import public_confirmation_draft
 from ...hooks.base import Reject
 from ...hooks.wiring import (
@@ -197,7 +197,7 @@ class LegacyProcessMixin:
                     tool_result = _root().execute_guarded(
                         tool,
                         user_query,
-                        context={"history": conversation_history or []},
+                        context=_legacy_tool_context(tool_context, conversation_history),
                     )
             except Exception as e:
                 # ON_FAILURE 钩子链先介入:给出结构化 fallback 时采用,

@@ -37,7 +37,7 @@ from .intent_classifier import (
     generate_general_answer,
 )
 from .conversation_context import is_failed_answer
-from .orchestrator_helpers import _scope_cache_sig
+from .orchestrator_helpers import _legacy_tool_context, _scope_cache_sig
 from .tool_chain_planner import generate_tool_chain_plan
 from .task_proposal import should_propose_task, stream_task_proposal
 from .sse_contract import annotate_error_kind, sse_event
@@ -456,7 +456,7 @@ class StreamRunner:
                     tool_result = execute_guarded(
                         tool,
                         user_query,
-                        context={"history": conversation_history or []},
+                        context=_legacy_tool_context(tool_context, conversation_history),
                     )
             except Exception as e:
                 recovery = apply_failure_hooks(tool, e, hook_ctx)

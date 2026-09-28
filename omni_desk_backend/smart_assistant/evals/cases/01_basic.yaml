@@ -1,0 +1,145 @@
+# 基础查询：单工具、问题明确，看选工具是否正确、本人数据是否查得到。
+cases:
+  - id: basic-memo-own
+    category: basic
+    persona: staff_a
+    question: 我的备忘录有哪些
+    expect: {tools_any: [memo_query], visible: [memo_staff_a]}
+    script:
+      intent: memo_query
+      rounds: [[{name: memo_query, args: {query: 备忘录}}]]
+
+  - id: basic-project-own
+    category: basic
+    persona: staff_b
+    question: 我负责的项目进度怎么样
+    expect: {tools_any: [project_status], visible: [project_staff_b]}
+    script:
+      intent: project_status
+      rounds: [[{name: project_status, args: {query: 项目进度}}]]
+
+  - id: basic-compliance-own
+    category: basic
+    persona: staff_a
+    question: 我负责的项目有哪些合规问题
+    expect: {tools_any: [compliance_query], visible: [compliance_staff_a]}
+    script:
+      intent: compliance_query
+      rounds: [[{name: compliance_query, args: {query: ""}}]]
+
+  - id: basic-notification-own
+    category: basic
+    persona: staff_a
+    question: 我有哪些未读通知
+    expect: {tools_any: [notification_query], visible: [notif_staff_a]}
+    script:
+      intent: notification_query
+      rounds: [[{name: notification_query, args: {query: 未读通知}}]]
+
+  - id: basic-swap-received
+    category: basic
+    persona: staff_a2
+    question: 我收到的换班申请有哪些
+    expect: {tools_any: [swap_request_query], visible: [swap_staff_b]}
+    script:
+      intent: swap_request_query
+      rounds: [[{name: swap_request_query, args: {query: 换班申请, role: 接收方}}]]
+
+  - id: basic-template-own
+    category: basic
+    persona: staff_b
+    question: 找一下我的方案模板
+    expect: {tools_any: [document_search], visible: [template_staff_b]}
+    script:
+      intent: document_search
+      rounds: [[{name: document_search, args: {query: 方案模板}}]]
+
+  - id: basic-students-mentor
+    category: basic
+    persona: staff_b
+    question: 我带的联培生有哪些
+    expect: {tools_any: [joint_student_query], visible: [student_staff_b]}
+    script:
+      intent: joint_student_query
+      rounds: [[{name: joint_student_query, args: {query: 联培生}}]]
+
+  - id: basic-project-head
+    category: basic
+    persona: head_a
+    question: 研发部的项目进度怎么样
+    expect: {tools_any: [project_status], visible: [project_staff_a]}
+    script:
+      intent: project_status
+      rounds: [[{name: project_status, args: {query: 研发部}}]]
+
+  - id: basic-compliance-head
+    category: basic
+    persona: head_a
+    question: 我们部门有哪些待处理的合规问题
+    expect: {tools_any: [compliance_query], visible: [compliance_staff_a]}
+    script:
+      intent: compliance_query
+      rounds: [[{name: compliance_query, args: {query: ""}}]]
+
+  - id: basic-project-admin
+    category: basic
+    persona: admin
+    question: 公司所有项目的进度
+    expect: {tools_any: [project_status], visible: [project_staff_a, project_staff_b]}
+    script:
+      intent: project_status
+      rounds: [[{name: project_status, args: {query: 项目进度}}]]
+
+  - id: basic-announcement
+    category: basic
+    persona: staff_a2
+    question: 最近有什么公司公告
+    expect: {tools_any: [announcement_query]}
+    script:
+      intent: announcement_query
+      rounds: [[{name: announcement_query, args: {query: 公告}}]]
+
+  - id: basic-meeting-room
+    category: basic
+    persona: staff_a
+    question: 明天评估会议室A有空吗
+    expect: {tools_any: [meeting_room_query]}
+    script:
+      intent: meeting_room_query
+      rounds: [[{name: meeting_room_query, args: {query: 评估会议室A}}]]
+
+  - id: basic-external-link
+    category: basic
+    persona: staff_b
+    question: VPN 入口在哪里
+    expect: {tools_any: [external_link_query]}
+    script:
+      intent: external_link_query
+      rounds: [[{name: external_link_query, args: {query: VPN}}]]
+
+  - id: basic-students-admin
+    category: basic
+    persona: admin
+    question: 列出全部联培生
+    expect: {tools_any: [joint_student_query], visible: [student_staff_b]}
+    script:
+      intent: joint_student_query
+      rounds: [[{name: joint_student_query, args: {query: 联培生}}]]
+
+  - id: basic-sensor
+    category: basic
+    persona: staff_a
+    question: 现在有哪些传感器告警
+    expect: {tools_any: [sensor_query]}
+    script:
+      intent: sensor_query
+      rounds: [[{name: sensor_query, args: {query: 传感器告警}}]]
+
+  - id: basic-small-talk
+    category: basic
+    persona: staff_a
+    question: 你好，你能帮我做些什么
+    note: 闲聊不应调用任何工具
+    expect: {tools_any: []}
+    script:
+      intent: general_chat

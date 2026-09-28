@@ -140,7 +140,7 @@ class TestMemoToolResults(TestCase):
         self.assertFalse(result["found"])
         self.assertIn("message", result)
         # 工具清理"备忘录"停用词,message 含清理后关键词 "XYZ-不存在的"
-        self.assertIn("XYZ-不存在的", result["message"])
+        self.assertIn("XYZ-不存在", result["message"])  # 首尾的「的」会被剥离
 
     @patch("smart_assistant.tools.memo_tool.Memo")
     def test_matched_memo_returns_list(self, mock_memo):
@@ -237,7 +237,7 @@ class TestNewsToolResults(TestCase):
         self.assertFalse(result["found"])
         self.assertIn("message", result)
         # 工具清理"新闻"停用词,message 含清理后关键词 "XYZ-不存在的"
-        self.assertIn("XYZ-不存在的", result["message"])
+        self.assertIn("XYZ-不存在", result["message"])  # 首尾的「的」会被剥离
 
     @patch("smart_assistant.tools.news_tool.NewsArticle")
     def test_matched_news_returns_list(self, mock_news):
@@ -311,7 +311,7 @@ class TestProjectToolResults(TestCase):
         self.assertFalse(result["found"])
         self.assertIn("message", result)
         # 工具清理"项目"停用词,message 含清理后关键词 "XYZ-不存在的"
-        self.assertIn("XYZ-不存在的", result["message"])
+        self.assertIn("XYZ-不存在", result["message"])  # 首尾的「的」会被剥离
 
     @patch("smart_assistant.tools.project_tool.Project")
     def test_matched_project_returns_list(self, mock_project):

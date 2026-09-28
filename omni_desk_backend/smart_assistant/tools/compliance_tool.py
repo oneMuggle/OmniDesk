@@ -16,11 +16,14 @@ from django.db.models import Case, IntegerField, Q, Value, When
 
 from compliance.models import ComplianceIssue
 
-from .base import BaseTool
+from .base import BaseTool, strip_fillers
 
 # 按业务优先级定义 severity 排序:紧急 > 高 > 中 > 低
 # 不用字符串倒序是因为 CharField 的字典序与业务优先级不一致
 # (Unicode:高 U+9AD8 > 紧 U+7D27 > 低 U+4F4E > 中 U+4E2D)
+# 合规领域的泛词：问句里常见但不是检索条件（「整改」是业务术语，保留）
+_DOMAIN_WORDS = ("合规问题", "待处理的", "待处理", "处理中的", "合规", "问题", "项目")
+
 _SEVERITY_RANK = Case(
     When(severity="紧急", then=Value(0)),
     When(severity="高", then=Value(1)),
@@ -53,10 +56,15 @@ class ComplianceTool(BaseTool):
         # R5-D1 统一:两条路径都经 ``scoped_queryset`` 取数。合规问题是公共
         # 资源(工具 _scope_self 为透传),行为不变;统一入口消除裸表查询。
         issues_base = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
-        keywords = "".join(c for c in (search_query or "") if c not in stopwords).strip()
+        # 先剥离领域泛词与通用填充词（「我负责的项目有哪些合规问题」→ 空，即列出范围内全部），
+        # 再按旧规则逐字去掉 stopwords
+        text = search_query or ""
+        for word in _DOMAIN_WORDS:
+            text = text.replace(word, "")
+        keywords = strip_fillers("".join(c for c in text if c not in stopwords).strip())
         if issues_base is None:
             # 非 scope-aware 兜底(不应发生:ComplianceTool 实现了 build_base_queryset)
             issues_base = ComplianceIssue.objects.select_related("project", "document_book", "document_template").all()
@@ -95,7 +103,7 @@ class ComplianceTool(BaseTool):
             )
 
         if not issues:
-            return {"found": False, "message": f'未找到与 "{keywords or query}" 相关的合规问题'}
+            return {"found": False, "message": f'未找到与 "{keywords or search_query}" 相关的合规问题'}
 
         return {"found": True, "count": len(issues), "issues": issues}
 
@@ -146,3 +154,7 @@ class ComplianceTool(BaseTool):
     def _scope_self(self, qs, ctx):
         """本人范围:仅返回 ctx.user 作为项目负责人管理的项目下的合规问题(经 project.manager 关系)。"""
         return qs.filter(project__manager=ctx.user)
+
+    def _scope_department(self, qs, ctx):
+        """部门范围:项目负责人在同部门的合规问题(方案 5.6)。"""
+        return self._same_department(qs, ctx, "project__manager__personnel__department")

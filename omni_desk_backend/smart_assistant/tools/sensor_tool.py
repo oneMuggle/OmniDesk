@@ -21,7 +21,7 @@ class SensorTool(BaseTool):
         三级 scope 在两个入口下语义一致。
         """
         sensors_qs = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")
@@ -114,5 +114,8 @@ class SensorTool(BaseTool):
         return Sensor.objects.select_related("sensor_category", "location").all()
 
     def _scope_self(self, qs, ctx):
-        """本人范围:传感器是公共设备库存,无"本人"语义;返回空 QuerySet。"""
-        return qs.none()
+        """本人范围:传感器是公共设备库存,所有登录用户可读,与传感器接口一致。
+
+        方案 5.6 评估集发现:此前返回空 QuerySet,普通员工只能看到总数。
+        """
+        return qs

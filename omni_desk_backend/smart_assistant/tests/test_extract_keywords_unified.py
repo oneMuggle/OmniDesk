@@ -12,13 +12,17 @@
 
 本文件的核心是 ``TestLegacyEquivalence``:以重构前的 replace 链为 oracle,
 对代表性输入(含顺序敏感的交叉词输入)逐一断言新实现输出与旧链完全一致。
+
+方案 5.6 评估集:旧链之后再统一剥离通用填充词(``strip_fillers``,修复「我的备忘录」
+剩「我的」、「项目进度」剩「进度」导致查不到的问题),oracle 相应改为
+``strip_fillers(旧链(query))``;填充词本身的行为见 ``TestFillerWords``。
 """
 
 import typing
 
 import pytest
 
-from smart_assistant.tools.base import BaseTool
+from smart_assistant.tools.base import BaseTool, strip_fillers
 from smart_assistant.tools.document_tool import DocumentTool
 from smart_assistant.tools.memo_tool import MemoTool
 from smart_assistant.tools.news_tool import NewsTool
@@ -180,7 +184,9 @@ class TestPerToolStopwords:
         assert SensorTool().extract_keywords("搜索设备台账") == "台账"
 
     def test_project_tool(self):
-        assert ProjectTool().extract_keywords("搜索项目进度") == "进度"
+        # 「进度」是通用填充词:「项目进度」= 列出范围内全部项目
+        assert ProjectTool().extract_keywords("搜索项目进度") == ""
+        assert ProjectTool().extract_keywords("搜索研发部项目") == "研发部"
 
     def test_personnel_tool_keeps_legacy_word_list(self):
         """PersonnelTool 旧链只剥 谁/是/的,不剥 搜索/查找(行为等价的关键差异点)."""
@@ -221,7 +227,7 @@ class TestLegacyEquivalence:
     @pytest.mark.parametrize("tool_cls", ALL_TOOLS)
     @pytest.mark.parametrize("query", _EQUIVALENCE_INPUTS)
     def test_matches_legacy_replace_chain(self, tool_cls, query):
-        expected = _legacy_clean(query, _LEGACY_CHAINS[tool_cls])
+        expected = strip_fillers(_legacy_clean(query, _LEGACY_CHAINS[tool_cls]))
         actual = tool_cls().extract_keywords(query)
 
         assert actual == expected, (
@@ -232,3 +238,42 @@ class TestLegacyEquivalence:
     def test_old_static_method_removed(self, tool_cls):
         """收敛要求:旧的 _extract_keywords 静态方法已删除."""
         assert not hasattr(tool_cls, "_extract_keywords")
+
+
+# =============================================================================
+# 通用填充词(方案 5.6 评估集)
+# =============================================================================
+
+
+class TestFillerWords:
+    """问句里的「我的 / 有哪些 / 进度 / 怎么样」等不是检索条件,剥离后为空即列出范围内全部."""
+
+    @pytest.mark.parametrize(
+        ("tool_cls", "query", "expected"),
+        [
+            (MemoTool, "我的备忘录", ""),
+            (MemoTool, "我的备忘录有哪些", ""),
+            (ProjectTool, "项目进度", ""),
+            (ProjectTool, "我负责的项目进度怎么样", ""),
+            (ProjectTool, "那个项目现在怎么样了", ""),
+            (ProjectTool, "公司所有项目的进度", ""),
+            (ProjectTool, "研发部的项目进度", "研发部"),
+            (DocumentTool, "找一下我的方案模板", "方案模板"),
+            (MemoTool, "王五的备忘录", "王五"),
+        ],
+    )
+    def test_extract_keywords_strips_fillers(self, tool_cls, query, expected):
+        assert tool_cls().extract_keywords(query) == expected
+
+    def test_strip_fillers_trims_edge_de_only(self):
+        # 首尾的「的」去掉,中间的保留(如人名/标题里的「的」)
+        assert strip_fillers("的周报的") == "周报"
+        assert strip_fillers("张三的周报") == "张三的周报"
+
+    def test_meaningless_leftovers_become_empty(self):
+        for text in ("我", "我们", "的", "了", "公司"):
+            assert strip_fillers(text) == ""
+
+    def test_company_inside_name_is_kept(self):
+        # 「公司」只在剥离后整串就是它时才算无意义
+        assert strip_fillers("华为公司") == "华为公司"

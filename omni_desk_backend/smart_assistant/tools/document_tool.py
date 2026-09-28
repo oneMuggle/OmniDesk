@@ -24,7 +24,7 @@ class DocumentTool(BaseTool):
         # (修复旧路径 SELF scope 泄露)。生成文档按 template__in=templates_qs 反查
         # 同一 scope(GeneratedDocument 无 owner 字段)。
         templates_qs = self.scoped_queryset(context, qs=qs, scope=scope)
-        search_query = query
+        search_query = query or ""
         if isinstance(params, dict) and params.get("query"):
             search_query = params["query"]
         keywords = self.extract_keywords(search_query or "")

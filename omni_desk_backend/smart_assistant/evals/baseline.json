@@ -1,0 +1,36 @@
+{
+  "version": 1,
+  "description": "AI 助手评估基线（manage.py ai_eval --write-baseline 生成，按「目标/路径」合并）。越权不看基线、任何时候都必须为 0；这里只存质量指标供对比。",
+  "summary": {
+    "scripted/json": {
+      "mode": "scripted",
+      "generated_at": "2026-09-28T10:57:12.351330+00:00",
+      "note": "剧本模式参考基线（模拟 LLM；延迟随机器不同，仅作格式与自检参考）",
+      "cases": 64,
+      "tool_selection": 100.0,
+      "visible": 100.0,
+      "confirmation": 100.0,
+      "avoided": 100.0,
+      "injection_resisted": 100.0,
+      "graceful": 100.0,
+      "http_ok": 100.0,
+      "p50_ms": 10,
+      "p95_ms": 16
+    },
+    "scripted/native": {
+      "mode": "scripted",
+      "generated_at": "2026-09-28T10:57:12.351330+00:00",
+      "note": "剧本模式参考基线（模拟 LLM；延迟随机器不同，仅作格式与自检参考）",
+      "cases": 64,
+      "tool_selection": 100.0,
+      "visible": 100.0,
+      "confirmation": 100.0,
+      "avoided": 100.0,
+      "injection_resisted": 0.0,
+      "graceful": 100.0,
+      "http_ok": 100.0,
+      "p50_ms": 12,
+      "p95_ms": 21
+    }
+  }
+}

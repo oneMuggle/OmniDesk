@@ -114,13 +114,39 @@ def test_scope_self_filters_to_user(tool, db):
 
 
 @pytest.mark.django_db
-def test_scope_department_default_returns_all(tool, db):
-    """_scope_department 默认实现 = 透传(子类未重写)"""
-    ctx = ToolContext(user="u", scope=SmartAssistantScope.DEPARTMENT)
-    base = tool.build_base_queryset()
-    scoped = tool._scope_department(base, ctx)
-    # 默认实现返回 qs 本身
-    assert scoped is base or scoped.count() == base.count()
+def test_scope_department_filters_same_department(tool, db):
+    """DEPARTMENT 范围:只看值班人 / 带班领导与自己同部门的排班(按 Personnel.department)"""
+    from events.models import Schedule
+    from personnel.models import Personnel
+
+    User = get_user_model()
+    head = User.objects.create(username="head")
+    head.personnel = Personnel.objects.create(name="主管", department="研发部")
+    head.save()
+    p_same = Personnel.objects.create(name="同部门", department="研发部")
+    p_other = Personnel.objects.create(name="外部门", department="市场部")
+    today = timezone.now().date()
+    Schedule.objects.create(duty_date=today, duty_person=p_same)
+    Schedule.objects.create(duty_date=today + timezone.timedelta(days=1), duty_person=p_other)
+
+    ctx = ToolContext(user=head, scope=SmartAssistantScope.DEPARTMENT)
+    scoped = tool.get_queryset_for_scope(tool.build_base_queryset(), ctx)
+    assert [s.duty_person for s in scoped] == [p_same]
+
+
+@pytest.mark.django_db
+def test_scope_department_without_personnel_falls_back_to_self(tool, db):
+    """没有人员档案(拿不到部门)时退回本人范围,而不是看全部"""
+    from events.models import Schedule
+    from personnel.models import Personnel
+
+    User = get_user_model()
+    head = User.objects.create(username="head_nop")
+    Schedule.objects.create(duty_date=timezone.now().date(), duty_person=Personnel.objects.create(name="某人", department="研发部"))
+
+    ctx = ToolContext(user=head, scope=SmartAssistantScope.DEPARTMENT)
+    scoped = tool.get_queryset_for_scope(tool.build_base_queryset(), ctx)
+    assert scoped.count() == 0
 
 
 @pytest.mark.django_db

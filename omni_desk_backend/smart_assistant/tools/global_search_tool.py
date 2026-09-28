@@ -12,11 +12,24 @@ from typing import Any
 
 from smart_assistant.scope import resolve_scope
 
-from .base import BaseTool
+from .base import BaseTool, strip_fillers
 from .tool_context import ToolContext
 
 # 与 search_federation.providers.SOURCE_CHOICES 保持一致（由测试守护）
 SOURCE_ENUM = ["project", "memo", "personnel", "compliance", "document"]
+
+
+# 旧意图路径直接传用户原话（「全局搜索 EVAL」），先剥离检索指令词和通用填充词
+_COMMAND_WORDS = ("全局搜索", "全站搜索", "全局检索", "全站检索", "相关的内容", "相关内容", "搜索", "检索", "搜一下")
+
+
+def _clean_keyword(text: str) -> str:
+    cleaned = text
+    for word in _COMMAND_WORDS:
+        cleaned = cleaned.replace(word, "")
+    cleaned = strip_fillers(cleaned.strip())
+    # 剥离后为空（如只说了「搜索」）时保留原文，由上层提示「请提供关键词」或按原文检索
+    return cleaned or text
 
 
 def _to_tool_context(context: Any) -> ToolContext | None:
@@ -41,7 +54,7 @@ class GlobalSearchTool(BaseTool):
         from search_federation.providers import search_internal
 
         params = params if isinstance(params, dict) else {}
-        keyword = str(params.get("query") or query or "").strip()
+        keyword = _clean_keyword(str(params.get("query") or query or "").strip())
         if not keyword:
             return {"found": False, "message": "请提供要检索的关键词"}
 
