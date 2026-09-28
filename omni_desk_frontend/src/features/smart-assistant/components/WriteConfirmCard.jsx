@@ -2,7 +2,13 @@ import { useState } from 'react';
 import PropTypes from 'prop-types';
 import { Alert, Button, Card, Space, Tag, Typography } from 'antd';
 import { SafetyCertificateOutlined } from '@ant-design/icons';
-import { approveConfirmation, rejectConfirmation, revertWriteLog } from '../api/smartAssistantApi';
+import {
+  approveConfirmation,
+  approveProposal,
+  rejectConfirmation,
+  rejectProposal,
+  revertWriteLog,
+} from '../api/smartAssistantApi';
 import ToolResult from './ToolResult';
 
 const { Text } = Typography;
@@ -16,7 +22,28 @@ const FALLBACK_ERRORS = {
   confirmation_already_used: '该操作已确认执行，请勿重复提交',
   confirmation_already_rejected: '该操作已取消，请重新发起',
   confirmation_user_mismatch: '只能由发起人确认',
+  expired: '该事项已过期',
+  already_decided: '该事项已处理',
 };
+
+/** 数字员工待确认事项的服务端状态 → 卡片初始状态与提示 */
+const PROPOSAL_STATES = {
+  approved: { status: 'approved', text: '该事项已确认执行' },
+  rejected: { status: 'rejected', text: '' },
+  expired: { status: 'failed', text: '该事项已过期' },
+  failed: { status: 'failed', text: '该事项执行失败' },
+};
+
+function initialState(confirmation) {
+  const known = confirmation?.proposalStatus && PROPOSAL_STATES[confirmation.proposalStatus];
+  if (!known) return { status: 'pending', result: '', error: '' };
+  const detail = confirmation.resultMessage || known.text;
+  return {
+    status: known.status,
+    result: known.status === 'approved' ? detail : '',
+    error: known.status === 'failed' ? detail : '',
+  };
+}
 
 function errorText(error, fallback) {
   const data = error?.response?.data || {};
@@ -36,12 +63,20 @@ function showValue(value) {
  * 执行成功且可撤销时提供「撤销」按钮。卡片自带状态，历史消息重新渲染不会重复提交。
  */
 const WriteConfirmCard = ({ confirmation }) => {
-  const [status, setStatus] = useState('pending');
-  const [resultText, setResultText] = useState('');
-  const [errorMessage, setErrorMessage] = useState('');
+  const [initial] = useState(() => initialState(confirmation));
+  const [status, setStatus] = useState(initial.status);
+  const [resultText, setResultText] = useState(initial.result);
+  const [errorMessage, setErrorMessage] = useState(initial.error);
   const [approved, setApproved] = useState(null);
 
-  if (!confirmation || !confirmation.token) return null;
+  if (!confirmation || (!confirmation.token && !confirmation.proposalId)) return null;
+  const isProposal = Boolean(confirmation.proposalId);
+  const doApprove = () => (isProposal
+    ? approveProposal(confirmation.proposalId)
+    : approveConfirmation(confirmation.token));
+  const doReject = () => (isProposal
+    ? rejectProposal(confirmation.proposalId)
+    : rejectConfirmation(confirmation.token));
   const preview = confirmation.preview || null;
   const destructive = preview?.risk === 'destructive';
   const busy = BUSY.has(status);
@@ -50,7 +85,7 @@ const WriteConfirmCard = ({ confirmation }) => {
     setStatus('approving');
     setErrorMessage('');
     try {
-      const { data } = await approveConfirmation(confirmation.token);
+      const { data } = await doApprove();
       setApproved(data || {});
       setResultText(data?.answer || '操作已完成');
       setStatus('approved');
@@ -65,7 +100,7 @@ const WriteConfirmCard = ({ confirmation }) => {
     setStatus('rejecting');
     setErrorMessage('');
     try {
-      await rejectConfirmation(confirmation.token);
+      await doReject();
       setStatus('rejected');
     } catch (error) {
       setErrorMessage(errorText(error, '取消失败，请稍后重试'));
@@ -115,6 +150,11 @@ const WriteConfirmCard = ({ confirmation }) => {
       )}
       style={{ marginTop: 8, maxWidth: 520 }}
     >
+      {confirmation.source && (
+        <div style={{ marginBottom: 6 }} data-testid="write-confirm-source">
+          <Text type="secondary">来自数字员工：{confirmation.source}</Text>
+        </div>
+      )}
       {preview?.target?.label ? (
         <div style={{ marginBottom: 6 }}>
           <Text type="secondary">{preview.target.type || '对象'}：</Text>
@@ -210,6 +250,10 @@ const WriteConfirmCard = ({ confirmation }) => {
 WriteConfirmCard.propTypes = {
   confirmation: PropTypes.shape({
     token: PropTypes.string,
+    proposalId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]),
+    proposalStatus: PropTypes.string,
+    resultMessage: PropTypes.string,
+    source: PropTypes.string,
     summary: PropTypes.string,
     answer: PropTypes.string,
     toolUsed: PropTypes.string,
@@ -251,6 +295,28 @@ export function toConfirmMessage(event, toolUsed) {
       answer: event.answer,
       preview: draft.preview || null,
       toolUsed,
+    },
+  };
+}
+
+/**
+ * 把数字员工待确认事项（S4-1，GET proposals/<id>/ 的响应）转成确认卡消息。
+ * 已处理的事项按服务端状态直接显示结果，不能再次确认。
+ * @param {object} proposal
+ */
+export function toProposalMessage(proposal) {
+  if (!proposal || proposal.id === undefined || proposal.id === null) return null;
+  return {
+    id: `proposal-${proposal.id}`,
+    type: 'write_confirm',
+    role: 'assistant',
+    confirmation: {
+      proposalId: proposal.id,
+      summary: proposal.title,
+      source: proposal.profile_name || '',
+      preview: proposal.preview || null,
+      proposalStatus: proposal.status,
+      resultMessage: proposal.result_message || '',
     },
   };
 }

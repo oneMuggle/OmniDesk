@@ -1,4 +1,6 @@
+import { useInRouterContext } from 'react-router-dom';
 import { useSmartChat } from '../hooks/useSmartChat';
+import ProposalLinkWatcher from '../components/ProposalLinkWatcher';
 import ChatHeader from '../components/ChatHeader';
 import SessionListPanel from '../components/SessionListPanel';
 import MessageList from '../components/MessageList';
@@ -22,10 +24,13 @@ const SmartChatPage = () => {
     handleSessionMenuClick,
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
     handleCreateTask, handleAnswerDirectly,
+    addProposalMessage,
   } = useSmartChat();
+  const inRouter = useInRouterContext();
 
   return (
     <div className="smart-chat-container">
+      {inRouter && <ProposalLinkWatcher onProposal={addProposalMessage} />}
       <ChatHeader
         showSessionList={showSessionList}
         onToggleSessionList={() => setShowSessionList(!showSessionList)}

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import KnowledgeBaseDocument, SmartAssistantSession, AgentLog
+from .models import AgentLog, AgentProfile, AgentProposal, AgentRun, KnowledgeBaseDocument, SmartAssistantSession
 
 
 @admin.register(KnowledgeBaseDocument)
@@ -20,3 +20,21 @@ class AgentLogAdmin(admin.ModelAdmin):
     list_display = ("user_query", "intent", "tool_used", "created_at")
     list_filter = ("intent", "tool_used", "created_at")
     search_fields = ("user_query",)
+
+
+@admin.register(AgentProfile)
+class AgentProfileAdmin(admin.ModelAdmin):
+    list_display = ("key", "name", "enabled", "daily_llm_quota", "daily_action_quota", "updated_at")
+    list_filter = ("enabled",)
+
+
+@admin.register(AgentRun)
+class AgentRunAdmin(admin.ModelAdmin):
+    list_display = ("profile", "trigger", "status", "started_at", "finished_at")
+    list_filter = ("profile", "status")
+
+
+@admin.register(AgentProposal)
+class AgentProposalAdmin(admin.ModelAdmin):
+    list_display = ("profile", "user", "kind", "status", "expires_at", "created_at")
+    list_filter = ("profile", "kind", "status")

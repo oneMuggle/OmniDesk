@@ -485,3 +485,158 @@ class ToolChainPlan(models.Model):
 
     def __str__(self):
         return f"ToolChainPlan(id={self.pk}, user={self.user_id}, status={self.status})"
+
+
+# ---------------------------------------------------------------------------
+# S4-1 数字员工
+# ---------------------------------------------------------------------------
+
+
+class AgentProfile(models.Model):
+    """数字员工角色配置（S4-1）：每个角色可单独启停、单独设配额。"""
+
+    TRIGGER_PASSIVE = "passive"
+    TRIGGER_BEAT = "beat"
+    TRIGGER_EVENT = "event"
+    TRIGGER_CHOICES = [(TRIGGER_PASSIVE, "被动"), (TRIGGER_BEAT, "定时"), (TRIGGER_EVENT, "业务事件")]
+
+    key = models.SlugField(max_length=50, unique=True, verbose_name="角色标识")
+    name = models.CharField(max_length=100, verbose_name="名称")
+    description = models.TextField(blank=True, verbose_name="职责说明")
+    system_prompt = models.TextField(blank=True, verbose_name="系统提示词")
+    toolsets = models.JSONField(default=list, blank=True, verbose_name="工具集白名单")
+    data_scope = models.CharField(max_length=200, blank=True, verbose_name="数据范围说明")
+    trigger = models.CharField(max_length=20, choices=TRIGGER_CHOICES, default=TRIGGER_BEAT, verbose_name="触发方式")
+    schedule_label = models.CharField(max_length=100, blank=True, verbose_name="定时说明")
+    enabled = models.BooleanField(default=False, verbose_name="是否启用")
+    owner = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="owned_agent_profiles",
+        verbose_name="负责人",
+    )
+    daily_llm_quota = models.PositiveIntegerField(default=0, verbose_name="每日 LLM 调用配额")
+    daily_action_quota = models.PositiveIntegerField(default=100, verbose_name="每日动作配额")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "数字员工"
+        verbose_name_plural = verbose_name
+        ordering = ["id"]
+
+    def __str__(self):
+        return f"{self.name}({self.key})"
+
+
+class AgentRun(models.Model):
+    """数字员工的一次运行。"""
+
+    STATUS_RUNNING = "running"
+    STATUS_SUCCEEDED = "succeeded"
+    STATUS_DEGRADED = "degraded"
+    STATUS_FAILED = "failed"
+    STATUS_SKIPPED = "skipped"
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, "运行中"),
+        (STATUS_SUCCEEDED, "成功"),
+        (STATUS_DEGRADED, "已降级"),
+        (STATUS_FAILED, "失败"),
+        (STATUS_SKIPPED, "已跳过"),
+    ]
+    TRIGGER_CHOICES = [("beat", "定时"), ("manual", "手动")]
+
+    profile = models.ForeignKey(AgentProfile, on_delete=models.CASCADE, related_name="runs")
+    trigger = models.CharField(max_length=20, choices=TRIGGER_CHOICES, default="beat")
+    triggered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_RUNNING)
+    started_at = models.DateTimeField(auto_now_add=True)
+    finished_at = models.DateTimeField(null=True, blank=True)
+    stats = models.JSONField(default=dict, blank=True)
+    error = models.CharField(max_length=500, blank=True)
+
+    class Meta:
+        ordering = ["-started_at", "-id"]
+        indexes = [models.Index(fields=["profile", "-started_at"])]
+
+
+class AgentRunEvent(models.Model):
+    """数字员工审计事件：每个动作一条，也用于统计当日配额用量。"""
+
+    EVENT_CHOICES = [
+        ("run.started", "运行开始"),
+        ("run.completed", "运行完成"),
+        ("run.failed", "运行失败"),
+        ("run.skipped", "运行跳过"),
+        ("llm.call", "调用 LLM"),
+        ("llm.fallback", "LLM 降级"),
+        ("notify.sent", "发送通知"),
+        ("proposal.created", "创建待确认事项"),
+        ("proposal.approved", "待确认事项已确认"),
+        ("proposal.rejected", "待确认事项已取消"),
+        ("proposal.expired", "待确认事项已过期"),
+        ("proposal.failed", "待确认事项执行失败"),
+        ("quota.exceeded", "超出配额"),
+        ("config.changed", "配置变更"),
+    ]
+    #: 计入每日动作配额的事件
+    ACTION_EVENTS = ("notify.sent", "proposal.created")
+
+    profile = models.ForeignKey(AgentProfile, on_delete=models.CASCADE, related_name="events")
+    run = models.ForeignKey(AgentRun, null=True, blank=True, on_delete=models.CASCADE, related_name="events")
+    event_type = models.CharField(max_length=40, choices=EVENT_CHOICES)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.SET_NULL, related_name="+"
+    )
+    payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["profile", "event_type", "created_at"])]
+
+
+class AgentProposal(models.Model):
+    """数字员工发给某个用户的待确认事项（持久化，替代 10 分钟的确认缓存）。"""
+
+    STATUS_PENDING = "pending"
+    STATUS_APPROVED = "approved"
+    STATUS_REJECTED = "rejected"
+    STATUS_EXPIRED = "expired"
+    STATUS_FAILED = "failed"
+    STATUS_CHOICES = [
+        (STATUS_PENDING, "待确认"),
+        (STATUS_APPROVED, "已确认"),
+        (STATUS_REJECTED, "已取消"),
+        (STATUS_EXPIRED, "已过期"),
+        (STATUS_FAILED, "执行失败"),
+    ]
+
+    profile = models.ForeignKey(AgentProfile, on_delete=models.CASCADE, related_name="proposals")
+    run = models.ForeignKey(AgentRun, null=True, blank=True, on_delete=models.SET_NULL, related_name="proposals")
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="agent_proposals")
+    kind = models.CharField(max_length=50)
+    title = models.CharField(max_length=200)
+    fields = models.JSONField(default=dict, blank=True)
+    preview = models.JSONField(default=dict, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    dedupe_key = models.CharField(max_length=200)
+    expires_at = models.DateTimeField()
+    decided_at = models.DateTimeField(null=True, blank=True)
+    result = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at", "-id"]
+        indexes = [models.Index(fields=["user", "status", "-created_at"])]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "dedupe_key"],
+                condition=models.Q(status="pending"),
+                name="uniq_pending_agent_proposal",
+            )
+        ]

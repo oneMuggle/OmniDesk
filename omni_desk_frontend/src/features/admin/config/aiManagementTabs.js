@@ -8,4 +8,5 @@ export const AI_MANAGEMENT_TABS = Object.freeze([
   { key: 'stats', label: '使用统计', route: 'ai/stats' },
   { key: 'audit', label: 'Agent 审计', route: 'ai/audit' },
   { key: 'apps', label: 'AI 应用配置', route: 'ai/apps' },
+  { key: 'staff', label: '数字员工', route: 'ai/staff' },
 ]);

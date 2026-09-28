@@ -7,7 +7,7 @@ import { logger } from '../../../shared/utils/logger';
 import { useTypewriter } from './useTypewriter';
 import { consumeSSEStream, toDisplayMessages } from '../utils/chatUtils';
 import { extractResults } from '../../../shared/api/responseHandler';
-import { toConfirmMessage } from '../components/WriteConfirmCard';
+import { toConfirmMessage, toProposalMessage } from '../components/WriteConfirmCard';
 
 /** 打字机节流间隔(ms) */
 const TYPEWRITER_INTERVAL = 50;
@@ -204,6 +204,18 @@ export function useSmartChat() {
     if (!confirmMessage) return;
     setMessages((prev) => (
       prev.some((m) => m.id === confirmMessage.id) ? prev : [...prev, confirmMessage]
+    ));
+  }, []);
+
+  /**
+   * 插入数字员工待确认事项的确认卡(S4-1,通知链接 ?proposal=<id> 打开时调用)。
+   * 同一事项只插入一次;确认 / 取消由卡片调用 proposals 接口完成。
+   */
+  const addProposalMessage = useCallback((proposal) => {
+    const proposalMessage = toProposalMessage(proposal);
+    if (!proposalMessage) return;
+    setMessages((prev) => (
+      prev.some((m) => m.id === proposalMessage.id) ? prev : [...prev, proposalMessage]
     ));
   }, []);
 
@@ -528,5 +540,6 @@ export function useSmartChat() {
     handleForkSession, handleExportSession, handleSessionMenuClick,
     handleSubmit, handleStop, handleRetry, handleFeedback, sendMessage,
     handleCreateTask, handleAnswerDirectly,
+    addProposalMessage,
   };
 }
