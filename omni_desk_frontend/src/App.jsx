@@ -1,5 +1,5 @@
 import PropTypes from 'prop-types';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { ConfigProvider } from 'antd';
 import './App.css';
@@ -9,7 +9,6 @@ import 'react-toastify/dist/ReactToastify.css';
 import Sidebar from './shared/components/Sidebar';
 import QuickAssistant from './shared/components/QuickAssistant';
 import ErrorBoundary from './shared/components/ErrorBoundary';
-import 'animate.css';
 import { AuthProvider } from './features/auth/context/AuthContext';
 import { ApiProvider } from './shared/context/ApiProvider';
 import { ToastContainer } from 'react-toastify';
@@ -45,6 +44,16 @@ function App() {
     setMobileMenuOpen(!isMobileMenuOpen);
   };
 
+  // T3: ESC 关闭移动端菜单 (a11y)
+  useEffect(() => {
+    if (!isMobileMenuOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobileMenuOpen]);
+
   return (
     <ThemeProvider>
       <DemoProvider>
@@ -53,14 +62,27 @@ function App() {
             <ApiProvider>
               <RefreshProvider>
                 <div className="app-container">
+                  <a href="#main-content" className="skip-link">跳至主内容</a>
                   {isMobileMenuOpen && (
-                    <div className="mobile-overlay" onClick={toggleMobileMenu} />
+                    <div
+                      className="mobile-overlay"
+                      onClick={toggleMobileMenu}
+                      role="button"
+                      aria-label="关闭导航菜单"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          toggleMobileMenu();
+                        }
+                      }}
+                    />
                   )}
                   <Sidebar
                     isMobileMenuOpen={isMobileMenuOpen}
                     toggleMobileMenu={toggleMobileMenu}
                   />
-                  <div className="main-content">
+                  <div className="main-content" id="main-content" tabIndex={-1}>
                     <ErrorBoundary>
                       <div className="content-wrapper">
                         <Outlet />
