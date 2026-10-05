@@ -59,7 +59,7 @@ coverage[toml]==7.16.2
     #   pytest-cov
 cron-descriptor==1.4.5
     # via django-celery-beat
-cryptography==50.0.1
+cryptography==50.0.2
     # via
     #   -r requirements.in
     #   pdfminer-six
