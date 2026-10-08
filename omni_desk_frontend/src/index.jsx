@@ -1,5 +1,4 @@
-// T2: core-js/stable removed - Vite esbuild target chrome109 covers required syntax (saves ~95kB)
-// whatwg-fetch is native in Chrome 109; keep only for legacy Safari <14 if needed (modern build can drop it)
+import 'core-js/stable';
 import 'whatwg-fetch';
 
 import ReactDOM from 'react-dom/client';
