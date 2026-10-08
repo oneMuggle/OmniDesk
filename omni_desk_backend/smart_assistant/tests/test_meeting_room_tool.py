@@ -496,8 +496,9 @@ def test_new_execute_filters_by_user_booking(tool, db):
     result = tool.execute(params={}, scope=SmartAssistantScope.SELF, qs=scoped)
     assert result["found"] is True
     names = [r["name"] for r in result["rooms"]]
+    # 与会议室接口一致:所有登录用户都能看到全部会议室(含没人预约的)
     assert "R1" in names
-    assert "R2" not in names
+    assert "R2" in names
     assert result.get("module_label") == "会议室"
 
 
@@ -512,8 +513,8 @@ def test_old_execute_still_works(tool, db):
 
 
 @pytest.mark.django_db
-def test_scope_self_no_user_bookings_returns_empty(tool, db):
-    """用户没有任何预订 → SELF 范围返回空"""
+def test_scope_self_no_user_bookings_still_sees_rooms(tool, db):
+    """用户没有任何预订 → SELF 范围仍能看到会议室(会议室与预约对所有登录用户公开)"""
     from django.contrib.auth import get_user_model
     from meeting_rooms.models import MeetingRoom
 
@@ -526,7 +527,8 @@ def test_scope_self_no_user_bookings_returns_empty(tool, db):
     scoped = tool.get_queryset_for_scope(base, ctx)
 
     result = tool.execute(params={}, scope=SmartAssistantScope.SELF, qs=scoped)
-    assert result.get("found") is False or len(result.get("rooms", [])) == 0
+    assert result.get("found") is True
+    assert [r["name"] for r in result["rooms"]] == ["R1"]
 
 
 @pytest.mark.django_db

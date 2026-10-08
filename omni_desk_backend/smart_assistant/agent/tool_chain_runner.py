@@ -15,6 +15,41 @@ from .tool_chain_executor import (
 from .conversation_context import is_failed_answer
 
 
+def _normalize_executor_results(results: list, plan: list) -> tuple[list, list]:
+    """把 ``ToolChainExecutor.execute`` 的结果转成两种下游格式。
+
+    dict 计划下 executor 按步返回工具原始 dict（部分工具不带 ``tool`` 字段；权限
+    不足 / 异常时带 ``reason``），Plan 计划下返回 ``{step, tool, status, output}``。
+    ``ResultSynthesizer`` 要带 ``tool`` 的原始 dict，``synthesize_answer`` 要
+    ``{tool_name, result, success}``——此前直接透传，后者抛 KeyError 后退回
+    「共 N 项:unknown …」计数摘要，工具查到的内容到不了回答。
+    """
+    raw_outputs: list = []
+    answer_inputs: list = []
+    for idx, r in enumerate(results or []):
+        if not isinstance(r, dict):
+            continue
+        planned = plan[idx].get("tool") if idx < len(plan) and isinstance(plan[idx], dict) else ""
+        if "output" in r and "status" in r:
+            tool_name = r.get("tool") or planned or ""
+            output = r.get("output")
+            success = r.get("status") in ("success", "fallback")
+        else:
+            tool_name = r.get("tool") or planned or ""
+            output = r
+            success = r.get("reason") not in ("permission_denied", "exception") and not r.get("timed_out")
+        if isinstance(output, dict):
+            raw_outputs.append({**output, "tool": tool_name})
+        answer_inputs.append(
+            {
+                "tool_name": tool_name,
+                "result": output if output is not None else r.get("error", ""),
+                "success": success,
+            }
+        )
+    return raw_outputs, answer_inputs
+
+
 def process_chain(
     user_query: str,
     plan: list,
@@ -30,10 +65,12 @@ def process_chain(
     - 返回 ``intent="aggregated_day"``,触发前端 ``<AggregatedDayCard>`` 渲染。
     """
     if tool_context is not None:
-        executor_results = ToolChainExecutor().execute({"steps": plan}, tool_context)
+        step_results = ToolChainExecutor().execute({"steps": plan}, tool_context)
+        executor_results, answer_inputs = _normalize_executor_results(step_results, plan)
     else:
         raw_results = execute_tool_chain(plan, user_query, context={"history": conversation_history or []})
         executor_results = [r.get("result", {}) for r in raw_results if r.get("result")]
+        answer_inputs = raw_results
 
     # 聚合多工具结果(供前端 <AggregatedDayCard> 渲染)
     synthesized = ResultSynthesizer().synthesize(executor_results, user_query)
@@ -41,7 +78,7 @@ def process_chain(
     # LLM 合成自然语言回答
     first_tool = plan[0].get("tool") if plan else None
     try:
-        answer = synthesize_chain_answer(plan, executor_results, user_query)
+        answer = synthesize_chain_answer(plan, answer_inputs, user_query)
     except Exception:
         answer = synthesized["summary"]
 

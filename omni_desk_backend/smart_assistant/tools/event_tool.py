@@ -130,3 +130,7 @@ class EventTool(BaseTool):
     def _scope_self(self, qs, ctx):
         """本人范围:EventTool 聚合排班+节假日,无明确"本人"语义;返回空 QuerySet。"""
         return qs.none()
+
+    def _scope_department(self, qs, ctx):
+        """部门范围:值班人或带班领导在同部门的排班(方案 5.6);节假日另行查询,不受影响。"""
+        return self._same_department(qs, ctx, "duty_person__department", "duty_leader__department")

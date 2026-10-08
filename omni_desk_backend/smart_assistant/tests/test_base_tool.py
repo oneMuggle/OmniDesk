@@ -70,12 +70,17 @@ def test_get_queryset_for_scope_global_returns_base_qs():
     assert t.get_queryset_for_scope(base, ctx) is base
 
 
-def test_get_queryset_for_scope_department_uses_default():
-    """默认 _scope_department = 返回 base_qs(子类可重写)"""
+def test_get_queryset_for_scope_department_defaults_to_self():
+    """默认 _scope_department = 本人范围(fail closed;子类按同部门重写)。
+
+    方案 5.6 评估集发现:旧默认透传 base_qs,部门负责人经未重写的工具能看到全部数据。
+    """
     t = _StubTool()
     ctx = ToolContext(user="u", scope=SmartAssistantScope.DEPARTMENT)
     base = Mock(name="base")
-    assert t.get_queryset_for_scope(base, ctx) is base
+    result = t.get_queryset_for_scope(base, ctx)
+    assert result is not base
+    assert result == "self_qs" or result.name == "self_qs"
 
 
 def test_scope_self_not_implemented_raises():

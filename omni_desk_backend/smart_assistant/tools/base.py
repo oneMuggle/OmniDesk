@@ -35,6 +35,92 @@ VALID_RISK_LEVELS: frozenset = frozenset({RISK_LEVEL_READ, RISK_LEVEL_WRITE, RIS
 #: 有序元组 —— replace 链语义对顺序敏感,禁止改成 set。
 _COMMAND_WORDS: tuple = ("搜索", "查找")
 
+# 通用填充词(方案 5.6 评估集发现):代词、疑问词、范围词本身不是检索关键词。
+# 「我的备忘录」「项目进度」清洗后曾剩下「我的」「进度」,按标题模糊匹配什么都查不到。
+# 在指令词与领域停用词之后剥离;按序替换,长词在前。
+FILLER_WORDS: tuple = (
+    "我负责的",
+    "我负责",
+    "我参与的",
+    "我们部门的",
+    "我们部门",
+    "本部门的",
+    "本部门",
+    "全公司的",
+    "全公司",
+    "所有人的",
+    "每个人的",
+    "其他人的",
+    "别人的",
+    "大家的",
+    "所有人",
+    "我们的",
+    "我的",
+    "有哪些",
+    "有什么",
+    "哪些",
+    "什么",
+    "都列出来",
+    "都列一下",
+    "都给我",
+    "列出来",
+    "列出",
+    "列一下",
+    "给我",
+    "帮我",
+    "找一下",
+    "查一下",
+    "查查",
+    "看一下",
+    "看看",
+    "一下",
+    "所有的",
+    "所有",
+    "全部的",
+    "全部",
+    "目前",
+    "当前",
+    "现在",
+    "最近",
+    "进度",
+    "情况",
+    "状态",
+    "怎么样了",
+    "怎么样",
+    "那个",
+    "这个",
+    "请",
+    "吗",
+    "呢",
+    "？",
+    "?",
+    "。",
+    "，",
+    ",",
+    "！",
+    "!",
+)
+# 剥离后只剩这些时视为「没有关键词」(列出范围内全部)
+_EMPTY_LEFTOVERS = frozenset({"我", "我们", "的", "人", "人的", "有", "都", "了", "找", "公司", "公司的"})
+
+
+def strip_fillers(text: str) -> str:
+    """剥离通用填充词,并去掉首尾的「的」与句首的「把」;只剩无意义残片时返回空串。"""
+    for word in FILLER_WORDS:
+        text = text.replace(word, "")
+    text = text.strip()
+    # 首尾的「的」、句首的处置标记「把」（「把王五的」→「王五」）
+    while text[:1] in ("的", "把") or text[-1:] == "的":
+        text = text.lstrip("的把").rstrip("的").strip()
+    return "" if text in _EMPTY_LEFTOVERS else text
+
+
+def department_of(user) -> str | None:
+    """用户所在部门(取绑定的人员档案 ``Personnel.department``);没有档案或为空返回 None。"""
+    personnel = getattr(user, "personnel", None) if user is not None else None
+    department = (getattr(personnel, "department", "") or "").strip() if personnel is not None else ""
+    return department or None
+
 
 class BaseTool(ABC):
     """工具基类"""
@@ -211,14 +297,14 @@ class BaseTool(ABC):
         """剥离指令词与领域 stopwords,返回清洗后的关键词字符串。
 
         R5-D2 统一实现:替代重构前分散在 6 个查询工具中的静态
-        ``_extract_keywords`` replace 链。行为等价性由
-        test_extract_keywords_unified.py::TestLegacyEquivalence 以旧链为
-        oracle 全量断言。
+        ``_extract_keywords`` replace 链。方案 5.6 评估集之后,旧链之后再剥离
+        通用填充词(``strip_fillers``);test_extract_keywords_unified.py 以
+        「旧链 + strip_fillers」为 oracle 全量断言。
         """
         text = query
         for word in self.command_words + self.stopwords:
             text = text.replace(word, "")
-        return text.strip()
+        return strip_fillers(text.strip())
 
     # === 新增:跨模块汇总权限抽象(2026-07-07) ===
 
@@ -269,8 +355,37 @@ class BaseTool(ABC):
         raise NotImplementedError(f"{self.__class__.__name__} must implement _scope_self()")
 
     def _scope_department(self, qs, ctx):
-        """部门范围过滤(默认 = 透传,子类可重写)。"""
-        return qs
+        """部门范围过滤。
+
+        默认按本人范围处理(fail closed):个人数据(备忘录、文档模板、换班等)
+        部门负责人也只看自己的。部门工作数据(项目、合规、排班、人员)由子类
+        重写为「同部门」,见 ``_same_department``。
+
+        方案 5.6 评估集发现:此前默认透传,拥有 ``view_department`` 的用户
+        实际拿到全公司数据,与技术文档 16 §8.1「部门主管 → 同部门」不符。
+
+        **行为变更(S0 修复):** 默认从透传改为 ``_scope_self``。已重写为
+        「同部门」的工具:compliance_tool、event_tool、schedule_tool、
+        project_tool、personnel_tool。未重写的工具(如 announcement_tool、
+        document_tool、memo_tool、news_tool、sensor_tool、global_search_tool
+        等)DEPARTMENT scope 下从「全公司」变为「仅本人」。
+        """
+        return self._scope_self(qs, ctx)
+
+    def _same_department(self, qs, ctx, *lookups):
+        """同部门过滤:``lookups`` 中任一字段等于当前用户的部门即可见。
+
+        当前用户没有人员档案或部门为空时退回本人范围。
+        """
+        department = department_of(getattr(ctx, "user", None))
+        if not department:
+            return self._scope_self(qs, ctx)
+        from django.db.models import Q
+
+        condition = Q()
+        for lookup in lookups:
+            condition |= Q(**{lookup: department})
+        return qs.filter(condition)
 
     def scoped_queryset(self, context: ToolContext, qs=None, scope=None):
         """统一新旧路径的 queryset 获取(R5-D1)。

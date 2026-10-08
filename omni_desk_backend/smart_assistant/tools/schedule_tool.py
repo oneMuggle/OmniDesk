@@ -159,3 +159,7 @@ class ScheduleTool(BaseTool):
         的 ``related_name`` 定义)。此处用 ``user_account`` 与实际模型一致。
         """
         return qs.filter(duty_person__user_account=ctx.user)
+
+    def _scope_department(self, qs, ctx):
+        """部门范围:值班人或带班领导在同部门的排班(方案 5.6)。"""
+        return self._same_department(qs, ctx, "duty_person__department", "duty_leader__department")

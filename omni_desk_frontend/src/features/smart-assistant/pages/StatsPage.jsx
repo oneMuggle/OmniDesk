@@ -4,6 +4,12 @@ import { getStatsOverview, getStatsDaily } from '../api/smartAssistantApi';
 import './StatsPage.css';
 import DataTable from '../../../shared/components/DataTable';
 
+// 比例为空（窗口内没有数据）时显示「—」，不显示 0%
+const formatRate = (value) => (value === null || value === undefined ? '—' : `${value}%`);
+
+// 延迟为空时显示「—」，不显示 0 ms
+const formatLatency = (value) => (value === null || value === undefined ? '—' : `${value} ms`);
+
 const StatsPage = () => {
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState(null);
@@ -46,8 +52,49 @@ const StatsPage = () => {
 
   const dailyColumns = [
     { title: '日期', dataIndex: 'date', key: 'date', width: 120 },
-    { title: '对话数', dataIndex: 'conversations', key: 'conversations', width: 100 },
-    { title: '工具调用', dataIndex: 'tool_calls', key: 'tool_calls', width: 100 },
+    { title: '对话数', dataIndex: 'conversations', key: 'conversations', width: 90 },
+    { title: '工具调用', dataIndex: 'tool_calls', key: 'tool_calls', width: 90 },
+    {
+      title: '回答成功率',
+      dataIndex: 'answer_success_rate',
+      key: 'answer_success_rate',
+      width: 100,
+      render: formatRate,
+    },
+    {
+      title: 'P95',
+      dataIndex: 'p95_response_time_ms',
+      key: 'p95_response_time_ms',
+      width: 90,
+      render: formatLatency,
+    },
+  ];
+
+  const modelColumns = [
+    { title: '模型', dataIndex: 'model', key: 'model' },
+    { title: '对话数', dataIndex: 'conversations', key: 'conversations', width: 90 },
+    {
+      title: '回答成功率',
+      dataIndex: 'answer_success_rate',
+      key: 'answer_success_rate',
+      width: 110,
+      render: formatRate,
+    },
+    {
+      title: '平均响应',
+      dataIndex: 'avg_response_time_ms',
+      key: 'avg_response_time_ms',
+      width: 100,
+      render: formatLatency,
+    },
+    {
+      title: 'P95',
+      dataIndex: 'p95_response_time_ms',
+      key: 'p95_response_time_ms',
+      width: 90,
+      render: formatLatency,
+    },
+    { title: 'Token', dataIndex: 'total_tokens', key: 'total_tokens', width: 100 },
   ];
 
   const intentData = overview?.intent_breakdown
@@ -93,6 +140,50 @@ const StatsPage = () => {
             <Col span={6}>
               <Card>
                 <Statistic title="统计天数" value={overview?.period_days || days} suffix="天" />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={16} className="stats-summary-row">
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="回答成功率"
+                  value={formatRate(overview?.answer_success_rate)}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic
+                  title="LLM 调用成功率"
+                  value={formatRate(overview?.llm_call_success_rate)}
+                />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic title="响应时间 P50" value={formatLatency(overview?.p50_response_time_ms)} />
+              </Card>
+            </Col>
+            <Col span={6}>
+              <Card>
+                <Statistic title="响应时间 P95" value={formatLatency(overview?.p95_response_time_ms)} />
+              </Card>
+            </Col>
+          </Row>
+
+          <Row gutter={16} className="stats-summary-row">
+            <Col span={24}>
+              <Card title="按模型" size="small">
+                <DataTable
+                  columns={modelColumns}
+                  dataSource={overview?.by_model || []}
+                  rowKey="model"
+                  size="small"
+                  pagination={false}
+                  showActions={false}
+                />
               </Card>
             </Col>
           </Row>

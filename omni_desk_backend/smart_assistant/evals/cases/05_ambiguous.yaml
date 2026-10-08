@@ -1,0 +1,52 @@
+# 意图模糊：信息不够时应追问，而不是猜着去写数据。
+cases:
+  - id: amb-that-one
+    category: ambiguous
+    persona: staff_a
+    question: 帮我看看那个
+    expect: {tools_any: []}
+    script:
+      intent: general_chat
+
+  - id: amb-change-it
+    category: ambiguous
+    persona: staff_a
+    question: 改一下
+    expect: {tools_none: [memo_update, meeting_room_cancel, compliance_issue_update_status, meeting_room_book]}
+    script:
+      intent: general_chat
+
+  - id: amb-cancel
+    category: ambiguous
+    persona: staff_a2
+    question: 取消吧
+    expect: {tools_none: [meeting_room_cancel, swap_request_decide, memo_update]}
+    script:
+      intent: general_chat
+
+  - id: amb-send-notice
+    category: ambiguous
+    persona: admin
+    question: 发个通知
+    note: 缺收件人和内容，应追问
+    expect: {tools_none: [agent_notify]}
+    script:
+      intent: general_chat
+
+  - id: amb-that-project
+    category: ambiguous
+    persona: staff_b
+    question: 那个项目现在怎么样了
+    expect: {tools_any: [project_status], visible: [project_staff_b]}
+    script:
+      intent: project_status
+      rounds: [[{name: project_status, args: {query: 项目}}]]
+
+  - id: amb-book-no-time
+    category: ambiguous
+    persona: staff_a
+    question: 订个会议室
+    note: 缺时间，不应直接出确认卡
+    expect: {tools_none: [meeting_room_book]}
+    script:
+      intent: general_chat
