@@ -42,12 +42,14 @@ export default defineConfig({
     jsx: 'automatic',
     // 包含 .ts/.tsx:与 refactor/shared-api-typescript 同步开启 TypeScript 编译
     include: /\.(jsx?|tsx?)$/,
-    // Windows 7 兼容:Chrome 109 是 Win7 支持的最高版本
+    // Windows 7 兼容: Chrome 109 是 Win7 支持的最高版本
+    // T2: core-js/stable 已移除，此 target 已覆盖所需语法转译 (~95kB saved)；whatwg-fetch 仅 legacy 需要
     target: 'chrome109',
   },
   optimizeDeps: {
     esbuildOptions: {
       jsx: 'automatic',
+      // T2: 与 build.target 保持一致，避免 core-js 重复注入
       target: 'chrome109',
       loader: {
         '.js': 'jsx',
@@ -55,6 +57,7 @@ export default defineConfig({
     },
   },
   build: {
+    // T2: 现代构建 chrome109，legacy 双轨可后续加 vite-plugin-legacy (--legacy)
     target: 'chrome109',
     outDir: 'build',
     sourcemap: true,

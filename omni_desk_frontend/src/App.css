@@ -1,3 +1,25 @@
+/* ===== 无障碍: 跳至主内容 (仅键盘聚焦可见) ===== */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  z-index: 1080;
+  padding: 8px 16px;
+  background: var(--color-brand, #0d9488);
+  color: #fff;
+  text-decoration: none;
+  border-radius: var(--radius-base, 8px);
+}
+.skip-link:focus {
+  left: 16px;
+  top: 16px;
+  width: auto;
+  height: auto;
+}
+
 /* ===== 侧边栏样式 ===== */
 .sidebar {
   width: 250px;
@@ -148,6 +170,28 @@
 
 .sidebar-search {
   padding: 12px 16px 0;
+}
+
+.sidebar-search-collapsed-btn {
+  width: 100%;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary-dark, rgba(255,255,255,0.65));
+  border-radius: var(--radius-base, 8px);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--transition-fast, 0.15s ease), color var(--transition-fast, 0.15s ease);
+}
+.sidebar-search-collapsed-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--text-color-inverse, #fff);
+}
+.sidebar-search-collapsed-btn:focus-visible {
+  outline: 2px solid var(--color-brand, #0d9488);
+  outline-offset: 2px;
 }
 
 .sidebar-menu {

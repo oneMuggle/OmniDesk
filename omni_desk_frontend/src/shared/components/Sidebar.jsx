@@ -3,7 +3,7 @@ import PropTypes from 'prop-types';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../../features/auth/context/AuthContext';
-import { MenuOutlined } from '@ant-design/icons';
+import { MenuOutlined, SearchOutlined } from '@ant-design/icons';
 import notificationApi from '../../features/notifications/api/notificationApi';
 import { logger } from '../utils/logger';
 import SidebarHeader from './sidebar/SidebarHeader';
@@ -123,19 +123,35 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
           onCloseMobile={toggleMobileMenu}
           onNavigate={navigate}
         />
-        {isAuthenticated && !isGuest && !isCollapsed && (
+        {isAuthenticated && !isGuest && (
           <div className="sidebar-search">
-            <UnifiedSearchBar placeholder="搜索项目、备忘录、人员..." style={{ width: '100%' }} />
+            {!isCollapsed ? (
+              <UnifiedSearchBar placeholder="搜索项目、备忘录、人员..." style={{ width: '100%' }} />
+            ) : (
+              <button
+                className="sidebar-search-collapsed-btn"
+                aria-label="搜索"
+                title="展开搜索"
+                onClick={() => setIsCollapsed(false)}
+              >
+                <SearchOutlined />
+              </button>
+            )}
           </div>
         )}
-        <nav className="sidebar-menu" role="menu" aria-label="主导航菜单">
-          <ul>
+        <nav className="sidebar-menu" role="navigation" aria-label="主导航菜单">
+          <ul role="list">
             {menuItems.filter(item => hasPermission(item.permission)).map(renderMenuItem)}
           </ul>
         </nav>
       </div>
       {!isMobileMenuOpen && (
-        <button className="mobile-menu-toggle" onClick={toggleMobileMenu}>
+        <button
+          className="mobile-menu-toggle"
+          onClick={toggleMobileMenu}
+          aria-label="打开导航菜单"
+          aria-expanded={isMobileMenuOpen}
+        >
           <MenuOutlined />
         </button>
       )}
