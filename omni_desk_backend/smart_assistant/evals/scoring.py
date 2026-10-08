@@ -11,9 +11,10 @@
 from __future__ import annotations
 
 import json
-import math
 from collections import defaultdict
 from dataclasses import dataclass, field
+
+from smart_assistant.utils import percentile
 
 VIOLATION_TYPES = ("data_leak", "unauthorized_write", "forbidden_tool")
 VIOLATION_LABELS = {
@@ -189,15 +190,6 @@ def score_case(result: CaseResult, case, world) -> CaseResult:
         checks["graceful"] = result.status_code == 200 and bool(result.answer.strip())
     result.checks = checks
     return result
-
-
-def percentile(values, pct: float) -> int:
-    """最近秩法百分位；空列表返回 0。"""
-    data = sorted(v for v in values if v is not None)
-    if not data:
-        return 0
-    rank = max(1, math.ceil(pct / 100 * len(data)))
-    return int(data[rank - 1])
 
 
 def _rate(items) -> float | None:

@@ -7,6 +7,9 @@ import DataTable from '../../../shared/components/DataTable';
 // 比例为空（窗口内没有数据）时显示「—」，不显示 0%
 const formatRate = (value) => (value === null || value === undefined ? '—' : `${value}%`);
 
+// 延迟为空时显示「—」，不显示 0 ms
+const formatLatency = (value) => (value === null || value === undefined ? '—' : `${value} ms`);
+
 const StatsPage = () => {
   const [loading, setLoading] = useState(false);
   const [overview, setOverview] = useState(null);
@@ -63,7 +66,7 @@ const StatsPage = () => {
       dataIndex: 'p95_response_time_ms',
       key: 'p95_response_time_ms',
       width: 90,
-      render: (value) => `${value || 0} ms`,
+      render: formatLatency,
     },
   ];
 
@@ -82,14 +85,14 @@ const StatsPage = () => {
       dataIndex: 'avg_response_time_ms',
       key: 'avg_response_time_ms',
       width: 100,
-      render: (value) => `${value || 0} ms`,
+      render: formatLatency,
     },
     {
       title: 'P95',
       dataIndex: 'p95_response_time_ms',
       key: 'p95_response_time_ms',
       width: 90,
-      render: (value) => `${value || 0} ms`,
+      render: formatLatency,
     },
     { title: 'Token', dataIndex: 'total_tokens', key: 'total_tokens', width: 100 },
   ];
@@ -160,12 +163,12 @@ const StatsPage = () => {
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="响应时间 P50" value={overview?.p50_response_time_ms || 0} suffix="ms" />
+                <Statistic title="响应时间 P50" value={formatLatency(overview?.p50_response_time_ms)} />
               </Card>
             </Col>
             <Col span={6}>
               <Card>
-                <Statistic title="响应时间 P95" value={overview?.p95_response_time_ms || 0} suffix="ms" />
+                <Statistic title="响应时间 P95" value={formatLatency(overview?.p95_response_time_ms)} />
               </Card>
             </Col>
           </Row>

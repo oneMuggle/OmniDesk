@@ -1,4 +1,3 @@
-import math
 from collections import defaultdict
 from datetime import timedelta
 
@@ -9,6 +8,8 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework import status
+
+from smart_assistant.utils import percentile
 
 from ..agent.conversation_context import FAILED_ANSWER_PREFIX, FAILED_ANSWER_STREAM_PREFIX
 from ..models import AgentLog, KnowledgeDataset, LlmUsageDaily
@@ -33,15 +34,6 @@ def conversation_logs(qs):
     （intent 以 ``chain:`` 开头）；成功率、延迟、按模型统计都只看对话本身。
     """
     return qs.filter(response_time_ms__isnull=False).exclude(intent__startswith="chain:")
-
-
-def percentile(values, pct: float) -> int:
-    """最近秩法百分位；空列表返回 0。"""
-    data = sorted(v for v in values if v is not None)
-    if not data:
-        return 0
-    rank = max(1, math.ceil(pct / 100 * len(data)))
-    return int(data[rank - 1])
 
 
 def _rate(ok: int, total: int):

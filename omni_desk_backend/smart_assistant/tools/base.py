@@ -363,6 +363,12 @@ class BaseTool(ABC):
 
         方案 5.6 评估集发现:此前默认透传,拥有 ``view_department`` 的用户
         实际拿到全公司数据,与技术文档 16 §8.1「部门主管 → 同部门」不符。
+
+        **行为变更(S0 修复):** 默认从透传改为 ``_scope_self``。已重写为
+        「同部门」的工具:compliance_tool、event_tool、schedule_tool、
+        project_tool、personnel_tool。未重写的工具(如 announcement_tool、
+        document_tool、memo_tool、news_tool、sensor_tool、global_search_tool
+        等)DEPARTMENT scope 下从「全公司」变为「仅本人」。
         """
         return self._scope_self(qs, ctx)
 

@@ -9,7 +9,7 @@ from django.utils import timezone
 from rest_framework.test import APIClient
 
 from smart_assistant.models import AgentLog, LlmUsageDaily, SmartAssistantSession
-from smart_assistant.views.stats import percentile
+from smart_assistant.utils import percentile
 from users.models import CustomUser
 
 pytestmark = pytest.mark.django_db
