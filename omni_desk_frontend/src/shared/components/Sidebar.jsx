@@ -55,16 +55,6 @@ const Sidebar = ({ isMobileMenuOpen = false, toggleMobileMenu = () => {} }) => {
     return () => { document.body.style.overflow = ''; };
   }, [isMobileMenuOpen]);
 
-  // T3: ESC 关闭移动端菜单 (a11y, 与 App.jsx 的全局监听互为冗余保障)
-  useEffect(() => {
-    if (!isMobileMenuOpen) return undefined;
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') toggleMobileMenu();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [isMobileMenuOpen, toggleMobileMenu]);
-
   const menuItems = useMemo(
     () => createMenuItems({ logout, unreadNotificationCount }),
     [logout, unreadNotificationCount]
