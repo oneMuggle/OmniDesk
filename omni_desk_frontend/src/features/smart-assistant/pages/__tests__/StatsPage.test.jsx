@@ -87,8 +87,8 @@ describe('StatsPage', () => {
     expect(screen.getByText('90%')).toBeInTheDocument();
     expect(screen.getByText('95%')).toBeInTheDocument();
     expect(screen.getByText('响应时间 P50')).toBeInTheDocument();
-    expect(screen.getByText('820')).toBeInTheDocument();
-    expect(screen.getByText('4,100')).toBeInTheDocument();
+    expect(screen.getByText('820 ms')).toBeInTheDocument();
+    expect(screen.getByText('4100 ms')).toBeInTheDocument();
   });
 
   it('按模型分列', async () => {
