@@ -107,7 +107,7 @@ jobs:
         run: |
           DJANGO_SETTINGS_MODULE=omni_desk_backend.settings.check python manage.py check --deploy --fail-level ERROR || echo "⚠️ Django deployment check reported issues (see above). Non-ERROR warnings are tracked separately."
       - name: Upload coverage
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v7
         with:
           file: omni_desk_backend/coverage.xml
           fail_ci_if_error: false
