@@ -194,7 +194,7 @@ pillow==12.3.0
     #   -r requirements.in
     #   pdfplumber
     #   python-pptx
-pip-tools==7.6.1
+pip-tools==7.6.2
     # via -r requirements-dev.in
 pluggy==1.6.0
     # via
